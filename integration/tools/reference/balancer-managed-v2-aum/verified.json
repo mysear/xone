@@ -1,1 +1,0 @@
-{"cases": 27, "file_manifest_sha256": "cc48f1cc264a8c0ca23578fb877ab4550d1b4470887f070c887972c1472238cd", "fixture_sha256": "1ee7ec5dd981994af6dd42eb75717cf83a5b209857883fa2923885ce7181fb66", "objects": 2285, "passed": true, "regeneration": "exact-temporary-byte-comparison", "schema_version": 1, "state": "PASSED", "transactions": 292}

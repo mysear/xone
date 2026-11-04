@@ -1,9 +1,0 @@
-{
-  "valid": true,
-  "reference_only": true,
-  "cases": 28,
-  "reverts": 0,
-  "corpus_sha256": "2b239d5b7ee156a4da03002fb2f31cf51374b0dae26233c7437a42199bf6b185",
-  "runtime_metadata_sha256": "382d01e8e11d02065e55ee979d7cb11bacb753502674a1db3f1f7e2a90bb04fc",
-  "generator_sha256": "1e00aa144b868461e66eab05ade6e1d4fe3a6f426308883848705e7e8ba0ba76"
-}

@@ -15,13 +15,3 @@
 **/test-data/
 integration/test/evm/
 integration/test/solana/
-integration/tools/reference/**/*fixture*.json
-integration/tools/reference/**/tests/**/*.json
-integration/tools/reference/**/tests/**/*.so
-# The extracted upstream sources are included separately; archives contain test data.
-integration/tools/reference/**/upstream.tar.gz
-
-# Reference test recordings and generated test inputs.
-integration/tools/reference/**/traces/
-integration/tools/reference/**/*vectors*.json
-integration/tools/reference/**/*baseline*.json

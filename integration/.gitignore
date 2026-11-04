@@ -3,3 +3,54 @@ artifacts/local/
 __pycache__/
 .DS_Store
 compose/.runtime/
+
+# Downloaded reference inputs: source archives, extracted trees, and compilers.
+tools/reference/**/upstream/
+tools/reference/**/deps/
+tools/reference/**/sources/
+tools/reference/evm-execution/packages/
+tools/reference/**/compiler/soljson*.js
+tools/reference/**/*.tar.gz
+tools/reference/**/*.tgz
+tools/reference/**/*.zip
+
+# Third-party build products and local execution evidence.
+tools/reference/**/build-info/
+tools/reference/**/build/
+tools/reference/**/evidence/
+tools/reference/**/traces/
+tools/reference/**/*.log
+tools/reference/**/*.hex
+tools/reference/**/*receipt*.json
+tools/reference/**/*evidence*.json
+tools/reference/**/generation.json
+tools/reference/**/runtime-metadata.json
+tools/reference/**/verification.json
+tools/reference/**/verified.json
+tools/reference/**/compiler-probe*.json
+tools/reference/**/metadata-probe.json
+tools/reference/**/native-burn-probe.json
+tools/reference/**/original-deployment.json
+tools/reference/**/standard-evm-deployment.json
+tools/reference/**/deployments.json
+tools/reference/**/artifacts.json
+tools/reference/**/*.artifact.json
+tools/reference/**/compiler-artifact.json
+tools/reference/**/layout.json
+tools/reference/**/compiler-layout.json
+tools/reference/**/metadata.json
+tools/reference/**/execution-closure.json
+tools/reference/solana-advanced/changed-files.txt
+
+# Reference datasets; test source code remains tracked.
+tools/reference/**/*fixture*.json
+tools/reference/**/*vectors*.json
+tools/reference/**/*baseline*.json
+tools/reference/**/orca-tickmath.json
+tools/reference/**/tests/**/*.json
+tools/reference/**/tests/**/*.so
+
+# Retain third-party attribution outside ignored download directories.
+!tools/reference/licenses/
+!tools/reference/licenses/**/
+!tools/reference/licenses/**
