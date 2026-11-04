@@ -1,0 +1,405 @@
+{
+  "schema_version": 1,
+  "authority": "published-official-contract-package-not-live-deployment",
+  "packages": [
+    {
+      "name": "@uniswap/v2-periphery",
+      "version": "1.1.0-beta.0",
+      "integrity": "sha512-6dkwAMKza8nzqYiXEr2D86dgW3TTavUvCR0w2Tu33bAbM8Ah43LKAzH7oKKPRT5VJQaMi1jtkGs1E8JPor1n5g==",
+      "tarball_sha256": "c3f1cda4ee1e00e877eb15ab508e574dfd6ae5e742be97fef41105d84a198784",
+      "metadata_sha256": "1e1870e7ddfbc461821af671beb5f3a392e9c9d09bc729b125b8173e720034b6",
+      "files": [
+        {
+          "path": "packages/periphery/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        },
+        {
+          "path": "packages/periphery/README.md",
+          "sha256": "e1f325ea9869aaa16c81d11477715d148129d1a790cc23a9acb8684dcf1a6ce7"
+        },
+        {
+          "path": "packages/periphery/build/Babylonian.json",
+          "sha256": "d86e1498e4cd670ba79fdf1611b8382336cda043c4e039144af9b02b2b4b1132"
+        },
+        {
+          "path": "packages/periphery/build/Combined-Json.json",
+          "sha256": "33cb90c0fd2e2cecb2e3943fed0f8a8430fd31506b3b32e8d3bc0dc574be1ca5"
+        },
+        {
+          "path": "packages/periphery/build/DeflatingERC20.json",
+          "sha256": "ef9776c6c0cd8d6508faf2bfb99779c0c4df954dbaca5669221f5cc2ca328d6f"
+        },
+        {
+          "path": "packages/periphery/build/ERC20.json",
+          "sha256": "28cb863a9d461dd7055f704bd3b0e10740201c02bf0b9dc2ffe96fef255ae84d"
+        },
+        {
+          "path": "packages/periphery/build/ExampleFlashSwap.json",
+          "sha256": "7017a3c60d2700687d22b2e7bf23f04819514ce177eecce583969aa738c8dd1a"
+        },
+        {
+          "path": "packages/periphery/build/ExampleOracleSimple.json",
+          "sha256": "d921f1d5412e4f7bb5076b68703e182df7211f2084316daacc43618e7d548b4d"
+        },
+        {
+          "path": "packages/periphery/build/ExampleSlidingWindowOracle.json",
+          "sha256": "7b4ecb32ed994f0d552784c585eae04a037617fda93d631ca36490d6b0c6a886"
+        },
+        {
+          "path": "packages/periphery/build/ExampleSwapToPrice.json",
+          "sha256": "e29b073f16f076cc63da9733f5db60d1380fea7f9fb8fc17a3492b70951c1d64"
+        },
+        {
+          "path": "packages/periphery/build/FixedPoint.json",
+          "sha256": "21e9e0c33899cdc21e91c5b1bcd2c54ce02d74fef1bd605959f05e90194f6cf1"
+        },
+        {
+          "path": "packages/periphery/build/IERC20.json",
+          "sha256": "3003795e0638560fb0e9ec6644a25f314e0c48108f5b295a65cff90d858d44cc"
+        },
+        {
+          "path": "packages/periphery/build/IUniswapV1Exchange.json",
+          "sha256": "7264096eafce5c48e27c1949e11a1c7821ab634968467943c111e40fa16a26d2"
+        },
+        {
+          "path": "packages/periphery/build/IUniswapV1Factory.json",
+          "sha256": "08d57d261c956ff6445492560963898ab0c7aedb3d12b6cf8ad13f927becb8ff"
+        },
+        {
+          "path": "packages/periphery/build/IUniswapV2Callee.json",
+          "sha256": "ce258245cc7be7401f00dd2f99a53340aa430b55c92e27540626e659091cac4e"
+        },
+        {
+          "path": "packages/periphery/build/IUniswapV2Factory.json",
+          "sha256": "07c400e50d31d55c9087b0665844572e0b4faf74fc5e58751463873f34fe1f6c"
+        },
+        {
+          "path": "packages/periphery/build/IUniswapV2Migrator.json",
+          "sha256": "d250976269065938294ba8519b2f44287fb898540bcf8ad1b24e7d223efed44b"
+        },
+        {
+          "path": "packages/periphery/build/IUniswapV2Pair.json",
+          "sha256": "4cdbca11f88837a0120f77570aa8c739c8259fe802e8d1ec32843dd06af3f167"
+        },
+        {
+          "path": "packages/periphery/build/IUniswapV2Router01.json",
+          "sha256": "7208a84baf12ad5d1b3e919ce2cf25d1a9a321c29dca257b0429cfeece77b6e2"
+        },
+        {
+          "path": "packages/periphery/build/IUniswapV2Router02.json",
+          "sha256": "6521217267a0238f5800d7b26ed811ee13fbbbed05d694e0358a995c59109a5f"
+        },
+        {
+          "path": "packages/periphery/build/IWETH.json",
+          "sha256": "9d4df385b6887414bf16cd8dae1b623997ec2c9da472bd8bab52409b8953b7db"
+        },
+        {
+          "path": "packages/periphery/build/RouterEventEmitter.json",
+          "sha256": "bc3c4e50a570eb821cbd2c0df010d165283ba896ff67aba0b6b141db902a2ef8"
+        },
+        {
+          "path": "packages/periphery/build/SafeMath.json",
+          "sha256": "44188c2057badb432b7e56706e8fa6ef730d54f17e2089a142c2921b98217c96"
+        },
+        {
+          "path": "packages/periphery/build/TransferHelper.json",
+          "sha256": "cc9a1f990ab1c1f2b17eb0c8bc0b85bcc76290856b0c7918cdbc9e59b7e6e28b"
+        },
+        {
+          "path": "packages/periphery/build/UniswapV1Exchange.json",
+          "sha256": "b014076347cd2ac6c9b1537cd68c7059976b122faa322d74556003ec44fe38bc"
+        },
+        {
+          "path": "packages/periphery/build/UniswapV1Factory.json",
+          "sha256": "ce6f53b5777a07d4ab37591bd9a224e9c216a5487c805b3c05c6c8774be305dd"
+        },
+        {
+          "path": "packages/periphery/build/UniswapV2Library.json",
+          "sha256": "8f7d1d3e6889df3deea37ded8d2f052ddccf8f77c0e35ecfac464b1da3ea8a6e"
+        },
+        {
+          "path": "packages/periphery/build/UniswapV2Migrator.json",
+          "sha256": "2fecdcee8b09c87393ad7d0f16efaa3d7e08212328ad755747805d0fcdf0f85c"
+        },
+        {
+          "path": "packages/periphery/build/UniswapV2OracleLibrary.json",
+          "sha256": "56e267c66d78a81984cb98f91e507a9fc1ce9989afcb8b0904fad5580868c65e"
+        },
+        {
+          "path": "packages/periphery/build/UniswapV2Router01.json",
+          "sha256": "ad827b91ab9ba041e48a58204f54912a53331561cdff83f62c0a086d407baa76"
+        },
+        {
+          "path": "packages/periphery/build/UniswapV2Router02.json",
+          "sha256": "b5d849090faf5255b82bddb2a8a51ad796599fa31bb7a3aa0e0db75226031aaa"
+        },
+        {
+          "path": "packages/periphery/build/WETH9.json",
+          "sha256": "ba02494a1f4d2ca3873f74969d4ff57fc885f37b856486605afa214e4155d18d"
+        },
+        {
+          "path": "packages/periphery/contracts/.DS_Store",
+          "sha256": "b5b083f8c97b3f003cee04c85c74b108e7d85bca24178e392fe4f0640883e9b1"
+        },
+        {
+          "path": "packages/periphery/contracts/UniswapV2Migrator.sol",
+          "sha256": "b1bf0327cec8556c602174e20f067782c71c051ddb6f45f00459a062402ca374"
+        },
+        {
+          "path": "packages/periphery/contracts/UniswapV2Router01.sol",
+          "sha256": "da25cb106f822d04eb126249b2a08f986dd579920f790560ef56ca9ed8879786"
+        },
+        {
+          "path": "packages/periphery/contracts/UniswapV2Router02.sol",
+          "sha256": "acabe6d6c9c275aa5c27d8ed59b3d23d21616523071043e89eea7bca474babb8"
+        },
+        {
+          "path": "packages/periphery/contracts/examples/ExampleFlashSwap.sol",
+          "sha256": "845643504669ff07f365c3465fefaf23d591733f127e46bd6c6174eebdc3f7d9"
+        },
+        {
+          "path": "packages/periphery/contracts/examples/ExampleOracleSimple.sol",
+          "sha256": "ac597bb691036258e9416f8a8b292e318b80e3b7628e5e0de9222848038fd518"
+        },
+        {
+          "path": "packages/periphery/contracts/examples/ExampleSlidingWindowOracle.sol",
+          "sha256": "a84405c81d1fbd772abd51d51839154c3a640bee730347f484fae8139edad500"
+        },
+        {
+          "path": "packages/periphery/contracts/examples/ExampleSwapToPrice.sol",
+          "sha256": "0a5bb31ee83f5d1d8147119b8f3f49286a3c773cdcef9f424b5444080cbb948c"
+        },
+        {
+          "path": "packages/periphery/contracts/examples/README.md",
+          "sha256": "8d4a2291dd85c831ef3ff26a9296dd5f224d2116a712fe7a69324b8a250bb7c2"
+        },
+        {
+          "path": "packages/periphery/contracts/interfaces/IERC20.sol",
+          "sha256": "2b63f199f838028184efefbcfd6cf2b9192624c3dae5dc1116ecbb15c36a67e8"
+        },
+        {
+          "path": "packages/periphery/contracts/interfaces/IUniswapV2Migrator.sol",
+          "sha256": "e020b26f5d9c4162340fcbb42bf6ea5febfc3ee68f33aa25e527cd43e8de0483"
+        },
+        {
+          "path": "packages/periphery/contracts/interfaces/IUniswapV2Router01.sol",
+          "sha256": "0439ffe0fd4a5e1f4e22d71ddbda76d63d61679947d158cba4ee0a1da60cf663"
+        },
+        {
+          "path": "packages/periphery/contracts/interfaces/IUniswapV2Router02.sol",
+          "sha256": "a2900701961cb0b6152fc073856b972564f7c798797a4a044e83d2ab8f0e8d38"
+        },
+        {
+          "path": "packages/periphery/contracts/interfaces/IWETH.sol",
+          "sha256": "60760053849b916b72386fef1126ab69c7482c2aa6b5fb836368eff42905cb30"
+        },
+        {
+          "path": "packages/periphery/contracts/interfaces/V1/IUniswapV1Exchange.sol",
+          "sha256": "af0f040756cffdad159024068160e3d29974963eea113bf79debe6e0d9bfc5f4"
+        },
+        {
+          "path": "packages/periphery/contracts/interfaces/V1/IUniswapV1Factory.sol",
+          "sha256": "757faaa23cac0f415640c16c009e92458271ece8876c0b739f2a3bbad6338aee"
+        },
+        {
+          "path": "packages/periphery/contracts/libraries/SafeMath.sol",
+          "sha256": "39e5b4c0bc19b72fa59c2d2177ba5ed6cfadcd76f3f804563011e579367530fb"
+        },
+        {
+          "path": "packages/periphery/contracts/libraries/UniswapV2Library.sol",
+          "sha256": "4f83e9334f833568fa47b36e9ceca435f6c2962760a0596b043c4e538d0fd9f2"
+        },
+        {
+          "path": "packages/periphery/contracts/libraries/UniswapV2OracleLibrary.sol",
+          "sha256": "508b544096f9d916bef314a517a1f3573243272f34d8c4fbacbc7f256523e74f"
+        },
+        {
+          "path": "packages/periphery/contracts/test/DeflatingERC20.sol",
+          "sha256": "d9768f5ce9f19aeda89356a272b560ae5b9447df3200aceaa59dbb9ed8a1c8bc"
+        },
+        {
+          "path": "packages/periphery/contracts/test/ERC20.sol",
+          "sha256": "16ace9cf263a8918972fe942217ec6854dc8251fb28420df16be7be53fb0fb88"
+        },
+        {
+          "path": "packages/periphery/contracts/test/RouterEventEmitter.sol",
+          "sha256": "82aaec8037248d47c013c33a491df044a4e34eef87491b3b94c24a8fd135ddda"
+        },
+        {
+          "path": "packages/periphery/contracts/test/WETH9.sol",
+          "sha256": "33f13565b207188485030aa20fd1f38d52d8c455cc64720560fb38149dcb4137"
+        },
+        {
+          "path": "packages/periphery/package.json",
+          "sha256": "f12ae31eda080efb4934fd977f381087e26515377bf4384f31f1727488a946af"
+        }
+      ]
+    },
+    {
+      "name": "@uniswap/v2-core",
+      "version": "1.0.1",
+      "integrity": "sha512-MtybtkUPSyysqLY2U210NBDeCHX+ltHt3oADGdjqoThZaFRDKwM6k1Nb3F0A3hk5hwuQvytFWhrWHOEq6nVJ8Q==",
+      "tarball_sha256": "f01288aaf73a89d2ff541b7276cec215ce2c480cafbed33b0da9c89853f976a2",
+      "metadata_sha256": "04b39608a61d85a459de60d1087366ee58e5d5360fa95fc26313e2675a42064d",
+      "files": [
+        {
+          "path": "packages/core/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        },
+        {
+          "path": "packages/core/README.md",
+          "sha256": "14221549e24e537100295964e5e485000d40349e44e4edb029b46a771f854d33"
+        },
+        {
+          "path": "packages/core/build/Combined-Json.json",
+          "sha256": "9548fb38ac44121bb2e80c6920c03730d5d1673d64870ca7001b40c85f677df4"
+        },
+        {
+          "path": "packages/core/build/ERC20.json",
+          "sha256": "7917faf747fc7f3023bfe102bde224ecce2f261c5993b0a5f2308f95789ff530"
+        },
+        {
+          "path": "packages/core/build/IERC20.json",
+          "sha256": "e7ab255733c70bb623439c67fbba978440dddd26c09dfd877199800a478d00bd"
+        },
+        {
+          "path": "packages/core/build/IUniswapV2Callee.json",
+          "sha256": "3e3fbe98e1fc33a8eff3f5660520f24b5d30d7b30a00a4d9589b9771c0b0c7f8"
+        },
+        {
+          "path": "packages/core/build/IUniswapV2ERC20.json",
+          "sha256": "c618389ddfd02d1dcde313e2e0d511215af51343012a594742fd2f8595795d22"
+        },
+        {
+          "path": "packages/core/build/IUniswapV2Factory.json",
+          "sha256": "473db8e5bcc86098772e43008641c1a205fdd47c907a7d2f6ea02d270c5ede36"
+        },
+        {
+          "path": "packages/core/build/IUniswapV2Pair.json",
+          "sha256": "7fb3bec5e069cde10af4ae9ed6db14c6ab7f48a8dac9ad5b9bebf33e4e5abe2e"
+        },
+        {
+          "path": "packages/core/build/Math.json",
+          "sha256": "0363411b9d23a85644515dd2ab83e11fb228b945a38d94e1a43b086c4fa490d2"
+        },
+        {
+          "path": "packages/core/build/SafeMath.json",
+          "sha256": "0c7bb27be88c2f8a2d9210fb564753a022600a98993c16f6aa3d05b9539a81f0"
+        },
+        {
+          "path": "packages/core/build/UQ112x112.json",
+          "sha256": "51c24d2e0e69d4f82097ea549128488f44bdb55413b2975e99c598aa2c8f66db"
+        },
+        {
+          "path": "packages/core/build/UniswapV2ERC20.json",
+          "sha256": "4ab00534e70359d44840ca8fbe7a40f97ab2a185afc7a05b426f00c052e84c58"
+        },
+        {
+          "path": "packages/core/build/UniswapV2Factory.json",
+          "sha256": "7e666780d3ddf601a17c97dcc6a414dd77f5eae13fb37fce7e0bd282f4f61406"
+        },
+        {
+          "path": "packages/core/build/UniswapV2Pair.json",
+          "sha256": "bb00cb1d64deea4159731b5957eeb8354531a110fb9120b9ef14edbc950e0736"
+        },
+        {
+          "path": "packages/core/contracts/UniswapV2ERC20.sol",
+          "sha256": "b8ce88929ce2c93b8fce385f8d57701b1a64c600a95317ea5f3561d36297be32"
+        },
+        {
+          "path": "packages/core/contracts/UniswapV2Factory.sol",
+          "sha256": "e0cef3e874a68cbcc5986451b1fec180ba5ff5699f27a256b7c10fafefe36b99"
+        },
+        {
+          "path": "packages/core/contracts/UniswapV2Pair.sol",
+          "sha256": "43a5421b31415868367b62bfa161ca10bcee03778873faad905f5a3e2cce9cbd"
+        },
+        {
+          "path": "packages/core/contracts/interfaces/IERC20.sol",
+          "sha256": "2b63f199f838028184efefbcfd6cf2b9192624c3dae5dc1116ecbb15c36a67e8"
+        },
+        {
+          "path": "packages/core/contracts/interfaces/IUniswapV2Callee.sol",
+          "sha256": "ecfa434d468bb1888124d8c34b0b8483f4ea1e5cd63f0874c8b28aa4305c1dbc"
+        },
+        {
+          "path": "packages/core/contracts/interfaces/IUniswapV2ERC20.sol",
+          "sha256": "7948069aea398dec4b7e771ffc749a24fdce3a64673a1b14deae960e7a54c603"
+        },
+        {
+          "path": "packages/core/contracts/interfaces/IUniswapV2Factory.sol",
+          "sha256": "51d056199e3f5e41cb1a9f11ce581aa3e190cc982db5771ffeef8d8d1f962a0d"
+        },
+        {
+          "path": "packages/core/contracts/interfaces/IUniswapV2Pair.sol",
+          "sha256": "29c75e69ce173ff8b498584700fef76bc81498c1d98120e2877a1439f0c31b5a"
+        },
+        {
+          "path": "packages/core/contracts/libraries/Math.sol",
+          "sha256": "e4a9d451964a0689be2b244322a353de143ca4248d8736d91aca4ffadca4325f"
+        },
+        {
+          "path": "packages/core/contracts/libraries/SafeMath.sol",
+          "sha256": "4b1c95ff75de7342e0fadff58064820a4eb7c2fcb422a75b4994980ce8e216ae"
+        },
+        {
+          "path": "packages/core/contracts/libraries/UQ112x112.sol",
+          "sha256": "6633b57b0723b1d72e08cc3e8b29f0af838294e59863b6cdcce95a141ed02cdb"
+        },
+        {
+          "path": "packages/core/contracts/test/ERC20.sol",
+          "sha256": "e11b370820584a64b1ef5b498a348349f311787ba77b3b0a632abc1110dcc7e2"
+        },
+        {
+          "path": "packages/core/package.json",
+          "sha256": "3a33eb5a18c89295cff4352da5058d3dad63089f255459a25e2047bba60d71f8"
+        }
+      ]
+    },
+    {
+      "name": "@uniswap/lib",
+      "version": "1.1.1",
+      "integrity": "sha512-2yK7sLpKIT91TiS5sewHtOa7YuM8IuBXVl4GZv2jZFys4D2sY7K5vZh6MqD25TPA95Od+0YzCVq6cTF2IKrOmg==",
+      "tarball_sha256": "fd480df65e078d483b0a40cc7f35fcd5bb0c1ccbcb40e741f1660e9e81a88328",
+      "metadata_sha256": "dfc87c5f3177e3a2110622b21cc6541f00a9b5e332f45d749740ccff2884022c",
+      "files": [
+        {
+          "path": "packages/lib/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        },
+        {
+          "path": "packages/lib/README.md",
+          "sha256": "b1e93b2f3b5b470c56a9e9933f6b09f04c14c0d404f3a861eb08bd100aaead91"
+        },
+        {
+          "path": "packages/lib/contracts/libraries/AddressStringUtil.sol",
+          "sha256": "a8a155da8eff4bd9cae18a95eedb2efa08b5b27bf41f8d8e2e765c17d94e1490"
+        },
+        {
+          "path": "packages/lib/contracts/libraries/Babylonian.sol",
+          "sha256": "ef7ba527867fa2718551e2397f8dc5c5161fc2439d470d2467115b2184eb7ad5"
+        },
+        {
+          "path": "packages/lib/contracts/libraries/FixedPoint.sol",
+          "sha256": "6b2c2e3f04aa04dabfeaa7911c94d1fdf0d045ebb59d57617410b9efebf67823"
+        },
+        {
+          "path": "packages/lib/contracts/libraries/PairNamer.sol",
+          "sha256": "2534f5f04b15d33c5922bc889b743ba91b9f6fa3c706e64510bc495784d90930"
+        },
+        {
+          "path": "packages/lib/contracts/libraries/SafeERC20Namer.sol",
+          "sha256": "edc85c9e4a9308e5b51a5f21fefb0b42e34344bee0eef87c3feecc3d785d897d"
+        },
+        {
+          "path": "packages/lib/contracts/libraries/TransferHelper.sol",
+          "sha256": "72b232bc3d253ccfcf8299dac036efe549fad3ae45b1e0be813745c6da635281"
+        },
+        {
+          "path": "packages/lib/package.json",
+          "sha256": "ea5d505444f68bdd55b2ab59fd56c997498b2dfdc63afe1d7ba0c628c2da8846"
+        }
+      ]
+    }
+  ]
+}

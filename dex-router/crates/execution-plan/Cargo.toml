@@ -1,0 +1,15 @@
+[package]
+name = "xone-execution-plan"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+[dependencies]
+xone-domain = { path = "../domain" }
+xone-optimizer = { path = "../optimizer" }
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+num-bigint.workspace = true
+
+[dev-dependencies]
+xone-routing = { path = "../routing" }

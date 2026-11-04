@@ -1,0 +1,6 @@
+target
+bin
+.runtime
+.git
+artifacts
+.DS_Store

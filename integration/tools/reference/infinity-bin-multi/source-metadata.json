@@ -1,0 +1,180 @@
+{
+  "schema": "infinity-bin-multi-source/1",
+  "upstream_manifest_sha256": "ae54c188a60992a7dc699c43d60b45fc20f19ccea63f567dda5647af0088eab1",
+  "compiler": "0.8.26+commit.8a97fa7a.Emscripten.clang",
+  "dependencies": {
+    "solc": {
+      "version": "0.8.26",
+      "package_sha256": "9494c7edadfabf5324cddf25b183a39de16e801476491c5686ab3a10ff20ea83",
+      "entry_sha256": "5621a3a6709de448b29177adc0729bbb3d7fecc3e089b4566270fdb828afe222",
+      "soljson_sha256": "35ba6661f3bdaed995fc7af14c405502290cf681b3fd062fe8738cfdf6db14ed"
+    },
+    "ganache": {
+      "version": "7.9.2",
+      "package_sha256": "8b257b4387f16176518127b21943fb451c1aad4c8f586eb8d7a3caa00333fa29",
+      "entry_sha256": "f8b554e493d01c9cd1e0ee497f7dd9e4c14994ddfe144a4d935724e0a5cf9b56"
+    },
+    "ethers": {
+      "version": "5.8.0",
+      "package_sha256": "d22d04ecd8c6a6a0faf019db35732c403d121d176e05b0fcd0c7658a5ea7b7f0",
+      "entry_sha256": "c8e43f775dc36843537acbb3f5169948b2ce4c84f4c6b011bc3bd4e9a6f54cee"
+    }
+  },
+  "files": [
+    {
+      "local": "infinity/src/libraries/LPFeeLibrary.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/LPFeeLibrary.sol",
+      "sha256": "1a1109453400bc648d617386fb2fd156fb8f3f9f683a563069e90056cf9319f9"
+    },
+    {
+      "local": "infinity/src/libraries/ProtocolFeeLibrary.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/ProtocolFeeLibrary.sol",
+      "sha256": "797bf2f9383e5bb815d068175a4b89b309b15e0455c882d5ab00d4adcbae13d8"
+    },
+    {
+      "local": "infinity/src/libraries/SafeCast.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/SafeCast.sol",
+      "sha256": "5f481027b6aa740329ee501da6732f1f01f398368ebf4bb87350b9b01e5e7c3e"
+    },
+    {
+      "local": "infinity/src/libraries/math/Encoded.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/math/Encoded.sol",
+      "sha256": "3b6ae09491a8607666f8c0cead5da49e9f1d82ab2b745109f510a820eaac113c"
+    },
+    {
+      "local": "infinity/src/libraries/math/UnsafeMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/math/UnsafeMath.sol",
+      "sha256": "ed9c676e6ceeac9cce81f73ca66142e2feb08a617440f2192fff5b4199f18798"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinHelper.sol",
+      "sha256": "cb6395b7ad0ad3b4af64af4616f9223becfbdedb8954c6e27c66f444d41e1f57"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPool.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPool.sol",
+      "sha256": "e759a1eb030e9661d6a5612ba10a183ca1e8802b9fde796eeae24568b943172d"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPoolParametersHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPoolParametersHelper.sol",
+      "sha256": "7c4d93117c0e49dd38362be5ec24816322715bee6a82fec9d0875d7de8edc6ad"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPosition.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPosition.sol",
+      "sha256": "0df4c512992b7f967f48c863deaeb44bc2603a8f80b76fff6ac9641f930c66fe"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/Constants.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/Constants.sol",
+      "sha256": "dfddfbe682b726fe66a069cd8eabf0fee3f0323c2b4bbcc9c4ba0942593bff85"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/FeeHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/FeeHelper.sol",
+      "sha256": "5476bcc9c96ceddfa014ed7aaa1c8382e9860c3b92a76200372eea6d5dd8f665"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/PriceHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/PriceHelper.sol",
+      "sha256": "fc5c406023788bec99fb0fc54db92a6bdc5988de54c9e4f53ddb2584c0fa88d6"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/BitMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/BitMath.sol",
+      "sha256": "32d6adcb702a57628640167cff9b5e32138202e43096fb70d45e07ac26b5e4b8"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/LiquidityConfigurations.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/LiquidityConfigurations.sol",
+      "sha256": "7a53ad9b1242cb51129b6cfa436cb08dc716ca71c79a47e171bd52c9e4329e67"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/PackedUint128Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/PackedUint128Math.sol",
+      "sha256": "4a269e48f273c21f091ac746174c2a100f307f4ea8a5c99593db5025ec041fba"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/SafeCast.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/SafeCast.sol",
+      "sha256": "6d707e3ea3d7c78503b8047d4dbc4ff9d9dc410d23ddeac3ae4127b3c60a98fb"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/TreeMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/TreeMath.sol",
+      "sha256": "4c725f5646a9e2e8cbcec6d7574c542c7a6c86a112d3222f18531d31b58d63d1"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/Uint128x128Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/Uint128x128Math.sol",
+      "sha256": "cb33ccffad99b96fc0ae4102484679e4754384aa0e75474fed39a47748e88caa"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/Uint256x256Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/Uint256x256Math.sol",
+      "sha256": "00da35a9498c9d34d54bd02b997006ec9ee228be0ebfb824e11524a5f650ef62"
+    },
+    {
+      "local": "infinity/src/pool-bin/types/BinSlot0.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/types/BinSlot0.sol",
+      "sha256": "afccaa634c1f0264bf435d9f21ae304fc7c75cc17e45f3203f9de6b169117118"
+    },
+    {
+      "local": "infinity/src/types/BalanceDelta.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/BalanceDelta.sol",
+      "sha256": "21d2bf7fe91a833c8b1e3e5449ff02ac9985407cb74b3d6fa5601f866273538a"
+    }
+  ],
+  "harness_sha256": "c2e953cf9271b3f3cb6f8f60755ea1b1d78fee44cb69c5d39eb9958f6be86cea",
+  "compile_input_sha256": "b0423a89a77daea68c65be41b1b4638ad45d8fb87976e3517a98e56bbde07da9",
+  "creation_sha256": "7265dd75932387f7016798284e111574a81aaf43a5f0162a997e138100a82655",
+  "runtime_sha256": "e0ff9da5f8ed3ebe157f60477868a01087f8f5a64540017a3ad56a14b4576dc2",
+  "runtime_bytes": 8736,
+  "eip170_limit": 24576,
+  "unlimited_contract_size": false,
+  "reference_scope": "original BinPool.swap plus TreeMath/BinHelper; no manager or settlement"
+}

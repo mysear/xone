@@ -1,0 +1,64 @@
+{
+  "scope": "archived concrete standard pair/pool versions, no claim of latest deployed code",
+  "files": [
+    {
+      "name": "pancake-v3-contracts-SwapMath.sol",
+      "sha256": "cdb205f8790e6c8a3587bd3db6eec6fba874afca1c0c6e890d87452f7aadc902",
+      "license_header": "// SPDX-License-Identifier: GPL-2.0-or-later"
+    },
+    {
+      "name": "pancake-v3-contracts-PancakeV3Pool.sol",
+      "sha256": "674c5cedce8dd511108b8d104d6332113dc1ba9ab6da9b3498b5896e97a33265",
+      "license_header": "// SPDX-License-Identifier: GPL-2.0-or-later"
+    },
+    {
+      "name": "pancake-v1-PancakePair.sol",
+      "sha256": "781422e933312173103055f94b973d469341af9a5e3293caf6e9abdbbb488f9f",
+      "license_header": "pragma solidity =0.5.16;"
+    },
+    {
+      "name": "v2-core-UniswapV2Pair.sol",
+      "sha256": "8f5b709c83874e10b84763436d831fa752e183cac8b89d0b4cbc872d1ae73dad",
+      "license_header": "// SPDX-License-Identifier: GPL-3.0"
+    }
+  ],
+  "sdk_versions": {
+    "@pancakeswap/v3-sdk": {
+      "version": "3.10.3",
+      "integrity": "sha512-3V0XZfYnlcVd1x35LjCVKymTJ+AM7KvPEQt/ajI1zlKwg/aSJcHxmf34VJmwUqMoJJQ/tTGgHUgi8loPLs5VsQ==",
+      "resolved": "https://registry.npmjs.org/@pancakeswap/v3-sdk/-/v3-sdk-3.10.3.tgz",
+      "license": "MIT",
+      "registry_integrity_verified": true
+    },
+    "@pancakeswap/v2-sdk": {
+      "version": "1.2.3",
+      "integrity": "sha512-O1wcqMncDGgOCuUtFLQ8EWni7LNKqYOe6B1RXc3gPSTHNJd1GsPS8phMjBHmTvpi3mNTvKm2NkI7sOKJIKTgkA==",
+      "resolved": "https://registry.npmjs.org/@pancakeswap/v2-sdk/-/v2-sdk-1.2.3.tgz",
+      "license": null,
+      "registry_integrity_verified": true
+    }
+  },
+  "pancake-v3-contracts": {
+    "repo": "pancakeswap/pancake-v3-contracts",
+    "commit": "986847948755cba528324d41be19480731c36c2a",
+    "paths": [
+      "projects/v3-core/contracts/PancakeV3Pool.sol",
+      "projects/v3-core/contracts/libraries/SwapMath.sol"
+    ]
+  },
+  "pancake-swap-core": {
+    "repo": "pancakeswap/pancake-swap-core",
+    "commit": "3b214306770e86bc3a64e67c2b5bdb566b4e94a7",
+    "paths": [
+      "contracts/PancakePair.sol",
+      "contracts/interfaces/IPancakePair.sol"
+    ]
+  },
+  "v2-core": {
+    "repo": "sushiswap/v2-core",
+    "commit": "a349882c918c752d0363e4c6e02dedcbc48b734e",
+    "paths": [
+      "contracts/UniswapV2Pair.sol"
+    ]
+  }
+}

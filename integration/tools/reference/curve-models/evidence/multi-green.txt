@@ -1,0 +1,32 @@
+warning: unused import: `One`
+ --> /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/../src/curve_multi.rs:6:18
+  |
+6 | use num_traits::{One, Zero};
+  |                  ^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: enum `MetaUnderlyingBoundary` is never used
+  --> /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/../src/curve_multi.rs:51:10
+   |
+51 | pub enum MetaUnderlyingBoundary {
+   |          ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `meta_underlying_boundary` is never used
+  --> /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/../src/curve_multi.rs:56:8
+   |
+56 | pub fn meta_underlying_boundary(index_in: usize, index_out: usize) -> Result<MetaUnderlyingBoundary> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: 3 warnings emitted
+
+
+running 3 tests
+test checked_uint256_rejects_oversized_intermediate ... ok
+test three_and_four_coin_exchange_accepts_current_precise_a ... ok
+test original_vyper_exchange_and_poststate_720_cases ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+

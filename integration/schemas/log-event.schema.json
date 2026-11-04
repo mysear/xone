@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Xone structured log v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timestamp_ms",
+    "service",
+    "role",
+    "level",
+    "event",
+    "config_release",
+    "config_public_hash",
+    "fields"
+  ],
+  "properties": {
+    "timestamp_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "service": {
+      "enum": [
+        "chain-parser-go",
+        "chain-parser-rust",
+        "dex-router"
+      ]
+    },
+    "role": {
+      "type": "string"
+    },
+    "level": {
+      "enum": [
+        "debug",
+        "info",
+        "warn",
+        "error"
+      ]
+    },
+    "event": {
+      "type": "string"
+    },
+    "config_release": {
+      "type": "string"
+    },
+    "config_public_hash": {
+      "type": "string"
+    },
+    "fields": {
+      "type": "object"
+    }
+  }
+}

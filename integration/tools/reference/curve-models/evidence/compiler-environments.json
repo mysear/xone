@@ -1,0 +1,40 @@
+{
+  "old": {
+    "python": "Python 3.9.6",
+    "vyper": "0.3.1",
+    "packages": [
+      "asttokens==2.0.5",
+      "pycryptodome==3.24.1",
+      "semantic-version==2.8.5",
+      "six==1.17.0",
+      "vyper==0.3.1"
+    ]
+  },
+  "ng": {
+    "python": "Python 3.13.0",
+    "vyper": "0.3.10+commit.9136169",
+    "packages": [
+      "asttokens==2.4.1",
+      "cbor2==5.9.0",
+      "importlib_metadata==10.1.0",
+      "packaging==23.2",
+      "pycryptodome==3.24.1",
+      "six==1.17.0",
+      "vyper==0.3.10",
+      "wheel==0.45.1",
+      "zipp==4.1.2"
+    ]
+  },
+  "crypto": {
+    "python": "Python 3.9.6",
+    "vyper": "0.3.3+commit.48e326f",
+    "packages": [
+      "asttokens==2.0.5",
+      "packaging==26.3",
+      "pycryptodome==3.24.1",
+      "semantic-version==2.8.5",
+      "six==1.17.0",
+      "vyper==0.3.3"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+[package]
+name = "xone-proto-generator"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+publish = false
+
+[dependencies]
+prost-build = "=0.14.4"
+
+[[bin]]
+name = "xone-proto-generator"
+path = "cmd/xone-proto-generator/main.rs"

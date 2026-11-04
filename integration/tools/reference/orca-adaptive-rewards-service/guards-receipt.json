@@ -1,0 +1,213 @@
+{
+  "binary_sha256": "ddf7bfcc59a25b6424fc4c2641616f70ba33b2bad136b61e2f0aa1ad3ca6f2b9",
+  "driver_sha256": "5ac8e38c345f8f19a366f0740f7ab5523b4e1b962a2de451441a3abf65712c4f",
+  "fixture_sha256": "4b5106eabb44acefe58ac6353848b2f827e0b2946a7d109f6e8f70d1c113259b",
+  "negative_checks": [
+    {
+      "mode": "normal",
+      "mutation": "delete-scenario",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "shorten-sequence",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "source-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "binary-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "compiler-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "dependency-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "native-amount",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "native-post-tick",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "oracle-reserved-wire",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "vault-exact-transfer",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "source-slot",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "drop-native-rejection",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "copy-divergence",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "native-reward-global",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "native-reward-cross",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "packed-reward-emission",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "initialized-reward-dropped",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "delete-scenario",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "shorten-sequence",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "source-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "binary-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "compiler-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "dependency-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "native-amount",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "native-post-tick",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "oracle-reserved-wire",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "vault-exact-transfer",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "source-slot",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "drop-native-rejection",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "copy-divergence",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "native-reward-global",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "native-reward-cross",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "packed-reward-emission",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "initialized-reward-dropped",
+      "receipt_invalidated": true,
+      "rejected": true
+    }
+  ],
+  "positive_modes": 2,
+  "status": "verified"
+}

@@ -1,0 +1,30 @@
+warning: unused import: `One`
+ --> /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/../src/curve_multi.rs:6:18
+  |
+6 | use num_traits::{One, Zero};
+  |                  ^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: 1 warning emitted
+
+
+running 2 tests
+
+thread 'ng_offpeg_quote_requires_real_ng_math' panicked at /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/curve_ng_standalone.rs:9:135:
+called `Result::unwrap()` on an `Err` value: Error("CURVE_NG_NOT_IMPLEMENTED")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test ng_offpeg_quote_requires_real_ng_math ... FAILED
+
+thread 'original_ng_full_exchange_and_erc4626_rates_522_cases' panicked at /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/curve_ng_standalone.rs:20:29:
+case 1: Error("CURVE_NG_NOT_IMPLEMENTED")
+test original_ng_full_exchange_and_erc4626_rates_522_cases ... FAILED
+
+failures:
+
+failures:
+    ng_offpeg_quote_requires_real_ng_math
+    original_ng_full_exchange_and_erc4626_rates_522_cases
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

@@ -1,0 +1,9 @@
+[package]
+name = "xone-control"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+[dependencies]
+xone-domain = { path = "../domain" }
+tokio.workspace = true
+tokio-postgres = "0.7"

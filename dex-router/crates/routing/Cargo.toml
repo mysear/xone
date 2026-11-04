@@ -1,0 +1,10 @@
+[package]
+name = "xone-routing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+[dependencies]
+xone-domain = { path = "../domain" }
+xone-protocol-math = { path = "../protocol-math" }
+serde.workspace = true
+serde_json.workspace = true

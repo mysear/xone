@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "scope": "isolated production scalar slice and kernel; no service wiring",
+  "inputs": {
+    "integration/tools/ci/infinity-bin-multi-test.py": "75a94ff2ac75f092aa3642a8fbf5f99e1c6f0ee4b74036798b5110bd2278dd93",
+    "integration/tools/ci/infinity-bin-multi-check.py": "d717932957cea0ac682b0e9a679a916276c6399834a694c16b32ebd422169d80",
+    "integration/tools/ci/infinity-bin-multi-golden.cjs": "4db8ca21361bd40c39a95fa868c37ffead9daaecd46b0ae76184a1087a325038",
+    "integration/tools/reference/infinity-bin-multi/InfinityBinMultiReference.sol": "c2e953cf9271b3f3cb6f8f60755ea1b1d78fee44cb69c5d39eb9958f6be86cea",
+    "integration/tools/reference/infinity-bin-multi/source-metadata.json": "79dc089f3dc755f6599efca5d136d50f81a2320a5f5322ab48dae18528e110d9",
+    "integration/tools/reference/infinity-bin-multi/execution-receipt.json": "367da848113a744899110391aca451e55c41149ee563ea3fa178f15f291138ed",
+    "dex-router/crates/domain/src/lib.rs": "75ec1ca4b7b50877e2f12585379d4b50a2721d219f23c374ca0aa70bb73f89f5",
+    "dex-router/crates/protocol-math/src/infinity_bin.rs": "636c05364cd85baaa1116035c91dd9894f32b1f67665f772dc226df72dd50ad5",
+    "dex-router/crates/protocol-math/src/infinity_bin_multi.rs": "9548686d5afc6dffdd647f4ae83335c8f05d60d8729e3a391bb64d6575524d53",
+    "dex-router/crates/protocol-math/tests/infinity_bin_multi.rs": "539b50982635fa9248a9a5074b02c6c0537083b321b948b3734fac0dc1f0b265",
+    "dex-router/test/contracts/infinity-bin-multi.json": "a151e34e94d30eea471491cb6ea2350d31ab3adc8fd4678e3d157387e01a11b7",
+    "integration/test/contracts/infinity-bin-multi.json": "a151e34e94d30eea471491cb6ea2350d31ab3adc8fd4678e3d157387e01a11b7"
+  },
+  "scalar_sha256": "a8efd49ebf253c395b8dea622e6a46693d550a992ac5d5c7e29b377466f61941",
+  "tools": {
+    "cargo": "cargo 1.90.0 (840b83a10 2025-07-30)",
+    "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+    "rustdoc": "rustdoc 1.90.0 (1159e78c4 2025-09-14)"
+  },
+  "resolved_lock_sha256": "866b75bb0891d6feb9b731eeab614a6a0c4167c9a4627fb13458e82279ddc6b5"
+}

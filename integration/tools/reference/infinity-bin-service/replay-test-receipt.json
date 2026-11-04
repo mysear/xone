@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "native_replays": 4,
+  "invalid_profile_rejected": true,
+  "native_revert_rejected": true,
+  "request_isolation": true,
+  "inputs": {
+    "integration/tools/ci/infinity-bin-service-replay.cjs": "dbeda6db5456c56a2fc162e50e3a8bad97f20e688be58566dae90f530a283419",
+    "integration/tools/ci/infinity-bin-service-replay-test.cjs": "f781608600ca4c5569bd7eb3c192ed958a5a45c8034a0bbe86f3b2fcc03f3b3b",
+    "integration/tools/reference/infinity-bin-service/execution-receipt.json": "8380d1ce1003616c183c6f527fb5778fea63b8f7f0fc42dab071f35601a36896"
+  },
+  "fixture_sha256": "992aea6c8f33298753deb31f9c269f3f792e817239b56810a2a3b3b9f8b69eec"
+}

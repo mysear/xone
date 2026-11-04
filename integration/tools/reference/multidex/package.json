@@ -1,0 +1,1 @@
+{"private":true,"name":"xone-multidex-reference","version":"1.0.0","dependencies":{"@pancakeswap/v3-sdk":"3.10.3","@pancakeswap/v2-sdk":"1.2.3","@pancakeswap/swap-sdk-core":"1.6.1","@uniswap/v2-sdk":"3.2.3","@uniswap/sdk-core":"4.2.1","jsbi":"3.2.5"}}

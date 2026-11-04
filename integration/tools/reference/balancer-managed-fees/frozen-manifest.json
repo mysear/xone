@@ -1,0 +1,48 @@
+{
+  "status": "FROZEN_REFERENCE_ONLY",
+  "revision": "e281ff40583c39bf1d46c322334b2b13936e0e33",
+  "service_admission": false,
+  "eip170_block": {
+    "runtime_bytes": 27545,
+    "limit": 24576,
+    "standard_deployment_rejected": true
+  },
+  "cases": 357,
+  "sequences": 30,
+  "steps": 120,
+  "guards": 2,
+  "tests": {
+    "new_math": 8,
+    "old_managed_regression": 2,
+    "fault_tests": 10,
+    "fault_tests_optimized": 10
+  },
+  "corpus_sha256": "61c0250aa40683d660fe3c31caa100e3e0c05acb13088681ad5ebe1664bff42b",
+  "source_dependency_entries": 6236,
+  "sha256": {
+    "dex-router/crates/protocol-math/src/balancer_managed_fees.rs": "3e36da33314805a9216594f640f344b5787bd4d9b58214739eb39cb56cbc9772",
+    "dex-router/crates/protocol-math/src/balancer_log_exp.rs": "63987eb717e73630d9e1f5cdaf2259963ac364b38c378f381bce0b5f544df342",
+    "dex-router/crates/protocol-math/tests/balancer_managed_fees.rs": "18bfcc28cdf946588c0aeaffe5d1fa4de2cc4c25089c861a0e3a1cc9572133a8",
+    "integration/tools/ci/balancer-managed-fees-compiler-probe.cjs": "3d1c1d9eeded07883ce128e032223ce3d2a2e2f86bfc4f0612b5478d2cf81616",
+    "integration/tools/ci/balancer-managed-fees.cjs": "ae8dc1fc74451439358374be78eb52c5b389d4f3276197a5aaae3443061d7737",
+    "integration/tools/ci/balancer-managed-fees-test.py": "3af64ec8e9221d71d89fd509fe49cba61653ca450b880c06e9698a71d33a496f",
+    "integration/tools/ci/balancer-managed-fees-verify.py": "2d741d1708e1daf8e0e90c83fac9367b93a8bd452243f888491ce00df0a59d34",
+    "integration/test/contracts/balancer-managed-fees.json": "61c0250aa40683d660fe3c31caa100e3e0c05acb13088681ad5ebe1664bff42b",
+    "dex-router/test/contracts/balancer-managed-fees.json": "61c0250aa40683d660fe3c31caa100e3e0c05acb13088681ad5ebe1664bff42b",
+    "integration/tools/reference/balancer-managed-fees/ManagedFeesHarness.sol": "aaa581c0f8022d947efee53c77759ea6e1778a9eb32f54e7e61d82fc648fc3e1",
+    "integration/tools/reference/balancer-managed-fees/README.md": "417f6c4804d561aa9f200afde2a87a5a2557f520a3565041fdff7e8e01d7d7c7",
+    "integration/tools/reference/balancer-managed-fees/compiler/solc-0.7.1-origin.json": "4322fb6a3f63a1f0449b90715b7a80bbba81115b9b0e1f01b54ee489ed9506e5",
+    "integration/tools/reference/balancer-managed-fees/compiler/soljson-v0.7.1.js": "7fcc983c5149840a47b946fc51fc14f1c21cda07c01d650e4a1f814319cb1423",
+    "integration/tools/reference/balancer-managed-fees/compiler-identity.json": "3a8fd622f1113f8a114ddf0df761508785ed5502bbad90a459ef2d05de3a20e8",
+    "integration/tools/reference/balancer-managed-fees/compiler-probe-0.7.1.json": "fbb23354bc2a8fc685930c3a30a1426a9221e46115ec05f64d0cec9e63e0b898",
+    "integration/tools/reference/balancer-managed-fees/compiler-probe-0.7.6.json": "2cf4048a794922c6e41d48df096fc407db484b14ab6f42f45ee2b112c46fadce",
+    "integration/tools/reference/balancer-managed-fees/generation.json": "aa3b321b127aebc392108fcc6eaa700675b4bb66da3c2a57387227248198b63f",
+    "integration/tools/reference/balancer-managed-fees/original-deployment.json": "b05313671112866c398252d5fd06b5959d810a59bd2b24594c69ef162af3a5af",
+    "integration/tools/reference/balancer-managed-fees/runtime-metadata.json": "26400a28ab5121008625b8ba0244921adf8daf0dec2005281ec845cd1f968c1a",
+    "integration/tools/reference/balancer-managed-fees/standard-evm-deployment.json": "115bde661a137e4541eb17e2afb3858f7c0676dbaa4399abde5fcbff8c1207ab",
+    "integration/tools/reference/balancer-managed-fees/upstream-config/hardhat-base-config.ts": "197195dac33a602539920189a48528bc8e637629f1d872bbafa851f10c46bff1",
+    "integration/tools/reference/balancer-managed-fees/upstream-config/pool-weighted-hardhat.config.ts": "601b23629ed58d9d30fa9db7a636a3abceaff4e4f0c5cd78c04c87e6965ecca0"
+  },
+  "prior_manifest_sha256": "fbfabdb32f84bad32775280e989bf85e1cc05cc6aa76d8348e2c33922be38ab2",
+  "review_fix": "Reject distinct BPT recipient balances whose sum exceeds total supply; reproduced red and verified green."
+}

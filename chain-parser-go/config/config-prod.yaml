@@ -1,0 +1,77 @@
+{
+  "startup": {
+    "mode": "HEAD_FIRST",
+    "resume_previous_online_cursor": false,
+    "history_catchup_blocks_online_readiness": false,
+    "max_baseline_age_ms": 120000,
+    "max_tail_blocks": 128
+  },
+  "history": {
+    "enabled": true,
+    "namespace": "history",
+    "online_write_permission": false,
+    "max_worker_share": 0.15
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "queue_capacity": 1024,
+    "max_event_bytes": 8192
+  },
+  "journal": {
+    "transport": "kafka",
+    "source_urls": [
+      "http://127.0.0.1:8091",
+      "http://127.0.0.1:8092"
+    ],
+    "poll_interval_ms": 200,
+    "request_timeout_ms": 2000,
+    "max_payload_bytes": 8388608,
+    "kafka": {
+      "brokers": [],
+      "topics": {},
+      "replica_id": "chain-parser-go-production-1",
+      "chunk_bytes": 65536,
+      "transaction_timeout_ms": 10000,
+      "max_tail_records": 4096,
+      "security_protocol": "PLAINTEXT",
+      "allow_plaintext_development": false
+    }
+  },
+  "control": {
+    "backend": "postgres",
+    "dsn_file": "/run/secrets/control-db-dsn",
+    "instance_id": "chain-parser-go-production-1",
+    "lease_ttl_ms": 30000,
+    "renewal_ms": 5000,
+    "min_commit_remaining_ms": 15000,
+    "allow_plaintext_development": false
+  },
+  "service": {
+    "name": "chain-parser-go",
+    "role": "online",
+    "mode": "rpc"
+  },
+  "state": {
+    "engine": "pebble",
+    "path": "../.runtime/production/state"
+  },
+  "api": {
+    "listen": "127.0.0.1:8091",
+    "max_body_bytes": 1048576,
+    "requests_per_minute": 120,
+    "auth_token": ""
+  },
+  "chains": [
+    {
+      "key": "evm:31337",
+      "owner_service": "chain-parser-go",
+      "assignment_version": 1,
+      "genesis_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "rpc_urls": [],
+      "pools": [],
+      "confirmation_tag": "latest",
+      "auto_reorg_window": 128
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "name": "xone-stable-math-reference",
+  "version": "1.0.0",
+  "dependencies": {
+    "ethers": "5.8.0",
+    "ganache": "7.9.2",
+    "solc": "0.8.19",
+    "solc07": "npm:solc@0.7.6"
+  }
+}

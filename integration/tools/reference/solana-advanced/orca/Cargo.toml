@@ -1,0 +1,20 @@
+[package]
+name = "solana-advanced-orca-reference"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+whirlpool = { path = "../../orca-whirlpools/upstream/programs/whirlpool", default-features = false, features = ["no-entrypoint"] }
+anchor-lang = "=0.32.1"
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.138"
+sha2 = "=0.10.9"
+
+# Match the upstream SBF release semantics, including owed-fee wrapping in update_after_swap.
+[profile.release]
+overflow-checks = false
+[profile.test]
+overflow-checks = false

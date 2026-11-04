@@ -1,0 +1,273 @@
+{
+  "binary_sha256": "7f7fe40f0f432b0a53f16869f23cbbcf6497c6033b0faeff2f666707b402a591",
+  "driver_sha256": "5d13a6aa5ee6becd6af7f49494f346e2e40765383914094d844f533f7593fa70",
+  "fixture_sha256": "d9aea39bc88ca3b2d27462a9171d28df7478b091df0d0022f0b6405cf5af6120",
+  "negative_checks": [
+    {
+      "mode": "normal",
+      "mutation": "delete-scenario",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "shorten-sequence",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "source-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "binary-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "compiler-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "dependency-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "native-amount",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "native-post-tick",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "oracle-reserved-wire",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "vault-exact-transfer",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "source-slot",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "drop-native-rejection",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "copy-divergence",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "native-reward-global",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "native-reward-cross",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "packed-reward-emission",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "initialized-reward-dropped",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "dynamic-bitmap",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "dynamic-truncated",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "dynamic-trailing",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "dynamic-flag",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "normal",
+      "mutation": "layout-relabeled",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "delete-scenario",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "shorten-sequence",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "source-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "binary-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "compiler-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "dependency-closure",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "native-amount",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "native-post-tick",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "oracle-reserved-wire",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "vault-exact-transfer",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "source-slot",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "drop-native-rejection",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "copy-divergence",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "native-reward-global",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "native-reward-cross",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "packed-reward-emission",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "initialized-reward-dropped",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "dynamic-bitmap",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "dynamic-truncated",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "dynamic-trailing",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "dynamic-flag",
+      "receipt_invalidated": true,
+      "rejected": true
+    },
+    {
+      "mode": "OO",
+      "mutation": "layout-relabeled",
+      "receipt_invalidated": true,
+      "rejected": true
+    }
+  ],
+  "positive_modes": 2,
+  "status": "verified"
+}

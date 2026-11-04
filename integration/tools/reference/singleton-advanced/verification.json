@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-31",
+  "modified_files": [
+    "chain-parser-go/internal/chain/evm/singleton.go",
+    "dex-router/crates/domain/src/singleton.rs",
+    "chain-parser-rust/crates/domain/src/singleton.rs",
+    "dex-router/crates/protocol-math/src/singleton.rs"
+  ],
+  "new_files": [
+    "chain-parser-go/internal/domain/singleton_advanced.go",
+    "chain-parser-go/internal/domain/singleton_advanced_test.go",
+    "chain-parser-go/internal/chain/evm/singleton_advanced_test.go",
+    "dex-router/crates/domain/tests/singleton_advanced.rs",
+    "chain-parser-rust/crates/domain/tests/singleton_advanced.rs",
+    "dex-router/crates/protocol-math/src/infinity_bin.rs",
+    "dex-router/crates/protocol-math/tests/singleton_advanced.rs",
+    "dex-router/crates/protocol-math/tests/infinity_bin.rs",
+    "integration/tools/ci/singleton-advanced-golden.cjs",
+    "integration/tools/ci/singleton-advanced-check.cjs",
+    "integration/tools/reference/singleton-advanced/INTEGRATION.md",
+    "integration/tools/reference/singleton-advanced/InfinityAdvancedReference.sol",
+    "integration/tools/reference/singleton-advanced/InfinityBinReference.sol",
+    "integration/tools/reference/singleton-advanced/PLAN.md",
+    "integration/tools/reference/singleton-advanced/README.md",
+    "integration/tools/reference/singleton-advanced/ReferenceTypes.sol",
+    "integration/tools/reference/singleton-advanced/V4AdvancedReference.sol",
+    "integration/tools/reference/singleton-advanced/source-metadata.json",
+    "integration/test/contracts/singleton-advanced-bin-quotes.json",
+    "integration/test/contracts/singleton-advanced-quotes.json",
+    "dex-router/test/contracts/singleton-advanced-bin-quotes.json",
+    "dex-router/test/contracts/singleton-advanced-quotes.json",
+    "chain-parser-go/test/contracts/singleton-advanced-quotes.json",
+    "chain-parser-rust/test/contracts/singleton-advanced-quotes.json",
+    "integration/tools/reference/singleton-advanced/verification.json"
+  ],
+  "source_pins": {
+    "Uniswap/v4-core": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+    "pancakeswap/infinity-core": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df"
+  },
+  "reference": {
+    "original_source_closure_files": 85,
+    "cl_cases": 240,
+    "bin_cases": 180,
+    "rejected_callback_capabilities": 8,
+    "cl_fixture_sha256": "a469bad693fb5d83b7530099b6d96d06b1a7e1d875c44879d2eea91bcb9862c9",
+    "bin_fixture_sha256": "c9cbf9876999675dae72303c12d9bfa958daf5c72e1cf25e47641cf5af5d87bb",
+    "generator": "node integration/tools/ci/singleton-advanced-golden.cjs",
+    "generator_result": "PASS; Solc 0.8.26, Ganache 7.9.2, ethers 5.8.0; original contracts executed on Shanghai"
+  },
+  "targeted_tests": [
+    {
+      "command": "go test ./internal/domain ./internal/chain/evm -run Singleton -count=1",
+      "cwd": "chain-parser-go",
+      "status": "PASS; both packages"
+    },
+    {
+      "command": "cargo test --offline --manifest-path dex-router/Cargo.toml -p xone-domain --test singleton --test singleton_advanced",
+      "toolchain": "Rust 1.90.0, explicit RUSTC",
+      "status": "PASS; 5 tests"
+    },
+    {
+      "command": "cargo test --offline --manifest-path chain-parser-rust/Cargo.toml -p xone-domain --test singleton --test singleton_advanced",
+      "toolchain": "Rust 1.90.0, explicit RUSTC",
+      "status": "PASS; 5 tests"
+    },
+    {
+      "command": "cargo test --offline --manifest-path dex-router/Cargo.toml -p xone-protocol-math --test singleton_advanced --test infinity_bin --test singleton_differential --test singleton_dispatch",
+      "toolchain": "Rust 1.90.0, explicit RUSTC",
+      "status": "PASS; 7 tests, including central advanced profile dispatch"
+    },
+    {
+      "command": "node integration/tools/ci/singleton-advanced-check.cjs",
+      "status": "PASS; pins/coverage/byte-identical fixtures and Rust domain mirrors"
+    },
+    {
+      "command": "rustfmt --edition 2021 --check [owned Rust singleton/advanced/bin files]",
+      "status": "PASS; final owned Rust sources and tests"
+    }
+  ],
+  "remaining_dependencies": [
+    "arbitrary before/after swap hook VM execution, custom accounting and fee overrides",
+    "native manager/Vault unlock/settle/take and transfers; native evidence currently key identity/collection/denominated quotes",
+    "Infinity Bin manager/key/block reserve collection and authenticated tree/multiple-bin traversal"
+  ],
+  "shared_files_edited_by_this_slice": false,
+  "central_agreement": {
+    "pool_field": "singleton_advanced tag 29 (implemented by main)",
+    "profiles": [
+      "uniswap-v4-advanced",
+      "pancake-infinity-cl-advanced"
+    ],
+    "typed_wire_methods": "implemented in both owned Rust singleton.rs copies"
+  },
+  "authority_limits": "Manager fixture hashes identify actual reference harness runtime, not production PoolManager; no mainnet deployment or arbitrary hook-equivalence claim. Latest official-source refetch attempt timed out; all supplied pinned source bytes verified against existing SHA256 manifest during successful generation."
+}

@@ -1,0 +1,5 @@
+{
+  "passed": false,
+  "error": "Error: injected source read",
+  "stack": "Error: injected source read\n    at fs.readFileSync ([eval]:5:99)\n    at load (/Users/mac/Desktop/code/gitlab/xone/integration/tools/ci/infinity-bin-detached-lib.cjs:10:99)\n    at import (/Users/mac/Desktop/code/gitlab/xone/integration/tools/ci/infinity-bin-detached-lib.cjs:12:83)\n    at singleCallback (/Users/mac/Desktop/code/gitlab/xone/integration/.runtime/singleton-reference/node_modules/solc/bindings/compile.js:146:24)\n    at /Users/mac/Desktop/code/gitlab/xone/integration/.runtime/singleton-reference/node_modules/solc/bindings/compile.js:108:24\n    at wasm://wasm/0551ebc6:wasm-function[35531]:0xfc39dc\n    at invoke_viiii (/Users/mac/Desktop/code/gitlab/xone/integration/.runtime/singleton-reference/node_modules/solc/soljson.js:945:29)\n    at wasm://wasm/0551ebc6:wasm-function[25435]:0xa3c22a\n    at invoke_viii (/Users/mac/Desktop/code/gitlab/xone/integration/.runtime/singleton-reference/node_modules/solc/soljson.js:873:29)\n    at wasm://wasm/0551ebc6:wasm-function[12293]:0x3c764a"
+}

@@ -1,0 +1,102 @@
+{
+  "schema": "infinity-bin-detached-delivery/1",
+  "frozen_files": {
+    "integration/tools/ci/infinity-bin-detached-check.cjs": "020ce02aa2f156a2188cb0f94f91f53549a8403730c6f2ccc2cd3237192186ca",
+    "integration/tools/ci/infinity-bin-detached-check.py": "dbd1321811d36558d3deee898186cdaffe0c63b0b7bc65b300566dd32a4eb078",
+    "integration/tools/ci/infinity-bin-detached-golden.cjs": "4bdc387a3b60b05d8df49c31a40531dda5899fa14034df2c5c824358ea311d41",
+    "integration/tools/ci/infinity-bin-detached-guards.cjs": "325f4463a2938cf776b5cdd30f68a14c0dea8de4450af8fbce113cf2e06b4ba5",
+    "integration/tools/ci/infinity-bin-detached-guards.py": "dbc377aaa2b94b4d32f3f2cea3b33faa9b62c6f293a5fb5396067fbd3cf3901f",
+    "integration/tools/ci/infinity-bin-detached-lib.cjs": "9ceb69aa3595037c1f4bc4adbd31b4fe397a74f08417735e09776976927b49e8",
+    "integration/tools/ci/infinity-bin-detached-manager-proof.cjs": "3b846bd4ae1c27b92de7e567c712116c2806df9122469232ac45adf864bea1c3",
+    "integration/tools/ci/infinity-bin-detached-receipt-test.cjs": "98d3ace39ebe26016e855b9609f20fc12a110a2c572a34ceded5e6f89ea704b0",
+    "integration/tools/reference/infinity-bin-detached/InfinityBinDetached.sol": "405a4b24854b884cb0ef08be27ffd84b10c3e2b1c1206493eefcf3f3365bcd30",
+    "integration/tools/reference/infinity-bin-detached/README.md": "97a95ea82898301dbdaf51748e5fdd810f4b693e6cddea0e0ac6d8437febf43a",
+    "integration/tools/reference/infinity-bin-detached/Detached.artifact.json": "5af4f52391d469ec9c60a513fe135bbddc43f6b3ed892a52ec0affcd8aed67ef",
+    "integration/tools/reference/infinity-bin-detached/source-metadata.json": "66d9e47787084c6d3e67bc50c1bf4fa124098cc3d9aeaad4be07b5d5b02629d6",
+    "integration/tools/reference/infinity-bin-detached/execution-receipt.json": "5da79bdcd1e149f8ea2f8933fc0a190fdd825851555db0096d20416560329d3c",
+    "integration/tools/reference/infinity-bin-detached/manager-limit-receipt.json": "69a1a23ed95178d7d99ab5848fc2374d70769c345a01173fb28655b74ebd5771",
+    "integration/tools/reference/infinity-bin-detached/native-burn-probe.json": "178c67472aeabba540a67e2e50ab9dcb8034ca5bac7d46eda7e1d6bd8afa80ee",
+    "integration/test/contracts/infinity-bin-detached.json": "2e66f19b9e7d9e858ecbd2f6fff90bdf1973f9f1cd62197d5da8994e396baf3f",
+    "chain-parser-go/test/contracts/infinity-bin-detached.json": "2e66f19b9e7d9e858ecbd2f6fff90bdf1973f9f1cd62197d5da8994e396baf3f",
+    "dex-router/test/contracts/infinity-bin-detached.json": "2e66f19b9e7d9e858ecbd2f6fff90bdf1973f9f1cd62197d5da8994e396baf3f"
+  },
+  "verification_receipts": {
+    "check-receipt.json": {
+      "sha256": "bdc37b97a71f68c3c53be6ea3f6d791c2681efcc2809faa657820935f166e6db",
+      "passed": true
+    },
+    "check-node-receipt.json": {
+      "sha256": "215ebf3676b3822b65bcb21eab9f8865685bfb366785a6673660015927306546",
+      "passed": true
+    },
+    "guards-receipt.json": {
+      "sha256": "3145b7a73691c95be3d70ad1ab383d019f9f7bb0f737f51240aeff8ff5bf3a31",
+      "passed": true
+    },
+    "guards-optimized-receipt.json": {
+      "sha256": "62c0128869f82d2b89ea1115bf1fc704f242b5d549fd166652aa9e68af07982e",
+      "passed": true
+    },
+    "guard-node-receipt.json": {
+      "sha256": "12619c7275ed2b609b898cc413f7f229d6c65d81977386fc53daee27bfda1572",
+      "passed": true
+    },
+    "receipt-test-receipt.json": {
+      "sha256": "5278d9e65047c4302e4e1e5486e73401375fad966ce9b48eb99286ff322202a2",
+      "passed": true
+    },
+    "manager-limit-receipt.json": {
+      "sha256": "69a1a23ed95178d7d99ab5848fc2374d70769c345a01173fb28655b74ebd5771",
+      "passed": true
+    }
+  },
+  "counts": {
+    "burn_cases": 16,
+    "native_trades": 48,
+    "native_success": 39,
+    "native_reverts": 9,
+    "normal_negative_cases": 51,
+    "optimized_negative_cases": 51,
+    "generator_receipt_faults": 5
+  },
+  "commands": [
+    [
+      "node",
+      "integration/tools/ci/infinity-bin-detached-golden.cjs"
+    ],
+    [
+      "node",
+      "integration/tools/ci/infinity-bin-detached-manager-proof.cjs"
+    ],
+    [
+      "node",
+      "integration/tools/ci/infinity-bin-detached-receipt-test.cjs"
+    ],
+    [
+      "python3",
+      "integration/tools/ci/infinity-bin-detached-check.py"
+    ],
+    [
+      "python3",
+      "-OO",
+      "integration/tools/ci/infinity-bin-detached-check.py"
+    ],
+    [
+      "python3",
+      "integration/tools/ci/infinity-bin-detached-guards.py"
+    ],
+    [
+      "python3",
+      "-OO",
+      "integration/tools/ci/infinity-bin-detached-guards.py"
+    ]
+  ],
+  "old_service_frozen_files_verified": 23,
+  "scope": {
+    "original_BinPool_burn_swap": true,
+    "original_BinPosition": true,
+    "original_TreeMath": true,
+    "real_manager_initialize_lower_max_existing_getters": true,
+    "full_manager_swap_settlement_verified": false
+  }
+}

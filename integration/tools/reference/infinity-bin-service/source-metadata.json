@@ -1,0 +1,1738 @@
+{
+  "schema": "infinity-bin-service-source/1",
+  "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+  "compiler": "0.8.26+commit.8a97fa7a.Emscripten.clang",
+  "original_settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 25666
+    },
+    "viaIR": true,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "remappings": [
+      "@openzeppelin/=infinity/lib/openzeppelin-contracts/"
+    ],
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "storageLayout",
+          "evm.bytecode.object",
+          "evm.deployedBytecode.object",
+          "evm.deployedBytecode.immutableReferences",
+          "evm.methodIdentifiers"
+        ]
+      }
+    }
+  },
+  "compile_input_sha256": "a1bcd08f626987be62e62eae795606e661c714c2560a6216c771ffc70d6a718a",
+  "harness_compile_input_sha256": "77426fe550e01d374b8e47ea86544082e1055115bdedb455a07d34de6a999339",
+  "files": [
+    {
+      "local": "infinity/lib/openzeppelin-contracts/contracts/access/Ownable.sol",
+      "repo": "OpenZeppelin/openzeppelin-contracts",
+      "revision": "659f3063f82422cef820de746444e6f6cba6ca7c",
+      "path": "contracts/access/Ownable.sol",
+      "sha256": "38578bd71c0a909840e67202db527cc6b4e6b437e0f39f0c909da32c1e30cb81"
+    },
+    {
+      "local": "infinity/lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol",
+      "repo": "OpenZeppelin/openzeppelin-contracts",
+      "revision": "659f3063f82422cef820de746444e6f6cba6ca7c",
+      "path": "contracts/access/Ownable2Step.sol",
+      "sha256": "c696b0d098360d10654a8e04a26fe39a8602e63926c24bf15e9976ceb9cc2714"
+    },
+    {
+      "local": "infinity/lib/openzeppelin-contracts/contracts/utils/Context.sol",
+      "repo": "OpenZeppelin/openzeppelin-contracts",
+      "revision": "659f3063f82422cef820de746444e6f6cba6ca7c",
+      "path": "contracts/utils/Context.sol",
+      "sha256": "847fda5460fee70f56f4200f59b82ae622bb03c79c77e67af010e31b7e2cc5b6"
+    },
+    {
+      "local": "infinity/src/base/Ownable.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/base/Ownable.sol",
+      "sha256": "9bda884c9e30d06ffb9ff3745c6c61f5b6b0aa74361b8e409e0e539366e826d7"
+    },
+    {
+      "local": "infinity/src/base/Pausable.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/base/Pausable.sol",
+      "sha256": "ffbbf91ca47a4989a99ce4e606bd3816515708376262dd117cb0f4c706d95a84"
+    },
+    {
+      "local": "infinity/src/Extsload.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/Extsload.sol",
+      "sha256": "182ad40f19c2c7e462a018b776db979fce8466f54c4ba80f0321bda9d7e7071b"
+    },
+    {
+      "local": "infinity/src/interfaces/IERC20Minimal.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IERC20Minimal.sol",
+      "sha256": "6ff11bfbf1dd787543aa0ce52ac8eaf6ac78a6a9796e54d5db36f6ffaef4cd3b"
+    },
+    {
+      "local": "infinity/src/interfaces/IExtsload.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IExtsload.sol",
+      "sha256": "dceb24fe3ce5ef0a3ea2db15955f6d1834a5224db7ba6e36810137160f722898"
+    },
+    {
+      "local": "infinity/src/interfaces/IHooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IHooks.sol",
+      "sha256": "30ce158a6b404db4aa114df0a13d778399d37a6fb443ab30ffb8c3cc83242eef"
+    },
+    {
+      "local": "infinity/src/interfaces/ILockCallback.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/ILockCallback.sol",
+      "sha256": "2a1229449a5bfd2d7b3629f6ff2d0e0993a5f546722d7895c82901a71b96f0d9"
+    },
+    {
+      "local": "infinity/src/interfaces/IPoolManager.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IPoolManager.sol",
+      "sha256": "718e1fd8471395bc410d82ac2b6fdb9ed174a17a9ecd3471df8c7c6ac2fa3ea5"
+    },
+    {
+      "local": "infinity/src/interfaces/IProtocolFeeController.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IProtocolFeeController.sol",
+      "sha256": "8eb85b3da1f7c41a277511713a9ba623332f7cd05d4bc912aabc1fd794eccdd8"
+    },
+    {
+      "local": "infinity/src/interfaces/IProtocolFees.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IProtocolFees.sol",
+      "sha256": "61d6048509fa3cfe147a926d55add790cfff2dd23d74962115d4e5d92f2f205e"
+    },
+    {
+      "local": "infinity/src/interfaces/IVault.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IVault.sol",
+      "sha256": "96c3e74f3e820df6ebd8bc3e993544eb422406523a9e6cbb51fe415a36dbc149"
+    },
+    {
+      "local": "infinity/src/interfaces/IVaultToken.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IVaultToken.sol",
+      "sha256": "a3f96eb4bf2b0eb3f0e86a7ecadeb028a56181b5cdedf52c466423f12237de3f"
+    },
+    {
+      "local": "infinity/src/libraries/AppDeficit.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/AppDeficit.sol",
+      "sha256": "b1914ad1fa331d3d04f1add5d3477c6e591db42714c6bda38afe5f96638e4ca5"
+    },
+    {
+      "local": "infinity/src/libraries/CustomRevert.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/CustomRevert.sol",
+      "sha256": "76756d233bff4f67911e2e2592d3c09e6695a28a8323dd146180b0e47a0bb64d"
+    },
+    {
+      "local": "infinity/src/libraries/Hooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/Hooks.sol",
+      "sha256": "d9cbb988f9ec56efceafe9be1a2d0bfb64c27874fe853e9f63214ce79d5f78e8"
+    },
+    {
+      "local": "infinity/src/libraries/LPFeeLibrary.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/LPFeeLibrary.sol",
+      "sha256": "1a1109453400bc648d617386fb2fd156fb8f3f9f683a563069e90056cf9319f9"
+    },
+    {
+      "local": "infinity/src/libraries/math/Encoded.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/math/Encoded.sol",
+      "sha256": "3b6ae09491a8607666f8c0cead5da49e9f1d82ab2b745109f510a820eaac113c"
+    },
+    {
+      "local": "infinity/src/libraries/math/ParametersHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/math/ParametersHelper.sol",
+      "sha256": "ce5cae62c8b6f8c1d3082eae658ee34a795a93de5ee7dc7336ea0c9c53043271"
+    },
+    {
+      "local": "infinity/src/libraries/math/UnsafeMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/math/UnsafeMath.sol",
+      "sha256": "ed9c676e6ceeac9cce81f73ca66142e2feb08a617440f2192fff5b4199f18798"
+    },
+    {
+      "local": "infinity/src/libraries/ParseBytes.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/ParseBytes.sol",
+      "sha256": "38c5d47e3726a3fe97ac056699bdc0bd7a2cff60a0c6b47266a73f6db3be08dd"
+    },
+    {
+      "local": "infinity/src/libraries/ProtocolFeeLibrary.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/ProtocolFeeLibrary.sol",
+      "sha256": "797bf2f9383e5bb815d068175a4b89b309b15e0455c882d5ab00d4adcbae13d8"
+    },
+    {
+      "local": "infinity/src/libraries/SafeCast.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/SafeCast.sol",
+      "sha256": "5f481027b6aa740329ee501da6732f1f01f398368ebf4bb87350b9b01e5e7c3e"
+    },
+    {
+      "local": "infinity/src/libraries/SettlementGuard.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/SettlementGuard.sol",
+      "sha256": "cb4db64b7cc9a2ee7409c9bf86cc47426ccf89d8a0695f0ffb2042e22eb2fc02"
+    },
+    {
+      "local": "infinity/src/libraries/VaultAppDeltaSettlement.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/VaultAppDeltaSettlement.sol",
+      "sha256": "ccf08e4d526b29536b98c28ec9111a61b59553ea110f137410f5c3422541578d"
+    },
+    {
+      "local": "infinity/src/libraries/VaultReserve.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/VaultReserve.sol",
+      "sha256": "0c67e134b2f531c7fa52192bfb64507c12dc5e9fb4f94c48990730284d1df188"
+    },
+    {
+      "local": "infinity/src/Owner.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/Owner.sol",
+      "sha256": "6806213b2cdf0e4dc605639a3f46309ea8c6a586dbc3870f83c976013192e331"
+    },
+    {
+      "local": "infinity/src/pool-bin/BinPoolManager.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/BinPoolManager.sol",
+      "sha256": "fc87c307cb6d519e7350ae05486e17bed72cb07b3a8f4ea96e83a64500b5af3e"
+    },
+    {
+      "local": "infinity/src/pool-bin/interfaces/IBinHooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/interfaces/IBinHooks.sol",
+      "sha256": "e64d4a2fa887c13512866350f1f9677970ea2d04f6654cce63780609953e040e"
+    },
+    {
+      "local": "infinity/src/pool-bin/interfaces/IBinPoolManager.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/interfaces/IBinPoolManager.sol",
+      "sha256": "cd1d173cfebea734f0a9badf9762c7706f36d3c04e2ca991ba02d9cb1d85575b"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinHelper.sol",
+      "sha256": "cb6395b7ad0ad3b4af64af4616f9223becfbdedb8954c6e27c66f444d41e1f57"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinHooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinHooks.sol",
+      "sha256": "8ecec815424295547b21abeab12fe114c20a74165212c9471d5363d51c6cdbb4"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPool.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPool.sol",
+      "sha256": "e759a1eb030e9661d6a5612ba10a183ca1e8802b9fde796eeae24568b943172d"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPoolParametersHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPoolParametersHelper.sol",
+      "sha256": "7c4d93117c0e49dd38362be5ec24816322715bee6a82fec9d0875d7de8edc6ad"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPosition.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPosition.sol",
+      "sha256": "0df4c512992b7f967f48c863deaeb44bc2603a8f80b76fff6ac9641f930c66fe"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/Constants.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/Constants.sol",
+      "sha256": "dfddfbe682b726fe66a069cd8eabf0fee3f0323c2b4bbcc9c4ba0942593bff85"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/FeeHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/FeeHelper.sol",
+      "sha256": "5476bcc9c96ceddfa014ed7aaa1c8382e9860c3b92a76200372eea6d5dd8f665"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/BitMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/BitMath.sol",
+      "sha256": "32d6adcb702a57628640167cff9b5e32138202e43096fb70d45e07ac26b5e4b8"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/LiquidityConfigurations.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/LiquidityConfigurations.sol",
+      "sha256": "7a53ad9b1242cb51129b6cfa436cb08dc716ca71c79a47e171bd52c9e4329e67"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/PackedUint128Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/PackedUint128Math.sol",
+      "sha256": "4a269e48f273c21f091ac746174c2a100f307f4ea8a5c99593db5025ec041fba"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/SafeCast.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/SafeCast.sol",
+      "sha256": "6d707e3ea3d7c78503b8047d4dbc4ff9d9dc410d23ddeac3ae4127b3c60a98fb"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/TreeMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/TreeMath.sol",
+      "sha256": "4c725f5646a9e2e8cbcec6d7574c542c7a6c86a112d3222f18531d31b58d63d1"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/Uint128x128Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/Uint128x128Math.sol",
+      "sha256": "cb33ccffad99b96fc0ae4102484679e4754384aa0e75474fed39a47748e88caa"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/Uint256x256Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/Uint256x256Math.sol",
+      "sha256": "00da35a9498c9d34d54bd02b997006ec9ee228be0ebfb824e11524a5f650ef62"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/PriceHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/PriceHelper.sol",
+      "sha256": "fc5c406023788bec99fb0fc54db92a6bdc5988de54c9e4f53ddb2584c0fa88d6"
+    },
+    {
+      "local": "infinity/src/pool-bin/types/BinSlot0.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/types/BinSlot0.sol",
+      "sha256": "afccaa634c1f0264bf435d9f21ae304fc7c75cc17e45f3203f9de6b169117118"
+    },
+    {
+      "local": "infinity/src/ProtocolFees.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/ProtocolFees.sol",
+      "sha256": "a47cb69415db23653d07ae59b24102ebc342c956c3a2d0e8231e8f7b2d6ca941"
+    },
+    {
+      "local": "infinity/src/types/BalanceDelta.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/BalanceDelta.sol",
+      "sha256": "21d2bf7fe91a833c8b1e3e5449ff02ac9985407cb74b3d6fa5601f866273538a"
+    },
+    {
+      "local": "infinity/src/types/BeforeSwapDelta.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/BeforeSwapDelta.sol",
+      "sha256": "20acac39c94038d3d1b442d8875d278ebfc607627b6787fd905b0c3b6d6e0dcb"
+    },
+    {
+      "local": "infinity/src/types/Currency.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/Currency.sol",
+      "sha256": "f4fb1af78330e0cc57e23a5113e47d8a42311299daf315f93f9396fdab006e2e"
+    },
+    {
+      "local": "infinity/src/types/PoolId.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/PoolId.sol",
+      "sha256": "e6268d56e597e2329a08f6314a325b84f390ddb2c7aaabb54608612e207f1e32"
+    },
+    {
+      "local": "infinity/src/types/PoolKey.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/PoolKey.sol",
+      "sha256": "fa8dcf8e00613ebf854dde29a0eda37b5fb940bff99742809e24d8854bac0461"
+    },
+    {
+      "local": "infinity/src/Vault.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/Vault.sol",
+      "sha256": "0ae96788a4f518b506f332877abd6f7c976a0f41e2ba006c1625acea11767ded"
+    },
+    {
+      "local": "infinity/src/VaultToken.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/VaultToken.sol",
+      "sha256": "9644e503594f19fdacd2ad3a50c3e9f209fa8417397388011092d196e6474229"
+    }
+  ],
+  "dependencies": {
+    "solc": {
+      "version": "0.8.26",
+      "package_path": "integration/.runtime/singleton-reference/node_modules/solc/package.json",
+      "package_sha256": "9494c7edadfabf5324cddf25b183a39de16e801476491c5686ab3a10ff20ea83"
+    },
+    "ganache": {
+      "version": "7.9.2",
+      "package_path": "integration/.runtime/singleton-reference/node_modules/ganache/package.json",
+      "package_sha256": "8b257b4387f16176518127b21943fb451c1aad4c8f586eb8d7a3caa00333fa29"
+    },
+    "ethers": {
+      "version": "5.8.0",
+      "package_path": "integration/.runtime/singleton-reference/node_modules/ethers/package.json",
+      "package_sha256": "d22d04ecd8c6a6a0faf019db35732c403d121d176e05b0fcd0c7658a5ea7b7f0"
+    }
+  },
+  "loaded_dependencies": [
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/_version.js",
+      "sha256": "0f13a7a1ba63077c3497cc84e717d5ab41d1c0eb24fbc31c1b6db7934f77ff76"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/abi-coder.js",
+      "sha256": "404ff1cfcdc73fce4c68d2dd26d271502f22cdf9bd2f88153b5baf96e10ef96c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/coders/abstract-coder.js",
+      "sha256": "8cca1b29cf501135923d91f8abf7c6026fd578bb166f9f728042d36c05858550"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/coders/address.js",
+      "sha256": "259871f5844afa69115a26c029b4313de500815502ff6c08f9fbdb7324cbaa00"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/coders/anonymous.js",
+      "sha256": "92404f659bd2508e0f7cc5a601f5e4ace8b6dfee45296fe09e96f52594822e27"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/coders/array.js",
+      "sha256": "5079b255665375f4f2a8dcd0c325b696c8ee9f1613a2c64125e950fbf65bef98"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/coders/boolean.js",
+      "sha256": "376868fcb6695796f9816b1c960dc411458366b4cc414a6c96b7b15d3bd1916e"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/coders/bytes.js",
+      "sha256": "9cf23b71b667fd7e5c59eab370a37666f63516c7b95069078e6d890916b35d10"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/coders/fixed-bytes.js",
+      "sha256": "39fdb29fe55f0c49956d3042a1cd20fc0a7f24d0155911663667cd62fc5440ac"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/coders/null.js",
+      "sha256": "114dc48ce6f0df02de6cd99b552414a91d7e8299f7646d0be20fe7b095e2aa2b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/coders/number.js",
+      "sha256": "6ada94325ef1c3ebecc8681eee49a8ee44d37da50e417a8e81db2179f478a3ba"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/coders/string.js",
+      "sha256": "73b91d223e66e1f71c6790ec71a89a0c6dd0d945ca20f88d7a41d3c3d9d9d4dc"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/coders/tuple.js",
+      "sha256": "4bb68393b8e0f099117a0caa0def9f1821f9fff6f378732b09c50465bc26ad57"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/fragments.js",
+      "sha256": "0f7bfd8c7da354bd3f394ca47827bfcb9865b9bb0be379b6d95bb023e8107171"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/index.js",
+      "sha256": "bbd8704aefc712686ab398cd3bacdd6f6a9287f35dd541e4079f5c9cfe42e892"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/interface.js",
+      "sha256": "65e779059622abfc65c7dfb12d3e73b9e17863e356644af94558ee1ee20f8734"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abstract-provider/lib/_version.js",
+      "sha256": "0fb35f3e77305fe7ce8946c9e80585da1a3a5de2877cf2fc7baf8de90c19a083"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abstract-provider/lib/index.js",
+      "sha256": "0178acac3fa3da6713841bc2ee1c1884707f06f7503914ab11a216b4d31b806b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abstract-signer/lib/_version.js",
+      "sha256": "55cca31b8d8b7a91a1ab557630147881394bce558a35acf358572f08f85afa39"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/abstract-signer/lib/index.js",
+      "sha256": "f7f8a38ad4a2947735341473c7a99821516b609d2712c7712f3e07c9da032941"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/address/lib/_version.js",
+      "sha256": "730530e1c2313f2af191810078b2c2e0219f5ce0e2fbd9dd529c764c3f4e7356"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/address/lib/index.js",
+      "sha256": "68763644be0088c47d9f45be8e3db309432827546d80a5eae4eccbb713db7729"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/base64/lib/base64.js",
+      "sha256": "3c73d17bb05cd12751f69a848506a1ecd79749780605d2d5a346f88b964b559f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/base64/lib/index.js",
+      "sha256": "4f5d2ff0b9b66237b3c066f3f61b8223eebfcc6961f1096ece230240ece0dc7d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/basex/lib/index.js",
+      "sha256": "f49081275dac1ead8099505d5e53e0f371b001e1bfa5bf83b4d444ed4dd73973"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/bignumber/lib/_version.js",
+      "sha256": "0fcea4637f0c7f556f1f95a8dfb9ef2e8bf29f8dd657783f4264067e2ef88069"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/bignumber/lib/bignumber.js",
+      "sha256": "a79f3d51ed9082b4199351648c82f5c330bd9387a84ee5b84432a2f75ab902d1"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/bignumber/lib/fixednumber.js",
+      "sha256": "fc3e98aaf5af258d5cf1147081cb40e9bf93674bb023affb76078883b8db430e"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/bignumber/lib/index.js",
+      "sha256": "6a9d917731c402aa1a258746dcf76e78451459e4c2cae9ff5e6c09b56026cd75"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/bytes/lib/_version.js",
+      "sha256": "0a5b55ac898c326db80bbe3659b3c0e482f20ad64b676ea7cd8bf1885f6130e4"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/bytes/lib/index.js",
+      "sha256": "0b5832cef3c2b411d41a94a311691dd26287f0fc639b3a11bcda2249fd90be6a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/constants/lib/addresses.js",
+      "sha256": "863ca7aa149db4951b80c80f98c3b159fcac86ee41135158ce1f4e090084c348"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/constants/lib/bignumbers.js",
+      "sha256": "d32fb19fea12b98f2bb0fd566dff72ab0303c5accf6172d454fe75cc2278ed25"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/constants/lib/hashes.js",
+      "sha256": "6d2b458110d41b8f63bba8dd7411c395d7689fb24470dd70772bafe262290387"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/constants/lib/index.js",
+      "sha256": "9ed942fc14381879ac552306112c1b2eff353c19c56f3f1c1dabc7c304573bad"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/constants/lib/strings.js",
+      "sha256": "7795850d405e98a5f1a461a8389bcba411da1372cf79afa249330af3395f00c2"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/contracts/lib/_version.js",
+      "sha256": "24bfb99fcab9ce0984484930702de25acffeabad4e5af78a9755a88b8dc76791"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/contracts/lib/index.js",
+      "sha256": "365b50923d8701880c58bf430f81e088985d40494fe2a9d3053a89491c236c22"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/hash/lib/_version.js",
+      "sha256": "1b4c59d6f22608c820728aeaccf6719497681edc8ce53a1a9c1d40f1a91e2775"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/hash/lib/ens-normalize/decoder.js",
+      "sha256": "78090fd536d5bb4e99425ee96ca2374f31fa808de55706f1ec3a6c804b239da0"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/hash/lib/ens-normalize/include.js",
+      "sha256": "6d92b51ce776db85d0cf6e20c44db6841305b7e165a3ef199cc4659f0facd9e0"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/hash/lib/ens-normalize/lib.js",
+      "sha256": "2f608a9d4cd82e8a2399d4b455d62f31b2eccc326f7dc571fcc4aa90b01b1a4a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/hash/lib/id.js",
+      "sha256": "024a4321c798222be4fd3210e046a156722fe326c444d4af8f9cb4dc372983bf"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/hash/lib/index.js",
+      "sha256": "fbd14370c2b9a5c0fc6a7149a5b94e3b323abe388a865a8c88c20ce4855b3ea6"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/hash/lib/message.js",
+      "sha256": "34c366b2205735276ef15795aaca63565f4122acf0067a404b25a5ca5a4e69f6"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/hash/lib/namehash.js",
+      "sha256": "2b222e679d9be07162398fce9a020651d581ac20bbade040f07f0da2a5f0b6c0"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/hash/lib/typed-data.js",
+      "sha256": "6a9626980f3d130c45e10ffaddd74ad6525603c209ca4a6b7b6e3939aaac588f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/hdnode/lib/_version.js",
+      "sha256": "ff0d9ce0ca7d5f121dd743f93234bfb4b87e94f988139ae5fb1d6f7f57c51a40"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/hdnode/lib/index.js",
+      "sha256": "5f0080e6f6a7bab4cebf73cb980e0b7145a5be45940c16c5e918224b06ee29b0"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/json-wallets/lib/_version.js",
+      "sha256": "8bad57c18b7a317d8c2caa4fd58d6d5a8478e66690b9f8a05651195c53b288ce"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/json-wallets/lib/crowdsale.js",
+      "sha256": "8b4dc8b2de18be73e7e73c8c31161c10efaf86bbc631c9de1f98cbbccea67ca7"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/json-wallets/lib/index.js",
+      "sha256": "37a477dd1860bf4c2bc9d227f73fdb88913001561e5158fda3825f6e25ee1422"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/json-wallets/lib/inspect.js",
+      "sha256": "5304548da0000745ec019f5b4b635c837533eda6243734ae103b1691ac51d56d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/json-wallets/lib/keystore.js",
+      "sha256": "c6158baffa469f43e386a3b0c9d3fc4d28052527e444d1538aed2e2fcdaec39b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/json-wallets/lib/utils.js",
+      "sha256": "a7b127a9361011bb12b8441d6ece207b01cc4bfda0f93ed8ea940e5e759c4462"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/keccak256/lib/index.js",
+      "sha256": "2fc30ba5812d03a6faab6376d3d7387762abf60ce9001bc57ab89e21d44cf201"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/logger/lib/_version.js",
+      "sha256": "88cead3fcafd93e5093900a3e00492f88dc4835dce55789501071200139ab7fa"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/logger/lib/index.js",
+      "sha256": "dc727f0ae3be5d72584bffe5d40228a1cc24cf5cf65c4ac7b918eb00fb619daa"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/networks/lib/_version.js",
+      "sha256": "a6ec701b8b4f761dba64fcf25370530dda3f6762f7994625fdbad0e9d0e4b20b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/networks/lib/index.js",
+      "sha256": "a627cab00eef0b2c57e38b228f528d67699925d67a577ce85411d00a828b7428"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/pbkdf2/lib/index.js",
+      "sha256": "cb1c7a4813f1e93de9e68bdd2c87fcf7e76a00e9f421f717a6ff5c73d471c6ca"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/pbkdf2/lib/pbkdf2.js",
+      "sha256": "5f728106cecb7d47cc68823f43fc122fb33690b02798772df64a4f234a54cc3d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/properties/lib/_version.js",
+      "sha256": "45f29b31f24d553bad73a02470b420c159e4043939791aef470571082e77eee6"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/properties/lib/index.js",
+      "sha256": "68409058d7815726aa29d9dce35beb11afe576c731fbfda407185f554beb1f0b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/_version.js",
+      "sha256": "144ae094346cfd8eab2199fc848ef43ebbab2b67f08d0952f42418f4a660afb7"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/alchemy-provider.js",
+      "sha256": "784a1ff72c253b6e869f5f20347187d23db10d085ba38f3ffac71853a49a8874"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/ankr-provider.js",
+      "sha256": "019109e03318f31fbe9369d90affe73ea2a371928c76f5ad96556f7523089ffa"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/base-provider.js",
+      "sha256": "c47095cd6b0e68516f78d33f8c97682d9b5cb926b397a14c427cb0fba003f9a1"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/cloudflare-provider.js",
+      "sha256": "5ec632e99f9f7e19c40cf0e7d5bf3573fa65023a81064400190b7e26229f4a5e"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/etherscan-provider.js",
+      "sha256": "7ab2211e7c532663740585f0b1a9cd37991e026e92efdbec20bd51aac52c6c26"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/fallback-provider.js",
+      "sha256": "4ebc8c3068c4c7620982266851a5e8907a52d3cb5edce8ea33d728cc50eeb358"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/formatter.js",
+      "sha256": "98b8b40b47bdd5e8b276778e4e635db9b9589baf19bd1b9301f326b712117272"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/index.js",
+      "sha256": "0e1cc12a34ed997b322e915c68a31f51c45fb779e52140498f981e18d8f7cec5"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/infura-provider.js",
+      "sha256": "fbd150b7d84996ebe8b94c701f4f49b618c2ffb7be473ae5ee1cce37ad232c11"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/ipc-provider.js",
+      "sha256": "02b10eae4269baee414aa7e127e2f3feaec08430e876c52418bd21de86cda637"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/json-rpc-batch-provider.js",
+      "sha256": "382b616b161633926efebfd4293ff70351abd047581cc3a5e2e6c37dfac0376a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/json-rpc-provider.js",
+      "sha256": "45a572c10043eed33c13694d0a2af6ddae0406018ddb1ebd098caf72042ac158"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/nodesmith-provider.js",
+      "sha256": "571fde74c04eedc15ec6aa51cf5b13fde7cef94d83011cd892fe5b854e05bc7e"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/pocket-provider.js",
+      "sha256": "f081217a19457dd4cab95861545e8deecc78fbf30d8e3b047e22c78338109f0a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/quicknode-provider.js",
+      "sha256": "6a970ec502a4c41c8acc7c3ba191a2e85649022250ec9b38630271da75f4e449"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/url-json-rpc-provider.js",
+      "sha256": "581b7596b082aceb8ed4ce967407c9eb31166afdda91d31dd858cb0a4410962c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/web3-provider.js",
+      "sha256": "5d26f38d12e44765c5cea4bdea3de2abd2c37bf085bf070964e4cf6eb20f4f84"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/websocket-provider.js",
+      "sha256": "b820c15af176c253e1d6fa94ca9bbd030a87b18c7e0b6971338373b2d90508a0"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/providers/lib/ws.js",
+      "sha256": "f39b67255141fba6cb77d8c9095b423dc3090b831bb66fb55e13e995992b3581"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/random/lib/index.js",
+      "sha256": "2009121f7b64b2df7e4bbc11d413805b251935fceda3adaf82db9a5c291e65fd"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/random/lib/random.js",
+      "sha256": "59adc4044b86a686f7dc2cb1a886e435af86ede9d6f60fc6cc3bc10d769bc3e3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/random/lib/shuffle.js",
+      "sha256": "6aff427ebb9be26dc6a1a4577fa8b14a7c509c655c97177efe64fef34310bfe3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/rlp/lib/_version.js",
+      "sha256": "e0160761a666de83b39a0a3a782249643c288af2cb1a76155c3babcbe1fdcd82"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/rlp/lib/index.js",
+      "sha256": "c8cb2c3ae5e87824bc0f31489d0edf44b2983dec0e552693e69c12fed98cdc67"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/sha2/lib/_version.js",
+      "sha256": "a0be19ad03bd8072ac5ebee633a526d03eb3e3c66b403cd02a89014d2e8caa85"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/sha2/lib/index.js",
+      "sha256": "da4cdd6f7acf76b3447047e02702ed93410806754a417b777ff3103c74070dc0"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/sha2/lib/sha2.js",
+      "sha256": "89c04f9d18dbfd474a55f7d4327e69b2d8db045c262a329076129f0ad9ebf305"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/sha2/lib/types.js",
+      "sha256": "9b58acdb0f98aa97dc7c4324f864db065907c99d5fd20334969de61850a36639"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/signing-key/lib/_version.js",
+      "sha256": "18c6ffe9c798e995e92ab023b21f8c181408f1d38bb32c100b8280d30c625a8d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/signing-key/lib/elliptic.js",
+      "sha256": "6f1f90d9e9d4b7a51c1097604a3a1801b099eae5b6d83f5361c1963b013ffca9"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/signing-key/lib/index.js",
+      "sha256": "c6125296029a3c7b0a5fe6b26c3ee023fcc6d704014a0d842c7e772aa836984b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/solidity/lib/_version.js",
+      "sha256": "e13399ccac5a74d4480806f1620cfaa908e6820ca2f7339f38bae64daa990ace"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/solidity/lib/index.js",
+      "sha256": "6879ed2fe4268138c360f1f1fa7727b0321c140d4169e3b3cddbf09f5fd7049b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/strings/lib/_version.js",
+      "sha256": "c9d08f949f11e30a05cdb2dc6ab80ca4b1849f50c0ef877c845fc4d951aa4545"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/strings/lib/bytes32.js",
+      "sha256": "ff26562692eb254320f58cd924f9991c13b3a80266ba861fad2b192075508e73"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/strings/lib/idna.js",
+      "sha256": "854471ebb27c9e2fb39563e1faf28bb5476276031d4f5759c8169ed4bb39f560"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/strings/lib/index.js",
+      "sha256": "31ca9ec257cc8f2deaea8f27578a990e2e3b453aae09539fd1c676eccb36e2bf"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/strings/lib/utf8.js",
+      "sha256": "a6506f12392747a4046c31fec05c083b3feb6a91e5248e851da57bfafe123209"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/transactions/lib/_version.js",
+      "sha256": "e6301735a4e2366907dd46b8853c36947406ee7f7f580a837fc85ea6db07415f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/transactions/lib/index.js",
+      "sha256": "688d757af5babea8448ce46cf06933fe89f940137d2eb25ecd5e826e6cc73460"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/units/lib/_version.js",
+      "sha256": "8930a6e3ea6d3830804efaa511ece88a5f4ccfe33769ca2b02964f4dc1b3eb32"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/units/lib/index.js",
+      "sha256": "bd9ae9a70727d5796012d82bf34d754e278552d15885e5fb1373040e477acb28"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wallet/lib/_version.js",
+      "sha256": "09cfbf51d3e11bd5706897a04412bfc9acc268a46a2cae4d63b81215da1bc0e8"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wallet/lib/index.js",
+      "sha256": "125f18ef3d739663d955ee3004b41ef9850bdd570625ac2882dd9e44e8a8fff2"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/web/lib/_version.js",
+      "sha256": "26d1cf2c569e4ceaf55bc5bd28884589ca18c2d495d9d405f7d361e26a07b738"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/web/lib/geturl.js",
+      "sha256": "b01c3ba905b2ffd2bf5bdc6a448f90fd1c5a57b6641be96c0905cf906ed293fa"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/web/lib/index.js",
+      "sha256": "42d897ec0f06edf49bdaf477f0187d6c303ab53069dec91c03746547cb394bbf"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/_version.js",
+      "sha256": "fb456acacb3eefc1175148ea97881edac7cd41ba8c8e499f373be2562935f81f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/index.js",
+      "sha256": "20b367ad8e440a9381d42ed1ae2f07891de08b3e082b62746034647d8c6a1183"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/lang-cz.js",
+      "sha256": "6153a500f500fdbc2cd3e204d66b8796ba008f6bade3d097aa845828d8ef4fc4"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/lang-en.js",
+      "sha256": "bbb9a5ba51a018a333bf5a171106c6b94d0141dde638fcca4ecccc8874aaf461"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/lang-es.js",
+      "sha256": "80a8a8ced175e98e940b2340e57b4281ef737d0d943053fb74c8aca2955ac1f0"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/lang-fr.js",
+      "sha256": "4e53158d03cf3ff7b8ed0364c68fb415516e69d430558352ca62ad5b05f31e7d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/lang-it.js",
+      "sha256": "0ccf97f3e0952a7c22f2cd0f6aafd5ababa0e358eb1a8502fcc5b6a9b51c0e47"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/lang-ja.js",
+      "sha256": "6da66aed7eb1d5e91af84376ef73ec17aa3b9ed4c9bb592a87b9b34b1d8e9a90"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/lang-ko.js",
+      "sha256": "949eefb461e872902766b73e8fdea5d8e84faf2bc5879aa2051e648fd52a386a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/lang-zh.js",
+      "sha256": "14aaffebc1ea427ac72a8861409a0163838bfcdc24c14dfaf9229cd29ee4f2e4"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/wordlist.js",
+      "sha256": "9bbf084524bdab58e89f156fdb5adb34cccca479c5714289f7930bc5e0808e62"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/@ethersproject/wordlists/lib/wordlists.js",
+      "sha256": "12f26f6d718923439d4ad4ffee498429ea040b889d91768c33208cd27f33aeae"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/aes-js/index.js",
+      "sha256": "ace3aac32b9b652c288f94b9ebba0fc2b77ab601aca16bc9427c03f830f57b07"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/bech32/index.js",
+      "sha256": "f6f236d9a3c595b9d7660d96a3d12fd1946cba89abd625d8bb3f66ab02185d9f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/bn.js/lib/bn.js",
+      "sha256": "1b3516df7d559a221354db5cca56531d5c189b328abbf07dc97cdd6a0812983c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/brorand/index.js",
+      "sha256": "3deb9a82f06f1add80673ea960f409fb3d456bf9e74192ecfde453f0b56d9ee4"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic.js",
+      "sha256": "4e8c1663591fb20084135f56edbb5aa7425f2b4e6e11f70c23a94c94f7f6d946"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/curve/base.js",
+      "sha256": "14aeb577b6509519d50c2c3f6c17faeef3e29d4fe126c8b60435f547fa76a2f5"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/curve/edwards.js",
+      "sha256": "0efb2fc9bf9b4200daefa187c9aabdbf957e6c0adac99c14dfb26a2132efebe7"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/curve/index.js",
+      "sha256": "7fbd44a1c712c2b651dffab914b156e4f0bcc8ca09f4d9e422e8542ca770f829"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/curve/mont.js",
+      "sha256": "adc64d96bd2a3530559e1e9db9fd11fb79b8ecb6914ccd7ff07ca4519e0e5ffe"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/curve/short.js",
+      "sha256": "ff57ccea34340311c170dbfc2d249a261590deda75f8c586e5f3d7d679b79890"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/curves.js",
+      "sha256": "7b2955d3137649d603d890e25e96d199148a93255e98ea9a495bdb4f1f0ffdf1"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/ec/index.js",
+      "sha256": "668741c0c921bf5174439104e8fd20636578373cbbd28736ccbcd8e59a5aeafc"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/ec/key.js",
+      "sha256": "08183de5864bcf40879a9f4fb3f0b3d3b30b557352457c98de8aab2de29396df"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/ec/signature.js",
+      "sha256": "e22eb27aa99f94f09f07446779a63ddddcc0023a248ce8040e8acd17ae748e72"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/eddsa/index.js",
+      "sha256": "47cb886aee78234d311ec6be032cad1b17de9bd60dcde34de76c2bab9b16e9b5"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/eddsa/key.js",
+      "sha256": "5f60791423f74be8b8792b50d54bec96dc8b11d0f4979761a91ec810d4f051d3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/eddsa/signature.js",
+      "sha256": "867e563e9804ba4502f70704bdadc8b14a792cceb968a2e9460bb72f456281a0"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/precomputed/secp256k1.js",
+      "sha256": "9e383365793650467605de197cdb71e09c22ebcdc02c5336873412c14c81bac7"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/lib/elliptic/utils.js",
+      "sha256": "3eb8452d1321ec02862fe00a6afa69b12e6ef7d6633108919f1d4f3b069be90b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/node_modules/bn.js/lib/bn.js",
+      "sha256": "6c67724e6d6ba2c42e098ffa680148dda95364afd565c2b1f72c966f26bd2cf2"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/elliptic/package.json",
+      "sha256": "6fc56c88cf0e6bd7050d7f2630e9ef91b6687b8163f8dbe7444f11242052d51a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ethers/lib/_version.js",
+      "sha256": "2cf0e7b16d3671ae1b235eb7e7aa79fc9844e8d389c6f9202231904c844d7082"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ethers/lib/ethers.js",
+      "sha256": "e3a7f968acbf4fb3e617ded7440246e19054e95af2604c1351f34b624b008354"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ethers/lib/index.js",
+      "sha256": "c8e43f775dc36843537acbb3f5169948b2ce4c84f4c6b011bc3bd4e9a6f54cee"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ethers/lib/utils.js",
+      "sha256": "0fbd12e6d29b51be1808529db5b28dc9932c51741228ef8f620ae9defbaa4d22"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/follow-redirects/debug.js",
+      "sha256": "8dbf7e71a9292be180e3469a6b7a164171d3c39dec79e5dbc4aa1c9f09509faf"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/follow-redirects/index.js",
+      "sha256": "c93380e360cdc3e7f97771e542f99253b1527f0650bdef32180bcf012840e1ce"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/dist/node/0.js",
+      "sha256": "86b95378d5e1a09539db8893189a7051f3885e27e0b623cdfe735de3637ae34d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/dist/node/1.js",
+      "sha256": "8d4c31fa2be7d56d46262dec7adf8e75a841c30b8e955eea30f3635aafe250be"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/dist/node/core.js",
+      "sha256": "f8b554e493d01c9cd1e0ee497f7dd9e4c14994ddfe144a4d935724e0a5cf9b56"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/bigint-buffer/dist/node.js",
+      "sha256": "c0e8dc3bf640856cbbe2b1bc16fd6a242eda429c74abd7daebb43128a697036d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/bigint-buffer/node_modules/node-gyp-build/index.js",
+      "sha256": "a6e5d066d696e0cbb8402e092e9293849647c05cddca34f2b5754cca33ca19ef"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/bigint-buffer/package.json",
+      "sha256": "ebbfeccecf5072008f0107f7c9e11a3a5c5b89b7cb4777b01106da880590fe0f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/bigint-buffer/prebuilds/darwin-x64/node.napi.node",
+      "sha256": "32e14476b63fcc915ac9f78869a4d110e55d672ea6eeea3c254ab5d9a95f186a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/dist/http-context.js",
+      "sha256": "214c42b720dec6aac7bba34bbf3c43d6a4b0ac7efc32614a6e1ee8e4fba0a7da"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/dist/http-request.js",
+      "sha256": "ddf26c425f79309c1f8d7bc656ca52d624cfd2d934f42e6e412d0b4f771866c3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/dist/http-response.js",
+      "sha256": "4e122c3139182d706e1d698cac88de5569097c54d1ca4833cc18a0a14e65abd2"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/dist/http-router.js",
+      "sha256": "0ea4da488d41c226e980c9638ce9a20245904b41d38749aada69ec8989ea8f93"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/dist/index.js",
+      "sha256": "04e2be454c388c18f75812370da62e92af2d7b24aa1a0d18d1a6cb84503c8db9"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/dist/templated-app.js",
+      "sha256": "e587c795648cef975344c7e9a77d0de84cc54d33e54d8063c3674b946e4259a8"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/dist/websocket.js",
+      "sha256": "51abd8a5daa7781093b081d6efd54c92f9d8f916561efb2d890df16077424e3b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/bufferutil/index.js",
+      "sha256": "70846a43c2bd3b1077461563194e4d2407b18e7d767d6fd8785ea9b7d6ddd044"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/bufferutil/package.json",
+      "sha256": "4f859028cec82c6871a6ee1626066307fbd179f97741799e70d4bd8e2d69d431"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/bufferutil/prebuilds/darwin-x64+arm64/node.napi.node",
+      "sha256": "c14d95da7f3a10a05c0c373ee0df36077e186cf6cbf793d49fb94e4b0942a2f7"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/index.js",
+      "sha256": "70a117e957f85622a6fe2be39afb9597489965fe3fe6ebefd84adb8f0d9d114a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/buffer-util.js",
+      "sha256": "8b0a45739132f82e25ea13163780abf547ccfe989267f3eb7abb475beec92da3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/constants.js",
+      "sha256": "ec5f8aab235e7bc88de01bca315e04d9afd49918b8c07d9cce3637f907ddcbfc"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/event-target.js",
+      "sha256": "c45d3c6e12d170c860c0c3f1a050aa0f864d9806632b609a1e607d675aba128c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/extension.js",
+      "sha256": "852564f0f6b460287043803eae732666fb5610f676874354fc89f06aa4e986ed"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/limiter.js",
+      "sha256": "e0469d4b83f6ba764b15f80e1766b75c136fbff68f048f4c050f0b1c7f065f69"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/permessage-deflate.js",
+      "sha256": "5937e85b8fc9cfec9bf14035eea735cd3ec53b0592de74bcb354d77a5e812cf8"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/receiver.js",
+      "sha256": "e5c67ac6690bf0b0c7df7074cf4f63e73fe6c75fa4563e3f1efd0b460a4ededc"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/sender.js",
+      "sha256": "1a74ea2ff17f1141bfb2a65dfa381528ca7b1482327cbb5d747835abe8ed1ad6"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/stream.js",
+      "sha256": "8e666495837902abbf53713008b76e57c2c1f94eefd097f5aac7fb67723fa028"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/subprotocol.js",
+      "sha256": "be3f6323d6f549568577dcba9004c1479d95c65a7abb0fe0c582875b9fac0b7c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/validation.js",
+      "sha256": "278d06c8198ff9ee22e95227757fef5d9599ead4e5c525488aab3d568083e599"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/websocket-server.js",
+      "sha256": "fc4e00ff7aae133f50c16fce04b8fcbc2f9291070086bbf825c034fa8bc318b3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/node_modules/ws/lib/websocket.js",
+      "sha256": "5826e9f1246b07ec19888c621352a25ab1426dd449b3997f20c08f85215e5a1e"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/@trufflesuite/uws-js-unofficial/src/uws.js",
+      "sha256": "409392a7d8163c0b346e58b0ce27cbc3c820460d5f68807aa25163abca6d627b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/abstract-chained-batch.js",
+      "sha256": "2fa1df95bb581808a0e33cc8628c7954024543fb6f0abc8139b99cf72cb2f8f4"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/abstract-iterator.js",
+      "sha256": "a475382c59a7c62be39cf00c6aba9cfb977fe3082aa64bc5f801458260844c0f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/abstract-level.js",
+      "sha256": "8a5cb2432ebde0247ce9a4c1712fbf9af6b0da506f8c5c7af4557764b32df27a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/index.js",
+      "sha256": "70ad7065f3b9a71e40fc21aa4393151ce69a48a0fd72343e6e1010288e552433"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/lib/abstract-sublevel-iterator.js",
+      "sha256": "119e76bd2ee4296a33834bcc282d6e918c372187aaa4049e8dfdeb67555da676"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/lib/abstract-sublevel.js",
+      "sha256": "108db697d105436b47254e82d2c3eb1f889cc308e9a3f69db078f24114fef886"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/lib/common.js",
+      "sha256": "d8dbc7f2ee23d3aa3bf7d45d8419e78f7977c8f21758b578f5c6b9d4de838d5c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/lib/default-chained-batch.js",
+      "sha256": "f2fea6696782dd9e54b001eab0a9494c52eceafda6b3c70e6ec019dc3765c7f9"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/lib/default-kv-iterator.js",
+      "sha256": "153465c399234ca84f66e23ffbc0371936f56453d228440e55f764fca669b0e5"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/lib/deferred-iterator.js",
+      "sha256": "c562e45aacef504dc4d4dda3edc3d7b00cd6caace5e449bbf57cdb9b3eb1446e"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/lib/next-tick.js",
+      "sha256": "a546ef2b3cdd06c9fa8e41d22d08ef824af4f54b468d2a9789c25c902471429d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/lib/range-options.js",
+      "sha256": "01e01f4ca8b371120c878f3139b3e5a41247cb1017d2398fdd63ae35fc84af05"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-level/node_modules/level-supports/index.js",
+      "sha256": "776ba874b80e482febfe318b3af75b3ff8758efc865423e23d390962d65a6567"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-leveldown/abstract-chained-batch.js",
+      "sha256": "dba9ea7853a3a45e68b755f56463293a772e2e88881da73388ef66dcbfef1bd6"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-leveldown/abstract-iterator.js",
+      "sha256": "2339b0bbe2003104f207e9711d17325ac0e8f678b82480be3058090f6264e229"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-leveldown/abstract-leveldown.js",
+      "sha256": "d36619fdc6588285cbab8bb6452b2412f15ef000ba393a4dbebf1dd22d1567ce"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-leveldown/index.js",
+      "sha256": "c25187cb4a67ce46f052113c78bea71684bb9276c7b8eca26fd98a6b7a364240"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-leveldown/lib/common.js",
+      "sha256": "e5e9270616a6bcb1518b9f944e4347b2350910fd395b0cdff5288b707919ddd9"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/abstract-leveldown/next-tick.js",
+      "sha256": "a546ef2b3cdd06c9fa8e41d22d08ef824af4f54b468d2a9789c25c902471429d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/bufferutil/index.js",
+      "sha256": "70846a43c2bd3b1077461563194e4d2407b18e7d767d6fd8785ea9b7d6ddd044"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/bufferutil/package.json",
+      "sha256": "80eb2820b0ad8cb86cf7df1efb32984e08e4b1b9ba30e7ffd67a20963890183b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/bufferutil/prebuilds/darwin-x64+arm64/node.napi.node",
+      "sha256": "d23d6d26d54a82c7f1a1e0d994522d3fe0f0988bb1433f7d9610ddea0ca4ebb2"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/catering/index.js",
+      "sha256": "73bf1ffa146f97760ad84fb2f4216a37d5fab406d7d8f948804376c726858029"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/catering/next-tick.js",
+      "sha256": "d3bb9fd9a17e141853f70b2e887b47cca315380074231ea9f8fedb903b5cc1c8"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/emittery/index.js",
+      "sha256": "e5aee479113ee998a834d8a007ebb768f4b9894c8a539b826bf5bfa6af44d00b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/inherits/inherits.js",
+      "sha256": "bb380f32bef5feb18678f0f45f88073fed5d7a0069a309132cb2080cd553d5c7"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/is-buffer/index.js",
+      "sha256": "ac6e4f458a75a01d177462b89912166e53c6adeb55d7ddbc25991c11501722fb"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/keccak/bindings.js",
+      "sha256": "1c7983c7ac2b715ff76648724f9d5ff4db1f1fa3b0fe208ee38022cc26f57893"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/keccak/index.js",
+      "sha256": "b8f12a64623b79b9a38419b68e8c630dc85e8ee0d19ae2c6e876c8df654aa918"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/keccak/lib/api/index.js",
+      "sha256": "0d87fd9ba4a5a845448594bdf9c9d782a8b31c7e4b6f79888fdb154a3549c3c9"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/keccak/lib/api/keccak.js",
+      "sha256": "ce69378df7a23d7fd2c7fe2bdaef2311940354a0f579ddade377b66fb64c320d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/keccak/lib/api/shake.js",
+      "sha256": "1ca80d643241b0016a129ee18e943b0ecbe5e96d603a029595084445c49ed9a2"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/keccak/package.json",
+      "sha256": "92b9ce5d2f9483b23a3fcfa7e850508686031f7f49234f4bf80f56f70d1fbfa6"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/keccak/prebuilds/darwin-x64/node.napi.node",
+      "sha256": "0ca49d475e3efd7a38028e6e15f63560cdd0fa883ac192e8e445674d12c7e4db"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/level-supports/index.js",
+      "sha256": "9bca4b0ee3a0641ef66eaebb80a4f1f28ac13472851b432ec3365ec24e0790d3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/level-transcoder/index.js",
+      "sha256": "62bf01d4513760fad294943c5a2031f27d93001668b107d56b9d55f0c06ad7ee"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/level-transcoder/lib/encoding.js",
+      "sha256": "85775b206e667a530900b94daab86574880ee927c929deb52f3a7699377174bd"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/level-transcoder/lib/encodings.js",
+      "sha256": "9c78ad5b8578f0b502c566edc6a7906e801de698d27f911aaea2614fd2857eb6"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/level-transcoder/lib/formats.js",
+      "sha256": "dba245700847ec59c77469c05841ffc3e35ee7a50624d820545c8da445c65f25"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/level-transcoder/lib/text-endec.js",
+      "sha256": "88b9091d700060cde3210a0386459374d38cfed2fc04d2a8608f6b7ae0b5e23f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/leveldown/binding.js",
+      "sha256": "4e02fde8f9c61fef6fc42d64744b150de29a578dd7b6343d9dc2654c68d61843"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/leveldown/chained-batch.js",
+      "sha256": "3a4a9c6bce9ac67b0f4278044c897abdce1b8facf348623dcfc57c7c2163978b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/leveldown/iterator.js",
+      "sha256": "a68887e7ca28233860d4c13edd426db6834d36202733d81fa50c2b6086303662"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/leveldown/leveldown.js",
+      "sha256": "8d2062a06d6ae448999d17cb0134e5ad05b25c64f488c2c75ac7af2d9d1554e7"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/leveldown/package.json",
+      "sha256": "04284273c51f96abf4ba22bc3b8b5d786620b1455f289b86da4691c74346090b"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/leveldown/prebuilds/darwin-x64+arm64/node.napi.node",
+      "sha256": "4ffbc8b5d2684e929dbdf72c5b2948411781865f1497475c5872226c49a5ca1c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/module-error/index.js",
+      "sha256": "9b71766f3abc44b5bf5ab3e86b2374d98530bf0186d6bb686302852ab9d55aa8"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/node-gyp-build/index.js",
+      "sha256": "109c32a680a03217948b31c7078a97bb85f68a7140ea2d9b24aae454d914f673"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/errors.js",
+      "sha256": "7028cca95b2f124345bd5b816e0d8184e7b7d208fe0aa76eb38df43e8644fd03"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/lib/_stream_duplex.js",
+      "sha256": "c3d976062b770b4a88c91d244557bbe9a828b55dc2de1f9ac85c2d5e909389c4"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/lib/_stream_passthrough.js",
+      "sha256": "14475641ec1d85dcbf95e2555fedb04bf02f8482e08822a5a09b01ddc6389f5f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/lib/_stream_readable.js",
+      "sha256": "c8d010d85186209997a60b3cf1b653a77a88490a3e11e015c2b5eb2d56c30fe7"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/lib/_stream_transform.js",
+      "sha256": "d85bb2b8c6ba3cf71e6ae759342df89dee95981c6856e9f4dc0b85d70cf60b59"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/lib/_stream_writable.js",
+      "sha256": "e97dc3728c1ba71414f84cb44cb4c4ecefdf0fdd1c3242a5f447e08ed20cca6f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/lib/internal/streams/buffer_list.js",
+      "sha256": "10f06e02f00b1e4c28afd01cd4b1ecf280c75c59e97fb8611ac014bdd614d2ad"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/lib/internal/streams/destroy.js",
+      "sha256": "54c7b9c8319baeffa83840ae559b5910f530bdca530292d9be190236f219a7b3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/lib/internal/streams/end-of-stream.js",
+      "sha256": "75da6b5b0634012017a6252c6e130335de7775e5a02f10817d02af47afa8bb8d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/lib/internal/streams/pipeline.js",
+      "sha256": "16576b2011c78d0c5ceccdeba7451e83e1bd86f2c3f31c05de7df4ccfb149c2a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/lib/internal/streams/state.js",
+      "sha256": "cdbed99634b523be655225df1547cd00295e3041cb02848c652ddad5e6787e49"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/lib/internal/streams/stream.js",
+      "sha256": "1e7903927df33aadb3659ecce55266c9c851da65ce6c8b723a60a305c1c5422c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/readable-stream/readable.js",
+      "sha256": "2944f1d3c8c5d5c5e07e7c30d6cbef5fc37440b7c73de47aeb37fa8424f04bf1"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/secp256k1/bindings.js",
+      "sha256": "31ad4a15719747339fac92172c550f510e78f3d552ae7f07fe7a9ca7a0fe4d10"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/secp256k1/index.js",
+      "sha256": "31e0ae696fdddd43423c7caf1b2cdf839847933ec418c6f6dbae062c392dced1"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/secp256k1/lib/index.js",
+      "sha256": "f32bba5011ce51d971382b074bcd9ed665579f1a94a3662e78d7e4aae705f247"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/secp256k1/package.json",
+      "sha256": "e4bd7a46179b5ee25e3c581b75ae8486ed154d67ae6746327c0f511a653930b6"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/secp256k1/prebuilds/darwin-x64/node.napi.node",
+      "sha256": "f0880b25df2d4fe1f73360d50d175a7f43aac0ac228a5461253fb51e289ce132"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/utf-8-validate/index.js",
+      "sha256": "70846a43c2bd3b1077461563194e4d2407b18e7d767d6fd8785ea9b7d6ddd044"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/utf-8-validate/package.json",
+      "sha256": "86a69eb364bbbd384ae222151249b8f62fee50b38ca9f58cc88914eef10a95a3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/utf-8-validate/prebuilds/darwin-x64+arm64/node.napi.node",
+      "sha256": "302e96327b838bd39bcb24109124c3a49aea7aa60c8a721593e1ffec0a4d3969"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ganache/node_modules/util-deprecate/node.js",
+      "sha256": "9a86a29fa34a99b861e707345fb1d1e2e55a6c23edb8f992bed57cc607f42d8e"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash.js",
+      "sha256": "2c2b7f9979522553acf1722b8d046f280a6364a6ceab10323ababf79247830ef"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash/common.js",
+      "sha256": "e7f0b5c30a4fd0630cef07f95c54c96375c11a4666c77e5552251d6fa1409ef3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash/hmac.js",
+      "sha256": "88f1981433aa7bd1d53628ecec6dcb0dcaf72fba02b839398902dfea14e346ad"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash/ripemd.js",
+      "sha256": "3f4884df0b5b47b4ba3d8170de1b61b1a0411da3cec3769f6c6eda523ef7e5d4"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash/sha.js",
+      "sha256": "304f42a7945c5721bae922599e5a6e83fc47fdac08d540a15ad01fffa37ed161"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash/sha/1.js",
+      "sha256": "122290d248cdb95b0d8e272a7bc0d273cae6cd647a69cd5bca44aa29f1030da4"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash/sha/224.js",
+      "sha256": "b9479b26609538edca7a0a8631413fc15ceaf72777c4c2c0048489bd794f9aec"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash/sha/256.js",
+      "sha256": "1a7ad8ed3c9f3ffa9c40097dcac66eae788c34a1210cbb70c7efbee7c1c07635"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash/sha/384.js",
+      "sha256": "9e3230ff7f6dfce3f490156dc71bf99b3fa32a3d4c94b0166d13b5f0e2d769ca"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash/sha/512.js",
+      "sha256": "bccd07a74dae7a719c9da801da393970bdb7ad999a0a61bf306cad5f400ca63a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash/sha/common.js",
+      "sha256": "28c0b8add8bc208930f5f9ca6e30844bc6d7eba06700e4fa04adc79d26807185"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hash.js/lib/hash/utils.js",
+      "sha256": "a4ca67e804ab52b5459c9c3e5e966043d53fc519213738d00c1de9e4d4d6a6e1"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/hmac-drbg/lib/hmac-drbg.js",
+      "sha256": "5b89c7d8147fbba4c89d686d8ea08cd350d77eb994bf9a41e3904a3ffe7e6161"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/inherits/inherits.js",
+      "sha256": "bb380f32bef5feb18678f0f45f88073fed5d7a0069a309132cb2080cd553d5c7"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/js-sha3/src/sha3.js",
+      "sha256": "13590a201b2199f00b74ee711edc1bdf744705dca12f43cc6ef64c32b5767fa9"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/memorystream/index.js",
+      "sha256": "cbcfd7ab33d1009f5ae828ca45a918e93e3752b054befecf09964869d88ea612"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/minimalistic-assert/index.js",
+      "sha256": "c62009724a28986193befd6b7746ea8f8a96fef1ac64df78fe3e4b05a8ffeeb2"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/minimalistic-crypto-utils/lib/utils.js",
+      "sha256": "fb5bcdfa3631a0ac40a83911d696ddc4e615f38a2cca560600fc0101479af727"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/scrypt-js/scrypt.js",
+      "sha256": "544292934136527d60acc9e337d8c7b953f412e81314aa551a12d4230afd449d"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/semver/semver.js",
+      "sha256": "433d72cfd2383f94c8266e3af185841e60ae88d7345d79f87073f473119425d8"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/bindings/compile.js",
+      "sha256": "26085b776f88924d3ad3c5a9a0c1e27215aaa12c5468b6b4de184352531b849f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/bindings/core.js",
+      "sha256": "356a6b6a69d88e373a4952e18112db681176d05a2e18a30bcf171193d4bb40e9"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/bindings/helpers.js",
+      "sha256": "6ea2a194777cef9d450d2fc1188fcb46e3220cbfe5197dd8b79e1b60a7c8a052"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/bindings/index.js",
+      "sha256": "1868e396a4b5264537fff5e41eed7d63af44130ad39bc522f67dd068a27e43fb"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/common/helpers.js",
+      "sha256": "8086fe96c9f4edbf375122311153459502f9cae6708c98b4ae3b6c0e4314334c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/formatters.js",
+      "sha256": "03d0445abf318665803a29287c66ab858d0eff01183866f58757f4f2f61fbaa3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/index.js",
+      "sha256": "5621a3a6709de448b29177adc0729bbb3d7fecc3e089b4566270fdb828afe222"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/linker.js",
+      "sha256": "548965a73525cd10657639ab3563a2657d357fffe9cf0e8958c0e6e6fbd9bd1f"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/soljson.js",
+      "sha256": "35ba6661f3bdaed995fc7af14c405502290cf681b3fd062fe8738cfdf6db14ed"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/translate.js",
+      "sha256": "5ec4a375482a58b9ce6b75bfec3c1af2c88a542cbd835c348f519da444582b4c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/wrapper.js",
+      "sha256": "eec68ccb2a7bad57950dc56d3ef5b45a8a95b75d85e7ca1012cebeee3774b28a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/index.js",
+      "sha256": "70a117e957f85622a6fe2be39afb9597489965fe3fe6ebefd84adb8f0d9d114a"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/buffer-util.js",
+      "sha256": "8b0a45739132f82e25ea13163780abf547ccfe989267f3eb7abb475beec92da3"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/constants.js",
+      "sha256": "7efe5c0b888e4fde8bd9076c65b81bfd0df0963810b977d890df126929bb9190"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/event-target.js",
+      "sha256": "c45d3c6e12d170c860c0c3f1a050aa0f864d9806632b609a1e607d675aba128c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/extension.js",
+      "sha256": "852564f0f6b460287043803eae732666fb5610f676874354fc89f06aa4e986ed"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/limiter.js",
+      "sha256": "e0469d4b83f6ba764b15f80e1766b75c136fbff68f048f4c050f0b1c7f065f69"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/permessage-deflate.js",
+      "sha256": "5937e85b8fc9cfec9bf14035eea735cd3ec53b0592de74bcb354d77a5e812cf8"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/receiver.js",
+      "sha256": "7b9f6afc1fffb5c98d768d7d3d6fc1b709f28b45c6ae2682ff255075394323d9"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/sender.js",
+      "sha256": "bded1aa554dc099a1b5dd71f3dcec1d3e46abd66d4f4031ddb5c6c5ce6f19483"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/stream.js",
+      "sha256": "8e666495837902abbf53713008b76e57c2c1f94eefd097f5aac7fb67723fa028"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/subprotocol.js",
+      "sha256": "be3f6323d6f549568577dcba9004c1479d95c65a7abb0fe0c582875b9fac0b7c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/validation.js",
+      "sha256": "41ce8e83d0d434132e1704895fedb91f6703a701b42d91c80954ab29b2845593"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/websocket-server.js",
+      "sha256": "5d0e592eb6e8b7628cbf6e2e6c703a3d6bda17139842b3a870ee9d67e336a77c"
+    },
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/ws/lib/websocket.js",
+      "sha256": "54d9109c61ed004733718717d8cc9ffa02ec92c73f6852677a8814e847df6bfc"
+    }
+  ],
+  "binary_dependencies": [
+    {
+      "path": "integration/.runtime/singleton-reference/node_modules/solc/soljson.js",
+      "sha256": "35ba6661f3bdaed995fc7af14c405502290cf681b3fd062fe8738cfdf6db14ed"
+    },
+    {
+      "path": "/usr/local/bin/node",
+      "sha256": "1f0504e1c9eebc309fd10aabedf3cfe1861b78871904a3b63c8ca1731d8ccbaf"
+    }
+  ],
+  "node": "v25.3.0",
+  "dependency_lock_sha256": "a55928c9c2deb6936fd8dc2c3873b9b58416f74955df272f728ab765f9a7fdb4",
+  "artifacts": {
+    "BinPoolManager": {
+      "file": "BinPoolManager.artifact.json",
+      "sha256": "c1058ecb4bb39945fda2f94eabf1e3527950dec96354ccd4af20981e32aaa644",
+      "runtime_bytes": 23852,
+      "runtime_template_sha256": "5855fc3415d02c1b7b5a6c78abe09c9fa8d75e2f1c53e4f44f87308847260b84",
+      "runtime_template_keccak256": "0x343eb33cfbd1f6ffb44cbfb78dd104e895c411870c57f8b8ab3d074a6b9a9dcd"
+    },
+    "Vault": {
+      "file": "Vault.artifact.json",
+      "sha256": "42164e3e059c47513de5be74605fa68e5126e13296ef4d219f699293128d74dc",
+      "runtime_bytes": 9247,
+      "runtime_template_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+      "runtime_template_keccak256": "0xa155e8063abaeb7a4406821ab3ab4a1476d908f17bb7a850b8b1118e8c531c50"
+    },
+    "Math": {
+      "file": "Math.artifact.json",
+      "sha256": "e34d123eae74400fe6e3cc58be6b096c26aad202c7f046365e5a37bb4024806d",
+      "runtime_bytes": 6736,
+      "runtime_template_sha256": "73bf776ec929b7786e13323fab6c9f3bfdf53c910fc9f3b8ecfc7cf07b258787",
+      "runtime_template_keccak256": "0x08fc4b4e5ee54ca9ebe3ee9a4bdd2796d52e713efa828a2e2755e06324289cfc"
+    },
+    "Currency": {
+      "file": "Currency.artifact.json",
+      "sha256": "23942b944c95445fd2afb7184fbd151e1388783de39f5aa74b1403e511deb80d",
+      "runtime_bytes": 293,
+      "runtime_template_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+      "runtime_template_keccak256": "0xd89272a9cf8a67d057912c8ac7dada9a2406ae0cb6c90edb00ec9da463215f35"
+    }
+  },
+  "manager_runtime_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+  "manager_runtime_keccak256": "0xbbaf5277ee78bf5699d35506f9f32386264fd0e172267e8605160f4804898e31",
+  "vault_runtime_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+  "vault_runtime_keccak256": "0xa155e8063abaeb7a4406821ab3ab4a1476d908f17bb7a850b8b1118e8c531c50",
+  "immutable_vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+  "immutable_references": {
+    "3671": [
+      {
+        "length": 32,
+        "start": 1921
+      },
+      {
+        "length": 32,
+        "start": 2767
+      },
+      {
+        "length": 32,
+        "start": 3756
+      },
+      {
+        "length": 32,
+        "start": 6803
+      },
+      {
+        "length": 32,
+        "start": 7198
+      }
+    ]
+  },
+  "unlimited_contract_size": false,
+  "eip170_limit": 24576,
+  "execution_engine": {
+    "name": "ganache",
+    "version": "7.9.2",
+    "hardfork": "shanghai",
+    "chain_id": 31337
+  },
+  "source_profile": {
+    "hooks": "0x0000000000000000000000000000000000000000",
+    "lp_fee_max": 100000,
+    "bin_step_min": 1,
+    "bin_step_max": 100,
+    "protocol_fee_direction_max": 4000
+  },
+  "scope": {
+    "getters": "deployed unmodified original BinPoolManager and Vault; all banks read at one explicit block tag",
+    "math": "original BinPool.swap, BinHelper and TreeMath in isolated harness",
+    "fixture_setup": "evm_setAccountStorageAt projects harness state into original manager layout and propagates bank/protocol accounting",
+    "full_manager_swap_settlement_verified": false,
+    "vault_transient_storage_execution_verified": false
+  },
+  "inputs": {
+    "integration/tools/ci/infinity-bin-service-compile.cjs": "a62672980c1206ec41cdae1db1cc8abd74851eef904f7a7b774544a4e15f27ce",
+    "integration/tools/ci/infinity-bin-service-golden.cjs": "ad8796054a72b6769f83978abcd2d4b575ae7f7f0950777a12df3f55a6481677",
+    "integration/tools/reference/infinity-bin-service/InfinityBinServiceMath.sol": "1309ecede172dee18d4ed1104073b184b2deb366daddb5e13e9d4e8a265c680a",
+    "integration/tools/reference/singleton-cl/source-metadata.json": "3ad25b67b300a55f397c69afbdd72fa857467b8160603d583789dbf0671908a2"
+  }
+}

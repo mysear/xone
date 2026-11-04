@@ -1,0 +1,120 @@
+{
+  "audit_date": "2026-10-26",
+  "deployment_approval": false,
+  "note": "Pinned source samples only; current/latest deployment coverage is not claimed. Stable math dependencies separately pinned in integration/tools/reference/stable-models/source-metadata.json.",
+  "sources": [
+    {
+      "repo": "aerodrome-finance/contracts",
+      "commit": "1ba30815bba620f7e9faa34769ffd00c214c9b82",
+      "files": [
+        {
+          "path": "contracts/Pool.sol",
+          "sha256": "348d3c313dbbb9a2d0598480075bf91e77ceb2d774aeddbe229c9f551186c8bf",
+          "local": "aero-Pool.sol"
+        },
+        {
+          "path": "contracts/factories/PoolFactory.sol",
+          "sha256": "9d0f6dd4ceb216e826d1e8ac263bd31fa2fbb53ffd546cc2ec21a8dc916f8b58",
+          "local": "aero-PoolFactory.sol"
+        }
+      ]
+    },
+    {
+      "repo": "aerodrome-finance/slipstream",
+      "commit": "f8717faaae6e6717db3c8e3850149c01a79c0603",
+      "files": [
+        {
+          "path": "contracts/core/CLFactory.sol",
+          "sha256": "dc160640cbd5aa980fa4fb39c27eae0acc00c21d69d7d068cf19f0d51ad1856f",
+          "local": "slipstream-CLFactory.sol"
+        },
+        {
+          "path": "contracts/core/CLPool.sol",
+          "sha256": "60a57dcdc34efb8d98c88a36f95fa48164531ac35acad76be8d139129f08a20c",
+          "local": "slipstream-CLPool.sol"
+        }
+      ]
+    },
+    {
+      "repo": "curvefi/curve-factory",
+      "commit": "5272fd2b1199f185d9cd94822be9262c387dc2c2",
+      "files": [
+        {
+          "path": "contracts/implementations/plain-2/Plain2Balances.vy",
+          "local": "curve-Plain2Balances.vy",
+          "sha256": "ea35621388da4232146ee37fa09d212a394d47a581a385de441c5d4745f1e450"
+        },
+        {
+          "path": "contracts/implementations/plain-2/Plain2Basic.vy",
+          "local": "curve-Plain2Basic.vy",
+          "sha256": "2121cf241f904150d13b959541c410f36a8dc2e25c65c5678cbe56a2574fd783"
+        }
+      ]
+    },
+    {
+      "repo": "balancer/balancer-v2-monorepo",
+      "commit": "e281ff40583c39bf1d46c322334b2b13936e0e33",
+      "path": "pkg/pool-stable/contracts/StablePool.sol",
+      "sha256": "031405ec24620a7f324a34ef9185ee06df0140c2b041e086506f14de440107fb"
+    },
+    {
+      "repo": "Uniswap/v4-core",
+      "commit": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "files": [
+        {
+          "path": "src/libraries/Pool.sol",
+          "sha256": "59c493035ad25d56f24a457e8b40d9d1e3784504b8ff13d171db1eb25c6f128e",
+          "local": "v4-Pool.sol"
+        },
+        {
+          "path": "src/libraries/StateLibrary.sol",
+          "sha256": "eebdbc1b6e431072ce5521b9e1b603d43831e3b6e062743e6665e070d5cf8a1a",
+          "local": "v4-StateLibrary.sol"
+        }
+      ]
+    },
+    {
+      "repo": "pancakeswap/infinity-core",
+      "commit": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "files": [
+        {
+          "path": "src/pool-cl/libraries/CLPool.sol",
+          "sha256": "b7a40daef292e3940c89c05870f1a91bf4caab409c9ddddf1d8452f9c91d489f",
+          "local": "infinity-CLPool.sol"
+        }
+      ]
+    },
+    {
+      "repo": "raydium-io/raydium-cp-swap",
+      "commit": "f4b9b26342afe9122d5ff67cd7a4f19ded4ac0a5",
+      "files": [
+        {
+          "path": "programs/cp-swap/src/curve/calculator.rs",
+          "sha256": "aee16991f81d755a72eae70cdf929816fc9571144cf8570f5049f42af0e7f7f8",
+          "local": "raydium-calculator.rs"
+        },
+        {
+          "path": "programs/cp-swap/src/states/config.rs",
+          "sha256": "02384ef4d41b1dfc985ebf6a581c3227ef60892560300e7233e31dcfc0358890",
+          "local": "raydium-config.rs"
+        },
+        {
+          "path": "programs/cp-swap/src/states/pool.rs",
+          "sha256": "e2a836869400bf3cbe3aa52e664235620f82a5c701edd4ced75789f6d7d124ad",
+          "local": "raydium-pool.rs"
+        }
+      ]
+    },
+    {
+      "repo": "orca-so/whirlpools",
+      "commit": "cc683ec92acb5e7606caa3d8e514d9383e9c7c11",
+      "files": [
+        {
+          "path": "programs/whirlpool/src/math/swap_math.rs",
+          "sha256": "4a6afd6700604b8074a5f74e9dd35a84d679bb6657cefa6c9d2b99d6f8b5ecad",
+          "local": "orca-swap_math.rs"
+        }
+      ]
+    }
+  ]
+}

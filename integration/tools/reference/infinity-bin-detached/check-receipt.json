@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "optimized": 0,
+  "inputs": {
+    "integration/tools/ci/infinity-bin-detached-check.py": "dbd1321811d36558d3deee898186cdaffe0c63b0b7bc65b300566dd32a4eb078",
+    "integration/tools/ci/infinity-bin-detached-check.cjs": "020ce02aa2f156a2188cb0f94f91f53549a8403730c6f2ccc2cd3237192186ca",
+    "integration/tools/ci/infinity-bin-detached-lib.cjs": "9ceb69aa3595037c1f4bc4adbd31b4fe397a74f08417735e09776976927b49e8",
+    "integration/tools/reference/infinity-bin-detached/execution-receipt.json": "5da79bdcd1e149f8ea2f8933fc0a190fdd825851555db0096d20416560329d3c"
+  },
+  "cases": 16,
+  "trades": 48,
+  "native_reverts": 9,
+  "crossed_detached": 8
+}

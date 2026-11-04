@@ -1,0 +1,8 @@
+**/target
+**/bin
+**/.runtime
+**/.git
+**/artifacts
+**/__pycache__
+**/.DS_Store
+**/test

@@ -1,0 +1,33 @@
+error[E0432]: unresolved imports `curve_ng::quote_full_exact_in`, `curve_ng::NgOracleState`
+ --> /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/curve_ng_state.rs:7:16
+  |
+7 | use curve_ng::{quote_full_exact_in, NgOracleState};
+  |                ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^ no `NgOracleState` in `curve_ng`
+  |                |
+  |                no `quote_full_exact_in` in `curve_ng`
+  |                help: a similar name exists in the module: `quote_exact_in`
+
+error[E0425]: cannot find function `wad_exp` in module `curve_ng`
+  --> /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/curve_ng_state.rs:47:27
+   |
+47 |         let got=curve_ng::wad_exp(&x);
+   |                           ^^^^^^^ not found in `curve_ng`
+
+error[E0425]: cannot find function `get_p` in module `curve_ng`
+  --> /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/curve_ng_state.rs:52:27
+   |
+52 |         let got=curve_ng::get_p(&amounts(&row["xp"]),&amount(&row["amp"]),&amount(&row["d"]));
+   |                           ^^^^^ not found in `curve_ng`
+
+error: aborting due to 3 previous errors
+
+Some errors have detailed explanations: E0425, E0432.
+For more information about an error, try `rustc --explain E0425`.
+Traceback (most recent call last):
+  File "/Users/mac/Desktop/code/gitlab/xone/integration/tools/ci/curve-ng-state-test.py", line 18, in <module>
+    subprocess.run(cmd, check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/local/Cellar/python@3.13/3.13.0_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['/Users/mac/.rustup/toolchains/1.90.0-x86_64-apple-darwin/bin/rustc', '--edition=2021', '--test', '/Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/curve_ng_state.rs', '-L', 'dependency=/Users/mac/Desktop/code/gitlab/xone/dex-router/target/debug/deps', '-o', '/var/folders/f8/jm9t1pk978bby5f_xkk_0l0h0000gn/T/curve-ng-state-czwiy5pj/state-tests', '--extern', 'num_bigint=/Users/mac/Desktop/code/gitlab/xone/dex-router/target/debug/deps/libnum_bigint-244ef1b459ff7a48.rlib', '--extern', 'num_traits=/Users/mac/Desktop/code/gitlab/xone/dex-router/target/debug/deps/libnum_traits-5c55a8f03a23123e.rlib', '--extern', 'xone_domain=/Users/mac/Desktop/code/gitlab/xone/dex-router/target/debug/deps/libxone_domain-bdc0adab81422bc5.rlib', '--extern', 'serde_json=/Users/mac/Desktop/code/gitlab/xone/dex-router/target/debug/deps/libserde_json-890e62a56969c87b.rlib', '--extern', 'sha2=/Users/mac/Desktop/code/gitlab/xone/dex-router/target/debug/deps/libsha2-736c44f3e1b3e040.rlib']' returned non-zero exit status 1.

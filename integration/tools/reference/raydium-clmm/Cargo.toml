@@ -1,0 +1,20 @@
+[package]
+name = "raydium-clmm-reference"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+raydium-clmm = { path = "upstream/programs/amm", features = ["no-entrypoint"] }
+anchor-lang = "=1.0.2"
+solana-sysvar = "=3.1.1"
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.145"
+sha2 = "=0.10.9"
+bytemuck = "=1.24.0"
+base64 = "=0.22.1"
+
+[profile.release]
+overflow-checks = true

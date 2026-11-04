@@ -1,0 +1,26 @@
+node:assert:149
+  throw new AssertionError(obj);
+  ^
+
+AssertionError [ERR_ASSERTION]: dependency: stale successful receipt survived execution-closure.json
+
+true !== false
+
+    at Object.<anonymous> (/Users/mac/Desktop/code/gitlab/xone/integration/tools/ci/curve-ng-state-startup-test.cjs:46:16)
+    at Module._compile (node:internal/modules/cjs/loader:1760:14)
+    at Object..js (node:internal/modules/cjs/loader:1892:10)
+    at Module.load (node:internal/modules/cjs/loader:1480:32)
+    at Module._load (node:internal/modules/cjs/loader:1299:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: true,
+  expected: false,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v25.3.0

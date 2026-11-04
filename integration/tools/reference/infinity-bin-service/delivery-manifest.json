@@ -1,0 +1,73 @@
+{
+  "schema": "infinity-bin-service-delivery/1",
+  "frozen_files": {
+    "integration/tools/ci/infinity-bin-service-check.cjs": "4459e1b3f6bbb2726cf33e3a85b777f90fd2dac8b9ddc9db54cab62d6a19751f",
+    "integration/tools/ci/infinity-bin-service-check.py": "782c1cb8f7a7b2e9c2a7af6475302159786ff70d7b0232691390c2d9d2a916a0",
+    "integration/tools/ci/infinity-bin-service-compile.cjs": "a62672980c1206ec41cdae1db1cc8abd74851eef904f7a7b774544a4e15f27ce",
+    "integration/tools/ci/infinity-bin-service-deploy.cjs": "b26f15c7d6fb7c6ac05e6e764e4678079edb1cef56e175681770dab747e9b87d",
+    "integration/tools/ci/infinity-bin-service-golden.cjs": "ad8796054a72b6769f83978abcd2d4b575ae7f7f0950777a12df3f55a6481677",
+    "integration/tools/ci/infinity-bin-service-guards.cjs": "e216dcf3b465ffa7d4bdc83d73b3b827a28e454620016d599811edca5ff3cf95",
+    "integration/tools/ci/infinity-bin-service-guards.py": "b3ab6aee4e6500e7fdda24b1d1021d1fb58fd7d86d291f26eed394810618196d",
+    "integration/tools/ci/infinity-bin-service-receipt-test.cjs": "d430cde15e81c585e68c2e6fddf8381005ad322c5afd48ccf7a94bbd1144bed6",
+    "integration/tools/ci/infinity-bin-service-replay-test.cjs": "f781608600ca4c5569bd7eb3c192ed958a5a45c8034a0bbe86f3b2fcc03f3b3b",
+    "integration/tools/ci/infinity-bin-service-replay.cjs": "dbeda6db5456c56a2fc162e50e3a8bad97f20e688be58566dae90f530a283419",
+    "integration/tools/reference/infinity-bin-service/InfinityBinServiceMath.sol": "1309ecede172dee18d4ed1104073b184b2deb366daddb5e13e9d4e8a265c680a",
+    "integration/tools/reference/infinity-bin-service/README.md": "2577a6c0bae7a0b9e8ad57d7b3124f0402f0636d0c0a6a7f2014501ce524d6e6",
+    "integration/tools/reference/infinity-bin-service/BinPoolManager.artifact.json": "c1058ecb4bb39945fda2f94eabf1e3527950dec96354ccd4af20981e32aaa644",
+    "integration/tools/reference/infinity-bin-service/Vault.artifact.json": "42164e3e059c47513de5be74605fa68e5126e13296ef4d219f699293128d74dc",
+    "integration/tools/reference/infinity-bin-service/Math.artifact.json": "e34d123eae74400fe6e3cc58be6b096c26aad202c7f046365e5a37bb4024806d",
+    "integration/tools/reference/infinity-bin-service/Currency.artifact.json": "23942b944c95445fd2afb7184fbd151e1388783de39f5aa74b1403e511deb80d",
+    "integration/tools/reference/infinity-bin-service/compile-evidence.json": "cc180cfb7e854d064b5e835b3c8167c34ec6d3faa7923dfe534a27006ec10333",
+    "integration/tools/reference/infinity-bin-service/deployment-evidence.json": "98a43e86ed8aca5f4e00e4a78f6cf917ff7be1155cc38aa1d77d0f2beeedcb5f",
+    "integration/tools/reference/infinity-bin-service/source-metadata.json": "35d73eb9b456f63506e2d6f23c32ad427605576f76facfa28441772b37508a74",
+    "integration/tools/reference/infinity-bin-service/execution-receipt.json": "8380d1ce1003616c183c6f527fb5778fea63b8f7f0fc42dab071f35601a36896",
+    "integration/test/contracts/infinity-bin-service.json": "992aea6c8f33298753deb31f9c269f3f792e817239b56810a2a3b3b9f8b69eec",
+    "chain-parser-go/test/contracts/infinity-bin-service.json": "992aea6c8f33298753deb31f9c269f3f792e817239b56810a2a3b3b9f8b69eec",
+    "dex-router/test/contracts/infinity-bin-service.json": "992aea6c8f33298753deb31f9c269f3f792e817239b56810a2a3b3b9f8b69eec"
+  },
+  "verification": {
+    "normal_negative_cases": 55,
+    "optimized_negative_cases": 55,
+    "receipt_faults": 6,
+    "native_replays": 4,
+    "request_isolation": true,
+    "frozen_fixture_unchanged": true
+  },
+  "scope": {
+    "full_manager_swap_settlement_verified": false,
+    "original_manager_vault_deployment_and_getters_verified": true,
+    "original_BinPool_math_verified": true
+  },
+  "commands": [
+    [
+      "node",
+      "integration/tools/ci/infinity-bin-service-replay.cjs"
+    ],
+    [
+      "node",
+      "integration/tools/ci/infinity-bin-service-replay-test.cjs"
+    ],
+    [
+      "python3",
+      "integration/tools/ci/infinity-bin-service-check.py"
+    ],
+    [
+      "python3",
+      "-OO",
+      "integration/tools/ci/infinity-bin-service-check.py"
+    ],
+    [
+      "python3",
+      "integration/tools/ci/infinity-bin-service-guards.py"
+    ],
+    [
+      "python3",
+      "-OO",
+      "integration/tools/ci/infinity-bin-service-guards.py"
+    ],
+    [
+      "node",
+      "integration/tools/ci/infinity-bin-service-receipt-test.cjs"
+    ]
+  ]
+}

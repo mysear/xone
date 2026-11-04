@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "inputs": {
+    "integration/tools/ci/infinity-bin-multi-golden.cjs": "4db8ca21361bd40c39a95fa868c37ffead9daaecd46b0ae76184a1087a325038",
+    "integration/tools/reference/infinity-bin-multi/InfinityBinMultiReference.sol": "c2e953cf9271b3f3cb6f8f60755ea1b1d78fee44cb69c5d39eb9958f6be86cea",
+    "integration/tools/reference/singleton-advanced/source-metadata.json": "ae54c188a60992a7dc699c43d60b45fc20f19ccea63f567dda5647af0088eab1"
+  },
+  "dependency_lock_sha256": "a55928c9c2deb6936fd8dc2c3873b9b58416f74955df272f728ab765f9a7fdb4",
+  "node": "v25.3.0",
+  "compiler": "0.8.26+commit.8a97fa7a.Emscripten.clang",
+  "runtime_sha256": "e0ff9da5f8ed3ebe157f60477868a01087f8f5a64540017a3ad56a14b4576dc2",
+  "runtime_bytes": 8736,
+  "source_metadata_sha256": "79dc089f3dc755f6599efca5d136d50f81a2320a5f5322ab48dae18528e110d9",
+  "cases": 326,
+  "native_success": 236,
+  "native_reverts": 90,
+  "support_budget_rejections": 2,
+  "fixture_sha256": "a151e34e94d30eea471491cb6ea2350d31ab3adc8fd4678e3d157387e01a11b7"
+}

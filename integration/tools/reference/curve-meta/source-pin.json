@@ -1,0 +1,10 @@
+{
+  "repo": "curvefi/curve-factory",
+  "revision": "5272fd2b1199f185d9cd94822be9262c387dc2c2",
+  "path": "contracts/implementations/meta/MetaUSD.vy",
+  "local": "integration/tools/reference/curve-models/old/MetaUSD.vy",
+  "sha256": "edfb3da7c748edb873465e60d471f49b6fd67be2972c97878948e9b9c2c98388",
+  "compiler": "0.3.1",
+  "runtime_bytes": 20060,
+  "runtime_sha256": "c5351fd332fdf0f04486a838b2bceba15d7a45965e3df61e9a0ccedc674d450d"
+}

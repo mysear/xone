@@ -1,0 +1,1 @@
+{"private":true,"name":"xone-v3-sdk-oracle","version":"1.0.0","dependencies":{"@uniswap/v3-sdk":"3.10.0","@uniswap/sdk-core":"4.2.1","jsbi":"3.2.5"}}

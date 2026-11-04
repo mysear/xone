@@ -1,0 +1,51 @@
+[
+  {
+    "repo": "curvefi/curve-factory",
+    "revision": "5272fd2b1199f185d9cd94822be9262c387dc2c2",
+    "path": "contracts/implementations/plain-3/Plain3Basic.vy",
+    "local": "old/Plain3Basic.vy",
+    "sha256": "74d38b3d5385261df0ea65180191871785ac90fce408c2c0f8f572c826e370ae"
+  },
+  {
+    "repo": "curvefi/curve-factory",
+    "revision": "5272fd2b1199f185d9cd94822be9262c387dc2c2",
+    "path": "contracts/implementations/plain-4/Plain4Basic.vy",
+    "local": "old/Plain4Basic.vy",
+    "sha256": "97e59455a0ff7db632cd6baa140d86424d01c4ea0a5e373be51b49a7035ce11f"
+  },
+  {
+    "repo": "curvefi/curve-factory",
+    "revision": "5272fd2b1199f185d9cd94822be9262c387dc2c2",
+    "path": "contracts/implementations/meta/MetaUSD.vy",
+    "local": "old/MetaUSD.vy",
+    "sha256": "edfb3da7c748edb873465e60d471f49b6fd67be2972c97878948e9b9c2c98388"
+  },
+  {
+    "repo": "curvefi/stableswap-ng",
+    "revision": "3332cd44656ec64b3c048885e1dd71955254b262",
+    "path": "contracts/main/CurveStableSwapNG.vy",
+    "local": "ng/CurveStableSwapNG.vy",
+    "sha256": "dfe8f8a4dda288c41c630ea4be9bb0e5d61244c50dfdeaf1981a098b55ee12ab"
+  },
+  {
+    "repo": "curvefi/stableswap-ng",
+    "revision": "3332cd44656ec64b3c048885e1dd71955254b262",
+    "path": "contracts/main/CurveStableSwapNGMath.vy",
+    "local": "ng/CurveStableSwapNGMath.vy",
+    "sha256": "39e268050f4a9d84ab83a76f0f6daf901129e8635175b640f2e458e16791e13e"
+  },
+  {
+    "repo": "curvefi/stableswap-ng",
+    "revision": "3332cd44656ec64b3c048885e1dd71955254b262",
+    "path": "contracts/main/CurveStableSwapNGViews.vy",
+    "local": "ng/CurveStableSwapNGViews.vy",
+    "sha256": "7d4a46b9f8fa8ea9b42ab845f02ceb0d263dd0470435830f67fcca333632adff"
+  },
+  {
+    "repo": "curvefi/curve-crypto-contract",
+    "revision": "d7d04cd9ae038970e40be850df99de8c1ff7241b",
+    "path": "contracts/two/CurveCryptoSwap2.vy",
+    "local": "crypto/CurveCryptoSwap2.vy",
+    "sha256": "e50c9231f735ce4b30f60941b8a3a7591ad3b70c8930f7ce965b87efe361579f"
+  }
+]

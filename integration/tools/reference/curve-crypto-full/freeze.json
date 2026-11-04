@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "frozen": true,
+  "reference_only": true,
+  "date": "2026-11-02",
+  "persistent_files_count_including_manifest": 19,
+  "manifest_self_hash_excluded": true,
+  "local_runtime_dependencies_excluded": true,
+  "corpus_sha256": "dc7069037ec858c0aa95f3d70e05b96ba5fa70c2b98ff73a29b80e2f010bd295",
+  "reference_cases": 60,
+  "reference_counts": {
+    "success": 44,
+    "reverts": 16,
+    "adjusted": 4,
+    "minted": 18,
+    "direct_claim": 12
+  },
+  "rust_tests_passed": 11,
+  "failure_probe_tests_passed_each_mode": 4,
+  "test_modes": [
+    "normal",
+    "PYTHONOPTIMIZE=2"
+  ],
+  "files": [
+    {
+      "path": "dex-router/crates/protocol-math/src/curve_crypto.rs",
+      "bytes": 27357,
+      "sha256": "fc68f6d459c847076231a5b58942ff7b878d96de5e0450564cdfdbd953111f81"
+    },
+    {
+      "path": "dex-router/crates/protocol-math/tests/curve_crypto_full.rs",
+      "bytes": 8588,
+      "sha256": "c6458d43eb06212ad93e56b63a8aa4233f29067b099fc83dafe284076ca80803"
+    },
+    {
+      "path": "dex-router/test/contracts/curve-crypto-full.json",
+      "bytes": 198797,
+      "sha256": "dc7069037ec858c0aa95f3d70e05b96ba5fa70c2b98ff73a29b80e2f010bd295"
+    },
+    {
+      "path": "integration/test/contracts/curve-crypto-full.json",
+      "bytes": 198797,
+      "sha256": "dc7069037ec858c0aa95f3d70e05b96ba5fa70c2b98ff73a29b80e2f010bd295"
+    },
+    {
+      "path": "integration/tools/ci/curve-crypto-full-golden.cjs",
+      "bytes": 14782,
+      "sha256": "e019d2215e1b3c8da656d01041a5eca7cc43ccc157dc976be45e0ca8766cc293"
+    },
+    {
+      "path": "integration/tools/ci/curve-crypto-full-tests.py",
+      "bytes": 3320,
+      "sha256": "d40026c8b2c49a7762985b485b9777b71e252a9cb9df50a06cdbce89c963ae9f"
+    },
+    {
+      "path": "integration/tools/ci/curve-crypto-full-verify.py",
+      "bytes": 7295,
+      "sha256": "71cc190c78ee3fbe9f18773334978b5af6f4686a2803b41e91ed9a0d5e3aa5c3"
+    },
+    {
+      "path": "integration/tools/reference/curve-crypto-full/CurveCryptoSwap2.vy",
+      "bytes": 42524,
+      "sha256": "e50c9231f735ce4b30f60941b8a3a7591ad3b70c8930f7ce965b87efe361579f"
+    },
+    {
+      "path": "integration/tools/reference/curve-crypto-full/CurveTokenV4.vy",
+      "bytes": 6406,
+      "sha256": "ad11f4016dbd4af5087931898082e3636a886eb86d6b9de30816157c4023ebae"
+    },
+    {
+      "path": "integration/tools/reference/curve-crypto-full/CurveTokenV5.vy",
+      "bytes": 10000,
+      "sha256": "77b38a64bfd3141b1ea4cf569e58325be385e0eddd2451baf7932cd7599bcbfe"
+    },
+    {
+      "path": "integration/tools/reference/curve-crypto-full/README.md",
+      "bytes": 7798,
+      "sha256": "c5b7dcf297d3cb64cc45a856c99b0ace9721b307f022d5eee150b9b8470f4bf6"
+    },
+    {
+      "path": "integration/tools/reference/curve-crypto-full/Tokens.sol",
+      "bytes": 1202,
+      "sha256": "cb48ea0f8889662497e467d6332fde8e3ce78a1e7b863d4914de11995239c778"
+    },
+    {
+      "path": "integration/tools/reference/curve-crypto-full/generation.json",
+      "bytes": 352,
+      "sha256": "1cd34f5481579a0dad063f63b9d8cb22bbe66cd9b7b4b39ffa5f1f3f986ad29c"
+    },
+    {
+      "path": "integration/tools/reference/curve-crypto-full/lp-bytecode-runtime.hex",
+      "bytes": 5941,
+      "sha256": "b6ff317980ba1f2f2181e1ad5dca3db2b1488cae01099ba42bb7f4b0316e59cc"
+    },
+    {
+      "path": "integration/tools/reference/curve-crypto-full/pool-bytecode-runtime.hex",
+      "bytes": 41631,
+      "sha256": "1f3cf9aff8028c38de16d93d4a137cc285d0bf8f330e8b8922e978d9d55b50d5"
+    },
+    {
+      "path": "integration/tools/reference/curve-crypto-full/runtime-metadata.json",
+      "bytes": 13016,
+      "sha256": "ec23417bcf1fe8e0ad5b77101c36d307aa07d13d6fab5db9b01c6b95bd6056fa"
+    },
+    {
+      "path": "integration/tools/reference/curve-crypto-full/sources.json",
+      "bytes": 1353,
+      "sha256": "0d83e10c84b7789258002dfb20be7f3992bb2bceda99d7e0e347db62af4fdd5d"
+    },
+    {
+      "path": "integration/tools/reference/curve-crypto-full/verification.json",
+      "bytes": 354,
+      "sha256": "b4551772da3eec8cd3c2f270405853fe045235893aeaf61eb33423d7082fa861"
+    }
+  ],
+  "protected_existing_files": [
+    {
+      "path": "integration/test/contracts/curve-crypto-quotes.json",
+      "sha256": "1a651d2019f5043b38bc2dee3fb6c67fffc0384ad0efb19a5d131b1c33b65665"
+    },
+    {
+      "path": "dex-router/test/contracts/curve-crypto-quotes.json",
+      "sha256": "1a651d2019f5043b38bc2dee3fb6c67fffc0384ad0efb19a5d131b1c33b65665"
+    },
+    {
+      "path": "integration/tools/ci/curve-crypto-golden.cjs",
+      "sha256": "2d43eec2bbd2f8a6c97f1850f43612f58f86ad02ac29e5663ba905b8ffaf849a"
+    }
+  ]
+}

@@ -1,0 +1,167 @@
+{
+  "reference_only": true,
+  "repo": "balancer/balancer-v2-monorepo",
+  "revision": "e281ff40583c39bf1d46c322334b2b13936e0e33",
+  "files": [
+    {
+      "path": "pkg/interfaces/contracts/pool-utils/BasePoolUserData.sol",
+      "sha256": "f95a2688bb1c3a9d82293885b5c6c439b652dae613b76ded8fd066772ae7de59"
+    },
+    {
+      "path": "pkg/interfaces/contracts/pool-utils/IAssetManager.sol",
+      "sha256": "ed787aeedb7062c67cc8771d9fafff769cc812a75fc5c477394a4a2ee1cdabea"
+    },
+    {
+      "path": "pkg/interfaces/contracts/pool-utils/IRecoveryMode.sol",
+      "sha256": "526d8d668f5ae1fbf6cea6e8608c8a3f993054e0a5620ae7730336093da62ab8"
+    },
+    {
+      "path": "pkg/interfaces/contracts/pool-weighted/WeightedPoolUserData.sol",
+      "sha256": "997317c715143955bff2c95a8acb6d9e20271b622ad0b5ed1d0bee6c02fa330a"
+    },
+    {
+      "path": "pkg/interfaces/contracts/solidity-utils/helpers/BalancerErrors.sol",
+      "sha256": "50d99f10d53135eb6920021efdfc77749421a74fe39e6f975730339143f7fa33"
+    },
+    {
+      "path": "pkg/interfaces/contracts/solidity-utils/helpers/IAuthentication.sol",
+      "sha256": "e0126f782a0251b648752779813a4881921bf4fc8ab67daa9dca830dfd10795c"
+    },
+    {
+      "path": "pkg/interfaces/contracts/solidity-utils/helpers/ISignaturesValidator.sol",
+      "sha256": "1c77ae474a53632ed12f2112703952b44ae3d57e9e487f8fa8272f5b9715c66c"
+    },
+    {
+      "path": "pkg/interfaces/contracts/solidity-utils/helpers/ITemporarilyPausable.sol",
+      "sha256": "453a31199b7309e3635481f14e002bfe2cf5bf41f52bcaad7d91b4f4e95caf01"
+    },
+    {
+      "path": "pkg/interfaces/contracts/solidity-utils/misc/IWETH.sol",
+      "sha256": "fd282fbd0c3bc65364fe849ab36d9f6bde15a7138ec6706ad3022bbb7c76e923"
+    },
+    {
+      "path": "pkg/interfaces/contracts/solidity-utils/openzeppelin/IERC20.sol",
+      "sha256": "e6856d34898f74b4aa8da281e8dac9cad9ed6aa22b7b4517bc2955a06b6d4c98"
+    },
+    {
+      "path": "pkg/interfaces/contracts/solidity-utils/openzeppelin/IERC20Permit.sol",
+      "sha256": "467403c0360df0cf08837eacb7a5ac35fb91cc04a93dfa7e0f363b95ef5b805a"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IAsset.sol",
+      "sha256": "45b9e9dd685aca25db3de89257952b3dd7297dacb859a9bd359ea877addf0008"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IAuthorizer.sol",
+      "sha256": "21446c174ae6d518a065c8dc84b979ed596440582fca265db590979768ba3c86"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IBasePool.sol",
+      "sha256": "a30821bfb97b197c0787b11588cc5308b5fadde32f07bb18546ba9261db99090"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IFlashLoanRecipient.sol",
+      "sha256": "f4550db12808c8c1eabc4a733de27569e46269cd8a2524e6bdfec9fb5cf8a9f3"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IMinimalSwapInfoPool.sol",
+      "sha256": "fbff888d9e28e110eca60056d4a22fc0dbcbae0fe1971de8fd8a8282263496e3"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IPoolSwapStructs.sol",
+      "sha256": "da920eaea21e94f077663d47d291164b8f49070472f3a4180b2653874efc10d6"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IProtocolFeesCollector.sol",
+      "sha256": "070568dff63a23784a2b931fe17965c1bdeb738176c76bbb74dc83820e617deb"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IVault.sol",
+      "sha256": "77a4565374de5cf761532627d2b9e26d3dd844cdcfa4bfcf4aca1b9f2ff858f6"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/BalancerPoolToken.sol",
+      "sha256": "abf5d68a005bd33d0021de58a5eef07e10fba83793502f26c7168f5c0518ffc3"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/BaseMinimalSwapInfoPool.sol",
+      "sha256": "5f17feac09ef01ad2ef859f97947e7f842f5b57fdf299392a78ea528f18cef76"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/BasePool.sol",
+      "sha256": "24ad01ea6e55702f80f90a773990176ab7554a25b19571b6a05cfb3e6e88998d"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/BasePoolAuthorization.sol",
+      "sha256": "3b2a9593fe89f65fbfb1ee5972ba05be0e7b31007a605b0a8d055b44dd6a647e"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/RecoveryMode.sol",
+      "sha256": "ba2dc47c3dc4c9cde9c604e378d7366b119e7e1351c22882985d67f73944e3fb"
+    },
+    {
+      "path": "pkg/pool-weighted/contracts/BaseWeightedPool.sol",
+      "sha256": "df9160990653d22365ad57fdeaf96586cbbe9eaa42197d723d97b916f3409126"
+    },
+    {
+      "path": "pkg/pool-weighted/contracts/InvariantGrowthProtocolFees.sol",
+      "sha256": "e3d1cd469651a1ffe0acd142c43ac99ab88c4339b57652c9b8ca00263f292296"
+    },
+    {
+      "path": "pkg/pool-weighted/contracts/WeightedMath.sol",
+      "sha256": "29d962d53932724db2367a3d6c59422a69803e8b41483f80d5425b8bba155be5"
+    },
+    {
+      "path": "pkg/pool-weighted/contracts/WeightedPool.sol",
+      "sha256": "be81f167fccd4107c7f3d381bf796037a70b0c70297388ba32f464e5d30bac01"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/helpers/Authentication.sol",
+      "sha256": "bef83a3e46d23f9f46f06458830b3d09c66975fa0d699e552f9ce2f4ebcde575"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/helpers/InputHelpers.sol",
+      "sha256": "0634efecd8191030375bc027e6eec6fc2a75b8c77edc4b3390e87202e55800a1"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/helpers/TemporarilyPausable.sol",
+      "sha256": "d668c4158fff2ff0bf890b001d3b9949611a2fbb080f1372d43fbabd4be64262"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/helpers/WordCodec.sol",
+      "sha256": "049b7c2731e22e4e25a76b77685462e3df5ad9517b98d85718d913539db3e665"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/math/FixedPoint.sol",
+      "sha256": "9f40aa0869e0e725e44d4d95bfebc66b72042b6a3ef6b687f6f300a4dd9248aa"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/math/LogExpMath.sol",
+      "sha256": "929ba9fc71e4704baec025be4f2cdb4bdbab438b0a22455bc19e0c4d057cc957"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/math/Math.sol",
+      "sha256": "396edd3bb7de1cd092ed1a940d3eac73b7a501881e1ba040dc66e4cbd51763db"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/openzeppelin/EIP712.sol",
+      "sha256": "e5d8893a18cdbb9ad7eec521a66a9634b0b99b6f584b993c725a9efc65c0e79b"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/openzeppelin/ERC20.sol",
+      "sha256": "8dbd8af38a88b949859c6f0962b9d8256f282deb470f5354e05b2f016f97d659"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/openzeppelin/ERC20Permit.sol",
+      "sha256": "20405e44788e7d76e93e4f8e4545bb0cf605e7a10667e913f59dbef85fe86aa1"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/openzeppelin/SafeMath.sol",
+      "sha256": "f317861beb480c515808340c0d1664ba9f8a75dfcc72f48b00814aa3d8a6dbd5"
+    },
+    {
+      "path": "pkg/vault/contracts/balances/BalanceAllocation.sol",
+      "sha256": "8961dd8213436d2c4176b898418bbe65d5e031c2eccd365dfd81ec476e877237"
+    }
+  ]
+}

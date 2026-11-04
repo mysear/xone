@@ -1,0 +1,3 @@
+# Pinned Orca adaptive rewards native reference
+
+Unchanged Orca cc683ec92acb5e7606caa3d8e514d9383e9c7c11 account pack, swap manager, reward manager, tick crossing and postupdate. The wrapper builds synthetic classic SPL mint/vault/Clock bytes and models nominal vault deltas. Two pools use fixed arrays, complete initialized Oracle and initialized rewards; covers overflowing emission product, wrapping reward global/outside and repeated/decay clocks. No deployment, SBF, CPI, reward collection or validator rollback proof. Original business logic is imported directly from the pinned original program. Consumer code is never imported.

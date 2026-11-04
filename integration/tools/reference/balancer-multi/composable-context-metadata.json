@@ -1,0 +1,160 @@
+{
+  "repo": "balancer/balancer-v2-monorepo",
+  "revision": "e91a2b643a49856f51a648d175667c1b48cf3377",
+  "purpose": "Callback dependency/guard research; StableMath compile closure separately pinned",
+  "full_callback_import_closure": false,
+  "files": [
+    {
+      "path": "pkg/interfaces/contracts/pool-stable/IComposableStablePoolRates.sol",
+      "sha256": "11daf4ce1b5a1273f97abb8f5f2eff7604d66dde47e654e87e9c12af65b9eb4d"
+    },
+    {
+      "path": "pkg/interfaces/contracts/pool-stable/StablePoolUserData.sol",
+      "sha256": "cddf547b53caa1503e6a1fe138f0c3e2a1967e52f71d0335902a93aa8f32dd9a"
+    },
+    {
+      "path": "pkg/interfaces/contracts/pool-utils/IControlledPool.sol",
+      "sha256": "ae24cf20e3a9b07d73d797b74800a26ae4d5d8b5f78461024a60f7957f38ecd0"
+    },
+    {
+      "path": "pkg/interfaces/contracts/pool-utils/IProtocolFeeCache.sol",
+      "sha256": "d78382e169096d824f8992832f1851fa0ca6f45415b105608d33deb621011d8b"
+    },
+    {
+      "path": "pkg/interfaces/contracts/pool-utils/IRateProvider.sol",
+      "sha256": "97cd153660d8599631afedf2b12c7da7abdd60acdd5645c87a71a2b8a56d7ba4"
+    },
+    {
+      "path": "pkg/interfaces/contracts/pool-utils/IRateProviderPool.sol",
+      "sha256": "28da79cf363a33c9991eb6cbbd1b1725cb836cb2d91f8d1b28b9afdad2cd7c4a"
+    },
+    {
+      "path": "pkg/interfaces/contracts/solidity-utils/helpers/BalancerErrors.sol",
+      "sha256": "5fddc9a2e0daf5cea6079e851649e748a0c892a2d9594085c1cbcacd9be126d8"
+    },
+    {
+      "path": "pkg/interfaces/contracts/solidity-utils/helpers/IVersion.sol",
+      "sha256": "9992a0976c60af56c948856fefc7bdd4c3ab47e4291dbcc864af3cd09a24863b"
+    },
+    {
+      "path": "pkg/interfaces/contracts/solidity-utils/openzeppelin/IERC20.sol",
+      "sha256": "368bb9ad9dc7750acda3480225b1b765fa1c4539faa98f3ae4d8d70ececbeebe"
+    },
+    {
+      "path": "pkg/interfaces/contracts/standalone-utils/IProtocolFeePercentagesProvider.sol",
+      "sha256": "7c269b2c2646fffcc6ecbad7367bc88bd2a3cfe3a5870b7e3c4921397b0ee4be"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IAsset.sol",
+      "sha256": "e5888d662b52224b3d296a63c131273e6adaf839ed44f1377d7963f3ad98b940"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IAuthorizer.sol",
+      "sha256": "1d5f449cbd19bdb502f706e06d3313ff8a7dbafbb8c04dcf45ff1259ba0988e2"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IBasePool.sol",
+      "sha256": "185f55f16c3b9f9defc5b63785c41696501886f85d1a69cb3b96cab4a41c65a7"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IGeneralPool.sol",
+      "sha256": "dbed5429ffeed86133005843e5b9206506c0543f0d115ea7b085a49e9ad8e460"
+    },
+    {
+      "path": "pkg/interfaces/contracts/vault/IVault.sol",
+      "sha256": "95ff30b5a5a72ec7287a734738231422e4688052daeab0a18f2a2a6129f0300a"
+    },
+    {
+      "path": "pkg/pool-stable/contracts/ComposableStablePool.sol",
+      "sha256": "93b3c4245290662f509f4dc09c50aa88be9773a234fa983505fa23f2fcb62288"
+    },
+    {
+      "path": "pkg/pool-stable/contracts/ComposableStablePoolProtocolFees.sol",
+      "sha256": "4cb00a0c06b28abf7da3cb1ee0795b98824487a2a77be156a5f6307ecbee8b14"
+    },
+    {
+      "path": "pkg/pool-stable/contracts/ComposableStablePoolRates.sol",
+      "sha256": "446de86c90a204b6b806740378f703a2bfb13d5f64e759bd3eeaa6dfc4f47efe"
+    },
+    {
+      "path": "pkg/pool-stable/contracts/ComposableStablePoolStorage.sol",
+      "sha256": "0239ce6e9cfba8420f4cf50a2925fffc9de57cc7e6bfb71e3c0b3bb228286e45"
+    },
+    {
+      "path": "pkg/pool-stable/contracts/StableMath.sol",
+      "sha256": "aa0ab3da11b520369d7b184b6f27a0fd5841d236ebca47a172a4749c5fb28480"
+    },
+    {
+      "path": "pkg/pool-stable/contracts/StablePoolAmplification.sol",
+      "sha256": "958d5ec7c95965490b73a126abab3441355819b8b1a5b06911404bc9922bd2c3"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/BalancerPoolToken.sol",
+      "sha256": "abf5d68a005bd33d0021de58a5eef07e10fba83793502f26c7168f5c0518ffc3"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/BaseGeneralPool.sol",
+      "sha256": "b6964ac73d1900aa4d5fd27cc2b64ba8d7a7b3bbf97ff58eab3117040bdfd838"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/BasePool.sol",
+      "sha256": "62244d4ba3fc5f0e60e5c01fee8a6215562129bb0c6da6a87cd2291e139fcbbd"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/BasePoolAuthorization.sol",
+      "sha256": "1008abcd892c11fa975c4dc7b72a30b4cae2a4d20226d8aca0519a44edc224f3"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/RecoveryMode.sol",
+      "sha256": "b943dd3e9837207ad74d531a324210ab3f714bb6f573be687a360f4baa77543d"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/external-fees/InvariantGrowthProtocolSwapFees.sol",
+      "sha256": "267c45ade9be99db17b0ad5365860ce86c858326ffabb14b0f5170722188d7fe"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/external-fees/ProtocolFeeCache.sol",
+      "sha256": "334746f0b5e716819235f236f902b07472648e9804c45aff99b34b66c706454e"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/lib/BasePoolMath.sol",
+      "sha256": "0d9796c752ba19c6a87b64104d18427408eae6eda72fa85602ab2438913774f1"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/lib/VaultReentrancyLib.sol",
+      "sha256": "64566c48c3d4ae41dc827cdc95bd7afbe88feed21ecd93d06deb227a0f5e56bd"
+    },
+    {
+      "path": "pkg/pool-utils/contracts/rates/PriceRateCache.sol",
+      "sha256": "6bd6482045fa8da8399d6b57b3a800393118650a104c2c150567cb28d4bcbd19"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/helpers/ERC20Helpers.sol",
+      "sha256": "98a14d3f206a210123ef0100030bbc1da0bb771cb8fff42d320a0fe835cb5667"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/helpers/InputHelpers.sol",
+      "sha256": "0634efecd8191030375bc027e6eec6fc2a75b8c77edc4b3390e87202e55800a1"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/helpers/WordCodec.sol",
+      "sha256": "256b645992f687608c000d7792bcc413269aa7a0fba329aac2b05097a4e74b42"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/math/FixedPoint.sol",
+      "sha256": "db8645a642a965744b15cbdedbf0214c6b8807cf98d359cfb00727a82967a944"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/math/LogExpMath.sol",
+      "sha256": "ed748287e341abc9b28972da8f075bbd2b00d1f1d28c6bbb16030e856b94b9fd"
+    },
+    {
+      "path": "pkg/solidity-utils/contracts/math/Math.sol",
+      "sha256": "dc81441b3b789ebbdaec895dfcf237da0dd4c782d48f5e5c7325afb10bfed746"
+    },
+    {
+      "path": "pkg/vault/contracts/balances/BalanceAllocation.sol",
+      "sha256": "8961dd8213436d2c4176b898418bbe65d5e031c2eccd365dfd81ec476e877237"
+    }
+  ]
+}

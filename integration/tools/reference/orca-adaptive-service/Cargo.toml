@@ -1,0 +1,18 @@
+[package]
+name = "orca-adaptive-service-reference"
+version = "0.1.0"
+edition = "2021"
+publish = false
+[workspace]
+[dependencies]
+whirlpool = { path = "../orca-whirlpools/upstream/programs/whirlpool", default-features = false, features = ["no-entrypoint"] }
+anchor-lang = "=0.32.1"
+serde_json = "=1.0.138"
+serde = "=1.0.228"
+sha2 = "=0.10.9"
+[build-dependencies]
+serde_json = "=1.0.138"
+sha2 = "=0.10.9"
+# Original program release arithmetic, including owed-fee and i128 negation wrapping.
+[profile.dev]
+overflow-checks = false

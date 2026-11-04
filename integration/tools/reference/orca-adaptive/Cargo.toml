@@ -1,0 +1,19 @@
+[package]
+name = "orca-adaptive-reference"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+whirlpool = { path = "../orca-whirlpools/upstream/programs/whirlpool", default-features = false, features = ["no-entrypoint"] }
+serde_json = "=1.0.138"
+sha2 = "=0.10.9"
+
+[build-dependencies]
+serde_json = "=1.0.138"
+sha2 = "=0.10.9"
+
+[profile.release]
+overflow-checks = false

@@ -1,0 +1,18 @@
+[package]
+name = "xone-simulation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+[dependencies]
+revm = { version = "=19.7.0", default-features = false, features = ["std", "secp256k1", "portable", "memory_limit"] }
+xone-domain = { path = "../domain" }
+xone-execution-plan = { path = "../execution-plan" }
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+sha2.workspace = true
+reqwest.workspace = true
+
+[dev-dependencies]
+xone-routing = { path = "../routing" }
+xone-optimizer = { path = "../optimizer" }

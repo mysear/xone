@@ -1,0 +1,41 @@
+warning: unused import: `One`
+ --> /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/../src/curve_multi.rs:6:18
+  |
+6 | use num_traits::{One, Zero};
+  |                  ^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: function `wa` is never used
+  --> /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/../src/curve_crypto.rs:15:4
+   |
+15 | fn wa(a:&BigUint,b:&BigUint)->BigUint{wrap(a+b)}
+   |    ^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: enum `CryptoPoststateBoundary` is never used
+   --> /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/../src/curve_crypto.rs:120:10
+    |
+120 | pub enum CryptoPoststateBoundary{PriceScaleAdjustment,AdminFeeClaimAndGulp}
+    |          ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: 3 warnings emitted
+
+
+running 3 tests
+
+thread 'crypto_exchange_updates_invariant_oracle_profit' panicked at /Users/mac/Desktop/code/gitlab/xone/dex-router/crates/protocol-math/tests/curve_crypto_standalone.rs:17:201:
+called `Result::unwrap()` on an `Err` value: Error("CURVE_CRYPTO_EXCHANGE_NOT_IMPLEMENTED")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test original_halfpow_integer_steps ... ok
+test crypto_exchange_updates_invariant_oracle_profit ... FAILED
+test gamma_newton_invariant_and_y ... ok
+
+failures:
+
+failures:
+    crypto_exchange_updates_invariant_oracle_profit
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

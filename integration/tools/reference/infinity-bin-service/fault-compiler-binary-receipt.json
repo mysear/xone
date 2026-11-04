@@ -1,0 +1,5 @@
+{
+  "passed": false,
+  "error": "Error: injected compiler binary failure",
+  "stack": "Error: injected compiler binary failure\n    at fs.readFileSync ([eval]:9:71)\n    at defaultLoadImpl (node:internal/modules/cjs/loader:1138:17)\n    at loadSource (node:internal/modules/cjs/loader:1787:20)\n    at Object..js (node:internal/modules/cjs/loader:1885:44)\n    at Module.load (node:internal/modules/cjs/loader:1480:32)\n    at Module.<anonymous> (node:internal/modules/cjs/loader:1299:12)\n    at Module._load ([eval]:12:274)\n    at TracingChannel.traceSync (node:diagnostics_channel:328:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)\n    at Module.require (node:internal/modules/cjs/loader:1503:12)"
+}

@@ -1,0 +1,13 @@
+{
+  "revision": "e281ff40583c39bf1d46c322334b2b13936e0e33",
+  "solc": "0.7.6+commit.7338295f.Emscripten.clang",
+  "runtime_bytes": 27545,
+  "normalized_runtime_sha256": "f28868b14502b7918b9ed67eca9a84716a15fc25d03e48db2eef634e1745ddb3",
+  "eip170_limit": 24576,
+  "code_size_limit_enforced": true,
+  "deployed": false,
+  "error": "VM Exception while processing transaction: code size to deposit exceeds maximum code size",
+  "transaction_hash": "0xeed081d03cabf22bb8ee258a0a0b1c19528eb9a5f51453eaa9b0bd88f9a397ce",
+  "status": 0,
+  "gas_used": "55000000"
+}

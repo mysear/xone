@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "inputs": {
+    "integration/tools/ci/infinity-bin-multi-receipt-test.py": "e5ff21e7c6004d5cb2b86c00236021462725d22ef6cbe214f17f4a0616eb3029",
+    "integration/tools/ci/infinity-bin-multi-golden.cjs": "4db8ca21361bd40c39a95fa868c37ffead9daaecd46b0ae76184a1087a325038",
+    "integration/tools/reference/infinity-bin-multi/InfinityBinMultiReference.sol": "c2e953cf9271b3f3cb6f8f60755ea1b1d78fee44cb69c5d39eb9958f6be86cea",
+    "integration/tools/reference/singleton-advanced/source-metadata.json": "ae54c188a60992a7dc699c43d60b45fc20f19ccea63f567dda5647af0088eab1"
+  },
+  "scenarios": [
+    {
+      "scenario": "missing-optional-dependency",
+      "exit_code": 1,
+      "error": "Error: ENOENT: no such file or directory, open '/private/var/folders/f8/jm9t1pk978bby5f_xkk_0l0h0000gn/T/infinity-bin-multi-receipt-bzao9xht/integration/.runtime/singleton-reference/node_modules/solc/package.json'"
+    },
+    {
+      "scenario": "invalid-source-json",
+      "exit_code": 1,
+      "error": "SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)"
+    },
+    {
+      "scenario": "source-pin-mismatch",
+      "exit_code": 1,
+      "error": "AssertionError [ERR_ASSERTION]: infinity/src/pool-bin/libraries/BinPool.sol\n+ actual - expected\n\n+ 'e759a1eb030e9661d6a5612ba10a183ca1e8802b9fde796eeae24568b943172d'\n- '0000000000000000000000000000000000000000000000000000000000000000'\n"
+    },
+    {
+      "scenario": "solidity-compile-error",
+      "exit_code": 1,
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ [\n+   {\n+     component: 'general',\n+     errorCode: '2314',\n+     formattedMessage: \"ParserError: Expected ';' but got identifier\\n\" +\n+       '  --> InfinityBinMultiReference.sol:89:21:\\n' +\n+       '"
+    }
+  ]
+}

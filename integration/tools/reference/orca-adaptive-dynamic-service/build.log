@@ -1,0 +1,1055 @@
+warning: unused import: `anchor_lang::Discriminator`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/entrypoint.rs:3:5
+  |
+3 | use anchor_lang::Discriminator;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `pinocchio::account_info::AccountInfo`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/entrypoint.rs:4:5
+  |
+4 | use pinocchio::account_info::AccountInfo;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unexpected `cfg` condition value: `solana`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/events.rs:56:11
+   |
+56 |     #[cfg(target_os = "solana")]
+   |           ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: expected values for `target_os` are: `aix`, `amdhsa`, `android`, `cuda`, `cygwin`, `dragonfly`, `emscripten`, `espidf`, `freebsd`, `fuchsia`, `haiku`, `hermit`, `horizon`, `hurd`, `illumos`, `ios`, `l4re`, `linux`, `lynxos178`, `macos`, `netbsd`, `none`, `nto`, `nuttx`, `openbsd`, `psp`, `psx`, `redox`, `rtems`, `solaris`, `solid_asp3`, `teeos`, `trusty`, `tvos`, and `uefi` and 9 more
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unexpected `cfg` condition value: `solana`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/events.rs:61:15
+   |
+61 |     #[cfg(not(target_os = "solana"))]
+   |               ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: expected values for `target_os` are: `aix`, `amdhsa`, `android`, `cuda`, `cygwin`, `dragonfly`, `emscripten`, `espidf`, `freebsd`, `fuchsia`, `haiku`, `hermit`, `horizon`, `hurd`, `illumos`, `ios`, `l4re`, `linux`, `lynxos178`, `macos`, `netbsd`, `none`, `nto`, `nuttx`, `openbsd`, `psp`, `psx`, `redox`, `rtems`, `solaris`, `solid_asp3`, `teeos`, `trusty`, `tvos`, and `uefi` and 9 more
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/close_bundled_position.rs:7:10
+  |
+7 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/close_position.rs:8:10
+  |
+8 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/close_position_with_token_extensions.rs:12:10
+   |
+12 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/collect_fees.rs:10:10
+   |
+10 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/collect_protocol_fees.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/collect_reward.rs:10:10
+   |
+10 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/delete_position_bundle.rs:8:10
+  |
+8 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/idl_include.rs:10:10
+   |
+10 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/increase_liquidity.rs:17:10
+   |
+17 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/initialize_config.rs:6:10
+  |
+6 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/initialize_dynamic_tick_array.rs:9:10
+  |
+9 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/initialize_fee_tier.rs:4:10
+  |
+4 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/initialize_pool.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/initialize_position_bundle.rs:7:10
+  |
+7 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/initialize_position_bundle_with_metadata.rs:9:10
+  |
+9 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/initialize_reward.rs:6:10
+  |
+6 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/initialize_tick_array.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/lock_position.rs:11:10
+   |
+11 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/open_bundled_position.rs:12:10
+   |
+12 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/open_position.rs:14:10
+   |
+14 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/open_position_with_metadata.rs:19:10
+   |
+19 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/open_position_with_token_extensions.rs:17:10
+   |
+17 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/reset_position_range.rs:11:10
+   |
+11 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/set_collect_protocol_fees_authority.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/set_config_feature_flag.rs:6:10
+  |
+6 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/set_default_fee_rate.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/set_default_protocol_fee_rate.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/set_fee_authority.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/set_fee_rate.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/set_protocol_fee_rate.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/set_reward_authority.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/set_reward_authority_by_super_authority.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/set_reward_emissions.rs:12:10
+   |
+12 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/set_reward_emissions_super_authority.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/swap.rs:12:10
+   |
+12 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/transfer_locked_position.rs:15:10
+   |
+15 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/two_hop_swap.rs:12:10
+   |
+12 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/update_fees_and_rewards.rs:9:10
+  |
+9 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/collect_fees.rs:12:10
+   |
+12 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/collect_protocol_fees.rs:7:10
+  |
+7 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/collect_reward.rs:12:10
+   |
+12 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/increase_liquidity.rs:21:10
+   |
+21 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/initialize_pool.rs:13:10
+   |
+13 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/initialize_reward.rs:9:10
+  |
+9 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/set_reward_emissions.rs:12:10
+   |
+12 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/swap.rs:18:10
+   |
+18 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/two_hop_swap.rs:18:10
+   |
+18 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/delete_token_badge.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/initialize_config_extension.rs:4:10
+  |
+4 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/initialize_token_badge.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/reposition_liquidity_v2.rs:7:10
+  |
+7 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/set_config_extension_authority.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/set_token_badge_attribute.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/v2/set_token_badge_authority.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/adaptive_fee/initialize_adaptive_fee_tier.rs:4:10
+  |
+4 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/adaptive_fee/initialize_pool_with_adaptive_fee.rs:14:10
+   |
+14 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/adaptive_fee/set_adaptive_fee_constants.rs:8:10
+  |
+8 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/adaptive_fee/set_default_base_fee_rate.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/adaptive_fee/set_delegated_fee_authority.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/adaptive_fee/set_fee_rate_by_delegated_fee_authority.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/adaptive_fee/set_initialize_pool_authority.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/instructions/adaptive_fee/set_preset_adaptive_fee_constants.rs:5:10
+  |
+5 | #[derive(Accounts)]
+  |          ^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+  = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+  = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+  = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused import: `solana_security_txt::security_txt`
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/security.rs:1:5
+  |
+1 | use solana_security_txt::security_txt;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unexpected `cfg` condition value: `solana`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/util/rent.rs:41:11
+   |
+41 |     #[cfg(target_os = "solana")]
+   |           ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: expected values for `target_os` are: `aix`, `amdhsa`, `android`, `cuda`, `cygwin`, `dragonfly`, `emscripten`, `espidf`, `freebsd`, `fuchsia`, `haiku`, `hermit`, `horizon`, `hurd`, `illumos`, `ios`, `l4re`, `linux`, `lynxos178`, `macos`, `netbsd`, `none`, `nto`, `nuttx`, `openbsd`, `psp`, `psx`, `redox`, `rtems`, `solaris`, `solid_asp3`, `teeos`, `trusty`, `tvos`, and `uefi` and 9 more
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unexpected `cfg` condition value: `solana`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/util/rent.rs:47:11
+   |
+47 |     #[cfg(target_os = "solana")]
+   |           ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: expected values for `target_os` are: `aix`, `amdhsa`, `android`, `cuda`, `cygwin`, `dragonfly`, `emscripten`, `espidf`, `freebsd`, `fuchsia`, `haiku`, `hermit`, `horizon`, `hurd`, `illumos`, `ios`, `l4re`, `linux`, `lynxos178`, `macos`, `netbsd`, `none`, `nto`, `nuttx`, `openbsd`, `psp`, `psx`, `redox`, `rtems`, `solaris`, `solid_asp3`, `teeos`, `trusty`, `tvos`, and `uefi` and 9 more
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unexpected `cfg` condition value: `solana`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/util/rent.rs:53:11
+   |
+53 |     #[cfg(target_os = "solana")]
+   |           ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: expected values for `target_os` are: `aix`, `amdhsa`, `android`, `cuda`, `cygwin`, `dragonfly`, `emscripten`, `espidf`, `freebsd`, `fuchsia`, `haiku`, `hermit`, `horizon`, `hurd`, `illumos`, `ios`, `l4re`, `linux`, `lynxos178`, `macos`, `netbsd`, `none`, `nto`, `nuttx`, `openbsd`, `psp`, `psx`, `redox`, `rtems`, `solaris`, `solid_asp3`, `teeos`, `trusty`, `tvos`, and `uefi` and 9 more
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unexpected `cfg` condition value: `solana`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/util/rent.rs:59:11
+   |
+59 |     #[cfg(target_os = "solana")]
+   |           ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: expected values for `target_os` are: `aix`, `amdhsa`, `android`, `cuda`, `cygwin`, `dragonfly`, `emscripten`, `espidf`, `freebsd`, `fuchsia`, `haiku`, `hermit`, `horizon`, `hurd`, `illumos`, `ios`, `l4re`, `linux`, `lynxos178`, `macos`, `netbsd`, `none`, `nto`, `nuttx`, `openbsd`, `psp`, `psx`, `redox`, `rtems`, `solaris`, `solid_asp3`, `teeos`, `trusty`, `tvos`, and `uefi` and 9 more
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/lib.rs:39:1
+   |
+39 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a attribute macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `program` crate for guidance on how handle this unexpected cfg
+   = help: the attribute macro `program` may come from an old version of the `anchor_attribute_program` crate, try updating your dependency with `cargo update -p anchor_attribute_program`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/lib.rs:39:1
+   |
+39 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `no-log-ix-name`
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/lib.rs:39:1
+   |
+39 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `mainnet`, `no-entrypoint`, `no-idl`, and `whirlpool-entrypoint`
+   = note: using a cfg inside a attribute macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `program` crate for guidance on how handle this unexpected cfg
+   = help: the attribute macro `program` may come from an old version of the `anchor_attribute_program` crate, try updating your dependency with `cargo update -p anchor_attribute_program`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: constant `MAX_TX_ACCOUNTS` is never used
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/entrypoint.rs:7:7
+  |
+7 | const MAX_TX_ACCOUNTS: usize = 64;
+  |       ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` on by default
+
+warning: function `pino_calculate_fee_and_reward_growths` is never used
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/ported/manager_liquidity_manager.rs:60:8
+   |
+60 | pub fn pino_calculate_fee_and_reward_growths(
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type alias `BytesU32` is never used
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/state/mod.rs:5:10
+  |
+5 | pub type BytesU32 = [u8; 4];
+  |          ^^^^^^^^
+
+warning: field `is_token_2022` is never read
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/state/token/mod.rs:13:5
+   |
+11 | pub struct TokenProgramAccountWithExtensions<'a, T> {
+   |            --------------------------------- field in this struct
+12 |     bytes: Ref<'a, [u8]>,
+13 |     is_token_2022: bool,
+   |     ^^^^^^^^^^^^^
+
+warning: method `is_token_2022` is never used
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/state/token/mod.rs:38:12
+   |
+36 | impl<T> TokenProgramAccountWithExtensions<'_, T> {
+   | ------------------------------------------------ method in this implementation
+37 |     #[inline(always)]
+38 |     pub fn is_token_2022(&self) -> bool {
+   |            ^^^^^^^^^^^^^
+
+warning: methods `is_min_tick_array`, `is_max_tick_array`, and `tick_offset` are never used
+   --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/state/whirlpool/tick_array/mod.rs:95:8
+    |
+ 25 | pub trait TickArray {
+    |           --------- methods in this trait
+...
+ 95 |     fn is_min_tick_array(&self) -> bool {
+    |        ^^^^^^^^^^^^^^^^^
+...
+ 99 |     fn is_max_tick_array(&self, tick_spacing: u16) -> bool {
+    |        ^^^^^^^^^^^^^^^^^
+...
+103 |     fn tick_offset(&self, tick_index: i32, tick_spacing: u16) -> Result<isize> {
+    |        ^^^^^^^^^^^
+
+warning: function `get_offset` is never used
+   --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/state/whirlpool/tick_array/mod.rs:116:4
+    |
+116 | fn get_offset(tick_index: i32, start_tick_index: i32, tick_spacing: u16) -> isize {
+    |    ^^^^^^^^^^
+
+warning: type alias `LoadedTickArray` is never used
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/state/whirlpool/tick_array/loader.rs:14:10
+   |
+14 | pub type LoadedTickArray<'a> = Ref<'a, dyn TickArray + 'a>;
+   |          ^^^^^^^^^^^^^^^
+
+warning: function `load_tick_array` is never used
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/state/whirlpool/tick_array/loader.rs:16:8
+   |
+16 | pub fn load_tick_array<'a>(
+   |        ^^^^^^^^^^^^^^^
+
+warning: methods `mint`, `vault`, and `extension` are never used
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/state/whirlpool/whirlpool.rs:16:12
+   |
+14 | impl MemoryMappedWhirlpoolRewardInfo {
+   | ------------------------------------ methods in this implementation
+15 |     #[inline(always)]
+16 |     pub fn mint(&self) -> &Pubkey {
+   |            ^^^^
+...
+21 |     pub fn vault(&self) -> &Pubkey {
+   |            ^^^^^
+...
+26 |     pub fn extension(&self) -> &[u8; 32] {
+   |            ^^^^^^^^^
+
+warning: function `load_account` is never used
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/utils/account_load.rs:52:8
+   |
+52 | pub fn load_account<T: WhirlpoolProgramAccount>(
+   |        ^^^^^^^^^^^^
+
+warning: function `load_account_unchecked` is never used
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/utils/account_load.rs:60:8
+   |
+60 | pub fn load_account_unchecked<T: WhirlpoolProgramAccount>(
+   |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `assert_expected_rent_config` is never used
+ --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/util/rent.rs:3:4
+  |
+3 | fn assert_expected_rent_config() -> Result<()> {
+  |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+  --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/utils/account_load.rs:78:20
+   |
+78 |     account_info: &'_ AccountInfo,
+   |                    ^^ the lifetime is elided here
+79 | ) -> Result<TokenProgramAccountWithExtensions<T>> {
+   |             ------------------------------------ the same lifetime is hidden here
+   |
+   = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+   = note: `#[warn(mismatched_lifetime_syntaxes)]` on by default
+help: use `'_` for type paths
+   |
+79 | ) -> Result<TokenProgramAccountWithExtensions<'_, T>> {
+   |                                               +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> /Users/mac/Desktop/code/gitlab/xone/integration/tools/reference/orca-whirlpools/upstream/programs/whirlpool/src/pinocchio/utils/account_load.rs:123:20
+    |
+123 |     account_info: &'_ AccountInfo,
+    |                    ^^ the lifetime is elided here
+124 | ) -> Result<TokenProgramAccountWithExtensions<T>> {
+    |             ------------------------------------ the same lifetime is hidden here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+    |
+124 | ) -> Result<TokenProgramAccountWithExtensions<'_, T>> {
+    |                                               +++
+
+warning: `whirlpool` (lib) generated 94 warnings (5 duplicates) (run `cargo fix --lib -p whirlpool` to apply 3 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.27s

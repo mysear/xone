@@ -1,0 +1,14 @@
+{
+  "valid": true,
+  "reference_only": true,
+  "cases": 60,
+  "counts": {
+    "success": 44,
+    "reverts": 16,
+    "adjusted": 4,
+    "minted": 18,
+    "direct_claim": 12
+  },
+  "corpus_sha256": "dc7069037ec858c0aa95f3d70e05b96ba5fa70c2b98ff73a29b80e2f010bd295",
+  "verifier_sha256": "71cc190c78ee3fbe9f18773334978b5af6f4686a2803b41e91ed9a0d5e3aa5c3"
+}

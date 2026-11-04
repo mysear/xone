@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Authorizer",
+    "sha256": "b5b296b83c0448787030d463224211e4ca75e1e3653ecc9f568516d3b430bb78"
+  },
+  {
+    "name": "Vault",
+    "sha256": "8200d4cca5e38c218dca0242786efff3a19e7ca7de152ff27c49c6f624e997c5"
+  },
+  {
+    "name": "ProtocolFeePercentagesProvider",
+    "sha256": "bc47c78ca2c4b64d638386f60ddfe5f2a8fe5f4919afa60590cc7c3d6d5c1b85"
+  },
+  {
+    "name": "TestBalancerToken",
+    "sha256": "331dc590969862c6ecf77c9b1fdfa6e391af1353f8308ab4368ef8d6f53270b1"
+  },
+  {
+    "name": "ManagedPoolFactory",
+    "sha256": "3a9b48a1a484537ef3489bf836a7de31c568c06ff7560dc603ea8fb0bb472ec1"
+  },
+  {
+    "name": "CircuitBreakerLib",
+    "sha256": "12a318c64b9db5d2214f829152c029e89c9cd40a252a4beac652481efeed68ab"
+  }
+]

@@ -1,0 +1,38 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "mode": "compiler-loader",
+      "failed": true,
+      "stale_receipt_invalidated": true
+    },
+    {
+      "mode": "compiler-binary",
+      "failed": true,
+      "stale_receipt_invalidated": true
+    },
+    {
+      "mode": "source-read",
+      "failed": true,
+      "stale_receipt_invalidated": true
+    },
+    {
+      "mode": "source-hash",
+      "failed": true,
+      "stale_receipt_invalidated": true
+    },
+    {
+      "mode": "source-manifest",
+      "failed": true,
+      "stale_receipt_invalidated": true
+    }
+  ],
+  "inputs": {
+    "integration/test/contracts/infinity-bin-detached.json": "2e66f19b9e7d9e858ecbd2f6fff90bdf1973f9f1cd62197d5da8994e396baf3f",
+    "chain-parser-go/test/contracts/infinity-bin-detached.json": "2e66f19b9e7d9e858ecbd2f6fff90bdf1973f9f1cd62197d5da8994e396baf3f",
+    "dex-router/test/contracts/infinity-bin-detached.json": "2e66f19b9e7d9e858ecbd2f6fff90bdf1973f9f1cd62197d5da8994e396baf3f",
+    "integration/tools/reference/infinity-bin-detached/execution-receipt.json": "5da79bdcd1e149f8ea2f8933fc0a190fdd825851555db0096d20416560329d3c",
+    "integration/tools/ci/infinity-bin-detached-receipt-test.cjs": "98d3ace39ebe26016e855b9609f20fc12a110a2c572a34ceded5e6f89ea704b0"
+  },
+  "frozen_service_manifest_sha256": "578741f82b4a359b333eec77d868b8ab853c2b91673f43b681dd64260258578c"
+}

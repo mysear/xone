@@ -1,0 +1,37 @@
+[
+  {
+    "local": "../curve-models/crypto/CurveCryptoSwap2.vy",
+    "repo": "curvefi/curve-crypto-contract",
+    "revision": "d7d04cd9ae038970e40be850df99de8c1ff7241b",
+    "path": "contracts/two/CurveCryptoSwap2.vy",
+    "sha256": "e50c9231f735ce4b30f60941b8a3a7591ad3b70c8930f7ce965b87efe361579f"
+  },
+  {
+    "local": "CurveTokenV4.vy",
+    "repo": "curvefi/curve-crypto-contract",
+    "revision": "d7d04cd9ae038970e40be850df99de8c1ff7241b",
+    "path": "contracts/tricrypto/CurveTokenV4.vy",
+    "sha256": "ad11f4016dbd4af5087931898082e3636a886eb86d6b9de30816157c4023ebae"
+  },
+  {
+    "local": "CurveTokenV5.vy",
+    "repo": "curvefi/curve-crypto-contract",
+    "revision": "d7d04cd9ae038970e40be850df99de8c1ff7241b",
+    "path": "contracts/CurveTokenV5.vy",
+    "sha256": "77b38a64bfd3141b1ea4cf569e58325be385e0eddd2451baf7932cd7599bcbfe"
+  },
+  {
+    "local": "Tokens.sol",
+    "repo": "local bounded nominal ERC20",
+    "revision": "local-reference",
+    "path": "Tokens.sol",
+    "sha256": "cb48ea0f8889662497e467d6332fde8e3ce78a1e7b863d4914de11995239c778"
+  },
+  {
+    "local": "CurveCryptoSwap2.vy",
+    "repo": "curvefi/curve-crypto-contract",
+    "revision": "d7d04cd9ae038970e40be850df99de8c1ff7241b",
+    "path": "contracts/two/CurveCryptoSwap2.vy",
+    "sha256": "e50c9231f735ce4b30f60941b8a3a7591ad3b70c8930f7ce965b87efe361579f"
+  }
+]

@@ -1,0 +1,87 @@
+{
+  "nonreentrant.lock": {
+    "type": "nonreentrant lock",
+    "location": "storage",
+    "slot": 0
+  },
+  "factory": {
+    "type": "address",
+    "location": "storage",
+    "slot": 1
+  },
+  "coins": {
+    "type": "address[2]",
+    "location": "storage",
+    "slot": 2
+  },
+  "balances": {
+    "type": "uint256[2]",
+    "location": "storage",
+    "slot": 4
+  },
+  "fee": {
+    "type": "uint256",
+    "location": "storage",
+    "slot": 6
+  },
+  "initial_A": {
+    "type": "uint256",
+    "location": "storage",
+    "slot": 7
+  },
+  "future_A": {
+    "type": "uint256",
+    "location": "storage",
+    "slot": 8
+  },
+  "initial_A_time": {
+    "type": "uint256",
+    "location": "storage",
+    "slot": 9
+  },
+  "future_A_time": {
+    "type": "uint256",
+    "location": "storage",
+    "slot": 10
+  },
+  "rate_multiplier": {
+    "type": "uint256",
+    "location": "storage",
+    "slot": 11
+  },
+  "name": {
+    "type": "String[64]",
+    "location": "storage",
+    "slot": 12
+  },
+  "symbol": {
+    "type": "String[32]",
+    "location": "storage",
+    "slot": 15
+  },
+  "balanceOf": {
+    "type": "HashMap[address, uint256][address, uint256]",
+    "location": "storage",
+    "slot": 17
+  },
+  "allowance": {
+    "type": "HashMap[address, HashMap[address, uint256][address, uint256]][address, HashMap[address, uint256][address, uint256]]",
+    "location": "storage",
+    "slot": 18
+  },
+  "totalSupply": {
+    "type": "uint256",
+    "location": "storage",
+    "slot": 19
+  },
+  "DOMAIN_SEPARATOR": {
+    "type": "bytes32",
+    "location": "storage",
+    "slot": 20
+  },
+  "nonces": {
+    "type": "HashMap[address, uint256][address, uint256]",
+    "location": "storage",
+    "slot": 21
+  }
+}

@@ -1,0 +1,388 @@
+{
+  "repository": "raydium-io/raydium-cp-swap",
+  "revision": "f4b9b26342afe9122d5ff67cd7a4f19ded4ac0a5",
+  "archive_url": "https://codeload.github.com/raydium-io/raydium-cp-swap/tar.gz/f4b9b26342afe9122d5ff67cd7a4f19ded4ac0a5",
+  "archive_sha256": "4f33157abbbc533ddd89c2b5ba56cae4fdc1a9b0cbb0c5757bf8df5404a123e9",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "2d6821d63a791f1a386214d2bf7303735b20d202eaa12d41329f1ac49c378481",
+      "bytes": 199
+    },
+    {
+      "path": ".yarnrc.yml",
+      "sha256": "473e6def86fc03638120e0c01d0c8bbab095677256460fa4ea763e5d4697f270",
+      "bytes": 25
+    },
+    {
+      "path": "Anchor.toml",
+      "sha256": "90291619f263e630a3b11420665a3370e6fd7505c869ff9ef561f1341ab89421",
+      "bytes": 779
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "9fd6ae76c394140ed7f2840b29ee4af0fbd857bc8bd7099fc6c35adbd6b1e183",
+      "bytes": 197355
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "5f94225fb7f9cca8179758d78b9cb3165beeb631146f8a9f7b2ca2f277b91109",
+      "bytes": 263
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "bytes": 11357
+    },
+    {
+      "path": "README.md",
+      "sha256": "4268b5075d39066c47f1e8657ebc68cb28f809d5e00ab838e92e9796e817b941",
+      "bytes": 1432
+    },
+    {
+      "path": "SECURITY.md",
+      "sha256": "8607096cf108c02ebbd203d470c8ff81b6e50b3447bd0b0ae3d94876a8d51dc8",
+      "bytes": 7433
+    },
+    {
+      "path": "client/Cargo.toml",
+      "sha256": "163ef92eb272c5333fd9abb3782f20dd9320d43d9ab54811426f18fd272734a2",
+      "bytes": 840
+    },
+    {
+      "path": "client/src/instructions/amm_instructions.rs",
+      "sha256": "253a5727ca481bc2bd88803b37f042c8635519512076327f7482d71edc985a0a",
+      "bytes": 10777
+    },
+    {
+      "path": "client/src/instructions/events_instructions_parse.rs",
+      "sha256": "ff280317acc9b6a1a345cc492bedb26f396c6c6d1c33ff59891b4f0fda21f183",
+      "bytes": 19122
+    },
+    {
+      "path": "client/src/instructions/mod.rs",
+      "sha256": "bd861ec0ac2f0f8e7c9fb2fcff358719a8e02a568a263f7ec35e8204d52c7f21",
+      "bytes": 117
+    },
+    {
+      "path": "client/src/instructions/rpc.rs",
+      "sha256": "feb54d201a418b2c19aa87351c481b4175738769ca99daadb1ad35f15e6ff154",
+      "bytes": 1838
+    },
+    {
+      "path": "client/src/instructions/token_instructions.rs",
+      "sha256": "03742fed5326b1ae824a87e98e296fe8dc4d0f2cdf35743ae0666007000670fd",
+      "bytes": 9647
+    },
+    {
+      "path": "client/src/instructions/utils.rs",
+      "sha256": "3d2dba8061a2be8cb17447892ce009e4111d684a0784f8caf2781932b9110962",
+      "bytes": 4714
+    },
+    {
+      "path": "client/src/main.rs",
+      "sha256": "5ee55da683d90d19500d75570f9c5cbcafc7c847e2018b8e80c58343e09f1ec4",
+      "bytes": 32862
+    },
+    {
+      "path": "client_config.ini",
+      "sha256": "4e000f63ec48ff2a50ff853d27c09b3661a1d73ab216521d6c387006333e211b",
+      "bytes": 252
+    },
+    {
+      "path": "docker-compose.yml",
+      "sha256": "1dd3892a2b794c8c70c55c0db7b1394ac00d9052bac0ada1f8101ac0114afa94",
+      "bytes": 1366
+    },
+    {
+      "path": "package.json",
+      "sha256": "3b9f42b8e93b4aa61ab1ccf212ef89aa4f6599de02aaab1c9cbc199fd6e16566",
+      "bytes": 745
+    },
+    {
+      "path": "programs/cp-swap/Cargo.toml",
+      "sha256": "0781abe35c722bcab6153ee002622c63b6fbdca5d0494cc7d68a78e6459022bf",
+      "bytes": 1317
+    },
+    {
+      "path": "programs/cp-swap/Xargo.toml",
+      "sha256": "815f2dfb6197712a703a8e1f75b03c6991721e9eb7c40dfaec8b0b49da4aa629",
+      "bytes": 62
+    },
+    {
+      "path": "programs/cp-swap/src/curve/calculator.rs",
+      "sha256": "aee16991f81d755a72eae70cdf929816fc9571144cf8570f5049f42af0e7f7f8",
+      "bytes": 15175
+    },
+    {
+      "path": "programs/cp-swap/src/curve/constant_product.rs",
+      "sha256": "5a6ab835ba35e872df53d12df58f98f0b5919592450872eb25e273ce18255077",
+      "bytes": 10645
+    },
+    {
+      "path": "programs/cp-swap/src/curve/fees.rs",
+      "sha256": "0d0b005123cd9e9e8f4ce92d41a5fedfac390471d17db4d63b700ac5b5ad7ffb",
+      "bytes": 3037
+    },
+    {
+      "path": "programs/cp-swap/src/curve/mod.rs",
+      "sha256": "71819af00609cebccf5983a1a6a76632cce9836a025e4e14262b0c4d36426223",
+      "bytes": 167
+    },
+    {
+      "path": "programs/cp-swap/src/error.rs",
+      "sha256": "0bc7dcb72a190b7126a4cc957be6009b98edccf336233d9018f5fae5436f6956",
+      "bytes": 1511
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/close_creator_fee_share.rs",
+      "sha256": "7cda44bb97facc581a63373a6479f4ecf2bc98442e28ca8764d3867e460c8617",
+      "bytes": 1120
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/close_permission_pda.rs",
+      "sha256": "4ba560d06b53f13118b2f0c96e1d80ac2d7ec2655ad43c153faa77b4806d8845",
+      "bytes": 911
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/close_support_mint_associated.rs",
+      "sha256": "e7cffff82efbaa518ded34faf659545b8edabc53a3f6e78d708be0637caec562",
+      "bytes": 1114
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/collect_excess_lamports.rs",
+      "sha256": "a6311aa70f0b8024353ed7bce7f33bace3a7a66272727ec19220d2f4596e8271",
+      "bytes": 3909
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/collect_fund_fee.rs",
+      "sha256": "cbf1ac3945aa92372d429654cf757e61dae02fa20d32cdccd21af60d8b4061d7",
+      "bytes": 4339
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/collect_protocol_fee.rs",
+      "sha256": "e34610c5788e55132db66360c2251a5691bdae9e1a655eee1b77fdc6a5073c46",
+      "bytes": 4451
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/create_config.rs",
+      "sha256": "6f8549ac615657d416f37133cfa9c9e14205632f9df925fb12b476e4b3879e14",
+      "bytes": 1534
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/create_creator_fee_share.rs",
+      "sha256": "7679dfdba710077a466409a2e923208020a7b456bb087d70e53434a0bfdd7531",
+      "bytes": 2021
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/create_permission_pda.rs",
+      "sha256": "22acb7a249705c7854431785ed3b942b7b240118eeb2736a73cdff9abf491858",
+      "bytes": 1405
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/create_support_mint_associated.rs",
+      "sha256": "a9b080f2cf660058b615f1ba637d674143d49a23ff813b07cfb71d2406985ebf",
+      "bytes": 1707
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/mod.rs",
+      "sha256": "327a79c56016d704822ee8312c7adebc3bfdf806236af27cb20253be29101170",
+      "bytes": 787
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/update_config.rs",
+      "sha256": "4733711176053272ce83d22ec1f00cdaca05471abe38b740d32595e65998b8fb",
+      "bytes": 3636
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/admin/update_pool_status.rs",
+      "sha256": "44ae436f41801bc9991fc7eb1d53a82b0b43a1c937d08c00d83fbe81851b7581",
+      "bytes": 555
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/collect_creator_fee.rs",
+      "sha256": "c31b0e9b49bf76ae9208dbaa5b9e49b6573e1d68af3ea186ee4433039ce38bbe",
+      "bytes": 4813
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/collect_creator_fee_permissionless.rs",
+      "sha256": "5f5b53bad3f0eef11c510cae97447dddb52789276f5eda113dc3bca0532669dc",
+      "bytes": 5279
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/deposit.rs",
+      "sha256": "c48da84808719e7d6ce94114118ddc1012908aac0fdf6a022a9b4dee397e992f",
+      "bytes": 6788
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/initialize.rs",
+      "sha256": "d198b84c00331774218b43533979443b256089a160f76a4fa9a5e45a51cace20",
+      "bytes": 12913
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/initialize_with_permission.rs",
+      "sha256": "c70e2df7310661de52fdcd35d09b0d4f6e621fa94e865a5b4627f2e3edc03b04",
+      "bytes": 11922
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/mod.rs",
+      "sha256": "82a970406329b74250ca9eb5885b1f950b109ce189d0acd3fba60591e8517a38",
+      "bytes": 493
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/swap_base_input.rs",
+      "sha256": "5878ed09654745b5725030c5d84a8794a07088e836330890cbae2b0d7d7b1349",
+      "bytes": 7746
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/swap_base_output.rs",
+      "sha256": "90d9ffd040b88e5311abaf42c31b511a0dd4b7c727120debc9e3d995225eb6b5",
+      "bytes": 5698
+    },
+    {
+      "path": "programs/cp-swap/src/instructions/withdraw.rs",
+      "sha256": "1a8e40f32bb6abd979a6a758b36fed035df99c4fa818d5a7a2a1d3b83d3cd59f",
+      "bytes": 7243
+    },
+    {
+      "path": "programs/cp-swap/src/lib.rs",
+      "sha256": "d4151c3959d5b066d459e02f8ffcb45c842944231d68aaff659909c232639f7b",
+      "bytes": 14248
+    },
+    {
+      "path": "programs/cp-swap/src/states/config.rs",
+      "sha256": "02384ef4d41b1dfc985ebf6a581c3227ef60892560300e7233e31dcfc0358890",
+      "bytes": 1668
+    },
+    {
+      "path": "programs/cp-swap/src/states/creator_fee_share.rs",
+      "sha256": "463d2ea17dd305e61614b7d7a7ed0369015e043a23d0af46a0dd5d6ba87bfb29",
+      "bytes": 5084
+    },
+    {
+      "path": "programs/cp-swap/src/states/events.rs",
+      "sha256": "c81d5d9d75b1af219b2a4f107bbf86acb18f063903af56ca56322c36074b8b39",
+      "bytes": 1316
+    },
+    {
+      "path": "programs/cp-swap/src/states/mod.rs",
+      "sha256": "d56d6b7956193cc72de4573b784ec7bbd3973f28cdd16e12c2d2c8f88de7feab",
+      "bytes": 311
+    },
+    {
+      "path": "programs/cp-swap/src/states/oracle.rs",
+      "sha256": "0b8dd5fa9bf69454960d790478a2dc4d61c094991df4e8561843f1b2c1a664ea",
+      "bytes": 6725
+    },
+    {
+      "path": "programs/cp-swap/src/states/permission.rs",
+      "sha256": "e198dadb3421f64871ba3bafdd5b96874fb92175172f5e8edabbbec90013feff",
+      "bytes": 339
+    },
+    {
+      "path": "programs/cp-swap/src/states/pool.rs",
+      "sha256": "e2a836869400bf3cbe3aa52e664235620f82a5c701edd4ced75789f6d7d124ad",
+      "bytes": 18660
+    },
+    {
+      "path": "programs/cp-swap/src/states/support_mint_associated.rs",
+      "sha256": "2674533e98f23cc7039c4329ee1da6a10aa714ad8db1d07dfc20d264a95f29ce",
+      "bytes": 572
+    },
+    {
+      "path": "programs/cp-swap/src/utils/account_load.rs",
+      "sha256": "4a6a625092ce71a65287314377d9e1a560f7188ec6c61f7f5b82d11e4f978c62",
+      "bytes": 6111
+    },
+    {
+      "path": "programs/cp-swap/src/utils/math.rs",
+      "sha256": "3a093f73bc0dffa7e82b9ad9891cc3eb7fc836b589de0d7b17a2bb8840a515f0",
+      "bytes": 922
+    },
+    {
+      "path": "programs/cp-swap/src/utils/mod.rs",
+      "sha256": "da382acda4b86d2c97dc1cfeeecc1eb8e64c2fc0693627aafbe379e7dd5e9de7",
+      "bytes": 112
+    },
+    {
+      "path": "programs/cp-swap/src/utils/token.rs",
+      "sha256": "c9137c9aa1824fa4c235193475d04d687ba5ba1eaefe4eb4741d542fb29e0a1a",
+      "bytes": 14436
+    },
+    {
+      "path": "tests/collect_excess_lamports.test.ts",
+      "sha256": "32b4ef9e6b8513b78af078cd98f3c512a03ee70400d39d8d6465395f786ba96e",
+      "bytes": 10064
+    },
+    {
+      "path": "tests/creator_fee_share.test.ts",
+      "sha256": "72eeda3982eaf4ef20e0f5766cd8718cc2b840d279f50253a481ecd1ea28db13",
+      "bytes": 23506
+    },
+    {
+      "path": "tests/deposit.test.ts",
+      "sha256": "f7fb50787b27825e604b89ebbb5267f80cd4898e2a33fa18125c83040fcb5422",
+      "bytes": 10382
+    },
+    {
+      "path": "tests/initialize.test.ts",
+      "sha256": "6dd7011f6eeff9bbdc27b4a7ee578d292a869236daaf498c0a3c934b76975084",
+      "bytes": 7345
+    },
+    {
+      "path": "tests/swap.test.ts",
+      "sha256": "0685d154d722ac67f16f436aef0208c7efdaeecdedac3c52e9bcf938c8dcd199",
+      "bytes": 5750
+    },
+    {
+      "path": "tests/utils/fee.ts",
+      "sha256": "857e70c9c592a38f6070d16132bf68826563bcb05fd8b1cf9149d64f593252b7",
+      "bytes": 1326
+    },
+    {
+      "path": "tests/utils/index.ts",
+      "sha256": "bc76d66aad859ece3f628764bedaf0333402b9cfeafcfebcb41e51494e52a802",
+      "bytes": 152
+    },
+    {
+      "path": "tests/utils/instruction.ts",
+      "sha256": "ab91f4c921b24ed3800ef67645fa252ec0bda671a12bc503f2f4bc39f447b7d8",
+      "bytes": 26362
+    },
+    {
+      "path": "tests/utils/pda.ts",
+      "sha256": "754c27af5bc0035033155190a0131279e93bec2c256eecc3952a1d4eaf59394b",
+      "bytes": 4039
+    },
+    {
+      "path": "tests/utils/surfnet.ts",
+      "sha256": "c2b7aac0178026543b4a7fd1637a190ce642ef6309329ba7221b71761935a5a1",
+      "bytes": 2866
+    },
+    {
+      "path": "tests/utils/util.ts",
+      "sha256": "6c1fe50ffcb1fe571aff219c61134a5b8eac6673f86bd68ac36adb2b4133ac09",
+      "bytes": 7706
+    },
+    {
+      "path": "tests/utils/web3.ts",
+      "sha256": "eb086b55fe21c9fa880cb55438a8a81fe13be5d95980d1bb2a80de63b6471793",
+      "bytes": 3859
+    },
+    {
+      "path": "tests/withdraw.test.ts",
+      "sha256": "a81dc4c3c7229272318955daeb4c4e3791411ef7f34ab217a4b16e02a55a44f6",
+      "bytes": 4314
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "8a4a2db10bb55b14562ec7dd16cfbb9886f055263cc2ee0a85af0a99636e4db4",
+      "bytes": 234
+    },
+    {
+      "path": "yarn.lock",
+      "sha256": "25225ba4f016b5c0d62f49b70dc5a5ee3ed07f967d08d9aa09721a3c55a6b3f2",
+      "bytes": 58642
+    }
+  ]
+}

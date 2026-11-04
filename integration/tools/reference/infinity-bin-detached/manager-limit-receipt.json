@@ -1,0 +1,50 @@
+{
+  "passed": true,
+  "engine": {
+    "name": "ganache",
+    "version": "7.9.2",
+    "hardfork": "shanghai",
+    "unlimited_contract_size": false
+  },
+  "original_max": 100,
+  "initialized_step": 50,
+  "lowered_max": 10,
+  "pool_id": "0x6ca6eba28a4f44e5db7ada20bf7e97d780eea7c3a2c2110bdf7b437bc11f587a",
+  "existing_slot0_before": [
+    "8388608",
+    "0",
+    "3000"
+  ],
+  "existing_slot0_after": [
+    "8388608",
+    "0",
+    "3000"
+  ],
+  "existing_key_after": [
+    "0x0000000000000000000000000000000000000011",
+    "0x0000000000000000000000000000000000000022",
+    "0x0000000000000000000000000000000000000000",
+    "0x5b1869D9A4C187F2EAa108f3062412ecf0526b24",
+    "3000",
+    "0x0000000000000000000000000000000000000000000000000000000000320000"
+  ],
+  "block": {
+    "num": 4,
+    "hash": "0x13755dbfe56d152907f4498d8d29a6dc381a82c00f9f73ce8799eb619fe0d6e5",
+    "timestamp": 1793577604
+  },
+  "new_step50_initialize_reverted": true,
+  "revert_data": "0x1c511ddd0000000000000000000000000000000000000000000000000000000000000032",
+  "full_manager_swap_settlement_verified": false,
+  "frozen_service_unchanged": true,
+  "inputs": {
+    "integration/tools/ci/infinity-bin-detached-manager-proof.cjs": "3b846bd4ae1c27b92de7e567c712116c2806df9122469232ac45adf864bea1c3",
+    "integration/tools/reference/infinity-bin-service/delivery-manifest.json": "578741f82b4a359b333eec77d868b8ab853c2b91673f43b681dd64260258578c",
+    "integration/tools/reference/infinity-bin-service/BinPoolManager.artifact.json": "c1058ecb4bb39945fda2f94eabf1e3527950dec96354ccd4af20981e32aaa644",
+    "integration/tools/reference/infinity-bin-service/Vault.artifact.json": "42164e3e059c47513de5be74605fa68e5126e13296ef4d219f699293128d74dc",
+    "integration/tools/ci/infinity-bin-detached-lib.cjs": "9ceb69aa3595037c1f4bc4adbd31b4fe397a74f08417735e09776976927b49e8",
+    "integration/tools/ci/infinity-bin-detached-check.cjs": "020ce02aa2f156a2188cb0f94f91f53549a8403730c6f2ccc2cd3237192186ca",
+    "integration/tools/reference/infinity-bin-detached/execution-receipt.json": "5da79bdcd1e149f8ea2f8933fc0a190fdd825851555db0096d20416560329d3c",
+    "integration/tools/reference/infinity-bin-detached/source-metadata.json": "66d9e47787084c6d3e67bc50c1bf4fa124098cc3d9aeaad4be07b5d5b02629d6"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "commit": "b55dc2b8a46bce8f27aed5a3b03f719f662f860a",
+  "official_archive": "https://codeload.github.com/balancer/balancer-deployments/tar.gz/b55dc2b8a46bce8f27aed5a3b03f719f662f860a",
+  "root_licenses": [
+    {
+      "official_path": "LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    }
+  ]
+}

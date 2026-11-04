@@ -1,0 +1,286 @@
+{
+  "passed": true,
+  "negative_cases": 55,
+  "cases": [
+    {
+      "name": "forged manager code",
+      "rejected": true,
+      "error": "Error: original manager template admission"
+    },
+    {
+      "name": "wrong immutable Vault",
+      "rejected": true,
+      "error": "Error: original immutable Vault"
+    },
+    {
+      "name": "forged Vault runtime",
+      "rejected": true,
+      "error": "Error: original Vault admission"
+    },
+    {
+      "name": "unlimited deployment claim",
+      "rejected": true,
+      "error": "Error: normal EIP170"
+    },
+    {
+      "name": "unverified settlement claim",
+      "rejected": true,
+      "error": "Error: scope"
+    },
+    {
+      "name": "immutable metadata offsets",
+      "rejected": true,
+      "error": "Error: immutable reference binding"
+    },
+    {
+      "name": "compiler version",
+      "rejected": true,
+      "error": "Error: compiler"
+    },
+    {
+      "name": "wrong pool mapping base",
+      "rejected": true,
+      "error": "Error: mapping base"
+    },
+    {
+      "name": "zero ERC20",
+      "rejected": true,
+      "error": "Error: sorted nonzero ERC20"
+    },
+    {
+      "name": "unsorted ERC20",
+      "rejected": true,
+      "error": "Error: sorted nonzero ERC20"
+    },
+    {
+      "name": "duplicate ERC20",
+      "rejected": true,
+      "error": "Error: sorted nonzero ERC20"
+    },
+    {
+      "name": "hooks nonzero",
+      "rejected": true,
+      "error": "Error: original static profile"
+    },
+    {
+      "name": "dynamic LP fee flag",
+      "rejected": true,
+      "error": "Error: static fee"
+    },
+    {
+      "name": "LP fee above cap",
+      "rejected": true,
+      "error": "Error: static fee"
+    },
+    {
+      "name": "bin step below minimum",
+      "rejected": true,
+      "error": "Error: bin step"
+    },
+    {
+      "name": "bin step above maximum",
+      "rejected": true,
+      "error": "Error: bin step"
+    },
+    {
+      "name": "protocol direction0 overflow",
+      "rejected": true,
+      "error": "Error: protocol per direction"
+    },
+    {
+      "name": "protocol direction1 overflow",
+      "rejected": true,
+      "error": "Error: protocol per direction"
+    },
+    {
+      "name": "unregistered app",
+      "rejected": true,
+      "error": "Error: registered original app"
+    },
+    {
+      "name": "app reserve getter divergence",
+      "rejected": true,
+      "error": "Error: bank reserve metadata"
+    },
+    {
+      "name": "crosspool global reserve divergence",
+      "rejected": true,
+      "error": "Error: global app reserve shared by all pools"
+    },
+    {
+      "name": "crosspool protocol divergence",
+      "rejected": true,
+      "error": "Error: global protocol shared by all pools"
+    },
+    {
+      "name": "missing root tree",
+      "rejected": true,
+      "error": "Error: full root tree"
+    },
+    {
+      "name": "missing L1 branch",
+      "rejected": true,
+      "error": "Error: complete level1"
+    },
+    {
+      "name": "missing L2 branch",
+      "rejected": true,
+      "error": "Error: complete level2"
+    },
+    {
+      "name": "missing depleted initialized entry",
+      "rejected": true,
+      "error": "Error: complete initialized bins"
+    },
+    {
+      "name": "depleted shares erased",
+      "rejected": true,
+      "error": "Error: depleted entries retain shares"
+    },
+    {
+      "name": "reserve128 overflow",
+      "rejected": true,
+      "error": "Error: reserve128"
+    },
+    {
+      "name": "packed slot mismatch",
+      "rejected": true,
+      "error": "Error: packed slot0"
+    },
+    {
+      "name": "missing extSload evidence",
+      "rejected": true,
+      "error": "Error: missing RPC extsload(bytes32)"
+    },
+    {
+      "name": "block order",
+      "rejected": true,
+      "error": "Error: block identity/order"
+    },
+    {
+      "name": "invalid block hash",
+      "rejected": true,
+      "error": "Error: block identity/order"
+    },
+    {
+      "name": "trade does not consume previous native output",
+      "rejected": true,
+      "error": "Error: chained exact input"
+    },
+    {
+      "name": "native output tamper",
+      "rejected": true,
+      "error": "Error: native deltas"
+    },
+    {
+      "name": "native fee cap imposed incorrectly",
+      "rejected": true,
+      "error": "Error: original swap fee"
+    },
+    {
+      "name": "native protocol aggregate tamper",
+      "rejected": true,
+      "error": "Error: native fill reserves"
+    },
+    {
+      "name": "native full poststate missing bin",
+      "rejected": true,
+      "error": "Error: complete native poststate"
+    },
+    {
+      "name": "native fill price tamper",
+      "rejected": true,
+      "error": "Error: original fill price"
+    },
+    {
+      "name": "native fill reserve tamper",
+      "rejected": true,
+      "error": "Error: native fill reserves"
+    },
+    {
+      "name": "native depleted traversal removed",
+      "rejected": true,
+      "error": "Error: tree traversal order"
+    },
+    {
+      "name": "execution receipt passed",
+      "rejected": true,
+      "error": "Error: missing successful current execution receipt"
+    },
+    {
+      "name": "execution receipt fixture_sha256",
+      "rejected": true,
+      "error": "Error: fixture receipt digest"
+    },
+    {
+      "name": "execution receipt source_metadata_sha256",
+      "rejected": true,
+      "error": "Error: metadata receipt digest"
+    },
+    {
+      "name": "execution receipt compile_evidence_sha256",
+      "rejected": true,
+      "error": "Error: compiler evidence receipt"
+    },
+    {
+      "name": "generator input receipt altered",
+      "rejected": true,
+      "error": "Error: input closure"
+    },
+    {
+      "name": "original source hash",
+      "rejected": true,
+      "error": "Error: upstream source manifest infinity/lib/openzeppelin-contracts/contracts/access/Ownable.sol"
+    },
+    {
+      "name": "source closure omitted",
+      "rejected": true,
+      "error": "Error: complete source closure"
+    },
+    {
+      "name": "dependency lock",
+      "rejected": true,
+      "error": "Error: package lock"
+    },
+    {
+      "name": "compiler package",
+      "rejected": true,
+      "error": "Error: package binding solc"
+    },
+    {
+      "name": "loaded dependency",
+      "rejected": true,
+      "error": "Error: loaded dependency changed integration/.runtime/singleton-reference/node_modules/@ethersproject/abi/lib/_version.js"
+    },
+    {
+      "name": "loaded dependency closure omitted",
+      "rejected": true,
+      "error": "Error: loaded dependency + binary closure"
+    },
+    {
+      "name": "compiler binary",
+      "rejected": true,
+      "error": "Error: loaded dependency changed integration/.runtime/singleton-reference/node_modules/solc/soljson.js"
+    },
+    {
+      "name": "node binary",
+      "rejected": true,
+      "error": "Error: loaded dependency changed /usr/local/bin/node"
+    },
+    {
+      "name": "manager artifact",
+      "rejected": true,
+      "error": "Error: artifact binding BinPoolManager"
+    },
+    {
+      "name": "Vault artifact",
+      "rejected": true,
+      "error": "Error: artifact binding Vault"
+    }
+  ],
+  "inputs": {
+    "integration/tools/ci/infinity-bin-service-check.cjs": "4459e1b3f6bbb2726cf33e3a85b777f90fd2dac8b9ddc9db54cab62d6a19751f",
+    "integration/tools/ci/infinity-bin-service-guards.cjs": "e216dcf3b465ffa7d4bdc83d73b3b827a28e454620016d599811edca5ff3cf95"
+  },
+  "execution_receipt_sha256": "8380d1ce1003616c183c6f527fb5778fea63b8f7f0fc42dab071f35601a36896"
+}

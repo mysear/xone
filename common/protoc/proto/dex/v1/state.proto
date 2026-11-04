@@ -1,0 +1,419 @@
+syntax = "proto3";
+package dex.v1;
+option go_package = "xone/common/protoc/golang/dexpb";
+message Amount { bytes uint256_be = 1; reserved 2 to 9; }
+message BlockRef {
+ string chain_key = 1; uint64 number_or_slot = 2; bytes hash = 3;
+ bytes parent_hash = 4; uint64 timestamp_ms = 5;
+}
+message SnapshotRef {
+ BlockRef block = 1; uint64 canonical_epoch = 2; uint64 journal_seq = 3;
+ uint32 schema_version = 4; bytes adapter_set_hash = 5;
+ uint64 online_generation = 6; bytes scope_hash = 7; uint64 writer_epoch = 8;
+ string owner_service = 9; uint64 owner_assignment_version = 10;
+ reserved 11 to 19;
+}
+message V2SwapState {
+ Amount raw_balance0 = 1; Amount raw_balance1 = 2; optional uint32 block_timestamp_last = 3;
+ Amount price0_cumulative_last = 4; Amount price1_cumulative_last = 5;
+ bool unlocked = 6; bytes factory_code_sha256 = 7; optional uint64 bank_block_number = 8;
+ bytes bank_block_hash = 9; optional uint64 bank_unix_timestamp = 10; reserved 11 to 19;
+}
+message V2State { string factory = 1; bytes code_sha256 = 2; V2SwapState swap = 20; reserved 3 to 19; }
+message V3BitmapWord { sint32 word_pos = 1; Amount bitmap = 2; reserved 3 to 19; }
+message V3Tick { sint32 tick = 1; Amount liquidity_gross = 2; bytes liquidity_net_i128_be = 3; reserved 4 to 19; }
+message V3State {
+ Amount sqrt_price_x96 = 1; sint32 tick = 2; Amount liquidity = 3; sint32 tick_spacing = 4;
+ string factory = 5; bytes code_sha256 = 6; uint32 max_steps = 7;
+ repeated V3BitmapWord tick_words = 8; repeated V3Tick ticks = 9; uint32 fee_protocol = 20; bytes factory_code_sha256 = 21; string implementation = 22; bytes implementation_code_sha256 = 23; reserved 10 to 19;
+}
+message StableState {
+ bytes code_sha256 = 1; string implementation = 2; bytes implementation_code_sha256 = 3;
+ string factory = 4; bytes factory_code_sha256 = 5; string vault = 6; bytes vault_code_sha256 = 7;
+ bytes pool_id = 8; Amount rate0 = 9; Amount rate1 = 10; Amount amplification = 11;
+ uint64 admin_fee = 12; uint32 max_iterations = 13; reserved 14 to 19;
+}
+message ConcentratedState {
+ Amount sqrt_price_x96 = 1; sint32 tick = 2; Amount liquidity = 3;
+ sint32 tick_spacing = 4; uint32 max_steps = 5;
+ repeated V3BitmapWord tick_words = 6; repeated V3Tick ticks = 7;
+ reserved 8 to 19;
+}
+message SingletonCLState {
+ string manager = 1; bytes manager_code_sha256 = 2; bytes pool_id = 3;
+ uint32 lp_fee = 4; uint32 protocol_fee0 = 5; uint32 protocol_fee1 = 6;
+ string hooks = 7; bytes parameters = 8; ConcentratedState core = 9;
+ reserved 10 to 19;
+}
+message RaydiumCPMMState {
+ string program_id = 1;
+ string programdata = 2;
+ bytes program_code_sha256 = 3;
+ uint64 deployed_slot = 4;
+ bytes token_program_code_sha256 = 5;
+ string authority = 6;
+ uint32 authority_bump = 7;
+ string amm_config = 8;
+ string vault0 = 9;
+ string vault1 = 10;
+ uint64 raw_vault0 = 11;
+ uint64 raw_vault1 = 12;
+ uint64 protocol_fee_rate = 13;
+ uint64 fund_fee_rate = 14;
+ uint64 creator_fee_rate = 15;
+ uint64 creator_fee_share_rate = 16;
+ uint32 creator_fee_on = 17;
+ bool creator_fee_enabled = 18;
+ uint64 protocol_fees0 = 19;
+ uint64 protocol_fees1 = 20;
+ uint64 fund_fees0 = 21;
+ uint64 fund_fees1 = 22;
+ uint64 creator_fees0 = 23;
+ uint64 creator_fees1 = 24;
+ uint64 bank_slot = 25;
+ uint64 bank_unix_timestamp = 26;
+ uint64 bank_epoch = 27;
+ uint64 open_time = 28;
+ uint64 recent_epoch = 29;
+ uint32 mint0_decimals = 30;
+ uint32 mint1_decimals = 31;
+ reserved 32 to 49;
+}
+message OrcaTick { sint32 tick = 1; Amount liquidity_gross = 2; bytes liquidity_net_i128_be = 3; Amount fee_growth_outside0 = 4; Amount fee_growth_outside1 = 5; repeated Amount reward_growths_outside = 20; reserved 6 to 19; }
+message OrcaTickArray { string address = 1; sint32 start_tick_index = 2; string layout = 3; Amount initialized_bitmap = 4; repeated OrcaTick ticks = 5; reserved 6 to 19; }
+message OrcaWhirlpoolState {
+ string program_id = 1;
+ string programdata = 2;
+ bytes program_code_sha256 = 3;
+ uint64 deployed_slot = 4;
+ bytes token_program_code_sha256 = 5;
+ string whirlpools_config = 6;
+ uint32 whirlpool_bump = 7;
+ string oracle = 8;
+ string vault0 = 9;
+ string vault1 = 10;
+ uint64 raw_vault0 = 11;
+ uint64 raw_vault1 = 12;
+ uint32 mint0_decimals = 13;
+ uint32 mint1_decimals = 14;
+ uint64 bank_slot = 15;
+ uint64 bank_unix_timestamp = 16;
+ uint64 bank_epoch = 17;
+ uint32 fee_tier_index = 18;
+ uint32 fee_rate = 19;
+ uint32 protocol_fee_rate = 20;
+ Amount sqrt_price_x64 = 21;
+ sint32 tick_current_index = 22;
+ Amount liquidity = 23;
+ uint32 tick_spacing = 24;
+ uint64 protocol_fee_owed0 = 25;
+ uint64 protocol_fee_owed1 = 26;
+ Amount fee_growth_global0 = 27;
+ Amount fee_growth_global1 = 28;
+ uint64 reward_last_updated_timestamp = 29;
+ repeated OrcaTickArray tick_arrays = 30;
+ uint32 max_steps = 31;
+ repeated OrcaRewardInfo reward_infos = 50;
+ OrcaAdaptiveState adaptive = 51;
+ reserved 32 to 49;
+}
+message RaydiumCLMMTick { sint32 tick = 1; Amount liquidity_gross = 2; bytes liquidity_net_i128_be = 3; Amount fee_growth_outside0 = 4; Amount fee_growth_outside1 = 5; repeated Amount reward_growths_outside = 20; reserved 6 to 19; }
+message RaydiumCLMMArray { string address = 1; sint32 start_tick_index = 2; uint64 recent_epoch = 3; repeated RaydiumCLMMTick ticks = 4; reserved 5 to 19; }
+message RaydiumCLMMObservation { uint32 block_timestamp = 1; sint64 tick_cumulative = 2; reserved 3 to 19; }
+message RaydiumCLMMBitmapExtension { string address = 1; repeated fixed64 positive = 2; repeated fixed64 negative = 3; reserved 4 to 19; }
+message RaydiumCLMMDynamicFee { uint32 filter_period = 1; uint32 decay_period = 2; uint32 reduction_factor = 3; uint32 dynamic_fee_control = 4; uint32 max_volatility_accumulator = 5; sint32 tick_spacing_index_reference = 6; uint32 volatility_reference = 7; uint32 volatility_accumulator = 8; uint64 last_update_timestamp = 9; reserved 10 to 19; }
+message RaydiumCLMMState {
+ string program_id = 1;
+ string programdata = 2;
+ bytes program_code_sha256 = 3;
+ uint64 deployed_slot = 4;
+ bytes token_program_code_sha256 = 5;
+ string amm_config = 6;
+ uint32 pool_bump = 7;
+ string observation = 8;
+ string vault0 = 9;
+ string vault1 = 10;
+ uint64 raw_vault0 = 11;
+ uint64 raw_vault1 = 12;
+ uint32 mint0_decimals = 13;
+ uint32 mint1_decimals = 14;
+ uint64 bank_slot = 15;
+ uint64 bank_unix_timestamp = 16;
+ uint64 bank_epoch = 17;
+ uint32 trade_fee_rate = 18;
+ uint32 protocol_fee_rate = 19;
+ uint32 fund_fee_rate = 20;
+ uint32 tick_spacing = 21;
+ Amount sqrt_price_x64 = 22;
+ sint32 tick_current = 23;
+ Amount liquidity = 24;
+ Amount fee_growth_global0 = 25;
+ Amount fee_growth_global1 = 26;
+ uint64 protocol_fees0 = 27;
+ uint64 protocol_fees1 = 28;
+ uint64 fund_fees0 = 29;
+ uint64 fund_fees1 = 30;
+ uint64 open_time = 31;
+ uint64 recent_epoch = 32;
+ repeated fixed64 bitmap = 33;
+ repeated RaydiumCLMMArray tick_arrays = 34;
+ uint32 max_steps = 35;
+ bool observation_initialized = 36;
+ uint32 observation_index = 37;
+ uint64 observation_recent_epoch = 38;
+ repeated RaydiumCLMMObservation observations = 39;
+ uint32 collect_fee_on = 60;
+ RaydiumCLMMBitmapExtension bitmap_extension = 61;
+ uint32 seed_index = 62;
+ RaydiumCLMMDynamicFee dynamic_fee = 63;
+ repeated RaydiumCLMMRewardInfo reward_infos = 64;
+ reserved 40 to 59;
+}
+message PoolState {
+ string chain_key = 1; string pool_id = 2; string protocol = 3;
+ string token0 = 4; string token1 = 5; Amount reserve0 = 6; Amount reserve1 = 7;
+ uint64 fee_numerator = 8; uint64 fee_denominator = 9; string adapter_version = 10;
+ string token_behavior = 11; V3State v3 = 20; V2State v2 = 21; StableState stable = 22; SingletonCLState singleton_cl = 23; RaydiumCPMMState raydium_cpmm = 24; OrcaWhirlpoolState orca_whirlpool = 25; RaydiumCLMMState raydium_clmm = 26; WeightedState weighted = 27; MultiAssetState multi_asset = 28; SingletonAdvancedState singleton_advanced = 29; InfinityBinState infinity_bin = 30; reserved 12 to 19;
+}
+message CanonicalRecord {
+ SnapshotRef snapshot = 1; string record_id = 2; bytes payload_hash = 3;
+ string kind = 4; bytes normalized_payload = 5; reserved 6 to 19;
+}
+message BaselineManifest {
+ SnapshotRef snapshot = 1; bytes payload_sha256 = 2; uint64 payload_size = 3;
+ uint32 chunk_count = 4; repeated string scope_pool_ids = 5;
+ reserved 6 to 19;
+}
+
+message HistoryGap {
+ uint64 from = 1;
+ uint64 to = 2;
+ string reason = 3;
+ reserved 4 to 9;
+}
+message OnlineSnapshot {
+ SnapshotRef reference = 1;
+ repeated PoolState pools = 2;
+ string source = 3;
+ repeated HistoryGap history_gaps = 4;
+ reserved 5 to 19;
+}
+message SwapFact {
+ string event_id = 1; bytes tx_hash = 2; uint64 tx_index = 3; uint64 log_index = 4;
+ string pool_id = 5; string token0 = 6; string token1 = 7;
+ Amount amount0_in = 8; Amount amount1_in = 9; Amount amount0_out = 10; Amount amount1_out = 11;
+ reserved 12 to 19;
+}
+message FactBlock { BlockRef block = 1; repeated SwapFact swaps = 2; reserved 3 to 19; }
+message FactBatch {
+ uint32 schema_version = 1; string decoder_version = 2;
+ repeated FactBlock blocks = 3; repeated BlockRef reverted_blocks = 4;
+ reserved 5 to 19;
+}
+message JournalUnit {
+ string kind = 1;
+ OnlineSnapshot snapshot = 2;
+ FactBatch normalized_facts = 20;
+ reserved 3 to 19;
+}
+message JournalFrame {
+ uint32 schema_version = 1;
+ string unit_id = 2;
+ string kind = 3;
+ SnapshotRef reference = 4;
+ bytes payload_sha256 = 5;
+ uint64 payload_bytes = 6;
+ uint32 chunk_count = 7;
+ uint32 chunk_index = 8;
+ bytes data = 9;
+ reserved 10 to 19;
+}
+message JournalCursor {
+ string topic = 1;
+ int32 partition = 2;
+ int64 next_offset = 3;
+ reserved 4 to 19;
+}
+message OwnerBootstrap {
+ OnlineSnapshot snapshot = 1;
+ JournalCursor cursor = 2;
+ reserved 3 to 19;
+}
+
+// Versioned immutable two-token Balancer V2 WeightedPool; pool-specific Vault cash,
+// with zero asset managers/managed funds. Separate from StableMath state.
+message WeightedState {
+  bytes code_sha256 = 1;
+  string vault = 2;
+  bytes vault_code_sha256 = 3;
+  bytes pool_id = 4;
+  Amount scaling0 = 5;
+  Amount scaling1 = 6;
+  Amount weight0 = 7;
+  Amount weight1 = 8;
+  bytes token0_code_sha256 = 9;
+  bytes token1_code_sha256 = 10;
+}
+
+// A multi-token pool has one physical identity and one mutable balance vector.
+// Protocol/adapter identity selects the exact invariant and native accounting.
+message MultiAsset {
+ string token = 1; Amount balance = 2; Amount scaling = 3; bytes code_sha256 = 4;
+}
+message MultiAssetState {
+ bytes code_sha256 = 1; string vault = 2; bytes vault_code_sha256 = 3;
+ bytes pool_id = 4; repeated MultiAsset assets = 5; repeated Amount weights = 6;
+ Amount amplification = 7; uint64 admin_fee = 8; CurveNGState curve_ng = 9;
+ BalancerManagedState managed_fees = 10; CurveMetaState curve_meta = 11; CurveCryptoState curve_crypto = 12; BalancerManagedV2State managed_v2 = 13;
+}
+
+message OrcaRewardInfo {string mint=1;string vault=2;bytes extension=3;Amount emissions_per_second_x64=4;Amount growth_global_x64=5;}
+
+message RaydiumCLMMRewardInfo {
+ uint32 reward_state=1;uint64 open_time=2;uint64 end_time=3;uint64 last_update_time=4;
+ Amount emissions_per_second_x64=5;uint64 reward_total_emitted=6;uint64 reward_claimed=7;
+ string token_mint=8;string token_vault=9;string authority=10;Amount reward_growth_global_x64=11;
+}
+
+message SingletonAdvancedState {string protocol=1;string currency0=2;string currency1=3;uint32 key_fee=4;bytes snapshot_block_hash=5;SingletonCLState snapshot=6;}
+
+// Original StableSwapNG 3332cd44 standard-token exchange bookkeeping.
+message CurveNGState {
+ repeated Amount stored_balances = 1; repeated Amount admin_balances = 2;
+ repeated Amount last_prices_packed = 3; Amount last_d_packed = 4;
+ Amount ma_last_time = 5; uint64 ma_exp_time = 6; uint64 d_ma_time = 7;
+ uint64 timestamp = 8; uint64 block_number = 9; bytes block_hash = 10;
+ Amount offpeg_fee_multiplier = 11;
+}
+
+// Pinned ManagedPool e281ff40 regular swap BPT fee bookkeeping.
+message BalancerManagedState {
+ Amount total_supply = 1; Amount protocol_swap_fee = 2; Amount management_swap_fee = 3;
+ string owner = 4; string protocol_collector = 5;
+ Amount owner_balance = 6; Amount protocol_collector_balance = 7;
+ uint64 timestamp = 8; uint64 block_number = 9; bytes block_hash = 10;
+}
+
+// Fixed MetaUSD coin/3CRV exchange, with a read-only base-pool dependency.
+message CurveMetaState {
+ string base_pool = 1; bytes base_pool_code_sha256 = 2; Amount base_virtual_price = 3;
+ repeated Amount stored_balances = 4; repeated Amount admin_balances = 5;
+ uint64 timestamp = 6; uint64 block_number = 7; bytes block_hash = 8;
+ string implementation = 9; bytes implementation_code_sha256 = 10;
+}
+
+// Initial endpoint of the pinned two-coin CryptoSwap packed A/gamma schedule.
+message CurveCryptoRamp {
+ Amount initial_amp = 1; Amount initial_gamma = 2; uint64 initial_time = 3;
+}
+
+// Fixed two-coin CryptoSwap: gamma/pricing oracle plus LP admin mint ledger.
+message CurveCryptoState {
+ Amount gamma=1; Amount out_fee=2; Amount fee_gamma=3; Amount allowed_extra_profit=4;
+ Amount adjustment_step=5; uint64 ma_half_time=6; Amount invariant=7; Amount price_scale=8;
+ Amount price_oracle=9; Amount last_prices=10; uint64 last_prices_timestamp=11;
+ Amount xcp_profit=12; Amount xcp_profit_a=13; Amount virtual_price=14; bool not_adjusted=15;
+ uint64 future_a_gamma_time=16; string lp_token=17; bytes lp_token_code_sha256=18;
+ Amount total_supply=19; string admin_receiver=20; Amount admin_receiver_balance=21;
+ repeated Amount raw_balances=22; uint64 timestamp=23; uint64 block_number=24; bytes block_hash=25;
+ CurveCryptoRamp ramp=26;
+}
+
+// Pinned Orca initialized Oracle payload; packed source widths validated on admission.
+message OrcaAdaptiveState {
+ string whirlpool=1;
+ uint64 trade_enable_timestamp=2;
+ uint32 filter_period=3;
+ uint32 decay_period=4;
+ uint32 reduction_factor=5;
+ uint32 adaptive_fee_control_factor=6;
+ uint32 max_volatility_accumulator=7;
+ uint32 tick_group_size=8;
+ uint32 major_swap_threshold_ticks=9;
+ bytes constants_reserved=10;
+ uint64 last_reference_update_timestamp=11;
+ uint64 last_major_swap_timestamp=12;
+ uint32 volatility_reference=13;
+ sint32 tick_group_index_reference=14;
+ uint32 volatility_accumulator=15;
+ bytes variables_reserved=16;
+ bytes reserved=17;
+}
+
+message InfinityBinTreeWord { uint32 index=1; Amount value=2; }
+message InfinityBinEntry { uint32 id=1; Amount reserve0=2; Amount reserve1=3; Amount total_shares=4; }
+message InfinityBinState {
+ string manager=1; bytes manager_code_sha256=2;
+ string vault=3; bytes vault_code_sha256=4;
+ bytes pool_id=5; string hooks=6; bytes parameters=7;
+ bytes token0_code_sha256=8; bytes token1_code_sha256=9;
+ uint32 bin_step=10; uint32 active_id=11; uint32 lp_fee=12;
+ uint32 protocol_fee0=13; uint32 protocol_fee1=14;
+ uint32 max_bins=15; uint32 max_tree_words=16; uint32 max_steps=17;
+ Amount tree_level0=18;
+ repeated InfinityBinTreeWord tree_level1=19;
+ repeated InfinityBinTreeWord tree_level2=20;
+ repeated InfinityBinEntry bins=21;
+ Amount app_reserve0=22; Amount app_reserve1=23;
+ Amount protocol_fees0=24; Amount protocol_fees1=25;
+ uint64 block_number=26; uint64 timestamp=27; bytes block_hash=28;
+ InfinityBinEntry detached_active=29;
+}
+
+// Published 20230411 Managed V2. Scalars retain presence including Known(0).
+message ManagedV2Dependency {
+ string role = 1;
+ string address = 2;
+ bytes code_sha256 = 3;
+ bytes template_sha256 = 4;
+}
+message ManagedV2TokenInfo {
+ Amount cash = 1;
+ Amount managed = 2;
+ string asset_manager = 3;
+ optional uint64 last_change_block = 4;
+ optional bool circuit_breaker_enabled = 5;
+ Amount vault_actual_balance = 6;
+}
+// Wire words decode as uint64 to reject protobuf uint32 truncation; domain/storage width is uint32.
+message BalancerManagedV2State {
+ optional uint64 timestamp = 1;
+ optional uint64 block_number = 2;
+ bytes block_hash = 3;
+ string factory = 4;
+ bytes factory_code_sha256 = 5;
+ bytes pool_runtime_template_sha256 = 6;
+ string fee_provider = 7;
+ bytes fee_provider_code_sha256 = 8;
+ string protocol_collector = 9;
+ bytes protocol_collector_code_sha256 = 10;
+ repeated ManagedV2Dependency dependencies = 11;
+ Amount total_supply = 12;
+ Amount virtual_supply = 13;
+ Amount actual_supply = 14;
+ Amount pending_aum = 15;
+ Amount vault_bpt_cash = 16;
+ Amount vault_bpt_managed = 17;
+ optional uint64 bpt_index = 18;
+ string manager = 19;
+ Amount manager_bpt_balance = 20;
+ Amount protocol_collector_bpt_balance = 21;
+ Amount management_aum_fee = 22;
+ optional uint64 last_collection_timestamp = 23;
+ Amount provider_fee_id = 24;
+ Amount live_provider_aum_percentage = 25;
+ Amount cached_protocol_aum_percentage = 26;
+ optional bool swaps_enabled = 27;
+ optional bool paused = 28;
+ optional bool recovery_mode = 29;
+ optional bool allowlist_enabled = 30;
+ optional uint64 pause_window_end = 31;
+ optional uint64 buffer_period_end = 32;
+ optional uint64 gradual_weight_end = 33;
+ optional uint64 gradual_fee_end = 34;
+ repeated ManagedV2TokenInfo token_info = 35;
+ Amount vault_bpt_actual_balance = 36;
+ optional bool vault_paused = 37;
+ optional uint64 vault_pause_window_end = 38;
+ optional uint64 vault_buffer_period_end = 39;
+}

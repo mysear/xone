@@ -1,0 +1,21 @@
+[package]
+name = "xone-domain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+num-bigint.workspace = true
+num-traits.workspace = true
+thiserror.workspace = true
+prost.workspace = true
+xone-proto = { path = "../../../common/protoc/rust" }
+
+tiny-keccak = { version = "=2.0.2", features = ["keccak"] }
+
+bs58 = "=0.5.1"
+
+curve25519-dalek = "=4.1.3"

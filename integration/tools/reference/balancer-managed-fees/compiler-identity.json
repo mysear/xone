@@ -1,0 +1,499 @@
+{
+  "eip170_deployable": false,
+  "admission_status": "reference-only-over-eip170",
+  "revision": "e281ff40583c39bf1d46c322334b2b13936e0e33",
+  "solc": "0.7.6+commit.7338295f.Emscripten.clang",
+  "pool_source": "pkg/pool-weighted/contracts/smart/ManagedPool.sol",
+  "runtime_bytes": 27545,
+  "normalized_runtime_sha256": "f28868b14502b7918b9ed67eca9a84716a15fc25d03e48db2eef634e1745ddb3",
+  "immutableReferences": {
+    "17976": [
+      {
+        "length": 32,
+        "start": 7391
+      }
+    ],
+    "18400": [
+      {
+        "length": 32,
+        "start": 9043
+      }
+    ],
+    "18402": [
+      {
+        "length": 32,
+        "start": 9079
+      }
+    ],
+    "20342": [
+      {
+        "length": 32,
+        "start": 4493
+      }
+    ],
+    "21374": [
+      {
+        "length": 32,
+        "start": 2125
+      }
+    ],
+    "21453": [
+      {
+        "length": 32,
+        "start": 3117
+      }
+    ],
+    "21455": [
+      {
+        "length": 32,
+        "start": 3613
+      }
+    ],
+    "21457": [
+      {
+        "length": 32,
+        "start": 4853
+      }
+    ],
+    "23001": [
+      {
+        "length": 32,
+        "start": 10142
+      }
+    ],
+    "23003": [
+      {
+        "length": 32,
+        "start": 10175
+      }
+    ],
+    "23005": [
+      {
+        "length": 32,
+        "start": 10109
+      }
+    ],
+    "24544": [
+      {
+        "length": 32,
+        "start": 2451
+      }
+    ],
+    "24546": [
+      {
+        "length": 32,
+        "start": 7310
+      }
+    ],
+    "25973": [
+      {
+        "length": 32,
+        "start": 4667
+      }
+    ],
+    "26182": [
+      {
+        "length": 32,
+        "start": 4616
+      }
+    ]
+  },
+  "immutable_ast": {
+    "17976": {
+      "name": "_PERMIT_TYPEHASH",
+      "source": "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ERC20Permit.sol",
+      "src": "886:154:38",
+      "type": "bytes32",
+      "mutability": "immutable"
+    },
+    "18400": {
+      "name": "_pauseWindowEndTime",
+      "source": "@balancer-labs/v2-solidity-utils/contracts/helpers/TemporarilyPausable.sol",
+      "src": "2366:45:31",
+      "type": "uint256",
+      "mutability": "immutable"
+    },
+    "18402": {
+      "name": "_bufferPeriodEndTime",
+      "source": "@balancer-labs/v2-solidity-utils/contracts/helpers/TemporarilyPausable.sol",
+      "src": "2417:46:31",
+      "type": "uint256",
+      "mutability": "immutable"
+    },
+    "20342": {
+      "name": "_actionIdDisambiguator",
+      "source": "@balancer-labs/v2-solidity-utils/contracts/helpers/Authentication.sol",
+      "src": "1349:48:28",
+      "type": "bytes32",
+      "mutability": "immutable"
+    },
+    "21374": {
+      "name": "_aumProtocolFeesCollector",
+      "source": "@balancer-labs/v2-pool-utils/contracts/AumProtocolFeeCache.sol",
+      "src": "1084:69:20",
+      "type": "contract IAumProtocolFeesCollector",
+      "mutability": "immutable"
+    },
+    "21453": {
+      "name": "_delegatedProtocolFees",
+      "source": "@balancer-labs/v2-pool-utils/contracts/ProtocolFeeCache.sol",
+      "src": "2122:45:25",
+      "type": "bool",
+      "mutability": "immutable"
+    },
+    "21455": {
+      "name": "_fixedProtocolSwapFeePercentage",
+      "source": "@balancer-labs/v2-pool-utils/contracts/ProtocolFeeCache.sol",
+      "src": "2231:57:25",
+      "type": "uint256",
+      "mutability": "immutable"
+    },
+    "21457": {
+      "name": "_protocolFeesCollector",
+      "source": "@balancer-labs/v2-pool-utils/contracts/ProtocolFeeCache.sol",
+      "src": "2396:63:25",
+      "type": "contract IProtocolFeesCollector",
+      "mutability": "immutable"
+    },
+    "23001": {
+      "name": "_HASHED_NAME",
+      "source": "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/EIP712.sol",
+      "src": "1277:38:36",
+      "type": "bytes32",
+      "mutability": "immutable"
+    },
+    "23003": {
+      "name": "_HASHED_VERSION",
+      "source": "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/EIP712.sol",
+      "src": "1321:41:36",
+      "type": "bytes32",
+      "mutability": "immutable"
+    },
+    "23005": {
+      "name": "_TYPE_HASH",
+      "source": "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/EIP712.sol",
+      "src": "1368:36:36",
+      "type": "bytes32",
+      "mutability": "immutable"
+    },
+    "24544": {
+      "name": "_poolId",
+      "source": "@balancer-labs/v2-pool-utils/contracts/BasePool.sol",
+      "src": "3855:33:23",
+      "type": "bytes32",
+      "mutability": "immutable"
+    },
+    "24546": {
+      "name": "_protocolFeesCollector",
+      "source": "@balancer-labs/v2-pool-utils/contracts/BasePool.sol",
+      "src": "3996:63:23",
+      "type": "contract IProtocolFeesCollector",
+      "mutability": "immutable"
+    },
+    "25973": {
+      "name": "_vault",
+      "source": "@balancer-labs/v2-pool-utils/contracts/BalancerPoolToken.sol",
+      "src": "1561:31:21",
+      "type": "contract IVault",
+      "mutability": "immutable"
+    },
+    "26182": {
+      "name": "_owner",
+      "source": "@balancer-labs/v2-pool-utils/contracts/BasePoolAuthorization.sol",
+      "src": "1556:32:24",
+      "type": "address",
+      "mutability": "immutable"
+    }
+  },
+  "immutable_spans": [
+    {
+      "length": 32,
+      "start": 2125
+    },
+    {
+      "length": 32,
+      "start": 2451
+    },
+    {
+      "length": 32,
+      "start": 3117
+    },
+    {
+      "length": 32,
+      "start": 3613
+    },
+    {
+      "length": 32,
+      "start": 4493
+    },
+    {
+      "length": 32,
+      "start": 4616
+    },
+    {
+      "length": 32,
+      "start": 4667
+    },
+    {
+      "length": 32,
+      "start": 4853
+    },
+    {
+      "length": 32,
+      "start": 7310
+    },
+    {
+      "length": 32,
+      "start": 7391
+    },
+    {
+      "length": 32,
+      "start": 9043
+    },
+    {
+      "length": 32,
+      "start": 9079
+    },
+    {
+      "length": 32,
+      "start": 10109
+    },
+    {
+      "length": 32,
+      "start": 10142
+    },
+    {
+      "length": 32,
+      "start": 10175
+    }
+  ],
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 19855,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_balances",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_mapping(t_address,t_uint256)"
+      },
+      {
+        "astId": 19861,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_allowances",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
+      },
+      {
+        "astId": 19863,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_totalSupply",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 19865,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_name",
+        "offset": 0,
+        "slot": "3",
+        "type": "t_string_storage"
+      },
+      {
+        "astId": 19867,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_symbol",
+        "offset": 0,
+        "slot": "4",
+        "type": "t_string_storage"
+      },
+      {
+        "astId": 19869,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_decimals",
+        "offset": 0,
+        "slot": "5",
+        "type": "t_uint8"
+      },
+      {
+        "astId": 17971,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_nonces",
+        "offset": 0,
+        "slot": "6",
+        "type": "t_mapping(t_address,t_uint256)"
+      },
+      {
+        "astId": 18404,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_paused",
+        "offset": 0,
+        "slot": "7",
+        "type": "t_bool"
+      },
+      {
+        "astId": 25791,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_recoveryMode",
+        "offset": 1,
+        "slot": "7",
+        "type": "t_bool"
+      },
+      {
+        "astId": 24539,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_miscData",
+        "offset": 0,
+        "slot": "8",
+        "type": "t_bytes32"
+      },
+      {
+        "astId": 21459,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_protocolSwapFeePercentageCache",
+        "offset": 0,
+        "slot": "9",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 21376,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_protocolAumFeePercentageCache",
+        "offset": 0,
+        "slot": "10",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 22687,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_status",
+        "offset": 0,
+        "slot": "11",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 8980,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_tokenState",
+        "offset": 0,
+        "slot": "12",
+        "type": "t_mapping(t_contract(IERC20)22820,t_bytes32)"
+      },
+      {
+        "astId": 8996,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_allowedAddresses",
+        "offset": 0,
+        "slot": "13",
+        "type": "t_mapping(t_address,t_bool)"
+      },
+      {
+        "astId": 8998,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_denormWeightSum",
+        "offset": 0,
+        "slot": "14",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 9000,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_managementSwapFeePercentage",
+        "offset": 0,
+        "slot": "15",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 9002,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_totalTokensCache",
+        "offset": 0,
+        "slot": "16",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 9004,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_managementAumFeePercentage",
+        "offset": 0,
+        "slot": "17",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 9006,
+        "contract": "pkg/pool-weighted/contracts/smart/ManagedPool.sol:ManagedPool",
+        "label": "_lastAumFeeCollectionTimestamp",
+        "offset": 0,
+        "slot": "18",
+        "type": "t_uint256"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_bool": {
+        "encoding": "inplace",
+        "label": "bool",
+        "numberOfBytes": "1"
+      },
+      "t_bytes32": {
+        "encoding": "inplace",
+        "label": "bytes32",
+        "numberOfBytes": "32"
+      },
+      "t_contract(IERC20)22820": {
+        "encoding": "inplace",
+        "label": "contract IERC20",
+        "numberOfBytes": "20"
+      },
+      "t_mapping(t_address,t_bool)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => bool)",
+        "numberOfBytes": "32",
+        "value": "t_bool"
+      },
+      "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => mapping(address => uint256))",
+        "numberOfBytes": "32",
+        "value": "t_mapping(t_address,t_uint256)"
+      },
+      "t_mapping(t_address,t_uint256)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => uint256)",
+        "numberOfBytes": "32",
+        "value": "t_uint256"
+      },
+      "t_mapping(t_contract(IERC20)22820,t_bytes32)": {
+        "encoding": "mapping",
+        "key": "t_contract(IERC20)22820",
+        "label": "mapping(contract IERC20 => bytes32)",
+        "numberOfBytes": "32",
+        "value": "t_bytes32"
+      },
+      "t_string_storage": {
+        "encoding": "bytes",
+        "label": "string",
+        "numberOfBytes": "32"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      },
+      "t_uint8": {
+        "encoding": "inplace",
+        "label": "uint8",
+        "numberOfBytes": "1"
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+[package]
+name = "xone-kafka-transport"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+[dependencies]
+xone-domain = { path = "../domain" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+tokio.workspace = true
+rdkafka = { version = "0.37", features = ["cmake-build", "tokio"], default-features = false }
+prost.workspace = true

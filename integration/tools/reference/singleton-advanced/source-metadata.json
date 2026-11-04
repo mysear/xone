@@ -1,0 +1,622 @@
+{
+  "schema": 1,
+  "upstream_manifest_sha256": "3ad25b67b300a55f397c69afbdd72fa857467b8160603d583789dbf0671908a2",
+  "compiler": "0.8.26+commit.8a97fa7a.Emscripten.clang",
+  "files": [
+    {
+      "local": "infinity/src/interfaces/IERC20Minimal.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IERC20Minimal.sol",
+      "sha256": "6ff11bfbf1dd787543aa0ce52ac8eaf6ac78a6a9796e54d5db36f6ffaef4cd3b"
+    },
+    {
+      "local": "infinity/src/interfaces/IExtsload.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IExtsload.sol",
+      "sha256": "dceb24fe3ce5ef0a3ea2db15955f6d1834a5224db7ba6e36810137160f722898"
+    },
+    {
+      "local": "infinity/src/interfaces/IHooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IHooks.sol",
+      "sha256": "30ce158a6b404db4aa114df0a13d778399d37a6fb443ab30ffb8c3cc83242eef"
+    },
+    {
+      "local": "infinity/src/interfaces/IPoolManager.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IPoolManager.sol",
+      "sha256": "718e1fd8471395bc410d82ac2b6fdb9ed174a17a9ecd3471df8c7c6ac2fa3ea5"
+    },
+    {
+      "local": "infinity/src/interfaces/IProtocolFeeController.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IProtocolFeeController.sol",
+      "sha256": "8eb85b3da1f7c41a277511713a9ba623332f7cd05d4bc912aabc1fd794eccdd8"
+    },
+    {
+      "local": "infinity/src/interfaces/IProtocolFees.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IProtocolFees.sol",
+      "sha256": "61d6048509fa3cfe147a926d55add790cfff2dd23d74962115d4e5d92f2f205e"
+    },
+    {
+      "local": "infinity/src/interfaces/IVault.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IVault.sol",
+      "sha256": "96c3e74f3e820df6ebd8bc3e993544eb422406523a9e6cbb51fe415a36dbc149"
+    },
+    {
+      "local": "infinity/src/interfaces/IVaultToken.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IVaultToken.sol",
+      "sha256": "a3f96eb4bf2b0eb3f0e86a7ecadeb028a56181b5cdedf52c466423f12237de3f"
+    },
+    {
+      "local": "infinity/src/libraries/CustomRevert.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/CustomRevert.sol",
+      "sha256": "76756d233bff4f67911e2e2592d3c09e6695a28a8323dd146180b0e47a0bb64d"
+    },
+    {
+      "local": "infinity/src/libraries/Hooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/Hooks.sol",
+      "sha256": "d9cbb988f9ec56efceafe9be1a2d0bfb64c27874fe853e9f63214ce79d5f78e8"
+    },
+    {
+      "local": "infinity/src/libraries/LPFeeLibrary.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/LPFeeLibrary.sol",
+      "sha256": "1a1109453400bc648d617386fb2fd156fb8f3f9f683a563069e90056cf9319f9"
+    },
+    {
+      "local": "infinity/src/libraries/ParseBytes.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/ParseBytes.sol",
+      "sha256": "38c5d47e3726a3fe97ac056699bdc0bd7a2cff60a0c6b47266a73f6db3be08dd"
+    },
+    {
+      "local": "infinity/src/libraries/ProtocolFeeLibrary.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/ProtocolFeeLibrary.sol",
+      "sha256": "797bf2f9383e5bb815d068175a4b89b309b15e0455c882d5ab00d4adcbae13d8"
+    },
+    {
+      "local": "infinity/src/libraries/SafeCast.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/SafeCast.sol",
+      "sha256": "5f481027b6aa740329ee501da6732f1f01f398368ebf4bb87350b9b01e5e7c3e"
+    },
+    {
+      "local": "infinity/src/libraries/math/Encoded.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/math/Encoded.sol",
+      "sha256": "3b6ae09491a8607666f8c0cead5da49e9f1d82ab2b745109f510a820eaac113c"
+    },
+    {
+      "local": "infinity/src/libraries/math/ParametersHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/math/ParametersHelper.sol",
+      "sha256": "ce5cae62c8b6f8c1d3082eae658ee34a795a93de5ee7dc7336ea0c9c53043271"
+    },
+    {
+      "local": "infinity/src/libraries/math/UnsafeMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/math/UnsafeMath.sol",
+      "sha256": "ed9c676e6ceeac9cce81f73ca66142e2feb08a617440f2192fff5b4199f18798"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinHelper.sol",
+      "sha256": "cb6395b7ad0ad3b4af64af4616f9223becfbdedb8954c6e27c66f444d41e1f57"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPool.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPool.sol",
+      "sha256": "e759a1eb030e9661d6a5612ba10a183ca1e8802b9fde796eeae24568b943172d"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPoolParametersHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPoolParametersHelper.sol",
+      "sha256": "7c4d93117c0e49dd38362be5ec24816322715bee6a82fec9d0875d7de8edc6ad"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPosition.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPosition.sol",
+      "sha256": "0df4c512992b7f967f48c863deaeb44bc2603a8f80b76fff6ac9641f930c66fe"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/Constants.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/Constants.sol",
+      "sha256": "dfddfbe682b726fe66a069cd8eabf0fee3f0323c2b4bbcc9c4ba0942593bff85"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/FeeHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/FeeHelper.sol",
+      "sha256": "5476bcc9c96ceddfa014ed7aaa1c8382e9860c3b92a76200372eea6d5dd8f665"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/PriceHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/PriceHelper.sol",
+      "sha256": "fc5c406023788bec99fb0fc54db92a6bdc5988de54c9e4f53ddb2584c0fa88d6"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/BitMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/BitMath.sol",
+      "sha256": "32d6adcb702a57628640167cff9b5e32138202e43096fb70d45e07ac26b5e4b8"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/LiquidityConfigurations.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/LiquidityConfigurations.sol",
+      "sha256": "7a53ad9b1242cb51129b6cfa436cb08dc716ca71c79a47e171bd52c9e4329e67"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/PackedUint128Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/PackedUint128Math.sol",
+      "sha256": "4a269e48f273c21f091ac746174c2a100f307f4ea8a5c99593db5025ec041fba"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/SafeCast.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/SafeCast.sol",
+      "sha256": "6d707e3ea3d7c78503b8047d4dbc4ff9d9dc410d23ddeac3ae4127b3c60a98fb"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/TreeMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/TreeMath.sol",
+      "sha256": "4c725f5646a9e2e8cbcec6d7574c542c7a6c86a112d3222f18531d31b58d63d1"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/Uint128x128Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/Uint128x128Math.sol",
+      "sha256": "cb33ccffad99b96fc0ae4102484679e4754384aa0e75474fed39a47748e88caa"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/Uint256x256Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/Uint256x256Math.sol",
+      "sha256": "00da35a9498c9d34d54bd02b997006ec9ee228be0ebfb824e11524a5f650ef62"
+    },
+    {
+      "local": "infinity/src/pool-bin/types/BinSlot0.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/types/BinSlot0.sol",
+      "sha256": "afccaa634c1f0264bf435d9f21ae304fc7c75cc17e45f3203f9de6b169117118"
+    },
+    {
+      "local": "infinity/src/pool-cl/interfaces/ICLHooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/interfaces/ICLHooks.sol",
+      "sha256": "0fc38fa769e0c4d8e4532eb4e9baa957603bddb63101f252d0d76cb8a549d878"
+    },
+    {
+      "local": "infinity/src/pool-cl/interfaces/ICLPoolManager.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/interfaces/ICLPoolManager.sol",
+      "sha256": "d2a488219dd1f4c6ce12bcb7234f692cb658384a61859a3b52ebb3a125edb2c5"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/BitMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/BitMath.sol",
+      "sha256": "85edd37402c36a9fe5d7f0b63c614e0b6104af0aa2ed54e67b1546246827110d"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/CLHooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/CLHooks.sol",
+      "sha256": "67aa85a2701c01fbf17f6453fbc021ac6765346473fda5dd75e402e04306bc63"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/CLPool.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/CLPool.sol",
+      "sha256": "b7a40daef292e3940c89c05870f1a91bf4caab409c9ddddf1d8452f9c91d489f"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/CLPosition.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/CLPosition.sol",
+      "sha256": "0a70285915d546c1ecb07b50f971a737ef84f87659ec94968799697aa4f56736"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/FixedPoint128.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/FixedPoint128.sol",
+      "sha256": "b8d3f6743dcb94f8caa5928a74c1fbf316f73184302e68ccfbe719de390f3ece"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/FixedPoint96.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/FixedPoint96.sol",
+      "sha256": "d2df7a8dd50f83fa9cb70a65832e08a30b19363db5a4d70b7352aef8919b2118"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/FullMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/FullMath.sol",
+      "sha256": "0d9afe9696f275aeb0b1d2a4d334dfa6da1ea3a76380232d68901a3a98222e46"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/LiquidityMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/LiquidityMath.sol",
+      "sha256": "f27f17d511e3624fd416e2ec15c102047c9361a63a5e9f3f9245017ce1b40e5c"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/SqrtPriceMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/SqrtPriceMath.sol",
+      "sha256": "b4c897d5b61b8f31af2b29bb6b3c15cee7d866b3d8c2bc8c7f6e793673785cab"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/SwapMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/SwapMath.sol",
+      "sha256": "59c61c5dd22a0c69068aee5cac9821db35b44c242287147461c1167b6f07bf56"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/Tick.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/Tick.sol",
+      "sha256": "31583c641f48e143f63afb1e1a018282dd249c7c5e1097cd32c59723508850ad"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/TickBitmap.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/TickBitmap.sol",
+      "sha256": "71659b4673d1ede829d5e5b6982fabe6ac300813943f9e67a0c4d835e2c3bf89"
+    },
+    {
+      "local": "infinity/src/pool-cl/libraries/TickMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/libraries/TickMath.sol",
+      "sha256": "b14971d8bf380f123b9dee768f97d51e8b71ac1144a370966c6220b9aad88e49"
+    },
+    {
+      "local": "infinity/src/pool-cl/types/CLSlot0.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-cl/types/CLSlot0.sol",
+      "sha256": "c31d641bc026c6562b6a9324b7266cc8adf95f0366e060127914c2268f3fd285"
+    },
+    {
+      "local": "infinity/src/types/BalanceDelta.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/BalanceDelta.sol",
+      "sha256": "21d2bf7fe91a833c8b1e3e5449ff02ac9985407cb74b3d6fa5601f866273538a"
+    },
+    {
+      "local": "infinity/src/types/BeforeSwapDelta.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/BeforeSwapDelta.sol",
+      "sha256": "20acac39c94038d3d1b442d8875d278ebfc607627b6787fd905b0c3b6d6e0dcb"
+    },
+    {
+      "local": "infinity/src/types/Currency.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/Currency.sol",
+      "sha256": "f4fb1af78330e0cc57e23a5113e47d8a42311299daf315f93f9396fdab006e2e"
+    },
+    {
+      "local": "infinity/src/types/PoolId.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/PoolId.sol",
+      "sha256": "e6268d56e597e2329a08f6314a325b84f390ddb2c7aaabb54608612e207f1e32"
+    },
+    {
+      "local": "infinity/src/types/PoolKey.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/PoolKey.sol",
+      "sha256": "fa8dcf8e00613ebf854dde29a0eda37b5fb940bff99742809e24d8854bac0461"
+    },
+    {
+      "local": "v4/src/interfaces/IExtsload.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/interfaces/IExtsload.sol",
+      "sha256": "9421ef4ba198d94058cd9a4c9fd2d663c61fc682f7dafa449a873456853f0025"
+    },
+    {
+      "local": "v4/src/interfaces/IExttload.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/interfaces/IExttload.sol",
+      "sha256": "c21643d2c7f48d2d2407438a64a3ff0f376324cf6a0c62608977713652308c9e"
+    },
+    {
+      "local": "v4/src/interfaces/IHooks.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/interfaces/IHooks.sol",
+      "sha256": "6eb35c9c598eb932e963219f1ff180748bc4c30ac6a02d924893b3c29abb1d73"
+    },
+    {
+      "local": "v4/src/interfaces/IPoolManager.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/interfaces/IPoolManager.sol",
+      "sha256": "a98405333567e4ab344489728014795721cf0071c151536377d2fcc986e0600c"
+    },
+    {
+      "local": "v4/src/interfaces/IProtocolFees.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/interfaces/IProtocolFees.sol",
+      "sha256": "807d68adea106ec2aa51a8009155de09ebfe09e1ee7053d5a5ae448d7e840654"
+    },
+    {
+      "local": "v4/src/interfaces/external/IERC20Minimal.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/interfaces/external/IERC20Minimal.sol",
+      "sha256": "5e966a2d22b3b234a56af4b17e36bf7be90f9b29b1ddb6a15bfefc0b6dab4282"
+    },
+    {
+      "local": "v4/src/interfaces/external/IERC6909Claims.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/interfaces/external/IERC6909Claims.sol",
+      "sha256": "1cd65496c829036bc6aee67bc71363ab5fb6989c65e793087d0e1e2379f7d7d8"
+    },
+    {
+      "local": "v4/src/libraries/BitMath.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/BitMath.sol",
+      "sha256": "e8a45eb3d57f9427fc47bbb2543c1a6a5f394113b378123ac7ca9f113a7502b4"
+    },
+    {
+      "local": "v4/src/libraries/CustomRevert.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/CustomRevert.sol",
+      "sha256": "9d3dbe6b742cb1ac30f57df89d879ade9649389de1165fc637114bd062d39fca"
+    },
+    {
+      "local": "v4/src/libraries/FixedPoint128.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/FixedPoint128.sol",
+      "sha256": "1ca2f55160697b73bd66fd27c8724d79a57108121ce1e8a0ab8b79f38bb58fbb"
+    },
+    {
+      "local": "v4/src/libraries/FixedPoint96.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/FixedPoint96.sol",
+      "sha256": "66ee26d4fb3ac639124bdfa27d3256d196970997fa127c09e9bf7154e30d4590"
+    },
+    {
+      "local": "v4/src/libraries/FullMath.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/FullMath.sol",
+      "sha256": "a9607255a6fd604d9c92f6b7416811c38b9d86e5dfdb0c345a494ebd35f7a4a3"
+    },
+    {
+      "local": "v4/src/libraries/Hooks.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/Hooks.sol",
+      "sha256": "297d577998cdede64d48b47b12f15e4f442eea032fbb9676bb3c2f89da89b83c"
+    },
+    {
+      "local": "v4/src/libraries/LPFeeLibrary.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/LPFeeLibrary.sol",
+      "sha256": "e96c3fa7deac991dc09b6c5e560a340d01d6c68ccba483d4b29f8a66e5aa44e0"
+    },
+    {
+      "local": "v4/src/libraries/LiquidityMath.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/LiquidityMath.sol",
+      "sha256": "67a39e58732340af4870342ba9230691f35501d89ed8725ca1b338deaa0eb26a"
+    },
+    {
+      "local": "v4/src/libraries/ParseBytes.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/ParseBytes.sol",
+      "sha256": "6a6f3d1cec0143fd70ea68c34e6dce3bde72f368b213f1a225ada23dbfd99bb8"
+    },
+    {
+      "local": "v4/src/libraries/Pool.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/Pool.sol",
+      "sha256": "59c493035ad25d56f24a457e8b40d9d1e3784504b8ff13d171db1eb25c6f128e"
+    },
+    {
+      "local": "v4/src/libraries/Position.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/Position.sol",
+      "sha256": "3dc4e2ad1564fa94eddf3ff06ce9ac592c9d578ea64ca194050382da454c8fcb"
+    },
+    {
+      "local": "v4/src/libraries/ProtocolFeeLibrary.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/ProtocolFeeLibrary.sol",
+      "sha256": "f8d96d9c8b5d12ab927b34551699bd7086750475f70254c9505e636f2cafe56a"
+    },
+    {
+      "local": "v4/src/libraries/SafeCast.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/SafeCast.sol",
+      "sha256": "c1a815a41607be5b4c86ca588a951f368156da8ee21bdfc18b5d51b58a0f27be"
+    },
+    {
+      "local": "v4/src/libraries/SqrtPriceMath.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/SqrtPriceMath.sol",
+      "sha256": "42440c21bbab86c7eed4716b281ed5ca281cf14af8b5e06dc6dc3bc6864bcfdf"
+    },
+    {
+      "local": "v4/src/libraries/SwapMath.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/SwapMath.sol",
+      "sha256": "eb3971ea0ba84ff0a01f2fbe43f62f9c393121ef1724774ed3f3ab7760780e4a"
+    },
+    {
+      "local": "v4/src/libraries/TickBitmap.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/TickBitmap.sol",
+      "sha256": "19b25dccfac8bd90f9d615fb182547eb7b5908a5cbf21a1c5920b92c47383cb6"
+    },
+    {
+      "local": "v4/src/libraries/TickMath.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/TickMath.sol",
+      "sha256": "272d4f6d3ff9ae33596ebcdb84a71a3c2d4542ae8fb5c88ddf1aca8043f5d06b"
+    },
+    {
+      "local": "v4/src/libraries/UnsafeMath.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/libraries/UnsafeMath.sol",
+      "sha256": "2de236e7ca0b9572a6b0184557565b6fd54e177224e202c727fe248785ede427"
+    },
+    {
+      "local": "v4/src/types/BalanceDelta.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/types/BalanceDelta.sol",
+      "sha256": "320d9c13dec135c3903729e66d3a1040fe86d537a7ee53728915012ca183af32"
+    },
+    {
+      "local": "v4/src/types/BeforeSwapDelta.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/types/BeforeSwapDelta.sol",
+      "sha256": "6aee06f1553e879f5909e8f4c0eac26ec23dd4821a7e56e4d5077db39a227e12"
+    },
+    {
+      "local": "v4/src/types/Currency.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/types/Currency.sol",
+      "sha256": "ba6726fd24fbc66848208dfbb2899116c10729c505e6e5552316ac2444f1dfc3"
+    },
+    {
+      "local": "v4/src/types/PoolId.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/types/PoolId.sol",
+      "sha256": "548424ac50ad58212545da70207283fb8990731578c115c85d5acbcb0e1d3c9f"
+    },
+    {
+      "local": "v4/src/types/PoolKey.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/types/PoolKey.sol",
+      "sha256": "99e1afe285b5c614ebc9586ab5196db9d24a63fd924a449f5d99f490a6a6d6a9"
+    },
+    {
+      "local": "v4/src/types/PoolOperation.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/types/PoolOperation.sol",
+      "sha256": "cf72ad0c3e5e91662029e862acd841fabce8753040b0d4e802dee64ef1157232"
+    },
+    {
+      "local": "v4/src/types/Slot0.sol",
+      "repo": "Uniswap/v4-core",
+      "revision": "bea7f6d1c11cd5dc4f0d5151ffa37a1c239feee6",
+      "path": "src/types/Slot0.sol",
+      "sha256": "378b45486644dc7e49726358e83d0e2fffdaee088d18cac1a3df00d02c3635b4"
+    }
+  ],
+  "harnesses": [
+    {
+      "name": "ReferenceTypes.sol",
+      "sha256": "d111f21a87877173d8524f9fa057d8622d5c10cf3116e3b5c5652f85eda95a76"
+    },
+    {
+      "name": "V4AdvancedReference.sol",
+      "sha256": "af346223da2937a2ff5991ff0cb159b85a392b95ca65eb2037221320af25ed88"
+    },
+    {
+      "name": "InfinityAdvancedReference.sol",
+      "sha256": "8d22a6f668e64b3ed861dcdc144ad1d9a20b83a346987794120854c0066cef43"
+    },
+    {
+      "name": "InfinityBinReference.sol",
+      "sha256": "ca90e86d1b37b5bba9d3932abb7f5f8e22f44156c088d416e4bd3c7082871fbd"
+    }
+  ],
+  "fixture_sha256": "a469bad693fb5d83b7530099b6d96d06b1a7e1d875c44879d2eea91bcb9862c9",
+  "bin_fixture_sha256": "c9cbf9876999675dae72303c12d9bfa958daf5c72e1cf25e47641cf5af5d87bb"
+}

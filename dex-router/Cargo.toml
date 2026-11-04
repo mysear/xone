@@ -1,0 +1,43 @@
+[package]
+name = "dex-router"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[workspace]
+resolver = "2"
+members = [".", "crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+license = "LicenseRef-Internal"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+sha2 = "0.10"
+hex = "0.4"
+num-bigint = "0.4"
+num-traits = "0.2"
+thiserror = "2.0"
+tokio = { version = "1.48", features = ["full"] }
+axum = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+base64 = "0.22"
+prost = "0.14"
+
+[dependencies]
+xone-domain = { path = "crates/domain" }
+xone-config = { path = "crates/config" }
+xone-observability = { path = "crates/observability" }
+xone-quote-api = { path = "crates/quote-api" }
+xone-simulation = { path = "crates/simulation" }
+tokio.workspace = true
+serde_json.workspace = true
+
+[[bin]]
+name = "dex-router"
+path = "cmd/dex-router/main.rs"

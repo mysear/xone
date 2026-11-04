@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "name": "xone-receipt-root-reference",
+  "version": "1.0.0",
+  "dependencies": {
+    "@ethereumjs/trie": "6.2.1",
+    "@ethereumjs/rlp": "5.0.2",
+    "ethereum-cryptography": "2.2.1"
+  }
+}

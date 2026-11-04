@@ -1,0 +1,5 @@
+[source.parity-git]
+git = "https://github.com/raydium-io/parity-common"
+replace-with = "parity-archive"
+[source.parity-archive]
+directory = "../raydium-clmm/deps/parity-common"

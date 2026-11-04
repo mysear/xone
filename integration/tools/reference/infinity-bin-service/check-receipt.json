@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "optimized": 2,
+  "inputs": {
+    "integration/tools/ci/infinity-bin-service-check.py": "782c1cb8f7a7b2e9c2a7af6475302159786ff70d7b0232691390c2d9d2a916a0",
+    "integration/tools/ci/infinity-bin-service-check.cjs": "4459e1b3f6bbb2726cf33e3a85b777f90fd2dac8b9ddc9db54cab62d6a19751f",
+    "integration/tools/reference/infinity-bin-service/execution-receipt.json": "8380d1ce1003616c183c6f527fb5778fea63b8f7f0fc42dab071f35601a36896"
+  },
+  "banks": 5,
+  "trades": 4,
+  "manager_runtime_bytes": 23852,
+  "vault_runtime_bytes": 9247
+}

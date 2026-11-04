@@ -1,0 +1,32 @@
+name: xone-development
+services:
+  chain-parser-go:
+    build:
+      context: ../..
+      dockerfile: chain-parser-go/Dockerfile
+    volumes:
+      - ./.runtime/chain-parser-go/config:/app/config:ro
+      - go-state:/app/.runtime
+    ports: ["127.0.0.1:8091:8091"]
+    restart: "no"
+  chain-parser-rust:
+    build:
+      context: ../..
+      dockerfile: chain-parser-rust/Dockerfile
+    volumes:
+      - ./.runtime/chain-parser-rust/config:/app/config:ro
+      - rust-state:/app/.runtime
+    ports: ["127.0.0.1:8092:8092"]
+    restart: "no"
+  dex-router:
+    build:
+      context: ../..
+      dockerfile: dex-router/Dockerfile
+    volumes:
+      - ./.runtime/dex-router/config:/app/config:ro
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on: [chain-parser-go, chain-parser-rust]
+    restart: "no"
+volumes:
+  go-state:
+  rust-state:

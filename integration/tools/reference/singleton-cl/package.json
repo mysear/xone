@@ -1,0 +1,10 @@
+{
+  "name": "xone-singleton-primary-source-oracle",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "ethers": "5.8.0",
+    "ganache": "7.9.2",
+    "solc": "0.8.26"
+  }
+}

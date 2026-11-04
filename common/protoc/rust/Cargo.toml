@@ -1,0 +1,11 @@
+[package]
+name = "xone-proto"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+
+[dependencies]
+prost = "=0.14.4"
+
+[lib]
+path = "dexpb/lib.rs"

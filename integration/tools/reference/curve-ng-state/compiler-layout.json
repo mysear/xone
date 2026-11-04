@@ -1,0 +1,158 @@
+{
+  "storage_layout": {
+    "nonreentrant.lock": {
+      "type": "nonreentrant lock",
+      "slot": 0
+    },
+    "stored_balances": {
+      "type": "DynArray[uint256, 8]",
+      "slot": 1
+    },
+    "fee": {
+      "type": "uint256",
+      "slot": 10
+    },
+    "offpeg_fee_multiplier": {
+      "type": "uint256",
+      "slot": 11
+    },
+    "initial_A": {
+      "type": "uint256",
+      "slot": 12
+    },
+    "future_A": {
+      "type": "uint256",
+      "slot": 13
+    },
+    "initial_A_time": {
+      "type": "uint256",
+      "slot": 14
+    },
+    "future_A_time": {
+      "type": "uint256",
+      "slot": 15
+    },
+    "admin_balances": {
+      "type": "DynArray[uint256, 8]",
+      "slot": 16
+    },
+    "last_prices_packed": {
+      "type": "DynArray[uint256, 8]",
+      "slot": 25
+    },
+    "last_D_packed": {
+      "type": "uint256",
+      "slot": 34
+    },
+    "ma_exp_time": {
+      "type": "uint256",
+      "slot": 35
+    },
+    "D_ma_time": {
+      "type": "uint256",
+      "slot": 36
+    },
+    "ma_last_time": {
+      "type": "uint256",
+      "slot": 37
+    },
+    "balanceOf": {
+      "type": "HashMap[address, uint256]",
+      "slot": 38
+    },
+    "allowance": {
+      "type": "HashMap[address, HashMap[address, uint256]]",
+      "slot": 39
+    },
+    "total_supply": {
+      "type": "uint256",
+      "slot": 40
+    },
+    "nonces": {
+      "type": "HashMap[address, uint256]",
+      "slot": 41
+    }
+  },
+  "code_layout": {
+    "N_COINS": {
+      "type": "uint256",
+      "offset": 0,
+      "length": 32
+    },
+    "N_COINS_128": {
+      "type": "int128",
+      "offset": 32,
+      "length": 32
+    },
+    "factory": {
+      "type": "Factory",
+      "offset": 64,
+      "length": 32
+    },
+    "coins": {
+      "type": "DynArray[address, 8]",
+      "offset": 96,
+      "length": 288
+    },
+    "asset_types": {
+      "type": "DynArray[uint8, 8]",
+      "offset": 384,
+      "length": 288
+    },
+    "pool_contains_rebasing_tokens": {
+      "type": "bool",
+      "offset": 672,
+      "length": 32
+    },
+    "rate_multipliers": {
+      "type": "DynArray[uint256, 8]",
+      "offset": 704,
+      "length": 288
+    },
+    "rate_oracles": {
+      "type": "DynArray[uint256, 8]",
+      "offset": 992,
+      "length": 288
+    },
+    "call_amount": {
+      "type": "DynArray[uint256, 8]",
+      "offset": 1280,
+      "length": 288
+    },
+    "scale_factor": {
+      "type": "DynArray[uint256, 8]",
+      "offset": 1568,
+      "length": 288
+    },
+    "name": {
+      "type": "String[64]",
+      "offset": 1856,
+      "length": 96
+    },
+    "symbol": {
+      "type": "String[32]",
+      "offset": 1952,
+      "length": 64
+    },
+    "NAME_HASH": {
+      "type": "bytes32",
+      "offset": 2016,
+      "length": 32
+    },
+    "CACHED_CHAIN_ID": {
+      "type": "uint256",
+      "offset": 2048,
+      "length": 32
+    },
+    "salt": {
+      "type": "bytes32",
+      "offset": 2080,
+      "length": 32
+    },
+    "CACHED_DOMAIN_SEPARATOR": {
+      "type": "bytes32",
+      "offset": 2112,
+      "length": 32
+    }
+  }
+}

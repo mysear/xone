@@ -1,0 +1,425 @@
+import { describe, it, beforeAll } from "vitest";
+import {
+  createConcentratedLiquidityPoolInstructions,
+  createSplashPoolInstructions,
+} from "../src/createPool";
+import {
+  openFullRangePositionInstructions,
+  increaseLiquidityInstructions,
+} from "../src/increaseLiquidity";
+import {
+  getTestContext,
+  sendTransaction,
+  rpc,
+  TEST_WHIRLPOOL_DEPLOYMENTS,
+} from "./utils/mockRpc";
+import { SPLASH_POOL_TICK_SPACING } from "../src/config";
+import { swapInstructions } from "../src/swap";
+import type { Address } from "@solana/kit";
+import { harvestPositionInstructions } from "../src/harvest";
+import {
+  decreaseLiquidityInstructions,
+  closePositionInstructions,
+} from "../src/decreaseLiquidity";
+import { fetchToken } from "@solana-program/token";
+import {
+  fetchPosition,
+  fetchWhirlpool,
+  getPositionAddress,
+} from "@orca-so/whirlpools-client";
+import {
+  getFullRangeTickIndexes,
+  increaseLiquidityQuote,
+  increaseLiquidityQuoteA,
+  increaseLiquidityQuoteB,
+} from "@orca-so/whirlpools-core";
+import assert from "assert";
+import { setupAta, setupMint } from "./utils/token";
+import { assertAmountClose, assertLiquidityClose } from "./utils/assert";
+import { getConstrainingQuote } from "./utils/quote";
+
+await getTestContext();
+
+describe.each(TEST_WHIRLPOOL_DEPLOYMENTS)(
+  "e2e ($programId)",
+  (whirlpoolDeployment) => {
+    let mintA: Address;
+    let mintB: Address;
+    let ataA: Address;
+    let ataB: Address;
+    const minAbsoluteTolerance = 2n;
+    const relativeToleranceBps = 100n;
+
+    beforeAll(async () => {
+      mintA = await setupMint({ decimals: 9 });
+      mintB = await setupMint({ decimals: 6 });
+      ataA = await setupAta(mintA, { amount: 500e9 });
+      ataB = await setupAta(mintB, { amount: 500e9 });
+    });
+
+    const fetchPositionByMint = async (positionMint: Address) => {
+      const positionAddress = await getPositionAddress(
+        positionMint,
+        whirlpoolDeployment.programId,
+      );
+      return await fetchPosition(rpc, positionAddress[0]);
+    };
+
+    const testInitSplashPool = async () => {
+      const { instructions: createPoolInstructions, poolAddress } =
+        await createSplashPoolInstructions(rpc, mintA, mintB, {
+          whirlpoolDeployment,
+        });
+      await sendTransaction(createPoolInstructions);
+
+      const pool = await fetchWhirlpool(rpc, poolAddress);
+      assert.strictEqual(pool.data.tokenMintA, mintA);
+      assert.strictEqual(pool.data.tokenMintB, mintB);
+      assert.strictEqual(pool.data.tickSpacing, SPLASH_POOL_TICK_SPACING);
+
+      return poolAddress;
+    };
+
+    const testInitConcentratedLiquidityPool = async () => {
+      const { instructions: createPoolInstructions, poolAddress } =
+        await createConcentratedLiquidityPoolInstructions(
+          rpc,
+          mintA,
+          mintB,
+          128,
+          { whirlpoolDeployment },
+        );
+      await sendTransaction(createPoolInstructions);
+
+      const pool = await fetchWhirlpool(rpc, poolAddress);
+      assert.strictEqual(pool.data.tokenMintA, mintA);
+      assert.strictEqual(pool.data.tokenMintB, mintB);
+      assert.strictEqual(pool.data.tickSpacing, 128);
+
+      return poolAddress;
+    };
+
+    const param = {
+      tokenMaxA: 100_000_000n,
+      tokenMaxB: 100_000_000n,
+    };
+    const slippageToleranceBps = 100;
+
+    const testOpenPosition = async (poolAddress: Address) => {
+      const tokenABefore = await fetchToken(rpc, ataA);
+      const tokenBBefore = await fetchToken(rpc, ataB);
+
+      const whirlpool = await fetchWhirlpool(rpc, poolAddress);
+      const tickRange = getFullRangeTickIndexes(whirlpool.data.tickSpacing);
+      const quote = getConstrainingQuote(
+        param,
+        slippageToleranceBps,
+        whirlpool.data.sqrtPrice,
+        tickRange.tickLowerIndex,
+        tickRange.tickUpperIndex,
+      );
+
+      const { instructions, positionMint } =
+        await openFullRangePositionInstructions(rpc, poolAddress, param, {
+          slippageToleranceBps,
+          whirlpoolDeployment,
+        });
+      await sendTransaction(instructions);
+
+      const positionAfter = await fetchPositionByMint(positionMint);
+      const tokenAAfter = await fetchToken(rpc, ataA);
+      const tokenBAfter = await fetchToken(rpc, ataB);
+      assertLiquidityClose(
+        quote.liquidityDelta,
+        positionAfter.data.liquidity,
+        relativeToleranceBps,
+        minAbsoluteTolerance,
+      );
+      assertAmountClose(
+        quote.tokenEstA,
+        tokenABefore.data.amount - tokenAAfter.data.amount,
+        minAbsoluteTolerance,
+      );
+      assertAmountClose(
+        quote.tokenEstB,
+        tokenBBefore.data.amount - tokenBAfter.data.amount,
+        minAbsoluteTolerance,
+      );
+
+      return positionMint;
+    };
+
+    const paramIncrease = {
+      tokenMaxA: 10_000n,
+      tokenMaxB: 10_000n,
+    };
+
+    const testIncreaseLiquidity = async (positionMint: Address) => {
+      const positionBefore = await fetchPositionByMint(positionMint);
+      const tokenABefore = await fetchToken(rpc, ataA);
+      const tokenBBefore = await fetchToken(rpc, ataB);
+
+      const position = await fetchPositionByMint(positionMint);
+      const whirlpool = await fetchWhirlpool(rpc, position.data.whirlpool);
+      const quoteArgs = [
+        slippageToleranceBps,
+        whirlpool.data.sqrtPrice,
+        position.data.tickLowerIndex,
+        position.data.tickUpperIndex,
+      ] as const;
+
+      const quoteA = increaseLiquidityQuoteA(
+        paramIncrease.tokenMaxA,
+        ...quoteArgs,
+      );
+      const quoteB = increaseLiquidityQuoteB(
+        paramIncrease.tokenMaxB,
+        ...quoteArgs,
+      );
+      const liquidityA = quoteA.liquidityDelta;
+      const liquidityB = quoteB.liquidityDelta;
+      const liquidity =
+        liquidityA === 0n
+          ? liquidityB
+          : liquidityB === 0n
+            ? liquidityA
+            : liquidityA < liquidityB
+              ? liquidityA
+              : liquidityB;
+      const quote = increaseLiquidityQuote(liquidity, ...quoteArgs);
+
+      const { instructions } = await increaseLiquidityInstructions(
+        rpc,
+        positionMint,
+        paramIncrease,
+        { slippageToleranceBps, whirlpoolDeployment },
+      );
+      await sendTransaction(instructions);
+
+      const positionAfter = await fetchPositionByMint(positionMint);
+      const tokenAAfter = await fetchToken(rpc, ataA);
+      const tokenBAfter = await fetchToken(rpc, ataB);
+      assertLiquidityClose(
+        quote.liquidityDelta,
+        positionAfter.data.liquidity - positionBefore.data.liquidity,
+        relativeToleranceBps,
+        minAbsoluteTolerance,
+      );
+      assertAmountClose(
+        quote.tokenEstA,
+        tokenABefore.data.amount - tokenAAfter.data.amount,
+        minAbsoluteTolerance,
+      );
+      assertAmountClose(
+        quote.tokenEstB,
+        tokenBBefore.data.amount - tokenBAfter.data.amount,
+        minAbsoluteTolerance,
+      );
+    };
+
+    const testDecreaseLiquidity = async (positionMint: Address) => {
+      const positionBefore = await fetchPositionByMint(positionMint);
+      const tokenABefore = await fetchToken(rpc, ataA);
+      const tokenBBefore = await fetchToken(rpc, ataB);
+
+      const { instructions, quote } = await decreaseLiquidityInstructions(
+        rpc,
+        positionMint,
+        { liquidity: 10000n },
+        { whirlpoolDeployment },
+      );
+      await sendTransaction(instructions);
+
+      const positionAfter = await fetchPositionByMint(positionMint);
+      const tokenAAfter = await fetchToken(rpc, ataA);
+      const tokenBAfter = await fetchToken(rpc, ataB);
+      assert.strictEqual(
+        positionAfter.data.liquidity - positionBefore.data.liquidity,
+        -quote.liquidityDelta,
+      );
+      assert.strictEqual(
+        tokenAAfter.data.amount - tokenABefore.data.amount,
+        quote.tokenEstA,
+      );
+      assert.strictEqual(
+        tokenBAfter.data.amount - tokenBBefore.data.amount,
+        quote.tokenEstB,
+      );
+    };
+
+    const testHarvest = async (positionMint: Address) => {
+      const tokenABefore = await fetchToken(rpc, ataA);
+      const tokenBBefore = await fetchToken(rpc, ataB);
+
+      const { instructions, feesQuote } = await harvestPositionInstructions(
+        rpc,
+        positionMint,
+        { whirlpoolDeployment },
+      );
+      await sendTransaction(instructions);
+
+      const tokenAAfter = await fetchToken(rpc, ataA);
+      const tokenBAfter = await fetchToken(rpc, ataB);
+      assert.strictEqual(
+        tokenAAfter.data.amount - tokenABefore.data.amount,
+        feesQuote.feeOwedA,
+      );
+      assert.strictEqual(
+        tokenBAfter.data.amount - tokenBBefore.data.amount,
+        feesQuote.feeOwedB,
+      );
+    };
+
+    const testClosePosition = async (positionMint: Address) => {
+      const tokenABefore = await fetchToken(rpc, ataA);
+      const tokenBBefore = await fetchToken(rpc, ataB);
+
+      const { instructions, quote, feesQuote } =
+        await closePositionInstructions(rpc, positionMint, {
+          whirlpoolDeployment,
+        });
+      await sendTransaction(instructions);
+
+      const positionAfter = await rpc
+        .getMultipleAccounts([positionMint])
+        .send();
+      const tokenAAfter = await fetchToken(rpc, ataA);
+      const tokenBAfter = await fetchToken(rpc, ataB);
+      assert.strictEqual(positionAfter.value[0], null);
+      assert.strictEqual(
+        tokenAAfter.data.amount - tokenABefore.data.amount,
+        quote.tokenEstA + feesQuote.feeOwedA,
+      );
+      assert.strictEqual(
+        tokenBAfter.data.amount - tokenBBefore.data.amount,
+        quote.tokenEstB + feesQuote.feeOwedB,
+      );
+    };
+
+    const testSwapAExactIn = async (poolAddress: Address) => {
+      const tokenABefore = await fetchToken(rpc, ataA);
+      const tokenBBefore = await fetchToken(rpc, ataB);
+
+      const { instructions, quote } = await swapInstructions(
+        rpc,
+        { inputAmount: 100000n, mint: mintA },
+        poolAddress,
+        { whirlpoolDeployment },
+      );
+      await sendTransaction(instructions);
+
+      const tokenAAfter = await fetchToken(rpc, ataA);
+      const tokenBAfter = await fetchToken(rpc, ataB);
+
+      assert.strictEqual(
+        tokenAAfter.data.amount - tokenABefore.data.amount,
+        -quote.tokenIn,
+      );
+      assert.strictEqual(
+        tokenBAfter.data.amount - tokenBBefore.data.amount,
+        quote.tokenEstOut,
+      );
+    };
+
+    const testSwapAExactOut = async (poolAddress: Address) => {
+      const tokenABefore = await fetchToken(rpc, ataA);
+      const tokenBBefore = await fetchToken(rpc, ataB);
+
+      const { instructions, quote } = await swapInstructions(
+        rpc,
+        { outputAmount: 100000n, mint: mintA },
+        poolAddress,
+        { whirlpoolDeployment },
+      );
+      await sendTransaction(instructions);
+
+      const tokenAAfter = await fetchToken(rpc, ataA);
+      const tokenBAfter = await fetchToken(rpc, ataB);
+
+      assert.strictEqual(
+        tokenAAfter.data.amount - tokenABefore.data.amount,
+        quote.tokenOut,
+      );
+      assert.strictEqual(
+        tokenBAfter.data.amount - tokenBBefore.data.amount,
+        -quote.tokenEstIn,
+      );
+    };
+
+    const testSwapBExactIn = async (poolAddress: Address) => {
+      const tokenABefore = await fetchToken(rpc, ataA);
+      const tokenBBefore = await fetchToken(rpc, ataB);
+
+      const { instructions, quote } = await swapInstructions(
+        rpc,
+        { inputAmount: 100n, mint: mintB },
+        poolAddress,
+        { whirlpoolDeployment },
+      );
+      await sendTransaction(instructions);
+
+      const tokenAAfter = await fetchToken(rpc, ataA);
+      const tokenBAfter = await fetchToken(rpc, ataB);
+
+      assert.strictEqual(
+        tokenAAfter.data.amount - tokenABefore.data.amount,
+        quote.tokenEstOut,
+      );
+      assert.strictEqual(
+        tokenBAfter.data.amount - tokenBBefore.data.amount,
+        -quote.tokenIn,
+      );
+    };
+
+    const testSwapBExactOut = async (poolAddress: Address) => {
+      const tokenABefore = await fetchToken(rpc, ataA);
+      const tokenBBefore = await fetchToken(rpc, ataB);
+
+      const { instructions, quote } = await swapInstructions(
+        rpc,
+        { outputAmount: 100n, mint: mintB },
+        poolAddress,
+        { whirlpoolDeployment },
+      );
+      await sendTransaction(instructions);
+
+      const tokenAAfter = await fetchToken(rpc, ataA);
+      const tokenBAfter = await fetchToken(rpc, ataB);
+
+      assert.strictEqual(
+        tokenAAfter.data.amount - tokenABefore.data.amount,
+        -quote.tokenEstIn,
+      );
+      assert.strictEqual(
+        tokenBAfter.data.amount - tokenBBefore.data.amount,
+        quote.tokenOut,
+      );
+    };
+
+    it("Splash pool", async () => {
+      const poolAddress = await testInitSplashPool();
+      const positionMint = await testOpenPosition(poolAddress);
+      await testSwapAExactIn(poolAddress);
+      await testIncreaseLiquidity(positionMint);
+      await testSwapAExactOut(poolAddress);
+      await testHarvest(positionMint);
+      await testSwapBExactIn(poolAddress);
+      await testDecreaseLiquidity(positionMint);
+      await testSwapBExactOut(poolAddress);
+      await testClosePosition(positionMint);
+    });
+
+    it("Concentrated liquidity pool", async () => {
+      const poolAddress = await testInitConcentratedLiquidityPool();
+      const positionMint = await testOpenPosition(poolAddress);
+      await testSwapAExactIn(poolAddress);
+      await testIncreaseLiquidity(positionMint);
+      await testSwapAExactOut(poolAddress);
+      await testHarvest(positionMint);
+      await testSwapBExactIn(poolAddress);
+      await testDecreaseLiquidity(positionMint);
+      await testSwapBExactOut(poolAddress);
+      await testClosePosition(positionMint);
+    });
+  },
+);

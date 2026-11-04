@@ -1,0 +1,54 @@
+{
+  "reference_only": true,
+  "files": [
+    {
+      "local": "aero/Pool.sol",
+      "repo": "aerodrome-finance/contracts",
+      "revision": "1ba30815bba620f7e9faa34769ffd00c214c9b82",
+      "path": "contracts/Pool.sol",
+      "sha256": "348d3c313dbbb9a2d0598480075bf91e77ceb2d774aeddbe229c9f551186c8bf"
+    },
+    {
+      "local": "curve/Plain2Basic.vy",
+      "repo": "curvefi/curve-factory",
+      "revision": "5272fd2b1199f185d9cd94822be9262c387dc2c2",
+      "path": "contracts/implementations/plain-2/Plain2Basic.vy",
+      "sha256": "2121cf241f904150d13b959541c410f36a8dc2e25c65c5678cbe56a2574fd783"
+    },
+    {
+      "local": "balancer/StableMath.sol",
+      "repo": "balancer/balancer-v2-monorepo",
+      "revision": "e281ff40583c39bf1d46c322334b2b13936e0e33",
+      "path": "pkg/pool-stable/contracts/StableMath.sol",
+      "sha256": "4c5d1a0622c6a467bfa24a0a74d9c1ed14cf2db981d06b5e93aed2abd0eb8de2"
+    },
+    {
+      "local": "balancer-imports/@balancer-labs/v2-solidity-utils/contracts/math/FixedPoint.sol",
+      "repo": "balancer/balancer-v2-monorepo",
+      "revision": "e281ff40583c39bf1d46c322334b2b13936e0e33",
+      "path": "pkg/solidity-utils/contracts/math/FixedPoint.sol",
+      "sha256": "9f40aa0869e0e725e44d4d95bfebc66b72042b6a3ef6b687f6f300a4dd9248aa"
+    },
+    {
+      "local": "balancer-imports/@balancer-labs/v2-interfaces/contracts/solidity-utils/helpers/BalancerErrors.sol",
+      "repo": "balancer/balancer-v2-monorepo",
+      "revision": "e281ff40583c39bf1d46c322334b2b13936e0e33",
+      "path": "pkg/interfaces/contracts/solidity-utils/helpers/BalancerErrors.sol",
+      "sha256": "50d99f10d53135eb6920021efdfc77749421a74fe39e6f975730339143f7fa33"
+    },
+    {
+      "local": "balancer-imports/@balancer-labs/v2-solidity-utils/contracts/math/LogExpMath.sol",
+      "repo": "balancer/balancer-v2-monorepo",
+      "revision": "e281ff40583c39bf1d46c322334b2b13936e0e33",
+      "path": "pkg/solidity-utils/contracts/math/LogExpMath.sol",
+      "sha256": "929ba9fc71e4704baec025be4f2cdb4bdbab438b0a22455bc19e0c4d057cc957"
+    },
+    {
+      "local": "balancer-imports/@balancer-labs/v2-solidity-utils/contracts/math/Math.sol",
+      "repo": "balancer/balancer-v2-monorepo",
+      "revision": "e281ff40583c39bf1d46c322334b2b13936e0e33",
+      "path": "pkg/solidity-utils/contracts/math/Math.sol",
+      "sha256": "396edd3bb7de1cd092ed1a940d3eac73b7a501881e1ba040dc66e4cbd51763db"
+    }
+  ]
+}

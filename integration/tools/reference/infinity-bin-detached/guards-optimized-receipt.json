@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "optimized": 2,
+  "inputs": {
+    "integration/tools/ci/infinity-bin-detached-guards.py": "dbc377aaa2b94b4d32f3f2cea3b33faa9b62c6f293a5fb5396067fbd3cf3901f",
+    "integration/tools/ci/infinity-bin-detached-guards.cjs": "325f4463a2938cf776b5cdd30f68a14c0dea8de4450af8fbce113cf2e06b4ba5",
+    "integration/tools/ci/infinity-bin-detached-check.py": "dbd1321811d36558d3deee898186cdaffe0c63b0b7bc65b300566dd32a4eb078",
+    "integration/tools/ci/infinity-bin-detached-check.cjs": "020ce02aa2f156a2188cb0f94f91f53549a8403730c6f2ccc2cd3237192186ca",
+    "integration/tools/reference/infinity-bin-detached/execution-receipt.json": "5da79bdcd1e149f8ea2f8933fc0a190fdd825851555db0096d20416560329d3c"
+  },
+  "negative_cases": 51,
+  "stale_receipt_invalidated": true
+}

@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "files": [
+    {
+      "path": "integration/tools/ci/managed-v2-aum-check.py",
+      "sha256": "a25936f294d047a40ad12b3af647f64cba4d872419e352296390c65fc8dc6562"
+    },
+    {
+      "path": "integration/tools/ci/managed-v2-aum-golden.cjs",
+      "sha256": "83da54f4a2af66cd36363646e018b95a6ad004724d84ca249e64914caf778462"
+    },
+    {
+      "path": "integration/tools/ci/managed-v2-aum-guards.py",
+      "sha256": "142711dfec039f67e3081e908485c7fb9afc957b54acd04d92dc9b039871d8fa"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/artifacts.cjs",
+      "sha256": "b323654b2bc980f06fdcf10ad21fd11dc5ede4d907239f9f22c96d1e9a535b70"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/build-info/Authorizer.json.gz",
+      "sha256": "5792fcb551408b6c8477e1be8dcb66e16724ae1e83e4cded224886bceac4966a"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/build-info/CircuitBreakerLib.json.gz",
+      "sha256": "8ae93c6bece07eba748f03fd5702fdc1bf88005cb3dce880168027afb36e1b0e"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/build-info/ManagedPoolFactory.json.gz",
+      "sha256": "bc7fe6069fc49718b31e6582d942d3001d500ef285b1eed077f1866fd09a06f2"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/build-info/ProtocolFeePercentagesProvider.json.gz",
+      "sha256": "da84fd30ad056865861f147efc9de6274e807b215c5784230d54b94c6beba62c"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/build-info/TestBalancerToken.json.gz",
+      "sha256": "89b55040dfd48a7cbb56cd1d0c9b175e6e87607f576d60888e8283400e517824"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/build-info/Vault.json.gz",
+      "sha256": "42f86a839ddbdcaf9557fad3e6c4a9a701544d676f5bb4a555dacacde7ae8f4f"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/compiler/LICENSE",
+      "sha256": "852bcc033a46c62f99fb5ffd43b3241ba2c0c440c6034aa2114505f2c4f03c4a"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/compiler/package-origin.json",
+      "sha256": "0327b73a023b1ea490686838e78ae3056eae7194d44da34aa9ac1a480bc8f83a"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/compiler/solc-0.7.1-origin.json",
+      "sha256": "4322fb6a3f63a1f0449b90715b7a80bbba81115b9b0e1f01b54ee489ed9506e5"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/compiler/soljson-v0.7.1.js",
+      "sha256": "7fcc983c5149840a47b946fc51fc14f1c21cda07c01d650e4a1f814319cb1423"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/economic-pins.json",
+      "sha256": "24301c3addc5c1a53d2857cdb17b7e8eec6adb925a216170d177c238205d1df1"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/environment.cjs",
+      "sha256": "094c34c8012b241e7bcb36619a637ab4634e034e35e3e87bd9b7413af00499dd"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/generate.cjs",
+      "sha256": "1a946a16aa7b5478b5499a7439aba5acc74cfb5eddd599554b1327c00a81004c"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/licenses/balancer-deployments-LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/licenses/ethers-LICENSE.md",
+      "sha256": "38f156ca482f33e6ec062da7c682da058c65c2932782fd4ea47aaecd01138704"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/licenses/ganache-LICENSE",
+      "sha256": "ed316dbcf48e03bb1a39122019f56fcbb9c32190f75c33f2d5e0c953d994f8ce"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/licenses/provenance.json",
+      "sha256": "f1c0991be0e5e9acc62e02c32104e006d2f34f9eeed727e435989fadfafc14fa"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/licenses/solc07-LICENSE",
+      "sha256": "852bcc033a46c62f99fb5ffd43b3241ba2c0c440c6034aa2114505f2c4f03c4a"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/matrix.json",
+      "sha256": "65aef78af5ab2dd7a8750707778d91d3dd23efb2e5712b0a48da21a17c653eb8"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/README.md",
+      "sha256": "6dbc9218c235c9706555d480c1407cd1d063159a50f33aed22cfa46f1c610a25"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/runtime-pins.json",
+      "sha256": "708f3a0411a9530b7ad23e9e05c2dda8b0d18b47cd4ce3c6b0ea840fe3598471"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/source-pins.json",
+      "sha256": "9e2ddd4a134b042c0c2f169eba82f87a113453f6d877997cbb212dd9002f2d02"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/helpers/time.ts",
+      "sha256": "3abc5c89778c29a171af26f54af0ad50adfb6f0ac4e6fdd26ccf3a909ff73a31"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/deprecated/20230411-managed-pool-v2/index.ts",
+      "sha256": "d31181871fee76dc20bc21e6c981edc80e19a76dea1202403fc15f329fd2116f"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/deprecated/20230411-managed-pool-v2/input.ts",
+      "sha256": "74d133d3a68770518baf79193c260c5ef6946291656cd5af3ebdc40e767fa41d"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/deprecated/20230411-managed-pool-v2/readme.md",
+      "sha256": "27d9d6b426d1dd49dcb67d9985c41638fb740616508ff25cf17179291b5ac7f6"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/deprecated/20230411-managed-pool-v2/test/task.fork.ts",
+      "sha256": "380a4dcef5bd596dac17a44faacafd79af170b06e5c18e1a881a0bb25c18df12"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20210418-authorizer/index.ts",
+      "sha256": "943563aaff4c41bf70e1c2fa7e4b60b45c1e6ae7292ea2b8f7f8b0b79280a194"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20210418-authorizer/input.ts",
+      "sha256": "d8f4509669792e8432d5320021e547f1b0b5e19e4e060e20370379bf3dd47f00"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20210418-authorizer/readme.md",
+      "sha256": "dd3d7ce84a6182186e47b4500fdd3956ad129c6df4a0cd2fe33f40b5e73f6c72"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20210418-vault/index.ts",
+      "sha256": "d13dcebdeeb7c80ef8aaf89dd23de82a513256f618ec91c468d67eb534324ceb"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20210418-vault/input.ts",
+      "sha256": "717bd9d664a3435894029d98db2ac2da7a9fca496aec903b6b59993fc6ecb12e"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20210418-vault/readme.md",
+      "sha256": "8647b4118268d001bb2f7e924be8e03525871e8861a075be261f033e321ea7b6"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20220325-test-balancer-token/index.ts",
+      "sha256": "bd5dbe46ee3f0b81a017d7f3b8da20f02c1b3363c3c73dac856a70becdb38da6"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20220325-test-balancer-token/input.ts",
+      "sha256": "c12dff94b50bdcec12431530977959367e8fe0e64ef86edcba3ee58f7abe1e15"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20220325-test-balancer-token/readme.md",
+      "sha256": "c103dba023b285e19051231c854dbbaff1b64d8e60ab962b55decc358797ed0f"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20220725-protocol-fee-percentages-provider/index.ts",
+      "sha256": "1fef8bf1404e63231fbdb099f0fe7575538288994a27f391aeafc27c48e3c525"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20220725-protocol-fee-percentages-provider/input.ts",
+      "sha256": "8d8b06ae9cd4f49bdada50aef96361378484f7dfeb9bb6a8b91eb6d6e882774c"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20220725-protocol-fee-percentages-provider/readme.md",
+      "sha256": "07bbfd185e5827557bc795c3b0d3eb84b3d7c4008fdc17c0b04f381014bcc0b8"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/tasks/v2/tasks/20220725-protocol-fee-percentages-provider/test/task.fork.ts",
+      "sha256": "2f6b4e43c771d1312532fcb3c2f4cbab7d2ef2fd9d98fdbdbd4abf8834c26350"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/trusted-builds.json",
+      "sha256": "cd497d56798bacdcea5591e2261e2db48f7438ff9e77055ce319968d6cdfbd3e"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-aum/validate.cjs",
+      "sha256": "ff9aaca8eba5e4e5efd6d232ad7ac82a81c50f14da33fabdbc7bc3565762348e"
+    }
+  ]
+}
