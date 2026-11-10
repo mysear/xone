@@ -41,3 +41,46 @@ serde_json.workspace = true
 [[bin]]
 name = "dex-router"
 path = "cmd/dex-router/main.rs"
+
+[dev-dependencies]
+xone-optimizer = { path = "crates/optimizer" }
+xone-routing = { path = "crates/routing" }
+xone-execution-plan = { path = "crates/execution-plan" }
+sha2.workspace = true
+serde.workspace = true
+
+[[example]]
+name = "lfj-plan-projector"
+path = "test/tools/lfj_plan_projector.rs"
+
+[[example]]
+name = "slipstream-plan-projector"
+path = "test/tools/slipstream_plan_projector.rs"
+
+[[example]]
+name = "pancake-lm-plan-projector"
+path = "test/tools/pancake_lm_plan_projector.rs"
+
+[[example]]
+name = "pancake-bsc4-plan-projector"
+path = "test/tools/pancake_bsc4_plan_projector.rs"
+
+[[example]]
+name = "exact-out-plan-projector"
+path = "test/tools/exact_out_plan_projector.rs"
+
+[[example]]
+name = "pancake-bsc-exact-out-plan-projector"
+path = "test/tools/pancake_bsc_exact_out_plan_projector.rs"
+
+[[example]]
+name = "pancake-lm-exact-out-plan-projector"
+path = "test/tools/pancake_lm_exact_out_plan_projector.rs"
+
+[[example]]
+name = "slipstream-exact-out-plan-projector"
+path = "test/tools/slipstream_exact_out_plan_projector.rs"
+
+[[example]]
+name = "lfj-exact-out-plan-projector"
+path = "test/tools/lfj_exact_out_plan_projector.rs"

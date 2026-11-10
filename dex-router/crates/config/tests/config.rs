@@ -44,3 +44,18 @@ fn explicit_auth_and_removed_debug_config() {
     assert!(load(&path, &service).is_err());
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn multi_route_split_limits_are_checked_without_relaxing_other_budgets() {
+    let cfg = load("../../config/config-test.yaml", "dex-router").unwrap();
+    let dir = std::env::temp_dir().join(format!("xone-multi-split-config-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("config-test.yaml");
+    let mut value = serde_json::to_value(&cfg.config).unwrap();
+    for count in [1, 2, 3, 4, 8, 0, 9] {
+        value["routing"]["max_splits"] = serde_json::json!(count);
+        std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+        assert_eq!(load(&path, "dex-router").is_ok(), (1..=8).contains(&count));
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}

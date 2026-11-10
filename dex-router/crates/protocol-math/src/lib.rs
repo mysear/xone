@@ -9,10 +9,18 @@ pub mod curve_crypto;
 pub mod curve_multi;
 pub mod curve_ng;
 pub mod curve_plain;
+pub mod exact_out;
+pub mod lfj;
+pub mod pancake_bsc_lm;
+pub use exact_out::{quote_exact_out, ExactOutSwap};
+pub mod pancake_lm;
+pub mod slipstream_context;
 pub use singleton::infinity_bin;
 pub mod infinity_bin_multi;
 pub mod infinity_bin_online;
 pub mod managed_v2_aum;
+pub mod managed_v2_bpt;
+pub mod managed_v2_breaker;
 pub mod managed_v2_pool;
 pub mod managed_v2_swap;
 pub mod multi_asset;
@@ -41,6 +49,18 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, zero_for_one: bool) -> Result
     let profile = xone_domain::protocols::protocol(&pool.protocol);
     if pool.protocol == xone_domain::v2_swap::PROFILE {
         return v2_complete::quote_exact_in(pool, input, zero_for_one);
+    }
+    if pool.protocol == xone_domain::pancake_bsc_lm::PROFILE {
+        return Err(err("BSC4_FUNDS_REQUIRED"));
+    }
+    if pool.protocol == xone_domain::pancake_lm::PROFILE {
+        return Err(err("PANCAKE_LM_FUNDS_REQUIRED"));
+    }
+    if pool.protocol == xone_domain::slipstream_context::PROFILE {
+        return Err(err("SLIPSTREAM_FUNDS_REQUIRED"));
+    }
+    if pool.protocol == xone_domain::lfj::PROFILE {
+        return lfj::quote_exact_in(pool, input, zero_for_one);
     }
     if pool.protocol == xone_domain::infinity_bin::PROFILE {
         return infinity_bin_online::quote_exact_in(pool, input, zero_for_one);
@@ -127,13 +147,19 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, zero_for_one: bool) -> Result
         let rates = [&s.rate0.0, &s.rate1.0];
         let (out, next) = match profile.family {
             "aero" => {
-                let q = aerodrome::quote_exact_in(
+                let quote = if pool.protocol.starts_with("velodrome-v2-") {
+                    aerodrome::quote_exact_in_velodrome
+                } else {
+                    aerodrome::quote_exact_in
+                };
+                let q = quote(
                     balances,
                     rates,
                     pool.fee_numerator,
                     &input.0,
                     zero_for_one,
-                    pool.protocol == "aerodrome-v2-stable",
+                    pool.protocol == "aerodrome-v2-stable"
+                        || pool.protocol == "velodrome-v2-stable",
                 )?;
                 (q.amount_out, q.next_balances)
             }

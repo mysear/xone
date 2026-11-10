@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "repository": "velodrome-finance/contracts",
+  "commit": "b3065d8b6702b14b094f9f6046b752cc9f78c43b",
+  "path": "contracts/Pool.sol",
+  "url": "https://raw.githubusercontent.com/velodrome-finance/contracts/b3065d8b6702b14b094f9f6046b752cc9f78c43b/contracts/Pool.sol",
+  "sha256": "32d040ff419fa9b1f9113f7e10d587b332a2ab9c6b6099851025cc16a4e986bb",
+  "authority": "pinned upstream source; not a deployment or historical state proof"
+}

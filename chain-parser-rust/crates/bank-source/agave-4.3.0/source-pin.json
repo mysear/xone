@@ -1,0 +1,44 @@
+{
+  "repository": "https://github.com/anza-xyz/agave",
+  "tag": "v4.3.0",
+  "yellowstone_commit": "10f0af69d150637d8e3eaaf83b179d640988dd3c",
+  "files": [
+    {
+      "path": "runtime/Cargo.toml",
+      "upstream_sha256": "a9f0e975b5c9ead49a83ef5575ac395787f568bba17c990184f0cf07f3253e46"
+    },
+    {
+      "path": "geyser-plugin-manager/Cargo.toml",
+      "upstream_sha256": "5e3758f8930207ae4524db0286f62228192e6c3a55f38e7584e2acf99ef4ccc5"
+    },
+    {
+      "path": "ledger/Cargo.toml",
+      "upstream_sha256": "ce523a2fecd46434caba39a22f524a06fd72c88419bf466bd1b6d70a80c4ed37"
+    },
+    {
+      "path": "geyser-plugin-manager/src/accounts_update_notifier.rs",
+      "upstream_sha256": "932564201ad339f9edf2c0b6e36e6b64f0c31279363697f39f445856761a940f"
+    },
+    {
+      "path": "runtime/src/bank.rs",
+      "upstream_sha256": "ad01da27ed3406138e90c0b6c31579d47ef71ce0bf2b350ed66407c46878bbac"
+    },
+    {
+      "path": "ledger/src/bank_forks_utils.rs",
+      "upstream_sha256": "4d726b954bf23b64a6102780fd6bb347497de140ffd5a6c4e7cfa126c4e70bc0"
+    },
+    {
+      "path": "Cargo.toml",
+      "upstream_sha256": "7fec9310660eff55637fb1284c0f38fd9fcc99c34584c154b04a25cb8cb3c9eb"
+    },
+    {
+      "path": "rust-toolchain.toml",
+      "upstream_sha256": "5d959dfcc98b53886ee772ba216c4f9a1b31f093b46b5b263c0d084af54e821d"
+    },
+    {
+      "path": ".cargo/config.toml",
+      "upstream_sha256": "edd80898ccf6f07afa276441a6c3a0e54770a1c77f1d5a5329a9d600f768ff99"
+    }
+  ],
+  "patch_sha256": "85b1eefa70508f17c602426f6582db70cd613838629097c1c30da2329c0c241c"
+}

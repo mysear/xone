@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"math/big"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,14 +61,21 @@ type Kafka struct {
 	SecurityProtocol     string            `json:"security_protocol"`
 	AllowPlaintext       bool              `json:"allow_plaintext_development"`
 }
+type RawEvidenceConfig struct {
+	MaxBytes       int64 `json:"max_bytes"`
+	MaxRecords     int   `json:"max_records"`
+	MaxRecordBytes int64 `json:"max_record_bytes"`
+}
 type Journal struct {
-	SourceAuthTokens map[string]string `json:"source_auth_tokens,omitempty"`
-	Kafka            Kafka             `json:"kafka"`
-	Transport        string            `json:"transport"`
-	Sources          []string          `json:"source_urls"`
-	PollMS           uint64            `json:"poll_interval_ms"`
-	TimeoutMS        uint64            `json:"request_timeout_ms"`
-	MaxBytes         int               `json:"max_payload_bytes"`
+	RawMaintenance   *RawMaintenanceConfig `json:"raw_maintenance,omitempty"`
+	RawEvidence      *RawEvidenceConfig    `json:"raw_evidence,omitempty"`
+	SourceAuthTokens map[string]string     `json:"source_auth_tokens,omitempty"`
+	Kafka            Kafka                 `json:"kafka"`
+	Transport        string                `json:"transport"`
+	Sources          []string              `json:"source_urls"`
+	PollMS           uint64                `json:"poll_interval_ms"`
+	TimeoutMS        uint64                `json:"request_timeout_ms"`
+	MaxBytes         int                   `json:"max_payload_bytes"`
 }
 type State struct {
 	Engine string `json:"engine"`
@@ -207,6 +215,10 @@ type SingletonAdvancedPoolConfig struct {
 	MaxSteps                  uint32 `json:"max_steps"`
 }
 type PoolConfig struct {
+	PancakeBscLm      *PancakeBscLmConfig          `json:"pancake_bsc_lm,omitempty"`
+	PancakeLm         *PancakeLmConfig             `json:"pancake_lm,omitempty"`
+	SlipstreamContext *SlipstreamContextConfig     `json:"slipstream_context,omitempty"`
+	Lfj               *LfjConfig                   `json:"lfj,omitempty"`
 	InfinityBin       *InfinityBinConfig           `json:"infinity_bin,omitempty"`
 	SingletonAdvanced *SingletonAdvancedPoolConfig `json:"singleton_advanced,omitempty"`
 	MultiAsset        *MultiAssetConfig            `json:"multi_asset,omitempty"`
@@ -231,16 +243,34 @@ type PoolConfig struct {
 	ProgramID      string            `json:"program_id"`
 	Accounts       []string          `json:"accounts"`
 }
+type WebsocketConfig struct {
+	URL                string `json:"url"`
+	DialTimeoutMS      uint64 `json:"dial_timeout_ms"`
+	IdleTimeoutMS      uint64 `json:"idle_timeout_ms"`
+	SessionTimeoutMS   uint64 `json:"session_timeout_ms"`
+	MaxMessageBytes    int64  `json:"max_message_bytes"`
+	Queue              int    `json:"queue"`
+	MaxMessages        uint64 `json:"max_messages"`
+	MaxConnections     int    `json:"max_connections"`
+	ReconnectBackoffMS uint64 `json:"reconnect_backoff_ms"`
+	MaxBackoffMS       uint64 `json:"max_backoff_ms"`
+}
 type Chain struct {
-	Key                string       `json:"key"`
-	Owner              string       `json:"owner_service"`
-	Assignment         uint64       `json:"assignment_version"`
-	Genesis            string       `json:"genesis_hash"`
-	RPCURLs            []string     `json:"rpc_urls"`
-	AnalysisIntervalMS uint64       `json:"analysis_interval_ms,omitempty"`
-	Pools              []PoolConfig `json:"pools"`
-	Confirmation       string       `json:"confirmation_tag"`
-	ReorgWindow        uint64       `json:"auto_reorg_window"`
+	NativeProof        *NativeProofConfig    `json:"native_proof,omitempty"`
+	ReceiptsMode       string                `json:"receipts_mode,omitempty"`
+	ProviderProbe      *ProviderProbeConfig  `json:"provider_probe,omitempty"`
+	DynamicCatalog     *DynamicCatalogConfig `json:"dynamic_catalog,omitempty"`
+	BlockIntegrity     string                `json:"block_integrity,omitempty"`
+	Websocket          *WebsocketConfig      `json:"websocket,omitempty"`
+	Key                string                `json:"key"`
+	Owner              string                `json:"owner_service"`
+	Assignment         uint64                `json:"assignment_version"`
+	Genesis            string                `json:"genesis_hash"`
+	RPCURLs            []string              `json:"rpc_urls"`
+	AnalysisIntervalMS uint64                `json:"analysis_interval_ms,omitempty"`
+	Pools              []PoolConfig          `json:"pools"`
+	Confirmation       string                `json:"confirmation_tag"`
+	ReorgWindow        uint64                `json:"auto_reorg_window"`
 }
 type Config struct {
 	Control    Control    `json:"control"`
@@ -416,9 +446,20 @@ func Load(path, expected string) (*Snapshot, error) {
 	return &Snapshot{Config: cfg, Release: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), PublicHash: public, EconomicHash: economic, Root: root, Token: token, ControlDSN: controlDSN}, nil
 }
 func (c Config) Validate(expected string) error {
+	if err := c.Journal.RawMaintenance.Validate(c.Journal.RawEvidence); err != nil {
+		return err
+	}
+	if c.Journal.RawMaintenance != nil && expected != "chain-parser-go" {
+		return errors.New("RAW_MAINTENANCE_OWNER_INVALID")
+	}
 	invalid := func() error { return errors.New("CONFIG_CONSTRAINT_VIOLATION") }
 	if c.Service.Name != expected || (expected != "chain-parser-go" && expected != "chain-parser-rust" && expected != "dex-router") {
 		return invalid()
+	}
+	if raw := c.Journal.RawEvidence; raw != nil {
+		if expected != "chain-parser-go" || c.Service.Role != "online" || raw.MaxRecords < 1 || raw.MaxRecords > 1000000 || raw.MaxBytes <= 0 || raw.MaxBytes > 1<<40 || raw.MaxRecordBytes < int64(c.Journal.MaxBytes)*4+16384 || raw.MaxRecordBytes > 128*1024*1024 || raw.MaxRecordBytes > raw.MaxBytes {
+			return invalid()
+		}
 	}
 	journalAnalytics := expected == "chain-parser-go" && c.Service.Role == "analytics" && c.Service.Mode == "journal"
 	if journalAnalytics && (c.Journal.Transport != "kafka" || c.Control.Backend != "disabled") {
@@ -468,12 +509,106 @@ func (c Config) Validate(expected string) error {
 	}
 	seen := map[string]bool{}
 	for _, ch := range c.Chains {
+		if err := ch.ProviderProbe.Validate(ch.Key); err != nil {
+			return err
+		}
+		if err := ch.DynamicCatalog.Validate(ch.Key); err != nil {
+			return err
+		}
+		if ch.ProviderProbe != nil && expected != "chain-parser-go" {
+			return invalid()
+		}
+		if ch.DynamicCatalog != nil && (ch.ProviderProbe == nil || c.Journal.RawEvidence == nil || expected != "chain-parser-go") {
+			return invalid()
+		}
+		if ch.ReceiptsMode != "" && (expected != "chain-parser-go" || ch.ReceiptsMode != "per-tx" && ch.ReceiptsMode != "bulk-auto") {
+			return invalid()
+		}
+		if ch.NativeProof != nil && ch.BlockIntegrity != "known-evm-native-commitments-v2" {
+			return invalid()
+		}
+		if ch.BlockIntegrity != "" {
+			if expected != "chain-parser-go" {
+				return invalid()
+			}
+			switch ch.BlockIntegrity {
+			case "ethereum-header-transactions-v1":
+				if ch.Key != "evm:1" {
+					return invalid()
+				}
+			case "known-evm-native-commitments-v2":
+				if !ch.NativeProof.valid() {
+					return invalid()
+				}
+				switch ch.Key {
+				case "evm:1", "evm:10", "evm:8453", "evm:56", "evm:137", "evm:42161", "evm:43114":
+				default:
+					return invalid()
+				}
+			case "known-evm-header-raw-transactions-v1":
+				switch ch.Key {
+				case "evm:1", "evm:10", "evm:8453", "evm:56", "evm:137":
+				default:
+					return invalid()
+				}
+			default:
+				return invalid()
+			}
+		}
+		if ws := ch.Websocket; ws != nil {
+			parsed, e := url.Parse(ws.URL)
+			if e != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" || parsed.RawQuery != "" ||
+				(parsed.Scheme != "wss" && !(parsed.Scheme == "ws" && c.Control.AllowPlaintext && (parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1" || parsed.Hostname() == "::1"))) ||
+				expected != "chain-parser-go" || !strings.HasPrefix(ch.Key, "evm:") ||
+				ws.DialTimeoutMS == 0 || ws.DialTimeoutMS > 60000 || ws.IdleTimeoutMS == 0 || ws.IdleTimeoutMS > 60000 || ws.SessionTimeoutMS == 0 || ws.SessionTimeoutMS > 3600000 ||
+				ws.MaxMessageBytes <= 0 || ws.MaxMessageBytes > int64(c.Journal.MaxBytes) || ws.Queue < 1 || ws.Queue > 1024 || ws.MaxMessages == 0 || ws.MaxMessages > 1000000 ||
+				ws.MaxConnections < 1 || ws.MaxConnections > 64 || ws.ReconnectBackoffMS == 0 || ws.MaxBackoffMS < ws.ReconnectBackoffMS || ws.MaxBackoffMS > 60000 {
+				return invalid()
+			}
+		}
+
 		if domain.ValidateChain(ch.Key) != nil || seen[ch.Key] || ch.Assignment == 0 || ch.Genesis == "" || ch.ReorgWindow == 0 {
 			return invalid()
 		}
 		for _, p := range ch.Pools {
 			profile, known := domain.Protocol(p.Protocol)
-			if p.MultiAsset != nil && p.MultiAsset.ManagedV2 != nil && p.Protocol != domain.ManagedV2Protocol {
+			if p.Protocol == domain.PancakeBscLmProtocol {
+				if !p.validatePancakeBscLm(ch.Key) {
+					return invalid()
+				}
+				continue
+			}
+			if p.PancakeBscLm != nil {
+				return invalid()
+			}
+			if p.Protocol == domain.PancakeLmProtocol {
+				if !p.validatePancakeLm(ch.Key) {
+					return invalid()
+				}
+				continue
+			}
+			if p.PancakeLm != nil {
+				return invalid()
+			}
+			if p.Protocol == domain.SlipstreamContextProtocol {
+				if !p.validateSlipstreamContext(ch.Key) {
+					return invalid()
+				}
+				continue
+			}
+			if p.SlipstreamContext != nil {
+				return invalid()
+			}
+			if p.Protocol == domain.LfjProtocol {
+				if !p.validateLfj(ch.Key) {
+					return invalid()
+				}
+				continue
+			}
+			if p.Lfj != nil {
+				return invalid()
+			}
+			if p.MultiAsset != nil && p.MultiAsset.ManagedV2 != nil && !isManagedV2Protocol(p.Protocol) {
 				return invalid()
 			}
 			if p.InfinityBin != nil && (!known || profile.Family != "infinity-bin") {
@@ -511,10 +646,10 @@ func (c Config) Validate(expected string) error {
 			}
 			if known && profile.Family == "multi" {
 				v := p.MultiAsset
-				if v == nil || (v.TokenPolicy != "standard-no-bpt" && !(p.Protocol == "balancer-v2-composable-regular" && v.TokenPolicy == "standard-with-own-bpt") && !(p.Protocol == "curve-metausd-direct" && v.TokenPolicy == "standard-base-lp")) || p.Weighted != nil || p.Stable != nil || p.V2 != nil || p.V3 != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil || p.OrcaWhirlpool != nil || p.RaydiumCLMM != nil || p.ProgramID != "" || len(p.Accounts) != 0 {
+				if v == nil || (v.TokenPolicy != "standard-no-bpt" && !(p.Protocol == domain.ManagedV2BptProtocol && v.TokenPolicy == "standard-bpt") && !(p.Protocol == domain.ManagedV2BreakerProtocol && v.TokenPolicy == "standard-breaker-bpt") && !(p.Protocol == "balancer-v2-composable-regular" && v.TokenPolicy == "standard-with-own-bpt") && !(p.Protocol == "curve-metausd-direct" && v.TokenPolicy == "standard-base-lp")) || p.Weighted != nil || p.Stable != nil || p.V2 != nil || p.V3 != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil || p.OrcaWhirlpool != nil || p.RaydiumCLMM != nil || p.ProgramID != "" || len(p.Accounts) != 0 {
 					return invalid()
 				}
-				if p.Protocol == domain.ManagedV2Protocol {
+				if isManagedV2Protocol(p.Protocol) {
 					if !p.validateManagedV2(ch.Key) {
 						return invalid()
 					}

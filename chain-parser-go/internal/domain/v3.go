@@ -162,6 +162,22 @@ func (v V3State) Validate() error {
 	return nil
 }
 func (p Pool) Clone() Pool {
+	if p.PancakeBscLm != nil {
+		s := p.PancakeBscLm.Clone()
+		p.PancakeBscLm = &s
+	}
+	if p.PancakeLm != nil {
+		s := p.PancakeLm.Clone()
+		p.PancakeLm = &s
+	}
+	if p.SlipstreamContext != nil {
+		s := p.SlipstreamContext.Clone()
+		p.SlipstreamContext = &s
+	}
+	if p.Lfj != nil {
+		s := p.Lfj.Clone()
+		p.Lfj = &s
+	}
 	if p.InfinityBin != nil {
 		c := p.InfinityBin.Clone()
 		c.TreeLevel1 = append([]InfinityBinTreeWord{}, c.TreeLevel1...)
@@ -239,6 +255,21 @@ func (p Pool) Clone() Pool {
 			if m.ExecutionContext != nil {
 				context := *m.ExecutionContext
 				m.ExecutionContext = &context
+			}
+			if m.CircuitBreakers != nil {
+				circuit := *m.CircuitBreakers
+				circuit.Tokens = append([]ManagedV2CircuitToken{}, circuit.Tokens...)
+				m.CircuitBreakers = &circuit
+			}
+			if m.BPT != nil {
+				bpt := *m.BPT
+				bpt.AllowlistMembers = append([]ManagedV2AllowlistMember{}, bpt.AllowlistMembers...)
+				m.BPT = &bpt
+			}
+			if m.Schedule != nil {
+				schedule := *m.Schedule
+				schedule.Tokens = append([]ManagedV2ScheduledToken{}, schedule.Tokens...)
+				m.Schedule = &schedule
 			}
 			m.Dependencies = append([]ManagedV2Dependency{}, m.Dependencies...)
 			m.TokenInfo = append([]ManagedV2TokenInfo{}, m.TokenInfo...)

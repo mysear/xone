@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "records": [
+    {
+      "role": "first",
+      "address": "0xa6b546ce888889c7a24b57bf31244a50c9aa9ccb",
+      "url": "https://sourcify.dev/server/v2/contract/56/0xa6b546ce888889c7a24b57bf31244a50c9aa9ccb?fields=all",
+      "passed": true,
+      "bytes": 227009,
+      "sha256": "36a2153a5699eb3ce0a868c1b38a9ae53d4bdb6a0ed1c89d44702698349a338b",
+      "path": "integration/tools/reference/pancake-v3-lm-bsc/first-source.json",
+      "compiler": "0.7.6+commit.7338295f"
+    },
+    {
+      "role": "second",
+      "address": "0x05a74ad6d7bc13efe3bd4cf8d9e4a6cc1a9e596b",
+      "url": "https://sourcify.dev/server/v2/contract/56/0x05a74ad6d7bc13efe3bd4cf8d9e4a6cc1a9e596b?fields=all",
+      "passed": true,
+      "bytes": 291253,
+      "sha256": "bcf2112984247413b47f6b389789bf614669caa00a06d0aa3656cbe9da762fc7",
+      "path": "integration/tools/reference/pancake-v3-lm-bsc/second-source.json",
+      "compiler": "0.7.6+commit.7338295f"
+    },
+    {
+      "role": "third",
+      "address": "0x841382c950a9d3b369520ddba38faa84a2aba24f",
+      "url": "https://sourcify.dev/server/v2/contract/56/0x841382c950a9d3b369520ddba38faa84a2aba24f?fields=all",
+      "passed": true,
+      "bytes": 309437,
+      "sha256": "d9d8d703b703b6d9cce95bdfc8e52a7ecf8a794bcc70b33ff393670eefa09869",
+      "path": "integration/tools/reference/pancake-v3-lm-bsc/third-source.json",
+      "compiler": "0.7.6+commit.7338295f"
+    }
+  ],
+  "authority": "public exact predecessor source observations, no historical state qualification",
+  "all_requested_features_complete": false,
+  "production_ready": false
+}

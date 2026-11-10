@@ -115,7 +115,7 @@ func (a *Adapter) readStable(ctx context.Context, p config.PoolConfig, anchor ma
 		if e != nil {
 			return domain.Pool{}, e
 		}
-		if (stableFlag.Sign() != 0) != (p.Protocol == "aerodrome-v2-stable") {
+		if (stableFlag.Sign() != 0) != (p.Protocol == "aerodrome-v2-stable" || p.Protocol == "velodrome-v2-stable") {
 			return domain.Pool{}, errors.New("AERO_MODEL_MISMATCH")
 		}
 		for i, expected := range []string{p.Token0, p.Token1} {

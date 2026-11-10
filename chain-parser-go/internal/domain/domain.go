@@ -108,6 +108,10 @@ type SnapshotRef struct {
 	OwnerAssignmentVersion uint64   `json:"owner_assignment_version"`
 }
 type Pool struct {
+	PancakeBscLm      *PancakeBscLmState      `json:"pancake_bsc_lm,omitempty"`
+	PancakeLm         *PancakeLmState         `json:"pancake_lm,omitempty"`
+	SlipstreamContext *SlipstreamState        `json:"slipstream_context,omitempty"`
+	Lfj               *LfjState               `json:"lfj,omitempty"`
 	InfinityBin       *InfinityBinState       `json:"infinity_bin,omitempty"`
 	SingletonAdvanced *SingletonAdvancedState `json:"singleton_advanced,omitempty"`
 	MultiAsset        *MultiAssetState        `json:"multi_asset,omitempty"`
@@ -137,7 +141,7 @@ func (p Pool) Validate() error {
 		return e
 	}
 	count := 0
-	for _, present := range []bool{p.InfinityBin != nil, p.SingletonAdvanced != nil, p.MultiAsset != nil, p.Weighted != nil, p.Stable != nil, p.V2 != nil, p.V3 != nil, p.SingletonCL != nil, p.RaydiumCPMM != nil, p.OrcaWhirlpool != nil, p.RaydiumCLMM != nil} {
+	for _, present := range []bool{p.PancakeBscLm != nil, p.PancakeLm != nil, p.SlipstreamContext != nil, p.Lfj != nil, p.InfinityBin != nil, p.SingletonAdvanced != nil, p.MultiAsset != nil, p.Weighted != nil, p.Stable != nil, p.V2 != nil, p.V3 != nil, p.SingletonCL != nil, p.RaydiumCPMM != nil, p.OrcaWhirlpool != nil, p.RaydiumCLMM != nil} {
 		if present {
 			count++
 		}
@@ -146,6 +150,42 @@ func (p Pool) Validate() error {
 		return errors.New("POOL_MODEL_AMBIGUOUS")
 	}
 
+	if p.Protocol == PancakeBscLmProtocol {
+		if p.PancakeBscLm == nil {
+			return errors.New("BSC4_STATE_REQUIRED")
+		}
+		return p.PancakeBscLm.Validate(p)
+	}
+	if p.PancakeBscLm != nil {
+		return errors.New("BSC4_PROTOCOL_MISMATCH")
+	}
+	if p.Protocol == PancakeLmProtocol {
+		if p.PancakeLm == nil {
+			return errors.New("PANCAKE_LM_CONTEXT_REQUIRED")
+		}
+		return p.PancakeLm.Validate(p)
+	}
+	if p.PancakeLm != nil {
+		return errors.New("PANCAKE_LM_PROTOCOL_MISMATCH")
+	}
+	if p.Protocol == SlipstreamContextProtocol {
+		if p.SlipstreamContext == nil {
+			return errors.New("SLIPSTREAM_CONTEXT_REQUIRED")
+		}
+		return p.SlipstreamContext.Validate(p)
+	}
+	if p.SlipstreamContext != nil {
+		return errors.New("SLIPSTREAM_CONTEXT_PROTOCOL_MISMATCH")
+	}
+	if p.Protocol == LfjProtocol {
+		if p.Lfj == nil {
+			return errors.New("LFJ_STATE_REQUIRED")
+		}
+		return p.Lfj.Validate(p)
+	}
+	if p.Lfj != nil {
+		return errors.New("LFJ_PROTOCOL_MISMATCH")
+	}
 	if profile, ok := Protocol(p.Protocol); ok && profile.Family == "infinity-bin" {
 		return p.validateInfinityBin()
 	}
@@ -333,6 +373,33 @@ func (s Snapshot) Validate(owner string, assignment uint64) error {
 			v := p.V2.Swap
 			if v.BankBlockNumber != r.Block.Number || v.BankBlockHash != r.Block.Hash || v.BankUnixTimestamp > ^uint64(0)/1000 || v.BankUnixTimestamp*1000 != r.Block.TimestampMS {
 				return errors.New("V2_SWAP_SNAPSHOT_BANK")
+			}
+		}
+		if s := p.PancakeBscLm; s != nil {
+			if s.Ledger.Derived || s.Ledger.BlockHash != r.Block.Hash || s.Ledger.BlockNumber != r.Block.Number || s.Ledger.Timestamp > ^uint64(0)/1000 || s.Ledger.Timestamp*1000 != r.Block.TimestampMS {
+				return errors.New("BSC4_CANONICAL_BANK")
+			}
+		}
+		if s := p.PancakeLm; s != nil {
+			if s.Derived {
+				return errors.New("PANCAKE_LM_DERIVED_STATE_NOT_CANONICAL")
+			}
+			if s.BlockHash != r.Block.Hash || s.BlockNumber != r.Block.Number || s.Timestamp > ^uint64(0)/1000 || s.Timestamp*1000 != r.Block.TimestampMS {
+				return errors.New("PANCAKE_LM_SNAPSHOT_BANK")
+			}
+		}
+		if s := p.SlipstreamContext; s != nil {
+			if s.Derived {
+				return errors.New("SLIPSTREAM_DERIVED_STATE_NOT_CANONICAL")
+			}
+			if s.BlockHash != r.Block.Hash || s.BlockNumber != r.Block.Number || s.Timestamp > ^uint64(0)/1000 || s.Timestamp*1000 != r.Block.TimestampMS {
+				return errors.New("SLIPSTREAM_CONTEXT_SNAPSHOT_BANK")
+			}
+		}
+		if p.Lfj != nil {
+			l := p.Lfj
+			if l.BlockHash != r.Block.Hash || l.BlockNumber != r.Block.Number || l.Timestamp > ^uint64(0)/1000 || l.Timestamp*1000 != r.Block.TimestampMS {
+				return errors.New("LFJ_SNAPSHOT_BANK")
 			}
 		}
 		if b := p.InfinityBin; b != nil {

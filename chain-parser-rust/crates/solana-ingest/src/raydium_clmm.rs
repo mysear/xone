@@ -15,7 +15,6 @@ use xone_domain::{err, Amount, Pool, Result};
 pub const PROGRAM_ID: &str = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK";
 pub const PROGRAM_DATA: &str = "HzD2cCXXT3UQNjMMY6kDv9w6gZ9qquSdfoGXrLL3LXx";
 const UPGRADEABLE_LOADER: &str = "BPFLoaderUpgradeab1e11111111111111111111111";
-const IMMUTABLE_LOADER: &str = "BPFLoader2111111111111111111111111111111111";
 const SYSVAR_OWNER: &str = "Sysvar1111111111111111111111111111111111111";
 const NATIVE_MINT: &str = "So11111111111111111111111111111111111111112";
 const POOL_LEN: usize = 1544;
@@ -136,6 +135,7 @@ pub fn required_accounts(p: &PoolConfig) -> Result<Vec<String>> {
     ) {
         ids.push(pda(&[BITMAP_EXTENSION_SEED, &pool], &program)?.0);
     }
+    crate::token_program::append_dependency(&mut ids, cfg.token_program_upgrade.as_ref())?;
     let mut seen = BTreeSet::new();
     for id in &ids {
         pubkey(id)?;
@@ -185,14 +185,12 @@ pub fn decode_raydium_clmm(
     {
         return Err(err("PROGRAM_VERSION_UNSUPPORTED"));
     }
-    let token = get(accounts, TOKEN_PROGRAM)?;
-    if !token.executable
-        || token.owner != IMMUTABLE_LOADER
-        || token.data.is_empty()
-        || digest(&token.data) != identity.expected_token_program_code_sha256
-    {
-        return Err(err("TOKEN_PROGRAM_VERSION_UNSUPPORTED"));
-    }
+    crate::token_program::verify(
+        accounts,
+        &identity.expected_token_program_code_sha256,
+        identity.token_program_upgrade.as_ref(),
+        bank_slot,
+    )?;
     let clock = owned_data(accounts, CLOCK, SYSVAR_OWNER, 40)?;
     if u64_at(clock, 0) != bank_slot {
         return Err(err("CLOCK_CONTEXT_MISMATCH"));
@@ -214,11 +212,11 @@ pub fn decode_raydium_clmm(
     // DynamicFeeInfo uses 34 packed bytes, followed by 46 padding bytes.
     // Legacy profiles still require the full 80-byte default and zero reserved tails.
     // Only bytes 391..393 are the source u16LE seed; 393..397 remain padding.
+    // Source padding5[325..389] and padding6[1032..1064] are opaque unused
+    // arrays; original layout tests round-trip nonzero historical contents.
     if !zero(&state[273..277])
-        || !zero(&state[325..389])
         || state[389] & !63 != 0
         || !zero(&state[393..397])
-        || !zero(&state[1032..1064])
         || !zero(&state[if dynamic_profile { 1130 } else { 1096 }..])
         || !zero(&cfg[57..61])
         || !zero(&cfg[93..])
@@ -445,6 +443,10 @@ pub fn decode_raydium_clmm(
         )?);
     }
     let pool = Pool {
+        pancake_bsc_lm: None,
+        pancake_lm: None,
+        slipstream_context: None,
+        lfj: None,
         infinity_bin: None,
         raydium_clmm: Some(s),
         orca_whirlpool: None,
@@ -545,8 +547,10 @@ fn decode_array(
     }
     let mut ticks = Vec::new();
     for (i, t) in d[44..10124].chunks_exact(TICK_LEN).enumerate() {
-        // Reward growth is admitted only by its profile; limit orders and padding remain strict.
-        if !zero(&t[if rewards { 116 } else { 68 }..]) {
+        // Source order_phase[116..124] is a historical cohort counter. With no
+        // outstanding quantities, match_limit_order returns before using it.
+        // Active orders, partial-fill ratio and unknown padding stay unsupported.
+        if (!rewards && !zero(&t[68..116])) || !zero(&t[124..]) {
             return Err(err("RAYCLMM_TICK_STATE_UNSUPPORTED"));
         }
         let gross = u128_at(t, 20);

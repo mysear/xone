@@ -36,6 +36,7 @@ xone-observability = { path = "crates/observability" }
 xone-solana-ingest = { path = "crates/solana-ingest" }
 tokio.workspace = true
 serde_json.workspace = true
+serde.workspace = true
 
 [features]
 debug-fixtures = []
@@ -48,3 +49,7 @@ required-features = ["debug-fixtures"]
 [[bin]]
 name = "chain-parser-rust"
 path = "cmd/chain-parser/main.rs"
+
+[[bin]]
+name = "source-evidence-rust"
+path = "cmd/source-evidence/main.rs"

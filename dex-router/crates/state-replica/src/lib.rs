@@ -46,7 +46,7 @@ impl Replica {
     pub fn view(&self, chain: &str) -> Result<Arc<QuoteView>> {
         let views = self.views.read().map_err(|_| err("STATE_LOCK_POISONED"))?;
         let v = views.get(chain).ok_or_else(|| err("CHAIN_NOT_READY"))?;
-        if !v.is_valid() {
+        if !v.is_valid() || v.graph.adjacency.is_empty() {
             return Err(err("CHAIN_NOT_READY"));
         }
         Ok(v.clone())
@@ -305,23 +305,28 @@ impl Replica {
                 })
                 .collect()
         }
-        let changed = topology(&old.pools) != topology(&r.pools);
+        // Candidate admission depends on the complete bank (for example,
+        // shared Vault registrations), not just token endpoints/protocol labels.
+        let admission_changed =
+            xone_domain::unavailable_pool_reasons(r.pools.iter())? != old.graph.excluded_pools;
+        let changed = topology(&old.pools) != topology(&r.pools) || admission_changed;
         let graph = if changed {
             Arc::new(Graph::build(&r.pools)?)
         } else {
             old.graph.clone()
         };
-        if graph.adjacency.is_empty() {
-            return Err(err("NO_QUOTE_CAPABLE_SCOPE"));
-        }
         let is_reorg = r.reference.canonical_epoch != old.reference.canonical_epoch;
-        let valid = if is_reorg {
+        if !is_reorg && !old.is_valid() {
+            return Err(err("REANCHOR_REQUIRED"));
+        }
+        let quote_capability_changed = graph.adjacency.is_empty() != old.graph.adjacency.is_empty();
+        let valid = if is_reorg || admission_changed || quote_capability_changed {
             old.valid.store(false, Ordering::Release);
+            // A complete canonical unit still advances the reader when no
+            // quote edges are admitted. view() keeps that bank non-ready;
+            // the next qualified unit may restore routes without rewinding.
             Arc::new(AtomicBool::new(true))
         } else {
-            if !old.is_valid() {
-                return Err(err("REANCHOR_REQUIRED"));
-            }
             old.valid.clone()
         };
         let next = Arc::new(QuoteView {

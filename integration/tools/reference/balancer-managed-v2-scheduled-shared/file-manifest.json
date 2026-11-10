@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "files": [
+    {
+      "path": "integration/tools/acceptance/tests/test_managed_v2_scheduled_shared_reference.py",
+      "sha256": "a0e86448863f0229d494c602c99fb14fd3f638226606ebfd4bcbfaed165c9d57"
+    },
+    {
+      "path": "integration/tools/ci/managed-v2-scheduled-shared-golden.cjs",
+      "sha256": "d0f4b5268000afea511fde60ca33135fb14d455f68405a2442b47539572f5e3c"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled-shared/checker.cjs",
+      "sha256": "1cd9148129a99230a64f2cbd695e74350899004fefd43da3445738d22c9c30ea"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled-shared/generate.cjs",
+      "sha256": "3135906dacaf7bb4bd3c9ef50d61166f838713c342d8df99571cc1c09405ab78"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled-shared/harness.cjs",
+      "sha256": "e075c53fa8f948f29e2881678b3eff058e425cb99657403c10427e9a606e3bde"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled-shared/inputs.cjs",
+      "sha256": "70f28c379c4b70201e62e1bf305ff0e15f56cafc6e8430f4b1192824d24d1707"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled-shared/README.md",
+      "sha256": "e21d07dd054afaea8702a945f9fbaf86b5d778d73c49eebd86a901d425d2bd03"
+    }
+  ]
+}

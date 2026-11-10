@@ -49,7 +49,13 @@ fn k_raw(x: &BigUint, y: &BigUint, dec: [&BigUint; 2]) -> Result<BigUint> {
     let e = BigUint::from(10u8).pow(18);
     f(&div(mul(x, &e)?, dec[0])?, &div(mul(y, &e)?, dec[1])?)
 }
-fn get_y(x: &BigUint, target: &BigUint, mut y: BigUint, dec: [&BigUint; 2]) -> Result<BigUint> {
+fn get_y(
+    x: &BigUint,
+    target: &BigUint,
+    mut y: BigUint,
+    dec: [&BigUint; 2],
+    velodrome: bool,
+) -> Result<BigUint> {
     let e = BigUint::from(10u8).pow(18);
     for _ in 0..255 {
         let value = f(x, &y)?;
@@ -60,7 +66,14 @@ fn get_y(x: &BigUint, target: &BigUint, mut y: BigUint, dec: [&BigUint; 2]) -> R
                     return Ok(y);
                 }
                 let yp = add(&y, &BigUint::one())?;
-                if k_raw(x, &yp, dec)? > *target {
+                // Velodrome b3065d8b checks already-normalized balances
+                // with _f. Aerodrome 1ba30815 calls _k and scales again.
+                let next = if velodrome {
+                    f(x, &yp)?
+                } else {
+                    k_raw(x, &yp, dec)?
+                };
+                if next > *target {
                     return Ok(yp);
                 }
                 dy = BigUint::one();
@@ -87,6 +100,28 @@ pub fn quote_exact_in(
     zero: bool,
     stable: bool,
 ) -> Result<AeroQuote> {
+    quote_model(balances, decimals, fee, input, zero, stable, false)
+}
+/// Pinned Velodrome b3065d8b semantics, including its normalized rounding check.
+pub fn quote_exact_in_velodrome(
+    balances: [&BigUint; 2],
+    decimals: [&BigUint; 2],
+    fee: u64,
+    input: &BigUint,
+    zero: bool,
+    stable: bool,
+) -> Result<AeroQuote> {
+    quote_model(balances, decimals, fee, input, zero, stable, true)
+}
+fn quote_model(
+    balances: [&BigUint; 2],
+    decimals: [&BigUint; 2],
+    fee: u64,
+    input: &BigUint,
+    zero: bool,
+    stable: bool,
+    velodrome: bool,
+) -> Result<AeroQuote> {
     if fee > 300
         || input.is_zero()
         || balances.iter().any(|b| b.is_zero())
@@ -111,7 +146,7 @@ pub fn quote_exact_in(
         let x = div(mul(balances[i], &e)?, decimals[i])?;
         let y = div(mul(balances[j], &e)?, decimals[j])?;
         let dx = div(mul(&effective, &e)?, decimals[i])?;
-        let next = get_y(&add(&x, &dx)?, &target, y.clone(), decimals)?;
+        let next = get_y(&add(&x, &dx)?, &target, y.clone(), decimals, velodrome)?;
         div(mul(&sub(&y, &next)?, decimals[j])?, &e)?
     };
     if amount_out.is_zero() || amount_out >= *balances[j] {

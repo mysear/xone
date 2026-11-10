@@ -153,3 +153,40 @@ fn scope_revocation_precedes_confirmed_reorg_without_allocating_epoch() {
     assert!(r.view("evm:31337").is_ok());
     assert!(!old.is_valid());
 }
+
+#[test]
+fn token_capability_exclusion_is_visible_and_restores_without_deleting_source() {
+    let mut s = snapshot();
+    let replica = Replica::new(vec![("evm:31337".into(), "chain-parser-go".into(), 1)]);
+    replica.install_baseline(s.clone()).unwrap();
+    let id = s.pools[0].pool_id.clone();
+    s.reference.block.number_or_slot += 1;
+    s.reference.block.parent_hash = s.reference.block.hash.clone();
+    s.reference.block.hash = "blocked-token".into();
+    s.reference.journal_seq += 1;
+    s.pools[0].token_behavior = "simulation-only".into();
+    replica.apply(record(&s, "BLOCK_COMMIT")).unwrap();
+    let view = replica.view("evm:31337").unwrap();
+    assert_eq!(view.pools.len(), s.pools.len());
+    assert_eq!(view.graph.excluded_pools[&id], "TOKEN_BEHAVIOR_UNSUPPORTED");
+    assert!(view
+        .graph
+        .adjacency
+        .values()
+        .flatten()
+        .all(|e| e.pool_id != id));
+    s.reference.block.number_or_slot += 1;
+    s.reference.block.parent_hash = s.reference.block.hash.clone();
+    s.reference.block.hash = "restored-token".into();
+    s.reference.journal_seq += 1;
+    s.pools[0].token_behavior = "standard".into();
+    replica.apply(record(&s, "BLOCK_COMMIT")).unwrap();
+    let restored = replica.view("evm:31337").unwrap();
+    assert!(!restored.graph.excluded_pools.contains_key(&id));
+    assert!(restored
+        .graph
+        .adjacency
+        .values()
+        .flatten()
+        .any(|e| e.pool_id == id));
+}

@@ -8,3 +8,8 @@ xone-domain = { path = "../domain" }
 xone-protocol-math = { path = "../protocol-math" }
 serde.workspace = true
 serde_json.workspace = true
+num-bigint.workspace = true
+num-traits.workspace = true
+
+[dev-dependencies]
+sha2.workspace = true

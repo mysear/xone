@@ -25,6 +25,10 @@ impl Fixture {
     fn archived() -> Self {
         let ids: Vec<_> = (1..=6).map(key).collect();
         let pool = PoolConfig {
+            pancake_bsc_lm: None,
+            pancake_lm: None,
+            slipstream_context: None,
+            lfj: None,
             infinity_bin: None,
             stable: None,
             weighted: None,

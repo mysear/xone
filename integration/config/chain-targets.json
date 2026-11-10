@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "design_clause": "3",
+  "scope": "design targets and public development RPC defaults; never protocol or production admission",
+  "targets": {
+    "ethereum": {
+      "chain_key": "evm:1",
+      "chain_id": 1,
+      "family": "evm",
+      "owner": "chain-parser-go",
+      "genesis_hash": "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
+      "rpc_urls": [
+        "https://eth.drpc.org",
+        "https://1rpc.io/eth"
+      ],
+      "planned_protocols": [
+        "Uniswap V2",
+        "Uniswap V3"
+      ],
+      "later_protocols": [
+        "Uniswap V4 whitelist",
+        "Curve",
+        "Balancer"
+      ],
+      "documentation": "https://ethereum.org/en/developers/docs/networks/",
+      "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+    },
+    "base": {
+      "chain_key": "evm:8453",
+      "chain_id": 8453,
+      "family": "evm",
+      "owner": "chain-parser-go",
+      "rpc_urls": [
+        "https://mainnet.base.org",
+        "https://base.drpc.org"
+      ],
+      "planned_protocols": [
+        "Uniswap V3",
+        "Aerodrome V2",
+        "Slipstream"
+      ],
+      "later_protocols": [],
+      "documentation": "https://docs.base.org/base-chain/network-information",
+      "genesis_hash": "0xf712aa9241cc24369b143cf6dce85f0902a9731e70d66818a3a5845b296c73dd",
+      "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+    },
+    "bsc": {
+      "chain_key": "evm:56",
+      "chain_id": 56,
+      "family": "evm",
+      "owner": "chain-parser-go",
+      "rpc_urls": [
+        "https://bsc-dataseed.bnbchain.org"
+      ],
+      "planned_protocols": [
+        "Pancake V2",
+        "Pancake V3"
+      ],
+      "later_protocols": [
+        "Pancake Infinity"
+      ],
+      "documentation": "https://docs.bnbchain.org/bnb-smart-chain/developers/network-config/",
+      "genesis_hash": "0x0d21840abff46b96c84b2ac9e10e4f5cdaeb5693cb665db62a2f3b02d2d57b5b",
+      "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+    },
+    "solana": {
+      "chain_key": "solana:mainnet-beta",
+      "family": "solana",
+      "owner": "chain-parser-rust",
+      "genesis_hash": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+      "rpc_urls": [
+        "https://api.mainnet-beta.solana.com",
+        "https://solana-rpc.publicnode.com"
+      ],
+      "planned_protocols": [
+        "Raydium CPMM",
+        "Raydium CLMM",
+        "Orca"
+      ],
+      "later_protocols": [
+        "Meteora",
+        "Pump"
+      ],
+      "documentation": "https://solana.com/docs/references/clusters",
+      "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+    },
+    "arbitrum": {
+      "chain_key": "evm:42161",
+      "chain_id": 42161,
+      "family": "evm",
+      "owner": "chain-parser-go",
+      "rpc_urls": [
+        "https://arb1.arbitrum.io/rpc",
+        "https://arbitrum-one-rpc.publicnode.com"
+      ],
+      "planned_protocols": [
+        "Uniswap V3"
+      ],
+      "later_protocols": [],
+      "documentation": "https://docs.arbitrum.io/build-decentralized-apps/reference/node-providers",
+      "genesis_hash": "0x7ee576b35482195fc49205cec9af72ce14f003b9ae69f6ba0faef4514be8b442",
+      "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+    },
+    "optimism": {
+      "chain_key": "evm:10",
+      "chain_id": 10,
+      "family": "evm",
+      "owner": "chain-parser-go",
+      "rpc_urls": [
+        "https://mainnet.optimism.io",
+        "https://optimism-rpc.publicnode.com",
+        "https://optimism.drpc.org"
+      ],
+      "planned_protocols": [
+        "Uniswap V3",
+        "Velodrome variants"
+      ],
+      "later_protocols": [],
+      "documentation": "https://docs.optimism.io/chain/networks",
+      "genesis_hash": "0x7ca38a1916c42007829c55e69d3e9a73265554b586a499015373241b8a3fa48b",
+      "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+    },
+    "polygon": {
+      "chain_key": "evm:137",
+      "chain_id": 137,
+      "family": "evm",
+      "owner": "chain-parser-go",
+      "rpc_urls": [
+        "https://polygon-bor-rpc.publicnode.com",
+        "https://polygon.drpc.org"
+      ],
+      "planned_protocols": [
+        "Uniswap V3"
+      ],
+      "later_protocols": [],
+      "documentation": "https://docs.polygon.technology/pos/reference/rpc-endpoints/",
+      "genesis_hash": "0xa9c28ce2141b56c474f1dc504bee9b01eb1bd7d1a507580d5519d4437a97de1b",
+      "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+    },
+    "avalanche": {
+      "chain_key": "evm:43114",
+      "chain_id": 43114,
+      "family": "evm",
+      "owner": "chain-parser-go",
+      "rpc_urls": [
+        "https://api.avax.network/ext/bc/C/rpc"
+      ],
+      "planned_protocols": [
+        "Uniswap V3",
+        "LFJ Liquidity Book"
+      ],
+      "later_protocols": [],
+      "documentation": "https://build.avax.network/docs/api-reference/c-chain/api",
+      "genesis_hash": "0x31ced5b9beb7f8782b014660da0cb18cc409f121f408186886e1ca3e8eeca96b",
+      "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+    }
+  }
+}

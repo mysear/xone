@@ -122,6 +122,12 @@ func cryptoBytes(s string) ([]byte, error) {
 // Admin LP mints may donate to another pool. That would require cross-pool raw
 // balance propagation; reject that dependency until the execution model owns it.
 func ValidatePoolDependencies(pools []Pool) error {
+	if e := ValidatePancakeLmDependencies(pools); e != nil {
+		return e
+	}
+	if e := ValidateSlipstreamDependencies(pools); e != nil {
+		return e
+	}
 	if e := ValidateManagedV2PoolDependencies(pools); e != nil {
 		return e
 	}

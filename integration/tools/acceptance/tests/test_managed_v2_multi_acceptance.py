@@ -65,6 +65,15 @@ def fixture(scope, runtime, inputs, prefix):
         'real-api-selected-plans-independent-vm-full-getters-and-wallet-differences' if scope=='shared' else
         'four-native-swaps-and-four-30day-collections-complete-observed-after',
         'router2-restart-complete-native-bank-restore', 'verified-and-build-rejected-on-both-replicas']
+    # These counters are synthetic mutation-test evidence, not service proof.
+    # Populate all recorded original calls so the parser's strict required
+    # subset is covered independently of the checker's read-selection helper.
+    getter_counts={frame['id']+':'+address+':'+data:1 for frame in chain.frames for address,data in frame['getters']}
+    code_counts={frame['id']+':'+address:1 for frame in chain.frames for address in chain.codes}
+    report.update(getter_read_counts=getter_counts,code_read_counts=code_counts,
+        getter_reads=sum(getter_counts.values()),code_reads=sum(code_counts.values()),receipt_reads=1,
+        read_counts={'eth_chainId':1,'eth_getBlockByNumber':1,'eth_call':sum(getter_counts.values()),
+                     'eth_getCode':sum(code_counts.values()),'eth_getTransactionReceipt':1})
     for frame in chain.frames:
         ref = reference(frame['header'])
         report['source_frames'].append(dict(source_bank=frame['id'], header=frame['header'], pools=frame['pools'],
@@ -293,6 +302,50 @@ class MultiAcceptanceTests(unittest.TestCase):
             elif attack=='restart':r['positive_plans'].pop()
             else:r['checks'].pop()
             with self.subTest(attack=attack),self.assertRaises(ValueError):self.validate(r)
+
+    def test_parser_read_contract_is_distinct_from_reference_execution_observations(self):
+        from managed_v2_parser_reads import required_reads
+        for scope,total_getters,total_codes in [('catalog',366,75),('shared',82,15)]:
+            raw=json.loads(smoke.REFERENCE[scope].read_bytes());bank=raw['banks'][next(iter(raw['banks']))]
+            needed,codes=required_reads(bank)
+            self.assertEqual((len(needed),len(codes)),(total_getters,total_codes))
+            self.assertLess(len(needed),len({(g['to'],g['data'])for p in bank['pools']for g in p['getters']}))
+            for pool in bank['pools']:
+                for g in pool['getters']:
+                    if g['method']=='allowance':self.assertNotIn((g['to'],g['data']),needed)
+        for scope in smoke.SCOPES:
+            r=copy.deepcopy(self.reports[scope]);first=r['source_frames'][0]['source_bank']
+            raw=json.loads(smoke.REFERENCE[scope].read_bytes());g=next(g for p in raw['banks'][first]['pools']for g in p['getters']if g['method']=='getActualSupply')
+            del r['getter_read_counts'][first+':'+g['to']+':'+g['data']]
+            r['getter_reads']=sum(r['getter_read_counts'].values());r['read_counts']['eth_call']=r['getter_reads']
+            with self.assertRaises(ValueError):self.validate(r)
+
+    def test_api_edge_tokens_cannot_disagree_with_request_path_or_actual_swap(self):
+        for scope in smoke.SCOPES:
+            for field in ('from_token','to'):
+                r=copy.deepcopy(self.reports[scope])
+                for plan in r['positive_plans']:
+                    for route in plan['quote']['routes']:
+                        route['path']['edges'][0][field]='0x'+'0'*40
+                with self.subTest(scope=scope,field=field),self.assertRaises(ValueError):self.validate(r)
+
+    def test_each_native_bank_requires_actual_parser_getter_and_code_hits(self):
+        for scope in smoke.SCOPES:
+            for attack in ('missing-source','zero-source','all-empty','bad-sum','bool-count','code-source'):
+                r=copy.deepcopy(self.reports[scope]);first=r['source_frames'][0]['source_bank']
+                if attack in ('missing-source','zero-source','code-source'):
+                    key='code_read_counts' if attack=='code-source' else 'getter_read_counts'
+                    for name in list(r.get(key,{})):
+                        if name.startswith(first+':'):
+                            if attack=='zero-source':r[key][name]=0
+                            else:del r[key][name]
+                    total=sum(r.get(key,{}).values());r['code_reads' if key=='code_read_counts' else 'getter_reads']=total
+                    r.setdefault('read_counts',{})['eth_getCode' if key=='code_read_counts' else 'eth_call']=total
+                elif attack=='all-empty':r['getter_read_counts']={};r['getter_reads']=0;r.setdefault('read_counts',{})['eth_call']=0
+                elif attack=='bad-sum':r['getter_reads']=r.get('getter_reads',0)+1
+                else:
+                    key=next(iter(r.get('getter_read_counts',{})),first+':forged');r.setdefault('getter_read_counts',{})[key]=True
+                with self.subTest(scope=scope,attack=attack),self.assertRaises(ValueError):self.validate(r)
 
     def test_every_shared_vm_receipt_is_bound_and_complete(self):
         for attack in ('vm','amount','getter','result','calls','routes','tx','wallet','source','oldhash','gas','missingamount'):

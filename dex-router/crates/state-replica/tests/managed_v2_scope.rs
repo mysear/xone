@@ -308,3 +308,179 @@ fn cross_pool_bpt_excludes_the_whole_vault_without_erasing_canonical_rows() {
     );
     can_quote(&view, &s.pools[2]);
 }
+
+fn advance_scope_bank(s: &mut Snapshot, marker: u8) -> xone_domain::Record {
+    s.reference.block.parent_hash = s.reference.block.hash.clone();
+    s.reference.block.hash = format!("0x{}", format!("{marker:02x}").repeat(32));
+    s.reference.block.number_or_slot += 1;
+    s.reference.journal_seq += 1;
+    for pool in &mut s.pools {
+        if let Some(state) = pool
+            .multi_asset
+            .as_mut()
+            .and_then(|multi| multi.managed_v2.as_mut())
+        {
+            state.block_number = s.reference.block.number_or_slot;
+            state.block_hash = s.reference.block.hash.clone();
+        }
+    }
+    s.validate(
+        &s.reference.owner_service,
+        s.reference.owner_assignment_version,
+    )
+    .unwrap();
+    xone_domain::Record {
+        reference: s.reference.clone(),
+        kind: "BLOCK_COMMIT".into(),
+        record_id: format!("admission-{marker}"),
+        payload_hash: hash(&s.pools).unwrap(),
+        pools: s.pools.clone(),
+    }
+}
+
+#[test]
+fn block_commit_refreshes_admission_even_when_tokens_and_protocols_are_unchanged() {
+    let mut initial = source();
+    initial.pools.push(weighted(&initial.pools[0], false));
+    initial.pools.push(ordinary());
+    seal(&mut initial);
+    let replica = replica(&initial);
+    replica.install_baseline(initial.clone()).unwrap();
+    let before = replica.view(&initial.reference.block.chain_key).unwrap();
+    assert!(before.graph.excluded_pools.is_empty());
+    let original_vault = initial.pools[2].multi_asset.as_ref().unwrap().vault.clone();
+    let original_code = initial.pools[2]
+        .multi_asset
+        .as_ref()
+        .unwrap()
+        .vault_code_sha256
+        .clone();
+    let managed = initial.pools[0].multi_asset.as_ref().unwrap();
+    let shared_vault = managed.vault.clone();
+    let shared_code = managed.vault_code_sha256.clone();
+    let mut current = initial.clone();
+    current.pools[2].multi_asset.as_mut().unwrap().vault = shared_vault;
+    current.pools[2]
+        .multi_asset
+        .as_mut()
+        .unwrap()
+        .vault_code_sha256 = shared_code;
+    let record = advance_scope_bank(&mut current, 0xf1);
+    replica.apply(record).unwrap();
+    let excluded = replica.view(&current.reference.block.chain_key).unwrap();
+    assert_eq!(
+        excluded.graph.excluded_pools.len(),
+        3,
+        "current full-bank admission must replace the old graph"
+    );
+    assert_eq!(excluded.graph_version, before.graph_version + 1);
+    assert!(excluded
+        .graph
+        .adjacency
+        .values()
+        .flatten()
+        .all(|edge| edge.pool_id == current.pools[3].pool_id));
+    assert!(
+        before.graph.excluded_pools.is_empty(),
+        "immutable older graph was changed"
+    );
+    can_quote(&excluded, &current.pools[3]);
+    current.pools[2].multi_asset.as_mut().unwrap().vault = original_vault;
+    current.pools[2]
+        .multi_asset
+        .as_mut()
+        .unwrap()
+        .vault_code_sha256 = original_code;
+    replica
+        .apply(advance_scope_bank(&mut current, 0xf2))
+        .unwrap();
+    let restored = replica.view(&current.reference.block.chain_key).unwrap();
+    assert!(
+        restored.graph.excluded_pools.is_empty(),
+        "restored pools stay excluded"
+    );
+    assert_eq!(restored.graph_version, excluded.graph_version + 1);
+    assert!(!std::sync::Arc::ptr_eq(&before.graph, &restored.graph));
+    assert_eq!(excluded.graph.excluded_pools.len(), 3);
+    can_quote(&restored, &current.pools[2]);
+}
+
+#[test]
+fn admitted_bank_without_quote_edges_advances_watermark_revokes_then_recovers() {
+    let mut bank = source();
+    bank.pools.push(weighted(&bank.pools[0], false));
+    seal(&mut bank);
+    let replica = replica(&bank);
+    replica.install_baseline(bank.clone()).unwrap();
+    let previous = replica.view(&bank.reference.block.chain_key).unwrap();
+    let ordinary_vault = bank.pools[2].multi_asset.as_ref().unwrap().vault.clone();
+    let ordinary_code = bank.pools[2]
+        .multi_asset
+        .as_ref()
+        .unwrap()
+        .vault_code_sha256
+        .clone();
+    let managed = bank.pools[0].multi_asset.as_ref().unwrap();
+    let vault = managed.vault.clone();
+    let code = managed.vault_code_sha256.clone();
+    bank.pools[2].multi_asset.as_mut().unwrap().vault = vault;
+    bank.pools[2]
+        .multi_asset
+        .as_mut()
+        .unwrap()
+        .vault_code_sha256 = code;
+    replica.apply(advance_scope_bank(&mut bank, 0xf3)).unwrap();
+    assert!(replica.view(&bank.reference.block.chain_key).is_err());
+    assert!(
+        !previous.is_valid(),
+        "old quote handle survived loss of all admissible routes"
+    );
+    assert_eq!(
+        replica
+            .last_reference(&bank.reference.block.chain_key)
+            .unwrap(),
+        Some(bank.reference.clone())
+    );
+    bank.pools[2].multi_asset.as_mut().unwrap().vault = ordinary_vault;
+    bank.pools[2]
+        .multi_asset
+        .as_mut()
+        .unwrap()
+        .vault_code_sha256 = ordinary_code;
+    replica.apply(advance_scope_bank(&mut bank, 0xf4)).unwrap();
+    let recovered = replica.view(&bank.reference.block.chain_key).unwrap();
+    assert!(recovered.graph.excluded_pools.is_empty());
+    assert!(!previous.is_valid());
+    can_quote(&recovered, &bank.pools[2]);
+}
+
+#[test]
+fn changing_admission_cannot_bypass_an_explicit_scope_suspension() {
+    let mut bank = source();
+    bank.pools.push(weighted(&bank.pools[0], false));
+    bank.pools.push(ordinary());
+    seal(&mut bank);
+    let replica = replica(&bank);
+    replica.install_baseline(bank.clone()).unwrap();
+    let saved = replica.view(&bank.reference.block.chain_key).unwrap();
+    replica.suspend(&bank.reference.block.chain_key);
+    let shared = bank.pools[0].multi_asset.as_ref().unwrap();
+    let vault = shared.vault.clone();
+    let code = shared.vault_code_sha256.clone();
+    bank.pools[2].multi_asset.as_mut().unwrap().vault = vault;
+    bank.pools[2]
+        .multi_asset
+        .as_mut()
+        .unwrap()
+        .vault_code_sha256 = code;
+    let record = advance_scope_bank(&mut bank, 0xf5);
+    assert_eq!(replica.apply(record).unwrap_err().0, "REANCHOR_REQUIRED");
+    assert!(!saved.is_valid());
+    assert!(replica.view(&bank.reference.block.chain_key).is_err());
+    assert_eq!(
+        replica
+            .last_reference(&bank.reference.block.chain_key)
+            .unwrap(),
+        Some(saved.reference.clone())
+    );
+}

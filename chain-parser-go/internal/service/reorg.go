@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 	"xone/chain-parser-go/internal/bootstrap"
+	"xone/chain-parser-go/internal/chain/evm"
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/journal"
@@ -21,6 +22,9 @@ type forkReader interface {
 // recoverFork publishes a revocation barrier before doing bounded rollback and
 // replacement reads. Intermediate branch states never become Current/Bootstrap.
 func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.Snapshot, a forkReader) error {
+	if err := s.revokeRuntimeSources(ctx, ch, []string{old.Reference.Block.Hash}); err != nil {
+		return err
+	}
 	store := s.stores[ch.Key]
 	store.Suspend()
 	if e := s.revokeScope(ctx, ch, old); e != nil {
@@ -36,8 +40,29 @@ func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.S
 	}
 	// The total recovery budget is bounded as well as each RPC. Expiration leaves
 	// the durable barrier in place for qualified HEAD_FIRST recovery.
+	sidecarContext := ctx
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
 	defer cancel()
+	endCapture := func() {}
+	if s.rawMaintenance != nil {
+		captured, finish, err := s.rawMaintenance.BeginOwnerCapture(ctx, ch.Key, "reorg")
+		if err != nil {
+			return err
+		}
+		ctx, endCapture = captured, finish
+		defer finish()
+	}
+	selected := ch
+	if adapter, ok := a.(*evm.Adapter); ok {
+		// Validate the actual reader's identities. A root static config omits
+		// discovered pools; treating that root as the replacement scope could
+		// bypass requalification after the catalogue revocation above.
+		selected = adapter.Chain
+	}
+	selection, e := s.freezeRuntimeScope(ctx, selected)
+	if e != nil {
+		return e
+	}
 	head, _, e := a.ReadState(ctx, ch.Confirmation, false)
 	if e != nil {
 		return e
@@ -107,7 +132,7 @@ func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.S
 		if ctx.Err() != nil {
 			return errors.New("REORG_DEADLINE")
 		}
-		nextBlock, pools, swaps, err := a.ReadComplete(ctx, fmt.Sprintf("0x%x", h))
+		nextBlock, pools, swaps, err := readCompleteWithLease(ctx, a, s.sessions[ch.Key], fmt.Sprintf("0x%x", h))
 		if err != nil {
 			return err
 		}
@@ -149,9 +174,35 @@ func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.S
 	if hasV2Scope(next.Pools) {
 		unit.NormalizedFacts = &domain.FactBatch{SchemaVersion: 1, DecoderVersion: "uniswap-v2/1", Blocks: factBlocks, RevertedBlocks: reverted}
 	}
-	if e = publish(unit); e != nil {
+	gate := s.runtimeScopeGate(ctx, selection, next)
+	var records map[string]json.RawMessage
+	if s.rawMaintenance != nil {
+		records, e = s.rawMaintenance.OwnerUnitRecords(ctx, unit)
+		if e != nil {
+			return e
+		}
+	}
+	if w := s.sessions[ch.Key]; w != nil {
+		if len(records) > 0 {
+			e = w.publishOwnerRecords(ctx, unit, records, gate)
+		} else {
+			e = w.publishOwner(ctx, unit, nil, gate)
+		}
+	} else if len(records) > 0 {
+		e = store.ApplyLocalOwnerRecords(unit, records, gate)
+	} else {
+		e = store.ApplyLocalGuard(unit, gate)
+	}
+	if e != nil {
 		return e
 	}
+	if s.rawMaintenance != nil && len(records) > 0 {
+		if e = s.rawMaintenance.AcknowledgeOwnerRecords(unit, records); e != nil {
+			return e
+		}
+	}
+	endCapture()
+	s.recordHistoryBaseline(sidecarContext, ch, next)
 	s.log.Event("info", "reorg_committed", map[string]any{"chain_key": ch.Key, "canonical_epoch": next.Reference.CanonicalEpoch, "journal_seq": next.Reference.JournalSeq, "ancestor_height": block.Number, "replacement_block_count": len(branch) - 1})
 	return nil
 }

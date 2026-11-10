@@ -644,6 +644,10 @@ pub fn decode_cpmm_at(
         )
         .ok_or_else(|| err("RESERVE_UNDERFLOW"))?;
     Ok(xone_domain::Pool {
+        pancake_bsc_lm: None,
+        pancake_lm: None,
+        slipstream_context: None,
+        lfj: None,
         infinity_bin: None,
         orca_whirlpool: None,
         raydium_clmm: None,
@@ -684,4 +688,144 @@ pub fn skipped_slots(
         }
     }
     Ok((from..=to).filter(|s| !seen.contains(s)).collect())
+}
+
+/// Exact dependency closure for the currently admitted catalog, including
+/// executable/programdata, token, clock, oracle and tick-array dependencies.
+pub fn required_scope(ch: &Chain) -> Result<BTreeSet<String>> {
+    let mut ids = BTreeSet::new();
+    for p in &ch.pools {
+        match p.protocol.as_str() {
+            "raydium-clmm-static"
+            | "raydium-clmm-token-fee"
+            | "raydium-clmm-bitmap"
+            | "raydium-clmm-custom-seed"
+            | "raydium-clmm-rewards"
+            | "raydium-clmm-dynamic" => ids.extend(crate::raydium_clmm::required_accounts(p)?),
+            "orca-whirlpools-static"
+            | "orca-whirlpools-rewards"
+            | "orca-whirlpools-adaptive"
+            | "orca-whirlpools-adaptive-rewards"
+            | "orca-whirlpools-adaptive-dynamic" => ids.extend(crate::orca::required_accounts(p)?),
+            "raydium-cpmm-creator" => ids.extend(crate::raydium::required_accounts(p)?),
+            "raydium-cpmm"
+                if p.program_id == CPMM_PROGRAM
+                    && p.accounts.len() == 6
+                    && p.accounts[0] == p.id =>
+            {
+                ids.extend(p.accounts.iter().cloned())
+            }
+            _ => return Err(err("PROTOCOL_LAYOUT_UNSUPPORTED")),
+        }
+    }
+    Ok(ids)
+}
+/// Decode only independently verified, complete bank accounts. No RPC context
+/// conversion occurs at this boundary; all ordinary protocol pin checks still run.
+pub fn snapshot_from_bank(
+    ch: &Chain,
+    bank: &crate::stream::CommittedBank,
+    timestamp_ms: u64,
+) -> Result<Snapshot> {
+    let required = required_scope(ch)?;
+    let values=bank.accounts.iter().map(|(id,a)| (bs58::encode(id).into_string(),json!({"owner":bs58::encode(a.owner).into_string(),"lamports":a.lamports,"executable":a.executable,"rentEpoch":a.rent_epoch,"data":[STANDARD.encode(&a.data),"base64"]}))).collect::<BTreeMap<_,_>>();
+    if !required.iter().eq(values.keys()) {
+        return Err(err("BANK_SCOPE_INCOMPLETE"));
+    }
+    let mut pools = Vec::new();
+    for p in &ch.pools {
+        let pool = match p.protocol.as_str() {
+            "raydium-clmm-static"
+            | "raydium-clmm-token-fee"
+            | "raydium-clmm-bitmap"
+            | "raydium-clmm-custom-seed"
+            | "raydium-clmm-rewards"
+            | "raydium-clmm-dynamic" => {
+                let a = crate::raydium_clmm::required_accounts(p)?
+                    .into_iter()
+                    .map(|k| {
+                        let decoded = crate::raydium::RpcAccount::decode(&values[&k])?;
+                        Ok((k, decoded))
+                    })
+                    .collect::<Result<BTreeMap<_, _>>>()?;
+                crate::raydium_clmm::decode_raydium_clmm(ch, p, &a, bank.bank.slot)?
+            }
+            "raydium-cpmm-creator" => {
+                let a = crate::raydium::required_accounts(p)?
+                    .into_iter()
+                    .map(|k| {
+                        let decoded = crate::raydium::RpcAccount::decode(&values[&k])?;
+                        Ok((k, decoded))
+                    })
+                    .collect::<Result<BTreeMap<_, _>>>()?;
+                crate::raydium::decode_raydium_cpmm(ch, p, &a, bank.bank.slot)?
+            }
+            "orca-whirlpools-static"
+            | "orca-whirlpools-rewards"
+            | "orca-whirlpools-adaptive"
+            | "orca-whirlpools-adaptive-rewards"
+            | "orca-whirlpools-adaptive-dynamic" => {
+                let oracle = crate::orca::oracle_address(p)?;
+                let adaptive = p.protocol.contains("adaptive");
+                let a = crate::orca::required_accounts(p)?
+                    .into_iter()
+                    .map(|k| {
+                        let v = &values[&k];
+                        Ok((
+                            k.clone(),
+                            if adaptive && k == oracle {
+                                crate::orca::decode_adaptive_rpc_account(v)?
+                            } else {
+                                crate::orca::decode_rpc_account(
+                                    &k,
+                                    if k == oracle { &oracle } else { "" },
+                                    v,
+                                )?
+                            },
+                        ))
+                    })
+                    .collect::<Result<BTreeMap<_, _>>>()?;
+                crate::orca::decode_orca_whirlpool(ch, p, &a, bank.bank.slot)?
+            }
+            "raydium-cpmm" => {
+                let a = p
+                    .accounts
+                    .iter()
+                    .map(|k| Ok((k.clone(), Account::decode(&values[k])?)))
+                    .collect::<Result<BTreeMap<_, _>>>()?;
+                decode_cpmm_at(ch, p, &a, timestamp_ms / 1000)?
+            }
+            _ => return Err(err("PROTOCOL_LAYOUT_UNSUPPORTED")),
+        };
+        pools.push(pool);
+    }
+    let adapters = pools
+        .iter()
+        .map(|p| p.adapter_version.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    Ok(Snapshot {
+        reference: SnapshotRef {
+            block: BlockRef {
+                chain_key: ch.key.clone(),
+                number_or_slot: bank.bank.slot,
+                hash: bank.blockhash.clone(),
+                parent_hash: bank.parent.blockhash.clone(),
+                timestamp_ms,
+            },
+            canonical_epoch: 1,
+            journal_seq: 1,
+            schema_version: 1,
+            adapter_set_hash: hash(&adapters)?,
+            online_generation: 1,
+            scope_hash: scope_hash(&pools)?,
+            writer_epoch: 1,
+            owner_service: ch.owner_service.clone(),
+            owner_assignment_version: ch.assignment_version,
+        },
+        pools,
+        source: "YELLOWSTONE_INDEPENDENT_VERSIONED_BANK_V1".into(),
+        history_gaps: vec![],
+    })
 }

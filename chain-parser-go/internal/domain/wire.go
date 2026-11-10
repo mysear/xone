@@ -105,6 +105,22 @@ func SnapshotToProto(s Snapshot) (*pb.OnlineSnapshot, error) {
 	}
 	out := &pb.OnlineSnapshot{Reference: r, Source: s.Source}
 	for _, p := range s.Pools {
+		bsc, e := PancakeBscLmStateToProto(p.PancakeBscLm)
+		if e != nil {
+			return nil, e
+		}
+		lm, e := PancakeLmStateToProto(p.PancakeLm)
+		if e != nil {
+			return nil, e
+		}
+		slip, e := SlipstreamStateToProto(p.SlipstreamContext)
+		if e != nil {
+			return nil, e
+		}
+		lfj, e := LfjToProto(p.Lfj)
+		if e != nil {
+			return nil, e
+		}
 		bin, e := InfinityBinToProto(p.InfinityBin)
 		if e != nil {
 			return nil, e
@@ -165,7 +181,7 @@ func SnapshotToProto(s Snapshot) (*pb.OnlineSnapshot, error) {
 			}
 			v2 = &pb.V2State{Factory: p.V2.Factory, CodeSha256: code, Swap: swap}
 		}
-		out.Pools = append(out.Pools, &pb.PoolState{InfinityBin: bin, SingletonAdvanced: advanced, MultiAsset: multi, Weighted: weighted, RaydiumClmm: clmm, OrcaWhirlpool: orca, RaydiumCpmm: raydium, SingletonCl: singleton, Stable: stable, V2: v2, V3: v3, ChainKey: p.ChainKey, PoolId: p.PoolID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: &pb.Amount{Uint256Be: r0}, Reserve1: &pb.Amount{Uint256Be: r1}, FeeNumerator: p.FeeNumerator, FeeDenominator: p.FeeDenominator, AdapterVersion: p.AdapterVersion, TokenBehavior: p.TokenBehavior})
+		out.Pools = append(out.Pools, &pb.PoolState{PancakeBscLm: bsc, PancakeLm: lm, SlipstreamContext: slip, Lfj: lfj, InfinityBin: bin, SingletonAdvanced: advanced, MultiAsset: multi, Weighted: weighted, RaydiumClmm: clmm, OrcaWhirlpool: orca, RaydiumCpmm: raydium, SingletonCl: singleton, Stable: stable, V2: v2, V3: v3, ChainKey: p.ChainKey, PoolId: p.PoolID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: &pb.Amount{Uint256Be: r0}, Reserve1: &pb.Amount{Uint256Be: r1}, FeeNumerator: p.FeeNumerator, FeeDenominator: p.FeeDenominator, AdapterVersion: p.AdapterVersion, TokenBehavior: p.TokenBehavior})
 	}
 	for _, g := range s.HistoryGaps {
 		out.HistoryGaps = append(out.HistoryGaps, &pb.HistoryGap{From: g.From, To: g.To, Reason: g.Reason})
@@ -184,6 +200,22 @@ func SnapshotFromProto(s *pb.OnlineSnapshot) (Snapshot, error) {
 	for _, p := range s.Pools {
 		if p == nil || p.Reserve0 == nil || p.Reserve1 == nil {
 			return Snapshot{}, errors.New("WIRE_POOL_REQUIRED")
+		}
+		bsc, e := PancakeBscLmStateFromProto(p.PancakeBscLm)
+		if e != nil {
+			return Snapshot{}, e
+		}
+		lm, e := PancakeLmStateFromProto(p.PancakeLm)
+		if e != nil {
+			return Snapshot{}, e
+		}
+		slip, e := SlipstreamStateFromProto(p.SlipstreamContext)
+		if e != nil {
+			return Snapshot{}, e
+		}
+		lfj, e := LfjFromProto(p.Lfj)
+		if e != nil {
+			return Snapshot{}, e
 		}
 		bin, e := InfinityBinFromProto(p.InfinityBin)
 		if e != nil {
@@ -244,7 +276,7 @@ func SnapshotFromProto(s *pb.OnlineSnapshot) (Snapshot, error) {
 			}
 			v2 = &V2State{Factory: p.V2.Factory, CodeSHA256: hex.EncodeToString(p.V2.CodeSha256), Swap: swap}
 		}
-		out.Pools = append(out.Pools, Pool{InfinityBin: bin, SingletonAdvanced: advanced, MultiAsset: multi, Weighted: weighted, RaydiumCLMM: clmm, OrcaWhirlpool: orca, RaydiumCPMM: raydium, SingletonCL: singleton, Stable: stable, V2: v2, V3: v3, ChainKey: p.ChainKey, PoolID: p.PoolId, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: a, Reserve1: b, FeeNumerator: p.FeeNumerator, FeeDenominator: p.FeeDenominator, AdapterVersion: p.AdapterVersion, TokenBehavior: p.TokenBehavior})
+		out.Pools = append(out.Pools, Pool{PancakeBscLm: bsc, PancakeLm: lm, SlipstreamContext: slip, Lfj: lfj, InfinityBin: bin, SingletonAdvanced: advanced, MultiAsset: multi, Weighted: weighted, RaydiumCLMM: clmm, OrcaWhirlpool: orca, RaydiumCPMM: raydium, SingletonCL: singleton, Stable: stable, V2: v2, V3: v3, ChainKey: p.ChainKey, PoolID: p.PoolId, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: a, Reserve1: b, FeeNumerator: p.FeeNumerator, FeeDenominator: p.FeeDenominator, AdapterVersion: p.AdapterVersion, TokenBehavior: p.TokenBehavior})
 	}
 	for _, g := range s.HistoryGaps {
 		if g == nil {

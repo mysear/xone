@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "files": [
+    {
+      "path": "integration/tools/acceptance/tests/test_managed_v2_breaker_reference.py",
+      "sha256": "7394dda15b3d38930ed30d7a3800266a31df2661a6ab043c88389d21e340be19"
+    },
+    {
+      "path": "integration/tools/ci/managed-v2-breaker-golden.cjs",
+      "sha256": "80ac6bcc90c33a5e9595e433bea94c494f7ce427d29dbc1a2c7f1009be38905f"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-breaker/checker.cjs",
+      "sha256": "57bcc8e59f5c69c9763870b9158ebb88d401e82e255afed1416182316ca3a246"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-breaker/generate.cjs",
+      "sha256": "4b01f6243322f94b65ab6a303c3dc696764af03d6d0d0fc3960adfdb0be46372"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-breaker/inputs.cjs",
+      "sha256": "20a95f5f78536f0e0aca18e6a799fe503732ca9d91b27dbbbb7e876607b5b068"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-breaker/runtime.cjs",
+      "sha256": "84cbc29bd20371059348ce418176ac8396e1ee85e7d17274bb4a7ee4ad71631b"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-breaker/scenarios.cjs",
+      "sha256": "1d89047dbe1c8a183f711834f17b55e0f65c23aed168dce4ebeae7c356b9b1df"
+    }
+  ]
+}

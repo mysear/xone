@@ -20,25 +20,25 @@ def digest(n):return hashlib.sha256(code(n)).hexdigest()
 def fixture(name):
  if name=='aerodrome-slipstream':
   p=copy.deepcopy(V3);p['protocol']=name;p['adapter_version']=name+'/cl-1';p['v3']['factory_code_sha256']=digest(25);return p
- return copy.deepcopy(next(c['pool'] for c in GOLDEN['cases'] if c['pool']['protocol']==name and c['pool']['stable']['rate0']==str(E) and c['pool']['stable']['rate1']==str(E) and (name not in ['curve-plain2-basic','balancer-v2-stable2'] or c['pool']['stable']['amplification']==('10000' if name=='curve-plain2-basic' else '100000'))))
+ return copy.deepcopy(next(c['pool'] for c in GOLDEN['cases'] if c['pool']['protocol']==name and c['pool']['stable']['rate0']==str(E) and c['pool']['stable']['rate1']==str(E) and (not name.startswith('velodrome-v2') or c['pool']['fee_numerator']==4) and (name not in ['curve-plain2-basic','balancer-v2-stable2'] or c['pool']['stable']['amplification']==('10000' if name=='curve-plain2-basic' else '100000'))))
 def profile(name):
  i=NAMES.index(name)+1;p=fixture(name);p['pool_id']=address(i);p['token0']=address(i*10+1);p['token1']=address(i*10+2)
  # Nonzero input sizes and meaningful balances also permit allocation replay.
- if name.startswith('aerodrome-v2'):p['reserve0']=str(1000000*E);p['reserve1']=str(1000000*E)
+ if name.startswith(('aerodrome-v2','velodrome-v2')):p['reserve0']=str(1000000*E);p['reserve1']=str(1000000*E)
  cfg={'id':p['pool_id'],'protocol':name,'token0':p['token0'],'token1':p['token1'],'fee_numerator':p['fee_numerator'],'fee_denominator':p['fee_denominator'],'program_id':'','accounts':[]}
  if name=='aerodrome-slipstream':
   p['v3']['factory']=address(100+i);p['v3']['code_sha256']=digest(i);p['v3']['factory_code_sha256']=digest(20+i)
   cfg['v3']={'expected_factory':address(100+i),'expected_code_sha256':digest(i),'expected_factory_code_sha256':digest(20+i),'tick_word_radius':1,'max_initialized_ticks':32,'max_steps':512}
  else:
   s=p['stable'];s['code_sha256']=digest(i);cfg['stable']={'expected_code_sha256':digest(i)}
-  if name.startswith('aerodrome-v2'):s['factory']=address(100+i);s['factory_code_sha256']=digest(20+i);cfg['stable'].update(expected_factory=s['factory'],expected_factory_code_sha256=s['factory_code_sha256'])
+  if name.startswith(('aerodrome-v2','velodrome-v2')):s['factory']=address(100+i);s['factory_code_sha256']=digest(20+i);cfg['stable'].update(expected_factory=s['factory'],expected_factory_code_sha256=s['factory_code_sha256'])
   if name=='balancer-v2-stable2':s['vault']=address(100+i);s['vault_code_sha256']=digest(20+i);s['pool_id']=p['pool_id']+'00'*12;cfg['stable'].update(expected_vault=s['vault'],expected_vault_code_sha256=s['vault_code_sha256'],pool_id=s['pool_id'])
  return p,cfg
 
 def expected(name,input,zero):
  if name=='aerodrome-slipstream':return next(c['expected']['amount_out'] for c in V3QUOTES['cases'] if c['name']==f'case-0-{str(zero).lower()}-{input}')
  pool,_=profile(name)
- return next(c['expected']['amount_out'] for c in GOLDEN['cases'] if c['pool']['protocol']==name and c['input']==input and c['zero_for_one']==zero and c['pool']['reserve0']==pool['reserve0'] and c['pool']['reserve1']==pool['reserve1'] and c['pool']['stable']['rate0']==pool['stable']['rate0'] and c['pool']['stable']['rate1']==pool['stable']['rate1'] and c['pool']['stable']['amplification']==pool['stable']['amplification'])
+ return next(c['expected']['amount_out'] for c in GOLDEN['cases'] if c['pool']['protocol']==name and c['pool']['fee_numerator']==pool['fee_numerator'] and c['input']==input and c['zero_for_one']==zero and c['pool']['reserve0']==pool['reserve0'] and c['pool']['reserve1']==pool['reserve1'] and c['pool']['stable']['rate0']==pool['stable']['rate0'] and c['pool']['stable']['rate1']==pool['stable']['rate1'] and c['pool']['stable']['amplification']==pool['stable']['amplification'])
 
 class Chain:
  def __init__(self):self.head=100;self.timestamp=int(time.time());self.branch=0;self.bad=None;self.pinned=0;self.receipts=0
@@ -100,10 +100,11 @@ class Chain:
     body={'jsonrpc':'2.0','id':q['id']};body.update({'error':error} if error else {'result':out});raw=json.dumps(body).encode();self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw)
   server=ThreadingHTTPServer(('127.0.0.1',0),Handler);threading.Thread(target=server.serve_forever,daemon=True).start();return server
 
-def run():
+def run(faults=None,prefix='stable'):
+ if not prefix or any(c not in 'abcdefghijklmnopqrstuvwxyz0123456789-' for c in prefix):raise ValueError('INVALID_SMOKE_PREFIX')
  report={'profile':'executed-reference-stable-and-slipstream-real-pg-kafka','production_ready':False,'protocols':NAMES,'checks':[]};chain=Chain();servers=[chain.provider(),chain.provider()];processes={};logs={}
  try:
-  with Infrastructure() as infra,tempfile.TemporaryDirectory(prefix='xone-stable-') as folder:
+  with Infrastructure() as infra,tempfile.TemporaryDirectory(prefix='xone-'+prefix+'-') as folder:
    chain.timestamp=int(time.time());root=Path(folder);token=secrets.token_urlsafe(32);names={'go':'chain-parser-go','rust':'chain-parser-rust','router1':'dex-router','router2':'dex-router'};ports={a:port() for a in names};configs={};sources=[f'http://127.0.0.1:{ports[a]}' for a in ['go','rust']]
    for a,name in names.items():
     c=config_for(name,root/a,token,ports[a]);c['journal'].update(transport='kafka',source_urls=sources,poll_interval_ms=100,request_timeout_ms=15000);c['journal']['kafka'].update(brokers=[infra.broker],topics={'evm:31337':'canonical.evm-31337.v1','solana:localnet':'canonical.solana-localnet.v1'},replica_id=a,transaction_timeout_ms=4000);c['control'].update(backend='disabled' if name=='dex-router' else 'postgres',dsn_file='' if name=='dex-router' else str(infra.dsnfile),instance_id=a,lease_ttl_ms=30000,renewal_ms=1000,min_commit_remaining_ms=7000);c['startup']['max_baseline_age_ms']=180000
@@ -113,7 +114,7 @@ def run():
     configs[a]=save_config(root/a/'config',c)
    def base(a):return f'http://127.0.0.1:{ports[a]}'
    def start(a):
-    name=names[a];logs[a]=(OUT/f'stable-{a}.log').open('ab');processes[a]=subprocess.Popen(service_command(name,configs[a],root/a/'fixtures' if a=='rust' else None),cwd=ROOT/name,stdout=logs[a],stderr=subprocess.STDOUT)
+    name=names[a];logs[a]=(OUT/f'{prefix}-{a}.log').open('ab');processes[a]=subprocess.Popen(service_command(name,configs[a],root/a/'fixtures' if a=='rust' else None),cwd=ROOT/name,stdout=logs[a],stderr=subprocess.STDOUT)
    def stop(a):
     p=processes.pop(a,None)
     if p:
@@ -123,7 +124,7 @@ def run():
     if a in logs:logs.pop(a).close()
    def status(a):return http(base(a)+'/internal/chains/evm:31337/status',token)
    def check(a,name,zero=True):
-    p,_=profile(name);amount='10000' if name=='aerodrome-slipstream' else str(10**19 if name.startswith('aerodrome') else 10**10 if name=='balancer-v2-stable2' else 10**9)
+    p,_=profile(name);amount='10000' if name=='aerodrome-slipstream' else str(10**19 if name.startswith(('aerodrome','velodrome-v2')) else 10**10 if name=='balancer-v2-stable2' else 10**9)
     request={'chainKey':'evm:31337','kind':'EXACT_IN','sellToken':p['token0' if zero else 'token1'],'buyToken':p['token1' if zero else 'token0'],'sellAmount':amount,'caller':p['token0'],'recipient':p['token1'],'slippageBps':50,'verification':'FAST'}
     code,result=http(base(a)+'/v1/quote',token,request);assert code==200,(name,code,result);assert result['grossBuyAmount']==expected(name,amount,zero),(name,result['grossBuyAmount'],expected(name,amount,zero));assert result['consumedIn']==amount and result['refund']=='0' and result['verification']['level']=='INDICATIVE';return result
    try:
@@ -133,14 +134,14 @@ def run():
      for a in ['router1','router2']:check(a,name);check(a,name,False)
     report['checks'].append('aero-volatile-stable-curve-plain2-balancer-stable2-slipstream-at-one-block-in-two-replicas')
     report['checks'].append('stable-amounts-match-executed-primary-evm-oracles-both-directions')
-    snap=http(base('go')+'/internal/chains/evm:31337/baseline',token)[1];assert len(snap['pools'])==5;assert all(p.get('stable') for p in snap['pools'] if p['protocol']!='aerodrome-slipstream');report['checks'].append('protocol-specific-scales-amplification-fee-and-vault-identity-cross-public-wire')
+    snap=http(base('go')+'/internal/chains/evm:31337/baseline',token)[1];assert len(snap['pools'])==len(NAMES);assert all(p.get('stable') for p in snap['pools'] if p['protocol']!='aerodrome-slipstream');report['checks'].append('protocol-specific-scales-amplification-fee-and-vault-identity-cross-public-wire')
     for h in [101,102]:
      chain.head=h
      for a in ['router1','router2']:await_condition(lambda:status(a)[1].get('snapshot_ref',{}).get('block',{}).get('number_or_slot')==h,'stable block not committed')
     old={a:check(a,NAMES[1]) for a in ['router1','router2']};chain.branch=1
     for a in old:await_condition(lambda:status(a)[1].get('snapshot_ref',{}).get('canonical_epoch',0)>old[a]['snapshotRef']['canonical_epoch'],'stable reorg failed');check(a,NAMES[1])
     report['checks'].append('stable-model-states-reorg-atomically-with-shared-canonical-epoch')
-    for fault in ['aero-pause','curve-rate','bal-pool-pause','bal-vault-pause','slip-swap-module','slip-unstaked-module']:
+    for fault in (faults if faults is not None else ['aero-pause','curve-rate','bal-pool-pause','bal-vault-pause','slip-swap-module','slip-unstaked-module']):
      old={a:check(a,NAMES[1]) for a in ['router1','router2']};chain.bad=fault;chain.head+=1
      for a in old:await_condition(lambda:status(a)[0]==503,'incomplete stable dependency not revoked');quote(base(a),token,'solana:localnet','B')
      chain.bad=None

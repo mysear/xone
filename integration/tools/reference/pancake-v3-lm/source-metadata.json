@@ -1,0 +1,512 @@
+{
+  "schema_version": 1,
+  "repository": "pancakeswap/pancake-v3-contracts",
+  "commit": "986847948755cba528324d41be19480731c36c2a",
+  "archive_sha256": "c6e25b75bbe15385a5dd2c0481fd9e7bdc54942a0661d2bd561fa17159f26831",
+  "files": [
+    {
+      "path": "projects/masterchef-v3/contracts/Enumerable.sol",
+      "sha256": "b07a199e4befd5186d6e5d6307ffba3b09b1ae8e6b78549ae41dc37a8c714aca",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/Enumerable.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/MasterChefV3.sol",
+      "sha256": "457ad0e15b2db94d3926e2704ce58e7c517b1e9e7a2fcf7ed1496323cfbb4aed",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/MasterChefV3.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/interfaces/IFarmBooster.sol",
+      "sha256": "fb99be458b9adfe9c3b51ff5e0bf77795837b2acc8e327244c6d3ff62ceedb52",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/interfaces/IFarmBooster.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/interfaces/ILMPool.sol",
+      "sha256": "d6d2deb9b01ca89c110b9f802d42b9fe377284a27018e626a7153837c0da7fc7",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/interfaces/ILMPool.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/interfaces/ILMPoolDeployer.sol",
+      "sha256": "8daf82ae04316c8ef475856f09fd56b95fbe104c3cabe96c78a5fdfff7285d26",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/interfaces/ILMPoolDeployer.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/interfaces/IMasterChefV2.sol",
+      "sha256": "44d2f7db80672492e8e5cf652cce6398a68430a143d544e1d78b48dd9bf08713",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/interfaces/IMasterChefV2.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/interfaces/IMasterChefV3.sol",
+      "sha256": "640fa673574306a208772ca22010e38ce2079b3cee7304a75173c28b0bccd8c7",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/interfaces/IMasterChefV3.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/interfaces/INonfungiblePositionManager.sol",
+      "sha256": "c6d53cf8abbf3f7a7f246ea98e3332ecd854b88ff31a2962a5e7b13b40b8efa8",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/interfaces/INonfungiblePositionManager.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/interfaces/INonfungiblePositionManagerStruct.sol",
+      "sha256": "b5e107cc467ad2b47aa417ffbaef8659c613cb413a428d6c8ed442e4ac14018f",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/interfaces/INonfungiblePositionManagerStruct.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/interfaces/IPancakeV3Pool.sol",
+      "sha256": "cb2572faaf95bb0232a6fc41d5cfaaab979171058dbafbcc47c112f074158e8a",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/interfaces/IPancakeV3Pool.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/interfaces/IReceiver.sol",
+      "sha256": "5924dcee13f4f189f20a0a31148fe6bff3c051998933ff9127a9e9907c36256f",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/interfaces/IReceiver.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/interfaces/IWETH.sol",
+      "sha256": "567fe8f049b32852d5965ccff17469c641bf9ca7e3393e3dadd27460870cd5c1",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/interfaces/IWETH.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/keeper/MasterChefV3KeeperV1.sol",
+      "sha256": "8246b675b5a8716181902f6d2abc30f620f8f6c7e92d713377f8691399155cd3",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/keeper/MasterChefV3KeeperV1.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/keeper/MasterChefV3KeeperV2.sol",
+      "sha256": "fb613e852e82a197ea5b229381e56c1ec84cfb2a3647b9b1bdb314f3b3e0d3f5",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/keeper/MasterChefV3KeeperV2.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/libraries/SafeCast.sol",
+      "sha256": "308851a754c1b946d5664f11db11d622e30bfd3d35015186294bfc3524535644",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/libraries/SafeCast.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/receiver/MasterChefV3Receiver.sol",
+      "sha256": "3076aecf84ba5c65794c5bf059f9cb86a8bfa80add98e7c4b2ed903c98c30c1d",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/receiver/MasterChefV3Receiver.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/receiver/MasterChefV3ReceiverV2.sol",
+      "sha256": "208d421d2698760aaeb6c7a617115bc2cf952c9bea36be9de5460b2d372ee292",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/receiver/MasterChefV3ReceiverV2.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/contracts/utils/Multicall.sol",
+      "sha256": "24945f705c61471f6338630710b81589d5a106dc74e42c0db71fc32a7358b585",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/contracts/utils/Multicall.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/PancakeV3Factory.sol",
+      "sha256": "6f4364c4b9761586f7b6eb71bf2344485e12eb01851419da4c1c81ad266d2a00",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/PancakeV3Factory.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/PancakeV3Pool.sol",
+      "sha256": "674c5cedce8dd511108b8d104d6332113dc1ba9ab6da9b3498b5896e97a33265",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/PancakeV3Pool.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/PancakeV3PoolDeployer.sol",
+      "sha256": "2189a9d27ee5726c9a863b8b0576055bb13356676264638709ffddf7d6077fad",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/PancakeV3PoolDeployer.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/IERC20Minimal.sol",
+      "sha256": "0c604dff5bacdabd495d87655d920c2ff4331b54b437184a656aefe35ea4d492",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/IERC20Minimal.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/IPancakeV3Factory.sol",
+      "sha256": "390685b7ff3fe9d4a0895fc9a420402dd0ce01adb6dc7137c022d68c65a66bdd",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/IPancakeV3Factory.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/IPancakeV3Pool.sol",
+      "sha256": "9e6d78a58ddc4b62ecc5e048f50c74daf084b4b035b4073c190864d09dfc05f9",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/IPancakeV3Pool.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/IPancakeV3PoolDeployer.sol",
+      "sha256": "2cdc99e2eb9745537c869d00397aedb970255db43446bd45b1bb3ac28b142645",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/IPancakeV3PoolDeployer.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/callback/IPancakeV3FlashCallback.sol",
+      "sha256": "76374f55d3f72a771114166ccff80240cc5f90e96ab1a38fd5179240f6274286",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/callback/IPancakeV3FlashCallback.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/callback/IPancakeV3MintCallback.sol",
+      "sha256": "a81c1a51b5323002b24d32b9a255df411d66b9f965d92a3aaf7c2aad42439eb8",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/callback/IPancakeV3MintCallback.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/callback/IPancakeV3SwapCallback.sol",
+      "sha256": "b416735205854ca1d71d92e40426b2986b38ff438387b9ab2554d2e441e64ef6",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/callback/IPancakeV3SwapCallback.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolActions.sol",
+      "sha256": "362a9ee3ca6dbfd3d53129113ddc400f297fe35d1be88fc1ec6ea24da44eb696",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolActions.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolDerivedState.sol",
+      "sha256": "96c66ce5dcbd2c3a3f40c27206012daa0a370d024f6abf2623485737177b4157",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolDerivedState.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolEvents.sol",
+      "sha256": "c9979f9c2678921e77f3cc4484c24438267c2aa0c289c4199a59455899d56930",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolEvents.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolImmutables.sol",
+      "sha256": "6c28e27b8ea34d9adce7fb604e291a9cd454990886293c3c9abb460cec26cd6f",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolImmutables.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolOwnerActions.sol",
+      "sha256": "3b7226c2813484ee5a67401ebaacae57b5e9a3b6b17d825a3aeda79153dc758f",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolOwnerActions.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolState.sol",
+      "sha256": "927132adb0fea744a5f88fefdbca7e1a0f518c58f8cdbb74475fe0f83f863e58",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/interfaces/pool/IPancakeV3PoolState.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/BitMath.sol",
+      "sha256": "32f71ea9156f55572a72efb0b2a913df88de66ff33d042043fb3e51a6050a557",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/BitMath.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/FixedPoint128.sol",
+      "sha256": "cfc3aef8851f183492547dccc168bf72398fba2aad4c4d9d4784f542a8ccda34",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/FixedPoint128.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/FixedPoint96.sol",
+      "sha256": "219deb88ffbcdefa482be35051db586378e8523062bee592dd2c5fa7fb47ebd6",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/FixedPoint96.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/FullMath.sol",
+      "sha256": "0a18f00afc2b99b3226898303319bf0a9108ace44c8871491571f53de2f0bf0d",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/FullMath.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/LiquidityMath.sol",
+      "sha256": "84d20a16d5346f6ec4c12dff4df23dda5d46e52d33f18aaaaac2e9e36ce4a072",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/LiquidityMath.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/LowGasSafeMath.sol",
+      "sha256": "394107ff2dbbaded5612452af5e77b4af9d0871b096c1514b0ea659b862fc46f",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/LowGasSafeMath.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/Oracle.sol",
+      "sha256": "e77c590445158e991b377da4ce33d42c98d5ac842cdd1ad6cf1c7ba4c541a457",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/Oracle.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/Position.sol",
+      "sha256": "d87d5ecd8531d9311e0953462b56ccd6453b65107cc62f43602f59a4edccb806",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/Position.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/SafeCast.sol",
+      "sha256": "9aed494b56d3dd16b7d6535583ded2cdfb03dc80aaa919347b13d35fd597e8bf",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/SafeCast.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/SqrtPriceMath.sol",
+      "sha256": "36eeb343e0b1809cd76b2ec72a336923aa24f857965966543b065e660b2ebc6e",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/SqrtPriceMath.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/SwapMath.sol",
+      "sha256": "cdb205f8790e6c8a3587bd3db6eec6fba874afca1c0c6e890d87452f7aadc902",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/SwapMath.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/Tick.sol",
+      "sha256": "d938c31db4532ea087d90c38379ddc0a4ee5709b44a421abf87961e0730d008c",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/Tick.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/TickBitmap.sol",
+      "sha256": "8452c484e6caad95411358d8c1763810e715b3d13697c83665657619472d3b0a",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/TickBitmap.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/TickMath.sol",
+      "sha256": "e68d3c6c8c847d16c287c1f17f684d11cf0f6267a8d8dc29e81656bccf68f062",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/TickMath.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/TransferHelper.sol",
+      "sha256": "ccb87429b290eb6ed429648a7131f68ce0151a74f3ed27de78aacd28015e4590",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/TransferHelper.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/libraries/UnsafeMath.sol",
+      "sha256": "4d02353eb503e3111e25bd50104ac9b279f99e88d848e455262a3fbeb55c50e7",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/UnsafeMath.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/BitMathEchidnaTest.sol",
+      "sha256": "238ffa27f0b614be29c2582f9da1d5319dda309c2f623a21f7c0594bf99d0d5a",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/BitMathEchidnaTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/BitMathTest.sol",
+      "sha256": "97bc2142c2c435383483e7cad875e8bd0a8ccb00d312ceb21546c5770f802772",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/BitMathTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/FullMathEchidnaTest.sol",
+      "sha256": "01692b56f2a7260b937144285a864f25041543b98a7ef82ed871de02902e91fe",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/FullMathEchidnaTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/FullMathTest.sol",
+      "sha256": "984b41fd602397935cd9bbff0aaaa2a0d7169852926a6ed695d82098dea42fa7",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/FullMathTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/LiquidityMathTest.sol",
+      "sha256": "1e18051bfd31eef49ade1207d0517cbf96e8e57ed9ffa404ad4a717d504b1a07",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/LiquidityMathTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/LowGasSafeMathEchidnaTest.sol",
+      "sha256": "c8ec5e6f12c3b981e37638ea4498750331d063468360a95f8a79de581727642c",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/LowGasSafeMathEchidnaTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/MockTimePancakeV3Pool.sol",
+      "sha256": "fd967957aa6f3a65e9aeb6a5047ada9ec274c187a64b7cd6208ded966b404097",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/MockTimePancakeV3Pool.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/MockTimePancakeV3PoolDeployer.sol",
+      "sha256": "b00b18fc8975fe25c8706152c84c1ec367b71a11d973dd7924fc37e18357fff8",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/MockTimePancakeV3PoolDeployer.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/OracleEchidnaTest.sol",
+      "sha256": "5521a55ae4c67ad51a9ad379233fc4fced804daefb61dc354ef40c54c6f95a90",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/OracleEchidnaTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/OracleTest.sol",
+      "sha256": "f002ab197bb03a8fea55df1fda686e8bea2d3cc0624a63dd0e50936c2a89840d",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/OracleTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/OutputCodeHash.sol",
+      "sha256": "e45a64bc8ebaacadc0e455281a2c7e439f32d67584847de7e629fae32e80410a",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/OutputCodeHash.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/PancakeV3PoolSwapTest.sol",
+      "sha256": "6f00f1b2c434f4d71ebc2671a9e9ccd0bfdf75f155099f7b871ac404f967f595",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/PancakeV3PoolSwapTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/SqrtPriceMathEchidnaTest.sol",
+      "sha256": "1ec234fa0f550dd4b836e0d5ce055bb66eb2b19fb8f88c72761484a1d8446a34",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/SqrtPriceMathEchidnaTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/SqrtPriceMathTest.sol",
+      "sha256": "9c54eb4416d104e22de17e0fbc2452e79784ea7a9805f0ceeb4d4e64e216d9e1",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/SqrtPriceMathTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/SwapMathEchidnaTest.sol",
+      "sha256": "b9870b34f317ab6c2f3a926998a3613aaa1a10eb17c6b3596b7a0004794e8e80",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/SwapMathEchidnaTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/SwapMathTest.sol",
+      "sha256": "2fb38323b667211aad2c48e96602730579b2540e093b9823c4b52476025ff9b8",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/SwapMathTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TestERC20.sol",
+      "sha256": "0e9cd08bba16760eb1cdb2095a2d72840d98201cf8bd7e0bd3ecf36a929969f6",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TestERC20.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TestPancakeV3Callee.sol",
+      "sha256": "69f331f435a0d4113d865dc01b39b213525931a66648421d5846fae41f37ef9a",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TestPancakeV3Callee.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TestPancakeV3ReentrantCallee.sol",
+      "sha256": "aec04a2fefbaad0cd6694670bfde8493e42d8daad5bc9db75fa6d6a47832dfee",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TestPancakeV3ReentrantCallee.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TestPancakeV3Router.sol",
+      "sha256": "31fd864d3de6605495a789c92bfdd5147fd9c2495884ff16dd84cd457205b69b",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TestPancakeV3Router.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TestPancakeV3SwapPay.sol",
+      "sha256": "18c76ef792d3acf3b18702c89d22b6dc41bf39aa7cf1b32d95119833e0cee475",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TestPancakeV3SwapPay.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TickBitmapEchidnaTest.sol",
+      "sha256": "155a0404d5ca1cf23450d497f74da08f31a9987e51dc405219405d9eb62317af",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TickBitmapEchidnaTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TickBitmapTest.sol",
+      "sha256": "4e23c71da8170103a507deec49905b7489febd7e9c860d5857b9e0ffbbf49bab",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TickBitmapTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TickEchidnaTest.sol",
+      "sha256": "f10b6ddb736b69285a86c0ce3d0b390e11457beb2660c27266a3ba17c3c3f46d",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TickEchidnaTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TickMathEchidnaTest.sol",
+      "sha256": "08b5c9a946a43469d0288b92a4aa706dd9791b8e16e8c36f07cf06670fd0b53f",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TickMathEchidnaTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TickMathTest.sol",
+      "sha256": "2ef2996652f273ec850ea4f77459dd1d176177b0599477b7a91da53d8b44548b",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TickMathTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TickOverflowSafetyEchidnaTest.sol",
+      "sha256": "e6f784b424f9c08e98f749d9af678b17c27485ec8bbf9f0033cf489e0244f22c",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TickOverflowSafetyEchidnaTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/TickTest.sol",
+      "sha256": "cc9f0b4e3a326b4dd2afe15e5595d8ce50ea1e40208096141ba0eae6f96c518e",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/TickTest.sol"
+    },
+    {
+      "path": "projects/v3-core/contracts/test/UnsafeMathEchidnaTest.sol",
+      "sha256": "495bbc05b0788f0b8cb16b5c51a0c05ae06f618a052373c68d4852f3fa342035",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/test/UnsafeMathEchidnaTest.sol"
+    },
+    {
+      "path": "projects/v3-lm-pool/contracts/PancakeV3LmPool.sol",
+      "sha256": "cbe90c2a216055fdaf106099c5ff2f4d5d1099dcd026d3bdc813d5254144bfbd",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-lm-pool/contracts/PancakeV3LmPool.sol"
+    },
+    {
+      "path": "projects/v3-lm-pool/contracts/PancakeV3LmPoolDeployer.sol",
+      "sha256": "12df2d49c9adc9c778f39106cbd1a32e332117ec3ad59a2f83b6481cc4b0ec38",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-lm-pool/contracts/PancakeV3LmPoolDeployer.sol"
+    },
+    {
+      "path": "projects/v3-lm-pool/contracts/interfaces/IMasterChefV3.sol",
+      "sha256": "d54e56cf069421fc4a9696f250fce3ae32ad6b6d8cf1f56dbf5e09df6ba09e70",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-lm-pool/contracts/interfaces/IMasterChefV3.sol"
+    },
+    {
+      "path": "projects/v3-lm-pool/contracts/interfaces/IPancakeV3LmPool.sol",
+      "sha256": "6a75de888fc355cad5dd2c0b2899c1209fd24c81e54b7ecc96133cf0f40599e4",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-lm-pool/contracts/interfaces/IPancakeV3LmPool.sol"
+    },
+    {
+      "path": "projects/v3-lm-pool/contracts/interfaces/IPancakeV3LmPoolDeveloper.sol",
+      "sha256": "be55c6cf54fcbaed55f4ec30582925110db2b99a4bfc92ccf765d60b53c2853f",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-lm-pool/contracts/interfaces/IPancakeV3LmPoolDeveloper.sol"
+    },
+    {
+      "path": "projects/v3-lm-pool/contracts/libraries/LmTick.sol",
+      "sha256": "4d8c9e5693284e02a88ae39550250e2dba2dc0c6f8c01dba29291c1a579902bd",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-lm-pool/contracts/libraries/LmTick.sol"
+    },
+    {
+      "path": "projects/masterchef-v3/package.json",
+      "sha256": "3beaf76c77a3b8a9b6f332d1b4fcd6ed6b8c3ce57d1c508dbd4f6b19f2bf5ba1",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/masterchef-v3/package.json"
+    },
+    {
+      "path": "projects/v3-core/package.json",
+      "sha256": "48345cab057990c9c45594048cd8752031ac10fbc429289aecc10b863f2becde",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/package.json"
+    },
+    {
+      "path": "projects/v3-lm-pool/package.json",
+      "sha256": "4d8b1addad5711e92167018e48b698769a1d24ff5b3b0de3bec1dcf5152bdc92",
+      "url": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-lm-pool/package.json"
+    }
+  ],
+  "authority": "fixed upstream original sources; no deployment equivalence or new admitted protocol claimed",
+  "normal_profile_implemented": false,
+  "dependencies": {
+    "openzeppelin": {
+      "package": "@openzeppelin/contracts",
+      "version": "4.8.1",
+      "url": "https://registry.npmjs.org/@openzeppelin/contracts/-/contracts-4.8.1.tgz",
+      "archive_sha256": "d45d540b9b1c60707b01c8981ccfb1ce9b7e156492c9ab85a46fa520960da065",
+      "files": [
+        {
+          "path": "openzeppelin/access/Ownable.sol",
+          "sha256": "9353af89436556f7ba8abb3f37a6677249aa4df6024fbfaa94f79ab2f44f3231",
+          "package_import": "@openzeppelin/contracts/access/Ownable.sol"
+        },
+        {
+          "path": "openzeppelin/security/Pausable.sol",
+          "sha256": "2072248d2f79e661c149fd6a6593a8a3f038466557c9b75e50e0b001bcb5cf97",
+          "package_import": "@openzeppelin/contracts/security/Pausable.sol"
+        },
+        {
+          "path": "openzeppelin/security/ReentrancyGuard.sol",
+          "sha256": "3b30604df38d0f9b2b281a3e6661eb1b9cd577579e66225c674df21ca5b89b2c",
+          "package_import": "@openzeppelin/contracts/security/ReentrancyGuard.sol"
+        },
+        {
+          "path": "openzeppelin/token/ERC20/IERC20.sol",
+          "sha256": "94f23e4af51a18c2269b355b8c7cf4db8003d075c9c541019eb8dcf4122864d5",
+          "package_import": "@openzeppelin/contracts/token/ERC20/IERC20.sol"
+        },
+        {
+          "path": "openzeppelin/token/ERC20/extensions/draft-IERC20Permit.sol",
+          "sha256": "3e7aa0e0f69eec8f097ad664d525e7b3f0a3fda8dcdd97de5433ddb131db86ef",
+          "package_import": "@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol"
+        },
+        {
+          "path": "openzeppelin/token/ERC20/utils/SafeERC20.sol",
+          "sha256": "0c8a43f12ac2081c6194d54da96f02ebc457760d6514f6b940689719fcef8c0a",
+          "package_import": "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        },
+        {
+          "path": "openzeppelin/token/ERC721/IERC721.sol",
+          "sha256": "c7703068bac02fe1cdf109e38faf10399c66eb411e4c9ae0d70c009eca4bf5ef",
+          "package_import": "@openzeppelin/contracts/token/ERC721/IERC721.sol"
+        },
+        {
+          "path": "openzeppelin/utils/Address.sol",
+          "sha256": "8160a4242e8a7d487d940814e5279d934e81f0436689132a4e73394bab084a6d",
+          "package_import": "@openzeppelin/contracts/utils/Address.sol"
+        },
+        {
+          "path": "openzeppelin/utils/Context.sol",
+          "sha256": "1458c260d010a08e4c20a4a517882259a23a4baa0b5bd9add9fb6d6a1549814a",
+          "package_import": "@openzeppelin/contracts/utils/Context.sol"
+        },
+        {
+          "path": "openzeppelin/utils/introspection/IERC165.sol",
+          "sha256": "701e025d13ec6be09ae892eb029cd83b3064325801d73654847a5fb11c58b1e5",
+          "package_import": "@openzeppelin/contracts/utils/introspection/IERC165.sol"
+        }
+      ],
+      "license_url": "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v4.8.1/LICENSE",
+      "license_sha256": "8c21a3d62814a86c6e6db50768e5a885a1f586873628e9be79a93f4eb6c18820"
+    }
+  }
+}

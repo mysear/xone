@@ -24,7 +24,6 @@ const ADAPTER: &str = "orca-whirlpools/cc683ec9-spl-static-1";
 const SYSTEM: &str = "11111111111111111111111111111111";
 const SYSVAR_OWNER: &str = "Sysvar1111111111111111111111111111111111111";
 const LOADER: &str = "BPFLoaderUpgradeab1e11111111111111111111111";
-const IMMUTABLE_LOADER: &str = "BPFLoader2111111111111111111111111111111111";
 const NATIVE_MINT: &str = "So11111111111111111111111111111111111111112";
 const MIN_TICK: i32 = -443636;
 const MAX_TICK: i32 = 443636;
@@ -166,6 +165,7 @@ pub fn required_accounts(p: &PoolConfig) -> Result<Vec<String>> {
             .0,
         );
     }
+    crate::token_program::append_dependency(&mut ids, cfg.token_program_upgrade.as_ref())?;
     let mut seen = BTreeSet::new();
     for id in &ids {
         pubkey(id)?;
@@ -298,14 +298,12 @@ pub fn decode_orca_whirlpool(
     {
         return Err(err("PROGRAM_VERSION_UNSUPPORTED"));
     }
-    let token_program = get(accounts, TOKEN_PROGRAM)?;
-    if !token_program.executable
-        || token_program.owner != IMMUTABLE_LOADER
-        || token_program.data.is_empty()
-        || digest(&token_program.data) != cfg.expected_token_program_code_sha256
-    {
-        return Err(err("TOKEN_PROGRAM_VERSION_UNSUPPORTED"));
-    }
+    crate::token_program::verify(
+        accounts,
+        &cfg.expected_token_program_code_sha256,
+        cfg.token_program_upgrade.as_ref(),
+        bank_slot,
+    )?;
     let clock = owned_data(accounts, CLOCK, SYSVAR_OWNER, 40)?;
     if u64_at(clock, 0) != bank_slot {
         return Err(err("CLOCK_CONTEXT_MISMATCH"));
@@ -333,7 +331,9 @@ pub fn decode_orca_whirlpool(
     if state[..8] != discriminator("Whirlpool")
         || config[..8] != discriminator("WhirlpoolsConfig")
         || u16_at(config, 104) > 2500
-        || u16_at(config, 106) != 0
+        // TOKEN_BADGE bit 0 enables badge administration, not classic-token
+        // swap math. Retain rejection of all unmodelled feature bits.
+        || u16_at(config, 106) & !1 != 0
     {
         return Err(err("ORCA_CONFIG_LAYOUT_OR_FLAGS"));
     }
@@ -494,6 +494,10 @@ pub fn decode_orca_whirlpool(
         max_steps: cfg.max_steps,
     };
     let pool = Pool {
+        pancake_bsc_lm: None,
+        pancake_lm: None,
+        slipstream_context: None,
+        lfj: None,
         infinity_bin: None,
         raydium_clmm: None,
         orca_whirlpool: Some(s),

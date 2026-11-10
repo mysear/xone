@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "files": [
+    {
+      "path": "integration/tools/acceptance/tests/test_managed_v2_scheduled_reference.py",
+      "sha256": "6dc6d87fa31b23237384fb0f75a12b664290b95741a69785f81bf18e9417fcaf"
+    },
+    {
+      "path": "integration/tools/ci/managed-v2-scheduled-golden.cjs",
+      "sha256": "6999d27b99b8e7a853ee2d55ca18f0b75bfd78830aff61f91535c1685c1bb4e2"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/checker.cjs",
+      "sha256": "1bfd75f35e68598351031255e20997e772f526355af5665c5f4bfd0ece6e30f2"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/generate.cjs",
+      "sha256": "609aa3a138d58a0af40c148aed0c137028e59199dde855f98dc4221862654e17"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/helpers.cjs",
+      "sha256": "7cd833d541882989e46674f71757d63364f3aa712857a246c5eb0cdb56c167d5"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/inputs.cjs",
+      "sha256": "e811c259c281cf83afb299362aedf25d8baa49f5bd65c8183fd56321ef2d5761"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/layout.cjs",
+      "sha256": "eca257a7c63a997790b86a0a2b6b06c3bc73a92e74fcba15003dcedd42607fbd"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/README.md",
+      "sha256": "1ad7f222189f1cf37f53443aefc33e42ae967dcc27153870c31ec4cc475f8376"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/reschedule/checker.cjs",
+      "sha256": "20c92657c47afbf3458d38cd5d82d4971056d5f5e7b41286207b516b09073aa3"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/reschedule/generate.cjs",
+      "sha256": "9a36de3610d7b8e78bc50214e7eea17825993f3ce24933ceca94a191668653b9"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/three/checker.cjs",
+      "sha256": "1d5c0a03bc87e959a21cb0c9175bc2996893b7e8d642a8c30df96ef03281617a"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/three/generate.cjs",
+      "sha256": "34052c1b393b0a11fc78b1b5481f108d23e0b754180631b81ab99d918646999b"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/two/checker.cjs",
+      "sha256": "edd50f5956efb0d5b97e3ab4e87eac5ce959fc8325bd5b84a899454bd42c141b"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-scheduled/two/generate.cjs",
+      "sha256": "d71b82d795c2c2df6cd2916159a9375ed52cb2198194461e79979d5cfc42b980"
+    }
+  ]
+}

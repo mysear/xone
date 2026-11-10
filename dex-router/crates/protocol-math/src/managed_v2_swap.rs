@@ -11,6 +11,37 @@ pub struct WeightedInputs<'a> {
     pub scales: &'a [BigUint],
     pub fee: &'a BigUint,
 }
+#[derive(Clone, Debug)]
+pub struct RegularCalculation<'a> {
+    pub amount_out: BigUint,
+    pub scaled_amount_out: BigUint,
+    pub gross_input_scaled: BigUint,
+    state: WeightedInputs<'a>,
+    input: &'a BigUint,
+    index_in: usize,
+    index_out: usize,
+}
+impl RegularCalculation<'_> {
+    /// Original raw Vault settlement. The existing ordinary quote wrapper keeps
+    /// its positive-output policy; circuit checks can inspect zero raw dust first.
+    pub(crate) fn settle(self) -> Result<RegularQuote> {
+        let state = self.state;
+        if self.amount_out > state.cash[self.index_out] {
+            return Err(err("MANAGED_V2_INSUFFICIENT_VAULT_CASH"));
+        }
+        let mut next = state.cash.to_vec();
+        next[self.index_in] = checked(&next[self.index_in] + self.input)?;
+        if checked(&next[self.index_in] + &state.managed[self.index_in])?.bits() > 112 {
+            return Err(err("MANAGED_V2_VAULT_UINT112"));
+        }
+        next[self.index_out] -= &self.amount_out;
+        Ok(RegularQuote {
+            amount_out: self.amount_out,
+            next_cash: next,
+            next_managed: state.managed.to_vec(),
+        })
+    }
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RegularQuote {
     pub amount_out: BigUint,
@@ -44,6 +75,83 @@ pub fn quote_regular(
     index_in: usize,
     index_out: usize,
 ) -> Result<RegularQuote> {
+    quote_inner(state, input, index_in, index_out, true)
+}
+/// Only the exact raw projection may bypass the old whole-vector sum guard.
+/// Selected weights still enter the original integer ratio and LogExp kernel.
+pub(crate) fn quote_scheduled(
+    state: WeightedInputs<'_>,
+    schedule: &xone_domain::managed_v2_schedule::ManagedV2Schedule,
+    timestamp: u64,
+    view: &xone_domain::managed_v2_schedule::ManagedV2ScheduleView,
+    input: &BigUint,
+    index_in: usize,
+    index_out: usize,
+) -> Result<RegularQuote> {
+    let calculation =
+        calculate_scheduled(state, schedule, timestamp, view, input, index_in, index_out)?;
+    if calculation.amount_out.is_zero() {
+        return Err(err("INSUFFICIENT_OUTPUT"));
+    }
+    calculation.settle()
+}
+pub(crate) fn calculate_scheduled<'a>(
+    state: WeightedInputs<'a>,
+    schedule: &xone_domain::managed_v2_schedule::ManagedV2Schedule,
+    timestamp: u64,
+    view: &xone_domain::managed_v2_schedule::ManagedV2ScheduleView,
+    input: &'a BigUint,
+    index_in: usize,
+    index_out: usize,
+) -> Result<RegularCalculation<'a>> {
+    let expected = schedule.at(timestamp)?;
+    if &expected != view
+        || state.weights.len() != expected.weights.len()
+        || state.scales.len() != expected.scaling.len()
+        || state
+            .weights
+            .iter()
+            .zip(&expected.weights)
+            .any(|(a, b)| a != &b.0)
+        || state
+            .scales
+            .iter()
+            .zip(&expected.scaling)
+            .any(|(a, b)| a != &b.0)
+        || state.fee != &expected.swap_fee.0
+    {
+        return Err(err("MANAGED_V2_SCHEDULE_GETTER_MISMATCH"));
+    }
+    calculate_inner(state, input, index_in, index_out, false)
+}
+pub fn calculate_regular<'a>(
+    state: WeightedInputs<'a>,
+    input: &'a BigUint,
+    index_in: usize,
+    index_out: usize,
+) -> Result<RegularCalculation<'a>> {
+    calculate_inner(state, input, index_in, index_out, true)
+}
+fn quote_inner(
+    state: WeightedInputs<'_>,
+    input: &BigUint,
+    index_in: usize,
+    index_out: usize,
+    require_exact_sum: bool,
+) -> Result<RegularQuote> {
+    let calculation = calculate_inner(state, input, index_in, index_out, require_exact_sum)?;
+    if calculation.amount_out.is_zero() {
+        return Err(err("INSUFFICIENT_OUTPUT"));
+    }
+    calculation.settle()
+}
+fn calculate_inner<'a>(
+    state: WeightedInputs<'a>,
+    input: &'a BigUint,
+    index_in: usize,
+    index_out: usize,
+    require_exact_sum: bool,
+) -> Result<RegularCalculation<'a>> {
     let count = state.cash.len();
     if !(2..=50).contains(&count)
         || state.managed.len() != count
@@ -58,7 +166,7 @@ pub fn quote_regular(
     let one = BigUint::from(1_000_000_000_000_000_000u64);
     let minimum = &one / 100u8;
     if state.weights.iter().any(|w| w < &minimum || w > &one)
-        || state.weights.iter().sum::<BigUint>() != one
+        || (require_exact_sum && state.weights.iter().sum::<BigUint>() != one)
     {
         return Err(err("MANAGED_V2_NORMALIZED_WEIGHTS"));
     }
@@ -102,21 +210,16 @@ pub fn quote_regular(
     };
     let scaled_out = mul(&balance_out, &complement)? / &one;
     let amount_out = mul(&scaled_out, &one)? / &state.scales[index_out];
-    if amount_out.is_zero() || amount_out >= totals[index_out] {
+    if amount_out >= totals[index_out] {
         return Err(err("INSUFFICIENT_OUTPUT"));
     }
-    if amount_out > state.cash[index_out] {
-        return Err(err("MANAGED_V2_INSUFFICIENT_VAULT_CASH"));
-    }
-    let mut next = state.cash.to_vec();
-    next[index_in] = checked(&next[index_in] + input)?;
-    if checked(&next[index_in] + &state.managed[index_in])?.bits() > 112 {
-        return Err(err("MANAGED_V2_VAULT_UINT112"));
-    }
-    next[index_out] -= &amount_out;
-    Ok(RegularQuote {
+    Ok(RegularCalculation {
         amount_out,
-        next_cash: next,
-        next_managed: state.managed.to_vec(),
+        scaled_amount_out: scaled_out,
+        gross_input_scaled: gross_scaled,
+        state,
+        input,
+        index_in,
+        index_out,
     })
 }

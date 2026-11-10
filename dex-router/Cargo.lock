@@ -878,12 +878,17 @@ dependencies = [
 name = "dex-router"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "xone-config",
  "xone-domain",
+ "xone-execution-plan",
  "xone-observability",
+ "xone-optimizer",
  "xone-quote-api",
+ "xone-routing",
  "xone-simulation",
 ]
 
@@ -3771,8 +3776,11 @@ dependencies = [
 name = "xone-routing"
 version = "0.1.0"
 dependencies = [
+ "num-bigint",
+ "num-traits",
  "serde",
  "serde_json",
+ "sha2",
  "xone-domain",
  "xone-protocol-math",
 ]

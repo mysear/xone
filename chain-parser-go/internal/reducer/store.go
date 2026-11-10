@@ -15,6 +15,9 @@ import (
 )
 
 type Store struct {
+	closed            bool
+	failed            bool
+	commitFault       func(*pebble.Batch) error // test-only ambiguous I/O injection
 	mu                sync.RWMutex
 	db                *pebble.DB
 	owner             string
@@ -89,7 +92,16 @@ func OpenWithLogger(path, owner string, assignment, window uint64, logger pebble
 	}
 	return s, nil
 }
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return nil
+	}
+	s.closed = true
+	s.current = nil
+	return s.db.Close()
+}
 func clone(snapshot domain.Snapshot) domain.Snapshot {
 	snapshot.Pools = append([]domain.Pool(nil), snapshot.Pools...)
 	for i := range snapshot.Pools {
@@ -101,7 +113,7 @@ func clone(snapshot domain.Snapshot) domain.Snapshot {
 func (s *Store) Current() (domain.Snapshot, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.current == nil || !s.authorityDeadline.IsZero() && time.Now().After(s.authorityDeadline) {
+	if s.closed || s.failed || s.current == nil || !s.authorityDeadline.IsZero() && time.Now().After(s.authorityDeadline) {
 		return domain.Snapshot{}, false
 	}
 	return clone(*s.current), true
@@ -153,6 +165,19 @@ func (s *Store) Commit(snapshot domain.Snapshot) error {
 	return s.persist(snapshot, "BLOCK_COMMIT", &previous, nil)
 }
 func (s *Store) persist(snapshot domain.Snapshot, kind string, undo *domain.Snapshot, cursor *journal.Cursor) error {
+	return s.persistScope(snapshot, kind, undo, cursor, nil, nil)
+}
+func (s *Store) persistScope(snapshot domain.Snapshot, kind string, undo *domain.Snapshot, cursor *journal.Cursor, scope *preparedScope, gate func() error) error {
+	if s.closed || s.failed {
+		return ErrOwnerReopenRequired
+	}
+	if scope == nil {
+		var err error
+		scope, err = s.scopePrepared()
+		if err != nil {
+			return err
+		}
+	}
 	record, e := domain.NewRecord(snapshot, kind)
 	if e != nil {
 		return e
@@ -290,7 +315,18 @@ func (s *Store) persist(snapshot domain.Snapshot, kind string, undo *domain.Snap
 			return e
 		}
 	}
-	if e = batch.Commit(pebble.Sync); e != nil {
+	if e = s.applyScopeBatch(batch, snapshot, kind, scope); e != nil {
+		return e
+	}
+	if e = s.applyOwnerRecordsBatch(batch, snapshot, kind); e != nil {
+		return e
+	}
+	if gate != nil {
+		if e = gate(); e != nil {
+			return e
+		}
+	}
+	if e = s.commitOwnerBatch(batch); e != nil {
 		return e
 	}
 	next := clone(snapshot)
@@ -349,6 +385,9 @@ func (s *Store) WriteHistory(snapshot domain.Snapshot) error {
 func (s *Store) Records(after uint64, limit int) ([]domain.Record, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if s.closed || s.failed {
+		return nil, ErrOwnerReopenRequired
+	}
 	if limit < 1 || limit > 1000 {
 		return nil, errors.New("INVALID_LIMIT")
 	}
@@ -369,11 +408,23 @@ func (s *Store) Records(after uint64, limit int) ([]domain.Record, error) {
 }
 
 func (s *Store) Prepare(u journal.Unit) error {
+	return s.prepare(u, nil, nil)
+}
+func (s *Store) prepare(u journal.Unit, scope *preparedScope, gate func() error) error {
+	return s.prepareOwner(u, scope, nil, gate)
+}
+func (s *Store) prepareOwner(u journal.Unit, scope *preparedScope, records *ownerPreparedRecords, gate func() error) error {
 	if e := u.ValidateFacts(); e != nil {
 		return e
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed || s.failed {
+		return ErrOwnerReopenRequired
+	}
+	if e := s.checkScopeBase(scope); e != nil {
+		return e
+	}
 	if e := u.Snapshot.Validate(s.owner, s.assignment); e != nil {
 		return e
 	}
@@ -451,12 +502,63 @@ func (s *Store) Prepare(u journal.Unit) error {
 		if !same {
 			return errors.New("PREPARED_CONFLICT")
 		}
+		oldScope, err := s.scopePrepared()
+		if err != nil {
+			return err
+		}
+		if !scopePreparedEqual(oldScope, scope) {
+			return errors.New("SCOPE_PREPARED_CONFLICT")
+		}
+		oldRecords, err := s.ownerPrepared()
+		if err != nil {
+			return err
+		}
+		if !ownerRecordsEqual(oldRecords, records) {
+			return errors.New("OWNER_RECORDS_PREPARED_CONFLICT")
+		}
+		if gate != nil {
+			return gate()
+		}
 		return nil
 	}
 	if !errors.Is(e, pebble.ErrNotFound) {
 		return e
 	}
-	return s.db.Set([]byte("online/prepared"), b, pebble.Sync)
+	batch := s.db.NewBatch()
+	defer batch.Close()
+	if e = batch.Set([]byte("online/prepared"), b, nil); e != nil {
+		return e
+	}
+	if scope != nil {
+		raw, err := json.Marshal(scope)
+		if err != nil {
+			return err
+		}
+		if e = batch.Set([]byte("online/scope-prepared"), raw, nil); e != nil {
+			return e
+		}
+	} else if e = batch.Delete([]byte("online/scope-prepared"), nil); e != nil {
+		return e
+	}
+	if scope != nil && len(scope.OwnerRecords) > 0 {
+		if e = s.planOwnerRecords(nil, u.Kind, scope.Commit.CommitID, u.Snapshot.Reference, scope.OwnerRecords); e != nil {
+			return e
+		}
+	}
+	if records != nil {
+		if e = s.planOwnerRecords(nil, u.Kind, records.UnitID, u.Snapshot.Reference, records.Records); e != nil {
+			return e
+		}
+	}
+	if e = s.stageOwnerRecords(batch, records); e != nil {
+		return e
+	}
+	if gate != nil {
+		if e = gate(); e != nil {
+			return e
+		}
+	}
+	return s.commitOwnerBatch(batch)
 }
 func (s *Store) Prepared() (*journal.Unit, error) {
 	s.mu.RLock()
@@ -464,6 +566,9 @@ func (s *Store) Prepared() (*journal.Unit, error) {
 	return s.prepared()
 }
 func (s *Store) prepared() (*journal.Unit, error) {
+	if s.closed || s.failed {
+		return nil, ErrOwnerReopenRequired
+	}
 	b, c, e := s.db.Get([]byte("online/prepared"))
 	if errors.Is(e, pebble.ErrNotFound) {
 		return nil, nil
@@ -481,9 +586,23 @@ func (s *Store) prepared() (*journal.Unit, error) {
 func (s *Store) DiscardPrepared() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.db.Delete([]byte("online/prepared"), pebble.Sync)
+	batch := s.db.NewBatch()
+	defer batch.Close()
+	if e := batch.Delete([]byte("online/prepared"), nil); e != nil {
+		return e
+	}
+	if e := batch.Delete([]byte("online/scope-prepared"), nil); e != nil {
+		return e
+	}
+	if e := batch.Delete([]byte("online/owner-records-prepared"), nil); e != nil {
+		return e
+	}
+	return s.commitOwnerBatch(batch)
 }
 func (s *Store) ApplyPrepared(cursor journal.Cursor) error {
+	return s.ApplyPreparedScope(cursor, nil)
+}
+func (s *Store) ApplyPreparedScope(cursor journal.Cursor, gate func() error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	u, e := s.prepared()
@@ -501,12 +620,12 @@ func (s *Store) ApplyPrepared(cursor journal.Cursor) error {
 		copy := clone(*s.current)
 		undo = &copy
 	}
-	return s.persist(u.Snapshot, u.Kind, undo, &cursor)
+	return s.persistScope(u.Snapshot, u.Kind, undo, &cursor, nil, gate)
 }
 func (s *Store) Bootstrap() (journal.Bootstrap, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.current == nil || s.cursor == nil || !s.authorityDeadline.IsZero() && time.Now().After(s.authorityDeadline) {
+	if s.closed || s.failed || s.current == nil || s.cursor == nil || !s.authorityDeadline.IsZero() && time.Now().After(s.authorityDeadline) {
 		return journal.Bootstrap{}, errors.New("BOOTSTRAP_NOT_READY")
 	}
 	return journal.Bootstrap{Snapshot: clone(*s.current), Cursor: *s.cursor}, nil

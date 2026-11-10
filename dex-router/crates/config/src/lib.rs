@@ -1,5 +1,12 @@
+mod lfj;
+mod pancake_bsc_lm;
+mod pancake_lm;
+pub use pancake_bsc_lm::PancakeBscLmConfig;
+mod slipstream_context;
+pub use pancake_lm::PancakeLmConfig;
+pub use slipstream_context::{SlipstreamContextConfig, SlipstreamModuleConfig};
 mod managed_v2;
-pub use managed_v2::ManagedV2PoolConfig;
+pub use managed_v2::{ManagedV2BptConfig, ManagedV2PoolConfig};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::{
@@ -159,6 +166,14 @@ pub struct SingletonCLPoolConfig {
     pub max_initialized_ticks: u32,
     pub max_steps: u32,
 }
+/// The canonical ProgramData PDA for classic SPL Token under Upgradeable Loader.
+pub const CLASSIC_TOKEN_PROGRAMDATA: &str = "3gvYRKWyXRR9xKWe1ZjPhLY5ZJRN7KDB4rFZFGoJfFk2";
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TokenProgramUpgradeConfig {
+    pub programdata: String,
+    pub deployed_slot: u64,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RaydiumCPMMConfig {
@@ -166,6 +181,8 @@ pub struct RaydiumCPMMConfig {
     pub expected_program_code_sha256: String,
     pub expected_deployed_slot: u64,
     pub expected_token_program_code_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_program_upgrade: Option<TokenProgramUpgradeConfig>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -174,6 +191,8 @@ pub struct OrcaWhirlpoolConfig {
     pub expected_program_code_sha256: String,
     pub expected_deployed_slot: u64,
     pub expected_token_program_code_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_program_upgrade: Option<TokenProgramUpgradeConfig>,
     pub tick_array_starts: Vec<i32>,
     pub max_steps: u32,
 }
@@ -184,6 +203,8 @@ pub struct RaydiumCLMMConfig {
     pub expected_program_code_sha256: String,
     pub expected_deployed_slot: u64,
     pub expected_token_program_code_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_program_upgrade: Option<TokenProgramUpgradeConfig>,
     pub tick_array_starts: Vec<i32>,
     pub max_steps: u32,
 }
@@ -259,8 +280,160 @@ config_struct!(SingletonAdvancedPoolConfig {
     max_initialized_ticks: u32,
     max_steps: u32
 });
-config_struct!(PoolConfig {infinity_bin:Option<InfinityBinConfig>,singleton_advanced:Option<SingletonAdvancedPoolConfig>,multi_asset:Option<MultiAssetConfig>,weighted:Option<WeightedPoolConfig>,raydium_clmm:Option<RaydiumCLMMConfig>,orca_whirlpool:Option<OrcaWhirlpoolConfig>,raydium_cpmm:Option<RaydiumCPMMConfig>,singleton_cl:Option<SingletonCLPoolConfig>,id:String,protocol:String,token0:String,token1:String,fee_numerator:u64,fee_denominator:u64,program_id:String,accounts:Vec<String>,v3:Option<V3PoolConfig>,v2:Option<V2PoolConfig>,stable:Option<StablePoolConfig>});
+config_struct!(LfjConfig {
+    expected_code_sha256: String,
+    expected_implementation: String,
+    expected_implementation_code_sha256: String,
+    expected_factory: String,
+    expected_factory_code_sha256: String,
+    expected_token0_code_sha256: String,
+    expected_token1_code_sha256: String,
+    bin_step: u32,
+    token_policy: String,
+    max_bins: u32,
+    max_steps: u32
+});
+config_struct!(PoolConfig {pancake_bsc_lm:Option<PancakeBscLmConfig>,pancake_lm:Option<PancakeLmConfig>,slipstream_context:Option<SlipstreamContextConfig>,lfj:Option<LfjConfig>,infinity_bin:Option<InfinityBinConfig>,singleton_advanced:Option<SingletonAdvancedPoolConfig>,multi_asset:Option<MultiAssetConfig>,weighted:Option<WeightedPoolConfig>,raydium_clmm:Option<RaydiumCLMMConfig>,orca_whirlpool:Option<OrcaWhirlpoolConfig>,raydium_cpmm:Option<RaydiumCPMMConfig>,singleton_cl:Option<SingletonCLPoolConfig>,id:String,protocol:String,token0:String,token1:String,fee_numerator:u64,fee_denominator:u64,program_id:String,accounts:Vec<String>,v3:Option<V3PoolConfig>,v2:Option<V2PoolConfig>,stable:Option<StablePoolConfig>});
 config_struct!(Chain {key:String,owner_service:String,assignment_version:u64,genesis_hash:String,rpc_urls:Vec<String>,pools:Vec<PoolConfig>,confirmation_tag:String,auto_reorg_window:u64});
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchiveRetention {
+    pub max_segments: usize,
+    pub max_bytes: u64,
+}
+/// Explicit per-chain budgets. A public/self-hosted Geyser needs no token.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct YellowstoneConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub archive_retention: Option<ArchiveRetention>,
+    pub endpoint: String,
+    pub source_id: String,
+    pub proto_commit: String,
+    #[serde(default)]
+    pub token_file: Option<String>,
+    pub allow_loopback_plaintext: bool,
+    pub connect_timeout_ms: u64,
+    pub idle_timeout_ms: u64,
+    pub wal_ack_timeout_ms: u64,
+    pub reconnect_delay_ms: u64,
+    pub max_frame_bytes: usize,
+    pub max_wal_bytes: usize,
+    pub max_wal_records: usize,
+    pub max_replay_records: usize,
+    pub max_replay_slots: u64,
+    pub max_stream_bytes: usize,
+    pub max_stream_slots: usize,
+    pub max_stream_updates: usize,
+    pub max_manifest_bytes: usize,
+    pub max_catalog_pools: usize,
+    pub manifest_directory: String,
+    pub catalog_file: String,
+}
+impl YellowstoneConfig {
+    pub fn validate(&self) -> Result<()> {
+        let fail = || err("YELLOWSTONE_CONFIG_CONSTRAINT");
+        if self.archive_retention.as_ref().is_some_and(|a| {
+            !(1..=4096).contains(&a.max_segments)
+                || !(1..=4 * 1024 * 1024 * 1024u64).contains(&a.max_bytes)
+        }) {
+            return Err(fail());
+        }
+        if self.proto_commit != "10f0af69d150637d8e3eaaf83b179d640988dd3c"
+            || self.source_id.is_empty()
+            || self.source_id.len() > 128
+            || !self
+                .source_id
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+            || self.endpoint.contains('@')
+            || self.endpoint.contains('?')
+            || self.endpoint.contains('#')
+            || self.manifest_directory.is_empty()
+            || self.catalog_file.is_empty()
+            || self.token_file.as_ref().is_some_and(|p| p.is_empty())
+            || [
+                self.connect_timeout_ms,
+                self.idle_timeout_ms,
+                self.wal_ack_timeout_ms,
+                self.reconnect_delay_ms,
+            ]
+            .iter()
+            .any(|v| !(1..=300_000).contains(v))
+            || !(1..=32 * 1024 * 1024).contains(&self.max_frame_bytes)
+            || !(self.max_frame_bytes..=4 * 1024 * 1024 * 1024usize).contains(&self.max_wal_bytes)
+            || !(1..=1_000_000).contains(&self.max_wal_records)
+            || !(1..=self.max_wal_records).contains(&self.max_replay_records)
+            || !(1..=4096).contains(&self.max_replay_slots)
+            || !(self.max_frame_bytes..=1024 * 1024 * 1024).contains(&self.max_stream_bytes)
+            || !(1..=4096).contains(&self.max_stream_slots)
+            || !(1..=1_000_000).contains(&self.max_stream_updates)
+            || !(1..=32 * 1024 * 1024).contains(&self.max_manifest_bytes)
+            || !(1..=100_000).contains(&self.max_catalog_pools)
+        {
+            return Err(fail());
+        }
+        let authority = self
+            .endpoint
+            .strip_prefix("https://")
+            .or_else(|| self.endpoint.strip_prefix("http://"))
+            .ok_or_else(fail)?;
+        let authority = authority.strip_suffix('/').unwrap_or(authority);
+        if authority.is_empty()
+            || authority.contains('/')
+            || !authority.is_ascii()
+            || authority
+                .bytes()
+                .any(|b| b.is_ascii_whitespace() || b.is_ascii_control())
+        {
+            return Err(fail());
+        }
+        let (name, port) = if authority.starts_with('[') {
+            let end = authority.find(']').ok_or_else(fail)?;
+            authority[1..end]
+                .parse::<std::net::Ipv6Addr>()
+                .map_err(|_| fail())?;
+            let suffix = &authority[end + 1..];
+            (
+                &authority[..end + 1],
+                if suffix.is_empty() {
+                    None
+                } else {
+                    Some(suffix.strip_prefix(':').ok_or_else(fail)?)
+                },
+            )
+        } else {
+            match authority.split_once(':') {
+                Some((host, port)) => (host, Some(port)),
+                None => (authority, None),
+            }
+        };
+        if name.is_empty()
+            || (!name.starts_with('[')
+                && !name
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-'))
+            || port.is_some_and(|p| p.parse::<u16>().map_or(true, |n| n == 0))
+        {
+            return Err(fail());
+        }
+        let host = self.endpoint.strip_prefix("http://");
+        if !(self.endpoint.starts_with("https://")
+            || self.allow_loopback_plaintext
+                && host.is_some_and(|h| {
+                    h == "localhost"
+                        || h.starts_with("localhost:")
+                        || h == "127.0.0.1"
+                        || h.starts_with("127.0.0.1:")
+                        || h == "[::1]"
+                        || h.starts_with("[::1]:")
+                }))
+        {
+            return Err(fail());
+        }
+        Ok(())
+    }
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -273,6 +446,8 @@ pub struct Config {
     pub state: State,
     pub api: Api,
     pub chains: Vec<Chain>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub yellowstone: BTreeMap<String, YellowstoneConfig>,
     #[serde(default)]
     pub routing: Routing,
     #[serde(default)]
@@ -455,6 +630,18 @@ pub fn load(path: impl AsRef<Path>, expected: &str) -> Result<ConfigSnapshot> {
 impl Config {
     pub fn validate(&self, expected: &str) -> Result<()> {
         let fail = || err("CONFIG_CONSTRAINT_VIOLATION");
+        for (chain, stream) in &self.yellowstone {
+            stream.validate()?;
+            if !chain.starts_with("solana:")
+                || !self.chains.iter().any(|c| {
+                    c.key == *chain
+                        && c.owner_service == "chain-parser-rust"
+                        && c.confirmation_tag == "finalized"
+                })
+            {
+                return Err(err("YELLOWSTONE_CHAIN_CONFIG"));
+            }
+        }
         if self.service.name != expected
             || !["chain-parser-go", "chain-parser-rust", "dex-router"].contains(&expected)
             || !["online", "analytics"].contains(&self.service.role.as_str())
@@ -511,7 +698,7 @@ impl Config {
                 || !(1..=256).contains(&r.max_candidates)
                 || !(1..=100000).contains(&r.max_expansions)
                 || !(1..=100).contains(&r.split_parts)
-                || !(1..=2).contains(&r.max_splits)
+                || !(1..=8).contains(&r.max_splits)
                 || r.max_state_age_ms == 0
                 || r.quote_ttl_ms == 0
             {
@@ -573,6 +760,46 @@ impl Config {
         for c in &self.chains {
             for p in &c.pools {
                 let profile = xone_domain::protocols::protocol(&p.protocol);
+                if p.protocol == xone_domain::pancake_bsc_lm::PROFILE {
+                    p.pancake_bsc_lm
+                        .as_ref()
+                        .ok_or_else(|| err("BSC4_CONFIG_REQUIRED"))?
+                        .validate(p, &c.key)?;
+                    continue;
+                }
+                if p.pancake_bsc_lm.is_some() {
+                    return Err(err("BSC4_CONFIG_PROTOCOL"));
+                }
+                if p.protocol == xone_domain::pancake_lm::PROFILE {
+                    p.pancake_lm
+                        .as_ref()
+                        .ok_or_else(|| err("PANCAKE_LM_CONFIG_REQUIRED"))?
+                        .validate(p, &c.key)?;
+                    continue;
+                }
+                if p.pancake_lm.is_some() {
+                    return Err(err("PANCAKE_LM_CONFIG_PROTOCOL"));
+                }
+                if p.protocol == xone_domain::slipstream_context::PROFILE {
+                    p.slipstream_context
+                        .as_ref()
+                        .ok_or_else(|| err("SLIPSTREAM_CONTEXT_CONFIG_REQUIRED"))?
+                        .validate(p, &c.key)?;
+                    continue;
+                }
+                if p.slipstream_context.is_some() {
+                    return Err(err("SLIPSTREAM_CONTEXT_CONFIG_PROTOCOL"));
+                }
+                if p.protocol == xone_domain::lfj::PROFILE {
+                    p.lfj
+                        .as_ref()
+                        .ok_or_else(|| err("LFJ_CONFIG_REQUIRED"))?
+                        .validate(p, &c.key)?;
+                    continue;
+                }
+                if p.lfj.is_some() {
+                    return Err(err("LFJ_CONFIG_PROTOCOL"));
+                }
                 if p.infinity_bin.is_some() && p.protocol != xone_domain::infinity_bin::PROFILE {
                     return Err(fail());
                 }
@@ -641,6 +868,10 @@ impl Config {
                         block_hash: format!("0x{}", "1".repeat(64)),
                     };
                     let mut model = xone_domain::Pool {
+                        pancake_bsc_lm: None,
+                        pancake_lm: None,
+                        slipstream_context: None,
+                        lfj: None,
                         infinity_bin: None,
                         singleton_advanced: None,
                         multi_asset: None,
@@ -739,7 +970,7 @@ impl Config {
                 if p.multi_asset
                     .as_ref()
                     .is_some_and(|v| v.managed_v2.is_some())
-                    && p.protocol != xone_domain::managed_v2_state::PROTOCOL
+                    && !managed_v2::is_managed_v2_protocol(&p.protocol)
                 {
                     return Err(fail());
                 }
@@ -749,6 +980,10 @@ impl Config {
                 if let Some(profile) = profile.filter(|v| v.family == "multi") {
                     let v = p.multi_asset.as_ref().ok_or_else(fail)?;
                     if (v.token_policy != "standard-no-bpt"
+                        && !(p.protocol == xone_domain::managed_v2_bpt_state::PROTOCOL
+                            && v.token_policy == "standard-bpt")
+                        && !(p.protocol == xone_domain::managed_v2_circuit_state::PROTOCOL
+                            && v.token_policy == "standard-breaker-bpt")
                         && !(p.protocol == "balancer-v2-composable-regular"
                             && v.token_policy == "standard-with-own-bpt")
                         && !(p.protocol == "curve-metausd-direct"
@@ -766,7 +1001,7 @@ impl Config {
                     {
                         return Err(fail());
                     }
-                    if p.protocol == xone_domain::managed_v2_state::PROTOCOL {
+                    if managed_v2::is_managed_v2_protocol(&p.protocol) {
                         p.validate_managed_v2(&c.key)?;
                         continue;
                     }
@@ -962,6 +1197,10 @@ impl Config {
                         admin_fee: if weighted { 0 } else { 5_000_000_000 },
                     };
                     let pool = xone_domain::Pool {
+                        pancake_bsc_lm: None,
+                        pancake_lm: None,
+                        slipstream_context: None,
+                        lfj: None,
                         infinity_bin: None,
                         multi_asset: Some(state),
                         singleton_advanced: None,
@@ -1047,6 +1286,14 @@ impl Config {
                             return Err(fail());
                         }
                     }
+                    if let Some(token) = &v.token_program_upgrade {
+                        if token.programdata != CLASSIC_TOKEN_PROGRAMDATA
+                            || token.deployed_slot == 0
+                            || !keys.insert(token.programdata.as_str())
+                        {
+                            return Err(fail());
+                        }
+                    }
                     for h in [
                         &v.expected_program_code_sha256,
                         &v.expected_token_program_code_sha256,
@@ -1129,6 +1376,14 @@ impl Config {
                             return Err(fail());
                         }
                     }
+                    if let Some(token) = &v.token_program_upgrade {
+                        if token.programdata != CLASSIC_TOKEN_PROGRAMDATA
+                            || token.deployed_slot == 0
+                            || !keys.insert(token.programdata.as_str())
+                        {
+                            return Err(fail());
+                        }
+                    }
                     for code in [
                         &v.expected_program_code_sha256,
                         &v.expected_token_program_code_sha256,
@@ -1178,6 +1433,14 @@ impl Config {
                     ]) {
                         xone_domain::raydium::validate_pubkey(key)?;
                         if !keys.insert(key) {
+                            return Err(fail());
+                        }
+                    }
+                    if let Some(token) = &v.token_program_upgrade {
+                        if token.programdata != CLASSIC_TOKEN_PROGRAMDATA
+                            || token.deployed_slot == 0
+                            || !keys.insert(token.programdata.as_str())
+                        {
                             return Err(fail());
                         }
                     }
@@ -1239,6 +1502,10 @@ impl Config {
                         return Err(fail());
                     }
                     let model = xone_domain::Pool {
+                        pancake_bsc_lm: None,
+                        pancake_lm: None,
+                        slipstream_context: None,
+                        lfj: None,
                         infinity_bin: None,
                         multi_asset: None,
                         singleton_advanced: None,
@@ -1461,7 +1728,10 @@ impl Config {
             }
             if c.key.starts_with("evm:") && c.owner_service != "chain-parser-go"
                 || c.key.starts_with("solana:") && c.owner_service != "chain-parser-rust"
-                || expected != "dex-router" && self.service.mode == "rpc" && c.rpc_urls.is_empty()
+                || expected != "dex-router"
+                    && self.service.mode == "rpc"
+                    && c.rpc_urls.is_empty()
+                    && !self.yellowstone.contains_key(&c.key)
             {
                 return Err(fail());
             }

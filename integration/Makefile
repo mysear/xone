@@ -460,3 +460,342 @@ managed-v2-multi-helper-test:
 	PATH="/usr/local/bin:$$PATH" python3 -OO -m unittest discover -s tools/acceptance/tests -p 'test_managed_v2*.py'
 managed-v2-multi-quote-test: build debug-build
 	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_multi_smoke.py --scope both
+
+.PHONY: managed-v2-multi-acceptance
+managed-v2-multi-acceptance:
+	PATH="$(CURDIR)/.runtime/protoc-bin:$(HOME)/.cargo/bin:/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_multi_acceptance.py
+
+.PHONY: managed-v2-scheduled-reference-check managed-v2-scheduled-projection-refresh managed-v2-scheduled-projection-check managed-v2-scheduled-wire-check managed-v2-scheduled-helper-test managed-v2-scheduled-differential-test
+managed-v2-scheduled-reference-check:
+	PATH="/usr/local/bin:$$PATH" node tools/ci/managed-v2-scheduled-golden.cjs --check
+managed-v2-scheduled-projection-refresh:
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_projection.py --input test/contracts/managed-v2-scheduled.json --output test/contracts/managed-v2-scheduled-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_projection.py --input ../chain-parser-go/test/contracts/managed-v2-scheduled.json --output ../chain-parser-go/test/contracts/managed-v2-scheduled-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_projection.py --input ../chain-parser-rust/test/contracts/managed-v2-scheduled.json --original-input test/contracts/managed-v2-aum.json --output ../chain-parser-rust/test/contracts/managed-v2-scheduled-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_projection.py --input ../dex-router/test/contracts/managed-v2-scheduled.json --output ../dex-router/test/contracts/managed-v2-scheduled-pools.json
+managed-v2-scheduled-projection-check:
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_projection.py --input test/contracts/managed-v2-scheduled.json --check test/contracts/managed-v2-scheduled-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_projection.py --input ../chain-parser-go/test/contracts/managed-v2-scheduled.json --check ../chain-parser-go/test/contracts/managed-v2-scheduled-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_projection.py --input ../chain-parser-rust/test/contracts/managed-v2-scheduled.json --original-input test/contracts/managed-v2-aum.json --check ../chain-parser-rust/test/contracts/managed-v2-scheduled-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_projection.py --input ../dex-router/test/contracts/managed-v2-scheduled.json --check ../dex-router/test/contracts/managed-v2-scheduled-pools.json
+managed-v2-scheduled-wire-check:
+	PATH="$(CURDIR)/.runtime/protoc-bin:/usr/local/bin:$$PATH" python3 tools/ci/managed-v2-scheduled-wire-golden.py --check
+managed-v2-scheduled-helper-test:
+	PATH="$(CURDIR)/.runtime/protoc-bin:/usr/local/bin:$$PATH" python3 -m unittest discover -s tools/acceptance/tests -p 'test_managed_v2_scheduled*.py'
+	PATH="$(CURDIR)/.runtime/protoc-bin:/usr/local/bin:$$PATH" python3 -OO -m unittest discover -s tools/acceptance/tests -p 'test_managed_v2_scheduled*.py'
+managed-v2-scheduled-differential-test: managed-v2-scheduled-projection-check
+	cd ../chain-parser-go && go test ./internal/chain/evm -run 'TestManagedScheduled|TestManagedV2RejectsForgedFixedFeeIDContext' -count=1
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../dex-router/Cargo.toml -p xone-protocol-math --test managed_v2_scheduled --test managed_v2_scheduled_native -p xone-routing --test managed_v2_scheduled_shared
+
+.PHONY: managed-v2-scheduled-smoke
+managed-v2-scheduled-smoke: build debug-build
+	PATH="$(CURDIR)/.runtime/protoc-bin:$(HOME)/.cargo/bin:/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_smoke.py
+
+.PHONY: managed-v2-scheduled-shared-reference-refresh managed-v2-scheduled-shared-reference-check managed-v2-scheduled-shared-projection-refresh managed-v2-scheduled-shared-projection-check managed-v2-scheduled-shared-helper-test managed-v2-scheduled-shared-differential-test managed-v2-scheduled-shared-smoke
+managed-v2-scheduled-shared-reference-refresh:
+	PATH="/usr/local/bin:$$PATH" node tools/ci/managed-v2-scheduled-shared-golden.cjs
+managed-v2-scheduled-shared-reference-check:
+	PATH="/usr/local/bin:$$PATH" node tools/ci/managed-v2-scheduled-shared-golden.cjs --check
+managed-v2-scheduled-shared-projection-refresh:
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_shared_projection.py --input test/contracts/managed-v2-scheduled-shared.json --output test/contracts/managed-v2-scheduled-shared-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_shared_projection.py --input ../chain-parser-go/test/contracts/managed-v2-scheduled-shared.json --output ../chain-parser-go/test/contracts/managed-v2-scheduled-shared-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_shared_projection.py --input ../chain-parser-rust/test/contracts/managed-v2-scheduled-shared.json --original-input test/contracts/managed-v2-aum.json --output ../chain-parser-rust/test/contracts/managed-v2-scheduled-shared-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_shared_projection.py --input ../dex-router/test/contracts/managed-v2-scheduled-shared.json --output ../dex-router/test/contracts/managed-v2-scheduled-shared-pools.json
+managed-v2-scheduled-shared-projection-check:
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_shared_projection.py --input test/contracts/managed-v2-scheduled-shared.json --check test/contracts/managed-v2-scheduled-shared-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_shared_projection.py --input ../chain-parser-go/test/contracts/managed-v2-scheduled-shared.json --check ../chain-parser-go/test/contracts/managed-v2-scheduled-shared-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_shared_projection.py --input ../chain-parser-rust/test/contracts/managed-v2-scheduled-shared.json --original-input test/contracts/managed-v2-aum.json --check ../chain-parser-rust/test/contracts/managed-v2-scheduled-shared-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_shared_projection.py --input ../dex-router/test/contracts/managed-v2-scheduled-shared.json --check ../dex-router/test/contracts/managed-v2-scheduled-shared-pools.json
+managed-v2-scheduled-shared-helper-test:
+	PATH="$(CURDIR)/.runtime/protoc-bin:/usr/local/bin:$$PATH" python3 -m unittest discover -s tools/acceptance/tests -p 'test_managed_v2_scheduled_shared*.py'
+	PATH="$(CURDIR)/.runtime/protoc-bin:/usr/local/bin:$$PATH" python3 -OO -m unittest discover -s tools/acceptance/tests -p 'test_managed_v2_scheduled_shared*.py'
+managed-v2-scheduled-shared-differential-test: managed-v2-scheduled-shared-projection-check
+	cd ../chain-parser-go && go test ./internal/chain/evm -run 'TestManagedScheduledShared' -count=1
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../chain-parser-rust/Cargo.toml -p xone-domain --test managed_v2_scheduled_shared_original
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../dex-router/Cargo.toml -p xone-domain --test managed_v2_scheduled_shared_original -p xone-routing --test managed_v2_scheduled_shared_native
+managed-v2-scheduled-shared-smoke: build debug-build
+	PATH="$(CURDIR)/.runtime/protoc-bin:$(HOME)/.cargo/bin:/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_scheduled_shared_smoke.py
+
+.PHONY: managed-v2-bpt-reference-refresh managed-v2-bpt-reference-check managed-v2-bpt-projection-refresh managed-v2-bpt-projection-check managed-v2-bpt-wire-refresh managed-v2-bpt-wire-check managed-v2-bpt-helper-test managed-v2-bpt-differential-test
+managed-v2-bpt-reference-refresh:
+	PATH="/usr/local/bin:$$PATH" node tools/ci/managed-v2-bpt-golden.cjs
+managed-v2-bpt-reference-check:
+	PATH="/usr/local/bin:$$PATH" node tools/ci/managed-v2-bpt-golden.cjs --check
+managed-v2-bpt-projection-refresh:
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_bpt_projection.py --input test/contracts/managed-v2-bpt.json --output test/contracts/managed-v2-bpt-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_bpt_projection.py --input ../chain-parser-go/test/contracts/managed-v2-bpt.json --output ../chain-parser-go/test/contracts/managed-v2-bpt-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_bpt_projection.py --input ../chain-parser-rust/test/contracts/managed-v2-bpt.json --original-input test/contracts/managed-v2-aum.json --output ../chain-parser-rust/test/contracts/managed-v2-bpt-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_bpt_projection.py --input ../dex-router/test/contracts/managed-v2-bpt.json --output ../dex-router/test/contracts/managed-v2-bpt-pools.json
+managed-v2-bpt-projection-check:
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_bpt_projection.py --input test/contracts/managed-v2-bpt.json --check test/contracts/managed-v2-bpt-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_bpt_projection.py --input ../chain-parser-go/test/contracts/managed-v2-bpt.json --check ../chain-parser-go/test/contracts/managed-v2-bpt-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_bpt_projection.py --input ../chain-parser-rust/test/contracts/managed-v2-bpt.json --original-input test/contracts/managed-v2-aum.json --check ../chain-parser-rust/test/contracts/managed-v2-bpt-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_bpt_projection.py --input ../dex-router/test/contracts/managed-v2-bpt.json --check ../dex-router/test/contracts/managed-v2-bpt-pools.json
+managed-v2-bpt-wire-refresh:
+	python3 tools/ci/managed-v2-bpt-wire-golden.py
+managed-v2-bpt-wire-check:
+	python3 tools/ci/managed-v2-bpt-wire-golden.py --check
+managed-v2-bpt-helper-test:
+	PATH="$(CURDIR)/.runtime/protoc-bin:/usr/local/bin:$$PATH" python3 -m unittest discover -s tools/acceptance/tests -p 'test_managed_v2_bpt*.py'
+	PATH="$(CURDIR)/.runtime/protoc-bin:/usr/local/bin:$$PATH" python3 -OO -m unittest discover -s tools/acceptance/tests -p 'test_managed_v2_bpt*.py'
+managed-v2-bpt-differential-test:
+	cd ../chain-parser-go && go test ./internal/domain ./internal/config ./internal/chain/evm -run 'TestManagedV2Bpt' -count=1
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../chain-parser-rust/Cargo.toml -p xone-config --test managed_v2
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../dex-router/Cargo.toml -p xone-config --test managed_v2
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../chain-parser-rust/Cargo.toml -p xone-domain --test managed_v2_bpt_state --test managed_v2_bpt_wire_golden
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../dex-router/Cargo.toml -p xone-domain --test managed_v2_bpt_state --test managed_v2_bpt_wire_golden -p xone-protocol-math --test managed_v2_bpt_math --test managed_v2_bpt_pool
+
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../dex-router/Cargo.toml -p xone-routing --test managed_v2_bpt -p xone-optimizer --test managed_v2_bpt -p xone-quote-api --test managed_v2_bpt
+
+.PHONY: managed-v2-bpt-smoke
+managed-v2-bpt-smoke: build debug-build
+	PATH="$(CURDIR)/.runtime/protoc-bin:$(HOME)/.cargo/bin:/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_bpt_smoke.py
+
+.PHONY: managed-v2-breaker-reference-refresh managed-v2-breaker-reference-check managed-v2-breaker-projection-refresh managed-v2-breaker-projection-check managed-v2-breaker-wire-refresh managed-v2-breaker-wire-check managed-v2-breaker-helper-test managed-v2-breaker-differential-test managed-v2-breaker-smoke
+managed-v2-breaker-reference-refresh:
+	PATH="/usr/local/bin:$$PATH" node tools/ci/managed-v2-breaker-golden.cjs
+managed-v2-breaker-reference-check:
+	PATH="/usr/local/bin:$$PATH" node tools/ci/managed-v2-breaker-golden.cjs --check
+managed-v2-breaker-projection-refresh:
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_breaker_projection.py --input test/contracts/managed-v2-breaker.json --output test/contracts/managed-v2-breaker-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_breaker_projection.py --input ../chain-parser-go/test/contracts/managed-v2-breaker.json --output ../chain-parser-go/test/contracts/managed-v2-breaker-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_breaker_projection.py --input ../chain-parser-rust/test/contracts/managed-v2-breaker.json --original-input test/contracts/managed-v2-aum.json --output ../chain-parser-rust/test/contracts/managed-v2-breaker-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_breaker_projection.py --input ../dex-router/test/contracts/managed-v2-breaker.json --output ../dex-router/test/contracts/managed-v2-breaker-pools.json
+managed-v2-breaker-projection-check:
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_breaker_projection.py --input test/contracts/managed-v2-breaker.json --check test/contracts/managed-v2-breaker-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_breaker_projection.py --input ../chain-parser-go/test/contracts/managed-v2-breaker.json --check ../chain-parser-go/test/contracts/managed-v2-breaker-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_breaker_projection.py --input ../chain-parser-rust/test/contracts/managed-v2-breaker.json --original-input test/contracts/managed-v2-aum.json --check ../chain-parser-rust/test/contracts/managed-v2-breaker-pools.json
+	PATH="/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_breaker_projection.py --input ../dex-router/test/contracts/managed-v2-breaker.json --check ../dex-router/test/contracts/managed-v2-breaker-pools.json
+managed-v2-breaker-wire-refresh:
+	python3 tools/ci/managed-v2-breaker-wire-golden.py
+managed-v2-breaker-wire-check:
+	python3 tools/ci/managed-v2-breaker-wire-golden.py --check
+managed-v2-breaker-helper-test:
+	PATH="$(CURDIR)/.runtime/protoc-bin:/usr/local/bin:$$PATH" python3 -m unittest discover -s tools/acceptance/tests -p 'test_managed_v2_breaker*.py'
+	PATH="$(CURDIR)/.runtime/protoc-bin:/usr/local/bin:$$PATH" python3 -OO -m unittest discover -s tools/acceptance/tests -p 'test_managed_v2_breaker*.py'
+	python3 -m unittest discover -s tools/ci/tests -p test_progress_document.py
+	python3 -OO -m unittest discover -s tools/ci/tests -p test_progress_document.py
+managed-v2-breaker-differential-test:
+	cd ../chain-parser-go && go test ./internal/domain ./internal/config ./internal/chain/evm -run 'TestManagedV2(Circuit|Breaker)' -count=1
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../chain-parser-rust/Cargo.toml -p xone-config --test managed_v2 -p xone-domain --test managed_v2_circuit_state --test managed_v2_circuit_wire_golden
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../dex-router/Cargo.toml -p xone-config --test managed_v2 -p xone-domain --test managed_v2_circuit_state --test managed_v2_circuit_wire_golden -p xone-protocol-math --test managed_v2_breaker --test managed_v2_breaker_pool
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../dex-router/Cargo.toml -p xone-routing --test managed_v2_breaker -p xone-quote-api --test managed_v2_breaker
+managed-v2-breaker-smoke: build debug-build
+	PATH="$(CURDIR)/.runtime/protoc-bin:$(HOME)/.cargo/bin:/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_breaker_smoke.py
+
+.PHONY: managed-v2-breaker-final-check managed-v2-breaker-acceptance
+managed-v2-breaker-final-check:
+	PATH="$(HOME)/.cargo/bin:/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_breaker_final.py
+managed-v2-breaker-acceptance:
+	PATH="$(HOME)/.cargo/bin:/usr/local/bin:$$PATH" python3 tools/acceptance/managed_v2_breaker_acceptance.py
+
+.PHONY: r01-r04-foundation-test r01-r04-traceability-check
+r01-r04-foundation-test:
+	cd ../chain-parser-go && go build -trimpath -o bin/source-evidence ./cmd/source-evidence
+	cd ../chain-parser-go && go test -race ./internal/provenance ./internal/bootstrap ./internal/rpc ./internal/ingest ./internal/service ./internal/reducer ./internal/config
+	cd ../chain-parser-go && go test -race ./internal/chain/evm ./internal/config -run 'TestOnlineEthereumBlock|TestEthereumBlockIntegrityConfig|TestChainReceipts|TestChainBodyCommitments|TestReceipt|TestReadComplete|TestCurrentScopeStateShares|TestHistoryFacts|TestNative|TestNormalNative|TestBor|TestCoreth|TestNitro|TestKnownEVM' -count=1
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../chain-parser-rust/Cargo.toml -p xone-solana-ingest --lib --test assembly --test stream --test stream_inheritance --test stream_projection --test stream_wal --test scope_recovery --test yellowstone_transport --test async_frame_wal --test normal_yellowstone --test owner_scope --test manifest_tail --test history_queue --test history_runtime
+	python3 -m unittest discover -s tools/acceptance/tests -p test_r01_public_catalog.py
+	python3 -OO -m unittest discover -s tools/acceptance/tests -p test_r01_public_catalog.py
+	$(MAKE) r01-getter-proof-test
+	python3 -m unittest discover -s tools/acceptance/tests -p test_r01_public_catalog_history.py
+	python3 -OO -m unittest discover -s tools/acceptance/tests -p test_r01_public_catalog_history.py
+	python3 -m unittest discover -s tools/acceptance/tests -p test_r01_public_catalog_solana_rebuild.py
+	python3 -OO -m unittest discover -s tools/acceptance/tests -p test_r01_public_catalog_solana_rebuild.py
+	python3 -m unittest discover -s tools/acceptance/tests -p test_evm_deployment_rebuild.py
+	python3 -OO -m unittest discover -s tools/acceptance/tests -p test_evm_deployment_rebuild.py
+	python3 -m unittest discover -s tools/ci/tests -p test_chain_target_config.py
+	python3 -OO -m unittest discover -s tools/ci/tests -p test_chain_target_config.py
+	python3 -m unittest discover -s tools/ci/tests -p test_r01_r04_traceability.py
+	python3 -OO -m unittest discover -s tools/ci/tests -p test_r01_r04_traceability.py
+	python3 -m unittest discover -s tools/ci/tests -p test_progress_document.py
+	python3 -OO -m unittest discover -s tools/ci/tests -p test_progress_document.py
+	python3 -m unittest discover -s tools/acceptance/tests -p test_r03_authority_process.py
+	python3 -OO -m unittest discover -s tools/acceptance/tests -p test_r03_authority_process.py
+r01-r04-traceability-check:
+	python3 tools/ci/r01_r04_traceability.py
+
+.PHONY: r01-r04-process-test
+r01-r04-process-test: build debug-build
+	PATH="$(HOME)/.cargo/bin:/usr/local/bin:$$PATH" python3 tools/acceptance/r01_r04_process_smoke.py
+
+.PHONY: r01-r04-recovery-process-test
+r01-r04-recovery-process-test: build
+	python3 -m unittest discover -s tools/acceptance/tests -p test_recovery_process_fixture.py
+	PATH="$(HOME)/.cargo/bin:/usr/local/bin:$$PATH" python3 tools/acceptance/r01_r04_recovery_process.py
+
+.PHONY: r01-r04-rust-owner-test
+r01-r04-rust-owner-test:
+	PATH="$(HOME)/.cargo/bin:$$PATH" $(HOME)/.cargo/bin/cargo +1.90.0 test --locked --manifest-path ../chain-parser-rust/Cargo.toml -p xone-bank-source -p xone-solana-ingest --lib --tests
+
+.PHONY: r03-authority-process-test
+r03-authority-process-test:
+	python3 tools/acceptance/r03_authority_process.py
+
+.PHONY: r01-getter-proof-test
+r01-getter-proof-test:
+	node --check tools/acceptance/r01_getter_slots.cjs
+	python3 -m unittest discover -s tools/acceptance/tests -p test_r01_getter_proofs.py
+	python3 -OO -m unittest discover -s tools/acceptance/tests -p test_r01_getter_proofs.py
+
+.PHONY: core-routing-test velodrome-v2-reference-refresh velodrome-v2-differential-test velodrome-v2-quote-test
+core-routing-test:
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-optimizer -p xone-routing
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-quote-api --test api -p xone-config --test config
+velodrome-v2-reference-refresh:
+	node tools/ci/velodrome-v2-golden.cjs
+velodrome-v2-differential-test:
+	cd ../chain-parser-go && go test ./internal/domain ./internal/config ./internal/chain/evm -run 'TestVelodrome|TestStableHashPinnedModelsAndDependencyRejections|TestStableProtocolsRequireTheirOwnStateAndParameters' -count=1
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-protocol-math --test velodrome_differential -p xone-config --test velodrome -p xone-optimizer --test velodrome_shared
+velodrome-v2-quote-test: build debug-build velodrome-v2-differential-test
+	python3 tools/acceptance/velodrome_smoke.py
+
+.PHONY: lfj-v21-original-reference
+lfj-v21-original-reference:
+	node tools/ci/lfj-v21-reference.cjs
+
+.PHONY: lfj-v21-reference-refresh lfj-v21-differential-test lfj-v21-quote-test lfj-v21-model-projector
+lfj-v21-reference-refresh: lfj-v21-original-reference
+	python3 tools/ci/lfj-v21-state.py
+	python3 tools/ci/lfj-v21-wire.py
+lfj-v21-differential-test:
+	cd ../chain-parser-go && go test ./internal/domain ./internal/config ./internal/chain/evm -run '^TestLfj' -count=1
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-domain --test lfj -p xone-config --test lfj -p xone-protocol-math --test lfj_differential -p xone-optimizer --test lfj_shared
+	cd ../chain-parser-rust && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-domain --test lfj -p xone-config --test lfj
+lfj-v21-model-projector:
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 build --locked --example lfj-plan-projector
+lfj-v21-quote-test: build debug-build lfj-v21-model-projector lfj-v21-differential-test
+	python3 tools/acceptance/lfj_smoke.py
+
+.PHONY: slipstream-context-reference-refresh slipstream-context-differential-test slipstream-context-model-projector slipstream-context-quote-test
+slipstream-context-reference-refresh:
+	node tools/ci/slipstream-extended-reference.cjs
+	python3 tools/ci/slipstream-context-state.py
+	python3 tools/ci/slipstream-context-wire.py
+slipstream-context-differential-test:
+	cd ../chain-parser-go && go test ./internal/domain ./internal/config ./internal/chain/evm -run '^TestSlipstream' -count=1
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-domain --test slipstream_context -p xone-config --test slipstream_context -p xone-protocol-math --test slipstream_context_differential -p xone-optimizer --test slipstream_context_shared
+	cd ../chain-parser-rust && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-domain --test slipstream_context -p xone-config --test slipstream_context
+slipstream-context-model-projector:
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 build --locked --example slipstream-plan-projector
+slipstream-context-quote-test: build debug-build slipstream-context-model-projector slipstream-context-differential-test
+	python3 tools/acceptance/slipstream_context_smoke.py
+
+.PHONY: pancake-v3-lm-reference-refresh pancake-v3-lm-draft-build pancake-v3-lm-draft-differential-test
+pancake-v3-lm-reference-refresh:
+	node tools/ci/pancake-v3-lm-reference.cjs
+	node tools/ci/pancake-v3-lm-state.cjs
+	python3 tools/ci/pancake-v3-lm-wire.py
+pancake-v3-lm-draft-build:
+	PATH="$(HOME)/.cargo/bin:$$PATH" CARGO_TARGET_DIR="$(CURDIR)/.runtime/pancake-lm-draft" cargo +1.90.0 build --locked --offline --manifest-path tools/reference/pancake-v3-lm/draft/Cargo.toml
+pancake-v3-lm-draft-differential-test: pancake-v3-lm-draft-build
+	python3 tools/ci/pancake-v3-lm-draft-check.py --binary "$(CURDIR)/.runtime/pancake-lm-draft/debug/xone-pancake-lm-draft"
+
+.PHONY: pancake-v3-lm-differential-test pancake-v3-lm-model-projector pancake-v3-lm-quote-test
+pancake-v3-lm-differential-test:
+	cd ../chain-parser-go && go test ./internal/domain ./internal/config ./internal/chain/evm -run '^TestPancake' -count=1
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-domain --test pancake_lm -p xone-config --test pancake_lm -p xone-protocol-math --test pancake_lm_differential -p xone-optimizer --test pancake_lm_shared
+	cd ../chain-parser-rust && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-domain --test pancake_lm -p xone-config --test pancake_lm
+pancake-v3-lm-model-projector:
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 build --locked --example pancake-lm-plan-projector
+pancake-v3-lm-quote-test: build debug-build pancake-v3-lm-model-projector pancake-v3-lm-differential-test
+	python3 tools/acceptance/pancake_lm_smoke.py
+
+.PHONY: pancake-bsc4-reference-refresh pancake-bsc4-differential-test pancake-bsc4-model-projector pancake-bsc4-quote-test
+pancake-bsc4-reference-refresh:
+	node tools/ci/pancake-v3-bsc-artifacts.cjs
+	node tools/ci/pancake-bsc-predecessor-artifacts.cjs
+	node tools/ci/pancake-bsc4-reference.cjs
+	node tools/ci/pancake-bsc4-state.cjs
+	python3 tools/ci/pancake-bsc4-wire.py
+pancake-bsc4-differential-test:
+	cd ../chain-parser-go && go test ./internal/domain ./internal/config ./internal/chain/evm -run '^TestPancakeBsc4' -count=1
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-domain --test pancake_bsc_lm -p xone-config --test pancake_bsc_lm -p xone-protocol-math --test pancake_bsc_lm -p xone-optimizer --test pancake_bsc_lm_shared
+	cd ../chain-parser-rust && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-domain --test pancake_bsc_lm -p xone-config --test pancake_bsc_lm
+pancake-bsc4-model-projector:
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 build --locked --example pancake-bsc4-plan-projector
+pancake-bsc4-quote-test: build debug-build pancake-bsc4-model-projector pancake-bsc4-differential-test
+	python3 tools/acceptance/pancake_bsc4_smoke.py
+
+.PHONY: exact-out-reference-refresh exact-out-differential-test exact-out-model-projector exact-out-quote-test
+exact-out-reference-refresh:
+	node tools/ci/v2-exact-out-reference.cjs
+	node tools/ci/v2-exact-out-reference.cjs --allocation-grid
+	python3 tools/ci/v2-exact-out-state.py
+exact-out-differential-test:
+	python3 tools/acceptance/exact_out_reference.py
+	python3 tools/acceptance/exact_out_reference.py --grid
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-protocol-math --test exact_out -p xone-routing --test exact_out -p xone-optimizer --test exact_out -p xone-quote-api --test exact_out
+exact-out-model-projector:
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 build --locked --example exact-out-plan-projector
+exact-out-quote-test: build debug-build exact-out-model-projector exact-out-differential-test
+	python3 tools/acceptance/exact_out_smoke.py
+
+.PHONY: exact-out-current-check exact-out-evidence-check
+exact-out-current-check: build debug-build
+	python3 tools/acceptance/validate_exact_out.py
+	python3 tools/acceptance/exact_out_acceptance.py
+exact-out-evidence-check:
+	python3 tools/acceptance/exact_out_acceptance.py
+
+.PHONY: pancake-bsc-exact-out-reference-refresh pancake-bsc-exact-out-differential-test pancake-bsc-exact-out-quote-test pancake-bsc-exact-out-current-check pancake-bsc-exact-out-evidence-check
+pancake-bsc-exact-out-reference-refresh:
+	node tools/ci/pancake-bsc4-exact-out-reference.cjs
+	node tools/ci/pancake-bsc4-exact-out-state.cjs
+pancake-bsc-exact-out-differential-test:
+	python3 tools/acceptance/pancake_bsc_exact_out_reference.py
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-protocol-math -p xone-routing -p xone-optimizer -p xone-quote-api --test pancake_bsc_exact_out
+pancake-bsc-exact-out-quote-test: build debug-build
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 build --locked --example pancake-bsc-exact-out-plan-projector
+	python3 tools/acceptance/pancake_bsc_exact_out_smoke.py
+pancake-bsc-exact-out-current-check: build debug-build
+	python3 tools/acceptance/validate_pancake_bsc_exact_out.py
+	python3 tools/acceptance/pancake_bsc_exact_out_acceptance.py
+pancake-bsc-exact-out-evidence-check:
+	python3 tools/acceptance/pancake_bsc_exact_out_acceptance.py
+
+.PHONY: pancake-lm-exact-out-reference-refresh pancake-lm-exact-out-differential-test pancake-lm-exact-out-quote-test pancake-lm-exact-out-current-check pancake-lm-exact-out-evidence-check
+pancake-lm-exact-out-reference-refresh:
+	node tools/ci/pancake-lm-exact-out-reference.cjs
+	node tools/ci/pancake-lm-exact-out-state.cjs
+pancake-lm-exact-out-differential-test:
+	python3 tools/acceptance/pancake_lm_exact_out_reference.py
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-protocol-math -p xone-routing -p xone-optimizer -p xone-quote-api --test pancake_lm_exact_out
+pancake-lm-exact-out-quote-test: build debug-build
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 build --locked --example pancake-lm-exact-out-plan-projector
+	python3 tools/acceptance/pancake_lm_exact_out_smoke.py
+pancake-lm-exact-out-current-check: build debug-build
+	python3 tools/acceptance/validate_pancake_lm_exact_out.py
+	python3 tools/acceptance/pancake_lm_exact_out_acceptance.py
+pancake-lm-exact-out-evidence-check:
+	python3 tools/acceptance/pancake_lm_exact_out_acceptance.py
+
+.PHONY: slipstream-exact-out-reference-refresh slipstream-exact-out-differential-test slipstream-exact-out-quote-test slipstream-exact-out-current-check slipstream-exact-out-evidence-check
+slipstream-exact-out-reference-refresh:
+	node tools/ci/slipstream-exact-out-reference.cjs
+	python3 tools/ci/slipstream-exact-out-state.py
+slipstream-exact-out-differential-test:
+	python3 tools/acceptance/slipstream_exact_out_reference.py
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-protocol-math -p xone-routing -p xone-optimizer -p xone-quote-api --test slipstream_exact_out
+slipstream-exact-out-quote-test: build debug-build
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 build --locked --example slipstream-exact-out-plan-projector
+	python3 tools/acceptance/slipstream_exact_out_smoke.py
+slipstream-exact-out-current-check: build debug-build
+	python3 tools/acceptance/validate_slipstream_exact_out.py
+slipstream-exact-out-evidence-check:
+	python3 tools/acceptance/slipstream_exact_out_acceptance.py
+
+.PHONY: lfj-exact-out-reference-refresh lfj-exact-out-differential-test lfj-exact-out-quote-test lfj-exact-out-current-check lfj-exact-out-evidence-check
+lfj-exact-out-reference-refresh:
+	node tools/ci/lfj-v21-exact-out-reference.cjs
+	python3 tools/ci/lfj-v21-exact-out-state.py
+lfj-exact-out-differential-test:
+	python3 tools/acceptance/lfj_exact_out_reference.py
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 test --locked -p xone-protocol-math -p xone-routing -p xone-optimizer -p xone-quote-api --test lfj_exact_out
+lfj-exact-out-quote-test: build debug-build
+	cd ../dex-router && PATH="$(HOME)/.cargo/bin:$$PATH" cargo +1.90.0 build --locked --example lfj-exact-out-plan-projector
+	python3 tools/acceptance/lfj_exact_out_smoke.py
+lfj-exact-out-current-check: build debug-build
+	python3 tools/acceptance/validate_lfj_exact_out.py
+lfj-exact-out-evidence-check:
+	python3 tools/acceptance/lfj_exact_out_acceptance.py

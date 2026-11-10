@@ -34,7 +34,7 @@ func (p Pool) validateMultiAsset() error {
 	if !ok || s == nil || p.Weighted != nil || p.Stable != nil || p.V2 != nil || p.V3 != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil || p.OrcaWhirlpool != nil || p.RaydiumCLMM != nil {
 		return errors.New("MULTI_ASSET_STATE_REQUIRED")
 	}
-	if p.Protocol == ManagedV2Protocol {
+	if p.Protocol == ManagedV2Protocol || p.Protocol == ManagedV2ScheduledProtocol || p.Protocol == ManagedV2BptProtocol || p.Protocol == ManagedV2BreakerProtocol {
 		return p.validateManagedV2()
 	}
 	if s.ManagedV2 != nil {

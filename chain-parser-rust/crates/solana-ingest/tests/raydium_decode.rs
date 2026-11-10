@@ -844,3 +844,17 @@ fn decodes_individually_bounded_fees_without_combined_trade_creator_cap() {
         }
     }
 }
+
+#[path = "support/token_upgrade.rs"]
+mod token_upgrade;
+#[test]
+fn declared_upgradeable_classic_token_program_is_bound_in_normal_decoder() {
+    let f = Fixture::new();
+    token_upgrade::verify_upgradeable_token(
+        &f.pool,
+        &f.accounts,
+        "raydium_cpmm",
+        |pool, accounts| decode_raydium_cpmm(&f.chain, pool, accounts, 100),
+        required_accounts,
+    );
+}

@@ -63,7 +63,7 @@ fn rejects_static_profile_identity_clock_reward_and_token_violations() {
         ("pool", 381, vec![1]),
         ("pool", 461, vec![1]),
         ("pool", 589, vec![1]),
-        ("config", 106, vec![1]),
+        ("config", 106, vec![2]),
         ("config", 0, vec![1]),
         ("vault", 108, vec![2]),
         ("vault", 72, 1u32.to_le_bytes().to_vec()),
@@ -342,5 +342,36 @@ fn oracle_json_must_be_exact_system_empty_and_other_nulls_never_virtualize() {
     }
     for id in f.accounts.keys().filter(|id| **id != f.oracle) {
         assert!(orca::decode_rpc_account(id, &f.oracle, &serde_json::Value::Null).is_err());
+    }
+}
+
+#[path = "support/token_upgrade.rs"]
+mod token_upgrade;
+#[test]
+fn declared_upgradeable_classic_token_program_is_bound_in_normal_decoder() {
+    let f = Fixture::new(false);
+    token_upgrade::verify_upgradeable_token(
+        &f.pool,
+        &f.accounts,
+        "orca_whirlpool",
+        |pool, accounts| orca::decode_orca_whirlpool(&f.chain, pool, accounts, 100),
+        orca::required_accounts,
+    );
+}
+
+#[test]
+fn known_token_badge_admin_flag_does_not_disable_classic_token_pool_quotes() {
+    let mut fixture = Fixture::new(false);
+    let expected = fixture.decode().unwrap();
+    let config = fixture.pool.accounts[3].clone();
+    fixture.accounts.get_mut(&config).unwrap().data[106..108].copy_from_slice(&1u16.to_le_bytes());
+    assert_eq!(fixture.decode().unwrap(), expected);
+    for unknown in [2u16, 3, 0x8000, u16::MAX] {
+        fixture.accounts.get_mut(&config).unwrap().data[106..108]
+            .copy_from_slice(&unknown.to_le_bytes());
+        assert!(
+            fixture.decode().is_err(),
+            "unknown config feature bits accepted: {unknown}"
+        );
     }
 }

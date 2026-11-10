@@ -227,7 +227,11 @@ impl Writer {
                 handle.block_on(async {
                     tokio::time::timeout(
                         Duration::from_millis(config.config.control.renewal_ms),
-                        control.check(&lease, config.config.control.min_commit_remaining_ms),
+                        control.check_owner_fence(
+                            &lease,
+                            &work_unit.snapshot.reference,
+                            config.config.control.min_commit_remaining_ms,
+                        ),
                     )
                     .await
                     .map_err(|_| err("CONTROL_DEADLINE"))?
@@ -241,7 +245,7 @@ impl Writer {
         let cursor = result?;
         tokio::time::timeout(
             Duration::from_millis(cfg.config.control.renewal_ms),
-            pg.check(&self.lease, 0),
+            pg.check_owner_fence(&self.lease, &unit.snapshot.reference, 0),
         )
         .await
         .map_err(|_| err("CONTROL_DEADLINE"))??;

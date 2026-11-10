@@ -1,5 +1,6 @@
 use crate::{
     err,
+    managed_v2_schedule::ManagedV2Schedule,
     protocols::{validate_address, validate_identity},
     wire, Amount, Pool, Result,
 };
@@ -36,6 +37,12 @@ pub struct ManagedV2ExecutionContext {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct BalancerManagedV2State {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub circuit_breakers: Option<crate::managed_v2_circuit_state::ManagedV2CircuitState>,
     pub vault_bpt_actual_balance: Amount,
     pub timestamp: u64,
     pub block_number: u64,
@@ -83,6 +90,18 @@ pub struct BalancerManagedV2State {
         deserialize_with = "deserialize_present"
     )]
     pub execution_context: Option<ManagedV2ExecutionContext>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub schedule: Option<ManagedV2Schedule>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub bpt: Option<crate::managed_v2_bpt_state::ManagedV2BptState>,
 }
 
 fn digest(v: &str) -> bool {
@@ -140,6 +159,33 @@ impl BalancerManagedV2State {
             }
         }
         validate_dependencies(&s.dependencies)?;
+        if let Some(circuit) = &s.circuit_breakers {
+            circuit.validate()?;
+            if s.schedule.is_none() || s.bpt.is_none() || circuit.tokens.len() != s.token_info.len()
+            {
+                return Err(err("MANAGED_V2_CIRCUIT_PARENT_REQUIRED"));
+            }
+        }
+        if let Some(bpt) = &s.bpt {
+            bpt.validate()?;
+            let schedule = s
+                .schedule
+                .as_ref()
+                .ok_or_else(|| err("MANAGED_V2_BPT_SCHEDULE_REQUIRED"))?;
+            let timestamp = s
+                .execution_context
+                .as_ref()
+                .map_or(s.timestamp, |c| c.timestamp);
+            if schedule.at(timestamp)?.join_exit_enabled != bpt.join_exit_enabled
+                || bpt.bpt_last_change_block
+                    > s.execution_context
+                        .as_ref()
+                        .map_or(s.block_number, |c| c.block_number)
+                || bpt.minimum_bpt_locked.0 > s.virtual_supply.0
+            {
+                return Err(err("MANAGED_V2_BPT_SOURCE_FIELDS"));
+            }
+        }
         for a in [
             &s.total_supply,
             &s.virtual_supply,
@@ -217,10 +263,20 @@ impl BalancerManagedV2State {
         {
             return Err(err("MANAGED_V2_EFFECTIVE_PAUSE"));
         }
-        if s.gradual_weight_end > s.timestamp || s.gradual_fee_end > s.timestamp {
+        if let Some(schedule) = &s.schedule {
+            let view = schedule.at(pause_timestamp)?;
+            if s.gradual_weight_end != view.weight_end
+                || s.gradual_fee_end != view.fee_end
+                || s.swaps_enabled != view.swaps_enabled
+                || s.recovery_mode != view.recovery_mode
+                || s.allowlist_enabled != view.must_allowlist_lps
+            {
+                return Err(err("MANAGED_V2_SCHEDULE_STATE_MISMATCH"));
+            }
+        } else if s.gradual_weight_end > s.timestamp || s.gradual_fee_end > s.timestamp {
             return Err(err("MANAGED_V2_ACTIVE_SCHEDULE_UNSUPPORTED"));
         }
-        for v in &s.token_info {
+        for (i, v) in s.token_info.iter().enumerate() {
             if v.last_change_block > u64::from(u32::MAX) {
                 return Err(err("MANAGED_V2_VAULT_BLOCK_WIDTH"));
             }
@@ -239,7 +295,13 @@ impl BalancerManagedV2State {
             {
                 return Err(err("MANAGED_V2_TOKEN_INFO"));
             };
-            if v.circuit_breaker_enabled {
+            if let Some(circuit) = &s.circuit_breakers {
+                if v.circuit_breaker_enabled
+                    != (circuit.tokens[i].state_word.0 != BigUint::from(0u8))
+                {
+                    return Err(err("MANAGED_V2_CIRCUIT_ENABLED_MISMATCH"));
+                }
+            } else if v.circuit_breaker_enabled {
                 return Err(err("MANAGED_V2_CIRCUIT_BREAKER_UNSUPPORTED"));
             }
         }
@@ -257,6 +319,33 @@ impl Pool {
             .managed_v2
             .as_ref()
             .ok_or_else(|| err("MANAGED_V2_STATE_REQUIRED"))?;
+        let is_breaker = p.protocol == crate::managed_v2_circuit_state::PROTOCOL;
+        if is_breaker != m.circuit_breakers.is_some() {
+            return Err(err("MANAGED_V2_CIRCUIT_PROFILE_MISMATCH"));
+        }
+        let is_bpt = p.protocol == crate::managed_v2_bpt_state::PROTOCOL || is_breaker;
+        if is_bpt != m.bpt.is_some() {
+            return Err(err("MANAGED_V2_BPT_PROFILE_MISMATCH"));
+        }
+        let scheduled = match (p.protocol.as_str(), p.adapter_version.as_str(), &m.schedule) {
+            (
+                crate::managed_v2_circuit_state::PROTOCOL,
+                crate::managed_v2_circuit_state::ADAPTER_VERSION,
+                Some(_),
+            ) => true,
+            (
+                crate::managed_v2_bpt_state::PROTOCOL,
+                crate::managed_v2_bpt_state::ADAPTER_VERSION,
+                Some(_),
+            ) => true,
+            (PROTOCOL, ADAPTER_VERSION, None) => false,
+            (
+                crate::managed_v2_schedule::PROTOCOL,
+                crate::managed_v2_schedule::ADAPTER_VERSION,
+                Some(_),
+            ) => true,
+            _ => return Err(err("MANAGED_V2_PROFILE_MISMATCH")),
+        };
         crate::validate_chain(&p.chain_key)?;
         validate_identity(&p.pool_id, &s.code_sha256)?;
         validate_identity(&s.vault, &s.vault_code_sha256)?;
@@ -265,7 +354,6 @@ impl Pool {
             || s.curve_meta.is_some()
             || s.curve_ng.is_some()
             || !p.chain_key.starts_with("evm:")
-            || p.adapter_version != ADAPTER_VERSION
             || p.token_behavior != "standard"
             || p.fee_denominator != 1_000_000_000_000_000_000
             || !(1_000_000_000_000..=950_000_000_000_000_000).contains(&p.fee_numerator)
@@ -330,7 +418,35 @@ impl Pool {
             };
             total += &s.weights[i].0;
         }
-        if total != BigUint::from(1_000_000_000_000_000_000u64) {
+        if let Some(circuit) = &m.circuit_breakers {
+            circuit.validate_pool(&s.assets, &s.weights)?;
+        }
+        if scheduled {
+            let raw = m
+                .schedule
+                .as_ref()
+                .expect("scheduled profile requires raw schedule");
+            let timestamp = m
+                .execution_context
+                .as_ref()
+                .map_or(m.timestamp, |c| c.timestamp);
+            let view = raw.at(timestamp)?;
+            if raw.tokens.len() != s.assets.len()
+                || raw
+                    .tokens
+                    .iter()
+                    .zip(&s.assets)
+                    .any(|(row, asset)| row.token != asset.token)
+                || s.weights != view.weights
+                || s.assets
+                    .iter()
+                    .zip(&view.scaling)
+                    .any(|(asset, scale)| &asset.scaling != scale)
+                || BigUint::from(p.fee_numerator) != view.swap_fee.0
+            {
+                return Err(err("MANAGED_V2_SCHEDULE_GETTER_MISMATCH"));
+            }
+        } else if total != BigUint::from(1_000_000_000_000_000_000u64) {
             return Err(err("MANAGED_V2_WEIGHT_SUM"));
         };
         Ok(())
@@ -419,6 +535,21 @@ impl BalancerManagedV2State {
         }
         self.validate()?;
         Ok(wire::BalancerManagedV2State {
+            circuit_breakers: self
+                .circuit_breakers
+                .as_ref()
+                .map(crate::managed_v2_circuit_state::ManagedV2CircuitState::to_proto)
+                .transpose()?,
+            bpt: self
+                .bpt
+                .as_ref()
+                .map(crate::managed_v2_bpt_state::ManagedV2BptState::to_proto)
+                .transpose()?,
+            schedule: self
+                .schedule
+                .as_ref()
+                .map(ManagedV2Schedule::to_proto)
+                .transpose()?,
             vault_bpt_actual_balance: Some(wire::Amount {
                 uint256_be: self.vault_bpt_actual_balance.to_be_bytes()?.to_vec(),
             }),
@@ -498,6 +629,15 @@ impl BalancerManagedV2State {
         let s = Self {
             vault_bpt_actual_balance: amount(w.vault_bpt_actual_balance)?,
             execution_context: None,
+            bpt: w
+                .bpt
+                .map(crate::managed_v2_bpt_state::ManagedV2BptState::from_proto)
+                .transpose()?,
+            circuit_breakers: w
+                .circuit_breakers
+                .map(crate::managed_v2_circuit_state::ManagedV2CircuitState::from_proto)
+                .transpose()?,
+            schedule: w.schedule.map(ManagedV2Schedule::from_proto).transpose()?,
             timestamp: w
                 .timestamp
                 .ok_or_else(|| err("MANAGED_V2_SCALAR_REQUIRED"))?,

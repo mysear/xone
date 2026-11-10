@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -12,8 +13,15 @@ import (
 	"xone/chain-parser-go/internal/reducer"
 )
 
+type writerAuthority interface {
+	Renew(context.Context, control.Lease, uint64) (control.Lease, error)
+	Check(context.Context, control.Lease, uint64) error
+	AllocateBaseline(context.Context, control.Lease, domain.SnapshotRef) (control.Lease, error)
+	Committed(context.Context, control.Lease, domain.SnapshotRef) error
+	Release(context.Context, control.Lease) error
+}
 type writerSession struct {
-	pg              *control.Postgres
+	pg              writerAuthority
 	lease           control.Lease
 	kafka           *journal.Kafka
 	store           *reducer.Store
@@ -136,7 +144,28 @@ func (w *writerSession) heartbeat(ctx context.Context) error {
 	return nil
 }
 func (w *writerSession) publish(ctx context.Context, unit journal.Unit) error {
-	if e := w.store.Prepare(unit); e != nil {
+	return w.publishOwner(ctx, unit, nil, nil)
+}
+func (w *writerSession) publishScope(ctx context.Context, unit journal.Unit, ledger []byte, job string, fence []byte, gate func() error) error {
+	return w.publishOwner(ctx, unit, func() error { return w.store.PrepareScope(unit, ledger, job, fence, gate) }, gate)
+}
+func (w *writerSession) publishScopeCAS(ctx context.Context, unit journal.Unit, ledger []byte, job string, fence []byte, expected string, gate func() error) error {
+	return w.publishOwner(ctx, unit, func() error { return w.store.PrepareScopeCAS(unit, ledger, job, fence, expected, gate) }, gate)
+}
+func (w *writerSession) publishScopeRecordsCAS(ctx context.Context, unit journal.Unit, ledger []byte, job string, fence []byte, expected string, records map[string]json.RawMessage, gate func() error) error {
+	return w.publishOwner(ctx, unit, func() error { return w.store.PrepareScopeRecordsCAS(unit, ledger, job, fence, expected, records, gate) }, gate)
+}
+func (w *writerSession) publishOwnerRecords(ctx context.Context, unit journal.Unit, records map[string]json.RawMessage, gate func() error) error {
+	return w.publishOwner(ctx, unit, func() error { return w.store.PrepareOwnerRecords(unit, records, gate) }, gate)
+}
+func (w *writerSession) publishOwner(ctx context.Context, unit journal.Unit, prepare func() error, gate func() error) error {
+	if e := w.heartbeat(ctx); e != nil {
+		return e
+	}
+	if prepare == nil {
+		prepare = func() error { return w.store.PrepareGuard(unit, gate) }
+	}
+	if e := prepare(); e != nil {
 		return e
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(w.cfg.Config.Journal.Kafka.TransactionTimeoutMS)*time.Millisecond)
@@ -151,15 +180,24 @@ func (w *writerSession) publish(ctx context.Context, unit journal.Unit) error {
 	if e = w.pg.Committed(ctx, w.lease, unit.Snapshot.Reference); e != nil {
 		return e
 	}
-	if e = w.store.ApplyPrepared(cursor); e != nil {
+	if e = w.store.ApplyPreparedScope(cursor, gate); e != nil {
 		return e
 	}
+	w.observeOwnerCommit(unit)
+	return nil
+}
+func (w *writerSession) observeOwnerCommit(unit journal.Unit) {
 	w.floor = unit.Snapshot.Reference
+	// PG.Committed has already accepted this projection and the matching
+	// prepared owner batch is applied. Preserve the observed lease deadline;
+	// local catalogue gates must not wait for a later periodic PG renewal.
+	w.lease.Generation = max(w.lease.Generation, w.floor.OnlineGeneration)
+	w.lease.CanonicalEpoch = max(w.lease.CanonicalEpoch, w.floor.CanonicalEpoch)
+	w.lease.JournalSeq = max(w.lease.JournalSeq, w.floor.JournalSeq)
 	w.reorgUnresolved = ""
 	if unit.Kind == "REORG_BEGIN" || unit.Kind == "ONLINE_SCOPE_REVOKED" {
 		w.reorgUnresolved = unit.Kind
 	}
-	return nil
 }
 func (w *writerSession) close() {
 	w.kafka.Close()
@@ -167,4 +205,43 @@ func (w *writerSession) close() {
 	defer cancel()
 	_ = w.pg.Release(ctx, w.lease)
 	w.store.Suspend()
+}
+
+// Each complete block read gets a fresh, bounded source window. Preserve the
+// configured commit reserve so a failed read can publish ONLINE_SCOPE_REVOKED
+// while the last admitted bank is still authoritative. A long batch renews
+// between reads; no goroutine may race updates to the writer lease.
+func readCompleteWithLease(ctx context.Context, reader stateBlockReader, w *writerSession, tag string) (domain.BlockRef, []domain.Pool, []domain.SwapFact, error) {
+	if w == nil {
+		return reader.ReadComplete(ctx, tag)
+	}
+	if e := w.heartbeat(ctx); e != nil {
+		return domain.BlockRef{}, nil, nil, e
+	}
+	deadline := w.renewed.Add(time.Duration(w.cfg.Config.Control.LeaseTTLMS-w.cfg.Config.Control.MinCommitMS) * time.Millisecond)
+	source, cancel := context.WithDeadline(ctx, deadline)
+	block, pools, swaps, e := reader.ReadComplete(source, tag)
+	cancel()
+	if e != nil {
+		return domain.BlockRef{}, nil, nil, e
+	}
+	if e = w.heartbeat(ctx); e != nil {
+		return domain.BlockRef{}, nil, nil, e
+	}
+	return block, pools, swaps, nil
+}
+
+// A failed complete read may have exhausted its source window. The fork
+// diagnostic must use that same window, leaving the reserve for revocation.
+// Reanchoring can confirm the fork later under a fresh writer admission.
+func readHeaderWithLease(ctx context.Context, reader interface {
+	Header(context.Context, string) (domain.BlockRef, error)
+}, w *writerSession, tag string) (domain.BlockRef, error) {
+	if w == nil {
+		return reader.Header(ctx, tag)
+	}
+	deadline := w.renewed.Add(time.Duration(w.cfg.Config.Control.LeaseTTLMS-w.cfg.Config.Control.MinCommitMS) * time.Millisecond)
+	probe, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
+	return reader.Header(probe, tag)
 }

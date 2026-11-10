@@ -107,3 +107,68 @@ impl Postgres {
         Ok(())
     }
 }
+
+pub struct OwnerFence<'a> {
+    pub chain_key: &'a str,
+    pub owner_service: &'a str,
+    pub assignment: u64,
+    pub generation: u64,
+    pub canonical_epoch: u64,
+    pub journal_seq: Option<u64>,
+}
+impl Postgres {
+    /// Read the real registry and lease namespace, never only a cached deadline.
+    pub async fn check_scope_authority(
+        &self,
+        l: &Lease,
+        expected: OwnerFence<'_>,
+        remaining: u64,
+    ) -> Result<()> {
+        if l.chain != expected.chain_key
+            || l.generation != expected.generation
+            || l.canonical_epoch != expected.canonical_epoch
+        {
+            return Err(err("CONTROL_SCOPE_FENCE_MISMATCH"));
+        }
+        let row=self.client.query_one("SELECT EXISTS(SELECT 1 FROM xone.chain_lease l JOIN xone.chain_registry r ON r.chain_key=l.chain_key WHERE l.chain_key=$1 AND l.holder=$2 AND l.writer_epoch=$3 AND l.online_generation=$4 AND l.canonical_epoch=$5 AND r.owner_service=$6 AND r.assignment_version=$7 AND l.expires_at>clock_timestamp()+$8::bigint*interval '1 millisecond' AND ($9::bigint IS NULL OR l.journal_seq=$9))",&[&l.chain,&l.holder,&i(l.writer_epoch)?,&i(expected.generation)?,&i(expected.canonical_epoch)?,&expected.owner_service,&i(expected.assignment)?,&i(remaining)?,&expected.journal_seq.map(i).transpose()?]).await.map_err(|_|err("CONTROL_UNAVAILABLE"))?;
+        if !row.get::<_, bool>(0) {
+            return Err(err("CONTROL_SCOPE_FENCE_CHANGED"));
+        }
+        Ok(())
+    }
+    pub async fn check_owner_fence(
+        &self,
+        l: &Lease,
+        expected: &SnapshotRef,
+        remaining: u64,
+    ) -> Result<()> {
+        self.check_scope_authority(
+            l,
+            OwnerFence {
+                chain_key: &expected.block.chain_key,
+                owner_service: &expected.owner_service,
+                assignment: expected.owner_assignment_version,
+                generation: expected.online_generation,
+                canonical_epoch: expected.canonical_epoch,
+                journal_seq: None,
+            },
+            remaining,
+        )
+        .await
+    }
+    pub async fn check_committed_reference(&self, l: &Lease, r: &SnapshotRef) -> Result<()> {
+        self.check_scope_authority(
+            l,
+            OwnerFence {
+                chain_key: &r.block.chain_key,
+                owner_service: &r.owner_service,
+                assignment: r.owner_assignment_version,
+                generation: r.online_generation,
+                canonical_epoch: r.canonical_epoch,
+                journal_seq: Some(r.journal_seq),
+            },
+            0,
+        )
+        .await
+    }
+}

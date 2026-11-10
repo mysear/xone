@@ -1,4 +1,7 @@
+mod exact_out;
+pub use exact_out::ExactOutRequest;
 mod local_simulation;
+mod recovery_metrics;
 use axum::{
     body::Bytes,
     extract::{DefaultBodyLimit, Path, State},
@@ -69,6 +72,30 @@ impl QuoteRequest {
         Ok(())
     }
 }
+// Reader::poll returns None both for an idle consumer and for a consumed
+// BEGIN/CHUNK whose atomic unit is still incomplete. Preserve that distinction
+// while draining a bounded number of frames; only complete units carry an
+// applied checkpoint into Replica.
+struct KafkaPollStep {
+    unit: Option<xone_kafka_transport::Unit>,
+    cursor: Cursor,
+    progressed: bool,
+}
+fn drain_kafka_units(
+    max_frames: usize,
+    mut poll: impl FnMut() -> Result<KafkaPollStep>,
+) -> Result<Vec<(xone_kafka_transport::Unit, Cursor)>> {
+    let mut complete = Vec::new();
+    for _ in 0..max_frames {
+        let step = poll()?;
+        if let Some(unit) = step.unit {
+            complete.push((unit, step.cursor));
+        } else if !step.progressed {
+            break;
+        }
+    }
+    Ok(complete)
+}
 #[derive(Clone)]
 struct Cached {
     view: Arc<QuoteView>,
@@ -80,6 +107,7 @@ struct Cached {
 }
 #[derive(Default)]
 pub struct Metrics {
+    pub(crate) recovery: recovery_metrics::RecoveryTimings,
     pub requests: AtomicU64,
     pub succeeded: AtomicU64,
     pub failed: AtomicU64,
@@ -92,12 +120,14 @@ pub struct Metrics {
 type AppliedCursors = Arc<Mutex<BTreeMap<String, (xone_domain::SnapshotRef, Cursor)>>>;
 #[derive(Clone)]
 pub struct Api {
+    constructed_at: Instant,
     readers: Arc<Mutex<BTreeMap<String, Reader>>>,
     applied_cursors: AppliedCursors,
     pub config: Arc<ConfigSnapshot>,
     pub replica: Arc<Replica>,
     pub logger: Logger,
     cache: Arc<Mutex<BTreeMap<String, Cached>>>,
+    exact_out_cache: Arc<Mutex<BTreeMap<String, exact_out::ExactOutCached>>>,
     permits: Arc<Semaphore>,
     local_simulation: Option<Arc<local_simulation::LocalSimulation>>,
     flights: Arc<Vec<AsyncMutex<()>>>,
@@ -117,12 +147,14 @@ impl Api {
         let concurrency = config.config.api.quote_concurrency;
         let logger = Logger::new(&config);
         Ok(Self {
+            constructed_at: Instant::now(),
             readers: Arc::new(Mutex::new(BTreeMap::new())),
             applied_cursors: Arc::new(Mutex::new(BTreeMap::new())),
             config: Arc::new(config),
             replica: Arc::new(Replica::new(owners)),
             logger,
             cache: Arc::new(Mutex::new(BTreeMap::new())),
+            exact_out_cache: Arc::new(Mutex::new(BTreeMap::new())),
             permits: Arc::new(Semaphore::new(concurrency)),
             local_simulation,
             flights: Arc::new((0..concurrency).map(|_| AsyncMutex::new(())).collect()),
@@ -167,6 +199,7 @@ impl Api {
         if age > self.config.config.routing.max_state_age_ms {
             return Err(err("STATE_TOO_OLD"));
         }
+        self.observe_qualified_view(v);
         Ok(())
     }
     pub fn handler(&self) -> Router {
@@ -176,6 +209,7 @@ impl Api {
             .route("/health/ready", get(ready))
             .route("/metrics", get(metrics))
             .route("/v1/quote", post(quote))
+            .route("/v1/quote-exact-out", post(exact_out::quote))
             .route("/v1/quotes/{id}/build", post(build_transaction))
             .route("/v1/quotes/{id}/simulate", post(simulate_transaction))
             .route("/internal/quotes/{id}/evidence", get(evidence))
@@ -207,6 +241,7 @@ impl Api {
             cache.retain(|_, c| c.expires > now_ms());
             if let Some(c) = cache.values().find(|c| c.request_hash == request_hash) {
                 self.check_view(&c.view)?;
+                self.observe_successful_quote(&c.view);
                 return Ok(c.response.clone());
             }
         }
@@ -234,7 +269,11 @@ impl Api {
             if max_hops == 0 || max_hops > routing.max_hops {
                 return Err(err("INVALID_HOP_LIMIT"));
             }
-            let candidates = xone_routing::search_bounded(
+            let funds = xone_routing::Funds {
+                sender: &req.caller,
+                recipient: &req.recipient,
+            };
+            let candidates = xone_routing::search_bounded_with_funds(
                 &worker_view.graph,
                 &worker_view.pools,
                 &req.sell_token,
@@ -250,19 +289,28 @@ impl Api {
                     max_candidates: routing.max_candidates,
                     max_expansions: routing.max_expansions,
                 },
-                Some(xone_routing::SearchControl {
-                    cancel: &cancelled,
-                    deadline,
-                }),
+                xone_routing::SearchExecution {
+                    control: Some(xone_routing::SearchControl {
+                        cancel: &cancelled,
+                        deadline,
+                    }),
+                    funds: Some(funds),
+                },
             )?;
-            let allocation = xone_optimizer::optimize_bounded(
+            let optimized = xone_optimizer::optimize_with_limits(
                 &worker_view.pools,
                 &candidates.candidates,
                 &req.sell_amount,
-                routing.split_parts,
-                routing.max_splits,
                 &routing.route_activation_cost,
-                Some((&cancelled, deadline)),
+                xone_optimizer::OptimizationLimits {
+                    parts: routing.split_parts,
+                    max_splits: routing.max_splits,
+                    max_evaluations: routing.max_expansions,
+                },
+                xone_optimizer::OptimizationExecution {
+                    budget: Some((&cancelled, deadline)),
+                    funds: Some(funds),
+                },
             )?;
             let expires = now_ms()
                 .checked_add(routing.quote_ttl_ms)
@@ -276,25 +324,32 @@ impl Api {
                 slippage_bps: req.slippage_bps,
                 deadline_ms: expires,
             };
-            let plan =
-                xone_execution_plan::build(&context, &allocation, &worker_view.reference, &policy)?;
+            let plan = xone_execution_plan::build(
+                &context,
+                &optimized.allocation,
+                &worker_view.reference,
+                &policy,
+            )?;
             Ok((
                 plan,
-                candidates.budget_exhausted,
+                candidates.budget_exhausted || optimized.budget_exhausted,
                 candidates.expansions,
                 expires,
+                optimized.evaluations,
+                optimized.grid_exhaustive,
             ))
         });
         let remaining = deadline.saturating_duration_since(Instant::now());
-        let (plan, exhausted, expansions, expires) = tokio::time::timeout(remaining, task)
-            .await
-            .map_err(|_| err("BUDGET_EXHAUSTED"))?
-            .map_err(|_| err("COMPUTE_TASK_FAILED"))??;
+        let (plan, exhausted, expansions, expires, optimizer_evaluations, grid_exhaustive) =
+            tokio::time::timeout(remaining, task)
+                .await
+                .map_err(|_| err("BUDGET_EXHAUSTED"))?
+                .map_err(|_| err("COMPUTE_TASK_FAILED"))??;
         self.check_view(&view)?;
         let quote_id = hash(
             &json!({"request_hash":request_hash,"plan_hash":plan.plan_hash,"expires":expires}),
         )?;
-        let response = json!({"quoteId":quote_id,"requestHash":request_hash,"chainKey":request.chain_key,"snapshotRef":view.reference,"ownerService":view.reference.owner_service,"onlineGeneration":view.reference.online_generation,"scopeHash":view.reference.scope_hash,"quoteViewId":view.view_id,"graphVersion":view.graph_version,"engineVersion":"xone-router/0.1","economicPolicyHash":self.config.economic_hash,"configRelease":self.config.release,"sellAmount":request.sell_amount,"consumedIn":plan.allocation.sell_amount,"refund":plan.allocation.refund,"grossBuyAmount":plan.allocation.gross_buy_amount,"minBuyAmount":plan.min_buy_amount,"netBuyAmountEstimate":Value::Null,"costs":{"unavailableReason":"CHAIN_FEE_MODEL_NOT_IMPLEMENTED","proposalActivationCostBuyToken":self.config.config.routing.route_activation_cost},"routes":plan.allocation.routes,"planHash":plan.plan_hash,"verification":{"level":"INDICATIVE","success":false,"reason":"INDEPENDENT_SIMULATION_UNAVAILABLE"},"validity":{"expiresAtMs":expires,"canonicalEpoch":view.reference.canonical_epoch},"quality":{"budgetExhausted":exhausted,"candidateScope":view.pools.iter().filter(|p|!view.graph.excluded_pools.contains_key(&p.pool_id)).map(|p|p.pool_id.clone()).collect::<Vec<_>>(),"excludedPools":view.graph.excluded_pools,"source":view.source,"historyIndependent":true,"optimalityClaim":"HEURISTIC_WITHIN_SCOPE","expansions":expansions}});
+        let response = json!({"quoteId":quote_id,"requestHash":request_hash,"chainKey":request.chain_key,"snapshotRef":view.reference,"ownerService":view.reference.owner_service,"onlineGeneration":view.reference.online_generation,"scopeHash":view.reference.scope_hash,"quoteViewId":view.view_id,"graphVersion":view.graph_version,"engineVersion":"xone-router/0.1","economicPolicyHash":self.config.economic_hash,"configRelease":self.config.release,"sellAmount":request.sell_amount,"consumedIn":plan.allocation.sell_amount,"refund":plan.allocation.refund,"grossBuyAmount":plan.allocation.gross_buy_amount,"minBuyAmount":plan.min_buy_amount,"netBuyAmountEstimate":Value::Null,"costs":{"unavailableReason":"CHAIN_FEE_MODEL_NOT_IMPLEMENTED","proposalActivationCostBuyToken":self.config.config.routing.route_activation_cost},"routes":plan.allocation.routes,"planHash":plan.plan_hash,"verification":{"level":"INDICATIVE","success":false,"reason":"INDEPENDENT_SIMULATION_UNAVAILABLE"},"validity":{"expiresAtMs":expires,"canonicalEpoch":view.reference.canonical_epoch},"quality":{"budgetExhausted":exhausted,"candidateScope":view.pools.iter().filter(|p|!view.graph.excluded_pools.contains_key(&p.pool_id)).map(|p|p.pool_id.clone()).collect::<Vec<_>>(),"excludedPools":view.graph.excluded_pools,"source":view.source,"historyIndependent":true,"optimalityClaim":"HEURISTIC_WITHIN_SCOPE","allocationSearch":{"evaluations":optimizer_evaluations,"exhaustiveWithinGrid":grid_exhaustive,"gridParts":self.config.config.routing.split_parts,"maxSplits":self.config.config.routing.max_splits},"expansions":expansions}});
         let mut cache = self.cache.lock().map_err(|_| err("CACHE_LOCK"))?;
         let capacity = (self.config.config.api.requests_per_minute as usize).clamp(16, 10000);
         if cache.len() >= capacity {
@@ -315,11 +370,13 @@ impl Api {
         );
         drop(cache);
         self.logger.event("info","quote_completed",json!({"quote_id":quote_id,"chain_key":request.chain_key,"quote_view_id":view.view_id,"graph_version":view.graph_version,"canonical_epoch":view.reference.canonical_epoch,"online_generation":view.reference.online_generation,"economic_policy_hash":self.config.economic_hash,"verification":"INDICATIVE"}));
+        self.observe_successful_quote(&view);
         Ok(response)
     }
     pub async fn sync_sources(&self) {
         if self.config.config.journal.transport == "kafka" {
             self.sync_kafka().await;
+            self.observe_ready_views();
             return;
         }
 
@@ -344,6 +401,7 @@ impl Api {
                 self.replica.suspend(&chain.key);
             }
         }
+        self.observe_ready_views();
     }
     async fn sync_kafka(&self) {
         for chain in &self.config.config.chains {
@@ -358,13 +416,16 @@ impl Api {
                         return Ok(None);
                     };
                     reader.check_lag(timeout)?;
-                    let mut units = Vec::new();
-                    for _ in 0..max {
-                        let Some(u) = reader.poll(Duration::ZERO)? else {
-                            break;
-                        };
-                        units.push((u, reader.cursor()));
-                    }
+                    let units = drain_kafka_units(max, || {
+                        let before = reader.cursor();
+                        let unit = reader.poll(Duration::ZERO)?;
+                        let cursor = reader.cursor();
+                        Ok(KafkaPollStep {
+                            unit,
+                            progressed: cursor != before,
+                            cursor,
+                        })
+                    })?;
                     Ok(Some(units))
                 },
             )
@@ -691,6 +752,9 @@ async fn build_transaction(
 ) -> std::result::Result<Json<Value>, HttpError> {
     api.authorize(&headers).map_err(failure)?;
     api.rate_limit().map_err(failure)?;
+    if api.exact_out_execution(&id).map_err(failure)? {
+        return Err(failure(err("EXECUTION_ADAPTER_UNSUPPORTED")));
+    }
     let cached = {
         let cache = api.cache.lock().map_err(|_| failure(err("CACHE_LOCK")))?;
         cache
@@ -750,6 +814,9 @@ async fn simulate_transaction(
         }
         serde_json::from_value::<SimulationRequest>(value)
             .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?;
+    }
+    if api.exact_out_execution(&id).map_err(failure)? {
+        return Err(failure(err("INDEPENDENT_SIMULATION_UNAVAILABLE")));
     }
     let backend = api
         .local_simulation
@@ -833,13 +900,15 @@ async fn evidence(
     Path(id): Path<String>,
 ) -> std::result::Result<Json<Value>, HttpError> {
     api.authorize(&headers).map_err(failure)?;
-    let cache = api.cache.lock().map_err(|_| failure(err("CACHE_LOCK")))?;
-    let cached = cache
-        .get(&id)
-        .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?;
-    Ok(Json(
-        json!({"quote":cached.response,"execution_plan":cached.plan,"expired":cached.expires<=now_ms(),"snapshot_valid":cached.view.is_valid(),"simulation_evidence":cached.simulation_evidence}),
-    ))
+    {
+        let cache = api.cache.lock().map_err(|_| failure(err("CACHE_LOCK")))?;
+        if let Some(cached) = cache.get(&id) {
+            return Ok(Json(
+                json!({"quote":cached.response,"execution_plan":cached.plan,"expired":cached.expires<=now_ms(),"snapshot_valid":cached.view.is_valid(),"simulation_evidence":cached.simulation_evidence}),
+            ));
+        }
+    }
+    api.exact_out_evidence(&id).map(Json).map_err(failure)
 }
 async fn chain_status(
     State(api): State<Api>,
@@ -850,7 +919,7 @@ async fn chain_status(
     let view = api.replica.view(&chain).map_err(failure)?;
     let ready = api.check_view(&view).is_ok();
     Ok(Json(
-        json!({"chain_key":chain,"ready":ready,"readiness_scope":"LOCAL_QUOTE_SCOPE","snapshot_ref":view.reference,"quote_view_id":view.view_id,"graph_version":view.graph_version,"scope_pool_count":view.pools.len()}),
+        json!({"chain_key":chain,"ready":ready,"readiness_scope":"LOCAL_QUOTE_SCOPE","snapshot_ref":view.reference,"quote_view_id":view.view_id,"graph_version":view.graph_version,"scope_pool_count":view.pools.len(),"recovery":api.recovery_status(&chain)}),
     ))
 }
 async fn config(
@@ -878,8 +947,9 @@ async fn ready(State(api): State<Api>) -> impl IntoResponse {
     )
 }
 async fn metrics(State(api): State<Api>) -> String {
+    api.observe_ready_views();
     let simulation = format!("xone_simulation_started_total {}\nxone_simulation_success_total {}\nxone_simulation_failed_total {}\nxone_simulation_busy_total {}\n", api.metrics.simulation_started.load(Ordering::Relaxed),api.metrics.simulation_success.load(Ordering::Relaxed),api.metrics.simulation_failed.load(Ordering::Relaxed),api.metrics.simulation_busy.load(Ordering::Relaxed));
-    simulation + &format!("xone_quote_requests_total {}\nxone_quote_success_total {}\nxone_quote_failed_total {}\nxone_quote_rate_limited_total {}\nxone_log_dropped_total {}\n",api.metrics.requests.load(Ordering::Relaxed),api.metrics.succeeded.load(Ordering::Relaxed),api.metrics.failed.load(Ordering::Relaxed),api.metrics.rate_limited.load(Ordering::Relaxed),api.logger.counters.dropped.load(Ordering::Relaxed))
+    api.recovery_prometheus() + &simulation + &format!("xone_quote_requests_total {}\nxone_quote_success_total {}\nxone_quote_failed_total {}\nxone_quote_rate_limited_total {}\nxone_log_dropped_total {}\n",api.metrics.requests.load(Ordering::Relaxed),api.metrics.succeeded.load(Ordering::Relaxed),api.metrics.failed.load(Ordering::Relaxed),api.metrics.rate_limited.load(Ordering::Relaxed),api.logger.counters.dropped.load(Ordering::Relaxed))
 }
 pub async fn run(config: ConfigSnapshot) -> Result<()> {
     let api = Api::new(config)?;
@@ -922,6 +992,85 @@ mod recovery_tests {
     use super::*;
     use xone_domain::Snapshot;
     use xone_kafka_transport::{KafkaProducer, Unit};
+
+    #[test]
+    fn buffered_kafka_frames_drain_through_revocation_without_publishing_partial_units() {
+        use std::collections::VecDeque;
+        use xone_kafka_transport::{encode, Assembler};
+        let mut snapshot: Snapshot =
+            serde_json::from_str(include_str!("../../../test/fixtures/evm/baseline.json")).unwrap();
+        let mut frames = VecDeque::new();
+        for kind in ["BLOCK_COMMIT", "BLOCK_COMMIT", "ONLINE_SCOPE_REVOKED"] {
+            snapshot.reference.journal_seq += 1;
+            frames.extend(
+                encode(
+                    &Unit {
+                        kind: kind.into(),
+                        snapshot: snapshot.clone(),
+                        normalized_facts: None,
+                    },
+                    1024,
+                )
+                .unwrap(),
+            );
+        }
+        let total = frames.len();
+        let mut consumed = 0;
+        let mut assembler = Assembler::new(8 << 20);
+        let units = drain_kafka_units(total + 1, || {
+            let frame = frames.pop_front();
+            let progressed = frame.is_some();
+            let unit = if let Some(frame) = frame {
+                consumed += 1;
+                assembler.push(frame)?
+            } else {
+                None
+            };
+            Ok(KafkaPollStep {
+                unit,
+                cursor: Cursor {
+                    topic: "test.frames".into(),
+                    partition: 0,
+                    offset: consumed as i64,
+                },
+                progressed,
+            })
+        })
+        .unwrap();
+        assert_eq!(units.len(), 3, "BEGIN/CHUNK are progress, not queue idle");
+        assert_eq!(units.last().unwrap().0.kind, "ONLINE_SCOPE_REVOKED");
+        assert_eq!(units.last().unwrap().1.offset, total as i64);
+        let mut first = encode(
+            &Unit {
+                kind: "ONLINE_SCOPE_REVOKED".into(),
+                snapshot,
+                normalized_facts: None,
+            },
+            1024,
+        )
+        .unwrap()
+        .into_iter();
+        let mut assembler = Assembler::new(8 << 20);
+        let mut offset = 0;
+        let partial = drain_kafka_units(1, || {
+            offset += 1;
+            Ok(KafkaPollStep {
+                unit: assembler.push(first.next().unwrap())?,
+                cursor: Cursor {
+                    topic: "test.frames".into(),
+                    partition: 0,
+                    offset,
+                },
+                progressed: true,
+            })
+        })
+        .unwrap();
+        assert!(
+            partial.is_empty(),
+            "incomplete unit must not become an applied cursor"
+        );
+        assert!(assembler.in_progress());
+    }
 
     #[tokio::test]
     async fn kafka_poll_failure_between_barrier_and_commit_resumes_exact_applied_cursor() {

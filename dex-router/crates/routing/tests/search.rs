@@ -171,3 +171,33 @@ fn mixed_dex_version_path_keeps_each_adapter_and_fee() {
     corrupt[0].protocol = "sushiswap-v2".into();
     assert!(evaluate_path(&mut state, &corrupt, &"10000".parse().unwrap()).is_err());
 }
+
+#[test]
+fn every_unsearchable_source_row_has_an_explicit_candidate_exclusion() {
+    let s: xone_domain::Snapshot =
+        serde_json::from_str(include_str!("../../../test/fixtures/evm/baseline.json")).unwrap();
+    let mut pools = s.pools.clone();
+    let mut unknown = pools[0].clone();
+    unknown.pool_id = "unknown-math".into();
+    unknown.protocol = "unknown-math".into();
+    unknown.adapter_version = "unknown/1".into();
+    let mut token = pools[0].clone();
+    token.pool_id = "unknown-token".into();
+    token.token_behavior = "simulation-only".into();
+    pools.extend([unknown, token]);
+    let graph = Graph::build(&pools).unwrap();
+    assert_eq!(
+        graph.excluded_pools["unknown-math"],
+        "PROTOCOL_MATH_UNSUPPORTED"
+    );
+    assert_eq!(
+        graph.excluded_pools["unknown-token"],
+        "TOKEN_BEHAVIOR_UNSUPPORTED"
+    );
+    assert!(graph
+        .adjacency
+        .values()
+        .flatten()
+        .all(|e| e.pool_id != "unknown-math" && e.pool_id != "unknown-token"));
+    assert_eq!(pools.len(), 6, "canonical source rows were removed");
+}

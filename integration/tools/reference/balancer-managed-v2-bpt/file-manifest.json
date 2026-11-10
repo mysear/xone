@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "files": [
+    {
+      "path": "integration/tools/acceptance/tests/test_managed_v2_bpt_reference.py",
+      "sha256": "4096debc9fbfc27f07d4253528526e735125ce158cf63b73616e94fcded9d48e"
+    },
+    {
+      "path": "integration/tools/ci/managed-v2-bpt-golden.cjs",
+      "sha256": "7b15b6c1862599a41471efe8d468043862d89cfd6b0d1c66ac2014f91ed4bcf3"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-bpt/checker.cjs",
+      "sha256": "e1894acd05874ba6e953fe5246c8c2147524b8eebfa06a80d79da34d90c65ffe"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-bpt/generate.cjs",
+      "sha256": "442ca3e76a1a37a64720336c72469a77e8b1c08bca8d71ee5a98c39dc3f9e37e"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-bpt/inputs.cjs",
+      "sha256": "4c1d1ae0ba6c87e55cba094f88e7ee572368214d04ac2c42a415112e2ed9076a"
+    },
+    {
+      "path": "integration/tools/reference/balancer-managed-v2-bpt/runtime.cjs",
+      "sha256": "267782a53e7037b3126f91e69d3042c8b4e676e92e49cc5b57cf13d19f7f1c4b"
+    }
+  ]
+}

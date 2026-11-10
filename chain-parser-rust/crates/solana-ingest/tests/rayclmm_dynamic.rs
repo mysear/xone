@@ -372,7 +372,7 @@ fn dynamic_keeps_code_token_clock_epoch_strict_open_reward_and_order_guards() {
         assert!(f.decode().is_err(), "reward {offset}");
     }
     let mut f = dynamic_fixture(256);
-    f.array(1)[44 + 116] = 1;
+    f.array(1)[44 + 124] = 1;
     assert!(f.decode().is_err(), "limit order");
     for (account_index, offset) in [(1, 72), (1, 129), (4, 45)] {
         let mut f = dynamic_fixture(256);

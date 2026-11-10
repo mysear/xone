@@ -7,6 +7,8 @@ use std::{collections::BTreeSet, fmt, str::FromStr};
 /// Validate dependencies that can be mutated across physical pool identities.
 pub fn validate_pool_dependencies<'a>(pools: impl IntoIterator<Item = &'a Pool>) -> Result<()> {
     let rows = pools.into_iter().collect::<Vec<_>>();
+    pancake_dependencies::validate(rows.iter().copied())?;
+    slipstream_dependencies::validate(rows.iter().copied())?;
     managed_v2_dependencies::validate(rows.iter().copied())?;
     curve_meta_state::validate_meta_dependencies(rows.iter().copied())?;
     curve_crypto_state::validate_crypto_dependencies(rows.iter().copied())?;
@@ -18,15 +20,42 @@ pub mod curve_meta_state;
 pub mod curve_ng_state;
 pub mod facts;
 pub mod infinity_bin;
+pub mod lfj;
 pub mod managed_fee_state;
+pub mod pancake_bsc_lm;
+mod pancake_dependencies;
+pub mod pancake_lm;
+pub mod slipstream_context;
+mod slipstream_dependencies;
 /// Known unavailable pool IDs for candidate selection; the source bank stays complete.
 pub fn unavailable_pool_reasons<'a>(
     pools: impl IntoIterator<Item = &'a Pool>,
 ) -> Result<std::collections::BTreeMap<String, String>> {
-    managed_v2_dependencies::blocked_pools(pools)
+    let pools = pools.into_iter().collect::<Vec<_>>();
+    let mut blocked = managed_v2_dependencies::blocked_pools(pools.iter().copied())?;
+    for pool in pools {
+        let reason =
+            if protocols::protocol(&pool.protocol).is_none() && pool.protocol != "fixture-cpmm" {
+                Some("PROTOCOL_MATH_UNSUPPORTED")
+            } else if pool.token_behavior != "standard" {
+                Some("TOKEN_BEHAVIOR_UNSUPPORTED")
+            } else {
+                None
+            };
+        if let Some(reason) = reason {
+            // Preserve a stronger shared-physical-state exclusion when present.
+            blocked
+                .entry(pool.pool_id.clone())
+                .or_insert_with(|| reason.into());
+        }
+    }
+    Ok(blocked)
 }
 
+pub mod managed_v2_bpt_state;
+pub mod managed_v2_circuit_state;
 pub mod managed_v2_dependencies;
+pub mod managed_v2_schedule;
 pub mod managed_v2_state;
 pub mod multi_asset;
 pub mod orca;
@@ -174,6 +203,14 @@ pub struct SnapshotRef {
 #[serde(deny_unknown_fields)]
 pub struct Pool {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pancake_lm: Option<pancake_lm::PancakeLmState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pancake_bsc_lm: Option<pancake_bsc_lm::PancakeBscLmState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slipstream_context: Option<slipstream_context::SlipstreamState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lfj: Option<lfj::LfjState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub infinity_bin: Option<infinity_bin::InfinityBinState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub singleton_advanced: Option<singleton::SingletonAdvancedState>,
@@ -220,6 +257,10 @@ impl Pool {
             self.singleton_cl.is_some(),
             self.raydium_cpmm.is_some(),
             self.infinity_bin.is_some(),
+            self.lfj.is_some(),
+            self.pancake_lm.is_some(),
+            self.pancake_bsc_lm.is_some(),
+            self.slipstream_context.is_some(),
             self.orca_whirlpool.is_some(),
             self.raydium_clmm.is_some(),
         ]
@@ -231,6 +272,46 @@ impl Pool {
             return Err(err("POOL_MODEL_AMBIGUOUS"));
         }
 
+        if self.protocol == pancake_bsc_lm::PROFILE {
+            return self
+                .pancake_bsc_lm
+                .as_ref()
+                .ok_or_else(|| err("BSC4_STATE_REQUIRED"))?
+                .validate_pool(self);
+        }
+        if self.pancake_bsc_lm.is_some() {
+            return Err(err("BSC4_PROTOCOL_MISMATCH"));
+        }
+        if self.protocol == pancake_lm::PROFILE {
+            return self
+                .pancake_lm
+                .as_ref()
+                .ok_or_else(|| err("PANCAKE_LM_CONTEXT_REQUIRED"))?
+                .validate_pool(self);
+        }
+        if self.pancake_lm.is_some() {
+            return Err(err("PANCAKE_LM_PROTOCOL_MISMATCH"));
+        }
+        if self.protocol == slipstream_context::PROFILE {
+            return self
+                .slipstream_context
+                .as_ref()
+                .ok_or_else(|| err("SLIPSTREAM_CONTEXT_REQUIRED"))?
+                .validate_pool(self);
+        }
+        if self.slipstream_context.is_some() {
+            return Err(err("SLIPSTREAM_CONTEXT_PROTOCOL_MISMATCH"));
+        }
+        if self.protocol == lfj::PROFILE {
+            return self
+                .lfj
+                .as_ref()
+                .ok_or_else(|| err("LFJ_STATE_REQUIRED"))?
+                .validate(self);
+        }
+        if self.lfj.is_some() {
+            return Err(err("LFJ_PROTOCOL_MISMATCH"));
+        }
         if protocols::protocol(&self.protocol).is_some_and(|p| p.family == "singleton-advanced") {
             return self.validate_singleton_advanced();
         }
@@ -479,6 +560,45 @@ impl Snapshot {
                     || v.bank_unix_timestamp.checked_mul(1000) != Some(r.block.timestamp_ms)
                 {
                     return Err(err("V2_SWAP_SNAPSHOT_BANK"));
+                }
+            }
+            if let Some(s) = &p.pancake_bsc_lm {
+                if s.ledger.derived
+                    || s.ledger.block_hash != r.block.hash
+                    || s.ledger.block_number != r.block.number_or_slot
+                    || s.ledger.timestamp.checked_mul(1000) != Some(r.block.timestamp_ms)
+                {
+                    return Err(err("BSC4_CANONICAL_BANK"));
+                }
+            }
+            if let Some(s) = &p.pancake_lm {
+                if s.derived {
+                    return Err(err("PANCAKE_LM_DERIVED_STATE_NOT_CANONICAL"));
+                }
+                if s.block_hash != r.block.hash
+                    || s.block_number != r.block.number_or_slot
+                    || s.timestamp.checked_mul(1000) != Some(r.block.timestamp_ms)
+                {
+                    return Err(err("PANCAKE_LM_SNAPSHOT_BANK"));
+                }
+            }
+            if let Some(s) = &p.slipstream_context {
+                if s.derived {
+                    return Err(err("SLIPSTREAM_DERIVED_STATE_NOT_CANONICAL"));
+                }
+                if s.block_hash != r.block.hash
+                    || s.block_number != r.block.number_or_slot
+                    || s.timestamp.checked_mul(1000) != Some(r.block.timestamp_ms)
+                {
+                    return Err(err("SLIPSTREAM_CONTEXT_SNAPSHOT_BANK"));
+                }
+            }
+            if let Some(l) = &p.lfj {
+                if l.block_hash != r.block.hash
+                    || l.block_number != r.block.number_or_slot
+                    || l.timestamp.checked_mul(1000) != Some(r.block.timestamp_ms)
+                {
+                    return Err(err("LFJ_SNAPSHOT_BANK"));
                 }
             }
             if let Some(b) = &p.infinity_bin {

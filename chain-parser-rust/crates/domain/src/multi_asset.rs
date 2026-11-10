@@ -61,7 +61,11 @@ impl Pool {
         {
             return Err(err("MULTI_ASSET_STATE_REQUIRED"));
         }
-        if self.protocol == crate::managed_v2_state::PROTOCOL {
+        if self.protocol == crate::managed_v2_state::PROTOCOL
+            || self.protocol == crate::managed_v2_schedule::PROTOCOL
+            || self.protocol == crate::managed_v2_bpt_state::PROTOCOL
+            || self.protocol == crate::managed_v2_circuit_state::PROTOCOL
+        {
             return self.validate_managed_v2();
         };
         if s.managed_v2.is_some() {

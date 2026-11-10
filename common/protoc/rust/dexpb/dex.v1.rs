@@ -546,6 +546,14 @@ pub struct PoolState {
     pub singleton_advanced: ::core::option::Option<SingletonAdvancedState>,
     #[prost(message, optional, tag = "30")]
     pub infinity_bin: ::core::option::Option<InfinityBinState>,
+    #[prost(message, optional, tag = "31")]
+    pub lfj: ::core::option::Option<LfjState>,
+    #[prost(message, optional, tag = "32")]
+    pub slipstream_context: ::core::option::Option<SlipstreamState>,
+    #[prost(message, optional, tag = "33")]
+    pub pancake_lm: ::core::option::Option<PancakeLmState>,
+    #[prost(message, optional, tag = "34")]
+    pub pancake_bsc_lm: ::core::option::Option<PancakeBscLmState>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CanonicalRecord {
@@ -1059,6 +1067,22 @@ pub struct InfinityBinState {
     #[prost(message, optional, tag = "29")]
     pub detached_active: ::core::option::Option<InfinityBinEntry>,
 }
+/// Packed words for the explicit scheduled profile. Source observations are
+/// checked against the original getters; computed weights are never normalized.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ManagedV2ScheduledToken {
+    #[prost(string, tag = "1")]
+    pub token: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub state_word: ::core::option::Option<Amount>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ManagedV2Schedule {
+    #[prost(message, optional, tag = "1")]
+    pub pool_state_word: ::core::option::Option<Amount>,
+    #[prost(message, repeated, tag = "2")]
+    pub tokens: ::prost::alloc::vec::Vec<ManagedV2ScheduledToken>,
+}
 /// Published 20230411 Managed V2. Scalars retain presence including Known(0).
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ManagedV2Dependency {
@@ -1087,6 +1111,51 @@ pub struct ManagedV2TokenInfo {
     pub vault_actual_balance: ::core::option::Option<Amount>,
 }
 /// Wire words decode as uint64 to reject protobuf uint32 truncation; domain/storage width is uint32.
+/// Explicit BPT control observations for the separately versioned BPT adapter.
+/// Absence is unknown, including a false allowlist result or block zero.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ManagedV2AllowlistMember {
+    #[prost(string, tag = "1")]
+    pub address: ::prost::alloc::string::String,
+    #[prost(bool, optional, tag = "2")]
+    pub allowed: ::core::option::Option<bool>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ManagedV2BptState {
+    #[prost(bool, optional, tag = "1")]
+    pub join_exit_enabled: ::core::option::Option<bool>,
+    #[prost(message, optional, tag = "2")]
+    pub minimum_bpt_locked: ::core::option::Option<Amount>,
+    #[prost(uint64, optional, tag = "3")]
+    pub bpt_last_change_block: ::core::option::Option<u64>,
+    #[prost(message, repeated, tag = "4")]
+    pub allowlist_members: ::prost::alloc::vec::Vec<ManagedV2AllowlistMember>,
+}
+/// Exact 20230411 circuit storage plus all six unscaled getter observations.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ManagedV2CircuitToken {
+    #[prost(string, tag = "1")]
+    pub token: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub state_word: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "3")]
+    pub reference_bpt_price: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "4")]
+    pub reference_weight: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "5")]
+    pub lower_percentage: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "6")]
+    pub upper_percentage: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "7")]
+    pub lower_bpt_price_bound: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "8")]
+    pub upper_bpt_price_bound: ::core::option::Option<Amount>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ManagedV2CircuitState {
+    #[prost(message, repeated, tag = "1")]
+    pub tokens: ::prost::alloc::vec::Vec<ManagedV2CircuitToken>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BalancerManagedV2State {
     #[prost(uint64, optional, tag = "1")]
@@ -1167,4 +1236,441 @@ pub struct BalancerManagedV2State {
     pub vault_pause_window_end: ::core::option::Option<u64>,
     #[prost(uint64, optional, tag = "39")]
     pub vault_buffer_period_end: ::core::option::Option<u64>,
+    #[prost(message, optional, tag = "40")]
+    pub schedule: ::core::option::Option<ManagedV2Schedule>,
+    #[prost(message, optional, tag = "41")]
+    pub bpt: ::core::option::Option<ManagedV2BptState>,
+    #[prost(message, optional, tag = "42")]
+    pub circuit_breakers: ::core::option::Option<ManagedV2CircuitState>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LfjBin {
+    #[prost(uint32, tag = "1")]
+    pub id: u32,
+    #[prost(message, optional, tag = "2")]
+    pub reserve0: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "3")]
+    pub reserve1: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "4")]
+    pub total_shares: ::core::option::Option<Amount>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LfjOracle {
+    #[prost(uint32, tag = "1")]
+    pub index: u32,
+    #[prost(message, optional, tag = "2")]
+    pub data: ::core::option::Option<Amount>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LfjState {
+    #[prost(bytes = "vec", tag = "1")]
+    pub code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "2")]
+    pub implementation: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "3")]
+    pub implementation_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "4")]
+    pub factory: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "5")]
+    pub factory_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "6")]
+    pub token0_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "7")]
+    pub token1_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "8")]
+    pub block_hash: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, optional, tag = "9")]
+    pub block_number: ::core::option::Option<u64>,
+    #[prost(uint64, optional, tag = "10")]
+    pub timestamp: ::core::option::Option<u64>,
+    #[prost(uint32, tag = "11")]
+    pub bin_step: u32,
+    #[prost(message, optional, tag = "12")]
+    pub parameters: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "13")]
+    pub raw_reserve0: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "14")]
+    pub raw_reserve1: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "15")]
+    pub protocol_fees0: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "16")]
+    pub protocol_fees1: ::core::option::Option<Amount>,
+    #[prost(message, repeated, tag = "17")]
+    pub bins: ::prost::alloc::vec::Vec<LfjBin>,
+    #[prost(message, repeated, tag = "18")]
+    pub oracle_samples: ::prost::alloc::vec::Vec<LfjOracle>,
+    #[prost(uint32, tag = "19")]
+    pub max_bins: u32,
+    #[prost(uint32, tag = "20")]
+    pub max_steps: u32,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SlipstreamDynamicFee {
+    #[prost(uint32, optional, tag = "1")]
+    pub base_fee: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "2")]
+    pub fee_cap: ::core::option::Option<u32>,
+    #[prost(uint64, optional, tag = "3")]
+    pub scaling_factor: ::core::option::Option<u64>,
+    #[prost(bool, optional, tag = "4")]
+    pub initial_fee_enabled: ::core::option::Option<bool>,
+    #[prost(uint32, optional, tag = "5")]
+    pub initial_fee: ::core::option::Option<u32>,
+    #[prost(uint64, optional, tag = "6")]
+    pub default_scaling_factor: ::core::option::Option<u64>,
+    #[prost(uint32, optional, tag = "7")]
+    pub default_fee_cap: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "8")]
+    pub seconds_ago: ::core::option::Option<u32>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SlipstreamModule {
+    #[prost(string, tag = "1")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub address: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "3")]
+    pub code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "4")]
+    pub template_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "5")]
+    pub factory: ::prost::alloc::string::String,
+    #[prost(uint32, optional, tag = "6")]
+    pub custom_fee: ::core::option::Option<u32>,
+    #[prost(message, optional, tag = "7")]
+    pub dynamic: ::core::option::Option<SlipstreamDynamicFee>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SlipstreamOrigin {
+    #[prost(string, tag = "1")]
+    pub origin: ::prost::alloc::string::String,
+    #[prost(uint32, optional, tag = "2")]
+    pub discount: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "3")]
+    pub view_swap_fee: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "4")]
+    pub view_unstaked_fee: ::core::option::Option<u32>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SlipstreamTick {
+    #[prost(sint32, optional, tag = "1")]
+    pub tick: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "2")]
+    pub liquidity_gross: ::core::option::Option<Amount>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub liquidity_net: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "4")]
+    pub staked_liquidity_net: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "5")]
+    pub fee_growth_outside0: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "6")]
+    pub fee_growth_outside1: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "7")]
+    pub reward_growth_outside: ::core::option::Option<Amount>,
+    #[prost(bytes = "vec", tag = "8")]
+    pub tick_cumulative_outside: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "9")]
+    pub seconds_per_liquidity_outside_x128: ::core::option::Option<Amount>,
+    #[prost(uint32, optional, tag = "10")]
+    pub seconds_outside: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "11")]
+    pub initialized: ::core::option::Option<bool>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SlipstreamObservation {
+    #[prost(uint32, optional, tag = "1")]
+    pub block_timestamp: ::core::option::Option<u32>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub tick_cumulative: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "3")]
+    pub seconds_per_liquidity_cumulative_x128: ::core::option::Option<Amount>,
+    #[prost(bool, optional, tag = "4")]
+    pub initialized: ::core::option::Option<bool>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SlipstreamState {
+    #[prost(message, optional, tag = "1")]
+    pub core: ::core::option::Option<V3State>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub implementation_template_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub factory_template_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "4")]
+    pub token0_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "5")]
+    pub token1_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "6")]
+    pub factory_voter: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "7")]
+    pub voter_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "8")]
+    pub voter_gauge: ::prost::alloc::string::String,
+    #[prost(bool, optional, tag = "9")]
+    pub voter_gauge_alive: ::core::option::Option<bool>,
+    #[prost(uint32, optional, tag = "10")]
+    pub factory_default_fee: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "11")]
+    pub factory_default_unstaked_fee: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "12")]
+    pub factory_registered: ::core::option::Option<bool>,
+    #[prost(message, optional, tag = "13")]
+    pub swap_fee_module: ::core::option::Option<SlipstreamModule>,
+    #[prost(message, optional, tag = "14")]
+    pub unstaked_fee_module: ::core::option::Option<SlipstreamModule>,
+    #[prost(message, repeated, tag = "15")]
+    pub origins: ::prost::alloc::vec::Vec<SlipstreamOrigin>,
+    #[prost(string, tag = "16")]
+    pub view_origin: ::prost::alloc::string::String,
+    #[prost(uint32, optional, tag = "17")]
+    pub view_swap_fee: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "18")]
+    pub view_unstaked_fee: ::core::option::Option<u32>,
+    #[prost(message, optional, tag = "19")]
+    pub raw_balance0: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "20")]
+    pub raw_balance1: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "21")]
+    pub fee_growth_global0: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "22")]
+    pub fee_growth_global1: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "23")]
+    pub reward_growth_global: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "24")]
+    pub gauge_fees0: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "25")]
+    pub gauge_fees1: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "26")]
+    pub reward_rate: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "27")]
+    pub reward_reserve: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "28")]
+    pub period_finish: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "29")]
+    pub rollover: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "30")]
+    pub staked_liquidity: ::core::option::Option<Amount>,
+    #[prost(uint32, optional, tag = "31")]
+    pub last_updated: ::core::option::Option<u32>,
+    #[prost(message, optional, tag = "32")]
+    pub max_liquidity_per_tick: ::core::option::Option<Amount>,
+    #[prost(string, tag = "33")]
+    pub gauge: ::prost::alloc::string::String,
+    #[prost(string, tag = "34")]
+    pub nft: ::prost::alloc::string::String,
+    #[prost(string, tag = "35")]
+    pub factory_registry: ::prost::alloc::string::String,
+    #[prost(uint32, optional, tag = "36")]
+    pub observation_index: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "37")]
+    pub observation_cardinality: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "38")]
+    pub observation_cardinality_next: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "39")]
+    pub unlocked: ::core::option::Option<bool>,
+    #[prost(message, repeated, tag = "40")]
+    pub ticks: ::prost::alloc::vec::Vec<SlipstreamTick>,
+    #[prost(message, repeated, tag = "41")]
+    pub observations: ::prost::alloc::vec::Vec<SlipstreamObservation>,
+    #[prost(bytes = "vec", tag = "42")]
+    pub block_hash: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, optional, tag = "43")]
+    pub block_number: ::core::option::Option<u64>,
+    #[prost(uint64, optional, tag = "44")]
+    pub timestamp: ::core::option::Option<u64>,
+    #[prost(uint32, optional, tag = "45")]
+    pub max_observations: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "46")]
+    pub derived: ::core::option::Option<bool>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PancakeLmTick {
+    #[prost(sint32, optional, tag = "1")]
+    pub tick: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "2")]
+    pub liquidity_gross: ::core::option::Option<Amount>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub liquidity_net: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "4")]
+    pub reward_growth_outside: ::core::option::Option<Amount>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PancakeLedgerTick {
+    #[prost(sint32, optional, tag = "1")]
+    pub tick: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "2")]
+    pub liquidity_gross: ::core::option::Option<Amount>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub liquidity_net: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "4")]
+    pub fee_growth_outside0: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "5")]
+    pub fee_growth_outside1: ::core::option::Option<Amount>,
+    #[prost(bytes = "vec", tag = "6")]
+    pub tick_cumulative_outside: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "7")]
+    pub seconds_per_liquidity_outside_x128: ::core::option::Option<Amount>,
+    #[prost(uint32, optional, tag = "8")]
+    pub seconds_outside: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "9")]
+    pub initialized: ::core::option::Option<bool>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PancakeObservation {
+    #[prost(uint32, optional, tag = "1")]
+    pub block_timestamp: ::core::option::Option<u32>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub tick_cumulative: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "3")]
+    pub seconds_per_liquidity_cumulative_x128: ::core::option::Option<Amount>,
+    #[prost(bool, optional, tag = "4")]
+    pub initialized: ::core::option::Option<bool>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PancakeMasterChef {
+    #[prost(string, tag = "1")]
+    pub address: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "2")]
+    pub code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub template_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "4")]
+    pub cake: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub weth: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub position_manager: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "7")]
+    pub pool_pid: ::core::option::Option<Amount>,
+    #[prost(string, tag = "8")]
+    pub pool_address: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub pool_token0: ::prost::alloc::string::String,
+    #[prost(string, tag = "10")]
+    pub pool_token1: ::prost::alloc::string::String,
+    #[prost(uint32, optional, tag = "11")]
+    pub pool_fee: ::core::option::Option<u32>,
+    #[prost(message, optional, tag = "12")]
+    pub pool_alloc_point: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "13")]
+    pub total_alloc_point: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "14")]
+    pub latest_period_cake_per_second: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "15")]
+    pub latest_period_end_time: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "16")]
+    pub view_reward_per_second: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "17")]
+    pub view_end_time: ::core::option::Option<Amount>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PancakeLm {
+    #[prost(string, tag = "1")]
+    pub address: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "2")]
+    pub code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub template_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "4")]
+    pub pool: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub master_chef: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "6")]
+    pub reward_growth_global: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "7")]
+    pub liquidity: ::core::option::Option<Amount>,
+    #[prost(uint32, optional, tag = "8")]
+    pub last_reward_timestamp: ::core::option::Option<u32>,
+    #[prost(message, repeated, tag = "9")]
+    pub ticks: ::prost::alloc::vec::Vec<PancakeLmTick>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PancakeLmState {
+    #[prost(message, optional, tag = "1")]
+    pub core: ::core::option::Option<V3State>,
+    #[prost(sint32, optional, tag = "2")]
+    pub tick: ::core::option::Option<i32>,
+    #[prost(uint32, optional, tag = "3")]
+    pub fee_protocol: ::core::option::Option<u32>,
+    #[prost(bytes = "vec", tag = "4")]
+    pub pool_template_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "5")]
+    pub factory_template_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "6")]
+    pub token0_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "7")]
+    pub token1_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bool, optional, tag = "8")]
+    pub factory_registered: ::core::option::Option<bool>,
+    #[prost(message, optional, tag = "9")]
+    pub master_chef: ::core::option::Option<PancakeMasterChef>,
+    #[prost(message, optional, tag = "10")]
+    pub lm: ::core::option::Option<PancakeLm>,
+    #[prost(message, optional, tag = "11")]
+    pub raw_balance0: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "12")]
+    pub raw_balance1: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "13")]
+    pub fee_growth_global0: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "14")]
+    pub fee_growth_global1: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "15")]
+    pub protocol_fees0: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "16")]
+    pub protocol_fees1: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "17")]
+    pub max_liquidity_per_tick: ::core::option::Option<Amount>,
+    #[prost(uint32, optional, tag = "18")]
+    pub observation_index: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "19")]
+    pub observation_cardinality: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "20")]
+    pub observation_cardinality_next: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "21")]
+    pub unlocked: ::core::option::Option<bool>,
+    #[prost(message, repeated, tag = "22")]
+    pub ticks: ::prost::alloc::vec::Vec<PancakeLedgerTick>,
+    #[prost(message, repeated, tag = "23")]
+    pub observations: ::prost::alloc::vec::Vec<PancakeObservation>,
+    #[prost(bytes = "vec", tag = "24")]
+    pub block_hash: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, optional, tag = "25")]
+    pub block_number: ::core::option::Option<u64>,
+    #[prost(uint64, optional, tag = "26")]
+    pub timestamp: ::core::option::Option<u64>,
+    #[prost(uint32, optional, tag = "27")]
+    pub max_observations: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "28")]
+    pub derived: ::core::option::Option<bool>,
+}
+/// BSC migration state is separate from the legacy field33 ledger.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PancakeBscLmFlag {
+    #[prost(sint32, optional, tag = "1")]
+    pub tick: ::core::option::Option<i32>,
+    #[prost(bool, optional, tag = "2")]
+    pub migrated: ::core::option::Option<bool>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PancakeBscLmPredecessor {
+    #[prost(string, tag = "1")]
+    pub address: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "2")]
+    pub code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub template_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, repeated, tag = "4")]
+    pub ticks: ::prost::alloc::vec::Vec<PancakeLmTick>,
+    #[prost(message, repeated, tag = "5")]
+    pub flags: ::prost::alloc::vec::Vec<PancakeBscLmFlag>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PancakeBscLmState {
+    #[prost(message, optional, tag = "1")]
+    pub ledger: ::core::option::Option<PancakeLmState>,
+    #[prost(bool, optional, tag = "2")]
+    pub initialization: ::core::option::Option<bool>,
+    #[prost(message, repeated, tag = "3")]
+    pub flags: ::prost::alloc::vec::Vec<PancakeBscLmFlag>,
+    #[prost(message, repeated, tag = "4")]
+    pub predecessors: ::prost::alloc::vec::Vec<PancakeBscLmPredecessor>,
 }

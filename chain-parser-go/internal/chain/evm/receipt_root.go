@@ -14,13 +14,19 @@ import (
 // Preserve optional-field presence: omitted legacy type is compatible, while
 // supplied type/status/root values must be valid and outcomes unambiguous.
 func (r *Receipt) UnmarshalJSON(data []byte) error {
+	if err := rejectDuplicateReceiptKeys(data); err != nil {
+		return err
+	}
 	type fields Receipt
 	var decoded fields
 	envelope := struct {
 		*fields
-		Type      json.RawMessage `json:"type"`
-		Status    json.RawMessage `json:"status"`
-		PostState json.RawMessage `json:"root"`
+		Type                  json.RawMessage `json:"type"`
+		Status                json.RawMessage `json:"status"`
+		PostState             json.RawMessage `json:"root"`
+		GasUsed               json.RawMessage `json:"gasUsed"`
+		DepositNonce          json.RawMessage `json:"depositNonce"`
+		DepositReceiptVersion json.RawMessage `json:"depositReceiptVersion"`
 	}{fields: &decoded}
 	if err := json.Unmarshal(data, &envelope); err != nil {
 		return err
@@ -38,6 +44,23 @@ func (r *Receipt) UnmarshalJSON(data []byte) error {
 	}
 	if envelope.Status != nil && envelope.PostState != nil {
 		decoded.invalidOutcomeEncoding = true
+	}
+	for _, field := range []struct {
+		raw   json.RawMessage
+		value *string
+	}{
+		{envelope.GasUsed, &decoded.GasUsed},
+		{envelope.DepositNonce, &decoded.DepositNonce},
+		{envelope.DepositReceiptVersion, &decoded.DepositReceiptVersion},
+	} {
+		if field.raw != nil {
+			if json.Unmarshal(field.raw, field.value) != nil {
+				decoded.invalidChainEncoding = true
+			}
+			if _, err := canonicalIndex(*field.value); err != nil {
+				decoded.invalidChainEncoding = true
+			}
+		}
 	}
 	*r = Receipt(decoded)
 	return nil

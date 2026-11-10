@@ -1,5 +1,6 @@
 """The progress ledger stays readable; tools parse its ordinary Markdown tables."""
 from pathlib import Path
+import json
 import sys
 import tempfile
 import unittest
@@ -85,6 +86,42 @@ class ProgressDocument(unittest.TestCase):
   (reports/'rayclmm-dynamic-final-source.json').write_text(json.dumps({'source_tree_sha256':'old-unrelated-verification'}))
   batch=load_progress(self.root)['current_batch'];self.assertEqual(batch['name'],'Receipt guard');self.assertEqual(batch['source_tree_sha256'],'new-verification')
   coverage=load_coverage(self.root);self.assertEqual(coverage['source_tree_sha256'],batch['source_tree_sha256']);self.assertEqual(coverage['verified_math_cases'],0)
+ def coverage_for_report(self, metadata, scope=None):
+  text=self.minimal();filename='sample.json'
+  if scope:
+   anchor='plan-2026-10-27-raydium-clmm-static';filename=scope+'-final-source.json'
+   text=text.replace('|1|样例|',f'|1|[样例](#{anchor})|')
+   text+=f'<a id="{anchor}"></a>\n|任务|内容|工作包|状态|验证|\n|---|---|---|---|---|\n|T1|样例|WP01|IN_PROGRESS||\n'
+  self.write(text)
+  report={'source_tree_sha256':'retained-source', 'rayclmm_cases' if scope else 'cases':11,
+          'shared_sequences':12,'sequence_steps':13,'process_checks':14,'tickmath_vectors':15,**metadata}
+  reports=self.root/'integration/artifacts/local';reports.mkdir(parents=True,exist_ok=True)
+  (reports/filename).write_text(json.dumps(report))
+  progress=load_progress(self.root,scope);coverage=load_coverage(self.root,scope)
+  self.assertEqual(progress['current_batch']['source_tree_sha256'],'retained-source')
+  self.assertEqual(coverage['source_tree_sha256'],'retained-source')
+  self.assertEqual(coverage['current_batch_status'],'LOCAL_SCOPE_VERIFIED')
+  return {key:value for key,value in coverage.items()if key.startswith('verified_')}
+ def test_unverified_reports_keep_fingerprint_but_contribute_no_verified_counts(self):
+  for scope in [None,'rayclmm']:
+   for metadata in [{'passed':False,'state':'FAILED'},{'state':'PASSED'},
+                    {'passed':True,'state':'FAILED'},{'passed':True,'state':'RUNNING'},
+                    {'passed':True,'state':'IN_PROGRESS'},{'passed':1},
+                    {'passed':True,'state':'CANCELLED'},{'passed':True,'state':'UNKNOWN'},
+                    {'passed':True,'state':''},{'passed':True,'state':' '},
+                    {'passed':True,'state':'passed'},{'passed':True,'state':'ACCEPTED'}]:
+    with self.subTest(scope=scope,metadata=metadata):
+     counts=self.coverage_for_report(metadata,scope)
+     self.assertEqual(counts,{'verified_math_cases':0,'verified_shared_sequence_count':0,
+                             'verified_shared_sequence_steps':0,'verified_process_checks':0,'verified_tickmath_vectors':0})
+ def test_passed_reports_keep_verified_counts_with_or_without_state(self):
+  for scope in [None,'rayclmm']:
+   for metadata in [{'passed':True},{'passed':True,'state':None},
+                    {'passed':True,'state':'PASSED'},{'passed':True,'state':'LOCAL_SCOPE_VERIFIED'}]:
+    with self.subTest(scope=scope,metadata=metadata):
+     counts=self.coverage_for_report(metadata,scope)
+     self.assertEqual(counts,{'verified_math_cases':11,'verified_shared_sequence_count':12,
+                             'verified_shared_sequence_steps':13,'verified_process_checks':14,'verified_tickmath_vectors':15})
  def test_main_document_is_only_readable_progress(self):
   text=(ROOT/'DEVELOPMENT_PROGRESS.md').read_text()
   for token in ['```json','xone-progress-data:','<details>','source_files_sha256','design_requirements_verbatim']:self.assertNotIn(token,text)

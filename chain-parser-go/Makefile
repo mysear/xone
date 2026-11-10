@@ -10,7 +10,8 @@ fmt-check:
 lint:
 	go vet ./...
 unit:
-	go test -race ./...
+	python3 -m unittest discover -s test/tools -p test_go_unit_shards.py
+	python3 test/tools/go_unit_shards.py --all
 contract-test:
 	go test ./internal/domain ./internal/config
 check: fmt-check lint unit contract-test build

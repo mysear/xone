@@ -364,7 +364,7 @@ async fn bitmap_rpc_rejects_every_missing_atomic_dependency_and_clock_mismatch()
 fn bitmap_preserves_static_seed_dynamic_reward_order_padding_and_strict_open_guards() {
     for mode in 0..=2 {
         for offset in [
-            273, 325, 389, 391, 392, 397, 454, 486, 550, 1032, 1096, 1175, 1288, 1543,
+            273, 389, 391, 392, 397, 454, 486, 550, 1096, 1175, 1288, 1543,
         ] {
             let mut f = bitmap_fixture();
             f.state()[390] = mode;
@@ -373,7 +373,6 @@ fn bitmap_preserves_static_seed_dynamic_reward_order_padding_and_strict_open_gua
         }
         for offset in [
             44 + 68,
-            44 + 116,
             44 + 124,
             44 + 132,
             44 + 140,

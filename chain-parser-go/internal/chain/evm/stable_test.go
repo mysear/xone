@@ -17,7 +17,7 @@ import (
 )
 
 func TestStableHashPinnedModelsAndDependencyRejections(t *testing.T) {
-	for _, protocol := range []string{"aerodrome-v2-volatile", "aerodrome-v2-stable", "curve-plain2-basic", "balancer-v2-stable2"} {
+	for _, protocol := range []string{"velodrome-v2-volatile", "velodrome-v2-stable", "aerodrome-v2-volatile", "aerodrome-v2-stable", "curve-plain2-basic", "balancer-v2-stable2"} {
 		for _, bad := range []string{"", "code", "identity", "model", "abi-high-bits", "rate", "vault-paused", "array-offset-high", "clone-unpinned"} {
 			t.Run(protocol+bad, func(t *testing.T) {
 				profile, _ := domain.Protocol(protocol)
@@ -85,7 +85,7 @@ func TestStableHashPinnedModelsAndDependencyRejections(t *testing.T) {
 								}
 							case selectorMetadata:
 								flag := int64(0)
-								if protocol == "aerodrome-v2-stable" {
+								if protocol == "aerodrome-v2-stable" || protocol == "velodrome-v2-stable" {
 									flag = 1
 								}
 								if bad == "model" {

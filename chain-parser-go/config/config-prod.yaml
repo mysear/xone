@@ -36,6 +36,11 @@
       "max_tail_records": 4096,
       "security_protocol": "PLAINTEXT",
       "allow_plaintext_development": false
+    },
+    "raw_evidence": {
+      "max_bytes": 536870912,
+      "max_records": 1000000,
+      "max_record_bytes": 33570816
     }
   },
   "control": {

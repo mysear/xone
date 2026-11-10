@@ -86,7 +86,9 @@ def main():
    if name!='dex-router':
     for chain in config['chains']:sample_for(chain['key'],directory/'fixtures',int(time.time()*1000))
    config['startup']['max_baseline_age_ms']=120000
-   if name=='dex-router':config['routing'].update(max_state_age_ms=120000,quote_ttl_ms=60000)
+   # This retained process oracle enumerates at most two routes.
+   # Multi-route coverage uses the independent grid oracle and actual API test.
+   if name=='dex-router':config['routing'].update(max_splits=2,max_state_age_ms=120000,quote_ttl_ms=60000)
    config['journal']['source_urls']=[f'http://127.0.0.1:{ports[s]}' for s in SERVICES[:2]]
    configs[name]=save_config(directory/'config',config)
   def launch(name):

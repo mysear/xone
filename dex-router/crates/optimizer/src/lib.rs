@@ -1,13 +1,12 @@
 use num_bigint::BigUint;
 use num_traits::Zero;
+pub mod exact_out;
+mod search;
+pub use search::{optimize_with_limits, OptimizationLimits, OptimizationResult, MAX_SPLITS};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    sync::atomic::{AtomicBool, Ordering},
-    time::Instant,
-};
+use std::{collections::BTreeMap, sync::atomic::AtomicBool, time::Instant};
 use xone_domain::{err, Amount, Pool, Result};
-use xone_routing::{evaluate_path, PathQuote};
+use xone_routing::{evaluate_path, evaluate_path_with_funds, Funds, PathQuote};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AllocatedRoute {
     pub path: PathQuote,
@@ -27,6 +26,22 @@ pub fn evaluate_allocation(
     routes: &[AllocatedRoute],
     activation_cost: &Amount,
 ) -> Result<Allocation> {
+    evaluate_allocation_context(pools, routes, activation_cost, None)
+}
+pub fn evaluate_allocation_with_funds(
+    pools: &[Pool],
+    routes: &[AllocatedRoute],
+    activation_cost: &Amount,
+    funds: Funds<'_>,
+) -> Result<Allocation> {
+    evaluate_allocation_context(pools, routes, activation_cost, Some(funds))
+}
+fn evaluate_allocation_context(
+    pools: &[Pool],
+    routes: &[AllocatedRoute],
+    activation_cost: &Amount,
+    funds: Option<Funds<'_>>,
+) -> Result<Allocation> {
     xone_domain::validate_pool_dependencies(pools.iter())?;
     if routes.is_empty() {
         return Err(err("NO_ROUTE"));
@@ -38,17 +53,47 @@ pub fn evaluate_allocation(
     let mut out = BigUint::zero();
     let mut total = BigUint::zero();
     let mut recomputed = Vec::new();
-    let sell = &routes[0].path.tokens[0];
+    if state.len() != pools.len() {
+        return Err(err("DUPLICATE_PHYSICAL_POOL"));
+    }
+    let sell = routes[0]
+        .path
+        .tokens
+        .first()
+        .ok_or_else(|| err("INVALID_PATH"))?;
     let buy = routes[0]
         .path
         .tokens
         .last()
         .ok_or_else(|| err("INVALID_PATH"))?;
     for route in routes {
+        if route.amount_in.0.is_zero()
+            || route.path.edges.is_empty()
+            || route.path.tokens.len() != route.path.edges.len() + 1
+        {
+            return Err(err("INVALID_ALLOCATION_PATH"));
+        }
+        for (i, edge) in route.path.edges.iter().enumerate() {
+            let pool = state
+                .get(&edge.pool_id)
+                .ok_or_else(|| err("MISSING_POOL"))?;
+            let from = edge.from_token.as_deref().unwrap_or(if edge.zero_for_one {
+                &pool.token0
+            } else {
+                &pool.token1
+            });
+            if route.path.tokens[i] != from || route.path.tokens[i + 1] != edge.to {
+                return Err(err("ALLOCATION_PATH_TOKEN_MISMATCH"));
+            }
+        }
         if route.path.tokens.first() != Some(sell) || route.path.tokens.last() != Some(buy) {
             return Err(err("ALLOCATION_TOKEN_MISMATCH"));
         }
-        let result = evaluate_path(&mut state, &route.path.edges, &route.amount_in)?;
+        let result = if let Some(funds) = funds {
+            evaluate_path_with_funds(&mut state, &route.path.edges, &route.amount_in, funds)?
+        } else {
+            evaluate_path(&mut state, &route.path.edges, &route.amount_in)?
+        };
         out += &result.0;
         total += &route.amount_in.0;
         let mut path = route.path.clone();
@@ -74,8 +119,9 @@ pub fn evaluate_allocation(
         routes: recomputed,
     })
 }
-/// Enumerates bounded two-route proposals, then replays physical pool state in execution order.
-/// This is a heuristic in the declared candidate scope, without a concavity/global-optimum claim.
+/// Replays each proposal against shared physical state in execution order.
+/// Exact grid enumeration is used when it fits the work budget; larger scopes
+/// retain a bounded indicative result and expose exhaustion through the report.
 pub fn optimize(
     pools: &[Pool],
     paths: &[PathQuote],
@@ -86,6 +132,10 @@ pub fn optimize(
 ) -> Result<Allocation> {
     optimize_bounded(pools, paths, input, parts, max_splits, cost, None)
 }
+pub struct OptimizationExecution<'a> {
+    pub budget: Option<(&'a AtomicBool, Instant)>,
+    pub funds: Option<Funds<'a>>,
+}
 pub fn optimize_bounded(
     pools: &[Pool],
     paths: &[PathQuote],
@@ -95,66 +145,39 @@ pub fn optimize_bounded(
     cost: &Amount,
     budget: Option<(&AtomicBool, Instant)>,
 ) -> Result<Allocation> {
-    if paths.is_empty() {
-        return Err(err("NO_ROUTE"));
-    }
-    if parts == 0 || parts > 100 || max_splits == 0 || max_splits > 2 {
-        return Err(err("INVALID_OPTIMIZER_BUDGET"));
-    }
-    let mut best: Option<Allocation> = None;
-    let mut consider = |routes: Vec<AllocatedRoute>| {
-        if budget.is_some_and(|(cancel, deadline)| {
-            cancel.load(Ordering::Relaxed) || Instant::now() >= deadline
-        }) {
-            return;
-        }
-        if let Ok(q) = evaluate_allocation(pools, &routes, cost) {
-            if best
-                .as_ref()
-                .is_none_or(|b| q.net_buy_amount > b.net_buy_amount)
-            {
-                best = Some(q);
-            }
-        }
-    };
-    let make = |p: &PathQuote, a: Amount| AllocatedRoute {
-        path: p.clone(),
-        amount_in: a,
-        amount_out: Amount::zero(),
-    };
-    for p in paths {
-        consider(vec![make(p, input.clone())]);
-    }
-    if max_splits == 2 {
-        for i in 0..paths.len() {
-            for j in (i + 1)..paths.len() {
-                for part in 1..parts {
-                    if budget.is_some_and(|(cancel, deadline)| {
-                        cancel.load(Ordering::Relaxed) || Instant::now() >= deadline
-                    }) {
-                        return Err(err("BUDGET_EXHAUSTED"));
-                    }
-                    let a = &input.0 * BigUint::from(part) / BigUint::from(parts);
-                    let b = &input.0 - &a;
-                    if a.is_zero() || b.is_zero() {
-                        continue;
-                    }
-                    let first = make(&paths[i], Amount(a));
-                    let second = make(&paths[j], Amount(b));
-                    consider(vec![first.clone(), second.clone()]);
-                    consider(vec![second, first]);
-                }
-            }
-        }
-    }
-    if budget.is_some_and(|(cancel, deadline)| {
-        cancel.load(Ordering::Relaxed) || Instant::now() >= deadline
-    }) {
-        return Err(err("BUDGET_EXHAUSTED"));
-    }
-    let result = best.ok_or_else(|| err("NO_EXECUTABLE_ALLOCATION"))?;
-    if result.sell_amount != *input {
-        return Err(err("INPUT_CONSERVATION"));
-    }
-    Ok(result)
+    optimize_bounded_with_funds(
+        pools,
+        paths,
+        input,
+        parts,
+        max_splits,
+        cost,
+        OptimizationExecution {
+            budget,
+            funds: None,
+        },
+    )
+}
+pub fn optimize_bounded_with_funds(
+    pools: &[Pool],
+    paths: &[PathQuote],
+    input: &Amount,
+    parts: usize,
+    max_splits: usize,
+    cost: &Amount,
+    execution: OptimizationExecution<'_>,
+) -> Result<Allocation> {
+    Ok(optimize_with_limits(
+        pools,
+        paths,
+        input,
+        cost,
+        OptimizationLimits {
+            parts,
+            max_splits,
+            max_evaluations: 100_000,
+        },
+        execution,
+    )?
+    .allocation)
 }

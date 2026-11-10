@@ -15,6 +15,9 @@ func (s *Store) ReorgPending() bool { s.mu.RLock(); defer s.mu.RUnlock(); return
 func (s *Store) UndoParent(child domain.Snapshot) (domain.Snapshot, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if s.closed || s.failed {
+		return domain.Snapshot{}, ErrOwnerReopenRequired
+	}
 	b, c, e := s.db.Get([]byte("undo/" + child.Reference.Block.ParentHash))
 	if e != nil {
 		return domain.Snapshot{}, errors.New("REORG_UNDO_UNAVAILABLE")
@@ -39,6 +42,9 @@ func (s *Store) UndoParent(child domain.Snapshot) (domain.Snapshot, error) {
 func (s *Store) StageReorg(branch []domain.Snapshot, maxBytes int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed || s.failed {
+		return ErrOwnerReopenRequired
+	}
 	if s.reorg == nil || s.reorgKind != "REORG_BEGIN" {
 		return errors.New("REORG_BEGIN_REQUIRED")
 	}
@@ -85,13 +91,16 @@ func (s *Store) StageReorg(branch []domain.Snapshot, maxBytes int) error {
 	} else if !errors.Is(e, pebble.ErrNotFound) {
 		return e
 	}
-	return s.db.Set([]byte("online/reorg-stage"), b, pebble.Sync)
+	return s.setOwnerValue([]byte("online/reorg-stage"), b)
 }
 
 // ApplyLocal is restricted to the explicit HTTP development transport. Kafka
 // sessions always call ApplyPrepared with the actual committed Kafka cursor.
 func (s *Store) ApplyLocal(u journal.Unit) error {
-	if e := s.Prepare(u); e != nil {
+	return s.ApplyLocalGuard(u, nil)
+}
+func (s *Store) ApplyLocalGuard(u journal.Unit, gate func() error) error {
+	if e := s.PrepareGuard(u, gate); e != nil {
 		return e
 	}
 	s.mu.Lock()
@@ -101,7 +110,7 @@ func (s *Store) ApplyLocal(u journal.Unit) error {
 		previous := clone(*s.current)
 		undo = &previous
 	}
-	return s.persist(u.Snapshot, u.Kind, undo, nil)
+	return s.persistScope(u.Snapshot, u.Kind, undo, nil, nil, gate)
 }
 
 func (s *Store) ReorgRevoked() bool {

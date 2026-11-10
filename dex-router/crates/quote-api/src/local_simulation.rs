@@ -450,6 +450,28 @@ struct TestLaunch {
 #[cfg(test)]
 impl TestLaunch {
     fn command(&self) -> Command {
+        let script = match self.mode.as_str() {
+            "lifecycle-sleep" | "http-cancellation" => {
+                Some(r#"printf '%s' "$$" > "$1"; exec /bin/sleep 30"#)
+            }
+            "lifecycle-stdout" => Some(
+                r#"printf '%s' "$$" > "$1"; exec /bin/dd if=/dev/zero bs=1024 count=1025 2>/dev/null"#,
+            ),
+            "lifecycle-stderr" => {
+                Some(r#"printf '%s' "$$" > "$1"; exec /bin/dd if=/dev/zero bs=1024 count=65 1>&2"#)
+            }
+            "lifecycle-exit" => Some(r#"printf '%s' "$$" > "$1"; exit 7"#),
+            _ => None,
+        };
+        if let Some(script) = script {
+            // Lifecycle assertions start at a real, immediately owned PID.
+            // They do not measure OS validation of the large Rust test image;
+            // protocol/identity and actual EVM worker tests cover that boundary.
+            let mut command = Command::new("/bin/sh");
+            command.args(["-c", script, "xone-owned-worker"]);
+            command.arg(self.pid_file.as_ref().expect("owned worker PID path"));
+            return command;
+        }
         let mut command = Command::new(std::env::current_exe().unwrap());
         command
             .args([
@@ -473,8 +495,9 @@ mod tests {
     #[tokio::test]
     async fn supervisor_hard_deadline_reaps_child() {
         // Measure termination/reap, not macOS validation of a large newly linked
-        // test executable. The other supervisor/HTTP tests use the real private
-        // current-executable probe. This tiny child reports the exact owned PID.
+        // test executable. Lifecycle probes use tiny owned children; the
+        // evm-execution smoke separately checks the actual binary/protocol.
+        // This child reports its exact owned PID before blocking.
         let pid = pid_path();
         let mut command = tokio::process::Command::new("/bin/sh");
         command.args([
@@ -522,9 +545,9 @@ mod tests {
     #[tokio::test]
     async fn supervisor_enforces_stdout_stderr_caps_and_child_exit() {
         for (mode, expected) in [
-            ("stdout", "SIMULATION_WORKER_OUTPUT_LIMIT"),
-            ("stderr", "SIMULATION_WORKER_STDERR_LIMIT"),
-            ("exit", "SIMULATION_WORKER_EXIT"),
+            ("lifecycle-stdout", "SIMULATION_WORKER_OUTPUT_LIMIT"),
+            ("lifecycle-stderr", "SIMULATION_WORKER_STDERR_LIMIT"),
+            ("lifecycle-exit", "SIMULATION_WORKER_EXIT"),
         ] {
             let pid = pid_path();
             let launch = TestLaunch {
@@ -549,7 +572,7 @@ mod tests {
         let flag = Arc::new(AtomicBool::new(false));
         let cancel = flag.clone();
         let launch = TestLaunch {
-            mode: "sleep".into(),
+            mode: "lifecycle-sleep".into(),
             pid_file: Some(pid.clone()),
         };
         let task = tokio::spawn(run_process(
@@ -831,7 +854,7 @@ mod tests {
         Arc::get_mut(api.local_simulation.as_mut().unwrap())
             .unwrap()
             .test_launch = Some(TestLaunch {
-            mode: "sleep".into(),
+            mode: "http-cancellation".into(),
             pid_file: Some(pid.clone()),
         });
         let handler = api.handler();
@@ -847,6 +870,17 @@ mod tests {
         let deadline = Instant::now() + Duration::from_secs(8);
         while !pid.exists() && Instant::now() < deadline {
             tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        if !pid.exists() && task.is_finished() {
+            let response = task.await.unwrap().unwrap();
+            let status = response.status();
+            let body = axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            panic!(
+                "worker request completed before startup: {status} {}",
+                String::from_utf8_lossy(&body)
+            );
         }
         assert!(pid.exists(), "worker did not start");
         assert!(
@@ -892,7 +926,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "child-process probe, launched only by supervisor tests"]
+    #[ignore = "optional current-executable startup probe; actual worker runs in execution smoke"]
     fn worker_probe() {
         if let Ok(path) = std::env::var("XONE_PRIVATE_SIMULATION_PID_FILE") {
             std::fs::write(path, std::process::id().to_string()).unwrap();

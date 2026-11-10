@@ -9,7 +9,11 @@ pub fn quote_exact_in_tokens(
     token_in: &str,
     token_out: &str,
 ) -> Result<Swap> {
-    if pool.protocol == xone_domain::managed_v2_state::PROTOCOL {
+    if pool.protocol == xone_domain::managed_v2_state::PROTOCOL
+        || pool.protocol == xone_domain::managed_v2_schedule::PROTOCOL
+        || pool.protocol == xone_domain::managed_v2_bpt_state::PROTOCOL
+        || pool.protocol == xone_domain::managed_v2_circuit_state::PROTOCOL
+    {
         return crate::managed_v2_pool::quote_exact_in_tokens(pool, input, token_in, token_out);
     }
     pool.validate()?;

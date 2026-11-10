@@ -71,28 +71,31 @@ func (s *ManagedV2ExecutionContext) UnmarshalJSON(raw []byte) error {
 }
 
 type BalancerManagedV2State struct {
-	VaultBPTActualBalance       Amount                `json:"vault_bpt_actual_balance"`
-	Timestamp                   uint64                `json:"timestamp"`
-	BlockNumber                 uint64                `json:"block_number"`
-	BlockHash                   string                `json:"block_hash"`
-	Factory                     string                `json:"factory"`
-	FactoryCodeSHA256           string                `json:"factory_code_sha256"`
-	PoolRuntimeTemplateSHA256   string                `json:"pool_runtime_template_sha256"`
-	FeeProvider                 string                `json:"fee_provider"`
-	FeeProviderCodeSHA256       string                `json:"fee_provider_code_sha256"`
-	ProtocolCollector           string                `json:"protocol_collector"`
-	ProtocolCollectorCodeSHA256 string                `json:"protocol_collector_code_sha256"`
-	Dependencies                []ManagedV2Dependency `json:"dependencies"`
-	TotalSupply                 Amount                `json:"total_supply"`
-	VirtualSupply               Amount                `json:"virtual_supply"`
-	ActualSupply                Amount                `json:"actual_supply"`
-	PendingAUM                  Amount                `json:"pending_aum"`
-	VaultBPTCash                Amount                `json:"vault_bpt_cash"`
-	VaultBPTManaged             Amount                `json:"vault_bpt_managed"`
-	BPTIndex                    uint32                `json:"bpt_index"`
-	Manager                     string                `json:"manager"`
-	ManagerBPTBalance           Amount                `json:"manager_bpt_balance"`
-	ProtocolCollectorBPTBalance Amount                `json:"protocol_collector_bpt_balance"`
+	CircuitBreakers             *ManagedV2CircuitState `json:"circuit_breakers,omitempty"`
+	BPT                         *ManagedV2BptState     `json:"bpt,omitempty"`
+	Schedule                    *ManagedV2Schedule     `json:"schedule,omitempty"`
+	VaultBPTActualBalance       Amount                 `json:"vault_bpt_actual_balance"`
+	Timestamp                   uint64                 `json:"timestamp"`
+	BlockNumber                 uint64                 `json:"block_number"`
+	BlockHash                   string                 `json:"block_hash"`
+	Factory                     string                 `json:"factory"`
+	FactoryCodeSHA256           string                 `json:"factory_code_sha256"`
+	PoolRuntimeTemplateSHA256   string                 `json:"pool_runtime_template_sha256"`
+	FeeProvider                 string                 `json:"fee_provider"`
+	FeeProviderCodeSHA256       string                 `json:"fee_provider_code_sha256"`
+	ProtocolCollector           string                 `json:"protocol_collector"`
+	ProtocolCollectorCodeSHA256 string                 `json:"protocol_collector_code_sha256"`
+	Dependencies                []ManagedV2Dependency  `json:"dependencies"`
+	TotalSupply                 Amount                 `json:"total_supply"`
+	VirtualSupply               Amount                 `json:"virtual_supply"`
+	ActualSupply                Amount                 `json:"actual_supply"`
+	PendingAUM                  Amount                 `json:"pending_aum"`
+	VaultBPTCash                Amount                 `json:"vault_bpt_cash"`
+	VaultBPTManaged             Amount                 `json:"vault_bpt_managed"`
+	BPTIndex                    uint32                 `json:"bpt_index"`
+	Manager                     string                 `json:"manager"`
+	ManagerBPTBalance           Amount                 `json:"manager_bpt_balance"`
+	ProtocolCollectorBPTBalance Amount                 `json:"protocol_collector_bpt_balance"`
 	// Effective getManagementAumFeeParams value, which is zero in recovery mode.
 	ManagementAUMFee            Amount                     `json:"management_aum_fee"`
 	LastCollectionTimestamp     uint32                     `json:"last_collection_timestamp"`
@@ -257,10 +260,47 @@ func (s BalancerManagedV2State) Validate() error {
 	if (s.Paused && pauseTimestamp > s.BufferPeriodEnd) || (s.VaultPaused && pauseTimestamp > s.VaultBufferPeriodEnd) {
 		return errors.New("MANAGED_V2_EFFECTIVE_PAUSE")
 	}
-	if s.GradualWeightEnd > s.Timestamp || s.GradualFeeEnd > s.Timestamp {
-		return errors.New("MANAGED_V2_ACTIVE_SCHEDULE_UNSUPPORTED")
+	if s.CircuitBreakers != nil {
+		if e := s.CircuitBreakers.Validate(); e != nil {
+			return e
+		}
+		if s.Schedule == nil || s.BPT == nil || len(s.CircuitBreakers.Tokens) != len(s.TokenInfo) {
+			return errors.New("MANAGED_V2_CIRCUIT_PARENT_REQUIRED")
+		}
 	}
-	for _, v := range s.TokenInfo {
+	if s.BPT != nil {
+		if e := s.BPT.Validate(); e != nil {
+			return e
+		}
+		if s.Schedule == nil {
+			return errors.New("MANAGED_V2_BPT_SCHEDULE_REQUIRED")
+		}
+		view, e := s.Schedule.At(pauseTimestamp)
+		if e != nil {
+			return e
+		}
+		block := s.BlockNumber
+		if s.ExecutionContext != nil {
+			block = s.ExecutionContext.BlockNumber
+		}
+		if view.JoinExitEnabled != s.BPT.JoinExitEnabled || s.BPT.BPTLastChangeBlock > block || s.BPT.MinimumBPTLocked.Big().Cmp(s.VirtualSupply.Big()) > 0 {
+			return errors.New("MANAGED_V2_BPT_SOURCE_FIELDS")
+		}
+	}
+	if s.Schedule == nil {
+		if s.GradualWeightEnd > s.Timestamp || s.GradualFeeEnd > s.Timestamp {
+			return errors.New("MANAGED_V2_ACTIVE_SCHEDULE_UNSUPPORTED")
+		}
+	} else {
+		view, e := s.Schedule.At(pauseTimestamp)
+		if e != nil {
+			return e
+		}
+		if len(s.Schedule.Tokens) != len(s.TokenInfo) || view.WeightEnd != s.GradualWeightEnd || view.FeeEnd != s.GradualFeeEnd || view.SwapsEnabled != s.SwapsEnabled || view.RecoveryMode != s.RecoveryMode || view.MustAllowlistLPs != s.AllowlistEnabled {
+			return errors.New("MANAGED_V2_SCHEDULE_SOURCE_FIELDS")
+		}
+	}
+	for i, v := range s.TokenInfo {
 		if v.LastChangeBlock > uint64(1)<<32-1 {
 			return errors.New("MANAGED_V2_VAULT_BLOCK_WIDTH")
 		}
@@ -281,8 +321,12 @@ func (s BalancerManagedV2State) Validate() error {
 		if v.VaultActualBalance.Big().Cmp(v.Cash.Big()) < 0 {
 			return errors.New("MANAGED_V2_ACTUAL_TOKEN_BALANCE")
 		}
-		if v.CircuitBreakerEnabled {
-			return errors.New("MANAGED_V2_CIRCUIT_BREAKER_UNSUPPORTED")
+		if s.CircuitBreakers == nil {
+			if v.CircuitBreakerEnabled {
+				return errors.New("MANAGED_V2_CIRCUIT_BREAKER_UNSUPPORTED")
+			}
+		} else if v.CircuitBreakerEnabled != (s.CircuitBreakers.Tokens[i].StateWord != "0") {
+			return errors.New("MANAGED_V2_CIRCUIT_ENABLED_MISMATCH")
 		}
 	}
 	return nil
@@ -293,7 +337,29 @@ func (p Pool) validateManagedV2() error {
 		return errors.New("MANAGED_V2_STATE_REQUIRED")
 	}
 	m := s.ManagedV2
-	if s.ManagedFees != nil || s.CurveCrypto != nil || s.CurveMeta != nil || s.CurveNG != nil || ValidateChain(p.ChainKey) != nil || !strings.HasPrefix(p.ChainKey, "evm:") || ValidateEVMIdentity(p.PoolID, s.CodeSHA256) != nil || ValidateEVMIdentity(s.Vault, s.VaultCodeSHA256) != nil || p.AdapterVersion != ManagedV2AdapterVersion || p.TokenBehavior != "standard" || p.FeeDenominator != 1000000000000000000 || p.FeeNumerator < 1000000000000 || p.FeeNumerator > 950000000000000000 || len(s.Assets) < 2 || len(s.Assets) > 50 || len(s.Weights) != len(s.Assets) || len(m.TokenInfo) != len(s.Assets) || s.Amplification != "0" || s.AdminFee != 0 || len(s.PoolID) != 66 || !strings.HasPrefix(s.PoolID, p.PoolID+"0001") || !validDigest(s.PoolID[2:]) {
+	isBreaker := p.Protocol == ManagedV2BreakerProtocol
+	if isBreaker != (m.CircuitBreakers != nil) {
+		return errors.New("MANAGED_V2_CIRCUIT_PROFILE_MISMATCH")
+	}
+	isBPT := p.Protocol == ManagedV2BptProtocol || isBreaker
+	if isBPT != (m.BPT != nil) {
+		return errors.New("MANAGED_V2_BPT_PROFILE_MISMATCH")
+	}
+	scheduled := p.Protocol == ManagedV2ScheduledProtocol || isBPT
+	expectedAdapter := ManagedV2AdapterVersion
+	if scheduled {
+		expectedAdapter = ManagedV2ScheduledAdapterVersion
+		if isBPT {
+			expectedAdapter = ManagedV2BptAdapterVersion
+		}
+		if isBreaker {
+			expectedAdapter = ManagedV2BreakerAdapterVersion
+		}
+	}
+	if (p.Protocol != ManagedV2Protocol && !scheduled) || scheduled != (m.Schedule != nil) {
+		return errors.New("MANAGED_V2_SCHEDULE_PROFILE")
+	}
+	if s.ManagedFees != nil || s.CurveCrypto != nil || s.CurveMeta != nil || s.CurveNG != nil || ValidateChain(p.ChainKey) != nil || !strings.HasPrefix(p.ChainKey, "evm:") || ValidateEVMIdentity(p.PoolID, s.CodeSHA256) != nil || ValidateEVMIdentity(s.Vault, s.VaultCodeSHA256) != nil || p.AdapterVersion != expectedAdapter || p.TokenBehavior != "standard" || p.FeeDenominator != 1000000000000000000 || p.FeeNumerator < 1000000000000 || p.FeeNumerator > 950000000000000000 || len(s.Assets) < 2 || len(s.Assets) > 50 || len(s.Weights) != len(s.Assets) || len(m.TokenInfo) != len(s.Assets) || s.Amplification != "0" || s.AdminFee != 0 || len(s.PoolID) != 66 || !strings.HasPrefix(s.PoolID, p.PoolID+"0001") || !validDigest(s.PoolID[2:]) {
 		return errors.New("MANAGED_V2_PARAMETERS")
 	}
 	if e := m.Validate(); e != nil {
@@ -339,7 +405,29 @@ func (p Pool) validateManagedV2() error {
 		}
 		total.Add(total, w.Big())
 	}
-	if total.Cmp(big.NewInt(1000000000000000000)) != 0 {
+	if isBreaker {
+		if e := m.CircuitBreakers.validatePool(s.Assets, s.Weights); e != nil {
+			return e
+		}
+	}
+	if scheduled {
+		clock := m.Timestamp
+		if m.ExecutionContext != nil {
+			clock = m.ExecutionContext.Timestamp
+		}
+		view, e := m.Schedule.At(clock)
+		if e != nil {
+			return e
+		}
+		if len(view.Weights) != len(s.Assets) || view.SwapFee.Big().Uint64() != p.FeeNumerator {
+			return errors.New("MANAGED_V2_SCHEDULE_FEE")
+		}
+		for i, asset := range s.Assets {
+			if m.Schedule.Tokens[i].Token != asset.Token || view.Weights[i] != s.Weights[i] || view.Scaling[i] != asset.Scaling {
+				return errors.New("MANAGED_V2_SCHEDULE_GETTER_MISMATCH")
+			}
+		}
+	} else if total.Cmp(big.NewInt(1000000000000000000)) != 0 {
 		return errors.New("MANAGED_V2_WEIGHT_SUM")
 	}
 	return nil
@@ -446,6 +534,23 @@ func (s BalancerManagedV2State) toProto() (*pb.BalancerManagedV2State, error) {
 		return nil, errors.New("MANAGED_V2_DERIVED_STATE_NOT_CANONICAL")
 	}
 	out := &pb.BalancerManagedV2State{}
+	var circuitErr error
+	out.CircuitBreakers, circuitErr = ManagedV2CircuitStateToProto(s.CircuitBreakers)
+	if circuitErr != nil {
+		return nil, circuitErr
+	}
+	if s.BPT != nil {
+		var e error
+		out.Bpt, e = s.BPT.toProto()
+		if e != nil {
+			return nil, e
+		}
+	}
+	var scheduleErr error
+	out.Schedule, scheduleErr = ManagedV2ScheduleToProto(s.Schedule)
+	if scheduleErr != nil {
+		return nil, scheduleErr
+	}
 	bVaultBPTActualBalance, e := s.VaultBPTActualBalance.Bytes()
 	if e != nil {
 		return nil, e
@@ -591,6 +696,21 @@ func BalancerManagedV2StateFromProto(w *pb.BalancerManagedV2State) (*BalancerMan
 		return nil, errors.New("MANAGED_V2_STATE_REQUIRED")
 	}
 	s := &BalancerManagedV2State{}
+	var circuitErr error
+	s.CircuitBreakers, circuitErr = ManagedV2CircuitStateFromProto(w.CircuitBreakers)
+	if circuitErr != nil {
+		return nil, circuitErr
+	}
+	var bptErr error
+	s.BPT, bptErr = ManagedV2BptStateFromProto(w.Bpt)
+	if bptErr != nil {
+		return nil, bptErr
+	}
+	var scheduleErr error
+	s.Schedule, scheduleErr = ManagedV2ScheduleFromProto(w.Schedule)
+	if scheduleErr != nil {
+		return nil, scheduleErr
+	}
 	if w.VaultBptActualBalance == nil {
 		return nil, errors.New("MANAGED_V2_AMOUNT_REQUIRED")
 	}

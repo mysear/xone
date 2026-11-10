@@ -167,10 +167,27 @@ func (r *managedV2Reader) dynamicString(to, signature string) string {
 func (a *Adapter) readManagedV2(ctx context.Context, p config.PoolConfig, anchor map[string]any, ref domain.BlockRef) (domain.Pool, error) {
 	fail := func(e error) (domain.Pool, error) { return domain.Pool{}, e }
 	v := p.MultiAsset
-	if p.Protocol != domain.ManagedV2Protocol || v == nil || v.ManagedV2 == nil || v.TokenPolicy != "standard-no-bpt" || len(v.Tokens) < 2 || len(v.Tokens) > 50 || len(v.PoolID) != 66 || !strings.HasPrefix(v.PoolID, p.ID+"0001") || v.ExpectedImplementation != "" || v.ExpectedImplementationCodeSHA256 != "" {
+	isBreaker := p.Protocol == domain.ManagedV2BreakerProtocol
+	isBPT := p.Protocol == domain.ManagedV2BptProtocol || isBreaker
+	policy := "standard-no-bpt"
+	if isBPT {
+		policy = "standard-bpt"
+		if isBreaker {
+			policy = "standard-breaker-bpt"
+		}
+	}
+	if (p.Protocol != domain.ManagedV2Protocol && p.Protocol != domain.ManagedV2ScheduledProtocol && !isBPT) || v == nil || v.ManagedV2 == nil || v.TokenPolicy != policy || len(v.Tokens) < 2 || len(v.Tokens) > 50 || len(v.PoolID) != 66 || !strings.HasPrefix(v.PoolID, p.ID+"0001") || v.ExpectedImplementation != "" || v.ExpectedImplementationCodeSHA256 != "" {
 		return fail(errors.New("MANAGED_V2_CONFIG"))
 	}
 	c := v.ManagedV2
+	if isBPT != (c.BPT != nil) {
+		return fail(errors.New("MANAGED_V2_BPT_CONFIG"))
+	}
+	if isBPT {
+		if e := c.BPT.Validate(); e != nil {
+			return fail(e)
+		}
+	}
 	if e := domain.ValidateManagedV2Dependencies(c.Dependencies); e != nil {
 		return fail(e)
 	}
@@ -211,6 +228,9 @@ func (a *Adapter) readManagedV2(ctx context.Context, p config.PoolConfig, anchor
 	paused, pauseEnd, bufferEnd := r.paused(p.ID)
 	vaultPaused, vaultPauseEnd, vaultBufferEnd := r.paused(v.ExpectedVault)
 	m := &domain.BalancerManagedV2State{Timestamp: ref.TimestampMS / 1000, BlockNumber: ref.Number, BlockHash: ref.Hash, Factory: c.ExpectedFactory, FactoryCodeSHA256: c.ExpectedFactoryCodeSHA256, PoolRuntimeTemplateSHA256: c.ExpectedPoolRuntimeTemplateSHA256, FeeProvider: c.ExpectedFeeProvider, FeeProviderCodeSHA256: c.ExpectedFeeProviderCodeSHA256, ProtocolCollector: collector, ProtocolCollectorCodeSHA256: c.ExpectedProtocolCollectorCodeSHA256, Dependencies: append([]domain.ManagedV2Dependency(nil), c.Dependencies...), Manager: manager, Paused: paused, VaultPaused: vaultPaused, VaultPauseWindowEnd: r.uintWord(vaultPauseEnd, 64).Uint64(), VaultBufferPeriodEnd: r.uintWord(vaultBufferEnd, 64).Uint64(), PauseWindowEnd: r.uintWord(pauseEnd, 64).Uint64(), BufferPeriodEnd: r.uintWord(bufferEnd, 64).Uint64()}
+	if isBreaker {
+		m.CircuitBreakers = &domain.ManagedV2CircuitState{Tokens: []domain.ManagedV2CircuitToken{}}
+	}
 	m.RecoveryMode = r.boolean(p.ID, "inRecoveryMode()", "")
 	m.SwapsEnabled = r.boolean(p.ID, "getSwapEnabled()", "")
 	m.AllowlistEnabled = r.boolean(p.ID, "getMustAllowlistLPs()", "")
@@ -229,6 +249,12 @@ func (a *Adapter) readManagedV2(ctx context.Context, p config.PoolConfig, anchor
 	feeIDs := new(big.Int)
 	for _, kind := range []int64{0, 2, 3} {
 		id := r.uint(p.ID, "getProviderFeeId(uint256)", hex.EncodeToString(managedV2Word(big.NewInt(kind))), 8)
+		// ManagedPoolSettings fixes swap/yield provider IDs in the original
+		// constructor; only AUM is caller-configurable. A forged getter and
+		// matching immutable must not redefine that published construction.
+		if kind == 0 || kind == 2 {
+			r.require(id.Cmp(big.NewInt(kind)) == 0, "FIXED_PROTOCOL_FEE_IDS")
+		}
 		shift := uint(0)
 		if kind == 2 {
 			shift = 8
@@ -286,6 +312,9 @@ func (a *Adapter) readManagedV2(ctx context.Context, p config.PoolConfig, anchor
 			// BPT first with no asset manager, so its managed balance stays zero.
 			r.require(managed.Sign() == 0 && am.Sign() == 0, "BPT_ASSET_MANAGER")
 			m.BPTIndex = 0
+			if isBPT {
+				m.BPT = &domain.ManagedV2BptState{BPTLastChangeBlock: changed, AllowlistMembers: []domain.ManagedV2AllowlistMember{}}
+			}
 			m.VaultBPTCash = domain.Amount(cash.String())
 			m.VaultBPTManaged = domain.Amount(managed.String())
 			continue
@@ -301,11 +330,15 @@ func (a *Adapter) readManagedV2(ctx context.Context, p config.PoolConfig, anchor
 		scale := new(big.Int).Exp(big.NewInt(10), new(big.Int).Sub(big.NewInt(36), decimals), nil)
 		r.require(scales[i-1] == domain.Amount(scale.String()), "SCALING")
 		breaker := r.words(r.call(p.ID, "getCircuitBreakerState(address)", hex.EncodeToString(managedV2AddressWord(token)), 6), 6)
-		for _, w := range breaker {
-			r.require(r.uintWord(w, 256).Sign() == 0, "CIRCUIT_BREAKER_UNSUPPORTED")
+		if isBreaker {
+			a.readManagedV2CircuitToken(r, p.ID, token, domain.Amount(scale.String()), s.Weights[i-1], m, breaker, links["CircuitBreakerLib"])
+		} else {
+			for _, w := range breaker {
+				r.require(r.uintWord(w, 256).Sign() == 0, "CIRCUIT_BREAKER_UNSUPPORTED")
+			}
 		}
 		s.Assets = append(s.Assets, domain.MultiAsset{Token: t.Token, Balance: domain.Amount(balance.String()), Scaling: scales[i-1], CodeSHA256: t.ExpectedCodeSHA256})
-		m.TokenInfo = append(m.TokenInfo, domain.ManagedV2TokenInfo{Cash: domain.Amount(cash.String()), VaultActualBalance: domain.Amount(wallet.String()), Managed: domain.Amount(managed.String()), AssetManager: "0x" + hex.EncodeToString(managedV2Word(am)[12:]), LastChangeBlock: changed})
+		m.TokenInfo = append(m.TokenInfo, domain.ManagedV2TokenInfo{Cash: domain.Amount(cash.String()), VaultActualBalance: domain.Amount(wallet.String()), Managed: domain.Amount(managed.String()), AssetManager: "0x" + hex.EncodeToString(managedV2Word(am)[12:]), LastChangeBlock: changed, CircuitBreakerEnabled: isBreaker && m.CircuitBreakers.Tokens[len(m.CircuitBreakers.Tokens)-1].StateWord.Big().Sign() != 0})
 	}
 	// Vault BalanceAllocation.totalsAndLastChangeBlock returns the maximum
 	// across all token registrations, including BPT.
@@ -348,14 +381,56 @@ func (a *Adapter) readManagedV2(ctx context.Context, p config.PoolConfig, anchor
 		walletTotal.Add(walletTotal, balance)
 	}
 	r.require(walletTotal.Cmp(m.TotalSupply.Big()) <= 0, "BPT_WALLET_SUPPLY")
-	a.readManagedV2Schedules(r, p.ID, s.Weights, fee, m)
+	if p.Protocol == domain.ManagedV2ScheduledProtocol || isBPT {
+		a.readManagedV2ScheduledState(r, p.ID, s, fee)
+	} else {
+		a.readManagedV2Schedules(r, p.ID, s.Weights, fee, m)
+	}
+	if r.err != nil {
+		return fail(r.err)
+	}
+	if isBPT {
+		// Published ManagedPoolAumStorageLib: fee u60, collection time u32
+		// at bit60, unused bits92..255. Recovery exposes an effective zero
+		// getter while retaining the stored normal-operation annual fee.
+		aumWord := r.storageWord(p.ID, "0xa").Big()
+		rawFee := managedV2ScheduledBits(aumWord, 0, 60)
+		rawLast := managedV2ScheduledBits(aumWord, 60, 32)
+		r.require(new(big.Int).Rsh(new(big.Int).Set(aumWord), 92).Sign() == 0, "AUM_RAW_RESERVED")
+		r.require(rawFee.Cmp(big.NewInt(950000000000000000)) <= 0, "AUM_RAW_FEE_BOUND")
+		r.require(rawLast.Uint64() == uint64(m.LastCollectionTimestamp), "AUM_RAW_COLLECTION_CLOCK")
+		if !m.RecoveryMode {
+			r.require(rawFee.Cmp(m.ManagementAUMFee.Big()) == 0, "AUM_RAW_EFFECTIVE_FEE")
+		}
+		m.BPT.JoinExitEnabled = r.boolean(p.ID, "getJoinExitEnabled()", "")
+		m.BPT.MinimumBPTLocked = domain.Amount(r.uint(p.ID, "balanceOf(address)", hex.EncodeToString(managedV2AddressWord("0x0000000000000000000000000000000000000000")), 256).String())
+		for _, subject := range c.BPT.AllowlistSubjects {
+			encoded := append(managedV2AddressWord(subject), managedV2Word(big.NewInt(13))...)
+			key := "0x" + hex.EncodeToString(managedV2Hash(string(encoded)))
+			word := r.storageWord(p.ID, key).Big()
+			r.require(word.BitLen() <= 1, "BPT_ALLOWLIST_STORAGE_BOOL")
+			allowed := r.boolean(p.ID, "isAddressOnAllowlist(address)", hex.EncodeToString(managedV2AddressWord(subject)))
+			r.require(allowed == (word.Sign() != 0), "BPT_ALLOWLIST_SOURCE_MISMATCH")
+			m.BPT.AllowlistMembers = append(m.BPT.AllowlistMembers, domain.ManagedV2AllowlistMember{Address: subject, Allowed: allowed})
+		}
+	}
 	if r.err != nil {
 		return fail(r.err)
 	}
 	if e := a.verifyManagedV2Identity(r, p, codes, links, feeIDs, pauseEnd, bufferEnd, vaultPauseEnd, vaultBufferEnd); e != nil {
 		return fail(e)
 	}
-	pool := domain.Pool{MultiAsset: s, ChainKey: a.Chain.Key, PoolID: p.ID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: s.Assets[0].Balance, Reserve1: s.Assets[1].Balance, FeeNumerator: fee.Uint64(), FeeDenominator: 1000000000000000000, AdapterVersion: domain.ManagedV2AdapterVersion, TokenBehavior: "standard"}
+	adapterVersion := domain.ManagedV2AdapterVersion
+	if p.Protocol == domain.ManagedV2ScheduledProtocol {
+		adapterVersion = domain.ManagedV2ScheduledAdapterVersion
+	}
+	if isBPT {
+		adapterVersion = domain.ManagedV2BptAdapterVersion
+	}
+	if isBreaker {
+		adapterVersion = domain.ManagedV2BreakerAdapterVersion
+	}
+	pool := domain.Pool{MultiAsset: s, ChainKey: a.Chain.Key, PoolID: p.ID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: s.Assets[0].Balance, Reserve1: s.Assets[1].Balance, FeeNumerator: fee.Uint64(), FeeDenominator: 1000000000000000000, AdapterVersion: adapterVersion, TokenBehavior: "standard"}
 	return pool, pool.Validate()
 }
 

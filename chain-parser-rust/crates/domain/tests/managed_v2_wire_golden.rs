@@ -147,7 +147,11 @@ fn managed_v2_native_wire_golden() {
         m.token_info.len(),
         s.pools[0].multi_asset.as_ref().unwrap().assets.len()
     );
-    // Prost has no runtime reflection: enumerate every one of the 39 fields.
+    // Field 40 is optional for the legacy profile and must remain absent.
+    assert!(m.schedule.is_none());
+    assert_eq!(raw.len(), 3023);
+    // Prost has no runtime reflection: enumerate all 39 required fields below;
+    // optional schedule (40) is deliberately excluded from this required list.
     for (i, field) in FIELDS.iter().enumerate() {
         let mut q = w.clone();
         let m = q.pools[0]

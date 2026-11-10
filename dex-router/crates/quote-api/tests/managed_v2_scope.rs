@@ -273,3 +273,165 @@ async fn supported_shared_managed_fast_quote_matches_one_original_local_raw_swap
     indicative(&body);
     assert_eq!(api.replica.view("evm:31337").unwrap().pools, s.pools);
 }
+
+fn apply_admission_bank(api: &Api, snapshot: &mut Snapshot, marker: u8) {
+    snapshot.reference.block.parent_hash = snapshot.reference.block.hash.clone();
+    snapshot.reference.block.hash = format!("0x{}", format!("{marker:02x}").repeat(32));
+    snapshot.reference.block.number_or_slot += 1;
+    snapshot.reference.journal_seq += 1;
+    for pool in &mut snapshot.pools {
+        if let Some(state) = pool
+            .multi_asset
+            .as_mut()
+            .and_then(|m| m.managed_v2.as_mut())
+        {
+            state.block_number = snapshot.reference.block.number_or_slot;
+            state.block_hash = snapshot.reference.block.hash.clone();
+        }
+    }
+    api.replica
+        .apply(xone_domain::Record {
+            reference: snapshot.reference.clone(),
+            kind: "BLOCK_COMMIT".into(),
+            record_id: format!("api-admission-{marker}"),
+            payload_hash: hash(&snapshot.pools).unwrap(),
+            pools: snapshot.pools.clone(),
+        })
+        .unwrap();
+}
+async fn get_local(api: &Api, uri: &str) -> (StatusCode, Value) {
+    let response = api
+        .handler()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(uri)
+                .header("authorization", format!("Bearer {}", api.config.token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+    (status, serde_json::from_slice(&bytes).unwrap())
+}
+#[tokio::test]
+async fn live_http_admission_refresh_revokes_cached_quotes_and_restores_both_directions() {
+    let api = api();
+    let mut bank = source();
+    bank.pools.push(weighted(&bank.pools[0], false));
+    bank.pools.push(ordinary());
+    seal(&mut bank);
+    api.replica.install_baseline(bank.clone()).unwrap();
+    let r = request("evm:31337", &bank.pools[2], false, "1000000000000000000");
+    let (status, before) = post(&api, r.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{before}");
+    let old_id = before["quoteId"].as_str().unwrap().to_owned();
+    let original_vault = bank.pools[2].multi_asset.as_ref().unwrap().vault.clone();
+    let original_code = bank.pools[2]
+        .multi_asset
+        .as_ref()
+        .unwrap()
+        .vault_code_sha256
+        .clone();
+    let managed = bank.pools[0].multi_asset.as_ref().unwrap();
+    let vault = managed.vault.clone();
+    let code = managed.vault_code_sha256.clone();
+    bank.pools[2].multi_asset.as_mut().unwrap().vault = vault;
+    bank.pools[2]
+        .multi_asset
+        .as_mut()
+        .unwrap()
+        .vault_code_sha256 = code;
+    apply_admission_bank(&api, &mut bank, 0xe1);
+    let (status, failed) = post(&api, r.clone()).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{failed}");
+    assert_eq!(failed["error"], "NO_ROUTE");
+    let (status, evidence) = get_local(&api, &format!("/internal/quotes/{old_id}/evidence")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(evidence["snapshot_valid"], false);
+    let (status, fallback) = post(&api, request("evm:31337", &bank.pools[3], false, "10003")).await;
+    assert_eq!(status, StatusCode::OK, "{fallback}");
+    assert_eq!(
+        fallback["quality"]["excludedPools"]
+            .as_object()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        fallback["quality"]["candidateScope"],
+        json!([bank.pools[3].pool_id])
+    );
+    bank.pools[2].multi_asset.as_mut().unwrap().vault = original_vault;
+    bank.pools[2]
+        .multi_asset
+        .as_mut()
+        .unwrap()
+        .vault_code_sha256 = original_code;
+    apply_admission_bank(&api, &mut bank, 0xe2);
+    for reverse in [false, true] {
+        let (status, after) = post(
+            &api,
+            request("evm:31337", &bank.pools[2], reverse, "1000000000000000000"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{after}");
+        assert_ne!(after["quoteId"], before["quoteId"]);
+        assert_eq!(after["quality"]["excludedPools"], json!({}));
+        assert_eq!(after["consumedIn"], "1000000000000000000");
+        assert_eq!(after["refund"], "0");
+        indicative(&after);
+    }
+}
+#[tokio::test]
+async fn empty_admission_scope_http_is_unready_then_recovers_without_losing_cursor() {
+    let api = api();
+    let mut bank = source();
+    bank.pools.push(weighted(&bank.pools[0], false));
+    seal(&mut bank);
+    api.replica.install_baseline(bank.clone()).unwrap();
+    let old = bank.pools[2].multi_asset.as_ref().unwrap();
+    let old_vault = old.vault.clone();
+    let old_code = old.vault_code_sha256.clone();
+    let shared = bank.pools[0].multi_asset.as_ref().unwrap();
+    let vault = shared.vault.clone();
+    let code = shared.vault_code_sha256.clone();
+    bank.pools[2].multi_asset.as_mut().unwrap().vault = vault;
+    bank.pools[2]
+        .multi_asset
+        .as_mut()
+        .unwrap()
+        .vault_code_sha256 = code;
+    apply_admission_bank(&api, &mut bank, 0xe3);
+    let (status, body) = post(
+        &api,
+        request("evm:31337", &bank.pools[2], false, "1000000000000000000"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+    assert_eq!(body["error"], "CHAIN_NOT_READY");
+    assert_eq!(
+        api.replica.last_reference("evm:31337").unwrap(),
+        Some(bank.reference.clone())
+    );
+    api.replica.restore_owner_checkpoint(bank.clone()).unwrap();
+    bank.pools[2].multi_asset.as_mut().unwrap().vault = old_vault;
+    bank.pools[2]
+        .multi_asset
+        .as_mut()
+        .unwrap()
+        .vault_code_sha256 = old_code;
+    apply_admission_bank(&api, &mut bank, 0xe4);
+    let (status, recovered) = post(
+        &api,
+        request("evm:31337", &bank.pools[2], false, "1000000000000000000"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{recovered}");
+    assert_eq!(
+        recovered["snapshotRef"],
+        serde_json::to_value(&bank.reference).unwrap()
+    );
+}

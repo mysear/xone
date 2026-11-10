@@ -31,12 +31,14 @@ def profile(name):
  return config,code
 
 class VersionChain:
- def __init__(self):self.head=100;self.branch=0;self.timestamp=int(time.time());self.bad=None;self.pinned=0;self.receipts=0
+ def __init__(self):self.head=100;self.branch=0;self.timestamp=int(time.time());self.bad=None;self.pinned=0;self.receipts=0;self.issued_blocks={};self.issued_transactions={}
  def block(self,n):
   def h(x):return '0x'+hashlib.sha256(f'{self.branch if x>=101 else 0}/{x}'.encode()).hexdigest()
   block={'number':hex(n),'hash':GENESIS if n==0 else h(n),'parentHash':h(max(n-1,0)),'timestamp':hex(self.timestamp),'transactions':[]}
   if n:block['transactions']=['0x'+hashlib.sha256(('tx/'+block['hash']).encode()).hexdigest()]
   block['receiptsRoot']=SINGLE_EMPTY_ROOT if n else EMPTY_ROOT
+  self.issued_blocks[block['hash']]=n
+  for transaction in block['transactions']:self.issued_transactions[transaction]=n
   return block
  def provider(self):
   chain=self;catalog={profile(name)[0]['id']:profile(name) for name in NAMES}
@@ -47,11 +49,12 @@ class VersionChain:
     if method=='eth_chainId':out='0x7a69'
     elif method=='eth_getBlockByNumber':out=chain.block(chain.head if params[0] in ['latest','safe','finalized'] else int(params[0],16))
     elif method=='eth_getTransactionReceipt':
-     block=next((chain.block(n) for n in range(1,chain.head+1) if params[0] in chain.block(n)['transactions']),None)
+     height=chain.issued_transactions.get(params[0]);block=chain.block(height)if height is not None else None
+     if block and params[0]not in block['transactions']:block=None
      if block:out={'blockHash':block['hash'],'transactionHash':params[0],'transactionIndex':'0x0','logs':[],**SINGLE_EMPTY_FIELDS};chain.receipts+=1
     elif method in ['eth_call','eth_getCode']:
-     anchor=params[1];identities={chain.block(n)['hash']:n for n in range(chain.head+1)}
-     if anchor.get('requireCanonical') is not True or anchor.get('blockHash') not in identities:error={'code':-32000,'message':'noncanonical'}
+     anchor=params[1];height=chain.issued_blocks.get(anchor.get('blockHash'));canonical=chain.block(height)if height is not None else None
+     if anchor.get('requireCanonical') is not True or canonical is None or canonical['hash']!=anchor.get('blockHash'):error={'code':-32000,'message':'noncanonical'}
      else:
       chain.pinned+=1;call=params[0];target=call if method=='eth_getCode' else call['to'];p,code=catalog[target];is3=p['protocol'].endswith('v3');name=p['protocol'];v=BASE['v3'];identity=p['v3' if is3 else 'v2']
       if method=='eth_getCode':out='0x'+(b'\x00' if chain.bad=='code' and name=='pancake-v2' else code).hex()
@@ -110,7 +113,7 @@ class Chain(VersionChain):
     raw=json.dumps(payload).encode();self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw)
   server=ThreadingHTTPServer(('127.0.0.1',0),Handler);threading.Thread(target=server.serve_forever,daemon=True).start();server.upstream=upstream;return server
 
-def run(prefix='receipt-witness', faults=None):
+def run(prefix='receipt-witness', faults=None, configure=None, retain=None):
  if faults is None:
   faults=[('trailing-log',None,'trailing-log','RECEIPT_WITNESS_INVALID'),('primary-trailing-log','trailing-log',None,'RECEIPT_BLOOM_MISMATCH'),('log-content',None,'log-content','RECEIPT_WITNESS_INVALID'),('block-parent',None,'block-parent','RECEIPT_PROVIDER_DISAGREEMENT')]
  report={'profile':'multi-rpc-receipt-witness-real-pg-kafka','production_ready':False,'protocols':NAMES,'checks':[]};chain=Chain();servers=[chain.provider(),chain.provider(True)];processes={};logs={}
@@ -125,6 +128,7 @@ def run(prefix='receipt-witness', faults=None):
     if alias=='go':cfg['chains'][0].update(genesis_hash=GENESIS,confirmation_tag='latest',auto_reorg_window=4,rpc_urls=[f'http://127.0.0.1:{s.server_port}' for s in servers],pools=[profile(n)[0] for n in NAMES])
     elif alias=='rust':sample_for('solana:localnet',root/alias/'fixtures',chain.timestamp*1000)
     else:cfg['routing'].update(max_state_age_ms=180000,quote_ttl_ms=60000)
+    if configure is not None:configure(alias,cfg)
     configs[alias]=save_config(root/alias/'config',cfg)
    def base(a):return f'http://127.0.0.1:{ports[a]}'
    def start(a):
@@ -194,6 +198,7 @@ def run(prefix='receipt-witness', faults=None):
     report['pinned_rpc_reads']=chain.pinned;report['receipt_reads']=chain.receipts;report['passed']=True
    finally:
     for a in list(processes):stop(a)
+    if retain is not None:retain(root,report)
  finally:
   for s in servers:
    s.shutdown();s.server_close();s.upstream.shutdown();s.upstream.server_close()

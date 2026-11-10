@@ -280,7 +280,10 @@ func TestManagedV2WirePresenceWidthsAndCopy(t *testing.T) {
 	}
 	for i := 0; i < reflect.TypeOf(w.ManagedV2).Elem().NumField(); i++ {
 		typ := reflect.TypeOf(w.ManagedV2).Elem().Field(i)
-		if typ.PkgPath != "" || typ.Type.Kind() != reflect.Pointer {
+		if typ.PkgPath != "" || typ.Type.Kind() != reflect.Pointer || (typ.Name == "Schedule" || typ.Name == "Bpt" || typ.Name == "CircuitBreakers") {
+			if typ.Name == "CircuitBreakers" && w.ManagedV2.CircuitBreakers != nil {
+				t.Fatal("legacy wire acquired breaker capability")
+			}
 			continue
 		}
 		x := proto.Clone(w).(*pb.MultiAssetState)

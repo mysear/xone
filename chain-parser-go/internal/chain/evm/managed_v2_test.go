@@ -151,6 +151,7 @@ type managedTestState struct {
 	Reorg        bool
 	RPCFault     string
 	Codes, Calls map[string]string
+	Storage      map[string]string
 	Header       map[string]any
 	Pool         config.PoolConfig
 }
@@ -240,6 +241,26 @@ func managedNativeFixtureAt(t *testing.T, index int, source managedBankRef, muta
 				other["hash"] = "0x" + strings.Repeat("b", 64)
 				result = other
 			}
+		case "eth_getStorageAt":
+			if len(q.Params) != 3 {
+				t.Error("storage body arity")
+				return
+			}
+			var address, slot string
+			var anchor map[string]any
+			if json.Unmarshal(q.Params[0], &address) != nil || json.Unmarshal(q.Params[1], &slot) != nil || json.Unmarshal(q.Params[2], &anchor) != nil {
+				t.Error("storage request encoding")
+				return
+			}
+			if anchor["blockHash"] != header["hash"] || anchor["requireCanonical"] != true || len(anchor) != 2 {
+				t.Error("storage read lost canonical anchor", anchor)
+			}
+			value, ok := state.Storage[address+slot]
+			if !ok || state.RPCFault == "eth_getStorageAt"+address+slot {
+				json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": q.ID, "error": map[string]any{"code": -32000, "message": "unavailable original storage word"}})
+				return
+			}
+			result = value
 		case "eth_getCode", "eth_call":
 			var anchor map[string]any
 			json.Unmarshal(q.Params[1], &anchor)

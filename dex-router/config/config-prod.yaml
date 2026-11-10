@@ -43,7 +43,7 @@
     "max_candidates": 32,
     "max_expansions": 1000,
     "split_parts": 20,
-    "max_splits": 2,
+    "max_splits": 4,
     "route_activation_cost": "0",
     "max_state_age_ms": 120000,
     "quote_ttl_ms": 5000

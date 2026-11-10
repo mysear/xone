@@ -51,7 +51,24 @@ func floorDiv(n, d int32) int32 {
 	}
 	return q
 }
+
+type v3ReadContext struct {
+	allowKnownPancakeLm         bool
+	allowKnownSlipstreamModules bool
+	origin                      string
+}
+
 func (a *Adapter) readV3(ctx context.Context, p config.PoolConfig, anchor map[string]any) (domain.Pool, error) {
+	return a.readV3Context(ctx, p, anchor, v3ReadContext{})
+}
+func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor map[string]any, options v3ReadContext) (domain.Pool, error) {
+	if options.allowKnownPancakeLm && (p.Protocol != "pancake-v3" || options.allowKnownSlipstreamModules) {
+		return domain.Pool{}, errors.New("V3_PRIVATE_READ_CONTEXT")
+	}
+	if options.allowKnownSlipstreamModules && (p.Protocol != "aerodrome-slipstream" || domain.ValidateEVMAddress(options.origin) != nil) {
+		return domain.Pool{}, errors.New("V3_PRIVATE_READ_CONTEXT")
+	}
+
 	invalid := func() (domain.Pool, error) { return domain.Pool{}, errors.New("V3_POOL_IDENTITY") }
 	profile, known := domain.Protocol(p.Protocol)
 	if !known || profile.Family != "v3" {
@@ -78,7 +95,11 @@ func (a *Adapter) readV3(ctx context.Context, p config.PoolConfig, anchor map[st
 	}
 	call := func(data string, words int) ([]byte, error) {
 		var result string
-		if e := a.Client.Call(ctx, "eth_call", []any{map[string]any{"to": p.ID, "data": data}, anchor}, &result); e != nil {
+		request := map[string]any{"to": p.ID, "data": data}
+		if options.origin != "" {
+			request["from"] = options.origin
+		}
+		if e := a.Client.Call(ctx, "eth_call", []any{request, anchor}, &result); e != nil {
 			return nil, e
 		}
 		raw, e := hex.DecodeString(strings.TrimPrefix(result, "0x"))
@@ -150,7 +171,7 @@ func (a *Adapter) readV3(ctx context.Context, p config.PoolConfig, anchor map[st
 		if e != nil {
 			return domain.Pool{}, e
 		}
-		if new(big.Int).SetBytes(unstaked).Sign() != 0 || new(big.Int).SetBytes(module).Sign() != 0 {
+		if !options.allowKnownSlipstreamModules && (new(big.Int).SetBytes(unstaked).Sign() != 0 || new(big.Int).SetBytes(module).Sign() != 0) {
 			return domain.Pool{}, errors.New("SLIPSTREAM_FEE_MODULE_UNSUPPORTED")
 		}
 	}
@@ -182,7 +203,7 @@ func (a *Adapter) readV3(ctx context.Context, p config.PoolConfig, anchor map[st
 		if e != nil {
 			return domain.Pool{}, e
 		}
-		if new(big.Int).SetBytes(lm).Sign() != 0 {
+		if !options.allowKnownPancakeLm && new(big.Int).SetBytes(lm).Sign() != 0 {
 			return domain.Pool{}, errors.New("PANCAKE_LM_POOL_UNSUPPORTED")
 		}
 	}

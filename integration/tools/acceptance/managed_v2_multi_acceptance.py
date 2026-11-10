@@ -14,6 +14,7 @@ import subprocess
 import time
 
 import managed_v2_multi_smoke as multi
+from managed_v2_parser_reads import required_reads
 from weighted_evidence import BINARIES, checked_runtime, runtime_fingerprint, snapshot_inputs, write_result
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -345,7 +346,8 @@ def validate_shared_actual(actual, row, bank, raw, prefix, reference_sha256):
         for step, edge in zip(steps, quoted['path']['edges']):
             pool = next(p['pool'] for p in bank['pools'] if p['pool']['pool_id'] == edge['pool_id'])
             require(step.get('pool') == edge['pool_id'] and step.get('pool_id') == pool['multi_asset']['pool_id']
-                    and step.get('asset_in') == request['sellToken'] and step.get('asset_out') == request['buyToken']
+                    and step.get('asset_in') == edge.get('from_token') == request['sellToken']
+                    and step.get('asset_out') == edge.get('to') == request['buyToken']
                     and step.get('sender') == request['caller'] and step.get('recipient') == request['recipient']
                     and step.get('actual_amount_in') == quoted['amount_in'] and step.get('actual_amount_out') == quoted['amount_out']
                     and step.get('before') == cursor and step.get('transaction') == selected[selected_index], 'VM step/request/selected transaction binding differs')
@@ -360,6 +362,39 @@ def validate_shared_actual(actual, row, bank, raw, prefix, reference_sha256):
             selected_index += 1
         require(route.get('after') == cursor, 'VM route lost full post-state')
     require(a.get('final_state') == cursor, 'VM final complete state differs')
+
+
+def validate_rpc_coverage(report, raw, chain):
+    getters=obj(report.get('getter_read_counts'),'actual getter counters')
+    codes=obj(report.get('code_read_counts'),'actual code counters')
+    methods=obj(report.get('read_counts'),'actual RPC method counters')
+    for mapping,label,parts in [(getters,'getter',3),(codes,'code',2)]:
+        require(mapping and all(type(k) is str and positive_int(v) for k,v in mapping.items()),
+                'missing/nonpositive actual '+label+' counter')
+        for key in mapping:
+            fields=key.split(':',parts-1)
+            require(len(fields)==parts and fields[0] in raw['banks'], 'foreign source '+label+' counter')
+            frame=chain.by_hash[raw['banks'][fields[0]]['header']['hash']]
+            if parts==3:
+                require((fields[1],fields[2]) in frame['getters'],'foreign actual getter body')
+            else:
+                require(fields[1] in chain.codes,'foreign actual runtime read')
+    require(report.get('getter_reads')==sum(getters.values())==methods.get('eth_call')
+            and report.get('code_reads')==sum(codes.values())==methods.get('eth_getCode'),
+            'actual RPC detail/summary counter totals differ')
+    require(positive_int(report.get('receipt_reads')) and report['receipt_reads']==methods.get('eth_getTransactionReceipt')
+            and positive_int(methods.get('eth_getBlockByNumber')) and positive_int(methods.get('eth_chainId')),
+            'actual header/handshake/receipt query evidence missing')
+    require(all(type(k) is str and positive_int(v) for k,v in methods.items()), 'invalid RPC method counter')
+    for ident,bank in raw['banks'].items():
+        needed_getters,needed_codes=required_reads(bank)
+        require(needed_getters and needed_codes,'required original read contract empty')
+        for address,data in needed_getters:
+            require(positive_int(getters.get(ident+':'+address+':'+data)),
+                    'source '+ident+' lacks required actual parser getter '+address+':'+data)
+        for address in needed_codes:
+            require(positive_int(codes.get(ident+':'+address)),
+                    'source '+ident+' lacks required actual runtime identity '+address)
 
 
 def validate_process(report, runtime, inputs, *, gate_started_at_unix_ms, gate_completed_at_unix_ms=None):
@@ -383,6 +418,7 @@ def validate_process(report, runtime, inputs, *, gate_started_at_unix_ms, gate_c
     require(report.get('exact_reference_sha256') == chain.reference_sha256 and report.get('original_bank_sha256') == BANK_SHA256, 'process reference raw SHA differs')
     frames = {f['id']: f for f in chain.frames}
     observed = rows(report.get('source_frames'), 'source frames')
+    validate_rpc_coverage(report,raw,chain)
     require(report.get('source_frame_count') == len(observed) == len(frames)
             and Counter(f.get('source_bank') for f in observed) == Counter(frames.keys()), 'complete once-only native source frame inventory required')
     for frame in observed:
@@ -448,7 +484,9 @@ def validate_process(report, runtime, inputs, *, gate_started_at_unix_ms, gate_c
             edges = rows(path.get('edges'), 'selected edges')
             require(len(edges) == 1 and edges[0].get('pool_id') in ids
                     and edges[0].get('protocol') == 'balancer-v2-managed-aum'
-                    and path.get('tokens') == [request['sellToken'], request['buyToken']]
+                    and edges[0].get('from_token') == request['sellToken']
+                    and edges[0].get('to') == request['buyToken']
+                    and path.get('tokens') == [edges[0]['from_token'], edges[0]['to']]
                     and path.get('amount_in') == route['amount_in'] and path.get('amount_out') == route['amount_out'], 'API selected path differs from physical bank/request')
         require(in_sum == amount(q['consumedIn'], 'consumed') and out_sum == amount(q['grossBuyAmount'], 'gross'), 'API selected route amounts do not conserve request/gross')
         if scope == 'catalog':

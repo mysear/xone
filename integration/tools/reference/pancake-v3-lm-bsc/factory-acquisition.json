@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "records": [
+    {
+      "role": "factory",
+      "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+      "url": "https://sourcify.dev/server/v2/contract/56/0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865?fields=all",
+      "passed": true,
+      "bytes": 1673816,
+      "sha256": "2873b2dbdb7627bca13ad8183f632753f12421f6dea16b89bba91dfffd3017a2",
+      "path": "integration/tools/reference/pancake-v3-lm-bsc/factory-source.json"
+    }
+  ]
+}

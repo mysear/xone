@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "repository": "traderjoe-xyz/joe-v2",
+  "tag": "v2.1.0",
+  "base_url": "https://raw.githubusercontent.com/traderjoe-xyz/joe-v2/v2.1.0/",
+  "files": {
+    "src/LBPair.sol": "c7273a1666d7b53242a1b3f2370829ca8acecd4b5e3610b2748203bf587a6ce9",
+    "src/libraries/BinHelper.sol": "3f67d7f712336542656f71f4ca70a99a520ac79026f3fd831a5ab775a321988c",
+    "src/libraries/Clone.sol": "c7069b8a3dbef47c010fcc81eef644f4b74e634e4da194a43128d42a4b7a2c24",
+    "src/libraries/Constants.sol": "41fe35cf8b0493b58865af4dcc02a12218f0dff642c1de3879a877c14b10ccbf",
+    "src/libraries/FeeHelper.sol": "d03aab57d8077acdaff0af0167a0f2ae5b7450ce09ddc40bbcd11d4009258431",
+    "src/libraries/math/LiquidityConfigurations.sol": "8ece732a7d84c9505b6c7cb9594101594b8378d6c55a7ff9223431a5c4c07478",
+    "src/interfaces/ILBFactory.sol": "57305d6f59e3ae4122cfda0c25291ee24d9fba2455ce278104da1ddd8f609498",
+    "src/interfaces/ILBFlashLoanCallback.sol": "d9a138b5817273aa6fed0e61f42a6d779f1127196bb147f4e2c829f043167448",
+    "src/interfaces/ILBPair.sol": "a6af858cd6e67899d82d16ae7f58b2599d35d1a4e56eef930719c76c5ac8ae37",
+    "src/LBToken.sol": "b1ac05ddbb4e9e3b3671f956bd1b86104a1a4679b04345e42e83c8647e2c41c6",
+    "src/libraries/OracleHelper.sol": "9282bc85e43b89d508e227be8cabc584a5ed9ebd3fefee87729d127234e1e03f",
+    "src/libraries/math/PackedUint128Math.sol": "2f45abf125199f15c90afd37b2488684b3504be93d6c904994aa42f5674de621",
+    "src/libraries/PairParameterHelper.sol": "05125664095b7117f0c94efddc6f54443ee93ac9a14ce40801b90bf09f07bbea",
+    "src/libraries/PriceHelper.sol": "7e9542734d73dcac55464dc625d7f425230231a6a2d668fb6fdc2598224b6636",
+    "src/libraries/ReentrancyGuard.sol": "74dd9203e735e9d666a2589334244c969a4fa71f28180c46a3ec168a909118fb",
+    "src/libraries/math/SafeCast.sol": "cabfdc9546119c195e6f67417f2e8c1351b5bb5d8628f201e31aac408aeec621",
+    "src/libraries/math/SampleMath.sol": "699c243fdf7f98bfd3024b43dfbcce274ec63965f5702718d19aa97655e03005",
+    "src/libraries/math/TreeMath.sol": "08a80c69131f0e24f05fd9846f743b5213837e858a5a9f1f664fc032de5db66e",
+    "src/libraries/math/Uint256x256Math.sol": "92d5a49ce5edd6061860ca49efb1bb7557e3a430315653ec9d0f85ad46479f0a",
+    "src/libraries/TokenHelper.sol": "b7d43620adc17cd269c580cf33f57c58747d08ef9ccaeb7d5ad1c756501299de",
+    "src/libraries/math/Encoded.sol": "4113e630bb3b440ab2b5cecbdfc8347d2bede3dde74baa3ae3f1a6078090ba9c",
+    "src/interfaces/IPendingOwnable.sol": "2ffbafbfff23b723795bf295c4fdb54aa8365c90afdd7f4ac732cb99dd848fdd",
+    "src/interfaces/ILBToken.sol": "a94f3ab67031b7da833a9a1567dc5e854cdc69388799fdfbbaf8a915fb05abcb",
+    "src/libraries/math/Uint128x128Math.sol": "49861dbf21b7b4d366ef95c9de8d330c916beac5769a33ac267a95c18b5014ca",
+    "src/libraries/math/BitMath.sol": "c9ecb2b2af133fb36d004632ea914b10544a41768e4a31f6d31ec6fa5258d7cb",
+    "src/libraries/AddressHelper.sol": "c68b596fda5ba227eda56f12d1e8aa4c7ad872d081668219f7fd7f9e280cc5de"
+  },
+  "authority": "content-pinned upstream tag source; no deployment/source admission claim",
+  "external_files": {
+    "openzeppelin/token/ERC20/IERC20.sol": {
+      "repository": "OpenZeppelin/openzeppelin-contracts",
+      "tag": "v4.8.0",
+      "path": "contracts/token/ERC20/IERC20.sol",
+      "url": "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v4.8.0/contracts/token/ERC20/IERC20.sol",
+      "sha256": "94f23e4af51a18c2269b355b8c7cf4db8003d075c9c541019eb8dcf4122864d5"
+    }
+  },
+  "compiler": {
+    "path": "soljson-v0.8.10+commit.fc410830.js",
+    "version": "0.8.10",
+    "build": "commit.fc410830",
+    "longVersion": "0.8.10+commit.fc410830",
+    "keccak256": "0x3820aae0de50f10f62819d65f0b5a236ccffed11ab465a3295a5408fa47e24f5",
+    "sha256": "0x5eaee3240a06891abf5ac70c75caf9a0c33ebe9a2736abdaa22a337f86c22933",
+    "urls": [
+      "dweb:/ipfs/QmcsfYpEWbPXfVptzi1YvGokxi2FYCUzUr8rQYJCc5fEiB"
+    ]
+  }
+}

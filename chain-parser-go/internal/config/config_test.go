@@ -306,3 +306,26 @@ func TestV3OptionalFactoryDigestValidatedForEveryProfile(t *testing.T) {
 		}
 	}
 }
+
+func TestVelodromeProfilesRequirePinnedFactoryAndImplementationIdentity(t *testing.T) {
+	for _, name := range []string{"velodrome-v2-stable", "velodrome-v2-volatile"} {
+		cfg, e := Load("../../config/config-test.yaml", "chain-parser-go")
+		if e != nil {
+			t.Fatal(e)
+		}
+		p := PoolConfig{ID: "0x" + strings.Repeat("3", 40), Protocol: name, Token0: "0x" + strings.Repeat("1", 40), Token1: "0x" + strings.Repeat("2", 40), FeeDenominator: 10000}
+		cfg.Config.Chains[0].Pools = []PoolConfig{p}
+		if cfg.Config.Validate("chain-parser-go") == nil {
+			t.Fatal("unidentified Velodrome model accepted")
+		}
+		p.Stable = &StablePoolConfig{ExpectedCodeSHA256: strings.Repeat("a", 64), ExpectedFactory: "0x" + strings.Repeat("4", 40), ExpectedFactoryCodeSHA256: strings.Repeat("b", 64)}
+		cfg.Config.Chains[0].Pools[0] = p
+		if e = cfg.Config.Validate("chain-parser-go"); e != nil {
+			t.Fatal(e)
+		}
+		p.Stable.ExpectedFactoryCodeSHA256 = ""
+		if cfg.Config.Validate("chain-parser-go") == nil {
+			t.Fatal("unbound Velodrome factory accepted")
+		}
+	}
+}

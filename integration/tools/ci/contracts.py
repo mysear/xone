@@ -2,6 +2,7 @@
 """Check protocol, golden data and vendored source copies across services."""
 from pathlib import Path
 import json
+import os
 
 root = Path(__file__).resolve().parents[3]
 services = ['chain-parser-go', 'chain-parser-rust', 'dex-router']
@@ -43,6 +44,11 @@ check_copy(root / 'integration/test/solana/rayclmm-bitmap-base.json', root / 'ch
 check_copy(root / 'integration/test/solana/rayclmm-seed-base.json', root / 'chain-parser-rust/test/fixtures/solana/rayclmm-seed-base.json')
 check_copy(root / 'integration/test/solana/rayclmm-dynamic-base.json', root / 'chain-parser-rust/test/fixtures/solana/rayclmm-dynamic-base.json')
 
+# Pinned source and derived EVM harness stay local to the Router's standalone tests.
+for name in ['Pool.sol', 'Reference.sol']:
+    check_copy(root / 'integration/tools/reference/velodrome-v2' / name,
+               root / 'dex-router/test/fixtures/velodrome-v2' / name)
+
 # Shared Rust implementation copies remain synchronized; wire types come from common/protoc.
 for crate in ['domain','config','observability','kafka-transport']:
     source=root/'chain-parser-rust/crates'/crate/'src'
@@ -54,17 +60,47 @@ for crate in ['domain','config','observability','kafka-transport']:
         if (source/file).read_bytes()!=(target/file).read_bytes():raise SystemExit(f'Vendored common crate drift: {crate}/{file}')
 
 for service in ['chain-parser-rust', 'dex-router']:
-    for path in (root / service).rglob('Cargo.toml'):
-        if 'target' in path.parts:
+    for directory, children, files in os.walk(root / service):
+        children[:] = [name for name in children if name != 'target']
+        if 'Cargo.toml' not in files:
             continue
+        path = Path(directory) / 'Cargo.toml'
         text = path.read_text()
         for sibling in services:
             if f'../{sibling}' in text:
                 raise SystemExit(f'Cross-project source dependency: {path}')
 
+# Public source evidence is copied into Go's own test tree so its tests remain
+# runnable without a sibling integration checkout. Match the complete declared
+# set and every byte; never relax the cross-project dependency rule above.
+source_root = root / 'integration/test/source'
+local_source_root = root / 'chain-parser-go/test/fixtures/source/testdata'
+manifest = json.loads((source_root / 'chain-receipt-vectors/manifest.json').read_text())
+source_files = {
+    Path('chain-receipt-vectors/manifest.json'),
+    Path('deployment-catalog/v3-pool-template/two-real-pools.json'),
+    Path('deployment-catalog/verified-source-inputs/ethereum-uniswap-v3.json'),
+    Path('ethereum-mainnet/uniswap-v2-26355865-evidence.json'),
+}
+manifest_paths = [entry['path'] for entry in manifest['files']]
+if len(manifest_paths) != len(set(manifest_paths)):
+    raise SystemExit('Duplicate retained public source fixture')
+for name in manifest_paths:
+    relative = Path(name)
+    if relative.is_absolute() or '..' in relative.parts or not relative.parts:
+        raise SystemExit('Nonlocal retained public source fixture')
+    source_files.add(Path('chain-receipt-vectors') / relative)
+actual_sources = {p.relative_to(local_source_root) for p in local_source_root.rglob('*') if p.is_file()}
+if actual_sources != source_files:
+    raise SystemExit('Public source fixture membership mismatch')
+for relative in sorted(source_files):
+    check_copy(source_root / relative, local_source_root / relative)
+source_fixture_count = len(source_files)
+
 print(json.dumps({
     'passed': True,
     'contract_files': contract_count,
-    'fixture_files': len(checked) - contract_count,
+    'fixture_files': len(checked) - contract_count - source_fixture_count,
+    'public_source_fixture_files': source_fixture_count,
     'services': len(services), 'protocol_source': 'common/protoc/proto',
 }))

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import os
 root=Path(__file__).resolve().parents[3]
 for project in ['chain-parser-go','chain-parser-rust']:
  for base in ['internal','cmd','crates']:
@@ -10,8 +11,10 @@ for project in ['chain-parser-go','chain-parser-rust']:
    text=path.read_text()
    for bad in ['xone-routing','xone-optimizer','xone-quote-api','xone_routing','xone_optimizer','xone_quote_api']:
     if bad in text:raise SystemExit(f'Parser crosses compute boundary: {path}')
-for path in (root/'dex-router').rglob('Cargo.toml'):
- if 'target' in path.parts:continue
+for directory,children,files in os.walk(root/'dex-router'):
+ children[:]=[name for name in children if name!='target']
+ if 'Cargo.toml' not in files:continue
+ path=Path(directory)/'Cargo.toml'
  if 'xone-solana-ingest' in path.read_text():raise SystemExit('Router depends on live ingest')
 for crate in ['protocol-math','routing','optimizer','execution-plan']:
  text=(root/'dex-router/crates'/crate/'Cargo.toml').read_text()

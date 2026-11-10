@@ -179,8 +179,10 @@ def load_coverage(root, scope=None):
                 'remaining': row['范围与剩余功能'].split('；')} for row in rows]
     batch = load_progress(root, scope)['current_batch']
     final = _batch_report(root, batch, scope)
+    # Keep provenance visible even when the report cannot establish verified counts.
+    verified = final if final.get('passed') is True and final.get('state') in (None, 'PASSED', 'LOCAL_SCOPE_VERIFIED') else {}
     return {'schema_version': 2, 'design_version': '2.3', 'production_ready': False, 'entries': entries,
             'current_batch_status': batch['status'],
             'source_tree_sha256': final.get('source_tree_sha256', ''),
-            'verified_math_cases': final.get('cases', final.get('rayclmm_cases', 0)), 'verified_shared_sequence_count': final.get('shared_sequences', 0),
-            'verified_shared_sequence_steps': final.get('sequence_steps', 0), 'verified_process_checks': final.get('process_checks', 0), 'verified_tickmath_vectors': final.get('tickmath_vectors', 0)}
+            'verified_math_cases': verified.get('cases', verified.get('rayclmm_cases', 0)), 'verified_shared_sequence_count': verified.get('shared_sequences', 0),
+            'verified_shared_sequence_steps': verified.get('sequence_steps', 0), 'verified_process_checks': verified.get('process_checks', 0), 'verified_tickmath_vectors': verified.get('tickmath_vectors', 0)}

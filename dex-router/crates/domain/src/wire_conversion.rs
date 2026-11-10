@@ -124,6 +124,18 @@ pub fn snapshot_to_proto(s: &Snapshot) -> Result<wire::OnlineSnapshot> {
         .iter()
         .map(|p| {
             Ok(wire::PoolState {
+                pancake_lm: p.pancake_lm.as_ref().map(|s| s.to_proto()).transpose()?,
+                pancake_bsc_lm: p
+                    .pancake_bsc_lm
+                    .as_ref()
+                    .map(|s| s.to_proto())
+                    .transpose()?,
+                slipstream_context: p
+                    .slipstream_context
+                    .as_ref()
+                    .map(|s| s.to_proto())
+                    .transpose()?,
+                lfj: p.lfj.as_ref().map(|s| s.to_proto()).transpose()?,
                 infinity_bin: p.infinity_bin.as_ref().map(|b| b.to_proto()).transpose()?,
                 raydium_clmm: p.raydium_clmm.as_ref().map(|s| s.to_proto()).transpose()?,
                 orca_whirlpool: p
@@ -198,6 +210,19 @@ pub fn snapshot_from_proto(s: wire::OnlineSnapshot) -> Result<Snapshot> {
         .into_iter()
         .map(|p| {
             Ok(Pool {
+                pancake_bsc_lm: p
+                    .pancake_bsc_lm
+                    .map(crate::pancake_bsc_lm::PancakeBscLmState::from_proto)
+                    .transpose()?,
+                pancake_lm: p
+                    .pancake_lm
+                    .map(crate::pancake_lm::PancakeLmState::from_proto)
+                    .transpose()?,
+                slipstream_context: p
+                    .slipstream_context
+                    .map(crate::slipstream_context::SlipstreamState::from_proto)
+                    .transpose()?,
+                lfj: p.lfj.map(crate::lfj::LfjState::from_proto).transpose()?,
                 infinity_bin: p
                     .infinity_bin
                     .map(crate::infinity_bin::InfinityBinState::from_proto)

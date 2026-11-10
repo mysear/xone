@@ -160,7 +160,7 @@ func TestManagedV2NativeWireGolden(t *testing.T) {
 		t.Fatal("native dependencies/token_info incomplete")
 	}
 	// Reflection covers all 39 fields, all five dependencies and every token_info.
-	if m.ProtoReflect().Descriptor().Fields().Len() != 39 {
+	if m.ProtoReflect().Descriptor().Fields().Len() != 42 {
 		t.Fatal("ManagedV2 field count changed")
 	}
 	paths := []string{"state", "dependencies", "token_info"}
@@ -177,6 +177,12 @@ func TestManagedV2NativeWireGolden(t *testing.T) {
 			fields := message.Descriptor().Fields()
 			for i := 0; i < fields.Len(); i++ {
 				field := fields.Get(i)
+				if path == "state" && (field.Name() == "schedule" || field.Name() == "bpt" || field.Name() == "circuit_breakers") {
+					if message.Has(field) {
+						t.Fatal("legacy golden acquired scheduled field")
+					}
+					continue
+				}
 				t.Run(path+"/"+string(field.Name())+"/"+string(rune('0'+index)), func(t *testing.T) {
 					q := proto.Clone(w).(*pb.OnlineSnapshot)
 					target := managedV2WireMessage(q.Pools[0].MultiAsset.ManagedV2, path, index)
@@ -324,6 +330,12 @@ func TestManagedV2KnownZeroPresenceWireGolden(t *testing.T) {
 	fields := r.Descriptor().Fields()
 	for i := 0; i < fields.Len(); i++ {
 		f := fields.Get(i)
+		if f.Name() == "schedule" || f.Name() == "bpt" || f.Name() == "circuit_breakers" {
+			if r.Has(f) {
+				t.Fatal("legacy wire acquired scheduled capability")
+			}
+			continue
+		}
 		if f.HasPresence() && !r.Has(f) {
 			t.Fatalf("Known(0/false) lost: %s", f.Name())
 		}

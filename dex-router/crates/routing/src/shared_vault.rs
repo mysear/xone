@@ -51,15 +51,27 @@ pub(super) fn propagate(pools: &mut BTreeMap<String, Pool>, next: &Pool) -> Resu
         let Some(os) = &other.multi_asset else {
             continue;
         };
-        if os.vault != ns.vault
-            || !os
-                .assets
-                .iter()
-                .any(|a| changed.contains_key(a.token.as_str()))
-        {
+        if os.vault != ns.vault {
             continue;
         }
-        let mut candidate = other.clone();
+        let affected = os
+            .assets
+            .iter()
+            .any(|a| changed.contains_key(a.token.as_str()));
+        let clock_changed = managed(other).is_some_and(|m| context(m) != clock);
+        if !affected && !clock_changed {
+            continue;
+        }
+        if managed(other).is_none() {
+            return Err(err("SHARED_VAULT_MIXED_ADAPTER_UNSUPPORTED"));
+        }
+        // A future Vault clock belongs to every Managed sibling, including
+        // disjoint tokens. Each sibling projects its own raw schedule and AUM.
+        let mut candidate = xone_protocol_math::managed_v2_pool::reclock(
+            other,
+            clock.block_number,
+            clock.timestamp,
+        )?;
         let cs = candidate
             .multi_asset
             .as_mut()
@@ -73,8 +85,6 @@ pub(super) fn propagate(pools: &mut BTreeMap<String, Pool>, next: &Pool) -> Resu
                 info.vault_actual_balance = (*wallet).clone();
             }
         }
-        // Even a source-H swap creates derived state in every affected pool.
-        cm.execution_context = Some(clock.clone());
         // Includes uint256 wallet width and wallet >= own CASH, not assets.
         candidate.validate()?;
         replacements.push(candidate);

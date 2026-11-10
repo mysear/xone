@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -15,14 +16,32 @@ import (
 type Adapter struct {
 	Client *rpc.Client
 	Chain  config.Chain
+	// OnComplete runs only after receipts/root/witness, pool state, and the
+	// final canonical anchor have all passed. An error backpressures the read.
+	OnComplete        func(context.Context, RawBlock, []Receipt) error
+	OnHistoryEvidence func(context.Context, NativeHistoryEvidence) error
 }
+
+// CopyWithChain preserves source callbacks when selecting a smaller scope.
+func (a *Adapter) CopyWithChain(chain config.Chain) *Adapter {
+	copy := *a
+	copy.Chain = chain
+	return &copy
+}
+
 type RawBlock struct {
-	Number       string   `json:"number"`
-	Hash         string   `json:"hash"`
-	ParentHash   string   `json:"parentHash"`
-	Timestamp    string   `json:"timestamp"`
-	Transactions []string `json:"transactions"`
-	ReceiptsRoot string   `json:"receiptsRoot"`
+	NativeBodyProof    *ChainBlockBodyProof     `json:"-"`
+	NativeCoverage     *VerifiedReceiptCoverage `json:"-"`
+	ObservedHead       *RawBlock                `json:"-"`
+	CurrentStateAnchor *ExecutionStateAnchor    `json:"-"`
+	nativeSession      *nativeReadSession
+	nativeContext      context.Context
+	Number             string   `json:"number"`
+	Hash               string   `json:"hash"`
+	ParentHash         string   `json:"parentHash"`
+	Timestamp          string   `json:"timestamp"`
+	Transactions       []string `json:"transactions"`
+	ReceiptsRoot       string   `json:"receiptsRoot"`
 }
 type Log struct {
 	BlockHash string   `json:"blockHash"`
@@ -35,6 +54,10 @@ type Log struct {
 	Data      string   `json:"data"`
 }
 type Receipt struct {
+	invalidChainEncoding   bool
+	GasUsed                string `json:"gasUsed,omitempty"`
+	DepositNonce           string `json:"depositNonce,omitempty"`
+	DepositReceiptVersion  string `json:"depositReceiptVersion,omitempty"`
 	invalidTypeEncoding    bool
 	invalidOutcomeEncoding bool
 	BlockHash              string `json:"blockHash"`
@@ -160,6 +183,15 @@ func ValidateReceipts(b RawBlock, receipts []Receipt) error {
 	return nil
 }
 func (a *Adapter) Block(ctx context.Context, tag string) (RawBlock, error) {
+	if a.Chain.BlockIntegrity == ChainNativeCommitmentsV2 {
+		return a.nativeRuntimeBlock(ctx, tag)
+	}
+	if a.Chain.BlockIntegrity == ChainBodyCommitmentsV1 {
+		return a.ReadChainCommittedBlock(ctx, tag)
+	}
+	if a.Chain.BlockIntegrity != "" {
+		return a.ethereumBlock(ctx, tag)
+	}
 	var b RawBlock
 	e := a.Client.Call(ctx, "eth_getBlockByNumber", []any{tag, false}, &b)
 	if e == nil && (b.Hash == "" || b.ParentHash == "") {
@@ -167,7 +199,7 @@ func (a *Adapter) Block(ctx context.Context, tag string) (RawBlock, error) {
 	}
 	if e == nil {
 		for _, p := range a.Chain.Pools {
-			if p.Protocol == domain.ManagedV2Protocol {
+			if p.Protocol == domain.ManagedV2Protocol || p.Protocol == domain.ManagedV2ScheduledProtocol || p.Protocol == domain.ManagedV2BptProtocol || p.Protocol == domain.ManagedV2BreakerProtocol {
 				e = validateManagedV2Header(b)
 				break
 			}
@@ -205,23 +237,28 @@ func (a *Adapter) readState(ctx context.Context, tag string, completeBlock bool)
 		return domain.BlockRef{}, nil, nil, e
 	}
 	facts := []domain.SwapFact{}
-	if completeBlock {
-		receipts, e := a.readReceipts(ctx, b)
+	var completedReceipts []Receipt
+	if completeBlock || a.Chain.BlockIntegrity == ChainNativeCommitmentsV2 {
+		var receipts []Receipt
+		b, receipts, e = a.ReadQualifiedReceipts(ctx, b, true)
 		if e != nil {
 			return ref, nil, nil, e
 		}
-		if e = VerifyReceiptRoot(ctx, b, receipts); e != nil {
-			return ref, nil, nil, e
-		}
-		if e = a.verifyReceiptWitnesses(ctx, b, receipts); e != nil {
-			return ref, nil, nil, e
-		}
-		facts, e = DecodeSwapFacts(ref, receipts, a.Chain.Pools)
-		if e != nil {
-			return ref, nil, nil, e
+		completedReceipts = receipts
+		if completeBlock {
+			facts, e = DecodeSwapFacts(ref, receipts, a.Chain.Pools)
+			if e != nil {
+				return ref, nil, nil, e
+			}
 		}
 	}
+
+	stateReader, e := a.nativeStateReader(ctx, b)
+	if e != nil {
+		return ref, nil, nil, e
+	}
 	pools := make([]domain.Pool, 0, len(a.Chain.Pools))
+	remainingPoolBytes := a.Client.MaxBytes
 	anchor := map[string]any{"blockHash": b.Hash, "requireCanonical": true}
 	for _, p := range a.Chain.Pools {
 		profile, ok := domain.Protocol(p.Protocol)
@@ -230,7 +267,7 @@ func (a *Adapter) readState(ctx context.Context, tag string, completeBlock bool)
 		}
 		var pool domain.Pool
 		if profile.Family == "infinity-bin" {
-			pool, e = a.readInfinityBin(ctx, p, anchor, ref)
+			pool, e = stateReader.readInfinityBin(ctx, p, anchor, ref)
 		} else if profile.Family == "singleton-advanced" {
 			v := p.SingletonAdvanced
 			if v == nil {
@@ -242,47 +279,79 @@ func (a *Adapter) readState(ctx context.Context, tag string, completeBlock bool)
 				}
 				return v.KeyFee
 			}(), Hooks: v.Hooks, Parameters: v.Parameters, Core: domain.ConcentratedState{TickSpacing: v.TickSpacing}}}
-			observed, err := a.ReadSingletonAdvanced(ctx, SingletonAdvancedReadConfig{State: state, TickWordRadius: v.TickWordRadius, MaxInitializedTicks: v.MaxInitializedTicks, MaxSteps: v.MaxSteps})
+			observed, err := stateReader.ReadSingletonAdvanced(ctx, SingletonAdvancedReadConfig{State: state, TickWordRadius: v.TickWordRadius, MaxInitializedTicks: v.MaxInitializedTicks, MaxSteps: v.MaxSteps})
 			e = err
 			if e == nil {
 				pool = domain.Pool{SingletonAdvanced: &observed, ChainKey: a.Chain.Key, PoolID: p.ID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: "0", Reserve1: "0", FeeNumerator: uint64(observed.Snapshot.LPFee), FeeDenominator: 1000000, AdapterVersion: profile.AdapterVersion, TokenBehavior: "standard"}
 				e = pool.Validate()
 			}
+		} else if p.Protocol == domain.PancakeBscLmProtocol {
+			pool, e = stateReader.readPancakeBscLm(ctx, p, anchor, ref)
+		} else if p.Protocol == domain.PancakeLmProtocol {
+			pool, e = stateReader.readPancakeLm(ctx, p, anchor, ref)
+		} else if p.Protocol == domain.SlipstreamContextProtocol {
+			pool, e = stateReader.readSlipstreamContext(ctx, p, anchor, ref)
+		} else if p.Protocol == domain.LfjProtocol {
+			pool, e = stateReader.readLfj(ctx, p, anchor, ref)
 		} else if p.Protocol == "curve-metausd-direct" {
-			pool, e = a.readCurveMeta(ctx, p, anchor, ref)
+			pool, e = stateReader.readCurveMeta(ctx, p, anchor, ref)
 		} else if p.Protocol == "curve-crypto2-full" || p.Protocol == "curve-crypto2-ramp" {
-			pool, e = a.readCurveCrypto(ctx, p, anchor, ref)
+			pool, e = stateReader.readCurveCrypto(ctx, p, anchor, ref)
 		} else if p.Protocol == "curve-stableswap-ng" {
-			pool, e = a.readCurveNG(ctx, p, anchor, ref)
-		} else if p.Protocol == domain.ManagedV2Protocol {
-			pool, e = a.readManagedV2(ctx, p, anchor, ref)
+			pool, e = stateReader.readCurveNG(ctx, p, anchor, ref)
+		} else if p.Protocol == domain.ManagedV2Protocol || p.Protocol == domain.ManagedV2ScheduledProtocol || p.Protocol == domain.ManagedV2BptProtocol || p.Protocol == domain.ManagedV2BreakerProtocol {
+			pool, e = stateReader.readManagedV2(ctx, p, anchor, ref)
 		} else if profile.Family == "multi" {
-			pool, e = a.readMultiAsset(ctx, p, anchor, ref.Number)
+			pool, e = stateReader.readMultiAsset(ctx, p, anchor, ref.Number)
 		} else if profile.Family == "singleton" {
-			pool, e = a.readSingletonCL(ctx, p, anchor)
+			pool, e = stateReader.readSingletonCL(ctx, p, anchor)
 		} else if profile.Family == "weighted" {
-			pool, e = a.readWeighted(ctx, p, anchor, ref.Number)
+			pool, e = stateReader.readWeighted(ctx, p, anchor, ref.Number)
 		} else if profile.Family == "aero" || profile.Family == "curve" || profile.Family == "balancer" {
-			pool, e = a.readStable(ctx, p, anchor)
+			pool, e = stateReader.readStable(ctx, p, anchor)
 		} else if profile.Family == "v3" {
-			pool, e = a.readV3(ctx, p, anchor)
+			pool, e = stateReader.readV3(ctx, p, anchor)
 		} else if p.Protocol == domain.V2CompleteProtocol {
-			pool, e = a.readV2Complete(ctx, p, anchor, ref)
+			pool, e = stateReader.readV2Complete(ctx, p, anchor, ref)
 		} else {
-			pool, e = a.readV2(ctx, p, anchor)
+			pool, e = stateReader.readV2(ctx, p, anchor)
 		}
 		if e != nil {
+			if b.nativeSession != nil {
+				e = b.nativeSession.stateReadError(e)
+			}
 			return ref, nil, nil, e
+		}
+		encoded, err := json.Marshal(pool)
+		if err != nil {
+			return ref, nil, nil, err
+		}
+		if len(encoded) > remainingPoolBytes-256 {
+			return ref, nil, nil, errors.New("POOL_STATE_BUDGET")
+		}
+		remainingPoolBytes -= len(encoded) + 256
+		if b.nativeSession != nil {
+			if err = b.nativeSession.retainPool(encoded); err != nil {
+				return ref, nil, nil, err
+			}
 		}
 		pools = append(pools, pool)
 	}
 	// The anchor must still be canonical after all state calls; unsupported EIP-1898 is a hard failure.
-	check, e := a.Block(ctx, b.Number)
+	check, e := a.recheckBlock(ctx, b)
 	if e != nil {
 		return ref, nil, nil, e
 	}
 	if !sameReceiptAnchor(b, check) {
 		return ref, nil, nil, errors.New("ANCHOR_REORGED")
+	}
+	if completeBlock && a.OnComplete != nil {
+		if ctx.Err() != nil {
+			return ref, nil, nil, ctx.Err()
+		}
+		if e = a.OnComplete(ctx, b, completedReceipts); e != nil {
+			return ref, nil, nil, e
+		}
 	}
 	return ref, pools, facts, nil
 }

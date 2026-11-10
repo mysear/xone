@@ -45,7 +45,7 @@ func chargeReceipt(remaining *int, receipt Receipt) bool {
 		*remaining -= n
 		return true
 	}
-	if !charge(256 + len(receipt.BlockHash) + len(receipt.TxHash) + len(receipt.TxIndex) + len(receipt.Type) + len(receipt.Status) + len(receipt.PostState) + len(receipt.CumulativeGasUsed) + len(receipt.LogsBloom)) {
+	if !charge(256 + len(receipt.BlockHash) + len(receipt.TxHash) + len(receipt.TxIndex) + len(receipt.Type) + len(receipt.Status) + len(receipt.PostState) + len(receipt.CumulativeGasUsed) + len(receipt.LogsBloom) + len(receipt.GasUsed) + len(receipt.DepositNonce) + len(receipt.DepositReceiptVersion)) {
 		return false
 	}
 	for _, log := range receipt.Logs {
@@ -77,12 +77,7 @@ func (a *Adapter) readReceipts(ctx context.Context, block RawBlock) ([]Receipt, 
 		if !chargeReceipt(&remaining, receipt) {
 			return nil, errors.New("RECEIPT_BLOCK_BUDGET")
 		}
-		receipt.BlockHash = canonicalReceiptIdentity(receipt.BlockHash)
-		receipt.TxHash = canonicalReceiptIdentity(receipt.TxHash)
-		for i := range receipt.Logs {
-			receipt.Logs[i].BlockHash = canonicalReceiptIdentity(receipt.Logs[i].BlockHash)
-			receipt.Logs[i].TxHash = canonicalReceiptIdentity(receipt.Logs[i].TxHash)
-		}
+		canonicalizeReadReceipt(&receipt)
 		receipts = append(receipts, receipt)
 	}
 	return receipts, nil
@@ -169,11 +164,15 @@ func (a *Adapter) verifyReceiptWitnesses(ctx context.Context, block RawBlock, re
 		if !sameReceiptAnchor(block, anchor) {
 			return errors.New("RECEIPT_PROVIDER_DISAGREEMENT")
 		}
-		observed, err := witness.readReceipts(ctx, anchor)
+		observed, err := witness.ReadReceiptsWithMode(ctx, anchor, a.Chain.ReceiptsMode)
 		if err != nil {
+			var invalid *receiptValidationError
+			if errors.As(err, &invalid) {
+				return errors.New("RECEIPT_WITNESS_INVALID")
+			}
 			return errors.New("RECEIPT_WITNESS_UNAVAILABLE")
 		}
-		if VerifyReceiptRoot(ctx, anchor, observed) != nil {
+		if VerifyChainReceiptRoot(ctx, a.Chain.Key, anchor, observed) != nil {
 			return errors.New("RECEIPT_WITNESS_INVALID")
 		}
 		digest, err := receiptDigest(ctx, anchor, observed)

@@ -54,12 +54,28 @@ func Protocol(name string) (ProtocolProfile, bool) {
 	case "pancake-infinity-cl":
 		return ProtocolProfile{Family: "singleton", AdapterVersion: "pancake-infinity-cl/cl-1", FeeDenominator: 1000000, RequireIdentity: true}, true
 
+	case PancakeBscLmProtocol:
+		return ProtocolProfile{Family: "pancake-bsc4", AdapterVersion: PancakeBscLmAdapter, FeeDenominator: 1000000, FeeProtocolBits: 32, RequireIdentity: true}, true
+	case PancakeLmProtocol:
+		return ProtocolProfile{Family: "pancake-lm", AdapterVersion: PancakeLmAdapter, FeeDenominator: 1000000, FeeProtocolBits: 32, RequireIdentity: true}, true
+	case SlipstreamContextProtocol:
+		return ProtocolProfile{Family: "slipstream-context", AdapterVersion: SlipstreamContextAdapter, FeeDenominator: 1000000, RequireIdentity: true}, true
+	case LfjProtocol:
+		return ProtocolProfile{Family: "lfj", AdapterVersion: LfjAdapter, FeeDenominator: 1000000000000000000, RequireIdentity: true}, true
 	case "aerodrome-slipstream":
 		return ProtocolProfile{Family: "v3", AdapterVersion: "aerodrome-slipstream/cl-1", FeeDenominator: 1000000, RequireIdentity: true}, true
+	case "velodrome-v2-volatile", "velodrome-v2-stable":
+		return ProtocolProfile{Family: "aero", AdapterVersion: name + "/b3065d8b-1", FeeDenominator: 10000, RequireIdentity: true}, true
 	case "aerodrome-v2-volatile", "aerodrome-v2-stable":
 		return ProtocolProfile{Family: "aero", AdapterVersion: name + "/pool-1", FeeDenominator: 10000, RequireIdentity: true}, true
 	case "curve-plain2-basic":
 		return ProtocolProfile{Family: "curve", AdapterVersion: "curve-plain2-basic/factory-5", FeeDenominator: 10000000000, RequireIdentity: true}, true
+	case ManagedV2BreakerProtocol:
+		return ProtocolProfile{Family: "multi", AdapterVersion: ManagedV2BreakerAdapterVersion, FeeDenominator: 1000000000000000000, RequireIdentity: true}, true
+	case ManagedV2BptProtocol:
+		return ProtocolProfile{Family: "multi", AdapterVersion: ManagedV2BptAdapterVersion, FeeDenominator: 1000000000000000000, RequireIdentity: true}, true
+	case ManagedV2ScheduledProtocol:
+		return ProtocolProfile{Family: "multi", AdapterVersion: ManagedV2ScheduledAdapterVersion, FeeDenominator: 1000000000000000000, RequireIdentity: true}, true
 	case ManagedV2Protocol:
 		return ProtocolProfile{Family: "multi", AdapterVersion: ManagedV2AdapterVersion, FeeDenominator: 1000000000000000000, RequireIdentity: true}, true
 	case "balancer-v2-managed-fees":

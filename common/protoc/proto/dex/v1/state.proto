@@ -173,7 +173,8 @@ message PoolState {
  string chain_key = 1; string pool_id = 2; string protocol = 3;
  string token0 = 4; string token1 = 5; Amount reserve0 = 6; Amount reserve1 = 7;
  uint64 fee_numerator = 8; uint64 fee_denominator = 9; string adapter_version = 10;
- string token_behavior = 11; V3State v3 = 20; V2State v2 = 21; StableState stable = 22; SingletonCLState singleton_cl = 23; RaydiumCPMMState raydium_cpmm = 24; OrcaWhirlpoolState orca_whirlpool = 25; RaydiumCLMMState raydium_clmm = 26; WeightedState weighted = 27; MultiAssetState multi_asset = 28; SingletonAdvancedState singleton_advanced = 29; InfinityBinState infinity_bin = 30; reserved 12 to 19;
+ string token_behavior = 11; V3State v3 = 20; V2State v2 = 21; StableState stable = 22; SingletonCLState singleton_cl = 23; RaydiumCPMMState raydium_cpmm = 24; OrcaWhirlpoolState orca_whirlpool = 25; RaydiumCLMMState raydium_clmm = 26; WeightedState weighted = 27; MultiAssetState multi_asset = 28; SingletonAdvancedState singleton_advanced = 29; InfinityBinState infinity_bin = 30; LfjState lfj = 31; SlipstreamState slipstream_context = 32; PancakeLmState pancake_lm = 33;
+ PancakeBscLmState pancake_bsc_lm = 34; reserved 12 to 19;
 }
 message CanonicalRecord {
  SnapshotRef snapshot = 1; string record_id = 2; bytes payload_hash = 3;
@@ -360,6 +361,11 @@ message InfinityBinState {
  InfinityBinEntry detached_active=29;
 }
 
+// Packed words for the explicit scheduled profile. Source observations are
+// checked against the original getters; computed weights are never normalized.
+message ManagedV2ScheduledToken { string token = 1; Amount state_word = 2; }
+message ManagedV2Schedule { Amount pool_state_word = 1; repeated ManagedV2ScheduledToken tokens = 2; }
+
 // Published 20230411 Managed V2. Scalars retain presence including Known(0).
 message ManagedV2Dependency {
  string role = 1;
@@ -376,6 +382,27 @@ message ManagedV2TokenInfo {
  Amount vault_actual_balance = 6;
 }
 // Wire words decode as uint64 to reject protobuf uint32 truncation; domain/storage width is uint32.
+// Explicit BPT control observations for the separately versioned BPT adapter.
+// Absence is unknown, including a false allowlist result or block zero.
+message ManagedV2AllowlistMember { string address = 1; optional bool allowed = 2; }
+message ManagedV2BptState {
+ optional bool join_exit_enabled = 1;
+ Amount minimum_bpt_locked = 2;
+ optional uint64 bpt_last_change_block = 3;
+ repeated ManagedV2AllowlistMember allowlist_members = 4;
+}
+// Exact 20230411 circuit storage plus all six unscaled getter observations.
+message ManagedV2CircuitToken {
+ string token = 1;
+ Amount state_word = 2;
+ Amount reference_bpt_price = 3;
+ Amount reference_weight = 4;
+ Amount lower_percentage = 5;
+ Amount upper_percentage = 6;
+ Amount lower_bpt_price_bound = 7;
+ Amount upper_bpt_price_bound = 8;
+}
+message ManagedV2CircuitState { repeated ManagedV2CircuitToken tokens = 1; }
 message BalancerManagedV2State {
  optional uint64 timestamp = 1;
  optional uint64 block_number = 2;
@@ -416,4 +443,225 @@ message BalancerManagedV2State {
  optional bool vault_paused = 37;
  optional uint64 vault_pause_window_end = 38;
  optional uint64 vault_buffer_period_end = 39;
+ ManagedV2Schedule schedule = 40;
+ ManagedV2BptState bpt = 41;
+ ManagedV2CircuitState circuit_breakers = 42;
+}
+
+message LfjBin { uint32 id=1; Amount reserve0=2; Amount reserve1=3; Amount total_shares=4; }
+message LfjOracle { uint32 index=1; Amount data=2; }
+message LfjState {
+ bytes code_sha256=1;
+ string implementation=2;
+ bytes implementation_code_sha256=3;
+ string factory=4;
+ bytes factory_code_sha256=5;
+ bytes token0_code_sha256=6;
+ bytes token1_code_sha256=7;
+ bytes block_hash=8;
+ optional uint64 block_number=9;
+ optional uint64 timestamp=10;
+ uint32 bin_step=11;
+ Amount parameters=12;
+ Amount raw_reserve0=13;
+ Amount raw_reserve1=14;
+ Amount protocol_fees0=15;
+ Amount protocol_fees1=16;
+ repeated LfjBin bins=17;
+ repeated LfjOracle oracle_samples=18;
+ uint32 max_bins=19;
+ uint32 max_steps=20;
+}
+
+message SlipstreamDynamicFee {
+ optional uint32 base_fee=1;
+ optional uint32 fee_cap=2;
+ optional uint64 scaling_factor=3;
+ optional bool initial_fee_enabled=4;
+ optional uint32 initial_fee=5;
+ optional uint64 default_scaling_factor=6;
+ optional uint32 default_fee_cap=7;
+ optional uint32 seconds_ago=8;
+}
+message SlipstreamModule {
+ string kind=1;
+ string address=2;
+ bytes code_sha256=3;
+ bytes template_sha256=4;
+ string factory=5;
+ optional uint32 custom_fee=6;
+ SlipstreamDynamicFee dynamic=7;
+}
+message SlipstreamOrigin {
+ string origin=1;
+ optional uint32 discount=2;
+ optional uint32 view_swap_fee=3;
+ optional uint32 view_unstaked_fee=4;
+}
+message SlipstreamTick {
+ optional sint32 tick=1;
+ Amount liquidity_gross=2;
+ bytes liquidity_net=3;
+ bytes staked_liquidity_net=4;
+ Amount fee_growth_outside0=5;
+ Amount fee_growth_outside1=6;
+ Amount reward_growth_outside=7;
+ bytes tick_cumulative_outside=8;
+ Amount seconds_per_liquidity_outside_x128=9;
+ optional uint32 seconds_outside=10;
+ optional bool initialized=11;
+}
+message SlipstreamObservation {
+ optional uint32 block_timestamp=1;
+ bytes tick_cumulative=2;
+ Amount seconds_per_liquidity_cumulative_x128=3;
+ optional bool initialized=4;
+}
+message SlipstreamState {
+ V3State core=1;
+ bytes implementation_template_sha256=2;
+ bytes factory_template_sha256=3;
+ bytes token0_code_sha256=4;
+ bytes token1_code_sha256=5;
+ string factory_voter=6;
+ bytes voter_code_sha256=7;
+ string voter_gauge=8;
+ optional bool voter_gauge_alive=9;
+ optional uint32 factory_default_fee=10;
+ optional uint32 factory_default_unstaked_fee=11;
+ optional bool factory_registered=12;
+ SlipstreamModule swap_fee_module=13;
+ SlipstreamModule unstaked_fee_module=14;
+ repeated SlipstreamOrigin origins=15;
+ string view_origin=16;
+ optional uint32 view_swap_fee=17;
+ optional uint32 view_unstaked_fee=18;
+ Amount raw_balance0=19;
+ Amount raw_balance1=20;
+ Amount fee_growth_global0=21;
+ Amount fee_growth_global1=22;
+ Amount reward_growth_global=23;
+ Amount gauge_fees0=24;
+ Amount gauge_fees1=25;
+ Amount reward_rate=26;
+ Amount reward_reserve=27;
+ Amount period_finish=28;
+ Amount rollover=29;
+ Amount staked_liquidity=30;
+ optional uint32 last_updated=31;
+ Amount max_liquidity_per_tick=32;
+ string gauge=33;
+ string nft=34;
+ string factory_registry=35;
+ optional uint32 observation_index=36;
+ optional uint32 observation_cardinality=37;
+ optional uint32 observation_cardinality_next=38;
+ optional bool unlocked=39;
+ repeated SlipstreamTick ticks=40;
+ repeated SlipstreamObservation observations=41;
+ bytes block_hash=42;
+ optional uint64 block_number=43;
+ optional uint64 timestamp=44;
+ optional uint32 max_observations=45;
+ optional bool derived=46;
+}
+
+message PancakeLmTick {
+ optional sint32 tick=1;
+ Amount liquidity_gross=2;
+ bytes liquidity_net=3;
+ Amount reward_growth_outside=4;
+}
+message PancakeLedgerTick {
+ optional sint32 tick=1;
+ Amount liquidity_gross=2;
+ bytes liquidity_net=3;
+ Amount fee_growth_outside0=4;
+ Amount fee_growth_outside1=5;
+ bytes tick_cumulative_outside=6;
+ Amount seconds_per_liquidity_outside_x128=7;
+ optional uint32 seconds_outside=8;
+ optional bool initialized=9;
+}
+message PancakeObservation {
+ optional uint32 block_timestamp=1;
+ bytes tick_cumulative=2;
+ Amount seconds_per_liquidity_cumulative_x128=3;
+ optional bool initialized=4;
+}
+message PancakeMasterChef {
+ string address=1;
+ bytes code_sha256=2;
+ bytes template_sha256=3;
+ string cake=4;
+ string weth=5;
+ string position_manager=6;
+ Amount pool_pid=7;
+ string pool_address=8;
+ string pool_token0=9;
+ string pool_token1=10;
+ optional uint32 pool_fee=11;
+ Amount pool_alloc_point=12;
+ Amount total_alloc_point=13;
+ Amount latest_period_cake_per_second=14;
+ Amount latest_period_end_time=15;
+ Amount view_reward_per_second=16;
+ Amount view_end_time=17;
+}
+message PancakeLm {
+ string address=1;
+ bytes code_sha256=2;
+ bytes template_sha256=3;
+ string pool=4;
+ string master_chef=5;
+ Amount reward_growth_global=6;
+ Amount liquidity=7;
+ optional uint32 last_reward_timestamp=8;
+ repeated PancakeLmTick ticks=9;
+}
+message PancakeLmState {
+ V3State core=1;
+ optional sint32 tick=2;
+ optional uint32 fee_protocol=3;
+ bytes pool_template_sha256=4;
+ bytes factory_template_sha256=5;
+ bytes token0_code_sha256=6;
+ bytes token1_code_sha256=7;
+ optional bool factory_registered=8;
+ PancakeMasterChef master_chef=9;
+ PancakeLm lm=10;
+ Amount raw_balance0=11;
+ Amount raw_balance1=12;
+ Amount fee_growth_global0=13;
+ Amount fee_growth_global1=14;
+ Amount protocol_fees0=15;
+ Amount protocol_fees1=16;
+ Amount max_liquidity_per_tick=17;
+ optional uint32 observation_index=18;
+ optional uint32 observation_cardinality=19;
+ optional uint32 observation_cardinality_next=20;
+ optional bool unlocked=21;
+ repeated PancakeLedgerTick ticks=22;
+ repeated PancakeObservation observations=23;
+ bytes block_hash=24;
+ optional uint64 block_number=25;
+ optional uint64 timestamp=26;
+ optional uint32 max_observations=27;
+ optional bool derived=28;
+}
+
+// BSC migration state is separate from the legacy field33 ledger.
+message PancakeBscLmFlag { optional sint32 tick=1; optional bool migrated=2; }
+message PancakeBscLmPredecessor {
+ string address=1;
+ bytes code_sha256=2;
+ bytes template_sha256=3;
+ repeated PancakeLmTick ticks=4;
+ repeated PancakeBscLmFlag flags=5;
+}
+message PancakeBscLmState {
+ PancakeLmState ledger=1;
+ optional bool initialization=2;
+ repeated PancakeBscLmFlag flags=3;
+ repeated PancakeBscLmPredecessor predecessors=4;
 }

@@ -867,3 +867,487 @@ BINDINGS['23.managed-v2-normal-service'] = {
 }
 
 BINDINGS['12.11.managed-v2-distinct-pause'] = {'paths': ['chain-parser-go/internal/chain/evm/managed_v2.go', 'dex-router/crates/protocol-math/src/managed_v2_pool.rs'], 'tests': ['TestManagedV2VaultPauseNeverOverwritesPoolOwnPause', 'test_original_pool_and_vault_pauses_and_windows_remain_distinct'], 'evidence_refs': ['integration/artifacts/local/managed-v2-aum-vault-pause-native-probe.log']}
+
+# Current-date catalog and shared physical Vault execution remain a distinct new verification scope.
+BINDINGS['7.3.managed-v2-current-catalog']={'paths':['chain-parser-go/internal/chain/evm/managed_v2_catalog_test.go','integration/tools/ci/managed-v2-aum-catalog-golden.cjs','integration/tools/acceptance/managed_v2_catalog.py'],'tests':['TestManagedV2CatalogAllOriginalBanks','fifty_swap','fifty_collect'],'evidence_refs':['integration/test/contracts/managed-v2-aum-catalog.json','integration/artifacts/local/managed-v2-catalog-three-service-smoke.json']}
+BINDINGS['11.3.managed-v2-shared-vault-facts']={'paths':['chain-parser-go/internal/domain/managed_v2_dependencies.go','dex-router/crates/domain/src/managed_v2_dependencies.rs'],'tests':['TestManagedSharedRolesAndProviderGetterMustAgreeAtSameSource','original_shared_wallet_backs_total_cash_in_every_declared_registration'],'evidence_refs':['integration/test/contracts/managed-v2-shared-vault.json','integration/artifacts/local/managed-v2-shared-role-cash-go.log']}
+BINDINGS['12.9.managed-v2-shared-wallet-transition']={'paths':['dex-router/crates/routing/src/shared_vault.rs','dex-router/crates/routing/src/lib.rs'],'tests':['native_four_swaps_full_poststate','carried_four_steps_full_poststate_and_two_paths','whole_path_failure_rolls_back_first_success'],'evidence_refs':['integration/artifacts/local/managed-v2-shared-funded-scope-regressions.log']}
+BINDINGS['13.managed-v2-executable-scope']={'paths':['dex-router/crates/state-replica/src/lib.rs','dex-router/crates/quote-api/src/lib.rs','dex-router/crates/routing/src/lib.rs'],'tests':['mixed_vault_is_explicitly_excluded_without_blocking_unrelated_routes','mixed_vault_publish_keeps_closed_bank_and_only_unrelated_edges_in_either_order'],'evidence_refs':['integration/artifacts/local/managed-v2-shared-funded-scope-regressions.log']}
+BINDINGS['12.14.managed-v2-real-selected-split']={'paths':['integration/tools/acceptance/managed_v2_multi_smoke.py','integration/tools/ci/managed-v2-shared-plan-replay.cjs'],'tests':['test_two_ordered_routes_share_vault_and_carry_real_wallet_state','test_single_pool_a_and_b_at_common_h38_and_reverse_at_h40'],'evidence_refs':['integration/artifacts/local/managed-v2-shared-three-service-smoke.json']}
+
+# T34.11 remains partial until the original source, API/VM and final gate share
+# one frozen closure. These bindings identify local tests only.
+BINDINGS['11.3.managed-v2-scheduled-state'] = {
+    'paths': ['common/protoc/proto/dex/v1/state.proto', 'chain-parser-go/internal/domain/managed_v2_schedule.go', 'dex-router/crates/domain/src/managed_v2_schedule.rs'],
+    'tests': ['all_234_original_getter_views_and_41_checkpoints_are_exact'],
+    'evidence_refs': ['integration/artifacts/local/managed-v2-scheduled-wire-check.log'],
+}
+BINDINGS['7.3.managed-v2-scheduled-source'] = {
+    'paths': ['chain-parser-go/internal/chain/evm/managed_v2_scheduled.go', 'chain-parser-go/internal/chain/evm/managed_v2_scheduled_native_test.go', 'integration/tools/acceptance/managed_v2_scheduled_projection.py'],
+    'tests': ['TestManagedScheduledEveryOriginalSnapshot', 'TestManagedScheduledOriginalFaultsNeverPublish', 'TestManagedV2RejectsForgedFixedFeeIDContext'],
+    'evidence_refs': ['integration/artifacts/local/managed-v2-scheduled-parser-test.log'],
+}
+BINDINGS['12.9.managed-v2-scheduled-transition'] = {
+    'paths': ['dex-router/crates/protocol-math/src/managed_v2_pool.rs', 'dex-router/crates/protocol-math/src/managed_v2_swap.rs', 'dex-router/crates/routing/src/shared_vault.rs'],
+    'tests': ['all_53_original_wallet_outputs_and_full_swap_poststates_match', 'both_original_nonzero_aum_collections_match_every_poststate_field', 'future_swap_reclocks_all_three_peers_with_own_getters_and_ledgers'],
+    'evidence_refs': ['integration/artifacts/local/managed-v2-scheduled-math-test.log'],
+}
+BINDINGS['12.14.managed-v2-scheduled-original'] = {
+    'paths': ['integration/tools/ci/managed-v2-scheduled-golden.cjs', 'integration/tools/reference/balancer-managed-v2-scheduled/generate.cjs', 'integration/tools/ci/managed-v2-scheduled-plan-replay.cjs'],
+    'tests': ['test_exact_original_plan_accepts_and_mutations_fail_before_execution'],
+    'evidence_refs': ['integration/artifacts/local/managed-v2-scheduled-reference-check.log'],
+}
+
+# T34.11.6 original two-physical-pool scheduled scope remains separate from
+# single-pool evidence and from full protocol/design acceptance.
+BINDINGS['7.3.managed-v2-scheduled-shared-source'] = {
+    'paths': ['chain-parser-go/internal/chain/evm/managed_v2_scheduled_shared_native_test.go', 'integration/tools/reference/balancer-managed-v2-scheduled-shared/checker.cjs', 'integration/tools/acceptance/managed_v2_scheduled_shared_projection.py'],
+    'tests': ['TestManagedScheduledSharedEveryOriginalCommonBank', 'TestManagedScheduledSharedMissingPeerIsAtomicAndLegacyCannotPromote', 'all_72_common_banks_preserve_full_sources_profiles_and_joint_cash_constraints'],
+    'evidence_refs': ['integration/artifacts/local/managed-v2-scheduled-shared-parser-green.log', 'integration/artifacts/local/managed-v2-scheduled-shared-local-validation.json'],
+}
+BINDINGS['12.9.managed-v2-scheduled-shared-original-transitions'] = {
+    'paths': ['dex-router/crates/routing/tests/managed_v2_scheduled_shared_native.rs', 'dex-router/crates/routing/src/shared_vault.rs', 'dex-router/crates/protocol-math/src/managed_v2_pool.rs'],
+    'tests': ['all_48_swaps_and_four_collections_match_both_full_original_pool_poststates', 'twelve_carried_abab_and_final_collection_sequences_never_reset_source_or_wallets', 'all_twelve_native_clock_only_transitions_reclock_each_own_schedule_and_aum'],
+    'evidence_refs': ['integration/artifacts/local/managed-v2-scheduled-shared-math-native.log', 'integration/artifacts/local/managed-v2-scheduled-shared-local-validation.json'],
+}
+BINDINGS['12.14.managed-v2-scheduled-shared-selected-split'] = {
+    'paths': ['integration/tools/ci/managed-v2-scheduled-shared-plan-replay.cjs', 'integration/tools/acceptance/managed_v2_scheduled_shared_projection.py', 'dex-router/crates/routing/tests/managed_v2_scheduled_shared_native.rs'],
+    'tests': ['test_real_validator_rejects_plan_mismatches_before_any_vm', 'actual_api_selected_two_route_full_poststates'],
+    'evidence_refs': ['integration/artifacts/local/managed-v2-scheduled-shared-actual-selected-model.log', 'integration/artifacts/local/managed-v2-scheduled-shared-local-validation.json'],
+}
+BINDINGS['23.managed-v2-scheduled-shared-process'] = {
+    'paths': ['integration/tools/acceptance/managed_v2_scheduled_shared_smoke.py', 'integration/tools/acceptance/weighted_evidence.py'],
+    'tests': ['test_every_common_bank_has_exact_canonical_ancestry_and_all_original_reads', 'test_full_reference_and_two_physical_route_conservation_are_required', 'test_raw_word_fault_targets_an_explicit_scheduled_profile_in_each_mode'],
+    'evidence_refs': ['integration/artifacts/local/managed-v2-scheduled-shared-three-service-smoke.json', 'integration/artifacts/local/managed-v2-scheduled-shared-local-validation.json'],
+}
+
+# Published BPT adapter: source/test bindings only; status stays in Markdown.
+BINDINGS['11.3.managed-v2-bpt-state'] = {
+    'paths': ['common/protoc/proto/dex/v1/state.proto', 'chain-parser-go/internal/domain/managed_v2_bpt_state.go', 'dex-router/crates/domain/src/managed_v2_bpt_state.rs'],
+    'tests': ['TestManagedV2BptIndependentCPPWire', 'independent_bpt_cpp_snapshot_preserves_full_wire_and_known_zero_false'],
+    'evidence_refs': ['dex-router/crates/domain/tests/managed_v2_bpt_state.rs'],
+}
+BINDINGS['7.3.managed-v2-bpt-source'] = {
+    'paths': ['chain-parser-go/internal/chain/evm/managed_v2.go', 'chain-parser-go/internal/config/managed_v2.go'],
+    'tests': ['TestManagedV2BptEverySupportedOriginalFixedBank', 'TestManagedV2BptSourceControlsFailAtomically'],
+    'evidence_refs': ['chain-parser-go/internal/chain/evm/managed_v2_bpt_native_test.go'],
+}
+BINDINGS['12.2.managed-v2-bpt-transition'] = {
+    'paths': ['dex-router/crates/protocol-math/src/managed_v2_bpt.rs', 'dex-router/crates/protocol-math/src/managed_v2_pool.rs'],
+    'tests': ['original_bpt_swap_amounts_and_every_retained_poststate_field_match', 'recipient_wallet_aliases_move_preminted_bpt_once_without_extra_minting'],
+    'evidence_refs': ['dex-router/crates/protocol-math/tests/managed_v2_bpt_pool.rs'],
+}
+BINDINGS['12.9.managed-v2-bpt-routing'] = {
+    'paths': ['dex-router/crates/routing/src/lib.rs', 'dex-router/crates/routing/src/bpt_wallets.rs', 'dex-router/crates/optimizer/src/lib.rs', 'dex-router/crates/quote-api/src/lib.rs'],
+    'tests': ['original_bpt_logical_edges_and_funded_execution_match_every_supported_swap', 'external_v2_bpt_credit_is_carried_into_manager_and_collector_exit_balances', 'bpt_http_caller_membership_is_not_lost_between_search_and_optimizer'],
+    'evidence_refs': ['dex-router/crates/routing/tests/managed_v2_bpt.rs'],
+}
+BINDINGS['12.14.managed-v2-bpt-selected'] = {
+    'paths': ['integration/tools/ci/managed-v2-bpt-plan-replay.cjs', 'integration/tools/acceptance/managed_v2_bpt_projection.py'],
+    'tests': ['test_exact_api_plan_input_and_source_boundaries', 'actual_api_selected_bpt_native_full_poststate'],
+    'evidence_refs': ['integration/tools/ci/managed-v2-bpt-plan-replay.cjs'],
+}
+BINDINGS['23.managed-v2-bpt-process'] = {
+    'paths': ['integration/tools/acceptance/managed_v2_bpt_smoke.py', 'integration/tools/acceptance/weighted_evidence.py'],
+    'tests': ['test_exact_original_control_getters_and_canonical_anchor', 'test_fault_serving_is_private_and_recovers'],
+    'evidence_refs': ['integration/tools/acceptance/managed_v2_bpt_smoke.py'],
+}
+
+BINDINGS['11.3.managed-v2-breaker-state'] = {
+    'paths': ['common/protoc/proto/dex/v1/state.proto', 'chain-parser-go/internal/domain/managed_v2_circuit_state.go', 'dex-router/crates/domain/src/managed_v2_circuit_state.rs'],
+    'tests': ['TestManagedV2CircuitIndependentCPPField42', 'independent_breaker_cpp_field42_retains_full_word_and_every_required_getter'],
+    'evidence_refs': ['dex-router/crates/domain/tests/managed_v2_circuit_state.rs'],
+}
+BINDINGS['7.3.managed-v2-breaker-source'] = {
+    'paths': ['chain-parser-go/internal/chain/evm/managed_v2_circuit.go', 'chain-parser-go/internal/config/managed_v2.go'],
+    'tests': ['TestManagedV2BreakerEveryOriginalCompleteFixedBank', 'TestManagedV2BreakerSourceContradictionsAreAtomic'],
+    'evidence_refs': ['chain-parser-go/internal/chain/evm/managed_v2_breaker_native_test.go'],
+}
+BINDINGS['12.2.managed-v2-breaker-transition'] = {
+    'paths': ['dex-router/crates/protocol-math/src/managed_v2_breaker.rs', 'dex-router/crates/protocol-math/src/managed_v2_pool.rs'],
+    'tests': ['original_breaker_swaps_match_exact_amounts_complete_poststate_or_original_rejection', 'future_execution_aum_can_trip_untouched_token_even_when_bpt_output_is_zero'],
+    'evidence_refs': ['dex-router/crates/protocol-math/tests/managed_v2_breaker_pool.rs'],
+}
+BINDINGS['12.9.managed-v2-breaker-routing'] = {
+    'paths': ['dex-router/crates/routing/src/lib.rs', 'dex-router/crates/protocol-math/src/multi_asset.rs', 'dex-router/crates/quote-api/src/lib.rs'],
+    'tests': ['candidate_search_keeps_currently_tripped_pool_for_recovering_amount', 'original_shared_order_reuses_both_complete_physical_pools_and_wallets'],
+    'evidence_refs': ['dex-router/crates/routing/tests/managed_v2_breaker.rs'],
+}
+BINDINGS['12.14.managed-v2-breaker-reference'] = {
+    'paths': ['integration/tools/reference/balancer-managed-v2-breaker/checker.cjs', 'integration/tools/reference/balancer-managed-v2-breaker/scenarios.cjs'],
+    'tests': ['test_native_account_control_clock_and_scenario_deletion_fail_closed', 'test_invalid_manager_control_outcomes_are_fixed_independently_of_observations'],
+    'evidence_refs': ['integration/tools/reference/balancer-managed-v2-breaker/checker.cjs'],
+}
+BINDINGS['23.managed-v2-breaker-process'] = {
+    'paths': ['integration/tools/acceptance/managed_v2_breaker_smoke.py', 'integration/tools/ci/managed-v2-breaker-plan-replay.cjs'],
+    'tests': ['test_late_503_is_rejected_even_if_query_started_within_deadline', 'test_selected_after_bindings_and_input_links_reject_offline_forgery'],
+    'evidence_refs': ['integration/tools/acceptance/managed_v2_breaker_smoke.py'],
+}
+
+# Final evidence closure is part of CB5, including progress-count qualification.
+BINDINGS['23.managed-v2-breaker-process']['paths'].extend([
+    'integration/tools/acceptance/managed_v2_breaker_acceptance.py',
+    'integration/tools/acceptance/managed_v2_breaker_final.py',
+    'integration/tools/progress_document.py',
+])
+BINDINGS['23.managed-v2-breaker-process']['tests'].extend([
+    'test_serial_binds_the_exact_current_freeze_commands_and_outputs',
+    'test_review_requires_every_scope_file_and_independent_reviewer',
+    'test_failed_or_interrupted_audit_never_leaves_an_old_success',
+    'test_unverified_reports_keep_fingerprint_but_contribute_no_verified_counts',
+    'test_exact_current_plan_and_nonempty_unique_cb_inventory_are_required',
+    'test_every_breaker_design_mapping_is_required_exactly_once',
+    'test_progress_change_after_any_stage_stops_and_invalidates_acceptance',
+])
+BINDINGS['23.managed-v2-breaker-process']['evidence_refs'].append(
+    'integration/artifacts/local/managed-v2-breaker-local-acceptance.json')
+
+# R01–R04 bindings; progress remains in the Markdown ledger.
+BINDINGS['7.1.r01-deployment-evidence'] = {'paths': ['chain-parser-go/internal/provenance/evm.go', 'chain-parser-go/internal/provenance/capture.go', 'chain-parser-go/cmd/source-evidence/main.go'], 'tests': ['TestProofRejectsChangedHeaderTransactionsCodeAndAccountFields', 'TestCaptureBindsBothHeadersAndPinsEveryStateRead'], 'evidence_refs': ['chain-parser-go/internal/provenance/evm_test.go']}
+BINDINGS['12.14.r01-deployed-source-rebuild'] = {'paths': ['integration/tools/acceptance/evm_deployment_rebuild.cjs'], 'tests': ['test_rebuilt_runtime_and_exact_source_inventory_must_both_match', 'test_entry_rejects_unproven_deployment_before_reporting_bound_address'], 'evidence_refs': ['integration/tools/acceptance/tests/test_evm_deployment_rebuild.py']}
+BINDINGS['7.1.r02-provider-ws'] = {'paths': ['chain-parser-go/internal/rpc/client.go', 'chain-parser-go/internal/rpc/capabilities.go', 'chain-parser-go/internal/rpc/heads_ws.go'], 'tests': ['TestProbeCapabilitiesUsesHistoricalHashAndDoesNotInventRange', 'TestWSRealHandshakeUntrustedHeadsReconnectAndCancel'], 'evidence_refs': ['chain-parser-go/internal/rpc/policy_test.go']}
+BINDINGS['7.2.r02-staging-commit'] = {'paths': ['chain-parser-go/internal/ingest/pipeline.go'], 'tests': ['TestOrderedActorStagesHPlusOneAndBoundsWindow', 'TestCriticalFailureNeverCrossesGapAndKeepsRawDLQ'], 'evidence_refs': ['chain-parser-go/internal/ingest/pipeline_test.go']}
+BINDINGS['7.3.r02-raw-dlq-discovery'] = {'paths': ['chain-parser-go/internal/ingest/archive.go', 'chain-parser-go/internal/ingest/factory.go', 'chain-parser-go/internal/service/raw_evidence.go'], 'tests': ['TestArchiveDurableOwnershipDLQAndCapacity', 'TestNormalRPCResponseIsArchivedBeforeDecodeFailureAndSurvivesReopen', 'TestFactoryFailedCurrentReadsAndHistoryCannotOverwriteOnline'], 'evidence_refs': ['chain-parser-go/internal/ingest/archive_test.go']}
+BINDINGS['7.r03-yellowstone-wal'] = {'paths': ['chain-parser-rust/crates/solana-ingest/src/yellowstone.rs', 'chain-parser-rust/crates/solana-ingest/src/stream.rs'], 'tests': ['real_grpc_subscription_retains_exact_invalid_protobuf_before_decode_and_rejects_end', 'capture_is_durable_before_decoder_and_decode_failure_is_replayable'], 'evidence_refs': ['chain-parser-rust/crates/solana-ingest/tests/stream_wal.rs']}
+BINDINGS['28.22.r03-stream-bank-barrier'] = {'paths': ['chain-parser-rust/crates/solana-ingest/src/stream.rs'], 'tests': ['native_full_block_is_an_atomic_provider_event_set_without_a_bank_scope_proof', 'manifest_binds_exact_account_state_not_only_a_write_version_number'], 'evidence_refs': ['chain-parser-rust/crates/solana-ingest/tests/stream.rs']}
+BINDINGS['28.26.r04-ensure-pool-scope'] = {'paths': ['chain-parser-go/internal/service/scope_control.go', 'chain-parser-rust/crates/solana-ingest/src/service.rs'], 'tests': ['TestEnsurePoolScopeUsesCurrentCompleteGenerationAndRejectsInvalidScopes', 'authenticated_scope_control_uses_current_complete_generation'], 'evidence_refs': ['chain-parser-go/internal/service/scope_control_test.go']}
+BINDINGS['28.10.r04-current-baseline-recovery'] = {'paths': ['chain-parser-go/internal/bootstrap/scope.go', 'chain-parser-go/internal/bootstrap/scope_store.go', 'chain-parser-rust/crates/solana-ingest/src/scope.rs', 'chain-parser-rust/crates/solana-ingest/src/scope_store.rs'], 'tests': ['TestScopeRecoveryAtomic', 'file_store_killed_process_reopens_without_old_ready'], 'evidence_refs': ['chain-parser-rust/crates/solana-ingest/tests/scope_recovery.rs']}
+BINDINGS['28.26.r04-history-isolation'] = {'paths': ['chain-parser-go/internal/bootstrap/scope_store.go', 'chain-parser-rust/crates/solana-ingest/src/scope_store.rs'], 'tests': ['file_history_is_durable_separate_and_bounded'], 'evidence_refs': ['chain-parser-rust/crates/solana-ingest/tests/scope_recovery.rs']}
+
+BINDINGS['7.1.r02-provider-ws']['paths'].extend([
+    'chain-parser-go/internal/service/ws_lifecycle.go',
+    'chain-parser-go/internal/app/app.go',
+    'chain-parser-go/internal/config/config.go',
+])
+BINDINGS['7.1.r02-provider-ws']['tests'].extend([
+    'TestAuditNormalWSHasHTTPRateBudget',
+    'TestWebsocketConfigHasExplicitTransportAndRateResourceBounds',
+])
+BINDINGS['7.2.r02-staging-commit']['paths'].append('chain-parser-go/internal/service/staging.go')
+BINDINGS['7.2.r02-staging-commit']['tests'].append('TestNormalServiceStagingCommitsCompleteBlocksInOrder')
+BINDINGS['7.r03-yellowstone-wal']['paths'].extend([
+    'chain-parser-rust/crates/solana-ingest/src/async_frame_wal.rs',
+    'chain-parser-rust/cmd/source-evidence/main.rs',
+])
+BINDINGS['28.26.r04-ensure-pool-scope']['tests'].append(
+    'cancelled_http_waiter_cannot_release_actor_before_commit_result_settles')
+
+BINDINGS['28.r01-r04-validation'] = {
+    'paths': ['integration/Makefile', 'integration/tools/ci/r01_r04_traceability.py'],
+    'tests': ['test_current_plan_maps_all_requested_work_without_claiming_completion',
+              'test_deleting_or_duplicate_task_or_design_fails',
+              'test_unknown_related_design_is_not_silently_ignored'],
+    'evidence_refs': ['integration/tools/ci/tests/test_r01_r04_traceability.py'],
+}
+
+# R01–R04 follow-up: executable design targets and normal Ethereum commitments.
+BINDINGS['7.1.r01-deployment-evidence']['paths'].extend([
+    'integration/config/chain-targets.json',
+    'integration/tools/configuration/chain_target_config.py',
+])
+BINDINGS['7.1.r01-deployment-evidence']['tests'].extend([
+    'test_design_target_matrix_is_exact_and_no_target_grants_protocol_admission',
+    'test_solana_pins_complete_genesis_hash_instead_of_caip_prefix',
+    'test_existing_same_chain_genesis_pin_cannot_be_replaced_by_new_provider',
+])
+BINDINGS['7.2.r02-staging-commit']['paths'].extend([
+    'chain-parser-go/internal/chain/evm/block_integrity.go',
+    'chain-parser-go/internal/config/config.go',
+])
+BINDINGS['7.2.r02-staging-commit']['tests'].extend([
+    'TestOnlineEthereumBlockVerifiesRetainedRealHeaderAndTransactionRoot',
+    'TestEthereumBlockIntegrityConfigRejectsUnknownOrWrongChainProfiles',
+    'TestNormalEthereumServiceIntegrityFailureRevokesScopeAndRetainsRawDLQ',
+])
+
+BINDINGS['28.r01-r04-validation']['tests'].extend([
+    'test_gap_audit_covers_every_task_and_distinguishes_engineering_from_verification',
+    'test_missing_duplicate_unknown_or_empty_gap_audit_rows_fail',
+])
+
+BINDINGS['7.1.r01-deployment-evidence']['paths'].append(
+    'integration/test/source/chain-genesis-observations.json')
+BINDINGS['7.1.r01-deployment-evidence']['tests'].extend([
+    'test_every_mainnet_target_rejects_same_chain_id_with_another_genesis',
+    'test_frozen_genesis_pins_match_retained_identity_observations',
+    'test_retained_real_genesis_evidence_can_generate_every_target_without_live_rpc',
+    'test_retained_identity_evidence_requires_the_frozen_full_file_digest',
+])
+BINDINGS['7.1.r02-provider-ws']['paths'].append(
+    'integration/tools/configuration/chain_target_config.py')
+BINDINGS['7.1.r02-provider-ws']['tests'].extend([
+    'test_same_chain_rpc_infrastructure_precedes_public_defaults',
+    'test_probe_worker_has_an_absolute_deadline_even_while_making_progress',
+    'test_automatic_raw_evidence_limits_cannot_emit_an_invalid_config',
+])
+
+# Public-data R01–R04 normal-service integration (2026-11-07).
+BINDINGS['7.1.r01-deployment-evidence']['paths'].extend([
+ 'integration/tools/acceptance/r01_public_catalog.py',
+ 'integration/test/source/deployment-catalog/catalog.json',
+])
+BINDINGS['7.1.r01-deployment-evidence']['tests'].extend([
+ 'test_missing_catalog_is_explicit_failure',
+ 'test_scope_duplicate_and_omission_fail_closed',
+ 'test_minimal_proxy_target_is_decoded_from_runtime',
+])
+BINDINGS['7.1.r02-provider-ws']['paths'].extend([
+ 'chain-parser-go/internal/service/provider_runtime.go',
+ 'chain-parser-go/internal/service/runtime_sources.go',
+ 'chain-parser-go/internal/config/provider_catalog.go',
+])
+BINDINGS['7.1.r02-provider-ws']['tests'].extend([
+ 'TestRuntimeSourcesFastHeadAdvanceDoesNotProbeHistoryOrExtendCapabilities',
+ 'TestRuntimeSourcesStateReadsUseQualifiedEndpointWithoutRemovingWitnesses',
+])
+BINDINGS['7.2.r02-staging-commit']['paths'].extend([
+ 'chain-parser-go/internal/chain/evm/chain_receipts.go',
+ 'chain-parser-go/internal/chain/evm/chain_receipts_body.go',
+ 'chain-parser-go/internal/chain/evm/receipt_bulk.go',
+])
+BINDINGS['7.2.r02-staging-commit']['tests'].extend([
+ 'TestChainReceiptsPublicVectors',
+ 'TestChainReceiptsRejectPublicMutations',
+ 'TestCurrentScopeStateSharesOneRetainedPoolBudget',
+])
+BINDINGS['7.3.r02-raw-dlq-discovery']['paths'].extend([
+ 'chain-parser-go/internal/service/catalog_runtime.go',
+ 'chain-parser-go/internal/service/raw_maintenance.go',
+ 'chain-parser-go/internal/ingest/dlq_incident.go',
+ 'chain-parser-go/internal/ingest/archive_failure_safety.go',
+ 'chain-parser-go/internal/reducer/owner_records.go',
+])
+BINDINGS['7.3.r02-raw-dlq-discovery']['tests'].extend([
+ 'TestRuntimeSourcesContinuousQueueCoversEveryCommittedBlockInsideProbeInterval',
+ 'TestRawMaintenanceUnknownReopenReadsImmutableOwnerReceipt',
+ 'TestOwnerRecordCapacityIsReservedDurablyBeforeKafkaAndCannotBeStolenByHistory',
+])
+BINDINGS['7.r03-yellowstone-wal']['paths'].extend([
+ 'chain-parser-rust/crates/solana-ingest/src/normal_stream.rs',
+ 'chain-parser-rust/crates/solana-ingest/src/bank_manifest.rs',
+])
+BINDINGS['7.r03-yellowstone-wal']['tests'].append(
+ 'normal_public_grpc_publishes_only_complete_bank_then_revokes_and_restarts_head_first')
+BINDINGS['28.22.r03-stream-bank-barrier']['paths'].append(
+ 'chain-parser-rust/crates/solana-ingest/src/manifest_recovery.rs')
+BINDINGS['28.22.r03-stream-bank-barrier']['tests'].append(
+ 'independent_manifest_version_dependency_digest_and_freshness_are_required')
+BINDINGS['28.26.r04-ensure-pool-scope']['paths'].append(
+ 'chain-parser-go/internal/service/scope_owner_recovery.go')
+BINDINGS['28.26.r04-ensure-pool-scope']['tests'].extend([
+ 'TestNormalStartupRestoresBoundedFirstScopeAndEnsureExpandsAdmittedPools',
+ 'TestFailedExpansionRetainsUnchangedFreshQualifiedScope',
+])
+BINDINGS['28.10.r04-current-baseline-recovery']['paths'].extend([
+ 'chain-parser-go/internal/bootstrap/embedded_scope.go',
+ 'chain-parser-go/internal/reducer/scope_commit.go',
+ 'chain-parser-go/internal/reducer/owner_transaction.go',
+])
+BINDINGS['28.10.r04-current-baseline-recovery']['tests'].extend([
+ 'TestNormalBaselineRecoveryCommitsScopeLedgerWithOwnerAndRestartReanchors',
+ 'TestScopeAmbiguousLocalCommitRequiresReopenBeforeAnyRetry',
+])
+BINDINGS['28.26.r04-history-isolation']['paths'].extend([
+ 'chain-parser-go/internal/reducer/history_queue.go',
+ 'chain-parser-go/internal/service/history_runtime.go',
+ 'chain-parser-go/internal/service/history_lifecycle.go',
+ 'chain-parser-go/internal/chain/evm/history_facts.go',
+])
+BINDINGS['28.26.r04-history-isolation']['tests'].extend([
+ 'TestHistoryReviewCanonicalRevisionInvalidatesDoneAndClaim',
+ 'TestHistoryReviewDatasetRebindRevokesClaimAndPreservesOldOwnership',
+ 'TestNormalHistoryLifecycleRegistersGapsWithoutBlockingFirstScope',
+])
+BINDINGS['28.r01-r04-validation']['paths'].extend([
+ 'chain-parser-go/internal/service/recovery_metrics.go',
+ 'dex-router/crates/quote-api/src/recovery_metrics.rs',
+])
+BINDINGS['28.r01-r04-validation']['tests'].extend([
+ 'TestRecoveryMetricsRecordFirstQualifiedScopeAndDoNotWaitForHistory',
+ 'recovery_metrics_require_qualified_scope_and_a_real_successful_quote',
+])
+
+BINDINGS['28.10.r04-current-baseline-recovery']['tests'].extend([
+ 'TestHeadFirstRecoveryWorkDoesNotScaleWithOneHourOneDayOrThirtyDaysGap',
+ 'TestScopeRecoveryCapacityFailureNeverPublishesPartialReady',
+])
+
+BINDINGS['7.3.r02-raw-dlq-discovery']['paths'].extend([
+ 'chain-parser-go/internal/service/catalog_runtime_v3_template.go',
+ 'chain-parser-go/internal/service/raw_maintenance_responsibility.go',
+ 'chain-parser-go/internal/service/raw_maintenance_owner_unit.go',
+])
+BINDINGS['7.3.r02-raw-dlq-discovery']['tests'].extend([
+ 'TestRuntimeSourcesCompleteHookPreservesCloneAndVerifierBarrier',
+ 'TestRawMaintenanceActualProviderRefreshContinuousSmallSink',
+])
+
+BINDINGS['28.10.r04-current-baseline-recovery']['paths'].extend([
+ 'chain-parser-rust/crates/solana-ingest/src/owner_scope.rs',
+ 'chain-parser-rust/crates/solana-ingest/src/service_scope_runtime.rs',
+ 'chain-parser-rust/crates/solana-ingest/src/wal_segments.rs',
+])
+BINDINGS['28.22.r03-stream-bank-barrier']['paths'].extend([
+ 'chain-parser-rust/crates/bank-source/src/lib.rs',
+ 'chain-parser-rust/crates/bank-source/agave-4.3.0/native-observer.patch',
+])
+
+BINDINGS['7.r03-yellowstone-wal']['paths'].extend([
+ 'chain-parser-rust/crates/solana-ingest/src/owner_scope.rs',
+ 'chain-parser-rust/crates/bank-source/src/lib.rs',
+ 'integration/tools/acceptance/r03_authority_process.py',
+])
+BINDINGS['7.r03-yellowstone-wal']['tests'].append(
+ 'actual_postgres_kafka_scope_publish_revoke_restart_and_fence')
+BINDINGS['28.r01-r04-validation']['paths'].extend([
+ 'integration/tools/acceptance/r01_r04_recovery_process.py',
+ 'integration/tools/acceptance/r03_authority_process.py',
+])
+BINDINGS['7.2.r02-staging-commit']['paths'].extend([
+ 'chain-parser-go/internal/config/native_proof.go',
+ 'chain-parser-go/internal/chain/evm/native_runtime.go',
+])
+BINDINGS['7.2.r02-staging-commit']['tests'].append(
+ 'TestNativeProofConfigurationRequiresKnownChainAndFiniteExplicitLimits')
+BINDINGS['7.2.r02-staging-commit']['tests'].extend([
+ 'TestNormalNativeReadCompleteUsesActualPublicCommitments',
+ 'TestNormalNativeBudgetCannotResetBetweenBodyReceiptsAndFinalAnchor',
+])
+BINDINGS['28.26.r04-history-isolation']['paths'].append(
+ 'chain-parser-go/internal/service/native_history_proof.go')
+BINDINGS['28.26.r04-history-isolation']['tests'].append(
+ 'TestNormalHistoryRuntimeInstallsNativeEvidenceResponsibilitySink')
+
+BINDINGS['28.r01-r04-validation']['tests'].extend([
+ 'test_missing_duplicate_or_non_feature_artifacts_fail_closed',
+ 'test_non_test_artifact_cannot_satisfy_authority_scenario',
+])
+BINDINGS['7.3.r02-raw-dlq-discovery']['tests'].append(
+ 'TestRuntimeFactoryNormalArchivedNativeProofRetainsSettlingAuthority')
+
+BINDINGS['7.1.r01-deployment-evidence']['paths'].append(
+ 'integration/tools/acceptance/r01_public_catalog_solana_process.py')
+BINDINGS['28.22.r03-stream-bank-barrier']['paths'].append(
+ 'chain-parser-rust/crates/solana-ingest/src/token_program.rs')
+BINDINGS['28.22.r03-stream-bank-barrier']['tests'].extend([
+ 'declared_upgradeable_classic_token_program_is_bound_in_normal_decoder',
+ 'token_upgrade_configuration_is_explicit_pinned_and_preserves_immutable_defaults',
+])
+
+BINDINGS['28.26.r04-history-isolation']['paths'].extend([
+ 'chain-parser-rust/crates/solana-ingest/src/history_queue.rs',
+ 'chain-parser-rust/crates/solana-ingest/src/history_runtime.rs',
+])
+BINDINGS['28.26.r04-history-isolation']['tests'].extend([
+ 'normal_tonic_history_http_commits_facts_without_changing_online_reference',
+ 'billion_slot_gap_uses_bounded_produced_slot_pages_after_online_is_live',
+ 'paused_disabled_and_slow_history_do_not_hold_online_actor_or_close',
+ 'huge_interval_is_one_durable_job_and_old_scope_claim_is_fenced',
+ 'trailing_absence_without_a_successor_header_is_unknown_not_skipped',
+])
+BINDINGS['7.2.r02-staging-commit']['paths'].append(
+ 'chain-parser-go/internal/chain/evm/chain_receipts_state_proof.go')
+BINDINGS['7.2.r02-staging-commit']['tests'].extend([
+ 'TestContractStoragePublicNativeReplayAndSessionConsumer',
+ 'TestContractStorageOldBadPhysicalProofCannotBeReinterpreted',
+ 'TestContractStorageSessionCancellationAndRecorderFailureStayTerminal',
+])
+
+BINDINGS['7.1.r01-deployment-evidence']['paths'].extend([
+ 'integration/tools/acceptance/r01_getter_proofs.py',
+ 'integration/tools/acceptance/r01_getter_slots.cjs',
+])
+BINDINGS['7.1.r01-deployment-evidence']['tests'].extend([
+ 'test_complete_retained_original_vm_sload_set',
+ 'test_complete_replay_plan_matches_authenticated_read_set',
+ 'test_complete_new_replay_never_reacquires_public_state',
+])
+BINDINGS['28.r01-r04-validation']['paths'].append(
+ 'integration/tools/acceptance/r01_public_catalog_history.py')
+
+BINDINGS.update({
+ '12.10.multi-route-grid': {
+  'paths':['dex-router/crates/optimizer/src/lib.rs','dex-router/crates/optimizer/src/search.rs','dex-router/crates/quote-api/src/lib.rs'],
+  'tests':['three_and_four_way_splits_match_independent_integer_oracle_with_remainders_and_costs','eight_disjoint_routes_are_solved_on_the_complete_grid_with_finite_work','shared_eight_way_scope_seeds_larger_allocations_before_pairs_spend_the_budget','actual_quote_uses_three_physical_routes_and_reports_grid_search'],
+  'evidence_refs':['integration/artifacts/local/core-quote-current-audit.json'],
+ },
+ '13.split-probe-ranking': {
+  'paths':['dex-router/crates/routing/src/lib.rs','dex-router/crates/optimizer/tests/grid_oracle.rs'],
+  'tests':['split_size_ranking_keeps_a_small_pool_that_full_order_ranking_discards','candidate_limit_retains_a_confirmed_full_order_fallback','allocation_work_limit_is_visible_even_when_candidate_search_finishes'],
+  'evidence_refs':['integration/artifacts/local/core-quote-current-audit.json'],
+ },
+ '12.14.velodrome-v2': {
+  'paths':['chain-parser-go/internal/chain/evm/stable.go','chain-parser-go/internal/domain/protocols.go','dex-router/crates/protocol-math/src/aerodrome.rs','integration/tools/ci/velodrome-v2-golden.cjs','integration/tools/acceptance/velodrome_smoke.py'],
+  'tests':['TestVelodromeOriginalReferenceStatesPreserveVersionAndWire','TestVelodromeProfilesRequirePinnedFactoryAndImplementationIdentity','velodrome_both_models_match_original_solidity_outputs_and_post_balances','velodrome_original_sequences_preserve_fees_and_shared_pool_state','sequential_velodrome_allocations_match_original_post_state_in_both_directions'],
+  'evidence_refs':['integration/artifacts/local/core-velodrome-process.json','integration/artifacts/local/core-quote-current-audit.json'],
+ },
+})
+
+BINDINGS['12.14.lfj-v21']={
+ 'paths':['common/protoc/proto/dex/v1/state.proto','chain-parser-go/internal/chain/evm/lfj.go','chain-parser-go/internal/domain/lfj.go','dex-router/crates/domain/src/lfj.rs','dex-router/crates/protocol-math/src/lfj.rs','integration/tools/acceptance/lfj_smoke.py','integration/tools/ci/lfj-v21-plan-replay.cjs'],
+ 'tests':['TestLfjOriginalBanksReadEveryFeeBinOracleAtOneHash','TestLfjMissingBinsUnsyncedTokensAndBadSourcesNeverPublish','TestLfjIndependentCppWireCloneAndSourceBank','TestLfjJSONRequiredObservedZerosRemainDistinctFromMissingNullAndDuplicates','lfj_complete_original_swap_matches_outputs_parameters_fees_bins_and_oracle','lfj_shared_routes_keep_original_oracle_fees_and_all_bin_transitions','lfj_split_capacity_and_best_grid_match_independent_original_getter_curve'],
+ 'evidence_refs':['integration/artifacts/local/core-lfj-normal-process.json'],
+}
+
+BINDINGS['12.10.multi-route-grid']['evidence_refs'].extend(['integration/artifacts/local/core-quote-q1-local-463896a2b08e.json'])
+BINDINGS['13.split-probe-ranking']['evidence_refs'].extend(['integration/artifacts/local/core-quote-q1-local-463896a2b08e.json'])
+BINDINGS['12.14.velodrome-v2']['evidence_refs'].extend(['integration/artifacts/local/core-quote-q1-local-463896a2b08e.json', 'integration/artifacts/local/core-velodrome-local-q1-463896a2b08e.json'])
+BINDINGS['12.14.lfj-v21']['evidence_refs'].extend(['integration/artifacts/local/core-lfj-local-q1-463896a2b08e.json'])
+
+BINDINGS['12.14.slipstream-context'] = {
+ 'paths':['common/protoc/proto/dex/v1/state.proto','chain-parser-go/internal/chain/evm/slipstream_context.go','chain-parser-go/internal/chain/evm/slipstream_templates.go','chain-parser-rust/crates/domain/src/slipstream_context.rs','dex-router/crates/domain/src/slipstream_context.rs','dex-router/crates/protocol-math/src/slipstream_context.rs','integration/tools/acceptance/slipstream_context_smoke.py','integration/tools/ci/slipstream-context-plan-replay.cjs'],
+ 'tests':['TestSlipstreamContextOriginalBanksRetainEveryLedgerOracleAndCallerInput','TestSlipstreamContextBadSourcesAndRehashedTemplatesNeverPublish','independent_contextual_cpp_wire_preserves_every_origin_ledger_and_explicit_zero','required_contextual_wire_fields_and_canonical_source_flags_fail_closed','contradictory_readonly_module_factory_and_origin_facts_reject_shared_banks','contextual_original_swaps_match_full_curve_fee_gauge_reward_and_oracle_state','same_block_initial_fee_changes_and_twelve_original_carried_steps_are_exact','ordered_shared_allocations_use_actual_new_fee_after_each_original_oracle_write','contextual_failures_and_foreign_pool_wallets_never_install_partial_state'],
+ 'evidence_refs':['integration/artifacts/local/core-slipstream-context-normal-process.json','integration/artifacts/local/core-slipstream-context-negative-controls.json','integration/artifacts/local/core-quote-current-audit.json'],
+}
+
+
+BINDINGS['12.14.pancake-lm']={
+ 'paths':['common/protoc/proto/dex/v1/state.proto','chain-parser-go/internal/chain/evm/pancake_lm.go','chain-parser-go/internal/domain/pancake_types.go','chain-parser-go/internal/domain/pancake_validation.go','chain-parser-go/internal/domain/pancake_wire.go','chain-parser-go/internal/domain/pancake_json.go','dex-router/crates/domain/src/pancake_lm.rs','dex-router/crates/protocol-math/src/pancake_lm.rs','dex-router/crates/routing/src/lib.rs','dex-router/crates/optimizer/tests/pancake_lm_shared.rs','integration/tools/acceptance/pancake_lm_smoke.py','integration/tools/ci/pancake-v3-lm-plan-replay.cjs'],
+ 'tests':['TestPancakeLmOriginalGetterBanksPreserveFullLedgerAndRewards','TestPancakeLmMissingSourcesAndRehashedUnknownCodeNeverPublish','TestPancakeLmIndependentCppWirePreservesAllFieldsAndObservedZero','TestPancakeLmMissingNullDuplicateOrDerivedSourceNeverBecomesObservedZero','complete_original_pancake_lm_swaps_match_full_reward_fee_tick_oracle_state','original_pancake_lm_same_block_sequences_carry_every_accounting_field','shared_lm_routes_carry_original_rewards_fee_and_oracle_through_every_step','lm_internal_wallet_alias_and_failed_amount_leave_all_pool_state_unchanged'],
+ 'evidence_refs':['integration/artifacts/local/core-lm-local-q1-20261109.json'],
+}
+
+BINDINGS['12.14.pancake-lm']['tests'].append('lm_output_token_must_match_pool_direction_without_mutation')
+BINDINGS['12.14.slipstream-context']['tests'].append('contextual_output_token_must_match_pool_direction_without_mutation')
+
+BINDINGS['12.14.pancake-bsc4']={
+ 'paths':['common/protoc/proto/dex/v1/state.proto','chain-parser-go/internal/domain/pancake_bsc_lm.go','chain-parser-go/internal/chain/evm/pancake_bsc_lm.go','chain-parser-go/internal/chain/evm/pancake_bsc_templates.go','dex-router/crates/domain/src/pancake_bsc_lm.rs','dex-router/crates/protocol-math/src/pancake_bsc_lm.rs','dex-router/crates/routing/src/lib.rs','integration/tools/acceptance/pancake_bsc4_smoke.py','integration/tools/ci/pancake-bsc4-plan-replay.cjs'],
+ 'tests':['TestPancakeBsc4OriginalGetterBanksPreserveFullLedgerAndRewards','TestPancakeBsc4IndependentCppWireKeepsRawAndInheritedTickState','bsc4_independent_cpp_field34_preserves_local_and_predecessor_states','actual_bsc4_original_swaps_and_lazy_migration_match_every_poststate','actual_bsc4_migration_flags_and_local_slots_carry_over_fifteen_original_steps','shared_bsc4_lm_routes_carry_original_rewards_fee_and_oracle_through_every_step','bsc4_lm_output_token_must_match_pool_direction_without_mutation'],
+ 'evidence_refs':['integration/artifacts/local/core-pancake-bsc4-normal-process.json'],
+}
+
+BINDINGS['13.graph-admission-refresh']={
+ 'paths':['dex-router/crates/state-replica/src/lib.rs','dex-router/crates/state-replica/tests/managed_v2_scope.rs','dex-router/crates/quote-api/tests/managed_v2_scope.rs','integration/tools/acceptance/graph_admission_acceptance.py'],
+ 'tests':['block_commit_refreshes_admission_even_when_tokens_and_protocols_are_unchanged','admitted_bank_without_quote_edges_advances_watermark_revokes_then_recovers','changing_admission_cannot_bypass_an_explicit_scope_suspension','live_http_admission_refresh_revokes_cached_quotes_and_restores_both_directions','empty_admission_scope_http_is_unready_then_recovers_without_losing_cursor'],
+ 'evidence_refs':['integration/artifacts/local/core-graph-admission-local-20261109.json'],
+}
+
+BINDINGS['13.candidate-capability-disclosure']={
+ 'paths':['dex-router/crates/domain/src/lib.rs','chain-parser-rust/crates/domain/src/lib.rs','dex-router/crates/routing/tests/search.rs','dex-router/crates/state-replica/tests/replica.rs','dex-router/crates/quote-api/tests/api.rs','integration/tools/acceptance/candidate_scope_acceptance.py'],
+ 'tests':['unsupported_math_and_token_behavior_are_excluded_from_public_candidate_scope','every_unsearchable_source_row_has_an_explicit_candidate_exclusion','token_capability_exclusion_is_visible_and_restores_without_deleting_source'],
+ 'evidence_refs':['integration/artifacts/local/core-candidate-scope-local-20261109.json'],
+}
+
+BINDINGS['12.10.exact-out-v2']={
+ 'paths':['dex-router/crates/protocol-math/src/exact_out.rs','dex-router/crates/routing/src/exact_out.rs','dex-router/crates/optimizer/src/exact_out.rs','dex-router/crates/execution-plan/src/exact_out.rs','dex-router/crates/quote-api/src/exact_out.rs','dex-router/test/tools/exact_out_plan_projector.rs','integration/tools/acceptance/exact_out_reference.py','integration/tools/acceptance/exact_out_smoke.py','integration/tools/acceptance/validate_exact_out.py','integration/tools/acceptance/exact_out_acceptance.py','integration/tools/ci/v2-exact-out-reference.cjs','integration/tools/ci/v2-exact-out-plan-replay.cjs'],
+ 'tests':['original_router_exact_outputs_match_complete_pair_transitions','reverse_targets_then_forward_state_replay_match_every_original_router_path','ordered_grid_allocations_match_original_router_transactions_and_all_pair_ledgers','exact_out_solver_matches_exhaustive_original_grid_and_preserves_a_bounded_fallback','exact_out_http_matches_original_grid_and_has_distinct_amount_and_plan_contracts','exact_out_http_rejects_invalid_targets_budgets_aliases_and_old_endpoint_conversion','exact_out_single_flight_reorg_invalidation_and_unsupported_scope_are_explicit','test_missing_or_changed_raw_factory_pair_cannot_be_invented_from_pool_rows'],
+ 'evidence_refs':['integration/artifacts/local/core-exact-out-local-q1-20261109.json'],
+}
+
+BINDINGS['12.10.exact-out-v2']['tests'].extend(['full_order_fallback_survives_an_infeasible_small_probe','exact_out_http_retains_a_feasible_whole_order_when_split_probe_fails'])
+
+BINDINGS['12.10.exact-out-bsc4']={
+ 'paths':['dex-router/crates/protocol-math/src/v3.rs','dex-router/crates/protocol-math/src/pancake_lm.rs','dex-router/crates/protocol-math/src/pancake_bsc_lm.rs','dex-router/crates/protocol-math/src/exact_out.rs','dex-router/crates/routing/src/exact_out.rs','dex-router/crates/execution-plan/src/exact_out.rs','dex-router/crates/quote-api/src/exact_out.rs','dex-router/test/tools/pancake_bsc_exact_out_plan_projector.rs','integration/tools/ci/pancake-bsc4-exact-out-reference.cjs','integration/tools/ci/pancake-bsc4-exact-out-state.cjs','integration/tools/ci/pancake-bsc4-exact-out-plan-replay.cjs','integration/tools/acceptance/pancake_bsc_exact_out_reference.py','integration/tools/acceptance/pancake_bsc_exact_out_smoke.py'],
+ 'tests':['original_bsc4_exact_output_preserves_all_ledgers_and_rejects_partial_targets','original_bsc4_exact_output_sequences_carry_lazy_migration_fee_reward_and_oracle','bsc4_ordered_exact_output_allocations_recompute_reused_physical_pool','bsc4_exact_output_routes_match_original_sequences_and_full_ledger_transitions','bsc4_exact_output_search_rejects_internal_funds_partial_targets_and_cancellation','bsc4_exact_output_http_matches_original_input_and_complete_plan','bsc4_exact_output_http_rejects_partial_and_internal_funds_and_revokes_old_plan'],
+ 'evidence_refs':['integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json'],
+}
+
+BINDINGS['12.10.exact-out-legacy-lm']={
+ 'paths':['dex-router/crates/protocol-math/src/exact_out.rs','dex-router/crates/protocol-math/src/pancake_lm.rs','dex-router/crates/routing/src/exact_out.rs','dex-router/crates/execution-plan/src/exact_out.rs','dex-router/crates/quote-api/src/exact_out.rs','dex-router/test/tools/pancake_lm_exact_out_plan_projector.rs','integration/tools/ci/pancake-lm-exact-out-reference.cjs','integration/tools/ci/pancake-lm-exact-out-state.cjs','integration/tools/ci/pancake-lm-exact-out-plan-replay.cjs','integration/tools/acceptance/pancake_lm_exact_out_reference.py','integration/tools/acceptance/pancake_lm_exact_out_smoke.py','integration/tools/acceptance/validate_pancake_lm_exact_out.py'],
+ 'tests':['original_legacy_lm_exact_output_preserves_all_ledgers_and_rejects_partial_targets','original_legacy_lm_exact_output_sequences_carry_fee_reward_and_oracle','legacy_lm_ordered_exact_output_allocations_recompute_reused_physical_pool','legacy_lm_exact_output_routes_match_original_sequences_and_full_ledger_transitions','legacy_lm_exact_output_search_rejects_internal_funds_partial_targets_and_cancellation','legacy_lm_exact_output_http_matches_original_input_and_complete_plan','legacy_lm_exact_output_http_rejects_partial_and_internal_funds_and_revokes_old_plan','legacy_lm_rehashed_multihop_plan_is_rejected_by_its_single_pool_template'],
+ 'evidence_refs':['integration/artifacts/local/core-legacy-lm-exact-out-local-q1-20261110.json'],
+}
+
+BINDINGS['12.10.exact-out-slipstream']={'paths': ['dex-router/crates/protocol-math/src/slipstream_context.rs', 'dex-router/crates/protocol-math/src/exact_out.rs', 'dex-router/crates/routing/src/exact_out.rs', 'dex-router/crates/execution-plan/src/exact_out.rs', 'dex-router/crates/quote-api/src/exact_out.rs', 'dex-router/test/tools/slipstream_exact_out_plan_projector.rs', 'integration/tools/ci/slipstream-exact-out-reference.cjs', 'integration/tools/ci/slipstream-exact-out-state.py', 'integration/tools/ci/slipstream-exact-out-getters.cjs', 'integration/tools/ci/slipstream-exact-out-plan-replay.cjs', 'integration/tools/acceptance/slipstream_exact_out_reference.py', 'integration/tools/acceptance/slipstream_exact_out_smoke.py', 'integration/tools/acceptance/validate_slipstream_exact_out.py', 'integration/tools/acceptance/slipstream_exact_out_acceptance.py'], 'tests': ['original_slipstream_exact_output_preserves_all_ledgers_and_rejects_partial_targets', 'original_slipstream_exact_output_sequences_carry_fee_reward_and_oracle', 'slipstream_exact_output_requires_origin_scope_and_complete_curve_scope', 'slipstream_exact_output_routes_match_original_sequences_and_full_ledger_transitions', 'slipstream_exact_output_search_rejects_internal_funds_partial_targets_and_cancellation', 'slipstream_ordered_exact_output_allocations_recompute_reused_physical_pool', 'slipstream_exact_output_http_matches_original_input_and_complete_plan', 'slipstream_exact_output_http_rejects_partial_and_internal_funds_and_revokes_old_plan', 'slipstream_rehashed_multihop_plan_is_rejected_by_its_single_pool_template', 'reverse_candidate_search_keeps_direct_and_shared_prefix_paths_and_full_fallback', 'test_raw_abi_validator_rejects_changed_missing_duplicate_and_reanchored_reads'], 'evidence_refs': ['integration/artifacts/local/core-slipstream-exact-out-local-q1-20261110.json']}
+
+BINDINGS['12.10.exact-out-lfj']={'paths': ['dex-router/crates/protocol-math/src/lfj.rs', 'dex-router/crates/protocol-math/src/exact_out.rs', 'dex-router/crates/routing/src/exact_out.rs', 'dex-router/crates/optimizer/src/exact_out.rs', 'dex-router/crates/execution-plan/src/exact_out.rs', 'dex-router/crates/quote-api/src/exact_out.rs', 'dex-router/test/tools/lfj_exact_out_plan_projector.rs', 'integration/tools/ci/lfj-v21-exact-out-reference.cjs', 'integration/tools/ci/lfj-v21-exact-out-state.py', 'integration/tools/ci/lfj-v21-exact-out-getters.cjs', 'integration/tools/ci/lfj-v21-exact-out-plan-replay.cjs', 'integration/tools/acceptance/lfj_exact_out_reference.py', 'integration/tools/acceptance/lfj_exact_out_smoke.py', 'integration/tools/acceptance/validate_lfj_exact_out.py', 'integration/tools/acceptance/lfj_exact_out_acceptance.py'], 'tests': ['lfj_original_target_inputs_preserve_actual_surplus_and_every_declared_ledger', 'lfj_original_target_sequences_carry_real_output_and_oracle_state', 'lfj_output_targets_reject_zero_width_and_incomplete_step_budgets', 'lfj_routes_separate_target_actual_and_surplus_without_clamping_state', 'lfj_target_search_keeps_funded_minimums_and_rejects_internal_or_repeated_paths', 'lfj_minimum_input_scores_actual_surplus_and_keeps_target_conservation', 'lfj_ordered_targets_recompute_shared_bins_and_preserve_every_actual_output', 'lfj_http_reports_original_minimum_input_actual_output_and_surplus', 'lfj_http_rejects_partial_targets_short_budget_internal_funds_and_false_execution', 'lfj_rehashed_plan_cannot_hide_surplus_or_move_it_to_an_unmodeled_template', 'test_original_targets_keep_real_surplus_and_input_minus_one_controls', 'test_raw_getter_mutations_missing_reads_duplicates_and_anchor_changes_fail'], 'evidence_refs': ['integration/artifacts/local/core-lfj-exact-out-local-q1-20261110.json']}

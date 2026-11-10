@@ -28,7 +28,12 @@ pub fn validate<'a>(pools: impl IntoIterator<Item = &'a Pool>) -> Result<()> {
     let pools: Vec<_> = pools.into_iter().collect();
     // Validate each Managed declaration before indexing any token information.
     for pool in &pools {
-        if pool.protocol == PROTOCOL || managed(pool).is_some() {
+        if pool.protocol == PROTOCOL
+            || pool.protocol == crate::managed_v2_schedule::PROTOCOL
+            || pool.protocol == crate::managed_v2_bpt_state::PROTOCOL
+            || pool.protocol == crate::managed_v2_circuit_state::PROTOCOL
+            || managed(pool).is_some()
+        {
             pool.validate()?;
         }
     }
@@ -37,12 +42,13 @@ pub fn validate<'a>(pools: impl IntoIterator<Item = &'a Pool>) -> Result<()> {
     let mut templates = BTreeMap::new();
     let mut live = BTreeMap::new();
     for pool in &pools {
+        let Some(state) = managed(pool) else { continue };
+        // Generic duplicate-pool rejection remains with its existing owner.
         if let Some(previous) = physical.insert((&pool.chain_key, &pool.pool_id), *pool) {
             if previous != *pool {
                 return Err(err("DUPLICATE_PHYSICAL_POOL_CONFLICT"));
             }
         }
-        let Some(state) = managed(pool) else { continue };
         let multi = pool.multi_asset.as_ref().expect("validated Managed state");
         let mut observations = vec![
             (&pool.pool_id, &multi.code_sha256),

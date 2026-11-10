@@ -98,7 +98,27 @@ fn cross_liquidity(l: &BigUint, net: i128, zero: bool) -> Result<BigUint> {
     Ok(next)
 }
 
+pub struct V3StepTrace {
+    pub liquidity: BigUint,
+    pub fee_amount: BigUint,
+    pub crossed_tick: Option<i32>,
+}
 pub fn quote_exact_in(pool: &Pool, input: &Amount, zero: bool) -> Result<Swap> {
+    Ok(quote_inner(pool, input, zero, false)?.0)
+}
+pub fn quote_exact_in_with_trace(
+    pool: &Pool,
+    input: &Amount,
+    zero: bool,
+) -> Result<(Swap, Vec<V3StepTrace>)> {
+    quote_inner(pool, input, zero, true)
+}
+fn quote_inner(
+    pool: &Pool,
+    input: &Amount,
+    zero: bool,
+    collect: bool,
+) -> Result<(Swap, Vec<V3StepTrace>)> {
     pool.validate()?;
     if xone_domain::protocols::protocol(&pool.protocol).is_none_or(|p| p.family != "v3") {
         return Err(err("PROTOCOL_UNSUPPORTED"));
@@ -126,6 +146,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, zero: bool) -> Result<Swap> {
     } else {
         sqrt_ratio_at_tick(MAX_TICK)? - BigUint::one()
     };
+    let mut traces = Vec::new();
     let mut steps = 0;
     while !remaining.is_zero() {
         if steps >= state.max_steps {
@@ -172,6 +193,17 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, zero: bool) -> Result<Swap> {
             }
             &remaining - &consumed
         };
+        if collect {
+            traces.push(V3StepTrace {
+                liquidity: liquidity.clone(),
+                fee_amount: fee_amount.clone(),
+                crossed_tick: if initialized && next_sqrt == tick_sqrt {
+                    Some(next)
+                } else {
+                    None
+                },
+            });
+        }
         let spent = &consumed + fee_amount;
         if spent > remaining {
             return Err(err("V3_INPUT_CONSERVATION"));
@@ -211,10 +243,175 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, zero: bool) -> Result<Swap> {
     next_state.tick = tick;
     next_state.liquidity = Amount::checked(liquidity)?;
     next_pool.validate()?;
-    Ok(Swap {
-        amount_out: Amount::checked(output)?,
-        consumed_in: input.clone(),
-        remaining_in: Amount::zero(),
-        next_pool,
-    })
+    Ok((
+        Swap {
+            amount_out: Amount::checked(output)?,
+            consumed_in: input.clone(),
+            remaining_in: Amount::zero(),
+            next_pool,
+        },
+        traces,
+    ))
+}
+
+// SqrtPriceMath.getNextSqrtPriceFromOutput: output token1 subtracts a rounded-up
+// quotient; output token0 uses the rounded-up reciprocal with checked product.
+fn next_price_from_output(
+    sqrt: &BigUint,
+    l: &BigUint,
+    amount: &BigUint,
+    zero: bool,
+) -> Result<BigUint> {
+    if sqrt.is_zero() || l.is_zero() {
+        return Err(err("V3_NO_ACTIVE_LIQUIDITY"));
+    }
+    let result = if zero {
+        let quotient = ceil_div(amount << 96usize, l)?;
+        if sqrt <= &quotient {
+            return Err(err("V3_OUTPUT_PRICE_UNDERFLOW"));
+        }
+        sqrt - quotient
+    } else {
+        let numerator = l << 96usize;
+        let product = amount * sqrt;
+        if product.bits() > 256 || numerator <= product {
+            return Err(err("V3_OUTPUT_PRICE_OVERFLOW"));
+        }
+        ceil_div(&numerator * sqrt, &(numerator - product))?
+    };
+    if result.is_zero() || result.bits() > 160 {
+        return Err(err("V3_PRICE_WIDTH"));
+    }
+    Ok(result)
+}
+
+pub fn quote_exact_out_with_trace(
+    pool: &Pool,
+    input: &Amount,
+    zero: bool,
+) -> Result<(Swap, Vec<V3StepTrace>)> {
+    pool.validate()?;
+    if xone_domain::protocols::protocol(&pool.protocol).is_none_or(|p| p.family != "v3") {
+        return Err(err("PROTOCOL_UNSUPPORTED"));
+    }
+    if pool.token_behavior != "standard" {
+        return Err(err("TOKEN_BEHAVIOR_UNSUPPORTED"));
+    }
+    if input.0.is_zero() {
+        return Err(err("EXACT_OUT_ZERO_OUTPUT"));
+    }
+    if input.0.bits() > 255 {
+        return Err(err("V3_OUTPUT_INT256_RANGE"));
+    }
+    let state = pool.v3.as_ref().ok_or_else(|| err("V3_STATE_REQUIRED"))?;
+    let mut remaining = input.0.clone();
+    let mut required_input = BigUint::zero();
+    let mut sqrt = state.sqrt_price_x96.0.clone();
+    let mut tick = state.tick;
+    let mut liquidity = state.liquidity.0.clone();
+    let million = BigUint::from(1_000_000u64);
+    let fee = BigUint::from(pool.fee_numerator);
+    let factor = &million - &fee;
+    let limit = if zero {
+        sqrt_ratio_at_tick(MIN_TICK)? + BigUint::one()
+    } else {
+        sqrt_ratio_at_tick(MAX_TICK)? - BigUint::one()
+    };
+    let mut traces = Vec::new();
+    let mut steps = 0;
+    while !remaining.is_zero() {
+        if steps >= state.max_steps {
+            return Err(err("V3_MAX_STEPS"));
+        }
+        steps += 1;
+        let start_sqrt = sqrt.clone();
+        let (next, initialized) = next_tick(state, tick, zero)?;
+        let tick_sqrt = sqrt_ratio_at_tick(next)?;
+        let target = if zero {
+            tick_sqrt.clone().max(limit.clone())
+        } else {
+            tick_sqrt.clone().min(limit.clone())
+        };
+        if zero && target > sqrt || !zero && target < sqrt {
+            return Err(err("V3_PRICE_TICK_MISMATCH"));
+        }
+        let available_output = if zero {
+            amount1_delta(&target, &sqrt, &liquidity, false)?
+        } else {
+            amount0_delta(&sqrt, &target, &liquidity, false)?
+        };
+        let next_sqrt = if remaining >= available_output {
+            target.clone()
+        } else {
+            next_price_from_output(&sqrt, &liquidity, &remaining, zero)?
+        };
+        let consumed = if zero {
+            amount0_delta(&next_sqrt, &sqrt, &liquidity, true)?
+        } else {
+            amount1_delta(&sqrt, &next_sqrt, &liquidity, true)?
+        };
+        let received = if next_sqrt == target {
+            available_output
+        } else if zero {
+            amount1_delta(&next_sqrt, &sqrt, &liquidity, false)?
+        } else {
+            amount0_delta(&sqrt, &next_sqrt, &liquidity, false)?
+        }
+        .min(remaining.clone());
+        let fee_amount = ceil_div(&consumed * &fee, &factor)?;
+        {
+            traces.push(V3StepTrace {
+                liquidity: liquidity.clone(),
+                fee_amount: fee_amount.clone(),
+                crossed_tick: if initialized && next_sqrt == tick_sqrt {
+                    Some(next)
+                } else {
+                    None
+                },
+            });
+        }
+        required_input += consumed + fee_amount;
+        if required_input.bits() > 255 {
+            return Err(err("V3_INPUT_INT256_RANGE"));
+        }
+        remaining -= received;
+        sqrt = next_sqrt;
+        if sqrt == tick_sqrt {
+            if initialized {
+                let info = state
+                    .ticks
+                    .binary_search_by_key(&next, |t| t.tick)
+                    .map_err(|_| err("V3_INCOMPLETE_TICKS"))?;
+                liquidity = cross_liquidity(
+                    &liquidity,
+                    parse_liquidity_net(&state.ticks[info].liquidity_net)?,
+                    zero,
+                )?;
+            }
+            tick = if zero { next - 1 } else { next };
+        } else if sqrt != start_sqrt {
+            tick = tick_at_sqrt_ratio(&sqrt)?;
+        }
+        if sqrt == limit && !remaining.is_zero() {
+            return Err(err("V3_PRICE_LIMIT_REACHED"));
+        }
+    }
+    let mut next_pool = pool.clone();
+    let next_state = next_pool
+        .v3
+        .as_mut()
+        .ok_or_else(|| err("V3_STATE_REQUIRED"))?;
+    next_state.sqrt_price_x96 = Amount::checked(sqrt)?;
+    next_state.tick = tick;
+    next_state.liquidity = Amount::checked(liquidity)?;
+    next_pool.validate()?;
+    Ok((
+        Swap {
+            amount_out: input.clone(),
+            consumed_in: Amount::checked(required_input)?,
+            remaining_in: Amount::zero(),
+            next_pool,
+        },
+        traces,
+    ))
 }

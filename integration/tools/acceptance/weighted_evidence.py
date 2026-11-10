@@ -25,7 +25,7 @@ def source_hash():
  return h.hexdigest()
 
 def snapshot_inputs():
- paths={ROOT/'integration/Makefile',ROOT/'integration/postgres/schema.sql'}
+ paths={ROOT/'integration/Makefile',ROOT/'integration/postgres/schema.sql',ROOT/'integration/tools/progress_document.py'}
  for folder in ['integration/tools/acceptance','integration/tools/ci','integration/tools/reference/weighted-model','integration/test']:
   for p in (ROOT/folder).rglob('*'):
    if p.is_file() and '__pycache__' not in p.parts and p.name!='.DS_Store':paths.add(p)
@@ -152,6 +152,48 @@ def snapshot_inputs():
   for item in shared['script_closure']+shared['source_preservation']['before']:
    declared=Path(item['path']);require(not declared.is_absolute() and '..' not in declared.parts,'shared Vault input escapes workspace');paths.add(ROOT/declared)
   paths.update(ROOT/service/'test/contracts/managed-v2-shared-vault.json' for service in ['integration','chain-parser-go','chain-parser-rust','dex-router'])
+ # Scheduled Managed V2 binds each branch producer/checker/manifest and all
+ # four independently authenticated raw/Pool/wire copies, including field40.
+ scheduled_file=ROOT/'integration/test/contracts/managed-v2-scheduled.json'
+ if scheduled_file.is_file():
+  scheduled=json.loads(scheduled_file.read_bytes())
+  paths.add(ROOT/'integration/tools/reference/balancer-managed-v2-scheduled/file-manifest.json')
+  for item in scheduled['inputs']['files']:
+   declared=Path(item['path']);require(not declared.is_absolute() and '..' not in declared.parts,'scheduled input escapes workspace');paths.add(ROOT/declared)
+  for service in ['integration','chain-parser-go','chain-parser-rust','dex-router']:
+   paths.update(ROOT/service/'test/contracts'/name for name in ['managed-v2-scheduled.json','managed-v2-scheduled-pools.json','managed-v2-scheduled-wire.json'])
+ # Multi-physical-pool scheduled banks inherit the original single-pool
+ # authority and add their own exact source manifest and four local consumers.
+ scheduled_shared_file=ROOT/'integration/test/contracts/managed-v2-scheduled-shared.json'
+ if scheduled_shared_file.is_file():
+  scheduled_shared=json.loads(scheduled_shared_file.read_bytes())
+  paths.add(ROOT/'integration/tools/reference/balancer-managed-v2-scheduled-shared/file-manifest.json')
+  for item in scheduled_shared['inputs']['files']+scheduled_shared['inputs']['original']['files']:
+   declared=Path(item['path']);require(not declared.is_absolute() and '..' not in declared.parts,'scheduled shared input escapes workspace');paths.add(ROOT/declared)
+  for service in ['integration','chain-parser-go','chain-parser-rust','dex-router']:
+   paths.update(ROOT/service/'test/contracts'/name for name in ['managed-v2-scheduled-shared.json','managed-v2-scheduled-shared-pools.json'])
+ # BPT provenance includes the exact producer/checker closure and every
+ # raw/state/wire consumer, not just the synthetic wire encoder.
+ bpt_file=ROOT/'integration/test/contracts/managed-v2-bpt.json'
+ if bpt_file.is_file():
+  bpt=json.loads(bpt_file.read_bytes())
+  paths.add(ROOT/'integration/tools/reference/balancer-managed-v2-bpt/file-manifest.json')
+  for closure in [bpt['inputs'],bpt['inputs']['original'],bpt['inputs']['original']['original']]:
+   for item in closure['files']:
+    declared=Path(item['path']);require(not declared.is_absolute() and '..' not in declared.parts,'BPT input escapes workspace');paths.add(ROOT/declared)
+  for service in ['integration','chain-parser-go','chain-parser-rust','dex-router']:
+   paths.update(ROOT/service/'test/contracts'/name for name in ['managed-v2-bpt.json','managed-v2-bpt-pools.json','managed-v2-bpt-wire.json'])
+ # Enabled circuit-breaker generation is separately versioned and inherits
+ # the pinned BPT/compiler source authority plus its exact scenario inventory.
+ breaker_file=ROOT/'integration/test/contracts/managed-v2-breaker.json'
+ if breaker_file.is_file():
+  breaker=json.loads(breaker_file.read_bytes())
+  paths.add(ROOT/'integration/tools/reference/balancer-managed-v2-breaker/file-manifest.json')
+  for closure in [breaker['inputs'],breaker['inputs']['original'],breaker['inputs']['compiler']]:
+   for item in closure['files']:
+    declared=Path(item['path']);require(not declared.is_absolute() and '..' not in declared.parts,'breaker input escapes workspace');paths.add(ROOT/declared)
+  for service in ['integration','chain-parser-go','chain-parser-rust','dex-router']:
+   paths.update(ROOT/service/'test/contracts'/name for name in ['managed-v2-breaker.json','managed-v2-breaker-pools.json','managed-v2-breaker-wire.json'])
  # The independent C++ wire encoder and its thin service-local vectors are
  # inputs, distinct from the Node execution fixture and mutable verifier output.
  complete_wire=ROOT/'integration/test/contracts/v2-complete-wire.json'

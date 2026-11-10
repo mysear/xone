@@ -7,7 +7,31 @@ use xone_domain::{
 };
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct ManagedV2BptConfig {
+    pub allowlist_subjects: Vec<String>,
+}
+impl ManagedV2BptConfig {
+    fn validate(&self) -> xone_domain::Result<()> {
+        let mut previous: Option<&str> = None;
+        for address in &self.allowlist_subjects {
+            validate_address(address)?;
+            if previous.is_some_and(|p| p >= address.as_str()) {
+                return Err(err("MANAGED_V2_BPT_SCOPE_ORDER"));
+            }
+            previous = Some(address);
+        }
+        Ok(())
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ManagedV2PoolConfig {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "xone_domain::managed_v2_state::deserialize_present"
+    )]
+    pub bpt: Option<ManagedV2BptConfig>,
     pub expected_factory: String,
     pub expected_factory_code_sha256: String,
     pub expected_pool_runtime_template_sha256: String,
@@ -20,12 +44,41 @@ pub struct ManagedV2PoolConfig {
     pub expected_management_aum_fee: Amount,
     pub dependencies: Vec<ManagedV2Dependency>,
 }
+// Managed profiles share admission policy; scheduling is read from the source by the parser.
+pub(crate) fn is_managed_v2_protocol(protocol: &str) -> bool {
+    matches!(
+        protocol,
+        xone_domain::managed_v2_state::PROTOCOL
+            | xone_domain::managed_v2_schedule::PROTOCOL
+            | xone_domain::managed_v2_bpt_state::PROTOCOL
+            | xone_domain::managed_v2_circuit_state::PROTOCOL
+    )
+}
+
 impl PoolConfig {
     pub(crate) fn validate_managed_v2(&self, chain: &str) -> xone_domain::Result<()> {
         let p = self;
         let fail = || err("MANAGED_V2_CONFIG");
+        if !is_managed_v2_protocol(&p.protocol) {
+            return Err(fail());
+        }
         let v = p.multi_asset.as_ref().ok_or_else(fail)?;
         let m = v.managed_v2.as_ref().ok_or_else(fail)?;
+        let is_breaker = p.protocol == xone_domain::managed_v2_circuit_state::PROTOCOL;
+        let is_bpt = p.protocol == xone_domain::managed_v2_bpt_state::PROTOCOL || is_breaker;
+        if is_bpt != m.bpt.is_some() {
+            return Err(fail());
+        }
+        let policy = if let Some(bpt) = &m.bpt {
+            bpt.validate()?;
+            if is_breaker {
+                "standard-breaker-bpt"
+            } else {
+                "standard-bpt"
+            }
+        } else {
+            "standard-no-bpt"
+        };
         xone_domain::validate_chain(chain)?;
         validate_identity(&p.id, &v.expected_code_sha256)?;
         validate_identity(&v.expected_vault, &v.expected_vault_code_sha256)?;
@@ -60,7 +113,7 @@ impl PoolConfig {
             || p.raydium_clmm.is_some()
             || !p.program_id.is_empty()
             || !p.accounts.is_empty()
-            || v.token_policy != "standard-no-bpt"
+            || v.token_policy != policy
             || !v.expected_implementation.is_empty()
             || !v.expected_implementation_code_sha256.is_empty()
             || !v.expected_lp_token.is_empty()

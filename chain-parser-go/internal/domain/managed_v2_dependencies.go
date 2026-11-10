@@ -34,7 +34,7 @@ func managedV2State(p Pool) *BalancerManagedV2State {
 func ValidateManagedV2PoolDependencies(pools []Pool) error {
 	// Validate each Managed declaration before indexing aligned asset/token rows.
 	for _, p := range pools {
-		if p.Protocol == ManagedV2Protocol || managedV2State(p) != nil {
+		if p.Protocol == ManagedV2Protocol || p.Protocol == ManagedV2ScheduledProtocol || p.Protocol == ManagedV2BptProtocol || p.Protocol == ManagedV2BreakerProtocol || managedV2State(p) != nil {
 			if err := p.Validate(); err != nil {
 				return err
 			}
@@ -52,15 +52,16 @@ func ValidateManagedV2PoolDependencies(pools []Pool) error {
 	codes, templates := map[sourceAddress]string{}, map[sourceAddress]string{}
 	live := map[sourceFee]Amount{}
 	for _, p := range pools {
+		state := managedV2State(p)
+		if state == nil {
+			continue
+		}
+		// Other protocols keep their established duplicate checks and errors.
 		key := struct{ chain, id string }{p.ChainKey, p.PoolID}
 		if previous, ok := physical[key]; ok && !reflect.DeepEqual(previous, p) {
 			return errors.New("DUPLICATE_PHYSICAL_POOL_CONFLICT")
 		}
 		physical[key] = p
-		state := managedV2State(p)
-		if state == nil {
-			continue
-		}
 		multi := p.MultiAsset
 		addressKey := func(address string) sourceAddress {
 			return sourceAddress{p.ChainKey, address, state.BlockHash, state.BlockNumber, state.Timestamp}

@@ -259,8 +259,7 @@ fn rejects_every_missing_dependency_and_executable_data_account() {
 #[test]
 fn rejects_unsupported_pool_bytes() {
     for o in [
-        0, 273, 275, 325, 389, 390, 391, 392, 393, 397, 398, 454, 486, 550, 1032, 1096, 1176, 1288,
-        1543,
+        0, 273, 275, 389, 390, 391, 392, 393, 397, 398, 454, 486, 550, 1096, 1176, 1288, 1543,
     ] {
         let mut f = Fixture::new();
         f.state()[o] = 255;
@@ -271,7 +270,7 @@ fn rejects_unsupported_pool_bytes() {
 fn rejects_tick_orders_rewards_padding_count_and_bitmap_mismatch() {
     for o in [
         44 + 68,
-        44 + 116,
+        44 + 124,
         44 + 124,
         44 + 132,
         44 + 140,
@@ -683,4 +682,82 @@ async fn token_fee_rpc_preserves_fee_mode_in_finalized_atomic_bank() {
     f.chain.confirmation_tag = "confirmed".into();
     let (result, _) = run_rpc(f, false).await;
     assert_eq!(result.unwrap_err().0, "RAYCLMM_REQUIRES_FINALIZED");
+}
+
+#[path = "support/token_upgrade.rs"]
+mod token_upgrade;
+#[test]
+fn declared_upgradeable_classic_token_program_is_bound_in_normal_decoder() {
+    let f = Fixture::new();
+    token_upgrade::verify_upgradeable_token(
+        &f.pool,
+        &f.accounts,
+        "raydium_clmm",
+        |pool, accounts| decode_raydium_clmm(&f.chain, pool, accounts, 100),
+        required_accounts,
+    );
+}
+
+#[test]
+fn original_pool_padding5_and_padding6_are_not_required_to_be_zero() {
+    let mut fixture = Fixture::new();
+    let expected = fixture.decode().unwrap();
+    // Source PoolState declares these as opaque padding and its own layout test
+    // round-trips nonzero values. Older public pools retain historical counters.
+    for (index, value) in [
+        82699422724492106u128,
+        13217648384313098,
+        13236389938785209,
+        82746236238445370,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        put128(fixture.state(), 325 + 16 * index, value);
+    }
+    for (index, value) in [
+        27787021622565u64,
+        27197844909073,
+        4447441430382,
+        4369748570407,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        put64(fixture.state(), 1032 + 8 * index, value);
+    }
+    assert_eq!(
+        fixture.decode().unwrap(),
+        expected,
+        "unused original layout bytes changed quote state"
+    );
+}
+
+#[test]
+fn completed_order_phase_is_not_an_active_limit_order() {
+    let mut fixture = Fixture::new();
+    let expected = fixture.decode().unwrap();
+    for array in 0..3 {
+        for tick in 0..60 {
+            put64(
+                fixture.array(array),
+                44 + 168 * tick + 116,
+                u64::MAX - tick as u64,
+            );
+        }
+    }
+    assert_eq!(
+        fixture.decode().unwrap(),
+        expected,
+        "phase-only history altered AMM quote state"
+    );
+    for offset in [124usize, 132, 140, 156] {
+        let mut active = Fixture::new();
+        put64(active.array(0), 44 + 116, 2);
+        active.array(0)[44 + offset] = 1;
+        assert!(
+            active.decode().is_err(),
+            "active order/ratio/unknown tail accepted at {offset}"
+        );
+    }
 }

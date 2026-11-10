@@ -1,0 +1,10 @@
+[package]
+name = "xone-pancake-lm-draft"
+version = "0.1.0"
+edition = "2021"
+[dependencies]
+xone-domain = { path = "../../../../../dex-router/crates/domain" }
+xone-protocol-math = { path = "../../../../../dex-router/crates/protocol-math" }
+serde_json = "1"
+num-bigint = "0.4"
+num-traits = "0.2"

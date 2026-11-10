@@ -1,0 +1,112 @@
+--- a/runtime/Cargo.toml
++++ b/runtime/Cargo.toml
+@@ -60,6 +60,7 @@
+ shuttle-test = ["dep:shuttle"]
+ 
+ [dependencies]
++xone-bank-source = { path = "__XONE_NATIVE_SOURCE__" }
+ agave-bls-cert-verify = { workspace = true }
+ agave-feature-set = { workspace = true }
+ agave-fs = { workspace = true }
+--- a/geyser-plugin-manager/Cargo.toml
++++ b/geyser-plugin-manager/Cargo.toml
+@@ -19,6 +19,7 @@
+ agave-unstable-api = []
+ 
+ [dependencies]
++xone-bank-source = { path = "__XONE_NATIVE_SOURCE__" }
+ agave-geyser-plugin-interface = { workspace = true }
+ arc-swap.workspace = true
+ bs58 = { workspace = true }
+--- a/ledger/Cargo.toml
++++ b/ledger/Cargo.toml
+@@ -30,6 +30,7 @@
+ shuttle-test = ["dep:shuttle"]
+ 
+ [dependencies]
++xone-bank-source = { path = "__XONE_NATIVE_SOURCE__" }
+ agave-feature-set = { workspace = true }
+ agave-reserved-account-keys = { workspace = true }
+ agave-snapshots = { workspace = true }
+--- a/geyser-plugin-manager/src/accounts_update_notifier.rs
++++ b/geyser-plugin-manager/src/accounts_update_notifier.rs
+@@ -167,6 +167,14 @@
+         slot: Slot,
+         bank_id: BankId,
+     ) {
++        // Native observer receives every callback synchronously, before the
++        // Geyser transport can reorder/drop it or reconstruct a provider block.
++        xone_bank_source::observe_account(xone_bank_source::AccountNotification {
++            slot, bank_id, pubkey: account.pubkey, owner: account.owner,
++            lamports: account.lamports, executable: account.executable,
++            rent_epoch: account.rent_epoch, write_version: account.write_version,
++            data: account.data, signature: account.txn.map(|txn| txn.signature().as_ref()),
++        });
+         let plugin_manager = self.plugin_manager.load();
+ 
+         if plugin_manager.plugins.is_empty() {
+--- a/runtime/src/bank.rs
++++ b/runtime/src/bank.rs
+@@ -3120,6 +3120,34 @@
+             *hash = self.hash_internal_state();
+             self.rc.accounts.accounts_db.mark_slot_frozen(self.slot());
+         }
++        drop(hash);
++        // freeze's write lock above excludes transaction commit and deferred
++        // state mutation. Read the actual immutable Bank, never RPC context.
++        if self.is_frozen() && !xone_bank_source::configured_keys().is_empty() {
++            use std::str::FromStr;
++            use base64::Engine as _;
++            let parent = self.parent();
++            let identity = xone_bank_source::NativeIdentity {
++                slot: self.slot(), bank_id: self.bank_id(),
++                blockhash: self.last_blockhash().to_string(),
++                state_hash: self.hash().to_string(),
++                parent_bank_id: parent.as_ref().map(|b| b.bank_id()),
++                timestamp_ms: u64::try_from(self.clock().unix_timestamp)
++                    .unwrap_or(0).saturating_mul(1000),
++            };
++            xone_bank_source::frozen_bank(identity, |key| {
++                let pubkey = Pubkey::from_str(key)
++                    .map_err(|_| xone_bank_source::source_error("NATIVE_SOURCE_KEY"))?;
++                let account = self.get_account(&pubkey)
++                    .ok_or_else(|| xone_bank_source::source_error("NATIVE_SOURCE_ACCOUNT_MISSING"))?;
++                Ok(xone_bank_source::FrozenAccount {
++                    pubkey: key.to_owned(), owner: account.owner().to_string(),
++                    lamports: account.lamports(), executable: account.executable(),
++                    rent_epoch: account.rent_epoch(),
++                    data_base64: base64::engine::general_purpose::STANDARD.encode(account.data()),
++                })
++            });
++        }
+     }
+ 
+     /// Freeze the bank and verify its computed bank hash against the expected bank hash,
+@@ -7254,6 +7282,9 @@
+ impl Drop for Bank {
+     fn drop(&mut self) {
+         self.clear_accounts_lt_hash_async_progress_is_at_end();
++        // An abandoned Bank may never freeze. Its exact ID owns pending native
++        // notifications; releasing it must not evict retained frozen proofs.
++        xone_bank_source::drop_bank(self.bank_id());
+         if let Some(drop_callback) = self.drop_callback.read().unwrap().0.as_ref() {
+             drop_callback.callback(self);
+         } else {
+--- a/ledger/src/bank_forks_utils.rs
++++ b/ledger/src/bank_forks_utils.rs
+@@ -88,6 +88,7 @@
+     accounts_update_notifier: Option<AccountsUpdateNotifier>,
+     exit: Arc<AtomicBool>,
+ ) -> Result<BankAndHashes, BankForksUtilsError> {
++    xone_bank_source::initialize(&genesis_config.hash().to_string());
+     info!("Processing ledger from genesis");
+     let bank_forks = blockstore_processor::process_blockstore_for_bank_0(
+         genesis_config,
+@@ -149,6 +150,7 @@
+     accounts_update_notifier: Option<AccountsUpdateNotifier>,
+     exit: Arc<AtomicBool>,
+ ) -> Result<Option<BankAndHashes>, BankForksUtilsError> {
++    xone_bank_source::initialize(&genesis_config.hash().to_string());
+     let Some((full_snapshot_archive_info, incremental_snapshot_archive_info)) =
+         get_snapshots_to_load(snapshot_config)
+     else {

@@ -18,3 +18,15 @@ sha2.workspace = true
 curve25519-dalek = "4.1"
 xone-kafka-transport = { path = "../kafka-transport" }
 xone-control = { path = "../control" }
+
+prost.workspace = true
+tonic = { version = "0.14.2", default-features = false, features = ["transport", "tls-ring", "tls-webpki-roots", "codegen", "router"] }
+tokio-stream = { version = "0.1.17", features = ["net"] }
+bytes = "1"
+serde.workspace = true
+
+[dev-dependencies]
+xone-bank-source = {path="../bank-source"}
+
+[features]
+external-authority-tests = []

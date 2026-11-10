@@ -1000,3 +1000,493 @@ Mint/Burn/LP供应、特殊 Token 及其他 V2 fork 均不由此 profile 自动�
 完整构建验证后运行 `make v2-complete-smoke v2-complete-acceptance`。原参考包括
 24 个公开操作案例、4 条序列与 79 份原始 trace；独立 C++ wire fixture 另外包含
 明确标记的 schema-only 已知零值例。机器证据在 integration/artifacts，进度仅记录于根文档。
+
+<a id="managed-v2-published-aum"></a>
+
+## 实际发布 Managed V2：完整钱包、AUM 与共享 Vault
+
+`balancer-v2-managed-aum` / `balancer-v2/20230411-managed-aum-3` 对应固定的
+`balancer-deployments` 发布任务 `20230411-managed-pool-v2`。原参考保留原 build-info、
+两种优化参数的编译 job、库链接、immutable、正常 EIP170 部署、原 Factory/Vault/ERC20
+公开操作和完整执行观察。旧 `e281ff40` 费用参考因 runtime 超限而被正常服务拒绝的边界保持不变。
+原参考 metadata 的 `aum-1` 是历史生产者版本；公开 `aum-3` 必须携带新增完整钱包和两套暂停字段，
+旧公开状态不能通过省略字段升级。
+
+Managed 状态区分每个物理池的注册 cash/managed 与 Vault 全局实际钱包。virtual supply 只减
+该池注册的 BPT，actual supply 包含当前有效时钟下未收取的 AUM。普通 underlying→underlying
+GIVEN_IN 先 upscale 再扣交换费；它更新原 gross 输入和 raw 输出对应的现金及实际钱包，
+不会铸造管理费 BPT 或推进 AUM 收取时间。显式 collection 采用原顺序的年度向下取整、
+时间比例向下取整及协议份额向上取整，收款方相同或与 Vault 别名时按实际地址记账。
+
+Pool 和 Vault 各自保留 effective paused、pause window 与 buffer 截止时间。普通交换分别检查
+两套限制；Pool 的公开 AUM collection 不会仅因 Vault 暂停而被本地误拒绝。Recovery 中原
+`getManagementAumFeeParams` 返回有效零费率，未收取 AUM 为零；恢复正常时重新校验配置中的
+常规费率。控制操作的原来源观察与本地 swap/collection 数学转换分开验证。
+
+所有计算转换保留来源 H，另带 `execution_context` 保存完整执行高度和时钟，即使计算恰在
+来源 H 的同高同时也标为派生。派生 Pool 可用于继续执行，但不能作为 canonical Snapshot
+或通过普通状态 wire 发布。Vault 历史变更高度按原 packed uint32 语义保留，完整执行高度
+另存，避免回卷后丢失上下文。required scalar/Amount 缺失、未知字段、超宽整数以及无效
+账本不能默认为已知零。
+
+多个 Managed 物理池共享同一 Vault/token 时，公共领域层校验相同来源、Vault 暂停与代码、
+角色及 provider 实时参数、token 身份和实际钱包的一致性。钱包至少覆盖去重后已声明注册的
+cash 合计；managed 资金不计入 Vault 现金下界，未知注册仍不因此被宣称已完整覆盖。
+重复 physical ID 的冲突声明必须拒绝，完全相同的重复声明不重复计算现金。
+
+路由每步把实际钱包变化传播到同 Vault 的相关兄弟池，保留它们自己的注册余额、权重、
+费用和 BPT 供应量；整条 path 成功后才提交候选状态。已知 BPT underlying 或混合适配器
+组合通过明确原因隔离相关 Vault 组；来源银行保留全部记录，图只发布可执行边，API
+`candidateScope` 表示实际可执行候选，`snapshotRef.scope_hash` 仍绑定完整来源范围。
+无关 V2 或不同 Vault 的正常路径不应因另一组尚不支持而消失。
+
+本地验证入口：
+
+```sh
+make -C integration managed-v2-catalog-reference-check
+make -C integration managed-v2-shared-reference-check
+make -C integration managed-v2-multi-differential-test
+make -C integration managed-v2-multi-quote-test
+# 需先完成当前源码的完整 check 并绑定独立 SPEC/quality 审查
+make -C integration managed-v2-multi-acceptance
+```
+
+当前原目录包含 2/3/5/50 币池的共同 H 读取和原交换/非零 AUM；共享目录包含同 Vault 同 token
+双池的 A/B/A/B 真实交易及独立 BPT 账。实际选中 API 计划由新的原 bytecode VM 恢复来源后按
+顺序执行，检查真实扣款、收款、原 getters 和交易记录。此证明仍限定本地参考，
+`VERIFIED` 和 public build 保持关闭。活动 schedule、breaker、BPT swap/join/exit、rate/mixed
+完整能力、可信真实链与生产费用和性能继续按设计另行实现。最新状态与验收绑定以
+[开发进度](../DEVELOPMENT_PROGRESS.md#plan-2026-11-03-managed-v2-aum) 为准。
+
+
+### 活动权重/费率 schedule 的独立版本与来源资格
+
+`balancer-v2-managed-scheduled` / `balancer-v2/20230411-managed-scheduled-1`
+在完整 Managed 状态上增加可选 field40。新 profile 必须携带来源 H 的 pool slot9
+原 word，以及按有序 underlying 地址在 mapping11 读取的 token words；旧 `aum-3`
+仍拒绝 field40 和活动 schedule，不能通过换标签升级旧状态。
+
+pool word 使用四个直接 uint32 时间、两个直接 uint62 费率及最高四个 flags；token word
+使用两个直接 uint64 权重和 uint5 decimals difference，其余高位必须为零。整数插值遵循
+原合约加减及截断顺序，直接使用被选中的两个权重计算比率。合法 current weights 及管理
+重排取得的 computed start 不强求合计 ONE；caller 的目标 end 数组仍严格要求合计 ONE，
+不能归一化或增加误差容忍来掩盖单位差异。
+
+`reclock` 保留 sourceH/raw schedule，并按显式、单调的 execution context 重算费用、权重、
+AUM 和两套暂停视图。同 Vault 的兄弟池各自重算自己的时钟视图，即使未共享 underlying
+也不能留下旧 clock；传播全局钱包时仍保留各池自己的注册资金和 BPT 供应量。派生状态
+继续拒绝 canonical Snapshot/wire。
+
+来源资格必须同时绑定原 compiler AST、完整 runtime、库链接、全部 immutable、公开
+getters 和原创建参数。身份地址不得重复或遮盖已固定的 prefix 身份；runtime 先校验
+canonical hex 再计算摘要，Factory creation pair 和 Vault WETH 必须匹配原固定观察。
+原 `ManagedPoolSettings` 构造函数固定 SWAP provider ID 为 0、YIELD 为 2，只有 AUM ID
+来自参数；生产 parser 和参考校验器均拒绝 getter 与伪造 immutable 共同改变这些常量。
+
+验证入口（状态和最新证据只记录于开发进度）：
+
+```sh
+make -C integration managed-v2-scheduled-projection-check
+make -C integration managed-v2-scheduled-wire-check
+make -C integration managed-v2-scheduled-helper-test
+make -C integration managed-v2-scheduled-differential-test
+make -C integration managed-v2-scheduled-smoke
+```
+
+原参考仅覆盖注明的双币/三币、活动重排和单物理池 signed swap/collection。
+真实 API 选中的原单跳由独立原 VM 重放并检查真实扣款/收款及完整观察；这不开放
+public VERIFIED/build，也不提供真实链信任、完整 trie、跨物理池活动 schedule 执行、
+BPT/rate/mixed 完整能力或生产性能证明。这些仍按原设计保留。
+
+
+### 两个物理池的共同 H 与实际分配后状态
+
+`managed-v2-scheduled-shared` 使用独立原参考文件，区分显式 scheduled/static 与
+scheduled/scheduled 配置。每个 bank 的两个池、原代码、getters、选定 raw words、
+完整全局 underlying 钱包和各自 BPT 账处于同一来源 H；同一实际调用在整个 bank
+必须有相同结果。每笔原交易、管理调用及 clock 需要和前后 header、nonce、bank
+及检查点一一对应，重复引用某池交易不能替代另一物理池覆盖。
+
+普通 swap 在相同 clock 不得改变自身/兄弟池 weights、fee、packed schedule 等只读
+Pool 视图；注册余额仍归各物理池，全局钱包变化同时被双方观察。clock-only 转换
+分别重算每池自己的权重、费率、AUM，静态 peer 也推进派生执行上下文。
+
+实际 API 两路计划按返回顺序执行原 Vault.swap。每 mode 一个独立拥有的原 VM，
+不同计划恢复精确来源并 snapshot/revert，重复报价只有在 namespace、source、完整
+request/routes 一致时明确关联同次执行。执行器同时检查真实扣款/收款、事件和完整
+after 观察，恢复后再次核对完整来源。观察投影只映射 getter/raw 值；服务门禁显式
+运行 Rust 实际分配向量测试，将每个真实大额步骤的两个完整 Pool 与本地连续状态
+逐字段比较。该测试依赖实际 VM 报告，普通 unit 中显式 ignored，服务门禁必须执行。
+
+```sh
+make -C integration managed-v2-scheduled-shared-projection-check
+make -C integration managed-v2-scheduled-shared-helper-test
+make -C integration managed-v2-scheduled-shared-differential-test
+make -C integration managed-v2-scheduled-shared-smoke
+```
+
+这些仍是固定原版本的有限本地来源/执行证据，保持真实链、完整 trie、费用模型、
+BPT/rate/mixed/breaker 更广能力和生产准入边界；当前任务和验证结果见开发进度。
+
+<a id="managed-v2-bpt-routing"></a>
+
+### 发布版 Managed BPT 的完整状态与资金上下文
+
+`balancer-v2-managed-bpt` / `balancer-v2/20230411-managed-bpt-1` 使用原
+20230411 ManagedPool 的 BPT swap 语义。它在完整 Managed/AUM/schedule 状态上增加
+可选 field41，显式携带 join/exit flag、固定最小锁定 BPT、BPT 注册 lastChangeBlock
+以及按地址排序的有限白名单观察。旧 `aum-3` 和 `scheduled-1` 不接受该字段；新版本
+不能省略它或 raw schedule。白名单查询结果的 `false` 与“没有观察此地址”分别保存，
+不得将未知成员补成允许。Go clone 必须复制成员数组，三个 domain 的 wire 转换须保留
+显式 `false` 和 block `0`。
+
+新来源配置使用 `standard-bpt`，并要求
+`managed_v2.bpt.allowlist_subjects` 明确列出要观察的地址。列表本身不授予权限：Go
+解析器在相同 EIP1898 blockHash 读取原 `isAddressOnAllowlist` 与 AST 固定 mapping13，
+核对严格的 bool storage；锁定 BPT 从零地址余额读取，join/exit flag 与原 packed
+schedule 对照。固定 slot10 的 AUM word 按原 uint60 年费率、bit60 起 uint32
+收取时间解码，bit92 以上必须为零；正常模式核对 getter 年费率，recovery 模式保留
+底层非零正常费率而要求有效 getter 为零，收取时间始终与 raw 一致。来源解析及
+原参考/实际计划 after 校验共用该布局约束。普通固定 H 来源完成后仍重锚，任一依赖或控制矛盾使整批发布失败。
+
+精确 GIVEN_IN join/exit 先收取 pending AUM，按原 floor/floor/ceil 顺序更新总供应与
+manager/collector 钱包，再用 actual supply 计算单币 BPT 数量。费用只作用于原单币
+非比例部分，保持原 upscaling、幂方向和舍入顺序。swap 输出 BPT 来自 Vault 预铸
+注册现金，不能再次铸币；exit 将 BPT 放回该现金。注册 BPT、Vault 全局 BPT 钱包、
+virtual/actual supply、underlying 注册余额、实际钱包和 touched lastChange 均随同一
+物理 Pool 转换。所有成功转换保留原 source H，写入派生 execution context；派生对象
+不可作为新的 canonical Snapshot/wire。
+
+逻辑图中的 underlying↔BPT 边均引用同一个完整物理 Pool。`Funds(sender,recipient)`
+贯穿候选搜索、分配顺序重算及 HTTP 请求：中间腿回到 sender，最后一腿给 recipient；
+join allowlist 检查 sender，exit 不以 allowlist 禁止退出。旧缺少 Funds 的内部入口
+继续拒绝 BPT swap。处理 Managed 范围前校验资金地址为非零 canonical EVM 地址，
+不能让大小写变体绕过别名判断。
+
+同 Vault 的普通 underlying 钱包继续按物理兄弟池传播，注册资金与各自供应保持独立。
+外部标准 V2 腿兑换某个已声明 Managed BPT 时，按 sender→pair 输入和 pair→该腿
+recipient 输出更新发行池的已观察 BPT 钱包；该 ERC20 转账不修改发行池注册现金或
+供应。其他 custody 需要独立会计适配。当前普通 Managed 腿的 Vault 自收付与外部 V2
+pair 自收付没有完整结算模型，返回明确 unsupported；不能以 reserve-only 数学伪造
+收款或储备。整条路径只在全部步骤成功后提交，任何后续错误保留调用方原状态。
+
+原执行参考、投影和 synthetic wire 分开保存。实际选中 API 计划在原 Vault/Pool/ERC20
+字节码中按返回顺序执行，使用真实钱包差、签名交易及 receipt 检查金额与 AUM/BPT
+事件。不同计划先恢复精确来源，并在执行后 snapshot/revert 再验证来源。后续投影先
+重验实际报告，再将每个真实执行块的双方完整后 Pool 与本地连续模型逐字段比较；
+对应 Rust 测试在普通 unit 中 ignored，服务门禁必须显式运行。
+
+```sh
+make -C integration managed-v2-bpt-reference-check
+make -C integration managed-v2-bpt-projection-check
+make -C integration managed-v2-bpt-wire-check
+make -C integration managed-v2-bpt-helper-test
+make -C integration managed-v2-bpt-differential-test
+make -C integration managed-v2-bpt-smoke
+```
+
+这些是固定发布版的有限本地来源与顺序执行验证。实际链身份、完整 trie、enabled
+circuit breaker、其他 custody/rate/mixed 组合、ExactOut、生产费用及 public 原子执行
+仍依原设计分别实施；`INDICATIVE` 不升级为 `VERIFIED`，public build 继续关闭。
+最新开发状态、测试结果及尚未完成项只记录于
+[开发进度](../DEVELOPMENT_PROGRESS.md#plan-2026-11-03-managed-v2-aum)。
+
+<a id="managed-v2-enabled-circuit-breaker"></a>
+
+### 已启用 circuit breaker 的独立版本
+
+`balancer-v2-managed-breaker` / `balancer-v2/20230411-managed-breaker-1` 在
+已发布 BPT/AUM/schedule 状态上增加 optional field42 `circuit_breakers`。新版本要求
+schedule、BPT 控制和 circuit 状态同时存在；旧 AUM、scheduled、BPT profile 不接受
+field42。每个有序 underlying 保存原 slot12 mapping 的完整 uint256 word 和六项
+`getCircuitBreakerState` 观察，包含 reference BPT price、reference weight、上下百分比
+及当前上下 BPT price bound。价格 getter 已按 token scaling 恢复为 manager-facing 单位。
+
+原 word 依次编码 lower16、upper16、reference weight64、stored BPT price96、cached
+lower32、cached upper32。百分比通过右移48压缩，getter 左移48恢复；upper 可以小于1，
+只要满足原入口范围，`upper=1` 最小整数也可压缩成0，从而关闭该方向。lower 的原最小
+输入压缩后恢复可能略低于0.1，不能据此误拒合法状态。安装word与启用某方向分别建模，
+保存 reference 数据而两侧百分比均为0也仍是完整原状态。
+
+同 reference weight 时必须使用缓存 ratio：`floor(u32 × 10 × ONE / (2^32−1))`。
+不同 current weight 时，用压缩后恢复的百分比重新执行原 fixed-point power；lower 用
+powUp，upper 用 powDown。原 set 输入使用尚未量化的百分比来生成缓存，因此不能用
+恢复后的百分比重算并硬性要求 cached ratio 相同。边界价格先 lower ceil／upper floor，
+再按 getter scaling 向下还原，禁止合并两次舍入。
+
+解析配置显式选择 `standard-breaker-bpt`，保留 BPT 的有限白名单观察范围。固定 H 读取
+slot12 与六项 getter，动态 ratio 通过同 H 的原 linked CircuitBreakerLib 纯调用独立核对，
+库身份仍由完整原 runtime/template/immutable 约束。Domain 验证 raw、presence、范围和
+cache-hit view；动态 pow 的完整 getter 校验在 pricing 前使用精确内核再次执行。
+
+普通 TOKEN swap 对 gross input 侧检查 lower，对 output 侧检查 upper。BPT join/exit
+先收 AUM 并计算新 actual supply，对全部 underlying 的两个方向检查，包含未参与兑换
+的 token。条件使用 downscale 前的内部 scaled `amountCalculated`；低精度币种可能最终
+raw output 为0，但原断路器已经应当回退。不能只根据 raw 钱包后状态重构该条件。
+所有条件与定价使用同一执行时钟的 actual supply、weights 和 bounds；未来 reclock
+保留原 source H，不能拿旧时钟的 breaker 状态检查新报价。
+
+当前价格越界不一定意味着所有金额都不可行：合法 upper<1 可让小额 join 回退、较大
+join 恢复到边界内。因此图保留原 Pool，候选按金额计算；失败时整条路径和共享状态
+回滚。对于普通 TOKEN 同交易对，其他健康物理池可能提供合法替代路线；原单池回退
+不等于全局 NO_ROUTE。完整 scope 的实际选中路线必须在原 VM 重放，而单池错误语义
+由明确单池 scope 回归验证。
+
+参考的 cached/dynamic/boundaries/shared 场景由独立顺序清单固定，控制与交换的原
+signed transactions、nonce/gas/native balances、bank/clock/checkpoint 双向唯一对应。
+固定清单拒绝自洽删尾、孤立覆盖记录及重复 clock。实际 API 计划另绑定独立输入摘要
+和逐输入 link，after 状态再次校验 runtime/immutable/raw/control，并以实际执行块比较
+双方完整 Pool。原 sequential witness 只定义资金与容量输入，不作为优化器期望输出。
+
+```sh
+make -C integration managed-v2-breaker-reference-check
+make -C integration managed-v2-breaker-projection-check
+make -C integration managed-v2-breaker-wire-check
+make -C integration managed-v2-breaker-helper-test
+make -C integration managed-v2-breaker-differential-test
+make -C integration managed-v2-breaker-smoke
+make -C integration managed-v2-breaker-final-check
+make -C integration managed-v2-breaker-acceptance
+```
+
+该能力的开发／测试／验收状态仅以
+[开发进度](../DEVELOPMENT_PROGRESS.md#plan-2026-11-06-managed-v2-breaker) 为准。
+rate/mixed、其他 custody 与自收付完整结算、ExactOut、可信实际链来源、完整费用和生产
+原子执行仍按原设计分别实现；public VERIFIED/build 不因本地参考通过而开放。
+
+最终入口要求当前 `managed-v2-breaker-freeze.json` 与完整独立审查记录。串行记录绑定源码、五二进制、全部输入和 freeze 文件摘要，并保留五阶段精确命令、日志、产物摘要及执行时间；复审会拒绝旧轮次或被替换的结果。新轮次启动或 audit 失败/中断会将最终验收状态置为未通过。进度读取器也参与输入冻结；本批 CB1–CB5、六条设计映射、工作包及源码／测试绑定另生成规范化结构摘要，freeze、串行记录与最终审计均重新核对。正常状态与备注更新不改变该摘要。失败或运行中报告不能贡献 `verified_*` 计数。此入口仍只验收注明的本地 breaker GIVEN_IN 范围。
+
+
+<a id="r01-r04-sources-and-recovery"></a>
+
+## 真实来源、持续采集和范围恢复接口
+
+Go `internal/provenance` 检查完整EVM头/交易根和账户、代码、storage MPT承诺。`cmd/source-evidence` 只读采集明确H及另一endpoint同高头，离线验证无需实时RPC；它不将两个endpoint一致称为共识或独立故障域。固定源码重建工具在编译前验证同一部署证据，核对完整源码清单、compiler build与settings、实际runtime；源码重建与独立交易收款是两项证据。
+
+```sh
+cd chain-parser-go
+go build -trimpath -o bin/source-evidence ./cmd/source-evidence
+./bin/source-evidence --verify ../integration/test/source/ethereum-mainnet/uniswap-v2-26355865-evidence.json
+```
+
+Go正常EVM适配器可配置`chains[].block_integrity: "ethereum-header-transactions-v1"`，仅允许`evm:1`。`Adapter.Block`通过标准`eth_getBlockByNumber(tag,true)`一次读取完整头及交易，重算头hash、交易hash/chain ID/位置和transactionsRoot；交易数据与保守对象开销共用已有块预算，整个操作受已有RPC期限约束，失败进入原正常服务撤销/耐久DLQ流程。它与后续receiptsRoot校验分别生效；承诺核对的锚点仍来自RPC，响应metadata显式`consensus_verified:false`。该profile不能用于其他链，也不能替代共识/独立故障域证明。
+
+公开目标配置生成器为7条EVM目标默认选择 `known-evm-native-commitments-v2`，并填写显式的 `native_proof` 限界：
+
+```json
+{"block_integrity":"known-evm-native-commitments-v2","receipts_mode":"bulk-auto","native_proof":{"max_bytes":16777216,"max_headers":64,"max_window_blocks":16,"max_transactions":4096,"max_lookahead":32}}
+```
+
+该profile仅允许Ethereum、OP、Base、BSC、Polygon、Arbitrum和Avalanche对应的固定chain key。头、原始交易体、receipt及后继执行窗口的证明共用显式字节预算；具体链规则由适配器选择。普通Ethereum0–4型receipt校验保持原边界。Avalanche异步执行窗口必须区分观察到的head与已具备后继承诺的执行块；窗口内只有末执行块可引用该stateRoot。Polygon系统receipt与普通交易receipt分别保留证明语义，不能因过滤系统记录而声称全部区块日志完整。原始证明随factory/history归档，历史指定高度不得静默替换成其他已settled高度。配置生成器保留已有显式profile；非V2 profile携带native_proof、V2缺少限界或未知chain key均拒绝。实现测试及部署资格状态仍以开发进度中对应项为准。
+
+方案§3的8链目标与公开开发RPC默认值保存在`integration/config/chain-targets.json`。配置工具自动核对chain ID/完整genesis、拒绝覆盖已有同链genesis pin或将其他网络池目录重新贴标签；8链genesis均固定并绑定留存来源文件。RPC选择优先显式参数、已有同链来源、最后公共开发默认；保留base基础设施/认证及已有同链topic，新增state路径/topic含完整genesis。HEAD_FIRST年龄上限120秒、tail上限128、history无online写权；不可能满足的raw预算组合在写文件前拒绝。实时身份探测由独立worker限制整个请求5秒，超时结束并回收worker，不留慢读线程；限制三种只读请求、响应字节和重定向。输出配置是正常解析器配置格式，`*.identity.json`只保存来源观察。指定`--identity-evidence`可基于摘要固定的留存身份记录离线生成，明确`live_probe_executed:false`，不赋予协议或生产资格。
+
+```sh
+python3 integration/tools/configuration/chain_target_config.py --list
+mkdir -p integration/.runtime
+python3 integration/tools/configuration/chain_target_config.py --target ethereum --base-config chain-parser-go/config/config-test.yaml --identity-evidence integration/test/source/chain-genesis-observations.json --output integration/.runtime/ethereum-config.json
+chain-parser-go/bin/chain-parser-go --config integration/.runtime/ethereum-config.json --check-config
+```
+
+RPC可挂载同步耐久response recorder；原始有限响应在HTTP状态/envelope/result解码前存储，记录失败不跨provider绕过。正常Go服务通过显式 `journal.raw_evidence` 将raw/DLQ置于自己的state目录，独立配置max_bytes/max_records/max_record_bytes；不能复用Kafka尾窗预算。未配置时保留旧轮询路径且明确不宣称raw capture能力。启用后容量耗尽停止而不丢弃关键证据。并行staging只产生候选，原有owner prepared/journal依次提交完整块；worker不修改lease。WS `newHeads` 仅为HTTP查头提示，短缺口有界对齐、超窗HEAD_FIRST；工厂事件只产生候选，当前版本/状态准入后才可入目录。
+
+两解析器提供认证的 `POST /internal/chains/{chain}/ensure-pool-scope`，请求为 `{"pool_ids":["配置目录中的ID"],"expected_online_generation":1}`。只允许已准入目录，拒绝重复/未知池、代际冲突及过期状态。正常reanchor仍由原owner链路发布，接口不自行分配generation。Rust恢复提交收敛由拥有actor的任务负责，等待方取消不会提前释放仍在提交的actor。
+
+Raydium CPMM、Raydium CLMM、Orca 配置中的 `expected_token_program_code_sha256` 始终固定 classic SPL Token 的完整可执行 payload。旧的 immutable loader 配置保持原格式；当该公有程序使用 Upgradeable Loader 时，同一协议配置增加 `token_program_upgrade: {"programdata":"3gvYRKWyXRR9xKWe1ZjPhLY5ZJRN7KDB4rFZFGoJfFk2","deployed_slot":公开观察到的部署slot}`。部署slot由固定账户证据读取，不能任意填当前slot。ProgramData被加入RPC分片及Yellowstone/native manifest的相同bank依赖；验证Program指针、独立派生PDA、loader、可执行标志、部署slot、元数据和完整 `ProgramData[45..]` 哈希。声明升级模式不能回退到immutable；未声明时也不会自动把新loader当旧版本。`netBuyAmountEstimate` 的链费用后净值不可用与原程序收款Token余额差分分别记录，不能用gross或slippage minimum伪装费用后净输出。
+
+Rust `yellowstone` 以固定上游proto profile读取真实gRPC原始帧，耐久WAL先于解释；`stream` 按原bank_id/slot区分分叉、版本和来源会话。完整provider block的计数仅证明观测集合；它不代替独立版本账户manifest。源会话变化、帧缺口、未知完成语义、dead/skipped、缺依赖或fork均要求reanchor；历史重放不会使online ready。 可信版本化初始账户快照和其独立manifest核对后可继承未写入的父账户，保留原write bank；skipped范围必须显式绑定source/session及父、目标bank，不从null或slot差推定。`source-evidence-rust` 是有限只读捕获工具，不发布在线状态。
+
+双语言scope控制器负责buffer→固定锚点→当前候选选择→依赖分片→尾窗校验。文件store原子持久化恢复数据及任务，其资格为 `RECOVERY_DATA_ONLY`，重开不恢复旧授权/旧ready；需要在线发布时，ProductionStore必须接同一owner DB的prepared/journal事务。正常Go历史写入在同一owner DB的隔离namespace中提交，使用专属权限能力和预算；它不参与在线ready，也不能覆盖online。
+
+```sh
+make -C integration r01-r04-foundation-test
+make -C integration r01-r04-traceability-check
+make -C integration r01-r04-recovery-process-test
+make -C integration r03-authority-process-test
+```
+
+R01公开来源清单对留存的不透明原文件分块核验摘要：每次读取不超过64KiB，单文件不超过64MiB，清单与工具合计不超过512MiB，并核对读取前后文件身份、长度和元数据；替换、截断、增长、路径重定向或摘要变化均拒绝。清单核验不将文件内容交给解码器，实际读取/解释JSON证据仍受原32MiB上限约束，旧的大体积verbose trace只能作为留存原件参与摘要核验。
+
+Uniswap V3的有限getter证明采集只选择当前bitmap word：负tick先按tick spacing向下取整再定位word，采集slot0、liquidity、bitmap及每个初始化tick的四个原始storage word，最多1027个key。公开ABI返回值仅用于选择候选；必须固定同一chain/genesis/H/hash、部署代码版本和stateRoot，通过原runtime在MPT上的实际getter执行复核全部读取，再交正常Parser/Router做数量差分。候选值、旧H证明缺失或保存的成功标志均不能授权报价。`r01-getter-proof-test`提供离线原VM键集合及拒绝边界回归。
+
+当前完成状态与真实来源/生产事务尚缺项仅以[开发进度](../DEVELOPMENT_PROGRESS.md#plan-2026-11-06-r01-r04)为准。模块测试、接口可调用或单个真实部署样本均不构成R01–R04整体完成。
+
+
+## 多路分配与Velodrome V2计算范围（2026-11-08）
+
+Router配置`routing.max_splits`支持1–8，示例默认4；`split_parts`仍1–100。普通API使用`routing.max_expansions`分别限制候选试算与分配试算，外层时间/取消预算共同约束。`quality.allocationSearch`返回`evaluations`、`gridParts`、`maxSplits`及`exhaustiveWithinGrid`；`quality.budgetExhausted`合并候选或分配次数耗尽。已找到完整方案时允许返回标明未穷举的INDICATIVE结果；无完整方案且次数耗尽返回BUDGET_EXHAUSTED。原CHAIN_FEE_MODEL_NOT_IMPLEMENTED/VERIFIED准入保持。
+
+分配按累计网格边界取floor，最后累计量精确等于全部输入，原子单位余数随边界分配。最多8个候选、32份网格且物理池互不重叠的限定V2/V3/Aero状态使用子集/累计份额动态规划；费用按激活路数计，使用原数学输出缓存和最终完整重放。共享池/跨物理池会计和其他模型使用有界顺序枚举，大范围先为多路方案保留部分试算预算。网格内穷举不含未入选路径、网格之间原子单位、同一路径多次出现或任意DAG。候选排序新增小额试算，防止浅池整单滑点导致被筛除，同时保留最佳完整整单fallback。
+
+`velodrome-v2-stable`和`velodrome-v2-volatile`使用独立`b3065d8b-1`adapter。Go读取与现有Aero ABI共享`metadata`、factory暂停和`getFee(pool,stable)`；code/clone implementation/factory摘要仍须显式匹配同固定块。原Velodrome源码`_get_y`上升舍入分支检查`_f`，旧Aerodrome版本检查再次缩放的`_k`；保留两个固定数学语义。216原函数EVM案例、8序列24步和30舍入控制为限定Q1证据，不能代替完整Pool.swap、特殊Token、实际部署或可信链状态验收。
+
+## LFJ Liquidity Book v2.1.0（2026-11-08）
+
+`lfj-lb-v21`使用独立`lfj-lb/v2.1.0-fee-oracle-1`适配器和公共`PoolState.lfj` field31。Go固定区块读取明确校验immutable-args clone的全部字节、implementation/factory/token代码摘要、同锚点getter与storage，并读取完整有界bin集合及反向链接、份额、raw reserves/协议费和Oracle当前/下一样本。同步Token余额必须等于raw reserves；未建模的捐赠、未知Token行为和池地址自资助不进入当前模型。配置允许1–4096个bin、1–8192个数学步骤，超预算失败封闭。
+
+状态保留原packed参数，按原v2.1.0更新volatility reference/accumulator、18位精度费用、uint128余额与协议份额，以及Oracle环形样本、uint64累计值的原始溢出语义。与Infinity Bin共享的只是已验证的固定点价格幂基础函数；LFJ的费率、协议份额、储备和Oracle语义独立。ExactIn只返回全额消费或错误，原`getSwapOut`的未成交余量不会被当作完整报价。
+
+`block_number`与`timestamp`使用明确的optional scalar presence，观察到的零保留，缺字段拒绝。Go JSON解码另拒绝缺失、null、重复和未知成员；Rust对应类型采用严格结构。4份独立C++ protobuf向量覆盖完整两种Oracle状态与显式零银行坐标。
+
+正常Go→真实本机PG/Kafka→双Router的19条实际API计划被原样捕获，经独立模型投影后，用原编译参考记录的LBPair运行时代码逐腿重放38次swap，比较真实本地Token收款、参数、raw reserves、协议费、bins/份额和Oracle后状态。10类负控涵盖重算hash后的不守恒/自资助、缺时钟、储备不一致、原代码/池/输入绑定及10^18与10^18+1的无损整数区分。原程序比较器从JSON原始整数词法构造BigInt，禁止IEEE-754舍入掩盖差异。
+
+这些是固定时钟、受控初始银行和标准Token资金注入的本地Q1结果。公开报价仍为INDICATIVE，净链费用未知；当前没有LFJ公开交易构建/生产执行或真实Avalanche来源资格声明。余下多协议和费用工作继续按进度文件核对。
+
+## Slipstream上下文版本接入（2026-11-09，限定本地范围通过）
+
+`aerodrome-slipstream-context`是独立的`f8717faa-module-1`版本，公共field32。
+旧`aerodrome-slipstream/cl-1`继续拒绝非零模块；新解码器只有在匹配固定Pool、
+Factory及custom/dynamic模块执行体和immutable绑定、固定真实Voter运行时代码、
+注册池键及全部必要输入后才发布此版本。公共映射Voter的原编译器执行体与保留代码
+匹配，`gauges`/`isAlive`是上下文无关getter；不把任意Voter或未知模块视作可计算。
+
+动态模块必须提供显式有界classic EOA调用方列表，源码匹配不等于任意调用方的
+`discounted(tx.origin)`已知。未知调用方费用上下文返回不可用，不默认为零折扣。
+normal Parser固定同一个blockHash/requireCanonical收集当前price、liquidity、
+staking、fee/reward/gauge ledger、完整有界observations和初始化tick扩展状态，
+再由Rust域复算来源费用视图。特殊Token/授权账户/未知module组合仍不在本版本内。
+
+Source重采集的bitmap窗口随当前tick中心变化；内部顺序计算只保留实际已知窗口，
+不会假设缺失word为零。原程序参考同时保存两种视图：canonical source bank与
+carried execution projection。`derived=true`区分内部修改，不能冒充原始来源。
+Readonly factory/module/discount/Voter事实冲突时整个替换失败；新上下文及LFJ范围
+还拒绝未建模的其他池/manager/vault钱包自资助，防止跨账户转移漏记。
+
+原程序108案例中90完整、18部分成交；完整上下文数学、4组12步费用变化与全部
+声明后状态差分通过，部分成交不当作全额ExactIn。当前normal Go/真实本机PG/Kafka/
+双Router已产生13条实际API计划，原运行时13次swap收款及完整后状态一致，另有
+8类模型/原程序负控拒绝。阶段39已完成限定范围的完整回归和同源进程验证；后续补修的当前状态以进度文档为准。
+所有公开结果保持INDICATIVE，净链费用未知；没有升级真实历史/共识或生产执行资格。
+
+
+### Pancake V3 LM 固定原程序计算基准
+
+`integration/tools/reference/pancake-v3-lm/source-metadata.json`固定官方提交`986847948755cba528324d41be19480731c36c2a`的Pool、LM及MasterChef源码，保留依赖文件摘要。受控银行使用完整原`PancakeV3Pool.swap`、`PancakeV3LmPool.accumulateReward/crossLmTick`和`MasterChefV3.getLatestPeriodInfo`；原Pool/LM用Solidity0.7.6，MasterChef用已验证摘要的Solidity0.8.10及固定OpenZeppelin4.8.1编译。测试Token及构造LM的developer为明确的受控辅助合约，未替换上述原合约函数。编译器输出与原运行时代码按immutable范围归零后完整比对，包含CBOR元数据。
+
+`make -C integration pancake-v3-lm-reference-refresh`重建原程序样本；`pancake-v3-lm-draft-differential-test`构建独立草稿，重新编译原源码并核对完整输出/后状态和负控。草稿在现有V3逐step曲线上独立更新协议/LP费、LM奖励与liquidity、tick/Oracle及raw余额，覆盖奖励两层floor、uint32结束时间截断、uint256增长回绕和同块连续执行。该基准报告只代表声明银行和输入的原程序差分；正常解析、公共状态/wire及路由使用下节的独立profile，旧Pancake V3的非零LM门禁不变。
+
+
+LM版本使用独立`pancake-v3-lm-context`/`pancake-v3/98684794-lm-1`及公共field33；旧`pancake-v3/core-1`的非零LM门禁保留。MasterChef输入保留pool pid/alloc与共享总alloc/period，checked乘法及view一致性单独校验；LM的奖励先按原双层floor/uint32结束时间计算，再按原tick交叉更新。代码模板同时校验规范化执行体与每个immutable的实际getter绑定。新JSON校验对旧V3 core也扫描重复键，显式tick/feeProtocol观察值与core一致。受控零LM银行的所有LM tick必须保持未初始化零；有意破坏活动liquidity曲线的银行另作负控，不作为可采纳来源。
+
+`pancake-v3-lm-state.cjs`分别保留模拟携带的已知bitmap窗口和原getters重新观测的canonical窗口；实际API源快照只能绑定到有编号的原source bank，允许明确的合成block hash/number封套，不能把派生执行状态当原来源或补造未知bitmap word。原程序计划重放另外校验窗口/readonly标记不随swap改变、每步完整账本及收款Token增量。本段历史接入限标准ERC20/已知代码及声明范围的ExactIn；后续独立ExactOut模板见下文；净链费、特殊Token、生产来源/执行资格均需自己的验收。
+
+
+## Pancake V3 LM主目录业务入口（2026-11-09）
+
+独立`pancake-v3-lm-context` / `pancake-v3/98684794-lm-1`已接入主目录。Go按同一blockHash读取Pool、Factory、LM、MasterChef和Token代码/完整状态；每个运行时代码既检查固定模板，又核对immutable实际getter绑定。Rust使用公共`PoolState.pancake_lm` field33重建状态，复算MasterChef奖励视图，明确区分原来源与顺序执行后的`derived`状态。
+
+兑换计算复用已验证V3逐step曲线，按本版本原合约语义分别更新协议费/LP费、奖励双层floor与uint32结束时间、uint256增长回绕、LM与普通tick交叉、Oracle环及raw余额。路由通过明确Funds上下文使用此内核；拆单按实际顺序重放同一物理池的完整账本，内部Pool/Factory/LM/MasterChef钱包alias拒绝。部分成交不生成完整消费报价。
+
+可重复入口为`make -C integration pancake-v3-lm-differential-test`（三语言域/配置/解析/原数学）、`pancake-v3-lm-model-projector`和`pancake-v3-lm-quote-test`（正常Go/真实本机PG与Kafka/双Router，实际API计划重放原运行时代码）。服务测试直接读取已纳入公共契约校验的`integration/test/contracts/pancake-lm-state.json`，不依赖隔离目录中的临时normalized副本。原程序参考文件继续按fixture声明的SHA-256验证。
+
+当前支持范围为固定旧代码版本、标准ERC20的有限ExactIn及单池ExactOut，公开API保持INDICATIVE；真实BSC后来LM代际/惰性迁移不由本版本覆盖。链费用后的netOut、特殊Token、可信链历史与生产交易资格仍需各自实现和验收。详细验证结果及剩余范围只在`DEVELOPMENT_PROGRESS.md`维护。
+
+
+## BSC第四代LM的独立解析与计算（2026-11-09）
+
+`pancake-v3-bsc-lm-v4` / `pancake-v3/bsc-p400-lm1000000-mc999-v4`采用公共field34。原Pool optimizer400、LM optimizer1000000、MasterChef optimizer999及实际Factory/前三代前置LM源码与代码分别固定，不能将这些实际执行体套入旧98684794 profile。当前Pool/LM/MasterChef完整immutable-normalized runtime重编译匹配；前三代与Factory的执行体均匹配，其中第一代CBOR metadata与当前重编译结果不同，完整字节匹配状态独立保留。第二、三代和Factory完整字节匹配。
+
+状态保留本地原始ledger、initialization、本地lmTicksFlag，以及三代前置的原始tick/实际存在的flag。第一代没有flag getter，保存空flag向量而非猜测false；第二代核对OldLMPool，第三代核对firstLMPool/secondLMPool，第四代核对三个前置immutable。来源按同一blockHash/requireCanonical读取；code模板与每个实际getter绑定一致后才发布。
+
+数学只在内部将有效tick投影到已验证V3曲线与费用/奖励内核。`crossLmTick`选择第三代flag、第二代flag、第一代tick，实际跨越才写入本地tick/flag，继承gross为零也写flag；未访问的本地原始槽和所有前置状态保持不变，initialization在swap中保持观察值。外部来源、公共protobuf和路由始终保留独立第四代身份，不能将投影作为旧field33的canonical来源。共享池按执行顺序携带完整费用/Oracle及迁移状态，内部Factory/LM/MasterChef/前置钱包自资助拒绝。
+
+原程序参考覆盖64swap（48完整、16部分成交）、4不一致银行和5序列15步，normal服务使用实际PG/Kafka与双Router，捕获实际API计划后用原当前Pool/LM/MasterChef/Factory及三代代码执行，核对真实Token收款、完整后状态和实际迁移次数。`make -C integration pancake-bsc4-reference-refresh`重建参考与4份独立C++wire；`pancake-bsc4-differential-test`验证解析/域/配置/数学/共享池；`pancake-bsc4-quote-test`运行正常服务链路。进度与最终范围只记录于`DEVELOPMENT_PROGRESS.md`。
+
+本段ExactIn验收限标准ERC20和完整消费的swap；后续独立ExactOut模板见下文；不由此覆盖LM位置修改/领取，原始/受控来源不升级为可信历史bank/共识，净链费用与公开执行资格仍须单独验收。
+
+
+## 完整银行驱动的路由准入刷新（2026-11-09）
+
+Replica连续提交除了币种/协议拓扑，还比较完整银行推导的`excluded_pools`。共享Vault分组导致准入变化时重建候选图并推进graph_version；旧graph不原地修改，旧报价句柄撤销。否则只按币种拓扑复用图会保留不再合格的边或恢复后仍缺候选。
+
+完整已提交银行即使没有可报价边，也可以推进last_reference；公开view保持非ready，不能用旧银行继续报价。下一合格连续块可恢复候选。canonical有效性与报价readiness分离，显式suspend/reorg屏障仍需原重新锚定流程，不能通过改变准入集合绕过。普通只改余额且准入/拓扑不变的更新继续复用图。
+
+反例与验证使用明确合法的完整模型银行及真实in-process HTTP handler；正常三服务/PG/Kafka/双Router原程序回归另行验证协议金额和迁移状态未变。具体已验证范围与剩余通用增量/COW/费用/其他链协议项见进度文档。
+
+### 独立 ExactOut 报价路径
+
+`POST /v1/quote-exact-out` 使用独立 `ExactOutRequest`，接收字符串原子金额
+`buyAmount` 与 `maxSellAmount`、`kind=EXACT_OUT`、链/Token/caller/recipient、
+滑点、`FAST` 和可选 hop 上限，地址使用规范小写 EVM 表示。原 `POST /v1/quote` 的 ExactIn 请求/计划保持原有契约。
+ExactOut 能力包括 `uniswap-v2-complete` 的固定原 Router02 模板与
+`pancake-v3-bsc-lm-v4`、`pancake-v3-lm-context` 的单池外部回调模板，以及
+`aerodrome-slipstream-context` 的单池origin绑定回调模板，以及
+`lfj-lb-v21` 的单池最小目标/显式额外到账模板；其他 profile
+在 ExactOut 候选中明确排除。计划 engine 为 `xone-router-exact-out/0.1`，缓存 ID
+前缀为 `xo-`；请求与计划分别绑定源 view、完整 snapshot、经济策略与到期时间。
+
+每 hop 从目标输出反算原 `getAmountIn` 的 `floor+1`，正向按选择的精确输出进行
+Pair 完整结算。单路径要求简单 Token 路径、唯一物理池及同一 Factory；多路线按声明
+顺序重算共享物理状态。有限有序输出网格以精确整数边界分配余数，每个候选路径至多
+使用一次，在给定候选/网格/路数/预算内最小化原始所需输入。整单可行路径先试算，供
+次数预算耗尽时返回已确认方案；取消或超时按原 API 资源门禁处理。
+
+返回 `requiredSellAmount`、`inputBudget`、`unusedInputBudget` 和受用户预算约束的
+滑点上限 `maxSellAmount`。`minBuyAmount` 等于目标，`refund=0`：原 Router 只拉取实际
+输入，未用预算不是已转入后退款。链费用/输入币成本模型不可用时返回明确原因和空
+`netSellAmountEstimate`。报价为 INDICATIVE；独立 build/模拟能力未通过时明确拒绝。
+多路原程序验证是按序独立本地交易，不代表已具备公开多路原子执行器。
+具体通过范围与尚缺能力只在 `DEVELOPMENT_PROGRESS.md` 记录。
+
+### BSC第四代LM的独立ExactOut模板
+
+`pancake-v3-bsc-lm-v4` 使用负 `amountSpecified` 的输出驱动价格步进：token1输出
+从sqrtPrice减去向上舍入的商，token0输出使用有界乘积和向上舍入的倒数；每步input
+向上舍入、output封顶为剩余目标，fee独立向上舍入。超过完整tick/step/价格范围时
+拒绝整单，不用部分成交充当精确输出。完整fee/reward/Oracle与实际BSC惰性迁移账本
+沿用对应原版本的状态模型；ExactIn使用原入口。
+
+目前ExactOut路径只允许一个BSC物理池，使用外部标准资金回调模板；该profile不能
+静默混入V2或其他多跳模板。公开响应的 `quality.pathPolicy` 明确单池限制，最大输入
+和unused预算沿用独立ExactOut计划，未使用预算不记退款。有限有序分配可按顺序重算
+同一物理池状态；这项模型能力不代表公开原子批量执行器已实现。具体通过状态及原程序
+验证记录只维护于 `DEVELOPMENT_PROGRESS.md`。
+
+### 固定旧LM版本的独立ExactOut
+
+`pancake-v3-lm-context` 固定98684794版本按对应的完整LM账本进行负输出曲线计算，
+复用价格step/fee舍入和完整fee/reward/Oracle结算；不继承第四代的前置LM/迁移字段。
+该版本的ExactOut同样只允许一个物理池及标准外部回调资金，公开pathPolicy明确限制；
+重新哈希也不能把单池模板升级为多跳或混合协议模板。原field33解析和ExactIn入口保持。
+原getter到完整参考状态的投影可在`pancake-lm-exact-out-state.cjs --verify <绝对路径>`
+离线逐字节核对，验证模式不修改参考或服务副本。通过范围只记录于开发进度文档。
+
+
+### Slipstream origin绑定的独立ExactOut
+
+`aerodrome-slipstream-context` 使用输出驱动的sqrtPrice步进，按实际origin的费用模块
+计算每步输入及fee，并连续结算Gauge分成、奖励增长、质押流动性、跨tick和Oracle。
+`quote_exact_out_for_origin`显式传入origin；不带origin的通用数学入口拒绝该profile。
+动态模块的未采集origin、未建模内部资金、混合多跳及超出完整tick/step/价格范围的目标
+保持拒绝。原field32固定块解析与ExactIn入口继续使用同一完整结算原语。
+
+当前模板每条路径仅一个物理池。请求caller对应已采集的origin；原程序参考中的付款
+账户是回调合约，其Token实际扣款与recipient实际到账独立核对。报价层检查输入预算，
+该计算模板尚未提供公开build/独立模拟、链上输入上限保护或原子多路执行器。
+原始ABI读取和完整投影可分别用`slipstream-exact-out-getters.cjs`及
+`slipstream-exact-out-state.py --verify <绝对路径>`离线复核，验证模式不改写文件。
+
+ExactOut的候选数超过上限时设置`quality.budgetExhausted`，同时保留可行整单fallback。
+`quality.candidateSearch`公开实际hop上限、候选上限、展开预算和probeParts；它与
+`allocationSearch`的有序网格覆盖分别描述候选和分配阶段。最优性仅覆盖已评估候选/网格，
+不扩大为全市场或包含未建模净链费用的最优承诺。通过状态只维护在开发进度文档。
+
+
+### LFJ v2.1输出目标与真实额外到账
+
+固定`lfj-lb-v21`沿用field31状态与原fee/Oracle语义，使用原`getSwapIn`方向的独立逐bin
+求解计算覆盖目标所需的gross输入及fee。实际Pair是输入驱动，整数价格舍入可能产生额外
+收款；结算继续按真实输入调用同一个物理Swap原语，保留真实输出及完整bin/储备/协议费/
+Oracle后状态，不能将多收到的金额裁剪为目标。
+
+ExactOut请求的`buyAmount`/计划`min_buy_amount`是收款目标，响应`grossBuyAmount`是实际
+预计到账，`outputSurplus`为两者差额。只有存在非零额外输出时，路径增加可选
+`target_output`，分配增加可选`gross_buy_amount`；无额外输出时不序列化这些字段，原四类
+模板的计划与字段保持兼容。`amounts`及路径`amount_out`始终对应真实物理兑换，目标总和
+与实际收款总和分别校验；输入相同时，优先选择实际到账更多、随后路数更少的方案。
+
+该版本每条路径仅一个LFJ物理池。独立原程序回放同时核对getSwapIn、input-1不足控制、
+EOA付款扣款、recipient实际收款和全部声明后状态；受控参考使用factory sentinel与分开的
+预付款交易，不代表已经有原Router或公开原子输入限额执行器。公开build/模拟和链费用
+模型保持其各自能力边界。来源投影区分原Oracle索引记录顺序、模拟携带顺序及Go解码器
+当前/下一Oracle的canonical顺序，原始storage值按样本ID核对。具体通过状态仅维护于进度文档。

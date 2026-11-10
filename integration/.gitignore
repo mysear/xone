@@ -54,3 +54,36 @@ tools/reference/**/tests/**/*.so
 !tools/reference/licenses/
 !tools/reference/licenses/**/
 !tools/reference/licenses/**
+
+# Public-chain captures and deployment datasets; keep local acquisition tools.
+test/source/**
+!test/source/**/
+!test/source/**/*.py
+!test/source/**/*.cjs
+!test/source/**/*.sh
+!test/source/**/*.md
+test/source/**/sources/
+test/source/**/official-inputs/
+test/source/**/historical-tool-snapshots/
+
+# Downloaded reference trees using protocol-specific directory layouts.
+tools/reference/lfj-v21/src/
+tools/reference/lfj-v21/openzeppelin/
+tools/reference/meteora-dlmm/cli/
+tools/reference/meteora-dlmm/commons/
+tools/reference/meteora-dlmm/market_making/
+tools/reference/pancake-v3-lm/openzeppelin/
+tools/reference/pancake-v3-lm/projects/
+tools/reference/pancake-v3-lm-bsc/factory-source.json
+tools/reference/pancake-v3-lm-bsc/first-source.json
+tools/reference/pancake-v3-lm-bsc/lm-source.json
+tools/reference/pancake-v3-lm-bsc/masterchef-source.json
+tools/reference/pancake-v3-lm-bsc/pool-source.json
+tools/reference/pancake-v3-lm-bsc/second-source.json
+tools/reference/pancake-v3-lm-bsc/third-source.json
+tools/reference/pancake-v3-lm-bsc/lm/
+tools/reference/pancake-v3-lm-bsc/masterchef/
+tools/reference/pancake-v3-lm-bsc/pool/
+tools/reference/slipstream-extended/contracts/
+tools/reference/slipstream-extended/voter-verified-source.json
+tools/reference/velodrome-v2/Pool.sol

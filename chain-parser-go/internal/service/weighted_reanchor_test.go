@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 	"xone/chain-parser-go/internal/chain/evm"
 	"xone/chain-parser-go/internal/config"
+	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/rpc"
 )
 
@@ -22,7 +24,45 @@ func TestLargeGapWeightedAdmissionFailureStillPublishesRevocation(t *testing.T) 
 	}
 	cfg.Config.State.Path = t.TempDir()
 	cfg.Config.Startup.MaxTail = 2
-	s, e := NewWithSource(cfg, testSnapshotSource(t))
+	ch := cfg.Config.Chains[0]
+	raw, e := os.ReadFile("../../test/contracts/weighted-state.json")
+	if e != nil {
+		t.Fatal(e)
+	}
+	var data struct {
+		Configs []config.PoolConfig `json:"configs"`
+		Pools   []domain.Pool       `json:"pools"`
+	}
+	if e = json.Unmarshal(raw, &data); e != nil {
+		t.Fatal(e)
+	}
+	ch.Pools = data.Configs
+	ch.Genesis = "0x" + strings.Repeat("9", 64)
+	cfg.Config.Chains[0] = ch
+	base := testSnapshotSource(t)
+	source := func(ctx context.Context, chain config.Chain) (domain.Snapshot, error) {
+		snapshot, err := base(ctx, chain)
+		if err != nil {
+			return snapshot, err
+		}
+		snapshot.Pools = data.Pools
+		snapshot.Reference.ScopeHash, err = domain.ScopeHash(snapshot.Pools)
+		if err != nil {
+			return snapshot, err
+		}
+		seen := map[string]bool{}
+		versions := []string{}
+		for _, pool := range snapshot.Pools {
+			if !seen[pool.AdapterVersion] {
+				seen[pool.AdapterVersion] = true
+				versions = append(versions, pool.AdapterVersion)
+			}
+		}
+		sort.Strings(versions)
+		snapshot.Reference.AdapterSetHash, err = domain.Hash(versions)
+		return snapshot, err
+	}
+	s, e := NewWithSource(cfg, source)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -31,18 +71,6 @@ func TestLargeGapWeightedAdmissionFailureStillPublishesRevocation(t *testing.T) 
 		t.Fatal(e)
 	}
 	s.source = nil
-	ch := cfg.Config.Chains[0]
-	raw, e := os.ReadFile("../../test/contracts/weighted-state.json")
-	if e != nil {
-		t.Fatal(e)
-	}
-	var data struct {
-		Configs []config.PoolConfig `json:"configs"`
-	}
-	if e = json.Unmarshal(raw, &data); e != nil {
-		t.Fatal(e)
-	}
-	ch.Pools = data.Configs
 	original, ready := s.stores[ch.Key].Current()
 	if !ready {
 		t.Fatal("missing initial state")

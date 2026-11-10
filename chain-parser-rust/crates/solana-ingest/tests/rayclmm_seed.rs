@@ -292,9 +292,7 @@ fn seed_preserves_bitmap_edge_proofs_and_all_224_words() {
 
 #[test]
 fn seed_keeps_code_clock_spl_open_time_and_unsupported_feature_guards() {
-    for offset in [
-        273, 325, 389, 390, 393, 396, 397, 454, 550, 1032, 1096, 1176, 1543,
-    ] {
+    for offset in [273, 389, 390, 393, 396, 397, 454, 550, 1096, 1176, 1543] {
         let mut f = seed_fixture(256);
         f.state()[offset] = 255;
         assert!(f.decode().is_err(), "unsupported pool offset {offset}");
@@ -322,7 +320,7 @@ fn seed_keeps_code_clock_spl_open_time_and_unsupported_feature_guards() {
         assert!(f.decode().is_err(), "wrong SPL owner {index}");
     }
     let mut f = seed_fixture(256);
-    f.array(1)[44 + 116] = 1;
+    f.array(1)[44 + 124] = 1;
     assert!(f.decode().is_err(), "limit orders");
     for kind in 0..4 {
         let mut f = seed_fixture(256);

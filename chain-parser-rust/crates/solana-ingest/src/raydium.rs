@@ -11,7 +11,6 @@ use xone_domain::{err, raydium::RaydiumCPMMState, Amount, Pool, Result};
 pub const CLOCK: &str = "SysvarC1ock11111111111111111111111111111111";
 const SYSVAR_OWNER: &str = "Sysvar1111111111111111111111111111111111111";
 const UPGRADEABLE_LOADER: &str = "BPFLoaderUpgradeab1e11111111111111111111111";
-const IMMUTABLE_LOADER: &str = "BPFLoader2111111111111111111111111111111111";
 const NATIVE_MINT: &str = "So11111111111111111111111111111111111111112";
 // raydium-io/raydium-cp-swap f4b9b263, src/lib.rs::AUTH_SEED.
 const AUTH_SEED: &[u8] = b"vault_and_lp_mint_auth_seed";
@@ -156,6 +155,7 @@ pub fn required_accounts(p: &PoolConfig) -> Result<Vec<String>> {
         TOKEN_PROGRAM.into(),
         CLOCK.into(),
     ]);
+    crate::token_program::append_dependency(&mut ids, cfg.token_program_upgrade.as_ref())?;
     let mut seen = BTreeSet::new();
     for id in &ids {
         pubkey(id)?;
@@ -205,14 +205,12 @@ pub fn decode_raydium_cpmm(
     {
         return Err(err("PROGRAM_VERSION_UNSUPPORTED"));
     }
-    let token_program = get(accounts, TOKEN_PROGRAM)?;
-    if !token_program.executable
-        || token_program.owner != IMMUTABLE_LOADER
-        || token_program.data.is_empty()
-        || digest(&token_program.data) != identity.expected_token_program_code_sha256
-    {
-        return Err(err("TOKEN_PROGRAM_VERSION_UNSUPPORTED"));
-    }
+    crate::token_program::verify(
+        accounts,
+        &identity.expected_token_program_code_sha256,
+        identity.token_program_upgrade.as_ref(),
+        bank_slot,
+    )?;
     let clock = owned_data(accounts, CLOCK, SYSVAR_OWNER, 40)?;
     if u64_at(clock, 0) != bank_slot {
         return Err(err("CLOCK_CONTEXT_MISMATCH"));
@@ -359,6 +357,10 @@ pub fn decode_raydium_cpmm(
         return Err(err("POOL_EMPTY_RESERVES"));
     }
     let pool = Pool {
+        pancake_bsc_lm: None,
+        pancake_lm: None,
+        slipstream_context: None,
+        lfj: None,
         infinity_bin: None,
         orca_whirlpool: None,
         raydium_clmm: None,

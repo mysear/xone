@@ -1,0 +1,19 @@
+{
+  "repository": "https://github.com/rpcpool/yellowstone-grpc",
+  "commit": "10f0af69d150637d8e3eaaf83b179d640988dd3c",
+  "files": [
+    {
+      "path": "geyser.proto",
+      "sha256": "80ee337f361198a0722cb5bdf244fe41838949ab7a3af6d1b182b7fdca9abf02"
+    },
+    {
+      "path": "solana-storage.proto",
+      "sha256": "e5d16ba9a9e83f6ed8c92a96b6b75dfd64c43f897b976011eb3ec5abe2f3c818"
+    }
+  ],
+  "authority": "upstream protobuf interface; not a validator deployment or stream-completeness attestation",
+  "license_file": {
+    "path": "LICENSE",
+    "sha256": "db1a87ba81e885b6bb82971964ab4e202463cde2ac4003571bc5a857d577e4a3"
+  }
+}

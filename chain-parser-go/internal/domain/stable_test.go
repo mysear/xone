@@ -8,7 +8,7 @@ import (
 )
 
 func TestStableProtocolsRequireTheirOwnStateAndParameters(t *testing.T) {
-	for _, name := range []string{"aerodrome-v2-volatile", "aerodrome-v2-stable", "curve-plain2-basic", "balancer-v2-stable2"} {
+	for _, name := range []string{"velodrome-v2-volatile", "velodrome-v2-stable", "aerodrome-v2-volatile", "aerodrome-v2-stable", "curve-plain2-basic", "balancer-v2-stable2"} {
 		t.Run(name, func(t *testing.T) {
 			profile, ok := Protocol(name)
 			if !ok {

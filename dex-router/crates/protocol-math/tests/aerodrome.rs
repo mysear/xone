@@ -1,6 +1,5 @@
-#[path = "../src/aerodrome.rs"]
-mod aerodrome;
 use num_bigint::BigUint;
+use xone_protocol_math::aerodrome;
 fn n(s: &str) -> BigUint {
     s.parse().unwrap()
 }
