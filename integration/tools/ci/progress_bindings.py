@@ -1443,3 +1443,10 @@ BINDINGS['14.temporary-wsol']={
  'tests':['seeded_wsol_matches_official_system_encoding_without_new_signer','temporary_address_rejects_empty_oversize_or_non_ascii_seeds','output_unwrap_and_input_refund_only_close_new_temporary_accounts','test_recompiled_close_cannot_target_existing_user_account','test_rehashed_native_debit_cannot_override_real_settlement'],
  'evidence_refs':['integration/artifacts/local/core-temporary-wsol-validation-20261112.json'],
 }
+
+
+BINDINGS['14.token2022-preparation']={
+ 'paths':['dex-router/crates/quote-api/src/preparation.rs','dex-router/crates/quote-api/tests/execution_preparation.rs','dex-router/crates/quote-api/tests/support/execution_bank.rs','frontend/src/app.js','frontend/test/browser.mjs','integration/tools/ci/meteora-token2022-execution-bank.py','integration/tools/acceptance/meteora_token2022_execution_reference.py','integration/tools/acceptance/validate_token2022_preparation.py'],
+ 'tests':['token2022_ata_creation_uses_extension_rent_net_credit_and_epoch_fees','token2022_existing_immutable_ata_and_refund_composition_are_validated','test_rehashed_classic_size_cannot_replace_extension_account','test_recompiled_classic_ata_instruction_cannot_replace_token2022','test_rehashed_fee_cannot_replace_withheld_delta'],
+ 'evidence_refs':['integration/artifacts/local/core-token2022-preparation-validation-20261113.json'],
+}

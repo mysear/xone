@@ -885,3 +885,7 @@ native-funding-current-check:
 .PHONY: temporary-wsol-current-check
 temporary-wsol-current-check:
 	python3 tools/acceptance/validate_temporary_wsol.py
+
+.PHONY: token2022-preparation-current-check
+token2022-preparation-current-check:
+	python3 tools/acceptance/validate_token2022_preparation.py

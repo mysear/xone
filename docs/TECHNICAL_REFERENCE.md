@@ -1621,3 +1621,14 @@ prepare新增refundWrappedSource及unwrapDestinationSol。前者必须同时显�
 受控回归覆盖输出699→1000/净SOL-4000、输入包1472/实际1464/退租及余款2039288/净SOL-6464、已有3000 WSOL不动、ExactIn/ExactOut、失败原子回滚、已占用seed账户和篡改close/native差额。复验：make -C integration temporary-wsol-current-check，最终结果见DEVELOPMENT_PROGRESS.md阶段60。独立生产VERIFIED、其他协议模板和公网交易资格保持原进度。
 
 阶段60最终同源码限定验收：24项检查、12次Rust测试执行、24项真实Chrome业务联调通过；源码`bcda23963eea12acd05140b71397c1b15dbd281087508f384436170c87228869`。下载wire的原SBF执行/只读模拟、原账户保持、完整池后状态和失败回滚均通过，仍保持限定协议及账户场景。
+
+
+### Token2022收款账户准备（阶段61，2026-11-13）
+
+Meteora既有固定Token2022 profile的createDestinationAta现使用实际Token2022程序参与ATA派生和CreateIdempotent指令。支持已有178-byte TransferFeeAmount账户，以及ATA程序创建的182-byte TransferFeeAmount+ImmutableOwner账户；逐项解析TLV，拒绝未知/重复/错误长度/type。此范围不扩展TransferHook、其他mint扩展或未知程序。
+
+创建租金按每种实际账户长度分别查询：经典165-byte、上述Token2022 ATA 182-byte，避免混合创建时直接乘固定租金。rentLamports为预付全部租金，destinationRentLamports为持久收款账户租金；临时输入refundWrappedSource仍只退临时165-byte账户租金及未用输入。
+
+完整mint/Token2022程序/epoch/vault快照必须一致。对报价重放的完整vault变化推导gross输出与转账费，响应expectedDestinationTransferFee；simulate以收款可用余额差核对net，并额外核对TransferFeeAmount增长，拒绝“净输出正确但withheld错误”。源用户withheld保持不变。前端展示转账费、182字节及租金，生成真实unsigned wire后本地原SBF独立执行/回滚。复验make -C integration token2022-preparation-current-check，结果见阶段61进度。
+
+阶段61最终同源码限定验收：30项检查、15次Rust测试执行、27项真实Chrome业务联调通过，源码`e62c0b4895e5f01576f5860b446da2c0e8cce2a593d21c285b3ca47cf4fbc480`；13原程序成功执行及对应回滚、178/182-byte账户和withheld/租金差分均通过。真实浏览器跨Router地址时按地址重新填入认证令牌，保持原会话隔离逻辑。全量设计、其他Token扩展和生产资格仍保持原进度。

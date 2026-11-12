@@ -7,6 +7,7 @@ use axum::{
 use base64::{engine::general_purpose::STANDARD, Engine};
 use execution_bank::{Bank, AUTH};
 use serde_json::{json, Value};
+use std::sync::Arc;
 use tower::ServiceExt;
 async fn call(
     api: &xone_quote_api::Api,
@@ -558,5 +559,177 @@ async fn output_unwrap_and_input_refund_only_close_new_temporary_accounts() {
     let (status, p) = call(&api, &path, json!({"unwrapDestinationSol":true}), true).await;
     assert_ne!(status, StatusCode::OK);
     assert_eq!(p["error"], "PREPARATION_UNWRAP_CONTEXT_UNSUPPORTED");
+    task.abort();
+}
+
+#[tokio::test]
+async fn token2022_ata_creation_uses_extension_rent_net_credit_and_epoch_fees() {
+    for index in 0..5 {
+        let bank = Bank::token2022(index);
+        let (url, task) = bank.serve().await;
+        let (api, _) = bank.api(&url);
+        let request = bank.request();
+        let (status, q) = call(&api, "/v1/quote-exact-out", request.clone(), true).await;
+        assert_eq!(status, StatusCode::OK, "{q}");
+        let path = format!("/v1/quotes/{}/prepare", q["quoteId"].as_str().unwrap());
+        let prep = json!({"sourceTokenAccount":bank.data["sourceTokenAccount"],"createDestinationAta":true,"simulate":true});
+        let (status, p) = call(&api, &path, prep.clone(), true).await;
+        assert_eq!(status, StatusCode::OK, "case {index}: {p}");
+        assert_eq!(p["ready"], true);
+        assert_eq!(p["accountCreation"], true);
+        assert_eq!(
+            p["destinationTokenAccount"],
+            bank.data["canonicalDestination"]
+        );
+        assert_eq!(p["destinationAccountSize"], bank.data["destinationSize"]);
+        assert_eq!(
+            p["rentLamports"],
+            bank.data["destinationRent"].as_u64().unwrap().to_string()
+        );
+        assert_eq!(
+            p["totalFundingLamports"],
+            (bank.data["destinationRent"].as_u64().unwrap() + 5000).to_string()
+        );
+        assert_eq!(p["simulation"]["actualInput"], bank.data["requiredInput"]);
+        assert_eq!(p["simulation"]["actualOutput"], "1000");
+        let program = if index == 0 {
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        } else {
+            "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        };
+        assert_eq!(p["instructions"][0]["accounts"][5]["pubkey"], program);
+        assert_eq!(p["destinationTokenProgram"], program);
+        assert_eq!(
+            p["expectedDestinationTransferFee"],
+            match index {
+                0 => "0",
+                1 => "26",
+                2 | 4 => "100",
+                3 => "53",
+                _ => unreachable!(),
+            }
+        );
+        assert_eq!(
+            p["simulation"]["destinationTransferFee"],
+            p["expectedDestinationTransferFee"]
+        );
+        if let Ok(folder) = std::env::var("XONE_TOKEN2022_EVIDENCE_DIR") {
+            std::fs::create_dir_all(&folder).unwrap();
+            std::fs::write(
+                std::path::Path::new(&folder).join(format!("token2022-{index}-preparation.json")),
+                serde_json::to_vec_pretty(&json!({"quote":q,"preparation":p})).unwrap(),
+            )
+            .unwrap();
+        }
+        for (mode, expected) in [
+            ("withheld_mismatch", "PREPARATION_SIMULATION_FEE_MISMATCH"),
+            ("changed_token2022_program", "PREPARATION_PROGRAM_CHANGED"),
+            ("changed_token2022_mint", "QUOTE_STATE_CHANGED"),
+            ("changed_epoch", "QUOTE_CLOCK_CHANGED"),
+            ("changed_associated_program", "PREPARATION_PROGRAM_CHANGED"),
+        ] {
+            *bank.mode.lock().unwrap() = mode.into();
+            let (status, p) = call(&api, &path, prep.clone(), true).await;
+            assert_ne!(status, StatusCode::OK, "{mode}: {p}");
+            assert_eq!(p["error"], expected, "{mode}: {p}");
+            assert!(p.get("unsignedTransaction").is_none());
+        }
+        *bank.mode.lock().unwrap() = "ready".into();
+        let mut exact = request;
+        exact["kind"] = json!("EXACT_IN");
+        exact.as_object_mut().unwrap().remove("buyAmount");
+        exact.as_object_mut().unwrap().remove("maxSellAmount");
+        exact["sellAmount"] = json!("1000");
+        let (status, q) = call(&api, "/v1/quote", exact, true).await;
+        assert_eq!(status, StatusCode::OK, "{q}");
+        let (status, p) = call(
+            &api,
+            &format!("/v1/quotes/{}/prepare", q["quoteId"].as_str().unwrap()),
+            prep,
+            true,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{p}");
+        assert_eq!(p["ready"], true);
+        assert_eq!(p["simulation"]["actualInput"], "1000");
+        assert_eq!(p["simulation"]["actualOutput"], q["grossBuyAmount"]);
+        task.abort();
+    }
+}
+
+#[tokio::test]
+async fn token2022_existing_immutable_ata_and_refund_composition_are_validated() {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    for malformed in 0..9 {
+        let mut bank = Bank::token2022(1);
+        let data = Arc::make_mut(&mut bank.data);
+        let existing = data["destinationTokenAccount"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let canonical = data["canonicalDestination"].as_str().unwrap().to_string();
+        let mut account = data["accounts"][&existing].clone();
+        let mut raw = STANDARD
+            .decode(account["data"][0].as_str().unwrap())
+            .unwrap();
+        raw.extend([7, 0, 0, 0]);
+        match malformed {
+            0 => {}
+            1 => raw[178] = 8,
+            2 => raw[178] = 2,
+            3 => {
+                raw.pop();
+            }
+            4 => raw[166] = 7,
+            5 => raw[165] = 1,
+            6 => raw[108] = 2,
+            7 => raw.extend([7, 0, 0, 0]),
+            8 => raw.truncate(178),
+            _ => unreachable!(),
+        }
+        account["data"][0] = STANDARD.encode(raw).into();
+        account["lamports"] = data["destinationRent"].clone();
+        data["accounts"][canonical] = account;
+        let (url, task) = bank.serve().await;
+        let (api, _) = bank.api(&url);
+        let (_, q) = call(&api, "/v1/quote-exact-out", bank.request(), true).await;
+        let (status,p) = call(&api,&format!("/v1/quotes/{}/prepare",q["quoteId"].as_str().unwrap()),json!({"sourceTokenAccount":bank.data["sourceTokenAccount"],"createDestinationAta":true,"simulate":true}),true).await;
+        if !matches!(malformed, 0 | 8) {
+            assert_ne!(status, StatusCode::OK, "{p}");
+            assert_eq!(p["error"], "PREPARATION_ACCOUNT_INVALID");
+        } else {
+            assert_eq!(status, StatusCode::OK, "{p}");
+            assert_eq!(p["accountCreation"], false);
+            assert_eq!(p["rentLamports"], "0");
+            assert_eq!(p["simulation"]["actualOutput"], "1000");
+            assert_eq!(
+                p["destinationAccountSize"],
+                if malformed == 8 { 178 } else { 182 }
+            );
+        }
+        task.abort();
+    }
+    let bank = Bank::token2022(1);
+    let (url, task) = bank.serve().await;
+    let (api, _) = bank.api(&url);
+    let (_, q) = call(&api, "/v1/quote-exact-out", bank.request(), true).await;
+    let (status,p) = call(&api,&format!("/v1/quotes/{}/prepare",q["quoteId"].as_str().unwrap()),json!({"wrapSourceSol":true,"refundWrappedSource":true,"createDestinationAta":true,"simulate":true}),true).await;
+    assert_eq!(status, StatusCode::OK, "{p}");
+    assert_eq!(p["ready"], true);
+    assert_eq!(p["rentLamports"], "4196880");
+    assert_eq!(p["rentRefundLamports"], "2039280");
+    assert_eq!(p["destinationRentLamports"], "2157600");
+    assert_eq!(p["expectedPayerLamportDelta"], "-2164102");
+    assert_eq!(p["simulation"]["actualInput"], "1502");
+    assert_eq!(p["simulation"]["actualOutput"], "1000");
+    assert_eq!(p["simulation"]["destinationTransferFee"], "26");
+    assert_eq!(p["instructions"].as_array().unwrap().len(), 7);
+    if let Ok(folder) = std::env::var("XONE_TOKEN2022_EVIDENCE_DIR") {
+        std::fs::write(
+            std::path::Path::new(&folder).join("token2022-refund-preparation.json"),
+            serde_json::to_vec_pretty(&json!({"quote":q,"preparation":p})).unwrap(),
+        )
+        .unwrap();
+    }
     task.abort();
 }

@@ -58,6 +58,21 @@ impl Bank {
             calls: Default::default(),
         }
     }
+    pub fn token2022(index: usize) -> Self {
+        let fixture: Value = serde_json::from_slice(
+            &std::fs::read(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../test/contracts/meteora-token2022-execution-bank.json"
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        Self {
+            data: Arc::new(fixture["cases"][index].clone()),
+            mode: Arc::new(Mutex::new("ready".into())),
+            calls: Default::default(),
+        }
+    }
     pub async fn serve(&self) -> (String, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -124,7 +139,10 @@ impl Bank {
     }
     pub fn request(&self) -> Value {
         let p = &self.data["pool"];
-        let reverse = self.data.get("originalSourceTokenAccount").is_some();
+        let reverse = self.data["zeroForOne"]
+            .as_bool()
+            .map(|v| !v)
+            .unwrap_or_else(|| self.data.get("originalSourceTokenAccount").is_some());
         json!({"chainKey":p["chain_key"],"kind":"EXACT_OUT","sellToken":p[if reverse {"token1"}else{"token0"}],"buyToken":p[if reverse {"token0"}else{"token1"}],"buyAmount":self.data["target"],"maxSellAmount":"1000000000000000","caller":self.data["caller"],"recipient":self.data["recipient"],"slippageBps":50,"verification":"FAST"})
     }
     pub fn preparation(&self) -> Value {
@@ -170,7 +188,11 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
             );
             serde_json::from_slice(&output.stdout).unwrap()
         }
-        "getMinimumBalanceForRentExemption" => json!(2039280),
+        "getMinimumBalanceForRentExemption" => {
+            let size = q["params"][0].as_u64().unwrap();
+            assert!(matches!(size, 165 | 182));
+            json!((128 + size) * 6960)
+        }
         "getGenesisHash" => {
             if mode == "wrong_chain" {
                 json!("wrong-chain")
@@ -210,6 +232,9 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                                 a["owner"] = json!("11111111111111111111111111111111");
                             }
                         }
+                        if mode == "changed_token2022_program" && id == &d["pool"]["meteora"]["token2022"]["programdata"] {raw[45] ^= 1;}
+                        if mode == "changed_token2022_mint" && id == &d["pool"]["token0"] {raw[258] ^= 1;}
+                        if mode == "changed_epoch" && key == "SysvarC1ock11111111111111111111111111111111" {raw[16] ^= 1;}
                         if mode == "changed_pool" && id == &d["pool"]["pool_id"] {
                             raw[76] ^= 1;
                         }

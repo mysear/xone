@@ -278,10 +278,9 @@ fn code(
     Ok(())
 }
 fn token(a: &Account, mint: &str, owner: &str, token: &str) -> Result<u64> {
-    let n = if token == TOKEN { 165 } else { 178 };
     if a.executable
         || a.owner != token
-        || a.data.len() != n
+        || a.data.len() < 165
         || m::key(&a.data, 0) != mint
         || m::key(&a.data, 32) != owner
         || a.data[108] != 1
@@ -291,7 +290,13 @@ fn token(a: &Account, mint: &str, owner: &str, token: &str) -> Result<u64> {
     {
         return Err(bad());
     }
-    if n == 178 && a.data[165..170] != [2, 2, 0, 8, 0] {
+    if token == TOKEN {
+        if a.data.len() != 165 {
+            return Err(bad());
+        }
+    } else if token == xone_domain::meteora_token2022::PROGRAM {
+        withheld(a)?;
+    } else {
         return Err(bad());
     }
     let amount = m::u64_at(&a.data, 64);
@@ -308,6 +313,37 @@ fn token(a: &Account, mint: &str, owner: &str, token: &str) -> Result<u64> {
         return Err(bad());
     }
     Ok(amount)
+}
+// Only TransferFeeAmount and the ImmutableOwner added by the canonical ATA
+// program are admitted. No unknown/duplicate/padded extension may be ignored.
+fn withheld(a: &Account) -> Result<u64> {
+    if a.owner != xone_domain::meteora_token2022::PROGRAM
+        || !matches!(a.data.len(), 178 | 182)
+        || a.data[165] != 2
+    {
+        return Err(bad());
+    }
+    let mut cursor = 166;
+    let mut fee = None;
+    let mut immutable = false;
+    while cursor < a.data.len() {
+        let header = a.data.get(cursor..cursor + 4).ok_or_else(bad)?;
+        let kind = u16::from_le_bytes(header[..2].try_into().map_err(|_| bad())?);
+        let size = usize::from(u16::from_le_bytes(
+            header[2..].try_into().map_err(|_| bad())?,
+        ));
+        cursor += 4;
+        let value = a.data.get(cursor..cursor + size).ok_or_else(bad)?;
+        match (kind, size) {
+            (2, 8) if fee.is_none() => {
+                fee = Some(u64::from_le_bytes(value.try_into().map_err(|_| bad())?));
+            }
+            (7, 0) if !immutable => immutable = true,
+            _ => return Err(bad()),
+        }
+        cursor += size;
+    }
+    fee.ok_or_else(bad)
 }
 pub(super) async fn prepare(
     State(api): State<Api>,
@@ -534,6 +570,12 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
             tx,
             &hex::decode(&t.mint_data).map_err(|_| bad())?,
         )?;
+        raw(
+            &bank,
+            &m::key(&d, 152),
+            tx,
+            &hex::decode(&t.vault_data).map_err(|_| bad())?,
+        )?;
     }
     let clock = get(&bank, "SysvarC1ock11111111111111111111111111111111")?;
     if clock.executable
@@ -612,34 +654,100 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     if create_destination && dst != ata(&s.context.recipient, output, output_program)? {
         return Err(err("PREPARATION_CREATE_REQUIRES_ATA"));
     }
-    if create_destination && output_program != TOKEN {
-        return Err(err("PREPARATION_CREATE_TOKEN2022_UNSUPPORTED"));
-    }
     let creations = u64::from(create_source)
         + u64::from(create_destination)
         + u64::from(request.unwrap_destination_sol);
-    let mut rent_per_account = 0u64;
+    let destination_size = if output_program == TOKEN {
+        165u64
+    } else {
+        182u64
+    };
     if creations > 0 || wrap > 0 {
         let system = get(&bank, SYSTEM)?;
         if !system.executable || system.owner != "NativeLoader1111111111111111111111111111111" {
             return Err(bad());
         }
     }
-    if creations > 0 {
-        if (create_source && !request.refund_wrapped_source) || create_destination {
-            code(&bank, ASSOCIATED, ASSOCIATED_CODE, slot, None)?;
+    if (create_source && !request.refund_wrapped_source) || create_destination {
+        code(&bank, ASSOCIATED, ASSOCIATED_CODE, slot, None)?;
+    }
+    let mut rents = BTreeMap::new();
+    for size in [
+        (create_source || request.unwrap_destination_sol).then_some(165u64),
+        create_destination.then_some(destination_size),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if rents.contains_key(&size) {
+            continue;
         }
-        rent_per_account = rpc
+        let rent = rpc
             .call(
                 "getMinimumBalanceForRentExemption",
-                json!([165,{"commitment":"finalized"}]),
+                json!([size,{"commitment":"finalized"}]),
             )
             .await?
             .as_u64()
             .filter(|n| *n > 0)
             .ok_or_else(bad)?;
+        rents.insert(size, rent);
     }
-    let rent = rent_per_account.checked_mul(creations).ok_or_else(bad)?;
+    let source_rent = if create_source {
+        *rents.get(&165).ok_or_else(bad)?
+    } else {
+        0
+    };
+    let destination_rent = if create_destination {
+        *rents.get(&destination_size).ok_or_else(bad)?
+    } else {
+        0
+    };
+    let temporary_rent = if request.refund_wrapped_source {
+        source_rent
+    } else if request.unwrap_destination_sol {
+        *rents.get(&165).ok_or_else(bad)?
+    } else {
+        0
+    };
+    let rent = source_rent
+        .checked_add(destination_rent)
+        .and_then(|n| {
+            n.checked_add(if request.unwrap_destination_sol {
+                temporary_rent
+            } else {
+                0
+            })
+        })
+        .ok_or_else(bad)?;
+    let source_withheld = source
+        .filter(|_| input_program != TOKEN)
+        .map(withheld)
+        .transpose()?
+        .unwrap_or(0);
+    let destination_withheld = destination
+        .filter(|_| output_program != TOKEN)
+        .map(withheld)
+        .transpose()?
+        .unwrap_or(0);
+    let destination_fee = if output_program == xone_domain::meteora_token2022::PROGRAM {
+        let next_pool = if s.exact {
+            xone_protocol_math::meteora::quote_exact_out(p, &Amount(s.amount.into()), s.zero)?
+                .next_pool
+        } else {
+            xone_protocol_math::meteora::quote_exact_in(p, &Amount(s.amount.into()), s.zero)?
+                .next_pool
+        };
+        let after = next_pool.meteora.as_ref().ok_or_else(bad)?;
+        let gross = m.raw_vault0.checked_sub(after.raw_vault0).ok_or_else(bad)?;
+        let fee = gross.checked_sub(s.expected_output).ok_or_else(bad)?;
+        if m.token2022.as_ref().ok_or_else(bad)?.fee(gross)? != fee {
+            return Err(bad());
+        }
+        fee
+    } else {
+        0
+    };
     if destination.is_none() && !create_destination && !request.unwrap_destination_sol {
         blockers.push("DESTINATION_ACCOUNT_MISSING");
     }
@@ -647,7 +755,14 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     if payer.owner != SYSTEM || payer.executable || !payer.data.is_empty() {
         return Err(bad());
     }
-    let mut result = json!({"quoteId":s.view.view_id,"planHash":s.plan_hash,"quoteViewId":s.view.view_id,"snapshotRef":s.view.reference,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":src,"destinationTokenAccount":dst,"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":create_destination,"sourceAccountCreation":create_source,"wrapLamports":wrap.to_string(),"sourceWsolRetained":request.wrap_source_sol && !request.refund_wrapped_source,"refundWrappedSource":request.refund_wrapped_source,"unwrapDestinationSol":request.unwrap_destination_sol,"temporaryWsolAccount":temporary,"temporarySeed":temporary_seed,"settlementAsset":if request.unwrap_destination_sol{xone_domain::pump::NATIVE_SOL}else{output.as_str()},"rentRefundLamports":if temporary.is_some(){rent_per_account}else{0}.to_string(),"expectedNativeRefundLamports":if request.refund_wrapped_source{rent_per_account.checked_add(required.checked_sub(s.expected_input).ok_or_else(bad)?).ok_or_else(bad)?}else if request.unwrap_destination_sol{rent_per_account.checked_add(s.expected_output).ok_or_else(bad)?}else{0}.to_string(),"expectedResidualWsol":source_balance.checked_add(wrap).and_then(|n|n.checked_sub(s.expected_input)).unwrap_or(0).to_string(),"rentLamports":rent.to_string(),"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
+    let mut result = json!({"quoteId":s.view.view_id,"planHash":s.plan_hash,"quoteViewId":s.view.view_id,"snapshotRef":s.view.reference,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":src,"destinationTokenAccount":dst,"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":create_destination,"sourceAccountCreation":create_source,"wrapLamports":wrap.to_string(),"sourceWsolRetained":request.wrap_source_sol && !request.refund_wrapped_source,"refundWrappedSource":request.refund_wrapped_source,"unwrapDestinationSol":request.unwrap_destination_sol,"temporaryWsolAccount":temporary,"temporarySeed":temporary_seed,"settlementAsset":if request.unwrap_destination_sol{xone_domain::pump::NATIVE_SOL}else{output.as_str()},"rentRefundLamports":if temporary.is_some(){temporary_rent}else{0}.to_string(),"expectedNativeRefundLamports":if request.refund_wrapped_source{temporary_rent.checked_add(required.checked_sub(s.expected_input).ok_or_else(bad)?).ok_or_else(bad)?}else if request.unwrap_destination_sol{temporary_rent.checked_add(s.expected_output).ok_or_else(bad)?}else{0}.to_string(),"expectedResidualWsol":source_balance.checked_add(wrap).and_then(|n|n.checked_sub(s.expected_input)).unwrap_or(0).to_string(),"rentLamports":rent.to_string(),"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
+    result["sourceTokenProgram"] = input_program.into();
+    result["destinationTokenProgram"] = output_program.into();
+    result["destinationAccountSize"] = destination
+        .map_or(destination_size, |a| a.data.len() as u64)
+        .into();
+    result["destinationRentLamports"] = destination_rent.to_string().into();
+    result["expectedDestinationTransferFee"] = destination_fee.to_string().into();
     if !blockers.is_empty() {
         return Ok(result);
     }
@@ -728,7 +843,7 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         instructions.extend(xone_execution_plan::solana_wsol::create(
             &s.context.caller,
             seed,
-            rent_per_account,
+            temporary_rent,
         )?);
     }
     if create_source && !request.refund_wrapped_source {
@@ -737,6 +852,7 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
             &src,
             &s.context.caller,
             input,
+            input_program,
         ));
     }
     if wrap > 0 {
@@ -759,6 +875,7 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
             &dst,
             &s.context.recipient,
             output,
+            output_program,
         ));
     }
     instructions.push(ix);
@@ -804,7 +921,7 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     result["totalFundingLamports"] = funding.to_string().into();
     let persistent_rent = rent
         .checked_sub(if temporary.is_some() {
-            rent_per_account
+            temporary_rent
         } else {
             0
         })
@@ -847,7 +964,7 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         };
         let persistent_rent = rent
             .checked_sub(if temporary.is_some() {
-                rent_per_account
+                temporary_rent
             } else {
                 0
             })
@@ -899,7 +1016,21 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         if paid != s.expected_input || received != s.expected_output {
             return Err(err("PREPARATION_SIMULATION_AMOUNT_MISMATCH"));
         }
-        result["simulation"] = json!({"level":"RPC_SIMULATED","success":true,"observedSlot":simulation_slot,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"settlementAsset":if request.unwrap_destination_sol{xone_domain::pump::NATIVE_SOL}else{output.as_str()},"temporaryAccountClosed":temporary.is_some(),"unitsConsumed":value["unitsConsumed"],"independentProductionVerification":false});
+        if input_program != TOKEN
+            && withheld(&account(&accounts[0])?.ok_or_else(bad)?)? != source_withheld
+        {
+            return Err(err("PREPARATION_SIMULATION_FEE_MISMATCH"));
+        }
+        if output_program != TOKEN
+            && withheld(&account(&accounts[1])?.ok_or_else(bad)?)?
+                != destination_withheld
+                    .checked_add(destination_fee)
+                    .ok_or_else(bad)?
+        {
+            return Err(err("PREPARATION_SIMULATION_FEE_MISMATCH"));
+        }
+
+        result["simulation"] = json!({"level":"RPC_SIMULATED","success":true,"observedSlot":simulation_slot,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"destinationTransferFee":destination_fee.to_string(),"settlementAsset":if request.unwrap_destination_sol{xone_domain::pump::NATIVE_SOL}else{output.as_str()},"temporaryAccountClosed":temporary.is_some(),"unitsConsumed":value["unitsConsumed"],"independentProductionVerification":false});
     }
     result["messageBase64"] = STANDARD.encode(msg).into();
     result["unsignedTransaction"] = STANDARD.encode(transaction).into();
@@ -915,7 +1046,13 @@ fn meta(pubkey: &str, is_signer: bool, is_writable: bool) -> Meta {
         is_writable,
     }
 }
-fn create_ata(payer: &str, account: &str, owner: &str, mint: &str) -> Instruction {
+fn create_ata(
+    payer: &str,
+    account: &str,
+    owner: &str,
+    mint: &str,
+    token_program: &str,
+) -> Instruction {
     Instruction {
         program_id: ASSOCIATED.into(),
         accounts: vec![
@@ -924,7 +1061,7 @@ fn create_ata(payer: &str, account: &str, owner: &str, mint: &str) -> Instructio
             meta(owner, false, false),
             meta(mint, false, false),
             meta(SYSTEM, false, false),
-            meta(TOKEN, false, false),
+            meta(token_program, false, false),
         ],
         data_base64: STANDARD.encode([1u8]),
     }

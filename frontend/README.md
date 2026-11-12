@@ -83,3 +83,8 @@ ExactOut按执行计划最大输入上限（结合报价与滑点、且不超过
 临时WSOL结算（阶段60）：输入WSOL可显式选择“隔离临时账户并退回剩余SOL”，同时勾选包装且不指定源账户；输出WSOL可选择“解包为SOL”，要求caller与recipient相同、不指定目标账户且不创建收款ATA。两种操作只关闭本次新建的seed账户，界面分别显示关闭转回总额、其中退租以及预计payer SOL净变化，已有WSOL账户不关闭。报价仍以WSOL为Token，执行准备明确标注原生SOL结算。
 
 复验入口：`make -C ../integration temporary-wsol-current-check`。真实Chrome下载的两种unsigned交易另在受控原程序银行执行，检查实际余额、已有账户不变及失败回滚。公网签名广播、Token2022创建和其他协议交易模板继续按进度文档推进。
+
+
+Token2022收款ATA（阶段61）：对已经接入的Meteora转账费版本，可勾选“缺失收款ATA时加入创建指令”，程序按实际Token程序派生地址和扩展长度计租金。页面展示Token2022转账费及182字节账户长度，模拟到账为扣费后可用数量。该选项可与隔离输入SOL退款组合；总预付租金与临时退租分别展示。其他未知Token2022扩展仍拒绝。
+
+复验入口：`make -C ../integration token2022-preparation-current-check`；数据恢复工具为`integration/tools/ci/meteora-token2022-execution-bank.py`，需已有固定原程序银行/运行时。
