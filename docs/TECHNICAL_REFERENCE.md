@@ -1584,3 +1584,14 @@ PumpSwap经典/WSOL normal与boost策略新增卖出方向的最小输入目标�
 统一入口：`make -C integration quote-execution-current-check`；原始参考恢复：`make -C integration quote-execution-reference-refresh`。凭证：`integration/artifacts/local/core-quote-execution-validation-20261112.json`，明确区分历史静态检查与本批实际浏览器及原程序执行。
 
 阶段57最终同源码有限验收：`282e47e86c62d1936e3b184683a479be518346d1c5b497e429c27054aaa98fc3`，24检查/24次Rust测试/13项真实Chrome联调通过。浏览器请求生产handler和内核、实际下载待签名消息并在本地原SBF验证699→1000及反例，未广播公网；本批没有新增normal Parser/PG-Kafka流水线或可信公网历史资格声明。
+
+
+### 标准收款ATA创建与RPC模拟（阶段58，2026-11-12）
+
+Meteora单池prepare可加入标准收款ATA幂等创建，仅允许规范派生地址及固定Associated Token Program代码；缺失源账户仍阻塞。多指令message将CreateIdempotent放在swap之前，payer资金需覆盖创建租金和网络费之和。已有目标账户不重复收取创建租金；Token2022收款创建未开放。
+
+simulate可选字段对实际unsigned transaction做只读RPC模拟，sigVerify=false且不替换blockhash；模拟后源账户扣款/目标账户到账必须精确等于同一报价的实际输入输出，仍检验mint/owner/冻结状态/WSOL backing。失败或金额不一致拒绝下载。结果明确为RPC_SIMULATED，与生产独立VERIFIED资格分开。
+
+测试模拟RPC使用固定原SBF的LiteSVM simulate_transaction并确认银行未提交变化，实际下载字节另行本地签名执行核对699→1000、租金2039280/总费用2044280、完整后状态和失败原子回滚。前端prepareSeq与quoteSeq分开，账户/创建/模拟选项改变立即撤销旧下载资格。复验入口：make -C integration account-preparation-current-check。生产签名广播、SOL包装、其他协议构建及来源资格继续保留。
+
+阶段58最终同源码有限验收：17检查、8次Rust测试、17项真实Chrome业务联调通过，源码`e8ef710a9a2594b02be813d211cd929aed23bcbf2202fbd79cbdb7db8920c517`。实际创建+swap下载wire原SBF699→1000、租金/总费用/Token守恒/完整后状态和失败回滚通过；模拟仍是RPC_SIMULATED，未开放生产VERIFIED、签名或广播。

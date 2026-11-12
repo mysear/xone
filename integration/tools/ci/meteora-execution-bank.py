@@ -18,6 +18,11 @@ def main():
     memo='MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'; a=svm.get_account(Pubkey.from_string(memo))
     if a is None: raise ValueError('ORIGINAL_MEMO_REQUIRED')
     accounts[memo]=dict(owner=str(a.owner),executable=a.executable,lamports=a.lamports,data=[base64.b64encode(a.data).decode(),'base64'])
+    for id in ['ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL','11111111111111111111111111111111']:
+        a=svm.get_account(Pubkey.from_string(id))
+        if a is None:raise ValueError('EXECUTION_RUNTIME_PROGRAM_REQUIRED')
+        accounts[id]=dict(owner=str(a.owner),executable=a.executable,lamports=a.lamports,data=[base64.b64encode(a.data).decode(),'base64'])
+
     accounts[n['payer']]=dict(owner='11111111111111111111111111111111',executable=False,lamports=10_000_000_000,data=['','base64'])
     p=c['steps'][0]['pool']; step=c['steps'][0]
     from_path=wallet(p['token0'],n['payer']); to_path=wallet(p['token1'],n['recipient'])

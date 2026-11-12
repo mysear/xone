@@ -37,7 +37,9 @@ api:
 - 用户源/目标 Token 账户的 owner/mint/冻结状态及 WSOL backing；
 - 输入余额、fee payer 和 `getFeeForMessage` 的费用余额。
 
-输入账户不填时按 caller/recipient、mint 和 Token program 派生 ATA；也可填写已存在的账户地址。缺失账户会返回 blockers，当前不会自动创建 ATA 或包装 SOL。账户满足条件后生成 legacy message 和带零签名槽的 transaction，前端可以下载完整 JSON，其中包含 planHash、snapshot、requiredSigners、blockhash 和有效块高。这个文件尚未签名、尚未广播，仍须独立模拟和有效性复核。
+输入账户不填时按 caller/recipient、mint 和 Token program 派生 ATA；也可填写已存在的账户地址。缺失源账户仍返回 blockers；缺失标准 SPL 收款 ATA 可勾选“加入创建指令”，同一笔待签名交易会先创建再 swap。该选项只允许 recipient/mint/Token program 派生的规范 ATA，核对固定 Associated Token Program 代码并计入租金；Token2022 收款账户创建和 SOL 包装仍未开放。账户满足条件后生成 legacy message 和带零签名槽的 transaction，前端可以下载完整 JSON，其中包含 planHash、snapshot、requiredSigners、blockhash 和有效块高。这个文件尚未签名、尚未广播，仍须生产独立验证和有效性复核。
+
+勾选“只读模拟并核对实际到账”后，Router 调用自身配置 RPC 的 `simulateTransaction`，使用完整 unsigned transaction 和原 blockhash，不替换 blockhash；模拟后源/目标 Token 账户的实际收付必须与同一报价一致。成功标记为 `RPC_SIMULATED`，不等于生产 VERIFIED；失败或金额不一致不返回可下载的 unsigned transaction。创建租金与网络费分开展示，余额必须覆盖两项之和。
 
 公开 `/build` 与 VERIFIED 的准入不因新增 `/prepare` 改变。准备结果只证明指定检查时刻的账户/消息满足本地模板条件，不证明交易会在将来的链状态中成交。
 
@@ -55,3 +57,7 @@ cargo +1.90.0 build --locked --manifest-path ../dex-router/Cargo.toml -p xone-qu
 ```
 
 需要本机 Playwright Node 模块和 Chrome；可用 `PLAYWRIGHT_MODULE` 指向模块目录，再运行 `node test/browser.mjs`。统一复验入口见 `make -C ../integration quote-execution-current-check`。测试包括报价、实际账户检查、待签名下载、坏账户拒绝、异步竞争、状态撤销/恢复、自动报价和移动布局。所有签名/执行对照仅在本地 LiteSVM 使用确定性测试密钥完成，不发送公网交易。
+
+账户创建与模拟复验：`make -C ../integration account-preparation-current-check`。测试用的模拟 RPC 实际启动固定原 SBF 的 LiteSVM 模拟，不用预制成功报价；另对实际浏览器下载字节本地签名执行，核对租金、收付、后状态以及 swap 失败时创建账户一并回滚。
+
+独立运行Rust执行准备测试时，需安装`solders==0.29.0`，或用`XONE_SOLANA_PYTHON_PATH`指向已安装该版本的目录。服务测试使用自身`test/tools`中的模拟worker和自身fixture，不引用相邻服务的测试源码。统一验收工具会先验证已固定运行时摘要，再传入对应本地依赖目录；依赖、原始银行和运行报告均不提交仓库。

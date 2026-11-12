@@ -48,7 +48,9 @@ async fn main() {
     rpc_task.abort();
 }
 async fn delay(State(c): State<Control>, req: axum::extract::Request, next: Next) -> Response {
-    let slow = c.bank.mode.lock().unwrap().as_str() == "delay_quotes"
+    let mode = c.bank.mode.lock().unwrap().clone();
+    let slow = (mode == "delay_quotes"
+        || (mode == "delay_preparations" && req.uri().path().ends_with("/prepare")))
         && req.uri().path().starts_with("/v1/quote")
         && req.method() == "POST";
     if slow {

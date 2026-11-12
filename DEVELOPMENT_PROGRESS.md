@@ -419,6 +419,7 @@
 |12.11.solana-expanded|WP02,WP03,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|DLMM bitmap/双奖励/订单/Token2022；Pump双向ExactOut/canonical v1/boost、实际migrate交接；33检查/56Rust/45计划原SBF/10故障/5重启通过|仅注明profile；策略交叉/任意Token扩展、公开执行、自动发现与可信银行仍缺；正常进程仅ExactIn|[最终限定验收](integration/artifacts/local/core-solana-expanded-acceptance-20261111.json)|
 |12.11.dlmm-orders-exact-out|WP03,WP05,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|独立订单ExactOut：固定原SBF的bin级反解、全bin耗尽分支、MM/processed/open结算及完整后状态；192原始银行/193成功步骤/31拒绝/161输入减一控制|同源码限定验收已通过；订单管理、奖励领取及高级策略交叉仍缺|[本批验证](integration/artifacts/local/core-meteora-orders-exact-out-validation-20261111.json)|
 |12.12.quote-execution|WP03,WP05,WP09,WP11,WP12,WP13,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|PumpSwap卖出指定WSOL目标的独立最小输入与三ceil费；Meteora只读账户核对/unsigned transaction；实际Chrome请求生产handler、下载字节和原SBF复核已通过|只覆盖明确模板；自动ATA创建/wrap、多协议构建、生产独立模拟、签名广播/结算等仍待开发|[本批验证](integration/artifacts/local/core-quote-execution-validation-20261112.json)|
+|14.ata-simulation|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|收款ATA创建与swap同一消息、payer租金/fee合计检查、只读RPC模拟实际收付/报价一致性；浏览器参数变化拒绝旧准备结果|仅经典SPL规范收款ATA；缺失源/Token2022收款创建、SOL包装、生产独立来源、钱包签名/广播结算仍待开发|[本批验证](integration/artifacts/local/core-account-preparation-validation-20261112.json)|
 
 <a id="batch-history"></a>
 
@@ -482,6 +483,7 @@
 |55|[前端状态刷新与路由约束联调](#plan-2026-11-12-frontend-live-quote)|PARTIAL_LOCAL|前端10秒刷新解析状态和view/graph/protocol信息；输入变化自动报价、Abort旧请求、提交maxHops；Router元数据字段和协议/池断言通过；仍受当前ReplicaView及既有协议范围限制；全链/全DEX、可信生产来源和公开执行未完成；[本批记录](integration/artifacts/local/phase55-frontend-live-quote.json)|
 |56|[协议报价能力与执行能力边界联调](#plan-2026-11-12-protocol-capabilities)|PARTIAL_LOCAL|quote-options复用协议数学内核公开每个Pool的quoteModes和execution能力；前端展示ExactIn/ExactOut及unsignedPlan/simulation边界；locked check、元数据测试、静态前端检查通过；动态账户预检查、unsigned交易计划、独立模拟仍按后续顺序开发；全链/全DEX范围未完成；[本批记录](integration/artifacts/local/phase56-protocol-capabilities.json)|
 |57|[PumpSwap卖出目标、执行账户准备与真实浏览器联调](#plan-2026-11-12-quote-execution)|LOCAL_SCOPE_VERIFIED|24检查/24次Rust执行/13项真实Chrome联调通过；PumpSwap48目标/42成功/14额外到账/42输入减一；Meteora账户核对/unsigned wire实际下载及原SBF699输入1000到账；[本批记录](integration/artifacts/local/core-quote-execution-validation-20261112.json)|
+|58|[收款ATA创建、只读模拟与前端闭环](#plan-2026-11-12-ata-simulation)|LOCAL_SCOPE_VERIFIED|17检查/8次Rust测试/17项真实Chrome联调通过；标准收款ATA创建/租金/fee、只读原SBF模拟、真实下载多指令交易与原程序执行/失败回滚；[本批记录](integration/artifacts/local/core-account-preparation-validation-20261112.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -1822,3 +1824,22 @@ PumpSwap卖出目标按至少实际到账处理：三ceil fee导致净输出不�
 执行准备当前仅为已支持的Meteora单池模板，prepare返回“ready”仅表示账户检查与待签名消息已完成，不等于链上执行成功或生产VERIFIED；调用只读RPC，不签名/广播。当前不自动创建ATA、wrap/unwrap、签名钱包、提交交易或生产独立模拟。已有公开build/VERIFIED准入不由prepare开放。原SBF执行是隔离本地测试，测试密钥不用于用户账户。
 
 阶段57最终同源码有限验收（2026-11-12）：源码指纹`282e47e86c62d1936e3b184683a479be518346d1c5b497e429c27054aaa98fc3`，24项检查全部通过，实际24次Rust测试执行，13项真实Chrome业务联调通过。包括共享配置/公共协议/303份合同副本、旧数学/路由/优化器/API回归、准备与CORS反例、相关Clippy `-D warnings`、Go配置和Rust解析配置、原SBF重执行、普通/`-OO`参考篡改控制、前端数值/路线单元测试与文档双模式检查。浏览器在明确测试harness中调用生产Api handler和数学，不stub报价，使用受控固定原银行；normal Parser→PG/Kafka来源流水线不在本批新增范围声明内。下载的真实unsigned transaction由solders解析，使用确定性测试密钥本地签名执行固定SBF，699输入/1000到账、完整bin/订单/oracle和输入减一失败核对通过；测试显式关闭固定测试blockhash的过期检查，不把控制银行当作公网历史资格。测试harness/浏览器静态服务器已结束。原始失败日志与阶段56证据更正保留，最终报告绑定源码/辅助工具/日志/浏览器截图/真实下载文件与本地原执行摘要。原26工作包完整设计验收仍0，`all_requested_features_complete=false`、`production_ready=false`。后续顺序：缺失账户创建与wrap模板、其他协议unsigned构建、生产独立模拟、钱包签名/广播/确认/回执及真实链来源资格；并行于这些执行项的其余链/DEX解析与策略组合缺口继续保留，不能被新增前端或单池消息代替。
+
+
+<a id="plan-2026-11-12-ata-simulation"></a>
+
+## 收款ATA创建、只读模拟与前端闭环（2026-11-12，阶段58）
+
+按阶段57保留的下一步顺序，对照设计§12.14/14/15/28.16推进动态账户准备与模拟。新增功能使用同一quoteId、planHash和QuoteView，不把前端或RPC响应当作新的兑换量数学来源。当前不签名或广播公网交易。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F58.1|规范标准收款ATA创建|WP14,WP16,WP25|PARTIAL_LOCAL|prepare新增可选createDestinationAta；仅在收款账户缺失且地址为recipient/mint/Token program派生ATA时允许，固定Associated Token Program代码核对，加入CreateIdempotent指令；源账户仍必须已有，Token2022收款创建另行拒绝。|
+|F58.2|多指令与费用资金约束|WP14,WP25|PARTIAL_LOCAL|execution-plan统一编译多指令legacy message，保留账户权限/单签名/包大小限制；getMinimumBalanceForRentExemption与getFeeForMessage合并payer资金要求，分别报告rent/fee/total；租金不足不返回交易。|
+|F58.3|只读实际交易模拟|WP05,WP09,WP15,WP16,WP25|PARTIAL_LOCAL|prepare可选simulate调用配置RPC的simulateTransaction，固定原blockhash、sigVerify=false/replaceRecentBlockhash=false；context slot、err、账户布局/WSOL backing及实际输入输出均核对同一报价，金额不一致拒绝；独立生产可信模拟资格未开放。|
+|F58.4|前端创建/模拟选项及异步失效|WP09,WP16,WP25|PARTIAL_LOCAL|新增创建标准ATA和只读模拟选项、显示租金/fee/模拟到账并下载完整多指令待签名交易；独立prepareSeq防止修改准备参数后旧结果恢复下载；17项Chrome真实业务复验通过。|
+|F58.5|原程序、租金、回滚和证据|WP03,WP14,WP15,WP25|PARTIAL_LOCAL|固定原SBF运行浏览器下载字节，699输入/1000到账，2039280租金/2044280总费用，Token守恒及完整bin/订单/oracle；输入上限减一失败时新ATA一并回滚；重哈希改地址/指令/费用仍拒绝，普通及-OO各3项重哈希篡改控制通过。|
+
+模拟测试RPC实际调用LiteSVM的simulate_transaction执行固定原程序，核对源银行不变；不是预设成功回包。原始执行参考另对下载交易以确定性测试密钥本地签名执行，核对真实payer租金/费用扣款、创建WSOL账户backing、实际Token收付与后状态。原blockhash仅在隔离参考中显式跳过过期检查，不据此声称公网历史来源或生产模拟资格。程序/账户版本、当前QuoteView和报价过期检查仍贯穿准备开始与返回。
+
+本批普通模拟结果为RPC_SIMULATED，independentProductionVerification=false、signed=false、submitted=false；公开VERIFIED/build准入不因勾选模拟而改变。阶段58最终同源码有限验收（2026-11-12）：源码指纹`e8ef710a9a2594b02be813d211cd929aed23bcbf2202fbd79cbdb7db8920c517`，17项检查、8次Rust测试执行、17项真实Chrome业务联调全部通过。304份合同/工具副本、公共协议、严格Clippy、既有单指令准备与DLMM扩展报价回归通过。浏览器实际检查/创建/模拟/下载，租金不足、模拟金额不符、冻结账户、准备参数变化晚返回拒绝、新QuoteView/撤权恢复、ExactIn/ExactOut及移动布局通过；下载字节在本地原SBF执行并逐项核对。原始失败日志保留。所有harness/静态服务器已结束，未向公网提交交易。最终凭证绑定源码、运行时/工具、检查日志及浏览器下载/截图摘要。仍缺SOL/WSOL包装模板、源账户资金准备、Token2022收款创建、多协议unsigned构建、生产独立模拟/来源、签名广播确认/回执与其他链/DEX解析组合。`all_requested_features_complete=false`、`production_ready=false`，原26工作包完整设计验收仍0。

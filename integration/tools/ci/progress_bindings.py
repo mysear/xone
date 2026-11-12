@@ -1422,3 +1422,10 @@ BINDINGS['12.12.quote-execution']={
  'tests':['sell_target_three_ceil_fees_minimum_input_and_all_native_post_state','original_pump_swap_sell_targets_flow_through_router_optimizer_api_and_plan','preparation_checks_current_program_accounts_funds_and_compiles_unsigned_transaction','cors_accepts_configured_local_frontend_and_rejects_unknown_origins','cors_origins_are_explicit_bounded_and_cannot_contain_path_or_credentials','TestCORSOriginsAreBoundedAndRejectCredentialsAndPaths','test_reported_output_cannot_override_actual_wallet_credit','test_budget_failure_cannot_be_marked_success','test_duplicate_targets_cannot_replace_matrix_coverage'],
  'evidence_refs':['integration/artifacts/local/core-quote-execution-validation-20261112.json'],
 }
+
+
+BINDINGS['14.ata-simulation']={
+ 'paths':['dex-router/crates/quote-api/src/preparation.rs','dex-router/crates/execution-plan/src/solana_unsigned.rs','dex-router/crates/execution-plan/tests/solana_unsigned.rs','frontend/index.html','frontend/src/app.js','frontend/test/browser.mjs','integration/tools/acceptance/solana_prepare_simulation_worker.py','integration/tools/acceptance/meteora_account_creation_reference.py','integration/tools/acceptance/validate_account_preparation.py'],
+ 'tests':['destination_ata_creation_rent_and_original_rpc_simulation_are_bound_to_quote','legacy_multi_instruction_merges_signer_permissions_and_preserves_order','wire_rejects_empty_multiple_signer_program_permission_escalation_and_oversize','test_rehashed_destination_cannot_override_canonical_ata','test_rehashed_instruction_cannot_override_actual_wire','test_rehashed_rent_cannot_override_actual_payer_debit'],
+ 'evidence_refs':['integration/artifacts/local/core-account-preparation-validation-20261112.json'],
+}

@@ -222,3 +222,84 @@ async fn cors_accepts_configured_local_frontend_and_rejects_unknown_origins() {
     }
     task.abort();
 }
+
+#[tokio::test]
+async fn destination_ata_creation_rent_and_original_rpc_simulation_are_bound_to_quote() {
+    let bank = Bank::new();
+    let (url, task) = bank.serve().await;
+    let (api, _) = bank.api(&url);
+    let (status, quote) = call(&api, "/v1/quote-exact-out", bank.request(), true).await;
+    assert_eq!(status, StatusCode::OK, "{quote}");
+    let path = format!("/v1/quotes/{}/prepare", quote["quoteId"].as_str().unwrap());
+    let request = json!({"sourceTokenAccount":bank.data["sourceTokenAccount"],"createDestinationAta":true,"simulate":true});
+    let (status, result) = call(&api, &path, request.clone(), true).await;
+    assert_eq!(status, StatusCode::OK, "{result}");
+    assert_eq!(result["ready"], true, "{result}");
+    assert_eq!(result["accountCreation"], true);
+    assert_eq!(result["rentLamports"], "2039280");
+    assert_eq!(result["totalFundingLamports"], "2044280");
+    assert_eq!(result["instructions"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        result["instructions"][0]["programId"],
+        "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+    );
+    assert_eq!(result["instructions"][0]["dataBase64"], "AQ==");
+    assert_eq!(result["simulation"]["level"], "RPC_SIMULATED");
+    assert_eq!(result["simulation"]["actualInput"], "699");
+    assert_eq!(result["simulation"]["actualOutput"], "1000");
+    assert_eq!(
+        result["simulation"]["independentProductionVerification"],
+        false
+    );
+    if let Ok(output) = std::env::var("XONE_ATA_EVIDENCE") {
+        std::fs::write(
+            output,
+            serde_json::to_vec_pretty(&json!({"quote":quote,"preparation":result})).unwrap(),
+        )
+        .unwrap();
+    }
+    *bank.mode.lock().unwrap() = "rent_balance".into();
+    let (status, result) = call(&api, &path, request.clone(), true).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(result["ready"], false);
+    assert_eq!(result["blockers"][0], "INSUFFICIENT_RENT_BALANCE");
+    assert!(result["unsignedTransaction"].is_null());
+    for (mode, code) in [
+        ("changed_associated_program", "PREPARATION_PROGRAM_CHANGED"),
+        (
+            "simulation_mismatch",
+            "PREPARATION_SIMULATION_AMOUNT_MISMATCH",
+        ),
+        ("simulation_error", "PREPARATION_SIMULATION_FAILED"),
+    ] {
+        *bank.mode.lock().unwrap() = mode.into();
+        let (status, result) = call(&api, &path, request.clone(), true).await;
+        assert_ne!(status, StatusCode::OK);
+        assert_eq!(result["error"], code, "{result}");
+    }
+    *bank.mode.lock().unwrap() = "missing_destination".into();
+    let mut invalid = request.clone();
+    invalid["destinationTokenAccount"] = bank.data["destinationTokenAccount"].clone();
+    let (status, result) = call(&api, &path, invalid, true).await;
+    assert_ne!(status, StatusCode::OK);
+    assert_eq!(result["error"], "PREPARATION_CREATE_REQUIRES_ATA");
+    *bank.mode.lock().unwrap() = "ready".into();
+    let mut existing = bank.preparation();
+    existing["createDestinationAta"] = json!(true);
+    existing["simulate"] = json!(true);
+    let (status, result) = call(&api, &path, existing, true).await;
+    assert_eq!(status, StatusCode::OK, "{result}");
+    assert_eq!(result["accountCreation"], false);
+    assert_eq!(result["rentLamports"], "0");
+    assert_eq!(result["instructions"].as_array().unwrap().len(), 1);
+    assert!(bank.calls.lock().unwrap().iter().all(|m| [
+        "getGenesisHash",
+        "getMultipleAccounts",
+        "getLatestBlockhash",
+        "getFeeForMessage",
+        "getMinimumBalanceForRentExemption",
+        "simulateTransaction"
+    ]
+    .contains(&m.as_str())));
+    task.abort();
+}

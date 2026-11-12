@@ -10,12 +10,17 @@ const LOADER: &str = "BPFLoaderUpgradeab1e11111111111111111111111";
 const IMMUTABLE: &str = "BPFLoader2111111111111111111111111111111111";
 const SYSTEM: &str = "11111111111111111111111111111111";
 const ASSOCIATED: &str = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
+const ASSOCIATED_CODE: &str = "6804554e69fd3a58caa191dc4a58f4c67223d30ca28ab8987f39fc18d2f7374d";
 const MEMO: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct Request {
     source_token_account: Option<String>,
     destination_token_account: Option<String>,
+    #[serde(default)]
+    create_destination_ata: bool,
+    #[serde(default)]
+    simulate: bool,
 }
 #[derive(Clone)]
 struct Selection {
@@ -27,9 +32,12 @@ struct Selection {
     exact: bool,
     amount: u64,
     limit: u64,
+    expected_input: u64,
+    expected_output: u64,
 }
 use xone_execution_plan::solana_unsigned::{
-    compile_message, unsigned_packet, SolanaAccountMeta as Meta, SolanaInstruction as Instruction,
+    compile_message_many, unsigned_packet, SolanaAccountMeta as Meta,
+    SolanaInstruction as Instruction,
 };
 
 struct Account {
@@ -60,7 +68,7 @@ fn select(api: &Api, id: &str) -> Result<Selection> {
         if route.path.edges.len() != 1 {
             return Err(err("PREPARATION_SINGLE_POOL_ONLY"));
         }
-        return selected(
+        let mut selection = selected(
             c.view,
             c.plan.context,
             c.plan.plan_hash,
@@ -68,7 +76,10 @@ fn select(api: &Api, id: &str) -> Result<Selection> {
             false,
             &route.amount_in,
             &c.plan.min_buy_amount,
-        );
+        )?;
+        selection.expected_input = route.amount_in.0.to_u64().ok_or_else(bad)?;
+        selection.expected_output = route.amount_out.0.to_u64().ok_or_else(bad)?;
+        return Ok(selection);
     }
     let c = api
         .exact_out_cache
@@ -88,7 +99,7 @@ fn select(api: &Api, id: &str) -> Result<Selection> {
     if route.edges.len() != 1 {
         return Err(err("PREPARATION_SINGLE_POOL_ONLY"));
     }
-    selected(
+    let mut selection = selected(
         c.view,
         c.plan.context,
         c.plan.plan_hash,
@@ -96,7 +107,10 @@ fn select(api: &Api, id: &str) -> Result<Selection> {
         true,
         route.output_target(),
         &c.plan.max_sell_amount,
-    )
+    )?;
+    selection.expected_input = route.amount_in.0.to_u64().ok_or_else(bad)?;
+    selection.expected_output = route.amount_out.0.to_u64().ok_or_else(bad)?;
+    Ok(selection)
 }
 fn selected(
     view: Arc<QuoteView>,
@@ -126,6 +140,8 @@ fn selected(
         exact,
         amount: amount.0.to_u64().ok_or_else(bad)?,
         limit: limit.0.to_u64().ok_or_else(bad)?,
+        expected_input: 0,
+        expected_output: 0,
     })
 }
 fn current(api: &Api, s: &Selection) -> Result<()> {
@@ -383,6 +399,9 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         MEMO.into(),
         "SysvarC1ock11111111111111111111111111111111".into(),
     ];
+    if request.create_destination_ata {
+        ids.extend([ASSOCIATED.into(), SYSTEM.into()]);
+    }
     ids.extend(m.bin_arrays.iter().map(|a| a.address.clone()));
     if let Some(b) = &m.bitmap_extension {
         ids.push(b.address.clone());
@@ -510,16 +529,43 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     } else {
         blockers.push("SOURCE_ACCOUNT_MISSING");
     }
-    if let Some(a) = bank.get(&dst).and_then(Option::as_ref) {
-        token(a, output, &s.context.recipient, output_program)?;
+    let destination = bank.get(&dst).and_then(Option::as_ref);
+    let existing_output = if let Some(a) = destination {
+        token(a, output, &s.context.recipient, output_program)?
     } else {
+        0
+    };
+    let create_destination = destination.is_none() && request.create_destination_ata;
+    let mut rent = 0u64;
+    if create_destination {
+        if dst != ata(&s.context.recipient, output, output_program)? {
+            return Err(err("PREPARATION_CREATE_REQUIRES_ATA"));
+        }
+        if output_program != TOKEN {
+            return Err(err("PREPARATION_CREATE_TOKEN2022_UNSUPPORTED"));
+        }
+        code(&bank, ASSOCIATED, ASSOCIATED_CODE, slot, None)?;
+        let system = get(&bank, SYSTEM)?;
+        if !system.executable || system.owner != "NativeLoader1111111111111111111111111111111" {
+            return Err(bad());
+        }
+        rent = rpc
+            .call(
+                "getMinimumBalanceForRentExemption",
+                json!([165,{"commitment":"finalized"}]),
+            )
+            .await?
+            .as_u64()
+            .filter(|n| *n > 0)
+            .ok_or_else(bad)?;
+    } else if destination.is_none() {
         blockers.push("DESTINATION_ACCOUNT_MISSING");
     }
     let payer = get(&bank, &s.context.caller)?;
     if payer.owner != SYSTEM || payer.executable || !payer.data.is_empty() {
         return Err(bad());
     }
-    let mut result = json!({"quoteId":s.view.view_id,"planHash":s.plan_hash,"quoteViewId":s.view.view_id,"snapshotRef":s.view.reference,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":src,"destinationTokenAccount":dst,"requiredInput":required.to_string(),"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
+    let mut result = json!({"quoteId":s.view.view_id,"planHash":s.plan_hash,"quoteViewId":s.view.view_id,"snapshotRef":s.view.reference,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":src,"destinationTokenAccount":dst,"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":create_destination,"rentLamports":rent.to_string(),"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
     if !blockers.is_empty() {
         return Ok(result);
     }
@@ -595,7 +641,31 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         accounts: metas,
         data_base64: STANDARD.encode(data),
     };
-    let msg = compile_message(&s.context.caller, blockhash, &ix)?;
+    let mut instructions = Vec::new();
+    if create_destination {
+        let accounts = [
+            (s.context.caller.clone(), true, true),
+            (dst.clone(), false, true),
+            (s.context.recipient.clone(), false, false),
+            (output.clone(), false, false),
+            (SYSTEM.into(), false, false),
+            (TOKEN.into(), false, false),
+        ]
+        .into_iter()
+        .map(|(pubkey, is_signer, is_writable)| Meta {
+            pubkey,
+            is_signer,
+            is_writable,
+        })
+        .collect();
+        instructions.push(Instruction {
+            program_id: ASSOCIATED.into(),
+            accounts,
+            data_base64: STANDARD.encode([1u8]),
+        });
+    }
+    instructions.push(ix);
+    let msg = compile_message_many(&s.context.caller, blockhash, &instructions)?;
     let fee = rpc
         .call(
             "getFeeForMessage",
@@ -608,8 +678,13 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     let cost = fee["value"]
         .as_u64()
         .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
-    if payer.lamports < cost {
-        result["blockers"] = json!(["INSUFFICIENT_FEE_BALANCE"]);
+    let funding = cost.checked_add(rent).ok_or_else(bad)?;
+    if payer.lamports < funding {
+        result["blockers"] = json!([if payer.lamports < cost {
+            "INSUFFICIENT_FEE_BALANCE"
+        } else {
+            "INSUFFICIENT_RENT_BALANCE"
+        }]);
         return Ok(result);
     }
     let transaction = unsigned_packet(&msg)?;
@@ -617,7 +692,47 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     result["feeLamports"] = cost.to_string().into();
     result["recentBlockhash"] = blockhash.into();
     result["lastValidBlockHeight"] = last.into();
-    result["instructions"] = json!([ix]);
+    result["instructions"] = json!(instructions);
+    result["totalFundingLamports"] = funding.to_string().into();
+    if request.simulate {
+        let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&transaction),{"encoding":"base64","commitment":"finalized","minContextSlot":slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":[src,dst]}}])).await?;
+        let simulation_slot = response["context"]["slot"]
+            .as_u64()
+            .filter(|n| *n >= slot)
+            .ok_or_else(bad)?;
+        let value = &response["value"];
+        if value.get("err") != Some(&Value::Null) {
+            return Err(err("PREPARATION_SIMULATION_FAILED"));
+        }
+        let accounts = value["accounts"]
+            .as_array()
+            .filter(|v| v.len() == 2)
+            .ok_or_else(bad)?;
+        let before_input = token(
+            source.ok_or_else(bad)?,
+            input,
+            &s.context.caller,
+            input_program,
+        )?;
+        let after_input = token(
+            &account(&accounts[0])?.ok_or_else(bad)?,
+            input,
+            &s.context.caller,
+            input_program,
+        )?;
+        let after_output = token(
+            &account(&accounts[1])?.ok_or_else(bad)?,
+            output,
+            &s.context.recipient,
+            output_program,
+        )?;
+        let paid = before_input.checked_sub(after_input).ok_or_else(bad)?;
+        let received = after_output.checked_sub(existing_output).ok_or_else(bad)?;
+        if paid != s.expected_input || received != s.expected_output {
+            return Err(err("PREPARATION_SIMULATION_AMOUNT_MISMATCH"));
+        }
+        result["simulation"] = json!({"level":"RPC_SIMULATED","success":true,"observedSlot":simulation_slot,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"unitsConsumed":value["unitsConsumed"],"independentProductionVerification":false});
+    }
     result["messageBase64"] = STANDARD.encode(msg).into();
     result["unsignedTransaction"] = STANDARD.encode(transaction).into();
     result["requiredSigners"] = json!([s.context.caller]);

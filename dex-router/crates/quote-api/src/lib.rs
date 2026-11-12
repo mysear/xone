@@ -753,7 +753,11 @@ fn failure(e: xone_domain::Error) -> HttpError {
         | "PREPARATION_RPC_NOT_CONFIGURED"
         | "PREPARATION_SINGLE_POOL_ONLY"
         | "PREPARATION_ACCOUNT_INVALID"
-        | "PREPARATION_TRANSACTION_TOO_LARGE" => StatusCode::UNPROCESSABLE_ENTITY,
+        | "PREPARATION_TRANSACTION_TOO_LARGE"
+        | "PREPARATION_CREATE_REQUIRES_ATA"
+        | "PREPARATION_CREATE_TOKEN2022_UNSUPPORTED"
+        | "PREPARATION_SIMULATION_FAILED"
+        | "PREPARATION_SIMULATION_AMOUNT_MISMATCH" => StatusCode::UNPROCESSABLE_ENTITY,
         "NO_ROUTE" => StatusCode::NOT_FOUND,
         _ => StatusCode::BAD_REQUEST,
     };
@@ -1009,7 +1013,7 @@ async fn quote_options(
                     "directions": directions,
                     "available": available,
                     "unavailableReason": reason,
-                    "execution": {"quote": available, "preparation": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "unsignedPlan": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "simulation": false},
+                    "execution": {"quote": available, "preparation": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "unsignedPlan": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "rpcSimulation": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "simulation": false},
                 }));
             }
         }

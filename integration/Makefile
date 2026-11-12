@@ -871,3 +871,7 @@ quote-execution-reference-refresh:
 	python3 tools/acceptance/pump_amm_sell_target_reference.py --reexecute
 quote-execution-current-check:
 	python3 tools/acceptance/validate_quote_execution.py
+
+.PHONY: account-preparation-current-check
+account-preparation-current-check:
+	python3 tools/acceptance/validate_account_preparation.py

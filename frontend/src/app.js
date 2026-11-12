@@ -1,7 +1,7 @@
 import {positiveInteger, boundedInteger, routeView, snapshotView, escapeHtml as esc} from './model.js';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, quote:null, preparation:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
+const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, quote:null, preparation:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
 const apiBase = $('apiBase');
 apiBase.value = params.get('api') || localStorage.getItem('xone-api-base') || 'http://127.0.0.1:8080';
 localStorage.removeItem('xone-api-token');
@@ -20,7 +20,7 @@ function fill(id, values, wanted=$(id).value) {
   if ([...$(id).options].some(o=>o.value===wanted)) $(id).value=wanted;
 }
 function invalidate(message='输入或状态已变化，请重新计算') {
-  ++state.quoteSeq;
+  ++state.quoteSeq; ++state.prepareSeq;
   state.quoteAbort?.abort(); state.prepareAbort?.abort(); clearTimeout(state.debounce);
   state.quote=null; state.preparation=null;
   $('downloadButton').disabled=true; $('prepareButton').disabled=true;
@@ -118,16 +118,16 @@ $('quoteForm').addEventListener('submit',async event=>{
   } catch(e) {if (seq===state.quoteSeq && e.name!=='AbortError') {invalidate('没有可用报价'); error(e.message);badge('stateBadge','报价失败','bad');}}
 });
 $('prepareButton').addEventListener('click',async()=>{
-  const q=state.quote; if (!q) return; const seq=state.quoteSeq; state.preparation=null; $('downloadButton').disabled=true; $('prepareButton').disabled=true; $('preparation').textContent='正在核对账户…';
+  const q=state.quote; if (!q) return; const seq=state.quoteSeq, prepSeq=++state.prepareSeq; state.preparation=null; $('downloadButton').disabled=true; $('prepareButton').disabled=true; $('preparation').textContent='正在核对账户…';
   try {
-    const payload={}; if ($('sourceAccount').value.trim()) payload.sourceTokenAccount=$('sourceAccount').value.trim(); if ($('destinationAccount').value.trim()) payload.destinationTokenAccount=$('destinationAccount').value.trim();
+    const payload={createDestinationAta:$('createDestinationAta').checked,simulate:$('simulatePreparation').checked}; if ($('sourceAccount').value.trim()) payload.sourceTokenAccount=$('sourceAccount').value.trim(); if ($('destinationAccount').value.trim()) payload.destinationTokenAccount=$('destinationAccount').value.trim();
     state.prepareAbort=new AbortController();
     const prepared=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/prepare`,{method:'POST',body:JSON.stringify(payload),signal:state.prepareAbort.signal});
-    if (seq!==state.quoteSeq || state.quote!==q) return;
+    if (seq!==state.quoteSeq || prepSeq!==state.prepareSeq || state.quote!==q) return;
     state.preparation=prepared; $('downloadButton').disabled=!prepared.ready;
-    $('preparation').textContent=prepared.ready?`账户检查通过 · 观察 slot ${prepared.observedSlot} · 交易费 ${prepared.feeLamports} lamports · 待签名，需独立模拟`:`账户准备未满足：${(prepared.blockers||[]).join(', ')}。目标账户：${prepared.destinationTokenAccount}`;
-  } catch(e) {if(seq===state.quoteSeq && e.name!=='AbortError') {if (/QUOTE_|PROGRAM_CHANGED/.test(e.message)) invalidate('执行状态已变化，请重新报价'); $('preparation').textContent=e.message;}}
-  finally {if (seq===state.quoteSeq) $('prepareButton').disabled=false;}
+    $('preparation').textContent=prepared.ready?`账户检查通过 · 观察 slot ${prepared.observedSlot} · 交易费 ${prepared.feeLamports} lamports · 创建租金 ${prepared.rentLamports||0} lamports${prepared.accountCreation?" · 已加入收款 ATA 创建指令":""}${prepared.simulation?.success?" · RPC模拟到账 "+prepared.simulation.actualOutput:""} · 待签名，生产独立验证仍未完成`:`账户准备未满足：${(prepared.blockers||[]).join(', ')}。目标账户：${prepared.destinationTokenAccount}`;
+  } catch(e) {if(seq===state.quoteSeq && prepSeq===state.prepareSeq && e.name!=='AbortError') {if (/QUOTE_|PROGRAM_CHANGED/.test(e.message)) invalidate('执行状态已变化，请重新报价'); $('preparation').textContent=e.message;}}
+  finally {if (seq===state.quoteSeq && prepSeq===state.prepareSeq) $('prepareButton').disabled=false;}
 });
 $('downloadButton').addEventListener('click',()=>{
   if (!state.preparation?.ready || !state.quote || Date.now()>=state.quote.validity.expiresAtMs) {invalidate('报价已过期，请重新计算'); return;}
@@ -135,7 +135,7 @@ $('downloadButton').addEventListener('click',()=>{
 });
 $('chainKey').addEventListener('change',()=>{invalidate(); tokens();schedule();});
 for (const id of ['sellToken','buyToken','quoteKind','amount','maxSell','caller','recipient','slippageBps','maxHops']) $(id).addEventListener('input',()=>{invalidate();modes();schedule();});
-for (const id of ['sourceAccount','destinationAccount']) $(id).addEventListener('input',()=>{state.prepareAbort?.abort();state.preparation=null;$('downloadButton').disabled=true;});
+for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation']) $(id).addEventListener('input',()=>{++state.prepareSeq;state.prepareAbort?.abort();state.preparation=null;$('downloadButton').disabled=true;$('prepareButton').disabled=!state.quote;$('preparation').textContent='执行准备参数已变化，请重新检查';});
 $('flipButton').addEventListener('click',()=>{const sell=$('sellToken').value;$('sellToken').value=$('buyToken').value;$('buyToken').value=sell;invalidate();schedule();});
 $('refreshButton').addEventListener('click',()=>loadOptions());
 $('autoQuote').addEventListener('change',()=>{$('autoQuote').checked?schedule():clearTimeout(state.debounce);});

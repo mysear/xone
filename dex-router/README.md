@@ -52,3 +52,5 @@ VERIFIED返回INDEPENDENT_SIMULATION_UNAVAILABLE（422）；POST /v1/quotes/{id}
 `GET /v1/quote-options`返回当前可报价图、池、交易方向、ExactIn/ExactOut能力及不可用原因。`POST /v1/quotes/{id}/prepare`为限定Meteora单池模板检查已有执行账户并生成待签名Solana交易；RPC仅取本服务配置，不接受请求指定节点。该入口不签名、不广播，缺失账户返回blockers，仍需独立模拟。
 
 前端目录位于根目录`frontend/`。`api.cors_allowed_origins`允许明确的HTTP(S) origin；缺省只允许本机5173端口。完整限制和测试方式见`../frontend/README.md`。
+
+`/prepare`现在接受`createDestinationAta`和`simulate`可选布尔字段。前者只为缺失的规范经典SPL收款ATA加入幂等创建指令，后者执行只读RPC模拟并核对实际收付；租金和网络费分开计入payer资金要求。模拟成功为`RPC_SIMULATED`，不扩大VERIFIED或公开build准入；仍不签名或广播。

@@ -109,6 +109,36 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
         slot -= 1;
     }
     let result = match method {
+        "simulateTransaction" => {
+            let input = serde_json::to_vec(&json!({"bank":&*b.data,"rpc":q,"mode":mode})).unwrap();
+            let mut child = tokio::process::Command::new("python3");
+            child
+                .arg(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../../test/tools/solana_prepare_simulation_worker.py"
+                ))
+                .kill_on_drop(true)
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped());
+            let mut child = child.spawn().unwrap();
+            let mut stdin = child.stdin.take().unwrap();
+            use tokio::io::AsyncWriteExt;
+            stdin.write_all(&input).await.unwrap();
+            drop(stdin);
+            let output =
+                tokio::time::timeout(std::time::Duration::from_secs(12), child.wait_with_output())
+                    .await
+                    .unwrap()
+                    .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            serde_json::from_slice(&output.stdout).unwrap()
+        }
+        "getMinimumBalanceForRentExemption" => json!(2039280),
         "getGenesisHash" => {
             if mode == "wrong_chain" {
                 json!("wrong-chain")
@@ -152,6 +182,14 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                         }
                         if mode == "changed_program" && id == &d["pool"]["meteora"]["programdata"] {
                             raw[45] ^= 1;
+                        }
+                        if mode == "rent_balance" && id == &d["caller"] {
+                            a["lamports"] = json!(6000);
+                        }
+                        if mode == "changed_associated_program"
+                            && key == "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+                        {
+                            raw[0] ^= 1;
                         }
                         if mode == "fee_balance" && id == &d["caller"] {
                             a["lamports"] = json!(0);
