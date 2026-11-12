@@ -61,3 +61,20 @@ cargo +1.90.0 build --locked --manifest-path ../dex-router/Cargo.toml -p xone-qu
 账户创建与模拟复验：`make -C ../integration account-preparation-current-check`。测试用的模拟 RPC 实际启动固定原 SBF 的 LiteSVM 模拟，不用预制成功报价；另对实际浏览器下载字节本地签名执行，核对租金、收付、后状态以及 swap 失败时创建账户一并回滚。
 
 独立运行Rust执行准备测试时，需安装`solders==0.29.0`，或用`XONE_SOLANA_PYTHON_PATH`指向已安装该版本的目录。服务测试使用自身`test/tools`中的模拟worker和自身fixture，不引用相邻服务的测试源码。统一验收工具会先验证已固定运行时摘要，再传入对应本地依赖目录；依赖、原始银行和运行报告均不提交仓库。
+
+## 输入 WSOL 的原生 SOL 补资
+
+Meteora 单池报价的输入 Token 必须仍为 WSOL。勾选“输入为 WSOL 时用 SOL 补足余额”后，`/prepare`发送`wrapSourceSol=true`：
+
+1. 验证输入确实为经典 Token program 的 WSOL，现有账户需归caller所有且余额/backing一致。
+2. 输入账户缺失时，只允许caller的规范WSOL ATA；加入CreateIdempotent。
+3. 按`requiredInput - existingWsolBalance`的正差额加入System transfer和SyncNative，再执行swap。
+4. payer必须能覆盖全部SOL包装金额、账户租金和交易费，任一不足都会阻止下载。
+
+ExactOut按执行计划最大输入上限（结合报价与滑点、且不超过请求预算）准备资金，因此原程序实际扣款较少时会留下WSOL。响应通过`wrapLamports`、`sourceAccountCreation`、`expectedResidualWsol`、`sourceWsolRetained`和`totalFundingLamports`单独展示；不会自动关闭已有账户或把WSOL余额当作已退回SOL。关闭/unwrap与真正的钱包提交仍需后续模板。
+
+补资和swap属于同一笔待签名交易。只读模拟以“原WSOL余额+注入SOL”对比最终WSOL余额核对实际扣款，不会把包装动作误计成兑换收益。参考测试核对真实SOL扣款、WSOL backing、实际Token到账和失败时完整回滚；无公网交易。
+
+复验入口：`make -C ../integration native-funding-current-check`。独立测试数据恢复工具为`integration/tools/ci/meteora-wsol-bank.py`，需要已有固定原程序银行/运行时依赖；测试数据和下载包仍保留本地。
+
+统一验收将每次浏览器下载文件与三类原程序执行记录保存在独立运行目录，防止复验覆盖历史凭证；单独运行参考脚本时可用第二个命令行参数指定输出JSON路径。

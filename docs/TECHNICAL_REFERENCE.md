@@ -1595,3 +1595,16 @@ simulate可选字段对实际unsigned transaction做只读RPC模拟，sigVerify=
 测试模拟RPC使用固定原SBF的LiteSVM simulate_transaction并确认银行未提交变化，实际下载字节另行本地签名执行核对699→1000、租金2039280/总费用2044280、完整后状态和失败原子回滚。前端prepareSeq与quoteSeq分开，账户/创建/模拟选项改变立即撤销旧下载资格。复验入口：make -C integration account-preparation-current-check。生产签名广播、SOL包装、其他协议构建及来源资格继续保留。
 
 阶段58最终同源码有限验收：17检查、8次Rust测试、17项真实Chrome业务联调通过，源码`e8ef710a9a2594b02be813d211cd929aed23bcbf2202fbd79cbdb7db8920c517`。实际创建+swap下载wire原SBF699→1000、租金/总费用/Token守恒/完整后状态和失败回滚通过；模拟仍是RPC_SIMULATED，未开放生产VERIFIED、签名或广播。
+
+
+### WSOL输入原生资金准备（阶段59，2026-11-12）
+
+prepare新增wrapSourceSol，只对Meteora输入WSOL/经典SPL的单池模板生效，QuoteRequest/数学仍使用WSOL。输入ATA不存在时只能创建caller规范ATA，按实际余额与输入预算差额加入System Transfer(2)和SyncNative(17)，与swap编译进同一消息。已有足额WSOL不额外包装；包装金额、创建租金和交易费合计校验payer余额，expectedResidualWsol显式报告预计剩余，sourceWsolRetained标识不关闭输入账户。
+
+模拟源扣款以原余额加包装量为起点计算；新输入ATA的租金和WSOL backing参与原程序参考核对。原反向订单银行目标1000，需要1464 WSOL最小单位；请求输入预算2000、50bps滑点时，实际计划上限1472，包入1472、预计残余8仍为WSOL，不声称SOL退款。参考工具对完整下载wire原程序执行，并用上限1463控制验证创建/转账/sync及swap失败时一起回滚。
+
+统一复验入口：make -C integration native-funding-current-check；原始执行银行生成工具：integration/tools/ci/meteora-wsol-bank.py。仍不签名或广播公网、不自动unwrap，生产VERIFIED资格与其他协议构建保持原边界。
+
+阶段59最终同源码有限验收：20项检查、9次Rust测试、20项真实Chrome联调通过，源码`c632df0a687a1a3c7f603ac4ac0ffbddeefdf943d49f356cf9bff17f49d8fc71`。浏览器下载wire由固定原SBF验证：包装1472、消费1464、到账1000、保留WSOL8，租金2039280/总SOL支出2045752；控制交易全部包装步骤原子回滚。未新增公网发送、unwrap或生产VERIFIED资格。
+
+阶段59证据保存修正后最终复验：源码`a767377942c5eed4079d545a85ce97e6f0f7b81b7c4e69989d2ca96166562bae`，20检查/9次Rust/20项Chrome联调全部通过，wrap/ATA/已有账户三类原执行输出均位于独立运行目录，不覆盖历史原始文件。

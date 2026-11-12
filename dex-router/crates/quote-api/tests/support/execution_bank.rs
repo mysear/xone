@@ -27,6 +27,37 @@ impl Bank {
             calls: Default::default(),
         }
     }
+    pub fn wsol(balance: Option<u64>) -> Self {
+        let mut data: Value = serde_json::from_slice(
+            &std::fs::read(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../test/contracts/meteora-wsol-bank.json"
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        if let Some(balance) = balance {
+            let original = data["originalSourceTokenAccount"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            let key = data["sourceTokenAccount"].as_str().unwrap().to_string();
+            let mut account = data["accounts"][&original].clone();
+            let mut raw = STANDARD
+                .decode(account["data"][0].as_str().unwrap())
+                .unwrap();
+            let rent = u64::from_le_bytes(raw[113..121].try_into().unwrap());
+            raw[64..72].copy_from_slice(&balance.to_le_bytes());
+            account["data"][0] = STANDARD.encode(raw).into();
+            account["lamports"] = json!(rent + balance);
+            data["accounts"][key] = account;
+        }
+        Self {
+            data: Arc::new(data),
+            mode: Arc::new(Mutex::new("ready".into())),
+            calls: Default::default(),
+        }
+    }
     pub async fn serve(&self) -> (String, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -93,7 +124,8 @@ impl Bank {
     }
     pub fn request(&self) -> Value {
         let p = &self.data["pool"];
-        json!({"chainKey":p["chain_key"],"kind":"EXACT_OUT","sellToken":p["token0"],"buyToken":p["token1"],"buyAmount":self.data["target"],"maxSellAmount":"1000000000000000","caller":self.data["caller"],"recipient":self.data["recipient"],"slippageBps":50,"verification":"FAST"})
+        let reverse = self.data.get("originalSourceTokenAccount").is_some();
+        json!({"chainKey":p["chain_key"],"kind":"EXACT_OUT","sellToken":p[if reverse {"token1"}else{"token0"}],"buyToken":p[if reverse {"token0"}else{"token1"}],"buyAmount":self.data["target"],"maxSellAmount":"1000000000000000","caller":self.data["caller"],"recipient":self.data["recipient"],"slippageBps":50,"verification":"FAST"})
     }
     pub fn preparation(&self) -> Value {
         json!({"sourceTokenAccount":self.data["sourceTokenAccount"],"destinationTokenAccount":self.data["destinationTokenAccount"]})
@@ -182,6 +214,9 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                         }
                         if mode == "changed_program" && id == &d["pool"]["meteora"]["programdata"] {
                             raw[45] ^= 1;
+                        }
+                        if mode == "wrap_balance" && id == &d["caller"] {
+                            a["lamports"] = json!(2045000);
                         }
                         if mode == "rent_balance" && id == &d["caller"] {
                             a["lamports"] = json!(6000);

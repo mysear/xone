@@ -21,6 +21,8 @@ pub(super) struct Request {
     create_destination_ata: bool,
     #[serde(default)]
     simulate: bool,
+    #[serde(default)]
+    wrap_source_sol: bool,
 }
 #[derive(Clone)]
 struct Selection {
@@ -369,6 +371,11 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     } else {
         (&p.token1, &p.token0, TOKEN, tx)
     };
+    if request.wrap_source_sol
+        && (input.as_str() != xone_domain::pump_amm::WSOL || input_program != TOKEN)
+    {
+        return Err(err("PREPARATION_WRAP_REQUIRES_WSOL"));
+    }
     let src = request
         .source_token_account
         .unwrap_or(ata(&s.context.caller, input, input_program)?);
@@ -399,7 +406,7 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         MEMO.into(),
         "SysvarC1ock11111111111111111111111111111111".into(),
     ];
-    if request.create_destination_ata {
+    if request.create_destination_ata || request.wrap_source_sol {
         ids.extend([ASSOCIATED.into(), SYSTEM.into()]);
     }
     ids.extend(m.bin_arrays.iter().map(|a| a.address.clone()));
@@ -522,12 +529,26 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     let mut blockers = Vec::new();
     let required = if s.exact { s.limit } else { s.amount };
     let source = bank.get(&src).and_then(Option::as_ref);
-    if let Some(a) = source {
-        if token(a, input, &s.context.caller, input_program)? < required {
+    let source_balance = if let Some(a) = source {
+        token(a, input, &s.context.caller, input_program)?
+    } else {
+        0
+    };
+    let create_source = source.is_none() && request.wrap_source_sol;
+    if create_source && src != ata(&s.context.caller, input, input_program)? {
+        return Err(err("PREPARATION_CREATE_REQUIRES_ATA"));
+    }
+    let wrap = if request.wrap_source_sol {
+        required.saturating_sub(source_balance)
+    } else {
+        0
+    };
+    if !request.wrap_source_sol {
+        if source.is_none() {
+            blockers.push("SOURCE_ACCOUNT_MISSING");
+        } else if source_balance < required {
             blockers.push("INSUFFICIENT_TOKEN_BALANCE");
         }
-    } else {
-        blockers.push("SOURCE_ACCOUNT_MISSING");
     }
     let destination = bank.get(&dst).and_then(Option::as_ref);
     let existing_output = if let Some(a) = destination {
@@ -536,20 +557,23 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         0
     };
     let create_destination = destination.is_none() && request.create_destination_ata;
-    let mut rent = 0u64;
-    if create_destination {
-        if dst != ata(&s.context.recipient, output, output_program)? {
-            return Err(err("PREPARATION_CREATE_REQUIRES_ATA"));
-        }
-        if output_program != TOKEN {
-            return Err(err("PREPARATION_CREATE_TOKEN2022_UNSUPPORTED"));
-        }
-        code(&bank, ASSOCIATED, ASSOCIATED_CODE, slot, None)?;
+    if create_destination && dst != ata(&s.context.recipient, output, output_program)? {
+        return Err(err("PREPARATION_CREATE_REQUIRES_ATA"));
+    }
+    if create_destination && output_program != TOKEN {
+        return Err(err("PREPARATION_CREATE_TOKEN2022_UNSUPPORTED"));
+    }
+    let creations = u64::from(create_source) + u64::from(create_destination);
+    let mut rent_per_account = 0u64;
+    if creations > 0 || wrap > 0 {
         let system = get(&bank, SYSTEM)?;
         if !system.executable || system.owner != "NativeLoader1111111111111111111111111111111" {
             return Err(bad());
         }
-        rent = rpc
+    }
+    if creations > 0 {
+        code(&bank, ASSOCIATED, ASSOCIATED_CODE, slot, None)?;
+        rent_per_account = rpc
             .call(
                 "getMinimumBalanceForRentExemption",
                 json!([165,{"commitment":"finalized"}]),
@@ -558,14 +582,16 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
             .as_u64()
             .filter(|n| *n > 0)
             .ok_or_else(bad)?;
-    } else if destination.is_none() {
+    }
+    let rent = rent_per_account.checked_mul(creations).ok_or_else(bad)?;
+    if destination.is_none() && !create_destination {
         blockers.push("DESTINATION_ACCOUNT_MISSING");
     }
     let payer = get(&bank, &s.context.caller)?;
     if payer.owner != SYSTEM || payer.executable || !payer.data.is_empty() {
         return Err(bad());
     }
-    let mut result = json!({"quoteId":s.view.view_id,"planHash":s.plan_hash,"quoteViewId":s.view.view_id,"snapshotRef":s.view.reference,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":src,"destinationTokenAccount":dst,"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":create_destination,"rentLamports":rent.to_string(),"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
+    let mut result = json!({"quoteId":s.view.view_id,"planHash":s.plan_hash,"quoteViewId":s.view.view_id,"snapshotRef":s.view.reference,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":src,"destinationTokenAccount":dst,"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":create_destination,"sourceAccountCreation":create_source,"wrapLamports":wrap.to_string(),"sourceWsolRetained":request.wrap_source_sol,"expectedResidualWsol":source_balance.checked_add(wrap).and_then(|n|n.checked_sub(s.expected_input)).unwrap_or(0).to_string(),"rentLamports":rent.to_string(),"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
     if !blockers.is_empty() {
         return Ok(result);
     }
@@ -642,27 +668,35 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         data_base64: STANDARD.encode(data),
     };
     let mut instructions = Vec::new();
-    if create_destination {
-        let accounts = [
-            (s.context.caller.clone(), true, true),
-            (dst.clone(), false, true),
-            (s.context.recipient.clone(), false, false),
-            (output.clone(), false, false),
-            (SYSTEM.into(), false, false),
-            (TOKEN.into(), false, false),
-        ]
-        .into_iter()
-        .map(|(pubkey, is_signer, is_writable)| Meta {
-            pubkey,
-            is_signer,
-            is_writable,
-        })
-        .collect();
+    if create_source {
+        instructions.push(create_ata(
+            &s.context.caller,
+            &src,
+            &s.context.caller,
+            input,
+        ));
+    }
+    if wrap > 0 {
+        let mut data = 2u32.to_le_bytes().to_vec();
+        data.extend(wrap.to_le_bytes());
         instructions.push(Instruction {
-            program_id: ASSOCIATED.into(),
-            accounts,
-            data_base64: STANDARD.encode([1u8]),
+            program_id: SYSTEM.into(),
+            accounts: vec![meta(&s.context.caller, true, true), meta(&src, false, true)],
+            data_base64: STANDARD.encode(data),
         });
+        instructions.push(Instruction {
+            program_id: TOKEN.into(),
+            accounts: vec![meta(&src, false, true)],
+            data_base64: STANDARD.encode([17u8]),
+        });
+    }
+    if create_destination {
+        instructions.push(create_ata(
+            &s.context.caller,
+            &dst,
+            &s.context.recipient,
+            output,
+        ));
     }
     instructions.push(ix);
     let msg = compile_message_many(&s.context.caller, blockhash, &instructions)?;
@@ -678,12 +712,17 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     let cost = fee["value"]
         .as_u64()
         .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
-    let funding = cost.checked_add(rent).ok_or_else(bad)?;
+    let funding = cost
+        .checked_add(rent)
+        .and_then(|n| n.checked_add(wrap))
+        .ok_or_else(bad)?;
     if payer.lamports < funding {
         result["blockers"] = json!([if payer.lamports < cost {
             "INSUFFICIENT_FEE_BALANCE"
-        } else {
+        } else if payer.lamports < cost.checked_add(rent).ok_or_else(bad)? {
             "INSUFFICIENT_RENT_BALANCE"
+        } else {
+            "INSUFFICIENT_WRAP_BALANCE"
         }]);
         return Ok(result);
     }
@@ -708,12 +747,7 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
             .as_array()
             .filter(|v| v.len() == 2)
             .ok_or_else(bad)?;
-        let before_input = token(
-            source.ok_or_else(bad)?,
-            input,
-            &s.context.caller,
-            input_program,
-        )?;
+        let before_input = source_balance.checked_add(wrap).ok_or_else(bad)?;
         let after_input = token(
             &account(&accounts[0])?.ok_or_else(bad)?,
             input,
@@ -738,4 +772,26 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     result["requiredSigners"] = json!([s.context.caller]);
     result["preparationHash"] = hash(&result)?.into();
     Ok(result)
+}
+
+fn meta(pubkey: &str, is_signer: bool, is_writable: bool) -> Meta {
+    Meta {
+        pubkey: pubkey.into(),
+        is_signer,
+        is_writable,
+    }
+}
+fn create_ata(payer: &str, account: &str, owner: &str, mint: &str) -> Instruction {
+    Instruction {
+        program_id: ASSOCIATED.into(),
+        accounts: vec![
+            meta(payer, true, true),
+            meta(account, false, true),
+            meta(owner, false, false),
+            meta(mint, false, false),
+            meta(SYSTEM, false, false),
+            meta(TOKEN, false, false),
+        ],
+        data_base64: STANDARD.encode([1u8]),
+    }
 }

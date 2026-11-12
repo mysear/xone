@@ -24,6 +24,20 @@ async fn main() {
     let args = std::env::args().collect::<Vec<_>>();
     assert_eq!(args.len(), 3, "frontend-harness INFO_FILE FRONTEND_ORIGIN");
     let bank = Bank::new();
+    let wsol = Bank::wsol(None);
+    let (wsol_rpc, wsol_rpc_task) = wsol.serve().await;
+    let (mut wsol_api, _) = wsol.api(&wsol_rpc);
+    Arc::make_mut(&mut wsol_api.config)
+        .config
+        .api
+        .cors_allowed_origins = vec![args[2].clone()];
+    let wsol_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let wsol_addr = wsol_listener.local_addr().unwrap();
+    let wsol_task = tokio::spawn(async move {
+        axum::serve(wsol_listener, wsol_api.handler())
+            .await
+            .unwrap();
+    });
     let (rpc, rpc_task) = bank.serve().await;
     let (mut api, snapshot) = bank.api(&rpc);
     Arc::make_mut(&mut api.config)
@@ -43,9 +57,11 @@ async fn main() {
         .merge(admin)
         .layer(middleware::from_fn_with_state(control, delay));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
+    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"wsolApi":format!("http://{wsol_addr}"),"wsolBank":&*wsol.data,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
     axum::serve(listener, routes).await.unwrap();
     rpc_task.abort();
+    wsol_rpc_task.abort();
+    wsol_task.abort();
 }
 async fn delay(State(c): State<Control>, req: axum::extract::Request, next: Next) -> Response {
     let mode = c.bank.mode.lock().unwrap().clone();

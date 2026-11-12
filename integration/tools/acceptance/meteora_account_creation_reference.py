@@ -38,7 +38,7 @@ def verify(path):
         ids=set(b['accounts'])|{dest}
         def capture():
             out={}
-            for id in ids:
+            for id in sorted(ids):
                 a=svm.get_account(P.from_string(id));out[id]=None if a is None else dict(owner=str(a.owner),lamports=a.lamports,executable=a.executable,data_base64=base64.b64encode(a.data).decode())
             return out
         before=capture();n=json.loads(svm.send_transaction(wire).to_json());return dict(passed='err'not in n,before=before,after=capture(),native=n)
@@ -63,4 +63,4 @@ def verify(path):
         if id!=b['caller']:require(a==control['after'][id],'ata-control-rollback')
     return dict(passed=True,input='699',output='1000',rentLamports=p['rentLamports'],totalFundingLamports=p['totalFundingLamports'],original=n,control=control,simulation=sim,publicTransactionsSubmitted=False,productionReady=False)
 if __name__=='__main__':
-    r=verify(sys.argv[1]if len(sys.argv)>1 else ROOT/'integration/artifacts/local/phase58-ata-preparation.json');(ROOT/'integration/artifacts/local/phase58-ata-original.json').write_text(json.dumps(r,separators=(',',':'))+'\n');print(json.dumps({k:r[k]for k in ['passed','input','output','rentLamports','totalFundingLamports','publicTransactionsSubmitted']}))
+    r=verify(sys.argv[1]if len(sys.argv)>1 else ROOT/'integration/artifacts/local/phase58-ata-preparation.json');(Path(sys.argv[2])if len(sys.argv)>2 else ROOT/'integration/artifacts/local/phase58-ata-original.json').write_text(json.dumps(r,separators=(',',':'))+'\n');print(json.dumps({k:r[k]for k in ['passed','input','output','rentLamports','totalFundingLamports','publicTransactionsSubmitted']}))

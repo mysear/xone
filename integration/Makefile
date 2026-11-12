@@ -875,3 +875,9 @@ quote-execution-current-check:
 .PHONY: account-preparation-current-check
 account-preparation-current-check:
 	python3 tools/acceptance/validate_account_preparation.py
+
+.PHONY: native-funding-current-check native-funding-reference-refresh
+native-funding-reference-refresh:
+	python3 tools/ci/meteora-wsol-bank.py
+native-funding-current-check:
+	python3 tools/acceptance/validate_native_funding.py

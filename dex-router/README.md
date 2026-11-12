@@ -54,3 +54,5 @@ VERIFIED返回INDEPENDENT_SIMULATION_UNAVAILABLE（422）；POST /v1/quotes/{id}
 前端目录位于根目录`frontend/`。`api.cors_allowed_origins`允许明确的HTTP(S) origin；缺省只允许本机5173端口。完整限制和测试方式见`../frontend/README.md`。
 
 `/prepare`现在接受`createDestinationAta`和`simulate`可选布尔字段。前者只为缺失的规范经典SPL收款ATA加入幂等创建指令，后者执行只读RPC模拟并核对实际收付；租金和网络费分开计入payer资金要求。模拟成功为`RPC_SIMULATED`，不扩大VERIFIED或公开build准入；仍不签名或广播。
+
+`/prepare`新增可选`wrapSourceSol`，仅对Meteora输入WSOL模板生效：按最大输入与现有WSOL余额差额准备System transfer/SyncNative，必要时创建规范输入ATA。租金/fee/包装金额分别报告并校验总SOL支出；余额仍保留为WSOL，不隐式关闭或退款。QuoteRequest仍使用WSOL，不向报价图中加入隐式SOL边。

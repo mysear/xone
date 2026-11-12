@@ -420,6 +420,7 @@
 |12.11.dlmm-orders-exact-out|WP03,WP05,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|独立订单ExactOut：固定原SBF的bin级反解、全bin耗尽分支、MM/processed/open结算及完整后状态；192原始银行/193成功步骤/31拒绝/161输入减一控制|同源码限定验收已通过；订单管理、奖励领取及高级策略交叉仍缺|[本批验证](integration/artifacts/local/core-meteora-orders-exact-out-validation-20261111.json)|
 |12.12.quote-execution|WP03,WP05,WP09,WP11,WP12,WP13,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|PumpSwap卖出指定WSOL目标的独立最小输入与三ceil费；Meteora只读账户核对/unsigned transaction；实际Chrome请求生产handler、下载字节和原SBF复核已通过|只覆盖明确模板；自动ATA创建/wrap、多协议构建、生产独立模拟、签名广播/结算等仍待开发|[本批验证](integration/artifacts/local/core-quote-execution-validation-20261112.json)|
 |14.ata-simulation|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|收款ATA创建与swap同一消息、payer租金/fee合计检查、只读RPC模拟实际收付/报价一致性；浏览器参数变化拒绝旧准备结果|仅经典SPL规范收款ATA；缺失源/Token2022收款创建、SOL包装、生产独立来源、钱包签名/广播结算仍待开发|[本批验证](integration/artifacts/local/core-account-preparation-validation-20261112.json)|
+|14.native-funding|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|显式输入WSOL原生SOL补资、缺失规范ATA创建、现有账户仅补差额、租金/包装/fee合计检查和只读模拟|报价仍使用WSOL；不自动关闭或unwrap、不签名广播；其他协议/Token扩展及来源资格仍缺|[本批验证](integration/artifacts/local/core-native-funding-validation-20261112.json)|
 
 <a id="batch-history"></a>
 
@@ -484,6 +485,7 @@
 |56|[协议报价能力与执行能力边界联调](#plan-2026-11-12-protocol-capabilities)|PARTIAL_LOCAL|quote-options复用协议数学内核公开每个Pool的quoteModes和execution能力；前端展示ExactIn/ExactOut及unsignedPlan/simulation边界；locked check、元数据测试、静态前端检查通过；动态账户预检查、unsigned交易计划、独立模拟仍按后续顺序开发；全链/全DEX范围未完成；[本批记录](integration/artifacts/local/phase56-protocol-capabilities.json)|
 |57|[PumpSwap卖出目标、执行账户准备与真实浏览器联调](#plan-2026-11-12-quote-execution)|LOCAL_SCOPE_VERIFIED|24检查/24次Rust执行/13项真实Chrome联调通过；PumpSwap48目标/42成功/14额外到账/42输入减一；Meteora账户核对/unsigned wire实际下载及原SBF699输入1000到账；[本批记录](integration/artifacts/local/core-quote-execution-validation-20261112.json)|
 |58|[收款ATA创建、只读模拟与前端闭环](#plan-2026-11-12-ata-simulation)|LOCAL_SCOPE_VERIFIED|17检查/8次Rust测试/17项真实Chrome联调通过；标准收款ATA创建/租金/fee、只读原SBF模拟、真实下载多指令交易与原程序执行/失败回滚；[本批记录](integration/artifacts/local/core-account-preparation-validation-20261112.json)|
+|59|[输入WSOL补资与原子包装兑换联调](#plan-2026-11-12-native-funding)|LOCAL_SCOPE_VERIFIED|20检查/9次Rust测试/20项真实Chrome联调通过；输入WSOL ATA创建/差额包装/租金fee总额/保留WSOL和完整原程序回滚；[本批记录](integration/artifacts/local/core-native-funding-validation-20261112.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -1843,3 +1845,27 @@ PumpSwap卖出目标按至少实际到账处理：三ceil fee导致净输出不�
 模拟测试RPC实际调用LiteSVM的simulate_transaction执行固定原程序，核对源银行不变；不是预设成功回包。原始执行参考另对下载交易以确定性测试密钥本地签名执行，核对真实payer租金/费用扣款、创建WSOL账户backing、实际Token收付与后状态。原blockhash仅在隔离参考中显式跳过过期检查，不据此声称公网历史来源或生产模拟资格。程序/账户版本、当前QuoteView和报价过期检查仍贯穿准备开始与返回。
 
 本批普通模拟结果为RPC_SIMULATED，independentProductionVerification=false、signed=false、submitted=false；公开VERIFIED/build准入不因勾选模拟而改变。阶段58最终同源码有限验收（2026-11-12）：源码指纹`e8ef710a9a2594b02be813d211cd929aed23bcbf2202fbd79cbdb7db8920c517`，17项检查、8次Rust测试执行、17项真实Chrome业务联调全部通过。304份合同/工具副本、公共协议、严格Clippy、既有单指令准备与DLMM扩展报价回归通过。浏览器实际检查/创建/模拟/下载，租金不足、模拟金额不符、冻结账户、准备参数变化晚返回拒绝、新QuoteView/撤权恢复、ExactIn/ExactOut及移动布局通过；下载字节在本地原SBF执行并逐项核对。原始失败日志保留。所有harness/静态服务器已结束，未向公网提交交易。最终凭证绑定源码、运行时/工具、检查日志及浏览器下载/截图摘要。仍缺SOL/WSOL包装模板、源账户资金准备、Token2022收款创建、多协议unsigned构建、生产独立模拟/来源、签名广播确认/回执与其他链/DEX解析组合。`all_requested_features_complete=false`、`production_ready=false`，原26工作包完整设计验收仍0。
+
+
+<a id="plan-2026-11-12-native-funding"></a>
+
+## 输入WSOL补资与原子包装兑换联调（2026-11-12，阶段59）
+
+按阶段58下一步顺序，对照设计§12.9/12.14/14/15/28.16扩展执行准备。SOL原生余额与WSOL仍为不同报价节点；本批只在明确以WSOL卖出的单池报价后，通过prepare加入包装资金指令，不在数学图里补造隐式边。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F59.1|显式输入WSOL资金准备|WP14,WP16,WP25|PARTIAL_LOCAL|wrapSourceSol可选标记要求输入mint为WSOL且Token program为经典SPL；校验现有owner/mint/native backing，按执行计划requiredInput（ExactOut为slippage后的计划上限）与现有余额差额补资，非WSOL拒绝。|
+|F59.2|缺失输入ATA与原子包装指令|WP14,WP15,WP25|PARTIAL_LOCAL|仅为caller规范WSOL ATA创建；按create/input transfer/SyncNative/可选收款ATA/swap顺序编译单笔unsigned message；输入已有时不创建，不会重复包装全部金额。|
+|F59.3|完整SOL资金及模拟收付|WP05,WP09,WP15,WP25|PARTIAL_LOCAL|payer余额需覆盖包装金额+所有新建账户租金+网络费；模拟以包装后资金为起点核对实际swap输入/输出；ExactOut未用部分保留WSOL并显式展示expectedResidualWsol/sourceWsolRetained。|
+|F59.4|原程序反向银行与失败回滚|WP03,WP14,WP15,WP25|PARTIAL_LOCAL|固定原DLMM订单反向1000目标银行，规范输入ATA初始缺失；原程序参考核对包装1472、swap消耗1464、到账1000、剩余8及SOL费用，完整后状态和输入上限减一失败回滚验证通过。|
+|F59.5|前端联调与历史回归|WP09,WP16,WP25|PARTIAL_LOCAL|前端增加显式WSOL补资选项并按实际执行能力启用，显示包装/剩余余额/租金/fee，选项变化撤销旧下载；真实Chrome下载+原程序执行、现有ATA创建/报价同源回归通过。|
+
+输入WSOL账户不自动关闭，也不把ExactOut剩余资金当作SOL退款。初轮测试纠正了把请求总预算当作实际补资上限的假设：预算2000/目标1000/50bps滑点对应计划最大输入1472，实际消耗1464，残余8；未用预算536由未包装的528和残余WSOL8组成，不能把536全部描述为已包装余额。失败日志保留。仅补差额，已有足额WSOL时不增加转账/SyncNative。缺失source只能是规范ATA，非WSOL调用拒绝；现有账户必须owner匹配，不为其他用户或任意mint补资。wrapSourceSol未选中时保持阶段58缺失/不足输入账户的明确阻塞行为。缺失收款ATA选项可与输入WSOL创建组合，总租金按实际创建个数累加；消息仍受账户权限/签名/1232byte约束。
+
+阶段59首轮同源码有限验收（2026-11-12，证据保存方式更正前）：源码指纹`c632df0a687a1a3c7f603ac4ac0ffbddeefdf943d49f356cf9bff17f49d8fc71`，20项检查、9次Rust测试执行、20项真实Chrome联调全部通过。304份合同/工具副本和11份fixture副本、公共协议、严格Clippy、既有单/多指令准备和DLMM报价回归、原SBF模拟与真实下载wire执行、普通/-OO各4项wrap篡改控制及各3项收款ATA控制、前端unit/syntax和进度文档双模式检查均通过。原始反向SBF银行、缺失输入ATA/余额100/余额3000、ExactIn/ExactOut、输入/收款ATA同时创建及不合理输入反例都覆盖；浏览器明确选择补资后才允许准备，切换选项撤销旧下载，原程序再次核对wrap1472/实际输入1464/输出1000/余额8、租金2039280/总支出2045752、完整账本与失败回滚。所有harness/静态服务器已退出，最终凭证固定源码/工具/日志及浏览器截图/下载文件摘要；normal Parser→PG/Kafka和生产来源资格不在本批新增验收声明内。所有测试只在受控银行/测试harness和固定原SBF本地运行，不广播公网。仍缺unwrap/账户关闭模板、Token2022创建、其他协议unsigned构建、钱包签名/广播/确认结算、独立生产来源/模拟及其余链/DEX解析组合；`all_requested_features_complete=false`、`production_ready=false`，原26工作包完整设计验收仍0。
+
+
+阶段59证据保存更正：最终复核发现旧收款ATA参考工具沿用`phase58-ata-original.json`，本次复验重写后原始字节摘要发生变化，导致阶段58报告中的原始执行文件摘要不再匹配；旧文件字节未单独冻结，无法再核验其差异仅来自键序；实际下载交易字节仍与阶段58完全相同，业务重执行结果通过；这不能代替对旧原始报告字节的核验。旧验收原文件已另存并将活动记录标记`HISTORICAL_ARTIFACT_REPLACED`，不再用它作当前源码证据。阶段59改为每次独立目录保存wrap/ATA/已有账户三类原执行记录并固定摘要，原生参考捕获键序也固定排序；修正后重新统一复验。阶段58“已通过”属于当时的历史结论，不代表旧原始报告文件仍完整可取。
+
+阶段59证据保存修正后最终同源码有限验收（2026-11-12）：源码`a767377942c5eed4079d545a85ce97e6f0f7b81b7c4e69989d2ca96166562bae`，20项检查、9次Rust测试执行、20项真实Chrome业务联调全部通过。每次独立目录固定三类原执行、真实下载wire、浏览器截图和日志摘要；新运行不再写入阶段58原始报告。最终输入WSOL补资/原子swap收付与全部反例仍通过，未广播公网，测试服务已结束。

@@ -1429,3 +1429,10 @@ BINDINGS['14.ata-simulation']={
  'tests':['destination_ata_creation_rent_and_original_rpc_simulation_are_bound_to_quote','legacy_multi_instruction_merges_signer_permissions_and_preserves_order','wire_rejects_empty_multiple_signer_program_permission_escalation_and_oversize','test_rehashed_destination_cannot_override_canonical_ata','test_rehashed_instruction_cannot_override_actual_wire','test_rehashed_rent_cannot_override_actual_payer_debit'],
  'evidence_refs':['integration/artifacts/local/core-account-preparation-validation-20261112.json'],
 }
+
+
+BINDINGS['14.native-funding']={
+ 'paths':['dex-router/crates/quote-api/src/preparation.rs','dex-router/crates/quote-api/src/lib.rs','dex-router/crates/quote-api/tests/execution_preparation.rs','dex-router/crates/quote-api/tests/support/execution_bank.rs','dex-router/crates/quote-api/examples/frontend_harness.rs','frontend/src/app.js','frontend/index.html','frontend/test/browser.mjs','integration/tools/ci/meteora-wsol-bank.py','integration/tools/acceptance/meteora_wsol_reference.py','integration/tools/acceptance/validate_native_funding.py'],
+ 'tests':['native_source_wrap_creates_only_missing_wsol_and_funds_only_shortfall','test_rehashed_wrap_amount_cannot_override_transfer','test_rehashed_fee_cannot_override_real_payer_debit','test_rehashed_source_cannot_override_canonical_wsol_ata','test_rehashed_sync_instruction_cannot_override_wire'],
+ 'evidence_refs':['integration/artifacts/local/core-native-funding-validation-20261112.json'],
+}
