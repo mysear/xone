@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 	"xone/chain-parser-go/internal/domain"
@@ -82,12 +83,13 @@ type State struct {
 	Path   string `json:"path"`
 }
 type API struct {
-	Listen           string `json:"listen"`
-	AuthToken        string `json:"auth_token,omitempty"`
-	MaxBody          int    `json:"max_body_bytes"`
-	RPM              uint64 `json:"requests_per_minute"`
-	QuoteTimeoutMS   uint64 `json:"quote_timeout_ms"`
-	QuoteConcurrency int    `json:"quote_concurrency"`
+	Listen             string   `json:"listen"`
+	AuthToken          string   `json:"auth_token,omitempty"`
+	CORSAllowedOrigins []string `json:"cors_allowed_origins,omitempty"`
+	MaxBody            int      `json:"max_body_bytes"`
+	RPM                uint64   `json:"requests_per_minute"`
+	QuoteTimeoutMS     uint64   `json:"quote_timeout_ms"`
+	QuoteConcurrency   int      `json:"quote_concurrency"`
 }
 type Routing struct {
 	MaxHops        int           `json:"max_hops"`
@@ -476,6 +478,18 @@ func (c Config) Validate(expected string) error {
 	}
 	if (c.Journal.Transport != "http-development" && c.Journal.Transport != "kafka") || c.Journal.PollMS == 0 || c.Journal.TimeoutMS == 0 || c.Journal.MaxBytes < 1024 || c.Journal.MaxBytes > 67108864 {
 		return invalid()
+	}
+	if len(c.API.CORSAllowedOrigins) > 32 {
+		return invalid()
+	}
+	for _, origin := range c.API.CORSAllowedOrigins {
+		rest := strings.TrimPrefix(origin, "http://")
+		if rest == origin {
+			rest = strings.TrimPrefix(origin, "https://")
+		}
+		if rest == origin || rest == "" || len(origin) > 512 || (strings.ContainsAny(rest, "/?#@*") || strings.ContainsFunc(rest, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) })) {
+			return invalid()
+		}
 	}
 	if c.API.Listen == "" || c.API.AuthToken != "" && len(c.API.AuthToken) < 24 || c.API.MaxBody < 1024 || c.API.MaxBody > 8388608 || c.API.RPM == 0 || len(c.Chains) == 0 {
 		return invalid()

@@ -1490,3 +1490,97 @@ EOA付款扣款、recipient实际收款和全部声明后状态；受控参考�
 预付款交易，不代表已经有原Router或公开原子输入限额执行器。公开build/模拟和链费用
 模型保持其各自能力边界。来源投影区分原Oracle索引记录顺序、模拟携带顺序及Go解码器
 当前/下一Oracle的canonical顺序，原始storage值按样本ID核对。具体通过状态仅维护于进度文档。
+
+
+### Meteora MM-only DLMM 的注明实现范围
+
+`meteora-dlmm-mm`使用独立版本`meteora-dlmm/1532e540-mm-1`、固定53e587ee classic Token代码和公共protobuf PoolState字段35。Rust解析器要求同一finalized bank的pair、oracle、明确的bin数组、两mint/vault、Clock、DLMM及classic SPL程序/ProgramData；程序原始代码摘要必须匹配固定参考，所有PDA、Token余额与WSOL backing逐项检查。账户未知版本、奖励、限价订单、host-fee账户、OnlyY费用、Token2022和默认bitmap外的数组不会进入报价。
+
+模型保留pair/arrays/Oracle完整原始字节。ExactIn按原程序整数规则逐bin消费：动态费用、LP增长（流动性先取Q64整数部分）、协议费、active、仅跨active时的last_update_timestamp及Oracle均参与后状态；Oracle达到120秒即滚动，有限初始化记录必须与头部计数相符。非空bin必须具有正确缓存价格；输入未完全成交或数组覆盖/步数不够时拒绝。普通候选与拆单使用相同物理状态顺序重算，跨池可变账户冲突及池内资金账户别名拒绝；Solana地址始终区分大小写。
+
+API继续返回INDICATIVE和限定候选范围，链费用缺失时netBuyAmountEstimate保持null。缓存计划随源范围撤销失效。本段描述ExactIn；ExactOut 的独立接口见下文。公开交易构建与独立生产模拟尚未开放；固定原SBF受控回放不建立可信主网银行资格。恢复输入、生成数据和同源码验证入口分别为integration的meteora-mm-reference-refresh、meteora-mm-differential-test及meteora-mm-current-check。
+
+
+### Meteora MM-only ExactOut
+
+同一 `meteora-dlmm/1532e540-mm-1` 解析状态支持 `/v1/quote-exact-out` 的受限 Solana 单池计划。沿用字段35，不需要新增链采集。输入、目标和用户硬上限为u64，Solana公钥区分大小写。输出驱动的整数计算按目标逐bin确定输入和动态费；收款人获得恰好目标，bin可能因整数舍入扣除更多，差额保留为vault未分配余量。计算器保留真实bin、费用、vault和Oracle后状态；`grossBuyAmount`等于`buyAmount`，`outputSurplus`为0。计划中的既有`factory`字段对Solana承载固定DLMM Program ID；EVM承诺保持原字段和语义。
+
+共享状态分配按顺序重新计算各路输入并受用户上限约束。`unusedInputBudget`是未使用的预算，`refund`为0。报价仍为INDICATIVE；生产模拟、公开交易构建、净链费用和其他DLMM策略没有在此批开放。参考、差分和统一验收入口分别为 `meteora-exact-out-reference-refresh`、`meteora-exact-out-differential-test` 和 `meteora-exact-out-current-check`。
+
+
+### DLMM OnlyY 与 Pump classic/SOL
+
+`meteora-dlmm-mm-only-y` / `meteora-dlmm/1532e540-mm-only-y-1` 复用字段35但具有独立版本与策略准入。卖X的费用计入输出Y、卖Y的费用计入输入Y；原程序OnlyY ExactOut的输出舍入差额计入协议Y费用，InputOnly版本保持原行为。奖励、订单、host、Token2022和默认bitmap外的组合仍拒绝。
+
+`pump-bonding-sol-classic` / `pump-bonding/7a19affaa2c6-sol-1` 使用公共字段36，解析固定Pump/Fee/Token程序、同finalized上下文的10个状态账户及Clock/程序数据闭包。当前要求native SOL报价、classic mint、非mayhem/cashback/holder策略、预存volume账户并关闭跟踪；买卖费用和buyback拆分进入完整原始余额后状态。仅sell和buy_exact_sol_in的ExactIn模板开放，caller/recipient必须是已声明同一用户，路由单池。费用network payer与交易用户分离用于原程序差分；API仍INDICATIVE且净费用估计不可用。
+
+完成曲线不产生报价边。complete与零Token储备及虚拟/真实偏移矛盾的源状态拒绝。原生资产节点是`native:solana:sol`，不会冒充WSOL；没有显式wrap模板和实际账户/费用验证时，跨该边界的组合不报价。两个Pump池共享资金账户时，规范源行仍保留但双方候选标记PUMP_SHARED_FUND_ACCOUNT_NOT_MODELED；共享账户观测矛盾则拒绝源状态，避免逐池复制费用余额导致错误拆单后状态。
+
+七个首批EVM chain-key的图/数学复用测试是受控兼容性检查，不验证对应主网部署，也不覆盖Sui/Aptos/TRON等第二批链原生接口。新增原程序参考及验证入口见integration的`meteora-only-y-reference.py`、`pump-bonding-reference.py`、`pump-bonding-decoder.py`、`family_reference.py`和`validate_family_expansion.py`。
+
+统一有限验收入口为 `make -C integration family-expansion-current-check`：依次执行同源码编译/解析/数学/HTTP/组合检查、Pump正常进程及OnlyY正常进程，再由 `family_expansion_acceptance.py` 核对凭证、摘要和各银行覆盖。OnlyY正常进程只覆盖ExactIn；其ExactOut由原SBF/完整数学后状态和HTTP矩阵验证。Pump正常计划经生产Rust投影器重算完整账户后状态，OnlyY正常计划直接回放原SBF且完整模型状态由同源码差分测试单独核对。
+
+### DLMM 扩展、Pump ExactOut 与迁移（阶段52）
+
+高级功能按独立 profile 准入。bitmap 版本保存原1576-byte扩展，验证`bitmap` PDA与池身份，正侧从512、负侧从-513开始反向编号，覆盖default bitmap及extension扫描；仍保留有限数组/步数预算。奖励版本按本次经过的非空bin数分摊每个奖励槽的时间增长，并以reward end截断，原MM/订单共用的48..80字节仅在正确function_type解释。该限定版本最多15个获奖bin；领取奖励不在swap模型中。订单版本的ExactIn依次消费MM、processed和open，各层独立价格取整；LP、订单和协议费用分开，记录filled、total processing、remaining与age，不把订单库存算作LP。订单ExactOut、OnlyY及高级策略交叉组合仍未开放。
+
+Token2022版本只接受X为固定Token2022的TransferFeeConfig/TransferFeeAmount、Y为classic/backedWSOL。Clock epoch参与字段21状态，原mint/vault与withheld完整保留；gross输入先扣转账费，输出按实际recipient到账计量，ExactOut使用独立费用逆函数处理older/newer、0..10000bps及封顶。未知TLV、hook和Y侧Token2022组合拒绝。字段20用于bitmap，保留嵌套reserved 14..19。原有classic/InputOnly/OnlyY profile不因新增能力而放宽。
+
+Pump的独立ExactOut买入调用原buy目标语义，SOL成本是floor+1及两笔单独ceil费用；卖出请求最小SOL到账，反求以周期10000枚举费用余数，避免双ceil导致的非单调净输出。返回最小可行输入与实际到账，`outputSurplus`、route target及plan完整保留，用户input budget未用部分仍不是已转账退款。候选修正有32次预算，无法证明时拒绝。
+
+PumpSwap使用独立program/adapter与12原账户、19依赖闭包，curve与AMM校验共享字段36载体但不共享账户布局或虚拟储备。classic/WSOL v1的sell与buy_exact_quote_in、buy输出目标单独差分，LP费留在vault，协议/creator/buyback进入各自账户。共享费用账户的多池组合仍按既有联合账本缺口排除。
+
+迁移感知曲线严格区别真实可交易量与保留迁移库存，完成后停止生成曲线边。原migrate CPI创建的真实AMM池/vault及再次执行幂等性是迁移参考；`migration_target`仅解析身份，真正报价需要完整目标依赖的已提交源银行。测试不构建公开迁移交易、不自动发现目标、不创建SOL/WSOL隐式边。统一入口为`solana-expanded-reference-refresh`及`solana-expanded-current-check`，最终证据及尚未完成项维护在开发进度中。
+
+阶段52迁移补强：canonical PumpSwap 的已知正虚拟报价余额参与定价及market-cap费用档，但每次sell的实际vault扣款（扣除留存LP费后）必须不超过真实报价余额。严格boost版本保存正值；canonical v1版本也能解析此已知字段，未将virtual视作提款流动性。实际原程序的`InsufficientRealQuoteReserves`失败控制与迁移创建池的正向报价同时验证。共享资金冲突按真实可变账户判断：Curve的SOL收费钱包与AMM的WSOL收费ATA分开，完成曲线不参与候选资金锁冲突；共享账户原始观测一致性仍对全部源行检查。
+
+
+### DLMM订单独立ExactOut（阶段53，2026-11-11）
+
+`meteora-dlmm-orders`与`meteora-dlmm/1532e540-orders-1`的输入/输出驱动路径共用同一份原始订单状态。ExactOut通过固定SBF逐字节差分后接入数学、单池路由、优化器和计划准入；公共protobuf保持不变。部分bin按总目标反推一次净输入，向上补手续费后重放三层；耗尽bin则按MM、processed、open各层完整输入之和进入全填分支。不能直接照搬SDK对部分bin各层反推之和，部署SBF在层边界的实际语义不同。
+
+若三层重放扣费后所得物理输出低于目标，按原指令拒绝，不搜索另一个ExactIn输入掩盖原ExactOut失败。原交易的物理输出可大于目标实收；bin/订单fulfilled/remaining/vault dust与原字节一致，API始终返回目标实际到账。订单fee split、LP fee growth、protocol fee、oracle、active bin和顺序后状态均参与差分。全bin耗尽采用独立分支以保留每层整数输入的舍入。
+
+192原始银行覆盖双向三层组合和边界；161初始成功、31拒绝，含16组三步连续结算（共193成功步骤），每个初始成功均由原SBF验证输入上限减一必失败。新fixture与阶段52 ExactIn fixture分开，服务测试仅引用本服务副本。参考复验检查用户真实Token余额、mint总量守恒、WSOL lamports backing和失败回滚；普通/`-OO`篡改控制覆盖虚报输入、改订单字节、删除预算失败、失败交易偷偷改银行。
+
+统一验收入口：`make -C integration meteora-orders-exact-out-current-check`。同源码报告：`integration/artifacts/local/core-meteora-orders-exact-out-validation-20261111.json`。本批仅新增固定orders策略的单池ExactOut，不代表订单管理、奖励领取、策略交叉、可信公共银行或公开交易执行已完成。
+
+阶段53最终限定验收：源码`5f54b5c66c2a93b7cc1247b7550f35fc7acf6434c40def45a22c708c4c176b25`；28检查/34次Rust执行、两个工作区全目标check和相关Clippy通过，9实际ExactOut API计划均经生产投影/新LiteSVM原SBF、实际资金与完整后状态验证，2来源故障恢复和1次Router重启通过。普通/`-OO`参考控制各5项；公共类型、301份合同复制及进度文档验证通过。整体请求与生产资格仍未完成。
+
+
+### 前端兑换量联调页（阶段54，2026-11-12）
+
+`frontend/`是零构建依赖的静态联调页。它通过`/v1/quote-options`读取当前Router ReplicaView中的链、ready状态、Token、Pool、协议和adapter版本，再根据用户选择调用`/v1/quote`或`/v1/quote-exact-out`。页面展示实际返回的路线、输入/输出、退款、快照、图版本、计划哈希和原始错误，浏览器端不复制协议数学，也不构建或发送交易。
+
+Router新增CORS层以支持独立静态服务器联调；API token仍通过Bearer头传递。当前实现使用宽松CORS便于本地开发，生产环境必须改为配置化来源白名单。元数据接口按当前ReplicaView聚合，状态未就绪时明确返回`ready=false`并保留空池/Token集合，不把配置声明当成已解析状态。
+
+启动方式：先启动Router，再在`frontend/`执行`npm run dev`，访问`http://127.0.0.1:5173`；用`?api=`切换Router地址。此页面只证明已接入的解析和报价能力可视化联调，不能把当前限定范围验收扩展为全链/全DEX生产准入。
+
+
+### 前端状态刷新和路由约束（阶段55，2026-11-12）
+
+`/v1/quote-options`现在返回`viewId`、`graphVersion`、`snapshotRef`、`poolCount`和当前协议集合。前端每10秒重新读取一次，选择链后展示当前解析版本；输入变化采用短防抖并取消未完成请求，避免旧快照报价覆盖新输入。`maxHops`随QuoteRequest的`constraints`发送，路由结果仍由Router图搜索和协议数学决定。
+
+该刷新机制只提高联调可见性，不改变解析权威性和报价准入：Router未获得ready ReplicaView时前端显示未就绪，报价失败保留原始错误。前端仍不复制协议公式、状态解析或交易执行逻辑。
+
+
+### 协议报价能力和执行能力边界（阶段56，2026-11-12）
+
+`/v1/quote-options`的Pool行现在包含`quoteModes`和`execution`。`quoteModes`由Router引用的协议数学支持列表生成，避免前端维护协议白名单；`execution.quote`表示当前可生成报价，`unsignedPlan`和`simulation`明确表示当前未开放。前端只展示这些能力，不把ExactOut报价误认为可执行交易。
+
+后续实现顺序固定为只读动态账户预检查、unsigned交易计划、独立模拟、签名提交和回执结算。每一步都必须复用当前QuoteView和计划哈希，账户或状态不满足时拒绝，不在前端补造协议规则。
+
+
+### PumpSwap卖出目标与执行准备（阶段57，2026-11-12）
+
+PumpSwap经典/WSOL normal与boost策略新增卖出方向的最小输入目标：对LP/protocol/creator三项ceil fee按10000余数枚举并反解CP，不假设净输出严格单调。实际到账可高于目标，路由/优化器/计划/API统一保留target_output和outputSurplus。48原始目标中42成功、42原程序input-minus-one拒绝，14高价格案例有额外到账；原储备/fee账户/volume/native backing完整后状态参与差分。
+
+`POST /v1/quotes/{id}/prepare`限定Meteora单池ExactIn/Out，选择当前缓存中已验证计划并拒绝过期/非当前view。只读RPC取服务配置，不接受任意节点URL；以finalized/minContextSlot批量读取执行账户并逐字节核对池/bin/oracle/扩展依赖，校验programdata代码及Clock、用户Token状态与余额、fee payer与费用。未填写账户则按owner/mint/token program派生ATA；不存在时返回blockers，已有账户可显式填写。当前不创建账户，也不自动包装SOL。
+
+纯Solana线格式编码位于`execution-plan::solana_unsigned`，包含单签名legacy message、权限合并、账户索引、blockhash、短向量和1232-byte包限制。prepare返回零签名transaction与计划绑定及有效高度；需要后续独立模拟。测试对实际API输出/浏览器下载wire使用solders解码并在LiteSVM本地签名执行固定原SBF，核对实际到账与完整订单/bin/oracle后状态，不能将这个本地执行当生产模拟。
+
+前端改用Router实际snake_case/nested path；金额为最小单位整数且保持BigInt精度。输入/view变化、网络失败和过期都撤销旧报价和待签名下载；认证token只按Router origin保留于当前session，不跨origin复用。CORS白名单通过`api.cors_allowed_origins`配置，缺省仅本地5173；默认不启用cookie凭据。真实Chrome测试请求本地生产Api handler和原账户银行，不stub报价响应。测试harness不是正式Parser/RPC生产来源，也不增加服务类型。
+
+统一入口：`make -C integration quote-execution-current-check`；原始参考恢复：`make -C integration quote-execution-reference-refresh`。凭证：`integration/artifacts/local/core-quote-execution-validation-20261112.json`，明确区分历史静态检查与本批实际浏览器及原程序执行。
+
+阶段57最终同源码有限验收：`282e47e86c62d1936e3b184683a479be518346d1c5b497e429c27054aaa98fc3`，24检查/24次Rust测试/13项真实Chrome联调通过。浏览器请求生产handler和内核、实际下载待签名消息并在本地原SBF验证699→1000及反例，未广播公网；本批没有新增normal Parser/PG-Kafka流水线或可信公网历史资格声明。

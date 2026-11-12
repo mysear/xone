@@ -87,3 +87,8 @@ tools/reference/pancake-v3-lm-bsc/pool/
 tools/reference/slipstream-extended/contracts/
 tools/reference/slipstream-extended/voter-verified-source.json
 tools/reference/velodrome-v2/Pool.sol
+
+# Pump pinned npm package cache; acquisition manifests and own harness remain tracked.
+tools/reference/pump-bonding/packages/
+
+tools/reference/pump-amm/upstream/

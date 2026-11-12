@@ -447,6 +447,8 @@ pub fn decode_raydium_clmm(
         pancake_lm: None,
         slipstream_context: None,
         lfj: None,
+        meteora: None,
+        pump: None,
         infinity_bin: None,
         raydium_clmm: Some(s),
         orca_whirlpool: None,

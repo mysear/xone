@@ -53,6 +53,13 @@ pub fn evaluate_allocation(
     max_input: &Amount,
     funds: Funds<'_>,
 ) -> Result<ExactOutAllocation> {
+    if pools
+        .first()
+        .is_some_and(|p| p.chain_key.starts_with("solana:"))
+        && (output.0.bits() > 64 || max_input.0.bits() > 64)
+    {
+        return Err(err("EXACT_OUT_SOLANA_AMOUNT_WIDTH"));
+    }
     if proposals.is_empty()
         || output.0.is_zero()
         || output.0.bits() > 256
@@ -243,6 +250,13 @@ pub fn optimize<'a>(
     funds: Funds<'a>,
     control: Option<(&'a AtomicBool, Instant)>,
 ) -> Result<ExactOutOptimization> {
+    if pools
+        .first()
+        .is_some_and(|p| p.chain_key.starts_with("solana:"))
+        && (output.0.bits() > 64 || max_input.0.bits() > 64)
+    {
+        return Err(err("EXACT_OUT_SOLANA_AMOUNT_WIDTH"));
+    }
     if !(1..=100).contains(&limits.parts)
         || !(1..=MAX_SPLITS).contains(&limits.max_splits)
         || limits.max_evaluations == 0

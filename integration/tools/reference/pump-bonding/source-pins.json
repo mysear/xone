@@ -1,0 +1,290 @@
+{
+  "schema_version": 1,
+  "docs_commit": "639b87fb45c3adeffa6f7c4a1bf0cb85e392bf22",
+  "sdk_version": "4.3.1",
+  "sdk_dist": {
+    "shasum": "df5b1de557bb67b286a8da545ad296e1cf4d79c0",
+    "tarball": "https://registry.npmjs.org/@pump-fun/pump-sdk/-/pump-sdk-4.3.1.tgz",
+    "fileCount": 43,
+    "integrity": "sha512-C39JUoafBMTwv9sKOGxJFakFypsH/C8VJs54xde1Rl1C9Z10i+XMdAJrYMk3CKPUd41RUMu/pM834GUMuOewVA==",
+    "signatures": [
+      {
+        "sig": "MEUCIE/g1EKloaBx1ylEpLV1RNEntjbT+mjnegmmrKBj8eO+AiEAg4wD4kuE4+0i90VZOh2hLVi5dEfCZngN0YpUHM3Mky4=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEYCIQCcQ8xCK8UCzoMlYPOqJKjBCGcWj1brxsDY20gzrBQRDgIhALsL0B6ilo13HXIjBxquJGMKPMRHp9rwSIs0RdeIk/T/",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "unpackedSize": 7562464
+  },
+  "files": [
+    {
+      "path": "upstream/README.md",
+      "url": "https://raw.githubusercontent.com/pump-fun/pump-public-docs/639b87fb45c3adeffa6f7c4a1bf0cb85e392bf22/README.md",
+      "bytes": 12216,
+      "sha256": "04ea2475df06df632ca4c013ae2f6d9063599f669f4c8acf53e2eeae2277427f"
+    },
+    {
+      "path": "upstream/docs/PUMP_PROGRAM_README.md",
+      "url": "https://raw.githubusercontent.com/pump-fun/pump-public-docs/639b87fb45c3adeffa6f7c4a1bf0cb85e392bf22/docs/PUMP_PROGRAM_README.md",
+      "bytes": 9668,
+      "sha256": "ce6c84112e9ec870a2341562eaf825fe05059b157ce35cdf9d59a533262edc90"
+    },
+    {
+      "path": "upstream/docs/PUMP_CREATOR_FEE_README.md",
+      "url": "https://raw.githubusercontent.com/pump-fun/pump-public-docs/639b87fb45c3adeffa6f7c4a1bf0cb85e392bf22/docs/PUMP_CREATOR_FEE_README.md",
+      "bytes": 6350,
+      "sha256": "558484c503419209c37d56cd1e4cf703a3161683ecb8e8cd429072f62bf8f425"
+    },
+    {
+      "path": "upstream/docs/FEE_PROGRAM_README.md",
+      "url": "https://raw.githubusercontent.com/pump-fun/pump-public-docs/639b87fb45c3adeffa6f7c4a1bf0cb85e392bf22/docs/FEE_PROGRAM_README.md",
+      "bytes": 5043,
+      "sha256": "c03c0cc79970456f9af1a54283d56bf8f752667dd95511640f42a4fb743cd72d"
+    },
+    {
+      "path": "upstream/docs/PUMP_CASHBACK_README.md",
+      "url": "https://raw.githubusercontent.com/pump-fun/pump-public-docs/639b87fb45c3adeffa6f7c4a1bf0cb85e392bf22/docs/PUMP_CASHBACK_README.md",
+      "bytes": 5566,
+      "sha256": "fa0f8703b406b872309131754e33ddcd15f0a36426733e0d26f329293b3c48f6"
+    },
+    {
+      "path": "upstream/idl/pump.json",
+      "url": "https://raw.githubusercontent.com/pump-fun/pump-public-docs/639b87fb45c3adeffa6f7c4a1bf0cb85e392bf22/idl/pump.json",
+      "bytes": 328788,
+      "sha256": "7616681ea557975f9f623ac211080f22a93060781eaf4765b0a488d980997207"
+    },
+    {
+      "path": "upstream/idl/pump_fees.json",
+      "url": "https://raw.githubusercontent.com/pump-fun/pump-public-docs/639b87fb45c3adeffa6f7c4a1bf0cb85e392bf22/idl/pump_fees.json",
+      "bytes": 136538,
+      "sha256": "6b9fa3eccc6e06273076a47b581f9fcb9e531bb7c3c88acbcd44db55a4002b29"
+    },
+    {
+      "path": "upstream/idl/pump_amm.json",
+      "url": "https://raw.githubusercontent.com/pump-fun/pump-public-docs/639b87fb45c3adeffa6f7c4a1bf0cb85e392bf22/idl/pump_amm.json",
+      "bytes": 191835,
+      "sha256": "b7d8c57a4d9c4dd0109a9ab893052352333252d4eedced10ac091d4d66cab89b"
+    },
+    {
+      "path": "packages/pump-sdk/dist/esm/index.js",
+      "bytes": 962999,
+      "sha256": "68a2066c2c0634650b77fddae318afb1f0bf08a33ae4eb270de059998b02b970"
+    },
+    {
+      "path": "packages/pump-sdk/dist/esm/swap/index.js",
+      "bytes": 298710,
+      "sha256": "aa8ad7c0c4753f77825820fd38857b52b7c36f03fd99c4042a58f9bf34830a04"
+    },
+    {
+      "path": "packages/pump-sdk/dist/index.js",
+      "bytes": 974900,
+      "sha256": "5fcdf79808e77b1624b901b8a0baa032f0d782c70ee3f44b4e0ec9e7f2b96ee9"
+    },
+    {
+      "path": "packages/pump-sdk/dist/swap/index.js",
+      "bytes": 304978,
+      "sha256": "751d42aa3a3833d96a077c1c7fdad2e990b8e06d12bced3b93047767eedcdf4c"
+    },
+    {
+      "path": "packages/pump-sdk/package.json",
+      "bytes": 2698,
+      "sha256": "42076689ff4dea133db7a2ab095c78e88f71fb02396375bdc838c3199fb09268"
+    },
+    {
+      "path": "packages/pump-sdk/src/idl/pump_amm.json",
+      "bytes": 192409,
+      "sha256": "c2f8ce0bc0a740d9125644b2d95494c97199fce1604802f5ab0497184bdcce61"
+    },
+    {
+      "path": "packages/pump-sdk/src/idl/pump_fees.json",
+      "bytes": 133483,
+      "sha256": "f111d2e5c9aa3d4e64d6a4e6b6f34300ccb1eaf6abc46834fe491836dc90aa74"
+    },
+    {
+      "path": "packages/pump-sdk/src/idl/pump.json",
+      "bytes": 329083,
+      "sha256": "c53b8f5d39887afd27cc40a256527a421c2d91b64a9014dc4952a261f4f36a01"
+    },
+    {
+      "path": "packages/pump-sdk/README.md",
+      "bytes": 48357,
+      "sha256": "f2b5d9714923cd11d6426bb266cebed2710511af8b2ee23d8c1eb16026f612a2"
+    },
+    {
+      "path": "packages/pump-sdk/dist/index.d.mts",
+      "bytes": 1097856,
+      "sha256": "ac88723e7cf3c2d2a9dc906fada6cc9dd432c8d3b7c08127a424b08c9289236f"
+    },
+    {
+      "path": "packages/pump-sdk/dist/swap/index.d.mts",
+      "bytes": 183914,
+      "sha256": "9b427b3b1c5f83872b7cd8305e4df0a114dcafb0b911dd898ccebf8a06a4fee4"
+    },
+    {
+      "path": "packages/pump-sdk/dist/pump_amm-FTAU0jGh.d.mts",
+      "bytes": 301494,
+      "sha256": "130e3f3ab7029a60af246faf6a5c1433f3d1b8399bd023e4b961d6501d4da520"
+    },
+    {
+      "path": "packages/pump-sdk/src/bondingCurve.ts",
+      "bytes": 37058,
+      "sha256": "413dcdc915691519f6d56c61490e15757adcc14e2abe5af3b8b410f8f6a27bee"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/buy.ts",
+      "bytes": 12918,
+      "sha256": "6af49d092a1c16f47e4f15aca0b66576353a664aa46b37e40e8a23100c36ba60"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/deposit.ts",
+      "bytes": 2186,
+      "sha256": "3b74f6834c21339313ca90ce9232cd4309bca18b45f9439c32a2f444e2dba261"
+    },
+    {
+      "path": "packages/pump-sdk/src/errors.ts",
+      "bytes": 8140,
+      "sha256": "d214269df1e7be59793a3cb6610560d4bcf4f8f82e556ab49c74ce9714070177"
+    },
+    {
+      "path": "packages/pump-sdk/src/fees.ts",
+      "bytes": 8340,
+      "sha256": "039ad335b2932b128c6d48693965ae6ed96a4acb7ae0139330dde10d0a04d8ef"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/fees.ts",
+      "bytes": 6376,
+      "sha256": "ef626afb4d9ef7bb16c4f8647f9972c235a3001fb342eaf57ebc91502509c220"
+    },
+    {
+      "path": "packages/pump-sdk/dist/index.d.ts",
+      "bytes": 1097855,
+      "sha256": "9719342b98c25085acbfc3e932e7f831303a28a5233bfe73ad63d69d8e75205f"
+    },
+    {
+      "path": "packages/pump-sdk/dist/swap/index.d.ts",
+      "bytes": 183913,
+      "sha256": "d534a5ff175a4f81cdccd28c9d31236e82d551fa92c55e459ce7ffec27b657cb"
+    },
+    {
+      "path": "packages/pump-sdk/src/index.ts",
+      "bytes": 3052,
+      "sha256": "05ae28b84462d1e2082c5446f55a14a75beee350108fe9c9d2508cafb780c0e3"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/index.ts",
+      "bytes": 1685,
+      "sha256": "96d59edb91abf804dae7ceeb416f41111dffadc9737fbc3d54c0269aa8360615"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/multiHop.ts",
+      "bytes": 11473,
+      "sha256": "f3f3ec423a43fd7e8868ccd900f004f4874248b4db3e91a298fed9749f577ccb"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/offlinePumpAmm.ts",
+      "bytes": 59350,
+      "sha256": "a8a20603e1d34acd7a2fac16216eda96728f5a0023cde4fdfaa85848e3d528fd"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/onlinePumpAmm.ts",
+      "bytes": 30352,
+      "sha256": "cc75701981721509447ef7ee16e3fed9eca548db9340ba0dbdd440471ef4e5da"
+    },
+    {
+      "path": "packages/pump-sdk/src/onlineSdk.ts",
+      "bytes": 86063,
+      "sha256": "987ef8c7eac6aa8f948dec434f07719ac0047356f814729a8437c9b21d9fe82d"
+    },
+    {
+      "path": "packages/pump-sdk/src/pda.ts",
+      "bytes": 8893,
+      "sha256": "cb44f2e10b6425637d656145444660aa38cf12be3ef5dd7c75e7a90e5e929b21"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/pda.ts",
+      "bytes": 6156,
+      "sha256": "f337237f77d3e1fd34e3de5bfc23149b7121e3269d14f358c44cdc703124dff9"
+    },
+    {
+      "path": "packages/pump-sdk/dist/pump_amm-FTAU0jGh.d.ts",
+      "bytes": 301494,
+      "sha256": "130e3f3ab7029a60af246faf6a5c1433f3d1b8399bd023e4b961d6501d4da520"
+    },
+    {
+      "path": "packages/pump-sdk/src/idl/pump_amm.ts",
+      "bytes": 191290,
+      "sha256": "aaa3fea69bd25e9ddf1995e52fda6147a8a080e132a31ef758111d2c0469cb62"
+    },
+    {
+      "path": "packages/pump-sdk/src/idl/pump_fees.ts",
+      "bytes": 133078,
+      "sha256": "a5d22c605267d077fd67b7142d7e630f29583995e1ec843e1110e302252b4dcd"
+    },
+    {
+      "path": "packages/pump-sdk/src/idl/pump.ts",
+      "bytes": 327790,
+      "sha256": "22cad09ba1e4d82e9ebebe2910bbb2b1047b2611e96aa4747b3e54f9745807d4"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/pumpAmmAdmin.ts",
+      "bytes": 4951,
+      "sha256": "969a042233d534a6dd989c3b57d70ef03a010c859ecc748f7526533d0b12e982"
+    },
+    {
+      "path": "packages/pump-sdk/src/sdk.ts",
+      "bytes": 145933,
+      "sha256": "eb7288ec796fedf4e9226a694dd68371b2d0465cef803436bf9d15214cc9f291"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/sell.ts",
+      "bytes": 11000,
+      "sha256": "a26e572d36528c6d046659262f8f03b7bb5deee343dfb6df3d4ece4f88e75556"
+    },
+    {
+      "path": "packages/pump-sdk/src/state.ts",
+      "bytes": 26594,
+      "sha256": "94435be11d6159105ffc96d1e3631f87cd3f6c17afb33ed24e31a1ead01e5702"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/tokenIncentives.ts",
+      "bytes": 2934,
+      "sha256": "9bd6b56ed7145d428cc2fea14e325f95bbe1fabe0040f32dbeaf05f3e5058b56"
+    },
+    {
+      "path": "packages/pump-sdk/src/tokenIncentives.ts",
+      "bytes": 2934,
+      "sha256": "d43d9aaeb53a6717b77e28c47d5b96195442fac0db2b466ca6fcf5335972997b"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/transferFee.ts",
+      "bytes": 3024,
+      "sha256": "8b0f707ba04e4a50b8cd5ad451013d6db4ba4416fe5a6294abbac43e4ad42ada"
+    },
+    {
+      "path": "packages/pump-sdk/src/transferFee.ts",
+      "bytes": 3378,
+      "sha256": "37d0059f52feaf2648790900e98f695a5f68eacd9d9f8074bf39102b9f95815a"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/types.ts",
+      "bytes": 10060,
+      "sha256": "4f088635d90e41039be7e8097694f8491de609abf98467ba0c127f2b230c9496"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/util.ts",
+      "bytes": 2088,
+      "sha256": "02373f2421e392de410bd4da98f8a62b7402d8aa4281d0a86dde12fcf88e8447"
+    },
+    {
+      "path": "packages/pump-sdk/src/swap/withdraw.ts",
+      "bytes": 1225,
+      "sha256": "9c227c43d88b5a55973839a691370405ccb27b39514263c015df2f45b9db8902"
+    }
+  ],
+  "authority": "official Pump public docs/IDL and SDK package; no deployed SBF or canonical bank qualification",
+  "service_implemented": false,
+  "production_ready": false
+}

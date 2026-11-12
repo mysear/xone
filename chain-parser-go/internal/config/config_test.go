@@ -329,3 +329,22 @@ func TestVelodromeProfilesRequirePinnedFactoryAndImplementationIdentity(t *testi
 		}
 	}
 }
+
+func TestCORSOriginsAreBoundedAndRejectCredentialsAndPaths(t *testing.T) {
+	s, e := Load("../../config/config-test.yaml", "chain-parser-go")
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, origin := range []string{"http://127.0.0.1:5173", "https://quotes.example.com"} {
+		s.Config.API.CORSAllowedOrigins = []string{origin}
+		if e = s.Config.Validate("chain-parser-go"); e != nil {
+			t.Fatal(e)
+		}
+	}
+	for _, origin := range []string{"*", "null", "https://example.com/path", "http://user:pass@example.com", "https://example.com?token=a", "https://a\r\nb", "file://localhost"} {
+		s.Config.API.CORSAllowedOrigins = []string{origin}
+		if s.Config.Validate("chain-parser-go") == nil {
+			t.Fatal("accepted", origin)
+		}
+	}
+}

@@ -361,6 +361,8 @@ pub fn decode_raydium_cpmm(
         pancake_lm: None,
         slipstream_context: None,
         lfj: None,
+        meteora: None,
+        pump: None,
         infinity_bin: None,
         orca_whirlpool: None,
         raydium_clmm: None,

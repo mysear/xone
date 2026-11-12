@@ -1,6 +1,8 @@
 mod lfj;
+mod meteora;
 mod pancake_bsc_lm;
 mod pancake_lm;
+mod pump;
 pub use pancake_bsc_lm::PancakeBscLmConfig;
 mod slipstream_context;
 pub use pancake_lm::PancakeLmConfig;
@@ -70,6 +72,8 @@ config_struct!(State {
 #[serde(deny_unknown_fields)]
 pub struct Api {
     pub listen: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cors_allowed_origins: Vec<String>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub auth_token: String,
     pub max_body_bytes: usize,
@@ -293,7 +297,37 @@ config_struct!(LfjConfig {
     max_bins: u32,
     max_steps: u32
 });
-config_struct!(PoolConfig {pancake_bsc_lm:Option<PancakeBscLmConfig>,pancake_lm:Option<PancakeLmConfig>,slipstream_context:Option<SlipstreamContextConfig>,lfj:Option<LfjConfig>,infinity_bin:Option<InfinityBinConfig>,singleton_advanced:Option<SingletonAdvancedPoolConfig>,multi_asset:Option<MultiAssetConfig>,weighted:Option<WeightedPoolConfig>,raydium_clmm:Option<RaydiumCLMMConfig>,orca_whirlpool:Option<OrcaWhirlpoolConfig>,raydium_cpmm:Option<RaydiumCPMMConfig>,singleton_cl:Option<SingletonCLPoolConfig>,id:String,protocol:String,token0:String,token1:String,fee_numerator:u64,fee_denominator:u64,program_id:String,accounts:Vec<String>,v3:Option<V3PoolConfig>,v2:Option<V2PoolConfig>,stable:Option<StablePoolConfig>});
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MeteoraConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token2022_upgrade: Option<TokenProgramUpgradeConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bitmap_extension: Option<String>,
+    pub expected_programdata: String,
+    pub expected_program_code_sha256: String,
+    pub expected_deployed_slot: u64,
+    pub expected_token_program_code_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_program_upgrade: Option<TokenProgramUpgradeConfig>,
+    pub bin_array_indices: Vec<i64>,
+    pub max_steps: u32,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PumpConfig {
+    pub expected_programdata: String,
+    pub expected_deployed_slot: u64,
+    pub expected_program_code_sha256: String,
+    pub expected_fee_programdata: String,
+    pub expected_fee_deployed_slot: u64,
+    pub expected_fee_program_code_sha256: String,
+    pub expected_token_program_code_sha256: String,
+    pub user: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_program_upgrade: Option<TokenProgramUpgradeConfig>,
+}
+config_struct!(PoolConfig {pump:Option<PumpConfig>,meteora:Option<MeteoraConfig>,pancake_bsc_lm:Option<PancakeBscLmConfig>,pancake_lm:Option<PancakeLmConfig>,slipstream_context:Option<SlipstreamContextConfig>,lfj:Option<LfjConfig>,infinity_bin:Option<InfinityBinConfig>,singleton_advanced:Option<SingletonAdvancedPoolConfig>,multi_asset:Option<MultiAssetConfig>,weighted:Option<WeightedPoolConfig>,raydium_clmm:Option<RaydiumCLMMConfig>,orca_whirlpool:Option<OrcaWhirlpoolConfig>,raydium_cpmm:Option<RaydiumCPMMConfig>,singleton_cl:Option<SingletonCLPoolConfig>,id:String,protocol:String,token0:String,token1:String,fee_numerator:u64,fee_denominator:u64,program_id:String,accounts:Vec<String>,v3:Option<V3PoolConfig>,v2:Option<V2PoolConfig>,stable:Option<StablePoolConfig>});
 config_struct!(Chain {key:String,owner_service:String,assignment_version:u64,genesis_hash:String,rpc_urls:Vec<String>,pools:Vec<PoolConfig>,confirmation_tag:String,auto_reorg_window:u64});
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -683,6 +717,21 @@ impl Config {
         {
             return Err(fail());
         }
+        if self.api.cors_allowed_origins.len() > 32
+            || self.api.cors_allowed_origins.iter().any(|origin| {
+                let host = origin
+                    .strip_prefix("http://")
+                    .or_else(|| origin.strip_prefix("https://"));
+                origin.len() > 512
+                    || host.is_none_or(|h| {
+                        h.is_empty()
+                            || h.chars()
+                                .any(|c| c.is_whitespace() || c.is_control() || "/?#@*".contains(c))
+                    })
+            })
+        {
+            return Err(fail());
+        }
         if self.api.listen.is_empty()
             || (!self.api.auth_token.is_empty() && self.api.auth_token.len() < 24)
             || !(1024..=8388608).contains(&self.api.max_body_bytes)
@@ -760,6 +809,33 @@ impl Config {
         for c in &self.chains {
             for p in &c.pools {
                 let profile = xone_domain::protocols::protocol(&p.protocol);
+                if p.pump.is_some()
+                    && !matches!(
+                        p.protocol.as_str(),
+                        xone_domain::pump::PROFILE
+                            | xone_domain::pump::MIGRATION_PROFILE
+                            | xone_domain::pump_amm::PROFILE
+                            | xone_domain::pump_amm::BOOST_PROFILE
+                    )
+                {
+                    return Err(err("PUMP_CONFIG_PROTOCOL"));
+                }
+                if matches!(
+                    p.protocol.as_str(),
+                    xone_domain::pump::PROFILE
+                        | xone_domain::pump::MIGRATION_PROFILE
+                        | xone_domain::pump_amm::PROFILE
+                        | xone_domain::pump_amm::BOOST_PROFILE
+                ) {
+                    p.pump
+                        .as_ref()
+                        .ok_or_else(|| err("PUMP_CONFIG_REQUIRED"))?
+                        .validate(p, &c.key)?;
+                    continue;
+                }
+                if p.meteora.is_some() && !xone_domain::meteora::supports_profile(&p.protocol) {
+                    return Err(err("METEORA_CONFIG_PROTOCOL"));
+                }
                 if p.protocol == xone_domain::pancake_bsc_lm::PROFILE {
                     p.pancake_bsc_lm
                         .as_ref()
@@ -789,6 +865,16 @@ impl Config {
                 }
                 if p.slipstream_context.is_some() {
                     return Err(err("SLIPSTREAM_CONTEXT_CONFIG_PROTOCOL"));
+                }
+                if xone_domain::meteora::supports_profile(&p.protocol) {
+                    p.meteora
+                        .as_ref()
+                        .ok_or_else(|| err("METEORA_CONFIG_REQUIRED"))?
+                        .validate(p, &c.key)?;
+                    continue;
+                }
+                if p.meteora.is_some() {
+                    return Err(err("METEORA_CONFIG_PROTOCOL"));
                 }
                 if p.protocol == xone_domain::lfj::PROFILE {
                     p.lfj
@@ -872,6 +958,8 @@ impl Config {
                         pancake_lm: None,
                         slipstream_context: None,
                         lfj: None,
+                        meteora: None,
+                        pump: None,
                         infinity_bin: None,
                         singleton_advanced: None,
                         multi_asset: None,
@@ -1201,6 +1289,8 @@ impl Config {
                         pancake_lm: None,
                         slipstream_context: None,
                         lfj: None,
+                        meteora: None,
+                        pump: None,
                         infinity_bin: None,
                         multi_asset: Some(state),
                         singleton_advanced: None,
@@ -1506,6 +1596,8 @@ impl Config {
                         pancake_lm: None,
                         slipstream_context: None,
                         lfj: None,
+                        meteora: None,
+                        pump: None,
                         infinity_bin: None,
                         multi_asset: None,
                         singleton_advanced: None,

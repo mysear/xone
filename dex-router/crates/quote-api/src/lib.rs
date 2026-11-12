@@ -1,4 +1,5 @@
 mod exact_out;
+mod preparation;
 pub use exact_out::ExactOutRequest;
 mod local_simulation;
 mod recovery_metrics;
@@ -22,6 +23,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::{Mutex as AsyncMutex, Semaphore};
+use tower_http::cors::CorsLayer;
 use xone_config::ConfigSnapshot;
 use xone_domain::{err, hash, Amount, Record, Result, Snapshot};
 use xone_execution_plan::{Context, Plan};
@@ -202,6 +204,29 @@ impl Api {
         self.observe_qualified_view(v);
         Ok(())
     }
+    fn cors_layer(&self) -> CorsLayer {
+        let origins = if self.config.config.api.cors_allowed_origins.is_empty() {
+            vec![
+                "http://127.0.0.1:5173".to_string(),
+                "http://localhost:5173".to_string(),
+            ]
+        } else {
+            self.config.config.api.cors_allowed_origins.clone()
+        };
+        CorsLayer::new()
+            .allow_origin(
+                origins
+                    .iter()
+                    .filter_map(|o| o.parse::<axum::http::HeaderValue>().ok())
+                    .collect::<Vec<_>>(),
+            )
+            .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
+            .allow_headers([
+                axum::http::header::AUTHORIZATION,
+                axum::http::header::CONTENT_TYPE,
+            ])
+            .max_age(Duration::from_secs(600))
+    }
     pub fn handler(&self) -> Router {
         Router::new()
             .route("/health/live", get(|| async { Json(json!({"live":true})) }))
@@ -210,12 +235,15 @@ impl Api {
             .route("/metrics", get(metrics))
             .route("/v1/quote", post(quote))
             .route("/v1/quote-exact-out", post(exact_out::quote))
+            .route("/v1/quote-options", get(quote_options))
             .route("/v1/quotes/{id}/build", post(build_transaction))
+            .route("/v1/quotes/{id}/prepare", post(preparation::prepare))
             .route("/v1/quotes/{id}/simulate", post(simulate_transaction))
             .route("/internal/quotes/{id}/evidence", get(evidence))
             .route("/internal/chains/{chain}/status", get(chain_status))
             .route("/internal/config", get(config))
             .layer(DefaultBodyLimit::max(self.config.config.api.max_body_bytes))
+            .layer(self.cors_layer())
             .with_state(self.clone())
     }
     pub async fn quote(&self, request: QuoteRequest) -> Result<Value> {
@@ -715,10 +743,17 @@ fn failure(e: xone_domain::Error) -> HttpError {
         "RATE_LIMITED" => StatusCode::TOO_MANY_REQUESTS,
         "CHAIN_NOT_READY" | "STATE_TOO_OLD" => StatusCode::SERVICE_UNAVAILABLE,
         "BUDGET_EXHAUSTED" => StatusCode::GATEWAY_TIMEOUT,
-        "SNAPSHOT_REORGED" | "QUOTE_EXPIRED" => StatusCode::CONFLICT,
-        "INDEPENDENT_SIMULATION_UNAVAILABLE" | "EXECUTION_ADAPTER_UNSUPPORTED" => {
-            StatusCode::UNPROCESSABLE_ENTITY
-        }
+        "SNAPSHOT_REORGED"
+        | "QUOTE_EXPIRED"
+        | "QUOTE_STATE_CHANGED"
+        | "QUOTE_CLOCK_CHANGED"
+        | "PREPARATION_PROGRAM_CHANGED" => StatusCode::CONFLICT,
+        "INDEPENDENT_SIMULATION_UNAVAILABLE"
+        | "EXECUTION_ADAPTER_UNSUPPORTED"
+        | "PREPARATION_RPC_NOT_CONFIGURED"
+        | "PREPARATION_SINGLE_POOL_ONLY"
+        | "PREPARATION_ACCOUNT_INVALID"
+        | "PREPARATION_TRANSACTION_TOO_LARGE" => StatusCode::UNPROCESSABLE_ENTITY,
         "NO_ROUTE" => StatusCode::NOT_FOUND,
         _ => StatusCode::BAD_REQUEST,
     };
@@ -910,6 +945,107 @@ async fn evidence(
     }
     api.exact_out_evidence(&id).map(Json).map_err(failure)
 }
+
+async fn quote_options(
+    State(api): State<Api>,
+    headers: HeaderMap,
+) -> std::result::Result<Json<Value>, HttpError> {
+    api.authorize(&headers).map_err(failure)?;
+    let mut chains = Vec::new();
+    for configured in &api.config.config.chains {
+        let view = api.replica.view(&configured.key).ok();
+        let mut pools = Vec::new();
+        let mut tokens = std::collections::BTreeSet::new();
+        let ready = view.as_ref().is_some_and(|v| api.check_view(v).is_ok());
+        if let Some(ref v) = view {
+            let mut by_pool = BTreeMap::<&str, Vec<(&String, &xone_routing::Edge)>>::new();
+            if ready {
+                for (from, edges) in &v.graph.adjacency {
+                    for edge in edges {
+                        by_pool.entry(&edge.pool_id).or_default().push((from, edge));
+                    }
+                }
+            }
+            for pool in &v.pools {
+                let mut directions = Vec::new();
+                if let Some(edges) = by_pool.get(pool.pool_id.as_str()) {
+                    for (from, edge) in edges {
+                        let mut modes = vec!["EXACT_IN"];
+                        if xone_protocol_math::exact_out::supports_protocol(&pool.protocol) {
+                            modes.push("EXACT_OUT");
+                        }
+                        tokens.insert((*from).clone());
+                        tokens.insert(edge.to.clone());
+                        directions
+                            .push(json!({"sellToken":from,"buyToken":edge.to,"quoteModes":modes}));
+                    }
+                }
+                let quote_modes = directions
+                    .iter()
+                    .flat_map(|d| d["quoteModes"].as_array().into_iter().flatten())
+                    .filter_map(Value::as_str)
+                    .collect::<std::collections::BTreeSet<_>>();
+                let available = !directions.is_empty();
+                let reason = if !ready {
+                    Some("CHAIN_NOT_READY")
+                } else {
+                    v.graph
+                        .excluded_pools
+                        .get(&pool.pool_id)
+                        .map(String::as_str)
+                        .or(if available {
+                            None
+                        } else {
+                            Some("NO_SEARCHABLE_EDGE")
+                        })
+                };
+                pools.push(json!({
+                    "poolId": pool.pool_id,
+                    "protocol": pool.protocol,
+                    "adapterVersion": pool.adapter_version,
+                    "token0": pool.token0,
+                    "token1": pool.token1,
+                    "quoteModes": quote_modes,
+                    "directions": directions,
+                    "available": available,
+                    "unavailableReason": reason,
+                    "execution": {"quote": available, "preparation": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "unsignedPlan": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "simulation": false},
+                }));
+            }
+        }
+        let protocols = pools
+            .iter()
+            .filter(|pool| pool["available"] == true)
+            .filter_map(|pool| pool.get("protocol").and_then(Value::as_str))
+            .collect::<std::collections::BTreeSet<_>>();
+        let (view_id, graph_version, snapshot_ref, pool_count) =
+            view.as_ref()
+                .map_or((Value::Null, Value::Null, Value::Null, 0usize), |v| {
+                    (
+                        json!(v.view_id),
+                        json!(v.graph_version),
+                        json!(v.reference),
+                        v.pools.len(),
+                    )
+                });
+        chains.push(json!({
+            "chainKey": configured.key,
+            "ownerService": configured.owner_service,
+            "ready": ready,
+            "viewId": view_id,
+            "graphVersion": graph_version,
+            "snapshotRef": snapshot_ref,
+            "poolCount": pool_count,
+            "protocols": protocols.into_iter().collect::<Vec<_>>(),
+            "tokens": tokens.into_iter().collect::<Vec<_>>(),
+            "pools": pools,
+        }));
+    }
+    Ok(Json(
+        json!({"chains": chains, "engineVersion": "xone-router/0.1", "limits":{"maxHops":api.config.config.routing.max_hops,"maxSplits":api.config.config.routing.max_splits}}),
+    ))
+}
+
 async fn chain_status(
     State(api): State<Api>,
     headers: HeaderMap,

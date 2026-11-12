@@ -174,7 +174,7 @@ message PoolState {
  string token0 = 4; string token1 = 5; Amount reserve0 = 6; Amount reserve1 = 7;
  uint64 fee_numerator = 8; uint64 fee_denominator = 9; string adapter_version = 10;
  string token_behavior = 11; V3State v3 = 20; V2State v2 = 21; StableState stable = 22; SingletonCLState singleton_cl = 23; RaydiumCPMMState raydium_cpmm = 24; OrcaWhirlpoolState orca_whirlpool = 25; RaydiumCLMMState raydium_clmm = 26; WeightedState weighted = 27; MultiAssetState multi_asset = 28; SingletonAdvancedState singleton_advanced = 29; InfinityBinState infinity_bin = 30; LfjState lfj = 31; SlipstreamState slipstream_context = 32; PancakeLmState pancake_lm = 33;
- PancakeBscLmState pancake_bsc_lm = 34; reserved 12 to 19;
+ PancakeBscLmState pancake_bsc_lm = 34; MeteoraState meteora = 35; PumpState pump = 36; reserved 12 to 19;
 }
 message CanonicalRecord {
  SnapshotRef snapshot = 1; string record_id = 2; bytes payload_hash = 3;
@@ -664,4 +664,27 @@ message PancakeBscLmState {
  optional bool initialization=2;
  repeated PancakeBscLmFlag flags=3;
  repeated PancakeBscLmPredecessor predecessors=4;
+}
+
+// Fixed Meteora MM profile retains exact account bytes for complete post-state checks.
+message MeteoraBinArray { string address = 1; sint64 index = 2; bytes data = 3; }
+message MeteoraToken2022State { string programdata=1; uint64 deployed_slot=2; bytes program_code_sha256=3; uint64 bank_epoch=4; bytes mint_data=5; bytes vault_data=6; }
+message MeteoraBitmapExtension { string address = 1; bytes data = 2; }
+message MeteoraState {
+ string programdata = 1; bytes program_code_sha256 = 2; uint64 deployed_slot = 3;
+ bytes token_program_code_sha256 = 4; uint64 slot = 5; uint64 timestamp = 6;
+ bytes pair_data = 7; bytes oracle_data = 8; repeated MeteoraBinArray bin_arrays = 9;
+ uint64 raw_vault0 = 10; uint64 raw_vault1 = 11; uint32 max_steps = 12; bool derived = 13;
+ MeteoraBitmapExtension bitmap_extension = 20;
+ MeteoraToken2022State token2022 = 21;
+ reserved 14 to 19;
+}
+
+message PumpAccount {string address=1;string owner=2;uint64 lamports=3;bytes data=4;}
+message PumpState {
+ string programdata=1;uint64 deployed_slot=2;bytes program_code_sha256=3;
+ string fee_programdata=4;uint64 fee_deployed_slot=5;bytes fee_program_code_sha256=6;
+ bytes token_program_code_sha256=7;uint64 slot=8;uint64 timestamp=9;
+ string user=10;string vault=11;string creator_vault=12;string fee_recipient=13;string buyback_recipient=14;
+ repeated PumpAccount accounts=15;bool derived=16;reserved 17 to 19;
 }

@@ -799,3 +799,75 @@ lfj-exact-out-current-check: build debug-build
 	python3 tools/acceptance/validate_lfj_exact_out.py
 lfj-exact-out-evidence-check:
 	python3 tools/acceptance/lfj_exact_out_acceptance.py
+
+.PHONY: meteora-mm-reference-refresh meteora-mm-differential-test meteora-mm-current-check
+meteora-mm-reference-refresh:
+	python3 tools/ci/meteora-reference-fetch.py --fetch
+	python3 tools/reference/meteora-dlmm/harness/reference.py
+	python3 tools/ci/meteora-mm-state.py
+	python3 tools/ci/meteora-mm-edge-reference.py
+	python3 tools/acceptance/meteora_mm_reference.py
+	python3 tools/acceptance/meteora_mm_edge_reference.py
+meteora-mm-differential-test:
+	PATH="$(HOME)/.cargo/bin:$$PATH" CARGO_BUILD_JOBS=2 cargo +1.90.0 test --locked --manifest-path ../chain-parser-rust/Cargo.toml -p xone-solana-ingest --test meteora
+	PATH="$(HOME)/.cargo/bin:$$PATH" CARGO_BUILD_JOBS=2 cargo +1.90.0 test --locked --manifest-path ../dex-router/Cargo.toml -p xone-protocol-math -p xone-routing -p xone-optimizer -p xone-quote-api --test meteora --test meteora_differential
+meteora-mm-current-check:
+	python3 tools/acceptance/validate_meteora_mm.py
+
+.PHONY: meteora-exact-out-reference-refresh meteora-exact-out-differential-test meteora-exact-out-current-check
+meteora-exact-out-reference-refresh:
+	python3 tools/ci/meteora-reference-fetch.py --fetch
+	python3 tools/ci/meteora-exact-out-reference.py
+	python3 tools/acceptance/meteora_exact_out_reference.py --reexecute
+meteora-exact-out-differential-test:
+	PATH="$(HOME)/.cargo/bin:$$PATH" CARGO_BUILD_JOBS=2 cargo +1.90.0 test --locked --manifest-path ../dex-router/Cargo.toml -p xone-protocol-math -p xone-routing -p xone-optimizer -p xone-quote-api --test meteora_exact_out
+meteora-exact-out-current-check:
+	python3 tools/acceptance/validate_meteora_exact_out.py
+	python3 tools/acceptance/meteora_exact_out_acceptance.py
+
+.PHONY: family-reference-refresh family-expansion-current-check
+family-reference-refresh:
+	python3 tools/ci/meteora-only-y-reference.py
+	python3 tools/ci/pump-reference-fetch.py
+	python3 tools/ci/pump-bonding-reference.py
+	python3 tools/ci/pump-bonding-decoder.py
+	python3 tools/acceptance/family_reference.py --reexecute
+family-expansion-current-check:
+	python3 tools/acceptance/validate_family_expansion.py
+	python3 tools/acceptance/meteora_only_y_smoke.py
+	python3 tools/acceptance/family_expansion_acceptance.py
+
+.PHONY: solana-expanded-reference-refresh solana-expanded-current-check
+solana-expanded-reference-refresh:
+	python3 tools/ci/meteora-reference-fetch.py
+	python3 tools/ci/pump-reference-fetch.py
+	python3 tools/ci/pump-amm-reference-fetch.py
+	python3 tools/ci/meteora-bitmap-reference.py
+	python3 tools/ci/meteora-rewards-reference.py
+	python3 tools/ci/meteora-orders-reference.py
+	python3 tools/ci/meteora-token2022-reference.py
+	python3 tools/ci/pump-amm-reference.py
+	python3 tools/ci/pump-exact-out-reference.py
+	python3 tools/ci/pump-sell-exact-out-reference.py
+	python3 tools/ci/pump-migration-reference.py
+	python3 tools/ci/pump-amm-decoder.py
+	python3 tools/acceptance/solana_expanded_reference.py --reexecute
+solana-expanded-current-check:
+	python3 tools/acceptance/validate_solana_expanded.py
+	python3 tools/acceptance/solana_expanded_acceptance.py
+
+.PHONY: meteora-orders-exact-out-reference-refresh meteora-orders-exact-out-current-check
+meteora-orders-exact-out-reference-refresh:
+	python3 tools/ci/meteora-reference-fetch.py
+	python3 tools/ci/meteora-orders-exact-out-reference.py
+	python3 tools/acceptance/meteora_orders_exact_out_reference.py --reexecute
+meteora-orders-exact-out-current-check:
+	python3 tools/acceptance/validate_meteora_orders_exact_out.py
+
+.PHONY: quote-execution-reference-refresh quote-execution-current-check
+quote-execution-reference-refresh:
+	python3 tools/ci/pump-amm-sell-target-reference.py
+	python3 tools/ci/meteora-execution-bank.py
+	python3 tools/acceptance/pump_amm_sell_target_reference.py --reexecute
+quote-execution-current-check:
+	python3 tools/acceptance/validate_quote_execution.py

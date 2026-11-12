@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>XONE Quote Playground</title>
+  <link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">XONE / ROUTER INTEGRATION</p>
+        <h1>实时兑换量联调</h1>
+        <p class="subtitle">选择当前解析状态中的链和币种，调用生产 Router 数学内核计算 ExactIn 或 ExactOut。</p>
+      </div>
+      <span id="healthBadge" class="badge muted">未连接</span>
+    </header>
+
+    <section class="card toolbar">
+      <label>Router 地址<input id="apiBase" type="url" /></label>
+      <label>API Token<input id="apiToken" type="password" placeholder="开发配置可留空" /></label>
+      <label class="auto-refresh"><input id="autoRefresh" type="checkbox" checked /> 自动刷新状态</label>
+      <label class="auto-refresh"><input id="autoQuote" type="checkbox" checked /> 自动计算</label><button id="refreshButton" class="secondary">刷新链和池</button>
+    </section>
+
+    <section class="grid">
+      <form id="quoteForm" class="card form-card">
+        <div class="form-header"><h2>报价请求</h2><span id="stateBadge" class="badge muted">等待状态</span></div>
+        <label>链<select id="chainKey" required></select></label>
+        <div class="row"><label>卖出币种<select id="sellToken" required></select></label><button id="flipButton" type="button" class="icon">⇄</button><label>买入币种<select id="buyToken" required></select></label></div>
+        <label>报价类型<select id="quoteKind"><option value="EXACT_IN">ExactIn：输入固定</option><option value="EXACT_OUT">ExactOut：输出固定</option></select></label>
+        <label id="amountLabel"><span id="amountText">卖出数量（最小单位整数）</span><input id="amount" inputmode="decimal" value="1000" required /></label>
+        <label id="maxSellLabel" class="hidden">最大卖出数量<input id="maxSell" inputmode="decimal" value="1000000000000000" /></label>
+        <div class="row"><label>调用方<input id="caller" placeholder="填写调用方地址" required /></label><label>收款方<input id="recipient" placeholder="填写收款方地址" required /></label></div>
+        <div class="row"><label>最大跳数<input id="maxHops" type="number" min="1" max="8" value="3" /></label><label>滑点（bps）<input id="slippageBps" type="number" min="0" max="10000" value="50" /></label></div>
+        <button id="calculateButton" class="primary" type="submit">计算兑换量</button>
+        <p id="error" class="error" role="alert"></p>
+      </form>
+
+      <section class="card result-card"><div class="form-header"><h2>报价结果</h2><span id="quoteTime" class="muted">—</span></div><div id="result" class="empty">提交报价后显示兑换量、路线和状态版本。</div><div class="execution-panel"><h3>执行准备</h3><label>输入 Token 账户（可选，默认 ATA）<input id="sourceAccount" autocomplete="off" /></label><label>输出 Token 账户（可选，默认 ATA）<input id="destinationAccount" autocomplete="off" /></label><div class="execution-buttons"><button id="prepareButton" type="button" disabled>检查执行账户</button><button id="downloadButton" type="button" class="secondary" disabled>下载待签名交易</button></div><p id="preparation" class="details"></p></div></section>
+    </section>
+
+    <section class="card pools-card"><div class="form-header"><h2>当前解析池</h2><span id="poolCount" class="muted">0 个</span></div><div id="chainVersion" class="details"></div><div id="poolTable" class="pool-table"></div></section>
+  </main>
+  <script src="src/app.js" type="module"></script>
+</body>
+</html>

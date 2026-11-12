@@ -135,6 +135,8 @@ pub fn snapshot_to_proto(s: &Snapshot) -> Result<wire::OnlineSnapshot> {
                     .as_ref()
                     .map(|s| s.to_proto())
                     .transpose()?,
+                pump: p.pump.as_ref().map(|s| s.to_proto()).transpose()?,
+                meteora: p.meteora.as_ref().map(|s| s.to_proto()).transpose()?,
                 lfj: p.lfj.as_ref().map(|s| s.to_proto()).transpose()?,
                 infinity_bin: p.infinity_bin.as_ref().map(|b| b.to_proto()).transpose()?,
                 raydium_clmm: p.raydium_clmm.as_ref().map(|s| s.to_proto()).transpose()?,
@@ -221,6 +223,11 @@ pub fn snapshot_from_proto(s: wire::OnlineSnapshot) -> Result<Snapshot> {
                 slipstream_context: p
                     .slipstream_context
                     .map(crate::slipstream_context::SlipstreamState::from_proto)
+                    .transpose()?,
+                pump: p.pump.map(crate::pump::PumpState::from_proto).transpose()?,
+                meteora: p
+                    .meteora
+                    .map(crate::meteora::MeteoraState::from_proto)
                     .transpose()?,
                 lfj: p.lfj.map(crate::lfj::LfjState::from_proto).transpose()?,
                 infinity_bin: p

@@ -189,6 +189,39 @@ fn evaluate_path_context(
             return Err(err(reason));
         }
     }
+    if path.iter().any(|edge| {
+        pools
+            .get(&edge.pool_id)
+            .is_some_and(|p| p.meteora.is_some())
+    }) {
+        if let Some(funds) = funds {
+            for address in [funds.sender, funds.recipient] {
+                xone_domain::raydium::validate_pubkey(address)?;
+                for p in pools.values() {
+                    if let Some(m) = &p.meteora {
+                        if m.internal_accounts(p)?.iter().any(|id| id == address) {
+                            return Err(err("METEORA_UNMODELED_SELF_FUNDING"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if path
+        .iter()
+        .any(|e| pools.get(&e.pool_id).is_some_and(|p| p.pump.is_some()))
+    {
+        if path.len() != 1 {
+            return Err(err("PUMP_SINGLE_POOL_TEMPLATE"));
+        }
+        if let Some(funds) = funds {
+            let p = &pools[&path[0].pool_id];
+            let m = p.pump.as_ref().ok_or_else(|| err("PUMP_STATE_REQUIRED"))?;
+            if funds.sender != m.user || funds.recipient != m.user {
+                return Err(err("PUMP_DECLARED_USER_REQUIRED"));
+            }
+        }
+    }
     let contextual = path.iter().any(|edge| {
         pools
             .get(&edge.pool_id)

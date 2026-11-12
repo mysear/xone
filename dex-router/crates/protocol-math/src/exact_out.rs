@@ -22,6 +22,16 @@ pub fn supports_protocol(protocol: &str) -> bool {
             | xone_domain::pancake_lm::PROFILE
             | xone_domain::slipstream_context::PROFILE
             | xone_domain::lfj::PROFILE
+            | xone_domain::meteora::PROFILE
+            | xone_domain::meteora_token2022::PROFILE
+            | xone_domain::meteora::REWARDS_PROFILE
+            | xone_domain::meteora::BITMAP_PROFILE
+            | xone_domain::meteora::ORDERS_PROFILE
+            | xone_domain::meteora::ONLY_Y_PROFILE
+            | xone_domain::pump::PROFILE
+            | xone_domain::pump::MIGRATION_PROFILE
+            | xone_domain::pump_amm::PROFILE
+            | xone_domain::pump_amm::BOOST_PROFILE
     )
 }
 
@@ -49,6 +59,15 @@ pub fn quote_exact_out_for_origin(
 /// Fixed original Router02 execution template with standard external funding.
 /// Other protocols and Token behaviors need their own independent interface.
 pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<ExactOutSwap> {
+    if xone_domain::pump_amm::supports_profile(&pool.protocol) {
+        return crate::pump_amm::quote_exact_out(pool, output, zero);
+    }
+    if xone_domain::pump::supports_curve_profile(&pool.protocol) {
+        return crate::pump::quote_exact_out(pool, output, zero);
+    }
+    if xone_domain::meteora::supports_profile(&pool.protocol) {
+        return crate::meteora::quote_exact_out(pool, output, zero);
+    }
     if pool.protocol == xone_domain::slipstream_context::PROFILE {
         return Err(err("SLIPSTREAM_ORIGIN_REQUIRED"));
     }

@@ -84,3 +84,19 @@ path = "test/tools/slipstream_exact_out_plan_projector.rs"
 [[example]]
 name = "lfj-exact-out-plan-projector"
 path = "test/tools/lfj_exact_out_plan_projector.rs"
+
+[[example]]
+name = "meteora-plan-projector"
+path = "test/tools/meteora_plan_projector.rs"
+
+[[example]]
+name = "meteora-exact-out-plan-projector"
+path = "test/tools/meteora_exact_out_plan_projector.rs"
+
+[[example]]
+name = "pump-plan-projector"
+path = "test/tools/pump_plan_projector.rs"
+
+[[example]]
+name = "solana-plan-projector"
+path = "test/tools/solana_plan_projector.rs"

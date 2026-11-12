@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 [dependencies]
 xone-domain = { path = "../domain" }
+hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 num-bigint.workspace = true

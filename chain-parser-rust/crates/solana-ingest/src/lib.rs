@@ -1,5 +1,7 @@
 pub mod assembly;
+pub mod meteora;
 pub mod orca;
+pub mod pump;
 pub mod raydium;
 pub mod raydium_clmm;
 pub mod rpc;

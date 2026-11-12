@@ -257,6 +257,8 @@ impl Rpc {
         }
         let mut ids = BTreeSet::new();
         let mut creator_ids = BTreeSet::new();
+        let mut meteora_ids = BTreeSet::new();
+        let mut pump_ids = BTreeSet::new();
         let mut clmm_ids = BTreeSet::new();
         let mut archived_ids = BTreeSet::new();
         let mut orca_ids = BTreeSet::new();
@@ -264,6 +266,20 @@ impl Rpc {
         let mut adaptive_oracles = BTreeSet::new();
         for p in &ch.pools {
             match p.protocol.as_str() {
+                xone_domain::pump::PROFILE
+                | xone_domain::pump::MIGRATION_PROFILE
+                | xone_domain::pump_amm::PROFILE
+                | xone_domain::pump_amm::BOOST_PROFILE => {
+                    pump_ids.extend(crate::pump::required_accounts(p)?);
+                }
+                xone_domain::meteora::PROFILE
+                | xone_domain::meteora_token2022::PROFILE
+                | xone_domain::meteora::ORDERS_PROFILE
+                | xone_domain::meteora::REWARDS_PROFILE
+                | xone_domain::meteora::BITMAP_PROFILE
+                | xone_domain::meteora::ONLY_Y_PROFILE => {
+                    meteora_ids.extend(crate::meteora::required_accounts(p)?);
+                }
                 "raydium-clmm-static"
                 | "raydium-clmm-token-fee"
                 | "raydium-clmm-bitmap"
@@ -302,6 +318,8 @@ impl Rpc {
             }
         }
         ids.extend(creator_ids.iter().cloned());
+        ids.extend(meteora_ids.iter().cloned());
+        ids.extend(pump_ids.iter().cloned());
         ids.extend(clmm_ids.iter().cloned());
         ids.extend(archived_ids.iter().cloned());
         ids.extend(orca_ids.iter().cloned());
@@ -367,8 +385,20 @@ impl Rpc {
                 ))
             })
             .collect::<Result<BTreeMap<_, _>>>()?;
-        let pinned_bank =
-            sharded || !creator_ids.is_empty() || !orca_ids.is_empty() || !clmm_ids.is_empty();
+        let pump_accounts = pump_ids
+            .iter()
+            .map(|id| Ok((id.clone(), crate::pump::decode_account(&values[id])?)))
+            .collect::<Result<BTreeMap<_, _>>>()?;
+        let meteora_accounts = meteora_ids
+            .iter()
+            .map(|id| Ok((id.clone(), crate::raydium::RpcAccount::decode(&values[id])?)))
+            .collect::<Result<BTreeMap<_, _>>>()?;
+        let pinned_bank = sharded
+            || !pump_ids.is_empty()
+            || !meteora_ids.is_empty()
+            || !creator_ids.is_empty()
+            || !orca_ids.is_empty()
+            || !clmm_ids.is_empty();
         // minContextSlot is intentionally not used as an exact historical account selector.
         let block = match initial_anchor {
             Some(block) => block,
@@ -408,6 +438,16 @@ impl Rpc {
                     || p.protocol == "orca-whirlpools-adaptive-dynamic"
                 {
                     crate::orca::decode_orca_whirlpool(ch, p, &orca_accounts, slot)?
+                } else if matches!(
+                    p.protocol.as_str(),
+                    xone_domain::pump::PROFILE
+                        | xone_domain::pump::MIGRATION_PROFILE
+                        | xone_domain::pump_amm::PROFILE
+                        | xone_domain::pump_amm::BOOST_PROFILE
+                ) {
+                    crate::pump::decode(ch, p, &pump_accounts, slot)?
+                } else if xone_domain::meteora::supports_profile(&p.protocol) {
+                    crate::meteora::decode(ch, p, &meteora_accounts, slot)?
                 } else if p.protocol == "raydium-cpmm-creator" {
                     crate::raydium::decode_raydium_cpmm(ch, p, &creator_accounts, slot)?
                 } else {
@@ -648,6 +688,8 @@ pub fn decode_cpmm_at(
         pancake_lm: None,
         slipstream_context: None,
         lfj: None,
+        meteora: None,
+        pump: None,
         infinity_bin: None,
         orca_whirlpool: None,
         raydium_clmm: None,
@@ -696,6 +738,20 @@ pub fn required_scope(ch: &Chain) -> Result<BTreeSet<String>> {
     let mut ids = BTreeSet::new();
     for p in &ch.pools {
         match p.protocol.as_str() {
+            xone_domain::pump::PROFILE
+            | xone_domain::pump::MIGRATION_PROFILE
+            | xone_domain::pump_amm::PROFILE
+            | xone_domain::pump_amm::BOOST_PROFILE => {
+                ids.extend(crate::pump::required_accounts(p)?)
+            }
+            xone_domain::meteora::PROFILE
+            | xone_domain::meteora_token2022::PROFILE
+            | xone_domain::meteora::ORDERS_PROFILE
+            | xone_domain::meteora::REWARDS_PROFILE
+            | xone_domain::meteora::BITMAP_PROFILE
+            | xone_domain::meteora::ONLY_Y_PROFILE => {
+                ids.extend(crate::meteora::required_accounts(p)?)
+            }
             "raydium-clmm-static"
             | "raydium-clmm-token-fee"
             | "raydium-clmm-bitmap"
@@ -735,6 +791,28 @@ pub fn snapshot_from_bank(
     let mut pools = Vec::new();
     for p in &ch.pools {
         let pool = match p.protocol.as_str() {
+            xone_domain::pump::PROFILE
+            | xone_domain::pump::MIGRATION_PROFILE
+            | xone_domain::pump_amm::PROFILE
+            | xone_domain::pump_amm::BOOST_PROFILE => {
+                let a = crate::pump::required_accounts(p)?
+                    .into_iter()
+                    .map(|id| Ok((id.clone(), crate::pump::decode_account(&values[&id])?)))
+                    .collect::<Result<BTreeMap<_, _>>>()?;
+                crate::pump::decode(ch, p, &a, bank.bank.slot)?
+            }
+            xone_domain::meteora::PROFILE
+            | xone_domain::meteora_token2022::PROFILE
+            | xone_domain::meteora::ORDERS_PROFILE
+            | xone_domain::meteora::REWARDS_PROFILE
+            | xone_domain::meteora::BITMAP_PROFILE
+            | xone_domain::meteora::ONLY_Y_PROFILE => {
+                let a = crate::meteora::required_accounts(p)?
+                    .into_iter()
+                    .map(|k| Ok((k.clone(), crate::raydium::RpcAccount::decode(&values[&k])?)))
+                    .collect::<Result<BTreeMap<_, _>>>()?;
+                crate::meteora::decode(ch, p, &a, bank.bank.slot)?
+            }
             "raydium-clmm-static"
             | "raydium-clmm-token-fee"
             | "raydium-clmm-bitmap"

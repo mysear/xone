@@ -1,0 +1,64 @@
+/** Real local Router HTTP + Chromium integration. No quote responses are mocked. */
+import {createRequire} from 'node:module';
+import {createServer} from 'node:http';
+import {spawn} from 'node:child_process';
+import {readFile,writeFile,mkdir,stat} from 'node:fs/promises';
+import {createWriteStream} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url);
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
+const output=process.env.XONE_BROWSER_OUTPUT || path.join(root,'integration/artifacts/local/phase57-browser');
+await mkdir(output,{recursive:true});
+const mime={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8'};
+const allowed={'/':'index.html','/src/app.js':'src/app.js','/src/model.js':'src/model.js','/src/styles.css':'src/styles.css'};
+const server=createServer(async(req,res)=>{try{const file=allowed[new URL(req.url,'http://local').pathname];if(!file){res.writeHead(204);return res.end();}res.writeHead(200,{'Content-Type':mime[path.extname(file)]});res.end(await readFile(path.join(root,'frontend',file)));}catch{res.writeHead(500);res.end();}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const origin=`http://127.0.0.1:${server.address().port}`;
+const infoFile=path.join(output,'harness-info.json');
+await import('node:fs/promises').then(fs=>fs.rm(infoFile,{force:true}));
+const log=createWriteStream(path.join(output,'harness.log'));
+const child=spawn(process.env.XONE_HARNESS_BIN || path.join(root,'dex-router/target/debug/examples/frontend_harness'),[infoFile,origin],{cwd:root,stdio:['ignore','pipe','pipe']});
+child.stdout.pipe(log);child.stderr.pipe(log);
+let browser;const checks=[];const captures=[];const report={passed:false,authority:'controlled original account banks, production Router handler/math, real Chromium UI and read-only execution RPC fixture',checks,publicTransactionsSubmitted:false};
+try {
+  let info;
+  for(let i=0;i<900;i++){try{info=JSON.parse(await readFile(infoFile,'utf8'));break;}catch{}if(child.exitCode!==null)throw new Error(`harness exit ${child.exitCode}`);await new Promise(r=>setTimeout(r,100));}
+  assert(info,'harness startup timeout');
+  report.metadata=await (await fetch(`${info.api}/v1/quote-options`,{headers:{Authorization:`Bearer ${info.token}`}})).json();
+  browser=await chromium.launch({headless:true,channel:process.env.XONE_CHROME_CHANNEL || 'chrome'});
+  const context=await browser.newContext({viewport:{width:1360,height:1080},locale:'zh-CN',acceptDownloads:true});
+  const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const mode=async m=>{const r=await fetch(`${info.api}/test/mode`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:m})});assert.equal(r.status,200);};
+  const ready=()=>page.waitForFunction(()=>document.querySelector('#stateBadge').textContent==='报价成功',null,{timeout:30000});
+  const quote=async()=>{const response=page.waitForResponse(r=>/\/v1\/quote(-exact-out)?$/.test(new URL(r.url()).pathname)&&r.request().method()==='POST');await page.click('#calculateButton');const r=await response;const data=await r.json();report.lastRequest=r.request().postData();report.lastResponse=data;assert.equal(r.status(),200,JSON.stringify(data));await ready();captures.push(data);return data;};
+  await page.goto(`${origin}/?api=${encodeURIComponent(info.api)}`);
+  await page.uncheck('#autoQuote');await page.uncheck('#autoRefresh');await page.fill('#apiToken',info.token);await page.locator('#apiToken').dispatchEvent('change');
+  await page.waitForFunction(()=>document.querySelector('#chainKey').options.length===3);
+  await page.selectOption('#chainKey','solana:mainnet-beta');
+  const b=info.bank;
+  await page.selectOption('#sellToken',b.pool.token0);await page.selectOption('#buyToken',b.pool.token1);await page.selectOption('#quoteKind','EXACT_OUT');report.kindAfterSelect=await page.inputValue('#quoteKind');await page.fill('#amount',b.target);await page.fill('#caller',b.caller);await page.fill('#recipient',b.recipient);await page.fill('#maxHops','1');
+  report.kindBeforeQuote=await page.inputValue('#quoteKind');let q=await quote();assert.equal(q.requiredSellAmount,b.requiredInput);assert.equal(q.grossBuyAmount,b.target);
+  assert((await page.locator('.route').innerText()).includes(b.pool.pool_id));assert((await page.locator('#result').innerText()).includes('solana:mainnet-beta / 300000000'));checks.push('real_exact_out_original_amount_and_route_snapshot_display');
+  await page.click('#prepareButton');await page.waitForFunction(()=>document.querySelector('#preparation').textContent.includes('SOURCE_ACCOUNT_MISSING'));assert(await page.locator('#downloadButton').isDisabled());checks.push('derived_missing_ata_blocks_unsigned_download');
+  await page.fill('#sourceAccount',b.sourceTokenAccount);await page.fill('#destinationAccount',b.destinationTokenAccount);await page.click('#prepareButton');await page.waitForFunction(()=>document.querySelector('#preparation').textContent.includes('账户检查通过'),null,{timeout:30000});
+  const downloadPromise=page.waitForEvent('download');await page.click('#downloadButton');const download=await downloadPromise;const downloaded=path.join(output,'unsigned-preparation.json');await download.saveAs(downloaded);const prepared=JSON.parse(await readFile(downloaded,'utf8'));assert.equal(prepared.planHash,q.planHash);assert.equal(prepared.signed,false);assert.equal(prepared.submitted,false);assert.equal(prepared.simulationRequired,true);assert(prepared.unsignedTransaction);checks.push('read_only_account_check_and_actual_unsigned_transaction_download');
+  await mode('frozen');await page.click('#prepareButton');await page.waitForFunction(()=>document.querySelector('#preparation').textContent.includes('PREPARATION_ACCOUNT_INVALID'));assert(await page.locator('#downloadButton').isDisabled());checks.push('frozen_wallet_retracts_previous_preparation');await mode('ready');
+  await page.selectOption('#quoteKind','EXACT_IN');await page.fill('#amount','1000');const exactIn=await quote();assert(exactIn.routes[0].path);assert((await page.locator('.route').innerText()).includes(b.pool.pool_id));checks.push('real_exact_in_nested_path_rendering');
+  await page.selectOption('#quoteKind','EXACT_OUT');await mode('delay_quotes');await page.fill('#amount','900');const oldReq=page.waitForRequest(r=>r.url().endsWith('/v1/quote-exact-out'));await page.click('#calculateButton');await oldReq;await mode('ready');await page.fill('#amount','1000');q=await quote();await new Promise(r=>setTimeout(r,1800));assert.equal(await page.locator('[data-testid="buy-amount"]').innerText(),'1000');checks.push('delayed_real_response_cannot_overwrite_new_inputs');
+  await mode('advance');await page.click('#refreshButton');await page.waitForFunction(()=>document.querySelector('#result').textContent.includes('状态已更新'));assert.equal(await page.locator('[data-testid="buy-amount"]').count(),0);assert(await page.locator('#downloadButton').isDisabled());checks.push('new_quote_view_retracts_old_amount_and_transaction');
+  await mode('suspend');await page.click('#refreshButton');await page.waitForFunction(()=>document.querySelector('#stateBadge').textContent==='未就绪');assert(await page.locator('#calculateButton').isDisabled());await mode('restore');await page.click('#refreshButton');await page.waitForFunction(()=>!document.querySelector('#calculateButton').disabled);checks.push('parser_scope_withdrawal_and_recovery');
+  const c=info.amm;await page.selectOption('#chainKey','solana:amm-local');await page.selectOption('#sellToken',c.pool.token0);await page.selectOption('#buyToken',c.pool.token1);await page.selectOption('#quoteKind','EXACT_OUT');await page.fill('#caller',c.pool.pump.user);await page.fill('#recipient',c.pool.pump.user);await page.fill('#amount',c.target);
+  const aq=await quote();assert.equal(aq.requiredSellAmount,c.required_input);assert.equal(aq.grossBuyAmount,c.actual_output);assert.equal(BigInt(aq.outputSurplus),BigInt(c.actual_output)-BigInt(c.target));assert(await page.locator('#prepareButton').isDisabled());checks.push('real_pump_swap_minimum_sell_and_original_surplus');
+  await page.check('#autoQuote');
+  const automatic=page.waitForResponse(r=>r.url().endsWith('/v1/quote-exact-out') && r.request().method()==='POST');await page.fill('#amount','2');const autoResponse=await automatic;const autoBody=await autoResponse.json();assert.equal(autoResponse.status(),200,JSON.stringify(autoBody));await ready();assert.equal(await page.locator('[data-testid="buy-amount"]').innerText(),autoBody.grossBuyAmount);checks.push('debounced_input_automatically_requests_real_router_quote');await page.uncheck('#autoQuote');
+  await page.screenshot({path:path.join(output,'desktop.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(output,'mobile.png'),fullPage:true});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));checks.push('mobile_layout_without_horizontal_overflow');
+  assert.deepEqual(errors,[]);checks.push('no_uncaught_browser_errors');
+  const allowedOrigin=await fetch(`${info.api}/v1/quote-options`,{headers:{Origin:origin,Authorization:`Bearer ${info.token}`}});assert.equal(allowedOrigin.headers.get('access-control-allow-origin'),origin);
+  const denied=await fetch(`${info.api}/v1/quote-options`,{headers:{Origin:'https://not-allowed.invalid',Authorization:`Bearer ${info.token}`}});assert.equal(denied.headers.get('access-control-allow-origin'),null);checks.push('configured_cors_origin_allowed_unknown_origin_denied');
+  report.passed=true;report.browser=browser.version();report.quoteCount=captures.length;await writeFile(path.join(output,'quotes.json'),JSON.stringify(captures,null,2));
+} catch(e){report.error=e.stack;throw e;}
+finally {await writeFile(path.join(output,'result.json'),JSON.stringify(report,null,2));if(browser)await browser.close();child.kill('SIGTERM');await new Promise(r=>child.exitCode!==null?r():child.once('exit',r));log.end();await new Promise(r=>server.close(r));console.log(JSON.stringify(report));}

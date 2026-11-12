@@ -3685,6 +3685,9 @@ dependencies = [
 name = "xone-execution-plan"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "bs58",
+ "curve25519-dalek",
  "hex",
  "num-bigint",
  "serde",
@@ -3742,6 +3745,7 @@ version = "0.1.0"
 dependencies = [
  "bs58",
  "curve25519-dalek",
+ "hex",
  "num-bigint",
  "num-traits",
  "serde",
@@ -3755,18 +3759,24 @@ name = "xone-quote-api"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
+ "bs58",
+ "hex",
  "num-traits",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "tower",
+ "tower-http",
  "xone-config",
  "xone-domain",
  "xone-execution-plan",
  "xone-kafka-transport",
  "xone-observability",
  "xone-optimizer",
+ "xone-protocol-math",
  "xone-routing",
  "xone-simulation",
  "xone-state-replica",

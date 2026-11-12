@@ -21,6 +21,22 @@ pub struct ExactOutPlan {
     pub plan_hash: String,
 }
 
+/// Address interpretation is bound to the chain; Solana base58 is case-sensitive.
+pub fn validate_chain_address(chain: &str, address: &str) -> Result<()> {
+    xone_domain::validate_chain(chain)?;
+    if chain.starts_with("solana:") {
+        if address == xone_domain::pump::NATIVE_SOL {
+            Ok(())
+        } else {
+            xone_domain::raydium::validate_pubkey(address).map(|_| ())
+        }
+    } else if chain.starts_with("evm:") {
+        xone_domain::protocols::validate_address(address)
+    } else {
+        Err(err("EXACT_OUT_CHAIN_UNSUPPORTED"))
+    }
+}
+
 pub fn build(
     context: &Context,
     allocation: &ExactOutAllocation,
@@ -28,7 +44,7 @@ pub fn build(
     policy: &str,
 ) -> Result<ExactOutPlan> {
     if context.chain_key != snapshot.block.chain_key
-        || !context.chain_key.starts_with("evm:")
+        || !(context.chain_key.starts_with("evm:") || context.chain_key.starts_with("solana:"))
         || context.slippage_bps > 10000
         || context.sell_token == context.buy_token
         || allocation.routes.is_empty()
@@ -39,6 +55,26 @@ pub fn build(
             != &allocation.input_budget.0 - &allocation.required_input.0
     {
         return Err(err("EXACT_OUT_INVALID_PLAN"));
+    }
+    let solana = context.chain_key.starts_with("solana:");
+    if solana
+        && [&context.caller, &context.recipient]
+            .into_iter()
+            .any(|a| xone_domain::raydium::validate_pubkey(a).is_err())
+    {
+        return Err(err("EXACT_OUT_INVALID_PLAN"));
+    }
+    if solana
+        && [
+            &allocation.required_input,
+            &allocation.target_output,
+            &allocation.input_budget,
+            &allocation.unused_input_budget,
+        ]
+        .into_iter()
+        .any(|a| a.0.bits() > 64)
+    {
+        return Err(err("EXACT_OUT_SOLANA_AMOUNT_WIDTH"));
     }
     Amount::checked(allocation.gross_output().0.clone())?;
     for amount in [
@@ -55,7 +91,7 @@ pub fn build(
         &context.sell_token,
         &context.buy_token,
     ] {
-        xone_domain::protocols::validate_address(address)?;
+        validate_chain_address(&context.chain_key, address)?;
         if address == xone_domain::singleton::ZERO_ADDRESS {
             return Err(err("EXACT_OUT_INVALID_PLAN"));
         }
@@ -92,13 +128,37 @@ pub fn build(
                             | xone_domain::pancake_lm::PROFILE
                             | xone_domain::slipstream_context::PROFILE
                             | xone_domain::lfj::PROFILE
+                            | xone_domain::meteora::PROFILE
+                            | xone_domain::meteora_token2022::PROFILE
+                            | xone_domain::meteora::REWARDS_PROFILE
+                            | xone_domain::meteora::BITMAP_PROFILE
+                            | xone_domain::meteora::ORDERS_PROFILE
+                            | xone_domain::meteora::ONLY_Y_PROFILE
+                            | xone_domain::pump::PROFILE
+                            | xone_domain::pump::MIGRATION_PROFILE
+                            | xone_domain::pump_amm::PROFILE
+                            | xone_domain::pump_amm::BOOST_PROFILE
                     ) || (matches!(
                         edge.protocol.as_str(),
                         xone_domain::pancake_bsc_lm::PROFILE
                             | xone_domain::pancake_lm::PROFILE
                             | xone_domain::slipstream_context::PROFILE
                             | xone_domain::lfj::PROFILE
+                            | xone_domain::meteora::PROFILE
+                            | xone_domain::meteora_token2022::PROFILE
+                            | xone_domain::meteora::REWARDS_PROFILE
+                            | xone_domain::meteora::BITMAP_PROFILE
+                            | xone_domain::meteora::ORDERS_PROFILE
+                            | xone_domain::meteora::ONLY_Y_PROFILE
+                            | xone_domain::pump::PROFILE
+                            | xone_domain::pump::MIGRATION_PROFILE
+                            | xone_domain::pump_amm::PROFILE
+                            | xone_domain::pump_amm::BOOST_PROFILE
                     ) && route.edges.len() != 1)
+                        || (solana
+                            != (xone_domain::meteora::supports_profile(&edge.protocol)
+                                || xone_domain::pump::supports_curve_profile(&edge.protocol)
+                                || xone_domain::pump_amm::supports_profile(&edge.protocol)))
                         || edge.from_token.is_some()
                         || &edge.to != to
                 })
@@ -107,7 +167,10 @@ pub fn build(
         }
         if let Some(target) = &route.target_output {
             if route.edges.len() != 1
-                || route.edges[0].protocol != xone_domain::lfj::PROFILE
+                || !(route.edges[0].protocol == xone_domain::lfj::PROFILE
+                    || ((xone_domain::pump::supports_curve_profile(&route.edges[0].protocol)
+                        || xone_domain::pump_amm::supports_profile(&route.edges[0].protocol))
+                        && route.edges[0].zero_for_one))
                 || *target == Amount::zero()
                 || target.0 >= route.amount_out.0
             {
@@ -115,14 +178,49 @@ pub fn build(
             }
             Amount::checked(target.0.clone())?;
         }
+        if solana {
+            let pump = xone_domain::pump::supports_curve_profile(&route.edges[0].protocol);
+            let amm = xone_domain::pump_amm::supports_profile(&route.edges[0].protocol);
+            if (if pump {
+                route.factory != xone_domain::pump::PROGRAM
+                    || route.tokens[usize::from(route.edges[0].zero_for_one)]
+                        != xone_domain::pump::NATIVE_SOL
+                    || context.caller != context.recipient
+            } else if amm {
+                route.factory != xone_domain::pump_amm::PROGRAM
+                    || route.tokens[usize::from(route.edges[0].zero_for_one)]
+                        != xone_domain::pump_amm::WSOL
+                    || route
+                        .tokens
+                        .contains(&xone_domain::pump::NATIVE_SOL.to_owned())
+                    || context.caller != context.recipient
+            } else {
+                route.factory != xone_domain::meteora::PROGRAM
+                    || route
+                        .tokens
+                        .contains(&xone_domain::pump::NATIVE_SOL.to_owned())
+            }) || route.edges.len() != 1
+                || [&context.caller, &context.recipient]
+                    .into_iter()
+                    .any(|funds| {
+                        funds == &route.factory
+                            || funds == &route.edges[0].pool_id
+                            || route.tokens.contains(funds)
+                    })
+                || route.amounts.iter().any(|a| a.0.bits() > 64)
+            {
+                return Err(err("EXACT_OUT_INVALID_PLAN"));
+            }
+            xone_domain::raydium::validate_pubkey(&route.edges[0].pool_id)?;
+        }
         targeted += &route.output_target().0;
         for amount in &route.amounts {
             Amount::checked(amount.0.clone())?;
         }
         for token in &route.tokens {
-            xone_domain::protocols::validate_address(token)?;
+            validate_chain_address(&context.chain_key, token)?;
         }
-        xone_domain::protocols::validate_address(&route.factory)?;
+        validate_chain_address(&context.chain_key, &route.factory)?;
         input += &route.amount_in.0;
         output += &route.amount_out.0;
     }

@@ -1,0 +1,13 @@
+{
+  "name": "xone-quote-playground",
+  "private": true,
+  "version": "0.1.0",
+  "description": "XONE chain and DEX quote integration playground",
+  "scripts": {
+    "dev": "python3 -m http.server 5173 --directory .",
+    "check": "node --check src/app.js && node --check src/model.js",
+    "test": "node --test test/*.test.js",
+    "test:browser": "node test/browser.mjs"
+  },
+  "type": "module"
+}

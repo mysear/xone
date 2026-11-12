@@ -29,6 +29,8 @@ impl Fixture {
             pancake_lm: None,
             slipstream_context: None,
             lfj: None,
+            meteora: None,
+            pump: None,
             infinity_bin: None,
             stable: None,
             weighted: None,

@@ -11,7 +11,10 @@ pub mod curve_ng;
 pub mod curve_plain;
 pub mod exact_out;
 pub mod lfj;
+pub mod meteora;
 pub mod pancake_bsc_lm;
+pub mod pump;
+pub mod pump_amm;
 pub use exact_out::{quote_exact_out, ExactOutSwap};
 pub mod pancake_lm;
 pub mod slipstream_context;
@@ -58,6 +61,15 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, zero_for_one: bool) -> Result
     }
     if pool.protocol == xone_domain::slipstream_context::PROFILE {
         return Err(err("SLIPSTREAM_FUNDS_REQUIRED"));
+    }
+    if xone_domain::pump_amm::supports_profile(&pool.protocol) {
+        return pump_amm::quote_exact_in(pool, input, zero_for_one);
+    }
+    if xone_domain::pump::supports_curve_profile(&pool.protocol) {
+        return pump::quote_exact_in(pool, input, zero_for_one);
+    }
+    if xone_domain::meteora::supports_profile(&pool.protocol) {
+        return meteora::quote_exact_in(pool, input, zero_for_one);
     }
     if pool.protocol == xone_domain::lfj::PROFILE {
         return lfj::quote_exact_in(pool, input, zero_for_one);

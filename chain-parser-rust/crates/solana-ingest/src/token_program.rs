@@ -13,8 +13,15 @@ pub(crate) fn append_dependency(
     ids: &mut Vec<String>,
     upgrade: Option<&TokenProgramUpgradeConfig>,
 ) -> Result<()> {
+    append_dependency_for(ids, TOKEN_PROGRAM, upgrade)
+}
+pub(crate) fn append_dependency_for(
+    ids: &mut Vec<String>,
+    program: &str,
+    upgrade: Option<&TokenProgramUpgradeConfig>,
+) -> Result<()> {
     if let Some(upgrade) = upgrade {
-        let expected = pda(&[&pubkey(TOKEN_PROGRAM)?], &pubkey(UPGRADEABLE)?)?.0;
+        let expected = pda(&[&pubkey(program)?], &pubkey(UPGRADEABLE)?)?.0;
         if upgrade.deployed_slot == 0 || upgrade.programdata != expected {
             return Err(err("TOKEN_PROGRAM_VERSION_UNSUPPORTED"));
         }
@@ -29,8 +36,17 @@ pub(crate) fn verify(
     upgrade: Option<&TokenProgramUpgradeConfig>,
     bank_slot: u64,
 ) -> Result<()> {
+    verify_program(accounts, TOKEN_PROGRAM, expected_code, upgrade, bank_slot)
+}
+pub(crate) fn verify_program(
+    accounts: &BTreeMap<String, RpcAccount>,
+    id: &str,
+    expected_code: &str,
+    upgrade: Option<&TokenProgramUpgradeConfig>,
+    bank_slot: u64,
+) -> Result<()> {
     let fail = || err("TOKEN_PROGRAM_VERSION_UNSUPPORTED");
-    let program = get(accounts, TOKEN_PROGRAM)?;
+    let program = get(accounts, id)?;
     if !program.executable {
         return Err(fail());
     }
@@ -43,7 +59,7 @@ pub(crate) fn verify(
         }
         return Ok(());
     };
-    append_dependency(&mut Vec::new(), Some(upgrade))?;
+    append_dependency_for(&mut Vec::new(), id, Some(upgrade))?;
     if program.owner != UPGRADEABLE
         || program.data.len() != 36
         || tag_at(&program.data, 0) != 2

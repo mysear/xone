@@ -45,3 +45,10 @@ VERIFIED返回INDEPENDENT_SIMULATION_UNAVAILABLE（422）；POST /v1/quotes/{id}
 路由器访问受保护的解析器时，在 `journal.source_auth_tokens` 中按 owner HTTP 基地址配置上游 token；它与路由器自身的 `api.auth_token` 独立。未配置的上游请求不发送 Authorization。集成工具会显式填入本次临时凭据。
 
 正式服务入口为 `cmd/dex-router/main.rs`；测试资源统一在 `test/` 下，按 `contracts`、`fixtures`、`cmd` 分类（仅有调试程序的服务包含 `test/cmd`）。
+
+
+## 前端能力与只读执行准备
+
+`GET /v1/quote-options`返回当前可报价图、池、交易方向、ExactIn/ExactOut能力及不可用原因。`POST /v1/quotes/{id}/prepare`为限定Meteora单池模板检查已有执行账户并生成待签名Solana交易；RPC仅取本服务配置，不接受请求指定节点。该入口不签名、不广播，缺失账户返回blockers，仍需独立模拟。
+
+前端目录位于根目录`frontend/`。`api.cors_allowed_origins`允许明确的HTTP(S) origin；缺省只允许本机5173端口。完整限制和测试方式见`../frontend/README.md`。

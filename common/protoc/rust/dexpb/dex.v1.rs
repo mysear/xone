@@ -554,6 +554,10 @@ pub struct PoolState {
     pub pancake_lm: ::core::option::Option<PancakeLmState>,
     #[prost(message, optional, tag = "34")]
     pub pancake_bsc_lm: ::core::option::Option<PancakeBscLmState>,
+    #[prost(message, optional, tag = "35")]
+    pub meteora: ::core::option::Option<MeteoraState>,
+    #[prost(message, optional, tag = "36")]
+    pub pump: ::core::option::Option<PumpState>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CanonicalRecord {
@@ -1673,4 +1677,115 @@ pub struct PancakeBscLmState {
     pub flags: ::prost::alloc::vec::Vec<PancakeBscLmFlag>,
     #[prost(message, repeated, tag = "4")]
     pub predecessors: ::prost::alloc::vec::Vec<PancakeBscLmPredecessor>,
+}
+/// Fixed Meteora MM profile retains exact account bytes for complete post-state checks.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MeteoraBinArray {
+    #[prost(string, tag = "1")]
+    pub address: ::prost::alloc::string::String,
+    #[prost(sint64, tag = "2")]
+    pub index: i64,
+    #[prost(bytes = "vec", tag = "3")]
+    pub data: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MeteoraToken2022State {
+    #[prost(string, tag = "1")]
+    pub programdata: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "2")]
+    pub deployed_slot: u64,
+    #[prost(bytes = "vec", tag = "3")]
+    pub program_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag = "4")]
+    pub bank_epoch: u64,
+    #[prost(bytes = "vec", tag = "5")]
+    pub mint_data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "6")]
+    pub vault_data: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MeteoraBitmapExtension {
+    #[prost(string, tag = "1")]
+    pub address: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "2")]
+    pub data: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MeteoraState {
+    #[prost(string, tag = "1")]
+    pub programdata: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "2")]
+    pub program_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag = "3")]
+    pub deployed_slot: u64,
+    #[prost(bytes = "vec", tag = "4")]
+    pub token_program_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag = "5")]
+    pub slot: u64,
+    #[prost(uint64, tag = "6")]
+    pub timestamp: u64,
+    #[prost(bytes = "vec", tag = "7")]
+    pub pair_data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "8")]
+    pub oracle_data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, repeated, tag = "9")]
+    pub bin_arrays: ::prost::alloc::vec::Vec<MeteoraBinArray>,
+    #[prost(uint64, tag = "10")]
+    pub raw_vault0: u64,
+    #[prost(uint64, tag = "11")]
+    pub raw_vault1: u64,
+    #[prost(uint32, tag = "12")]
+    pub max_steps: u32,
+    #[prost(bool, tag = "13")]
+    pub derived: bool,
+    #[prost(message, optional, tag = "20")]
+    pub bitmap_extension: ::core::option::Option<MeteoraBitmapExtension>,
+    #[prost(message, optional, tag = "21")]
+    pub token2022: ::core::option::Option<MeteoraToken2022State>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PumpAccount {
+    #[prost(string, tag = "1")]
+    pub address: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub owner: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "3")]
+    pub lamports: u64,
+    #[prost(bytes = "vec", tag = "4")]
+    pub data: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PumpState {
+    #[prost(string, tag = "1")]
+    pub programdata: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "2")]
+    pub deployed_slot: u64,
+    #[prost(bytes = "vec", tag = "3")]
+    pub program_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "4")]
+    pub fee_programdata: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "5")]
+    pub fee_deployed_slot: u64,
+    #[prost(bytes = "vec", tag = "6")]
+    pub fee_program_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "7")]
+    pub token_program_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag = "8")]
+    pub slot: u64,
+    #[prost(uint64, tag = "9")]
+    pub timestamp: u64,
+    #[prost(string, tag = "10")]
+    pub user: ::prost::alloc::string::String,
+    #[prost(string, tag = "11")]
+    pub vault: ::prost::alloc::string::String,
+    #[prost(string, tag = "12")]
+    pub creator_vault: ::prost::alloc::string::String,
+    #[prost(string, tag = "13")]
+    pub fee_recipient: ::prost::alloc::string::String,
+    #[prost(string, tag = "14")]
+    pub buyback_recipient: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "15")]
+    pub accounts: ::prost::alloc::vec::Vec<PumpAccount>,
+    #[prost(bool, tag = "16")]
+    pub derived: bool,
 }

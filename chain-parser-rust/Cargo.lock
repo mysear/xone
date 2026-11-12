@@ -2454,6 +2454,7 @@ dependencies = [
  "bs58",
  "bytes",
  "curve25519-dalek",
+ "hex",
  "prost",
  "reqwest",
  "rocksdb",

@@ -201,6 +201,12 @@ func SnapshotFromProto(s *pb.OnlineSnapshot) (Snapshot, error) {
 		if p == nil || p.Reserve0 == nil || p.Reserve1 == nil {
 			return Snapshot{}, errors.New("WIRE_POOL_REQUIRED")
 		}
+		if p.Pump != nil {
+			return Snapshot{}, errors.New("PUMP_REQUIRES_SOLANA_DECODER")
+		}
+		if p.Meteora != nil {
+			return Snapshot{}, errors.New("METEORA_REQUIRES_SOLANA_DECODER")
+		}
 		bsc, e := PancakeBscLmStateFromProto(p.PancakeBscLm)
 		if e != nil {
 			return Snapshot{}, e

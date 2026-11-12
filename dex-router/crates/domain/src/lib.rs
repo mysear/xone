@@ -12,6 +12,8 @@ pub fn validate_pool_dependencies<'a>(pools: impl IntoIterator<Item = &'a Pool>)
     managed_v2_dependencies::validate(rows.iter().copied())?;
     curve_meta_state::validate_meta_dependencies(rows.iter().copied())?;
     curve_crypto_state::validate_crypto_dependencies(rows.iter().copied())?;
+    meteora::validate_dependencies(rows.iter().copied())?;
+    pump::validate_dependencies(rows.iter().copied())?;
     infinity_bin::validate_dependencies(rows.iter().copied())
 }
 
@@ -22,9 +24,13 @@ pub mod facts;
 pub mod infinity_bin;
 pub mod lfj;
 pub mod managed_fee_state;
+pub mod meteora;
+pub mod meteora_token2022;
 pub mod pancake_bsc_lm;
 mod pancake_dependencies;
 pub mod pancake_lm;
+pub mod pump;
+pub mod pump_amm;
 pub mod slipstream_context;
 mod slipstream_dependencies;
 /// Known unavailable pool IDs for candidate selection; the source bank stays complete.
@@ -33,7 +39,18 @@ pub fn unavailable_pool_reasons<'a>(
 ) -> Result<std::collections::BTreeMap<String, String>> {
     let pools = pools.into_iter().collect::<Vec<_>>();
     let mut blocked = managed_v2_dependencies::blocked_pools(pools.iter().copied())?;
+    blocked.extend(pump::blocked_pools(pools.iter().copied())?);
     for pool in pools {
+        if let Some(m) = pool
+            .pump
+            .as_ref()
+            .filter(|_| pump::supports_curve_profile(&pool.protocol))
+        {
+            let d = m.data(&pool.pool_id, 166)?;
+            if d[48] != 0 {
+                blocked.insert(pool.pool_id.clone(), "PUMP_CURVE_COMPLETE".into());
+            }
+        }
         let reason =
             if protocols::protocol(&pool.protocol).is_none() && pool.protocol != "fixture-cpmm" {
                 Some("PROTOCOL_MATH_UNSUPPORTED")
@@ -211,6 +228,10 @@ pub struct Pool {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lfj: Option<lfj::LfjState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub meteora: Option<meteora::MeteoraState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pump: Option<pump::PumpState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub infinity_bin: Option<infinity_bin::InfinityBinState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub singleton_advanced: Option<singleton::SingletonAdvancedState>,
@@ -258,6 +279,8 @@ impl Pool {
             self.raydium_cpmm.is_some(),
             self.infinity_bin.is_some(),
             self.lfj.is_some(),
+            self.meteora.is_some(),
+            self.pump.is_some(),
             self.pancake_lm.is_some(),
             self.pancake_bsc_lm.is_some(),
             self.slipstream_context.is_some(),
@@ -301,6 +324,29 @@ impl Pool {
         }
         if self.slipstream_context.is_some() {
             return Err(err("SLIPSTREAM_CONTEXT_PROTOCOL_MISMATCH"));
+        }
+        if matches!(
+            self.protocol.as_str(),
+            pump::PROFILE | pump::MIGRATION_PROFILE | pump_amm::PROFILE | pump_amm::BOOST_PROFILE
+        ) {
+            return self
+                .pump
+                .as_ref()
+                .ok_or_else(|| err("PUMP_STATE_REQUIRED"))?
+                .validate(self);
+        }
+        if self.pump.is_some() {
+            return Err(err("PUMP_PROTOCOL_MISMATCH"));
+        }
+        if meteora::supports_profile(&self.protocol) {
+            return self
+                .meteora
+                .as_ref()
+                .ok_or_else(|| err("METEORA_STATE_REQUIRED"))?
+                .validate(self);
+        }
+        if self.meteora.is_some() {
+            return Err(err("METEORA_PROTOCOL_MISMATCH"));
         }
         if self.protocol == lfj::PROFILE {
             return self
@@ -591,6 +637,22 @@ impl Snapshot {
                     || s.timestamp.checked_mul(1000) != Some(r.block.timestamp_ms)
                 {
                     return Err(err("SLIPSTREAM_CONTEXT_SNAPSHOT_BANK"));
+                }
+            }
+            if let Some(m) = &p.pump {
+                if m.derived
+                    || m.slot != r.block.number_or_slot
+                    || m.timestamp.checked_mul(1000) != Some(r.block.timestamp_ms)
+                {
+                    return Err(err("PUMP_SNAPSHOT_BANK"));
+                }
+            }
+            if let Some(m) = &p.meteora {
+                if m.derived
+                    || m.slot != r.block.number_or_slot
+                    || m.timestamp.checked_mul(1000) != Some(r.block.timestamp_ms)
+                {
+                    return Err(err("METEORA_SNAPSHOT_BANK"));
                 }
             }
             if let Some(l) = &p.lfj {

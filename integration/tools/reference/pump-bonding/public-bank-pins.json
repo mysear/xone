@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "observed_context_slot": 467957791,
+  "keys": [
+    "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+    "B5MvUwXdiW1NMM6QFFD3ssPKBujD4zMohncbM73Z2BQu",
+    "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ",
+    "75Uu23mqWBb8LM8vDppqC1mQAnCcBuLXhVaDezVMQLRw",
+    "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+    "8Wf5TiAheLUqBrKXeYg2JtAFFMWtKdG2BSFgqUcPVwTt"
+  ],
+  "files": [
+    {
+      "path": "upstream/accounts/6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P.bin",
+      "sha256": "8101492b544ce08703d5de95363bf796e7e4cd17d03639cfe603071fb59652eb",
+      "bytes": 36,
+      "address": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+      "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "executable": true,
+      "lamports": 9910912471
+    },
+    {
+      "path": "upstream/accounts/B5MvUwXdiW1NMM6QFFD3ssPKBujD4zMohncbM73Z2BQu.bin",
+      "sha256": "0b692730f9707139fd86d1c1e3a7d63a3f7cb0702278975fa99df90883aab508",
+      "bytes": 10485760,
+      "address": "B5MvUwXdiW1NMM6QFFD3ssPKBujD4zMohncbM73Z2BQu",
+      "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "executable": false,
+      "lamports": 53268311040
+    },
+    {
+      "path": "upstream/accounts/pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ.bin",
+      "sha256": "cc9077315efa761cfe0b52aae08678ccda2a07e0fa2b374c98a1d51a1b4ce079",
+      "bytes": 36,
+      "address": "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ",
+      "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "executable": true,
+      "lamports": 6046721
+    },
+    {
+      "path": "upstream/accounts/75Uu23mqWBb8LM8vDppqC1mQAnCcBuLXhVaDezVMQLRw.bin",
+      "sha256": "3cf9ee9a380c0ced31171802d402551910ceb8c4819ede4ef44aaf63a12dbfac",
+      "bytes": 948989,
+      "address": "75Uu23mqWBb8LM8vDppqC1mQAnCcBuLXhVaDezVMQLRw",
+      "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "executable": false,
+      "lamports": 4821514360
+    },
+    {
+      "path": "upstream/accounts/4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf.bin",
+      "sha256": "dd2b9fa23e2e80d35a0f33329db5c7deb3e88d5ed73bceb1ffa397225f437f8b",
+      "bytes": 1088,
+      "address": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+      "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+      "executable": false,
+      "lamports": 4089842911
+    },
+    {
+      "path": "upstream/accounts/8Wf5TiAheLUqBrKXeYg2JtAFFMWtKdG2BSFgqUcPVwTt.bin",
+      "sha256": "3504fae20640e15bd441257ab118aa96fb4e99190defc06a01aae26b307bf204",
+      "bytes": 4097,
+      "address": "8Wf5TiAheLUqBrKXeYg2JtAFFMWtKdG2BSFgqUcPVwTt",
+      "owner": "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ",
+      "executable": false,
+      "lamports": 37292293
+    }
+  ],
+  "acquisition_sha256": "2c4e07b57371be27758492821272d1e063b8f06cf9922918f634f8d6cdcc4466",
+  "authority": "one public finalized RPC observation; subsequent execution is controlled local bank, not canonical historical qualification"
+}

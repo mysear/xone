@@ -24,9 +24,21 @@ impl ExactOutRequest {
         }
         if self.buy_amount.0.is_zero()
             || self.max_sell_amount.0.is_zero()
-            || !self.chain_key.starts_with("evm:")
+            || !(self.chain_key.starts_with("evm:") || self.chain_key.starts_with("solana:"))
             || self.sell_token == self.buy_token
             || self.slippage_bps > 10000
+        {
+            return Err(err("INVALID_REQUEST"));
+        }
+        if self.chain_key.starts_with("solana:")
+            && (self.buy_amount.0.bits() > 64 || self.max_sell_amount.0.bits() > 64)
+        {
+            return Err(err("EXACT_OUT_SOLANA_AMOUNT_WIDTH"));
+        }
+        if self.chain_key.starts_with("solana:")
+            && [&self.caller, &self.recipient]
+                .into_iter()
+                .any(|a| xone_domain::raydium::validate_pubkey(a).is_err())
         {
             return Err(err("INVALID_REQUEST"));
         }
@@ -36,7 +48,7 @@ impl ExactOutRequest {
             &self.caller,
             &self.recipient,
         ] {
-            xone_domain::protocols::validate_address(address)?;
+            plan::validate_chain_address(&self.chain_key, address)?;
             if address == xone_domain::singleton::ZERO_ADDRESS {
                 return Err(err("INVALID_REQUEST"));
             }
@@ -49,10 +61,10 @@ impl ExactOutRequest {
 }
 #[derive(Clone)]
 pub(super) struct ExactOutCached {
-    view: Arc<QuoteView>,
-    plan: ExactOutPlan,
+    pub(super) view: Arc<QuoteView>,
+    pub(super) plan: ExactOutPlan,
     response: Value,
-    expires: u64,
+    pub(super) expires: u64,
     request_hash: String,
 }
 impl Api {

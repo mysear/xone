@@ -44,6 +44,8 @@ impl LfjConfig {
             max_steps: self.max_steps,
         };
         let pool = Pool {
+            meteora: None,
+            pump: None,
             pancake_bsc_lm: None,
             pancake_lm: None,
             slipstream_context: None,

@@ -37,6 +37,66 @@ pub struct ExactOutSearchResult {
 }
 
 fn validate_funds(pools: &BTreeMap<String, Pool>, funds: Funds<'_>) -> Result<()> {
+    if pools
+        .values()
+        .next()
+        .is_some_and(|p| p.chain_key.starts_with("solana:"))
+    {
+        for address in [funds.sender, funds.recipient] {
+            xone_domain::raydium::validate_pubkey(address)?;
+            for pool in pools.values() {
+                if pool.pool_id == address
+                    || pool.token0 == address
+                    || pool.token1 == address
+                    || pool.orca_whirlpool.as_ref().is_some_and(|m| {
+                        [
+                            &m.program_id,
+                            &m.programdata,
+                            &m.vault0,
+                            &m.vault1,
+                            &m.oracle,
+                        ]
+                        .into_iter()
+                        .any(|id| id == address)
+                    })
+                    || pool.raydium_cpmm.as_ref().is_some_and(|m| {
+                        [
+                            &m.program_id,
+                            &m.programdata,
+                            &m.vault0,
+                            &m.vault1,
+                            &m.authority,
+                            &m.amm_config,
+                        ]
+                        .into_iter()
+                        .any(|id| id == address)
+                    })
+                    || pool.raydium_clmm.as_ref().is_some_and(|m| {
+                        [
+                            &m.program_id,
+                            &m.programdata,
+                            &m.vault0,
+                            &m.vault1,
+                            &m.observation,
+                        ]
+                        .into_iter()
+                        .any(|id| id == address)
+                    })
+                {
+                    return Err(err("EXACT_OUT_UNMODELED_SELF_FUNDING"));
+                }
+                if let Some(m) = &pool.meteora {
+                    if m.internal_accounts(pool)?
+                        .iter()
+                        .any(|owner| owner == address)
+                    {
+                        return Err(err("EXACT_OUT_UNMODELED_SELF_FUNDING"));
+                    }
+                }
+            }
+        }
+        return Ok(());
+    }
     for address in [funds.sender, funds.recipient] {
         let address = address.to_ascii_lowercase();
         xone_domain::protocols::validate_address(&address)?;
@@ -167,6 +227,16 @@ pub fn evaluate_path(
                 | xone_domain::pancake_lm::PROFILE
                 | xone_domain::slipstream_context::PROFILE
                 | xone_domain::lfj::PROFILE
+                | xone_domain::meteora::PROFILE
+                | xone_domain::meteora_token2022::PROFILE
+                | xone_domain::meteora::REWARDS_PROFILE
+                | xone_domain::meteora::BITMAP_PROFILE
+                | xone_domain::meteora::ORDERS_PROFILE
+                | xone_domain::meteora::ONLY_Y_PROFILE
+                | xone_domain::pump::PROFILE
+                | xone_domain::pump::MIGRATION_PROFILE
+                | xone_domain::pump_amm::PROFILE
+                | xone_domain::pump_amm::BOOST_PROFILE
         ) && edges.len() != 1
         {
             return Err(err(
@@ -174,12 +244,21 @@ pub fn evaluate_path(
                     "EXACT_OUT_BSC4_SINGLE_POOL_ONLY"
                 } else if pool.protocol == xone_domain::slipstream_context::PROFILE {
                     "EXACT_OUT_SLIPSTREAM_SINGLE_POOL_ONLY"
+                } else if xone_domain::pump::supports_curve_profile(&pool.protocol) {
+                    "EXACT_OUT_PUMP_SINGLE_POOL_ONLY"
+                } else if xone_domain::meteora::supports_profile(&pool.protocol) {
+                    "EXACT_OUT_METEORA_SINGLE_POOL_ONLY"
                 } else if pool.protocol == xone_domain::lfj::PROFILE {
                     "EXACT_OUT_LFJ_SINGLE_POOL_ONLY"
                 } else {
                     "EXACT_OUT_LM_SINGLE_POOL_ONLY"
                 },
             ));
+        }
+        if let Some(pump) = &pool.pump {
+            if funds.sender != pump.user || funds.recipient != pump.user {
+                return Err(err("PUMP_DECLARED_USER_REQUIRED"));
+            }
         }
         let (from, to) = edge_tokens(pool, edge)?;
         if tokens.is_empty() {
@@ -193,7 +272,7 @@ pub fn evaluate_path(
             return Err(err("EXACT_OUT_PATH_CYCLE_UNSUPPORTED"));
         }
         tokens.push(to.to_owned());
-        let current = if let Some(state) = &pool.v2 {
+        let current: &str = if let Some(state) = &pool.v2 {
             &state.factory
         } else if let Some(state) = &pool.pancake_bsc_lm {
             &state.ledger.core.factory
@@ -203,6 +282,12 @@ pub fn evaluate_path(
             &state.core.factory
         } else if let Some(state) = &pool.lfj {
             &state.factory
+        } else if xone_domain::pump_amm::supports_profile(&pool.protocol) {
+            xone_domain::pump_amm::PROGRAM
+        } else if pool.pump.is_some() {
+            xone_domain::pump::PROGRAM
+        } else if pool.meteora.is_some() {
+            xone_domain::meteora::PROGRAM
         } else {
             return Err(err("EXACT_OUT_PATH_PROTOCOL"));
         };
@@ -236,7 +321,11 @@ pub fn evaluate_path(
             edge.zero_for_one,
             funds.sender,
         )?;
-        let surplus_template = p.protocol == xone_domain::lfj::PROFILE && edges.len() == 1;
+        let surplus_template = (p.protocol == xone_domain::lfj::PROFILE
+            || ((xone_domain::pump::supports_curve_profile(&p.protocol)
+                || xone_domain::pump_amm::supports_profile(&p.protocol))
+                && edge.zero_for_one))
+            && edges.len() == 1;
         if q.amount_in != amounts[i]
             || (if surplus_template {
                 q.amount_out.0 < amounts[i + 1].0
@@ -260,7 +349,7 @@ pub fn evaluate_path(
         amounts,
         factory: factory
             .ok_or_else(|| err("EXACT_OUT_FACTORY_REQUIRED"))?
-            .clone(),
+            .to_owned(),
     };
     *pools = candidate;
     Ok(result)
