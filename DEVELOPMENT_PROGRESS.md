@@ -16,7 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
-|链/DEX解析、路由与兑换量计算收尾|§3/7/8/12/13；[计算收尾计划](#plan-2026-11-08-quote-completion)|IN_PROGRESS|新增最多8路拆单、独立池网格动态规划、共享状态有界搜索、浅池候选与预算报告；Velodrome V2独立版本和216原数学/8序列24步已实现|阶段46–48补齐旧LM、Slipstream及LFJ独立ExactOut注明范围；阶段49补齐Meteora MM-only ExactIn解析/路由/共享优化/API；阶段50补齐独立ExactOut，65 Rust/19检查与43实际API原SBF/9故障恢复通过；其他协议组合/净链费用和第二批链仍有缺口，不宣称全链/全DEX完成|
+|链/DEX解析、路由与兑换量计算收尾|§3/7/8/12/13；[计算收尾计划](#plan-2026-11-08-quote-completion)|IN_PROGRESS|新增最多8路拆单、独立池网格动态规划、共享状态有界搜索、浅池候选与预算报告；Velodrome V2独立版本和216原数学/8序列24步已实现|阶段46–48补齐旧LM、Slipstream及LFJ独立ExactOut注明范围；阶段49–53补齐限定DLMM MM/OnlyY/奖励/订单/Token2022/bitmap、Pump独立ExactOut及PumpSwap/毕业迁移；阶段57–59完成卖出目标及前端账户准备/包装，阶段60已补临时WSOL解包/余款退款联验；策略交叉、其他协议组合/净链费用和第二批链仍有缺口，不宣称全链/全DEX完成|
 |R01–R04真实来源、持续采集与范围恢复|§7/8/18/27.3/28；[11项计划](#plan-2026-11-06-r01-r04)|IN_PROGRESS|三服务当前全check及167 Rust定向/174 EVM race、普通23检查/8恢复通过；13 EVM+3 SBF源码精确重建，新Polygon/Arbitrum原VM及normal收款一致|动态目录、同KV恢复、实际PG/Kafka与normal流已接并验；全目录可信历史bank/来源独立性/生产资格仍待闭合，参见[当前核对报告](integration/artifacts/local/r01-r04-current-final-audit.json)|
 |EVM在线头时间准入与撤销|§7.3/9/23；WP05、WP09、WP25|LOCAL_SCOPE_VERIFIED|在线head与提交前统一新鲜度检查，未来/过期头拒绝、旧引用保留及Tick撤销定向/全量通过|真实进程未来head故障撤销/恢复通过；独立可信头、完整provider矩阵及共识仍未完成|
 |旧CLMM验收优化模式拒绝校验|§23/28；WP25|LOCAL_SCOPE_VERIFIED|旧dynamic/seed验收78处显式拒绝保留条件/消息/异常；24项普通/优化定向回归和子进程防回归通过|212项辅助回归普通/优化均通过，独立审查关闭；仅修复验收可靠性，不重新宣称旧协议完整验收|
@@ -421,6 +421,7 @@
 |12.12.quote-execution|WP03,WP05,WP09,WP11,WP12,WP13,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|PumpSwap卖出指定WSOL目标的独立最小输入与三ceil费；Meteora只读账户核对/unsigned transaction；实际Chrome请求生产handler、下载字节和原SBF复核已通过|只覆盖明确模板；自动ATA创建/wrap、多协议构建、生产独立模拟、签名广播/结算等仍待开发|[本批验证](integration/artifacts/local/core-quote-execution-validation-20261112.json)|
 |14.ata-simulation|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|收款ATA创建与swap同一消息、payer租金/fee合计检查、只读RPC模拟实际收付/报价一致性；浏览器参数变化拒绝旧准备结果|仅经典SPL规范收款ATA；缺失源/Token2022收款创建、SOL包装、生产独立来源、钱包签名/广播结算仍待开发|[本批验证](integration/artifacts/local/core-account-preparation-validation-20261112.json)|
 |14.native-funding|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|显式输入WSOL原生SOL补资、缺失规范ATA创建、现有账户仅补差额、租金/包装/fee合计检查和只读模拟|报价仍使用WSOL；不自动关闭或unwrap、不签名广播；其他协议/Token扩展及来源资格仍缺|[本批验证](integration/artifacts/local/core-native-funding-validation-20261112.json)|
+|14.temporary-wsol|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|显式输出解包SOL、隔离输入余款退回、临时账户租金回收/余额核对已通过真实下载与原程序联验|限经典WSOL及Meteora单池，输出要求caller等于recipient；其他执行模板和链/DEX组合仍缺|[本批验证](integration/artifacts/local/core-temporary-wsol-validation-20261112.json)|
 
 <a id="batch-history"></a>
 
@@ -486,6 +487,7 @@
 |57|[PumpSwap卖出目标、执行账户准备与真实浏览器联调](#plan-2026-11-12-quote-execution)|LOCAL_SCOPE_VERIFIED|24检查/24次Rust执行/13项真实Chrome联调通过；PumpSwap48目标/42成功/14额外到账/42输入减一；Meteora账户核对/unsigned wire实际下载及原SBF699输入1000到账；[本批记录](integration/artifacts/local/core-quote-execution-validation-20261112.json)|
 |58|[收款ATA创建、只读模拟与前端闭环](#plan-2026-11-12-ata-simulation)|LOCAL_SCOPE_VERIFIED|17检查/8次Rust测试/17项真实Chrome联调通过；标准收款ATA创建/租金/fee、只读原SBF模拟、真实下载多指令交易与原程序执行/失败回滚；[本批记录](integration/artifacts/local/core-account-preparation-validation-20261112.json)|
 |59|[输入WSOL补资与原子包装兑换联调](#plan-2026-11-12-native-funding)|LOCAL_SCOPE_VERIFIED|20检查/9次Rust测试/20项真实Chrome联调通过；输入WSOL ATA创建/差额包装/租金fee总额/保留WSOL和完整原程序回滚；[本批记录](integration/artifacts/local/core-native-funding-validation-20261112.json)|
+|60|[临时WSOL解包与余款回收](#plan-2026-11-12-temporary-wsol)|LOCAL_SCOPE_VERIFIED|24项检查/12次Rust测试/24项真实Chrome业务联调通过；两类临时账户真实下载原SBF收付/退租/既有账户不变及失败回滚通过；[本批记录](integration/artifacts/local/core-temporary-wsol-validation-20261112.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -1289,12 +1291,12 @@ R03.2新基础：anchor_versioned/anchor_accounts对独立初始manifest、sourc
 |R06|高|§12.2/12.11/12.14；WP02,WP03,WP05,WP11|Curve其他Plain变体/Meta underlying/旧Lending及NG特殊Token/外部rate及Crypto其他版本，Balancer Managed非零BPT费用/Composable待结费用与BPT/rate-cache/V3|[stable.go](chain-parser-go/internal/chain/evm/stable.go)与[weighted.go](chain-parser-go/internal/chain/evm/weighted.go)仅命名限定模型，双币及3–20币Weighted、Managed零swap-share快照、Composable无rate-provider常规交换和Plain3/4已本地验证；非零Managed BPT完整数学/状态契约已补原回调参考，但该旧源码runtime超EIP170，正常服务继续拒绝；实际20230411版本已补独立aum-3状态、固定块解析、非零AUM/钱包及原Pause/Recovery差分，当前T34.11活动schedule单池及M1–M4跨物理池有限闭环已同源通过；BPT有限GIVEN_IN已同freeze验收，breaker独立版本CB1–CB5已通过注明范围的同freeze本地验收；rate/mixed/一般参数/完整执行等其余能力未完成；当前日期2–50目录整合与跨物理池共享Vault全局钱包传播见T34.8/T34.9；Meta直接兑换已补正常服务和只读base依赖；Meta underlying、Crypto其他版本及BPT更广参数/会计/执行仍未完成；Crypto活动ramp独立版本已完成固定块解析、完整schedule/后状态与正常双副本服务限定验收；Crypto标准settled独立版本已补原LP/gulp/调价完整状态及正常解析/报价，本地进程验收通过；标准NG独立profile已完成固定原源码模板/immutable准入、完整状态/EMA及正常RPC与双副本连续报价；[protocol-math](dex-router/crates/protocol-math/src/lib.rs)不支持的数学失败；按实际代码版本逐个补状态、不变量、精度与费用|
 |R07|高|§12.11/12.14；WP03,WP05,WP11|Aerodrome/Slipstream非零外部费用模块、LM/reward与忠实费用账本；PancakeV3 LM|独立Slipstream field32/f8717faa-module-1已完成注明范围解析/原数学/正常服务及同源冻结；Pancake LM field33/98684794-lm-1已通过注明范围的主目录验收。未知模块、不同LM代际/迁移和特殊Token仍拒绝；实际BSC generation4已由阶段41独立field34通过注明范围验收；其他升级/未知模块和特殊Token仍拒绝，不能用基础V3或旧LM替代|
 |R08|高|§12.2/12.11/12.14；WP02,WP03,WP05,WP11,WP14|V4/Infinity swap hook、自定义会计/覆盖费、native结算、Infinity Bin动态/hook/native组合及完整manager结算|[singleton.go](chain-parser-go/internal/chain/evm/singleton.go)及独立advanced版本已补动态LP费快照/native currency0/无swap回调权限与CL core后状态；Bin已补固定3c5ef1be原manager/tree完整读取、跨bin数学/后状态与静态零hook普通服务限定验收；完整manager/Vault结算未完成；新能力需manager状态、hook依赖和独立执行，unknown hook仍拒绝VERIFIED|
-|R09|高|§12.2/12.11/28.22；WP02,WP03,WP05,WP11,WP20|Meteora DLMM、Pump/迁移曲线、LFJ Liquidity Book、Sushi Trident等新模型|LFJ v2.1.0独立field31已有完整有限状态/原数学/正常服务验收，实际Avalanche来源与执行资格仍未闭合；Meteora MM-only独立内核/解析/路由已在阶段49通过注明范围本地验收，其他DLMM分支、Pump/Trident等尚无完整报价内核，需独立bin/曲线/lot模型与原程序差分，不能套用V2/V3；先补现有家族缺口再扩大协议面|
-|R10|高，可并行|§12.13/14/28.16/28.17；WP10,WP14,WP15,WP20|独立执行后端与真实收款余额差：EVM REVM/固定状态DB/链规则；Solana版本化账户及SBF/Token CPI|原[simulation::verify](dex-router/crates/simulation/src/lib.rs)保持无合格后端时拒绝；T32新增独立REVM严格显式本地状态DB、Shanghai单hop标准V2完整交易与真实收款余额/全声明后状态差分，以及可终止worker/正常simulate API，已通过限定本地验收；可信链按blockHash取状态、多链规则/费用、其他协议/拆单和SBF仍未完成，是开放VERIFIED的硬阻断|
-|R11|高，依赖R10|§14/28.16/28.18/28.22；WP14,WP16,WP20|受审计执行器与可用交易：各协议/拆单DAG calldata、授权/wrap/费用/退款；Solana交易/CU/账户锁/blockhash|[execution-plan](dex-router/crates/execution-plan/src/lib.rs)新增完整单路V2 BOUND信封与精确calldata/上下文/池状态重建校验；正常simulate API通过同二进制隔离worker执行已提供本地状态，限定本地服务验收通过；其他协议/多hop/拆单/授权wrap退款及链费用未完成，公开build/VERIFIED仍拒绝|
+|R09|高|§12.2/12.11/28.22；WP02,WP03,WP05,WP11,WP20|Meteora DLMM、Pump/迁移曲线、LFJ Liquidity Book、Sushi Trident等新模型|LFJ v2.1.0独立field31已有限本地验收，真实Avalanche来源/执行资格仍缺；阶段49–53已补限定DLMM MM/OnlyY、奖励、订单ExactIn/ExactOut、X侧Token2022和扩展bitmap，阶段51–52补Pump classic/SOL独立ExactOut、PumpSwap canonical/boost及原毕业迁移交接，阶段57补PumpSwap卖出目标。余项为策略/Token扩展交叉、更多实际程序版本及Sushi Trident等未接入模型；按独立状态/解析/原程序差分逐项推进|
+|R10|高，可并行|§12.13/14/28.16/28.17；WP10,WP14,WP15,WP20|独立执行后端与真实收款余额差：EVM REVM/固定状态DB/链规则；Solana版本化账户及SBF/Token CPI|原[simulation::verify](dex-router/crates/simulation/src/lib.rs)仍在无合格后端时拒绝；T32已有限REVM/真实收款差分和正常simulate API。阶段58–60的Meteora prepare使用实际unsigned wire只读RPC模拟，受控RPC以原SBF执行并校验余额/关闭账户，但独立可信生产资格仍缺；多链固定状态/规则/费用、其他协议及拆单等后端继续开发|
+|R11|高，依赖R10|§14/28.16/28.18/28.22；WP14,WP16,WP20|受审计执行器与可用交易：各协议/拆单DAG calldata、授权/wrap/费用/退款；Solana交易/CU/账户锁/blockhash|[execution-plan](dex-router/crates/execution-plan/src/lib.rs)已有单路V2 BOUND/calldata和本地正常simulate API；阶段57–59增加Meteora单池unsigned、账户核对、标准收款ATA创建与WSOL差额包装，阶段60已完成注明范围的临时账户解包/余款退款。余项为Token2022创建、多协议/多hop/拆单DAG、跨收款人原生结算、授权/完整费用及钱包签名广播确认；公开build/VERIFIED仍拒绝|
 |R12|中，交易前完成|§12.10/13/28.14/28.15；WP12,WP13,WP16|实际Gas/L1数据费/原生费换算、净输出评分和费用完整性|quote响应netBuyAmountEstimate为null，CHAIN_FEE_MODEL_NOT_IMPLEMENTED；配置route_activation_cost只是提案成本，不是实测链上费用|
 |R13|中|§12.10/13/28.14/28.15；WP12,WP13|图增量索引/COW、beam多标签、共享DAG联合求解、小图穷举及收益gap|新增max_splits=1..8、独立V2/V3/Aero物理池子集DP与独立整数穷举；共享池按执行顺序有界多路分配、显式次数/时间预算和网格覆盖标记；默认4路，保留候选/网格外最优性边界。全量/进程验证见[计算收尾计划](#plan-2026-11-08-quote-completion)；增量图/通用DAG与严格收益界仍未完成|
-|R14|中|§12.10/12.13/13/28.12–28.16；WP10,WP11,WP13,WP14,WP16|ExactOut完整输入目标/退款语义、转账税/rebase/暂停/黑名单/代理升级能力分级|独立UniswapV2完整状态、实际BSC第四代LM及固定旧LM单池ExactOut已通过S44–S46注明范围；其他协议/版本与Token高级行为仍缺；旧EXACT_IN请求保持，ExactOut不对其结果取倒数|
+|R14|中|§12.10/12.13/13/28.12–28.16；WP10,WP11,WP13,WP14,WP16|ExactOut完整输入目标/退款语义、转账税/rebase/暂停/黑名单/代理升级能力分级|独立完整V2、旧LM/实际BSC第四代LM、Slipstream与LFJ限定ExactOut已记录；阶段50/53补DLMM MM/订单输出驱动与阶段52/57补Pump/PumpSwap目标卖出，阶段60已完成注明范围的单池WSOL退款结算。策略交叉、其他协议/版本和Token高级行为仍缺；ExactOut保持独立目标与最小输入语义，不对ExactIn结果取倒数|
 |R15|中，规模化前|§9/18/28.10/28.11/28.26；WP08,WP09,WP24|S3/对象存储不可变checkpoint、公共manifest校验、peer选择；大池COW/慢句柄回收和恢复容量|当前owner Protobuf bootstrap和有界Kafka tail已实现；未完成对象存储下载/上传故障、1小时/1天/30天停机、WAL溢出和无源恢复专项|
 |R16|上线前必做|§7.5–7.8/18/28.8/28.9/28.19/28.25；WP06,WP07,WP17,WP23|Kafka TLS/SASL/ACL、真实ISR/retention/topic重建与事务故障；PG切换、磁盘/节点/可用区故障、灾备RPO/RTO及shadow放量|现有专用单机PG/Kafka及进程接管测试已做；不等于多区/独立故障域验收，生产准入必须单独验证|
 |R17|上线前必做|§4/20/28.3/28.4/28.27/28.28；WP01,WP02,WP25,WP26|CI平台/镜像扫描/SBOM/许可证/secret扫描、schema破坏检测、完整配置兼容矩阵、secret版本和日志采集/审计/OTel|本地make check和结构化日志存在；SDK故障映射、轮转/spool、生产安全与性能故障验收仍缺；必要安全项与最高优先级链路同步建设|
@@ -1869,3 +1871,24 @@ PumpSwap卖出目标按至少实际到账处理：三ceil fee导致净输出不�
 阶段59证据保存更正：最终复核发现旧收款ATA参考工具沿用`phase58-ata-original.json`，本次复验重写后原始字节摘要发生变化，导致阶段58报告中的原始执行文件摘要不再匹配；旧文件字节未单独冻结，无法再核验其差异仅来自键序；实际下载交易字节仍与阶段58完全相同，业务重执行结果通过；这不能代替对旧原始报告字节的核验。旧验收原文件已另存并将活动记录标记`HISTORICAL_ARTIFACT_REPLACED`，不再用它作当前源码证据。阶段59改为每次独立目录保存wrap/ATA/已有账户三类原执行记录并固定摘要，原生参考捕获键序也固定排序；修正后重新统一复验。阶段58“已通过”属于当时的历史结论，不代表旧原始报告文件仍完整可取。
 
 阶段59证据保存修正后最终同源码有限验收（2026-11-12）：源码`a767377942c5eed4079d545a85ce97e6f0f7b81b7c4e69989d2ca96166562bae`，20项检查、9次Rust测试执行、20项真实Chrome业务联调全部通过。每次独立目录固定三类原执行、真实下载wire、浏览器截图和日志摘要；新运行不再写入阶段58原始报告。最终输入WSOL补资/原子swap收付与全部反例仍通过，未广播公网，测试服务已结束。
+
+
+<a id="plan-2026-11-12-temporary-wsol"></a>
+
+## 临时WSOL解包与余款回收（2026-11-12，阶段60）
+
+按阶段59后续顺序，对照设计§12.9/12.14/14/15/28.16补充显式结算动作。报价继续使用WSOL节点；只有prepare明确选择后才添加SOL资金指令，金额计算、最优路由和解析服务职责保持原设计。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F60.1|单签名临时WSOL账户模板|WP14,WP15,WP25|PARTIAL_LOCAL|以caller、planHash和输入/输出角色确定seed，System CreateAccountWithSeed后InitializeAccount3；官方编码比对和地址占用拒绝。|
+|F60.2|输出解包与输入余款退回|WP14,WP16,WP25|PARTIAL_LOCAL|unwrapDestinationSol要求WSOL输出、caller等于recipient且未指定目标账户；refundWrappedSource要求显式wrapSourceSol且未指定源账户；只关闭本次新建账户。|
+|F60.3|原子资金与模拟收付核对|WP05,WP09,WP15,WP25|PARTIAL_LOCAL|交易前余额仍需覆盖包装+租金+fee；关闭临时账户后以payer SOL差额扣除fee/持久租金还原真实兑换额，要求临时账户消失，金额偏差拒绝。|
+|F60.4|真实下载wire与原SBF回滚|WP03,WP14,WP15,WP25|PARTIAL_LOCAL|浏览器实际下载两种交易，独立核对seed/权限/close目标/官方指令，执行原SBF检查既有WSOL不变、真实SOL收付和完整池后状态；输入上限减一必须回滚。|
+|F60.5|前端选项与历史回归|WP09,WP16,WP25|PARTIAL_LOCAL|前端按币种/账户/recipient启用选项，展示退租及payer余额变化；选项变化撤销旧下载；保留阶段58/59流程回归。|
+
+输入示例：请求预算2000、目标1000、滑点50bps，执行计划最大输入1472、真实消耗1464。临时账户关闭转回2039288 lamports，其中租金2039280、未用输入8；payer实际SOL净变动-6464（1464兑换成本+5000网络费）。用户已有3000 WSOL的规范ATA和原输入账户均需保持原字节。
+
+输出示例：SPL输入699、WSOL报价输出1000，经显式解包实际收到1000 lamports SOL；关闭账户同时退租2039280，合计关闭转回2040280，payer净变动-4000（1000收款减5000网络费）。退租不计兑换收益。账户已被占用、显式账户覆盖、收款人与caller不同、未关闭或native差额不符均拒绝。ExactIn和独立ExactOut使用相同模板。
+
+复验入口：make -C integration temporary-wsol-current-check。每次运行独立保存真实浏览器下载、只读模拟、五类原程序执行记录和日志，保留失败记录且不覆盖历史凭证。最终同源码有限验收：源码`bcda23963eea12acd05140b71397c1b15dbd281087508f384436170c87228869`，24项检查、12次Rust测试执行、24项真实Chrome业务联调全部通过。304份合同/工具副本、公共协议、严格Clippy与前端模型/桌面及移动布局检查通过。浏览器实际下载的两类临时账户交易和既有账户、收款ATA、普通包装三类交易均在原SBF执行；精确收付、完整池后状态、既有3000 WSOL不变、金额/close篡改和失败回滚通过。文案复核后重新在最终源码复验，旧报告独立保留；harness和静态服务器均已退出，未提交公网交易。仍保留多协议unsigned、Token2022账户创建、钱包签名广播/确认、生产独立来源/模拟及其他链/DEX缺口；all_requested_features_complete=false、production_ready=false。

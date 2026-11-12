@@ -35,14 +35,18 @@ def simulate(request):
         if (bytes(a)if a else None)!=(bytes(now)if now else None):raise ValueError('SIMULATION_MUTATED_BANK')
     values=[]
     for id in config['accounts']['addresses']:
-        a=post.get(id)or svm.get_account(P.from_string(id))
-        if a is None:values.append(None);continue
+        a=post.get(id) if id in post else svm.get_account(P.from_string(id))
+        if a is None or (a.lamports==0 and len(a.data)==0):values.append(None);continue
         raw=bytearray(a.data)
         lamports=a.lamports
         if mode=='simulation_mismatch'and id==config['accounts']['addresses'][1]:
             raw[64:72]=(int.from_bytes(raw[64:72],'little')+1).to_bytes(8,'little')
             if raw[109:113]==b'\x01\0\0\0':lamports+=1
         values.append(dict(owner=str(a.owner),lamports=lamports,executable=a.executable,data=[base64.b64encode(raw).decode(),'base64']))
+    if mode=='native_credit_mismatch' and len(config['accounts']['addresses'])==3 and values[2]is not None:values[2]['lamports']+=1
+    if mode=='temp_not_closed':
+        for i in range(min(2,len(values))):
+            if values[i]is None:values[i]=dict(owner='11111111111111111111111111111111',lamports=1,executable=False,data=['','base64'])
     err=native.get('err')
     if mode=='simulation_error':err={'InstructionError':[0,'InvalidAccountData']}
     return dict(context={'slot':slot},value=dict(err=err,accounts=values,logs=native['meta']['logs'],unitsConsumed=native['meta']['compute_units_consumed']))

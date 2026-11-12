@@ -191,6 +191,7 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                     {
                         return Value::Null;
                     }
+                    if mode=="temporary_occupied" && a.is_null() && key!=d["sourceTokenAccount"].as_str().unwrap() && key!=d["destinationTokenAccount"].as_str().unwrap() {a=json!({"owner":"11111111111111111111111111111111","executable":false,"lamports":1,"data":["","base64"]});}
                     if !a.is_null() {
                         let mut raw = STANDARD.decode(a["data"][0].as_str().unwrap()).unwrap();
                         if mode == "changed_clock"

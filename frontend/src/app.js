@@ -47,6 +47,11 @@ function modes() {
   if (!exactOut && $('quoteKind').value==='EXACT_OUT') $('quoteKind').value='EXACT_IN';
   const wrapAllowed=$('sellToken').value==='So11111111111111111111111111111111111111112' && (c?.pools||[]).some(p=>p.available&&p.execution?.wrapSourceSol);
   $('wrapSourceSol').disabled=!wrapAllowed;if(!wrapAllowed)$('wrapSourceSol').checked=false;
+  const refundAllowed=wrapAllowed && $('wrapSourceSol').checked && !$('sourceAccount').value.trim();
+  $('refundWrappedSource').disabled=!refundAllowed;if(!refundAllowed)$('refundWrappedSource').checked=false;
+  const unwrapAllowed=$('buyToken').value==='So11111111111111111111111111111111111111112' && (c?.pools||[]).some(p=>p.available&&p.execution?.unwrapDestinationSol) && $('caller').value.trim()!=='' && $('caller').value.trim()===$('recipient').value.trim() && !$('destinationAccount').value.trim() && !$('createDestinationAta').checked;
+  $('unwrapDestinationSol').disabled=!unwrapAllowed;if(!unwrapAllowed)$('unwrapDestinationSol').checked=false;
+
   const exact=$('quoteKind').value==='EXACT_OUT';
   $('amountText').textContent=exact?'目标买入数量（最小单位整数）':'卖出数量（最小单位整数）';
   $('maxSellLabel').classList.toggle('hidden',!exact);
@@ -122,12 +127,14 @@ $('quoteForm').addEventListener('submit',async event=>{
 $('prepareButton').addEventListener('click',async()=>{
   const q=state.quote; if (!q) return; const seq=state.quoteSeq, prepSeq=++state.prepareSeq; state.preparation=null; $('downloadButton').disabled=true; $('prepareButton').disabled=true; $('preparation').textContent='正在核对账户…';
   try {
-    const payload={createDestinationAta:$('createDestinationAta').checked,simulate:$('simulatePreparation').checked,wrapSourceSol:$('wrapSourceSol').checked}; if ($('sourceAccount').value.trim()) payload.sourceTokenAccount=$('sourceAccount').value.trim(); if ($('destinationAccount').value.trim()) payload.destinationTokenAccount=$('destinationAccount').value.trim();
+    const payload={createDestinationAta:$('createDestinationAta').checked,simulate:$('simulatePreparation').checked,wrapSourceSol:$('wrapSourceSol').checked,refundWrappedSource:$('refundWrappedSource').checked,unwrapDestinationSol:$('unwrapDestinationSol').checked}; if ($('sourceAccount').value.trim()) payload.sourceTokenAccount=$('sourceAccount').value.trim(); if ($('destinationAccount').value.trim()) payload.destinationTokenAccount=$('destinationAccount').value.trim();
     state.prepareAbort=new AbortController();
     const prepared=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/prepare`,{method:'POST',body:JSON.stringify(payload),signal:state.prepareAbort.signal});
     if (seq!==state.quoteSeq || prepSeq!==state.prepareSeq || state.quote!==q) return;
     state.preparation=prepared; $('downloadButton').disabled=!prepared.ready;
-    $('preparation').textContent=prepared.ready?`账户检查通过 · 观察 slot ${prepared.observedSlot} · 交易费 ${prepared.feeLamports} lamports · 创建租金 ${prepared.rentLamports||0} lamports${prepared.sourceWsolRetained?" · SOL包装 "+prepared.wrapLamports+" lamports · 预计剩余 "+prepared.expectedResidualWsol+" WSOL最小单位，余额仍保留为WSOL":""}${prepared.sourceAccountCreation?" · 已加入输入WSOL ATA创建指令":""}${prepared.accountCreation?" · 已加入收款 ATA 创建指令":""}${prepared.simulation?.success?" · RPC模拟到账 "+prepared.simulation.actualOutput:""} · 待签名，生产独立验证仍未完成`:`账户准备未满足：${(prepared.blockers||[]).join(', ')}。目标账户：${prepared.destinationTokenAccount}`;
+    const wrapText=prepared.wrapLamports && prepared.wrapLamports!=='0'?` · SOL包装 ${prepared.wrapLamports} lamports${prepared.sourceWsolRetained?' · 预计剩余 '+prepared.expectedResidualWsol+' WSOL最小单位，余额仍保留为WSOL':' · 未用资金通过本次临时账户关闭转回SOL'}`:'';
+    const closeText=prepared.temporaryWsolAccount?` · 临时账户关闭转回 ${prepared.expectedNativeRefundLamports} lamports（含退租 ${prepared.rentRefundLamports}） · 预计payer SOL净变动 ${prepared.expectedPayerLamportDelta} lamports`:'';
+    $('preparation').textContent=prepared.ready?`账户检查通过 · 观察 slot ${prepared.observedSlot} · 交易费 ${prepared.feeLamports} lamports · 创建租金 ${prepared.rentLamports||0} lamports${wrapText}${closeText}${prepared.sourceAccountCreation?' · 已加入输入WSOL账户创建指令':''}${prepared.accountCreation?' · 已加入收款 ATA 创建指令':''}${prepared.simulation?.success?' · RPC模拟到账 '+prepared.simulation.actualOutput+(prepared.unwrapDestinationSol?' lamports SOL':''):''} · 待签名，生产独立验证仍未完成`:`账户准备未满足：${(prepared.blockers||[]).join(', ')}。目标账户：${prepared.destinationTokenAccount}`;
   } catch(e) {if(seq===state.quoteSeq && prepSeq===state.prepareSeq && e.name!=='AbortError') {if (/QUOTE_|PROGRAM_CHANGED/.test(e.message)) invalidate('执行状态已变化，请重新报价'); $('preparation').textContent=e.message;}}
   finally {if (seq===state.quoteSeq && prepSeq===state.prepareSeq) $('prepareButton').disabled=false;}
 });
@@ -137,7 +144,7 @@ $('downloadButton').addEventListener('click',()=>{
 });
 $('chainKey').addEventListener('change',()=>{invalidate(); tokens();schedule();});
 for (const id of ['sellToken','buyToken','quoteKind','amount','maxSell','caller','recipient','slippageBps','maxHops']) $(id).addEventListener('input',()=>{invalidate();modes();schedule();});
-for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation','wrapSourceSol']) $(id).addEventListener('input',()=>{++state.prepareSeq;state.prepareAbort?.abort();state.preparation=null;$('downloadButton').disabled=true;$('prepareButton').disabled=!state.quote;$('preparation').textContent='执行准备参数已变化，请重新检查';});
+for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation','wrapSourceSol','refundWrappedSource','unwrapDestinationSol']) $(id).addEventListener('input',()=>{modes();++state.prepareSeq;state.prepareAbort?.abort();state.preparation=null;$('downloadButton').disabled=true;$('prepareButton').disabled=!state.quote;$('preparation').textContent='执行准备参数已变化，请重新检查';});
 $('flipButton').addEventListener('click',()=>{const sell=$('sellToken').value;$('sellToken').value=$('buyToken').value;$('buyToken').value=sell;invalidate();schedule();});
 $('refreshButton').addEventListener('click',()=>loadOptions());
 $('autoQuote').addEventListener('change',()=>{$('autoQuote').checked?schedule():clearTimeout(state.debounce);});

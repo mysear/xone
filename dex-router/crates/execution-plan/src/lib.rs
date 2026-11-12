@@ -1,5 +1,6 @@
 pub mod exact_out;
 pub mod solana_unsigned;
+pub mod solana_wsol;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use xone_domain::{err, hash, Amount, Result, SnapshotRef};

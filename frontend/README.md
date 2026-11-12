@@ -78,3 +78,8 @@ ExactOut按执行计划最大输入上限（结合报价与滑点、且不超过
 复验入口：`make -C ../integration native-funding-current-check`。独立测试数据恢复工具为`integration/tools/ci/meteora-wsol-bank.py`，需要已有固定原程序银行/运行时依赖；测试数据和下载包仍保留本地。
 
 统一验收将每次浏览器下载文件与三类原程序执行记录保存在独立运行目录，防止复验覆盖历史凭证；单独运行参考脚本时可用第二个命令行参数指定输出JSON路径。
+
+
+临时WSOL结算（阶段60）：输入WSOL可显式选择“隔离临时账户并退回剩余SOL”，同时勾选包装且不指定源账户；输出WSOL可选择“解包为SOL”，要求caller与recipient相同、不指定目标账户且不创建收款ATA。两种操作只关闭本次新建的seed账户，界面分别显示关闭转回总额、其中退租以及预计payer SOL净变化，已有WSOL账户不关闭。报价仍以WSOL为Token，执行准备明确标注原生SOL结算。
+
+复验入口：`make -C ../integration temporary-wsol-current-check`。真实Chrome下载的两种unsigned交易另在受控原程序银行执行，检查实际余额、已有账户不变及失败回滚。公网签名广播、Token2022创建和其他协议交易模板继续按进度文档推进。

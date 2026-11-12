@@ -881,3 +881,7 @@ native-funding-reference-refresh:
 	python3 tools/ci/meteora-wsol-bank.py
 native-funding-current-check:
 	python3 tools/acceptance/validate_native_funding.py
+
+.PHONY: temporary-wsol-current-check
+temporary-wsol-current-check:
+	python3 tools/acceptance/validate_temporary_wsol.py

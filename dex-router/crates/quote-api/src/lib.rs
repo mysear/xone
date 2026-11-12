@@ -757,6 +757,10 @@ fn failure(e: xone_domain::Error) -> HttpError {
         | "PREPARATION_CREATE_REQUIRES_ATA"
         | "PREPARATION_CREATE_TOKEN2022_UNSUPPORTED"
         | "PREPARATION_WRAP_REQUIRES_WSOL"
+        | "PREPARATION_REFUND_REQUIRES_TEMP_SOURCE"
+        | "PREPARATION_UNWRAP_CONTEXT_UNSUPPORTED"
+        | "PREPARATION_TEMP_ACCOUNT_OCCUPIED"
+        | "PREPARATION_TEMP_ACCOUNT_NOT_CLOSED"
         | "PREPARATION_SIMULATION_FAILED"
         | "PREPARATION_SIMULATION_AMOUNT_MISMATCH" => StatusCode::UNPROCESSABLE_ENTITY,
         "NO_ROUTE" => StatusCode::NOT_FOUND,
@@ -1014,7 +1018,7 @@ async fn quote_options(
                     "directions": directions,
                     "available": available,
                     "unavailableReason": reason,
-                    "execution": {"quote": available, "preparation": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "unsignedPlan": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "rpcSimulation": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "wrapSourceSol": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "simulation": false},
+                    "execution": {"quote": available, "preparation": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "unsignedPlan": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "rpcSimulation": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "wrapSourceSol": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "unwrapDestinationSol": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "simulation": false},
                 }));
             }
         }

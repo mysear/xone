@@ -419,3 +419,144 @@ async fn native_source_wrap_creates_only_missing_wsol_and_funds_only_shortfall()
     assert_eq!(p["error"], "PREPARATION_WRAP_REQUIRES_WSOL");
     task.abort();
 }
+
+#[tokio::test]
+async fn output_unwrap_and_input_refund_only_close_new_temporary_accounts() {
+    for refund in [false, true] {
+        let bank = if refund {
+            Bank::wsol(Some(3000))
+        } else {
+            Bank::new()
+        };
+        let (url, task) = bank.serve().await;
+        let (api, _) = bank.api(&url);
+        let mut request = bank.request();
+        request["maxSellAmount"] = json!("2000");
+        if !refund {
+            request["recipient"] = bank.data["caller"].clone();
+        }
+        let (status, q) = call(&api, "/v1/quote-exact-out", request.clone(), true).await;
+        assert_eq!(status, StatusCode::OK, "{q}");
+        let path = format!("/v1/quotes/{}/prepare", q["quoteId"].as_str().unwrap());
+        let prep = if refund {
+            json!({"wrapSourceSol":true,"refundWrappedSource":true,"destinationTokenAccount":bank.data["destinationTokenAccount"],"simulate":true})
+        } else {
+            json!({"unwrapDestinationSol":true,"sourceTokenAccount":bank.data["sourceTokenAccount"],"simulate":true})
+        };
+        let (status, p) = call(&api, &path, prep.clone(), true).await;
+        assert_eq!(status, StatusCode::OK, "{p}");
+        assert_eq!(p["ready"], true, "{p}");
+        assert_eq!(p["simulation"]["temporaryAccountClosed"], true);
+        assert_eq!(p["rentRefundLamports"], "2039280");
+        assert_eq!(
+            p["instructions"][0]["programId"],
+            "11111111111111111111111111111111"
+        );
+        assert_eq!(
+            p["instructions"].as_array().unwrap().last().unwrap()["dataBase64"],
+            "CQ=="
+        );
+        if refund {
+            assert_eq!(p["wrapLamports"], "1472");
+            assert_eq!(p["expectedNativeRefundLamports"], "2039288");
+            assert_eq!(p["expectedPayerLamportDelta"], "-6464");
+            assert_eq!(p["sourceWsolRetained"], false);
+            assert_ne!(p["sourceTokenAccount"], bank.data["sourceTokenAccount"]);
+            assert_eq!(p["simulation"]["actualInput"], "1464");
+        } else {
+            assert_eq!(p["settlementAsset"], "native:solana:sol");
+            assert_eq!(p["expectedNativeRefundLamports"], "2040280");
+            assert_eq!(p["expectedPayerLamportDelta"], "-4000");
+            assert_eq!(p["simulation"]["actualInput"], "699");
+        }
+        assert_eq!(p["simulation"]["actualOutput"], "1000");
+        if let Ok(folder) = std::env::var("XONE_TEMP_EVIDENCE_DIR") {
+            std::fs::create_dir_all(&folder).unwrap();
+            std::fs::write(
+                std::path::Path::new(&folder).join(if refund {
+                    "refund-preparation.json"
+                } else {
+                    "unwrap-preparation.json"
+                }),
+                serde_json::to_vec_pretty(&json!({"quote":q,"preparation":p})).unwrap(),
+            )
+            .unwrap();
+        }
+        for (mode, code) in [
+            ("temporary_occupied", "PREPARATION_TEMP_ACCOUNT_OCCUPIED"),
+            (
+                "native_credit_mismatch",
+                "PREPARATION_SIMULATION_AMOUNT_MISMATCH",
+            ),
+            ("temp_not_closed", "PREPARATION_TEMP_ACCOUNT_NOT_CLOSED"),
+        ] {
+            *bank.mode.lock().unwrap() = mode.into();
+            let (status, p) = call(&api, &path, prep.clone(), true).await;
+            assert_ne!(status, StatusCode::OK);
+            assert_eq!(p["error"], code, "{mode} {p}");
+            assert!(p.get("unsignedTransaction").is_none());
+        }
+        *bank.mode.lock().unwrap() = "ready".into();
+        let mut invalid = prep.clone();
+        invalid[if refund {
+            "sourceTokenAccount"
+        } else {
+            "destinationTokenAccount"
+        }] = bank.data[if refund {
+            "sourceTokenAccount"
+        } else {
+            "destinationTokenAccount"
+        }]
+        .clone();
+        let (status, p) = call(&api, &path, invalid, true).await;
+        assert_ne!(status, StatusCode::OK, "{p}");
+        if refund {
+            let (status, p) = call(&api, &path, json!({"refundWrappedSource":true}), true).await;
+            assert_ne!(status, StatusCode::OK);
+            assert_eq!(p["error"], "PREPARATION_REFUND_REQUIRES_TEMP_SOURCE");
+            let (status, p) = call(
+                &api,
+                &path,
+                json!({"wrapSourceSol":true,"refundWrappedSource":true,"createDestinationAta":true,"simulate":true}),
+                true,
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{p}");
+            assert_eq!(p["accountCreation"], true);
+            assert_eq!(p["rentLamports"], "4078560");
+            assert_eq!(p["rentRefundLamports"], "2039280");
+            assert_eq!(p["totalFundingLamports"], "4085032");
+            assert_eq!(p["expectedPayerLamportDelta"], "-2045744");
+            assert_eq!(p["simulation"]["actualInput"], "1464");
+            assert_eq!(p["simulation"]["actualOutput"], "1000");
+            assert_eq!(p["instructions"].as_array().unwrap().len(), 7);
+        }
+        // ExactIn is composed with the same isolated closure templates.
+        request["kind"] = json!("EXACT_IN");
+        request.as_object_mut().unwrap().remove("buyAmount");
+        request.as_object_mut().unwrap().remove("maxSellAmount");
+        request["sellAmount"] = json!("1000");
+        let (status, q) = call(&api, "/v1/quote", request, true).await;
+        assert_eq!(status, StatusCode::OK, "{q}");
+        let (status, p) = call(
+            &api,
+            &format!("/v1/quotes/{}/prepare", q["quoteId"].as_str().unwrap()),
+            prep,
+            true,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{p}");
+        assert_eq!(p["ready"], true);
+        assert_eq!(p["simulation"]["actualInput"], "1000");
+        task.abort();
+    }
+    let bank = Bank::new();
+    let (url, task) = bank.serve().await;
+    let (api, _) = bank.api(&url);
+    let (_, q) = call(&api, "/v1/quote-exact-out", bank.request(), true).await;
+    let path = format!("/v1/quotes/{}/prepare", q["quoteId"].as_str().unwrap());
+    let (status, p) = call(&api, &path, json!({"unwrapDestinationSol":true}), true).await;
+    assert_ne!(status, StatusCode::OK);
+    assert_eq!(p["error"], "PREPARATION_UNWRAP_CONTEXT_UNSUPPORTED");
+    task.abort();
+}

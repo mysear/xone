@@ -1608,3 +1608,16 @@ prepare新增wrapSourceSol，只对Meteora输入WSOL/经典SPL的单池模板生
 阶段59最终同源码有限验收：20项检查、9次Rust测试、20项真实Chrome联调通过，源码`c632df0a687a1a3c7f603ac4ac0ffbddeefdf943d49f356cf9bff17f49d8fc71`。浏览器下载wire由固定原SBF验证：包装1472、消费1464、到账1000、保留WSOL8，租金2039280/总SOL支出2045752；控制交易全部包装步骤原子回滚。未新增公网发送、unwrap或生产VERIFIED资格。
 
 阶段59证据保存修正后最终复验：源码`a767377942c5eed4079d545a85ce97e6f0f7b81b7c4e69989d2ca96166562bae`，20检查/9次Rust/20项Chrome联调全部通过，wrap/ATA/已有账户三类原执行输出均位于独立运行目录，不覆盖历史原始文件。
+
+
+### 临时WSOL结算与退款（阶段60，2026-11-12）
+
+prepare新增refundWrappedSource及unwrapDestinationSol。前者必须同时显式选择wrapSourceSol且不传sourceTokenAccount，以新建账户承接整个计划最大输入，兑换后关闭并退回未用SOL和租金；现有WSOL余额不参与本次临时账户补资。后者仅用于经典WSOL输出、caller等于recipient、不传destinationTokenAccount且不创建ATA的场景。报价buyToken仍是WSOL，prepare/simulation的settlementAsset明确为native:solana:sol。
+
+账户地址按caller+ASCII seed+经典Token程序SHA256派生，seed由planHash前20位与xone-in-/xone-out-组成。顺序为System CreateAccountWithSeed、Token InitializeAccount3、可选System转入/SyncNative、可选收款ATA创建、swap、Token CloseAccount；payer兼base/owner，只有caller一个签名。派生地址预先存在即拒绝；close重新派生目标，不能接受任意用户账户。
+
+响应区分rentLamports（全部预付租金）、rentRefundLamports（临时账户退租）、expectedNativeRefundLamports（关闭转回总额）、expectedPayerLamportDelta（含网络费的SOL净变化）。模拟要求关闭账户返回null，对payer的System账户校验owner/数据及余额差额；扣除网络费和持续存在的新建账户租金后还原实际swap收付，再与原报价精确比较。预付资金仍需覆盖整个交易，即使同笔最后会退租也不能提前抵扣。
+
+受控回归覆盖输出699→1000/净SOL-4000、输入包1472/实际1464/退租及余款2039288/净SOL-6464、已有3000 WSOL不动、ExactIn/ExactOut、失败原子回滚、已占用seed账户和篡改close/native差额。复验：make -C integration temporary-wsol-current-check，最终结果见DEVELOPMENT_PROGRESS.md阶段60。独立生产VERIFIED、其他协议模板和公网交易资格保持原进度。
+
+阶段60最终同源码限定验收：24项检查、12次Rust测试执行、24项真实Chrome业务联调通过；源码`bcda23963eea12acd05140b71397c1b15dbd281087508f384436170c87228869`。下载wire的原SBF执行/只读模拟、原账户保持、完整池后状态和失败回滚均通过，仍保持限定协议及账户场景。

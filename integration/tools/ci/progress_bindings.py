@@ -1436,3 +1436,10 @@ BINDINGS['14.native-funding']={
  'tests':['native_source_wrap_creates_only_missing_wsol_and_funds_only_shortfall','test_rehashed_wrap_amount_cannot_override_transfer','test_rehashed_fee_cannot_override_real_payer_debit','test_rehashed_source_cannot_override_canonical_wsol_ata','test_rehashed_sync_instruction_cannot_override_wire'],
  'evidence_refs':['integration/artifacts/local/core-native-funding-validation-20261112.json'],
 }
+
+
+BINDINGS['14.temporary-wsol']={
+ 'paths':['dex-router/crates/execution-plan/src/solana_wsol.rs','dex-router/crates/execution-plan/tests/solana_wsol.rs','dex-router/crates/quote-api/src/preparation.rs','dex-router/crates/quote-api/tests/execution_preparation.rs','frontend/index.html','frontend/src/app.js','frontend/test/browser.mjs','integration/tools/acceptance/meteora_temporary_wsol_reference.py','integration/tools/acceptance/validate_temporary_wsol.py'],
+ 'tests':['seeded_wsol_matches_official_system_encoding_without_new_signer','temporary_address_rejects_empty_oversize_or_non_ascii_seeds','output_unwrap_and_input_refund_only_close_new_temporary_accounts','test_recompiled_close_cannot_target_existing_user_account','test_rehashed_native_debit_cannot_override_real_settlement'],
+ 'evidence_refs':['integration/artifacts/local/core-temporary-wsol-validation-20261112.json'],
+}

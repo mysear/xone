@@ -23,6 +23,10 @@ pub(super) struct Request {
     simulate: bool,
     #[serde(default)]
     wrap_source_sol: bool,
+    #[serde(default)]
+    refund_wrapped_source: bool,
+    #[serde(default)]
+    unwrap_destination_sol: bool,
 }
 #[derive(Clone)]
 struct Selection {
@@ -376,14 +380,53 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     {
         return Err(err("PREPARATION_WRAP_REQUIRES_WSOL"));
     }
-    let src = request
-        .source_token_account
-        .unwrap_or(ata(&s.context.caller, input, input_program)?);
-    let dst = request.destination_token_account.unwrap_or(ata(
-        &s.context.recipient,
-        output,
-        output_program,
-    )?);
+    if request.refund_wrapped_source
+        && (!request.wrap_source_sol || request.source_token_account.is_some())
+    {
+        return Err(err("PREPARATION_REFUND_REQUIRES_TEMP_SOURCE"));
+    }
+    if request.unwrap_destination_sol
+        && (output.as_str() != xone_domain::pump_amm::WSOL
+            || output_program != TOKEN
+            || s.context.caller != s.context.recipient
+            || request.destination_token_account.is_some()
+            || request.create_destination_ata)
+    {
+        return Err(err("PREPARATION_UNWRAP_CONTEXT_UNSUPPORTED"));
+    }
+    let temporary_seed = if request.refund_wrapped_source || request.unwrap_destination_sol {
+        Some(format!(
+            "xone-{}-{}",
+            if request.refund_wrapped_source {
+                "in"
+            } else {
+                "out"
+            },
+            &s.plan_hash[..20]
+        ))
+    } else {
+        None
+    };
+    let temporary = temporary_seed
+        .as_ref()
+        .map(|seed| xone_execution_plan::solana_wsol::address(&s.context.caller, seed))
+        .transpose()?;
+    let src = if request.refund_wrapped_source {
+        temporary.clone().ok_or_else(bad)?
+    } else {
+        request
+            .source_token_account
+            .unwrap_or(ata(&s.context.caller, input, input_program)?)
+    };
+    let dst = if request.unwrap_destination_sol {
+        temporary.clone().ok_or_else(bad)?
+    } else {
+        request.destination_token_account.unwrap_or(ata(
+            &s.context.recipient,
+            output,
+            output_program,
+        )?)
+    };
     if src.len() > 44 || dst.len() > 44 {
         return Err(bad());
     }
@@ -406,7 +449,7 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         MEMO.into(),
         "SysvarC1ock11111111111111111111111111111111".into(),
     ];
-    if request.create_destination_ata || request.wrap_source_sol {
+    if request.create_destination_ata || request.wrap_source_sol || temporary.is_some() {
         ids.extend([ASSOCIATED.into(), SYSTEM.into()]);
     }
     ids.extend(m.bin_arrays.iter().map(|a| a.address.clone()));
@@ -526,6 +569,12 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     if !get(&bank, MEMO)?.executable {
         return Err(bad());
     }
+    if temporary
+        .as_ref()
+        .is_some_and(|address| bank.get(address).and_then(Option::as_ref).is_some())
+    {
+        return Err(err("PREPARATION_TEMP_ACCOUNT_OCCUPIED"));
+    }
     let mut blockers = Vec::new();
     let required = if s.exact { s.limit } else { s.amount };
     let source = bank.get(&src).and_then(Option::as_ref);
@@ -535,7 +584,10 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         0
     };
     let create_source = source.is_none() && request.wrap_source_sol;
-    if create_source && src != ata(&s.context.caller, input, input_program)? {
+    if create_source
+        && !request.refund_wrapped_source
+        && src != ata(&s.context.caller, input, input_program)?
+    {
         return Err(err("PREPARATION_CREATE_REQUIRES_ATA"));
     }
     let wrap = if request.wrap_source_sol {
@@ -563,7 +615,9 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     if create_destination && output_program != TOKEN {
         return Err(err("PREPARATION_CREATE_TOKEN2022_UNSUPPORTED"));
     }
-    let creations = u64::from(create_source) + u64::from(create_destination);
+    let creations = u64::from(create_source)
+        + u64::from(create_destination)
+        + u64::from(request.unwrap_destination_sol);
     let mut rent_per_account = 0u64;
     if creations > 0 || wrap > 0 {
         let system = get(&bank, SYSTEM)?;
@@ -572,7 +626,9 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         }
     }
     if creations > 0 {
-        code(&bank, ASSOCIATED, ASSOCIATED_CODE, slot, None)?;
+        if (create_source && !request.refund_wrapped_source) || create_destination {
+            code(&bank, ASSOCIATED, ASSOCIATED_CODE, slot, None)?;
+        }
         rent_per_account = rpc
             .call(
                 "getMinimumBalanceForRentExemption",
@@ -584,14 +640,14 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
             .ok_or_else(bad)?;
     }
     let rent = rent_per_account.checked_mul(creations).ok_or_else(bad)?;
-    if destination.is_none() && !create_destination {
+    if destination.is_none() && !create_destination && !request.unwrap_destination_sol {
         blockers.push("DESTINATION_ACCOUNT_MISSING");
     }
     let payer = get(&bank, &s.context.caller)?;
     if payer.owner != SYSTEM || payer.executable || !payer.data.is_empty() {
         return Err(bad());
     }
-    let mut result = json!({"quoteId":s.view.view_id,"planHash":s.plan_hash,"quoteViewId":s.view.view_id,"snapshotRef":s.view.reference,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":src,"destinationTokenAccount":dst,"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":create_destination,"sourceAccountCreation":create_source,"wrapLamports":wrap.to_string(),"sourceWsolRetained":request.wrap_source_sol,"expectedResidualWsol":source_balance.checked_add(wrap).and_then(|n|n.checked_sub(s.expected_input)).unwrap_or(0).to_string(),"rentLamports":rent.to_string(),"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
+    let mut result = json!({"quoteId":s.view.view_id,"planHash":s.plan_hash,"quoteViewId":s.view.view_id,"snapshotRef":s.view.reference,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":src,"destinationTokenAccount":dst,"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":create_destination,"sourceAccountCreation":create_source,"wrapLamports":wrap.to_string(),"sourceWsolRetained":request.wrap_source_sol && !request.refund_wrapped_source,"refundWrappedSource":request.refund_wrapped_source,"unwrapDestinationSol":request.unwrap_destination_sol,"temporaryWsolAccount":temporary,"temporarySeed":temporary_seed,"settlementAsset":if request.unwrap_destination_sol{xone_domain::pump::NATIVE_SOL}else{output.as_str()},"rentRefundLamports":if temporary.is_some(){rent_per_account}else{0}.to_string(),"expectedNativeRefundLamports":if request.refund_wrapped_source{rent_per_account.checked_add(required.checked_sub(s.expected_input).ok_or_else(bad)?).ok_or_else(bad)?}else if request.unwrap_destination_sol{rent_per_account.checked_add(s.expected_output).ok_or_else(bad)?}else{0}.to_string(),"expectedResidualWsol":source_balance.checked_add(wrap).and_then(|n|n.checked_sub(s.expected_input)).unwrap_or(0).to_string(),"rentLamports":rent.to_string(),"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
     if !blockers.is_empty() {
         return Ok(result);
     }
@@ -668,7 +724,14 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         data_base64: STANDARD.encode(data),
     };
     let mut instructions = Vec::new();
-    if create_source {
+    if let Some(seed) = &temporary_seed {
+        instructions.extend(xone_execution_plan::solana_wsol::create(
+            &s.context.caller,
+            seed,
+            rent_per_account,
+        )?);
+    }
+    if create_source && !request.refund_wrapped_source {
         instructions.push(create_ata(
             &s.context.caller,
             &src,
@@ -699,6 +762,12 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         ));
     }
     instructions.push(ix);
+    if let Some(seed) = &temporary_seed {
+        instructions.push(xone_execution_plan::solana_wsol::close(
+            &s.context.caller,
+            seed,
+        )?);
+    }
     let msg = compile_message_many(&s.context.caller, blockhash, &instructions)?;
     let fee = rpc
         .call(
@@ -733,8 +802,28 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
     result["lastValidBlockHeight"] = last.into();
     result["instructions"] = json!(instructions);
     result["totalFundingLamports"] = funding.to_string().into();
+    let persistent_rent = rent
+        .checked_sub(if temporary.is_some() {
+            rent_per_account
+        } else {
+            0
+        })
+        .ok_or_else(bad)?;
+    result["expectedPayerLamportDelta"] = (if request.refund_wrapped_source {
+        -(i128::from(cost) + i128::from(persistent_rent) + i128::from(s.expected_input))
+    } else if request.unwrap_destination_sol {
+        i128::from(s.expected_output) - i128::from(cost) - i128::from(persistent_rent)
+    } else {
+        -i128::from(funding)
+    })
+    .to_string()
+    .into();
     if request.simulate {
-        let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&transaction),{"encoding":"base64","commitment":"finalized","minContextSlot":slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":[src,dst]}}])).await?;
+        let mut addresses = vec![src.clone(), dst.clone()];
+        if temporary.is_some() {
+            addresses.push(s.context.caller.clone());
+        }
+        let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&transaction),{"encoding":"base64","commitment":"finalized","minContextSlot":slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":addresses}}])).await?;
         let simulation_slot = response["context"]["slot"]
             .as_u64()
             .filter(|n| *n >= slot)
@@ -745,27 +834,72 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         }
         let accounts = value["accounts"]
             .as_array()
-            .filter(|v| v.len() == 2)
+            .filter(|v| v.len() == addresses.len())
             .ok_or_else(bad)?;
-        let before_input = source_balance.checked_add(wrap).ok_or_else(bad)?;
-        let after_input = token(
-            &account(&accounts[0])?.ok_or_else(bad)?,
-            input,
-            &s.context.caller,
-            input_program,
-        )?;
-        let after_output = token(
-            &account(&accounts[1])?.ok_or_else(bad)?,
-            output,
-            &s.context.recipient,
-            output_program,
-        )?;
-        let paid = before_input.checked_sub(after_input).ok_or_else(bad)?;
-        let received = after_output.checked_sub(existing_output).ok_or_else(bad)?;
+        let native_after = if temporary.is_some() {
+            let account = account(&accounts[2])?.ok_or_else(bad)?;
+            if account.owner != SYSTEM || account.executable || !account.data.is_empty() {
+                return Err(bad());
+            }
+            account.lamports
+        } else {
+            0
+        };
+        let persistent_rent = rent
+            .checked_sub(if temporary.is_some() {
+                rent_per_account
+            } else {
+                0
+            })
+            .ok_or_else(bad)?;
+        let paid = if request.refund_wrapped_source {
+            if !accounts[0].is_null() {
+                return Err(err("PREPARATION_TEMP_ACCOUNT_NOT_CLOSED"));
+            }
+            payer
+                .lamports
+                .checked_sub(
+                    native_after
+                        .checked_add(cost)
+                        .and_then(|n| n.checked_add(persistent_rent))
+                        .ok_or_else(bad)?,
+                )
+                .ok_or_else(bad)?
+        } else {
+            let after = token(
+                &account(&accounts[0])?.ok_or_else(bad)?,
+                input,
+                &s.context.caller,
+                input_program,
+            )?;
+            source_balance
+                .checked_add(wrap)
+                .and_then(|n| n.checked_sub(after))
+                .ok_or_else(bad)?
+        };
+        let received = if request.unwrap_destination_sol {
+            if !accounts[1].is_null() {
+                return Err(err("PREPARATION_TEMP_ACCOUNT_NOT_CLOSED"));
+            }
+            native_after
+                .checked_add(cost)
+                .and_then(|n| n.checked_add(persistent_rent))
+                .and_then(|n| n.checked_sub(payer.lamports))
+                .ok_or_else(bad)?
+        } else {
+            token(
+                &account(&accounts[1])?.ok_or_else(bad)?,
+                output,
+                &s.context.recipient,
+                output_program,
+            )?
+            .checked_sub(existing_output)
+            .ok_or_else(bad)?
+        };
         if paid != s.expected_input || received != s.expected_output {
             return Err(err("PREPARATION_SIMULATION_AMOUNT_MISMATCH"));
         }
-        result["simulation"] = json!({"level":"RPC_SIMULATED","success":true,"observedSlot":simulation_slot,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"unitsConsumed":value["unitsConsumed"],"independentProductionVerification":false});
+        result["simulation"] = json!({"level":"RPC_SIMULATED","success":true,"observedSlot":simulation_slot,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"settlementAsset":if request.unwrap_destination_sol{xone_domain::pump::NATIVE_SOL}else{output.as_str()},"temporaryAccountClosed":temporary.is_some(),"unitsConsumed":value["unitsConsumed"],"independentProductionVerification":false});
     }
     result["messageBase64"] = STANDARD.encode(msg).into();
     result["unsignedTransaction"] = STANDARD.encode(transaction).into();
