@@ -132,17 +132,6 @@ async fn pump_swap_canonical_boost_all_instruction_kinds_prepare_and_execute_ind
             assert!(p["unsignedTransaction"].is_null());
         }
         *bank.mode.lock().unwrap() = "ready".into();
-        for option in [
-            "createDestinationAta",
-            "wrapSourceSol",
-            "refundWrappedSource",
-            "unwrapDestinationSol",
-        ] {
-            let mut invalid = input.clone();
-            invalid[option] = true.into();
-            let (_, p) = call(&api, &path, invalid).await;
-            assert_eq!(p["error"], "PREPARATION_OPTIONS_UNSUPPORTED");
-        }
         task.abort();
     }
 }

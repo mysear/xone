@@ -4,6 +4,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+mod classic_funding;
 mod pump_amm;
 mod pump_curve;
 mod raydium;
@@ -1100,6 +1101,57 @@ fn create_ata(
     }
 }
 
+fn empty_system(a: &Account) -> bool {
+    a.owner == SYSTEM && !a.executable && a.data.is_empty()
+}
+fn before_token_balance(
+    before: Option<&Account>,
+    after: &Account,
+    mint: &str,
+    owner: &str,
+    program: &str,
+    creating: bool,
+) -> Result<u64> {
+    match before {
+        None => Ok(0),
+        Some(a) if creating && empty_system(a) && program == TOKEN => {
+            token(after, mint, owner, program)?;
+            Ok(if mint == xone_domain::pump_amm::WSOL {
+                a.lamports.saturating_sub(m::u64_at(&after.data, 113))
+            } else {
+                0
+            })
+        }
+        Some(a) => token(a, mint, owner, program),
+    }
+}
+fn created_rent(
+    before: Option<&Account>,
+    after: Option<&Account>,
+    mint: &str,
+    owner: &str,
+    program: &str,
+    creating: bool,
+) -> Result<u64> {
+    if !creating {
+        return Ok(0);
+    }
+    if let Some(a) = before {
+        if !empty_system(a) {
+            token(a, mint, owner, program)?;
+            return Ok(0);
+        }
+    }
+    let after = after.ok_or_else(bad)?;
+    token(after, mint, owner, program)?;
+    let reserve = if mint == xone_domain::pump_amm::WSOL {
+        m::u64_at(&after.data, 113)
+    } else {
+        after.lamports
+    };
+    Ok(reserve.saturating_sub(before.map_or(0, |a| a.lamports)))
+}
+
 /// Validate a signed RPC simulation's account deltas against the immutable
 /// preparation, including native settlement and Token2022 withheld balances.
 pub fn verify_simulated_settlement(
@@ -1136,6 +1188,8 @@ pub fn verify_simulated_settlement(
         .ok_or_else(bad)?;
     let before_source = account(&before[0])?;
     let before_destination = account(&before[1])?;
+    let after_source = account(&after[0])?;
+    let after_destination = account(&after[1])?;
     let payer_before = account(&before[2])?.ok_or_else(bad)?;
     let payer_after = account(&after[2])?.ok_or_else(bad)?;
     if payer_before.owner != SYSTEM
@@ -1160,6 +1214,26 @@ pub fn verify_simulated_settlement(
     let persistent = number("rentLamports")?
         .checked_sub(number("rentRefundLamports")?)
         .ok_or_else(bad)?;
+    let actual_rent = created_rent(
+        before_source.as_ref(),
+        after_source.as_ref(),
+        &context.sell_token,
+        &context.caller,
+        source_program,
+        prepared["sourceAccountCreation"] == true && prepared["refundWrappedSource"] != true,
+    )?
+    .checked_add(created_rent(
+        before_destination.as_ref(),
+        after_destination.as_ref(),
+        &context.buy_token,
+        &context.recipient,
+        destination_program,
+        prepared["accountCreation"] == true,
+    )?)
+    .ok_or_else(bad)?;
+    if actual_rent != persistent {
+        return Err(err("PREPARATION_RENT_CHANGED"));
+    }
     let native_final = payer_after
         .lamports
         .checked_add(fee)
@@ -1179,13 +1253,17 @@ pub fn verify_simulated_settlement(
             .checked_sub(native_final)
             .ok_or_else(bad)?
     } else {
-        let initial = before_source
-            .as_ref()
-            .map(|a| token(a, &context.sell_token, &context.caller, source_program))
-            .transpose()?
-            .unwrap_or(0);
+        let source_after = after_source.as_ref().ok_or_else(bad)?;
+        let initial = before_token_balance(
+            before_source.as_ref(),
+            source_after,
+            &context.sell_token,
+            &context.caller,
+            source_program,
+            prepared["sourceAccountCreation"] == true,
+        )?;
         let end = token(
-            &account(&after[0])?.ok_or_else(bad)?,
+            source_after,
             &context.sell_token,
             &context.caller,
             source_program,
@@ -1207,28 +1285,17 @@ pub fn verify_simulated_settlement(
             .checked_sub(payer_before.lamports)
             .ok_or_else(bad)?
     } else {
-        let initial = before_destination
-            .as_ref()
-            .map(|a| {
-                if source_native
-                    && prepared["accountCreation"] == true
-                    && a.owner == SYSTEM
-                    && !a.executable
-                    && a.data.is_empty()
-                {
-                    return Ok(0);
-                }
-                token(
-                    a,
-                    &context.buy_token,
-                    &context.recipient,
-                    destination_program,
-                )
-            })
-            .transpose()?
-            .unwrap_or(0);
+        let destination_after = after_destination.as_ref().ok_or_else(bad)?;
+        let initial = before_token_balance(
+            before_destination.as_ref(),
+            destination_after,
+            &context.buy_token,
+            &context.recipient,
+            destination_program,
+            prepared["accountCreation"] == true,
+        )?;
         token(
-            &account(&after[1])?.ok_or_else(bad)?,
+            destination_after,
             &context.buy_token,
             &context.recipient,
             destination_program,

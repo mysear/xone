@@ -26,6 +26,7 @@ def main(request):
   # Explicit local fault injection: when a destination is not initialized yet,
   # freeze the existing base vault so create succeeds and swap fails atomically.
   if bank['pool']['protocol']=='pump-bonding-sol-classic'and(a is None or str(a.owner)!=TOKEN or len(a.data)!=165):source=bank['pool']['pump']['vault'];a=svm.get_account(P.from_string(source))
+  if target=='pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA':source=bank['pool']['pump']['vault'];a=svm.get_account(P.from_string(source))
   data=bytearray(a.data);data[108]=2;svm.set_account(P.from_string(source),A(a.lamports,bytes(data),a.owner,False,0))
  keys=list(map(str,tx.message.account_keys))
  def snapshot():

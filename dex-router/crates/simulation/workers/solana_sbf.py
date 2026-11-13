@@ -145,26 +145,42 @@ def main():
     fee=native['meta']['fee'];rent=int(preparation['rentLamports']);refund_rent=int(preparation['rentRefundLamports']);persistent=rent-refund_rent
     require(persistent>=0 and fee==int(preparation['feeLamports']),'SBF_FEE_RENT_BINDING')
     source_program=preparation['sourceTokenProgram'];dest_program=preparation['destinationTokenProgram']
+    def funding(before,after,mint,owner,program,creating):
+        pending=before is None or (creating and str(before.owner)==SYSTEM and not before.executable and len(before.data)==0)
+        if not pending:return amount(before,mint,owner,program),0
+        require(creating,'SBF_ACCOUNT_CREATION_REQUIRED')
+        amount(after,mint,owner,program)
+        reserve=after.lamports
+        if mint=='So11111111111111111111111111111111111111112':
+            require(program==TOKEN and after.data[109:113]==b'\x01\x00\x00\x00','SBF_NATIVE_RESERVE')
+            reserve=int.from_bytes(after.data[113:121],'little')
+            require(reserve==svm.minimum_balance_for_rent_exemption(165),'SBF_NATIVE_RENT')
+        prefund=before.lamports if before else 0
+        return max(0,prefund-reserve)if mint=='So11111111111111111111111111111111111111112'else 0,max(0,reserve-prefund)
     source_native=request['sellToken']=='native:solana:sol';destination_native=request['buyToken']=='native:solana:sol'
     require((preparation.get('sourceNativeSol')is True)==source_native and (preparation.get('destinationNativeSol')is True)==destination_native,'SBF_NATIVE_ASSET_MISMATCH')
     if source_native:require(source==caller and source_program==SYSTEM,'SBF_NATIVE_SOURCE')
     if destination_native:require(destination==caller==request['recipient']and dest_program==SYSTEM,'SBF_NATIVE_DESTINATION')
+    if source_native or preparation['refundWrappedSource']:source_initial,source_rent=0,0
+    else:source_initial,source_rent=funding(source_before,account(source),request['sellToken'],caller,source_program,preparation['sourceAccountCreation'])
+    if destination_native or preparation['unwrapDestinationSol']:dest_initial,dest_rent=0,0
+    else:dest_initial,dest_rent=funding(destination_before,account(destination),request['buyToken'],request['recipient'],dest_program,preparation['accountCreation'])
+    require(source_rent+dest_rent==persistent,'SBF_RENT_CHANGED')
     if source_native:
         paid=native_before-native_after.lamports-fee-persistent
     elif preparation['refundWrappedSource']:
-        require(account(source)is None,'SBF_TEMP_NOT_CLOSED')
+        require(source_before is None and account(source)is None,'SBF_TEMP_NOT_CLOSED')
         paid=native_before-native_after.lamports-fee-persistent
     else:
-        initial=0 if source_before is None else amount(source_before,request['sellToken'],caller,source_program)
+        initial=source_initial
         paid=initial+int(preparation['wrapLamports'])-amount(account(source),request['sellToken'],caller,source_program)
     if destination_native:
         received=native_after.lamports-native_before+fee+persistent
     elif preparation['unwrapDestinationSol']:
-        require(account(destination)is None,'SBF_TEMP_NOT_CLOSED')
+        require(destination_before is None and account(destination)is None,'SBF_TEMP_NOT_CLOSED')
         received=native_after.lamports-native_before+fee+persistent
     else:
-        uninitialized=source_native and preparation['accountCreation']and destination_before is not None and str(destination_before.owner)==SYSTEM and not destination_before.executable and len(destination_before.data)==0
-        initial=0 if destination_before is None or uninitialized else amount(destination_before,request['buyToken'],request['recipient'],dest_program)
+        initial=dest_initial
         received=amount(account(destination),request['buyToken'],request['recipient'],dest_program)-initial
     require(paid==int(preparation['quotedInput'])and received==int(preparation['quotedOutput']),'SBF_AMOUNT_MISMATCH')
     require(native_after.lamports-native_before==int(preparation['expectedPayerLamportDelta']),'SBF_NATIVE_BALANCE_MISMATCH')

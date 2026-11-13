@@ -7,13 +7,6 @@ pub(super) async fn resolve(
     request: SolanaRequest,
     capture: Capture,
 ) -> Result<Value> {
-    if request.create_destination_ata
-        || request.wrap_source_sol
-        || request.refund_wrapped_source
-        || request.unwrap_destination_sol
-    {
-        return Err(err("PREPARATION_OPTIONS_UNSUPPORTED"));
-    }
     let p = &s.pool;
     let state = p.pump.as_ref().ok_or_else(bad)?;
     if s.context.caller != state.user || s.context.recipient != state.user {
@@ -24,14 +17,9 @@ pub(super) async fn resolve(
     } else {
         (&p.token1, &p.token0)
     };
-    let src = request
-        .source_token_account
-        .unwrap_or(a::ata(input, &state.user)?);
-    let dst = request
-        .destination_token_account
-        .unwrap_or(a::ata(output, &state.user)?);
-    m::pubkey(&src)?;
-    m::pubkey(&dst)?;
+    let addresses = classic_funding::Addresses::new(s, &request, input, output)?;
+    let src = addresses.source.clone();
+    let dst = addresses.destination.clone();
     let pair = state.data(&p.pool_id, 287)?;
     let creator_authority = m::pda(
         &[b"creator_vault", &m::pubkey(&m::key(&pair, 211))?],
@@ -151,37 +139,20 @@ pub(super) async fn resolve(
     {
         return Err(err("QUOTE_CLOCK_CHANGED"));
     }
-    let payer = get(&bank, &state.user)?;
-    if payer.owner != SYSTEM || payer.executable || !payer.data.is_empty() {
-        return Err(bad());
-    }
-    let source = bank
-        .get(&src)
-        .and_then(Option::as_ref)
-        .map(|a| token(a, input, &state.user, TOKEN))
-        .transpose()?;
-    let destination = bank
-        .get(&dst)
-        .and_then(Option::as_ref)
-        .map(|a| token(a, output, &state.user, TOKEN))
-        .transpose()?;
     let required = if s.exact && !s.zero {
         s.limit
     } else {
         s.expected_input
     };
-    let mut blockers = Vec::new();
-    if source.is_none() {
-        blockers.push("SOURCE_ACCOUNT_MISSING");
-    } else if source.is_some_and(|n| n < required) {
-        blockers.push("INSUFFICIENT_TOKEN_BALANCE");
-    }
-    if destination.is_none() {
-        blockers.push("DESTINATION_ACCOUNT_MISSING");
-    }
-    let mut result = json!({"quoteId":s.quote_view_id,"quoteViewId":s.quote_view_id,"snapshotRef":s.snapshot,"planHash":s.plan_hash,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":src,"destinationTokenAccount":dst,"sourceTokenProgram":TOKEN,"destinationTokenProgram":TOKEN,"destinationAccountSize":165,"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":false,"sourceAccountCreation":false,"rentLamports":"0","destinationRentLamports":"0","rentRefundLamports":"0","wrapLamports":"0","expectedNativeRefundLamports":"0","expectedResidualWsol":"0","expectedDestinationTransferFee":"0","refundWrappedSource":false,"unwrapDestinationSol":false,"sourceWsolRetained":false,"temporaryWsolAccount":Value::Null,"settlementAsset":output,"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
-    if !blockers.is_empty() {
-        return Ok(result);
+    let mut funding =
+        classic_funding::prepare(&rpc, &bank, s, &request, &addresses, required).await?;
+    funding.result["observedSlot"] = slot.into();
+    if !funding.result["blockers"]
+        .as_array()
+        .ok_or_else(bad)?
+        .is_empty()
+    {
+        return Ok(funding.result);
     }
     let block = rpc
         .call(
@@ -248,11 +219,13 @@ pub(super) async fn resolve(
     if !s.zero {
         data.extend([0, 0]);
     }
-    let instructions = vec![Instruction {
+    let mut instructions = std::mem::take(&mut funding.prefix);
+    instructions.push(Instruction {
         program_id: a::PROGRAM.into(),
         accounts: metas,
         data_base64: STANDARD.encode(data),
-    }];
+    });
+    instructions.extend(std::mem::take(&mut funding.suffix));
     let message = compile_message_many(&state.user, blockhash, &instructions)?;
     let fee = rpc
         .call(
@@ -266,18 +239,15 @@ pub(super) async fn resolve(
     let cost = fee["value"]
         .as_u64()
         .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
-    if payer.lamports < cost {
-        result["blockers"] = json!(["INSUFFICIENT_FEE_BALANCE"]);
-        return Ok(result);
+    if !funding.finish(s, &request, cost)? {
+        return Ok(funding.result);
     }
+    let mut result = funding.result;
     let wire = unsigned_packet(&message)?;
     result["ready"] = true.into();
     result["instructions"] = json!(instructions);
     result["recentBlockhash"] = blockhash.into();
     result["lastValidBlockHeight"] = last.into();
-    result["feeLamports"] = cost.to_string().into();
-    result["totalFundingLamports"] = cost.to_string().into();
-    result["expectedPayerLamportDelta"] = (-i128::from(cost)).to_string().into();
     if request.simulate {
         let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&wire),{"encoding":"base64","commitment":"finalized","minContextSlot":slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":[src,dst,state.user]}}])).await?;
         let observed = response["context"]["slot"]

@@ -378,6 +378,85 @@ fn token_balance(
         Err(err("RECEIPT_META_MISSING"))
     }
 }
+// Derive rent and effective pre-initialization WSOL from executed metadata.
+// A preparation's rent estimate can change before an idempotent ATA create.
+fn executed_account_funding(
+    meta: &Value,
+    index: usize,
+    mint: &str,
+    owner: &str,
+    creating: bool,
+    sync_native: bool,
+) -> Result<(u64, u64)> {
+    let pre = meta["preTokenBalances"]
+        .as_array()
+        .ok_or_else(|| err("RECEIPT_META_MISSING"))?;
+    if pre
+        .iter()
+        .any(|v| v["accountIndex"].as_u64() == Some(index as u64))
+    {
+        let tokens = token_balance(meta, "preTokenBalances", index, mint, owner, false)?;
+        if sync_native && mint == xone_domain::pump_amm::WSOL {
+            // SyncNative also credits SOL donated after signing/preflight.
+            // Those pre-existing funds must not be charged to this swap.
+            let end = token_balance(meta, "postTokenBalances", index, mint, owner, false)?;
+            let reserve = meta["postBalances"][index]
+                .as_u64()
+                .and_then(|v| v.checked_sub(end))
+                .ok_or_else(|| err("RECEIPT_AMOUNT_MISMATCH"))?;
+            let effective = meta["preBalances"][index]
+                .as_u64()
+                .and_then(|v| v.checked_sub(reserve))
+                .filter(|v| *v >= tokens)
+                .ok_or_else(|| err("RECEIPT_AMOUNT_MISMATCH"))?;
+            return Ok((effective, 0));
+        }
+        return Ok((tokens, 0));
+    }
+    if !creating {
+        return Err(err("RECEIPT_META_MISSING"));
+    }
+    let before = meta["preBalances"][index]
+        .as_u64()
+        .ok_or_else(|| err("RECEIPT_META_MISSING"))?;
+    let after = meta["postBalances"][index]
+        .as_u64()
+        .ok_or_else(|| err("RECEIPT_META_MISSING"))?;
+    let tokens = token_balance(meta, "postTokenBalances", index, mint, owner, false)?;
+    let reserve = if mint == xone_domain::pump_amm::WSOL {
+        after
+            .checked_sub(tokens)
+            .ok_or_else(|| err("RECEIPT_AMOUNT_MISMATCH"))?
+    } else {
+        after
+    };
+    Ok((
+        if mint == xone_domain::pump_amm::WSOL {
+            before.saturating_sub(reserve)
+        } else {
+            0
+        },
+        reserve.saturating_sub(before),
+    ))
+}
+fn closed_temporary(meta: &Value, index: usize) -> Result<()> {
+    if meta["preBalances"][index].as_u64() != Some(0)
+        || meta["postBalances"][index].as_u64() != Some(0)
+    {
+        return Err(err("RECEIPT_TEMP_ACCOUNT_NOT_CLOSED"));
+    }
+    for phase in ["preTokenBalances", "postTokenBalances"] {
+        if meta[phase]
+            .as_array()
+            .ok_or_else(|| err("RECEIPT_META_MISSING"))?
+            .iter()
+            .any(|v| v["accountIndex"].as_u64() == Some(index as u64))
+        {
+            return Err(err("RECEIPT_TEMP_ACCOUNT_NOT_CLOSED"));
+        }
+    }
+    Ok(())
+}
 fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
     let wire = tx["transaction"][0]
         .as_str()
@@ -428,8 +507,38 @@ fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
     let fee = meta["fee"]
         .as_u64()
         .ok_or_else(|| err("RECEIPT_META_MISSING"))?;
-    let persistent = amount(p, "rentLamports")?
-        .checked_sub(amount(p, "rentRefundLamports")?)
+    let (source_initial, source_rent) = if p["refundWrappedSource"] == true {
+        closed_temporary(meta, source)?;
+        (0, 0)
+    } else if p["sourceNativeSol"] == true {
+        (0, 0)
+    } else {
+        executed_account_funding(
+            meta,
+            source,
+            &c.sell_token,
+            &c.caller,
+            p["sourceAccountCreation"] == true,
+            amount(p, "wrapLamports")? > 0,
+        )?
+    };
+    let (destination_initial, destination_rent) = if p["unwrapDestinationSol"] == true {
+        closed_temporary(meta, destination)?;
+        (0, 0)
+    } else if p["destinationNativeSol"] == true {
+        (0, 0)
+    } else {
+        executed_account_funding(
+            meta,
+            destination,
+            &c.buy_token,
+            &c.recipient,
+            p["accountCreation"] == true,
+            false,
+        )?
+    };
+    let persistent = source_rent
+        .checked_add(destination_rent)
         .ok_or_else(|| err("RECEIPT_AMOUNT_MISMATCH"))?;
     let paid = if p["refundWrappedSource"] == true
         || (p["sourceNativeSol"] == true && c.sell_token == xone_domain::pump::NATIVE_SOL)
@@ -439,14 +548,7 @@ fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
             .and_then(|v| u64::try_from(v).ok())
             .ok_or_else(|| err("RECEIPT_AMOUNT_MISMATCH"))?
     } else {
-        let start = token_balance(
-            meta,
-            "preTokenBalances",
-            source,
-            &c.sell_token,
-            &c.caller,
-            p["sourceAccountCreation"] == true,
-        )?;
+        let start = source_initial;
         let end = token_balance(
             meta,
             "postTokenBalances",
@@ -468,14 +570,7 @@ fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
             .and_then(|v| u64::try_from(v).ok())
             .ok_or_else(|| err("RECEIPT_AMOUNT_MISMATCH"))?
     } else {
-        let start = token_balance(
-            meta,
-            "preTokenBalances",
-            destination,
-            &c.buy_token,
-            &c.recipient,
-            p["accountCreation"] == true,
-        )?;
+        let start = destination_initial;
         let end = token_balance(
             meta,
             "postTokenBalances",
@@ -505,7 +600,7 @@ fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
         return Err(err("RECEIPT_AMOUNT_MISMATCH"));
     }
     Ok(
-        json!({"verified":true,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"minBuyAmount":minimum.to_string(),"maxSellAmount":p["requiredInput"],"feeLamports":fee.to_string(),"payerLamportDelta":(i128::from(native_after)-i128::from(native_before)).to_string(),"settlementAsset":p["settlementAsset"],"transactionSha256":format!("{:x}",Sha256::digest(decode(wire)?))}),
+        json!({"verified":true,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"minBuyAmount":minimum.to_string(),"maxSellAmount":p["requiredInput"],"feeLamports":fee.to_string(),"actualPersistentRentLamports":persistent.to_string(),"payerLamportDelta":(i128::from(native_after)-i128::from(native_before)).to_string(),"settlementAsset":p["settlementAsset"],"transactionSha256":format!("{:x}",Sha256::digest(decode(wire)?))}),
     )
 }
 pub(crate) async fn receipt(
@@ -624,4 +719,77 @@ pub(crate) async fn receipt(
         .update(record.clone())
         .map_err(failure)?;
     Ok(Json(record.public()))
+}
+
+#[cfg(test)]
+mod funding_tests {
+    use super::*;
+    fn metadata(mint: &str, prefund: u64, post: u64, tokens: u64) -> Value {
+        json!({"preBalances":[prefund],"postBalances":[post],"preTokenBalances":[],
+            "postTokenBalances":[{"accountIndex":0,"mint":mint,"owner":"user","uiTokenAmount":{"amount":tokens.to_string()}}]})
+    }
+    #[test]
+    fn actual_rent_and_wsol_prefund_come_from_executed_balances() {
+        let mint = xone_domain::pump_amm::WSOL;
+        for prefund in [0, 1, 2_039_281, 3_000_000] {
+            let m = metadata(mint, prefund, 3_039_280, 1_000_000);
+            assert_eq!(
+                executed_account_funding(&m, 0, mint, "user", true, false).unwrap(),
+                (
+                    prefund.saturating_sub(2_039_280),
+                    2_039_280u64.saturating_sub(prefund)
+                )
+            );
+        }
+        for prefund in [0, 1, 2_039_281] {
+            let m = metadata("base", prefund, 2_039_280.max(prefund), 1000);
+            assert_eq!(
+                executed_account_funding(&m, 0, "base", "user", true, false).unwrap(),
+                (0, 2_039_280u64.saturating_sub(prefund))
+            );
+        }
+    }
+    #[test]
+    fn already_created_ata_is_idempotent_but_identity_and_metadata_remain_required() {
+        let mint = xone_domain::pump_amm::WSOL;
+        let mut m = metadata(mint, 2_039_289, 2_039_287, 7);
+        m["preTokenBalances"] =
+            json!([{"accountIndex":0,"mint":mint,"owner":"user","uiTokenAmount":{"amount":"9"}}]);
+        assert_eq!(
+            executed_account_funding(&m, 0, mint, "user", true, false).unwrap(),
+            (9, 0)
+        );
+        assert!(executed_account_funding(&m, 0, mint, "wrong-user", true, false).is_err());
+        m["preTokenBalances"] = json!([]);
+        assert!(executed_account_funding(&m, 0, mint, "user", false, false).is_err());
+        m["postBalances"][0] = json!(1);
+        assert!(executed_account_funding(&m, 0, mint, "user", true, false).is_err());
+    }
+    #[test]
+    fn sync_native_race_credits_preexisting_sol_without_relabeling_it_as_trade() {
+        let mint = xone_domain::pump_amm::WSOL;
+        let mut m = metadata(mint, 2_039_299, 2_039_296, 16);
+        m["preTokenBalances"] =
+            json!([{"accountIndex":0,"mint":mint,"owner":"user","uiTokenAmount":{"amount":"9"}}]);
+        let (initial, rent) = executed_account_funding(&m, 0, mint, "user", false, true).unwrap();
+        assert_eq!((initial, rent), (19, 0));
+        assert_eq!(initial + 1 - 16, 4); // immutable transfer 1, actual swap input 4
+        assert_eq!(
+            executed_account_funding(&m, 0, mint, "user", false, false).unwrap(),
+            (9, 0)
+        );
+    }
+    #[test]
+    fn temporary_accounts_must_start_absent_and_finish_closed() {
+        let mut m = json!({"preBalances":[0],"postBalances":[0],"preTokenBalances":[],"postTokenBalances":[]});
+        assert!(closed_temporary(&m, 0).is_ok());
+        m["preBalances"][0] = json!(1);
+        assert!(closed_temporary(&m, 0).is_err());
+        m["preBalances"][0] = json!(0);
+        m["postBalances"][0] = json!(1);
+        assert!(closed_temporary(&m, 0).is_err());
+        m["postBalances"][0] = json!(0);
+        m["postTokenBalances"] = json!([{"accountIndex":0}]);
+        assert!(closed_temporary(&m, 0).is_err());
+    }
 }

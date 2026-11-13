@@ -179,7 +179,10 @@ impl Bank {
             if let Ok(directory) = std::env::var("XONE_TEST_SUBMISSION_DIR") {
                 c.config.api.transaction_submission_enabled = true;
                 c.config.api.transaction_receipt_journal = std::path::Path::new(&directory)
-                    .join(format!("{}.ndjson", hash(&*self.data).unwrap()))
+                    .join(format!(
+                        "{}.ndjson",
+                        hash(&json!({"bank": &*self.data, "rpc": rpc})).unwrap()
+                    ))
                     .to_str()
                     .unwrap()
                     .into();

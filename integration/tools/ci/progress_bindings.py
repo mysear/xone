@@ -1506,3 +1506,10 @@ BINDINGS['14.pump-native-ata']={
  'tests':['native_curve_creates_missing_destination_ata_and_separates_trade_rent_fee_receipts','test_rent_cannot_be_reported_as_native_swap_input','test_rent_cannot_be_removed_from_funding_and_user_delta','test_recompiled_creation_for_other_owner_is_rejected'],
  'evidence_refs':['integration/artifacts/local/core-pump-native-ata-validation-20261113.json'],
 }
+
+
+BINDINGS['14.pump-amm-funding']={
+ 'paths':['dex-router/crates/execution-preparation/src/classic_funding.rs','dex-router/crates/execution-preparation/src/pump_amm.rs','dex-router/crates/quote-api/src/transaction_lifecycle.rs','dex-router/crates/simulation/workers/solana_sbf.py','dex-router/crates/quote-api/tests/pump_amm_funding.rs','integration/tools/acceptance/pump_amm_funding_reference.py','integration/tools/acceptance/validate_pump_amm_funding.py'],
+ 'tests':['pump_swap_funding_accounts_execute_original_and_independent_vm','pump_swap_funding_wallet_receipts_reconcile_actual_rent_and_resume_without_resending','pump_swap_funding_failed_swap_receipts_never_resubmit','actual_rent_and_wsol_prefund_come_from_executed_balances','test_existing_account_cannot_be_closed'],
+ 'evidence_refs':['integration/artifacts/local/core-pump-amm-funding-validation-20261113.json'],
+}

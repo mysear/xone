@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Original PumpSwap canonical/boost swap banks for real unsigned preparation."""
 from pathlib import Path
-import base64,hashlib,importlib.util,json,sys
+import base64,hashlib,importlib.util,json,sys,copy
 ROOT=Path(__file__).resolve().parents[3]
 def module(name,path):
  spec=importlib.util.spec_from_file_location(name,ROOT/path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
@@ -47,6 +47,25 @@ def main():
  for key,a in native['before'].items():bank[key]=dict(owner=a['owner'],lamports=a['lamports'],executable=a['executable'],data=[a['data_base64'],'base64'])
  for key in ['11111111111111111111111111111111','ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL','SysvarRent111111111111111111111111111111111','SysvarC1ock11111111111111111111111111111111']:bank[key]=cases[5]['accounts'][key]
  row['accounts']=bank;cases.append(row)
+ # Funding cases preserve the exact protocol state and expected 12-account
+ # post-state; only user funding/account lifecycle differs.
+ for boost in [False,True]:
+  for name,base in [('wrap_missing',3),('refund',3),('unwrap',0),('destination_missing',3),('source_prefund_low',3),('source_prefund_high',3),('destination_prefund',3),('wrap_topup',3),('wrap_exact_in',2),('unwrap_exact_out',1),('destination_wsol_prefund',0)]:
+   row=copy.deepcopy(cases[base+(4 if boost else 0)]);row['sourceIndex']=len(cases);row['fundingScenario']=name
+   src=row['sourceTokenAccount'];dst=row['destinationTokenAccount'];options={}
+   if name in ['wrap_missing','source_prefund_low','source_prefund_high','wrap_exact_in']:
+    row['accounts'].pop(src);options={'wrapSourceSol':True,'destinationTokenAccount':dst}
+    if name.startswith('source_prefund'):
+     row['accounts'][src]=dict(owner='11111111111111111111111111111111',executable=False,lamports=1 if name.endswith('low')else 2039283,data=['','base64'])
+   elif name=='wrap_topup':
+    a=row['accounts'][src];data=bytearray(base64.b64decode(a['data'][0]));data[64:72]=(2).to_bytes(8,'little');a['data'][0]=base64.b64encode(data).decode();a['lamports']=int.from_bytes(data[113:121],'little')+2;options={'wrapSourceSol':True,'sourceTokenAccount':src,'destinationTokenAccount':dst}
+   elif name=='refund':options={'wrapSourceSol':True,'refundWrappedSource':True,'destinationTokenAccount':dst}
+   elif name.startswith('unwrap'):options={'unwrapDestinationSol':True,'sourceTokenAccount':src}
+   else:
+    row['accounts'].pop(dst);options={'createDestinationAta':True,'sourceTokenAccount':src}
+    if name in ['destination_prefund','destination_wsol_prefund']:
+     row['accounts'][dst]=dict(owner='11111111111111111111111111111111',executable=False,lamports=1 if name=='destination_prefund'else 2039283,data=['','base64'])
+   row['preparationOptions']=options;cases.append(row)
  for row in cases:
   row['accounts']={key:value for key,value in row['accounts'].items()if key not in shared}
  result=json.dumps(dict(shared_accounts=shared,cases=cases),separators=(',',':'))+'\n'

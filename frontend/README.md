@@ -130,3 +130,8 @@ Pump原生SOL曲线（阶段68）：固定经典SPL版本、已有Token账户、
 Pump经典曲线收款ATA（阶段69）：买入时可显式勾选缺失ATA创建，将幂等创建和兑换放入同一单签名交易；目标地址已存在空System账户并预存SOL时，按实际已有余额只补足租金。Token卖出收原生SOL不开放ATA选项。准备结果分列交易金额、租金最小值、已有预存余额、本次补足额和5000网络费，回执另列用户实际SOL净变动；失败会原子回滚新账户。
 
 能力模型/6只对明确经典曲线模板扩展收款ATA，自动SOL/WSOL转换和毕业迁移仍未接入。复验make -C ../integration pump-native-ata-current-check；九个银行由同一生成工具恢复，生成银行、程序二进制、依赖和临时回执不提交。
+
+
+PumpSwap classic/boost账户与SOL资金（阶段70）：单池单路报价支持显式创建缺失收款ATA、从SOL补足WSOL输入差额、使用本次新建临时WSOL账户退回未使用的输入资金或将输出解包为SOL。只有兑换方向为WSOL且当前实际路由具备nativeFunding能力时开放包装/解包选项；临时账户只在本次创建并关闭，不关闭已有用户账户。空System规范ATA的预存SOL先用于租金，超过租金的部分在WSOL初始化后成为已有余额，不能冒充本次成交。界面分别显示预存余额、租金补差、包装额、退租、网络费和用户SOL净变动。
+
+能力模型/7为两个已实现PumpSwap模板开放账户和资金选项；其他Token/volume版本、毕业迁移指令及其余链/DEX模板仍按各自能力标签披露。回执从真实pre/post balances和Token余额推导实际新增租金与初始WSOL，准备阶段的估算不替代实际成交归因。复验make -C ../integration pump-amm-funding-current-check；生成银行、独立运行时、二进制、临时签名/回执和截图均不提交。

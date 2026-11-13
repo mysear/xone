@@ -1,7 +1,7 @@
 //! Versioned capabilities describe admitted kernels, not live RPC/account readiness.
 use serde::{Deserialize, Serialize};
 use xone_domain::{Pool, Result};
-pub const VERSION: &str = "xone-protocol-capabilities/6";
+pub const VERSION: &str = "xone-protocol-capabilities/7";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolCapabilities {
@@ -89,8 +89,10 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
         execution_route_scope: prepared.then(|| "SINGLE_POOL_SINGLE_ROUTE".into()),
         unsigned_transaction: prepared,
         rpc_simulation: prepared,
-        account_creation: meteora || protocol == xone_domain::pump::PROFILE,
-        native_funding: meteora,
+        account_creation: meteora
+            || xone_domain::pump_amm::supports_profile(protocol)
+            || protocol == xone_domain::pump::PROFILE,
+        native_funding: meteora || xone_domain::pump_amm::supports_profile(protocol),
         native_sol_trading: protocol == xone_domain::pump::PROFILE,
         independent_simulation: prepared,
         wallet_submission: prepared,
