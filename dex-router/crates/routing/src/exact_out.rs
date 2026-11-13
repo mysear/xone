@@ -237,6 +237,7 @@ pub fn evaluate_path(
                 | xone_domain::pump::MIGRATION_PROFILE
                 | xone_domain::pump_amm::PROFILE
                 | xone_domain::pump_amm::BOOST_PROFILE
+                | xone_domain::raydium::PROFILE
         ) && edges.len() != 1
         {
             return Err(err(
@@ -246,6 +247,8 @@ pub fn evaluate_path(
                     "EXACT_OUT_SLIPSTREAM_SINGLE_POOL_ONLY"
                 } else if xone_domain::pump::supports_curve_profile(&pool.protocol) {
                     "EXACT_OUT_PUMP_SINGLE_POOL_ONLY"
+                } else if pool.protocol == xone_domain::raydium::PROFILE {
+                    "EXACT_OUT_RAYDIUM_SINGLE_POOL_ONLY"
                 } else if xone_domain::meteora::supports_profile(&pool.protocol) {
                     "EXACT_OUT_METEORA_SINGLE_POOL_ONLY"
                 } else if pool.protocol == xone_domain::lfj::PROFILE {
@@ -286,6 +289,8 @@ pub fn evaluate_path(
             xone_domain::pump_amm::PROGRAM
         } else if pool.pump.is_some() {
             xone_domain::pump::PROGRAM
+        } else if pool.raydium_cpmm.is_some() {
+            xone_domain::raydium::PROGRAM_ID
         } else if pool.meteora.is_some() {
             xone_domain::meteora::PROGRAM
         } else {

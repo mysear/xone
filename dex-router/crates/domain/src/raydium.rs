@@ -1,5 +1,7 @@
 use crate::{err, wire, Amount, Pool, Result};
 use serde::{Deserialize, Serialize};
+pub const PROFILE: &str = "raydium-cpmm-creator";
+pub const ADAPTER: &str = "raydium-cpmm/f4b9b263-spl-1";
 pub const PROGRAM_ID: &str = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C";
 pub const PROGRAM_DATA: &str = "DMawCQzbgNTmbzaESc7o6pvL1KAeetY8zA7jNpzntHhU";
 pub const TOKEN_PROGRAM: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";

@@ -278,11 +278,15 @@ fn validate(p: &Pool) -> Result<(), String> {
 pub fn quote(p: &Pool, input: &str, zero_for_one: bool) -> Result<Quote, String> {
     // Upstream checked arithmetic occasionally unwraps. The native oracle treats those panics
     // as atomic transaction rejection, without publishing any partially mutated state.
-    catch_unwind(AssertUnwindSafe(|| quote_inner(p, input, zero_for_one)))
+    catch_unwind(AssertUnwindSafe(|| quote_inner(p, input, zero_for_one, false)))
         .map_err(|_| "original program arithmetic panic (transaction rollback)".to_string())?
 }
 
-fn quote_inner(p: &Pool, input: &str, zero_for_one: bool) -> Result<Quote, String> {
+pub fn quote_exact_out(p: &Pool, output: &str, zero_for_one: bool) -> Result<Quote, String> {
+    catch_unwind(AssertUnwindSafe(|| quote_inner(p, output, zero_for_one, true)))
+        .map_err(|_| "original program arithmetic panic (transaction rollback)".to_string())?
+}
+fn quote_inner(p: &Pool, input: &str, zero_for_one: bool, exact_out: bool) -> Result<Quote, String> {
     validate(p)?;
     let amount: u64 = input
         .parse::<u64>()
@@ -314,7 +318,8 @@ fn quote_inner(p: &Pool, input: &str, zero_for_one: bool) -> Result<Quote, Strin
     };
     let on_input = n.is_creator_fee_on_input(dir).map_err(|e| e.to_string())?;
     let creator_rate = n.adjust_creator_fee_rate(s.creator_fee_rate);
-    let r = CurveCalculator::swap_base_input(
+    let calculator = if exact_out { CurveCalculator::swap_base_output } else { CurveCalculator::swap_base_input };
+    let r = calculator(
         amount.into(),
         params.total_input_token_amount.into(),
         params.total_output_token_amount.into(),
@@ -325,9 +330,10 @@ fn quote_inner(p: &Pool, input: &str, zero_for_one: bool) -> Result<Quote, Strin
         on_input,
     )
     .ok_or("original CurveCalculator returned None")?;
-    if r.input_amount != u128::from(amount) {
-        return Err("input not fully consumed".into());
+    if (!exact_out && r.input_amount != u128::from(amount)) || (exact_out && r.output_amount != u128::from(amount)) {
+        return Err("specified amount not fully settled".into());
     }
+    let amount = u64::try_from(r.input_amount).map_err(|_| "input outside u64")?;
     let output = u64::try_from(r.output_amount).map_err(|_| "output outside u64")?;
     if output == 0 {
         return Err("original swap requires positive amount received".into());
@@ -834,4 +840,44 @@ pub fn fixture() -> Value {
     let lp = pda(&[b"pool_lp_mint", pool.as_ref()], &program).0;
     let observation = pda(&[b"observation", pool.as_ref()], &program).0;
     json!({"schema_version":1,"pool":p,"pool_config":{"id":p.pool_id,"protocol":PROFILE,"fee_numerator":p.fee_numerator,"fee_denominator":p.fee_denominator,"program_id":PROGRAM,"token0":p.token0,"token1":p.token1,"accounts":[p.pool_id,s.vault0,s.vault1,s.amm_config,p.token0,p.token1],"raydium_cpmm":{"expected_programdata":s.programdata,"expected_program_code_sha256":s.program_code_sha256,"expected_deployed_slot":s.deployed_slot,"expected_token_program_code_sha256":s.token_program_code_sha256}},"metadata":{"synthetic_proof_identity":true,"program_code_utf8":String::from_utf8_lossy(SYNTHETIC_PROGRAM_CODE),"token_program_code_utf8":String::from_utf8_lossy(SYNTHETIC_TOKEN_CODE),"program_code_sha256":s.program_code_sha256,"token_program_code_sha256":s.token_program_code_sha256,"token_program":TOKEN_PROGRAM,"upgradeable_loader":"BPFLoaderUpgradeab1e11111111111111111111111","immutable_loader":"BPFLoader2111111111111111111111111111111111","clock":"SysvarC1ock11111111111111111111111111111111","clock_owner":"Sysvar1111111111111111111111111111111111111","pool_creator":key("xone:raydium:creator").to_string(),"lp_mint":lp.to_string(),"observation":observation.to_string(),"config_index":0,"config_bump":bump,"config":config.to_string(),"pool_len":PoolState::LEN,"config_len":AmmConfig::LEN,"pool_mint_keys_sorted_by_bytes":true,"authority_derivation":"official Anchor reexported solana_pubkey::Pubkey::find_program_address([AUTH_SEED], program)","bank_commitment":"finalized"}})
+}
+
+/// Original native helper corpus; no business math or service is imported.
+pub fn exact_out_corpus() -> Value {
+    let original = generate();
+    let mut rows = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+    for item in original["cases"].as_array().unwrap() {
+        if !seen.insert(serde_json::to_string(&item["pool"]).unwrap()) { continue; }
+        let p: Pool = serde_json::from_value(item["pool"].clone()).unwrap();
+        for zero in [false,true] {
+            let reserve: u64 = if zero {&p.reserve1} else {&p.reserve0}.parse().unwrap();
+            let targets: std::collections::BTreeSet<u64> = [0,1,2,100,1000,reserve/2,reserve.saturating_sub(1),reserve,reserve.saturating_add(1),u64::MAX].into_iter().collect();
+            for target in targets {
+                let expected = match quote_exact_out(&p,&target.to_string(),zero) {
+                    Ok(q)=>json!({"amount_in":q.fees.input_amount,"amount_out":q.amount_out.to_string(),"pool":q.pool,"fees":q.fees}),
+                    Err(reason)=>json!({"reverted":true,"reason":reason}),
+                };
+                rows.push(json!({"pool":p,"target":target.to_string(),"zero_for_one":zero,"expected":expected}));
+            }
+        }
+    }
+    let mut sequences = Vec::new();
+    for entry in original["sequences"].as_array().unwrap() {
+        let mut state: Pool = serde_json::from_value(entry["pool"].clone()).unwrap();
+        let initial = state.clone();
+        let mut steps = Vec::new();
+        for (i,old) in entry["steps"].as_array().unwrap().iter().take(3).enumerate() {
+            let zero=old["zero_for_one"].as_bool().unwrap();
+            let target=[100u64,1000,2000][i];
+            let before=state.clone();
+            let expected=match quote_exact_out(&state,&target.to_string(),zero) {
+                Ok(q)=>{state=q.pool.clone();json!({"amount_in":q.fees.input_amount,"amount_out":q.amount_out.to_string(),"pool":q.pool,"fees":q.fees})},
+                Err(reason)=>json!({"reverted":true,"reason":reason}),
+            };
+            steps.push(json!({"pool":before,"target":target.to_string(),"zero_for_one":zero,"expected":expected}));
+        }
+        sequences.push(json!({"pool":initial,"steps":steps}));
+    }
+    json!({"reference":{"revision":REVISION,"kind":"unchanged original CurveCalculator::swap_base_output and PoolState::update_fees; native helpers, not SBF transactions"},"cases":rows,"sequences":sequences})
 }

@@ -88,3 +88,8 @@ ExactOut按执行计划最大输入上限（结合报价与滑点、且不超过
 Token2022收款ATA（阶段61）：对已经接入的Meteora转账费版本，可勾选“缺失收款ATA时加入创建指令”，程序按实际Token程序派生地址和扩展长度计租金。页面展示Token2022转账费及182字节账户长度，模拟到账为扣费后可用数量。该选项可与隔离输入SOL退款组合；总预付租金与临时退租分别展示。其他未知Token2022扩展仍拒绝。
 
 复验入口：`make -C ../integration token2022-preparation-current-check`；数据恢复工具为`integration/tools/ci/meteora-token2022-execution-bank.py`，需已有固定原程序银行/运行时。
+
+
+协议视图与执行层（阶段62）：链/池元数据新增版本化能力和protocolViewId，报价返回实际protocolViewIds；页面同时核对父视图与协议视图，并显示能力版本/执行阻塞原因。Raydium CPMM creator经典SPL新增有限独立ExactOut报价，当前仍未开放其交易准备。Meteora既有账户/WSOL/Token2022准备逻辑已迁到独立xone-execution-preparation组件，页面和下载格式保持兼容。
+
+统一复验：`make -C ../integration pipeline-foundation-current-check`。六阶段整体进度见主开发进度文档，能力标签为false的协议执行项仍是未完成项。

@@ -3699,6 +3699,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "xone-execution-preparation"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "hex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "xone-domain",
+ "xone-execution-plan",
+ "xone-protocol-math",
+]
+
+[[package]]
 name = "xone-kafka-transport"
 version = "0.1.0"
 dependencies = [
@@ -3774,6 +3790,7 @@ dependencies = [
  "xone-config",
  "xone-domain",
  "xone-execution-plan",
+ "xone-execution-preparation",
  "xone-kafka-transport",
  "xone-observability",
  "xone-optimizer",
@@ -3816,8 +3833,10 @@ dependencies = [
 name = "xone-state-replica"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde_json",
  "xone-domain",
+ "xone-protocol-math",
  "xone-routing",
 ]
 

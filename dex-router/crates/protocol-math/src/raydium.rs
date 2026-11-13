@@ -1,4 +1,4 @@
-//! Raydium CP-Swap f4b9b263 creator fee layout, standard SPL Token exact-in.
+//! Raydium CP-Swap f4b9b263 creator fee layout, standard SPL Token ExactIn/ExactOut.
 //! Raw SPL balances and accrued fees, rather than the curve's temporary balances,
 //! define the next trade's net reserves. Token2022 and SBF execution are excluded.
 use crate::Swap;
@@ -84,8 +84,6 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, zero: bool) -> Result<Swap> {
             0,
         )
     };
-    let protocol = narrow(floor(trade_fee, s.protocol_fee_rate)?)?;
-    let fund = narrow(floor(trade_fee, s.fund_fee_rate)?)?;
     let curve_output = net_input
         .checked_mul(rout.into())
         .and_then(|n| n.checked_div(u128::from(rin) + net_input))
@@ -101,6 +99,47 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, zero: bool) -> Result<Swap> {
     if out == 0 {
         return Err(err("INSUFFICIENT_OUTPUT"));
     }
+    settle(
+        pool,
+        zero,
+        Settlement {
+            dx,
+            out,
+            net_input,
+            curve_output,
+            trade_fee,
+            creator_fee,
+            on_input,
+        },
+    )
+}
+struct Settlement {
+    dx: u64,
+    out: u64,
+    net_input: u128,
+    curve_output: u128,
+    trade_fee: u128,
+    creator_fee: u128,
+    on_input: bool,
+}
+fn settle(pool: &Pool, zero: bool, values: Settlement) -> Result<Swap> {
+    let Settlement {
+        dx,
+        out,
+        net_input,
+        curve_output,
+        trade_fee,
+        creator_fee,
+        on_input,
+    } = values;
+    let s = pool
+        .raydium_cpmm
+        .as_ref()
+        .ok_or_else(|| err("RAYDIUM_STATE_REQUIRED"))?;
+    let (r0, r1) = s.net_reserves()?;
+    let (rin, rout) = if zero { (r0, r1) } else { (r1, r0) };
+    let protocol = narrow(floor(trade_fee, s.protocol_fee_rate)?)?;
+    let fund = narrow(floor(trade_fee, s.fund_fee_rate)?)?;
     let creator = narrow(creator_fee)?;
     // Reproduce the program's pre-fee constant check as well as the token/ledger
     // transitions. The source curve temporary input excludes the LP fee too.
@@ -148,8 +187,103 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, zero: bool) -> Result<Swap> {
     next.validate()?;
     Ok(Swap {
         amount_out: Amount::checked(out.into())?,
-        consumed_in: input.clone(),
+        consumed_in: Amount::checked(dx.into())?,
         remaining_in: Amount::zero(),
         next_pool: next,
+    })
+}
+
+// Output-driven inverse of the pinned swap_base_output. The creator fee can
+// apply on either side; its integer split differs from reusing an ExactIn quote.
+pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<crate::ExactOutSwap> {
+    pool.validate()?;
+    if pool.protocol != "raydium-cpmm-creator" {
+        return Err(err("PROTOCOL_UNSUPPORTED"));
+    }
+    let out = u64_value(output)?;
+    if out == 0 {
+        return Err(err("EXACT_OUT_ZERO_OUTPUT"));
+    }
+    let s = pool
+        .raydium_cpmm
+        .as_ref()
+        .ok_or_else(|| err("RAYDIUM_STATE_REQUIRED"))?;
+    let (r0, r1) = s.net_reserves()?;
+    let (rin, rout) = if zero { (r0, r1) } else { (r1, r0) };
+    if rin == 0 || rout == 0 {
+        return Err(err("INSUFFICIENT_LIQUIDITY"));
+    }
+    let on_input = match s.creator_fee_on {
+        0 => true,
+        1 => zero,
+        2 => !zero,
+        _ => return Err(err("RAYDIUM_CREATOR_MODE")),
+    };
+    let creator_rate = if s.creator_fee_enabled {
+        s.creator_fee_rate
+    } else {
+        0
+    };
+    let pre_fee = |net: u128, rate: u64| -> Result<u128> {
+        let denominator = M
+            .checked_sub(rate.into())
+            .filter(|d| *d > 0)
+            .ok_or_else(fail)?;
+        net.checked_mul(M)
+            .and_then(|n| n.checked_add(denominator - 1))
+            .and_then(|n| n.checked_div(denominator))
+            .ok_or_else(fail)
+    };
+    let curve_output = if on_input {
+        u128::from(out)
+    } else {
+        pre_fee(out.into(), creator_rate)?
+    };
+    let denominator = u128::from(rout)
+        .checked_sub(curve_output)
+        .filter(|d| *d > 0)
+        .ok_or_else(|| err("EXACT_OUT_LIQUIDITY_BOUND"))?;
+    let net_input = u128::from(rin)
+        .checked_mul(curve_output)
+        .and_then(|n| n.checked_add(denominator - 1))
+        .and_then(|n| n.checked_div(denominator))
+        .ok_or_else(fail)?;
+    let (gross, trade_fee, creator_fee) = if on_input {
+        let rate = pool
+            .fee_numerator
+            .checked_add(creator_rate)
+            .ok_or_else(fail)?;
+        let gross = pre_fee(net_input, rate)?;
+        let total = gross.checked_sub(net_input).ok_or_else(fail)?;
+        let creator = total
+            .checked_mul(creator_rate.into())
+            .and_then(|n| n.checked_div(rate.into()))
+            .ok_or_else(fail)?;
+        (gross, total.checked_sub(creator).ok_or_else(fail)?, creator)
+    } else {
+        let gross = pre_fee(net_input, pool.fee_numerator)?;
+        (
+            gross,
+            gross.checked_sub(net_input).ok_or_else(fail)?,
+            curve_output.checked_sub(out.into()).ok_or_else(fail)?,
+        )
+    };
+    let q = settle(
+        pool,
+        zero,
+        Settlement {
+            dx: narrow(gross)?,
+            out,
+            net_input,
+            curve_output,
+            trade_fee,
+            creator_fee,
+            on_input,
+        },
+    )?;
+    Ok(crate::ExactOutSwap {
+        amount_in: q.consumed_in,
+        amount_out: q.amount_out,
+        next_pool: q.next_pool,
     })
 }

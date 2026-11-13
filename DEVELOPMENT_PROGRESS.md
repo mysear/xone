@@ -423,6 +423,7 @@
 |14.native-funding|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|显式输入WSOL原生SOL补资、缺失规范ATA创建、现有账户仅补差额、租金/包装/fee合计检查和只读模拟|报价仍使用WSOL；不自动关闭或unwrap、不签名广播；其他协议/Token扩展及来源资格仍缺|[本批验证](integration/artifacts/local/core-native-funding-validation-20261112.json)|
 |14.temporary-wsol|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|显式输出解包SOL、隔离输入余款退回、临时账户租金回收/余额核对已通过真实下载与原程序联验|限经典WSOL及Meteora单池，输出要求caller等于recipient；其他执行模板和链/DEX组合仍缺|[本批验证](integration/artifacts/local/core-temporary-wsol-validation-20261112.json)|
 |14.token2022-preparation|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Meteora限定Token2022收款ATA创建、扩展租金、净到账/withheld及SOL退款组合已通过原程序和前端联验|仍限TransferFeeConfig/TransferFeeAmount和ImmutableOwner；其他扩展、协议和链组合待补|[本批验证](integration/artifacts/local/core-token2022-preparation-validation-20261113.json)|
+|12.pipeline-foundation|WP03,WP05,WP09,WP11,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium creator独立ExactOut、协议子QuoteView/能力标签及独立preparation组件开发与联验|按用户六阶段主线持续补协议适配、unsigned、独立模拟和钱包/回执；不把能力未实现标签当完成|[本批验证](integration/artifacts/local/core-pipeline-foundation-validation-20261113.json)|
 
 <a id="batch-history"></a>
 
@@ -490,6 +491,7 @@
 |59|[输入WSOL补资与原子包装兑换联调](#plan-2026-11-12-native-funding)|LOCAL_SCOPE_VERIFIED|20检查/9次Rust测试/20项真实Chrome联调通过；输入WSOL ATA创建/差额包装/租金fee总额/保留WSOL和完整原程序回滚；[本批记录](integration/artifacts/local/core-native-funding-validation-20261112.json)|
 |60|[临时WSOL解包与余款回收](#plan-2026-11-12-temporary-wsol)|LOCAL_SCOPE_VERIFIED|24项检查/12次Rust测试/24项真实Chrome业务联调通过；两类临时账户真实下载原SBF收付/退租/既有账户不变及失败回滚通过；[本批记录](integration/artifacts/local/core-temporary-wsol-validation-20261112.json)|
 |61|[Token2022收款ATA与转账费联调](#plan-2026-11-13-token2022-preparation)|LOCAL_SCOPE_VERIFIED|30项检查/15次Rust测试执行/27项真实Chrome业务联调通过；178/182账户、epoch/cap/100%费率、混合租金退款和13原执行/回滚检查通过；[本批记录](integration/artifacts/local/core-token2022-preparation-validation-20261113.json)|
+|62|[六阶段业务链路主线与协议视图](#plan-2026-11-13-six-stage-pipeline)|LOCAL_SCOPE_VERIFIED|本批36检查/34次Rust测试执行/28项真实Chrome联调通过；Raydium 1832单笔+54序列步、61模型目录/协议视图、独立preparation及13原SBF回归通过；六阶段整体仍继续；[验证记录](integration/artifacts/local/core-pipeline-foundation-validation-20261113.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -1913,3 +1915,29 @@ PumpSwap卖出目标按至少实际到账处理：三ceil fee导致净输出不�
 示例：epoch1目标净到账1000，实际WSOL输入1502；Token2022转账gross1026，其中26进入withheld。创建ATA需要182字节/2157600 lamports，普通创建+swap总原生资金2162600（含5000网络费）。组合临时输入退款时计划上限1510、实际用1502、余8和临时租金2039280退回；总预付租金4196880，持久收款ATA租金2157600，payer净SOL变化-2164102。withheld不算用户可用兑换收益。
 
 复验入口：make -C integration token2022-preparation-current-check。原始fixture银行、运行时、浏览器下载及逐次执行凭证只保留本地；必要源码、测试和文档入库。最终同源码有限验收：源码`e62c0b4895e5f01576f5860b446da2c0e8cce2a593d21c285b3ca47cf4fbc480`，30项检查、15次Rust测试执行、27项真实Chrome业务联调全部通过。305份合同/工具副本、公共协议、严格Clippy、前端模型/语法及普通/-OO文档和篡改控制通过。五个原银行+退款组合共6组API wire、2组浏览器实际下载及5组历史账户/包装/解包wire合计13原程序成功执行，均核对对应输入上限减一失败回滚；完整池/bin/oracle/Token2022 vault原字节、可用余额+withheld守恒通过。现有178-byte与182-byte账户、未知/重复/截断/type/冻结拒绝及精确租金通过。首轮编译入口和浏览器跨Router地址认证脚本问题均已修正，失败/被替代记录独立保留，不计通过；最终运行下载与原执行文件按独立目录冻结。桌面/移动布局已复核；harness/静态服务器已结束，未向公网提交交易。多协议unsigned构建、其他Token扩展及策略交叉、钱包签名广播/确认、可信生产来源/模拟、其余链/DEX与净链费用模型继续列为剩余；all_requested_features_complete=false、production_ready=false。
+
+
+<a id="plan-2026-11-13-six-stage-pipeline"></a>
+
+## 六阶段业务链路主线（2026-11-13，阶段62起持续推进）
+
+本主线按用户指定顺序实施：明确协议解析/数学→稳定QuoteView与能力标签→独立动态账户preparation→unsigned交易→独立模拟→钱包签名/广播/确认/回执。每个阶段和协议分别记录实际范围；能力标签中的未实现状态不算功能完成，单批通过也不等于六阶段全部完成。未知模型/账户扩展继续明确拒绝；不通过缩小标签或把RPC模拟改名为独立模拟关闭缺项。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F62.1|补明确协议的解析和数学范围|WP03,WP05,WP11,WP12,WP25|PARTIAL_LOCAL|本批为固定f4b9b263 Raydium CPMM creator经典SPL补独立ExactOut及完整费用账本，1832原native-helper向量583成功/1249拒绝的数学和路由预检通过，另增加18个三步序列/54步有序账本回放；既有1604 ExactIn回归通过。其他协议/版本和高级交叉仍继续逐项补。|
+|F62.2|稳定协议QuoteView与能力标签|WP09,WP12,WP16,WP25|LOCAL_SCOPE_VERIFIED|按protocol+adapter划分不可变子视图，绑定父SnapshotRef/图版本/完整池状态hash/能力模型；报价返回实际所用protocolViewIds，前端校验；未知池保留诊断且不阻塞合格协议。|
+|F62.3|动态账户解析独立为execution preparation|WP14,WP15,WP16,WP25|PARTIAL_LOCAL|新增xone-execution-preparation内部组件，迁出Meteora RPC/账户/程序/epoch/资金/Token2022/WSOL准备；quote-api保留授权、缓存计划校验和前后QuoteView门禁；无新增核心服务。其他协议preparation适配器仍需继续。|
+|F62.4|仅生成unsigned transaction|WP14,WP16,WP25|IN_PROGRESS|既有Meteora限定模板迁入独立层并回归；Raydium及其他协议模板按各自账户闭包/指令构建后接入，不能用数学支持标签开放交易。|
+|F62.5|独立模拟|WP05,WP15,WP25|IN_PROGRESS|保留已有有限REVM后端、原SBF受控参考及普通RPC只读模拟的区别；各新增交易模板需实际wire、真实收款和完整后状态验证，普通RPC成功不自动获得生产VERIFIED。|
+|F62.6|最后接钱包签名/广播/确认/回执|WP14,WP16,WP25|NOT_STARTED|待对应协议unsigned/模拟链路完成后接钱包用户确认、签名字节校验、显式广播、链上确认/失败/过期及回执更新；当前不持有用户私钥、不发真实资金交易。|
+
+阶段62当前实现与测试：Raydium ExactOut直接按原swap_base_output输出驱动求输入，creator费用在输入或输出侧分别逆解，交易/协议/fund/creator费用、raw vault及净储备完整更新；不是反复ExactIn搜索。原native helper复用固定上游CurveCalculator和PoolState，不导入业务数学；它不是SBF交易证明。当前路由限单池有序分配，保留最大输入/内部资金/原子回滚约束。公共状态契约未改变。
+
+协议子视图与父QuoteView共享撤销令牌，reorg/范围撤权一起失效；普通快照的历史不可变句柄保持原设计。能力标签含具体adapter/model版本、ExactIn/ExactOut范围、preparation/unsigned/RPC模拟/独立模拟/钱包是否实现；后续每个能力按证据开放。前端使用返回的协议视图ID核对当前元数据，参数和状态变化仍撤销旧下载。
+
+复验入口：make -C integration pipeline-foundation-current-check。当前为开发中记录，同源码检查/真实浏览器/原程序回归完成后回填本批结果；六阶段主线保持未完成，all_requested_features_complete=false、production_ready=false。
+
+阶段62本批最终有限验收：源码`49c9d63d92859897c3d842aa848c771a9473e832905d5d392a9014de68089c7c`，36项检查、34次Rust测试执行、28项真实Chrome联调全部通过。Raydium原native helper1832目标（583成功、1249拒绝）及18序列54步、最大输入减一、共享物理池分配/HTTP计划均通过；61模型能力目录、现有fixture模型标签、协议视图稳定性/状态绑定/未知池诊断/撤销通过。Meteora执行准备迁出后，已有账户/ATA/WSOL包装/解包退款/Token2022及13组实际下载原SBF/失败回滚全部回归通过。306份合同与工具副本、公共协议、严格Clippy、前端模型/桌面/移动布局、普通/-OO进度与篡改控制通过；失败/被替代预检记录保留，不计本批通过。所有测试服务已退出，无公网交易。
+
+下一阶段继续F62.4–F62.6，不结束六阶段主线。独立SBF预算原型已在实际Token2022+WSOL退款unsigned字节验证：预算1 CU明确ComputationalBudgetExceeded、预算1400000 CU正常执行70140 CU/fee5000/净到账1000，源银行未提交变化；这仍是服务接入前原型，不能把它标为接口/钱包完成。其余协议preparation/交易模板和未覆盖数学组合继续按能力目录逐项补齐，整体all_requested_features_complete=false、production_ready=false。

@@ -7,3 +7,5 @@ rust-version.workspace = true
 xone-domain = { path = "../domain" }
 xone-routing = { path = "../routing" }
 serde_json.workspace = true
+serde.workspace = true
+xone-protocol-math = { path = "../protocol-math" }

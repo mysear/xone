@@ -1,4 +1,4 @@
-use raydium_cpmm_reference::{fixture, generate, quote, Pool};
+use raydium_cpmm_reference::{exact_out_corpus, fixture, generate, quote, Pool};
 use serde_json::{json, Value};
 use std::io::{self, Read};
 fn main() {
@@ -7,6 +7,7 @@ fn main() {
     let command = std::env::args().nth(1).unwrap_or_else(|| "generate".into());
     let out = match command.as_str() {
         "generate" => generate(),
+        "exact-out-corpus" => exact_out_corpus(),
         "fixture" => fixture(),
         "quote" => {
             let mut text = String::new();

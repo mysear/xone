@@ -18,6 +18,7 @@ pub fn supports_protocol(protocol: &str) -> bool {
     matches!(
         protocol,
         v2_swap::PROFILE
+            | xone_domain::raydium::PROFILE
             | xone_domain::pancake_bsc_lm::PROFILE
             | xone_domain::pancake_lm::PROFILE
             | xone_domain::slipstream_context::PROFILE
@@ -59,6 +60,9 @@ pub fn quote_exact_out_for_origin(
 /// Fixed original Router02 execution template with standard external funding.
 /// Other protocols and Token behaviors need their own independent interface.
 pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<ExactOutSwap> {
+    if pool.protocol == xone_domain::raydium::PROFILE {
+        return crate::raydium::quote_exact_out(pool, output, zero);
+    }
     if xone_domain::pump_amm::supports_profile(&pool.protocol) {
         return crate::pump_amm::quote_exact_out(pool, output, zero);
     }

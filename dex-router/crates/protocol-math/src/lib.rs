@@ -5,6 +5,7 @@ pub mod balancer_managed_fees;
 pub mod balancer_multi;
 pub mod balancer_stable;
 pub mod balancer_weighted;
+pub mod capabilities;
 pub mod curve_crypto;
 pub mod curve_multi;
 pub mod curve_ng;

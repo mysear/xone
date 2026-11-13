@@ -196,6 +196,7 @@ impl Api {
                     "pancake-v3-bsc-lm-v4": "SINGLE_POOL_EXTERNAL_CALLBACK_FUNDING",
                     "pancake-v3-lm-context": "SINGLE_POOL_EXTERNAL_CALLBACK_FUNDING",
                     "aerodrome-slipstream-context": "SINGLE_POOL_ORIGIN_BOUND_EXTERNAL_CALLBACK_FUNDING",
+                    "raydium-cpmm-creator": "SINGLE_POOL_CLASSIC_SPL_CREATOR_FEES",
                     "lfj-lb-v21": "SINGLE_POOL_MINIMUM_TARGET_EXPLICIT_SURPLUS"},
                 "candidateSearch": {
                     "maxHops": request.constraints.as_ref().map_or(self.config.config.routing.max_hops, |c| c.max_hops),
@@ -207,7 +208,14 @@ impl Api {
                     "gridParts": self.config.config.routing.split_parts, "maxSplits": self.config.config.routing.max_splits,
                     "eachCandidateAtMostOnce": true},
                 "expansions": candidates.expansions, "pathEvaluations": candidates.evaluations});
+        let protocol_view_ids = view.protocol_bindings(
+            plan.allocation
+                .routes
+                .iter()
+                .flat_map(|r| r.edges.iter().map(|e| e.pool_id.as_str())),
+        )?;
         let response = json!({
+            "protocolViewIds":protocol_view_ids,
             "quoteId": quote_id, "requestHash": request_hash, "kind": "EXACT_OUT",
             "chainKey": request.chain_key, "snapshotRef": view.reference,
             "ownerService": view.reference.owner_service, "onlineGeneration": view.reference.online_generation,

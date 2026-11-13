@@ -377,7 +377,13 @@ impl Api {
         let quote_id = hash(
             &json!({"request_hash":request_hash,"plan_hash":plan.plan_hash,"expires":expires}),
         )?;
-        let response = json!({"quoteId":quote_id,"requestHash":request_hash,"chainKey":request.chain_key,"snapshotRef":view.reference,"ownerService":view.reference.owner_service,"onlineGeneration":view.reference.online_generation,"scopeHash":view.reference.scope_hash,"quoteViewId":view.view_id,"graphVersion":view.graph_version,"engineVersion":"xone-router/0.1","economicPolicyHash":self.config.economic_hash,"configRelease":self.config.release,"sellAmount":request.sell_amount,"consumedIn":plan.allocation.sell_amount,"refund":plan.allocation.refund,"grossBuyAmount":plan.allocation.gross_buy_amount,"minBuyAmount":plan.min_buy_amount,"netBuyAmountEstimate":Value::Null,"costs":{"unavailableReason":"CHAIN_FEE_MODEL_NOT_IMPLEMENTED","proposalActivationCostBuyToken":self.config.config.routing.route_activation_cost},"routes":plan.allocation.routes,"planHash":plan.plan_hash,"verification":{"level":"INDICATIVE","success":false,"reason":"INDEPENDENT_SIMULATION_UNAVAILABLE"},"validity":{"expiresAtMs":expires,"canonicalEpoch":view.reference.canonical_epoch},"quality":{"budgetExhausted":exhausted,"candidateScope":view.pools.iter().filter(|p|!view.graph.excluded_pools.contains_key(&p.pool_id)).map(|p|p.pool_id.clone()).collect::<Vec<_>>(),"excludedPools":view.graph.excluded_pools,"source":view.source,"historyIndependent":true,"optimalityClaim":"HEURISTIC_WITHIN_SCOPE","allocationSearch":{"evaluations":optimizer_evaluations,"exhaustiveWithinGrid":grid_exhaustive,"gridParts":self.config.config.routing.split_parts,"maxSplits":self.config.config.routing.max_splits},"expansions":expansions}});
+        let protocol_view_ids = view.protocol_bindings(
+            plan.allocation
+                .routes
+                .iter()
+                .flat_map(|r| r.path.edges.iter().map(|e| e.pool_id.as_str())),
+        )?;
+        let response = json!({"protocolViewIds":protocol_view_ids,"quoteId":quote_id,"requestHash":request_hash,"chainKey":request.chain_key,"snapshotRef":view.reference,"ownerService":view.reference.owner_service,"onlineGeneration":view.reference.online_generation,"scopeHash":view.reference.scope_hash,"quoteViewId":view.view_id,"graphVersion":view.graph_version,"engineVersion":"xone-router/0.1","economicPolicyHash":self.config.economic_hash,"configRelease":self.config.release,"sellAmount":request.sell_amount,"consumedIn":plan.allocation.sell_amount,"refund":plan.allocation.refund,"grossBuyAmount":plan.allocation.gross_buy_amount,"minBuyAmount":plan.min_buy_amount,"netBuyAmountEstimate":Value::Null,"costs":{"unavailableReason":"CHAIN_FEE_MODEL_NOT_IMPLEMENTED","proposalActivationCostBuyToken":self.config.config.routing.route_activation_cost},"routes":plan.allocation.routes,"planHash":plan.plan_hash,"verification":{"level":"INDICATIVE","success":false,"reason":"INDEPENDENT_SIMULATION_UNAVAILABLE"},"validity":{"expiresAtMs":expires,"canonicalEpoch":view.reference.canonical_epoch},"quality":{"budgetExhausted":exhausted,"candidateScope":view.pools.iter().filter(|p|!view.graph.excluded_pools.contains_key(&p.pool_id)).map(|p|p.pool_id.clone()).collect::<Vec<_>>(),"excludedPools":view.graph.excluded_pools,"source":view.source,"historyIndependent":true,"optimalityClaim":"HEURISTIC_WITHIN_SCOPE","allocationSearch":{"evaluations":optimizer_evaluations,"exhaustiveWithinGrid":grid_exhaustive,"gridParts":self.config.config.routing.split_parts,"maxSplits":self.config.config.routing.max_splits},"expansions":expansions}});
         let mut cache = self.cache.lock().map_err(|_| err("CACHE_LOCK"))?;
         let capacity = (self.config.config.api.requests_per_minute as usize).clamp(16, 10000);
         if cache.len() >= capacity {
@@ -762,6 +768,7 @@ fn failure(e: xone_domain::Error) -> HttpError {
         | "PREPARATION_TEMP_ACCOUNT_OCCUPIED"
         | "PREPARATION_TEMP_ACCOUNT_NOT_CLOSED"
         | "PREPARATION_SIMULATION_FAILED"
+        | "PREPARATION_QUOTE_INVALID"
         | "PREPARATION_SIMULATION_FEE_MISMATCH"
         | "PREPARATION_SIMULATION_AMOUNT_MISMATCH" => StatusCode::UNPROCESSABLE_ENTITY,
         "NO_ROUTE" => StatusCode::NOT_FOUND,
@@ -963,10 +970,12 @@ async fn quote_options(
     api.authorize(&headers).map_err(failure)?;
     let mut chains = Vec::new();
     for configured in &api.config.config.chains {
-        let view = api.replica.view(&configured.key).ok();
+        let view = api.replica.diagnostic_view(&configured.key).ok();
         let mut pools = Vec::new();
         let mut tokens = std::collections::BTreeSet::new();
-        let ready = view.as_ref().is_some_and(|v| api.check_view(v).is_ok());
+        let ready = view
+            .as_ref()
+            .is_some_and(|v| !v.graph.adjacency.is_empty() && api.check_view(v).is_ok());
         if let Some(ref v) = view {
             let mut by_pool = BTreeMap::<&str, Vec<(&String, &xone_routing::Edge)>>::new();
             if ready {
@@ -1009,7 +1018,14 @@ async fn quote_options(
                             Some("NO_SEARCHABLE_EDGE")
                         })
                 };
+                let protocol_view = v
+                    .protocol_views
+                    .get(&format!("{}@{}", pool.protocol, pool.adapter_version))
+                    .ok_or_else(|| failure(err("PROTOCOL_VIEW_MISSING")))?;
+                let capability = &protocol_view.capabilities;
                 pools.push(json!({
+                    "protocolViewId":protocol_view.view_id,
+                    "capabilities":capability,
                     "poolId": pool.pool_id,
                     "protocol": pool.protocol,
                     "adapterVersion": pool.adapter_version,
@@ -1019,7 +1035,7 @@ async fn quote_options(
                     "directions": directions,
                     "available": available,
                     "unavailableReason": reason,
-                    "execution": {"quote": available, "preparation": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "unsignedPlan": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "rpcSimulation": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty(), "wrapSourceSol": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "unwrapDestinationSol": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "simulation": false},
+                    "execution": {"quote": available, "preparation": available && capability.execution_preparation && !configured.rpc_urls.is_empty(), "unsignedPlan": available && capability.unsigned_transaction && !configured.rpc_urls.is_empty(), "rpcSimulation": available && capability.rpc_simulation && !configured.rpc_urls.is_empty(), "wrapSourceSol": available && capability.execution_preparation && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "unwrapDestinationSol": available && capability.execution_preparation && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "simulation": false},
                 }));
             }
         }
@@ -1038,7 +1054,20 @@ async fn quote_options(
                         v.pools.len(),
                     )
                 });
+        let protocol_views = view.as_ref().map_or_else(Vec::new, |v| {
+            v.protocol_views
+                .values()
+                .map(|p| {
+                    let mut data = serde_json::to_value(p).expect("protocol view serialization");
+                    data["valid"] = json!(ready && p.is_valid());
+                    data["ready"] =
+                        json!(ready && p.is_valid() && !p.available_pool_ids.is_empty());
+                    data
+                })
+                .collect::<Vec<_>>()
+        });
         chains.push(json!({
+            "protocolViews":protocol_views,
             "chainKey": configured.key,
             "ownerService": configured.owner_service,
             "ready": ready,
@@ -1052,7 +1081,7 @@ async fn quote_options(
         }));
     }
     Ok(Json(
-        json!({"chains": chains, "engineVersion": "xone-router/0.1", "limits":{"maxHops":api.config.config.routing.max_hops,"maxSplits":api.config.config.routing.max_splits}}),
+        json!({"protocolCatalog":xone_protocol_math::capabilities::catalog(),"chains": chains, "engineVersion": "xone-router/0.1", "limits":{"maxHops":api.config.config.routing.max_hops,"maxSplits":api.config.config.routing.max_splits}}),
     ))
 }
 

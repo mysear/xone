@@ -1450,3 +1450,10 @@ BINDINGS['14.token2022-preparation']={
  'tests':['token2022_ata_creation_uses_extension_rent_net_credit_and_epoch_fees','token2022_existing_immutable_ata_and_refund_composition_are_validated','test_rehashed_classic_size_cannot_replace_extension_account','test_recompiled_classic_ata_instruction_cannot_replace_token2022','test_rehashed_fee_cannot_replace_withheld_delta'],
  'evidence_refs':['integration/artifacts/local/core-token2022-preparation-validation-20261113.json'],
 }
+
+
+BINDINGS['12.pipeline-foundation']={
+ 'paths':['dex-router/crates/protocol-math/src/raydium.rs','dex-router/crates/protocol-math/src/capabilities.rs','dex-router/crates/state-replica/src/protocol_view.rs','dex-router/crates/execution-preparation/src/lib.rs','dex-router/crates/quote-api/src/preparation.rs','integration/tools/ci/raydium-exact-out-golden.py','integration/tools/acceptance/validate_pipeline_foundation.py'],
+ 'tests':['raydium_original_output_inverse_and_complete_fee_ledgers_match','raydium_exact_out_routes_preserve_native_state_and_atomic_rejection','protocol_partitions_are_deterministic_state_bound_and_reorg_revoked','resolver_rejects_mismatched_quote_contract_before_any_rpc'],
+ 'evidence_refs':['integration/artifacts/local/core-pipeline-foundation-validation-20261113.json'],
+}

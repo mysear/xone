@@ -1632,3 +1632,18 @@ Meteora既有固定Token2022 profile的createDestinationAta现使用实际Token2
 完整mint/Token2022程序/epoch/vault快照必须一致。对报价重放的完整vault变化推导gross输出与转账费，响应expectedDestinationTransferFee；simulate以收款可用余额差核对net，并额外核对TransferFeeAmount增长，拒绝“净输出正确但withheld错误”。源用户withheld保持不变。前端展示转账费、182字节及租金，生成真实unsigned wire后本地原SBF独立执行/回滚。复验make -C integration token2022-preparation-current-check，结果见阶段61进度。
 
 阶段61最终同源码限定验收：30项检查、15次Rust测试执行、27项真实Chrome业务联调通过，源码`e62c0b4895e5f01576f5860b446da2c0e8cce2a593d21c285b3ca47cf4fbc480`；13原程序成功执行及对应回滚、178/182-byte账户和withheld/租金差分均通过。真实浏览器跨Router地址时按地址重新填入认证令牌，保持原会话隔离逻辑。全量设计、其他Token扩展和生产资格仍保持原进度。
+
+
+### 协议QuoteView、能力注册与独立preparation（阶段62）
+
+state-replica在父QuoteView内按protocol+adapter生成ProtocolQuoteView。每个子视图绑定父ID、SnapshotRef、graphVersion、排序后的完整池stateHash和版本化能力内容；共享父撤销令牌，不维护另一个可独立漂移的状态银行。quote-options返回protocolViews及每池protocolViewId，ExactIn/ExactOut返回实际使用的protocolViewIds。前端对父/协议视图同时核对，避免跨版本旧结果恢复下载。
+
+protocol-math::capabilities统一描述当前注册数学版本/报价模式及执行层边界。未知池保留NO_SEARCHABLE_EDGE诊断；数学可报价与RPC账户准备/unsigned/独立模拟/钱包能力分别表示。当前preparation适配仍限Meteora，其他协议不会因为新增数学内核就获得交易权限。
+
+动态账户工作迁入dex-router内部xone-execution-preparation crate。quote-api负责授权/限流、缓存计划hash和期限、单池选择以及前后当前QuoteView检查；独立层接收不可变SolanaQuote、配置RPC和严格SolanaRequest，检查本地链/币种方向/金额/计划hash契约后，执行有界RPC闭包、账户/程序/epoch/租金资金检查与unsigned构建。它不依赖quote-api/用户缓存，不签名广播，普通RPC模拟仍单独标记。
+
+Raydium CPMM固定f4b9b263经典SPL模型新增独立输出驱动ExactOut，精确复现输入/输出creator-fee两分支、pre-fee整数上取整、原协议费用拆分和完整raw/净账本。路由及计划仅开放单池；原native-helper语料覆盖1832目标（583成功、1249拒绝），不是原SBF/CPI或生产资格的替代。
+
+阶段62还补入61个显式注册模型的能力目录（无数据不生成虚构QuoteView）、撤权后的只读诊断视图，以及18个三步/54步Raydium输出驱动账本序列和共享池分配测试。
+
+阶段62本批同源码有限验收通过：36检查、34次Rust测试执行、28项真实Chrome业务联调，源码`49c9d63d92859897c3d842aa848c771a9473e832905d5d392a9014de68089c7c`。这只冻结本批基础能力；六阶段主线仍继续独立模拟与钱包/回执等后续实现，未开放全协议或生产VERIFIED。

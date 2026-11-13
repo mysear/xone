@@ -1,0 +1,16 @@
+[package]
+name = "xone-execution-preparation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+[dependencies]
+xone-domain = { path = "../domain" }
+xone-execution-plan = { path = "../execution-plan" }
+xone-protocol-math = { path = "../protocol-math" }
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+base64.workspace = true
+sha2.workspace = true
+hex.workspace = true

@@ -889,3 +889,7 @@ temporary-wsol-current-check:
 .PHONY: token2022-preparation-current-check
 token2022-preparation-current-check:
 	python3 tools/acceptance/validate_token2022_preparation.py
+
+.PHONY: pipeline-foundation-current-check
+pipeline-foundation-current-check:
+	python3 tools/acceptance/validate_pipeline_foundation.py

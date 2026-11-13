@@ -39,7 +39,7 @@ function renderPools() {
   const c=chain(); const pools=c?.pools || [];
   $('poolCount').textContent=`${pools.length} 个`;
   $('chainVersion').textContent=c?`图版本：${c.graphVersion ?? '—'} · View：${c.viewId ?? '—'} · 协议：${(c.protocols||[]).join(', ')||'—'}`:'';
-  $('poolTable').innerHTML=pools.length?`<table><thead><tr><th>协议</th><th>Adapter</th><th>Token0</th><th>Token1</th><th>报价模式</th><th>状态</th><th>Pool</th></tr></thead><tbody>${pools.map(p=>`<tr><td>${esc(p.protocol)}</td><td>${esc(p.adapterVersion)}</td><td>${esc(p.token0)}</td><td>${esc(p.token1)}</td><td>${esc((p.quoteModes||[]).join(' / ')||'—')}</td><td>${esc(p.available?'可用':p.unavailableReason||'不可用')}</td><td>${esc(p.poolId)}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">当前链没有已发布池。</p>';
+  $('poolTable').innerHTML=pools.length?`<table><thead><tr><th>协议</th><th>Adapter</th><th>协议视图 / 能力</th><th>Token0</th><th>Token1</th><th>报价模式</th><th>状态</th><th>Pool</th></tr></thead><tbody>${pools.map(p=>`<tr><td>${esc(p.protocol)}</td><td>${esc(p.adapterVersion)}</td><td>${esc(p.protocolViewId||'—')}<br>${esc(p.capabilities?.modelVersion||'—')}<br>${esc(p.execution?.preparation?'可准备待签名交易':p.capabilities?.executionBlocker||'执行未接入')}</td><td>${esc(p.token0)}</td><td>${esc(p.token1)}</td><td>${esc((p.quoteModes||[]).join(' / ')||'—')}</td><td>${esc(p.available?'可用':p.unavailableReason||'不可用')}</td><td>${esc(p.poolId)}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">当前链没有已发布池。</p>';
 }
 function modes() {
   const c=chain(); const exactOut=(c?.pools||[]).some(p=>p.available && (p.quoteModes||[]).includes('EXACT_OUT'));
@@ -107,7 +107,7 @@ function makeRequest() {
 }
 function renderQuote(q) {
   const routes=q.routes||[]; const prep=(chain()?.pools||[]).some(p=>p.execution?.preparation && routes.some(r=>(r.path?.edges||r.edges||[]).some(e=>e.pool_id===p.poolId)));
-  const details=[['Quote ID',q.quoteId],['快照',snapshotView(q)],['图版本',q.graphVersion],['计划哈希',q.planHash],['最小到账',q.minBuyAmount],['额外到账',q.outputSurplus||'0'],['未用输入预算',q.unusedInputBudget||'0'],['退款',q.refund],['验证',q.verification?.level]];
+  const details=[['Quote ID',q.quoteId],['快照',snapshotView(q)],['图版本',q.graphVersion],['协议视图',Object.values(q.protocolViewIds||{}).join(' / ')||'—'],['计划哈希',q.planHash],['最小到账',q.minBuyAmount],['额外到账',q.outputSurplus||'0'],['未用输入预算',q.unusedInputBudget||'0'],['退款',q.refund],['验证',q.verification?.level]];
   $('result').className='';
   $('result').innerHTML=`<div class="metric-grid"><div class="metric"><span>买入数量（最小单位）</span><strong data-testid="buy-amount">${esc(q.grossBuyAmount||q.buyAmount||'—')}</strong></div><div class="metric"><span>实际消耗输入（最小单位）</span><strong data-testid="sell-amount">${esc(q.requiredSellAmount||q.consumedIn||'—')}</strong></div></div><h3>路线（${routes.length}）</h3>${routes.map((r,i)=>{const v=routeView(r);return `<div class="route"><strong>#${i+1} ${esc(v.protocols.join(' / '))}</strong><br><small>${esc(v.tokens.join(' → '))}<br>Pool: ${esc(v.pools.join(' → '))}<br>input ${esc(v.input)} · output ${esc(v.output)}</small></div>`;}).join('')}<div class="details">${details.map(([k,v])=>`<div><b>${esc(k)}：</b>${esc(v??'—')}</div>`).join('')}</div>`;
   $('prepareButton').disabled=!prep;
@@ -121,6 +121,7 @@ $('quoteForm').addEventListener('submit',async event=>{
     let q; try {q=await request(body.kind==='EXACT_OUT'?'/v1/quote-exact-out':'/v1/quote',{method:'POST',body:JSON.stringify(body),signal:abort.signal});} finally {clearTimeout(timeout);}
     if (seq!==state.quoteSeq) return;
     if (q.quoteViewId!==chain()?.viewId || q.chainKey!==$('chainKey').value) throw new Error('报价状态已更新，请重新计算');
+    for(const [key,id] of Object.entries(q.protocolViewIds||{})){const matched=(chain()?.protocolViews||[]).find(p=>`${p.protocol}@${p.adapterVersion}`===key);if(!matched?.ready||matched.viewId!==id)throw new Error('协议报价状态已更新，请重新计算');}
     state.quote=q; renderQuote(q); $('quoteTime').textContent=`${Math.round(performance.now()-started)} ms`; badge('stateBadge','报价成功','ok');
   } catch(e) {if (seq===state.quoteSeq && e.name!=='AbortError') {invalidate('没有可用报价'); error(e.message);badge('stateBadge','报价失败','bad');}}
 });

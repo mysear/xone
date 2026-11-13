@@ -1,3 +1,5 @@
+mod protocol_view;
+pub use protocol_view::ProtocolQuoteView;
 use std::{
     collections::BTreeMap,
     sync::{
@@ -15,11 +17,43 @@ pub struct QuoteView {
     pub graph_version: u64,
     pub view_id: String,
     pub source: String,
+    pub protocol_views: BTreeMap<String, ProtocolQuoteView>,
     valid: Arc<AtomicBool>,
 }
 impl QuoteView {
     pub fn is_valid(&self) -> bool {
         self.valid.load(Ordering::Acquire)
+    }
+    pub fn protocol_bindings<'a>(
+        &self,
+        pool_ids: impl IntoIterator<Item = &'a str>,
+    ) -> Result<BTreeMap<String, String>> {
+        if !self.is_valid() {
+            return Err(err("QUOTE_STATE_CHANGED"));
+        }
+        let mut bindings = BTreeMap::new();
+        for id in pool_ids {
+            let p = self
+                .pools
+                .iter()
+                .find(|p| p.pool_id == id)
+                .ok_or_else(|| err("MISSING_POOL"))?;
+            let key = format!("{}@{}", p.protocol, p.adapter_version);
+            let view = self
+                .protocol_views
+                .get(&key)
+                .ok_or_else(|| err("PROTOCOL_VIEW_MISSING"))?;
+            if !view.is_valid()
+                || !view
+                    .available_pool_ids
+                    .iter()
+                    .any(|available| available == id)
+            {
+                return Err(err("QUOTE_STATE_CHANGED"));
+            }
+            bindings.insert(key, view.view_id.clone());
+        }
+        Ok(bindings)
     }
 }
 #[derive(Default)]
@@ -42,6 +76,16 @@ impl Replica {
             .get(&s.reference.block.chain_key)
             .ok_or_else(|| err("UNKNOWN_CHAIN"))?;
         s.validate(o, *a)
+    }
+    /// Metadata only: the latest committed bank may be revoked or have no
+    /// searchable edges. Quote/execution consumers must continue to use view().
+    pub fn diagnostic_view(&self, chain: &str) -> Result<Arc<QuoteView>> {
+        self.views
+            .read()
+            .map_err(|_| err("STATE_LOCK_POISONED"))?
+            .get(chain)
+            .cloned()
+            .ok_or_else(|| err("CHAIN_NOT_READY"))
     }
     pub fn view(&self, chain: &str) -> Result<Arc<QuoteView>> {
         let views = self.views.read().map_err(|_| err("STATE_LOCK_POISONED"))?;
@@ -136,14 +180,24 @@ impl Replica {
         }
         let graph_version = previous.map_or(1, |old| old.graph_version + 1);
         let view_id = hash(&s.reference)?;
+        let valid = Arc::new(AtomicBool::new(true));
+        let protocol_views = protocol_view::partition(
+            &s.pools,
+            &graph,
+            &s.reference,
+            graph_version,
+            &view_id,
+            valid.clone(),
+        )?;
         let view = Arc::new(QuoteView {
+            protocol_views,
             reference: s.reference.clone(),
             pools: s.pools,
             graph,
             graph_version,
             view_id,
             source: s.source,
-            valid: Arc::new(AtomicBool::new(true)),
+            valid,
         });
         if let Some(old) = previous {
             old.valid.store(false, Ordering::Release);
@@ -320,8 +374,8 @@ impl Replica {
             return Err(err("REANCHOR_REQUIRED"));
         }
         let quote_capability_changed = graph.adjacency.is_empty() != old.graph.adjacency.is_empty();
-        let valid = if is_reorg || admission_changed || quote_capability_changed {
-            old.valid.store(false, Ordering::Release);
+        let invalidate_old = is_reorg || admission_changed || quote_capability_changed;
+        let valid = if invalidate_old {
             // A complete canonical unit still advances the reader when no
             // quote edges are admitted. view() keeps that bank non-ready;
             // the next qualified unit may restore routes without rewinding.
@@ -329,12 +383,26 @@ impl Replica {
         } else {
             old.valid.clone()
         };
+        let view_id = hash(&r.reference)?;
+        let graph_version = old.graph_version + u64::from(changed);
+        let protocol_views = protocol_view::partition(
+            &r.pools,
+            &graph,
+            &r.reference,
+            graph_version,
+            &view_id,
+            valid.clone(),
+        )?;
+        if invalidate_old {
+            old.valid.store(false, Ordering::Release);
+        }
         let next = Arc::new(QuoteView {
+            protocol_views,
             reference: r.reference.clone(),
             pools: r.pools,
             graph,
-            graph_version: old.graph_version + u64::from(changed),
-            view_id: hash(&r.reference)?,
+            graph_version,
+            view_id,
             source: old.source.clone(),
             valid,
         });
