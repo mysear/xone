@@ -1478,3 +1478,10 @@ BINDINGS['14.wallet-lifecycle']={
  'tests':['signature_verifier_requires_exact_message_payer_and_real_ed25519_signature','wallet_submission_requires_signature_evidence_confirmation_and_durable_reconciliation','receipt_send_intent_is_durable_exclusive_and_restored_without_resend','receipt_journal_recovers_incomplete_tail_and_rejects_complete_corruption','wallet_submission_is_opt_in_chain_scoped_and_requires_durable_receipts_and_sbf','TestWalletSubmissionCannotBeEnabledInParser'],
  'evidence_refs':['integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json'],
 }
+
+
+BINDINGS['15.rpc-account-capture']={
+ 'paths':['dex-router/crates/execution-preparation/src/lib.rs','dex-router/crates/execution-preparation/src/raydium.rs','dex-router/crates/simulation/src/solana_sbf.rs','dex-router/crates/simulation/workers/solana_sbf.py','dex-router/crates/quote-api/src/solana_simulation.rs','dex-router/crates/quote-api/tests/rpc_capture.rs','integration/tools/acceptance/validate_rpc_capture.py'],
+ 'tests':['captured_rpc_accounts_execute_without_preinstalled_wallet_banks_and_do_not_refetch','capture_only_runtime_binds_raw_snapshot_and_rejects_ambient_or_missing_dependencies'],
+ 'evidence_refs':['integration/artifacts/local/core-rpc-capture-validation-20261113.json'],
+}

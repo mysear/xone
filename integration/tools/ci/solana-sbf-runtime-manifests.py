@@ -18,6 +18,9 @@ def main():
   manifest=dict(schema_version=1,chain_key=bank['pool']['chain_key'],genesis_hash=bank['genesis'],python_executable=dict(path=str(Path(sys.executable).resolve()),sha256=sha(Path(sys.executable).resolve())),runtime_directory=str(runtime),runtime_files=files,banks=[dict(path=str(path),sha256=sha(path))],max_compute_units=1400000,timeout_ms=15000,concurrency=2)
   target=directory/(name+'.json');target.write_text(json.dumps(manifest,indent=2)+'\n');manifests[name]=str(target)
   service_bank=service_directory/(name+'-bank.json');service_bank.write_bytes(path.read_bytes());service_manifest=dict(manifest,banks=[dict(path=str(service_bank),sha256=sha(service_bank))]);(service_directory/(name+'.json')).write_text(json.dumps(service_manifest,indent=2)+'\n')
+ captured=dict(manifest,rpc_capture=True,banks=[])
+ (directory/'rpc-capture.json').write_text(json.dumps(captured,indent=2)+'\n')
+ (service_directory/'rpc-capture.json').write_text(json.dumps(captured,indent=2)+'\n')
  preparations={}
  for name,file in [('meteora','integration/artifacts/local/temporary-wsol-browser-a3959fab715d/unwrap-preparation.json'),('token2022','integration/artifacts/local/phase61-browser-preflight/token2022-refund-preparation.json'),('raydium','integration/artifacts/local/phase63-preflight/raydium-0-preparation.json')]:
   value=json.loads((ROOT/file).read_bytes());prepared=value.get('preparation',value)

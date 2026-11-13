@@ -34,6 +34,7 @@ pub(super) async fn resolve(
     config: &SolanaRpcConfig,
     s: &SolanaQuote,
     request: SolanaRequest,
+    capture: Capture,
 ) -> Result<Value> {
     if request.create_destination_ata
         || request.wrap_source_sol
@@ -76,7 +77,10 @@ pub(super) async fn resolve(
         source.clone(),
         destination.clone(),
         s.context.caller.clone(),
+        s.context.recipient.clone(),
         r::CLOCK.into(),
+        state.authority.clone(),
+        RENT.into(),
     ];
     let mut unique = std::collections::BTreeSet::new();
     ids.retain(|id| unique.insert(id.clone()));
@@ -86,6 +90,9 @@ pub(super) async fn resolve(
             .build()
             .map_err(|_| bad())?,
         url: config.url.clone(),
+        capture,
+        chain_key: s.context.chain_key.clone(),
+        genesis_hash: config.genesis_hash.clone(),
     };
     if rpc.call("getGenesisHash", json!([])).await?.as_str() != Some(config.genesis_hash.as_str()) {
         return Err(err("PREPARATION_WRONG_CHAIN"));

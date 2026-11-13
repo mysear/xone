@@ -322,6 +322,8 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                 .map(|id| {
                     let key = id.as_str().unwrap();
                     let mut a = d["accounts"].get(key).cloned().unwrap_or(Value::Null);
+                    if key=="SysvarRent111111111111111111111111111111111" && a.is_null(){a=json!({"owner":"Sysvar1111111111111111111111111111111111111","executable":false,"lamports":1,"data":["MBsAAAAAAAAAAAAAAADwPzI=","base64"]});}
+
                     if (mode == "missing_destination" && id == &d["destinationTokenAccount"])
                         || (mode == "missing_source" && id == &d["sourceTokenAccount"])
                     {

@@ -905,3 +905,7 @@ solana-independent-current-check:
 .PHONY: wallet-lifecycle-current-check
 wallet-lifecycle-current-check:
 	python3 tools/acceptance/validate_wallet_lifecycle.py
+
+.PHONY: rpc-capture-current-check
+rpc-capture-current-check:
+	python3 tools/acceptance/validate_rpc_capture.py

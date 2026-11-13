@@ -3,6 +3,8 @@
 import base64
 import hashlib
 import json
+import math
+import struct
 import sys
 from pathlib import Path
 
@@ -32,6 +34,7 @@ def main():
     from solders.clock import Clock
     from solders.transaction import Transaction
     from solders.compute_budget import ComputeBudget
+    from solders.rent import Rent
     request=json.loads(sys.stdin.buffer.read(16*1024*1024+1))
     require(request['protocol']==PROTOCOL,'SBF_WORKER_PROTOCOL')
     preparation=request['preparation'];bank=request['bank'];limit=request['maxComputeUnits']
@@ -42,8 +45,10 @@ def main():
     require(bytes(tx.message)==base64.b64decode(preparation['messageBase64'],validate=True),'SBF_MESSAGE_BINDING')
     budget=ComputeBudget(True);budget.compute_unit_limit=limit
     svm=LiteSVM().with_mainnet_features().with_compute_budget(budget).with_blockhash_check(False).with_sigverify(False)
-    # This is an explicitly controlled local bank. Its stale captured blockhash
-    # is permitted only here; this evidence never confers production readiness.
+    # Local and preparation-RPC banks both run under explicitly pinned VM
+    # features; neither a slot label nor latest account RPC proves consensus.
+    # The captured blockhash is used as message bytes only. Live signed RPC
+    # preflight still checks its actual network validity before submission.
     programs={str(tx.message.account_keys[ix.program_id_index])for ix in tx.message.instructions}
     target=RAYDIUM if bank['pool']['protocol']=='raydium-cpmm-creator' else METEORA
     require(target in programs and programs<={SYSTEM,TOKEN,TOKEN22,target,'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'},'SBF_PROGRAM_ALLOWLIST')
@@ -78,10 +83,31 @@ def main():
         require(a['executable']is True and a['owner']==LOADER and len(data)==36 and data[:4]==b'\x02\0\0\0','SBF_PROGRAM_LAYOUT')
         pd=str(Pubkey.from_bytes(data[4:36]));programdata=bank['accounts'][pd]
         require(programdata['owner']==LOADER and programdata['executable']is False and raw(programdata)[:4]==b'\x03\0\0\0','SBF_PROGRAMDATA_LAYOUT')
+        programdata_bytes=raw(programdata)
+        deployment=int.from_bytes(programdata_bytes[4:12],'little')
+        require(deployment<=expected_slot,'SBF_BANK_DEPLOYMENT_MISMATCH')
+        if pid==target:require(deployment==state['deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
+        if pid==TOKEN22:require(deployment==state['token2022']['deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
         payload=raw(programdata)[45:]
         expected=state['program_code_sha256'] if pid==target else state['token2022']['program_code_sha256'] if pid==TOKEN22 else state['token_program_code_sha256']
         require(hashlib.sha256(payload).hexdigest()==expected,'SBF_BANK_PROGRAM_MISMATCH')
         svm.add_program_with_loader(Pubkey.from_string(pid),payload,Pubkey.from_string(LOADER))
+    if bank.get('rpcCapture'):
+        accounts=bank['accounts'];absent=set(bank['absentAccounts']);keys=list(map(str,tx.message.account_keys))
+        require(set(keys)<=set(accounts)|absent,'SBF_CAPTURE_ACCOUNT_MISSING')
+        require(not(set(accounts)&absent),'SBF_CAPTURE_ACCOUNT_CONTRADICTION')
+        for key in absent:require(svm.get_account(Pubkey.from_string(key))is None,'SBF_CAPTURE_ABSENT_RUNTIME_CONFLICT')
+        rent_id='SysvarRent111111111111111111111111111111111'
+        rent=accounts.get(rent_id)
+        require(rent is not None and rent['owner']=='Sysvar1111111111111111111111111111111111111'and not rent['executable']and len(raw(rent))==17,'SBF_RENT_REQUIRED')
+        lamports,threshold,burn=struct.unpack('<QdB',raw(rent));require(lamports>0 and math.isfinite(threshold)and threshold>0 and burn<=100,'SBF_RENT_INVALID')
+        svm.set_rent(Rent(lamports,threshold,burn))
+        # Bundled native/ATA/Memo programs cannot be replaced merely by setting
+        # account bytes. Their captured executable identity must match the VM.
+        for key,a in accounts.items():
+            if a['executable']and key not in dependencies:
+                builtin=svm.get_account(Pubkey.from_string(key))
+                require(builtin is not None and builtin.executable and str(builtin.owner)==a['owner']and bytes(builtin.data)==raw(a),'SBF_AMBIENT_PROGRAM_MISMATCH')
     for key,a in bank['accounts'].items():
         svm.set_account(Pubkey.from_string(key),Account(a['lamports'],raw(a),Pubkey.from_string(a['owner']),a['executable'],0))
     clock=raw(bank['accounts'][CLOCK]);require(len(clock)==40,'SBF_CLOCK_LAYOUT')

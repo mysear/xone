@@ -148,7 +148,11 @@ pub(super) async fn prepare(
         .map_err(|_| failure(err("PREPARATION_RPC_TIMEOUT")))?
         .map_err(failure)?;
     current(&api, &s).map_err(failure)?;
-    let mut result = result;
+    let captured = result.accounts;
+    let mut result = result.result;
+    if let Some(ref accounts) = captured {
+        result["accountSnapshot"] = accounts.summary().map_err(failure)?;
+    }
     result["quoteId"] = id.into();
     result["quoteKind"] = if s.exact { "EXACT_OUT" } else { "EXACT_IN" }.into();
     result
@@ -162,11 +166,16 @@ pub(super) async fn prepare(
         s.context.clone(),
         s.pool.clone(),
         &result,
+        captured,
     )
     .map_err(failure)?;
     Ok(Json(result))
 }
-async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Value> {
+async fn prepare_inner(
+    api: &Api,
+    s: &Selection,
+    request: Request,
+) -> Result<xone_execution_preparation::SolanaPreparation> {
     let chain = api
         .config
         .config
@@ -195,5 +204,5 @@ async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Val
         expected_input: s.expected_input,
         expected_output: s.expected_output,
     };
-    xone_execution_preparation::prepare_solana(&config, &quote, request).await
+    xone_execution_preparation::prepare_solana_captured(&config, &quote, request).await
 }

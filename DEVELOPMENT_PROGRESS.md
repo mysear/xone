@@ -426,6 +426,7 @@
 |12.pipeline-foundation|WP03,WP05,WP09,WP11,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium creator独立ExactOut、协议子QuoteView/能力标签及独立preparation组件开发与联验|按用户六阶段主线持续补协议适配、unsigned、独立模拟和钱包/回执；不把能力未实现标签当完成|[本批验证](integration/artifacts/local/core-pipeline-foundation-validation-20261113.json)|
 |14.raydium-preparation|WP05,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium程序/config/池/vault/mint/时钟/observation闭包校验、unsigned指令及模拟净收付实现并联验|仅已有经典SPL账户；Raydium建户/包装/解包及其他协议仍按模型能力单独补，签名广播未开放|[本批验证](integration/artifacts/local/core-raydium-preparation-validation-20261113.json)|
 |15.local-sbf-service|WP05,WP09,WP15,WP16,WP25|PARTIAL_LOCAL|独立原SBF执行缓存unsigned交易、摘要/预算/源银行不变及quote/preparation/view证据绑定实现|受控本地银行与固定运行时范围；可信历史/生产资格、其他协议和钱包/回执继续补齐|[验证记录](integration/artifacts/local/core-solana-independent-validation-20261113.json)|
+|15.rpc-account-capture|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|同次RPC账户闭包原字节和缺失账户服务端缓存，与preparationHash和QuoteView绑定后独立SBF执行|不把minContextSlot/同批context当历史共识银行或生产资格；其他协议模型仍需独立适配|[验证记录](integration/artifacts/local/core-rpc-capture-validation-20261113.json)|
 |14.wallet-lifecycle|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|已有unsigned/独立SBF模板接Wallet Standard、显式发送与实际收付回执/恢复|默认关闭，按链启用；本批仅受控Solana模板，不等于全链全协议生产资格/完整多租户或多区执行验收|[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 
 <a id="batch-history"></a>
@@ -498,6 +499,7 @@
 |63|[Raydium动态账户与unsigned交易](#plan-2026-11-13-raydium-preparation)|LOCAL_SCOPE_VERIFIED|41检查/35次Rust测试执行/30项真实Chrome联调通过；双向已有经典SPL账户unsigned、3组原SBF完整Oracle/账本及输入减一回滚通过；[本批验证](integration/artifacts/local/core-raydium-preparation-validation-20261113.json)|
 |64|[配置化隔离SBF独立模拟](#plan-2026-11-13-local-sbf-service)|LOCAL_SCOPE_VERIFIED|46检查/39次Rust测试执行/34项真实Chrome联调通过；隔离原SBF、真实CU/收付、运行时/银行摘要及缓存preparation/协议视图证据门禁通过；[验证记录](integration/artifacts/local/core-solana-independent-validation-20261113.json)|
 |65|[钱包签名广播与可恢复回执](#plan-2026-11-13-wallet-lifecycle)|LOCAL_SCOPE_VERIFIED|51检查/44次Rust测试执行/40项真实Chrome联调通过；Wallet Standard仅签名、真实Ed25519、实时预检、显式单次发送、八类回执及重启/页面恢复通过；[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
+|66|[preparation实时RPC快照与独立SBF](#plan-2026-11-13-rpc-capture)|LOCAL_SCOPE_VERIFIED|51检查/47次Rust测试执行/41项Chrome联调通过；同次捕获/无预装钱包银行、6种当前状态/后续slot与成交后状态重报价、缓存字节预算及完整钱包单次发送回执通过；[验证记录](integration/artifacts/local/core-rpc-capture-validation-20261113.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2017,3 +2019,24 @@ PumpSwap卖出目标按至少实际到账处理：三ceil fee导致净输出不�
 测试“广播”仅向loopback fixture发送，由固定测试密钥签名的真实wire在原SBF本地执行；不连接真实用户钱包、不向公网sendTransaction。SDK仅测试辅助钱包路径，不进入生产密钥管理；Wallet Standard第三方源码只读核实，不打包下载依赖。本批最终同源码有限验收：源码`a30eee92f6dd0ecb59d117d3af30dc9201802121b766efc7b2a798bfcfb23814`，51项检查、44次Rust测试执行、40项真实Chrome联调全部通过。八类后台状态均在真实测试签名/原SBF单次发送后重启验证，缺证据/错误签名/未确认/默认禁用/错误genesis/实时模拟金额变化拒绝；重复提交及恢复最多一次sendTransaction。前端5项钱包单测、拒签/改消息/晚返回撤销、未确认不发、最终实际4→1000/fee5000及刷新恢复不重签不重发通过；用户余额、Token2022、签名后预检、原16组SBF/回滚继续通过。308份合同/12工具副本、公共协议、Go/Rust配置、严格Clippy、普通/-OO反例和文档、移动/桌面布局通过。浏览器CORS测试钱包辅助路由和刷新Router选择问题已修正，失败记录保留不计通过；最终独立目录固定下载、发送日志、回执、截图、源码/工具/运行时/银行摘要。测试服务已结束，不涉及真实用户钱包/公网发送。复验make -C integration wallet-lifecycle-current-check，六阶段全量与生产资格仍按具体协议范围保留未完成项。
 
 阶段62–65六类基础业务能力在注明的Solana模板中已完整打通：数学→协议视图/标签→独立preparation→unsigned→隔离原SBF模拟→钱包签名/显式发送/确认/实际回执恢复。此结论不等于设计清单的所有链/DEX/组合都完成；61模型中未实现的execution preparation/交易模板仍以能力标签和剩余清单披露，Math范围也未扩展到未知hook/Token/版本。已知整体缺项继续推进，all_requested_features_complete=false、production_ready=false。
+
+
+<a id="plan-2026-11-13-rpc-capture"></a>
+
+## preparation实时RPC快照与独立SBF（2026-11-13，阶段66）
+
+继续六阶段主线的实际缺口：阶段64独立SBF只匹配预装Pool/钱包银行，不能作为在线任意钱包账户的完整执行链路。本批新增显式rpc_capture运行时模式，从已经通过动态账户校验的同一次preparation getMultipleAccounts结果捕获完整闭包，银行不再要求提前写入manifest。仍使用固定隔离运行时，后端不从客户端接受任意bank或任意wire。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F66.1|同次preparation账户快照|WP05,WP14,WP25|PARTIAL_LOCAL|独立preparation组件新增AccountSnapshot与captured返回，收集唯一一次同context账户批读、null缺失账户、chain/genesis/slot；账户校验和unsigned成功后才缓存，对外仅摘要，不返回原bank/可执行程序字节。|
+|F66.2|完整动态依赖闭包|WP05,WP14,WP15,WP25|PARTIAL_LOCAL|加入Rent sysvar、收款人和程序事件/authority等指令依赖；模拟要求每个编译消息key都在捕获的present/absent集合中。ATA创建收款人遗漏反例已发现并补齐，禁止用VM默认账户掩盖RPC闭包缺口。|
+|F66.3|capture-only独立SBF执行|WP15,WP25|PARTIAL_LOCAL|manifest rpc_capture=true可无预装bank；与preparation公开摘要、slot、Pool、chain/genesis精确绑定，再对实际原始账户执行。Rent从捕获17字节恢复，原程序/ProgramData代码与部署slot核对，System/ATA/Memo等VM内置程序需与捕获可执行身份一致。|
+|F66.4|快照原子性与内存预算|WP09,WP15,WP16,WP25|PARTIAL_LOCAL|快照使用Arc不可变缓存、单项8MiB和累计账户JSON序列化字节32MiB及256项上限；独立模拟不重新RPC读账户、不合并不同context结果。参数/QuoteView/期限改变按原门禁撤销；snapshotHash参与preparation与模拟evidence承诺。|
+|F66.5|实时推进和钱包全链路回归|WP09,WP16,WP25|PARTIAL_LOCAL|测试未预装源地址、Meteora/Token2022/Raydium及slot推进后的Pool+Clock；改变当前RPC后旧捕获银行不变、新prepare拒绝旧报价；无预装bank模式下真实Chrome独立模拟/签名/单次发送/实际回执恢复统一联验。|
+
+返回RPC_CAPTURE_SBF_SIMULATED、accountSource=PREPARATION_RPC_CAPTURE、historicalBankVerified=false、independentProductionVerification=false，并绑定捕获银行hash、runtime/worker/wire及后账户摘要。前端明确展示“RPC账户快照，非历史银行证明”。一次getMultipleAccounts响应是单context账户集合，不代表已获历史slot的共识银行/完整链特征；本批仍要求捕获Clock与已选Pool模型slot/时间/epoch一致。捕获blockhash有效性在签名后实时RPC预检另查，隔离VM跳过当前网络过期检查不能用于提交资格证明。
+
+每个runtime仍显式绑定chain/genesis、已核对的固定Python/Solders文件和真实CU/deadline/字节预算。本批拓展账户来源，不扩展未知程序、其他协议/Token模型或完整链执行资格。原固定本地bank模式继续可用，公开VERIFY/build资格不改变。复验make -C integration rpc-capture-current-check；最终同源码有限验收：源码`9f8dd4845e0d50795bfa8861e5751755be5d3723a6e047898100dd1478e48d4f`，51项检查、47次Rust测试执行、41项真实Chrome联调全部通过。六种原生状态场景含未预装源地址、经典/Token2022/Raydium、下一slot及原程序完整成交后状态重报价；当前RPC变化不改变旧捕获银行、模拟不refetch、视图撤销后拒绝、capture-only银行/租金/程序/VM内置身份/摘要/缺依赖反例均通过。24份实际大小preparation快照触发32MiB账户JSON字节预算回收，未达到256条前已淘汰、最新条目仍保留。capture-only运行时下Chrome准备→独立执行→用户签名→服务校验→单次loopback发送→最终4/1000/fee5000回执→刷新恢复全部通过；原固定银行、Token2022/WSOL和16原SBF/回滚及八类生命周期继续回归通过。308合同/12工具副本、三服务配置、公共协议、严格Clippy、普通/-OO反例与文档检查、桌面/移动布局通过。捕获收款人依赖遗漏、测试越过原池容量、初始编译参数等失败均保留并修复，不计旧失败为通过；原始执行/日志/回执/下载/截图与最终源码、工具、运行时及银行摘要按独立目录冻结。测试服务已退出，未提交公网交易。六阶段整体仍按协议缺口推进，all_requested_features_complete=false、production_ready=false。
+
+阶段66后续核对：按已通过阶段65目录审计（能力代码本批未变），61模型中16支持独立ExactOut、7具备preparation/交易模板，仍有54模型未接入执行准备；具体模型不能因基础六类链路已通而记完成。下一批先补现有数学明确的PumpSwap经典/boost与Pump曲线执行适配。原SBF预研已观察PumpSwap sell/buy/buy_exact_quote_in可由user兼网络payer只用单签名，wire889/957字节，完整后状态与原参考一致（用户另扣5000网络费）；该结果仅为原型，不升级功能能力标签。持续目标保持active。

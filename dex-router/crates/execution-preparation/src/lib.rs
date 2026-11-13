@@ -5,6 +5,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 mod raydium;
+use std::sync::{Arc, Mutex};
 use std::{
     collections::BTreeMap,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -23,6 +24,7 @@ const IMMUTABLE: &str = "BPFLoader2111111111111111111111111111111111";
 const SYSTEM: &str = "11111111111111111111111111111111";
 const ASSOCIATED: &str = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
 const ASSOCIATED_CODE: &str = "6804554e69fd3a58caa191dc4a58f4c67223d30ca28ab8987f39fc18d2f7374d";
+const RENT: &str = "SysvarRent111111111111111111111111111111111";
 const MEMO: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -70,11 +72,40 @@ fn now_ms() -> u64 {
 }
 /// The owner verifies the cached plan hash and current QuoteView before and
 /// after this resolver. The resolver independently checks its local contract.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AccountSnapshot {
+    pub schema_version: u32,
+    pub chain_key: String,
+    pub genesis_hash: String,
+    pub observed_slot: u64,
+    pub accounts: BTreeMap<String, Value>,
+}
+impl AccountSnapshot {
+    pub fn summary(&self) -> Result<Value> {
+        Ok(
+            json!({"schemaVersion":1,"source":"PREPARATION_RPC_CAPTURE","observedSlot":self.observed_slot,"accountCount":self.accounts.len(),"snapshotHash":hash(self)?,"historicalBankVerified":false}),
+        )
+    }
+}
+pub struct SolanaPreparation {
+    pub result: Value,
+    pub accounts: Option<AccountSnapshot>,
+}
+#[derive(Clone, Default)]
+struct Capture(Arc<Mutex<Option<AccountSnapshot>>>);
 pub async fn prepare_solana(
     config: &SolanaRpcConfig,
     s: &SolanaQuote,
     request: SolanaRequest,
 ) -> Result<Value> {
+    Ok(prepare_solana_captured(config, s, request).await?.result)
+}
+pub async fn prepare_solana_captured(
+    config: &SolanaRpcConfig,
+    s: &SolanaQuote,
+    request: SolanaRequest,
+) -> Result<SolanaPreparation> {
     s.pool.validate()?;
     if !m::supports_profile(&s.pool.protocol) && s.pool.protocol != xone_domain::raydium::PROFILE {
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
@@ -106,12 +137,25 @@ pub async fn prepare_solana(
         .checked_sub(now_ms())
         .filter(|n| *n > 0)
         .ok_or_else(|| err("QUOTE_EXPIRED"))?;
-    tokio::time::timeout(
+    let capture = Capture::default();
+    let result = tokio::time::timeout(
         Duration::from_millis(remaining.min(15000)),
-        resolve(config, s, request),
+        resolve(config, s, request, capture.clone()),
     )
     .await
-    .map_err(|_| err("PREPARATION_RPC_TIMEOUT"))?
+    .map_err(|_| err("PREPARATION_RPC_TIMEOUT"))??;
+    let mut captured = capture
+        .0
+        .lock()
+        .map_err(|_| err("PREPARATION_CAPTURE_LOCK"))?
+        .take();
+    if result["ready"] != true {
+        captured = None;
+    }
+    Ok(SolanaPreparation {
+        result,
+        accounts: captured,
+    })
 }
 struct Account {
     owner: String,
@@ -131,13 +175,16 @@ fn ata(owner: &str, mint: &str, token: &str) -> Result<String> {
 struct Rpc {
     client: reqwest::Client,
     url: String,
+    capture: Capture,
+    chain_key: String,
+    genesis_hash: String,
 }
 impl Rpc {
     async fn call(&self, method: &str, params: Value) -> Result<Value> {
         let response = self
             .client
             .post(&self.url)
-            .json(&json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}))
+            .json(&json!({"jsonrpc":"2.0","id":1,"method":method,"params":&params}))
             .send()
             .await
             .map_err(|_| err("PREPARATION_RPC_UNAVAILABLE"))?;
@@ -161,7 +208,41 @@ impl Rpc {
         if body.get("error").is_some() || body.get("result").is_none() || body["id"] != 1 {
             return Err(err("PREPARATION_RPC_INVALID"));
         }
-        Ok(body["result"].clone())
+        let value = body["result"].clone();
+        if method == "getMultipleAccounts" {
+            let ids = params[0]
+                .as_array()
+                .filter(|a| !a.is_empty() && a.len() <= 100)
+                .ok_or_else(bad)?;
+            let values = value["value"]
+                .as_array()
+                .filter(|a| a.len() == ids.len())
+                .ok_or_else(bad)?;
+            let mut accounts = BTreeMap::new();
+            for (id, entry) in ids.iter().zip(values) {
+                let key = id.as_str().ok_or_else(bad)?;
+                if accounts.insert(key.to_owned(), entry.clone()).is_some() {
+                    return Err(bad());
+                }
+            }
+            let snapshot = AccountSnapshot {
+                schema_version: 1,
+                chain_key: self.chain_key.clone(),
+                genesis_hash: self.genesis_hash.clone(),
+                observed_slot: value["context"]["slot"].as_u64().ok_or_else(bad)?,
+                accounts,
+            };
+            let mut capture = self
+                .capture
+                .0
+                .lock()
+                .map_err(|_| err("PREPARATION_CAPTURE_LOCK"))?;
+            if capture.is_some() {
+                return Err(err("PREPARATION_CAPTURE_MULTIPLE_BANKS"));
+            }
+            *capture = Some(snapshot);
+        }
+        Ok(value)
     }
 }
 fn account(v: &Value) -> Result<Option<Account>> {
@@ -311,9 +392,10 @@ async fn resolve(
     config: &SolanaRpcConfig,
     s: &SolanaQuote,
     request: SolanaRequest,
+    capture: Capture,
 ) -> Result<Value> {
     if s.pool.protocol == xone_domain::raydium::PROFILE {
-        return raydium::resolve(config, s, request).await;
+        return raydium::resolve(config, s, request, capture).await;
     }
     let rpc = Rpc {
         client: reqwest::Client::builder()
@@ -321,6 +403,9 @@ async fn resolve(
             .build()
             .map_err(|_| bad())?,
         url: config.url.clone(),
+        capture,
+        chain_key: s.context.chain_key.clone(),
+        genesis_hash: config.genesis_hash.clone(),
     };
     if rpc.call("getGenesisHash", json!([])).await?.as_str() != Some(config.genesis_hash.as_str()) {
         return Err(err("PREPARATION_WRONG_CHAIN"));
@@ -403,6 +488,7 @@ async fn resolve(
         p.token0.clone(),
         p.token1.clone(),
         s.context.caller.clone(),
+        s.context.recipient.clone(),
         src.clone(),
         dst.clone(),
         m::PROGRAM.into(),
@@ -410,6 +496,8 @@ async fn resolve(
         TOKEN.into(),
         m::pda(&[&m::pubkey(TOKEN)?], LOADER)?,
         MEMO.into(),
+        RENT.into(),
+        m::pda(&[b"__event_authority"], m::PROGRAM)?,
         "SysvarC1ock11111111111111111111111111111111".into(),
     ];
     if request.create_destination_ata || request.wrap_source_sol || temporary.is_some() {

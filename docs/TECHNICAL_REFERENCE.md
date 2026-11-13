@@ -1682,3 +1682,14 @@ receipt journal使用独占文件锁、私有文件、序号/哈希链和同步�
 getTransaction必须与原signed wire、caller签名和status slot匹配；实际pre/post token/native余额满足minOut/maxIn才确认结算。Token2022净可用余额/退款持久租金/WSOL解包分别计算；字段缺失或结果不符保持pending/mismatch，不能用计划金额替换实际回执。前端按Router地址保存最后签名和会话选择，刷新查询状态而不重签/重发。所有测试发送仅本地fixture；生产VERIFIED和全协议/链资格不随本功能自动打开。
 
 阶段65最终同源码有限验收通过：51检查、44次Rust测试执行、40项真实Chrome联调，源码`a30eee92f6dd0ecb59d117d3af30dc9201802121b766efc7b2a798bfcfb23814`；八类发送/确认/失败/未知/过期/回执及重启、消息签名、独立证据门禁、前端拒签/篡改/迟到/刷新恢复与最多一次发送均通过。这里只关闭已实现Solana模板的六阶段基础链路，不提升其他协议模板/可信来源或生产资格。
+
+
+### 同次RPC账户捕获与独立模拟（阶段66）
+
+prepare_solana_captured返回独立DTO与AccountSnapshot（chain/genesis/context slot/present及null缺失账户）。HTTP缓存保留原字节但公开响应只带accountSnapshot摘要，snapshotHash进入preparationHash；独立模拟直接使用同次已校验快照，不重新读RPC或合并context，slot推进须重新取得匹配Pool/Clock。
+
+RuntimeManifest.rpc_capture=true允许banks=[]。模拟绑定捕获摘要/chain/genesis/slot及Pool，要求编译消息所有账户明确present或absent；captured Rent恢复真实租金参数，原SBF/Token ProgramData代码/部署slot及VM环境System/ATA/Memo身份核对，缺依赖不借用默认VM账户。快照缓存Arc共享、8MiB/项和32MiB账户JSON序列化字节合计/256项限制，与QuoteView/期限共同撤销。
+
+结果RPC_CAPTURE_SBF_SIMULATED明确注明PREPARATION_RPC_CAPTURE；同context与minContextSlot均不升级成可信历史/共识银行或生产VERIFIED，VM特征仍由固定运行时指定。钱包发送仍需匹配独立证据、真实签名、当前genesis/blockhash/费用/账户的signed RPC预检及用户显式确认。
+
+阶段66最终同源码有限验收通过：51检查、47次Rust测试执行、41项真实Chrome联调；源码`9f8dd4845e0d50795bfa8861e5751755be5d3723a6e047898100dd1478e48d4f`。无预装钱包银行的实时账户捕获、完整后状态/slot推进再报价、32MiB账户JSON缓存预算、固定模式兼容、capture-only模拟到钱包发送及回执恢复通过。仍只覆盖已实现的7个preparation模型，不将61模型全量或可信生产银行资格标为完成。

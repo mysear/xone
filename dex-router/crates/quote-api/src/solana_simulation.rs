@@ -7,6 +7,8 @@ pub(crate) struct Prepared {
     pub pool: xone_domain::Pool,
     pub result: Value,
     pub evidence: Option<Value>,
+    pub accounts: Option<Arc<xone_execution_preparation::AccountSnapshot>>,
+    account_bytes: usize,
 }
 pub(crate) fn store(
     api: &Api,
@@ -14,6 +16,7 @@ pub(crate) fn store(
     context: Context,
     pool: xone_domain::Pool,
     result: &Value,
+    accounts: Option<xone_execution_preparation::AccountSnapshot>,
 ) -> Result<()> {
     if result["ready"] != true {
         return Ok(());
@@ -24,10 +27,30 @@ pub(crate) fn store(
         .to_owned();
     let mut cache = api.preparations.lock().map_err(|_| err("CACHE_LOCK"))?;
     cache.retain(|_, p| p.context.deadline_ms > now_ms() && p.view.is_valid());
+    let account_bytes = accounts
+        .as_ref()
+        .map(serde_json::to_vec)
+        .transpose()
+        .map_err(|_| err("PREPARATION_CAPTURE_INVALID"))?
+        .map_or(0, |v| v.len());
+    if account_bytes > 8 * 1024 * 1024 {
+        return Err(err("PREPARATION_CAPTURE_LIMIT"));
+    }
     let capacity = (api.config.config.api.requests_per_minute as usize).clamp(16, 256);
-    if cache.len() >= capacity {
-        if let Some(old) = cache.keys().next().cloned() {
+    while cache.len() >= capacity
+        || cache
+            .iter()
+            .filter(|(id, _)| *id != &key)
+            .map(|(_, p)| p.account_bytes)
+            .sum::<usize>()
+            + account_bytes
+            > 32 * 1024 * 1024
+    {
+        let old = cache.keys().find(|id| *id != &key).cloned();
+        if let Some(old) = old {
             cache.remove(&old);
+        } else {
+            break;
         }
     }
     let previous = cache.get(&key).and_then(|p| p.evidence.clone());
@@ -39,6 +62,8 @@ pub(crate) fn store(
             pool,
             result: result.clone(),
             evidence: previous,
+            accounts: accounts.map(Arc::new),
+            account_bytes,
         },
     );
     Ok(())
@@ -94,17 +119,38 @@ pub(crate) async fn simulate(
     if !engine.available(&p.pool, &chain.genesis_hash) {
         return Err(failure(err("SBF_BANK_NOT_COVERED")));
     }
-    let mut evidence = engine
-        .simulate(
-            &p.pool,
-            &p.context.caller,
-            &p.context.recipient,
-            &p.context.sell_token,
-            &p.context.buy_token,
-            &p.result,
-        )
-        .await
-        .map_err(failure)?;
+    let mut evidence = if engine.uses_rpc_capture() {
+        let captured = p
+            .accounts
+            .as_ref()
+            .ok_or_else(|| failure(err("SBF_CAPTURE_REQUIRED")))?;
+        let value = serde_json::to_value(&**captured)
+            .map_err(|_| failure(err("SBF_CAPTURE_BINDING_INVALID")))?;
+        engine
+            .simulate_captured(
+                &p.pool,
+                &p.context.caller,
+                &p.context.recipient,
+                &p.context.sell_token,
+                &p.context.buy_token,
+                &p.result,
+                &value,
+            )
+            .await
+            .map_err(failure)?
+    } else {
+        engine
+            .simulate(
+                &p.pool,
+                &p.context.caller,
+                &p.context.recipient,
+                &p.context.sell_token,
+                &p.context.buy_token,
+                &p.result,
+            )
+            .await
+            .map_err(failure)?
+    };
     current(&api, &p).map_err(failure)?;
     evidence["quoteId"] = id.into();
     evidence["protocolViewIds"] = json!(p

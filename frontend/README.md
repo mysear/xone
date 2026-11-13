@@ -110,3 +110,8 @@ Raydium CPMM执行准备（阶段63）：经典SPL已有输入/输出账户可�
 配置项：api.transaction_submission_enabled、transaction_receipt_journal、transaction_submission_chains、transaction_max_pending，并要求solana_runtime_manifest。签名或视图/账户变化会清空发送资格。状态可能为处理中、已确认、最终确认、失败、过期、未知或回执不符；刷新页面恢复最后签名查询，不自动重签/重发。受控模拟银行不代表可在公网交易或生产资格。
 
 复验：`make -C ../integration wallet-lifecycle-current-check`，测试钱包和loopback RPC只在显式联调harness启用；未保存用户私钥，必要代码之外的银行/运行时/日志仍不提交。
+
+
+实时RPC快照独立模拟（阶段66）：可在固定SBF runtime manifest中设置`rpc_capture: true`并使用空`banks: []`，无需为每个钱包预装账户银行。Router在执行准备同次账户批读中保留完整快照，对外只返回摘要；独立模拟使用该快照并与当前报价/准备哈希绑定。界面标注“RPC账户快照，非历史银行证明”，不将RPC读取当作生产资格。
+
+复验：`make -C ../integration rpc-capture-current-check`。测试manifest生成工具会产生`rpc-capture.json`；原固定银行模式仍保持兼容。

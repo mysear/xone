@@ -33,6 +33,8 @@ pub struct RuntimeManifest {
     pub runtime_directory: String,
     pub runtime_files: BTreeMap<String, String>,
     pub banks: Vec<FileRef>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rpc_capture: bool,
     pub max_compute_units: u64,
     pub timeout_ms: u64,
     pub concurrency: usize,
@@ -90,7 +92,8 @@ impl Engine {
             || !(1..=1_400_000).contains(&manifest.max_compute_units)
             || !(100..=15000).contains(&manifest.timeout_ms)
             || !(1..=8).contains(&manifest.concurrency)
-            || !(1..=16).contains(&manifest.banks.len())
+            || manifest.banks.len() > 16
+            || (manifest.banks.is_empty() && !manifest.rpc_capture)
             || manifest.runtime_files.len() > 128
             || !manifest.runtime_files.contains_key("solders/__init__.py")
             || !manifest.runtime_files.contains_key("typing_extensions.py")
@@ -197,7 +200,13 @@ impl Engine {
     pub fn available(&self, pool: &Pool, genesis: &str) -> bool {
         self.manifest.chain_key == pool.chain_key
             && self.manifest.genesis_hash == genesis
-            && self.banks.iter().any(|b| b.pool == *pool)
+            && (self.banks.iter().any(|b| b.pool == *pool)
+                || (self.manifest.rpc_capture
+                    && (xone_domain::meteora::supports_profile(&pool.protocol)
+                        || pool.protocol == xone_domain::raydium::PROFILE)))
+    }
+    pub fn uses_rpc_capture(&self) -> bool {
+        self.manifest.rpc_capture
     }
     pub async fn simulate(
         &self,
@@ -207,6 +216,45 @@ impl Engine {
         sell: &str,
         buy: &str,
         preparation: &Value,
+    ) -> Result<Value> {
+        self.simulate_inner(pool, caller, recipient, sell, buy, preparation, None)
+            .await
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub async fn simulate_captured(
+        &self,
+        pool: &Pool,
+        caller: &str,
+        recipient: &str,
+        sell: &str,
+        buy: &str,
+        preparation: &Value,
+        capture: &Value,
+    ) -> Result<Value> {
+        if !self.manifest.rpc_capture {
+            return Err(err("SBF_CAPTURE_NOT_ENABLED"));
+        }
+        self.simulate_inner(
+            pool,
+            caller,
+            recipient,
+            sell,
+            buy,
+            preparation,
+            Some(capture),
+        )
+        .await
+    }
+    #[allow(clippy::too_many_arguments)]
+    async fn simulate_inner(
+        &self,
+        pool: &Pool,
+        caller: &str,
+        recipient: &str,
+        sell: &str,
+        buy: &str,
+        preparation: &Value,
+        capture: Option<&Value>,
     ) -> Result<Value> {
         let _permit = self
             .permits
@@ -235,29 +283,78 @@ impl Engine {
         let destination = preparation["destinationTokenAccount"]
             .as_str()
             .ok_or_else(|| err("SBF_PREPARATION_INVALID"))?;
-        let candidates = self
-            .banks
-            .iter()
-            .filter(|b| {
-                b.pool == *pool
-                    && b.value["accounts"].get(caller).is_some()
-                    && (preparation["sourceAccountCreation"] == true
-                        || b.value["accounts"].get(source).is_some())
-                    && (preparation["accountCreation"] == true
-                        || preparation["unwrapDestinationSol"] == true
-                        || b.value["accounts"].get(destination).is_some())
-            })
-            .collect::<Vec<_>>();
-        let bank = candidates
-            .first()
-            .ok_or_else(|| err("SBF_BANK_NOT_COVERED"))?;
-        if candidates
-            .iter()
-            .skip(1)
-            .any(|other| other.sha256 != bank.sha256)
-        {
-            return Err(err("SBF_BANK_AMBIGUOUS"));
-        }
+        let captured_bank;
+        let bank = if let Some(snapshot) = capture {
+            pool.validate()?;
+            let slot = pool
+                .meteora
+                .as_ref()
+                .map(|m| m.slot)
+                .or_else(|| pool.raydium_cpmm.as_ref().map(|r| r.bank_slot))
+                .ok_or_else(|| err("SBF_BANK_INVALID"))?;
+            let expected_hash = hash(snapshot)?;
+            if snapshot["schemaVersion"] != 1
+                || snapshot["chainKey"] != pool.chain_key
+                || snapshot["chainKey"] != self.manifest.chain_key
+                || snapshot["genesisHash"] != self.manifest.genesis_hash
+                || snapshot["observedSlot"].as_u64() != Some(slot)
+                || preparation["observedSlot"] != snapshot["observedSlot"]
+                || preparation["accountSnapshot"]["snapshotHash"].as_str()
+                    != Some(expected_hash.as_str())
+                || preparation["accountSnapshot"]["observedSlot"] != snapshot["observedSlot"]
+            {
+                return Err(err("SBF_CAPTURE_BINDING_INVALID"));
+            }
+            let captured = snapshot["accounts"]
+                .as_object()
+                .filter(|a| !a.is_empty() && a.len() <= 100)
+                .ok_or_else(|| err("SBF_BANK_INVALID"))?;
+            let mut accounts = serde_json::Map::new();
+            let mut absent = Vec::new();
+            for (key, value) in captured {
+                // System program is the all-zero public key and is valid here.
+                if key != "11111111111111111111111111111111" {
+                    xone_domain::raydium::validate_pubkey(key)?;
+                }
+                if value.is_null() {
+                    absent.push(key.clone());
+                } else {
+                    accounts.insert(key.clone(), value.clone());
+                }
+            }
+            captured_bank = Bank {
+                pool: pool.clone(),
+                sha256: expected_hash,
+                value: json!({"pool":pool,"accounts":accounts,"absentAccounts":absent,"rpcCapture":true,"genesis":self.manifest.genesis_hash,"observedSlot":slot}),
+            };
+            &captured_bank
+        } else {
+            let candidates = self
+                .banks
+                .iter()
+                .filter(|b| {
+                    b.pool == *pool
+                        && b.value["accounts"].get(caller).is_some()
+                        && (preparation["sourceAccountCreation"] == true
+                            || b.value["accounts"].get(source).is_some())
+                        && (preparation["accountCreation"] == true
+                            || preparation["unwrapDestinationSol"] == true
+                            || b.value["accounts"].get(destination).is_some())
+                })
+                .collect::<Vec<_>>();
+            let bank = candidates
+                .first()
+                .copied()
+                .ok_or_else(|| err("SBF_BANK_NOT_COVERED"))?;
+            if candidates
+                .iter()
+                .skip(1)
+                .any(|other| other.sha256 != bank.sha256)
+            {
+                return Err(err("SBF_BANK_AMBIGUOUS"));
+            }
+            bank
+        };
         let request = json!({"protocol":PROTOCOL,"bank":bank.value,"preparation":preparation,"caller":caller,"recipient":recipient,"sellToken":sell,"buyToken":buy,"maxComputeUnits":self.manifest.max_compute_units});
         let bytes = serde_json::to_vec(&request).map_err(|_| err("SBF_PREPARATION_INVALID"))?;
         if bytes.len() > 12 * 1024 * 1024 {
@@ -334,7 +431,19 @@ impl Engine {
         {
             return Err(err("SBF_AMOUNT_MISMATCH"));
         }
-        result["level"] = "LOCAL_SBF_SIMULATED".into();
+        result["level"] = if capture.is_some() {
+            "RPC_CAPTURE_SBF_SIMULATED"
+        } else {
+            "LOCAL_SBF_SIMULATED"
+        }
+        .into();
+        result["accountSource"] = if capture.is_some() {
+            "PREPARATION_RPC_CAPTURE"
+        } else {
+            "PINNED_LOCAL_BANK"
+        }
+        .into();
+        result["historicalBankVerified"] = false.into();
         result["bankSha256"] = bank.sha256.clone().into();
         result["runtimeManifestSha256"] = self.manifest_hash.clone().into();
         result["workerSha256"] = digest(WORKER.as_bytes()).into();
