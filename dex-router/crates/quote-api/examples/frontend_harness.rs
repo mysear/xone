@@ -1,5 +1,4 @@
 //! Explicit local integration harness; never used by the production daemon.
-#[allow(dead_code)]
 #[path = "../tests/support/execution_bank.rs"]
 mod execution_bank;
 use axum::{
@@ -37,6 +36,20 @@ async fn main() {
             .await
             .unwrap();
     });
+    let raydium = Bank::raydium(0);
+    let (raydium_rpc, raydium_rpc_task) = raydium.serve().await;
+    let (mut raydium_api, _) = raydium.api(&raydium_rpc);
+    Arc::make_mut(&mut raydium_api.config)
+        .config
+        .api
+        .cors_allowed_origins = vec![args[2].clone()];
+    let raydium_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let raydium_addr = raydium_listener.local_addr().unwrap();
+    let raydium_task = tokio::spawn(async move {
+        axum::serve(raydium_listener, raydium_api.handler())
+            .await
+            .unwrap();
+    });
     let bank = Bank::new();
     let wsol = Bank::wsol(None);
     let (wsol_rpc, wsol_rpc_task) = wsol.serve().await;
@@ -71,13 +84,15 @@ async fn main() {
         .merge(admin)
         .layer(middleware::from_fn_with_state(control, delay));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"wsolApi":format!("http://{wsol_addr}"),"wsolBank":&*wsol.data,"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":&*token2022.data,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
+    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"wsolApi":format!("http://{wsol_addr}"),"wsolBank":&*wsol.data,"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":&*token2022.data,"raydiumApi":format!("http://{raydium_addr}"),"raydiumBank":&*raydium.data,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
     axum::serve(listener, routes).await.unwrap();
     rpc_task.abort();
     wsol_rpc_task.abort();
     wsol_task.abort();
     token2022_rpc_task.abort();
     token2022_task.abort();
+    raydium_rpc_task.abort();
+    raydium_task.abort();
 }
 async fn delay(State(c): State<Control>, req: axum::extract::Request, next: Next) -> Response {
     let mode = c.bank.mode.lock().unwrap().clone();

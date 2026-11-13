@@ -1,3 +1,4 @@
+#![allow(dead_code)] // Different test targets exercise different protocol subsets.
 use axum::{extract::State, routing::post, Json, Router};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
@@ -73,6 +74,21 @@ impl Bank {
             calls: Default::default(),
         }
     }
+    pub fn raydium(index: usize) -> Self {
+        let f: Value = serde_json::from_slice(
+            &std::fs::read(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../test/contracts/raydium-execution-bank.json"
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        Self {
+            data: Arc::new(f["cases"][index].clone()),
+            mode: Arc::new(Mutex::new("ready".into())),
+            calls: Default::default(),
+        }
+    }
     pub async fn serve(&self) -> (String, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -107,8 +123,14 @@ impl Bank {
             serde_json::from_str(include_str!("../../../../test/fixtures/evm/baseline.json"))
                 .unwrap();
         s.reference.block.chain_key = p.chain_key.clone();
-        s.reference.block.number_or_slot = p.meteora.as_ref().unwrap().slot;
-        s.reference.block.timestamp_ms = p.meteora.as_ref().unwrap().timestamp * 1000;
+        let (slot, timestamp) = if let Some(m) = &p.meteora {
+            (m.slot, m.timestamp)
+        } else {
+            let r = p.raydium_cpmm.as_ref().unwrap();
+            (r.bank_slot, r.bank_unix_timestamp)
+        };
+        s.reference.block.number_or_slot = slot;
+        s.reference.block.timestamp_ms = timestamp * 1000;
         s.reference.block.hash = self.data["genesis"].as_str().unwrap().into();
         s.reference.block.parent_hash = self.data["blockhash"].as_str().unwrap().into();
         s.reference.owner_service = "chain-parser-rust".into();
@@ -154,7 +176,10 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
     b.calls.lock().unwrap().push(method.into());
     let mode = b.mode.lock().unwrap().clone();
     let d = &b.data;
-    let mut slot = d["pool"]["meteora"]["slot"].as_u64().unwrap();
+    let mut slot = d["pool"]["meteora"]["slot"]
+        .as_u64()
+        .or_else(|| d["pool"]["raydium_cpmm"]["bank_slot"].as_u64())
+        .unwrap();
     if mode == "stale" {
         slot -= 1;
     }
@@ -238,7 +263,7 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                         if mode == "changed_pool" && id == &d["pool"]["pool_id"] {
                             raw[76] ^= 1;
                         }
-                        if mode == "changed_program" && id == &d["pool"]["meteora"]["programdata"] {
+                        if mode == "changed_program" && (id == &d["pool"]["meteora"]["programdata"] || id==&d["pool"]["raydium_cpmm"]["programdata"]) {
                             raw[45] ^= 1;
                         }
                         if mode == "wrap_balance" && id == &d["caller"] {

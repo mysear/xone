@@ -22,8 +22,9 @@ def simulate(request):
     encoded,config=rpc['params']
     if config['sigVerify']is not False or config['replaceRecentBlockhash']is not False:raise ValueError('SIMULATION_FLAGS')
     S,P,K,I,M,T,A,C=native_imports();svm=S().with_mainnet_features().with_blockhash_check(False).with_sigverify(False)
-    programs=['LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo','TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']
-    if 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' in bank['accounts']:programs.append('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
+    target='CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C' if bank.get('pool',{}).get('protocol')=='raydium-cpmm-creator' else 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo'
+    programs=[target,'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']
+    if bank.get('pool',{}).get('meteora',{}).get('token2022') is not None:programs.append('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
     for pid in programs:
         raw=base64.b64decode(bank['accounts'][pid]['data'][0]);pd=str(P.from_bytes(raw[4:36]));svm.add_program_with_loader(P.from_string(pid),base64.b64decode(bank['accounts'][pd]['data'][0])[45:],P.from_string('BPFLoaderUpgradeab1e11111111111111111111111'))
     for id,a in bank['accounts'].items():svm.set_account(P.from_string(id),A(a['lamports'],base64.b64decode(a['data'][0]),P.from_string(a['owner']),a['executable'],0))

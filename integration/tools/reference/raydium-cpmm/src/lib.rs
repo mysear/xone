@@ -881,3 +881,23 @@ pub fn exact_out_corpus() -> Value {
     }
     json!({"reference":{"revision":REVISION,"kind":"unchanged original CurveCalculator::swap_base_output and PoolState::update_fees; native helpers, not SBF transactions"},"cases":rows,"sequences":sequences})
 }
+
+/// Run the unchanged oracle transition on captured bytes, independently of the Router.
+pub fn oracle_after(p:&Pool,raw:Vec<u8>)->Result<Vec<u8>,String>{
+    use raydium_cp_swap::states::ObservationState;
+    validate(p)?;
+    if raw.len()!=ObservationState::LEN || raw[..8]!=[122,174,197,53,129,9,165,132] || raw[8]>1 {return Err("oracle layout".into());}
+    let index=u16::from_le_bytes(raw[9..11].try_into().unwrap());if index>=100{return Err("oracle index".into());}
+    let mut oracle=ObservationState::default();oracle.initialized=raw[8]==1;oracle.observation_index=index;
+    oracle.pool_id=Pubkey::new_from_array(raw[11..43].try_into().unwrap());if oracle.pool_id!=pk(&p.pool_id)?{return Err("oracle pool".into());}
+    let mut observations=oracle.observations;
+    for (i,item) in observations.iter_mut().enumerate(){let offset=43+i*40;item.block_timestamp=u64::from_le_bytes(raw[offset..offset+8].try_into().unwrap());item.cumulative_token_0_price_x32=u128::from_le_bytes(raw[offset+8..offset+24].try_into().unwrap());item.cumulative_token_1_price_x32=u128::from_le_bytes(raw[offset+24..offset+40].try_into().unwrap());}
+    oracle.observations=observations;oracle.last_update_timestamp=u64::from_le_bytes(raw[4043..4051].try_into().unwrap());
+    let state=native(&p.raydium_cpmm)?;
+    let params=state.get_swap_params(pk(&p.raydium_cpmm.vault0)?,pk(&p.raydium_cpmm.vault1)?,p.raydium_cpmm.raw_vault0,p.raydium_cpmm.raw_vault1).map_err(|e|e.to_string())?;
+    oracle.update(u64::from(p.raydium_cpmm.bank_unix_timestamp as u32),params.token_0_price_x64,params.token_1_price_x64).map_err(|e|e.to_string())?;
+    let mut after=raw;after[8]=u8::from(oracle.initialized);after[9..11].copy_from_slice(&oracle.observation_index.to_le_bytes());
+    let observations=oracle.observations;
+    for(i,item)in observations.into_iter().enumerate(){let offset=43+i*40;after[offset..offset+8].copy_from_slice(&item.block_timestamp.to_le_bytes());after[offset+8..offset+24].copy_from_slice(&item.cumulative_token_0_price_x32.to_le_bytes());after[offset+24..offset+40].copy_from_slice(&item.cumulative_token_1_price_x32.to_le_bytes());}
+    after[4043..4051].copy_from_slice(&oracle.last_update_timestamp.to_le_bytes());Ok(after)
+}

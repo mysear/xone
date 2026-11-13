@@ -52,6 +52,7 @@ fn capability_labels_cover_existing_versioned_fixture_models_and_reject_unknowns
         assert_eq!(
             c.execution_preparation,
             xone_domain::meteora::supports_profile(protocol)
+                || protocol == xone_domain::raydium::PROFILE
         );
         assert!(!c.wallet_submission && !c.independent_simulation);
     }

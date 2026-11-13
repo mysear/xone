@@ -27,3 +27,10 @@ export function snapshotView(q) {
 export function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+export function protocolBindingsMatch(quote,chain) {
+  return Object.entries(quote?.protocolViewIds||{}).every(([key,id])=>{
+    const view=(chain?.protocolViews||[]).find(p=>`${p.protocol}@${p.adapterVersion}`===key);
+    return view?.ready===true && view.viewId===id;
+  });
+}

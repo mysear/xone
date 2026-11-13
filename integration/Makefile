@@ -893,3 +893,7 @@ token2022-preparation-current-check:
 .PHONY: pipeline-foundation-current-check
 pipeline-foundation-current-check:
 	python3 tools/acceptance/validate_pipeline_foundation.py
+
+.PHONY: raydium-preparation-current-check
+raydium-preparation-current-check:
+	python3 tools/acceptance/validate_raydium_preparation.py

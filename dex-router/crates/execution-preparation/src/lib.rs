@@ -4,6 +4,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+mod raydium;
 use std::{
     collections::BTreeMap,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -75,7 +76,7 @@ pub async fn prepare_solana(
     request: SolanaRequest,
 ) -> Result<Value> {
     s.pool.validate()?;
-    if !m::supports_profile(&s.pool.protocol) {
+    if !m::supports_profile(&s.pool.protocol) && s.pool.protocol != xone_domain::raydium::PROFILE {
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
     }
     let (sell, buy) = if s.zero {
@@ -311,6 +312,9 @@ async fn resolve(
     s: &SolanaQuote,
     request: SolanaRequest,
 ) -> Result<Value> {
+    if s.pool.protocol == xone_domain::raydium::PROFILE {
+        return raydium::resolve(config, s, request).await;
+    }
     let rpc = Rpc {
         client: reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())

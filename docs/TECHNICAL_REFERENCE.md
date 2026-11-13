@@ -1647,3 +1647,14 @@ Raydium CPMM固定f4b9b263经典SPL模型新增独立输出驱动ExactOut，精�
 阶段62还补入61个显式注册模型的能力目录（无数据不生成虚构QuoteView）、撤权后的只读诊断视图，以及18个三步/54步Raydium输出驱动账本序列和共享池分配测试。
 
 阶段62本批同源码有限验收通过：36检查、34次Rust测试执行、28项真实Chrome业务联调，源码`49c9d63d92859897c3d842aa848c771a9473e832905d5d392a9014de68089c7c`。这只冻结本批基础能力；六阶段主线仍继续独立模拟与钱包/回执等后续实现，未开放全协议或生产VERIFIED。
+
+
+### Raydium CP-Swap execution preparation（阶段63）
+
+独立preparation层增加经典SPL Raydium单池适配器。先用Snapshot模型/PDA和固定布局校验program/config/pool/mint/vault/user/Clock，再解析动态observation依赖并构建13账户的原swap_base_input或swap_base_output指令。Token代码版本从对应Raydium快照核对，不能沿用Meteora测试银行的SPL哈希。Clock/完整费用账本或程序改变拒绝。
+
+该模板仅已有账户，不新增ATA、不包装/解包SOL；新能力模型/2将accountCreation与nativeFunding分开，前端按实际执行能力禁用未实现选项。元数据刷新同时核对protocolViewIds，解决父SnapshotRef未变化但能力版本改变时旧下载仍保留的问题。
+
+原SBF实际后状态与原native helper数学账本分别验证。ObservationState::update即使不到十五秒换槽阈值也会累计价格、改写last_update_timestamp；独立参考必须调用原函数比对完整4075字节，不能用“oracle不变”替代。输入上限减一必须回滚所有交易账户，仅允许网络费扣款。仍不获得生产VERIFIED或钱包提交能力。
+
+阶段63本批同源码有限验收通过：41检查、35次Rust测试执行、30项真实Chrome联调；源码`1eebd84144b09042493000f64ca1d5ad7d1f14f4049fd56b5483774c3234b4e1`。3组Raydium实际wire原SBF/输入减一回滚、完整Pool/vault/Oracle与原13组Meteora历史回归通过。独立模拟服务/钱包仍继续后续主线。

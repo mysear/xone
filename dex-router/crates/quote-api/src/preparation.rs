@@ -98,7 +98,9 @@ fn selected(
         .find(|p| p.pool_id == edge.pool_id)
         .cloned()
         .ok_or_else(bad)?;
-    if !m::supports_profile(&pool.protocol) || edge.from_token.is_some() {
+    if !(m::supports_profile(&pool.protocol) || pool.protocol == xone_domain::raydium::PROFILE)
+        || edge.from_token.is_some()
+    {
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
     }
     pool.validate()?;

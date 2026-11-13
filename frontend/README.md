@@ -93,3 +93,8 @@ Token2022收款ATA（阶段61）：对已经接入的Meteora转账费版本，�
 协议视图与执行层（阶段62）：链/池元数据新增版本化能力和protocolViewId，报价返回实际protocolViewIds；页面同时核对父视图与协议视图，并显示能力版本/执行阻塞原因。Raydium CPMM creator经典SPL新增有限独立ExactOut报价，当前仍未开放其交易准备。Meteora既有账户/WSOL/Token2022准备逻辑已迁到独立xone-execution-preparation组件，页面和下载格式保持兼容。
 
 统一复验：`make -C ../integration pipeline-foundation-current-check`。六阶段整体进度见主开发进度文档，能力标签为false的协议执行项仍是未完成项。
+
+
+Raydium CPMM执行准备（阶段63）：经典SPL已有输入/输出账户可检查、生成ExactIn/ExactOut unsigned交易并进行RPC模拟；缺失账户仍阻塞。该协议的自动建户和SOL包装/解包尚未实现，界面会禁用对应选项。前端也会在元数据刷新时核对协议能力视图，版本变化撤销旧报价/下载。
+
+复验：`make -C ../integration raydium-preparation-current-check`；本地数据恢复工具为`integration/tools/ci/raydium-execution-bank.py`，依赖已有保留原账户银行/原native参考。

@@ -1,7 +1,7 @@
 //! Versioned capabilities describe admitted kernels, not live RPC/account readiness.
 use serde::{Deserialize, Serialize};
 use xone_domain::{Pool, Result};
-pub const VERSION: &str = "xone-protocol-capabilities/1";
+pub const VERSION: &str = "xone-protocol-capabilities/2";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolCapabilities {
@@ -17,6 +17,8 @@ pub struct ProtocolCapabilities {
     pub execution_preparation: bool,
     pub unsigned_transaction: bool,
     pub rpc_simulation: bool,
+    pub account_creation: bool,
+    pub native_funding: bool,
     pub independent_simulation: bool,
     pub wallet_submission: bool,
     pub execution_blocker: Option<String>,
@@ -50,7 +52,8 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
     if exact_out {
         quote_modes.push("EXACT_OUT".into());
     }
-    let prepared = xone_domain::meteora::supports_profile(protocol);
+    let meteora = xone_domain::meteora::supports_profile(protocol);
+    let prepared = meteora || protocol == xone_domain::raydium::PROFILE;
     let contextual = profile.is_some_and(|p| {
         matches!(
             p.family,
@@ -78,6 +81,8 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
         execution_preparation: prepared,
         unsigned_transaction: prepared,
         rpc_simulation: prepared,
+        account_creation: meteora,
+        native_funding: meteora,
         independent_simulation: false,
         wallet_submission: false,
         execution_blocker: if profile.is_none() {

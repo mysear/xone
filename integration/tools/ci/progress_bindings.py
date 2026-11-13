@@ -1457,3 +1457,10 @@ BINDINGS['12.pipeline-foundation']={
  'tests':['raydium_original_output_inverse_and_complete_fee_ledgers_match','raydium_exact_out_routes_preserve_native_state_and_atomic_rejection','protocol_partitions_are_deterministic_state_bound_and_reorg_revoked','resolver_rejects_mismatched_quote_contract_before_any_rpc'],
  'evidence_refs':['integration/artifacts/local/core-pipeline-foundation-validation-20261113.json'],
 }
+
+
+BINDINGS['14.raydium-preparation']={
+ 'paths':['dex-router/crates/execution-preparation/src/raydium.rs','dex-router/crates/protocol-math/src/capabilities.rs','dex-router/crates/quote-api/tests/raydium_preparation.rs','frontend/src/model.js','frontend/test/browser.mjs','integration/tools/ci/raydium-execution-bank.py','integration/tools/acceptance/raydium_preparation_reference.py','integration/tools/acceptance/validate_raydium_preparation.py'],
+ 'tests':['raydium_preparation_checks_real_account_closure_and_original_sbf_net_credits','test_rehashed_fee_cannot_override_real_native_debit','test_recompiled_recipient_mutation_is_rejected'],
+ 'evidence_refs':['integration/artifacts/local/core-raydium-preparation-validation-20261113.json'],
+}

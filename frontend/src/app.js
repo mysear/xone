@@ -1,4 +1,4 @@
-import {positiveInteger, boundedInteger, routeView, snapshotView, escapeHtml as esc} from './model.js';
+import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, escapeHtml as esc} from './model.js';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, quote:null, preparation:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
@@ -47,6 +47,7 @@ function modes() {
   if (!exactOut && $('quoteKind').value==='EXACT_OUT') $('quoteKind').value='EXACT_IN';
   const wrapAllowed=$('sellToken').value==='So11111111111111111111111111111111111111112' && (c?.pools||[]).some(p=>p.available&&p.execution?.wrapSourceSol);
   $('wrapSourceSol').disabled=!wrapAllowed;if(!wrapAllowed)$('wrapSourceSol').checked=false;
+  const createAllowed=(c?.pools||[]).some(p=>p.available&&p.execution?.createDestinationAta);$('createDestinationAta').disabled=!createAllowed;if(!createAllowed)$('createDestinationAta').checked=false;
   const refundAllowed=wrapAllowed && $('wrapSourceSol').checked && !$('sourceAccount').value.trim();
   $('refundWrappedSource').disabled=!refundAllowed;if(!refundAllowed)$('refundWrappedSource').checked=false;
   const unwrapAllowed=$('buyToken').value==='So11111111111111111111111111111111111111112' && (c?.pools||[]).some(p=>p.available&&p.execution?.unwrapDestinationSol) && $('caller').value.trim()!=='' && $('caller').value.trim()===$('recipient').value.trim() && !$('destinationAccount').value.trim() && !$('createDestinationAta').checked;
@@ -83,7 +84,7 @@ async function loadOptions(silent=false) {
     if (!Array.isArray(data.chains)) throw new Error('元数据响应缺少 chains');
     state.metadata=data;
     fill('chainKey',data.chains.map(c=>({value:c.chainKey,label:`${c.chainKey}${c.ready?'':'（未就绪）'}`})),$('chainKey').value);
-    const next=chain(); const changed=oldId!==next?.viewId || selected!==next?.chainKey || old?.ready!==next?.ready;
+    const next=chain(); const changed=oldId!==next?.viewId || selected!==next?.chainKey || old?.ready!==next?.ready || !protocolBindingsMatch(state.quote,next);
     const oldSell=$('sellToken').value, oldBuy=$('buyToken').value;
     tokens(); badge('healthBadge','已连接','ok');
     if (changed || oldSell!==$('sellToken').value || oldBuy!==$('buyToken').value) {invalidate('解析状态已更新，请重新计算'); schedule();}
@@ -121,7 +122,7 @@ $('quoteForm').addEventListener('submit',async event=>{
     let q; try {q=await request(body.kind==='EXACT_OUT'?'/v1/quote-exact-out':'/v1/quote',{method:'POST',body:JSON.stringify(body),signal:abort.signal});} finally {clearTimeout(timeout);}
     if (seq!==state.quoteSeq) return;
     if (q.quoteViewId!==chain()?.viewId || q.chainKey!==$('chainKey').value) throw new Error('报价状态已更新，请重新计算');
-    for(const [key,id] of Object.entries(q.protocolViewIds||{})){const matched=(chain()?.protocolViews||[]).find(p=>`${p.protocol}@${p.adapterVersion}`===key);if(!matched?.ready||matched.viewId!==id)throw new Error('协议报价状态已更新，请重新计算');}
+    if(!protocolBindingsMatch(q,chain()))throw new Error('协议报价状态已更新，请重新计算');
     state.quote=q; renderQuote(q); $('quoteTime').textContent=`${Math.round(performance.now()-started)} ms`; badge('stateBadge','报价成功','ok');
   } catch(e) {if (seq===state.quoteSeq && e.name!=='AbortError') {invalidate('没有可用报价'); error(e.message);badge('stateBadge','报价失败','bad');}}
 });
