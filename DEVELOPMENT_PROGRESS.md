@@ -427,6 +427,7 @@
 |14.raydium-preparation|WP05,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium程序/config/池/vault/mint/时钟/observation闭包校验、unsigned指令及模拟净收付实现并联验|仅已有经典SPL账户；Raydium建户/包装/解包及其他协议仍按模型能力单独补，签名广播未开放|[本批验证](integration/artifacts/local/core-raydium-preparation-validation-20261113.json)|
 |15.local-sbf-service|WP05,WP09,WP15,WP16,WP25|PARTIAL_LOCAL|独立原SBF执行缓存unsigned交易、摘要/预算/源银行不变及quote/preparation/view证据绑定实现|受控本地银行与固定运行时范围；可信历史/生产资格、其他协议和钱包/回执继续补齐|[验证记录](integration/artifacts/local/core-solana-independent-validation-20261113.json)|
 |15.rpc-account-capture|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|同次RPC账户闭包原字节和缺失账户服务端缓存，与preparationHash和QuoteView绑定后独立SBF执行|不把minContextSlot/同批context当历史共识银行或生产资格；其他协议模型仍需独立适配|[验证记录](integration/artifacts/local/core-rpc-capture-validation-20261113.json)|
+|14.pump-amm-execution|WP05,WP09,WP14,WP15,WP16,WP20,WP25|PARTIAL_LOCAL|PumpSwap经典/boost已有经典SPL账户、声明user上下文，ExactIn/ExactOut实际指令、独立模拟及真实钱包回执开发联验|自动创建/包装/解包、其他Token/程序版本及Pump曲线仍需各自完成；不提升全量或生产资格|[验证记录](integration/artifacts/local/core-pump-amm-preparation-validation-20261113.json)|
 |14.wallet-lifecycle|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|已有unsigned/独立SBF模板接Wallet Standard、显式发送与实际收付回执/恢复|默认关闭，按链启用；本批仅受控Solana模板，不等于全链全协议生产资格/完整多租户或多区执行验收|[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 
 <a id="batch-history"></a>
@@ -500,6 +501,7 @@
 |64|[配置化隔离SBF独立模拟](#plan-2026-11-13-local-sbf-service)|LOCAL_SCOPE_VERIFIED|46检查/39次Rust测试执行/34项真实Chrome联调通过；隔离原SBF、真实CU/收付、运行时/银行摘要及缓存preparation/协议视图证据门禁通过；[验证记录](integration/artifacts/local/core-solana-independent-validation-20261113.json)|
 |65|[钱包签名广播与可恢复回执](#plan-2026-11-13-wallet-lifecycle)|LOCAL_SCOPE_VERIFIED|51检查/44次Rust测试执行/40项真实Chrome联调通过；Wallet Standard仅签名、真实Ed25519、实时预检、显式单次发送、八类回执及重启/页面恢复通过；[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 |66|[preparation实时RPC快照与独立SBF](#plan-2026-11-13-rpc-capture)|LOCAL_SCOPE_VERIFIED|51检查/47次Rust测试执行/41项Chrome联调通过；同次捕获/无预装钱包银行、6种当前状态/后续slot与成交后状态重报价、缓存字节预算及完整钱包单次发送回执通过；[验证记录](integration/artifacts/local/core-rpc-capture-validation-20261113.json)|
+|67|[PumpSwap经典及boost执行链路](#plan-2026-11-13-pump-amm-execution)|LOCAL_SCOPE_VERIFIED|九组原unsigned/后状态/回滚、五组签名回执及同源码联验通过；[验证记录](integration/artifacts/local/core-pump-amm-preparation-validation-20261113.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2040,3 +2042,25 @@ PumpSwap卖出目标按至少实际到账处理：三ceil fee导致净输出不�
 每个runtime仍显式绑定chain/genesis、已核对的固定Python/Solders文件和真实CU/deadline/字节预算。本批拓展账户来源，不扩展未知程序、其他协议/Token模型或完整链执行资格。原固定本地bank模式继续可用，公开VERIFY/build资格不改变。复验make -C integration rpc-capture-current-check；最终同源码有限验收：源码`9f8dd4845e0d50795bfa8861e5751755be5d3723a6e047898100dd1478e48d4f`，51项检查、47次Rust测试执行、41项真实Chrome联调全部通过。六种原生状态场景含未预装源地址、经典/Token2022/Raydium、下一slot及原程序完整成交后状态重报价；当前RPC变化不改变旧捕获银行、模拟不refetch、视图撤销后拒绝、capture-only银行/租金/程序/VM内置身份/摘要/缺依赖反例均通过。24份实际大小preparation快照触发32MiB账户JSON字节预算回收，未达到256条前已淘汰、最新条目仍保留。capture-only运行时下Chrome准备→独立执行→用户签名→服务校验→单次loopback发送→最终4/1000/fee5000回执→刷新恢复全部通过；原固定银行、Token2022/WSOL和16原SBF/回滚及八类生命周期继续回归通过。308合同/12工具副本、三服务配置、公共协议、严格Clippy、普通/-OO反例与文档检查、桌面/移动布局通过。捕获收款人依赖遗漏、测试越过原池容量、初始编译参数等失败均保留并修复，不计旧失败为通过；原始执行/日志/回执/下载/截图与最终源码、工具、运行时及银行摘要按独立目录冻结。测试服务已退出，未提交公网交易。六阶段整体仍按协议缺口推进，all_requested_features_complete=false、production_ready=false。
 
 阶段66后续核对：按已通过阶段65目录审计（能力代码本批未变），61模型中16支持独立ExactOut、7具备preparation/交易模板，仍有54模型未接入执行准备；具体模型不能因基础六类链路已通而记完成。下一批先补现有数学明确的PumpSwap经典/boost与Pump曲线执行适配。原SBF预研已观察PumpSwap sell/buy/buy_exact_quote_in可由user兼网络payer只用单签名，wire889/957字节，完整后状态与原参考一致（用户另扣5000网络费）；该结果仅为原型，不升级功能能力标签。持续目标保持active。
+
+
+<a id="plan-2026-11-13-pump-amm-execution"></a>
+
+## PumpSwap经典及boost执行链路（2026-11-13，阶段67）
+
+继续六阶段主线，把已有解析/数学明确的PumpSwap classic-wsol和boost版本接入execution-preparation、真实unsigned、隔离SBF和钱包回执，不另建服务/图。沿用固定6a7ad345 PumpSwap、4f2955d0 Fee程序及经典SPL代码；caller/recipient必须为模型声明user，用户兼任网络费payer；不把数学支持扩大为任意未来程序/Token行为。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F67.1|动态账户及费用身份校验|WP05,WP14,WP20,WP25|PARTIAL_LOCAL|完整模型Pool/global/fee/mint/vault/creator/protocol/buyback/volume原字节与lamports、主/Fee/Token/ATA程序版本、Clock精确匹配；实际账户资金/冻结/币种/owner核对。全部实际指令key捕获在同RPC快照内。|
+|F67.2|三种原unsigned指令|WP14,WP16,WP25|PARTIAL_LOCAL|sell固定输入/最小WSOL输出；buy按目标base/最大quote输入；buy_exact_quote_in固定quote/最小base输出。原IDL角色/权限/双Token程序/creator与buyback尾账户、volume关闭选项逐项构建，单签名wire889/957字节。|
+|F67.3|独立执行与完整后状态|WP15,WP20,WP25|PARTIAL_LOCAL|经典和原毕业迁移创建的boost池双方向×ExactIn/ExactOut共8银行，加高价最小输入/额外到账1银行。真实API wire在原PumpSwap/Fee/Token CPI执行，模型全部12依赖后状态、费用拆分/vault、WSOL backing/Token守恒与失败完整回滚独立比对。|
+|F67.4|最小到账与实际额外到账|WP14,WP15,WP16,WP25|PARTIAL_LOCAL|卖出目标1000可实际到账48185，使用原sell的固定base/minQuote语义；prep保留quotedOutput=48185、minBuyAmount=1000、requiredInput=1。最小到账加入preparation哈希，最终回执按计划min而不是将surplus改作最低到账；旧日志仍保持原兼容计算。|
+|F67.5|运行时和有界完整依赖|WP05,WP15,WP25|PARTIAL_LOCAL|Pump程序ProgramData分配10485760原字节，主/Fee/Token/ATA完整RPC闭包约15MiB；单批读取/捕获/银行/worker输入有界16MiB，总缓存JSON字节仍32MiB，不截断原程序/拼接不同slot账户。|
+|F67.6|能力版本与前端钱包回执|WP09,WP16,WP25|PARTIAL_LOCAL|能力模型/4仅对两已实现PumpSwap模板开放现有账户preparation/unsigned/独立模拟/钱包代码；自动建户/资金转换继续false，并明确SINGLE_POOL_SINGLE_ROUTE，前端不能因拆单/多跳中含某个可准备edge就放开按钮。真实Chrome展示目标1000/实得48185/额外47185，准备/独立模拟/签名/单次发送/最终实付实收及刷新恢复已预检。|
+
+原buy与buy_exact_quote_in的track_volume关闭，与现有数学/12账户模型一致；未知cashback/hook/Token2022和不同volume策略继续按模型准入拒绝。经典SPL用户账户可显式传入或按规范ATA派生，缺失/不足账户返回blocker；本批尚不加入createDestinationAta/wrapSourceSol/refundWrappedSource/unwrapDestinationSol指令，明确拒绝且前端禁用。该限制仍是后续功能，不能按“标签false”替代开发。
+
+测试银行为受控canonical及真实原migrate创建的boost状态；高价bank的WSOL储备为显式控制且完整backing，不能宣称主网可达或当前市场收益。声明user使用固定测试密钥，仅loopback RPC执行，用户额外支付5000网络费，与Token实收付分开；不向公网提交交易。原程序源码/IDL/binaries只读固定，不提交下载包、银行、运行时或临时回执。
+
+数据恢复：integration/tools/ci/pump-amm-execution-bank.py；复验make -C integration pump-amm-preparation-current-check。最终同源码有限验收：源码`09d3bea3332787a5fc908e32eef0f71371a9d8f7a5106d50ed800433f741790a`，56项检查、51次Rust测试执行、46项真实Chrome联调全部通过。九组canonical/boost双向ExactIn/ExactOut及额外到账原wire/完整后状态、Token守恒/WSOL backing和失败回滚参考通过；五组真实测试签名、单次loopback发送、重启恢复及minBuyAmount回执通过。费用程序/Pool/Clock变更、冻结/错误币种/缺失/余额不足和不支持选项拒绝通过；既有Meteora经典/Token2022/WSOL、Raydium、隔离SBF边界、八类生命周期、严格Clippy和普通/-OO反例及文档继续回归。309合同/12工具副本/164公共来源、前端模型和钱包单测、桌面/移动布局通过。运行产物与源码/工具/运行时/银行摘要已冻结；仅受控钱包与loopback发送，未提交公网交易。当前61模型中9个具备执行准备模板，52个仍缺少执行准备；Pump原生SOL曲线、自动创建/包装/解包和其他链/DEX模板继续推进。六阶段全量目标保持active，all_requested_features_complete=false、production_ready=false。

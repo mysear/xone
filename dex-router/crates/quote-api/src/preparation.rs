@@ -98,7 +98,9 @@ fn selected(
         .find(|p| p.pool_id == edge.pool_id)
         .cloned()
         .ok_or_else(bad)?;
-    if !(m::supports_profile(&pool.protocol) || pool.protocol == xone_domain::raydium::PROFILE)
+    if !(m::supports_profile(&pool.protocol)
+        || pool.protocol == xone_domain::raydium::PROFILE
+        || xone_domain::pump_amm::supports_profile(&pool.protocol))
         || edge.from_token.is_some()
     {
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
@@ -155,6 +157,7 @@ pub(super) async fn prepare(
     }
     result["quoteId"] = id.into();
     result["quoteKind"] = if s.exact { "EXACT_OUT" } else { "EXACT_IN" }.into();
+    result["minBuyAmount"] = if s.exact { s.amount } else { s.limit }.to_string().into();
     result
         .as_object_mut()
         .ok_or_else(|| failure(bad()))?

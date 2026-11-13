@@ -12,6 +12,8 @@ PROTOCOL='xone-local-sbf/1'
 TOKEN='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
 TOKEN22='TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'
 METEORA='LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo'
+PUMP_AMM='pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA'
+FEE='pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ'
 RAYDIUM='CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C'
 SYSTEM='11111111111111111111111111111111'
 LOADER='BPFLoaderUpgradeab1e11111111111111111111111'
@@ -51,8 +53,9 @@ def main():
     # preflight still checks its actual network validity before submission.
     programs={str(tx.message.account_keys[ix.program_id_index])for ix in tx.message.instructions}
     target=RAYDIUM if bank['pool']['protocol']=='raydium-cpmm-creator' else METEORA
+    if bank['pool']['protocol'].startswith('pump-amm-classic-wsol'):target=PUMP_AMM
     require(target in programs and programs<={SYSTEM,TOKEN,TOKEN22,target,'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'},'SBF_PROGRAM_ALLOWLIST')
-    model=bank['pool'];state=model.get('raydium_cpmm') if target==RAYDIUM else model.get('meteora')
+    model=bank['pool'];state=model.get('raydium_cpmm') if target==RAYDIUM else model.get('pump')if target==PUMP_AMM else model.get('meteora')
     require(state is not None,'SBF_POOL_MODEL')
     def account_bytes(key):return raw(bank['accounts'][key])
     clock_data=account_bytes(CLOCK)
@@ -68,6 +71,10 @@ def main():
         if state.get('token2022'):
             t=state['token2022'];require(account_bytes(model['token0']).hex()==t['mint_data'] and int.from_bytes(clock_data[16:24],'little')==t['bank_epoch'],'SBF_BANK_TOKEN2022_MISMATCH')
             require(account_bytes(str(Pubkey.from_bytes(pair[152:184]))).hex()==t['vault_data'],'SBF_BANK_VAULT_MISMATCH')
+    elif target==PUMP_AMM:
+        require(state['user']==request['caller']==request['recipient'],'SBF_PUMP_USER_MISMATCH')
+        for item in state['accounts']:
+            require(account_bytes(item['address']).hex()==item['data'] and bank['accounts'][item['address']]['owner']==item['owner'] and bank['accounts'][item['address']]['lamports']==item['lamports'],'SBF_BANK_POOL_MISMATCH')
     else:
         pair=account_bytes(model['pool_id']);require(len(pair)==637 and pair[329]&4==0,'SBF_BANK_POOL_MISMATCH')
         for offset,key in [(341,'protocol_fees0'),(349,'protocol_fees1'),(357,'fund_fees0'),(365,'fund_fees1'),(373,'open_time'),(381,'recent_epoch'),(397,'creator_fees0'),(405,'creator_fees1')]:require(int.from_bytes(pair[offset:offset+8],'little')==state[key],'SBF_BANK_LEDGER_MISMATCH')
@@ -77,6 +84,7 @@ def main():
         for side in [0,1]:require(int.from_bytes(account_bytes(state[f'vault{side}'])[64:72],'little')==state[f'raw_vault{side}'],'SBF_BANK_VAULT_MISMATCH')
         require(int.from_bytes(clock_data[16:24],'little')==state['bank_epoch'],'SBF_BANK_EPOCH_MISMATCH')
     dependencies={target,TOKEN}
+    if target==PUMP_AMM:dependencies.add(FEE)
     if bank['pool'].get('meteora',{}).get('token2022')is not None:dependencies.add(TOKEN22)
     for pid in sorted(dependencies):
         a=bank['accounts'][pid];data=raw(a)
@@ -87,9 +95,10 @@ def main():
         deployment=int.from_bytes(programdata_bytes[4:12],'little')
         require(deployment<=expected_slot,'SBF_BANK_DEPLOYMENT_MISMATCH')
         if pid==target:require(deployment==state['deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
+        if pid==FEE:require(deployment==state['fee_deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
         if pid==TOKEN22:require(deployment==state['token2022']['deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
         payload=raw(programdata)[45:]
-        expected=state['program_code_sha256'] if pid==target else state['token2022']['program_code_sha256'] if pid==TOKEN22 else state['token_program_code_sha256']
+        expected=state['program_code_sha256'] if pid==target else state['fee_program_code_sha256']if pid==FEE else state['token2022']['program_code_sha256'] if pid==TOKEN22 else state['token_program_code_sha256']
         require(hashlib.sha256(payload).hexdigest()==expected,'SBF_BANK_PROGRAM_MISMATCH')
         svm.add_program_with_loader(Pubkey.from_string(pid),payload,Pubkey.from_string(LOADER))
     if bank.get('rpcCapture'):

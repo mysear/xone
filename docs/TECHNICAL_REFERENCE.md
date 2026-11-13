@@ -1693,3 +1693,18 @@ RuntimeManifest.rpc_capture=true允许banks=[]。模拟绑定捕获摘要/chain/
 结果RPC_CAPTURE_SBF_SIMULATED明确注明PREPARATION_RPC_CAPTURE；同context与minContextSlot均不升级成可信历史/共识银行或生产VERIFIED，VM特征仍由固定运行时指定。钱包发送仍需匹配独立证据、真实签名、当前genesis/blockhash/费用/账户的signed RPC预检及用户显式确认。
 
 阶段66最终同源码有限验收通过：51检查、47次Rust测试执行、41项真实Chrome联调；源码`9f8dd4845e0d50795bfa8861e5751755be5d3723a6e047898100dd1478e48d4f`。无预装钱包银行的实时账户捕获、完整后状态/slot推进再报价、32MiB账户JSON缓存预算、固定模式兼容、capture-only模拟到钱包发送及回执恢复通过。仍只覆盖已实现的7个preparation模型，不将61模型全量或可信生产银行资格标为完成。
+
+
+### PumpSwap classic/boost执行适配（阶段67）
+
+独立preparation增加固定PumpSwap/Fee/经典Token适配，完整12模型依赖、程序/ProgramData/ATA代码与部署slot、Clock/user/实际Token账户身份及资金核对。caller等于recipient等于已声明user；该user也作payer使消息单签名。按固定IDL显式构建sell、buy、buy_exact_quote_in及pool-v2/buyback尾账户，buy选项track_volume关闭；当前只支持已有用户账户，不静默加入未知创建或资金转换指令。
+
+PumpSwap sell目标模式是固定输入+最小输出，最小输入可导致实际surplus。generic SolanaQuote只对此已验证协议/方向允许目标小于预计实际输出，其余模型保留原相等约束。HTTP prep新增minBuyAmount并入哈希（ExactOut目标/ExactIn计划滑点最低），回执使用它；实际quotedOutput与最终到账继续单独保留。旧日志未携带该字段时维持原计算，避免破坏旧回执。
+
+完整Pump程序分配10MiB，含Fee等的base64闭包约15MiB；RPC/单快照/银行/worker输入边界提高到16MiB、总缓存JSON字节32MiB保持，仍要求单context读取。worker加载实际PumpSwap/Fee/Token，捕获模型全部账户data/owner/lamports一致检查，回执按独立SBF证据+签名后实时模拟+实际meta核对。九组矩阵另对原IDL角色、wire、原完整后状态、Token守恒/WSOL backing及失败回滚做独立参考；不把helper预设成功当模拟。
+
+能力模型/4对两明确版本开启代码能力；运行时和发送配置仍另行控制实际可用性，生产VERIFIED/其他未知模型不自动开放。前端签名已有发送记录后显示状态应看回执，避免仍显示“尚未广播”；刷新恢复按签名查询且不重发。
+
+能力模型/4还明确executionRouteScope=SINGLE_POOL_SINGLE_ROUTE；前端按实际单路单池及协议匹配启用准备，资金选项跟随实际报价池/币对，禁止借链上另一池的能力开放当前PumpSwap或复合路线。模型单测覆盖拆单、多跳、协议不符和不可用池。
+
+阶段67最终同源码有限验收：源码`09d3bea3332787a5fc908e32eef0f71371a9d8f7a5106d50ed800433f741790a`，56项检查、51次Rust测试执行、46项真实Chrome联调全部通过。九组canonical/boost双向ExactIn/ExactOut及额外到账原wire/完整后状态、Token守恒/WSOL backing和失败回滚参考通过；五组真实测试签名、单次loopback发送、重启恢复及minBuyAmount回执通过。费用程序/Pool/Clock变更、冻结/错误币种/缺失/余额不足和不支持选项拒绝通过；既有Meteora经典/Token2022/WSOL、Raydium、隔离SBF边界、八类生命周期、严格Clippy和普通/-OO反例及文档继续回归。309合同/12工具副本/164公共来源、前端模型和钱包单测、桌面/移动布局通过。运行产物与源码/工具/运行时/银行摘要已冻结；仅受控钱包与loopback发送，未提交公网交易。当前执行准备模型9/61，其余52模型、Pump原生SOL及自动资金账户功能不在本批完成范围。

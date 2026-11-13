@@ -34,3 +34,11 @@ export function protocolBindingsMatch(quote,chain) {
     return view?.ready===true && view.viewId===id;
   });
 }
+
+export function singlePreparationPool(quote,chain) {
+  const routes=quote?.routes||[];
+  if(routes.length!==1)return null;
+  const edges=routes[0].path?.edges||routes[0].edges||[];
+  if(edges.length!==1)return null;
+  return (chain?.pools||[]).find(pool=>pool.available&&pool.poolId===edges[0].pool_id&&pool.protocol===edges[0].protocol)||null;
+}

@@ -483,7 +483,9 @@ fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
         end.checked_sub(start)
             .ok_or_else(|| err("RECEIPT_AMOUNT_MISMATCH"))?
     };
-    let minimum = if p["quoteKind"] == "EXACT_OUT" {
+    let minimum = if p.get("minBuyAmount").is_some() {
+        amount(p, "minBuyAmount")?
+    } else if p["quoteKind"] == "EXACT_OUT" {
         amount(p, "quotedOutput")?
     } else {
         u64::try_from(

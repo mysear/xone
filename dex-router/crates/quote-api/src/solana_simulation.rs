@@ -33,7 +33,7 @@ pub(crate) fn store(
         .transpose()
         .map_err(|_| err("PREPARATION_CAPTURE_INVALID"))?
         .map_or(0, |v| v.len());
-    if account_bytes > 8 * 1024 * 1024 {
+    if account_bytes > 16 * 1024 * 1024 {
         return Err(err("PREPARATION_CAPTURE_LIMIT"));
     }
     let capacity = (api.config.config.api.requests_per_minute as usize).clamp(16, 256);

@@ -115,3 +115,8 @@ Raydium CPMM执行准备（阶段63）：经典SPL已有输入/输出账户可�
 实时RPC快照独立模拟（阶段66）：可在固定SBF runtime manifest中设置`rpc_capture: true`并使用空`banks: []`，无需为每个钱包预装账户银行。Router在执行准备同次账户批读中保留完整快照，对外只返回摘要；独立模拟使用该快照并与当前报价/准备哈希绑定。界面标注“RPC账户快照，非历史银行证明”，不将RPC读取当作生产资格。
 
 复验：`make -C ../integration rpc-capture-current-check`。测试manifest生成工具会产生`rpc-capture.json`；原固定银行模式仍保持兼容。
+
+
+PumpSwap经典/boost（阶段67）：已有经典SPL用户账户且caller/recipient为声明user时，可准备ExactIn/ExactOut、下载单签名交易、原SBF独立模拟及钱包确认发送。卖出目标可能产生额外到账，例如目标1000/实际48185，最低到账与实际收款、5000网络费分别展示；回执保留真实额外到账。自动建户、SOL包装/解包和其他Token版本仍未开放。
+
+复验：`make -C ../integration pump-amm-preparation-current-check`。数据生成`integration/tools/ci/pump-amm-execution-bank.py`复用已保留固定程序；完整闭包约15MiB而单批/快照/模拟输入限制16MiB，总账户缓存预算仍32MiB，生成银行及大程序文件不提交。

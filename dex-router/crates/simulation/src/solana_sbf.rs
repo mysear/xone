@@ -159,7 +159,7 @@ impl Engine {
         let mut banks = Vec::new();
         let mut size = 0u64;
         for file in &manifest.banks {
-            let bytes = read(&resolve(root, &file.path)?, 8 * 1024 * 1024)?;
+            let bytes = read(&resolve(root, &file.path)?, 16 * 1024 * 1024)?;
             size += bytes.len() as u64;
             if size > 64 * 1024 * 1024 {
                 return Err(err("SBF_BANK_LIMIT"));
@@ -174,7 +174,8 @@ impl Engine {
             pool.validate()?;
             if pool.chain_key != manifest.chain_key
                 || !(xone_domain::meteora::supports_profile(&pool.protocol)
-                    || pool.protocol == xone_domain::raydium::PROFILE)
+                    || pool.protocol == xone_domain::raydium::PROFILE
+                    || xone_domain::pump_amm::supports_profile(&pool.protocol))
                 || value["accounts"].as_object().is_none_or(|m| m.len() > 128)
             {
                 return Err(err("SBF_BANK_INVALID"));
@@ -203,7 +204,8 @@ impl Engine {
             && (self.banks.iter().any(|b| b.pool == *pool)
                 || (self.manifest.rpc_capture
                     && (xone_domain::meteora::supports_profile(&pool.protocol)
-                        || pool.protocol == xone_domain::raydium::PROFILE)))
+                        || pool.protocol == xone_domain::raydium::PROFILE
+                        || xone_domain::pump_amm::supports_profile(&pool.protocol))))
     }
     pub fn uses_rpc_capture(&self) -> bool {
         self.manifest.rpc_capture
@@ -291,6 +293,7 @@ impl Engine {
                 .as_ref()
                 .map(|m| m.slot)
                 .or_else(|| pool.raydium_cpmm.as_ref().map(|r| r.bank_slot))
+                .or_else(|| pool.pump.as_ref().map(|r| r.slot))
                 .ok_or_else(|| err("SBF_BANK_INVALID"))?;
             let expected_hash = hash(snapshot)?;
             if snapshot["schemaVersion"] != 1
@@ -357,7 +360,7 @@ impl Engine {
         };
         let request = json!({"protocol":PROTOCOL,"bank":bank.value,"preparation":preparation,"caller":caller,"recipient":recipient,"sellToken":sell,"buyToken":buy,"maxComputeUnits":self.manifest.max_compute_units});
         let bytes = serde_json::to_vec(&request).map_err(|_| err("SBF_PREPARATION_INVALID"))?;
-        if bytes.len() > 12 * 1024 * 1024 {
+        if bytes.len() > 16 * 1024 * 1024 {
             return Err(err("SBF_WORKER_INPUT_LIMIT"));
         }
         let mut child = Command::new(&self.python)

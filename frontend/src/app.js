@@ -1,5 +1,5 @@
 import {createWalletRegistry,connectWallet,signPreparedTransaction} from './wallet.js';
-import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, escapeHtml as esc} from './model.js';
+import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, singlePreparationPool, escapeHtml as esc} from './model.js';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, quote:null, preparation:null, independent:null, independentAbort:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
@@ -47,12 +47,13 @@ function modes() {
   const c=chain(); const exactOut=(c?.pools||[]).some(p=>p.available && (p.quoteModes||[]).includes('EXACT_OUT'));
   const exactOption=$('quoteKind').querySelector('option[value="EXACT_OUT"]'); exactOption.disabled=!exactOut;
   if (!exactOut && $('quoteKind').value==='EXACT_OUT') $('quoteKind').value='EXACT_IN';
-  const wrapAllowed=$('sellToken').value==='So11111111111111111111111111111111111111112' && (c?.pools||[]).some(p=>p.available&&p.execution?.wrapSourceSol);
+  const preparedPool=singlePreparationPool(state.quote,c);const executionPools=state.quote?(preparedPool?[preparedPool]:[]):(c?.pools||[]).filter(p=>p.available&&(p.directions||[]).some(d=>d.sellToken===$('sellToken').value&&d.buyToken===$('buyToken').value));
+  const wrapAllowed=$('sellToken').value==='So11111111111111111111111111111111111111112' && executionPools.some(p=>p.execution?.wrapSourceSol);
   $('wrapSourceSol').disabled=!wrapAllowed;if(!wrapAllowed)$('wrapSourceSol').checked=false;
-  const createAllowed=(c?.pools||[]).some(p=>p.available&&p.execution?.createDestinationAta);$('createDestinationAta').disabled=!createAllowed;if(!createAllowed)$('createDestinationAta').checked=false;
+  const createAllowed=executionPools.some(p=>p.execution?.createDestinationAta);$('createDestinationAta').disabled=!createAllowed;if(!createAllowed)$('createDestinationAta').checked=false;
   const refundAllowed=wrapAllowed && $('wrapSourceSol').checked && !$('sourceAccount').value.trim();
   $('refundWrappedSource').disabled=!refundAllowed;if(!refundAllowed)$('refundWrappedSource').checked=false;
-  const unwrapAllowed=$('buyToken').value==='So11111111111111111111111111111111111111112' && (c?.pools||[]).some(p=>p.available&&p.execution?.unwrapDestinationSol) && $('caller').value.trim()!=='' && $('caller').value.trim()===$('recipient').value.trim() && !$('destinationAccount').value.trim() && !$('createDestinationAta').checked;
+  const unwrapAllowed=$('buyToken').value==='So11111111111111111111111111111111111111112' && executionPools.some(p=>p.execution?.unwrapDestinationSol) && $('caller').value.trim()!=='' && $('caller').value.trim()===$('recipient').value.trim() && !$('destinationAccount').value.trim() && !$('createDestinationAta').checked;
   $('unwrapDestinationSol').disabled=!unwrapAllowed;if(!unwrapAllowed)$('unwrapDestinationSol').checked=false;
 
   const exact=$('quoteKind').value==='EXACT_OUT';
@@ -109,7 +110,7 @@ function makeRequest() {
   return body;
 }
 function renderQuote(q) {
-  const routes=q.routes||[]; const prep=(chain()?.pools||[]).some(p=>p.execution?.preparation && routes.some(r=>(r.path?.edges||r.edges||[]).some(e=>e.pool_id===p.poolId)));
+  const routes=q.routes||[]; const prep=Boolean(singlePreparationPool(q,chain())?.execution?.preparation);
   const details=[['Quote ID',q.quoteId],['快照',snapshotView(q)],['图版本',q.graphVersion],['协议视图',Object.values(q.protocolViewIds||{}).join(' / ')||'—'],['计划哈希',q.planHash],['最小到账',q.minBuyAmount],['额外到账',q.outputSurplus||'0'],['未用输入预算',q.unusedInputBudget||'0'],['退款',q.refund],['验证',q.verification?.level]];
   $('result').className='';
   $('result').innerHTML=`<div class="metric-grid"><div class="metric"><span>买入数量（最小单位）</span><strong data-testid="buy-amount">${esc(q.grossBuyAmount||q.buyAmount||'—')}</strong></div><div class="metric"><span>实际消耗输入（最小单位）</span><strong data-testid="sell-amount">${esc(q.requiredSellAmount||q.consumedIn||'—')}</strong></div></div><h3>路线（${routes.length}）</h3>${routes.map((r,i)=>{const v=routeView(r);return `<div class="route"><strong>#${i+1} ${esc(v.protocols.join(' / '))}</strong><br><small>${esc(v.tokens.join(' → '))}<br>Pool: ${esc(v.pools.join(' → '))}<br>input ${esc(v.input)} · output ${esc(v.output)}</small></div>`;}).join('')}<div class="details">${details.map(([k,v])=>`<div><b>${esc(k)}：</b>${esc(v??'—')}</div>`).join('')}</div>`;
@@ -125,7 +126,7 @@ $('quoteForm').addEventListener('submit',async event=>{
     if (seq!==state.quoteSeq) return;
     if (q.quoteViewId!==chain()?.viewId || q.chainKey!==$('chainKey').value) throw new Error('报价状态已更新，请重新计算');
     if(!protocolBindingsMatch(q,chain()))throw new Error('协议报价状态已更新，请重新计算');
-    state.quote=q; renderQuote(q); $('quoteTime').textContent=`${Math.round(performance.now()-started)} ms`; badge('stateBadge','报价成功','ok');
+    state.quote=q; modes();renderQuote(q); $('quoteTime').textContent=`${Math.round(performance.now()-started)} ms`; badge('stateBadge','报价成功','ok');
   } catch(e) {if (seq===state.quoteSeq && e.name!=='AbortError') {invalidate('没有可用报价'); error(e.message);badge('stateBadge','报价失败','bad');}}
 });
 $('prepareButton').addEventListener('click',async()=>{
@@ -214,7 +215,7 @@ $('walletSign').addEventListener('click',async()=>{
 });
 $('confirmSubmission').addEventListener('change',refreshWalletActions);
 function showReceipt(receipt){
-  walletState.receipt=receipt;$('receiptRefresh').disabled=false;
+  walletState.receipt=receipt;$('receiptRefresh').disabled=false;if(receipt.signed===true)$('walletStatus').textContent='该签名已有发送记录，执行状态见下方回执。';
   const settlement=receipt.settlement;const states={SUBMITTING:'正在发送或结果待核对',SUBMITTED:'RPC已接受，等待链上确认',UNKNOWN:'发送或链上状态不明确，按签名查询',PROCESSED:'已处理，等待确认',RECEIPT_PENDING:'链上状态已返回，等待回执校验',CONFIRMED:'已确认，等待最终确认',FINALIZED:'已最终确认',FAILED:'链上执行失败',EXPIRED:'有效期已过且当前节点未观察到签名',SETTLEMENT_MISMATCH:'链上回执或收付不一致'};
   $('transactionReceipt').textContent=`${states[receipt.state]||receipt.state} · ${receipt.chainKey} · 收款 ${receipt.recipient} · 签名 ${receipt.signature}${settlement?.verified?' · 实际输入 '+settlement.actualInput+' / 到账 '+settlement.actualOutput+' · 费用 '+settlement.feeLamports+' lamports':''}${receipt.error?' · '+(receipt.error.code||JSON.stringify(receipt.error)):''}`;
 }

@@ -23,7 +23,9 @@ def simulate(request):
     if type(config['sigVerify'])is not bool or config['replaceRecentBlockhash']is not False:raise ValueError('SIMULATION_FLAGS')
     S,P,K,I,M,T,A,C=native_imports();svm=S().with_mainnet_features().with_blockhash_check(False).with_sigverify(config['sigVerify'])
     target='CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C' if bank.get('pool',{}).get('protocol')=='raydium-cpmm-creator' else 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo'
+    if bank.get('pool',{}).get('protocol','').startswith('pump-amm-classic-wsol'):target='pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA'
     programs=[target,'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']
+    if target=='pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA':programs.append('pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ')
     if bank.get('pool',{}).get('meteora',{}).get('token2022') is not None:programs.append('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
     for pid in programs:
         raw=base64.b64decode(bank['accounts'][pid]['data'][0]);pd=str(P.from_bytes(raw[4:36]));svm.add_program_with_loader(P.from_string(pid),base64.b64decode(bank['accounts'][pd]['data'][0])[45:],P.from_string('BPFLoaderUpgradeab1e11111111111111111111111'))
@@ -60,6 +62,6 @@ def simulate(request):
     if mode=='simulation_error':err={'InstructionError':[0,'InvalidAccountData']}
     return dict(context={'slot':slot},value=dict(err=err,accounts=values,logs=native['meta']['logs'],unitsConsumed=native['meta']['compute_units_consumed']))
 if __name__=='__main__':
-    raw=sys.stdin.buffer.read(8*1024*1024+1)
-    if len(raw)>8*1024*1024:raise ValueError('SIMULATION_INPUT_LIMIT')
+    raw=sys.stdin.buffer.read(16*1024*1024+1)
+    if len(raw)>16*1024*1024:raise ValueError('SIMULATION_INPUT_LIMIT')
     print(json.dumps(simulate(json.loads(raw)),separators=(',',':')))

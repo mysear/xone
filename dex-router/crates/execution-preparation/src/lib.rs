@@ -4,6 +4,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+mod pump_amm;
 mod raydium;
 use std::sync::{Arc, Mutex};
 use std::{
@@ -107,7 +108,10 @@ pub async fn prepare_solana_captured(
     request: SolanaRequest,
 ) -> Result<SolanaPreparation> {
     s.pool.validate()?;
-    if !m::supports_profile(&s.pool.protocol) && s.pool.protocol != xone_domain::raydium::PROFILE {
+    if !m::supports_profile(&s.pool.protocol)
+        && s.pool.protocol != xone_domain::raydium::PROFILE
+        && !xone_domain::pump_amm::supports_profile(&s.pool.protocol)
+    {
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
     }
     let (sell, buy) = if s.zero {
@@ -126,7 +130,12 @@ pub async fn prepare_solana_captured(
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
         || s.expected_input == 0
         || s.expected_output == 0
-        || (s.exact && (s.amount != s.expected_output || s.limit < s.expected_input))
+        || (s.exact
+            && ((s.amount != s.expected_output
+                && !(xone_domain::pump_amm::supports_profile(&s.pool.protocol)
+                    && s.zero
+                    && s.amount < s.expected_output))
+                || s.limit < s.expected_input))
         || (!s.exact && (s.amount != s.expected_input || s.limit > s.expected_output))
     {
         return Err(err("PREPARATION_QUOTE_INVALID"));
@@ -198,7 +207,7 @@ impl Rpc {
             .await
             .map_err(|_| err("PREPARATION_RPC_UNAVAILABLE"))?
         {
-            if raw.len() + chunk.len() > 8 * 1024 * 1024 {
+            if raw.len() + chunk.len() > 16 * 1024 * 1024 {
                 return Err(err("PREPARATION_RPC_LIMIT"));
             }
             raw.extend_from_slice(&chunk);
@@ -394,6 +403,9 @@ async fn resolve(
     request: SolanaRequest,
     capture: Capture,
 ) -> Result<Value> {
+    if xone_domain::pump_amm::supports_profile(&s.pool.protocol) {
+        return pump_amm::resolve(config, s, request, capture).await;
+    }
     if s.pool.protocol == xone_domain::raydium::PROFILE {
         return raydium::resolve(config, s, request, capture).await;
     }

@@ -97,6 +97,26 @@ impl Bank {
             transactions: Default::default(),
         }
     }
+    pub fn pump_amm(index: usize) -> Self {
+        let f: Value = serde_json::from_slice(
+            &std::fs::read(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../test/contracts/pump-amm-execution-bank.json"
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let mut data = f["cases"][index].clone();
+        for (key, value) in f["shared_accounts"].as_object().unwrap() {
+            data["accounts"][key] = value.clone();
+        }
+        Self {
+            data: Arc::new(data),
+            mode: Arc::new(Mutex::new("ready".into())),
+            calls: Default::default(),
+            transactions: Default::default(),
+        }
+    }
     pub async fn serve(&self) -> (String, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -156,9 +176,11 @@ impl Bank {
         s.reference.block.chain_key = p.chain_key.clone();
         let (slot, timestamp) = if let Some(m) = &p.meteora {
             (m.slot, m.timestamp)
-        } else {
-            let r = p.raydium_cpmm.as_ref().unwrap();
+        } else if let Some(r) = p.raydium_cpmm.as_ref() {
             (r.bank_slot, r.bank_unix_timestamp)
+        } else {
+            let r = p.pump.as_ref().unwrap();
+            (r.slot, r.timestamp)
         };
         s.reference.block.number_or_slot = slot;
         s.reference.block.timestamp_ms = timestamp * 1000;
@@ -210,6 +232,7 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
     let mut slot = d["pool"]["meteora"]["slot"]
         .as_u64()
         .or_else(|| d["pool"]["raydium_cpmm"]["bank_slot"].as_u64())
+        .or_else(|| d["pool"]["pump"]["slot"].as_u64())
         .unwrap();
     if mode == "stale" {
         slot -= 1;
@@ -342,6 +365,7 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                                 raw[108] = 2;
                             }
                             if mode == "insufficient" {
+                                if raw[109..113]==[1,0,0,0]{a["lamports"]=json!(u64::from_le_bytes(raw[113..121].try_into().unwrap()));}
                                 raw[64..72].fill(0);
                             }
                             if mode == "wrong_owner" {
@@ -351,10 +375,11 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                         if mode == "changed_token2022_program" && id == &d["pool"]["meteora"]["token2022"]["programdata"] {raw[45] ^= 1;}
                         if mode == "changed_token2022_mint" && id == &d["pool"]["token0"] {raw[258] ^= 1;}
                         if mode == "changed_epoch" && key == "SysvarC1ock11111111111111111111111111111111" {raw[16] ^= 1;}
+                        if mode=="changed_pump_fee_program" && id==&d["pool"]["pump"]["fee_programdata"] {raw[45]^=1;}
                         if mode == "changed_pool" && id == &d["pool"]["pool_id"] {
                             raw[76] ^= 1;
                         }
-                        if mode == "changed_program" && (id == &d["pool"]["meteora"]["programdata"] || id==&d["pool"]["raydium_cpmm"]["programdata"]) {
+                        if mode == "changed_program" && (id == &d["pool"]["meteora"]["programdata"] || id==&d["pool"]["raydium_cpmm"]["programdata"] || id==&d["pool"]["pump"]["programdata"]) {
                             raw[45] ^= 1;
                         }
                         if mode == "wrap_balance" && id == &d["caller"] {

@@ -1,7 +1,7 @@
 //! Versioned capabilities describe admitted kernels, not live RPC/account readiness.
 use serde::{Deserialize, Serialize};
 use xone_domain::{Pool, Result};
-pub const VERSION: &str = "xone-protocol-capabilities/3";
+pub const VERSION: &str = "xone-protocol-capabilities/4";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolCapabilities {
@@ -15,6 +15,7 @@ pub struct ProtocolCapabilities {
     pub requires_funds_context: bool,
     pub exact_out_route_scope: Option<String>,
     pub execution_preparation: bool,
+    pub execution_route_scope: Option<String>,
     pub unsigned_transaction: bool,
     pub rpc_simulation: bool,
     pub account_creation: bool,
@@ -55,7 +56,9 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
         quote_modes.push("EXACT_OUT".into());
     }
     let meteora = xone_domain::meteora::supports_profile(protocol);
-    let prepared = meteora || protocol == xone_domain::raydium::PROFILE;
+    let prepared = meteora
+        || protocol == xone_domain::raydium::PROFILE
+        || xone_domain::pump_amm::supports_profile(protocol);
     let contextual = profile.is_some_and(|p| {
         matches!(
             p.family,
@@ -81,6 +84,7 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
             .into()
         }),
         execution_preparation: prepared,
+        execution_route_scope: prepared.then(|| "SINGLE_POOL_SINGLE_ROUTE".into()),
         unsigned_transaction: prepared,
         rpc_simulation: prepared,
         account_creation: meteora,

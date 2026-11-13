@@ -909,3 +909,7 @@ wallet-lifecycle-current-check:
 .PHONY: rpc-capture-current-check
 rpc-capture-current-check:
 	python3 tools/acceptance/validate_rpc_capture.py
+
+.PHONY: pump-amm-preparation-current-check
+pump-amm-preparation-current-check:
+	python3 tools/acceptance/validate_pump_amm_preparation.py

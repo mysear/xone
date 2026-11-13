@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {positiveInteger,boundedInteger,routeView,snapshotView,escapeHtml,protocolBindingsMatch} from '../src/model.js';
+import {positiveInteger,boundedInteger,routeView,snapshotView,escapeHtml,protocolBindingsMatch,singlePreparationPool} from '../src/model.js';
 test('raw amounts retain precision above Number.MAX_SAFE_INTEGER and reject decimal/exponent/overflow',()=>{
   assert.equal(positiveInteger('9007199254740993123456','数量'),'9007199254740993123456');assert.equal(positiveInteger('000123','数量'),'123');
   for(const v of ['0','-1','1e18','0.1','NaN','Infinity',' 10','1'.repeat(1000),(1n<<256n).toString()])assert.throws(()=>positiveInteger(v,'数量'));
@@ -20,4 +20,13 @@ test('protocol bindings reject changed capability views even when the parent vie
  assert.equal(protocolBindingsMatch(q,{...chain,protocolViews:[{...chain.protocolViews[0],ready:false}]}),false);
  assert.equal(protocolBindingsMatch(q,{...chain,protocolViews:[]}),false);
  assert.equal(protocolBindingsMatch({},chain),true);
+});
+
+test('preparation uses the exact singleton route and protocol, never a supported edge inside a split or multi-hop',()=>{
+ const pool={poolId:'p',protocol:'pump-amm-classic-wsol',available:true,execution:{preparation:true}};
+ const chain={pools:[pool]};const edge={pool_id:'p',protocol:pool.protocol};
+ assert.equal(singlePreparationPool({routes:[{edges:[edge]}]},chain),pool);
+ assert.equal(singlePreparationPool({routes:[{path:{edges:[edge]}}]},chain),pool);
+ for(const quote of [{routes:[]},{routes:[{edges:[edge]},{edges:[edge]}]},{routes:[{edges:[edge,{pool_id:'other',protocol:'other'}]}]},{routes:[{edges:[{...edge,protocol:'other'}]}]}])assert.equal(singlePreparationPool(quote,chain),null);
+ assert.equal(singlePreparationPool({routes:[{edges:[edge]}]},{pools:[{...pool,available:false}]}),null);
 });
