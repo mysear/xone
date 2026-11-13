@@ -1,7 +1,7 @@
 import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, escapeHtml as esc} from './model.js';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, quote:null, preparation:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
+const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, quote:null, preparation:null, independent:null, independentAbort:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
 const apiBase = $('apiBase');
 apiBase.value = params.get('api') || localStorage.getItem('xone-api-base') || 'http://127.0.0.1:8080';
 localStorage.removeItem('xone-api-token');
@@ -22,7 +22,7 @@ function fill(id, values, wanted=$(id).value) {
 function invalidate(message='输入或状态已变化，请重新计算') {
   ++state.quoteSeq; ++state.prepareSeq;
   state.quoteAbort?.abort(); state.prepareAbort?.abort(); clearTimeout(state.debounce);
-  state.quote=null; state.preparation=null;
+  state.quote=null; state.preparation=null; state.independent=null;state.independentAbort?.abort();$('independentButton').disabled=true;
   $('downloadButton').disabled=true; $('prepareButton').disabled=true;
   $('preparation').textContent='';
   $('result').className='empty'; $('result').textContent=message; $('quoteTime').textContent='—';
@@ -127,13 +127,14 @@ $('quoteForm').addEventListener('submit',async event=>{
   } catch(e) {if (seq===state.quoteSeq && e.name!=='AbortError') {invalidate('没有可用报价'); error(e.message);badge('stateBadge','报价失败','bad');}}
 });
 $('prepareButton').addEventListener('click',async()=>{
-  const q=state.quote; if (!q) return; const seq=state.quoteSeq, prepSeq=++state.prepareSeq; state.preparation=null; $('downloadButton').disabled=true; $('prepareButton').disabled=true; $('preparation').textContent='正在核对账户…';
+  const q=state.quote; if (!q) return; const seq=state.quoteSeq, prepSeq=++state.prepareSeq; state.preparation=null;state.independent=null;state.independentAbort?.abort();$('independentButton').disabled=true; $('downloadButton').disabled=true; $('prepareButton').disabled=true; $('preparation').textContent='正在核对账户…';
   try {
     const payload={createDestinationAta:$('createDestinationAta').checked,simulate:$('simulatePreparation').checked,wrapSourceSol:$('wrapSourceSol').checked,refundWrappedSource:$('refundWrappedSource').checked,unwrapDestinationSol:$('unwrapDestinationSol').checked}; if ($('sourceAccount').value.trim()) payload.sourceTokenAccount=$('sourceAccount').value.trim(); if ($('destinationAccount').value.trim()) payload.destinationTokenAccount=$('destinationAccount').value.trim();
     state.prepareAbort=new AbortController();
     const prepared=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/prepare`,{method:'POST',body:JSON.stringify(payload),signal:state.prepareAbort.signal});
     if (seq!==state.quoteSeq || prepSeq!==state.prepareSeq || state.quote!==q) return;
     state.preparation=prepared; $('downloadButton').disabled=!prepared.ready;
+    $('independentButton').disabled=!prepared.ready || !(chain()?.pools||[]).some(p=>p.execution?.independentLocalSimulation&&(q.routes||[]).some(r=>(r.path?.edges||r.edges||[]).some(e=>e.pool_id===p.poolId)));
     const wrapText=prepared.wrapLamports && prepared.wrapLamports!=='0'?` · SOL包装 ${prepared.wrapLamports} lamports${prepared.sourceWsolRetained?' · 预计剩余 '+prepared.expectedResidualWsol+' WSOL最小单位，余额仍保留为WSOL':' · 未用资金通过本次临时账户关闭转回SOL'}`:'';
     const tokenFeeText=prepared.destinationTokenProgram==='TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'?` · Token2022转账费 ${prepared.expectedDestinationTransferFee} 最小单位 · 收款账户 ${prepared.destinationAccountSize} 字节`:'';
     const closeText=prepared.temporaryWsolAccount?` · 临时账户关闭转回 ${prepared.expectedNativeRefundLamports} lamports（含退租 ${prepared.rentRefundLamports}） · 预计payer SOL净变动 ${prepared.expectedPayerLamportDelta} lamports`:'';
@@ -141,13 +142,24 @@ $('prepareButton').addEventListener('click',async()=>{
   } catch(e) {if(seq===state.quoteSeq && prepSeq===state.prepareSeq && e.name!=='AbortError') {if (/QUOTE_|PROGRAM_CHANGED/.test(e.message)) invalidate('执行状态已变化，请重新报价'); $('preparation').textContent=e.message;}}
   finally {if (seq===state.quoteSeq && prepSeq===state.prepareSeq) $('prepareButton').disabled=false;}
 });
+$('independentButton').addEventListener('click',async()=>{
+  const q=state.quote,p=state.preparation,seq=state.quoteSeq,preparationSeq=state.prepareSeq;if(!q||!p?.ready)return;
+  state.independentAbort?.abort();state.independentAbort=new AbortController();state.independent=null;$('independentButton').disabled=true;
+  try{
+    const evidence=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/preparations/${encodeURIComponent(p.preparationHash)}/simulate-independent`,{method:'POST',signal:state.independentAbort.signal});
+    if(seq!==state.quoteSeq||preparationSeq!==state.prepareSeq||state.preparation!==p)return;
+    if(evidence.preparationHash!==p.preparationHash||evidence.planHash!==q.planHash||evidence.quoteViewId!==q.quoteViewId||evidence.success!==true)throw new Error('独立模拟证据与当前交易不一致');
+    state.independent=evidence;$('preparation').textContent+=` · 独立本地SBF模拟通过，实际输入 ${evidence.actualInput} / 到账 ${evidence.actualOutput}，CU ${evidence.unitsConsumed}，证据 ${evidence.evidenceHash}（受控银行，生产资格未开放）`;
+  }catch(e){if(seq===state.quoteSeq&&preparationSeq===state.prepareSeq&&e.name!=='AbortError'){$('preparation').textContent=`独立模拟失败：${e.message}`;state.independent=null;}}
+  finally{if(seq===state.quoteSeq&&preparationSeq===state.prepareSeq)$('independentButton').disabled=false;}
+});
 $('downloadButton').addEventListener('click',()=>{
   if (!state.preparation?.ready || !state.quote || Date.now()>=state.quote.validity.expiresAtMs) {invalidate('报价已过期，请重新计算'); return;}
   const url=URL.createObjectURL(new Blob([JSON.stringify(state.preparation,null,2)],{type:'application/json'})); const a=document.createElement('a'); a.href=url;a.download=`xone-unsigned-${state.quote.quoteId}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 $('chainKey').addEventListener('change',()=>{invalidate(); tokens();schedule();});
 for (const id of ['sellToken','buyToken','quoteKind','amount','maxSell','caller','recipient','slippageBps','maxHops']) $(id).addEventListener('input',()=>{invalidate();modes();schedule();});
-for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation','wrapSourceSol','refundWrappedSource','unwrapDestinationSol']) $(id).addEventListener('input',()=>{modes();++state.prepareSeq;state.prepareAbort?.abort();state.preparation=null;$('downloadButton').disabled=true;$('prepareButton').disabled=!state.quote;$('preparation').textContent='执行准备参数已变化，请重新检查';});
+for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation','wrapSourceSol','refundWrappedSource','unwrapDestinationSol']) $(id).addEventListener('input',()=>{modes();++state.prepareSeq;state.prepareAbort?.abort();state.preparation=null;state.independent=null;state.independentAbort?.abort();$('independentButton').disabled=true;$('downloadButton').disabled=true;$('prepareButton').disabled=!state.quote;$('preparation').textContent='执行准备参数已变化，请重新检查';});
 $('flipButton').addEventListener('click',()=>{const sell=$('sellToken').value;$('sellToken').value=$('buyToken').value;$('buyToken').value=sell;invalidate();schedule();});
 $('refreshButton').addEventListener('click',()=>loadOptions());
 $('autoQuote').addEventListener('change',()=>{$('autoQuote').checked?schedule():clearTimeout(state.debounce);});

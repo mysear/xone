@@ -1,5 +1,6 @@
 pub mod evm_fixture;
 pub mod revm_backend;
+pub mod solana_sbf;
 pub mod worker;
 use serde::{Deserialize, Serialize};
 use serde_json::json;

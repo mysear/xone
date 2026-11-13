@@ -155,6 +155,14 @@ pub(super) async fn prepare(
         .ok_or_else(|| failure(bad()))?
         .remove("preparationHash");
     result["preparationHash"] = hash(&result).map_err(failure)?.into();
+    solana_simulation::store(
+        &api,
+        s.view.clone(),
+        s.context.clone(),
+        s.pool.clone(),
+        &result,
+    )
+    .map_err(failure)?;
     Ok(Json(result))
 }
 async fn prepare_inner(api: &Api, s: &Selection, request: Request) -> Result<Value> {

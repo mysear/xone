@@ -897,3 +897,7 @@ pipeline-foundation-current-check:
 .PHONY: raydium-preparation-current-check
 raydium-preparation-current-check:
 	python3 tools/acceptance/validate_raydium_preparation.py
+
+.PHONY: solana-independent-current-check
+solana-independent-current-check:
+	python3 tools/acceptance/validate_solana_independent.py

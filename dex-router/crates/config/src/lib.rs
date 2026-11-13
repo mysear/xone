@@ -72,6 +72,8 @@ config_struct!(State {
 #[serde(deny_unknown_fields)]
 pub struct Api {
     pub listen: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub solana_runtime_manifest: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cors_allowed_origins: Vec<String>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -714,6 +716,12 @@ impl Config {
             || j.poll_interval_ms == 0
             || j.request_timeout_ms == 0
             || !(1024..=67108864).contains(&j.max_payload_bytes)
+        {
+            return Err(fail());
+        }
+        if self.api.solana_runtime_manifest.len() > 4096
+            || self.api.solana_runtime_manifest.contains('\0')
+            || (expected != "dex-router" && !self.api.solana_runtime_manifest.is_empty())
         {
             return Err(fail());
         }

@@ -1464,3 +1464,10 @@ BINDINGS['14.raydium-preparation']={
  'tests':['raydium_preparation_checks_real_account_closure_and_original_sbf_net_credits','test_rehashed_fee_cannot_override_real_native_debit','test_recompiled_recipient_mutation_is_rejected'],
  'evidence_refs':['integration/artifacts/local/core-raydium-preparation-validation-20261113.json'],
 }
+
+
+BINDINGS['15.local-sbf-service']={
+ 'paths':['dex-router/crates/simulation/src/solana_sbf.rs','dex-router/crates/simulation/workers/solana_sbf.py','dex-router/crates/quote-api/src/solana_simulation.rs','dex-router/crates/quote-api/tests/solana_independent.rs','integration/tools/ci/solana-sbf-runtime-manifests.py','integration/tools/acceptance/validate_solana_independent.py'],
+ 'tests':['isolated_sbf_executes_actual_unsigned_wire_and_enforces_real_compute_limit','sbf_manifest_refuses_runtime_bank_or_path_changes_before_execution','api_independent_sbf_binds_actual_preparation_and_rejects_quote_or_view_changes','optional_solana_runtime_manifest_is_explicit_bounded_and_omitted_by_default','TestSolanaRuntimeManifestCannotRunInsideParser'],
+ 'evidence_refs':['integration/artifacts/local/core-solana-independent-validation-20261113.json'],
+}

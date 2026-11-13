@@ -1658,3 +1658,14 @@ Raydium CPMM固定f4b9b263经典SPL模型新增独立输出驱动ExactOut，精�
 原SBF实际后状态与原native helper数学账本分别验证。ObservationState::update即使不到十五秒换槽阈值也会累计价格、改写last_update_timestamp；独立参考必须调用原函数比对完整4075字节，不能用“oracle不变”替代。输入上限减一必须回滚所有交易账户，仅允许网络费扣款。仍不获得生产VERIFIED或钱包提交能力。
 
 阶段63本批同源码有限验收通过：41检查、35次Rust测试执行、30项真实Chrome联调；源码`1eebd84144b09042493000f64ca1d5ad7d1f14f4049fd56b5483774c3234b4e1`。3组Raydium实际wire原SBF/输入减一回滚、完整Pool/vault/Oracle与原13组Meteora历史回归通过。独立模拟服务/钱包仍继续后续主线。
+
+
+### 配置化本地SBF独立执行（阶段64）
+
+api.solana_runtime_manifest为空时保持关闭。Router加载manifest后核对Python、43个运行时文件和本地bank摘要，复制运行时到私有目录并嵌入自身固定worker；禁止相对逃逸和任意包/扩展路径。配置字段在两Rust/Go一致，解析服务非空拒绝。
+
+POST /v1/quotes/{id}/preparations/{hash}/simulate-independent从服务器缓存选择已经验证的unsigned字节，独立Python进程实际运行原SBF/Token CPI。Pool/bank模型及程序/账户布局、Clock/epoch、Meteora原bin/oracle/vault和Raydium账本一致检查；收付、原生余额/租金/手续费、withheld与准备结果核对，原银行未提交变化。原协议代码不调用Router数学。
+
+有界输入/输出、并发、deadline和真实compute budget；worker取消/失败终止子进程。返回LOCAL_SBF_SIMULATED和runtime/bank/worker/wire/后账户摘要及evidenceHash，仍标记受控本地银行、非生产资格。普通RPC模拟接口保持独立。preparation缓存仅256项，绑定quoteId和当前QuoteView；重组/期限/参数变化不能复用证据。钱包签名与广播仍待后续接入。
+
+阶段64同源码有限验收通过：46检查、39次Rust测试执行、34项Chrome联调，源码`6c475c5b77de9062690a7f658342f05e751399b7d54d09ffb61a9bf18bc83429`。隔离实际wire、真实CU/金额/Token2022 withheld、原银行不提交变化、缓存QuoteView绑定和各拒绝场景均通过，签名/广播/回执继续后续主线。

@@ -83,13 +83,14 @@ type State struct {
 	Path   string `json:"path"`
 }
 type API struct {
-	Listen             string   `json:"listen"`
-	AuthToken          string   `json:"auth_token,omitempty"`
-	CORSAllowedOrigins []string `json:"cors_allowed_origins,omitempty"`
-	MaxBody            int      `json:"max_body_bytes"`
-	RPM                uint64   `json:"requests_per_minute"`
-	QuoteTimeoutMS     uint64   `json:"quote_timeout_ms"`
-	QuoteConcurrency   int      `json:"quote_concurrency"`
+	SolanaRuntimeManifest string   `json:"solana_runtime_manifest,omitempty"`
+	Listen                string   `json:"listen"`
+	AuthToken             string   `json:"auth_token,omitempty"`
+	CORSAllowedOrigins    []string `json:"cors_allowed_origins,omitempty"`
+	MaxBody               int      `json:"max_body_bytes"`
+	RPM                   uint64   `json:"requests_per_minute"`
+	QuoteTimeoutMS        uint64   `json:"quote_timeout_ms"`
+	QuoteConcurrency      int      `json:"quote_concurrency"`
 }
 type Routing struct {
 	MaxHops        int           `json:"max_hops"`
@@ -478,6 +479,9 @@ func (c Config) Validate(expected string) error {
 	}
 	if (c.Journal.Transport != "http-development" && c.Journal.Transport != "kafka") || c.Journal.PollMS == 0 || c.Journal.TimeoutMS == 0 || c.Journal.MaxBytes < 1024 || c.Journal.MaxBytes > 67108864 {
 		return invalid()
+	}
+	if len(c.API.SolanaRuntimeManifest) > 4096 || strings.ContainsRune(c.API.SolanaRuntimeManifest, 0) || (expected != "dex-router" && c.API.SolanaRuntimeManifest != "") {
+		return errors.New("invalid Solana runtime manifest")
 	}
 	if len(c.API.CORSAllowedOrigins) > 32 {
 		return invalid()

@@ -22,9 +22,12 @@ struct Control {
 async fn main() {
     let args = std::env::args().collect::<Vec<_>>();
     assert_eq!(args.len(), 3, "frontend-harness INFO_FILE FRONTEND_ORIGIN");
+    let runtime = std::env::var("XONE_TEST_SBF_MANIFEST_DIR").ok();
+    let runtime_path = |name: &str| runtime.as_ref().map(|r| format!("{r}/{name}.json"));
     let token2022 = Bank::token2022(1);
     let (token2022_rpc, token2022_rpc_task) = token2022.serve().await;
-    let (mut token2022_api, _) = token2022.api(&token2022_rpc);
+    let (mut token2022_api, _) =
+        token2022.api_with_manifest(&token2022_rpc, runtime_path("token2022").as_deref());
     Arc::make_mut(&mut token2022_api.config)
         .config
         .api
@@ -38,7 +41,8 @@ async fn main() {
     });
     let raydium = Bank::raydium(0);
     let (raydium_rpc, raydium_rpc_task) = raydium.serve().await;
-    let (mut raydium_api, _) = raydium.api(&raydium_rpc);
+    let (mut raydium_api, _) =
+        raydium.api_with_manifest(&raydium_rpc, runtime_path("raydium").as_deref());
     Arc::make_mut(&mut raydium_api.config)
         .config
         .api
@@ -53,7 +57,7 @@ async fn main() {
     let bank = Bank::new();
     let wsol = Bank::wsol(None);
     let (wsol_rpc, wsol_rpc_task) = wsol.serve().await;
-    let (mut wsol_api, _) = wsol.api(&wsol_rpc);
+    let (mut wsol_api, _) = wsol.api_with_manifest(&wsol_rpc, runtime_path("wsol").as_deref());
     Arc::make_mut(&mut wsol_api.config)
         .config
         .api
@@ -66,7 +70,7 @@ async fn main() {
             .unwrap();
     });
     let (rpc, rpc_task) = bank.serve().await;
-    let (mut api, snapshot) = bank.api(&rpc);
+    let (mut api, snapshot) = bank.api_with_manifest(&rpc, runtime_path("meteora").as_deref());
     Arc::make_mut(&mut api.config)
         .config
         .api

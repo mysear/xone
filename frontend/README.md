@@ -98,3 +98,8 @@ Token2022收款ATA（阶段61）：对已经接入的Meteora转账费版本，�
 Raydium CPMM执行准备（阶段63）：经典SPL已有输入/输出账户可检查、生成ExactIn/ExactOut unsigned交易并进行RPC模拟；缺失账户仍阻塞。该协议的自动建户和SOL包装/解包尚未实现，界面会禁用对应选项。前端也会在元数据刷新时核对协议能力视图，版本变化撤销旧报价/下载。
 
 复验：`make -C ../integration raydium-preparation-current-check`；本地数据恢复工具为`integration/tools/ci/raydium-execution-bank.py`，依赖已有保留原账户银行/原native参考。
+
+
+独立本地SBF模拟（阶段64）：配置Router的api.solana_runtime_manifest后，当前池存在匹配银行时可在执行准备完成后点击“独立本地模拟”。返回实际输入/输出、CU和证据摘要；这是原SBF执行受控本地bank，普通RPC模拟与生产资格仍分别标识。更换报价、账户或准备选项会清空旧证据；接口不签名、不广播。
+
+生成测试manifest：`python3 integration/tools/ci/solana-sbf-runtime-manifests.py`（在项目根目录执行），需已有固定原银行/运行时；复验`make -C ../integration solana-independent-current-check`。

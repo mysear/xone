@@ -348,3 +348,21 @@ func TestCORSOriginsAreBoundedAndRejectCredentialsAndPaths(t *testing.T) {
 		}
 	}
 }
+
+func TestSolanaRuntimeManifestCannotRunInsideParser(t *testing.T) {
+	s, err := Load("../../config/config-test.yaml", "chain-parser-go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(s.Config.API)
+	if err != nil || strings.Contains(string(raw), "solana_runtime_manifest") {
+		t.Fatal("empty manifest must retain canonical config", err)
+	}
+	for _, path := range []string{"/tmp/sbf.json", "x\x00bad", strings.Repeat("a", 4097)} {
+		c := s.Config
+		c.API.SolanaRuntimeManifest = path
+		if c.Validate("chain-parser-go") == nil {
+			t.Fatal("parser accepted execution runtime", path)
+		}
+	}
+}

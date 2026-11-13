@@ -4,6 +4,9 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 [dependencies]
+base64.workspace = true
+tokio.workspace = true
+tempfile = "=3.27.0"
 revm = { version = "=19.7.0", default-features = false, features = ["std", "secp256k1", "portable", "memory_limit"] }
 xone-domain = { path = "../domain" }
 xone-execution-plan = { path = "../execution-plan" }
@@ -16,3 +19,4 @@ reqwest.workspace = true
 [dev-dependencies]
 xone-routing = { path = "../routing" }
 xone-optimizer = { path = "../optimizer" }
+

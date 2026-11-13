@@ -425,6 +425,7 @@
 |14.token2022-preparation|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Meteora限定Token2022收款ATA创建、扩展租金、净到账/withheld及SOL退款组合已通过原程序和前端联验|仍限TransferFeeConfig/TransferFeeAmount和ImmutableOwner；其他扩展、协议和链组合待补|[本批验证](integration/artifacts/local/core-token2022-preparation-validation-20261113.json)|
 |12.pipeline-foundation|WP03,WP05,WP09,WP11,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium creator独立ExactOut、协议子QuoteView/能力标签及独立preparation组件开发与联验|按用户六阶段主线持续补协议适配、unsigned、独立模拟和钱包/回执；不把能力未实现标签当完成|[本批验证](integration/artifacts/local/core-pipeline-foundation-validation-20261113.json)|
 |14.raydium-preparation|WP05,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium程序/config/池/vault/mint/时钟/observation闭包校验、unsigned指令及模拟净收付实现并联验|仅已有经典SPL账户；Raydium建户/包装/解包及其他协议仍按模型能力单独补，签名广播未开放|[本批验证](integration/artifacts/local/core-raydium-preparation-validation-20261113.json)|
+|15.local-sbf-service|WP05,WP09,WP15,WP16,WP25|PARTIAL_LOCAL|独立原SBF执行缓存unsigned交易、摘要/预算/源银行不变及quote/preparation/view证据绑定实现|受控本地银行与固定运行时范围；可信历史/生产资格、其他协议和钱包/回执继续补齐|[验证记录](integration/artifacts/local/core-solana-independent-validation-20261113.json)|
 
 <a id="batch-history"></a>
 
@@ -494,6 +495,7 @@
 |61|[Token2022收款ATA与转账费联调](#plan-2026-11-13-token2022-preparation)|LOCAL_SCOPE_VERIFIED|30项检查/15次Rust测试执行/27项真实Chrome业务联调通过；178/182账户、epoch/cap/100%费率、混合租金退款和13原执行/回滚检查通过；[本批记录](integration/artifacts/local/core-token2022-preparation-validation-20261113.json)|
 |62|[六阶段业务链路主线与协议视图](#plan-2026-11-13-six-stage-pipeline)|LOCAL_SCOPE_VERIFIED|本批36检查/34次Rust测试执行/28项真实Chrome联调通过；Raydium 1832单笔+54序列步、61模型目录/协议视图、独立preparation及13原SBF回归通过；六阶段整体仍继续；[验证记录](integration/artifacts/local/core-pipeline-foundation-validation-20261113.json)|
 |63|[Raydium动态账户与unsigned交易](#plan-2026-11-13-raydium-preparation)|LOCAL_SCOPE_VERIFIED|Raydium经典SPL单池ExactIn/ExactOut动态账户闭包、实际指令/只读原SBF模拟及前端下载已通过预检，完整Oracle更新及输入减一回滚已补原源码比对；[本批验证](integration/artifacts/local/core-raydium-preparation-validation-20261113.json)|
+|64|[配置化隔离SBF独立模拟](#plan-2026-11-13-local-sbf-service)|LOCAL_SCOPE_VERIFIED|显式运行时/银行摘要、隔离子进程与CU预算，缓存preparation/计划/协议视图绑定和实际收付款校验已预检，前端联验中；[验证记录](integration/artifacts/local/core-solana-independent-validation-20261113.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -1966,3 +1968,26 @@ PumpSwap卖出目标按至少实际到账处理：三ceil fee导致净输出不�
 复验make -C integration raydium-preparation-current-check；最终同源码有限验收：源码`1eebd84144b09042493000f64ca1d5ad7d1f14f4049fd56b5483774c3234b4e1`，41项检查、35次Rust测试执行、30项真实Chrome联调全部通过。Raydium浏览器下载+双向API wire共3原SBF交易与对应最大输入减一回滚，完整Pool/vault/Oracle和真实用户收付通过；13组既有Meteora/Token2022/WSOL原执行回归通过。306份合同及工具副本、公共协议、严格Clippy、前端模型/桌面移动布局、普通/-OO篡改和进度检查通过。编译/测试辅助参数与oracle不变假设的失败记录保留，修复后按最终源码重新统一复验，不计旧失败为通过。harness和静态服务器均已退出，无公网交易。all_requested_features_complete=false、production_ready=false，六阶段主线继续。
 
 阶段63继续六阶段主线：Raydium既有账户preparation/unsigned模板已完成注明范围；其他选项/协议仍按能力独立补齐。下一项为配置化隔离原SBF模拟服务及证据缓存绑定，再接钱包签名/广播/确认/回执，不将本批RPC_SIMULATED当独立生产VERIFIED。
+
+
+<a id="plan-2026-11-13-local-sbf-service"></a>
+
+## 配置化隔离SBF独立模拟（2026-11-13，阶段64）
+
+继续六阶段主线第5项，将原SBF预算原型接入Router服务。新增可选api.solana_runtime_manifest，默认空/不改变既有配置摘要，两个解析服务不得加载该执行运行时；三服务配置保持字段一致。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F64.1|显式运行时与银行manifest|WP05,WP15,WP25|PARTIAL_LOCAL|manifest绑定Python可执行文件、Solders0.29.0运行时成员、账户银行文件SHA256及chain/genesis；43个运行时文件校验后复制至私有临时目录，不复制缓存字节码/任意路径。银行仅作为受控本地执行来源。|
+|F64.2|独立子进程与预算|WP15,WP25|PARTIAL_LOCAL|使用独立-I/-S/-B Python进程，仅stdin接收本地bank+actual unsigned bytes；原SBF/Token CPI执行，真实CU1..1400000限制、100..15000ms deadline、并发1..8和输入/输出字节限制；异常/超时杀进程。|
+|F64.3|快照和金额校验|WP05,WP09,WP15,WP25|PARTIAL_LOCAL|选用完整Pool模型匹配银行；原账户/程序/Clock/bin/vault与模型核对；模拟前后银行不提交变更；验证真实用户净收付、payer原生变化、费用租金及Token2022 withheld，不接受Router自己重算代替实际VM执行。|
+|F64.4|preparation缓存与API证据|WP09,WP15,WP16,WP25|PARTIAL_LOCAL|只接收缓存preparationHash，不允许客户端提交任意模拟交易；接口绑定quoteId/planHash/QuoteView/协议视图，前后检查当前视图/过期，证据绑定runtime/bank/worker/wire摘要。缓存按256项上限和期限清理。|
+|F64.5|前端独立模拟与拒绝场景|WP16,WP25|PARTIAL_LOCAL|页面增加独立本地模拟按钮，仅在当前池runtime银行可用且准备完成时启用；选项/报价变化清空旧证据，旧响应不得恢复；原SBF子进程、manifest变更、真实CU不足及API换报价/撤权已预检。|
+
+新接口POST /v1/quotes/{id}/preparations/{preparationHash}/simulate-independent。返回LOCAL_SBF_SIMULATED，含actualInput/actualOutput/feeLamports/payerLamportDelta/unitsConsumed/sourceBankUnchanged、完整VM后账户数据摘要及evidenceHash；signed=false、submitted=false、independentProductionVerification=false。独立执行是对实际wire运行原程序；“本地独立”与“可信生产来源”仍是两项独立要求，生产VERIFIED/build不因本接口而放开。
+
+当前manifest对应已保留的Meteora经典/Token2022和Raydium经典银行，模拟仅用于固定受控状态；原blockhash过期检查仅在隔离bank显式跳过，不能作为当前网络可提交证据。运行时隔离用于避免污染主进程并执行超时/输出/VM预算，不宣称宿主OS安全沙箱或完整共识实现。
+
+测试数据/manifest生成：integration/tools/ci/solana-sbf-runtime-manifests.py，生成本地服务专用fixture副本，非提交文件。旧阶段60下载wire仅投影新增DTO字段并重算fixture commitment，原wire字节不改写、旧验收凭证不覆盖。复验make -C integration solana-independent-current-check；最终同源码有限验收：源码`6c475c5b77de9062690a7f658342f05e751399b7d54d09ffb61a9bf18bc83429`，46项检查、39次Rust测试执行、34项真实Chrome业务联调全部通过。配置三服务兼容/禁止解析服务运行、308份合同工具副本、公共协议、严格Clippy和普通/-OO文档及反例通过。Meteora解包699→1000、Token2022退款1502→1000、Raydium4→1000的实际缓存wire在隔离原SBF执行，真实CU42762/70140/24999；CU1失败、runtime/bank/Python摘要变化、路径逃逸、金额篡改/银行未变、换quote和视图撤权拒绝均通过。前端3协议独立按钮、参数变化撤销旧证据、父/协议视图一致及桌面移动布局通过；原16组交易/回滚参考继续通过。早期字段投影与依赖/Go导入问题已修复，失败预检保留不计通过；最终运行按独立目录冻结下载/源码/工具/运行时/银行摘要。测试服务已结束，无公网交易。六阶段主线及其余协议/钱包/回执继续，all_requested_features_complete=false、production_ready=false。
+
+阶段64之后继续F62.6钱包生命周期：已做Wallet Standard只签名接口原型和精确消息校验方案，尚未接入正式签名/广播/回执接口，不提前标记完成。其他协议范围及可信生产来源/执行资格仍保留，六阶段主线继续。

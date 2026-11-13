@@ -3817,12 +3817,15 @@ dependencies = [
 name = "xone-simulation"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "hex",
  "reqwest",
  "revm",
  "serde",
  "serde_json",
  "sha2",
+ "tempfile",
+ "tokio",
  "xone-domain",
  "xone-execution-plan",
  "xone-optimizer",

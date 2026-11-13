@@ -99,6 +99,13 @@ impl Bank {
         (format!("http://{addr}"), task)
     }
     pub fn api(&self, rpc: &str) -> (xone_quote_api::Api, Snapshot) {
+        self.api_with_manifest(rpc, None)
+    }
+    pub fn api_with_manifest(
+        &self,
+        rpc: &str,
+        manifest: Option<&str>,
+    ) -> (xone_quote_api::Api, Snapshot) {
         let mut c = xone_config::load(
             concat!(env!("CARGO_MANIFEST_DIR"), "/../../config/config-test.yaml"),
             "dex-router",
@@ -117,6 +124,9 @@ impl Bank {
         let mut amm_chain = c.config.chains[1].clone();
         amm_chain.key = "solana:amm-local".into();
         c.config.chains.push(amm_chain);
+        if let Some(path) = manifest {
+            c.config.api.solana_runtime_manifest = path.into();
+        }
         let api = xone_quote_api::Api::new(c).unwrap();
         let p: Pool = serde_json::from_value(self.data["pool"].clone()).unwrap();
         let mut s: Snapshot =
