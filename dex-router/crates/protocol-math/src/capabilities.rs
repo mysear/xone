@@ -1,7 +1,7 @@
 //! Versioned capabilities describe admitted kernels, not live RPC/account readiness.
 use serde::{Deserialize, Serialize};
 use xone_domain::{Pool, Result};
-pub const VERSION: &str = "xone-protocol-capabilities/2";
+pub const VERSION: &str = "xone-protocol-capabilities/3";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolCapabilities {
@@ -21,6 +21,8 @@ pub struct ProtocolCapabilities {
     pub native_funding: bool,
     pub independent_simulation: bool,
     pub wallet_submission: bool,
+    pub independent_production_verification: bool,
+    pub production_ready: bool,
     pub execution_blocker: Option<String>,
 }
 pub fn describe(pool: &Pool) -> Result<ProtocolCapabilities> {
@@ -83,8 +85,10 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
         rpc_simulation: prepared,
         account_creation: meteora,
         native_funding: meteora,
-        independent_simulation: false,
-        wallet_submission: false,
+        independent_simulation: prepared,
+        wallet_submission: prepared,
+        independent_production_verification: false,
+        production_ready: false,
         execution_blocker: if profile.is_none() {
             Some("PROTOCOL_UNSUPPORTED".into())
         } else {

@@ -29,4 +29,5 @@ tower-http = { version = "0.6.11", features = ["cors"] }
 xone-kafka-transport = { path = "../kafka-transport" }
 
 [dev-dependencies]
+tempfile = "=3.27.0"
 tower = { version = "0.5", features = ["util"] }

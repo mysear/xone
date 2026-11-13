@@ -901,3 +901,7 @@ raydium-preparation-current-check:
 .PHONY: solana-independent-current-check
 solana-independent-current-check:
 	python3 tools/acceptance/validate_solana_independent.py
+
+.PHONY: wallet-lifecycle-current-check
+wallet-lifecycle-current-check:
+	python3 tools/acceptance/validate_wallet_lifecycle.py

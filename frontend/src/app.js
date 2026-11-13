@@ -1,9 +1,11 @@
+import {createWalletRegistry,connectWallet,signPreparedTransaction} from './wallet.js';
 import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, escapeHtml as esc} from './model.js';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, quote:null, preparation:null, independent:null, independentAbort:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
+const walletState={wallets:[],connection:null,unsubscribe:null,signed:null,receipt:null,receiptBase:null,timer:null,submitting:false,signing:false};
 const apiBase = $('apiBase');
-apiBase.value = params.get('api') || localStorage.getItem('xone-api-base') || 'http://127.0.0.1:8080';
+apiBase.value = sessionStorage.getItem(`xone-api-base:${location.pathname}${location.search}`) || params.get('api') || localStorage.getItem('xone-api-base') || 'http://127.0.0.1:8080';
 localStorage.removeItem('xone-api-token');
 function base() {
   const url = new URL(apiBase.value);
@@ -20,7 +22,7 @@ function fill(id, values, wanted=$(id).value) {
   if ([...$(id).options].some(o=>o.value===wanted)) $(id).value=wanted;
 }
 function invalidate(message='输入或状态已变化，请重新计算') {
-  ++state.quoteSeq; ++state.prepareSeq;
+  ++state.quoteSeq; ++state.prepareSeq;resetWalletSigning();
   state.quoteAbort?.abort(); state.prepareAbort?.abort(); clearTimeout(state.debounce);
   state.quote=null; state.preparation=null; state.independent=null;state.independentAbort?.abort();$('independentButton').disabled=true;
   $('downloadButton').disabled=true; $('prepareButton').disabled=true;
@@ -89,7 +91,7 @@ async function loadOptions(silent=false) {
     tokens(); badge('healthBadge','已连接','ok');
     if (changed || oldSell!==$('sellToken').value || oldBuy!==$('buyToken').value) {invalidate('解析状态已更新，请重新计算'); schedule();}
     if (!next?.ready) invalidate('当前链未就绪，等待解析状态恢复');
-    localStorage.setItem('xone-api-base',address); sessionStorage.setItem(`xone-api-token:${address}`,credential);
+    localStorage.setItem('xone-api-base',address); sessionStorage.setItem(`xone-api-base:${location.pathname}${location.search}`,address); sessionStorage.setItem(`xone-api-token:${address}`,credential);resumeReceipt();refreshWalletActions();
   } catch (e) {
     if (seq!==state.optionsSeq || e.name==='AbortError') return;
     badge('healthBadge','连接失败','bad'); badge('stateBadge','状态不可确认','bad');
@@ -127,13 +129,13 @@ $('quoteForm').addEventListener('submit',async event=>{
   } catch(e) {if (seq===state.quoteSeq && e.name!=='AbortError') {invalidate('没有可用报价'); error(e.message);badge('stateBadge','报价失败','bad');}}
 });
 $('prepareButton').addEventListener('click',async()=>{
-  const q=state.quote; if (!q) return; const seq=state.quoteSeq, prepSeq=++state.prepareSeq; state.preparation=null;state.independent=null;state.independentAbort?.abort();$('independentButton').disabled=true; $('downloadButton').disabled=true; $('prepareButton').disabled=true; $('preparation').textContent='正在核对账户…';
+  const q=state.quote; if (!q) return; const seq=state.quoteSeq, prepSeq=++state.prepareSeq; state.preparation=null;state.independent=null;state.independentAbort?.abort();resetWalletSigning();$('independentButton').disabled=true; $('downloadButton').disabled=true; $('prepareButton').disabled=true; $('preparation').textContent='正在核对账户…';
   try {
     const payload={createDestinationAta:$('createDestinationAta').checked,simulate:$('simulatePreparation').checked,wrapSourceSol:$('wrapSourceSol').checked,refundWrappedSource:$('refundWrappedSource').checked,unwrapDestinationSol:$('unwrapDestinationSol').checked}; if ($('sourceAccount').value.trim()) payload.sourceTokenAccount=$('sourceAccount').value.trim(); if ($('destinationAccount').value.trim()) payload.destinationTokenAccount=$('destinationAccount').value.trim();
     state.prepareAbort=new AbortController();
     const prepared=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/prepare`,{method:'POST',body:JSON.stringify(payload),signal:state.prepareAbort.signal});
     if (seq!==state.quoteSeq || prepSeq!==state.prepareSeq || state.quote!==q) return;
-    state.preparation=prepared; $('downloadButton').disabled=!prepared.ready;
+    state.preparation=prepared; $('downloadButton').disabled=!prepared.ready;refreshWalletActions();
     $('independentButton').disabled=!prepared.ready || !(chain()?.pools||[]).some(p=>p.execution?.independentLocalSimulation&&(q.routes||[]).some(r=>(r.path?.edges||r.edges||[]).some(e=>e.pool_id===p.poolId)));
     const wrapText=prepared.wrapLamports && prepared.wrapLamports!=='0'?` · SOL包装 ${prepared.wrapLamports} lamports${prepared.sourceWsolRetained?' · 预计剩余 '+prepared.expectedResidualWsol+' WSOL最小单位，余额仍保留为WSOL':' · 未用资金通过本次临时账户关闭转回SOL'}`:'';
     const tokenFeeText=prepared.destinationTokenProgram==='TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'?` · Token2022转账费 ${prepared.expectedDestinationTransferFee} 最小单位 · 收款账户 ${prepared.destinationAccountSize} 字节`:'';
@@ -144,12 +146,12 @@ $('prepareButton').addEventListener('click',async()=>{
 });
 $('independentButton').addEventListener('click',async()=>{
   const q=state.quote,p=state.preparation,seq=state.quoteSeq,preparationSeq=state.prepareSeq;if(!q||!p?.ready)return;
-  state.independentAbort?.abort();state.independentAbort=new AbortController();state.independent=null;$('independentButton').disabled=true;
+  state.independentAbort?.abort();state.independentAbort=new AbortController();state.independent=null;resetWalletSigning();$('independentButton').disabled=true;
   try{
     const evidence=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/preparations/${encodeURIComponent(p.preparationHash)}/simulate-independent`,{method:'POST',signal:state.independentAbort.signal});
     if(seq!==state.quoteSeq||preparationSeq!==state.prepareSeq||state.preparation!==p)return;
     if(evidence.preparationHash!==p.preparationHash||evidence.planHash!==q.planHash||evidence.quoteViewId!==q.quoteViewId||evidence.success!==true)throw new Error('独立模拟证据与当前交易不一致');
-    state.independent=evidence;$('preparation').textContent+=` · 独立本地SBF模拟通过，实际输入 ${evidence.actualInput} / 到账 ${evidence.actualOutput}，CU ${evidence.unitsConsumed}，证据 ${evidence.evidenceHash}（受控银行，生产资格未开放）`;
+    state.independent=evidence;refreshWalletActions();$('preparation').textContent+=` · 独立本地SBF模拟通过，实际输入 ${evidence.actualInput} / 到账 ${evidence.actualOutput}，CU ${evidence.unitsConsumed}，证据 ${evidence.evidenceHash}（受控银行，生产资格未开放）`;
   }catch(e){if(seq===state.quoteSeq&&preparationSeq===state.prepareSeq&&e.name!=='AbortError'){$('preparation').textContent=`独立模拟失败：${e.message}`;state.independent=null;}}
   finally{if(seq===state.quoteSeq&&preparationSeq===state.prepareSeq)$('independentButton').disabled=false;}
 });
@@ -159,7 +161,7 @@ $('downloadButton').addEventListener('click',()=>{
 });
 $('chainKey').addEventListener('change',()=>{invalidate(); tokens();schedule();});
 for (const id of ['sellToken','buyToken','quoteKind','amount','maxSell','caller','recipient','slippageBps','maxHops']) $(id).addEventListener('input',()=>{invalidate();modes();schedule();});
-for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation','wrapSourceSol','refundWrappedSource','unwrapDestinationSol']) $(id).addEventListener('input',()=>{modes();++state.prepareSeq;state.prepareAbort?.abort();state.preparation=null;state.independent=null;state.independentAbort?.abort();$('independentButton').disabled=true;$('downloadButton').disabled=true;$('prepareButton').disabled=!state.quote;$('preparation').textContent='执行准备参数已变化，请重新检查';});
+for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation','wrapSourceSol','refundWrappedSource','unwrapDestinationSol']) $(id).addEventListener('input',()=>{modes();++state.prepareSeq;state.prepareAbort?.abort();state.preparation=null;state.independent=null;state.independentAbort?.abort();resetWalletSigning();$('independentButton').disabled=true;$('downloadButton').disabled=true;$('prepareButton').disabled=!state.quote;$('preparation').textContent='执行准备参数已变化，请重新检查';});
 $('flipButton').addEventListener('click',()=>{const sell=$('sellToken').value;$('sellToken').value=$('buyToken').value;$('buyToken').value=sell;invalidate();schedule();});
 $('refreshButton').addEventListener('click',()=>loadOptions());
 $('autoQuote').addEventListener('change',()=>{$('autoQuote').checked?schedule():clearTimeout(state.debounce);});
@@ -170,4 +172,71 @@ $('apiToken').addEventListener('change',connectionChanged);
 // Poll metadata every ten seconds and check quote expiry every second.
 let nextPoll=Date.now()+10000;
 state.timer=setInterval(()=>{const now=Date.now(); if(now>=nextPoll){nextPoll=now+10000;if($('autoRefresh').checked&&!document.hidden)loadOptions(true);} if(state.quote && now>=state.quote.validity.expiresAtMs){invalidate('报价已过期，请重新计算');schedule();}},1000);
+function resetWalletSigning(){
+  walletState.signed=null;$('confirmSubmission').checked=false;$('confirmSubmission').disabled=true;$('walletSign').disabled=true;$('walletSubmit').disabled=true;
+}
+function submissionAvailable(){return (chain()?.pools||[]).some(p=>p.execution?.walletSubmission&&(state.quote?.routes||[]).some(r=>(r.path?.edges||r.edges||[]).some(e=>e.pool_id===p.poolId)));}
+function refreshWalletActions(){
+  const connected=walletState.connection,q=state.quote,p=state.preparation;
+  const valid=Boolean(q&&p?.ready&&state.independent?.success&&Date.now()<q.validity.expiresAtMs&&connected?.account.address===$('caller').value.trim()&&submissionAvailable());
+  $('walletSign').disabled=!valid||walletState.signing;const signed=valid&&walletState.signed?.preparationHash===p?.preparationHash;
+  $('confirmSubmission').disabled=!signed;$('walletSubmit').disabled=!signed||!$('confirmSubmission').checked||walletState.submitting;
+}
+function renderWallets(wallets){
+  walletState.wallets=wallets;const wanted=$('walletSelect').value;
+  $('walletSelect').replaceChildren(...(wallets.length?wallets.map((wallet,i)=>new Option(String(wallet.name||'Wallet').slice(0,128),String(i))):[new Option('未发现钱包','')]));
+  if(wallets.some((_,i)=>String(i)===wanted))$('walletSelect').value=wanted;$('walletConnect').disabled=!wallets.length;
+}
+createWalletRegistry(window,renderWallets);
+$('walletSelect').addEventListener('change',()=>{walletState.unsubscribe?.();walletState.connection=null;resetWalletSigning();$('walletStatus').textContent='钱包已改变，请重新连接';});
+$('walletConnect').addEventListener('click',async()=>{
+  try{
+    const wallet=walletState.wallets[Number($('walletSelect').value)];if(!wallet)throw new Error('未发现可用钱包');
+    const connection=await connectWallet(wallet,$('chainKey').value);walletState.unsubscribe?.();walletState.connection=connection;resetWalletSigning();
+    const changed=$('caller').value.trim()!==connection.account.address;$('caller').value=connection.account.address;if(changed)invalidate('钱包调用方已改变，请重新报价');
+    walletState.unsubscribe=wallet.features['standard:events']?.on('change',()=>{walletState.connection=null;invalidate('钱包账户或链已改变，请重新连接并报价');$('walletStatus').textContent='钱包状态已改变';});
+    $('walletStatus').textContent=`已连接 ${wallet.name} · ${connection.account.address} · ${connection.chain}`;refreshWalletActions();
+  }catch(e){walletState.connection=null;resetWalletSigning();$('walletStatus').textContent=e.message;}
+});
+$('walletSign').addEventListener('click',async()=>{
+  const q=state.quote,p=state.preparation,evidence=state.independent,connection=walletState.connection,seq=state.quoteSeq,preparationSeq=state.prepareSeq;
+  if(!q||!p||!connection||walletState.signing)return;walletState.signing=true;$('walletSign').disabled=true;
+  try{
+    const signed=await signPreparedTransaction(connection,{chainKey:q.chainKey,caller:$('caller').value.trim(),planHash:q.planHash,quoteViewId:q.quoteViewId,expiresAtMs:q.validity.expiresAtMs},p,evidence);
+    if(seq!==state.quoteSeq||preparationSeq!==state.prepareSeq||walletState.connection!==connection||state.preparation!==p)return;
+    const verified=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/preparations/${encodeURIComponent(p.preparationHash)}/verify-signature`,{method:'POST',body:JSON.stringify({signedTransaction:signed.signedTransaction,evidenceHash:signed.evidenceHash})});
+    if(seq!==state.quoteSeq||preparationSeq!==state.prepareSeq||walletState.connection!==connection)return;
+    if(Date.now()>=q.validity.expiresAtMs)throw new Error('签名校验返回时报价已过期，请重新计算');
+    if(verified.preparationHash!==p.preparationHash||verified.evidenceHash!==signed.evidenceHash||verified.signed!==true||verified.submitted!==false)throw new Error('签名校验结果与当前交易不一致');
+    walletState.signed={...signed,signature:verified.signature};$('walletStatus').textContent=`签名和消息字节校验通过，尚未广播 · ${verified.signature}`;refreshWalletActions();
+  }catch(e){if(seq===state.quoteSeq&&preparationSeq===state.prepareSeq){resetWalletSigning();$('walletStatus').textContent=`签名未完成：${e.message}`;}}
+  finally{walletState.signing=false;refreshWalletActions();}
+});
+$('confirmSubmission').addEventListener('change',refreshWalletActions);
+function showReceipt(receipt){
+  walletState.receipt=receipt;$('receiptRefresh').disabled=false;
+  const settlement=receipt.settlement;const states={SUBMITTING:'正在发送或结果待核对',SUBMITTED:'RPC已接受，等待链上确认',UNKNOWN:'发送或链上状态不明确，按签名查询',PROCESSED:'已处理，等待确认',RECEIPT_PENDING:'链上状态已返回，等待回执校验',CONFIRMED:'已确认，等待最终确认',FINALIZED:'已最终确认',FAILED:'链上执行失败',EXPIRED:'有效期已过且当前节点未观察到签名',SETTLEMENT_MISMATCH:'链上回执或收付不一致'};
+  $('transactionReceipt').textContent=`${states[receipt.state]||receipt.state} · ${receipt.chainKey} · 收款 ${receipt.recipient} · 签名 ${receipt.signature}${settlement?.verified?' · 实际输入 '+settlement.actualInput+' / 到账 '+settlement.actualOutput+' · 费用 '+settlement.feeLamports+' lamports':''}${receipt.error?' · '+(receipt.error.code||JSON.stringify(receipt.error)):''}`;
+}
+async function refreshReceipt(automatic=false){
+  const receipt=walletState.receipt,address=base();if(!receipt?.signature)return;
+  try{const next=await request(`/v1/transactions/${encodeURIComponent(receipt.signature)}`);if(base()!==address||walletState.receipt?.signature!==receipt.signature)return;showReceipt(next);
+    if(!['FINALIZED','FAILED','EXPIRED','SETTLEMENT_MISMATCH'].includes(next.state)){clearTimeout(walletState.timer);walletState.timer=setTimeout(()=>refreshReceipt(true),2000);}
+  }catch(e){if(base()===address)$('transactionReceipt').textContent=`回执查询未完成：${e.message} · 签名 ${receipt.signature}。可手动刷新；不会重复广播。`;if(!automatic)clearTimeout(walletState.timer);}
+}
+$('receiptRefresh').addEventListener('click',()=>refreshReceipt());
+function resumeReceipt(){
+  const address=base();if(walletState.receiptBase===address)return;walletState.receiptBase=address;clearTimeout(walletState.timer);walletState.receipt=null;$('receiptRefresh').disabled=true;
+  try{const signature=sessionStorage.getItem(`xone-last-transaction:${address}`);if(signature){walletState.receipt={signature};refreshReceipt();}}catch{}
+}
+$('walletSubmit').addEventListener('click',async()=>{
+  const q=state.quote,p=state.preparation,signed=walletState.signed,address=base();if(!q||!p||!signed||!$('confirmSubmission').checked||walletState.submitting)return;
+  if(Date.now()>=q.validity.expiresAtMs){invalidate('报价已过期，请重新计算');return;}
+  walletState.submitting=true;refreshWalletActions();
+  try{const receipt=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/preparations/${encodeURIComponent(p.preparationHash)}/submit`,{method:'POST',body:JSON.stringify({signedTransaction:signed.signedTransaction,evidenceHash:signed.evidenceHash,confirm:true})});
+    if(base()!==address)return;sessionStorage.setItem(`xone-last-transaction:${address}`,receipt.signature);showReceipt(receipt);resetWalletSigning();await refreshReceipt(true);
+  }catch(e){if(base()===address){walletState.receipt={signature:signed.signature};sessionStorage.setItem(`xone-last-transaction:${address}`,signed.signature);$('transactionReceipt').textContent=`发送结果待查询：${e.message} · 签名 ${signed.signature}，不会自动重复广播`;$('receiptRefresh').disabled=false;resetWalletSigning();}}
+  finally{walletState.submitting=false;refreshWalletActions();}
+});
+
 loadOptions();

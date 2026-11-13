@@ -1669,3 +1669,16 @@ POST /v1/quotes/{id}/preparations/{hash}/simulate-independent从服务器缓存�
 有界输入/输出、并发、deadline和真实compute budget；worker取消/失败终止子进程。返回LOCAL_SBF_SIMULATED和runtime/bank/worker/wire/后账户摘要及evidenceHash，仍标记受控本地银行、非生产资格。普通RPC模拟接口保持独立。preparation缓存仅256项，绑定quoteId和当前QuoteView；重组/期限/参数变化不能复用证据。钱包签名与广播仍待后续接入。
 
 阶段64同源码有限验收通过：46检查、39次Rust测试执行、34项Chrome联调，源码`6c475c5b77de9062690a7f658342f05e751399b7d54d09ffb61a9bf18bc83429`。隔离实际wire、真实CU/金额/Token2022 withheld、原银行不提交变化、缓存QuoteView绑定和各拒绝场景均通过，签名/广播/回执继续后续主线。
+
+
+### 钱包签名、显式发送与回执日志（阶段65）
+
+Wallet Standard使用wallet-standard:register-wallet/app-ready和standard:connect、solana:signTransaction（serialized bytes），不调用一键签名发送。用户账户/链必须与quote caller相符；返回交易不得改变已模拟消息，后端ring Ed25519再次验证。私钥始终在钱包，服务不生成用户签名。
+
+api.transaction_submission_enabled默认false；开启必须具备api.solana_runtime_manifest、transaction_receipt_journal、transaction_submission_chains和transaction_max_pending（1..256）。前端prepareHash+evidenceHash绑定，签名返回与参数/协议视图变更撤销。发送前按当前genesis/blockheight/isBlockhashValid/fee/账户重新sigVerify模拟，准备的真实收付/租金/withheld必须仍一致；持久SUBMITTING意图先fsync，再单次sendTransaction。
+
+receipt journal使用独占文件锁、私有文件、序号/哈希链和同步；终端记录及pending恢复不依赖quote缓存，重复请求不重发。RPC丢回包返回UNKNOWN并按签名查询，重启仍保持；完整损坏拒绝、截断尾恢复，追加IO异常停止写入。日志16MiB/4096记录及pending有界，达到限制明确拒绝，不声称无限存储或跨节点锁。
+
+getTransaction必须与原signed wire、caller签名和status slot匹配；实际pre/post token/native余额满足minOut/maxIn才确认结算。Token2022净可用余额/退款持久租金/WSOL解包分别计算；字段缺失或结果不符保持pending/mismatch，不能用计划金额替换实际回执。前端按Router地址保存最后签名和会话选择，刷新查询状态而不重签/重发。所有测试发送仅本地fixture；生产VERIFIED和全协议/链资格不随本功能自动打开。
+
+阶段65最终同源码有限验收通过：51检查、44次Rust测试执行、40项真实Chrome联调，源码`a30eee92f6dd0ecb59d117d3af30dc9201802121b766efc7b2a798bfcfb23814`；八类发送/确认/失败/未知/过期/回执及重启、消息签名、独立证据门禁、前端拒签/篡改/迟到/刷新恢复与最多一次发送均通过。这里只关闭已实现Solana模板的六阶段基础链路，不提升其他协议模板/可信来源或生产资格。

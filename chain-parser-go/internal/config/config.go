@@ -83,14 +83,18 @@ type State struct {
 	Path   string `json:"path"`
 }
 type API struct {
-	SolanaRuntimeManifest string   `json:"solana_runtime_manifest,omitempty"`
-	Listen                string   `json:"listen"`
-	AuthToken             string   `json:"auth_token,omitempty"`
-	CORSAllowedOrigins    []string `json:"cors_allowed_origins,omitempty"`
-	MaxBody               int      `json:"max_body_bytes"`
-	RPM                   uint64   `json:"requests_per_minute"`
-	QuoteTimeoutMS        uint64   `json:"quote_timeout_ms"`
-	QuoteConcurrency      int      `json:"quote_concurrency"`
+	TransactionSubmissionEnabled bool     `json:"transaction_submission_enabled,omitempty"`
+	TransactionReceiptJournal    string   `json:"transaction_receipt_journal,omitempty"`
+	TransactionSubmissionChains  []string `json:"transaction_submission_chains,omitempty"`
+	TransactionMaxPending        uint16   `json:"transaction_max_pending,omitempty"`
+	SolanaRuntimeManifest        string   `json:"solana_runtime_manifest,omitempty"`
+	Listen                       string   `json:"listen"`
+	AuthToken                    string   `json:"auth_token,omitempty"`
+	CORSAllowedOrigins           []string `json:"cors_allowed_origins,omitempty"`
+	MaxBody                      int      `json:"max_body_bytes"`
+	RPM                          uint64   `json:"requests_per_minute"`
+	QuoteTimeoutMS               uint64   `json:"quote_timeout_ms"`
+	QuoteConcurrency             int      `json:"quote_concurrency"`
 }
 type Routing struct {
 	MaxHops        int           `json:"max_hops"`
@@ -482,6 +486,25 @@ func (c Config) Validate(expected string) error {
 	}
 	if len(c.API.SolanaRuntimeManifest) > 4096 || strings.ContainsRune(c.API.SolanaRuntimeManifest, 0) || (expected != "dex-router" && c.API.SolanaRuntimeManifest != "") {
 		return errors.New("invalid Solana runtime manifest")
+	}
+	api := c.API
+	if len(api.TransactionReceiptJournal) > 4096 || strings.ContainsRune(api.TransactionReceiptJournal, 0) || len(api.TransactionSubmissionChains) > 16 || api.TransactionMaxPending > 256 ||
+		(api.TransactionSubmissionEnabled && (expected != "dex-router" || api.SolanaRuntimeManifest == "" || api.TransactionReceiptJournal == "" || len(api.TransactionSubmissionChains) == 0 || api.TransactionMaxPending == 0)) ||
+		(expected != "dex-router" && (api.TransactionReceiptJournal != "" || len(api.TransactionSubmissionChains) > 0 || api.TransactionMaxPending != 0)) {
+		return invalid()
+	}
+	seenSubmissionChains := map[string]bool{}
+	for _, key := range api.TransactionSubmissionChains {
+		found := false
+		for _, chain := range c.Chains {
+			if chain.Key == key {
+				found = true
+			}
+		}
+		if !strings.HasPrefix(key, "solana:") || !found || seenSubmissionChains[key] {
+			return invalid()
+		}
+		seenSubmissionChains[key] = true
 	}
 	if len(c.API.CORSAllowedOrigins) > 32 {
 		return invalid()

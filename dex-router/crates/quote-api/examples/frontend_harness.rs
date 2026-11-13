@@ -15,6 +15,7 @@ use xone_domain::Snapshot;
 #[derive(Clone)]
 struct Control {
     bank: Bank,
+    raydium: Bank,
     api: xone_quote_api::Api,
     snapshot: Arc<Mutex<Snapshot>>,
 }
@@ -77,19 +78,41 @@ async fn main() {
         .cors_allowed_origins = vec![args[2].clone()];
     let control = Control {
         bank: bank.clone(),
+        raydium: raydium.clone(),
         api: api.clone(),
         snapshot: Arc::new(Mutex::new(snapshot)),
     };
     let admin = Router::new()
         .route("/test/mode", post(mode))
-        .with_state(control.clone());
+        .route("/test/sign", post(test_sign))
+        .route("/test/wallet-stats", post(wallet_stats))
+        .with_state(control.clone())
+        .layer(
+            tower_http::cors::CorsLayer::new()
+                .allow_origin(args[2].parse::<axum::http::HeaderValue>().unwrap())
+                .allow_methods([axum::http::Method::POST])
+                .allow_headers([axum::http::header::CONTENT_TYPE]),
+        );
     let routes = api
         .handler()
         .merge(admin)
         .layer(middleware::from_fn_with_state(control, delay));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"wsolApi":format!("http://{wsol_addr}"),"wsolBank":&*wsol.data,"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":&*token2022.data,"raydiumApi":format!("http://{raydium_addr}"),"raydiumBank":&*raydium.data,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
-    axum::serve(listener, routes).await.unwrap();
+    axum::serve(listener, routes)
+        .with_graceful_shutdown(async {
+            #[cfg(unix)]
+            {
+                let mut signal =
+                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                        .unwrap();
+                tokio::select! {_=signal.recv()=>{},_=tokio::signal::ctrl_c()=>{}}
+            }
+            #[cfg(not(unix))]
+            let _ = tokio::signal::ctrl_c().await;
+        })
+        .await
+        .unwrap();
     rpc_task.abort();
     wsol_rpc_task.abort();
     wsol_task.abort();
@@ -97,6 +120,9 @@ async fn main() {
     token2022_task.abort();
     raydium_rpc_task.abort();
     raydium_task.abort();
+    let _ = wsol_task.await;
+    let _ = token2022_task.await;
+    let _ = raydium_task.await;
 }
 async fn delay(State(c): State<Control>, req: axum::extract::Request, next: Next) -> Response {
     let mode = c.bank.mode.lock().unwrap().clone();
@@ -131,4 +157,21 @@ async fn mode(State(c): State<Control>, Json(body): Json<Value>) -> Json<Value> 
         c.api.replica.install_baseline(s.clone()).unwrap();
     }
     Json(json!({"mode":mode}))
+}
+
+async fn test_sign(State(c): State<Control>, Json(body): Json<Value>) -> Json<Value> {
+    Json(
+        execution_bank::wallet_worker(
+            &c.bank,
+            "sign",
+            body["transaction"].as_str().unwrap(),
+            "ready",
+        )
+        .await,
+    )
+}
+async fn wallet_stats(State(c): State<Control>) -> Json<Value> {
+    Json(
+        json!({"raydiumSendCalls":c.raydium.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"raydiumTransactionCount":c.raydium.transactions.lock().unwrap().len()}),
+    )
 }

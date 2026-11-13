@@ -103,3 +103,10 @@ Raydium CPMM执行准备（阶段63）：经典SPL已有输入/输出账户可�
 独立本地SBF模拟（阶段64）：配置Router的api.solana_runtime_manifest后，当前池存在匹配银行时可在执行准备完成后点击“独立本地模拟”。返回实际输入/输出、CU和证据摘要；这是原SBF执行受控本地bank，普通RPC模拟与生产资格仍分别标识。更换报价、账户或准备选项会清空旧证据；接口不签名、不广播。
 
 生成测试manifest：`python3 integration/tools/ci/solana-sbf-runtime-manifests.py`（在项目根目录执行），需已有固定原银行/运行时；复验`make -C ../integration solana-independent-current-check`。
+
+
+钱包生命周期（阶段65）：安装支持Wallet Standard只签名功能的钱包后，可连接当前Solana链账户。必须先报价、准备并完成独立本地模拟；“仅请求签名”由用户在钱包确认，服务再验证消息未变和Ed25519签名。还需单独勾选币种/数量/收款确认才能广播；发送默认关闭、按链显式配置。
+
+配置项：api.transaction_submission_enabled、transaction_receipt_journal、transaction_submission_chains、transaction_max_pending，并要求solana_runtime_manifest。签名或视图/账户变化会清空发送资格。状态可能为处理中、已确认、最终确认、失败、过期、未知或回执不符；刷新页面恢复最后签名查询，不自动重签/重发。受控模拟银行不代表可在公网交易或生产资格。
+
+复验：`make -C ../integration wallet-lifecycle-current-check`，测试钱包和loopback RPC只在显式联调harness启用；未保存用户私钥，必要代码之外的银行/运行时/日志仍不提交。

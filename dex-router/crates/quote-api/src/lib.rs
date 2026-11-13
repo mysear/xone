@@ -1,6 +1,8 @@
 mod exact_out;
+mod execution_receipts;
 mod preparation;
 mod solana_simulation;
+mod transaction_lifecycle;
 pub use exact_out::ExactOutRequest;
 mod local_simulation;
 mod recovery_metrics;
@@ -135,6 +137,7 @@ pub struct Api {
     local_simulation: Option<Arc<local_simulation::LocalSimulation>>,
     solana_sbf: Option<Arc<xone_simulation::solana_sbf::Engine>>,
     preparations: Arc<Mutex<BTreeMap<String, solana_simulation::Prepared>>>,
+    receipts: Option<Arc<Mutex<execution_receipts::Journal>>>,
     flights: Arc<Vec<AsyncMutex<()>>>,
     rate: Arc<Mutex<(u64, u64)>>,
     pub metrics: Arc<Metrics>,
@@ -149,6 +152,14 @@ impl Api {
             Some(Arc::new(xone_simulation::solana_sbf::Engine::load(
                 &config.resolve(&config.config.api.solana_runtime_manifest),
             )?))
+        };
+        let receipts = if config.config.api.transaction_receipt_journal.is_empty() {
+            None
+        } else {
+            Some(Arc::new(Mutex::new(execution_receipts::Journal::open(
+                &config.resolve(&config.config.api.transaction_receipt_journal),
+                usize::from(config.config.api.transaction_max_pending.max(1)),
+            )?)))
         };
         let owners = config
             .config
@@ -171,6 +182,7 @@ impl Api {
             local_simulation,
             solana_sbf,
             preparations: Arc::new(Mutex::new(BTreeMap::new())),
+            receipts,
             flights: Arc::new((0..concurrency).map(|_| AsyncMutex::new(())).collect()),
             rate: Arc::new(Mutex::new((0, 0))),
             metrics: Arc::new(Metrics::default()),
@@ -253,6 +265,18 @@ impl Api {
             .route(
                 "/v1/quotes/{id}/preparations/{preparation}/simulate-independent",
                 post(solana_simulation::simulate),
+            )
+            .route(
+                "/v1/quotes/{id}/preparations/{preparation}/verify-signature",
+                post(transaction_lifecycle::verify_wallet),
+            )
+            .route(
+                "/v1/quotes/{id}/preparations/{preparation}/submit",
+                post(transaction_lifecycle::submit),
+            )
+            .route(
+                "/v1/transactions/{signature}",
+                get(transaction_lifecycle::receipt),
             )
             .route("/v1/quotes/{id}/simulate", post(simulate_transaction))
             .route("/internal/quotes/{id}/evidence", get(evidence))
@@ -791,12 +815,22 @@ fn failure(e: xone_domain::Error) -> HttpError {
         | "SBF_SIMULATION_TIMEOUT"
         | "SBF_TRANSACTION_FAILED"
         | "SBF_AMOUNT_MISMATCH"
-        | "PREPARATION_NOT_FOUND"
         | "PREPARATION_QUOTE_MISMATCH"
         | "PREPARATION_OPTIONS_UNSUPPORTED"
         | "PREPARATION_QUOTE_INVALID"
         | "PREPARATION_SIMULATION_FEE_MISMATCH"
         | "PREPARATION_SIMULATION_AMOUNT_MISMATCH" => StatusCode::UNPROCESSABLE_ENTITY,
+        "PREPARATION_NOT_FOUND" | "RECEIPT_NOT_FOUND" => StatusCode::NOT_FOUND,
+        "SUBMISSION_BUSY" | "SBF_SIMULATION_BUSY" => StatusCode::TOO_MANY_REQUESTS,
+        code if code.starts_with("SIGNED_")
+            || code.starts_with("WALLET_")
+            || code.starts_with("TRANSACTION_")
+            || code.starts_with("RECEIPT_")
+            || code == "INDEPENDENT_SIMULATION_REQUIRED"
+            || code.starts_with("SBF_") =>
+        {
+            StatusCode::UNPROCESSABLE_ENTITY
+        }
         "NO_ROUTE" => StatusCode::NOT_FOUND,
         _ => StatusCode::BAD_REQUEST,
     };
@@ -1054,6 +1088,16 @@ async fn quote_options(
                         .solana_sbf
                         .as_ref()
                         .is_some_and(|engine| engine.available(pool, &configured.genesis_hash));
+                let wallet_submission = local_sbf
+                    && api.config.config.api.transaction_submission_enabled
+                    && api.receipts.is_some()
+                    && api
+                        .config
+                        .config
+                        .api
+                        .transaction_submission_chains
+                        .iter()
+                        .any(|key| key == &configured.key);
                 pools.push(json!({
                     "protocolViewId":protocol_view.view_id,
                     "capabilities":capability,
@@ -1066,7 +1110,7 @@ async fn quote_options(
                     "directions": directions,
                     "available": available,
                     "unavailableReason": reason,
-                    "execution": {"quote": available, "preparation": available && capability.execution_preparation && !configured.rpc_urls.is_empty(), "unsignedPlan": available && capability.unsigned_transaction && !configured.rpc_urls.is_empty(), "rpcSimulation": available && capability.rpc_simulation && !configured.rpc_urls.is_empty(), "createDestinationAta":available && capability.account_creation && !configured.rpc_urls.is_empty(), "wrapSourceSol": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "unwrapDestinationSol": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "independentLocalSimulation":local_sbf,"simulation": false},
+                    "execution": {"quote": available, "preparation": available && capability.execution_preparation && !configured.rpc_urls.is_empty(), "unsignedPlan": available && capability.unsigned_transaction && !configured.rpc_urls.is_empty(), "rpcSimulation": available && capability.rpc_simulation && !configured.rpc_urls.is_empty(), "createDestinationAta":available && capability.account_creation && !configured.rpc_urls.is_empty(), "wrapSourceSol": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "unwrapDestinationSol": available && xone_domain::meteora::supports_profile(&pool.protocol) && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "walletSubmission":wallet_submission,"receiptTracking":api.receipts.is_some(),"independentLocalSimulation":local_sbf,"simulation": false},
                 }));
             }
         }

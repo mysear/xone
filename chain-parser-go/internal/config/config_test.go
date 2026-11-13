@@ -366,3 +366,30 @@ func TestSolanaRuntimeManifestCannotRunInsideParser(t *testing.T) {
 		}
 	}
 }
+
+func TestWalletSubmissionCannotBeEnabledInParser(t *testing.T) {
+	s, err := Load("../../config/config-test.yaml", "chain-parser-go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(s.Config.API)
+	if err != nil || strings.Contains(string(raw), "transaction_submission_enabled") {
+		t.Fatal("submission must be absent by default", err)
+	}
+	for _, which := range []string{"enabled", "journal", "chains", "pending"} {
+		c := s.Config
+		switch which {
+		case "enabled":
+			c.API.TransactionSubmissionEnabled = true
+		case "journal":
+			c.API.TransactionReceiptJournal = "receipts.ndjson"
+		case "chains":
+			c.API.TransactionSubmissionChains = []string{"solana:mainnet-beta"}
+		case "pending":
+			c.API.TransactionMaxPending = 1
+		}
+		if c.Validate("chain-parser-go") == nil {
+			t.Fatal("parser accepted wallet policy", which)
+		}
+	}
+}

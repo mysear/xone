@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 [dependencies]
+ring = "=0.17.14"
 xone-domain = { path = "../domain" }
 xone-optimizer = { path = "../optimizer" }
 serde.workspace = true

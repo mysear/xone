@@ -2,7 +2,10 @@
 use axum::{extract::State, routing::post, Json, Router};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 use xone_domain::{hash, scope_hash, Pool, Snapshot};
 pub const AUTH: &str = "xone-execution-browser-test-only-2026";
 #[derive(Clone)]
@@ -10,6 +13,7 @@ pub struct Bank {
     pub data: Arc<Value>,
     pub mode: Arc<Mutex<String>>,
     pub calls: Arc<Mutex<Vec<String>>>,
+    pub transactions: Arc<Mutex<BTreeMap<String, Value>>>,
 }
 impl Bank {
     pub fn new() -> Self {
@@ -26,6 +30,7 @@ impl Bank {
             ),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            transactions: Default::default(),
         }
     }
     pub fn wsol(balance: Option<u64>) -> Self {
@@ -57,6 +62,7 @@ impl Bank {
             data: Arc::new(data),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            transactions: Default::default(),
         }
     }
     pub fn token2022(index: usize) -> Self {
@@ -72,6 +78,7 @@ impl Bank {
             data: Arc::new(fixture["cases"][index].clone()),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            transactions: Default::default(),
         }
     }
     pub fn raydium(index: usize) -> Self {
@@ -87,6 +94,7 @@ impl Bank {
             data: Arc::new(f["cases"][index].clone()),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            transactions: Default::default(),
         }
     }
     pub async fn serve(&self) -> (String, tokio::task::JoinHandle<()>) {
@@ -126,6 +134,19 @@ impl Bank {
         c.config.chains.push(amm_chain);
         if let Some(path) = manifest {
             c.config.api.solana_runtime_manifest = path.into();
+        }
+        if manifest.is_some() {
+            if let Ok(directory) = std::env::var("XONE_TEST_SUBMISSION_DIR") {
+                c.config.api.transaction_submission_enabled = true;
+                c.config.api.transaction_receipt_journal = std::path::Path::new(&directory)
+                    .join(format!("{}.ndjson", hash(&*self.data).unwrap()))
+                    .to_str()
+                    .unwrap()
+                    .into();
+                c.config.api.transaction_submission_chains =
+                    vec![self.data["pool"]["chain_key"].as_str().unwrap().into()];
+                c.config.api.transaction_max_pending = 8;
+            }
         }
         let api = xone_quote_api::Api::new(c).unwrap();
         let p: Pool = serde_json::from_value(self.data["pool"].clone()).unwrap();
@@ -194,6 +215,64 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
         slot -= 1;
     }
     let result = match method {
+        "getBlockHeight" => json!(if mode == "expire_after_send"
+            && !b.transactions.lock().unwrap().is_empty()
+        {
+            1_000_000_000u64
+        } else {
+            1000
+        }),
+        "isBlockhashValid" => {
+            json!({"context":{"slot":slot},"value":mode!="expire_after_send"||b.transactions.lock().unwrap().is_empty()})
+        }
+        "sendTransaction" => {
+            let encoded = q["params"][0].as_str().unwrap();
+            let wire = STANDARD.decode(encoded).unwrap();
+            let signature = bs58::encode(&wire[1..65]).into_string();
+            if !b.transactions.lock().unwrap().contains_key(&signature) {
+                if mode == "expire_after_send" {
+                    b.transactions
+                        .lock()
+                        .unwrap()
+                        .insert(signature.clone(), json!({"dropped":true}));
+                } else {
+                    let tx = wallet_worker(&b, "execute", encoded, &mode).await;
+                    b.transactions.lock().unwrap().insert(signature.clone(), tx);
+                }
+            }
+            if mode == "send_uncertain" {
+                return Json(
+                    json!({"jsonrpc":"2.0","id":q["id"],"error":{"code":-32000,"message":"controlled response lost after execution"}}),
+                );
+            }
+            json!(signature)
+        }
+        "getSignatureStatuses" => {
+            let values=q["params"][0].as_array().unwrap().iter().map(|s|{
+                let ledger=b.transactions.lock().unwrap();let tx=ledger.get(s.as_str().unwrap());
+                if let Some(tx)=tx.filter(|v|v["dropped"]!=true){json!({"slot":slot,"confirmations":Value::Null,"confirmationStatus":if mode=="submit_pending"{"processed"}else if mode=="submit_confirmed"{"confirmed"}else{"finalized"},"err":tx["meta"]["err"]})}else{Value::Null}
+            }).collect::<Vec<_>>();
+            json!({"context":{"slot":slot},"value":values})
+        }
+        "getTransaction" => {
+            let mut tx = b
+                .transactions
+                .lock()
+                .unwrap()
+                .get(q["params"][0].as_str().unwrap())
+                .cloned()
+                .unwrap_or(Value::Null);
+            if mode == "receipt_missing" {
+                tx = Value::Null;
+            }
+            if mode == "receipt_mismatch" && !tx.is_null() {
+                let values = tx["meta"]["postTokenBalances"].as_array_mut().unwrap();
+                if let Some(value) = values.iter_mut().find(|v| v["owner"] == d["recipient"]) {
+                    value["uiTokenAmount"]["amount"] = "0".into();
+                }
+            }
+            tx
+        }
         "simulateTransaction" => {
             let input = serde_json::to_vec(&json!({"bank":&*b.data,"rpc":q,"mode":mode})).unwrap();
             let mut child = tokio::process::Command::new("python3");
@@ -306,4 +385,32 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
         _ => Value::Null,
     };
     Json(json!({"jsonrpc":"2.0","id":q["id"],"result":result}))
+}
+
+pub async fn wallet_worker(bank: &Bank, operation: &str, transaction: &str, mode: &str) -> Value {
+    use tokio::io::AsyncWriteExt;
+    let mut command = tokio::process::Command::new("python3");
+    command
+        .arg(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test/tools/solana_wallet_worker.py"
+        ))
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true);
+    let mut child = command.spawn().unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    stdin.write_all(&serde_json::to_vec(&json!({"bank":&*bank.data,"operation":operation,"transaction":transaction,"mode":mode})).unwrap()).await.unwrap();
+    drop(stdin);
+    let output = tokio::time::timeout(std::time::Duration::from_secs(12), child.wait_with_output())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&output.stdout).unwrap()
 }

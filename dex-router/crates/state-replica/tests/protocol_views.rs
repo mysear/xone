@@ -21,7 +21,7 @@ fn protocol_partitions_are_deterministic_state_bound_and_reorg_revoked() {
     let old = first.protocol_views.values().next().unwrap().clone();
     assert_eq!(old.parent_view_id, first.view_id);
     assert!(old.is_valid());
-    assert!(!old.capabilities.wallet_submission);
+    assert!(!old.capabilities.production_ready);
     s.reference.block.number_or_slot += 1;
     s.reference.journal_seq += 1;
     s.reference.block.parent_hash = s.reference.block.hash.clone();

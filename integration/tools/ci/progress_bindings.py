@@ -1471,3 +1471,10 @@ BINDINGS['15.local-sbf-service']={
  'tests':['isolated_sbf_executes_actual_unsigned_wire_and_enforces_real_compute_limit','sbf_manifest_refuses_runtime_bank_or_path_changes_before_execution','api_independent_sbf_binds_actual_preparation_and_rejects_quote_or_view_changes','optional_solana_runtime_manifest_is_explicit_bounded_and_omitted_by_default','TestSolanaRuntimeManifestCannotRunInsideParser'],
  'evidence_refs':['integration/artifacts/local/core-solana-independent-validation-20261113.json'],
 }
+
+
+BINDINGS['14.wallet-lifecycle']={
+ 'paths':['dex-router/crates/execution-plan/src/solana_signed.rs','dex-router/crates/quote-api/src/transaction_lifecycle.rs','dex-router/crates/quote-api/src/execution_receipts.rs','frontend/src/wallet.js','frontend/test/wallet.test.js','dex-router/crates/quote-api/tests/transaction_lifecycle.rs','integration/tools/acceptance/validate_wallet_lifecycle.py'],
+ 'tests':['signature_verifier_requires_exact_message_payer_and_real_ed25519_signature','wallet_submission_requires_signature_evidence_confirmation_and_durable_reconciliation','receipt_send_intent_is_durable_exclusive_and_restored_without_resend','receipt_journal_recovers_incomplete_tail_and_rejects_complete_corruption','wallet_submission_is_opt_in_chain_scoped_and_requires_durable_receipts_and_sbf','TestWalletSubmissionCannotBeEnabledInParser'],
+ 'evidence_refs':['integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json'],
+}

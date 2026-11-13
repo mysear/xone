@@ -74,6 +74,14 @@ pub struct Api {
     pub listen: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub solana_runtime_manifest: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub transaction_submission_enabled: bool,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub transaction_receipt_journal: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transaction_submission_chains: Vec<String>,
+    #[serde(default, skip_serializing_if = "api_zero_u16")]
+    pub transaction_max_pending: u16,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cors_allowed_origins: Vec<String>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -84,6 +92,9 @@ pub struct Api {
     pub quote_timeout_ms: u64,
     #[serde(default)]
     pub quote_concurrency: usize,
+}
+fn api_zero_u16(value: &u16) -> bool {
+    *value == 0
 }
 config_struct!(Routing {
     max_hops: usize,
@@ -722,6 +733,33 @@ impl Config {
         if self.api.solana_runtime_manifest.len() > 4096
             || self.api.solana_runtime_manifest.contains('\0')
             || (expected != "dex-router" && !self.api.solana_runtime_manifest.is_empty())
+        {
+            return Err(fail());
+        }
+        let api = &self.api;
+        if api.transaction_receipt_journal.len() > 4096
+            || api.transaction_receipt_journal.contains('\0')
+            || api.transaction_submission_chains.len() > 16
+            || api.transaction_max_pending > 256
+            || api.transaction_submission_chains.iter().any(|key| {
+                !key.starts_with("solana:") || !self.chains.iter().any(|c| &c.key == key)
+            })
+            || api
+                .transaction_submission_chains
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                != api.transaction_submission_chains.len()
+            || (api.transaction_submission_enabled
+                && (expected != "dex-router"
+                    || api.solana_runtime_manifest.is_empty()
+                    || api.transaction_receipt_journal.is_empty()
+                    || api.transaction_submission_chains.is_empty()
+                    || api.transaction_max_pending == 0))
+            || (expected != "dex-router"
+                && (!api.transaction_receipt_journal.is_empty()
+                    || !api.transaction_submission_chains.is_empty()
+                    || api.transaction_max_pending != 0))
         {
             return Err(fail());
         }

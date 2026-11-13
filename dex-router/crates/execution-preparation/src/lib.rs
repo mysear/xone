@@ -993,3 +993,140 @@ fn create_ata(
         data_base64: STANDARD.encode([1u8]),
     }
 }
+
+/// Validate a signed RPC simulation's account deltas against the immutable
+/// preparation, including native settlement and Token2022 withheld balances.
+pub fn verify_simulated_settlement(
+    context: &Context,
+    prepared: &Value,
+    before: &[Value],
+    after: &[Value],
+    fee: u64,
+) -> Result<(u64, u64)> {
+    if before.len() != 3 || after.len() != 3 {
+        return Err(bad());
+    }
+    let source_program = prepared["sourceTokenProgram"].as_str().ok_or_else(bad)?;
+    let destination_program = prepared["destinationTokenProgram"]
+        .as_str()
+        .ok_or_else(bad)?;
+    let before_source = account(&before[0])?;
+    let before_destination = account(&before[1])?;
+    let payer_before = account(&before[2])?.ok_or_else(bad)?;
+    let payer_after = account(&after[2])?.ok_or_else(bad)?;
+    if payer_before.owner != SYSTEM
+        || payer_after.owner != SYSTEM
+        || payer_before.executable
+        || payer_after.executable
+        || !payer_before.data.is_empty()
+        || !payer_after.data.is_empty()
+    {
+        return Err(bad());
+    }
+    let number = |key: &str| {
+        prepared[key]
+            .as_str()
+            .ok_or_else(bad)?
+            .parse::<u64>()
+            .map_err(|_| bad())
+    };
+    if number("feeLamports")? != fee {
+        return Err(err("PREPARATION_FEE_CHANGED"));
+    }
+    let persistent = number("rentLamports")?
+        .checked_sub(number("rentRefundLamports")?)
+        .ok_or_else(bad)?;
+    let native_final = payer_after
+        .lamports
+        .checked_add(fee)
+        .and_then(|v| v.checked_add(persistent))
+        .ok_or_else(bad)?;
+    let paid = if prepared["refundWrappedSource"] == true {
+        if !before[0].is_null() || !after[0].is_null() {
+            return Err(err("PREPARATION_TEMP_ACCOUNT_OCCUPIED"));
+        }
+        payer_before
+            .lamports
+            .checked_sub(native_final)
+            .ok_or_else(bad)?
+    } else {
+        let initial = before_source
+            .as_ref()
+            .map(|a| token(a, &context.sell_token, &context.caller, source_program))
+            .transpose()?
+            .unwrap_or(0);
+        let end = token(
+            &account(&after[0])?.ok_or_else(bad)?,
+            &context.sell_token,
+            &context.caller,
+            source_program,
+        )?;
+        initial
+            .checked_add(number("wrapLamports")?)
+            .and_then(|v| v.checked_sub(end))
+            .ok_or_else(bad)?
+    };
+    let received = if prepared["unwrapDestinationSol"] == true {
+        if !before[1].is_null() || !after[1].is_null() {
+            return Err(err("PREPARATION_TEMP_ACCOUNT_OCCUPIED"));
+        }
+        native_final
+            .checked_sub(payer_before.lamports)
+            .ok_or_else(bad)?
+    } else {
+        let initial = before_destination
+            .as_ref()
+            .map(|a| {
+                token(
+                    a,
+                    &context.buy_token,
+                    &context.recipient,
+                    destination_program,
+                )
+            })
+            .transpose()?
+            .unwrap_or(0);
+        token(
+            &account(&after[1])?.ok_or_else(bad)?,
+            &context.buy_token,
+            &context.recipient,
+            destination_program,
+        )?
+        .checked_sub(initial)
+        .ok_or_else(bad)?
+    };
+    if paid != number("quotedInput")? || received != number("quotedOutput")? {
+        return Err(err("PREPARATION_SIMULATION_AMOUNT_MISMATCH"));
+    }
+    if source_program != TOKEN
+        && withheld(&account(&after[0])?.ok_or_else(bad)?)?
+            != before_source
+                .as_ref()
+                .map(withheld)
+                .transpose()?
+                .unwrap_or(0)
+    {
+        return Err(err("PREPARATION_SIMULATION_FEE_MISMATCH"));
+    }
+    if destination_program != TOKEN
+        && withheld(&account(&after[1])?.ok_or_else(bad)?)?
+            != before_destination
+                .as_ref()
+                .map(withheld)
+                .transpose()?
+                .unwrap_or(0)
+                .checked_add(number("expectedDestinationTransferFee")?)
+                .ok_or_else(bad)?
+    {
+        return Err(err("PREPARATION_SIMULATION_FEE_MISMATCH"));
+    }
+    let expected_native = prepared["expectedPayerLamportDelta"]
+        .as_str()
+        .ok_or_else(bad)?
+        .parse::<i128>()
+        .map_err(|_| bad())?;
+    if i128::from(payer_after.lamports) - i128::from(payer_before.lamports) != expected_native {
+        return Err(err("PREPARATION_SIMULATION_AMOUNT_MISMATCH"));
+    }
+    Ok((paid, received))
+}

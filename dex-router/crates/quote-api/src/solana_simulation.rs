@@ -43,7 +43,7 @@ pub(crate) fn store(
     );
     Ok(())
 }
-fn selected(api: &Api, id: &str, preparation: &str) -> Result<Prepared> {
+pub(crate) fn selected(api: &Api, id: &str, preparation: &str) -> Result<Prepared> {
     let p = api
         .preparations
         .lock()
@@ -57,7 +57,7 @@ fn selected(api: &Api, id: &str, preparation: &str) -> Result<Prepared> {
     current(api, &p)?;
     Ok(p)
 }
-fn current(api: &Api, p: &Prepared) -> Result<()> {
+pub(crate) fn current(api: &Api, p: &Prepared) -> Result<()> {
     api.check_view(&p.view)?;
     if now_ms() >= p.context.deadline_ms {
         return Err(err("QUOTE_EXPIRED"));

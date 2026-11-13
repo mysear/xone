@@ -426,6 +426,7 @@
 |12.pipeline-foundation|WP03,WP05,WP09,WP11,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium creator独立ExactOut、协议子QuoteView/能力标签及独立preparation组件开发与联验|按用户六阶段主线持续补协议适配、unsigned、独立模拟和钱包/回执；不把能力未实现标签当完成|[本批验证](integration/artifacts/local/core-pipeline-foundation-validation-20261113.json)|
 |14.raydium-preparation|WP05,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium程序/config/池/vault/mint/时钟/observation闭包校验、unsigned指令及模拟净收付实现并联验|仅已有经典SPL账户；Raydium建户/包装/解包及其他协议仍按模型能力单独补，签名广播未开放|[本批验证](integration/artifacts/local/core-raydium-preparation-validation-20261113.json)|
 |15.local-sbf-service|WP05,WP09,WP15,WP16,WP25|PARTIAL_LOCAL|独立原SBF执行缓存unsigned交易、摘要/预算/源银行不变及quote/preparation/view证据绑定实现|受控本地银行与固定运行时范围；可信历史/生产资格、其他协议和钱包/回执继续补齐|[验证记录](integration/artifacts/local/core-solana-independent-validation-20261113.json)|
+|14.wallet-lifecycle|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|已有unsigned/独立SBF模板接Wallet Standard、显式发送与实际收付回执/恢复|默认关闭，按链启用；本批仅受控Solana模板，不等于全链全协议生产资格/完整多租户或多区执行验收|[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 
 <a id="batch-history"></a>
 
@@ -496,6 +497,7 @@
 |62|[六阶段业务链路主线与协议视图](#plan-2026-11-13-six-stage-pipeline)|LOCAL_SCOPE_VERIFIED|本批36检查/34次Rust测试执行/28项真实Chrome联调通过；Raydium 1832单笔+54序列步、61模型目录/协议视图、独立preparation及13原SBF回归通过；六阶段整体仍继续；[验证记录](integration/artifacts/local/core-pipeline-foundation-validation-20261113.json)|
 |63|[Raydium动态账户与unsigned交易](#plan-2026-11-13-raydium-preparation)|LOCAL_SCOPE_VERIFIED|Raydium经典SPL单池ExactIn/ExactOut动态账户闭包、实际指令/只读原SBF模拟及前端下载已通过预检，完整Oracle更新及输入减一回滚已补原源码比对；[本批验证](integration/artifacts/local/core-raydium-preparation-validation-20261113.json)|
 |64|[配置化隔离SBF独立模拟](#plan-2026-11-13-local-sbf-service)|LOCAL_SCOPE_VERIFIED|显式运行时/银行摘要、隔离子进程与CU预算，缓存preparation/计划/协议视图绑定和实际收付款校验已预检，前端联验中；[验证记录](integration/artifacts/local/core-solana-independent-validation-20261113.json)|
+|65|[钱包签名广播与可恢复回执](#plan-2026-11-13-wallet-lifecycle)|LOCAL_SCOPE_VERIFIED|Wallet Standard仅签名、Ed25519/消息不变校验、独立证据门禁、实时签名预检、显式发送及fsync日志/状态恢复已联调，统一验收中；[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -1934,7 +1936,7 @@ PumpSwap卖出目标按至少实际到账处理：三ceil fee导致净输出不�
 |F62.3|动态账户解析独立为execution preparation|WP14,WP15,WP16,WP25|PARTIAL_LOCAL|新增xone-execution-preparation内部组件，迁出Meteora RPC/账户/程序/epoch/资金/Token2022/WSOL准备；quote-api保留授权、缓存计划校验和前后QuoteView门禁；无新增核心服务。其他协议preparation适配器仍需继续。|
 |F62.4|仅生成unsigned transaction|WP14,WP16,WP25|IN_PROGRESS|既有Meteora限定模板迁入独立层并回归；Raydium及其他协议模板按各自账户闭包/指令构建后接入，不能用数学支持标签开放交易。|
 |F62.5|独立模拟|WP05,WP15,WP25|IN_PROGRESS|保留已有有限REVM后端、原SBF受控参考及普通RPC只读模拟的区别；各新增交易模板需实际wire、真实收款和完整后状态验证，普通RPC成功不自动获得生产VERIFIED。|
-|F62.6|最后接钱包签名/广播/确认/回执|WP14,WP16,WP25|NOT_STARTED|待对应协议unsigned/模拟链路完成后接钱包用户确认、签名字节校验、显式广播、链上确认/失败/过期及回执更新；当前不持有用户私钥、不发真实资金交易。|
+|F62.6|最后接钱包签名/广播/确认/回执|WP14,WP16,WP25|PARTIAL_LOCAL|阶段65已对已实现/独立模拟的Solana单签名模板接Wallet Standard用户确认、真实Ed25519与消息不变、显式广播及可恢复确认/失败/过期/回执更新；默认关闭且按链配置；其他协议/链仍需各自模板和来源验收。|
 
 阶段62当前实现与测试：Raydium ExactOut直接按原swap_base_output输出驱动求输入，creator费用在输入或输出侧分别逆解，交易/协议/fund/creator费用、raw vault及净储备完整更新；不是反复ExactIn搜索。原native helper复用固定上游CurveCalculator和PoolState，不导入业务数学；它不是SBF交易证明。当前路由限单池有序分配，保留最大输入/内部资金/原子回滚约束。公共状态契约未改变。
 
@@ -1991,3 +1993,27 @@ PumpSwap卖出目标按至少实际到账处理：三ceil fee导致净输出不�
 测试数据/manifest生成：integration/tools/ci/solana-sbf-runtime-manifests.py，生成本地服务专用fixture副本，非提交文件。旧阶段60下载wire仅投影新增DTO字段并重算fixture commitment，原wire字节不改写、旧验收凭证不覆盖。复验make -C integration solana-independent-current-check；最终同源码有限验收：源码`6c475c5b77de9062690a7f658342f05e751399b7d54d09ffb61a9bf18bc83429`，46项检查、39次Rust测试执行、34项真实Chrome业务联调全部通过。配置三服务兼容/禁止解析服务运行、308份合同工具副本、公共协议、严格Clippy和普通/-OO文档及反例通过。Meteora解包699→1000、Token2022退款1502→1000、Raydium4→1000的实际缓存wire在隔离原SBF执行，真实CU42762/70140/24999；CU1失败、runtime/bank/Python摘要变化、路径逃逸、金额篡改/银行未变、换quote和视图撤权拒绝均通过。前端3协议独立按钮、参数变化撤销旧证据、父/协议视图一致及桌面移动布局通过；原16组交易/回滚参考继续通过。早期字段投影与依赖/Go导入问题已修复，失败预检保留不计通过；最终运行按独立目录冻结下载/源码/工具/运行时/银行摘要。测试服务已结束，无公网交易。六阶段主线及其余协议/钱包/回执继续，all_requested_features_complete=false、production_ready=false。
 
 阶段64之后继续F62.6钱包生命周期：已做Wallet Standard只签名接口原型和精确消息校验方案，尚未接入正式签名/广播/回执接口，不提前标记完成。其他协议范围及可信生产来源/执行资格仍保留，六阶段主线继续。
+
+
+<a id="plan-2026-11-13-wallet-lifecycle"></a>
+
+## 钱包签名广播与可恢复回执（2026-11-13，阶段65）
+
+按六阶段顺序，在实际unsigned与配置化独立SBF执行后接第6项。这里只对已实现/已模拟的单签名legacy Solana模板开放；原61模型目录仍分别披露执行缺项，不把其他协议/链未实现项标为完成。默认transaction_submission_enabled=false，必须显式配置独立运行时、receipt journal、允许链和pending上限。两个解析服务不允许运行执行/签名广播功能。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F65.1|Wallet Standard用户签名|WP14,WP16,WP25|PARTIAL_LOCAL|发现/连接钱包、账户和chain能力选择，只调用solana:signTransaction；不调用signAndSend、不生成/保管用户私钥；拒签、切换账户、过期及旧签名晚返回清空发送资格。|
+|F65.2|精确消息与真实签名|WP14,WP15,WP25|PARTIAL_LOCAL|客户端检查钱包未修改消息，服务端用ring Ed25519核对签名、唯一payer及完整legacy消息字节与已缓存unsigned相同；计划/preparation/quote/独立证据及当前视图门禁。|
+|F65.3|显式广播与实时预检|WP14,WP15,WP16,WP25|PARTIAL_LOCAL|用户单独勾选发送确认；按链显式配置、fresh genesis/blockheight/blockhash/fee/账户读取和sigVerify=true模拟，重新核对收付/withheld/原生余额；随后fsync SUBMITTING再sendTransaction，maxRetries=0。|
+|F65.4|持久化日志与恢复|WP09,WP16,WP25|PARTIAL_LOCAL|独占文件锁、0600创建、文件及父目录同步、递增序号+前哈希/记录哈希链、16MiB/4096记录/pending预算；损坏完整记录拒绝，未完成尾部截断后同步；IO失败停止追加。按签名幂等，网络不明确不盲重发。|
+|F65.5|确认与真实结算回执|WP15,WP16,WP25|PARTIAL_LOCAL|getSignatureStatuses处理processed/confirmed/finalized/failed/expired/unknown；getTransaction字节与签名/slot核对，按pre/post token/native实际余额验证目标/输入限额，遗漏meta保持RECEIPT_PENDING，收付不符标SETTLEMENT_MISMATCH，不能按报价补造成功。|
+|F65.6|前端全链路与重启反例|WP16,WP25|PARTIAL_LOCAL|连接→准备→独立模拟→只签名→服务验证→用户确认→发送→回执；会话仅保存最后签名/Router选择，不存私钥/签名字节；刷新恢复不重签不重发；8类后台状态/重启、消息篡改/拒签/晚返回与浏览器实际发送已预检。|
+
+新接口：POST /v1/quotes/{id}/preparations/{hash}/verify-signature、POST .../submit（confirm=true）、GET /v1/transactions/{signature}。verify只验证不发送；重复submit按已存在签名返回日志状态，发送结果不明确通过签名查询。日志保留可公开查询的已签名字节用于严格回执匹配，文件私有0600、不存私钥、不写主日志；本地单实例锁不替代多区/多租户生产执行协调。
+
+回执只在RPC返回匹配的已签名wire/slot/metadata且实际收付款满足指令目标后记成功；ExactIn要求原输入量和滑点最小输出，ExactOut要求计划maxIn内和目标净到账。普通确认可随后回到UNKNOWN，最终成功/失败/结算不符不回退；EXPIRED表示当前节点在有效期后未观察到，不伪称全网从未打包。
+
+测试“广播”仅向loopback fixture发送，由固定测试密钥签名的真实wire在原SBF本地执行；不连接真实用户钱包、不向公网sendTransaction。SDK仅测试辅助钱包路径，不进入生产密钥管理；Wallet Standard第三方源码只读核实，不打包下载依赖。本批最终同源码有限验收：源码`a30eee92f6dd0ecb59d117d3af30dc9201802121b766efc7b2a798bfcfb23814`，51项检查、44次Rust测试执行、40项真实Chrome联调全部通过。八类后台状态均在真实测试签名/原SBF单次发送后重启验证，缺证据/错误签名/未确认/默认禁用/错误genesis/实时模拟金额变化拒绝；重复提交及恢复最多一次sendTransaction。前端5项钱包单测、拒签/改消息/晚返回撤销、未确认不发、最终实际4→1000/fee5000及刷新恢复不重签不重发通过；用户余额、Token2022、签名后预检、原16组SBF/回滚继续通过。308份合同/12工具副本、公共协议、Go/Rust配置、严格Clippy、普通/-OO反例和文档、移动/桌面布局通过。浏览器CORS测试钱包辅助路由和刷新Router选择问题已修正，失败记录保留不计通过；最终独立目录固定下载、发送日志、回执、截图、源码/工具/运行时/银行摘要。测试服务已结束，不涉及真实用户钱包/公网发送。复验make -C integration wallet-lifecycle-current-check，六阶段全量与生产资格仍按具体协议范围保留未完成项。
+
+阶段62–65六类基础业务能力在注明的Solana模板中已完整打通：数学→协议视图/标签→独立preparation→unsigned→隔离原SBF模拟→钱包签名/显式发送/确认/实际回执恢复。此结论不等于设计清单的所有链/DEX/组合都完成；61模型中未实现的execution preparation/交易模板仍以能力标签和剩余清单披露，Math范围也未扩展到未知hook/Token/版本。已知整体缺项继续推进，all_requested_features_complete=false、production_ready=false。

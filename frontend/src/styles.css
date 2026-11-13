@@ -4,3 +4,5 @@ button:disabled{opacity:.45;cursor:not-allowed}.toolbar{flex-wrap:wrap}.executio
 
 @media(max-width:850px){.row:has(.icon){grid-template-columns:1fr}.toolbar label{width:100%}}
 .route{overflow-wrap:anywhere}.card{min-width:0}.execution-panel input{min-width:0}
+
+.wallet-panel{border-top:1px solid #344b79;margin-top:18px;padding-top:8px}.wallet-panel .auto-refresh{white-space:normal;align-items:flex-start}.wallet-panel select{min-width:0}.wallet-panel .details{min-width:0}

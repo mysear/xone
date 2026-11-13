@@ -150,6 +150,7 @@ pub(super) async fn prepare(
     current(&api, &s).map_err(failure)?;
     let mut result = result;
     result["quoteId"] = id.into();
+    result["quoteKind"] = if s.exact { "EXACT_OUT" } else { "EXACT_IN" }.into();
     result
         .as_object_mut()
         .ok_or_else(|| failure(bad()))?

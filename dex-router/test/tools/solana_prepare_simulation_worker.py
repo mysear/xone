@@ -20,8 +20,8 @@ def simulate(request):
     bank=request['bank']; rpc=request['rpc']; mode=request.get('mode','ready')
     if rpc['method']!='simulateTransaction':raise ValueError('SIMULATION_READ_ONLY_METHOD')
     encoded,config=rpc['params']
-    if config['sigVerify']is not False or config['replaceRecentBlockhash']is not False:raise ValueError('SIMULATION_FLAGS')
-    S,P,K,I,M,T,A,C=native_imports();svm=S().with_mainnet_features().with_blockhash_check(False).with_sigverify(False)
+    if type(config['sigVerify'])is not bool or config['replaceRecentBlockhash']is not False:raise ValueError('SIMULATION_FLAGS')
+    S,P,K,I,M,T,A,C=native_imports();svm=S().with_mainnet_features().with_blockhash_check(False).with_sigverify(config['sigVerify'])
     target='CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C' if bank.get('pool',{}).get('protocol')=='raydium-cpmm-creator' else 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo'
     programs=[target,'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']
     if bank.get('pool',{}).get('meteora',{}).get('token2022') is not None:programs.append('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')

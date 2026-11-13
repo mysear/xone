@@ -50,6 +50,7 @@ for name in ['Pool.sol', 'Reference.sol']:
                root / 'dex-router/test/fixtures/velodrome-v2' / name)
 
 check_copy(root/'integration/tools/acceptance/solana_prepare_simulation_worker.py',root/'dex-router/test/tools/solana_prepare_simulation_worker.py')
+check_copy(root/'integration/tools/acceptance/solana_wallet_worker.py',root/'dex-router/test/tools/solana_wallet_worker.py')
 
 # Shared Rust implementation copies remain synchronized; wire types come from common/protoc.
 for crate in ['domain','config','observability','kafka-transport']:
