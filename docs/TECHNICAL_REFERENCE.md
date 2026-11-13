@@ -1739,3 +1739,13 @@ classic_funding仅用于已明确支持的经典SPL PumpSwap模板：规范ATA�
 WSOL初始化前的空System账户余额超过租金时，超过部分成为有效初始WSOL。独立worker以原始账户和真实rent reserve计算，signed simulation核对实际新增租金与准备承诺，变化时重新准备。最终回执允许账户在签名前被预存或提前幂等创建，使用meta的pre/post native与Token余额求实际租金和有效初值，不依赖准备估算。已有WSOL账户在签名前后收到额外SOL且wire包含SyncNative时，回执按真实reserve还原被同步的已有资金；这些资金不冒充成交。交易实际输入/输出、账户租金、网络费和payer SOL净变动分别报告。
 
 复验入口make -C integration pump-amm-funding-current-check；本批于2026-11-14完成验收，34项检查、26次Rust测试执行、72项Chrome联调通过；22个新增资金API银行和44组实际原wire参考（含既有协议/浏览器下载）验证完整后状态与回滚。结果及同源码摘要记录在DEVELOPMENT_PROGRESS.md。能力模型/7扩展两个现有模型，仍10/61具备执行准备，其他51模型及毕业迁移不随资金选项开放而完成。
+
+
+### 阶段71：Orca精确输出目标
+
+固定cc683ec9经典SPL五个Orca模型的ExactOut使用原始manager对应的输出指定分支，固定delta为输出量并使用对应舍入，计算输入及上取整费用，按输出目标封顶并递减剩余输出。静态与自适应模型共享Q64步进，后者仍按费用组更新Oracle、奖励、tick/混合数组和协议费用；完整目标、数组范围和消费者步数预算保持严格校验。
+
+600个独立原始native manager请求/响应、完整前后raw bank及状态投影绑定来源；8条连续状态序列和三个自适应模型的双池四份额独立网格用于路由与最小原始输入对照。原程序上游源码没有修改；自有参考适配器增加output mode。该证据不执行SPL CPI、不等于SBF/钱包交易验证。能力模型/8只增加报价模式，Orca执行标签继续false；单池单路及明确网格范围不外推全市场最优。同源码验收28项检查、101次Rust测试执行、91项Chrome联调通过。600个native场景及600条服务流程分别核对；服务层包含584次对应HTTP目标报价和16条状态准入拒绝。源码摘要及完整范围见DEVELOPMENT_PROGRESS.md。复验make -C integration orca-exact-out-current-check，恢复数据入口orca-exact-out-reference。
+
+
+回执界面按Router和查询版本隔离，切换清除旧显示并保留本地签名记录；返回原地址后只做签名查询。发送前在当前浏览器会话按Router保存用户已确认的交易签名，晚到的提交响应不造成恢复线索丢失；恢复和切换均不触发重发。该前端状态隔离与Orca native数学参考分开验证。

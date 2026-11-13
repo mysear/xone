@@ -1,7 +1,5 @@
-pub use xone_protocol_math::orca_adaptive_online;
-#[path = "../src/orca.rs"]
-mod orca;
 use xone_domain::{Amount, Pool};
+use xone_protocol_math::orca;
 pub use xone_protocol_math::Swap;
 
 fn pool() -> Pool {

@@ -1,4 +1,4 @@
-//! Pure integer Orca Whirlpools cc683ec9 static SPL exact-input math.
+//! Pure integer Orca Whirlpools cc683ec9 classic SPL exact-input/output math.
 use crate::Swap;
 use num_bigint::BigUint;
 use num_traits::Zero;
@@ -84,27 +84,48 @@ pub(crate) fn compute_swap(
     target: u128,
     left: bool,
 ) -> Result<SwapStep> {
+    compute_swap_mode(remaining, fee, liquidity, price, target, true, left)
+}
+
+/// Original fixed/unfixed delta order and rounding, including output capping.
+pub(crate) fn compute_swap_mode(
+    remaining: u64,
+    fee: u32,
+    liquidity: u128,
+    price: u128,
+    target: u128,
+    exact_in: bool,
+    left: bool,
+) -> Result<SwapStep> {
     if fee > 60000 {
         return Err(err("ORCA_FEE_RATE"));
     }
-    let initial = amount_delta(price, target, liquidity, left, true)?;
-    let available = (u128::from(remaining) * (1_000_000 - u128::from(fee)) / 1_000_000) as u64;
+    let initial = amount_delta(price, target, liquidity, left == exact_in, exact_in)?;
+    let available = if exact_in {
+        (u128::from(remaining) * (1_000_000 - u128::from(fee)) / 1_000_000) as u64
+    } else {
+        remaining
+    };
     let next_price = if initial.is_some_and(|n| n <= available) {
         target
-    } else if left {
+    } else if left == exact_in {
         if available == 0 {
             price
         } else {
-            // Exact original A formula: no alternative formula on U256 overflow.
             let numerator = bounded(
                 (BigUint::from(liquidity) * BigUint::from(price)) << 64usize,
                 256,
             )?;
-            let denominator = bounded(
-                (BigUint::from(liquidity) << 64usize)
-                    + BigUint::from(price) * BigUint::from(available),
-                256,
-            )?;
+            let shifted = BigUint::from(liquidity) << 64usize;
+            let product = BigUint::from(price) * BigUint::from(available);
+            let denominator = if exact_in {
+                bounded(shifted + product, 256)?
+            } else {
+                if shifted <= product {
+                    return Err(arithmetic());
+                }
+                shifted - product
+            };
             let next = as_u128(ceil_div(numerator, denominator, true)?)?;
             if !(MIN_SQRT_PRICE_X64..=MAX_SQRT_PRICE_X64).contains(&next) {
                 return Err(arithmetic());
@@ -112,21 +133,33 @@ pub(crate) fn compute_swap(
             next
         }
     } else {
-        let delta = (u128::from(available) << 64)
-            .checked_div(liquidity)
-            .ok_or_else(arithmetic)?;
-        price.checked_add(delta).ok_or_else(arithmetic)?
+        let amount_x64 = u128::from(available) << 64;
+        let mut delta = amount_x64.checked_div(liquidity).ok_or_else(arithmetic)?;
+        if !exact_in && amount_x64 % liquidity != 0 {
+            delta = delta.checked_add(1).ok_or_else(arithmetic)?;
+        }
+        if exact_in {
+            price.checked_add(delta)
+        } else {
+            price.checked_sub(delta)
+        }
+        .ok_or_else(arithmetic)?
     };
-    // Source computes the unfixed delta first, and requires an actual u64.
-    let amount_out =
-        amount_delta(price, next_price, liquidity, !left, false)?.ok_or_else(arithmetic)?;
+    let unfixed = amount_delta(price, next_price, liquidity, left != exact_in, !exact_in)?
+        .ok_or_else(arithmetic)?;
     let at_target = next_price == target;
-    let amount_in = if !at_target || initial.is_none() {
-        amount_delta(price, next_price, liquidity, left, true)?.ok_or_else(arithmetic)?
+    let fixed = if !at_target || initial.is_none() {
+        amount_delta(price, next_price, liquidity, left == exact_in, exact_in)?
+            .ok_or_else(arithmetic)?
     } else {
         initial.ok_or_else(arithmetic)?
     };
-    let fee_amount = if !at_target {
+    let (amount_in, amount_out) = if exact_in {
+        (fixed, unfixed)
+    } else {
+        (unfixed, fixed.min(remaining))
+    };
+    let fee_amount = if exact_in && !at_target {
         remaining.checked_sub(amount_in).ok_or_else(arithmetic)?
     } else {
         as_u64(ceil_div(
@@ -232,14 +265,41 @@ pub fn cross_reward_growths(
     Ok(())
 }
 
+pub fn supports_profile(protocol: &str) -> bool {
+    matches!(
+        protocol,
+        "orca-whirlpools-static"
+            | "orca-whirlpools-rewards"
+            | xone_domain::orca_adaptive_state::PROFILE
+            | xone_domain::orca_adaptive_state::REWARDS_PROFILE
+            | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
+    )
+}
 pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
+    quote_mode(pool, input, left, true)
+}
+pub fn quote_exact_out(pool: &Pool, output: &Amount, left: bool) -> Result<Swap> {
+    if output.0.is_zero() {
+        return Err(err("EXACT_OUT_ZERO_OUTPUT"));
+    }
+    let q = quote_mode(pool, output, left, false)?;
+    if q.amount_out != *output {
+        return Err(err("EXACT_OUT_TARGET_NOT_CONSERVED"));
+    }
+    Ok(q)
+}
+fn quote_mode(pool: &Pool, input: &Amount, left: bool, exact_in: bool) -> Result<Swap> {
     if matches!(
         pool.protocol.as_str(),
         xone_domain::orca_adaptive_state::PROFILE
             | xone_domain::orca_adaptive_state::REWARDS_PROFILE
             | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
     ) {
-        return crate::orca_adaptive_online::quote_exact_in(pool, input, left);
+        return if exact_in {
+            crate::orca_adaptive_online::quote_exact_in(pool, input, left)
+        } else {
+            crate::orca_adaptive_online::quote_exact_out(pool, input, left)
+        };
     }
     pool.validate()?;
     if !matches!(
@@ -291,6 +351,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
         .ok_or_else(|| err("ORCA_STATE_REQUIRED"))?;
     let mut remaining = amount;
     let mut output = 0u64;
+    let mut consumed = 0u64;
     update_rewards(state)?;
     let mut liquidity = as_u128(state.liquidity.0.clone())?;
     let mut tick = state.tick_current_index;
@@ -315,10 +376,26 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
         steps += 1;
         let (found_array, found_tick) = next_tick(state, &order, sequence_index, tick, left)?;
         let target = as_u128(sqrt_price_from_tick(found_tick)?)?;
-        let step = compute_swap(remaining, state.fee_rate, liquidity, price, target, left)?;
+        let step = if exact_in {
+            compute_swap(remaining, state.fee_rate, liquidity, price, target, left)
+        } else {
+            compute_swap_mode(
+                remaining,
+                state.fee_rate,
+                liquidity,
+                price,
+                target,
+                false,
+                left,
+            )
+        }?;
+        let paid = step
+            .amount_in
+            .checked_add(step.fee_amount)
+            .ok_or_else(arithmetic)?;
+        consumed = consumed.checked_add(paid).ok_or_else(arithmetic)?;
         remaining = remaining
-            .checked_sub(step.amount_in)
-            .and_then(|r| r.checked_sub(step.fee_amount))
+            .checked_sub(if exact_in { paid } else { step.amount_out })
             .ok_or_else(arithmetic)?;
         output = output.checked_add(step.amount_out).ok_or_else(arithmetic)?;
         fee_sum = fee_sum
@@ -389,7 +466,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
         state.fee_growth_global0 = Amount(BigUint::from(global));
         state.raw_vault0 = state
             .raw_vault0
-            .checked_add(amount)
+            .checked_add(consumed)
             .ok_or_else(arithmetic)?;
         state.raw_vault1 = state
             .raw_vault1
@@ -400,7 +477,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
         state.fee_growth_global1 = Amount(BigUint::from(global));
         state.raw_vault1 = state
             .raw_vault1
-            .checked_add(amount)
+            .checked_add(consumed)
             .ok_or_else(arithmetic)?;
         state.raw_vault0 = state
             .raw_vault0
@@ -410,7 +487,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
     next.validate()?;
     Ok(Swap {
         amount_out: Amount(BigUint::from(output)),
-        consumed_in: input.clone(),
+        consumed_in: Amount(BigUint::from(consumed)),
         remaining_in: Amount::zero(),
         next_pool: next,
     })

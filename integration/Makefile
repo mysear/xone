@@ -54,7 +54,7 @@ reorg-journal-test: build debug-build
 	python3 tools/acceptance/reorg_smoke.py
 	python3 tools/acceptance/reorg_smoke.py --transport http-development
 
-full-local-acceptance: check fixture-test durable-journal-test reorg-journal-test v3-quote-test multidex-quote-test stable-quote-test singleton-quote-test raydium-quote-test orca-quote-test rayclmm-quote-test rayclmm-token-fee-quote-test rayclmm-bitmap-quote-test rayclmm-seed-quote-test rayclmm-dynamic-quote-test receipt-witness-quote-test source-wal-quote-test receipt-root-quote-test
+full-local-acceptance: check fixture-test durable-journal-test reorg-journal-test v3-quote-test multidex-quote-test stable-quote-test singleton-quote-test raydium-quote-test orca-quote-test rayclmm-quote-test rayclmm-token-fee-quote-test rayclmm-bitmap-quote-test rayclmm-seed-quote-test rayclmm-dynamic-quote-test receipt-witness-quote-test source-wal-quote-test receipt-root-quote-test orca-exact-out-current-check
 	python3 tools/acceptance/report.py
 
 .PHONY: v3-differential-test v3-quote-test v3-reference-refresh
@@ -925,3 +925,20 @@ pump-native-ata-current-check:
 .PHONY: pump-amm-funding-current-check
 pump-amm-funding-current-check:
 	python3 tools/acceptance/validate_pump_amm_funding.py
+
+
+.PHONY: orca-exact-out-reference orca-exact-out-current-check
+orca-exact-out-reference:
+	CARGO_TARGET_DIR="$(CURDIR)/tools/reference/orca-whirlpools/target" cargo +1.90.0 build --offline --locked --release --manifest-path tools/reference/solana-advanced/orca/Cargo.toml
+	python3 tools/ci/solana-advanced-golden.py --family orca
+	cp test/contracts/solana-advanced/orca-rewards.json ../chain-parser-rust/test/contracts/solana-advanced/orca-rewards.json
+	cp test/contracts/solana-advanced/orca-rewards.json ../dex-router/test/contracts/solana-advanced/orca-rewards.json
+	python3 tools/ci/orca-adaptive-service-golden.py
+	python3 tools/ci/orca-adaptive-rewards-service-golden.py
+	python3 tools/ci/orca-adaptive-dynamic-service-golden.py
+	python3 tools/acceptance/orca_adaptive_fixture.py
+	python3 tools/acceptance/orca_adaptive_rewards_fixture.py
+	python3 tools/acceptance/orca_adaptive_dynamic_fixture.py
+	python3 tools/acceptance/orca_exact_out_reference.py
+orca-exact-out-current-check:
+	python3 tools/acceptance/validate_orca_exact_out.py

@@ -1513,3 +1513,10 @@ BINDINGS['14.pump-amm-funding']={
  'tests':['pump_swap_funding_accounts_execute_original_and_independent_vm','pump_swap_funding_wallet_receipts_reconcile_actual_rent_and_resume_without_resending','pump_swap_funding_failed_swap_receipts_never_resubmit','actual_rent_and_wsol_prefund_come_from_executed_balances','test_existing_account_cannot_be_closed'],
  'evidence_refs':['integration/artifacts/local/core-pump-amm-funding-validation-20261113.json'],
 }
+
+
+BINDINGS['12.orca-exact-out']={
+ 'paths':['dex-router/crates/protocol-math/src/orca.rs','dex-router/crates/protocol-math/src/orca_adaptive_swap.rs','dex-router/crates/protocol-math/src/orca_adaptive_online.rs','dex-router/crates/routing/src/exact_out.rs','dex-router/crates/execution-plan/src/exact_out.rs','dex-router/crates/quote-api/tests/orca_exact_out.rs','integration/tools/acceptance/orca_exact_out_reference.py','integration/tools/acceptance/verify_orca_exact_out.py','integration/tools/acceptance/validate_orca_exact_out.py'],
+ 'tests':['five_orca_profiles_exact_output_match_original_manager_full_post_state','orca_two_pool_optimizer_matches_independent_native_allocation_grid','orca_exact_output_api_quotes_plans_views_and_budget_rejections_match_native_corpus','orca_api_selects_native_minimum_over_two_pool_grid_and_withdraws_old_views','test_grid_cannot_claim_a_lower_unexecuted_input'],
+ 'evidence_refs':['integration/artifacts/local/core-orca-exact-out-validation-20261114.json'],
+}

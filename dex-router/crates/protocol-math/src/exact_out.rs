@@ -15,6 +15,9 @@ pub struct ExactOutSwap {
 
 /// Each admitted profile has an independent execution template and original-program oracle.
 pub fn supports_protocol(protocol: &str) -> bool {
+    if crate::orca::supports_profile(protocol) {
+        return true;
+    }
     matches!(
         protocol,
         v2_swap::PROFILE
@@ -60,6 +63,14 @@ pub fn quote_exact_out_for_origin(
 /// Fixed original Router02 execution template with standard external funding.
 /// Other protocols and Token behaviors need their own independent interface.
 pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<ExactOutSwap> {
+    if crate::orca::supports_profile(&pool.protocol) {
+        let q = crate::orca::quote_exact_out(pool, output, zero)?;
+        return Ok(ExactOutSwap {
+            amount_in: q.consumed_in,
+            amount_out: q.amount_out,
+            next_pool: q.next_pool,
+        });
+    }
     if pool.protocol == xone_domain::raydium::PROFILE {
         return crate::raydium::quote_exact_out(pool, output, zero);
     }

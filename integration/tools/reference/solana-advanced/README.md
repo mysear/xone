@@ -3,7 +3,8 @@
 This slice adds `orca-whirlpools-rewards` at Orca
 `cc683ec92acb5e7606caa3d8e514d9383e9c7c11` and `raydium-clmm-rewards` at Raydium
 `6d7a0f82d2f293c553c69aaf943377367c6c4cc6`. These remain classic SPL Token,
-static-fee, full exact-input profiles. Existing profiles reject populated reward
+static-fee profiles. Orca supports full exact-input and exact-output targets;
+Raydium retains its full exact-input interface in this slice. Existing profiles reject populated reward
 state; their omitted JSON fields and empty wire fields retain their previous shape.
 
 See [INTEGRATION.md](INTEGRATION.md) for the exact centralized profile and wire
@@ -98,3 +99,10 @@ fields, reserved tails and unrelated advanced fields remain rejected.
   fees; nonzero Orca control extensions; reward claims/position settlement and
   limit orders. These should receive their own finite profile and native evidence
   rather than changing the existing profile's semantics.
+
+
+Orca target quotes also support `action:"quote_exact_out"` with `output` and
+`zero_for_one`, using the unchanged fixed cc683ec9 manager's output-specified
+branch and original reward/tick post updates. Both ordinary and initialized
+reward pools use this adapter. Raydium's interface remains unchanged. This is
+native manager/math evidence, not SPL CPI, SBF or wallet transaction evidence.

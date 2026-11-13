@@ -139,6 +139,11 @@ pub fn build(
                             | xone_domain::pump_amm::PROFILE
                             | xone_domain::pump_amm::BOOST_PROFILE
                             | xone_domain::raydium::PROFILE
+                            | "orca-whirlpools-static"
+                            | "orca-whirlpools-rewards"
+                            | xone_domain::orca_adaptive_state::PROFILE
+                            | xone_domain::orca_adaptive_state::REWARDS_PROFILE
+                            | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
                     ) || (matches!(
                         edge.protocol.as_str(),
                         xone_domain::pancake_bsc_lm::PROFILE
@@ -156,12 +161,18 @@ pub fn build(
                             | xone_domain::pump_amm::PROFILE
                             | xone_domain::pump_amm::BOOST_PROFILE
                             | xone_domain::raydium::PROFILE
+                            | "orca-whirlpools-static"
+                            | "orca-whirlpools-rewards"
+                            | xone_domain::orca_adaptive_state::PROFILE
+                            | xone_domain::orca_adaptive_state::REWARDS_PROFILE
+                            | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
                     ) && route.edges.len() != 1)
                         || (solana
                             != (xone_domain::meteora::supports_profile(&edge.protocol)
                                 || xone_domain::pump::supports_curve_profile(&edge.protocol)
                                 || xone_domain::pump_amm::supports_profile(&edge.protocol)
-                                || edge.protocol == xone_domain::raydium::PROFILE))
+                                || edge.protocol == xone_domain::raydium::PROFILE
+                                || orca_profile(&edge.protocol)))
                         || edge.from_token.is_some()
                         || &edge.to != to
                 })
@@ -197,6 +208,11 @@ pub fn build(
                         .tokens
                         .contains(&xone_domain::pump::NATIVE_SOL.to_owned())
                     || context.caller != context.recipient
+            } else if orca_profile(&route.edges[0].protocol) {
+                route.factory != xone_domain::orca::PROGRAM_ID
+                    || route
+                        .tokens
+                        .contains(&xone_domain::pump::NATIVE_SOL.to_owned())
             } else if route.edges[0].protocol == xone_domain::raydium::PROFILE {
                 route.factory != xone_domain::raydium::PROGRAM_ID
                     || route
@@ -281,4 +297,15 @@ pub fn verify(plan: &ExactOutPlan) -> Result<()> {
         return Err(err("PLAN_HASH_MISMATCH"));
     }
     Ok(())
+}
+
+fn orca_profile(protocol: &str) -> bool {
+    matches!(
+        protocol,
+        "orca-whirlpools-static"
+            | "orca-whirlpools-rewards"
+            | xone_domain::orca_adaptive_state::PROFILE
+            | xone_domain::orca_adaptive_state::REWARDS_PROFILE
+            | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
+    )
 }

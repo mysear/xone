@@ -247,16 +247,20 @@ pub fn array_bytes(a: &Value, pool: &Pubkey, spacing: u16) -> std::result::Resul
 
 #[derive(Debug)]
 pub struct Quote {
+    pub amount_in: u64,
     pub amount_out: u64,
     pub next_pool: Value,
     pub audit: Value,
 }
 
 pub fn quote(pool: &Value, input: &str, a_to_b: bool) -> std::result::Result<Quote, String> {
-    std::panic::catch_unwind(|| quote_inner(pool, input, a_to_b))
+    std::panic::catch_unwind(|| quote_inner(pool, input, a_to_b,true))
         .unwrap_or_else(|_| Err("original program panic (mutations discarded)".into()))
 }
-fn quote_inner(pool: &Value, input: &str, a_to_b: bool) -> std::result::Result<Quote, String> {
+pub fn quote_exact_out(pool: &Value, output: &str, a_to_b: bool) -> std::result::Result<Quote,String> {
+    std::panic::catch_unwind(|| quote_inner(pool,output,a_to_b,false)).unwrap_or_else(|_|Err("original program panic (mutations discarded)".into()))
+}
+fn quote_inner(pool: &Value, input: &str, a_to_b: bool, exact_in: bool) -> std::result::Result<Quote, String> {
     if input.is_empty() || !input.bytes().all(|b| b.is_ascii_digit()) {
         return Err("invalid input amount".into());
     }
@@ -328,7 +332,7 @@ fn quote_inner(pool: &Value, input: &str, a_to_b: bool) -> std::result::Result<Q
         &mut sequence,
         amount,
         0,
-        true,
+        exact_in,
         a_to_b,
         timestamp,
         &None,
@@ -345,7 +349,7 @@ fn quote_inner(pool: &Value, input: &str, a_to_b: bool) -> std::result::Result<Q
         update.amount_a
     };
     // Exact-in domain requires the complete allocation to be consumed and a positive output.
-    if consumed != amount {
+    if (if exact_in {consumed}else{output}) != amount {
         return Err(format!(
             "partial fill rejected: consumed {consumed} of {amount}"
         ));
@@ -413,6 +417,7 @@ fn quote_inner(pool: &Value, input: &str, a_to_b: bool) -> std::result::Result<Q
         }
     }
     Ok(Quote {
+        amount_in: consumed,
         amount_out: output,
         next_pool: next,
         audit: json!({"amount_consumed": consumed.to_string(), "lp_fee": update.lp_fee, "next_protocol_fee": update.next_protocol_fee,

@@ -55,9 +55,15 @@ fn validate_funds(pools: &BTreeMap<String, Pool>, funds: Funds<'_>) -> Result<()
                             &m.vault0,
                             &m.vault1,
                             &m.oracle,
+                            &m.whirlpools_config,
                         ]
                         .into_iter()
                         .any(|id| id == address)
+                            || m.tick_arrays.iter().any(|a| a.address == address)
+                            || m.reward_infos.iter().any(|r| {
+                                r.mint != "11111111111111111111111111111111"
+                                    && (r.mint == address || r.vault == address)
+                            })
                     })
                     || pool.raydium_cpmm.as_ref().is_some_and(|m| {
                         [
@@ -221,27 +227,31 @@ pub fn evaluate_path(
         pool.validate()?;
         // The callback-funded CL templates have only been admitted for one
         // physical pool. It cannot silently become a V2 or mixed multi-hop route.
-        if matches!(
-            pool.protocol.as_str(),
-            xone_domain::pancake_bsc_lm::PROFILE
-                | xone_domain::pancake_lm::PROFILE
-                | xone_domain::slipstream_context::PROFILE
-                | xone_domain::lfj::PROFILE
-                | xone_domain::meteora::PROFILE
-                | xone_domain::meteora_token2022::PROFILE
-                | xone_domain::meteora::REWARDS_PROFILE
-                | xone_domain::meteora::BITMAP_PROFILE
-                | xone_domain::meteora::ORDERS_PROFILE
-                | xone_domain::meteora::ONLY_Y_PROFILE
-                | xone_domain::pump::PROFILE
-                | xone_domain::pump::MIGRATION_PROFILE
-                | xone_domain::pump_amm::PROFILE
-                | xone_domain::pump_amm::BOOST_PROFILE
-                | xone_domain::raydium::PROFILE
-        ) && edges.len() != 1
+        if (xone_protocol_math::orca::supports_profile(&pool.protocol)
+            || matches!(
+                pool.protocol.as_str(),
+                xone_domain::pancake_bsc_lm::PROFILE
+                    | xone_domain::pancake_lm::PROFILE
+                    | xone_domain::slipstream_context::PROFILE
+                    | xone_domain::lfj::PROFILE
+                    | xone_domain::meteora::PROFILE
+                    | xone_domain::meteora_token2022::PROFILE
+                    | xone_domain::meteora::REWARDS_PROFILE
+                    | xone_domain::meteora::BITMAP_PROFILE
+                    | xone_domain::meteora::ORDERS_PROFILE
+                    | xone_domain::meteora::ONLY_Y_PROFILE
+                    | xone_domain::pump::PROFILE
+                    | xone_domain::pump::MIGRATION_PROFILE
+                    | xone_domain::pump_amm::PROFILE
+                    | xone_domain::pump_amm::BOOST_PROFILE
+                    | xone_domain::raydium::PROFILE
+            ))
+            && edges.len() != 1
         {
             return Err(err(
-                if pool.protocol == xone_domain::pancake_bsc_lm::PROFILE {
+                if xone_protocol_math::orca::supports_profile(&pool.protocol) {
+                    "EXACT_OUT_ORCA_SINGLE_POOL_ONLY"
+                } else if pool.protocol == xone_domain::pancake_bsc_lm::PROFILE {
                     "EXACT_OUT_BSC4_SINGLE_POOL_ONLY"
                 } else if pool.protocol == xone_domain::slipstream_context::PROFILE {
                     "EXACT_OUT_SLIPSTREAM_SINGLE_POOL_ONLY"
@@ -289,6 +299,8 @@ pub fn evaluate_path(
             xone_domain::pump_amm::PROGRAM
         } else if pool.pump.is_some() {
             xone_domain::pump::PROGRAM
+        } else if pool.orca_whirlpool.is_some() {
+            xone_domain::orca::PROGRAM_ID
         } else if pool.raydium_cpmm.is_some() {
             xone_domain::raydium::PROGRAM_ID
         } else if pool.meteora.is_some() {

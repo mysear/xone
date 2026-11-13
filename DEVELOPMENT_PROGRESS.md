@@ -431,6 +431,7 @@
 |14.pump-curve-execution|WP05,WP09,WP14,WP15,WP16,WP20,WP25|PARTIAL_LOCAL|Pump原生SOL曲线已有Token账户、声明user上下文的三种原始指令、独立模拟和钱包回执开发联验|阶段69补经典收款ATA；毕业迁移、其他Token/volume及其他链模板尚需完成，不提升全量或生产资格|[验证记录](integration/artifacts/local/core-pump-curve-preparation-validation-20261113.json)|
 |14.pump-native-ata|WP05,WP09,WP14,WP15,WP16,WP20,WP25|PARTIAL_LOCAL|Pump原生买入的收款ATA原子创建、System预存余额补差、租金/交易/网络费分列及回执联验|仅明确经典曲线/同一声明user；其他账户/WSOL转换、毕业迁移和其他模板继续推进|[验证记录](integration/artifacts/local/core-pump-native-ata-validation-20261113.json)|
 |14.pump-amm-funding|WP05,WP09,WP14,WP15,WP16,WP20,WP25|PARTIAL_LOCAL|PumpSwap classic/boost ATA、WSOL补差/退款/解包与实际租金回执开发联验|当前单池单路经典SPL与声明user；其他版本、毕业迁移及51个缺失执行模板仍需完成|[验证记录](integration/artifacts/local/core-pump-amm-funding-validation-20261113.json)|
+|12.orca-exact-out|WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Orca五类模型的精确输出数学、原始manager完整后状态、路由/网格与API/前端报价联验|仅固定cc683ec9经典SPL及三数组范围；执行准备/unsigned/SBF/钱包模板仍未实现，不以native数学参考替代交易验证|[验证记录](integration/artifacts/local/core-orca-exact-out-validation-20261114.json)|
 |14.wallet-lifecycle|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|已有unsigned/独立SBF模板接Wallet Standard、显式发送与实际收付回执/恢复|默认关闭，按链启用；本批仅受控Solana模板，不等于全链全协议生产资格/完整多租户或多区执行验收|[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 
 <a id="batch-history"></a>
@@ -508,6 +509,7 @@
 |68|[Pump原生SOL曲线执行](#plan-2026-11-13-pump-curve-execution)|LOCAL_SCOPE_VERIFIED|五组买卖原unsigned/完整后状态/回滚、原生扣款和到账/费用分列、真实测试签名与回执及同源码联验通过；[验证记录](integration/artifacts/local/core-pump-curve-preparation-validation-20261113.json)|
 |69|[Pump原生收款ATA](#plan-2026-11-13-pump-native-ata)|LOCAL_SCOPE_VERIFIED|九组实际原wire/完整后状态/回滚、缺失/预存ATA租金补差、真实签名成功/失败回执和Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-pump-native-ata-validation-20261113.json)|
 |70|[PumpSwap账户与SOL资金](#plan-2026-11-13-pump-amm-funding)|LOCAL_SCOPE_VERIFIED|22组新增资金银行、真实租金/WSOL回执、44组原wire参考与72项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-pump-amm-funding-validation-20261113.json)|
+|71|[Orca五模型精确输出](#plan-2026-11-14-orca-exact-out)|LOCAL_SCOPE_VERIFIED|600原manager场景/600服务流程、8序列、3组网格、101次Rust/91项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-orca-exact-out-validation-20261114.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2123,3 +2125,28 @@ PumpSwap卖出目标按至少实际到账处理：三ceil fee导致净输出不�
 22组资金场景真实测试钱包签名、服务校验、单次loopback发送及重启回执恢复通过，另4组冻结现有vault的受控故障注入回执为FAILED且不重发。准备/独立模拟从原始账户推导初始化前余额与租金，signed预检严格拒绝租金变化；最终meta回执按实际租金和有效WSOL初值核算，不把准备估算当实际支出。四个Rust单元测试覆盖预存低于/高于租金、ATA提前幂等创建、临时账户缺失/关闭及SyncNative前额外SOL的归因。Chrome四条新流程（包装、退款、解包、缺失收款ATA）分别验证能力选项、下载、独立执行、仅签名、显式发送、实际回执和刷新恢复；既有56项浏览器回归继续通过。原PumpSwap/原生Pump、Meteora经典与Token2022/WSOL通用账户、八类钱包生命周期及RPC捕获/字节缓存预算回归通过。310合同/12工具副本/164公共来源、公共协议、严格Clippy、前端模型/钱包单测与普通/-OO文档检查通过。
 
 初始并行测试误共用回执文件触发RECEIPT_JOURNAL_IN_USE，测试文件名加入独立RPC身份后通过，生产文件锁保持原校验。新增浏览器选择器、能力旧版本断言和ExactIn隐藏控件填写问题已修复；失败/中断日志均保留且不算通过。最终源码前后摘要、工具/运行时/银行、日志、原始执行/回滚、实际下载/回执、截图及harness二进制摘要已冻结并复核。本批仅扩展已有PumpSwap经典/boost单池单路SPL模板的账户和资金操作；执行准备仍10/61，其余51模板、Pump毕业迁移及未覆盖数学/Token/版本继续推进。未向公网发送；all_requested_features_complete=false、production_ready=false。
+
+
+<a id="plan-2026-11-14-orca-exact-out"></a>
+
+## Orca五模型精确输出（2026-11-14，阶段71）
+
+按六阶段前两项补数学与稳定协议能力：固定cc683ec9的静态、奖励、自适应、自适应奖励、混合动态数组五个经典SPL模型接入原生ExactOut分支。通过输出指定量逐步递减、双向Q64价格舍入和输出封顶更新，按原程序ExactOut分支直接计算输入与后状态。沿用已有严格解析和完整账户/数组状态，保留三数组与步数预算边界。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F71.1|精确输出数学|WP12,WP15|PARTIAL_LOCAL|固定/非固定delta顺序、输出ceil/floor、费用上取整、u64/128/256边界、精确目标封顶与完整原始manager后状态；旧ExactIn保留回归。|
+|F71.2|费用/奖励/数组|WP05,WP12,WP15|PARTIAL_LOCAL|跨tick/空流动性、奖励增长溢出/环绕、外部增长翻转、自适应Oracle/费用组及混合布局均对照固定原程序；零限价要求完整目标。|
+|F71.3|路由和最佳输入|WP09,WP12,WP14,WP15|PARTIAL_LOCAL|单池目标路由、重复池按前次完整状态重算、三个自适应模型双池四份额原生穷举网格最小值、预算不足与原子拒绝。|
+|F71.4|QuoteView与计划|WP05,WP14,WP16|PARTIAL_LOCAL|模型/8增加五个ExactOut模式；精确目标计划绑定Orca program factory，API仅用当前快照报价且不读取用户动态执行账户，旧视图撤销后不得构建。|
+|F71.5|前端联调与能力边界|WP16,WP25|PARTIAL_LOCAL|五模型双向ExactOut目标/输入/路由显示，普通账户字段编辑不能启用未实现执行按钮；Router切换清除旧回执，旧查询不得覆盖新结果，发送晚响应仍可按原签名恢复；Orca执行能力保持false。|
+
+独立参考由integration/tools/acceptance/orca_exact_out_reference.py生成，verify_orca_exact_out.py核对原始请求/响应、完整raw bank、来源摘要及逐项原程序复执行。最终同源码有限验收：源码`f9078a8c64d63e5a0e6728f8865fb993170cadbf8a4c8aff19ff0576e6087a22`，28项检查、101次Rust测试执行、91项真实Chrome联调全部通过。600个原始native manager场景含431成功/169拒绝，五个模型双向完整Pool/Oracle/奖励/tick模型后状态一致；8条四步连续序列、三个自适应模型的双池四份额独立枚举网格最小输入一致。原始记录包含153次数组状态更新、189次奖励状态更新、186次Oracle状态更新，成功/失败来源及逐次原始输入、输出与前后账户均留存。
+
+600条实际服务流程记录分层核对：584次对应HTTP目标报价含431成功/153拒绝，另16条在状态准入层拒绝，没有生成HTTP报价。每个成功目标还核对预算减一拒绝、原报价/当前QuoteView/数学计划绑定；三个双池最佳输入与旧视图失效后的SNAPSHOT_REORGED经过实际API验证。纯报价不读取用户动态执行账户，不生成unsigned交易或授予SBF/钱包验证资格。普通/-OO各10个资金/目标/后状态/Oracle/奖励/序列/网格篡改反例通过；旧Orca ExactIn、旧协议ExactOut、计划验证及27个Orca解析测试通过。
+
+Chrome验证五模型双向ExactOut并保持执行按钮禁用；编辑普通账户参数不能绕过能力门禁。画面复核发现切换Router仍残留旧回执，已按Router清除显示并保留当前浏览器会话的签名历史；增加查询版本，旧查询晚到错误不得覆盖返回原地址后恢复的当前回执。用户确认发送时先保存签名，实际loopback提交响应晚于Router切换时仍能恢复；保存/查询/切换均不重发。回执显示币对和原报价ID，发送期间禁止新签名。原有72项、五模型15项及4个回执隔离/恢复检查共91项通过，原有钱包/SBF流程继续正常。311合同/12工具副本/164公共来源、公共协议、严格Clippy、前端/钱包单测与普通/-OO各17项文档检查通过。
+
+初始计划模块直接引用未声明数学依赖，改为独立固定profile准入谓词；参考刷新显式限定Orca家族，修正来源控制测试假设，未放宽生产校验。首次28项/101次/87项通过记录保留，视觉复核补回执测试后重新冻结并完成最终验收；旧失败/前一轮记录不充作当前源码验证。源码前后及当前摘要、上游完整清单、辅助程序/运行时/银行、日志、600条服务记录、原始复执行、桌面/移动截图和harness二进制摘要均固定并复核。复验make -C integration orca-exact-out-current-check；恢复生成数据用orca-exact-out-reference，生成物/下载依赖/二进制不提交。
+
+运行时协议目录61个模型中21个支持ExactOut模式、10个具备执行准备；其余模式和51个执行模板仍是全量任务缺项。本批是原始native manager数学与显式vault投影，SPL CPI、SBF及钱包执行按模板继续实现；Orca的相关执行标签保持false。未向公网发送。all_requested_features_complete=false、production_ready=false。

@@ -149,6 +149,7 @@ fn trade(config:&Value,bank:&Value,params:&Value)->R<Value>{
     let s=load(config,bank)?;let mut p=s.pool;let mut o=s.oracle;
     let left=params["a_to_b"].as_bool().ok_or("direction missing")?;
     let amount:u64=wide(&params["amount"])?.try_into().map_err(|_|"amount exceeds u64")?;
+    let exact_in=params.get("amount_specified_is_input").map(|v|v.as_bool().ok_or("invalid amount mode")).transpose()?.unwrap_or(true);
     let time=n(&params["timestamp"])?;require(time==n(&bank["timestamp"])?,"trade time differs from bank Clock")?;
     let info=AdaptiveFeeInfo{constants:o.adaptive_fee_constants,variables:o.adaptive_fee_variables};
     let mut pm_bytes=pack(&p)?;let mut om_bytes=pack_pod(&o);let pool_key=pk(&config["id"])?;let oracle_key=pk(&config["fixture"]["oracle"])?;
@@ -165,10 +166,10 @@ fn trade(config:&Value,bank:&Value,params:&Value)->R<Value>{
     let mut sequence=SwapTickSequence::new(loaded_mut(&cells[order[0]]),order.get(1).map(|i|loaded_mut(&cells[*i])),order.get(2).map(|i|loaded_mut(&cells[*i])));
     let mut fee_manager=FeeRateManager::new(left,p.tick_current_index,time,p.fee_rate,&Some(info.clone())).map_err(|e|e.to_string())?;
     fee_manager.update_volatility_accumulator().map_err(|e|e.to_string())?;let initial_rate=fee_manager.get_total_fee_rate();
-    let update=match swap_manager::swap(&p,&mut sequence,amount,wide(&params["sqrt_price_limit"])?,true,left,time,&Some(info)){
+    let update=match swap_manager::swap(&p,&mut sequence,amount,wide(&params["sqrt_price_limit"])?,exact_in,left,time,&Some(info)){
         Ok(u)=>u,Err(e)=>return Ok(json!({"status":"native_rejected","error":e.to_string(),"error_origin":"unchanged original swap_manager::swap","post_accounts":bank["accounts"]}))};
     let (input,output)=if left{(update.amount_a,update.amount_b)}else{(update.amount_b,update.amount_a)};
-    require(input==amount,"generator requires fulfilled exact input")?;
+    require((if exact_in {input}else{output})==amount,"generator requires fulfilled specified amount")?;
     let (lp_fee,protocol_fee)=(update.lp_fee,update.next_protocol_fee);
     p.update_after_swap(update.next_liquidity,update.next_tick_index,update.next_sqrt_price,update.next_fee_growth_global,update.next_reward_infos,update.next_protocol_fee,left,time);
     o.update_adaptive_fee_variables(update.next_adaptive_fee_info.ok_or("native adaptive post info missing")?.variables);
@@ -182,7 +183,7 @@ fn trade(config:&Value,bank:&Value,params:&Value)->R<Value>{
         let mut b=bytes(bank,&address)?;b[64..72].copy_from_slice(&after.to_le_bytes());put(&mut next,&address,TOKEN,false,b);
         transfers.push(json!({"vault":address,"before":before.to_string(),"after":after.to_string(),"direction":if is_input{"credit_input"}else{"debit_output"},"amount":if is_input{input.to_string()}else{output.to_string()}}));
     }
-    Ok(json!({"status":"fulfilled","amount_in":input.to_string(),"amount_out":output.to_string(),"amount_remaining":(amount-input).to_string(),"lp_fee":lp_fee.to_string(),"protocol_fee":protocol_fee.to_string(),"fee_amount":(lp_fee+protocol_fee).to_string(),"initial_total_fee_rate":initial_rate,"next_state":native(config,&next)?,"post_accounts":next["accounts"],"transfer_model":{"kind":"classic_spl_nominal_exact_transfer_fixture_arithmetic","executed_spl_cpi":false,"vault_deltas":transfers}}))
+    Ok(json!({"status":"fulfilled","amount_in":input.to_string(),"amount_out":output.to_string(),"amount_remaining":(amount-if exact_in {input}else{output}).to_string(),"lp_fee":lp_fee.to_string(),"protocol_fee":protocol_fee.to_string(),"fee_amount":(lp_fee+protocol_fee).to_string(),"initial_total_fee_rate":initial_rate,"next_state":native(config,&next)?,"post_accounts":next["accounts"],"transfer_model":{"kind":"classic_spl_nominal_exact_transfer_fixture_arithmetic","executed_spl_cpi":false,"vault_deltas":transfers}}))
 }
 fn generate()->R<Value>{
     let mut scenarios=Vec::new();

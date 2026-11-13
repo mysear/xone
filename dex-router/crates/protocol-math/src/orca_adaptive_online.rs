@@ -60,6 +60,12 @@ fn oracle(s: &OrcaWhirlpoolState) -> Result<AdaptiveSwapOracle> {
     })
 }
 pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
+    quote_mode(pool, input, left, true)
+}
+pub fn quote_exact_out(pool: &Pool, output: &Amount, left: bool) -> Result<Swap> {
+    quote_mode(pool, output, left, false)
+}
+fn quote_mode(pool: &Pool, input: &Amount, left: bool, exact_in: bool) -> Result<Swap> {
     pool.validate()?;
     let with_dynamic = pool.protocol == xone_domain::orca_adaptive_state::DYNAMIC_PROFILE;
     let with_rewards = pool.protocol == xone_domain::orca_adaptive_state::REWARDS_PROFILE;
@@ -146,7 +152,15 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
             })
             .collect::<Result<_>>()?,
     };
-    let quote = if with_dynamic {
+    let quote = if !exact_in {
+        if with_dynamic {
+            crate::orca_adaptive_swap::quote_exact_out_dynamic
+        } else if with_rewards {
+            crate::orca_adaptive_swap::quote_exact_out_with_rewards
+        } else {
+            crate::orca_adaptive_swap::quote_exact_out
+        }
+    } else if with_dynamic {
         crate::orca_adaptive_swap::quote_exact_in_dynamic
     } else if with_rewards {
         crate::orca_adaptive_swap::quote_exact_in_with_rewards
@@ -163,7 +177,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
             max_steps: s.max_steps,
         },
     )?;
-    if q.amount_remaining != 0 || q.amount_in != amount {
+    if q.amount_remaining != 0 || (if exact_in { q.amount_in } else { q.amount_out }) != amount {
         return Err(err("ORCA_ADAPTIVE_PARTIAL_FILL_UNSUPPORTED"));
     }
     if q.amount_out == 0 {
@@ -177,7 +191,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
     if left {
         next.raw_vault0 = next
             .raw_vault0
-            .checked_add(amount)
+            .checked_add(q.amount_in)
             .ok_or_else(|| err("ORCA_VAULT_OVERFLOW"))?;
         next.raw_vault1 = next
             .raw_vault1
@@ -186,7 +200,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
     } else {
         next.raw_vault1 = next
             .raw_vault1
-            .checked_add(amount)
+            .checked_add(q.amount_in)
             .ok_or_else(|| err("ORCA_VAULT_OVERFLOW"))?;
         next.raw_vault0 = next
             .raw_vault0
@@ -241,7 +255,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
     next_pool.validate()?;
     Ok(Swap {
         amount_out: Amount::checked(q.amount_out.into())?,
-        consumed_in: input.clone(),
+        consumed_in: Amount::checked(q.amount_in.into())?,
         remaining_in: Amount::zero(),
         next_pool,
     })

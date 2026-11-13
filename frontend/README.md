@@ -135,3 +135,9 @@ Pump经典曲线收款ATA（阶段69）：买入时可显式勾选缺失ATA创�
 PumpSwap classic/boost账户与SOL资金（阶段70）：单池单路报价支持显式创建缺失收款ATA、从SOL补足WSOL输入差额、使用本次新建临时WSOL账户退回未使用的输入资金或将输出解包为SOL。只有兑换方向为WSOL且当前实际路由具备nativeFunding能力时开放包装/解包选项；临时账户只在本次创建并关闭，不关闭已有用户账户。空System规范ATA的预存SOL先用于租金，超过租金的部分在WSOL初始化后成为已有余额，不能冒充本次成交。界面分别显示预存余额、租金补差、包装额、退租、网络费和用户SOL净变动。
 
 能力模型/7为两个已实现PumpSwap模板开放账户和资金选项；其他Token/volume版本、毕业迁移指令及其余链/DEX模板仍按各自能力标签披露。回执从真实pre/post balances和Token余额推导实际新增租金与初始WSOL，准备阶段的估算不替代实际成交归因。复验make -C ../integration pump-amm-funding-current-check；生成银行、独立运行时、二进制、临时签名/回执和截图均不提交。
+
+
+Orca ExactOut（阶段71，能力模型/8）：已有静态、奖励、自适应、自适应奖励和混合动态数组五个经典SPL模型现支持精确输出目标。前端可选择双向币种，按当前QuoteView计算目标到账所需输入并显示路由；600个固定原始manager场景、连续状态和双池份额网格用于对照。当前这五个模型仍只开放报价，尚未提供unsigned/preparation、独立SBF或钱包执行能力，编辑账户字段也不会启用这些按钮。原始native manager参考与SBF/CPI交易验证分别记录。复验make -C ../integration orca-exact-out-current-check；需要恢复生成数据时先运行orca-exact-out-reference，生成物和下载依赖不提交。
+
+
+回执显示交易币对与原报价ID，并按Router地址恢复：切换Router时清除页面上的旧回执与旧签名状态，保留原地址的本地历史；返回原Router后按已保存签名查询，继续显示实际确认状态。回执请求带查询版本，跨Router往返后的旧响应或错误不会覆盖当前结果。用户确认发送后先保存已签名交易的签名，因此发送响应晚于Router切换时仍可回原地址恢复，恢复只查询而不重发。

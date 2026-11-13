@@ -66,3 +66,13 @@ Program/Token code strings are reused byte-for-byte from the previous synthetic
 Orca fixture and explicitly do not attest a deployed SBF program. Original account
 pack and native manager evidence does not establish a validator transaction, CPI,
 RPC finality, deployment or on-chain code equivalence.
+
+
+The native `trade` adapter also accepts `amount_specified_is_input:false`.
+`amount` then names the exact output target passed directly to the unchanged
+original manager. The new output corpus uses `sqrt_price_limit:"0"`, requires
+full target delivery, and compares complete pool, tick, reward and Oracle post
+accounts. `amount_remaining` is the remaining specified-side amount (zero on
+accepted full trades). Omitted mode defaults to the existing ExactIn behavior.
+This native manager evidence does not execute SPL transfers or qualify an
+unsigned transaction, SBF execution, wallet settlement or a deployed program.

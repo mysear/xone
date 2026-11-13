@@ -322,27 +322,49 @@ pub fn quote_exact_in(
     state: &AdaptiveSwapState,
     p: AdaptiveExactInParams,
 ) -> Result<AdaptiveSwapResult> {
-    quote_exact_in_internal(state, p, false, false)
+    quote_internal(state, p, false, false, true)
 }
 /// Classic SPL exact-input swap with pinned cc683ec9 reward accrual and crossing.
 pub fn quote_exact_in_with_rewards(
     state: &AdaptiveSwapState,
     p: AdaptiveExactInParams,
 ) -> Result<AdaptiveSwapResult> {
-    quote_exact_in_internal(state, p, true, false)
+    quote_internal(state, p, true, false, true)
 }
 /// Classic SPL adaptive swap over exactly three complete fixed/dynamic arrays.
 pub fn quote_exact_in_dynamic(
     state: &AdaptiveSwapState,
     p: AdaptiveExactInParams,
 ) -> Result<AdaptiveSwapResult> {
-    quote_exact_in_internal(state, p, true, true)
+    quote_internal(state, p, true, true, true)
 }
-fn quote_exact_in_internal(
+/// The fields match the input parameters; `amount` is an output target here.
+pub type AdaptiveExactOutParams = AdaptiveExactInParams;
+/// Exact-output amount; amount_remaining is the unfilled output target.
+pub fn quote_exact_out(
+    state: &AdaptiveSwapState,
+    p: AdaptiveExactOutParams,
+) -> Result<AdaptiveSwapResult> {
+    quote_internal(state, p, false, false, false)
+}
+pub fn quote_exact_out_with_rewards(
+    state: &AdaptiveSwapState,
+    p: AdaptiveExactOutParams,
+) -> Result<AdaptiveSwapResult> {
+    quote_internal(state, p, true, false, false)
+}
+pub fn quote_exact_out_dynamic(
+    state: &AdaptiveSwapState,
+    p: AdaptiveExactOutParams,
+) -> Result<AdaptiveSwapResult> {
+    quote_internal(state, p, true, true, false)
+}
+fn quote_internal(
     state: &AdaptiveSwapState,
     p: AdaptiveExactInParams,
     allow_rewards: bool,
     allow_dynamic: bool,
+    exact_in: bool,
 ) -> Result<AdaptiveSwapResult> {
     validate(state, p, allow_rewards, allow_dynamic)?;
     let left = p.a_to_b;
@@ -413,6 +435,7 @@ fn quote_exact_in_internal(
     let next_rewards = next.reward_infos.clone();
     let mut remaining = p.amount;
     let mut output = 0u64;
+    let mut consumed = 0u64;
     let mut fees = 0u64;
     let mut protocol = 0u64;
     let mut global = if left {
@@ -446,21 +469,27 @@ fn quote_exact_in_internal(
             let fee_rate = manager.get_total_fee_rate();
             let group = manager.tick_group_index();
             let (bounded, skip) = manager.get_bounded_sqrt_price_target(target, liquidity)?;
-            let available =
-                (u128::from(remaining) * u128::from(1_000_000 - fee_rate) / 1_000_000) as u64;
+            let available = if exact_in {
+                (u128::from(remaining) * u128::from(1_000_000 - fee_rate) / 1_000_000) as u64
+            } else {
+                remaining
+            };
             // Reuse the existing original Q64 price/amount math without its static fee guard.
             // Zero-fee exact-in(available) has exactly the original adaptive step's price and deltas.
-            let s = crate::orca::compute_swap(available, 0, liquidity, current, bounded, left)?;
-            let fee = if s.next_price != bounded {
+            let s = crate::orca::compute_swap_mode(
+                available, 0, liquidity, current, bounded, exact_in, left,
+            )?;
+            let fee = if exact_in && s.next_price != bounded {
                 remaining.checked_sub(s.amount_in).ok_or_else(arithmetic)?
             } else {
                 let n = u128::from(s.amount_in) * u128::from(fee_rate);
                 u64::try_from(n.div_ceil(u128::from(1_000_000 - fee_rate)))
                     .map_err(|_| arithmetic())?
             };
+            let paid = s.amount_in.checked_add(fee).ok_or_else(arithmetic)?;
+            consumed = consumed.checked_add(paid).ok_or_else(arithmetic)?;
             remaining = remaining
-                .checked_sub(s.amount_in)
-                .and_then(|r| r.checked_sub(fee))
+                .checked_sub(if exact_in { paid } else { s.amount_out })
                 .ok_or_else(arithmetic)?;
             output = output.checked_add(s.amount_out).ok_or_else(arithmetic)?;
             fees = fees.checked_add(fee).ok_or_else(arithmetic)?;
@@ -539,6 +568,9 @@ fn quote_exact_in_internal(
             }
         }
     }
+    if !exact_in && remaining > 0 && p.sqrt_price_limit == 0 {
+        return Err(err("ORCA_ADAPTIVE_PARTIAL_FILL_UNSUPPORTED"));
+    }
     manager.update_major_swap_timestamp(state.sqrt_price_x64, current)?;
     next.oracle.adaptive_fee_info = manager.finish();
     next.sqrt_price_x64 = current;
@@ -554,7 +586,7 @@ fn quote_exact_in_internal(
         next.protocol_fee_owed_b = next.protocol_fee_owed_b.wrapping_add(protocol);
     }
     Ok(AdaptiveSwapResult {
-        amount_in: p.amount - remaining,
+        amount_in: consumed,
         amount_out: output,
         amount_remaining: remaining,
         lp_fee: fees.checked_sub(protocol).ok_or_else(arithmetic)?,

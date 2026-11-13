@@ -1,10 +1,8 @@
 //! The fixture is produced by the separate pinned original-manager runner.
 //! Expected output and complete post-state never come from this quote module.
-pub use xone_protocol_math::orca_adaptive_online;
-#[path = "../src/orca.rs"]
-mod orca;
 use serde_json::Value;
 use xone_domain::{Amount, Pool};
+use xone_protocol_math::orca;
 pub use xone_protocol_math::Swap;
 
 fn assert_case(pool: &Pool, case: &Value) -> Option<Pool> {

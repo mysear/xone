@@ -197,6 +197,11 @@ impl Api {
                     "pancake-v3-lm-context": "SINGLE_POOL_EXTERNAL_CALLBACK_FUNDING",
                     "aerodrome-slipstream-context": "SINGLE_POOL_ORIGIN_BOUND_EXTERNAL_CALLBACK_FUNDING",
                     "raydium-cpmm-creator": "SINGLE_POOL_CLASSIC_SPL_CREATOR_FEES",
+                    "orca-whirlpools-static":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
+                    "orca-whirlpools-rewards":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
+                    "orca-whirlpools-adaptive":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
+                    "orca-whirlpools-adaptive-rewards":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
+                    "orca-whirlpools-adaptive-dynamic":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
                     "lfj-lb-v21": "SINGLE_POOL_MINIMUM_TARGET_EXPLICIT_SURPLUS"},
                 "candidateSearch": {
                     "maxHops": request.constraints.as_ref().map_or(self.config.config.routing.max_hops, |c| c.max_hops),

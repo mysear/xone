@@ -11,6 +11,9 @@ fn main() {
    "quote" => match solana_advanced_orca_reference::quote(&req["pool"],req["input"].as_str().unwrap(),req["zero_for_one"].as_bool().unwrap()) {
     Ok(q)=>json!({"amount_out":q.amount_out.to_string(),"next_pool":q.next_pool,"audit":q.audit}),Err(e)=>json!({"reverted":true,"reason":e})
    },
+   "quote_exact_out" => match solana_advanced_orca_reference::quote_exact_out(&req["pool"],req["output"].as_str().unwrap(),req["zero_for_one"].as_bool().unwrap()) {
+    Ok(q)=>json!({"amount_in":q.amount_in.to_string(),"amount_out":q.amount_out.to_string(),"next_pool":q.next_pool,"audit":q.audit}),Err(e)=>json!({"reverted":true,"reason":e})
+   },
    _=>panic!("unknown action"),
   };
   serde_json::to_writer(&mut out,&result).unwrap();out.write_all(b"\n").unwrap();out.flush().unwrap();
