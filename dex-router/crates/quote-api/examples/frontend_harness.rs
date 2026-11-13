@@ -17,6 +17,7 @@ struct Control {
     bank: Bank,
     raydium: Bank,
     pump: Bank,
+    curve: Bank,
     api: xone_quote_api::Api,
     snapshot: Arc<Mutex<Snapshot>>,
 }
@@ -37,6 +38,21 @@ async fn main() {
             )
         })
     };
+    let curve = Bank::pump_curve(4);
+    let (curve_rpc, curve_rpc_task) = curve.serve().await;
+    let (mut curve_api, _) =
+        curve.api_with_manifest(&curve_rpc, runtime_path("rpc-capture").as_deref());
+    Arc::make_mut(&mut curve_api.config)
+        .config
+        .api
+        .cors_allowed_origins = vec![args[2].clone()];
+    let curve_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let curve_addr = curve_listener.local_addr().unwrap();
+    let curve_task = tokio::spawn(async move {
+        axum::serve(curve_listener, curve_api.handler())
+            .await
+            .unwrap();
+    });
     let pump = Bank::pump_amm(8);
     let (pump_rpc, pump_rpc_task) = pump.serve().await;
     let (mut pump_api, _) =
@@ -107,6 +123,7 @@ async fn main() {
         bank: bank.clone(),
         raydium: raydium.clone(),
         pump: pump.clone(),
+        curve: curve.clone(),
         api: api.clone(),
         snapshot: Arc::new(Mutex::new(snapshot)),
     };
@@ -126,7 +143,7 @@ async fn main() {
         .merge(admin)
         .layer(middleware::from_fn_with_state(control, delay));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"wsolApi":format!("http://{wsol_addr}"),"wsolBank":&*wsol.data,"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":&*token2022.data,"raydiumApi":format!("http://{raydium_addr}"),"raydiumBank":&*raydium.data,"pumpApi":format!("http://{pump_addr}"),"pumpBank":&*pump.data,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
+    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"wsolApi":format!("http://{wsol_addr}"),"wsolBank":&*wsol.data,"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":&*token2022.data,"raydiumApi":format!("http://{raydium_addr}"),"raydiumBank":&*raydium.data,"pumpApi":format!("http://{pump_addr}"),"pumpBank":&*pump.data,"curveApi":format!("http://{curve_addr}"),"curveBank":&*curve.data,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
     axum::serve(listener, routes)
         .with_graceful_shutdown(async {
             #[cfg(unix)]
@@ -147,6 +164,9 @@ async fn main() {
     token2022_rpc_task.abort();
     token2022_task.abort();
     raydium_rpc_task.abort();
+    curve_rpc_task.abort();
+    curve_task.abort();
+    let _ = curve_task.await;
     pump_rpc_task.abort();
     pump_task.abort();
     let _ = pump_task.await;
@@ -203,6 +223,6 @@ async fn test_sign(State(c): State<Control>, Json(body): Json<Value>) -> Json<Va
 }
 async fn wallet_stats(State(c): State<Control>) -> Json<Value> {
     Json(
-        json!({"raydiumSendCalls":c.raydium.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"raydiumTransactionCount":c.raydium.transactions.lock().unwrap().len(),"pumpSendCalls":c.pump.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count()}),
+        json!({"raydiumSendCalls":c.raydium.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"raydiumTransactionCount":c.raydium.transactions.lock().unwrap().len(),"pumpSendCalls":c.pump.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"curveSendCalls":c.curve.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count()}),
     )
 }

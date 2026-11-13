@@ -54,12 +54,14 @@ fn capability_labels_cover_existing_versioned_fixture_models_and_reject_unknowns
             xone_domain::meteora::supports_profile(protocol)
                 || protocol == xone_domain::raydium::PROFILE
                 || xone_domain::pump_amm::supports_profile(protocol)
+                || protocol == xone_domain::pump::PROFILE
         );
         assert_eq!(
             c.execution_route_scope.as_deref(),
             c.execution_preparation
                 .then_some("SINGLE_POOL_SINGLE_ROUTE")
         );
+        assert_eq!(c.native_sol_trading, protocol == xone_domain::pump::PROFILE);
         assert_eq!(c.wallet_submission, c.execution_preparation);
         assert_eq!(c.independent_simulation, c.execution_preparation);
         assert!(!c.independent_production_verification && !c.production_ready);

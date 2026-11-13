@@ -431,7 +431,9 @@ fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
     let persistent = amount(p, "rentLamports")?
         .checked_sub(amount(p, "rentRefundLamports")?)
         .ok_or_else(|| err("RECEIPT_AMOUNT_MISMATCH"))?;
-    let paid = if p["refundWrappedSource"] == true {
+    let paid = if p["refundWrappedSource"] == true
+        || (p["sourceNativeSol"] == true && c.sell_token == xone_domain::pump::NATIVE_SOL)
+    {
         u128::from(native_before)
             .checked_sub(u128::from(native_after) + u128::from(fee) + u128::from(persistent))
             .and_then(|v| u64::try_from(v).ok())
@@ -458,7 +460,9 @@ fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
             .and_then(|v| v.checked_sub(end))
             .ok_or_else(|| err("RECEIPT_AMOUNT_MISMATCH"))?
     };
-    let received = if p["unwrapDestinationSol"] == true {
+    let received = if p["unwrapDestinationSol"] == true
+        || (p["destinationNativeSol"] == true && c.buy_token == xone_domain::pump::NATIVE_SOL)
+    {
         (u128::from(native_after) + u128::from(fee) + u128::from(persistent))
             .checked_sub(u128::from(native_before))
             .and_then(|v| u64::try_from(v).ok())

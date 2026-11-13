@@ -120,3 +120,8 @@ Raydium CPMM执行准备（阶段63）：经典SPL已有输入/输出账户可�
 PumpSwap经典/boost（阶段67）：已有经典SPL用户账户且caller/recipient为声明user时，可准备ExactIn/ExactOut、下载单签名交易、原SBF独立模拟及钱包确认发送。卖出目标可能产生额外到账，例如目标1000/实际48185，最低到账与实际收款、5000网络费分别展示；回执保留真实额外到账。自动建户、SOL包装/解包和其他Token版本仍未开放。
 
 复验：`make -C ../integration pump-amm-preparation-current-check`。数据生成`integration/tools/ci/pump-amm-execution-bank.py`复用已保留固定程序；完整闭包约15MiB而单批/快照/模拟输入限制16MiB，总账户缓存预算仍32MiB，生成银行及大程序文件不提交。
+
+
+Pump原生SOL曲线（阶段68）：固定经典SPL版本、已有Token账户、声明user作为caller/recipient/payer，提供sell、buy、buy_exact_sol_in的ExactIn/ExactOut准备、单签名交易和独立模拟/钱包链路。原生资产使用native:solana:sol，输入或输出账户默认该user；Token侧仍默认ATA。交易金额和网络费分开结算，SOL余额净变动另列，例如实际收到10971且费用5000时净增5971。
+
+能力模型/5新增nativeSolTrading以描述原生SOL交易；nativeFunding仍表示SOL/WSOL自动资金转换，此曲线不开放包装/解包或自动建户。复验make -C ../integration pump-curve-preparation-current-check；毕业迁移指令、其他Token/volume版本和其他链模板仍需独立完成。

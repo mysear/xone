@@ -5,6 +5,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 mod pump_amm;
+mod pump_curve;
 mod raydium;
 use std::sync::{Arc, Mutex};
 use std::{
@@ -111,6 +112,7 @@ pub async fn prepare_solana_captured(
     if !m::supports_profile(&s.pool.protocol)
         && s.pool.protocol != xone_domain::raydium::PROFILE
         && !xone_domain::pump_amm::supports_profile(&s.pool.protocol)
+        && s.pool.protocol != xone_domain::pump::PROFILE
     {
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
     }
@@ -132,7 +134,8 @@ pub async fn prepare_solana_captured(
         || s.expected_output == 0
         || (s.exact
             && ((s.amount != s.expected_output
-                && !(xone_domain::pump_amm::supports_profile(&s.pool.protocol)
+                && !((xone_domain::pump_amm::supports_profile(&s.pool.protocol)
+                    || s.pool.protocol == xone_domain::pump::PROFILE)
                     && s.zero
                     && s.amount < s.expected_output))
                 || s.limit < s.expected_input))
@@ -403,6 +406,9 @@ async fn resolve(
     request: SolanaRequest,
     capture: Capture,
 ) -> Result<Value> {
+    if s.pool.protocol == xone_domain::pump::PROFILE {
+        return pump_curve::resolve(config, s, request, capture).await;
+    }
     if xone_domain::pump_amm::supports_profile(&s.pool.protocol) {
         return pump_amm::resolve(config, s, request, capture).await;
     }
@@ -1106,6 +1112,24 @@ pub fn verify_simulated_settlement(
     if before.len() != 3 || after.len() != 3 {
         return Err(bad());
     }
+    let source_native = prepared["sourceNativeSol"] == true;
+    let destination_native = prepared["destinationNativeSol"] == true;
+    if source_native != (context.sell_token == xone_domain::pump::NATIVE_SOL)
+        || destination_native != (context.buy_token == xone_domain::pump::NATIVE_SOL)
+        || (source_native
+            && (prepared["sourceTokenAccount"] != context.caller
+                || before[0] != before[2]
+                || after[0] != after[2]
+                || prepared["sourceTokenProgram"] != SYSTEM))
+        || (destination_native
+            && (prepared["destinationTokenAccount"] != context.caller
+                || context.recipient != context.caller
+                || before[1] != before[2]
+                || after[1] != after[2]
+                || prepared["destinationTokenProgram"] != SYSTEM))
+    {
+        return Err(err("PREPARATION_SIMULATION_AMOUNT_MISMATCH"));
+    }
     let source_program = prepared["sourceTokenProgram"].as_str().ok_or_else(bad)?;
     let destination_program = prepared["destinationTokenProgram"]
         .as_str()
@@ -1141,7 +1165,12 @@ pub fn verify_simulated_settlement(
         .checked_add(fee)
         .and_then(|v| v.checked_add(persistent))
         .ok_or_else(bad)?;
-    let paid = if prepared["refundWrappedSource"] == true {
+    let paid = if source_native {
+        payer_before
+            .lamports
+            .checked_sub(native_final)
+            .ok_or_else(bad)?
+    } else if prepared["refundWrappedSource"] == true {
         if !before[0].is_null() || !after[0].is_null() {
             return Err(err("PREPARATION_TEMP_ACCOUNT_OCCUPIED"));
         }
@@ -1166,7 +1195,11 @@ pub fn verify_simulated_settlement(
             .and_then(|v| v.checked_sub(end))
             .ok_or_else(bad)?
     };
-    let received = if prepared["unwrapDestinationSol"] == true {
+    let received = if destination_native {
+        native_final
+            .checked_sub(payer_before.lamports)
+            .ok_or_else(bad)?
+    } else if prepared["unwrapDestinationSol"] == true {
         if !before[1].is_null() || !after[1].is_null() {
             return Err(err("PREPARATION_TEMP_ACCOUNT_OCCUPIED"));
         }
@@ -1198,7 +1231,8 @@ pub fn verify_simulated_settlement(
     if paid != number("quotedInput")? || received != number("quotedOutput")? {
         return Err(err("PREPARATION_SIMULATION_AMOUNT_MISMATCH"));
     }
-    if source_program != TOKEN
+    if !source_native
+        && source_program != TOKEN
         && withheld(&account(&after[0])?.ok_or_else(bad)?)?
             != before_source
                 .as_ref()
@@ -1208,7 +1242,8 @@ pub fn verify_simulated_settlement(
     {
         return Err(err("PREPARATION_SIMULATION_FEE_MISMATCH"));
     }
-    if destination_program != TOKEN
+    if !destination_native
+        && destination_program != TOKEN
         && withheld(&account(&after[1])?.ok_or_else(bad)?)?
             != before_destination
                 .as_ref()

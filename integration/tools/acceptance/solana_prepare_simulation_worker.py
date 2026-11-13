@@ -24,8 +24,9 @@ def simulate(request):
     S,P,K,I,M,T,A,C=native_imports();svm=S().with_mainnet_features().with_blockhash_check(False).with_sigverify(config['sigVerify'])
     target='CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C' if bank.get('pool',{}).get('protocol')=='raydium-cpmm-creator' else 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo'
     if bank.get('pool',{}).get('protocol','').startswith('pump-amm-classic-wsol'):target='pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA'
+    if bank.get('pool',{}).get('protocol')=='pump-bonding-sol-classic':target='6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P'
     programs=[target,'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']
-    if target=='pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA':programs.append('pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ')
+    if target in ['pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA','6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P']:programs.append('pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ')
     if bank.get('pool',{}).get('meteora',{}).get('token2022') is not None:programs.append('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
     for pid in programs:
         raw=base64.b64decode(bank['accounts'][pid]['data'][0]);pd=str(P.from_bytes(raw[4:36]));svm.add_program_with_loader(P.from_string(pid),base64.b64decode(bank['accounts'][pd]['data'][0])[45:],P.from_string('BPFLoaderUpgradeab1e11111111111111111111111'))
@@ -45,7 +46,8 @@ def simulate(request):
         raw=bytearray(a.data)
         lamports=a.lamports
         if mode=='simulation_mismatch'and id==config['accounts']['addresses'][1]:
-            raw[64:72]=(int.from_bytes(raw[64:72],'little')+1).to_bytes(8,'little')
+            if len(raw)<165:lamports+=1
+            else:raw[64:72]=(int.from_bytes(raw[64:72],'little')+1).to_bytes(8,'little')
             if raw[109:113]==b'\x01\0\0\0':lamports+=1
         if mode=='withheld_mismatch' and str(a.owner)=='TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb':
             cursor=166

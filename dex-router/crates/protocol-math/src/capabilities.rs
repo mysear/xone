@@ -1,7 +1,7 @@
 //! Versioned capabilities describe admitted kernels, not live RPC/account readiness.
 use serde::{Deserialize, Serialize};
 use xone_domain::{Pool, Result};
-pub const VERSION: &str = "xone-protocol-capabilities/4";
+pub const VERSION: &str = "xone-protocol-capabilities/5";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolCapabilities {
@@ -20,6 +20,7 @@ pub struct ProtocolCapabilities {
     pub rpc_simulation: bool,
     pub account_creation: bool,
     pub native_funding: bool,
+    pub native_sol_trading: bool,
     pub independent_simulation: bool,
     pub wallet_submission: bool,
     pub independent_production_verification: bool,
@@ -58,7 +59,8 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
     let meteora = xone_domain::meteora::supports_profile(protocol);
     let prepared = meteora
         || protocol == xone_domain::raydium::PROFILE
-        || xone_domain::pump_amm::supports_profile(protocol);
+        || xone_domain::pump_amm::supports_profile(protocol)
+        || protocol == xone_domain::pump::PROFILE;
     let contextual = profile.is_some_and(|p| {
         matches!(
             p.family,
@@ -89,6 +91,7 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
         rpc_simulation: prepared,
         account_creation: meteora,
         native_funding: meteora,
+        native_sol_trading: protocol == xone_domain::pump::PROFILE,
         independent_simulation: prepared,
         wallet_submission: prepared,
         independent_production_verification: false,

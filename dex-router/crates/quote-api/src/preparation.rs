@@ -100,7 +100,8 @@ fn selected(
         .ok_or_else(bad)?;
     if !(m::supports_profile(&pool.protocol)
         || pool.protocol == xone_domain::raydium::PROFILE
-        || xone_domain::pump_amm::supports_profile(&pool.protocol))
+        || xone_domain::pump_amm::supports_profile(&pool.protocol)
+        || pool.protocol == xone_domain::pump::PROFILE)
         || edge.from_token.is_some()
     {
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));

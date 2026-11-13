@@ -117,6 +117,26 @@ impl Bank {
             transactions: Default::default(),
         }
     }
+    pub fn pump_curve(index: usize) -> Self {
+        let f: Value = serde_json::from_slice(
+            &std::fs::read(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../test/contracts/pump-curve-execution-bank.json"
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let mut data = f["cases"][index].clone();
+        for (key, value) in f["shared_accounts"].as_object().unwrap() {
+            data["accounts"][key] = value.clone();
+        }
+        Self {
+            data: Arc::new(data),
+            mode: Arc::new(Mutex::new("ready".into())),
+            calls: Default::default(),
+            transactions: Default::default(),
+        }
+    }
     pub async fn serve(&self) -> (String, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -360,7 +380,7 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                         {
                             raw[32] ^= 1;
                         }
-                        if id == &d["sourceTokenAccount"] {
+                        if raw.len() >= 165 && (id == &d["sourceTokenAccount"] || (d["sourceTokenAccount"] == d["caller"] && id == &d["destinationTokenAccount"])) {
                             if mode == "frozen" {
                                 raw[108] = 2;
                             }

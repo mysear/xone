@@ -1492,3 +1492,10 @@ BINDINGS['14.pump-amm-execution']={
  'tests':['pump_swap_canonical_boost_all_instruction_kinds_prepare_and_execute_independently','pump_swap_signed_submission_receipt_matches_original_user_and_fee_accounts','test_reported_net_credit_cannot_hide_real_surplus','test_minimum_target_cannot_be_replaced_with_surplus','test_recompiled_fee_redirection_is_rejected'],
  'evidence_refs':['integration/artifacts/local/core-pump-amm-preparation-validation-20261113.json'],
 }
+
+
+BINDINGS['14.pump-curve-execution']={
+ 'paths':['dex-router/crates/execution-preparation/src/pump_curve.rs','dex-router/crates/quote-api/tests/pump_curve_preparation.rs','dex-router/crates/simulation/workers/solana_sbf.py','integration/tools/ci/pump-curve-execution-bank.py','integration/tools/acceptance/pump_curve_preparation_reference.py','integration/tools/acceptance/validate_pump_curve_preparation.py'],
+ 'tests':['pump_native_curve_all_directions_prepare_simulate_and_reject_mutations','pump_native_curve_signed_submission_receipt_matches_real_sol_and_fee_accounts','test_native_payer_delta_includes_fee','test_native_output_is_not_a_token_account','test_recompiled_fee_redirection_is_rejected'],
+ 'evidence_refs':['integration/artifacts/local/core-pump-curve-preparation-validation-20261113.json'],
+}

@@ -913,3 +913,7 @@ rpc-capture-current-check:
 .PHONY: pump-amm-preparation-current-check
 pump-amm-preparation-current-check:
 	python3 tools/acceptance/validate_pump_amm_preparation.py
+
+.PHONY: pump-curve-preparation-current-check
+pump-curve-preparation-current-check:
+	python3 tools/acceptance/validate_pump_curve_preparation.py

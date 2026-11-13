@@ -1708,3 +1708,14 @@ PumpSwap sell目标模式是固定输入+最小输出，最小输入可导致实
 能力模型/4还明确executionRouteScope=SINGLE_POOL_SINGLE_ROUTE；前端按实际单路单池及协议匹配启用准备，资金选项跟随实际报价池/币对，禁止借链上另一池的能力开放当前PumpSwap或复合路线。模型单测覆盖拆单、多跳、协议不符和不可用池。
 
 阶段67最终同源码有限验收：源码`09d3bea3332787a5fc908e32eef0f71371a9d8f7a5106d50ed800433f741790a`，56项检查、51次Rust测试执行、46项真实Chrome联调全部通过。九组canonical/boost双向ExactIn/ExactOut及额外到账原wire/完整后状态、Token守恒/WSOL backing和失败回滚参考通过；五组真实测试签名、单次loopback发送、重启恢复及minBuyAmount回执通过。费用程序/Pool/Clock变更、冻结/错误币种/缺失/余额不足和不支持选项拒绝通过；既有Meteora经典/Token2022/WSOL、Raydium、隔离SBF边界、八类生命周期、严格Clippy和普通/-OO反例及文档继续回归。309合同/12工具副本/164公共来源、前端模型和钱包单测、桌面/移动布局通过。运行产物与源码/工具/运行时/银行摘要已冻结；仅受控钱包与loopback发送，未提交公网交易。当前执行准备模型9/61，其余52模型、Pump原生SOL及自动资金账户功能不在本批完成范围。
+
+
+### Pump原生SOL曲线执行（阶段68）
+
+独立preparation增加固定Pump经典曲线sell/buy/buy_exact_sol_in。原生侧沿用账户DTO字段但显式sourceNativeSol/destinationNativeSol，绑定native:solana:sol及声明user的System账户；SPL侧严格校验已有Token账户。caller/recipient/payer必须相同，原始账户角色及双尾账户按IDL构建，volume/partial关闭。
+
+买入准备资金为requiredInput加网络费，quotedInput为预计实际原生交易支出；卖出固定计算Token输入及minBuyAmount，quotedOutput继续保留可能大于目标的实际原生到账。独立worker、signed RPC预检、最终meta均用lamports恢复净交易金额，费用另外披露。原生账户与payer重复出现在模拟结果时核对同一账户数据，禁止用Token amount偏移解析System账户。
+
+能力模型/5新增nativeSolTrading；nativeFunding继续表示自动SOL/WSOL资金转换，曲线不开放该选项或自动ATA。仅经典曲线模板；毕业迁移、其他Token和volume策略仍需独立实现。五组原型固定SBF/完整后状态/守恒/失败回滚及七反例通过，实际API和Chrome结果在阶段68最终记录后回填；不提升生产VERIFIED。
+
+阶段68最终同源码有限验收：源码`c27be25a2476eb7ff3585504ef1fb80ed2c9a1b8b2597fc5695f8dd43fbbb8b4`，31项检查、26次Rust测试执行、51项真实Chrome联调全部通过。五组实际API原wire、模型全部后状态、Token/SOL守恒、网络费和失败完整回滚参考通过；五组原生买卖真实测试签名、单次loopback发送、重复提交及重启回执通过。独立模拟、signed RPC预检和meta回执均从lamports恢复交易净额，最后一组实际1/10971、费用5000、用户净增5971及最低到账1000分列。既有Meteora/Token2022/WSOL/PumpSwap/Raydium及八类钱包状态、RPC捕获/缓存预算、严格Clippy、普通/-OO反例和文档、桌面/移动布局继续回归通过。310合同/12工具副本/164公共来源通过。初始手动预检运行时路径缺失及拒绝场景复用过期报价的测试问题已修正；每个拒绝场景取得新报价，不改生产期限/超时。失败记录保留，不计入通过；最终运行固定源码、工具、银行/运行时、下载、回执与截图摘要。当前执行准备模板10/61，其余51模型、自动收款ATA及毕业迁移等功能保持未完成。

@@ -175,7 +175,8 @@ impl Engine {
             if pool.chain_key != manifest.chain_key
                 || !(xone_domain::meteora::supports_profile(&pool.protocol)
                     || pool.protocol == xone_domain::raydium::PROFILE
-                    || xone_domain::pump_amm::supports_profile(&pool.protocol))
+                    || xone_domain::pump_amm::supports_profile(&pool.protocol)
+                    || pool.protocol == xone_domain::pump::PROFILE)
                 || value["accounts"].as_object().is_none_or(|m| m.len() > 128)
             {
                 return Err(err("SBF_BANK_INVALID"));
@@ -205,7 +206,8 @@ impl Engine {
                 || (self.manifest.rpc_capture
                     && (xone_domain::meteora::supports_profile(&pool.protocol)
                         || pool.protocol == xone_domain::raydium::PROFILE
-                        || xone_domain::pump_amm::supports_profile(&pool.protocol))))
+                        || xone_domain::pump_amm::supports_profile(&pool.protocol)
+                        || pool.protocol == xone_domain::pump::PROFILE)))
     }
     pub fn uses_rpc_capture(&self) -> bool {
         self.manifest.rpc_capture
