@@ -495,9 +495,9 @@
 |60|[临时WSOL解包与余款回收](#plan-2026-11-12-temporary-wsol)|LOCAL_SCOPE_VERIFIED|24项检查/12次Rust测试/24项真实Chrome业务联调通过；两类临时账户真实下载原SBF收付/退租/既有账户不变及失败回滚通过；[本批记录](integration/artifacts/local/core-temporary-wsol-validation-20261112.json)|
 |61|[Token2022收款ATA与转账费联调](#plan-2026-11-13-token2022-preparation)|LOCAL_SCOPE_VERIFIED|30项检查/15次Rust测试执行/27项真实Chrome业务联调通过；178/182账户、epoch/cap/100%费率、混合租金退款和13原执行/回滚检查通过；[本批记录](integration/artifacts/local/core-token2022-preparation-validation-20261113.json)|
 |62|[六阶段业务链路主线与协议视图](#plan-2026-11-13-six-stage-pipeline)|LOCAL_SCOPE_VERIFIED|本批36检查/34次Rust测试执行/28项真实Chrome联调通过；Raydium 1832单笔+54序列步、61模型目录/协议视图、独立preparation及13原SBF回归通过；六阶段整体仍继续；[验证记录](integration/artifacts/local/core-pipeline-foundation-validation-20261113.json)|
-|63|[Raydium动态账户与unsigned交易](#plan-2026-11-13-raydium-preparation)|LOCAL_SCOPE_VERIFIED|Raydium经典SPL单池ExactIn/ExactOut动态账户闭包、实际指令/只读原SBF模拟及前端下载已通过预检，完整Oracle更新及输入减一回滚已补原源码比对；[本批验证](integration/artifacts/local/core-raydium-preparation-validation-20261113.json)|
-|64|[配置化隔离SBF独立模拟](#plan-2026-11-13-local-sbf-service)|LOCAL_SCOPE_VERIFIED|显式运行时/银行摘要、隔离子进程与CU预算，缓存preparation/计划/协议视图绑定和实际收付款校验已预检，前端联验中；[验证记录](integration/artifacts/local/core-solana-independent-validation-20261113.json)|
-|65|[钱包签名广播与可恢复回执](#plan-2026-11-13-wallet-lifecycle)|LOCAL_SCOPE_VERIFIED|Wallet Standard仅签名、Ed25519/消息不变校验、独立证据门禁、实时签名预检、显式发送及fsync日志/状态恢复已联调，统一验收中；[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
+|63|[Raydium动态账户与unsigned交易](#plan-2026-11-13-raydium-preparation)|LOCAL_SCOPE_VERIFIED|41检查/35次Rust测试执行/30项真实Chrome联调通过；双向已有经典SPL账户unsigned、3组原SBF完整Oracle/账本及输入减一回滚通过；[本批验证](integration/artifacts/local/core-raydium-preparation-validation-20261113.json)|
+|64|[配置化隔离SBF独立模拟](#plan-2026-11-13-local-sbf-service)|LOCAL_SCOPE_VERIFIED|46检查/39次Rust测试执行/34项真实Chrome联调通过；隔离原SBF、真实CU/收付、运行时/银行摘要及缓存preparation/协议视图证据门禁通过；[验证记录](integration/artifacts/local/core-solana-independent-validation-20261113.json)|
+|65|[钱包签名广播与可恢复回执](#plan-2026-11-13-wallet-lifecycle)|LOCAL_SCOPE_VERIFIED|51检查/44次Rust测试执行/40项真实Chrome联调通过；Wallet Standard仅签名、真实Ed25519、实时预检、显式单次发送、八类回执及重启/页面恢复通过；[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
