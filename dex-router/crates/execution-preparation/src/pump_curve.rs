@@ -7,11 +7,7 @@ pub(super) async fn resolve(
     request: SolanaRequest,
     capture: Capture,
 ) -> Result<Value> {
-    if request.create_destination_ata
-        || request.wrap_source_sol
-        || request.refund_wrapped_source
-        || request.unwrap_destination_sol
-    {
+    if request.wrap_source_sol || request.refund_wrapped_source || request.unwrap_destination_sol {
         return Err(err("PREPARATION_OPTIONS_UNSUPPORTED"));
     }
     let p = &s.pool;
@@ -21,6 +17,7 @@ pub(super) async fn resolve(
     }
     let output = if s.zero { &p.token1 } else { &p.token0 };
     let user_ata = ata(&state.user, &p.token0, TOKEN)?;
+    let expected_ata = user_ata.clone();
     let src = request.source_token_account.unwrap_or(if s.zero {
         user_ata.clone()
     } else {
@@ -35,6 +32,9 @@ pub(super) async fn resolve(
     m::pubkey(&dst)?;
     if (s.zero && dst != state.user) || (!s.zero && src != state.user) {
         return Err(err("PREPARATION_NATIVE_ACCOUNT_INVALID"));
+    }
+    if request.create_destination_ata && (s.zero || dst != expected_ata) {
+        return Err(err("PREPARATION_DESTINATION_NOT_ATA"));
     }
     let event = m::pda(&[b"__event_authority"], a::PROGRAM)?;
     let secondary = m::pda(&[b"bonding-curve-v2", &m::pubkey(&p.token0)?], a::PROGRAM)?;
@@ -152,18 +152,42 @@ pub(super) async fn resolve(
         return Err(bad());
     }
     let token_key = if s.zero { &src } else { &dst };
-    let balance = bank
-        .get(token_key)
-        .and_then(Option::as_ref)
-        .map(|a| token(a, &p.token0, &state.user, TOKEN))
-        .transpose()?;
+    let raw_token = bank.get(token_key).and_then(Option::as_ref);
+    let uninitialized_token = token_key == &expected_ata
+        && raw_token.is_some_and(|a| a.owner == SYSTEM && !a.executable && a.data.is_empty());
+    let prefund = if !s.zero && uninitialized_token {
+        raw_token.ok_or_else(bad)?.lamports
+    } else {
+        0
+    };
+    let balance = if uninitialized_token {
+        None
+    } else {
+        raw_token
+            .map(|a| token(a, &p.token0, &state.user, TOKEN))
+            .transpose()?
+    };
     let required = if s.exact && !s.zero {
         s.limit
     } else {
         s.expected_input
     };
+    let create_destination = !s.zero && balance.is_none() && request.create_destination_ata;
+    let minimum_rent = if create_destination {
+        rpc.call(
+            "getMinimumBalanceForRentExemption",
+            json!([165,{"commitment":"finalized"}]),
+        )
+        .await?
+        .as_u64()
+        .filter(|n| *n > 0)
+        .ok_or_else(bad)?
+    } else {
+        0
+    };
+    let rent = minimum_rent.saturating_sub(prefund);
     let mut blockers = Vec::new();
-    if balance.is_none() {
+    if balance.is_none() && !create_destination {
         blockers.push(if s.zero {
             "SOURCE_ACCOUNT_MISSING"
         } else {
@@ -175,7 +199,7 @@ pub(super) async fn resolve(
     if !s.zero && payer.lamports < required {
         blockers.push("INSUFFICIENT_NATIVE_BALANCE");
     }
-    let mut result = json!({"quoteId":s.quote_view_id,"planHash":s.plan_hash,"quoteViewId":s.quote_view_id,"snapshotRef":s.snapshot,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":src,"destinationTokenAccount":dst,"sourceNativeSol":!s.zero,"destinationNativeSol":s.zero,"sourceTokenProgram":if s.zero {TOKEN} else {SYSTEM},"destinationTokenProgram":if s.zero {SYSTEM} else {TOKEN},"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":false,"sourceAccountCreation":false,"wrapLamports":"0","sourceWsolRetained":false,"refundWrappedSource":false,"unwrapDestinationSol":false,"temporaryWsolAccount":Value::Null,"temporarySeed":Value::Null,"settlementAsset":output,"rentRefundLamports":"0","expectedNativeRefundLamports":"0","expectedResidualWsol":"0","rentLamports":"0","payerLamports":payer.lamports.to_string(),"expectedDestinationTransferFee":"0","simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
+    let mut result = json!({"quoteId":s.quote_view_id,"planHash":s.plan_hash,"quoteViewId":s.quote_view_id,"snapshotRef":s.snapshot,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":src,"destinationTokenAccount":dst,"sourceNativeSol":!s.zero,"destinationNativeSol":s.zero,"sourceTokenProgram":if s.zero {TOKEN} else {SYSTEM},"destinationTokenProgram":if s.zero {SYSTEM} else {TOKEN},"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":create_destination,"sourceAccountCreation":false,"wrapLamports":"0","sourceWsolRetained":false,"refundWrappedSource":false,"unwrapDestinationSol":false,"temporaryWsolAccount":Value::Null,"temporarySeed":Value::Null,"settlementAsset":output,"rentRefundLamports":"0","expectedNativeRefundLamports":"0","expectedResidualWsol":"0","rentLamports":rent.to_string(),"destinationMinimumRentLamports":minimum_rent.to_string(),"destinationPrefundedLamports":prefund.to_string(),"payerLamports":payer.lamports.to_string(),"expectedDestinationTransferFee":"0","simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
     if !blockers.is_empty() {
         return Ok(result);
     }
@@ -243,11 +267,15 @@ pub(super) async fn resolve(
     if !s.zero {
         data.extend([0, 0]);
     }
-    let instructions = vec![Instruction {
+    let mut instructions = Vec::new();
+    if create_destination {
+        instructions.push(create_ata(&state.user, &dst, &state.user, &p.token0, TOKEN));
+    }
+    instructions.push(Instruction {
         program_id: a::PROGRAM.into(),
         accounts: metas,
         data_base64: STANDARD.encode(data),
-    }];
+    });
     let message = compile_message_many(&state.user, blockhash, &instructions)?;
     let fee = rpc
         .call(
@@ -262,10 +290,15 @@ pub(super) async fn resolve(
         .as_u64()
         .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
     let funding = cost
-        .checked_add(if s.zero { 0 } else { required })
+        .checked_add(rent)
+        .and_then(|n| n.checked_add(if s.zero { 0 } else { required }))
         .ok_or_else(bad)?;
     if payer.lamports < funding {
-        result["blockers"] = json!(["INSUFFICIENT_FEE_BALANCE"]);
+        result["blockers"] = json!([if rent > 0 {
+            "INSUFFICIENT_RENT_FEE_BALANCE"
+        } else {
+            "INSUFFICIENT_FEE_BALANCE"
+        }]);
         return Ok(result);
     }
     let wire = unsigned_packet(&message)?;
@@ -276,9 +309,9 @@ pub(super) async fn resolve(
     result["feeLamports"] = cost.to_string().into();
     result["totalFundingLamports"] = funding.to_string().into();
     result["expectedPayerLamportDelta"] = (if s.zero {
-        i128::from(s.expected_output) - i128::from(cost)
+        i128::from(s.expected_output) - i128::from(cost) - i128::from(rent)
     } else {
-        -i128::from(s.expected_input) - i128::from(cost)
+        -i128::from(s.expected_input) - i128::from(cost) - i128::from(rent)
     })
     .to_string()
     .into();

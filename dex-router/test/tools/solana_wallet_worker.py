@@ -22,7 +22,11 @@ def main(request):
  for key,a in bank['accounts'].items():svm.set_account(P.from_string(key),A(a['lamports'],base64.b64decode(a['data'][0]),P.from_string(a['owner']),a['executable'],0))
  clock=base64.b64decode(bank['accounts']['SysvarC1ock11111111111111111111111111111111']['data'][0]);slot=int.from_bytes(clock[:8],'little');svm.set_clock(C(slot=slot,epoch_start_timestamp=int.from_bytes(clock[8:16],'little',signed=True),epoch=int.from_bytes(clock[16:24],'little'),leader_schedule_epoch=int.from_bytes(clock[24:32],'little'),unix_timestamp=int.from_bytes(clock[32:40],'little',signed=True)))
  if request.get('mode')=='send_fail':
-  source=bank['destinationTokenAccount']if bank['sourceTokenAccount']==bank['caller']else bank['sourceTokenAccount'];a=svm.get_account(P.from_string(source));data=bytearray(a.data);data[108]=2;svm.set_account(P.from_string(source),A(a.lamports,bytes(data),a.owner,False,0))
+  source=bank['destinationTokenAccount']if bank['sourceTokenAccount']==bank['caller']else bank['sourceTokenAccount'];a=svm.get_account(P.from_string(source))
+  # Explicit local fault injection: when a destination is not initialized yet,
+  # freeze the existing base vault so create succeeds and swap fails atomically.
+  if bank['pool']['protocol']=='pump-bonding-sol-classic'and(a is None or str(a.owner)!=TOKEN or len(a.data)!=165):source=bank['pool']['pump']['vault'];a=svm.get_account(P.from_string(source))
+  data=bytearray(a.data);data[108]=2;svm.set_account(P.from_string(source),A(a.lamports,bytes(data),a.owner,False,0))
  keys=list(map(str,tx.message.account_keys))
  def snapshot():
   balances=[];tokens=[]

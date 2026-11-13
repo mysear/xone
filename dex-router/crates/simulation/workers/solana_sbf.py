@@ -163,7 +163,8 @@ def main():
         require(account(destination)is None,'SBF_TEMP_NOT_CLOSED')
         received=native_after.lamports-native_before+fee+persistent
     else:
-        initial=0 if destination_before is None else amount(destination_before,request['buyToken'],request['recipient'],dest_program)
+        uninitialized=source_native and preparation['accountCreation']and destination_before is not None and str(destination_before.owner)==SYSTEM and not destination_before.executable and len(destination_before.data)==0
+        initial=0 if destination_before is None or uninitialized else amount(destination_before,request['buyToken'],request['recipient'],dest_program)
         received=amount(account(destination),request['buyToken'],request['recipient'],dest_program)-initial
     require(paid==int(preparation['quotedInput'])and received==int(preparation['quotedOutput']),'SBF_AMOUNT_MISMATCH')
     require(native_after.lamports-native_before==int(preparation['expectedPayerLamportDelta']),'SBF_NATIVE_BALANCE_MISMATCH')

@@ -19,17 +19,28 @@ def verify(path,index):
  values=dict(global_=values['global_id'],fee_recipient=values['fee_recipient'],mint=values['mint'],bonding_curve=values['curve'],associated_bonding_curve=values['vault'],associated_user=values['user_ata'],user=values['user'],system_program='11111111111111111111111111111111',token_program=TOKEN,creator_vault=values['creator_vault'],event_authority=str(P.find_program_address([b'__event_authority'],P.from_string(PROGRAM))[0]),program=PROGRAM,global_volume_accumulator=values['global_volume'],user_volume_accumulator=values['user_volume'],fee_config=values['fee_id'],fee_program=FEE,buyback=values['buyback'])
  expected=[(values['global_'if a['name']=='global'else a['name']],a.get('signer',False),a.get('writable',False))for a in definition['accounts']]
  secondary=str(P.find_program_address([b'bonding-curve-v2',bytes(P.from_string(values['mint']))],P.from_string(PROGRAM))[0]);expected.extend([(secondary,False,False),(values['buyback'],False,True)])
- require(len(tx.message.instructions)==len(p['instructions'])==1,'pump-single-swap')
- d=p['instructions'][0];ix=tx.message.instructions[0];keys=list(map(str,tx.message.account_keys));require(str(tx.message.account_keys[ix.program_id_index])==d['programId']==PROGRAM and [keys[i]for i in ix.accounts]==[a['pubkey']for a in d['accounts']]and bytes(ix.data)==base64.b64decode(d['dataBase64']),'pump-wire-descriptors')
+ creating=b.get('destinationPreviouslyMissing')is True;prefund=int(b.get('destinationPrefundedLamports',0));rent=max(0,2039280-prefund)if creating else 0
+ require(len(tx.message.instructions)==len(p['instructions'])==(2 if creating else 1),'pump-instruction-count')
+ d=p['instructions'][-1];ix=tx.message.instructions[-1];keys=list(map(str,tx.message.account_keys));require(str(tx.message.account_keys[ix.program_id_index])==d['programId']==PROGRAM and [keys[i]for i in ix.accounts]==[a['pubkey']for a in d['accounts']]and bytes(ix.data)==base64.b64decode(d['dataBase64']),'pump-wire-descriptors')
  require([(a['pubkey'],a['isSigner'],a['isWritable'])for a in d['accounts']]==expected,'pump-original-account-roles')
  target=int(b['target']);used=int(b['requiredInput']);output=int(b['actualOutput']);minimum=target if b['exactOut']else output*9950//10000;maximum=(used*10050+9999)//10000
  first=used if b['zeroForOne']or not b['exactOut']else target;second=minimum if b['zeroForOne']or not b['exactOut']else maximum
  require(bytes(ix.data)==bytes(definition['discriminator'])+first.to_bytes(8,'little')+second.to_bytes(8,'little')+(bytes(2)if not b['zeroForOne']else b''),'pump-original-instruction-amounts')
  require(p['sourceTokenAccount']==b['sourceTokenAccount']and p['destinationTokenAccount']==b['destinationTokenAccount']and p['quotedInput']==str(used)and p['quotedOutput']==str(output)and p['minBuyAmount']==str(minimum)and p['requiredInput']==str(maximum if b['exactOut']and not b['zeroForOne']else used),'pump-context-amounts')
- require(p['feeLamports']=='5000'and p['totalFundingLamports']==str(5000+(maximum if b['exactOut']else used)if not b['zeroForOne']else 5000)and p['rentLamports']=='0'and p['expectedPayerLamportDelta']==str((output if b['zeroForOne']else -used)-5000),'pump-fee-funding')
+ require(p['feeLamports']=='5000'and p['totalFundingLamports']==str(5000+rent+(maximum if b['exactOut']else used)if not b['zeroForOne']else 5000)and p['rentLamports']==str(rent)and p['expectedPayerLamportDelta']==str((output if b['zeroForOne']else -used)-5000-rent),'pump-fee-funding')
  require(p['sourceNativeSol']==(not b['zeroForOne'])and p['destinationNativeSol']==b['zeroForOne'],'pump-native-assets')
+ require(p['accountCreation']==creating,'pump-explicit-ata-creation')
+ if creating:require(p['destinationMinimumRentLamports']=='2039280'and p['destinationPrefundedLamports']==str(prefund),'pump-observed-prefund-and-minimum-rent')
+ prefix=[];prefix_rights=[]
+ if creating:
+  ata='ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';c=p['instructions'][0]
+  prefix_rights=[(b['caller'],True,True),(b['destinationTokenAccount'],False,True),(b['caller'],False,False),(b['pool']['token0'],False,False),('11111111111111111111111111111111',False,False),(TOKEN,False,False)]
+  require(c['programId']==ata and base64.b64decode(c['dataBase64'])==b'\x01'and [(a['pubkey'],a['isSigner'],a['isWritable'])for a in c['accounts']]==prefix_rights,'pump-canonical-ata-instruction')
+  cix=tx.message.instructions[0];require(keys[cix.program_id_index]==ata and [keys[i]for i in cix.accounts]==[a[0]for a in prefix_rights]and bytes(cix.data)==b'\x01','pump-actual-ata-wire')
+  prefix=[I(P.from_string(ata),b'\x01',[M(P.from_string(k),a,b)for k,a,b in prefix_rights])]
  rights={b['caller']:(True,True),PROGRAM:(False,False)}
- for key,sign,write in expected:
+ if creating:rights[ata]=(False,False)
+ for key,sign,write in expected+prefix_rights:
   old=rights.get(key,(False,False));rights[key]=(old[0]or sign,old[1]or write)
  require(set(rights)==set(keys)and len(keys)==len(set(keys)),'pump-key-set')
  h=tx.message.header
@@ -51,7 +62,7 @@ def verify(path,index):
    if b['exactOut']and b['zeroForOne']:raw[8:16]=(used-1).to_bytes(8,'little')
    elif b['exactOut']:raw[16:24]=(used-1).to_bytes(8,'little')
    else:raw[16:24]=(output+1).to_bytes(8,'little')
-   transaction=T.new_signed_with_payer([I(P.from_string(PROGRAM),bytes(raw),[M(P.from_string(key),sign,write)for key,sign,write in expected])],signer.pubkey(),[signer],tx.message.recent_blockhash)
+   transaction=T.new_signed_with_payer(prefix+[I(P.from_string(PROGRAM),bytes(raw),[M(P.from_string(key),sign,write)for key,sign,write in expected])],signer.pubkey(),[signer],tx.message.recent_blockhash)
   else:transaction.sign([signer],tx.message.recent_blockhash)
   def capture():
    result={}
@@ -63,11 +74,13 @@ def verify(path,index):
  n=execute();require(n['passed'],'pump-original-wire-execution:'+str(n['native']))
  for item in b['after']['pump']['accounts']:
   a=n['after'][item['address']];require(a['owner']==item['owner']and a['lamports']==item['lamports']and a['dataSha256']==hashlib.sha256(bytes.fromhex(item['data'])).hexdigest(),'pump-complete-original-post-state')
- balance=lambda a:int.from_bytes(bytes.fromhex(a['dataHex'])[64:72],'little')
+ balance=lambda a:0 if a is None or (a['owner']=='11111111111111111111111111111111'and a['dataSha256']==hashlib.sha256(b'').hexdigest())else int.from_bytes(bytes.fromhex(a['dataHex'])[64:72],'little')
  src=b['sourceTokenAccount'];dst=b['destinationTokenAccount'];caller=b['caller']
- paid=balance(n['before'][src])-balance(n['after'][src])if b['zeroForOne']else n['before'][caller]['lamports']-n['after'][caller]['lamports']-5000
+ paid=balance(n['before'][src])-balance(n['after'][src])if b['zeroForOne']else n['before'][caller]['lamports']-n['after'][caller]['lamports']-5000-rent
  received=n['after'][caller]['lamports']-n['before'][caller]['lamports']+5000 if b['zeroForOne']else balance(n['after'][dst])-balance(n['before'][dst])
  require(paid==used and received==output,'pump-real-user-native-settlement')
+ if creating:
+  require((n['before'][dst]is None if prefund==0 else n['before'][dst]['owner']=='11111111111111111111111111111111'and n['before'][dst]['lamports']==prefund and n['before'][dst]['dataSha256']==hashlib.sha256(b'').hexdigest())and n['after'][dst]['lamports']==max(2039280,prefund)and len(bytes.fromhex(n['after'][dst]['dataHex']))==165,'pump-created-ata-rent-and-size')
  totals={}
  for phase,sign in [('before',-1),('after',1)]:
   for a in n[phase].values():
@@ -85,6 +98,6 @@ def verify(path,index):
  return dict(passed=True,index=index,kind=b['kind'],input=str(used),output=str(output),minimumOutput=str(minimum),surplus=str(output-minimum if b['exactOut']else 0),original=n,control=control,simulation=simulation,publicTransactionsSubmitted=False,productionReady=False)
 if __name__=='__main__':
  if sys.argv[1]=='--matrix':
-  folder=Path(sys.argv[2]);rows=[verify(folder/f'pump-curve-{i}-preparation.json',i)for i in range(5)];r=dict(passed=True,cases=len(rows),records=rows,publicTransactionsSubmitted=False);Path(sys.argv[3]).write_text(json.dumps(r,separators=(',',':'))+'\n');print(json.dumps(dict(passed=True,cases=len(rows))))
+  folder=Path(sys.argv[2]);rows=[verify(folder/f'pump-curve-{i}-preparation.json',i)for i in range(9)];r=dict(passed=True,cases=len(rows),records=rows,publicTransactionsSubmitted=False);Path(sys.argv[3]).write_text(json.dumps(r,separators=(',',':'))+'\n');print(json.dumps(dict(passed=True,cases=len(rows))))
  else:
   r=verify(sys.argv[1],int(sys.argv[3])if len(sys.argv)>3 else 4);Path(sys.argv[2]).write_text(json.dumps(r,separators=(',',':'))+'\n');print(json.dumps({k:r[k]for k in ['passed','index','input','output','minimumOutput','surplus']}))

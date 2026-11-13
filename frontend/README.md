@@ -125,3 +125,8 @@ PumpSwap经典/boost（阶段67）：已有经典SPL用户账户且caller/recipi
 Pump原生SOL曲线（阶段68）：固定经典SPL版本、已有Token账户、声明user作为caller/recipient/payer，提供sell、buy、buy_exact_sol_in的ExactIn/ExactOut准备、单签名交易和独立模拟/钱包链路。原生资产使用native:solana:sol，输入或输出账户默认该user；Token侧仍默认ATA。交易金额和网络费分开结算，SOL余额净变动另列，例如实际收到10971且费用5000时净增5971。
 
 能力模型/5新增nativeSolTrading以描述原生SOL交易；nativeFunding仍表示SOL/WSOL自动资金转换，此曲线不开放包装/解包或自动建户。复验make -C ../integration pump-curve-preparation-current-check；毕业迁移指令、其他Token/volume版本和其他链模板仍需独立完成。
+
+
+Pump经典曲线收款ATA（阶段69）：买入时可显式勾选缺失ATA创建，将幂等创建和兑换放入同一单签名交易；目标地址已存在空System账户并预存SOL时，按实际已有余额只补足租金。Token卖出收原生SOL不开放ATA选项。准备结果分列交易金额、租金最小值、已有预存余额、本次补足额和5000网络费，回执另列用户实际SOL净变动；失败会原子回滚新账户。
+
+能力模型/6只对明确经典曲线模板扩展收款ATA，自动SOL/WSOL转换和毕业迁移仍未接入。复验make -C ../integration pump-native-ata-current-check；九个银行由同一生成工具恢复，生成银行、程序二进制、依赖和临时回执不提交。

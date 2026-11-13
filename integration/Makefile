@@ -917,3 +917,7 @@ pump-amm-preparation-current-check:
 .PHONY: pump-curve-preparation-current-check
 pump-curve-preparation-current-check:
 	python3 tools/acceptance/validate_pump_curve_preparation.py
+
+.PHONY: pump-native-ata-current-check
+pump-native-ata-current-check:
+	python3 tools/acceptance/validate_pump_native_ata.py

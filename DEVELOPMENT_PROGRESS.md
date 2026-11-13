@@ -429,6 +429,7 @@
 |15.rpc-account-capture|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|同次RPC账户闭包原字节和缺失账户服务端缓存，与preparationHash和QuoteView绑定后独立SBF执行|不把minContextSlot/同批context当历史共识银行或生产资格；其他协议模型仍需独立适配|[验证记录](integration/artifacts/local/core-rpc-capture-validation-20261113.json)|
 |14.pump-amm-execution|WP05,WP09,WP14,WP15,WP16,WP20,WP25|PARTIAL_LOCAL|PumpSwap经典/boost已有经典SPL账户、声明user上下文，ExactIn/ExactOut实际指令、独立模拟及真实钱包回执开发联验|自动创建/包装/解包、其他Token/程序版本及Pump曲线仍需各自完成；不提升全量或生产资格|[验证记录](integration/artifacts/local/core-pump-amm-preparation-validation-20261113.json)|
 |14.pump-curve-execution|WP05,WP09,WP14,WP15,WP16,WP20,WP25|PARTIAL_LOCAL|Pump原生SOL曲线已有Token账户、声明user上下文的三种原始指令、独立模拟和钱包回执开发联验|毕业迁移、自动建户、其他Token/volume及其他链模板尚需完成；不提升全量或生产资格|[验证记录](integration/artifacts/local/core-pump-curve-preparation-validation-20261113.json)|
+|14.pump-native-ata|WP05,WP09,WP14,WP15,WP16,WP20,WP25|PARTIAL_LOCAL|Pump原生买入的收款ATA原子创建、System预存余额补差、租金/交易/网络费分列及回执联验|仅明确经典曲线/同一声明user；其他账户/WSOL转换、毕业迁移和其他模板继续推进|[验证记录](integration/artifacts/local/core-pump-native-ata-validation-20261113.json)|
 |14.wallet-lifecycle|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|已有unsigned/独立SBF模板接Wallet Standard、显式发送与实际收付回执/恢复|默认关闭，按链启用；本批仅受控Solana模板，不等于全链全协议生产资格/完整多租户或多区执行验收|[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 
 <a id="batch-history"></a>
@@ -504,6 +505,7 @@
 |66|[preparation实时RPC快照与独立SBF](#plan-2026-11-13-rpc-capture)|LOCAL_SCOPE_VERIFIED|51检查/47次Rust测试执行/41项Chrome联调通过；同次捕获/无预装钱包银行、6种当前状态/后续slot与成交后状态重报价、缓存字节预算及完整钱包单次发送回执通过；[验证记录](integration/artifacts/local/core-rpc-capture-validation-20261113.json)|
 |67|[PumpSwap经典及boost执行链路](#plan-2026-11-13-pump-amm-execution)|LOCAL_SCOPE_VERIFIED|九组原unsigned/后状态/回滚、五组签名回执及同源码联验通过；[验证记录](integration/artifacts/local/core-pump-amm-preparation-validation-20261113.json)|
 |68|[Pump原生SOL曲线执行](#plan-2026-11-13-pump-curve-execution)|LOCAL_SCOPE_VERIFIED|五组买卖原unsigned/完整后状态/回滚、原生扣款和到账/费用分列、真实测试签名与回执及同源码联验通过；[验证记录](integration/artifacts/local/core-pump-curve-preparation-validation-20261113.json)|
+|69|[Pump原生收款ATA](#plan-2026-11-13-pump-native-ata)|LOCAL_SCOPE_VERIFIED|九组实际原wire/完整后状态/回滚、缺失/预存ATA租金补差、真实签名成功/失败回执和Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-pump-native-ata-validation-20261113.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2082,3 +2084,19 @@ PumpSwap卖出目标按至少实际到账处理：三ceil fee导致净输出不�
 |F68.5|钱包回执及前端|WP09,WP16,WP25|PARTIAL_LOCAL|签名后实时模拟、单次loopback发送、重启幂等和实际原生余额回执联验；能力模型/5显式nativeSolTrading，nativeFunding仍指自动SOL/WSOL转换；Chrome显示原生资产和净余额。|
 
 银行生成integration/tools/ci/pump-curve-execution-bank.py直接执行保留固定原程序，不依赖临时成功报告；复验make -C integration pump-curve-preparation-current-check。最终同源码有限验收：源码`c27be25a2476eb7ff3585504ef1fb80ed2c9a1b8b2597fc5695f8dd43fbbb8b4`，31项检查、26次Rust测试执行、51项真实Chrome联调全部通过。五组实际API原wire、模型全部后状态、Token/SOL守恒、网络费和失败完整回滚参考通过；五组原生买卖真实测试签名、单次loopback发送、重复提交及重启回执通过。独立模拟、signed RPC预检和meta回执均从lamports恢复交易净额，最后一组实际1/10971、费用5000、用户净增5971及最低到账1000分列。既有Meteora/Token2022/WSOL/PumpSwap/Raydium及八类钱包状态、RPC捕获/缓存预算、严格Clippy、普通/-OO反例和文档、桌面/移动布局继续回归通过。310合同/12工具副本/164公共来源通过。初始手动预检运行时路径缺失及拒绝场景复用过期报价的测试问题已修正；每个拒绝场景取得新报价，不改生产期限/超时。失败记录保留，不计入通过；最终运行固定源码、工具、银行/运行时、下载、回执与截图摘要。当前61模型中10个具备执行准备模板，其余51模型仍缺少模板。经典曲线自动收款ATA、PumpSwap自动账户/资金转换、毕业迁移及其他链/DEX继续推进；用户签名测试只向loopback发送，未提交公网交易。六阶段全量目标保持active，all_requested_features_complete=false、production_ready=false。
+
+<a id="plan-2026-11-13-pump-native-ata"></a>
+
+## Pump原生收款ATA（2026-11-13，阶段69）
+
+继续补执行账户功能，经典Pump原生SOL买入可按用户明确选择加入幂等收款ATA创建，与原buy/buy_exact_sol_in在同一user单签名交易原子执行；数学/报价约束不变，不加入隐式SOL/WSOL转换。处理地址完全缺失、已有空System账户预存部分或足额租金；对非规范ATA、其他owner/executable/非空System数据继续拒绝。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F69.1|原子ATA创建与兑换|WP14,WP16,WP20,WP25|PARTIAL_LOCAL|固定原ATA/System/SPL/Pump指令，canonical owner/mint/PDA与六个创建meta核对，先创建再兑换、单签名wire767字节，失败回滚账户和租金。|
+|F69.2|预存余额与租金补差|WP05,WP14,WP15,WP25|PARTIAL_LOCAL|按minRent=2039280减已存在System账户余额并饱和到零；不存在/预存1/预存2039281分别需2039280/2039279/0。准备结果公开最小租金、预存和本次补差，额外租金不冒充交易输入。|
+|F69.3|独立及signed模拟|WP14,WP15,WP20,WP25|PARTIAL_LOCAL|原生创建前的规范空System账户按零Token初值处理，after必须是正确mint/user的初始化SPL账户；非原生/未创建分支保持原校验，完整账户捕获和原SBF执行。|
+|F69.4|实际签名与回执|WP09,WP16,WP20,WP25|PARTIAL_LOCAL|四个创建场景双向ExactIn/ExactOut与预存余额原型后状态/回滚通过；实际API wire、独立证据、显式发送、重复提交/重启和真实3→1000/fee5000/不同净SOL变动联验通过。|
+|F69.5|能力与Chrome联调|WP09,WP16,WP25|PARTIAL_LOCAL|能力模型/6仅经典曲线加入收款ATA；前端只对买入Token开放，native输出禁用。显示预存/补差、下载create+swap、独立模拟、钱包回执及刷新恢复联验通过；回执显示实际用户SOL净变动。|
+
+银行复用生成工具integration/tools/ci/pump-curve-execution-bank.py；复验make -C integration pump-native-ata-current-check。最终同源码有限验收：源码`1d1b4e54c0709645134a57a83001b53c2e6325e7d8f4f8cfb00a97908c82ebe7`，22项检查、6次Rust测试执行、56项真实Chrome联调全部通过。九组实际API wire含原五组和四个创建/预存场景，完整原程序后状态、Token/SOL守恒、最小输出/输入控制及失败原子回滚参考通过。普通/-OO各10个反例通过，含租金冒充交易输入、漏计租金、重编译ATA其他owner。实际API签名发送及重启回执核对补差2039280/2039279/0，实付3/到账1000/fee5000与用户净变动-2044283/-2044282/-5003分列；受控发送时故障注入的已创建ATA兑换失败回执为FAILED且不重发。已有ATA显式勾选不重复创建/收租金，原生输出拒绝ATA选项。Chrome缺失账户阻止下载、显式创建+原swap下载、捕获独立SBF、用户仅签名/确认发送/实际净SOL回执和刷新恢复通过，既有所有浏览器联调继续通过。310合同/12工具副本/164公共来源、严格Clippy、前端模型和钱包单测及普通/-OO文档通过。新测试初始发送配置缺少挂起上限被严格拒绝，补齐测试显式配置后通过；未改生产校验，失败记录保留不计通过。最终源码、运行时/工具/银行、日志、原始执行/回滚、下载/签名回执和截图摘要已冻结。本批仍仅经典曲线/声明user、规范经典SPL收款ATA，不扩展WSOL资金转换、其他Token/volume或毕业迁移。10/61具备执行准备模板，其余51模型仍缺；下一批继续PumpSwap账户/包装/退还/解包及其他明确协议模板。未向公网发送，六阶段全量保持active，all_requested_features_complete=false、production_ready=false。

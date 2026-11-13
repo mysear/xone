@@ -1210,6 +1210,14 @@ pub fn verify_simulated_settlement(
         let initial = before_destination
             .as_ref()
             .map(|a| {
+                if source_native
+                    && prepared["accountCreation"] == true
+                    && a.owner == SYSTEM
+                    && !a.executable
+                    && a.data.is_empty()
+                {
+                    return Ok(0);
+                }
                 token(
                     a,
                     &context.buy_token,

@@ -1499,3 +1499,10 @@ BINDINGS['14.pump-curve-execution']={
  'tests':['pump_native_curve_all_directions_prepare_simulate_and_reject_mutations','pump_native_curve_signed_submission_receipt_matches_real_sol_and_fee_accounts','test_native_payer_delta_includes_fee','test_native_output_is_not_a_token_account','test_recompiled_fee_redirection_is_rejected'],
  'evidence_refs':['integration/artifacts/local/core-pump-curve-preparation-validation-20261113.json'],
 }
+
+
+BINDINGS['14.pump-native-ata']={
+ 'paths':['dex-router/crates/execution-preparation/src/pump_curve.rs','dex-router/crates/execution-preparation/src/lib.rs','dex-router/crates/simulation/workers/solana_sbf.py','dex-router/crates/quote-api/tests/pump_curve_preparation.rs','integration/tools/acceptance/pump_curve_preparation_reference.py','integration/tools/acceptance/tests/test_pump_curve_ata_reference.py','integration/tools/acceptance/validate_pump_native_ata.py'],
+ 'tests':['native_curve_creates_missing_destination_ata_and_separates_trade_rent_fee_receipts','test_rent_cannot_be_reported_as_native_swap_input','test_rent_cannot_be_removed_from_funding_and_user_delta','test_recompiled_creation_for_other_owner_is_rejected'],
+ 'evidence_refs':['integration/artifacts/local/core-pump-native-ata-validation-20261113.json'],
+}

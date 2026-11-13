@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Original Pump curve native SOL banks, with user also paying network fee."""
 from pathlib import Path
-import base64,hashlib,importlib.util,json,sys
+import base64,copy,hashlib,importlib.util,json,sys
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'integration/tools/acceptance'))
 from r01_public_catalog_solana_bank import native_imports
@@ -34,6 +34,10 @@ def main():
   accounts['SysvarC1ock11111111111111111111111111111111']=dict(owner='Sysvar1111111111111111111111111111111111111',executable=False,lamports=1,data=[base64.b64encode(clock).decode(),'base64'])
   zero=kind.startswith('sell');exact=kind in ['sell_exact_out','buy'];used=-int(n['user_token_delta']if zero else n['user_sol_delta']);out=int(n['user_sol_delta']if zero else n['user_token_delta']);ids=n['ids'];target=int(n['limit'])if kind=='sell_exact_out'else out
   cases.append(dict(schema_version=1,sourceIndex=len(cases),kind=kind,exactOut=exact,zeroForOne=zero,pool=model,after=after,accounts={k:v for k,v in accounts.items()if k not in shared},caller=ids['user'],recipient=ids['user'],sourceTokenAccount=ids['user_ata']if zero else ids['user'],destinationTokenAccount=ids['user']if zero else ids['user_ata'],target=str(target),sellAmount=str(used),requiredInput=str(used),actualOutput=str(out),genesis='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',blockhash=str(P.from_bytes(bytes([77])*32)),ids=ids,authority='constructed original-SBF native SOL curve banks; user pays network fee in unsigned replay; finite local scope'))
+ for index in [2,3]:
+  row=copy.deepcopy(cases[index]);row['sourceIndex']=len(cases);row['createDestinationAta']=True;row['destinationPreviouslyMissing']=True;row['accounts'].pop(row['destinationTokenAccount']);cases.append(row)
+ for prefund in [1,2039281]:
+  row=copy.deepcopy(cases[6]);row['sourceIndex']=len(cases);row['destinationPrefundedLamports']=prefund;row['accounts'][row['destinationTokenAccount']]=dict(owner='11111111111111111111111111111111',lamports=prefund,executable=False,data=['','base64']);cases.append(row)
  result=json.dumps(dict(shared_accounts=shared,cases=cases),separators=(',',':'))+'\n'
  for service in ['integration','dex-router']:(ROOT/service/'test/contracts/pump-curve-execution-bank.json').write_text(result)
  print(json.dumps(dict(passed=True,cases=len(cases),inputs=[c['requiredInput']for c in cases],outputs=[c['actualOutput']for c in cases],sha256=hashlib.sha256(result.encode()).hexdigest())))
