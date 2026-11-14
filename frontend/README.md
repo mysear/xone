@@ -144,3 +144,6 @@ Orca ExactOut（阶段71，能力模型/8）：已有静态、奖励、自适应
 
 
 Raydium CLMM ExactOut（阶段72，能力模型/9）：固定6d7a0f82的静态、奖励、协议Token选费、Bitmap、Custom Seed和动态费六类经典SPL模型支持双向目标输出报价。输入/输出币种收费按原始分支分别舍入，显示目标到账与所需原始输入；947个成功/319个拒绝参考场景、280个单步向量及12组双池份额网格用于对照。这里的Token选费不代表Token2022转账扩展。当前六模型仍只开放报价，交易准备/SBF/钱包能力继续保持未实现标签。复验make -C ../integration rayclmm-exact-out-current-check，生成数据恢复入口rayclmm-exact-out-reference。
+
+
+标准V3 ExactOut（阶段73，能力模型/10）：Uniswap V3及明确无LM的Pancake V3经典ERC20模型可选择双向币种和精确输出目标。原始Pool合约经真实mint/回调验证单池、同factory简单两跳和双费率池网格，报价字段仍表示原始输入，费用后净链成本未实现时继续明确为空。基础模型仅有定价状态投影，原程序费用/Oracle与钱包余额另作参考观察；这些不授予生产unsigned/钱包执行能力。Slipstream和Pancake LM继续使用各自上下文模型。复验make -C ../integration v3-exact-out-current-check，恢复入口v3-exact-out-reference。

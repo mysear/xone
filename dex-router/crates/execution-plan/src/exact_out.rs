@@ -124,6 +124,8 @@ pub fn build(
                     !matches!(
                         edge.protocol.as_str(),
                         v2_swap::PROFILE
+                            | "uniswap-v3"
+                            | "pancake-v3"
                             | xone_domain::pancake_bsc_lm::PROFILE
                             | xone_domain::pancake_lm::PROFILE
                             | xone_domain::slipstream_context::PROFILE
@@ -189,6 +191,18 @@ pub fn build(
                         || edge.from_token.is_some()
                         || &edge.to != to
                 })
+        {
+            return Err(err("EXACT_OUT_INVALID_PLAN"));
+        }
+        if route
+            .edges
+            .iter()
+            .any(|e| matches!(e.protocol.as_str(), "uniswap-v3" | "pancake-v3"))
+            && (solana
+                || route
+                    .edges
+                    .iter()
+                    .any(|e| e.protocol != route.edges[0].protocol))
         {
             return Err(err("EXACT_OUT_INVALID_PLAN"));
         }

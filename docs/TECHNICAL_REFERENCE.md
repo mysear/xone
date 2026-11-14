@@ -1756,3 +1756,10 @@ WSOL初始化前的空System账户余额超过租金时，超过部分成为有�
 六类固定6d7a0f82经典SPL模型使用原始输出指定分支。输出端收费先对净目标上取整还原价格驱动量，原始步进按净目标封顶并将必要舍入差记入费用；输入端收费则对原始输入上取整加费。LP/协议/fund份额逐步分别取整，保留费用币种对应的增长、跨tick奖励、Observation与动态费变量。无有效输出/预算不足/数组或整数边界失败时不提交候选状态。
 
 独立参考运行原始swap_internal/compute_swap，构造器经原始Seed/PDA规则产生同配置、同价格/流动性的不同物理池并配置完整Bitmap；构造池未声称真实部署。280步进向量包含零费率输出余量，1266场景、6序列、12网格、12个原生序列化前后检查点用于数学/解析/路由/API对照。最终同源码27项检查、304次Rust测试执行、109项Chrome联调通过；947次HTTP目标成功、307次HTTP拒绝和12次状态准入拒绝分别记录。原生序列化前后12个检查点已解析一致，完整范围/摘要见DEVELOPMENT_PROGRESS.md。数据恢复make -C integration rayclmm-exact-out-reference；同源码复验rayclmm-exact-out-current-check。能力模型/9仅增加报价模式，执行准备仍10/61；六模型unsigned/SBF/钱包模板继续独立实现。
+
+
+### 阶段73：标准V3目标与递归回调路径
+
+基础Uniswap V3和无LM的Pancake V3通过独立目标接口接入既有Q96输出驱动内核。每个TickBitmap word单独步进/取费，反向计算目标再按同一物理状态正向重放；仅同factory、同模板简单路径，重复池/环/混合模板和未知资金自引用拒绝。基础状态投影只保留下一次价格报价所需的price/tick/liquidity/bitmap/gross-net，不包含完整LP费用或Oracle账本。
+
+固定原始Factory/Pool通过真实create/initialize/mint构造头寸，原始swap负数指定输出并由受控ERC20调用器实际回调付款；完整目标/maxInput由测试调用器约束。原始费用、观察值、Token余额、交易回执和失败观察状态回滚独立记录。原始两跳执行采用递归回调付款，和仅累加单池报价分别核对。能力模型/10仅增加报价能力，同源码24项检查、45次Rust测试执行、115项Chrome通过；原始80成功/16拒绝、80预算回滚、4实际两跳与2网格范围和源码摘要见DEVELOPMENT_PROGRESS.md；复现make -C integration v3-exact-out-reference，验收v3-exact-out-current-check。

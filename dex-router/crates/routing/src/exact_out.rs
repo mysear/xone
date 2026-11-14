@@ -123,6 +123,12 @@ fn validate_funds(pools: &BTreeMap<String, Pool>, funds: Funds<'_>) -> Result<()
             if let Some(s) = &pool.v2 {
                 internal.push(&s.factory);
             }
+            if let Some(s) = &pool.v3 {
+                internal.push(&s.factory);
+                if !s.implementation.is_empty() {
+                    internal.push(&s.implementation);
+                }
+            }
             if let Some(s) = &pool.multi_asset {
                 internal.push(&s.vault);
                 if let Some(m) = &s.managed_v2 {
@@ -285,6 +291,11 @@ pub fn evaluate_path(
                 return Err(err("PUMP_DECLARED_USER_REQUIRED"));
             }
         }
+        if xone_protocol_math::v3::supports_exact_out(&pool.protocol)
+            && edges.iter().any(|e| e.protocol != pool.protocol)
+        {
+            return Err(err("EXACT_OUT_V3_PATH_FAMILY_UNSUPPORTED"));
+        }
         let (from, to) = edge_tokens(pool, edge)?;
         if tokens.is_empty() {
             tokens.push(from.to_owned());
@@ -298,6 +309,8 @@ pub fn evaluate_path(
         }
         tokens.push(to.to_owned());
         let current: &str = if let Some(state) = &pool.v2 {
+            &state.factory
+        } else if let Some(state) = &pool.v3 {
             &state.factory
         } else if let Some(state) = &pool.pancake_bsc_lm {
             &state.ledger.core.factory

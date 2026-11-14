@@ -433,6 +433,7 @@
 |14.pump-amm-funding|WP05,WP09,WP14,WP15,WP16,WP20,WP25|PARTIAL_LOCAL|PumpSwap classic/boost ATA、WSOL补差/退款/解包与实际租金回执开发联验|当前单池单路经典SPL与声明user；其他版本、毕业迁移及51个缺失执行模板仍需完成|[验证记录](integration/artifacts/local/core-pump-amm-funding-validation-20261113.json)|
 |12.orca-exact-out|WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Orca五类模型的精确输出数学、原始manager完整后状态、路由/网格与API/前端报价联验|仅固定cc683ec9经典SPL及三数组范围；执行准备/unsigned/SBF/钱包模板仍未实现，不以native数学参考替代交易验证|[验证记录](integration/artifacts/local/core-orca-exact-out-validation-20261114.json)|
 |12.rayclmm-exact-out|WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium CLMM六模型输出目标、选费/动态/奖励/Bitmap/Seed状态、路由与API/前端开发联验|固定6d7a0f82经典SPL；协议Token选费不含Token2022转账扩展；六模型执行模板仍待补齐|[验证记录](integration/artifacts/local/core-rayclmm-exact-out-validation-20261114.json)|
+|12.standard-v3-exact-out|WP03,WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|基础Uniswap/Pancake无LM V3目标输出、真实原Pool回调付款、简单路径/网格及API/前端开发联验|基础模型为定价状态投影；只接明确静态classic ERC20，无unsigned/钱包模板；Slipstream和LM上下文另列|[验证记录](integration/artifacts/local/core-v3-exact-out-validation-20261114.json)|
 |14.wallet-lifecycle|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|已有unsigned/独立SBF模板接Wallet Standard、显式发送与实际收付回执/恢复|默认关闭，按链启用；本批仅受控Solana模板，不等于全链全协议生产资格/完整多租户或多区执行验收|[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 
 <a id="batch-history"></a>
@@ -512,6 +513,7 @@
 |70|[PumpSwap账户与SOL资金](#plan-2026-11-13-pump-amm-funding)|LOCAL_SCOPE_VERIFIED|22组新增资金银行、真实租金/WSOL回执、44组原wire参考与72项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-pump-amm-funding-validation-20261113.json)|
 |71|[Orca五模型精确输出](#plan-2026-11-14-orca-exact-out)|LOCAL_SCOPE_VERIFIED|600原manager场景/600服务流程、8序列、3组网格、101次Rust/91项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-orca-exact-out-validation-20261114.json)|
 |72|[Raydium CLMM六模型精确输出](#plan-2026-11-14-rayclmm-exact-out)|LOCAL_SCOPE_VERIFIED|1266原生场景/服务流程、280单步、6序列/12网格、304次Rust/109项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-rayclmm-exact-out-validation-20261114.json)|
+|73|[标准V3精确输出与回调路由](#plan-2026-11-14-standard-v3-exact-out)|LOCAL_SCOPE_VERIFIED|96实际原Pool场景/80预算控制、连续状态、4两跳/2网格及45次Rust/115项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-v3-exact-out-validation-20261114.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2175,3 +2177,26 @@ Chrome验证五模型双向ExactOut并保持执行按钮禁用；编辑普通账
 参考新Seed池经原始set_seed_index/PDA规则构造并补齐默认完整Bitmap扩展，避免改变原有准入条件；连续状态深拷贝避免下一次Clock污染上一条记录。初始参考构造器扩展遗漏、状态对象别名和检查点测试相对路径问题均已修正，生产校验未放宽，旧失败日志保留不计通过。上游固定程序源码未修改，自有参考只增加输出模式和受控输入构造/序列化入口，原始typed状态和显式vault投影不冒充SPL CPI/SBF或钱包执行。
 
 源码前后与当前摘要、上游/Parity完整清单、辅助程序/运行时/银行、1266份流程记录、原始复执行/序列化、桌面/移动截图和harness二进制摘要已冻结并复核。313合同/12工具副本/164公共来源、公共协议、严格Clippy、前端/钱包单测与普通/-OO各17项文档检查通过。复验make -C integration rayclmm-exact-out-current-check；数据恢复入口rayclmm-exact-out-reference，生成数据/下载依赖/二进制不提交。实际目录61模型中27支持ExactOut（原21）、10具备执行准备；其余数学和51个执行模板继续推进，六模型执行标签保持false。未向公网发送。all_requested_features_complete=false、production_ready=false。
+
+
+<a id="plan-2026-11-14-standard-v3-exact-out"></a>
+
+## 标准V3精确输出与回调路由（2026-11-14，阶段73）
+
+继续六阶段前两项与设计A0/A1的EVM基础范围。标准Uniswap V3和明确无LM的Pancake V3接入独立ExactOut接口，复用已有输出驱动的Q96内核并执行独立原始Pool合约核对。Pancake正常解析继续要求LM指针为零，LM和Slipstream保留已有独立上下文模型，不扩充未知行为。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F73.1|标准V3输出目标|WP12,WP15|PARTIAL_LOCAL|Q96输出指定、逐word费用舍入/跨tick/空流动性、完整目标与价格/步数/整数范围，原始负数amountSpecified执行对照。|
+|F73.2|真实回调与投影|WP03,WP05,WP15|PARTIAL_LOCAL|官方固定Pool/Factory、真实create/initialize/mint与ERC20回调付款；核对实际扣付/到账及定价投影，额外原始费账/Oracle等观察单独保留。|
+|F73.3|简单路径与网格|WP09,WP12,WP14,WP15|PARTIAL_LOCAL|同factory简单多跳、原始递归回调4条双向两跳、双费率池4份额网格；重复池/跨factory/混合模板拒绝。|
+|F73.4|API与协议视图|WP05,WP14,WP16|PARTIAL_LOCAL|独立ExactOut金额与计划/视图绑定、预算减一和旧视图撤销；模型/10新增两类报价模式，不自动开放执行模板。|
+|F73.5|前端联调/复现|WP16,WP25|PARTIAL_LOCAL|EVM链及双向币种/目标/原始输入显示、保留执行门禁，已有Solana钱包/回执流程继续回归；固定参考输入可重放。|
+
+最终同源码有限验收：源码`478879aabb25b7c22f2e9f25736d223c38f94f3fc9e2c071221116cb4a544d98`，24项检查、45次Rust测试执行、115项真实Chrome联调通过。96个实际原Pool场景含80成功/16拒绝，80个最大输入减一控制在真实交易中回滚所有已观察原状态与Token余额；2条四步连续兑换、4条实际递归回调双向两跳、2组独立费率池四份额网格通过。实际HTTP 96个对应目标报价、预算限制、协议模式/QuoteView/数学计划/旧视图失效检查及双池最小输入与原始回调付款一致；旧V3价格内核、旧ExactOut/API/计划及Go V3/Pancake解析回归通过。普通/-OO各12个原始Token扣付/目标/费率/code/factory/价格后状态/序列/路径/网格/回滚/来源篡改反例通过。
+
+模型定价投影只保留下一次报价所需price/tick/liquidity/proven bitmap/gross-net；原程序LP费账/Oracle等完整已观察状态和真实回调付款分别保留，不宣称基础模型包含全部合约账本。官方Uniswap core 1.0.0发布artifact与同锁定树中的1.0.1 artifact字节一致，仍明确选择1.0.0包和integrity；Pancake使用98684794固定未改源码和已固定0.7.6编译器。真实factory创建、initialize/mint及回调付款，没有Pool字节码修补或存储注入。受控调用器约束完整目标/maxInput，不作为生产执行器。参考EVM显式31337，重放在隔离目录再次执行，完整回执/原始读数/状态/余额/已加载依赖摘要确定一致；不提供主网部署或API unsigned/钱包广播资格。
+
+前端新增两模型双向EVM报价/模式/执行门禁6项，与既有109项合计115项通过。314合同/12工具副本/164公共来源、公共协议、严格Clippy、前端/钱包单测和普通/-OO各17项文档检查通过。初始Pancake monorepo导入别名、实际参考chainId与声明身份一致性已修正，生产校验未放宽，失败日志保留。源码前后及当前摘要、官方artifact/上游清单、编译器/运行时/已加载模块、96份HTTP流程、原始复执行/实际Token余额与交易回执、桌面/移动截图和harness二进制摘要已冻结复核。复验make -C integration v3-exact-out-current-check，恢复入口v3-exact-out-reference，生成物/外部包/二进制不提交。
+
+运行时目录61个模型中29支持ExactOut（原27）、10具备执行准备。Pancake正常解析继续拒绝非零LM，LM与Slipstream上下文模型另列；本批两个基础V3执行模板和其他数学/版本、51个执行模板继续推进。未向公网发送。all_requested_features_complete=false、production_ready=false。

@@ -1,7 +1,7 @@
 //! Versioned capabilities describe admitted kernels, not live RPC/account readiness.
 use serde::{Deserialize, Serialize};
 use xone_domain::{Pool, Result};
-pub const VERSION: &str = "xone-protocol-capabilities/9";
+pub const VERSION: &str = "xone-protocol-capabilities/10";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolCapabilities {
@@ -78,7 +78,8 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
         token_behavior: token_behavior.into(),
         requires_funds_context: contextual,
         exact_out_route_scope: exact_out.then(|| {
-            if protocol == xone_domain::v2_swap::PROFILE {
+            if protocol == xone_domain::v2_swap::PROFILE || crate::v3::supports_exact_out(protocol)
+            {
                 "SIMPLE_PATH_SINGLE_FACTORY"
             } else {
                 "SINGLE_POOL_ORDERED_ALLOCATION"

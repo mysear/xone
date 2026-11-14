@@ -15,7 +15,10 @@ pub struct ExactOutSwap {
 
 /// Each admitted profile has an independent execution template and original-program oracle.
 pub fn supports_protocol(protocol: &str) -> bool {
-    if crate::orca::supports_profile(protocol) || crate::raydium_clmm::supports_profile(protocol) {
+    if crate::orca::supports_profile(protocol)
+        || crate::raydium_clmm::supports_profile(protocol)
+        || crate::v3::supports_exact_out(protocol)
+    {
         return true;
     }
     matches!(
@@ -73,6 +76,14 @@ pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<Exact
     }
     if crate::raydium_clmm::supports_profile(&pool.protocol) {
         let q = crate::raydium_clmm::quote_exact_out(pool, output, zero)?;
+        return Ok(ExactOutSwap {
+            amount_in: q.consumed_in,
+            amount_out: q.amount_out,
+            next_pool: q.next_pool,
+        });
+    }
+    if crate::v3::supports_exact_out(&pool.protocol) {
+        let q = crate::v3::quote_exact_out(pool, output, zero)?;
         return Ok(ExactOutSwap {
             amount_in: q.consumed_in,
             amount_out: q.amount_out,

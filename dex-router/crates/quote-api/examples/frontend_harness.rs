@@ -182,6 +182,13 @@ async fn main() {
         ],
     )
     .await;
+    let (v3_info, v3_tasks) = target_services(
+        &api,
+        &snapshot,
+        "v3-exact-out.json",
+        &["uniswap-v3", "pancake-v3"],
+    )
+    .await;
     let control = Control {
         bank: bank.clone(),
         raydium: raydium.clone(),
@@ -208,7 +215,7 @@ async fn main() {
         .merge(admin)
         .layer(middleware::from_fn_with_state(control, delay));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"wsolApi":format!("http://{wsol_addr}"),"wsolBank":&*wsol.data,"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":&*token2022.data,"raydiumApi":format!("http://{raydium_addr}"),"raydiumBank":&*raydium.data,"pumpApi":format!("http://{pump_addr}"),"pumpBank":&*pump.data,"curveApi":format!("http://{curve_addr}"),"curveBank":&*curve.data,"curveAtaApi":format!("http://{curve_ata_addr}"),"curveAtaBank":&*curve_ata.data,"funding":funding_info,"orcaQuotes":orca_info,"rayclmmQuotes":rayclmm_info,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
+    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"wsolApi":format!("http://{wsol_addr}"),"wsolBank":&*wsol.data,"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":&*token2022.data,"raydiumApi":format!("http://{raydium_addr}"),"raydiumBank":&*raydium.data,"pumpApi":format!("http://{pump_addr}"),"pumpBank":&*pump.data,"curveApi":format!("http://{curve_addr}"),"curveBank":&*curve.data,"curveAtaApi":format!("http://{curve_ata_addr}"),"curveAtaBank":&*curve_ata.data,"funding":funding_info,"orcaQuotes":orca_info,"rayclmmQuotes":rayclmm_info,"v3Quotes":v3_info,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
     axum::serve(listener, routes)
         .with_graceful_shutdown(async {
             #[cfg(unix)]
@@ -223,6 +230,9 @@ async fn main() {
         })
         .await
         .unwrap();
+    for task in v3_tasks {
+        task.abort();
+    }
     for task in rayclmm_tasks {
         task.abort();
     }
@@ -322,7 +332,7 @@ async fn target_services(
             .unwrap()
             .iter()
             .find(|c| {
-                c["profile"] == *protocol
+                (c["profile"] == *protocol || c["protocol"] == *protocol)
                     && c["passed"] == true
                     && c["zeroForOne"] == true
                     && c["target"] == "1000"
@@ -348,14 +358,24 @@ async fn target_services(
         cfg.config.api.solana_runtime_manifest.clear();
         let api = xone_quote_api::Api::new(cfg).unwrap();
         let mut baseline = snapshot.clone();
-        let (slot, time) = if let Some(s) = &pool.orca_whirlpool {
-            (s.bank_slot, s.bank_unix_timestamp)
+        if pool.v3.is_some() {
+            baseline.reference.block.chain_key = pool.chain_key.clone();
+            baseline.reference.owner_service = "chain-parser-go".into();
+            baseline.reference.block.number_or_slot = c["block"]["number"].as_u64().unwrap();
+            baseline.reference.block.timestamp_ms = c["block"]["timestamp_ms"].as_u64().unwrap();
+            baseline.reference.block.hash = c["block"]["hash"].as_str().unwrap().into();
+            baseline.reference.block.parent_hash =
+                c["block"]["parent_hash"].as_str().unwrap().into();
         } else {
-            let s = pool.raydium_clmm.as_ref().unwrap();
-            (s.bank_slot, s.bank_unix_timestamp)
-        };
-        baseline.reference.block.number_or_slot = slot;
-        baseline.reference.block.timestamp_ms = time * 1000;
+            let (slot, time) = if let Some(s) = &pool.orca_whirlpool {
+                (s.bank_slot, s.bank_unix_timestamp)
+            } else {
+                let s = pool.raydium_clmm.as_ref().unwrap();
+                (s.bank_slot, s.bank_unix_timestamp)
+            };
+            baseline.reference.block.number_or_slot = slot;
+            baseline.reference.block.timestamp_ms = time * 1000;
+        }
         baseline.reference.online_generation += 1;
         baseline.reference.journal_seq += 1;
         baseline.reference.adapter_set_hash =
@@ -365,9 +385,11 @@ async fn target_services(
         baseline.source = "CONTROLLED_ORIGINAL_TARGET_NATIVE".into();
         api.replica.install_baseline(baseline).unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        info.push(
-            json!({"api":format!("http://{}",listener.local_addr().unwrap()),"cases":[c,reverse]}),
-        );
+        let mut forward = c.clone();
+        forward["profile"] = json!(protocol);
+        let mut reverse = reverse.clone();
+        reverse["profile"] = json!(protocol);
+        info.push(json!({"api":format!("http://{}",listener.local_addr().unwrap()),"cases":[forward,reverse],"caller":corpus["caller"],"recipient":corpus["recipient"]}));
         tasks.push(tokio::spawn(async move {
             axum::serve(listener, api.handler()).await.unwrap();
         }));

@@ -1527,3 +1527,10 @@ BINDINGS['12.rayclmm-exact-out']={
  'tests':['six_rayclmm_output_profiles_match_original_manager_and_complete_pool_state','original_output_steps_cover_both_fee_tokens_and_zero_rate_rounding_dust','rayclmm_two_pool_optimizer_matches_independent_native_allocation_grid','rayclmm_exact_output_api_quotes_plans_views_and_budget_rejections_match_native_corpus','output_native_checkpoints_decode_all_six_profiles_before_and_after','test_next_clock_cannot_mutate_previous_native_poststate'],
  'evidence_refs':['integration/artifacts/local/core-rayclmm-exact-out-validation-20261114.json'],
 }
+
+
+BINDINGS['12.standard-v3-exact-out']={
+ 'paths':['dex-router/crates/protocol-math/src/v3.rs','dex-router/crates/routing/src/exact_out.rs','dex-router/crates/execution-plan/src/exact_out.rs','dex-router/crates/quote-api/tests/v3_exact_out.rs','integration/tools/reference/v3-exact-out/Reference.sol','integration/tools/reference/v3-exact-out/source-pins.json','integration/tools/acceptance/v3_exact_out_reference.cjs','integration/tools/acceptance/verify_v3_exact_out.py','integration/tools/acceptance/validate_v3_exact_out.py'],
+ 'tests':['standard_v3_negative_amount_swaps_match_original_price_projection_and_actual_token_debit','original_recursive_callback_two_hop_targets_match_reverse_and_forward_replay','standard_v3_two_fee_tier_allocation_matches_actual_original_contract_grid','standard_v3_http_exact_targets_plans_views_and_input_limits_match_original_contracts','test_recursive_callback_path_cannot_be_reordered'],
+ 'evidence_refs':['integration/artifacts/local/core-v3-exact-out-validation-20261114.json'],
+}

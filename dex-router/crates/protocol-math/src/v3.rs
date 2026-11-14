@@ -285,6 +285,16 @@ fn next_price_from_output(
     Ok(result)
 }
 
+/// Standard Pool callback-funding templates; Slipstream keeps its own origin context.
+pub fn supports_exact_out(protocol: &str) -> bool {
+    matches!(protocol, "uniswap-v3" | "pancake-v3")
+}
+pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<Swap> {
+    if !supports_exact_out(&pool.protocol) {
+        return Err(err("EXACT_OUT_PROTOCOL_UNSUPPORTED"));
+    }
+    Ok(quote_exact_out_with_trace(pool, output, zero)?.0)
+}
 pub fn quote_exact_out_with_trace(
     pool: &Pool,
     input: &Amount,

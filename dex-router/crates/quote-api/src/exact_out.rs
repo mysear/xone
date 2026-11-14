@@ -197,6 +197,8 @@ impl Api {
                     "pancake-v3-lm-context": "SINGLE_POOL_EXTERNAL_CALLBACK_FUNDING",
                     "aerodrome-slipstream-context": "SINGLE_POOL_ORIGIN_BOUND_EXTERNAL_CALLBACK_FUNDING",
                     "raydium-cpmm-creator": "SINGLE_POOL_CLASSIC_SPL_CREATOR_FEES",
+                    "uniswap-v3":"SIMPLE_PATH_SINGLE_FACTORY_EXTERNAL_CALLBACK_FUNDING",
+                    "pancake-v3":"SIMPLE_PATH_SINGLE_FACTORY_EXTERNAL_CALLBACK_FUNDING",
                     "raydium-clmm-static":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT_SELECTED_FEE_TOKEN",
                     "raydium-clmm-rewards":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT_SELECTED_FEE_TOKEN",
                     "raydium-clmm-token-fee":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT_SELECTED_FEE_TOKEN",
