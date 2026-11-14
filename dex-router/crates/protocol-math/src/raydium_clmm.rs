@@ -1,4 +1,4 @@
-//! Pure Raydium CLMM 6d7a0f82 Q64 exact-input math with token-selected fees.
+//! Pure Raydium CLMM 6d7a0f82 Q64 exact-input/output math with token-selected fees.
 #[path = "rayclmm_dynamic.rs"]
 mod dynamic;
 use crate::Swap;
@@ -98,6 +98,60 @@ fn step_exact_in_with_fee(
     left: bool,
     fee_on_input: bool,
 ) -> Result<SwapStep> {
+    step_mode(
+        remaining,
+        fee,
+        liquidity,
+        price,
+        target,
+        left,
+        FeeMode {
+            exact_in: true,
+            on_input: fee_on_input,
+        },
+    )
+}
+/// Original output-specified step, including input- or output-token fees.
+pub fn step_exact_out_with_fee(
+    remaining: u64,
+    fee: u32,
+    liquidity: u128,
+    price: u128,
+    target: u128,
+    left: bool,
+    fee_on_input: bool,
+) -> Result<SwapStep> {
+    step_mode(
+        remaining,
+        fee,
+        liquidity,
+        price,
+        target,
+        left,
+        FeeMode {
+            exact_in: false,
+            on_input: fee_on_input,
+        },
+    )
+}
+#[derive(Clone, Copy)]
+struct FeeMode {
+    exact_in: bool,
+    on_input: bool,
+}
+fn step_mode(
+    remaining: u64,
+    fee: u32,
+    liquidity: u128,
+    price: u128,
+    target: u128,
+    left: bool,
+    mode: FeeMode,
+) -> Result<SwapStep> {
+    let FeeMode {
+        exact_in,
+        on_input: fee_on_input,
+    } = mode;
     if fee >= 1_000_000
         || price == 0
         || target == 0
@@ -106,32 +160,49 @@ fn step_exact_in_with_fee(
     {
         return Err(arithmetic());
     }
-    let available = if fee_on_input {
-        ((u128::from(remaining) * u128::from(1_000_000 - fee)) / 1_000_000) as u64
+    let available = if exact_in && fee_on_input {
+        (u128::from(remaining) * u128::from(1_000_000 - fee) / 1_000_000) as u64
+    } else if !exact_in && !fee_on_input {
+        as_u64(div(
+            BigUint::from(remaining) * BigUint::from(1_000_000u32),
+            BigUint::from(1_000_000 - fee),
+            true,
+        )?)?
     } else {
         remaining
     };
     let full = amounts(price, target, liquidity, left)?;
     let (next_price, mut amount_in, mut amount_out) = match full {
-        Some((a, b)) if available >= a => (target, a, b),
+        Some((a, b)) if available >= if exact_in { a } else { b } => (target, a, b),
         _ => {
             if liquidity == 0 || !(MIN_SQRT_PRICE_X64..MAX_SQRT_PRICE_X64).contains(&price) {
                 return Err(arithmetic());
             }
-            let next = if left {
-                // get_next_sqrt_price_from_amount_0_rounding_up. With u64
-                // amount, u128 price/liquidity the U256 product and denominator
-                // fit, while MulDiv may require its original U512 fallback.
+            let next = if left == exact_in {
                 let n = BigUint::from(liquidity) << 64usize;
                 let product = bounded(BigUint::from(available) * BigUint::from(price), 256)?;
-                let denominator = bounded(&n + product, 256)?;
-                // Original U256.as_u128 truncates; retain that cast explicitly.
+                let denominator = if exact_in {
+                    bounded(&n + product, 256)?
+                } else {
+                    if n <= product {
+                        return Err(arithmetic());
+                    }
+                    &n - product
+                };
                 let wide = bounded(div(n * BigUint::from(price), denominator, true)?, 256)?;
                 as_u128(wide & BigUint::from(u128::MAX))?
             } else {
-                let delta =
-                    as_u128((BigUint::from(available) << 64usize) / BigUint::from(liquidity))?;
-                price.checked_add(delta).ok_or_else(arithmetic)?
+                let delta = as_u128(div(
+                    BigUint::from(available) << 64usize,
+                    BigUint::from(liquidity),
+                    !exact_in,
+                )?)?;
+                if exact_in {
+                    price.checked_add(delta)
+                } else {
+                    price.checked_sub(delta)
+                }
+                .ok_or_else(arithmetic)?
             };
             let (a, b) = amounts(price, next, liquidity, left)?.ok_or_else(arithmetic)?;
             (next, a, b)
@@ -140,27 +211,49 @@ fn step_exact_in_with_fee(
     if (left && next_price < target) || (!left && next_price > target) {
         return Err(arithmetic());
     }
-    let fee_amount = if !fee_on_input {
-        let fee_amount = as_u64(div(
-            BigUint::from(amount_out) * BigUint::from(fee),
-            BigUint::from(1_000_000u32),
-            true,
-        )?)?;
-        amount_out = amount_out.checked_sub(fee_amount).ok_or_else(arithmetic)?;
-        // Original swap_math.rs: a partial output-fee step charges all input.
-        // Price-rounding dust cannot be folded into the output-token fee.
-        if next_price != target {
-            amount_in = remaining;
+    let fee_amount = if exact_in {
+        if !fee_on_input {
+            let f = as_u64(div(
+                BigUint::from(amount_out) * BigUint::from(fee),
+                BigUint::from(1_000_000u32),
+                true,
+            )?)?;
+            amount_out = amount_out.checked_sub(f).ok_or_else(arithmetic)?;
+            if next_price != target {
+                amount_in = remaining;
+            }
+            f
+        } else if next_price != target {
+            remaining.checked_sub(amount_in).ok_or_else(arithmetic)?
+        } else {
+            as_u64(div(
+                BigUint::from(amount_in) * BigUint::from(fee),
+                BigUint::from(1_000_000 - fee),
+                true,
+            )?)?
         }
-        fee_amount
-    } else if next_price != target {
-        remaining.checked_sub(amount_in).ok_or_else(arithmetic)?
-    } else {
+    } else if fee_on_input {
+        amount_out = amount_out.min(remaining);
         as_u64(div(
             BigUint::from(amount_in) * BigUint::from(fee),
             BigUint::from(1_000_000 - fee),
             true,
         )?)?
+    } else {
+        let f = as_u64(div(
+            BigUint::from(amount_out) * BigUint::from(fee),
+            BigUint::from(1_000_000u32),
+            true,
+        )?)?;
+        let net = amount_out.checked_sub(f).ok_or_else(arithmetic)?;
+        if net > remaining {
+            let f = amount_out.checked_sub(remaining).ok_or_else(arithmetic)?;
+            amount_out = remaining;
+            f
+        } else {
+            amount_out = net;
+            f
+        }
     };
     Ok(SwapStep {
         amount_in,
@@ -169,6 +262,7 @@ fn step_exact_in_with_fee(
         fee_amount,
     })
 }
+
 /// Search the complete bitmap proof, then require the selected account in the
 /// bounded proof. Set bits outside the proof are valid until traversal needs
 /// one; a missing account never becomes an implicitly empty array.
@@ -308,7 +402,31 @@ pub fn cross_reward_growths(
     Ok(())
 }
 
+pub fn supports_profile(protocol: &str) -> bool {
+    matches!(
+        protocol,
+        "raydium-clmm-static"
+            | "raydium-clmm-rewards"
+            | "raydium-clmm-token-fee"
+            | "raydium-clmm-bitmap"
+            | "raydium-clmm-custom-seed"
+            | "raydium-clmm-dynamic"
+    )
+}
 pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
+    quote_mode(pool, input, left, true)
+}
+pub fn quote_exact_out(pool: &Pool, output: &Amount, left: bool) -> Result<Swap> {
+    if output.0.is_zero() {
+        return Err(err("EXACT_OUT_ZERO_OUTPUT"));
+    }
+    let q = quote_mode(pool, output, left, false)?;
+    if q.amount_out != *output {
+        return Err(err("EXACT_OUT_TARGET_NOT_CONSERVED"));
+    }
+    Ok(q)
+}
+fn quote_mode(pool: &Pool, input: &Amount, left: bool, exact_in: bool) -> Result<Swap> {
     pool.validate()?;
     let amount = as_u64(input.0.clone())?;
     if amount == 0 {
@@ -361,6 +479,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
     }
     let mut remaining = amount;
     let mut output = 0u64;
+    let mut consumed_total = 0u64;
     let mut protocol = 0u64;
     let mut fund = 0u64;
     let mut lp = 0u64;
@@ -433,7 +552,12 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
                     fee_amount: 0,
                 }
             } else {
-                step_exact_in_with_fee(
+                let step_fn = if exact_in {
+                    step_exact_in_with_fee
+                } else {
+                    step_exact_out_with_fee
+                };
+                step_fn(
                     remaining,
                     fee,
                     liquidity,
@@ -450,7 +574,12 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
             } else {
                 step.amount_in
             };
-            remaining = remaining.checked_sub(consumed).ok_or_else(arithmetic)?;
+            consumed_total = consumed_total
+                .checked_add(consumed)
+                .ok_or_else(arithmetic)?;
+            remaining = remaining
+                .checked_sub(if exact_in { consumed } else { step.amount_out })
+                .ok_or_else(arithmetic)?;
             output = output.checked_add(step.amount_out).ok_or_else(arithmetic)?;
             // Each step floors independently. Aggregating the fee first changes
             // the protocol/fund split and both crossed and global growth.
@@ -561,7 +690,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
     if left {
         state.raw_vault0 = state
             .raw_vault0
-            .checked_add(amount)
+            .checked_add(consumed_total)
             .ok_or_else(arithmetic)?;
         state.raw_vault1 = state
             .raw_vault1
@@ -570,7 +699,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
     } else {
         state.raw_vault1 = state
             .raw_vault1
-            .checked_add(amount)
+            .checked_add(consumed_total)
             .ok_or_else(arithmetic)?;
         state.raw_vault0 = state
             .raw_vault0
@@ -580,7 +709,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
     next.validate()?;
     Ok(Swap {
         amount_out: Amount(BigUint::from(output)),
-        consumed_in: input.clone(),
+        consumed_in: Amount(BigUint::from(consumed_total)),
         remaining_in: Amount::zero(),
         next_pool: next,
     })

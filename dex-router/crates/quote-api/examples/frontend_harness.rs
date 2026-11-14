@@ -155,73 +155,33 @@ async fn main() {
         .config
         .api
         .cors_allowed_origins = vec![args[2].clone()];
-    let orca_corpus: Value = serde_json::from_slice(
-        &std::fs::read(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../test/contracts/orca-exact-out.json"
-        ))
-        .unwrap(),
+    let (orca_info, orca_tasks) = target_services(
+        &api,
+        &snapshot,
+        "orca-exact-out.json",
+        &[
+            "orca-whirlpools-static",
+            "orca-whirlpools-rewards",
+            "orca-whirlpools-adaptive",
+            "orca-whirlpools-adaptive-rewards",
+            "orca-whirlpools-adaptive-dynamic",
+        ],
     )
-    .unwrap();
-    let mut orca_info = Vec::new();
-    let mut orca_tasks = Vec::new();
-    for protocol in [
-        "orca-whirlpools-static",
-        "orca-whirlpools-rewards",
-        "orca-whirlpools-adaptive",
-        "orca-whirlpools-adaptive-rewards",
-        "orca-whirlpools-adaptive-dynamic",
-    ] {
-        let c = orca_corpus["cases"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|c| {
-                c["profile"] == protocol
-                    && c["passed"] == true
-                    && c["zeroForOne"] == true
-                    && c["target"] == "1000"
-            })
-            .unwrap();
-        let reverse = orca_corpus["cases"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|r| {
-                r["pool"] == c["pool"]
-                    && r["passed"] == true
-                    && r["zeroForOne"] == false
-                    && r["target"] == "1000"
-            })
-            .unwrap();
-        let pool: xone_domain::Pool = serde_json::from_value(c["pool"].clone()).unwrap();
-        let mut cfg = api.config.as_ref().clone();
-        cfg.config.api.transaction_submission_enabled = false;
-        cfg.config.api.transaction_submission_chains.clear();
-        cfg.config.api.transaction_receipt_journal.clear();
-        cfg.config.api.transaction_max_pending = 0;
-        cfg.config.api.solana_runtime_manifest.clear();
-        let orca = xone_quote_api::Api::new(cfg).unwrap();
-        let mut baseline = snapshot.clone();
-        let state = pool.orca_whirlpool.as_ref().unwrap();
-        baseline.reference.block.number_or_slot = state.bank_slot;
-        baseline.reference.block.timestamp_ms = state.bank_unix_timestamp * 1000;
-        baseline.reference.online_generation += 1;
-        baseline.reference.journal_seq += 1;
-        baseline.reference.adapter_set_hash =
-            xone_domain::hash(&vec![pool.adapter_version.clone()]).unwrap();
-        baseline.pools = vec![pool];
-        baseline.reference.scope_hash = xone_domain::scope_hash(&baseline.pools).unwrap();
-        baseline.source = "CONTROLLED_ORIGINAL_ORCA_EXACT_OUT_NATIVE".into();
-        orca.replica.install_baseline(baseline).unwrap();
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        orca_info.push(
-            json!({"api":format!("http://{}",listener.local_addr().unwrap()),"cases":[c,reverse]}),
-        );
-        orca_tasks.push(tokio::spawn(async move {
-            axum::serve(listener, orca.handler()).await.unwrap();
-        }));
-    }
+    .await;
+    let (rayclmm_info, rayclmm_tasks) = target_services(
+        &api,
+        &snapshot,
+        "rayclmm-exact-out.json",
+        &[
+            "raydium-clmm-static",
+            "raydium-clmm-rewards",
+            "raydium-clmm-token-fee",
+            "raydium-clmm-bitmap",
+            "raydium-clmm-custom-seed",
+            "raydium-clmm-dynamic",
+        ],
+    )
+    .await;
     let control = Control {
         bank: bank.clone(),
         raydium: raydium.clone(),
@@ -248,7 +208,7 @@ async fn main() {
         .merge(admin)
         .layer(middleware::from_fn_with_state(control, delay));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"wsolApi":format!("http://{wsol_addr}"),"wsolBank":&*wsol.data,"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":&*token2022.data,"raydiumApi":format!("http://{raydium_addr}"),"raydiumBank":&*raydium.data,"pumpApi":format!("http://{pump_addr}"),"pumpBank":&*pump.data,"curveApi":format!("http://{curve_addr}"),"curveBank":&*curve.data,"curveAtaApi":format!("http://{curve_ata_addr}"),"curveAtaBank":&*curve_ata.data,"funding":funding_info,"orcaQuotes":orca_info,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
+    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"wsolApi":format!("http://{wsol_addr}"),"wsolBank":&*wsol.data,"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":&*token2022.data,"raydiumApi":format!("http://{raydium_addr}"),"raydiumBank":&*raydium.data,"pumpApi":format!("http://{pump_addr}"),"pumpBank":&*pump.data,"curveApi":format!("http://{curve_addr}"),"curveBank":&*curve.data,"curveAtaApi":format!("http://{curve_ata_addr}"),"curveAtaBank":&*curve_ata.data,"funding":funding_info,"orcaQuotes":orca_info,"rayclmmQuotes":rayclmm_info,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
     axum::serve(listener, routes)
         .with_graceful_shutdown(async {
             #[cfg(unix)]
@@ -263,6 +223,9 @@ async fn main() {
         })
         .await
         .unwrap();
+    for task in rayclmm_tasks {
+        task.abort();
+    }
     for task in orca_tasks {
         task.abort();
     }
@@ -339,4 +302,75 @@ async fn wallet_stats(State(c): State<Control>) -> Json<Value> {
     Json(
         json!({"raydiumSendCalls":c.raydium.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"raydiumTransactionCount":c.raydium.transactions.lock().unwrap().len(),"pumpSendCalls":c.pump.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"curveSendCalls":c.curve.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"curveAtaSendCalls":c.curve_ata.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"fundingSendCalls":c.funding.iter().map(|b|b.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count()).collect::<Vec<_>>()}),
     )
+}
+
+async fn target_services(
+    template: &xone_quote_api::Api,
+    snapshot: &Snapshot,
+    file: &str,
+    protocols: &[&str],
+) -> (Vec<Value>, Vec<tokio::task::JoinHandle<()>>) {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test/contracts")
+        .join(file);
+    let corpus: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let mut info = Vec::new();
+    let mut tasks = Vec::new();
+    for protocol in protocols {
+        let c = corpus["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| {
+                c["profile"] == *protocol
+                    && c["passed"] == true
+                    && c["zeroForOne"] == true
+                    && c["target"] == "1000"
+            })
+            .unwrap();
+        let reverse = corpus["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| {
+                r["pool"] == c["pool"]
+                    && r["passed"] == true
+                    && r["zeroForOne"] == false
+                    && r["target"] == "1000"
+            })
+            .unwrap();
+        let pool: xone_domain::Pool = serde_json::from_value(c["pool"].clone()).unwrap();
+        let mut cfg = template.config.as_ref().clone();
+        cfg.config.api.transaction_submission_enabled = false;
+        cfg.config.api.transaction_submission_chains.clear();
+        cfg.config.api.transaction_receipt_journal.clear();
+        cfg.config.api.transaction_max_pending = 0;
+        cfg.config.api.solana_runtime_manifest.clear();
+        let api = xone_quote_api::Api::new(cfg).unwrap();
+        let mut baseline = snapshot.clone();
+        let (slot, time) = if let Some(s) = &pool.orca_whirlpool {
+            (s.bank_slot, s.bank_unix_timestamp)
+        } else {
+            let s = pool.raydium_clmm.as_ref().unwrap();
+            (s.bank_slot, s.bank_unix_timestamp)
+        };
+        baseline.reference.block.number_or_slot = slot;
+        baseline.reference.block.timestamp_ms = time * 1000;
+        baseline.reference.online_generation += 1;
+        baseline.reference.journal_seq += 1;
+        baseline.reference.adapter_set_hash =
+            xone_domain::hash(&vec![pool.adapter_version.clone()]).unwrap();
+        baseline.pools = vec![pool];
+        baseline.reference.scope_hash = xone_domain::scope_hash(&baseline.pools).unwrap();
+        baseline.source = "CONTROLLED_ORIGINAL_TARGET_NATIVE".into();
+        api.replica.install_baseline(baseline).unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        info.push(
+            json!({"api":format!("http://{}",listener.local_addr().unwrap()),"cases":[c,reverse]}),
+        );
+        tasks.push(tokio::spawn(async move {
+            axum::serve(listener, api.handler()).await.unwrap();
+        }));
+    }
+    (info, tasks)
 }

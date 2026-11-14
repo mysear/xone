@@ -163,6 +163,7 @@ pub struct Pool {
     pub raydium_clmm: State,
 }
 pub struct Quote {
+    pub amount_in: u64,
     pub amount_out: u64,
     pub pool: Pool,
 }
@@ -466,7 +467,7 @@ fn bounded(p: &Pool) -> std::result::Result<(), String> {
         p.adapter_version.as_str(),
         s.collect_fee_on,
     ) {
-        (PROFILE, ADAPTER, 0) | (TOKEN_FEE_PROFILE, TOKEN_FEE_ADAPTER, 1 | 2)
+        (PROFILE, ADAPTER, 0) | ("raydium-clmm-static", "raydium-clmm/6d7a0f82-spl-static-1", 0) | (TOKEN_FEE_PROFILE, TOKEN_FEE_ADAPTER, 1 | 2)
             if s.seed_index == 0 && s.bitmap_extension.is_none() => {}
         (BITMAP_PROFILE, BITMAP_ADAPTER, 0..=2)
             if s.seed_index == 0 && s.bitmap_extension.is_some() =>
@@ -536,6 +537,10 @@ fn bounded(p: &Pool) -> std::result::Result<(), String> {
     Ok(())
 }
 pub fn quote(p: &Pool, input: &str, zero_for_one: bool) -> std::result::Result<Quote, String> {
+    quote_mode(p,input,zero_for_one,true)
+}
+pub fn quote_exact_out(p:&Pool,output:&str,zero_for_one:bool)->std::result::Result<Quote,String>{quote_mode(p,output,zero_for_one,false)}
+fn quote_mode(p:&Pool,input:&str,zero_for_one:bool,exact_in:bool)->std::result::Result<Quote,String> {
     bounded(p)?;
     let amount: u64 = input.parse::<u64>().map_err(|e| e.to_string())?;
     let _lock = NATIVE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
@@ -587,7 +592,7 @@ pub fn quote(p: &Pool, input: &str, zero_for_one: bool) -> std::result::Result<Q
                 amount,
                 limit,
                 zero_for_one,
-                true,
+                exact_in,
                 raydium_clmm::states::oracle::block_timestamp(),
             )
             .map_err(|e| e.to_string())?;
@@ -597,7 +602,7 @@ pub fn quote(p: &Pool, input: &str, zero_for_one: bool) -> std::result::Result<Q
             } else {
                 (result.amount_1, result.amount_0)
             };
-            if used != amount || used == 0 || output == 0 {
+            if (if exact_in {used}else{output}) != amount || used == 0 || output == 0 {
                 return Err("entrypoint requires nonzero output and full input".into());
             }
             let mut next = extract(
@@ -624,6 +629,7 @@ pub fn quote(p: &Pool, input: &str, zero_for_one: bool) -> std::result::Result<Q
                 .checked_sub(output)
                 .ok_or("SPL output vault insufficient funds")?;
             Ok(Quote {
+                amount_in: used,
                 amount_out: output,
                 pool: next,
             })
@@ -1341,4 +1347,20 @@ pub fn reward_update(pool: &Pool, outside: &[u128;3]) -> Value {
     let crossed=tick.reward_growths_outside_x64;
     json!({"reward_infos":rewards.into_iter().map(Reward::from_original).collect::<Vec<_>>(),
       "outside":crossed.iter().map(|v|v.to_string()).collect::<Vec<_>>()})
+}
+
+/// Construct a distinct controlled pool through original seed setters/PDA rules.
+/// Rewards are uninitialized in the peer; prices/fee/Oracle math is unchanged.
+pub fn target_peer(source:&Pool,seed:u32)->Pool {
+    assert!((1..=65535).contains(&seed));
+    let mut p=source.clone();p.raydium_clmm.reward_infos.clear();
+    for a in &mut p.raydium_clmm.tick_arrays {for t in &mut a.ticks {t.reward_growths_outside.clear();}}
+    let dynamic=p.raydium_clmm.dynamic_fee.is_some();
+    let mut p=seed::bind_seed(p,seed);
+    if p.raydium_clmm.bitmap_extension.is_none() {
+        let mut extension=TickArrayBitmapExtension::default();extension.pool_id=pk(&p.pool_id);
+        p.raydium_clmm.bitmap_extension=Some(extension_json(&extension));
+    }
+    if dynamic {p.protocol=DYNAMIC_PROFILE.into();p.adapter_version=DYNAMIC_ADAPTER.into();}
+    p
 }

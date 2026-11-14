@@ -84,9 +84,18 @@ fn validate_funds(pools: &BTreeMap<String, Pool>, funds: Funds<'_>) -> Result<()
                             &m.vault0,
                             &m.vault1,
                             &m.observation,
+                            &m.amm_config,
                         ]
                         .into_iter()
                         .any(|id| id == address)
+                            || m.tick_arrays.iter().any(|a| a.address == address)
+                            || m.bitmap_extension
+                                .as_ref()
+                                .is_some_and(|e| e.address == address)
+                            || m.reward_infos.iter().any(|r| {
+                                r.token_mint != "11111111111111111111111111111111"
+                                    && (r.token_mint == address || r.token_vault == address)
+                            })
                     })
                 {
                     return Err(err("EXACT_OUT_UNMODELED_SELF_FUNDING"));
@@ -227,7 +236,8 @@ pub fn evaluate_path(
         pool.validate()?;
         // The callback-funded CL templates have only been admitted for one
         // physical pool. It cannot silently become a V2 or mixed multi-hop route.
-        if (xone_protocol_math::orca::supports_profile(&pool.protocol)
+        if (xone_protocol_math::raydium_clmm::supports_profile(&pool.protocol)
+            || xone_protocol_math::orca::supports_profile(&pool.protocol)
             || matches!(
                 pool.protocol.as_str(),
                 xone_domain::pancake_bsc_lm::PROFILE
@@ -249,7 +259,9 @@ pub fn evaluate_path(
             && edges.len() != 1
         {
             return Err(err(
-                if xone_protocol_math::orca::supports_profile(&pool.protocol) {
+                if xone_protocol_math::raydium_clmm::supports_profile(&pool.protocol) {
+                    "EXACT_OUT_RAYCLMM_SINGLE_POOL_ONLY"
+                } else if xone_protocol_math::orca::supports_profile(&pool.protocol) {
                     "EXACT_OUT_ORCA_SINGLE_POOL_ONLY"
                 } else if pool.protocol == xone_domain::pancake_bsc_lm::PROFILE {
                     "EXACT_OUT_BSC4_SINGLE_POOL_ONLY"
@@ -299,6 +311,8 @@ pub fn evaluate_path(
             xone_domain::pump_amm::PROGRAM
         } else if pool.pump.is_some() {
             xone_domain::pump::PROGRAM
+        } else if pool.raydium_clmm.is_some() {
+            xone_domain::raydium_clmm::PROGRAM_ID
         } else if pool.orca_whirlpool.is_some() {
             xone_domain::orca::PROGRAM_ID
         } else if pool.raydium_cpmm.is_some() {

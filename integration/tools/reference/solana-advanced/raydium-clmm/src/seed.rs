@@ -36,7 +36,7 @@ fn pool_identity(p: &Pool, seed: u16) -> (String, u8) {
     (address, bump)
 }
 
-fn bind_seed(mut p: Pool, seed: u32) -> Pool {
+pub(super) fn bind_seed(mut p: Pool, seed: u32) -> Pool {
     let old_extension = TickArrayBitmapExtension::key(pk(&p.pool_id)).to_string();
     let (address, bump) = pool_identity(&p, u16::try_from(seed).expect("u16 seed"));
     p.protocol = SEED_PROFILE.into();

@@ -54,7 +54,7 @@ reorg-journal-test: build debug-build
 	python3 tools/acceptance/reorg_smoke.py
 	python3 tools/acceptance/reorg_smoke.py --transport http-development
 
-full-local-acceptance: check fixture-test durable-journal-test reorg-journal-test v3-quote-test multidex-quote-test stable-quote-test singleton-quote-test raydium-quote-test orca-quote-test rayclmm-quote-test rayclmm-token-fee-quote-test rayclmm-bitmap-quote-test rayclmm-seed-quote-test rayclmm-dynamic-quote-test receipt-witness-quote-test source-wal-quote-test receipt-root-quote-test orca-exact-out-current-check
+full-local-acceptance: check fixture-test durable-journal-test reorg-journal-test v3-quote-test multidex-quote-test stable-quote-test singleton-quote-test raydium-quote-test orca-quote-test rayclmm-quote-test rayclmm-token-fee-quote-test rayclmm-bitmap-quote-test rayclmm-seed-quote-test rayclmm-dynamic-quote-test receipt-witness-quote-test source-wal-quote-test receipt-root-quote-test orca-exact-out-current-check rayclmm-exact-out-current-check
 	python3 tools/acceptance/report.py
 
 .PHONY: v3-differential-test v3-quote-test v3-reference-refresh
@@ -942,3 +942,14 @@ orca-exact-out-reference:
 	python3 tools/acceptance/orca_exact_out_reference.py
 orca-exact-out-current-check:
 	python3 tools/acceptance/validate_orca_exact_out.py
+
+
+.PHONY: rayclmm-exact-out-reference rayclmm-exact-out-current-check
+rayclmm-exact-out-reference:
+	CARGO_TARGET_DIR=/tmp/xone-solana-advanced-ray cargo +1.90.0 build --offline --locked --manifest-path tools/reference/solana-advanced/raydium-clmm/Cargo.toml --config tools/reference/solana-advanced/raydium-clmm/cargo-source.toml
+	python3 tools/ci/solana-advanced-golden.py --family raydium-clmm
+	cp test/contracts/solana-advanced/raydium-clmm-rewards.json ../chain-parser-rust/test/contracts/solana-advanced/raydium-clmm-rewards.json
+	cp test/contracts/solana-advanced/raydium-clmm-rewards.json ../dex-router/test/contracts/solana-advanced/raydium-clmm-rewards.json
+	python3 tools/acceptance/rayclmm_exact_out_reference.py
+rayclmm-exact-out-current-check:
+	python3 tools/acceptance/validate_rayclmm_exact_out.py

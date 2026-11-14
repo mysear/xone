@@ -1520,3 +1520,10 @@ BINDINGS['12.orca-exact-out']={
  'tests':['five_orca_profiles_exact_output_match_original_manager_full_post_state','orca_two_pool_optimizer_matches_independent_native_allocation_grid','orca_exact_output_api_quotes_plans_views_and_budget_rejections_match_native_corpus','orca_api_selects_native_minimum_over_two_pool_grid_and_withdraws_old_views','test_grid_cannot_claim_a_lower_unexecuted_input'],
  'evidence_refs':['integration/artifacts/local/core-orca-exact-out-validation-20261114.json'],
 }
+
+
+BINDINGS['12.rayclmm-exact-out']={
+ 'paths':['dex-router/crates/protocol-math/src/raydium_clmm.rs','dex-router/crates/routing/src/exact_out.rs','dex-router/crates/execution-plan/src/exact_out.rs','dex-router/crates/quote-api/tests/rayclmm_exact_out.rs','chain-parser-rust/crates/solana-ingest/tests/rayclmm_exact_out.rs','integration/tools/acceptance/rayclmm_exact_out_reference.py','integration/tools/acceptance/verify_rayclmm_exact_out.py','integration/tools/acceptance/validate_rayclmm_exact_out.py'],
+ 'tests':['six_rayclmm_output_profiles_match_original_manager_and_complete_pool_state','original_output_steps_cover_both_fee_tokens_and_zero_rate_rounding_dust','rayclmm_two_pool_optimizer_matches_independent_native_allocation_grid','rayclmm_exact_output_api_quotes_plans_views_and_budget_rejections_match_native_corpus','output_native_checkpoints_decode_all_six_profiles_before_and_after','test_next_clock_cannot_mutate_previous_native_poststate'],
+ 'evidence_refs':['integration/artifacts/local/core-rayclmm-exact-out-validation-20261114.json'],
+}

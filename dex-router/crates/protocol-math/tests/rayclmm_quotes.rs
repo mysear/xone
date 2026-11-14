@@ -1,8 +1,7 @@
-#[allow(dead_code)]
-#[path = "../src/raydium_clmm.rs"]
-mod raydium_clmm;
 use num_bigint::BigUint;
 use xone_domain::{rayclmm_math::sqrt_price_from_tick, Amount, Pool};
+#[allow(dead_code)]
+use xone_protocol_math::raydium_clmm;
 pub use xone_protocol_math::Swap;
 fn pool() -> Pool {
     serde_json::from_str(include_str!("../../../test/contracts/rayclmm-state.json")).unwrap()
@@ -172,8 +171,9 @@ fn fees_floor_per_step_before_summing() {
     s.tick_arrays[0].ticks.insert(0, lower);
     let price = 1u128 << 64;
     let target = u128::try_from(sqrt_price_from_tick(-128).unwrap()).unwrap();
-    let first = raydium_clmm::compute_swap(7000000, 3000, 1000000000, price, target, true).unwrap();
-    let second = raydium_clmm::compute_swap(
+    let first =
+        raydium_clmm::step_exact_in(7000000, 3000, 1000000000, price, target, true).unwrap();
+    let second = raydium_clmm::step_exact_in(
         7000000 - first.amount_in - first.fee_amount,
         3000,
         1000000000,

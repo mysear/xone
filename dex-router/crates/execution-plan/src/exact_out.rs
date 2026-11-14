@@ -139,6 +139,12 @@ pub fn build(
                             | xone_domain::pump_amm::PROFILE
                             | xone_domain::pump_amm::BOOST_PROFILE
                             | xone_domain::raydium::PROFILE
+                            | "raydium-clmm-static"
+                            | "raydium-clmm-rewards"
+                            | "raydium-clmm-token-fee"
+                            | "raydium-clmm-bitmap"
+                            | "raydium-clmm-custom-seed"
+                            | "raydium-clmm-dynamic"
                             | "orca-whirlpools-static"
                             | "orca-whirlpools-rewards"
                             | xone_domain::orca_adaptive_state::PROFILE
@@ -161,6 +167,12 @@ pub fn build(
                             | xone_domain::pump_amm::PROFILE
                             | xone_domain::pump_amm::BOOST_PROFILE
                             | xone_domain::raydium::PROFILE
+                            | "raydium-clmm-static"
+                            | "raydium-clmm-rewards"
+                            | "raydium-clmm-token-fee"
+                            | "raydium-clmm-bitmap"
+                            | "raydium-clmm-custom-seed"
+                            | "raydium-clmm-dynamic"
                             | "orca-whirlpools-static"
                             | "orca-whirlpools-rewards"
                             | xone_domain::orca_adaptive_state::PROFILE
@@ -172,7 +184,8 @@ pub fn build(
                                 || xone_domain::pump::supports_curve_profile(&edge.protocol)
                                 || xone_domain::pump_amm::supports_profile(&edge.protocol)
                                 || edge.protocol == xone_domain::raydium::PROFILE
-                                || orca_profile(&edge.protocol)))
+                                || orca_profile(&edge.protocol)
+                                || rayclmm_profile(&edge.protocol)))
                         || edge.from_token.is_some()
                         || &edge.to != to
                 })
@@ -208,6 +221,11 @@ pub fn build(
                         .tokens
                         .contains(&xone_domain::pump::NATIVE_SOL.to_owned())
                     || context.caller != context.recipient
+            } else if rayclmm_profile(&route.edges[0].protocol) {
+                route.factory != xone_domain::raydium_clmm::PROGRAM_ID
+                    || route
+                        .tokens
+                        .contains(&xone_domain::pump::NATIVE_SOL.to_owned())
             } else if orca_profile(&route.edges[0].protocol) {
                 route.factory != xone_domain::orca::PROGRAM_ID
                     || route
@@ -307,5 +325,17 @@ fn orca_profile(protocol: &str) -> bool {
             | xone_domain::orca_adaptive_state::PROFILE
             | xone_domain::orca_adaptive_state::REWARDS_PROFILE
             | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
+    )
+}
+
+fn rayclmm_profile(protocol: &str) -> bool {
+    matches!(
+        protocol,
+        "raydium-clmm-static"
+            | "raydium-clmm-rewards"
+            | "raydium-clmm-token-fee"
+            | "raydium-clmm-bitmap"
+            | "raydium-clmm-custom-seed"
+            | "raydium-clmm-dynamic"
     )
 }

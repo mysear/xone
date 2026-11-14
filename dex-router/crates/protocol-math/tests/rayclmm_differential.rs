@@ -1,9 +1,8 @@
 //! Independent pinned native swap_internal output is the oracle. Compare every
 //! field, including untouched observation entries, identity and proof metadata.
-#[path = "../src/raydium_clmm.rs"]
-mod raydium_clmm;
 use serde_json::Value;
 use xone_domain::{Amount, Pool};
+use xone_protocol_math::raydium_clmm;
 pub use xone_protocol_math::Swap;
 
 fn assert_case(pool: &Pool, case: &Value) -> Option<Pool> {

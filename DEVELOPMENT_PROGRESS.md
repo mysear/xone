@@ -432,6 +432,7 @@
 |14.pump-native-ata|WP05,WP09,WP14,WP15,WP16,WP20,WP25|PARTIAL_LOCAL|Pump原生买入的收款ATA原子创建、System预存余额补差、租金/交易/网络费分列及回执联验|仅明确经典曲线/同一声明user；其他账户/WSOL转换、毕业迁移和其他模板继续推进|[验证记录](integration/artifacts/local/core-pump-native-ata-validation-20261113.json)|
 |14.pump-amm-funding|WP05,WP09,WP14,WP15,WP16,WP20,WP25|PARTIAL_LOCAL|PumpSwap classic/boost ATA、WSOL补差/退款/解包与实际租金回执开发联验|当前单池单路经典SPL与声明user；其他版本、毕业迁移及51个缺失执行模板仍需完成|[验证记录](integration/artifacts/local/core-pump-amm-funding-validation-20261113.json)|
 |12.orca-exact-out|WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Orca五类模型的精确输出数学、原始manager完整后状态、路由/网格与API/前端报价联验|仅固定cc683ec9经典SPL及三数组范围；执行准备/unsigned/SBF/钱包模板仍未实现，不以native数学参考替代交易验证|[验证记录](integration/artifacts/local/core-orca-exact-out-validation-20261114.json)|
+|12.rayclmm-exact-out|WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium CLMM六模型输出目标、选费/动态/奖励/Bitmap/Seed状态、路由与API/前端开发联验|固定6d7a0f82经典SPL；协议Token选费不含Token2022转账扩展；六模型执行模板仍待补齐|[验证记录](integration/artifacts/local/core-rayclmm-exact-out-validation-20261114.json)|
 |14.wallet-lifecycle|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|已有unsigned/独立SBF模板接Wallet Standard、显式发送与实际收付回执/恢复|默认关闭，按链启用；本批仅受控Solana模板，不等于全链全协议生产资格/完整多租户或多区执行验收|[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 
 <a id="batch-history"></a>
@@ -510,6 +511,7 @@
 |69|[Pump原生收款ATA](#plan-2026-11-13-pump-native-ata)|LOCAL_SCOPE_VERIFIED|九组实际原wire/完整后状态/回滚、缺失/预存ATA租金补差、真实签名成功/失败回执和Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-pump-native-ata-validation-20261113.json)|
 |70|[PumpSwap账户与SOL资金](#plan-2026-11-13-pump-amm-funding)|LOCAL_SCOPE_VERIFIED|22组新增资金银行、真实租金/WSOL回执、44组原wire参考与72项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-pump-amm-funding-validation-20261113.json)|
 |71|[Orca五模型精确输出](#plan-2026-11-14-orca-exact-out)|LOCAL_SCOPE_VERIFIED|600原manager场景/600服务流程、8序列、3组网格、101次Rust/91项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-orca-exact-out-validation-20261114.json)|
+|72|[Raydium CLMM六模型精确输出](#plan-2026-11-14-rayclmm-exact-out)|LOCAL_SCOPE_VERIFIED|1266原生场景/服务流程、280单步、6序列/12网格、304次Rust/109项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-rayclmm-exact-out-validation-20261114.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2150,3 +2152,26 @@ Chrome验证五模型双向ExactOut并保持执行按钮禁用；编辑普通账
 初始计划模块直接引用未声明数学依赖，改为独立固定profile准入谓词；参考刷新显式限定Orca家族，修正来源控制测试假设，未放宽生产校验。首次28项/101次/87项通过记录保留，视觉复核补回执测试后重新冻结并完成最终验收；旧失败/前一轮记录不充作当前源码验证。源码前后及当前摘要、上游完整清单、辅助程序/运行时/银行、日志、600条服务记录、原始复执行、桌面/移动截图和harness二进制摘要均固定并复核。复验make -C integration orca-exact-out-current-check；恢复生成数据用orca-exact-out-reference，生成物/下载依赖/二进制不提交。
 
 运行时协议目录61个模型中21个支持ExactOut模式、10个具备执行准备；其余模式和51个执行模板仍是全量任务缺项。本批是原始native manager数学与显式vault投影，SPL CPI、SBF及钱包执行按模板继续实现；Orca的相关执行标签保持false。未向公网发送。all_requested_features_complete=false、production_ready=false。
+
+
+<a id="plan-2026-11-14-rayclmm-exact-out"></a>
+
+## Raydium CLMM六模型精确输出（2026-11-14，阶段72）
+
+继续六阶段前两项。固定6d7a0f82的静态、奖励、Token选费、Bitmap、Custom Seed和动态费经典SPL模型接入原生输出指定分支，保留既有账户解析与完整状态。Token选费是协议从Token0/Token1收费的位置选择，和Token2022转账费分别处理，不扩大Token行为范围。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F72.1|输出指定量与收费位置|WP12,WP15|PARTIAL_LOCAL|按输入/输出选费分别计算价格驱动量、Q64输出舍入和净目标封顶；覆盖零费率但有原始舍入余量费用、u64/u128/U256/U512边界。|
+|F72.2|完整后状态|WP05,WP12,WP15|PARTIAL_LOCAL|逐步LP/协议/fund分账、Observation、奖励与动态费用变量、Bitmap与Seed完整状态对照；保留旧ExactIn回归。|
+|F72.3|路由与最佳输入|WP09,WP12,WP14,WP15|PARTIAL_LOCAL|单池单路目标、连续池消耗、六模型双向12组原程序双池四份额网格最小输入；重复池必须按前次后状态重算。|
+|F72.4|解析/API/QuoteView|WP05,WP14,WP16|PARTIAL_LOCAL|原生序列化前后12个账户检查点反解六类完整Pool；实际API目标/预算/视图/Orca与Raydium factory独立绑定，能力模型/9更新。|
+|F72.5|前端与复现|WP16,WP25|PARTIAL_LOCAL|六模型双向目标报价及能力门禁；新增18项开发预检，连同既有钱包/回执流程109项Chrome通过；固定参考输入/响应可重放。|
+
+原始参考入口integration/tools/acceptance/rayclmm_exact_out_reference.py，verify_rayclmm_exact_out.py逐项复执行原始swap_internal/compute_swap，并核对显式vault投影、完整模型、Clock连续性和网格。最终同源码有限验收：源码`7dc0d07568c45f6b93f0c79824053a40c7a497fc1346c8ae282383159164e960`，27项检查、304次Rust测试执行、109项真实Chrome联调通过。1266参考场景含947成功/319拒绝，280输出步进向量含204成功及10个零费率输出余量费用场景；264个输出端收费场景、196次动态变量更新、44次奖励更新和350次数组状态更新经过原程序对照。6条四步序列按前次状态推进Clock，六模型双向12组四份额双池网格最小输入一致，缓存提示量不作为真实输入依据。
+
+实际服务流程1266条分层核对：947次HTTP成功、307次HTTP拒绝、12次状态准入拒绝；另核对预算减一、单池范围、内部账户拒绝、完整计划/program factory、QuoteView绑定和旧视图撤销后的SNAPSHOT_REORGED。原生序列化的12个前后账户检查点反解六模型完整Pool一致，旧Raydium CLMM/Orca输入数学、旧ExactOut/API/计划和解析回归通过。普通/-OO各12个目标/费用/动态/奖励/Bitmap/Clock/单步/网格/来源篡改反例通过。前端六模型双向目标报价和执行门禁新增18项，连同既有91项钱包/SBF/回执联调共109项通过；Orca和Raydium factory分别绑定，未实现模板不借用其他池能力。
+
+参考新Seed池经原始set_seed_index/PDA规则构造并补齐默认完整Bitmap扩展，避免改变原有准入条件；连续状态深拷贝避免下一次Clock污染上一条记录。初始参考构造器扩展遗漏、状态对象别名和检查点测试相对路径问题均已修正，生产校验未放宽，旧失败日志保留不计通过。上游固定程序源码未修改，自有参考只增加输出模式和受控输入构造/序列化入口，原始typed状态和显式vault投影不冒充SPL CPI/SBF或钱包执行。
+
+源码前后与当前摘要、上游/Parity完整清单、辅助程序/运行时/银行、1266份流程记录、原始复执行/序列化、桌面/移动截图和harness二进制摘要已冻结并复核。313合同/12工具副本/164公共来源、公共协议、严格Clippy、前端/钱包单测与普通/-OO各17项文档检查通过。复验make -C integration rayclmm-exact-out-current-check；数据恢复入口rayclmm-exact-out-reference，生成数据/下载依赖/二进制不提交。实际目录61模型中27支持ExactOut（原21）、10具备执行准备；其余数学和51个执行模板继续推进，六模型执行标签保持false。未向公网发送。all_requested_features_complete=false、production_ready=false。

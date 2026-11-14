@@ -4,7 +4,8 @@ This slice adds `orca-whirlpools-rewards` at Orca
 `cc683ec92acb5e7606caa3d8e514d9383e9c7c11` and `raydium-clmm-rewards` at Raydium
 `6d7a0f82d2f293c553c69aaf943377367c6c4cc6`. These remain classic SPL Token,
 static-fee profiles. Orca supports full exact-input and exact-output targets;
-Raydium retains its full exact-input interface in this slice. Existing profiles reject populated reward
+Raydium supports full exact-output targets across its admitted static, reward,
+token-selected fee, bitmap, custom-seed and dynamic profiles. Existing profiles reject populated reward
 state; their omitted JSON fields and empty wire fields retain their previous shape.
 
 See [INTEGRATION.md](INTEGRATION.md) for the exact centralized profile and wire
@@ -106,3 +107,16 @@ Orca target quotes also support `action:"quote_exact_out"` with `output` and
 branch and original reward/tick post updates. Both ordinary and initialized
 reward pools use this adapter. Raydium's interface remains unchanged. This is
 native manager/math evidence, not SPL CPI, SBF or wallet transaction evidence.
+
+
+Raydium ExactOut uses `quote_exact_out(pool, output, zero_for_one)` and passes
+`is_base_input:false` directly to the unchanged 6d7a0f82 `swap_internal`. Both
+input- and output-token protocol fees preserve native rounding and fee ledgers;
+`raydium-clmm-token-fee` is protocol fee-token selection, not Token2022 transfer
+fees. The `step_exact_out` action calls original `compute_swap` and records
+zero-rate output rounding dust. `target_peer` constructs a separate controlled
+pool via original seed setters/PDA rules, with uninitialized rewards and a full
+bitmap extension; this is synthetic input construction, not a deployed market.
+`fixture_target` serializes the original pool/config/ticks/observation and, where
+needed, bitmap-extension account types before/after the mathematical swap.
+These interfaces do not execute SPL CPI or qualify SBF/wallet settlement.
