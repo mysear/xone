@@ -77,17 +77,21 @@ async fn raydium_preparation_checks_real_account_closure_and_original_sbf_net_cr
             assert!(p.get("unsignedTransaction").is_none());
         }
         *bank.mode.lock().unwrap() = "ready".into();
-        for option in [
-            "createDestinationAta",
-            "wrapSourceSol",
-            "refundWrappedSource",
-            "unwrapDestinationSol",
+        for (option, error) in [
+            (
+                "refundWrappedSource",
+                "PREPARATION_REFUND_REQUIRES_TEMP_SOURCE",
+            ),
+            (
+                "unwrapDestinationSol",
+                "PREPARATION_UNWRAP_CONTEXT_UNSUPPORTED",
+            ),
         ] {
             let mut bad = prepare.clone();
             bad[option] = true.into();
             let (status, p) = call(&api, &path, bad).await;
             assert_ne!(status, StatusCode::OK);
-            assert_eq!(p["error"], "PREPARATION_OPTIONS_UNSUPPORTED");
+            assert_eq!(p["error"], error);
         }
         let mut exact = request;
         exact["kind"] = "EXACT_IN".into();

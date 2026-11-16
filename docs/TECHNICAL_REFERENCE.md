@@ -1763,3 +1763,101 @@ WSOL初始化前的空System账户余额超过租金时，超过部分成为有�
 基础Uniswap V3和无LM的Pancake V3通过独立目标接口接入既有Q96输出驱动内核。每个TickBitmap word单独步进/取费，反向计算目标再按同一物理状态正向重放；仅同factory、同模板简单路径，重复池/环/混合模板和未知资金自引用拒绝。基础状态投影只保留下一次价格报价所需的price/tick/liquidity/bitmap/gross-net，不包含完整LP费用或Oracle账本。
 
 固定原始Factory/Pool通过真实create/initialize/mint构造头寸，原始swap负数指定输出并由受控ERC20调用器实际回调付款；完整目标/maxInput由测试调用器约束。原始费用、观察值、Token余额、交易回执和失败观察状态回滚独立记录。原始两跳执行采用递归回调付款，和仅累加单池报价分别核对。能力模型/10仅增加报价能力，同源码24项检查、45次Rust测试执行、115项Chrome通过；原始80成功/16拒绝、80预算回滚、4实际两跳与2网格范围和源码摘要见DEVELOPMENT_PROGRESS.md；复现make -C integration v3-exact-out-reference，验收v3-exact-out-current-check。
+
+
+### Immutable WeightedPool输出目标与物理余额
+
+`balancer-v2-weighted2-equal`、`balancer-v2-weighted2-static`、`balancer-v2-weighted-multi` 通过独立输出驱动的GIVEN_OUT计算接入 `/v1/quote-exact-out`。先缩放输出和余额，按原WeightedMath次序执行向上取整的base/exponent/pow及输入乘法，再将输入向上反缩放，最后按 `1-fee` 向上补费。原始输出不得超过缩放输出余额的30%；现金及加费后的最终现金执行uint112约束，中间值执行uint256约束。
+
+多币池始终保留一个完整资产向量。路由边包含显式 `from_token`，参与币对按完整token顺序查找，`zero_for_one` 仅在索引0→1时为true；任何其他索引不能借用该布尔值推断币对。更新输入和输出现金后同步reserve0/reserve1，其余资产和全部身份数据保持。单路线仅支持一个物理池，允许多路线按顺序重新计算同池状态；拆单结果只承诺配置网格及预算内的搜索范围。
+
+能力版本 `xone-protocol-capabilities/11` 分别声明EXACT_OUT与执行准备。数学计划绑定显式token流、输出目标、最大输入、报价视图和快照。三个模型的执行准备/unsigned/钱包标签保持false；Managed/Composable/BPT/rate/Stable需独立实现。原回调参考与前端复验说明在 `integration/tools/reference/weighted-exact-out/README.md`；开发进度和实际验证结果只记录于根进度文档。
+
+
+### Standard Stable2输出目标
+
+`balancer-v2-stable2` 的独立GIVEN_OUT内核使用目标输出修改缩放后的输出余额，以原invariant求输入余额，再按原StableMath补一scaled单位、输入向上反缩放、最后加raw费用。保持uint256每步运算和uint112原始/最终现金限制。StableMath没有Weighted的30%输入/输出限制；完整目标仍不得耗尽输出现金。参数沿用同一固定块的精确amplification与10幂scaling，费率/Token/程序准入不变。
+
+路线限定一个物理池，可按原有配置网格选择双池或按顺序重算同池。池/Vault/实现等内部地址不可作为未建模外部资金。API绑定原报价、数学计划与子QuoteView，过期或撤销后保留原证据诊断但禁止构建。能力版本/12新增Stable2的EXACT_OUT，执行准备与钱包标签保持false。
+
+参考边界与复现见 `integration/tools/reference/stable-exact-out/README.md`。它执行原始数学和现金库的包装，不提供StablePool/Vault部署、ERC20转账或执行交易证明。开发进度只记录于根进度文档。
+
+
+### Static singleton CL输出目标
+
+静态零hook的 `uniswap-v4` 与 `pancake-infinity-cl` 以正数amountSpecified驱动原始输出目标，逐word/tick计算最大可交付输出；段内反解sqrt价格，输入与费用向上舍入，输出截到剩余目标。跨初始化tick按方向调整liquidity，空流动性段和位图证明边界保持有界；不完整目标、signed128 BalanceDelta与uint160价格限制失败时拒绝整条路线。PoolId为manager/rawPoolId，计划必须绑定相同manager，不能将rawPoolId解释成独立合约地址。
+
+单路线只有一个物理池，拆分在已有网格内按当前状态逐次重算。浅池不能完成整单时可按可行份额参与候选；无可行分配时拒绝。能力版本/13新增两个基础模型的EXACT_OUT，advanced/hook/native/动态LP费用模型不借用此路径，执行准备/unsigned/钱包标签保持false。
+
+原Pool/CLPool库的正数目标参考、seed及限制见 `integration/tools/reference/singleton-exact-out/README.md`。模型后状态仅为价格/tick/liquidity等下一次报价所需投影，不包含完整Manager资金结算或LP费账；实际Token转账和可执行交易模板需独立验收。进度只记录于根进度文档。
+
+
+### Static Infinity Bin完整树输出目标
+
+`pancake-infinity-bin` 的输出接口使用原BinHelper.getAmountsIn的顺序：每个访问bin取min(剩余目标,输出储备)，Q128价格将其向上换为净输入，再向上补swapFee，protocol费用按该fee比例向下分配。完整输出跨bin沿已证明完整树搜索；初始化但无输出储备的bin和脱离树的active尘埃按原访问规则计步，失败时不提交任何物理状态。单bin/累计金额分别限制uint128与原signed128 BalanceDelta，保留原MAX_LIQUIDITY_PER_BIN检查。
+
+输入和输出接口共享同一完整物理后状态投影：app现金按用户gross输入/输出，bin按扣protocol后的输入，protocol累计按原uint256环绕语义；tree成员及total_shares不随swap改变。原burn导致active不在树时仍先处理其locked尘埃，随后只使用真实树成员。报价更新中的App/Vault余额和全局protocol计数为明确的投影，不表示已执行完整Manager结算。
+
+单池路线按manager/rawPoolId绑定计划，双池网格及同池顺序分配复用已有优化器。能力版本/14新增本静态标准模型的EXACT_OUT，advanced/hook/native/动态LP费与执行模板不借此开放。原库/真实burn参考与复现说明在 `integration/tools/reference/infinity-bin-exact-out/README.md`，进度仅记录于根进度文档。
+
+
+### Managed Snapshot输出目标
+
+`balancer-v2-managed-snapshot` 使用同blockHash读取的 `getNormalizedWeights()` 与 `getSwapFeePercentage()` 反解输出目标。权重压缩/插值的结果直接参与weightOut/weightIn向上取整，不能重归一化成1e18；Managed2–38币正权重域与不可变Weighted的严格归一化域分开，输出算术共用并保留原30% scaled输出上限。计算输入向上反缩放后再加费用，原始与最终现金为uint112，每个uint256中间值按原顺序检查。
+
+现有解析准入已经要求swaps enabled且protocol/management swap fee为0。公开数学guard API对关闭开关/非零费用明确拒绝；其他Managed费账、BPT/AUM或fee/schedule版本不借用本model。完整物理余额向量与显式from_token用于任意币对，单池路线和原有网格内的顺序重算保持；协议视图/计划绑定相同权重和费用快照。能力版本/15只新增明确EXACT_OUT，执行准备/unsigned/钱包仍false。
+
+原ManagedPool回调参考使用测试Vault facade及显式unlimited code size，不证明生产部署/完整Vault/ERC20转移。参考说明在 `integration/tools/reference/managed-snapshot-exact-out/README.md`，实际开发进度见根进度文档。
+
+
+### Composable普通币对输出目标
+
+`balancer-v2-composable-regular` 的输出数学先保留完整注册顺序确定BPT索引，再将BPT从scaled余额向量中移除。普通币索引按BPT位置映射，使用原invariant求输入余额，补一scaled单位、输入反缩放向上，最后加raw费用。完整输出不能耗尽目标现金；每步uint256及初始/最终uint112现金保持原边界。BPT现金、原数组顺序和其他资产不变，StableMath输出不套Weighted的30%上限。
+
+单池路线仅支持underlying，BPT图节点继续排除；注入BPT边、BPT输入/输出数学请求、含BPT的数学计划和HTTP报价均拒绝。双池网格和同池顺序分配复用现有物理状态求解。能力版本/16的范围为SINGLE_POOL_UNDERLYING_ORDERED_ALLOCATION，执行准备/unsigned/钱包仍false。无rate-provider profile不接缓存刷新/外部rate/BPT供应和待结费用。
+
+原始StableMath测试包装、BPT位置和资金证明边界详见 `integration/tools/reference/composable-exact-out/README.md`；它不代表完整ComposableStablePool/Vault/ERC20执行。开发进度只记录于根进度文档。
+
+
+### Raydium经典SPL的显式ATA／WSOL资金选项
+
+Raydium CP-Swap creator经典模型复用classic_funding：无选项时原swap指令/wire不变；createDestinationAta只创建 canonical收款ATA，wrapSourceSol只针对WSOL输入并补不足额，refundWrappedSource使用独立seed临时账户，unwrapDestinationSol要求WSOL输出/caller=recipient且无指定已有目的账户。已有用户账户不关闭，账户占用、非法组合、owner/mint/frozen/资金不足均拒绝或给blocker。
+
+资金指令按prefix→原Ray swap→suffix顺序编译为单签名消息，创建/包装失败和swap失败整体原子回滚。System/ATA/ProgramData可空证明及Rent加入同次RPC捕获，ATA固定代码hash/System Native身份保留，独立SBF不refetch或混合其他context。模拟/收据以源/目的/付款人三个前后账户核对实际Token与Native变化，区分持久租金、临时租金退款、WSOL包装和网络费；预存空System地址只补租金差额。
+
+能力版本/17在已有Raydium执行准备模型内增加账户创建和native funding，native_sol_trading仍false。签名/广播/回执沿既有Wallet Standard流程，生产默认关闭，RPC_CAPTURE_SBF_SIMULATED不升级历史bank/独立生产VERIFIED。复验入口为 `make -C integration raydium-funding-current-check`，实际进度仅见根进度文档。
+
+
+<a id="orca-classic-execution"></a>
+
+## Orca经典SPL执行与资金
+
+Router的静态/奖励Whirlpool模型使用legacy swap，逐字节验证完整Pool与固定/动态tick数组、程序/Token代码、PDA、经典mint/vault、Oracle空态和同次Clock。单次原生swap最多选取三个方向数组，B-to-A按tick spacing平移；只有一或两个已证明数组时重复最后地址填槽，原builder去重，禁止虚构窗口外账户。捕获的WSOL Vault可能有SOL捐赠，背书允许覆盖token余额且保留原lamports，不执行隐式sync。ComputeBudget原生账户与1,400,000单位指令均进入捕获和交易绑定，独立运行时配置容量不足时明确拒绝。
+
+classic_funding只按显式请求添加ATA/包装/临时退款/解包，预存租金和本次补差分开。独立SBF复用同次捕获而不refetch，Clock缓存设置后恢复捕获账户的原lamports；同一处理也用于本地只读RPC和测试钱包运行时，防止把VM默认sysvar值冒充源账户。钱包签名/确认广播/回执沿既有API，生产默认关闭。adaptive、Token2022和其他程序版本不借用本能力；复验入口为 `make -C integration orca-execution-current-check`，进度仅记根开发文档。
+
+<a id="orca-adaptive-classic-execution"></a>
+
+## Orca自适应经典SPL执行
+
+adaptive、adaptive-rewards、adaptive-dynamic继续使用固定程序的legacy swap。初始化Oracle的254字节按既有模型重建，包括Whirlpool绑定、交易启用时间、费率控制/衰减/波动状态及16/16/128预留区；准备和独立SBF分别逐字节比对。编译消息必须将该Oracle标为可写，静态空Oracle维持只读，拒绝用扩展权限或字段编辑绕过模型准入。经典mint/vault、ProgramData/Token代码/部署slot、PDA、Clock和完整tick数组沿已有验证；动态数组不等于Token2022扩展。
+
+银行生成器只对受控原生struct账户显式附加已保留的实际程序字节；slot、Clock和ProgramData上下文对齐不构成历史bank共识，WSOL币对的Pool/Oracle/array PDA和raw绑定均重新推导。54场景分别覆盖三个模型的普通币对、WSOL、双向ExactIn/Out、显式资金/临时账户及预存租金。原生参考、实际API wire原SBF、模拟、钱包回执和Chrome必须分别取证；独立草稿证据不可替代正式API/QuoteView绑定。复验 `make -C integration orca-adaptive-execution-current-check`，进度只记根文档。
+
+<a id="rayclmm-classic-execution"></a>
+
+## Raydium CLMM经典SPL执行
+
+固定6d7a0f82的静态、奖励、Token-fee单池指令采用`swap_v2`。完整Pool、Observation、每个已声明数组、配置费用/PDA/Clock/mint/vault、program/ProgramData和Token原代码分别核对。未知动态状态、扩展bitmap、自定义seed和挂单数量不借用此模板；tick order cohort无挂单的历史值与原Pool opaque填充保留，WSOL Vault只验证背书覆盖且保留捐赠lamports。ComputeBudget指令与账户闭包明确绑定，数组按原bitmap可用方向选择，不伪造源窗口外账户。
+
+`swap_v2`同时声明Tokenkeg、Token2022和Memo；经典资产仍仅Tokenkeg。附属Token2022闭包在生成银行时明确取锁定运行时并锁定原payload摘要，Memo则显式加载保留来源的完整原字节；两者不可由VM不同默认程序补足。独立模拟复用同次RPC捕获，完整Pool/Observation/数组/Vault、实际收付、费用/租金和失败全账户回滚由外部原程序重放分别核对。复验 `make -C integration rayclmm-execution-current-check`，实际开发进度只记根文档。
+
+<a id="rayclmm-declared-advanced-execution"></a>
+
+## Raydium已声明扩展状态执行
+
+六种既有经典SPL模型各按独立profile验证。其中Bitmap、自定义seed和动态费额外捕获完整1832字节扩展（原discriminator、Pool绑定、112+112个u64及PDA）；非零seed按原u16LE参与Pool PDA和bump，不把零seed编码成额外非空种子。动态费保留34字节所有原字段，包括有符号tick spacing参考、波动参数/引用/累计与时间，1130之后保留区必须为零；静态模型仍要求1096之后为默认状态。扩展在原swap_v2的剩余账户第一位，后接当前方向实际数组，不能借用池外账户或请求参数提供费率。
+
+162受控银行包含三个模型各三种收费模式的普通币对/重新推导PDA的WSOL币对、双向输入/输出目标、ATA/包装/临时退款解包和预存租金。程序闭包与classic模板一致，Token2022资产与订单/未知组合仍拒绝；组件原SBF证据、正式API wire、钱包回执和Chrome应分别验收。复验 `make -C integration rayclmm-advanced-execution-current-check`，完成状态仅记根进度。
+
+SBF运行时程序映像的宿主生命周期：构造线程只保留至多两个已验证代码映像，线程退出或LRU淘汰时释放缓存持有引用，活跃Engine/子进程保持自己的引用；账户银行、并发许可和各Engine的计算／超时配置不共享。每次Engine构造仍读取并校验源程序摘要，复用时再将保留程序逐字节与刚验证源数据及编译worker比较，Unix程序文件只读；任何差异明确拒绝，不静默重建绕过。此处理消除多API宿主重复冷复制的开销，不提高生产15秒等预算，也不把程序映像复用当作来源／执行验证。worker异常仅记录输入／输出已传字节计数、耗时及子进程退出标志，辅助区分启动、管道与执行问题，不记录账户或交易负载。

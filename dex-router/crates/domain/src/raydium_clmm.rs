@@ -2,6 +2,18 @@ use crate::{err, wire, Amount, Pool, Result};
 use num_bigint::BigUint;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
+/// Explicitly versioned classic-token profiles with declared protocol state.
+pub fn supports_classic_profile(protocol: &str) -> bool {
+    matches!(
+        protocol,
+        "raydium-clmm-static"
+            | "raydium-clmm-rewards"
+            | "raydium-clmm-token-fee"
+            | "raydium-clmm-bitmap"
+            | "raydium-clmm-custom-seed"
+            | "raydium-clmm-dynamic"
+    )
+}
 pub const PROGRAM_DATA: &str = "HzD2cCXXT3UQNjMMY6kDv9w6gZ9qquSdfoGXrLL3LXx";
 pub const PROGRAM_ID: &str = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK";
 pub const MIN_TICK: i32 = -443636;

@@ -1,0 +1,11 @@
+{
+  "source_manifest": {
+    "path": "integration/tools/reference/balancer-multi/e281ff40583c39bf1d46c322334b2b13936e0e33.json",
+    "sha256": "d7443405e95343730d727a8b99c5dccd459bbe56069fdfd0beb08f45e29e405c"
+  },
+  "package_lock": {
+    "path": "integration/tools/reference/stable-models/package-lock.json",
+    "sha256": "50301f417f098e95457605d25fadf7fb56f2a9176217a7a45b0efbe2667a195a"
+  },
+  "revision": "e281ff40583c39bf1d46c322334b2b13936e0e33"
+}

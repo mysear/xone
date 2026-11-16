@@ -1,4 +1,4 @@
-//! Balancer V2 immutable two-token 50/50 WeightedPool, exact input.
+//! Balancer V2 immutable two-token WeightedPool, exact input/output.
 //! Pinned upstream e281ff40583c39bf1d46c322334b2b13936e0e33:
 //! BaseMinimalSwapInfoPool.onSwap, BasePool fee/scaling, WeightedMath and
 //! FixedPoint.powUp(ONE). Vault balances are pool-specific cash (no managers).
@@ -125,4 +125,26 @@ pub fn quote_exact_in_weighted(
         amount_out,
         next_balances,
     })
+}
+
+/// Fixed immutable two-token GIVEN_OUT with the same original WeightedMath
+/// arithmetic used by the multi-token callback. Physical admission is separate.
+pub fn quote_exact_out_weighted(
+    balances: [&BigUint; 2],
+    scaling: [&BigUint; 2],
+    weights: [&BigUint; 2],
+    fee: &BigUint,
+    output: &BigUint,
+    zero_for_one: bool,
+) -> Result<crate::balancer_multi::MultiExactOutQuote> {
+    let index = usize::from(!zero_for_one);
+    crate::balancer_multi::quote_exact_out(
+        &[balances[0].clone(), balances[1].clone()],
+        &[weights[0].clone(), weights[1].clone()],
+        &[scaling[0].clone(), scaling[1].clone()],
+        fee,
+        output,
+        index,
+        1 - index,
+    )
 }

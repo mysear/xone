@@ -1,4 +1,4 @@
-//! Balancer V2 multi-token WeightedPool exact input, pinned to
+//! Balancer V2 multi-token WeightedPool exact input/output, pinned to
 //! balancer/balancer-v2-monorepo e281ff40583c39bf1d46c322334b2b13936e0e33.
 //! Uses BaseMinimalSwapInfoPool -> BaseWeightedPool -> WeightedMath, preserving
 //! raw fee subtraction, divUp base, divDown exponent and FixedPoint.powUp.
@@ -239,4 +239,139 @@ pub fn managed_weights_at(
             Ok(mul(&value, &one)? / denormalized_sum)
         })
         .collect()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MultiExactOutQuote {
+    pub amount_in: BigUint,
+    pub next_balances: Vec<BigUint>,
+}
+/// Immutable WeightedMath GIVEN_OUT, including original raw scaling and fee order.
+/// Two assets are also admitted here for the shared two-token arithmetic wrapper;
+/// physical model admission still distinguishes two-token and 3..=20-token pools.
+pub fn quote_exact_out(
+    balances: &[BigUint],
+    weights: &[BigUint],
+    scales: &[BigUint],
+    fee: &BigUint,
+    output: &BigUint,
+    index_in: usize,
+    index_out: usize,
+) -> Result<MultiExactOutQuote> {
+    quote_output_inner(
+        balances, weights, scales, fee, output, index_in, index_out, false,
+    )
+}
+/// GIVEN_OUT with actual compressed/interpolated weights. The parser proves
+/// swaps enabled and zero management/protocol swap fees at the selected bank.
+#[allow(clippy::too_many_arguments)]
+pub fn quote_managed_snapshot_exact_out(
+    balances: &[BigUint],
+    weights: &[BigUint],
+    scales: &[BigUint],
+    fee: &BigUint,
+    output: &BigUint,
+    index_in: usize,
+    index_out: usize,
+    guards: &ManagedSwapGuards,
+) -> Result<MultiExactOutQuote> {
+    if !guards.swaps_enabled {
+        return Err(err("BALANCER_MANAGED_SWAPS_DISABLED"));
+    }
+    if !guards.protocol_swap_fee.is_zero() || !guards.management_swap_fee.is_zero() {
+        return Err(err("BALANCER_MANAGED_BPT_FEES_UNSUPPORTED"));
+    }
+    quote_output_inner(
+        balances, weights, scales, fee, output, index_in, index_out, true,
+    )
+}
+#[allow(clippy::too_many_arguments)]
+fn quote_output_inner(
+    balances: &[BigUint],
+    weights: &[BigUint],
+    scales: &[BigUint],
+    fee: &BigUint,
+    output: &BigUint,
+    index_in: usize,
+    index_out: usize,
+    managed: bool,
+) -> Result<MultiExactOutQuote> {
+    let count = balances.len();
+    let range = if managed { 2..=38 } else { 2..=20 };
+    if !range.contains(&count) || weights.len() != count || scales.len() != count {
+        return Err(err("BALANCER_MULTI_LENGTH"));
+    }
+    if index_in >= count || index_out >= count || index_in == index_out {
+        return Err(err("BALANCER_MULTI_INDEX"));
+    }
+    let one = BigUint::from(ONE);
+    let min_weight = &one / 100u8;
+    let mut sum = BigUint::zero();
+    for weight in weights {
+        checked(weight.clone())?;
+        if (managed && (weight.is_zero() || weight > &one)) || (!managed && weight < &min_weight) {
+            return Err(err("BALANCER_MULTI_WEIGHTS"));
+        }
+        sum = checked(sum + weight)?;
+    }
+    if !managed && sum != one {
+        return Err(err("BALANCER_MULTI_WEIGHTS"));
+    }
+    for factor in scales {
+        checked(factor.clone())?;
+        if !(0..=18).any(|d| factor == &(&one * BigUint::from(10u8).pow(d))) {
+            return Err(err("BALANCER_MULTI_SCALE"));
+        }
+    }
+    checked(fee.clone())?;
+    checked(output.clone())?;
+    if fee >= &one {
+        return Err(err("BALANCER_MULTI_FEE"));
+    }
+    if output.is_zero() {
+        return Err(err("EXACT_OUT_ZERO_OUTPUT"));
+    }
+    for balance in balances {
+        if balance.bits() > 112 {
+            return Err(err("BALANCER_MULTI_UINT112"));
+        }
+        if balance.is_zero() {
+            return Err(err("INSUFFICIENT_LIQUIDITY"));
+        }
+    }
+    let balance_in = mul(&balances[index_in], &scales[index_in])? / &one;
+    let balance_out = mul(&balances[index_out], &scales[index_out])? / &one;
+    let amount_out = mul(output, &scales[index_out])? / &one;
+    let max_out = mul(&balance_out, &BigUint::from(300_000_000_000_000_000u64))? / &one;
+    if amount_out > max_out {
+        return Err(err("BALANCER_MULTI_MAX_OUT_RATIO"));
+    }
+    if amount_out >= balance_out {
+        return Err(err("INSUFFICIENT_LIQUIDITY"));
+    }
+    let base = div_up(mul(&balance_out, &one)?, &(&balance_out - &amount_out))?;
+    let exponent = div_up(mul(&weights[index_out], &one)?, &weights[index_in])?;
+    let power = crate::balancer_log_exp::pow_up(&base, &exponent)?;
+    if power < one {
+        return Err(err("BALANCER_MULTI_POWER"));
+    }
+    let scaled_in = div_up(mul(&balance_in, &(power - &one))?, &one)?;
+    let net_in = div_up(mul(&scaled_in, &one)?, &scales[index_in])?;
+    let amount_in = div_up(mul(&net_in, &one)?, &(&one - fee))?;
+    if amount_in.is_zero() {
+        return Err(err("INSUFFICIENT_OUTPUT"));
+    }
+    let mut next_balances = balances.to_vec();
+    next_balances[index_in] = checked(&balances[index_in] + &amount_in)?;
+    if next_balances[index_in].bits() > 112 {
+        return Err(err("BALANCER_MULTI_UINT112"));
+    }
+    if output > &balances[index_out] {
+        return Err(err("INSUFFICIENT_LIQUIDITY"));
+    }
+    next_balances[index_out] -= output;
+    Ok(MultiExactOutQuote {
+        amount_in,
+        next_balances,
+    })
 }

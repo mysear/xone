@@ -278,7 +278,14 @@ pub fn optimize<'a>(
         let key = path
             .edges
             .iter()
-            .map(|e| (e.pool_id.clone(), e.zero_for_one, e.to.clone()))
+            .map(|e| {
+                (
+                    e.pool_id.clone(),
+                    e.from_token.clone(),
+                    e.zero_for_one,
+                    e.to.clone(),
+                )
+            })
             .collect::<Vec<_>>();
         if !unique.insert(key) {
             return Err(err("EXACT_OUT_DUPLICATE_CANDIDATE"));

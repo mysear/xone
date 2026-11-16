@@ -296,3 +296,7 @@ fn quote_core(
 
 #[path = "infinity_bin.rs"]
 pub mod infinity_bin;
+
+#[path = "singleton_exact_out.rs"]
+mod output;
+pub use output::quote_exact_out;

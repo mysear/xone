@@ -97,6 +97,122 @@ impl Bank {
             transactions: Default::default(),
         }
     }
+    pub fn raydium_funding(index: usize) -> Self {
+        let f: Value = serde_json::from_slice(
+            &std::fs::read(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../test/contracts/raydium-funding-bank.json"
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        Self {
+            data: Arc::new(f["cases"][index].clone()),
+            mode: Arc::new(Mutex::new("ready".into())),
+            calls: Default::default(),
+            transactions: Default::default(),
+        }
+    }
+    pub fn orca_adaptive(index: usize) -> Self {
+        static FIXTURE: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
+        let f = FIXTURE.get_or_init(|| {
+            serde_json::from_slice(
+                &std::fs::read(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../../test/contracts/orca-adaptive-execution-bank.json"
+                ))
+                .unwrap(),
+            )
+            .unwrap()
+        });
+        let mut data = f["cases"][index].clone();
+        for (key, value) in f["shared_accounts"].as_object().unwrap() {
+            if data["accounts"].get(key).is_none() {
+                data["accounts"][key] = value.clone();
+            }
+        }
+        Self {
+            data: Arc::new(data),
+            mode: Arc::new(Mutex::new("ready".into())),
+            calls: Default::default(),
+            transactions: Default::default(),
+        }
+    }
+    pub fn rayclmm_advanced(index: usize) -> Self {
+        static FIXTURE: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
+        let f = FIXTURE.get_or_init(|| {
+            serde_json::from_slice(
+                &std::fs::read(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../../test/contracts/rayclmm-advanced-execution-bank.json"
+                ))
+                .unwrap(),
+            )
+            .unwrap()
+        });
+        let mut data = f["cases"][index].clone();
+        for (key, value) in f["shared_accounts"].as_object().unwrap() {
+            if data["accounts"].get(key).is_none() {
+                data["accounts"][key] = value.clone();
+            }
+        }
+        Self {
+            data: Arc::new(data),
+            mode: Arc::new(Mutex::new("ready".into())),
+            calls: Default::default(),
+            transactions: Default::default(),
+        }
+    }
+    pub fn rayclmm(index: usize) -> Self {
+        static FIXTURE: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
+        let f = FIXTURE.get_or_init(|| {
+            serde_json::from_slice(
+                &std::fs::read(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../../test/contracts/rayclmm-execution-bank.json"
+                ))
+                .unwrap(),
+            )
+            .unwrap()
+        });
+        let mut data = f["cases"][index].clone();
+        for (key, value) in f["shared_accounts"].as_object().unwrap() {
+            if data["accounts"].get(key).is_none() {
+                data["accounts"][key] = value.clone();
+            }
+        }
+        Self {
+            data: Arc::new(data),
+            mode: Arc::new(Mutex::new("ready".into())),
+            calls: Default::default(),
+            transactions: Default::default(),
+        }
+    }
+    pub fn orca(index: usize) -> Self {
+        static FIXTURE: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
+        let f = FIXTURE.get_or_init(|| {
+            serde_json::from_slice(
+                &std::fs::read(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../../test/contracts/orca-execution-bank.json"
+                ))
+                .unwrap(),
+            )
+            .unwrap()
+        });
+        let mut data = f["cases"][index].clone();
+        for (key, value) in f["shared_accounts"].as_object().unwrap() {
+            if data["accounts"].get(key).is_none() {
+                data["accounts"][key] = value.clone();
+            }
+        }
+        Self {
+            data: Arc::new(data),
+            mode: Arc::new(Mutex::new("ready".into())),
+            calls: Default::default(),
+            transactions: Default::default(),
+        }
+    }
     pub fn pump_amm(index: usize) -> Self {
         let f: Value = serde_json::from_slice(
             &std::fs::read(concat!(
@@ -199,6 +315,10 @@ impl Bank {
         s.reference.block.chain_key = p.chain_key.clone();
         let (slot, timestamp) = if let Some(m) = &p.meteora {
             (m.slot, m.timestamp)
+        } else if let Some(r) = p.orca_whirlpool.as_ref() {
+            (r.bank_slot, r.bank_unix_timestamp)
+        } else if let Some(r) = p.raydium_clmm.as_ref() {
+            (r.bank_slot, r.bank_unix_timestamp)
         } else if let Some(r) = p.raydium_cpmm.as_ref() {
             (r.bank_slot, r.bank_unix_timestamp)
         } else {
@@ -255,6 +375,8 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
     let mut slot = d["pool"]["meteora"]["slot"]
         .as_u64()
         .or_else(|| d["pool"]["raydium_cpmm"]["bank_slot"].as_u64())
+        .or_else(|| d["pool"]["orca_whirlpool"]["bank_slot"].as_u64())
+        .or_else(|| d["pool"]["raydium_clmm"]["bank_slot"].as_u64())
         .or_else(|| d["pool"]["pump"]["slot"].as_u64())
         .unwrap();
     if mode == "stale" {
@@ -375,7 +497,11 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                     {
                         return Value::Null;
                     }
-                    if mode=="temporary_occupied" && a.is_null() && key!=d["sourceTokenAccount"].as_str().unwrap() && key!=d["destinationTokenAccount"].as_str().unwrap() {a=json!({"owner":"11111111111111111111111111111111","executable":false,"lamports":1,"data":["","base64"]});}
+                    if mode=="changed_orca_oracle" && id==&d["pool"]["orca_whirlpool"]["oracle"] {a=json!({"owner":"11111111111111111111111111111111","executable":false,"lamports":1,"data":["AA==","base64"]});}
+                    if mode=="missing_rayclmm_extension" && id==&d["pool"]["raydium_clmm"]["bitmap_extension"]["address"] {return Value::Null;}
+                    if mode=="missing_rayclmm_observation" && id==&d["pool"]["raydium_clmm"]["observation"] {return Value::Null;}
+                    if mode=="missing_orca_adaptive_oracle" && id==&d["pool"]["orca_whirlpool"]["oracle"] {return Value::Null;}
+                    if mode=="temporary_occupied" && id!=&d["pool"]["orca_whirlpool"]["oracle"] && a.is_null() && key!=d["sourceTokenAccount"].as_str().unwrap() && key!=d["destinationTokenAccount"].as_str().unwrap() {a=json!({"owner":"11111111111111111111111111111111","executable":false,"lamports":1,"data":["","base64"]});}
                     if !a.is_null() {
                         let mut raw = STANDARD.decode(a["data"][0].as_str().unwrap()).unwrap();
                         if mode == "changed_clock"
@@ -399,10 +525,37 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                         if mode == "changed_token2022_mint" && id == &d["pool"]["token0"] {raw[258] ^= 1;}
                         if mode == "changed_epoch" && key == "SysvarC1ock11111111111111111111111111111111" {raw[16] ^= 1;}
                         if mode=="changed_pump_fee_program" && id==&d["pool"]["pump"]["fee_programdata"] {raw[45]^=1;}
+                        if mode=="changed_rayclmm_extension" && id==&d["pool"]["raydium_clmm"]["bitmap_extension"]["address"] {raw[40]^=1;}
+                        if mode=="changed_rayclmm_seed" && id==&d["pool"]["pool_id"] {raw[391]^=1;}
+                        if mode=="changed_rayclmm_dynamic" && id==&d["pool"]["pool_id"] {raw[1096]^=1;}
+                        if mode=="changed_rayclmm_dynamic_reserved" && id==&d["pool"]["pool_id"] {raw[1130]^=1;}
+                        if mode=="changed_rayclmm_array" && id==&d["pool"]["raydium_clmm"]["tick_arrays"][0]["address"] {raw[44]^=1;}
+                        if mode=="changed_rayclmm_order" && id==&d["pool"]["raydium_clmm"]["tick_arrays"][0]["address"] {raw[44+168+124]^=1;}
+                        if mode=="changed_rayclmm_version" && id==&d["pool"]["pool_id"] {raw[273]^=1;}
+                        if mode=="changed_rayclmm_observation" && id==&d["pool"]["raydium_clmm"]["observation"] {raw[19]^=1;}
+                        if mode=="changed_rayclmm_config" && id==&d["pool"]["raydium_clmm"]["amm_config"] {raw[47]^=1;}
+                        if mode=="changed_rayclmm_mint" && id==&d["pool"]["token0"] {raw[44]^=1;}
+                        if mode=="underbacked_rayclmm_vault" && id==&d["pool"]["raydium_clmm"]["vault0"] {a["lamports"]=json!(u64::from_le_bytes(raw[113..121].try_into().unwrap())+u64::from_le_bytes(raw[64..72].try_into().unwrap())-1);}
+                        if mode=="changed_rayclmm_budget" && key=="ComputeBudget111111111111111111111111111111" {raw[0]^=1;}
+                        if mode=="changed_rayclmm_token2022_program" {
+                            let token_program=STANDARD.decode(d["accounts"]["TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"]["data"][0].as_str().unwrap()).unwrap();
+                            if key==xone_domain::meteora::key(&token_program,4){raw[45]^=1;}
+                        }
+                        if mode=="changed_rayclmm_memo" && id=="MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr" {raw[0]^=1;}
+                        if id==&d["pool"]["orca_whirlpool"]["oracle"] {
+                            if mode=="changed_orca_adaptive_filter" {raw[48]^=1;}
+                            if mode=="changed_orca_adaptive_reserved" {raw[253]^=1;}
+                            if mode=="changed_orca_adaptive_binding" {raw[8]^=1;}
+                        }
+                        if mode == "changed_orca_array" && id == &d["pool"]["orca_whirlpool"]["tick_arrays"][0]["address"] { raw[12] ^= 1; }
+                        if mode == "changed_orca_config" && id == &d["pool"]["orca_whirlpool"]["whirlpools_config"] {raw[106] = 2;}
+                        if mode == "changed_orca_mint" && id == &d["pool"]["token0"] {raw[44] ^= 1;}
+                        if mode == "underbacked_orca_vault" && id == &d["pool"]["orca_whirlpool"]["vault0"] {a["lamports"]=json!(u64::from_le_bytes(raw[113..121].try_into().unwrap())+u64::from_le_bytes(raw[64..72].try_into().unwrap())-1);}
+                        if mode == "changed_orca_budget" && key == "ComputeBudget111111111111111111111111111111" {raw[0] ^= 1;}
                         if mode == "changed_pool" && id == &d["pool"]["pool_id"] {
                             raw[76] ^= 1;
                         }
-                        if mode == "changed_program" && (id == &d["pool"]["meteora"]["programdata"] || id==&d["pool"]["raydium_cpmm"]["programdata"] || id==&d["pool"]["pump"]["programdata"]) {
+                        if mode == "changed_program" && (id == &d["pool"]["raydium_clmm"]["programdata"] || id == &d["pool"]["orca_whirlpool"]["programdata"] || id == &d["pool"]["meteora"]["programdata"] || id==&d["pool"]["raydium_cpmm"]["programdata"] || id==&d["pool"]["pump"]["programdata"]) {
                             raw[45] ^= 1;
                         }
                         if mode == "wrap_balance" && id == &d["caller"] {
@@ -411,6 +564,7 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                         if mode == "rent_balance" && id == &d["caller"] {
                             a["lamports"] = json!(6000);
                         }
+                        if mode=="changed_system_program" && key=="11111111111111111111111111111111" {a["owner"]=json!("11111111111111111111111111111111");}
                         if mode == "changed_associated_program"
                             && key == "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
                         {
@@ -434,6 +588,74 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
         }
         _ => Value::Null,
     };
+    if mode == "ready"
+        && d["pool"]["protocol"] == "raydium-cpmm-creator"
+        && d.get("fundingScenario").is_some()
+    {
+        if let Ok(folder) = std::env::var("XONE_RAYDIUM_FUNDING_RPC_DIR") {
+            let record = json!({"scenario":d["fundingScenario"],"chainKey":d["pool"]["chain_key"],"genesisHash":d["genesis"],"request":q,"response":{"jsonrpc":"2.0","id":q["id"],"result":result}});
+            std::fs::create_dir_all(&folder).unwrap();
+            std::fs::write(
+                std::path::Path::new(&folder).join(format!(
+                    "{}-{}.json",
+                    method,
+                    hash(&record).unwrap()
+                )),
+                serde_json::to_vec(&record).unwrap(),
+            )
+            .unwrap();
+        }
+    }
+    if mode == "ready"
+        && d.get("executionScenario").is_some()
+        && xone_domain::raydium_clmm::supports_classic_profile(
+            d["pool"]["protocol"].as_str().unwrap(),
+        )
+    {
+        if let Ok(folder) = std::env::var(
+            if d["pool"]["raydium_clmm"]["bitmap_extension"].is_object() {
+                "XONE_RAYCLMM_ADVANCED_EXECUTION_RPC_DIR"
+            } else {
+                "XONE_RAYCLMM_EXECUTION_RPC_DIR"
+            },
+        ) {
+            let record = json!({"scenario":d["executionScenario"],"chainKey":d["pool"]["chain_key"],"genesisHash":d["genesis"],"request":q,"response":{"jsonrpc":"2.0","id":q["id"],"result":result}});
+            std::fs::create_dir_all(&folder).unwrap();
+            std::fs::write(
+                std::path::Path::new(&folder).join(format!(
+                    "{}-{}.json",
+                    method,
+                    hash(&record).unwrap()
+                )),
+                serde_json::to_vec(&record).unwrap(),
+            )
+            .unwrap();
+        }
+    }
+
+    if mode == "ready"
+        && d.get("executionScenario").is_some()
+        && xone_domain::orca::supports_classic_profile(d["pool"]["protocol"].as_str().unwrap())
+    {
+        let variable = if d["pool"]["orca_whirlpool"]["adaptive"].is_object() {
+            "XONE_ORCA_ADAPTIVE_EXECUTION_RPC_DIR"
+        } else {
+            "XONE_ORCA_EXECUTION_RPC_DIR"
+        };
+        if let Ok(folder) = std::env::var(variable) {
+            let record = json!({"scenario":d["executionScenario"],"chainKey":d["pool"]["chain_key"],"genesisHash":d["genesis"],"request":q,"response":{"jsonrpc":"2.0","id":q["id"],"result":result}});
+            std::fs::create_dir_all(&folder).unwrap();
+            std::fs::write(
+                std::path::Path::new(&folder).join(format!(
+                    "{}-{}.json",
+                    method,
+                    hash(&record).unwrap()
+                )),
+                serde_json::to_vec(&record).unwrap(),
+            )
+            .unwrap();
+        }
+    }
     Json(json!({"jsonrpc":"2.0","id":q["id"],"result":result}))
 }
 

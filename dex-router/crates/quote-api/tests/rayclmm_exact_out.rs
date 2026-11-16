@@ -105,7 +105,13 @@ async fn rayclmm_exact_output_api_quotes_plans_views_and_budget_rejections_match
             &c["target"],
             json!("18446744073709551615"),
         );
+        let rpc_before = bank.calls.lock().unwrap().len();
         let (status, q) = call(&api, "/v1/quote-exact-out", req.clone()).await;
+        assert_eq!(
+            bank.calls.lock().unwrap().len(),
+            rpc_before,
+            "pure quote fetched dynamic accounts: {i}"
+        );
         if c["passed"] == false {
             assert_ne!(status, StatusCode::OK, "{i}: {q}");
             record(
@@ -153,8 +159,9 @@ async fn rayclmm_exact_output_api_quotes_plans_views_and_budget_rejections_match
                 .as_array()
                 .unwrap()
                 .contains(&json!("EXACT_OUT")));
-            assert_eq!(view["capabilities"]["executionPreparation"], false);
-            assert_eq!(view["capabilities"]["walletSubmission"], false);
+            let prepared = xone_domain::raydium_clmm::supports_classic_profile(&p.protocol);
+            assert_eq!(view["capabilities"]["executionPreparation"], prepared);
+            assert_eq!(view["capabilities"]["walletSubmission"], prepared);
             assert_eq!(
                 q["protocolViewIds"][format!("{}@{}", p.protocol, p.adapter_version)],
                 view["viewId"]
@@ -162,7 +169,24 @@ async fn rayclmm_exact_output_api_quotes_plans_views_and_budget_rejections_match
             let (status, unsupported) =
                 call(&api, &format!("/v1/quotes/{id}/prepare"), json!({})).await;
             assert_ne!(status, StatusCode::OK);
-            assert_eq!(unsupported["error"], "EXECUTION_ADAPTER_UNSUPPORTED");
+            if prepared {
+                assert!(
+                    matches!(
+                        unsupported["error"].as_str(),
+                        Some("PREPARATION_ACCOUNT_INVALID" | "PREPARATION_STALE_RPC")
+                    ),
+                    "{unsupported}"
+                );
+            } else {
+                assert_eq!(unsupported["error"], "EXECUTION_ADAPTER_UNSUPPORTED");
+            }
+            let mut calls = bank.calls.lock().unwrap();
+            if prepared {
+                assert_eq!(&*calls, &["getGenesisHash", "getMultipleAccounts"]);
+            } else {
+                assert!(calls.is_empty());
+            }
+            calls.clear();
             assert!(unsupported.get("unsignedTransaction").is_none());
         }
         let mut low = req;

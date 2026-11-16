@@ -359,3 +359,86 @@ pub fn quote_bpt_exact_in_after_fees(
         next_actual_supply,
     })
 }
+
+/// Regular-token GIVEN_OUT; BPT supply/fee paths remain separate.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ComposableExactOutQuote {
+    pub amount_in: BigUint,
+    pub next_balances: Vec<BigUint>,
+}
+#[allow(clippy::too_many_arguments)]
+pub fn quote_exact_out(
+    balances: &[BigUint],
+    amplification: &BigUint,
+    scales: &[BigUint],
+    fee: &BigUint,
+    output: &BigUint,
+    index_in: usize,
+    index_out: usize,
+    bpt_index: usize,
+) -> Result<ComposableExactOutQuote> {
+    if !(3..=6).contains(&balances.len()) || scales.len() != balances.len() {
+        return Err(err("BALANCER_COMPOSABLE_LENGTH"));
+    }
+    if [index_in, index_out, bpt_index]
+        .iter()
+        .any(|&i| i >= balances.len())
+        || index_in == index_out
+    {
+        return Err(err("BALANCER_COMPOSABLE_INDEX"));
+    }
+    if index_in == bpt_index || index_out == bpt_index {
+        return Err(err("BALANCER_COMPOSABLE_BPT_REQUIRES_SUPPLY"));
+    }
+    if scales[bpt_index] != BigUint::from(ONE) || balances[bpt_index].bits() > 112 {
+        return Err(err("BALANCER_COMPOSABLE_BPT_STATE"));
+    }
+    let underlying: Vec<_> = balances
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != bpt_index)
+        .map(|(_, v)| v.clone())
+        .collect();
+    let factors: Vec<_> = scales
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != bpt_index)
+        .map(|(_, v)| v.clone())
+        .collect();
+    if output.is_zero() {
+        return Err(err("EXACT_OUT_ZERO_OUTPUT"));
+    }
+    validate(&underlying, amplification, &factors, fee, output)?;
+    if fee >= &BigUint::from(ONE) {
+        return Err(err("BALANCER_COMPOSABLE_FEE"));
+    }
+    if output >= &balances[index_out] {
+        return Err(err("INSUFFICIENT_LIQUIDITY"));
+    }
+    let i = index_in - usize::from(index_in > bpt_index);
+    let j = index_out - usize::from(index_out > bpt_index);
+    let mut b = underlying
+        .iter()
+        .zip(&factors)
+        .map(|(v, s)| md(v, s))
+        .collect::<Result<Vec<_>>>()?;
+    let d = invariant(amplification, &b)?;
+    b[j] = sub(&b[j], &md(output, &factors[j])?)?;
+    let final_in = token_balance(amplification, &b, &d, i)?;
+    let scaled_in = add(&sub(&final_in, &b[i])?, &BigUint::one())?;
+    let raw_in = du(&scaled_in, &factors[i])?;
+    let amount_in = du(&raw_in, &sub(&BigUint::from(ONE), fee)?)?;
+    if amount_in.is_zero() {
+        return Err(err("INSUFFICIENT_OUTPUT"));
+    }
+    let mut next_balances = balances.to_vec();
+    next_balances[index_in] = add(&balances[index_in], &amount_in)?;
+    if next_balances[index_in].bits() > 112 {
+        return Err(err("BALANCER_COMPOSABLE_UINT112"));
+    }
+    next_balances[index_out] = sub(&balances[index_out], output)?;
+    Ok(ComposableExactOutQuote {
+        amount_in,
+        next_balances,
+    })
+}

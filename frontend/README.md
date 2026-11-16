@@ -137,7 +137,7 @@ PumpSwap classic/boost账户与SOL资金（阶段70）：单池单路报价支�
 能力模型/7为两个已实现PumpSwap模板开放账户和资金选项；其他Token/volume版本、毕业迁移指令及其余链/DEX模板仍按各自能力标签披露。回执从真实pre/post balances和Token余额推导实际新增租金与初始WSOL，准备阶段的估算不替代实际成交归因。复验make -C ../integration pump-amm-funding-current-check；生成银行、独立运行时、二进制、临时签名/回执和截图均不提交。
 
 
-Orca ExactOut（阶段71，能力模型/8）：已有静态、奖励、自适应、自适应奖励和混合动态数组五个经典SPL模型现支持精确输出目标。前端可选择双向币种，按当前QuoteView计算目标到账所需输入并显示路由；600个固定原始manager场景、连续状态和双池份额网格用于对照。当前这五个模型仍只开放报价，尚未提供unsigned/preparation、独立SBF或钱包执行能力，编辑账户字段也不会启用这些按钮。原始native manager参考与SBF/CPI交易验证分别记录。复验make -C ../integration orca-exact-out-current-check；需要恢复生成数据时先运行orca-exact-out-reference，生成物和下载依赖不提交。
+Orca ExactOut（阶段71，能力模型/8）：已有静态、奖励、自适应、自适应奖励和混合动态数组五个经典SPL模型现支持精确输出目标。前端可选择双向币种，按当前QuoteView计算目标到账所需输入并显示路由；600个固定原始manager场景、连续状态和双池份额网格用于对照。阶段71时这五个模型仅开放报价；阶段81已接入其中静态/奖励两类的经典SPL执行链路，完整验收状态以根进度文档为准，自适应组合仍仅报价。编辑账户字段不能绕过程序/账户身份与独立模拟。原始native manager参考与SBF/CPI交易验证分别记录。复验make -C ../integration orca-exact-out-current-check；需要恢复生成数据时先运行orca-exact-out-reference，生成物和下载依赖不提交。
 
 
 回执显示交易币对与原报价ID，并按Router地址恢复：切换Router时清除页面上的旧回执与旧签名状态，保留原地址的本地历史；返回原Router后按已保存签名查询，继续显示实际确认状态。回执请求带查询版本，跨Router往返后的旧响应或错误不会覆盖当前结果。用户确认发送后先保存已签名交易的签名，因此发送响应晚于Router切换时仍可回原地址恢复，恢复只查询而不重发。
@@ -147,3 +147,33 @@ Raydium CLMM ExactOut（阶段72，能力模型/9）：固定6d7a0f82的静态�
 
 
 标准V3 ExactOut（阶段73，能力模型/10）：Uniswap V3及明确无LM的Pancake V3经典ERC20模型可选择双向币种和精确输出目标。原始Pool合约经真实mint/回调验证单池、同factory简单两跳和双费率池网格，报价字段仍表示原始输入，费用后净链成本未实现时继续明确为空。基础模型仅有定价状态投影，原程序费用/Oracle与钱包余额另作参考观察；这些不授予生产unsigned/钱包执行能力。Slipstream和Pancake LM继续使用各自上下文模型。复验make -C ../integration v3-exact-out-current-check，恢复入口v3-exact-out-reference。
+
+不可变 Balancer Weighted 的双向 ExactOut 前端回归入口：
+
+```bash
+make -C ../integration weighted-exact-out-current-check
+```
+
+在仓库根目录运行时使用 `make -C integration weighted-exact-out-current-check`。
+该入口使用实际 Router HTTP、原始 GIVEN_OUT 回调参考及 Chrome，覆盖多资产池的非首币对和执行能力门禁。原始回调 facade 的证明边界及依赖准备见 `integration/tools/reference/weighted-exact-out/README.md`；开发完成情况以根进度文档为准。
+
+标准 Balancer Stable2 的双向 ExactOut 联验：在仓库根目录执行 `make -C integration stable-exact-out-current-check`，包含原始StableMath目标求解、真实Router HTTP与Chrome显示/执行门禁。参考边界见 `integration/tools/reference/stable-exact-out/README.md`，开发结果只记录于根进度文档。
+
+静态零hook Uniswap V4/Infinity CL 的双向目标报价回归入口为仓库根目录的 `make -C integration singleton-exact-out-current-check`，覆盖实际Router HTTP与Chrome金额/门禁；原核心seed参考及执行边界见 `integration/tools/reference/singleton-exact-out/README.md`。
+
+静态 Infinity Bin 完整树 ExactOut 的真实HTTP/Chrome入口为仓库根目录 `make -C integration infinity-bin-exact-out-current-check`；包含真实原burn的active尘埃、跨bin目标与执行门禁，参考边界见 `integration/tools/reference/infinity-bin-exact-out/README.md`。
+
+Managed Snapshot实际权重的目标报价与Chrome联验入口为仓库根目录 `make -C integration managed-snapshot-exact-out-current-check`，原回调参考边界见 `integration/tools/reference/managed-snapshot-exact-out/README.md`。
+
+Composable普通币对ExactOut的真实HTTP/Chrome入口为仓库根目录 `make -C integration composable-exact-out-current-check`，保持BPT现金但拒绝BPT报价；参考边界见 `integration/tools/reference/composable-exact-out/README.md`。
+
+Raydium经典SPL的ATA创建、WSOL补足/临时退款/解包及钱包／回执联验入口为仓库根目录 `make -C integration raydium-funding-current-check`。独立模拟复用同次RPC捕获，用户签名和提交确认仍分开，开发结果见根进度文档阶段80。
+
+
+Orca经典SPL执行联调（阶段81）：静态/奖励模型接入单池ExactIn/ExactOut准备、显式ATA/WSOL资金选项、同捕获独立SBF和钱包回执。固定/动态tick数组及原生1/2/3数组窗口使用相同程序边界，捕获的Vault SOL捐赠保持原值；前端分别显示实际收付款、费用和租金。原quote-only参考银行即便协议能力已接入，也不能借用其他池的账户产生unsigned交易。复验入口为仓库根目录 `make -C integration orca-execution-current-check`，实际完成状态仅见根进度文档。
+
+Orca自适应经典SPL执行（阶段82，能力代码/19）：三个既有自适应模型接入初始化Oracle完整字节核对和写权限，并复用单池ExactIn/ExactOut、ATA/WSOL资金、同次捕获模拟和钱包回执流程。初始化Oracle不能按静态空Oracle处理；Token2022和其他版本仍按独立能力边界拒绝。复验入口为仓库根目录 `make -C integration orca-adaptive-execution-current-check`；本批完成与限定范围以根进度文档为准。
+
+Raydium CLMM经典SPL执行（阶段83，能力代码/20）：静态、奖励、Token-fee模型接入单池ExactIn/ExactOut准备、显式ATA/WSOL资金、同捕获原SBF与钱包回执；协议Token收费方向不等于Token2022资产转账扩展。初始化Observation、完整数组及原Memo/附属Token2022程序身份均纳入验证；Bitmap、Custom Seed、动态费和其他版本仍需各自执行适配。复验入口为仓库根目录 `make -C integration rayclmm-execution-current-check`；实际验收状态只见根进度文档。
+
+Raydium已声明扩展模型执行（阶段84，能力代码/21）：Bitmap、自定义seed和动态费的完整状态接入经典SPL原swap_v2、显式ATA/WSOL、同次捕获模拟及钱包流程。45场景181项浏览器检查覆盖三个模型各三种收费模式，并核对扩展在剩余账户首位、可写且绑定当前池。复验入口为仓库根目录 `make -C integration rayclmm-advanced-execution-current-check`；本批33项冻结检查、162份API/162份回执/324次原交易及667项Chrome已通过本地限定验收，完整范围见根进度文档。

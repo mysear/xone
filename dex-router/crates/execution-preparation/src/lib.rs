@@ -5,8 +5,10 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 mod classic_funding;
+mod orca;
 mod pump_amm;
 mod pump_curve;
+mod rayclmm;
 mod raydium;
 use std::sync::{Arc, Mutex};
 use std::{
@@ -111,6 +113,8 @@ pub async fn prepare_solana_captured(
 ) -> Result<SolanaPreparation> {
     s.pool.validate()?;
     if !m::supports_profile(&s.pool.protocol)
+        && !xone_domain::orca::supports_classic_profile(&s.pool.protocol)
+        && !xone_domain::raydium_clmm::supports_classic_profile(&s.pool.protocol)
         && s.pool.protocol != xone_domain::raydium::PROFILE
         && !xone_domain::pump_amm::supports_profile(&s.pool.protocol)
         && s.pool.protocol != xone_domain::pump::PROFILE
@@ -412,6 +416,12 @@ async fn resolve(
     }
     if xone_domain::pump_amm::supports_profile(&s.pool.protocol) {
         return pump_amm::resolve(config, s, request, capture).await;
+    }
+    if xone_domain::raydium_clmm::supports_classic_profile(&s.pool.protocol) {
+        return rayclmm::resolve(config, s, request, capture).await;
+    }
+    if xone_domain::orca::supports_classic_profile(&s.pool.protocol) {
+        return orca::resolve(config, s, request, capture).await;
     }
     if s.pool.protocol == xone_domain::raydium::PROFILE {
         return raydium::resolve(config, s, request, capture).await;

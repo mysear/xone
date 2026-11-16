@@ -129,6 +129,20 @@ fn validate_funds(pools: &BTreeMap<String, Pool>, funds: Funds<'_>) -> Result<()
                     internal.push(&s.implementation);
                 }
             }
+            if let Some(s) = &pool.stable {
+                if !s.vault.is_empty() {
+                    internal.push(&s.vault);
+                }
+                if !s.factory.is_empty() {
+                    internal.push(&s.factory);
+                }
+                if !s.implementation.is_empty() {
+                    internal.push(&s.implementation);
+                }
+            }
+            if let Some(s) = &pool.weighted {
+                internal.push(&s.vault);
+            }
             if let Some(s) = &pool.multi_asset {
                 internal.push(&s.vault);
                 if let Some(m) = &s.managed_v2 {
@@ -188,8 +202,42 @@ fn edge_tokens<'a>(p: &'a Pool, e: &Edge) -> Result<(&'a str, &'a str)> {
     if !xone_protocol_math::exact_out::supports_protocol(&p.protocol)
         || e.protocol != p.protocol
         || e.pool_id != p.pool_id
-        || e.from_token.is_some()
     {
+        return Err(err("EXACT_OUT_PATH_PROTOCOL"));
+    }
+    if p.multi_asset.is_some() {
+        let state = p
+            .multi_asset
+            .as_ref()
+            .ok_or_else(|| err("MULTI_ASSET_STATE_REQUIRED"))?;
+        let from = e
+            .from_token
+            .as_deref()
+            .ok_or_else(|| err("MULTI_ASSET_PATH_TOKEN_REQUIRED"))?;
+        let i = state
+            .assets
+            .iter()
+            .position(|a| a.token == from)
+            .ok_or_else(|| err("MULTI_ASSET_INPUT_TOKEN"))?;
+        let j = state
+            .assets
+            .iter()
+            .position(|a| a.token == e.to)
+            .ok_or_else(|| err("MULTI_ASSET_OUTPUT_TOKEN"))?;
+        if p.protocol == "balancer-v2-composable-regular"
+            && (state.assets[i].token == p.pool_id || state.assets[j].token == p.pool_id)
+        {
+            return Err(err("BALANCER_COMPOSABLE_BPT_REQUIRES_SUPPLY"));
+        }
+        if i == j || e.zero_for_one != (i == 0 && j == 1) {
+            return Err(err("EXACT_OUT_PATH_PROTOCOL"));
+        }
+        return Ok((
+            state.assets[i].token.as_str(),
+            state.assets[j].token.as_str(),
+        ));
+    }
+    if e.from_token.is_some() {
         return Err(err("EXACT_OUT_PATH_PROTOCOL"));
     }
     let pair = if e.zero_for_one {
@@ -242,7 +290,18 @@ pub fn evaluate_path(
         pool.validate()?;
         // The callback-funded CL templates have only been admitted for one
         // physical pool. It cannot silently become a V2 or mixed multi-hop route.
-        if (xone_protocol_math::raydium_clmm::supports_profile(&pool.protocol)
+        if (matches!(
+            pool.protocol.as_str(),
+            "pancake-infinity-bin"
+                | "uniswap-v4"
+                | "pancake-infinity-cl"
+                | "balancer-v2-stable2"
+                | "balancer-v2-weighted2-equal"
+                | "balancer-v2-weighted2-static"
+                | "balancer-v2-weighted-multi"
+                | "balancer-v2-managed-snapshot"
+                | "balancer-v2-composable-regular"
+        ) || xone_protocol_math::raydium_clmm::supports_profile(&pool.protocol)
             || xone_protocol_math::orca::supports_profile(&pool.protocol)
             || matches!(
                 pool.protocol.as_str(),
@@ -265,7 +324,27 @@ pub fn evaluate_path(
             && edges.len() != 1
         {
             return Err(err(
-                if xone_protocol_math::raydium_clmm::supports_profile(&pool.protocol) {
+                if matches!(
+                    pool.protocol.as_str(),
+                    "pancake-infinity-bin"
+                        | "uniswap-v4"
+                        | "pancake-infinity-cl"
+                        | "balancer-v2-stable2"
+                        | "balancer-v2-weighted2-equal"
+                        | "balancer-v2-weighted2-static"
+                        | "balancer-v2-weighted-multi"
+                        | "balancer-v2-managed-snapshot"
+                        | "balancer-v2-composable-regular"
+                ) {
+                    if matches!(
+                        pool.protocol.as_str(),
+                        "uniswap-v4" | "pancake-infinity-cl" | "pancake-infinity-bin"
+                    ) {
+                        "EXACT_OUT_SINGLETON_SINGLE_POOL_ONLY"
+                    } else {
+                        "EXACT_OUT_BALANCER_SINGLE_POOL_ONLY"
+                    }
+                } else if xone_protocol_math::raydium_clmm::supports_profile(&pool.protocol) {
                     "EXACT_OUT_RAYCLMM_SINGLE_POOL_ONLY"
                 } else if xone_protocol_math::orca::supports_profile(&pool.protocol) {
                     "EXACT_OUT_ORCA_SINGLE_POOL_ONLY"
@@ -310,6 +389,20 @@ pub fn evaluate_path(
         tokens.push(to.to_owned());
         let current: &str = if let Some(state) = &pool.v2 {
             &state.factory
+        } else if let Some(state) = &pool.infinity_bin {
+            &state.manager
+        } else if let Some(state) = &pool.singleton_cl {
+            &state.manager
+        } else if pool.protocol == "balancer-v2-stable2" {
+            &pool
+                .stable
+                .as_ref()
+                .ok_or_else(|| err("STABLE_STATE_REQUIRED"))?
+                .vault
+        } else if let Some(state) = &pool.weighted {
+            &state.vault
+        } else if let Some(state) = &pool.multi_asset {
+            &state.vault
         } else if let Some(state) = &pool.v3 {
             &state.factory
         } else if let Some(state) = &pool.pancake_bsc_lm {
@@ -346,25 +439,14 @@ pub fn evaluate_path(
         let p = pools
             .get(&edges[i].pool_id)
             .ok_or_else(|| err("MISSING_POOL"))?;
-        amounts[i] = xone_protocol_math::exact_out::quote_exact_out_for_origin(
-            p,
-            &amounts[i + 1],
-            edges[i].zero_for_one,
-            funds.sender,
-        )?
-        .amount_in;
+        amounts[i] = quote_edge(p, &edges[i], &amounts[i + 1], funds.sender)?.amount_in;
     }
     let mut candidate = pools.clone();
     for (i, edge) in edges.iter().enumerate() {
         let p = candidate
             .get(&edge.pool_id)
             .ok_or_else(|| err("MISSING_POOL"))?;
-        let q = xone_protocol_math::exact_out::quote_exact_out_for_origin(
-            p,
-            &amounts[i + 1],
-            edge.zero_for_one,
-            funds.sender,
-        )?;
+        let q = quote_edge(p, edge, &amounts[i + 1], funds.sender)?;
         let surplus_template = (p.protocol == xone_domain::lfj::PROFILE
             || ((xone_domain::pump::supports_curve_profile(&p.protocol)
                 || xone_domain::pump_amm::supports_profile(&p.protocol))
@@ -382,6 +464,7 @@ pub fn evaluate_path(
         if surplus_template {
             amounts[i + 1] = q.amount_out;
         }
+        crate::propagate_bin_currency(&mut candidate, &q.next_pool);
         candidate.insert(edge.pool_id.clone(), q.next_pool);
     }
     let result = ExactOutPathQuote {
@@ -571,4 +654,28 @@ pub fn search(
         expansions,
         evaluations,
     })
+}
+
+fn quote_edge(
+    pool: &Pool,
+    edge: &Edge,
+    target: &Amount,
+    origin: &str,
+) -> Result<xone_protocol_math::exact_out::ExactOutSwap> {
+    if pool.multi_asset.is_some() {
+        let (from, to) = edge_tokens(pool, edge)?;
+        let q = xone_protocol_math::multi_asset::quote_exact_out_tokens(pool, target, from, to)?;
+        Ok(xone_protocol_math::exact_out::ExactOutSwap {
+            amount_in: q.consumed_in,
+            amount_out: q.amount_out,
+            next_pool: q.next_pool,
+        })
+    } else {
+        xone_protocol_math::exact_out::quote_exact_out_for_origin(
+            pool,
+            target,
+            edge.zero_for_one,
+            origin,
+        )
+    }
 }

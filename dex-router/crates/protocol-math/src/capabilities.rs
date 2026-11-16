@@ -1,7 +1,7 @@
 //! Versioned capabilities describe admitted kernels, not live RPC/account readiness.
 use serde::{Deserialize, Serialize};
 use xone_domain::{Pool, Result};
-pub const VERSION: &str = "xone-protocol-capabilities/10";
+pub const VERSION: &str = "xone-protocol-capabilities/21";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolCapabilities {
@@ -57,7 +57,9 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
         quote_modes.push("EXACT_OUT".into());
     }
     let meteora = xone_domain::meteora::supports_profile(protocol);
-    let prepared = meteora
+    let prepared = xone_domain::orca::supports_classic_profile(protocol)
+        || xone_domain::raydium_clmm::supports_classic_profile(protocol)
+        || meteora
         || protocol == xone_domain::raydium::PROFILE
         || xone_domain::pump_amm::supports_profile(protocol)
         || protocol == xone_domain::pump::PROFILE;
@@ -81,6 +83,8 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
             if protocol == xone_domain::v2_swap::PROFILE || crate::v3::supports_exact_out(protocol)
             {
                 "SIMPLE_PATH_SINGLE_FACTORY"
+            } else if protocol == "balancer-v2-composable-regular" {
+                "SINGLE_POOL_UNDERLYING_ORDERED_ALLOCATION"
             } else {
                 "SINGLE_POOL_ORDERED_ALLOCATION"
             }
@@ -90,10 +94,17 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
         execution_route_scope: prepared.then(|| "SINGLE_POOL_SINGLE_ROUTE".into()),
         unsigned_transaction: prepared,
         rpc_simulation: prepared,
-        account_creation: meteora
+        account_creation: xone_domain::orca::supports_classic_profile(protocol)
+            || xone_domain::raydium_clmm::supports_classic_profile(protocol)
+            || meteora
+            || protocol == xone_domain::raydium::PROFILE
             || xone_domain::pump_amm::supports_profile(protocol)
             || protocol == xone_domain::pump::PROFILE,
-        native_funding: meteora || xone_domain::pump_amm::supports_profile(protocol),
+        native_funding: xone_domain::orca::supports_classic_profile(protocol)
+            || xone_domain::raydium_clmm::supports_classic_profile(protocol)
+            || meteora
+            || protocol == xone_domain::raydium::PROFILE
+            || xone_domain::pump_amm::supports_profile(protocol),
         native_sol_trading: protocol == xone_domain::pump::PROFILE,
         independent_simulation: prepared,
         wallet_submission: prepared,

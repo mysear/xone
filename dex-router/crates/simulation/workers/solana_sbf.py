@@ -15,16 +15,127 @@ METEORA='LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo'
 PUMP='6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P'
 PUMP_AMM='pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA'
 FEE='pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ'
+ORCA='whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc'
+COMPUTE_BUDGET='ComputeBudget111111111111111111111111111111'
 RAYDIUM='CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C'
 SYSTEM='11111111111111111111111111111111'
 LOADER='BPFLoaderUpgradeab1e11111111111111111111111'
 IMMUTABLE='BPFLoader2111111111111111111111111111111111'
 CLOCK='SysvarC1ock11111111111111111111111111111111'
+ORCA_PROFILES=('orca-whirlpools-static','orca-whirlpools-rewards','orca-whirlpools-adaptive','orca-whirlpools-adaptive-rewards','orca-whirlpools-adaptive-dynamic')
 
 def require(condition,code):
     if not condition:raise ValueError(code)
 
 def raw(account):return base64.b64decode(account['data'][0],validate=True)
+
+def encode_adaptive_oracle(state,Pubkey):
+    require(len(state['constants_reserved'])==16 and len(state['variables_reserved'])==16 and len(state['reserved'])==128,'SBF_ORCA_ORACLE_RESERVED_WIDTH')
+    data=bytearray(254);data[:8]=hashlib.sha256(b'account:Oracle').digest()[:8];data[8:40]=bytes(Pubkey.from_string(state['whirlpool']))
+    for offset,key in [(40,'trade_enable_timestamp'),(82,'last_reference_update_timestamp'),(90,'last_major_swap_timestamp')]:data[offset:offset+8]=int(state[key]).to_bytes(8,'little')
+    for offset,key in [(48,'filter_period'),(50,'decay_period'),(52,'reduction_factor'),(62,'tick_group_size'),(64,'major_swap_threshold_ticks')]:data[offset:offset+2]=int(state[key]).to_bytes(2,'little')
+    for offset,key in [(54,'adaptive_fee_control_factor'),(58,'max_volatility_accumulator'),(98,'volatility_reference'),(106,'volatility_accumulator')]:data[offset:offset+4]=int(state[key]).to_bytes(4,'little')
+    data[102:106]=int(state['tick_group_index_reference']).to_bytes(4,'little',signed=True);data[66:82]=bytes(state['constants_reserved']);data[110:126]=bytes(state['variables_reserved']);data[126:254]=bytes(state['reserved']);return bytes(data)
+
+def validate_orca(model,accounts,Pubkey):
+    state=model['orca_whirlpool'];data=raw(accounts[model['pool_id']]);require(len(data)==653,'SBF_ORCA_POOL_LAYOUT')
+    require(model['protocol']in ORCA_PROFILES and ((state.get('adaptive')is None)==(model['protocol']in['orca-whirlpools-static','orca-whirlpools-rewards'])),'SBF_ORCA_PROFILE')
+    expected=bytearray(653);expected[:8]=hashlib.sha256(b'account:Whirlpool').digest()[:8]
+    def put(offset,value,size=16,signed=False):expected[offset:offset+size]=int(value).to_bytes(size,'little',signed=signed)
+    def key(offset,value):expected[offset:offset+32]=bytes(Pubkey.from_string(value))
+    key(8,state['whirlpools_config']);put(40,state['whirlpool_bump'],1)
+    for offset,k in [(41,'tick_spacing'),(43,'fee_tier_index'),(45,'fee_rate'),(47,'protocol_fee_rate')]:put(offset,state[k],2)
+    for offset,k in [(49,'liquidity'),(65,'sqrt_price_x64'),(165,'fee_growth_global0'),(245,'fee_growth_global1')]:put(offset,state[k])
+    put(81,state['tick_current_index'],4,True)
+    for offset,k in [(85,'protocol_fee_owed0'),(93,'protocol_fee_owed1'),(261,'reward_last_updated_timestamp')]:put(offset,state[k],8)
+    for offset,value in [(101,model['token0']),(133,state['vault0']),(181,model['token1']),(213,state['vault1'])]:key(offset,value)
+    rewards=state.get('reward_infos',[])
+    if not rewards:expected[333:365]=data[333:365]
+    for i,r in enumerate(rewards):
+        off=269+i*128;key(off,r['mint']);key(off+32,r['vault']);expected[off+64:off+96]=bytes(r['extension']);put(off+96,r['emissions_per_second_x64']);put(off+112,r['growth_global_x64'])
+    require(data==expected,'SBF_ORCA_POOL_MISMATCH')
+    oracle=accounts.get(state['oracle']);adaptive=state.get('adaptive')
+    if adaptive is None:require(oracle is None or(oracle['owner']==SYSTEM and not oracle['executable']and raw(oracle)==b''),'SBF_ORCA_ORACLE_UNSUPPORTED')
+    else:
+        require(adaptive['whirlpool']==model['pool_id'],'SBF_ORCA_ORACLE_BINDING')
+        require(oracle is not None and oracle['owner']==ORCA and not oracle['executable']and len(raw(oracle))==254 and raw(oracle)==encode_adaptive_oracle(adaptive,Pubkey),'SBF_ORCA_ORACLE_MISMATCH')
+    for side in [0,1]:
+        a=accounts[state[f'vault{side}']];require(a['owner']==TOKEN and not a['executable']and len(raw(a))==165 and int.from_bytes(raw(a)[64:72],'little')==state[f'raw_vault{side}'],'SBF_ORCA_VAULT_MISMATCH')
+    for a in state['tick_arrays']:
+        dynamic=a['layout']=='dynamic';b=bytearray(hashlib.sha256(('account:'+('DynamicTickArray'if dynamic else'TickArray')).encode()).digest()[:8]+int(a['start_tick_index']).to_bytes(4,'little',signed=True))
+        if dynamic:b+=bytes(Pubkey.from_string(model['pool_id']))+int(a['initialized_bitmap']).to_bytes(16,'little')
+        ticks={t['tick']:t for t in a['ticks']}
+        for i in range(88):
+            t=ticks.get(a['start_tick_index']+i*state['tick_spacing']);r=bytearray(1 if dynamic and t is None else 113)
+            if t is not None:
+                r[0]=1;r[1:17]=int(t['liquidity_net']).to_bytes(16,'little',signed=True)
+                for off,k in [(17,'liquidity_gross'),(33,'fee_growth_outside0'),(49,'fee_growth_outside1')]:r[off:off+16]=int(t[k]).to_bytes(16,'little')
+                for j,v in enumerate(t.get('reward_growths_outside',[])):r[65+j*16:81+j*16]=int(v).to_bytes(16,'little')
+            b+=r
+        if not dynamic:b+=bytes(Pubkey.from_string(model['pool_id']))
+        observed=accounts[a['address']];require(observed['owner']==ORCA and not observed['executable']and raw(observed)==b,'SBF_ORCA_ARRAY_MISMATCH')
+
+# Explicit original classic-token CLMM layout validation, draft not installed.
+RAYCLMM='CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK'
+MEMO='MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'
+RAY_TOKEN22_CODE='495e9d7680dd555cb126a6a8e5464af5be9b01f02f2cd70634352722d22e3cad'
+RAY_MEMO_CODE='f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954'
+RAYCLMM_PROFILES=('raydium-clmm-static','raydium-clmm-rewards','raydium-clmm-token-fee','raydium-clmm-bitmap','raydium-clmm-custom-seed','raydium-clmm-dynamic')
+def validate_rayclmm(model,accounts,Pubkey):
+    require(model['protocol']in RAYCLMM_PROFILES,'SBF_RAYCLMM_PROFILE');s=model['raydium_clmm'];require((s.get('dynamic_fee')is not None)==(model['protocol']=='raydium-clmm-dynamic')and(s.get('bitmap_extension')is not None)==(model['protocol']in['raydium-clmm-bitmap','raydium-clmm-custom-seed','raydium-clmm-dynamic'])and(model['protocol']=='raydium-clmm-dynamic'or((s.get('seed_index',0)>0)==(model['protocol']=='raydium-clmm-custom-seed'))),'SBF_RAYCLMM_PROFILE');a=accounts[model['pool_id']];data=raw(a);require(a['owner']==RAYCLMM and not a['executable']and len(data)==1544,'SBF_RAYCLMM_POOL_LAYOUT');b=bytearray(data)
+    require(data[273:277]==bytes(4)and data[389]&~63==0 and data[389]&16==0 and data[393:397]==bytes(4)and not any(data[1130 if s.get('dynamic_fee')is not None else 1096:]),'SBF_RAYCLMM_VERSION')
+    def put(offset,value,size=16,signed=False):b[offset:offset+size]=int(value).to_bytes(size,'little',signed=signed)
+    def key(offset,value):b[offset:offset+32]=bytes(Pubkey.from_string(value))
+    b[:8]=hashlib.sha256(b'account:PoolState').digest()[:8];put(8,s['pool_bump'],1)
+    for offset,value in [(9,s['amm_config']),(73,model['token0']),(105,model['token1']),(137,s['vault0']),(169,s['vault1']),(201,s['observation'])]:key(offset,value)
+    put(233,s['mint0_decimals'],1);put(234,s['mint1_decimals'],1);put(235,s['tick_spacing'],2)
+    for offset,name in [(237,'liquidity'),(253,'sqrt_price_x64'),(277,'fee_growth_global0'),(293,'fee_growth_global1')]:put(offset,s[name])
+    put(269,s['tick_current'],4,True)
+    for offset,name in [(309,'protocol_fees0'),(317,'protocol_fees1'),(1064,'fund_fees0'),(1072,'fund_fees1'),(1080,'open_time'),(1088,'recent_epoch')]:put(offset,s[name],8)
+    put(390,s.get('collect_fee_on',0),1);put(391,s.get('seed_index',0),2)
+    rewards=s.get('reward_infos',[]);require((model['protocol']=='raydium-clmm-rewards')==(len(rewards)==3),'SBF_RAYCLMM_REWARDS')
+    for i in range(3):
+        off=397+i*169
+        if rewards:
+            r=rewards[i];put(off,r['reward_state'],1)
+            for delta,name in [(1,'open_time'),(9,'end_time'),(17,'last_update_time'),(41,'reward_total_emitted'),(49,'reward_claimed')]:put(off+delta,r[name],8)
+            put(off+25,r['emissions_per_second_x64']);put(off+153,r['reward_growth_global_x64'])
+            for delta,name in [(57,'token_mint'),(89,'token_vault'),(121,'authority')]:key(off+delta,r[name])
+        else:b[off:off+121]=bytes(121);b[off+153:off+169]=bytes(16)
+    dynamic=s.get('dynamic_fee')
+    if dynamic is not None:
+        for offset,name in [(1096,'filter_period'),(1098,'decay_period'),(1100,'reduction_factor')]:put(offset,dynamic[name],2)
+        for offset,name in [(1102,'dynamic_fee_control'),(1106,'max_volatility_accumulator'),(1114,'volatility_reference'),(1118,'volatility_accumulator')]:put(offset,dynamic[name],4)
+        put(1110,dynamic['tick_spacing_index_reference'],4,True);put(1122,dynamic['last_update_timestamp'],8)
+    require(len(s['bitmap'])==16,'SBF_RAYCLMM_BITMAP')
+    for i,value in enumerate(s['bitmap']):put(904+8*i,value,8)
+    require(data==b,'SBF_RAYCLMM_POOL_MISMATCH');cfg=accounts[s['amm_config']];c=raw(cfg);require(cfg['owner']==RAYCLMM and not cfg['executable']and len(c)==117 and c[:8]==hashlib.sha256(b'account:AmmConfig').digest()[:8]and c[57:61]==bytes(4)and not any(c[93:]),'SBF_RAYCLMM_CONFIG_LAYOUT')
+    for offset,name in [(43,'protocol_fee_rate'),(47,'trade_fee_rate'),(53,'fund_fee_rate')]:require(int.from_bytes(c[offset:offset+4],'little')==s[name],'SBF_RAYCLMM_CONFIG_MISMATCH')
+    require(int.from_bytes(c[51:53],'little')==s['tick_spacing'],'SBF_RAYCLMM_CONFIG_MISMATCH')
+    seeds=[b'pool',bytes(Pubkey.from_string(s['amm_config'])),bytes(Pubkey.from_string(model['token0'])),bytes(Pubkey.from_string(model['token1']))]
+    if s.get('seed_index',0)>0:seeds.append(s['seed_index'].to_bytes(2,'little'))
+    address,bump=Pubkey.find_program_address(seeds,Pubkey.from_string(RAYCLMM));require(str(address)==model['pool_id']and bump==s['pool_bump'],'SBF_RAYCLMM_POOL_PDA')
+    extension=s.get('bitmap_extension')
+    if extension is not None:
+        address=str(Pubkey.find_program_address([b'pool_tick_array_bitmap_extension',bytes(Pubkey.from_string(model['pool_id']))],Pubkey.from_string(RAYCLMM))[0]);require(address==extension['address']and len(extension['positive'])==112 and len(extension['negative'])==112,'SBF_RAYCLMM_EXTENSION_IDENTITY')
+        a=accounts.get(address);expected=hashlib.sha256(b'account:TickArrayBitmapExtension').digest()[:8]+bytes(Pubkey.from_string(model['pool_id']))+b''.join(int(word).to_bytes(8,'little')for word in extension['positive']+extension['negative']);require(a is not None and a['owner']==RAYCLMM and not a['executable']and raw(a)==expected,'SBF_RAYCLMM_EXTENSION_MISMATCH')
+    a=accounts[s['observation']];d=raw(a);require(a['owner']==RAYCLMM and not a['executable']and len(d)==4483,'SBF_RAYCLMM_OBSERVATION_LAYOUT');o=bytearray(4483);o[:8]=hashlib.sha256(b'account:ObservationState').digest()[:8];o[8]=s['observation_initialized'];o[9:17]=s['observation_recent_epoch'].to_bytes(8,'little');o[17:19]=s['observation_index'].to_bytes(2,'little');o[19:51]=bytes(Pubkey.from_string(model['pool_id']));require(len(s['observations'])==100,'SBF_RAYCLMM_OBSERVATION_COUNT')
+    for i,entry in enumerate(s['observations']):off=51+44*i;o[off:off+4]=entry['block_timestamp'].to_bytes(4,'little');o[off+4:off+12]=entry['tick_cumulative'].to_bytes(8,'little',signed=True)
+    require(d==o,'SBF_RAYCLMM_OBSERVATION_MISMATCH')
+    for a in s['tick_arrays']:
+        account=accounts[a['address']];d=raw(account);require(account['owner']==RAYCLMM and not account['executable']and len(d)==10240 and not any(d[10133:]),'SBF_RAYCLMM_ARRAY_LAYOUT');expected=bytearray(d);expected[:8]=hashlib.sha256(b'account:TickArrayState').digest()[:8];expected[8:40]=bytes(Pubkey.from_string(model['pool_id']));expected[40:44]=a['start_tick_index'].to_bytes(4,'little',signed=True);ticks={t['tick']:t for t in a['ticks']}
+        for i in range(60):
+            off=44+i*168;index=a['start_tick_index']+i*s['tick_spacing'];t=ticks.get(index);require(not any(d[off+124:off+168]),'SBF_RAYCLMM_ORDERS')
+            if t is None:require(int.from_bytes(d[off:off+4],'little',signed=True)in[0,index],'SBF_RAYCLMM_ARRAY_LAYOUT');expected[off+4:off+116]=bytes(112)
+            else:
+                expected[off:off+4]=t['tick'].to_bytes(4,'little',signed=True);expected[off+4:off+20]=int(t['liquidity_net']).to_bytes(16,'little',signed=True)
+                for delta,name in [(20,'liquidity_gross'),(36,'fee_growth_outside0'),(52,'fee_growth_outside1')]:expected[off+delta:off+delta+16]=int(t[name]).to_bytes(16,'little')
+                expected[off+68:off+116]=bytes(48)
+                for j,value in enumerate(t.get('reward_growths_outside',[])):expected[off+68+16*j:off+84+16*j]=int(value).to_bytes(16,'little')
+        expected[10124]=len(a['ticks']);expected[10125:10133]=a['recent_epoch'].to_bytes(8,'little');require(d==expected,'SBF_RAYCLMM_ARRAY_MISMATCH')
+    for side in [0,1]:
+        mint=model[f'token{side}'];vault=s[f'vault{side}'];a=accounts[vault];d=raw(a);require(a['owner']==TOKEN and not a['executable']and len(d)==165 and d[:32]==bytes(Pubkey.from_string(mint))and d[32:64]==bytes(Pubkey.from_string(model['pool_id']))and d[108]==1 and int.from_bytes(d[64:72],'little')==s[f'raw_vault{side}'],'SBF_RAYCLMM_VAULT')
+        if mint=='So11111111111111111111111111111111111111112':require(d[109:113]==b'\1\0\0\0'and a['lamports']>=int.from_bytes(d[113:121],'little')+s[f'raw_vault{side}'],'SBF_RAYCLMM_VAULT_BACKING')
 
 def main():
     runtime=Path(sys.argv[1]).resolve()
@@ -56,13 +167,18 @@ def main():
     target=RAYDIUM if bank['pool']['protocol']=='raydium-cpmm-creator' else METEORA
     if bank['pool']['protocol'].startswith('pump-amm-classic-wsol'):target=PUMP_AMM
     if bank['pool']['protocol']=='pump-bonding-sol-classic':target=PUMP
-    require(target in programs and programs<={SYSTEM,TOKEN,TOKEN22,target,'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'},'SBF_PROGRAM_ALLOWLIST')
-    model=bank['pool'];state=model.get('raydium_cpmm') if target==RAYDIUM else model.get('pump')if target in [PUMP_AMM,PUMP] else model.get('meteora')
+    if bank['pool']['protocol']in ORCA_PROFILES:target=ORCA
+    if bank['pool']['protocol']in RAYCLMM_PROFILES:target=RAYCLMM
+    require(target in programs and programs<=({SYSTEM,TOKEN,TOKEN22,target,'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'}|({COMPUTE_BUDGET}if target in[ORCA,RAYCLMM] else set())|({MEMO}if target==RAYCLMM else set())),'SBF_PROGRAM_ALLOWLIST')
+    if target in[ORCA,RAYCLMM]:
+        limits=[ix for ix in tx.message.instructions if str(tx.message.account_keys[ix.program_id_index])==COMPUTE_BUDGET]
+        require(len(limits)==1 and len(limits[0].accounts)==0 and bytes(limits[0].data)==b'\x02'+(1400000).to_bytes(4,'little')and preparation.get('computeUnitLimit')==1400000 and limit>=1400000,'SBF_ORCA_COMPUTE_BUDGET')
+    model=bank['pool'];state=model.get('raydium_clmm')if target==RAYCLMM else model.get('orca_whirlpool')if target==ORCA else model.get('raydium_cpmm') if target==RAYDIUM else model.get('pump')if target in [PUMP_AMM,PUMP] else model.get('meteora')
     require(state is not None,'SBF_POOL_MODEL')
     def account_bytes(key):return raw(bank['accounts'][key])
     clock_data=account_bytes(CLOCK)
-    expected_slot=state['bank_slot'] if target==RAYDIUM else state['slot']
-    expected_time=state['bank_unix_timestamp'] if target==RAYDIUM else state['timestamp']
+    expected_slot=state['bank_slot'] if target in[RAYDIUM,ORCA,RAYCLMM] else state['slot']
+    expected_time=state['bank_unix_timestamp'] if target in[RAYDIUM,ORCA,RAYCLMM] else state['timestamp']
     require(int.from_bytes(clock_data[:8],'little')==expected_slot and int.from_bytes(clock_data[32:40],'little')==expected_time,'SBF_BANK_CLOCK_MISMATCH')
     if target==METEORA:
         require(account_bytes(model['pool_id']).hex()==state['pair_data'],'SBF_BANK_POOL_MISMATCH')
@@ -73,6 +189,15 @@ def main():
         if state.get('token2022'):
             t=state['token2022'];require(account_bytes(model['token0']).hex()==t['mint_data'] and int.from_bytes(clock_data[16:24],'little')==t['bank_epoch'],'SBF_BANK_TOKEN2022_MISMATCH')
             require(account_bytes(str(Pubkey.from_bytes(pair[152:184]))).hex()==t['vault_data'],'SBF_BANK_VAULT_MISMATCH')
+    elif target==RAYCLMM:
+        validate_rayclmm(model,bank['accounts'],Pubkey)
+        require(int.from_bytes(clock_data[16:24],'little')==state['bank_epoch'],'SBF_RAYCLMM_EPOCH')
+    elif target==ORCA:
+        validate_orca(model,bank['accounts'],Pubkey)
+        oracle_index=list(map(str,tx.message.account_keys)).index(state['oracle']);h=tx.message.header
+        writable=oracle_index<(h.num_required_signatures-h.num_readonly_signed_accounts if oracle_index<h.num_required_signatures else len(tx.message.account_keys)-h.num_readonly_unsigned_accounts)
+        require(writable==(state.get('adaptive')is not None),'SBF_ORCA_ORACLE_PRIVILEGE')
+        require(int.from_bytes(clock_data[16:24],'little')==state['bank_epoch'],'SBF_ORCA_EPOCH_MISMATCH')
     elif target in [PUMP_AMM,PUMP]:
         require(state['user']==request['caller']==request['recipient'],'SBF_PUMP_USER_MISMATCH')
         for item in state['accounts']:
@@ -86,10 +211,13 @@ def main():
         for side in [0,1]:require(int.from_bytes(account_bytes(state[f'vault{side}'])[64:72],'little')==state[f'raw_vault{side}'],'SBF_BANK_VAULT_MISMATCH')
         require(int.from_bytes(clock_data[16:24],'little')==state['bank_epoch'],'SBF_BANK_EPOCH_MISMATCH')
     dependencies={target,TOKEN}
+    if target==RAYCLMM:dependencies.update([TOKEN22,MEMO])
     if target in [PUMP_AMM,PUMP]:dependencies.add(FEE)
     if bank['pool'].get('meteora',{}).get('token2022')is not None:dependencies.add(TOKEN22)
     for pid in sorted(dependencies):
         a=bank['accounts'][pid];data=raw(a)
+        if target==RAYCLMM and pid==MEMO:
+            require(a['executable']is True and a['owner']==IMMUTABLE and hashlib.sha256(data).hexdigest()==RAY_MEMO_CODE,'SBF_RAYCLMM_MEMO_CODE');svm.add_program_with_loader(Pubkey.from_string(pid),data,Pubkey.from_string(IMMUTABLE));continue
         require(a['executable']is True and a['owner']==LOADER and len(data)==36 and data[:4]==b'\x02\0\0\0','SBF_PROGRAM_LAYOUT')
         pd=str(Pubkey.from_bytes(data[4:36]));programdata=bank['accounts'][pd]
         require(programdata['owner']==LOADER and programdata['executable']is False and raw(programdata)[:4]==b'\x03\0\0\0','SBF_PROGRAMDATA_LAYOUT')
@@ -98,9 +226,9 @@ def main():
         require(deployment<=expected_slot,'SBF_BANK_DEPLOYMENT_MISMATCH')
         if pid==target:require(deployment==state['deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
         if pid==FEE:require(deployment==state['fee_deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
-        if pid==TOKEN22:require(deployment==state['token2022']['deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
+        if pid==TOKEN22 and target!=RAYCLMM:require(deployment==state['token2022']['deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
         payload=raw(programdata)[45:]
-        expected=state['program_code_sha256'] if pid==target else state['fee_program_code_sha256']if pid==FEE else state['token2022']['program_code_sha256'] if pid==TOKEN22 else state['token_program_code_sha256']
+        expected=RAY_TOKEN22_CODE if target==RAYCLMM and pid==TOKEN22 else state['program_code_sha256'] if pid==target else state['fee_program_code_sha256']if pid==FEE else state['token2022']['program_code_sha256'] if pid==TOKEN22 else state['token_program_code_sha256']
         require(hashlib.sha256(payload).hexdigest()==expected,'SBF_BANK_PROGRAM_MISMATCH')
         svm.add_program_with_loader(Pubkey.from_string(pid),payload,Pubkey.from_string(LOADER))
     if bank.get('rpcCapture'):
@@ -123,6 +251,7 @@ def main():
         svm.set_account(Pubkey.from_string(key),Account(a['lamports'],raw(a),Pubkey.from_string(a['owner']),a['executable'],0))
     clock=raw(bank['accounts'][CLOCK]);require(len(clock)==40,'SBF_CLOCK_LAYOUT')
     svm.set_clock(Clock(slot=int.from_bytes(clock[:8],'little'),epoch_start_timestamp=int.from_bytes(clock[8:16],'little',signed=True),epoch=int.from_bytes(clock[16:24],'little'),leader_schedule_epoch=int.from_bytes(clock[24:32],'little'),unix_timestamp=int.from_bytes(clock[32:40],'little',signed=True)))
+    a=bank['accounts'][CLOCK];svm.set_account(Pubkey.from_string(CLOCK),Account(a['lamports'],raw(a),Pubkey.from_string(a['owner']),a['executable'],0))
     keys=list(map(str,tx.message.account_keys));before={key:svm.get_account(Pubkey.from_string(key))for key in keys}
     result=svm.simulate_transaction(tx);native=json.loads(result.to_json())
     for key,a in before.items():

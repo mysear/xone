@@ -20,6 +20,7 @@ pub use exact_out::{quote_exact_out, ExactOutSwap};
 pub mod pancake_lm;
 pub mod slipstream_context;
 pub use singleton::infinity_bin;
+pub mod infinity_bin_exact_out;
 pub mod infinity_bin_multi;
 pub mod infinity_bin_online;
 pub mod managed_v2_aum;

@@ -401,3 +401,20 @@ fn accepts_exact_vault_limit_and_all_standard_decimal_factors() {
         assert!(q.amount_out > zero);
     }
 }
+
+#[test]
+fn standalone_stable_output_solver_has_no_weighted_ratio_limit() {
+    let e = n(ONE);
+    let balances = [n("1000000"), n("1000000")];
+    let q = balancer_stable::quote_exact_out(
+        [&balances[0], &balances[1]],
+        &n("100000"),
+        [&e, &e],
+        &n("0"),
+        &n("400000"),
+        true,
+    )
+    .unwrap();
+    assert_eq!(q.next_balances[1], n("600000"));
+    assert_eq!(q.next_balances[0], &balances[0] + q.amount_in);
+}

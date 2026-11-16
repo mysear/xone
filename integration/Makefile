@@ -960,3 +960,76 @@ v3-exact-out-reference:
 	node tools/acceptance/v3_exact_out_reference.cjs
 v3-exact-out-current-check:
 	python3 tools/acceptance/validate_v3_exact_out.py
+
+.PHONY: weighted-exact-out-reference weighted-exact-out-current-check
+weighted-exact-out-reference:
+	python3 tools/ci/weighted-reference-fetch.py
+	node tools/ci/weighted-exact-out-golden.cjs
+weighted-exact-out-current-check:
+	python3 tools/acceptance/validate_weighted_exact_out.py
+
+.PHONY: stable-exact-out-reference stable-exact-out-current-check
+stable-exact-out-reference:
+	python3 tools/ci/stable-reference-fetch.py
+	python3 tools/ci/weighted-reference-fetch.py
+	node tools/ci/stable-exact-out-golden.cjs
+stable-exact-out-current-check:
+	python3 tools/acceptance/validate_stable_exact_out.py
+
+.PHONY: singleton-exact-out-reference singleton-exact-out-current-check
+singleton-exact-out-reference:
+	python3 tools/ci/singleton-reference-fetch.py
+	node tools/ci/singleton-exact-out-golden.cjs
+singleton-exact-out-current-check:
+	python3 tools/acceptance/validate_singleton_exact_out.py
+
+.PHONY: infinity-bin-exact-out-reference infinity-bin-exact-out-current-check
+infinity-bin-exact-out-reference:
+	python3 tools/ci/singleton-reference-fetch.py
+	node tools/ci/infinity-bin-exact-out-golden.cjs
+infinity-bin-exact-out-current-check:
+	python3 tools/acceptance/validate_infinity_bin_exact_out.py
+
+.PHONY: managed-snapshot-exact-out-reference managed-snapshot-exact-out-current-check
+managed-snapshot-exact-out-reference:
+	python3 tools/ci/balancer-multi-fetch.py
+	node tools/ci/managed-snapshot-exact-out-golden.cjs
+managed-snapshot-exact-out-current-check:
+	python3 tools/acceptance/validate_managed_snapshot_exact_out.py
+
+.PHONY: composable-exact-out-reference composable-exact-out-current-check
+composable-exact-out-reference:
+	python3 tools/ci/balancer-multi-fetch.py
+	node tools/ci/composable-exact-out-golden.cjs
+composable-exact-out-current-check:
+	python3 tools/acceptance/validate_composable_exact_out.py
+
+.PHONY: raydium-funding-reference raydium-funding-current-check
+raydium-funding-reference:
+	python3 tools/ci/raydium-funding-bank.py
+raydium-funding-current-check:
+	python3 tools/acceptance/validate_raydium_funding.py
+
+.PHONY: orca-execution-reference orca-execution-current-check
+orca-execution-reference:
+	python3 tools/ci/orca-execution-bank.py
+orca-execution-current-check:
+	python3 tools/acceptance/validate_orca_execution.py
+
+.PHONY: orca-adaptive-execution-reference orca-adaptive-execution-current-check
+orca-adaptive-execution-reference:
+	python3 tools/ci/orca-adaptive-execution-bank.py
+orca-adaptive-execution-current-check:
+	python3 tools/acceptance/validate_orca_adaptive_execution.py
+
+.PHONY: rayclmm-execution-reference rayclmm-execution-current-check
+rayclmm-execution-reference:
+	python3 tools/ci/rayclmm-execution-bank.py
+rayclmm-execution-current-check:
+	python3 tools/acceptance/validate_rayclmm_execution.py
+
+.PHONY: rayclmm-advanced-execution-reference rayclmm-advanced-execution-current-check
+rayclmm-advanced-execution-reference:
+	python3 tools/ci/rayclmm-advanced-execution-bank.py
+rayclmm-advanced-execution-current-check:
+	python3 tools/acceptance/validate_rayclmm_advanced_execution.py

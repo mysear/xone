@@ -120,10 +120,20 @@ pub fn build(
                 .edges
                 .iter()
                 .zip(&route.tokens[1..])
-                .any(|(edge, to)| {
+                .enumerate()
+                .any(|(index, (edge, to))| {
                     !matches!(
                         edge.protocol.as_str(),
                         v2_swap::PROFILE
+                            | "pancake-infinity-bin"
+                            | "uniswap-v4"
+                            | "pancake-infinity-cl"
+                            | "balancer-v2-stable2"
+                            | "balancer-v2-weighted2-equal"
+                            | "balancer-v2-weighted2-static"
+                            | "balancer-v2-weighted-multi"
+                            | "balancer-v2-managed-snapshot"
+                            | "balancer-v2-composable-regular"
                             | "uniswap-v3"
                             | "pancake-v3"
                             | xone_domain::pancake_bsc_lm::PROFILE
@@ -155,6 +165,15 @@ pub fn build(
                     ) || (matches!(
                         edge.protocol.as_str(),
                         xone_domain::pancake_bsc_lm::PROFILE
+                            | "pancake-infinity-bin"
+                            | "uniswap-v4"
+                            | "pancake-infinity-cl"
+                            | "balancer-v2-stable2"
+                            | "balancer-v2-weighted2-equal"
+                            | "balancer-v2-weighted2-static"
+                            | "balancer-v2-weighted-multi"
+                            | "balancer-v2-managed-snapshot"
+                            | "balancer-v2-composable-regular"
                             | xone_domain::pancake_lm::PROFILE
                             | xone_domain::slipstream_context::PROFILE
                             | xone_domain::lfj::PROFILE
@@ -188,11 +207,44 @@ pub fn build(
                                 || edge.protocol == xone_domain::raydium::PROFILE
                                 || orca_profile(&edge.protocol)
                                 || rayclmm_profile(&edge.protocol)))
-                        || edge.from_token.is_some()
+                        || (if edge.protocol == "balancer-v2-weighted-multi"
+                            || edge.protocol == "balancer-v2-managed-snapshot"
+                            || edge.protocol == "balancer-v2-composable-regular"
+                        {
+                            edge.from_token.as_deref() != Some(route.tokens[index].as_str())
+                        } else {
+                            edge.from_token.is_some()
+                        })
                         || &edge.to != to
                 })
         {
             return Err(err("EXACT_OUT_INVALID_PLAN"));
+        }
+        for edge in &route.edges {
+            if edge.protocol == "balancer-v2-composable-regular"
+                && route.tokens.contains(&edge.pool_id)
+            {
+                return Err(err("EXACT_OUT_INVALID_PLAN"));
+            }
+            if matches!(
+                edge.protocol.as_str(),
+                "uniswap-v4" | "pancake-infinity-cl" | "pancake-infinity-bin"
+            ) {
+                let (manager, id) = edge
+                    .pool_id
+                    .split_once('/')
+                    .ok_or_else(|| err("EXACT_OUT_INVALID_PLAN"))?;
+                if solana
+                    || manager != route.factory
+                    || manager == xone_domain::singleton::ZERO_ADDRESS
+                    || !id.starts_with("0x")
+                    || id.len() != 66
+                    || id != id.to_ascii_lowercase()
+                    || hex::decode(&id[2..]).is_err()
+                {
+                    return Err(err("EXACT_OUT_INVALID_PLAN"));
+                }
+            }
         }
         if route
             .edges

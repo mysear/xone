@@ -7,6 +7,12 @@ use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use xone_domain::{err, Amount, Pool, Result};
 pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
+    quote(pool, input, left, false)
+}
+pub fn quote_exact_out(pool: &Pool, target: &Amount, left: bool) -> Result<Swap> {
+    quote(pool, target, left, true)
+}
+fn quote(pool: &Pool, amount: &Amount, left: bool, exact_out: bool) -> Result<Swap> {
     pool.validate()?;
     let s = pool
         .infinity_bin
@@ -39,15 +45,30 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
         reserve0: b.reserve0.clone(),
         reserve1: b.reserve1.clone(),
     });
-    let q = crate::infinity_bin_multi::quote_exact_in_with_active(
-        &native,
-        input,
-        left,
-        detached.as_ref(),
-    )?;
-    if q.consumed_in != *input || !q.remaining_in.0.is_zero() {
+    let q = if exact_out {
+        crate::infinity_bin_exact_out::quote_exact_out_with_active(
+            &native,
+            amount,
+            left,
+            detached.as_ref(),
+        )?
+    } else {
+        crate::infinity_bin_multi::quote_exact_in_with_active(
+            &native,
+            amount,
+            left,
+            detached.as_ref(),
+        )?
+    };
+    if (if exact_out {
+        q.amount_out != *amount
+    } else {
+        q.consumed_in != *amount
+    }) || !q.remaining_in.0.is_zero()
+    {
         return Err(err("INFINITY_BIN_PARTIAL_FILL"));
     }
+    let input = &q.consumed_in;
     if q.amount_out.0.is_zero() {
         return Err(err("INSUFFICIENT_OUTPUT"));
     }

@@ -1,4 +1,4 @@
-//! Bounded two-token, non-composable Balancer V2 standard StableMath exact-in.
+//! Bounded two-token, non-composable Balancer V2 standard StableMath exact input/output.
 //!
 //! Arithmetic/rounding follows balancer/balancer-v2-monorepo at
 //! e281ff40583c39bf1d46c322334b2b13936e0e33 (historical non-composable StablePool):
@@ -129,6 +129,88 @@ pub fn quote_exact_in(
     next_balances[index_out] = sub(balances[index_out], &amount_out)?;
     Ok(StableQuote {
         amount_out,
+        next_balances,
+    })
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StableExactOutQuote {
+    pub amount_in: BigUint,
+    pub next_balances: [BigUint; 2],
+}
+
+/// Native StableMath `_calcInGivenOut`: solve the input balance, add one scaled
+/// unit, downscale upward, then add the raw swap fee. No WeightedMath ratio cap.
+pub fn quote_exact_out(
+    balances: [&BigUint; 2],
+    amplification: &BigUint,
+    scaling_factors: [&BigUint; 2],
+    swap_fee_percentage: &BigUint,
+    output: &BigUint,
+    zero_for_one: bool,
+) -> Result<StableExactOutQuote> {
+    for value in [
+        balances[0],
+        balances[1],
+        amplification,
+        scaling_factors[0],
+        scaling_factors[1],
+        swap_fee_percentage,
+        output,
+    ] {
+        ensure_uint256(value)?;
+    }
+    if amplification < &BigUint::from(AMP_PRECISION) || amplification > &BigUint::from(5_000_000u32)
+    {
+        return Err(err("BALANCER_INVALID_AMPLIFICATION"));
+    }
+    let one = BigUint::from(FIXED_ONE);
+    for factor in scaling_factors {
+        if !(0..=18).any(|d| factor == &(&one * BigUint::from(10u8).pow(d))) {
+            return Err(err("BALANCER_INVALID_SCALING_FACTOR"));
+        }
+    }
+    if swap_fee_percentage >= &one {
+        return Err(err("BALANCER_INVALID_SWAP_FEE"));
+    }
+    if output.is_zero() {
+        return Err(err("EXACT_OUT_ZERO_OUTPUT"));
+    }
+    for balance in balances {
+        if balance.bits() > 112 {
+            return Err(err("BALANCER_RESERVE_OVERFLOW"));
+        }
+        if balance.is_zero() {
+            return Err(err("INSUFFICIENT_LIQUIDITY"));
+        }
+    }
+    let i = usize::from(!zero_for_one);
+    let j = 1 - i;
+    if output >= balances[j] {
+        return Err(err("INSUFFICIENT_LIQUIDITY"));
+    }
+    let mut scaled = [
+        div_down(&mul(balances[0], scaling_factors[0])?, &one)?,
+        div_down(&mul(balances[1], scaling_factors[1])?, &one)?,
+    ];
+    let invariant = calculate_invariant(amplification, &scaled)?;
+    let scaled_output = div_down(&mul(output, scaling_factors[j])?, &one)?;
+    scaled[j] = sub(&scaled[j], &scaled_output)?;
+    let final_in = token_balance(amplification, &scaled, &invariant, i)?;
+    let scaled_in = add(&sub(&final_in, &scaled[i])?, &BigUint::one())?;
+    let net_in = div_up(&mul(&scaled_in, &one)?, scaling_factors[i])?;
+    let amount_in = div_up(&mul(&net_in, &one)?, &sub(&one, swap_fee_percentage)?)?;
+    if amount_in.is_zero() {
+        return Err(err("INSUFFICIENT_OUTPUT"));
+    }
+    let mut next_balances = [balances[0].clone(), balances[1].clone()];
+    next_balances[i] = add(balances[i], &amount_in)?;
+    if next_balances[i].bits() > 112 {
+        return Err(err("BALANCER_RESERVE_OVERFLOW"));
+    }
+    next_balances[j] = sub(balances[j], output)?;
+    Ok(StableExactOutQuote {
+        amount_in,
         next_balances,
     })
 }

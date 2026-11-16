@@ -2,6 +2,17 @@ use crate::{err, wire, Amount, Pool, Result};
 use num_bigint::BigUint;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
+/// Versioned classic-token Whirlpool swaps; Oracle shape follows the model.
+pub fn supports_classic_profile(protocol: &str) -> bool {
+    matches!(
+        protocol,
+        "orca-whirlpools-static"
+            | "orca-whirlpools-rewards"
+            | crate::orca_adaptive_state::PROFILE
+            | crate::orca_adaptive_state::REWARDS_PROFILE
+            | crate::orca_adaptive_state::DYNAMIC_PROFILE
+    )
+}
 pub const PROGRAM_DATA: &str = "CtXfPzz36dH5Ws4UYKZvrQ1Xqzn42ecDW6y8NKuiN8nD";
 pub const PROGRAM_ID: &str = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 pub const MIN_TICK: i32 = -443636;

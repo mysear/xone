@@ -1,5 +1,6 @@
 use crate::Swap;
 use num_bigint::BigUint;
+use num_traits::Zero;
 use xone_domain::{err, Amount, Pool, Result};
 /// Token-selected multi-asset swaps mutate a single full physical balance vector.
 /// Callers may not manufacture independently mutable pair projections.
@@ -346,6 +347,113 @@ pub fn quote_exact_in_tokens(
     Ok(Swap {
         amount_out: Amount::checked(out)?,
         consumed_in: input.clone(),
+        remaining_in: Amount::zero(),
+        next_pool,
+    })
+}
+
+/// Explicit-token immutable WeightedPool target. A single complete physical
+/// vector is mutated; independently mutable pair projections are never created.
+pub fn quote_exact_out_tokens(
+    pool: &Pool,
+    output: &Amount,
+    token_in: &str,
+    token_out: &str,
+) -> Result<Swap> {
+    pool.validate()?;
+    if !matches!(
+        pool.protocol.as_str(),
+        "balancer-v2-weighted-multi"
+            | "balancer-v2-managed-snapshot"
+            | "balancer-v2-composable-regular"
+    ) {
+        return Err(err("EXACT_OUT_PROTOCOL_UNSUPPORTED"));
+    }
+    let s = pool
+        .multi_asset
+        .as_ref()
+        .ok_or_else(|| err("MULTI_ASSET_STATE_REQUIRED"))?;
+    let i = s
+        .assets
+        .iter()
+        .position(|a| a.token == token_in)
+        .ok_or_else(|| err("MULTI_ASSET_INPUT_TOKEN"))?;
+    let j = s
+        .assets
+        .iter()
+        .position(|a| a.token == token_out)
+        .ok_or_else(|| err("MULTI_ASSET_OUTPUT_TOKEN"))?;
+    let balances = s
+        .assets
+        .iter()
+        .map(|a| a.balance.0.clone())
+        .collect::<Vec<_>>();
+    let weights = s.weights.iter().map(|w| w.0.clone()).collect::<Vec<_>>();
+    let scales = s
+        .assets
+        .iter()
+        .map(|a| a.scaling.0.clone())
+        .collect::<Vec<_>>();
+    let q = if pool.protocol == "balancer-v2-composable-regular" {
+        let bpt = s
+            .assets
+            .iter()
+            .position(|a| a.token == pool.pool_id)
+            .ok_or_else(|| err("COMPOSABLE_BPT_REQUIRED"))?;
+        let q = crate::balancer_composable::quote_exact_out(
+            &balances,
+            &s.amplification.0,
+            &scales,
+            &BigUint::from(pool.fee_numerator),
+            &output.0,
+            i,
+            j,
+            bpt,
+        )?;
+        crate::balancer_multi::MultiExactOutQuote {
+            amount_in: q.amount_in,
+            next_balances: q.next_balances,
+        }
+    } else if pool.protocol == "balancer-v2-managed-snapshot" {
+        crate::balancer_multi::quote_managed_snapshot_exact_out(
+            &balances,
+            &weights,
+            &scales,
+            &BigUint::from(pool.fee_numerator),
+            &output.0,
+            i,
+            j,
+            &crate::balancer_multi::ManagedSwapGuards {
+                swaps_enabled: true,
+                protocol_swap_fee: BigUint::zero(),
+                management_swap_fee: BigUint::zero(),
+            },
+        )?
+    } else {
+        crate::balancer_multi::quote_exact_out(
+            &balances,
+            &weights,
+            &scales,
+            &BigUint::from(pool.fee_numerator),
+            &output.0,
+            i,
+            j,
+        )?
+    };
+    let mut next_pool = pool.clone();
+    let next = next_pool
+        .multi_asset
+        .as_mut()
+        .ok_or_else(|| err("MULTI_ASSET_STATE_REQUIRED"))?;
+    for (asset, balance) in next.assets.iter_mut().zip(q.next_balances) {
+        asset.balance = Amount::checked(balance)?;
+    }
+    next_pool.reserve0 = next.assets[0].balance.clone();
+    next_pool.reserve1 = next.assets[1].balance.clone();
+    next_pool.validate()?;
+    Ok(Swap {
+        amount_out: output.clone(),
+        consumed_in: Amount::checked(q.amount_in)?,
         remaining_in: Amount::zero(),
         next_pool,
     })

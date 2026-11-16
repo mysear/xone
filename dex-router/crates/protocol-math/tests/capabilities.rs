@@ -52,6 +52,8 @@ fn capability_labels_cover_existing_versioned_fixture_models_and_reject_unknowns
         assert_eq!(
             c.execution_preparation,
             xone_domain::meteora::supports_profile(protocol)
+                || xone_domain::raydium_clmm::supports_classic_profile(protocol)
+                || xone_domain::orca::supports_classic_profile(protocol)
                 || protocol == xone_domain::raydium::PROFILE
                 || xone_domain::pump_amm::supports_profile(protocol)
                 || protocol == xone_domain::pump::PROFILE
@@ -64,12 +66,18 @@ fn capability_labels_cover_existing_versioned_fixture_models_and_reject_unknowns
         assert_eq!(
             c.account_creation,
             xone_domain::pump_amm::supports_profile(protocol)
+                || xone_domain::raydium_clmm::supports_classic_profile(protocol)
+                || xone_domain::orca::supports_classic_profile(protocol)
+                || protocol == xone_domain::raydium::PROFILE
                 || xone_domain::meteora::supports_profile(protocol)
                 || protocol == xone_domain::pump::PROFILE
         );
         assert_eq!(
             c.native_funding,
             xone_domain::meteora::supports_profile(protocol)
+                || xone_domain::raydium_clmm::supports_classic_profile(protocol)
+                || xone_domain::orca::supports_classic_profile(protocol)
+                || protocol == xone_domain::raydium::PROFILE
                 || xone_domain::pump_amm::supports_profile(protocol)
         );
         assert_eq!(c.native_sol_trading, protocol == xone_domain::pump::PROFILE);

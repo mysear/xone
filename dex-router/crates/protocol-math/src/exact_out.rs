@@ -13,8 +13,23 @@ pub struct ExactOutSwap {
     pub next_pool: Pool,
 }
 
-/// Each admitted profile has an independent execution template and original-program oracle.
+/// Each admitted profile has an independent exact-output kernel and original-program oracle.
+/// Execution preparation is advertised separately by the capability catalog.
 pub fn supports_protocol(protocol: &str) -> bool {
+    if matches!(
+        protocol,
+        "pancake-infinity-bin"
+            | "uniswap-v4"
+            | "pancake-infinity-cl"
+            | "balancer-v2-stable2"
+            | "balancer-v2-weighted2-equal"
+            | "balancer-v2-weighted2-static"
+            | "balancer-v2-weighted-multi"
+            | "balancer-v2-managed-snapshot"
+            | "balancer-v2-composable-regular"
+    ) {
+        return true;
+    }
     if crate::orca::supports_profile(protocol)
         || crate::raydium_clmm::supports_profile(protocol)
         || crate::v3::supports_exact_out(protocol)
@@ -66,6 +81,17 @@ pub fn quote_exact_out_for_origin(
 /// Fixed original Router02 execution template with standard external funding.
 /// Other protocols and Token behaviors need their own independent interface.
 pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<ExactOutSwap> {
+    if pool.protocol == xone_domain::infinity_bin::PROFILE {
+        let q = crate::infinity_bin_online::quote_exact_out(pool, output, zero)?;
+        return Ok(ExactOutSwap {
+            amount_in: q.consumed_in,
+            amount_out: q.amount_out,
+            next_pool: q.next_pool,
+        });
+    }
+    if matches!(pool.protocol.as_str(), "uniswap-v4" | "pancake-infinity-cl") {
+        return crate::singleton::quote_exact_out(pool, output, zero);
+    }
     if crate::orca::supports_profile(&pool.protocol) {
         let q = crate::orca::quote_exact_out(pool, output, zero)?;
         return Ok(ExactOutSwap {
@@ -84,6 +110,73 @@ pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<Exact
     }
     if crate::v3::supports_exact_out(&pool.protocol) {
         let q = crate::v3::quote_exact_out(pool, output, zero)?;
+        return Ok(ExactOutSwap {
+            amount_in: q.consumed_in,
+            amount_out: q.amount_out,
+            next_pool: q.next_pool,
+        });
+    }
+    if pool.protocol == "balancer-v2-stable2" {
+        pool.validate()?;
+        let s = pool
+            .stable
+            .as_ref()
+            .ok_or_else(|| err("STABLE_STATE_REQUIRED"))?;
+        let q = crate::balancer_stable::quote_exact_out(
+            [&pool.reserve0.0, &pool.reserve1.0],
+            &s.amplification.0,
+            [&s.rate0.0, &s.rate1.0],
+            &BigUint::from(pool.fee_numerator),
+            &output.0,
+            zero,
+        )?;
+        let mut next_pool = pool.clone();
+        next_pool.reserve0 = Amount::checked(q.next_balances[0].clone())?;
+        next_pool.reserve1 = Amount::checked(q.next_balances[1].clone())?;
+        next_pool.validate()?;
+        return Ok(ExactOutSwap {
+            amount_in: Amount::checked(q.amount_in)?,
+            amount_out: output.clone(),
+            next_pool,
+        });
+    }
+    if matches!(
+        pool.protocol.as_str(),
+        "balancer-v2-weighted2-equal" | "balancer-v2-weighted2-static"
+    ) {
+        pool.validate()?;
+        let s = pool
+            .weighted
+            .as_ref()
+            .ok_or_else(|| err("WEIGHTED_STATE_REQUIRED"))?;
+        let q = crate::balancer_weighted::quote_exact_out_weighted(
+            [&pool.reserve0.0, &pool.reserve1.0],
+            [&s.scaling0.0, &s.scaling1.0],
+            [&s.weight0.0, &s.weight1.0],
+            &BigUint::from(pool.fee_numerator),
+            &output.0,
+            zero,
+        )?;
+        let mut next_pool = pool.clone();
+        next_pool.reserve0 = Amount::checked(q.next_balances[0].clone())?;
+        next_pool.reserve1 = Amount::checked(q.next_balances[1].clone())?;
+        next_pool.validate()?;
+        return Ok(ExactOutSwap {
+            amount_in: Amount::checked(q.amount_in)?,
+            amount_out: output.clone(),
+            next_pool,
+        });
+    }
+    if pool.protocol == "balancer-v2-weighted-multi"
+        || pool.protocol == "balancer-v2-managed-snapshot"
+        || pool.protocol == "balancer-v2-composable-regular"
+    {
+        let (input, output_token) = if zero {
+            (&pool.token0, &pool.token1)
+        } else {
+            (&pool.token1, &pool.token0)
+        };
+        let q = crate::multi_asset::quote_exact_out_tokens(pool, output, input, output_token)?;
         return Ok(ExactOutSwap {
             amount_in: q.consumed_in,
             amount_out: q.amount_out,

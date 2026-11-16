@@ -20,8 +20,34 @@ struct Control {
     curve: Bank,
     curve_ata: Bank,
     funding: Vec<Bank>,
+    ray_funding: Vec<Bank>,
     api: xone_quote_api::Api,
     snapshot: Arc<Mutex<Snapshot>>,
+}
+// Browser scenarios need public amounts/addresses/options, while native account
+// and program bytes remain in the service-owned fixtures and capture evidence.
+fn browser_bank_info(original: &Value) -> Value {
+    fn prune(v: &mut Value) {
+        match v {
+            Value::Object(items) => {
+                items.remove("accounts");
+                items.remove("after");
+                for value in items.values_mut() {
+                    prune(value);
+                }
+            }
+            Value::Array(items) => {
+                for value in items {
+                    prune(value);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut value = original.clone();
+    prune(&mut value);
+    value["sourceBankFixtureHash"] = xone_domain::hash(original).unwrap().into();
+    value
 }
 #[tokio::main]
 async fn main() {
@@ -127,12 +153,30 @@ async fn main() {
             .api
             .cors_allowed_origins = vec![args[2].clone()];
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        funding_info.push(json!({"index":index,"api":format!("http://{}",listener.local_addr().unwrap()),"bank":&*bank.data}));
+        funding_info.push(json!({"index":index,"api":format!("http://{}",listener.local_addr().unwrap()),"bank":browser_bank_info(&bank.data)}));
         funding_tasks.push(rpc_task);
         funding_tasks.push(tokio::spawn(async move {
             axum::serve(listener, api.handler()).await.unwrap();
         }));
         funding.push(bank);
+    }
+    let mut ray_funding = Vec::new();
+    let mut ray_funding_info = Vec::new();
+    for index in 0..10 {
+        let bank = Bank::raydium_funding(index);
+        let (rpc, rpc_task) = bank.serve().await;
+        let (mut service, _) = bank.api_with_manifest(&rpc, runtime_path("rpc-capture").as_deref());
+        Arc::make_mut(&mut service.config)
+            .config
+            .api
+            .cors_allowed_origins = vec![args[2].clone()];
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        ray_funding_info.push(json!({"index":index,"api":format!("http://{}",listener.local_addr().unwrap()),"bank":browser_bank_info(&bank.data)}));
+        funding_tasks.push(rpc_task);
+        funding_tasks.push(tokio::spawn(async move {
+            axum::serve(listener, service.handler()).await.unwrap();
+        }));
+        ray_funding.push(bank);
     }
     let bank = Bank::new();
     let wsol = Bank::wsol(None);
@@ -196,6 +240,7 @@ async fn main() {
         curve: curve.clone(),
         curve_ata: curve_ata.clone(),
         funding,
+        ray_funding,
         api: api.clone(),
         snapshot: Arc::new(Mutex::new(snapshot)),
     };
@@ -215,7 +260,7 @@ async fn main() {
         .merge(admin)
         .layer(middleware::from_fn_with_state(control, delay));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":&*bank.data,"wsolApi":format!("http://{wsol_addr}"),"wsolBank":&*wsol.data,"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":&*token2022.data,"raydiumApi":format!("http://{raydium_addr}"),"raydiumBank":&*raydium.data,"pumpApi":format!("http://{pump_addr}"),"pumpBank":&*pump.data,"curveApi":format!("http://{curve_addr}"),"curveBank":&*curve.data,"curveAtaApi":format!("http://{curve_ata_addr}"),"curveAtaBank":&*curve_ata.data,"funding":funding_info,"orcaQuotes":orca_info,"rayclmmQuotes":rayclmm_info,"v3Quotes":v3_info,"amm":serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33]})).unwrap()).unwrap();
+    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":browser_bank_info(&bank.data),"wsolApi":format!("http://{wsol_addr}"),"wsolBank":browser_bank_info(&wsol.data),"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":browser_bank_info(&token2022.data),"raydiumApi":format!("http://{raydium_addr}"),"raydiumBank":browser_bank_info(&raydium.data),"pumpApi":format!("http://{pump_addr}"),"pumpBank":browser_bank_info(&pump.data),"curveApi":format!("http://{curve_addr}"),"curveBank":browser_bank_info(&curve.data),"curveAtaApi":format!("http://{curve_ata_addr}"),"curveAtaBank":browser_bank_info(&curve_ata.data),"funding":funding_info,"raydiumFunding":ray_funding_info,"orcaQuotes":orca_info,"rayclmmQuotes":rayclmm_info,"v3Quotes":v3_info,"amm":browser_bank_info(&serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33])})).unwrap()).unwrap();
     axum::serve(listener, routes)
         .with_graceful_shutdown(async {
             #[cfg(unix)]
@@ -310,7 +355,7 @@ async fn test_sign(State(c): State<Control>, Json(body): Json<Value>) -> Json<Va
 }
 async fn wallet_stats(State(c): State<Control>) -> Json<Value> {
     Json(
-        json!({"raydiumSendCalls":c.raydium.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"raydiumTransactionCount":c.raydium.transactions.lock().unwrap().len(),"pumpSendCalls":c.pump.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"curveSendCalls":c.curve.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"curveAtaSendCalls":c.curve_ata.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"fundingSendCalls":c.funding.iter().map(|b|b.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count()).collect::<Vec<_>>()}),
+        json!({"raydiumSendCalls":c.raydium.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"raydiumTransactionCount":c.raydium.transactions.lock().unwrap().len(),"pumpSendCalls":c.pump.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"curveSendCalls":c.curve.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"curveAtaSendCalls":c.curve_ata.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count(),"rayFundingSendCalls":c.ray_funding.iter().map(|b|b.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count()).collect::<Vec<_>>(),"fundingSendCalls":c.funding.iter().map(|b|b.calls.lock().unwrap().iter().filter(|v|v.as_str()=="sendTransaction").count()).collect::<Vec<_>>()}),
     )
 }
 

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "original_source_manifest": "integration/tools/reference/singleton-cl/source-metadata.json",
+  "original_source_manifest_sha256": "3ad25b67b300a55f397c69afbdd72fa857467b8160603d583789dbf0671908a2",
+  "baseline_templates": "integration/test/contracts/singleton-quotes.json",
+  "baseline_templates_sha256": "6aaf45375cc0526c9033cf2abb14166aff20348bfb0ce3e9dc2869f108faf1f9",
+  "package_lock": "integration/tools/reference/singleton-cl/package-lock.json",
+  "package_lock_sha256": "a55928c9c2deb6936fd8dc2c3873b9b58416f74955df272f728ab765f9a7fdb4"
+}

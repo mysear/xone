@@ -3,11 +3,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
+    cell::RefCell,
     collections::BTreeMap,
     io::Read,
     path::{Path, PathBuf},
-    sync::Arc,
-    time::Duration,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant},
 };
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
@@ -81,6 +85,88 @@ fn resolve(root: &Path, path: &str) -> Result<PathBuf> {
         root.join(p)
     })
 }
+// The constructor thread owns at most two unused code images. Thread-local
+// destruction releases them, while engines and active workers retain their own
+// Arc. Only already verified Python code is shared; banks, permits, manifests
+// and process execution remain per engine. Every load above still reads and
+// hashes the source, and reuse revalidates every materialized file as well.
+type RuntimeImage = Arc<tempfile::TempDir>;
+thread_local! {
+    static VERIFIED_RUNTIMES: RefCell<Vec<(String,RuntimeImage)>> = const { RefCell::new(Vec::new()) };
+}
+fn materialize_verified_runtime(
+    source: &Path,
+    expected: &BTreeMap<String, String>,
+    files: Vec<(PathBuf, Vec<u8>)>,
+) -> Result<RuntimeImage> {
+    let source_name = source.to_str().ok_or_else(|| err("SBF_RUNTIME_PATH"))?;
+    let key = hash(
+        &json!({"source":source_name,"files":expected,"workerSha256":digest(WORKER.as_bytes())}),
+    )?;
+    let cached = VERIFIED_RUNTIMES.with(|images| {
+        let mut images = images.borrow_mut();
+        let index = images.iter().position(|entry| entry.0 == key)?;
+        let entry = images.remove(index);
+        let image = entry.1.clone();
+        images.push(entry);
+        Some(image)
+    });
+    if let Some(image) = cached {
+        // Source bytes were just hashed against every configured digest.
+        // Compare the retained image byte-for-byte with that validated input;
+        // a second slow debug SHA pass would add constructor latency without
+        // providing a stronger check than exact byte equality.
+        if files.len() != expected.len() {
+            return Err(err("SBF_RUNTIME_CHANGED"));
+        }
+        for (name, verified_bytes) in &files {
+            if read(&image.path().join(name), verified_bytes.len() as u64)
+                .map_err(|_| err("SBF_RUNTIME_CHANGED"))?
+                != *verified_bytes
+            {
+                return Err(err("SBF_RUNTIME_CHANGED"));
+            }
+        }
+        if read(&image.path().join("worker.py"), 1024 * 1024)
+            .map_err(|_| err("SBF_RUNTIME_CHANGED"))?
+            != WORKER.as_bytes()
+        {
+            return Err(err("SBF_RUNTIME_CHANGED"));
+        }
+        return Ok(image);
+    }
+    let image = Arc::new(
+        tempfile::Builder::new()
+            .prefix("xone-sbf-runtime-")
+            .tempdir()
+            .map_err(|_| err("SBF_RUNTIME_UNAVAILABLE"))?,
+    );
+    for (name, bytes) in files {
+        let output = image.path().join(name);
+        std::fs::create_dir_all(output.parent().ok_or_else(|| err("SBF_RUNTIME_PATH"))?)
+            .map_err(|_| err("SBF_RUNTIME_UNAVAILABLE"))?;
+        write_runtime_file(&output, &bytes)?;
+    }
+    write_runtime_file(&image.path().join("worker.py"), WORKER.as_bytes())?;
+    VERIFIED_RUNTIMES.with(|images| {
+        let mut images = images.borrow_mut();
+        images.push((key, image.clone()));
+        if images.len() > 2 {
+            images.remove(0);
+        }
+    });
+    Ok(image)
+}
+fn write_runtime_file(path: &Path, bytes: &[u8]) -> Result<()> {
+    std::fs::write(path, bytes).map_err(|_| err("SBF_RUNTIME_UNAVAILABLE"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o400))
+            .map_err(|_| err("SBF_RUNTIME_UNAVAILABLE"))?;
+    }
+    Ok(())
+}
 impl Engine {
     pub fn load(path: &Path) -> Result<Self> {
         let raw = read(path, 1024 * 1024)?;
@@ -111,12 +197,7 @@ impl Engine {
         let source = resolve(root, &manifest.runtime_directory)?
             .canonicalize()
             .map_err(|_| err("SBF_RUNTIME_UNAVAILABLE"))?;
-        let runtime = Arc::new(
-            tempfile::Builder::new()
-                .prefix("xone-sbf-runtime-")
-                .tempdir()
-                .map_err(|_| err("SBF_RUNTIME_UNAVAILABLE"))?,
-        );
+        let mut verified_files = Vec::new();
         let mut total = 0u64;
         for (name, expected) in &manifest.runtime_files {
             let relative = Path::new(name);
@@ -151,11 +232,10 @@ impl Engine {
             if digest(&bytes) != *expected {
                 return Err(err("SBF_RUNTIME_CHANGED"));
             }
-            let output = runtime.path().join(relative);
-            std::fs::create_dir_all(output.parent().ok_or_else(|| err("SBF_RUNTIME_PATH"))?)
-                .map_err(|_| err("SBF_RUNTIME_UNAVAILABLE"))?;
-            std::fs::write(output, bytes).map_err(|_| err("SBF_RUNTIME_UNAVAILABLE"))?;
+            verified_files.push((relative.to_path_buf(), bytes));
         }
+        let runtime =
+            materialize_verified_runtime(&source, &manifest.runtime_files, verified_files)?;
         let mut banks = Vec::new();
         let mut size = 0u64;
         for file in &manifest.banks {
@@ -174,6 +254,8 @@ impl Engine {
             pool.validate()?;
             if pool.chain_key != manifest.chain_key
                 || !(xone_domain::meteora::supports_profile(&pool.protocol)
+                    || xone_domain::raydium_clmm::supports_classic_profile(&pool.protocol)
+                    || xone_domain::orca::supports_classic_profile(&pool.protocol)
                     || pool.protocol == xone_domain::raydium::PROFILE
                     || xone_domain::pump_amm::supports_profile(&pool.protocol)
                     || pool.protocol == xone_domain::pump::PROFILE)
@@ -187,8 +269,6 @@ impl Engine {
                 sha256: file.sha256.clone(),
             });
         }
-        let worker = runtime.path().join("worker.py");
-        std::fs::write(&worker, WORKER).map_err(|_| err("SBF_RUNTIME_UNAVAILABLE"))?;
         let permits = Arc::new(Semaphore::new(manifest.concurrency));
         Ok(Self {
             manifest,
@@ -202,9 +282,14 @@ impl Engine {
     pub fn available(&self, pool: &Pool, genesis: &str) -> bool {
         self.manifest.chain_key == pool.chain_key
             && self.manifest.genesis_hash == genesis
+            && (!(xone_domain::orca::supports_classic_profile(&pool.protocol)
+                || xone_domain::raydium_clmm::supports_classic_profile(&pool.protocol))
+                || self.manifest.max_compute_units >= 1_400_000)
             && (self.banks.iter().any(|b| b.pool == *pool)
                 || (self.manifest.rpc_capture
                     && (xone_domain::meteora::supports_profile(&pool.protocol)
+                        || xone_domain::raydium_clmm::supports_classic_profile(&pool.protocol)
+                        || xone_domain::orca::supports_classic_profile(&pool.protocol)
                         || pool.protocol == xone_domain::raydium::PROFILE
                         || xone_domain::pump_amm::supports_profile(&pool.protocol)
                         || pool.protocol == xone_domain::pump::PROFILE)))
@@ -295,6 +380,8 @@ impl Engine {
                 .as_ref()
                 .map(|m| m.slot)
                 .or_else(|| pool.raydium_cpmm.as_ref().map(|r| r.bank_slot))
+                .or_else(|| pool.orca_whirlpool.as_ref().map(|r| r.bank_slot))
+                .or_else(|| pool.raydium_clmm.as_ref().map(|r| r.bank_slot))
                 .or_else(|| pool.pump.as_ref().map(|r| r.slot))
                 .ok_or_else(|| err("SBF_BANK_INVALID"))?;
             let expected_hash = hash(snapshot)?;
@@ -389,19 +476,26 @@ impl Engine {
             .stderr
             .take()
             .ok_or_else(|| err("SBF_WORKER_START_FAILED"))?;
+        let input_progress = AtomicUsize::new(0);
+        let output_progress = AtomicUsize::new(0);
+        let error_progress = AtomicUsize::new(0);
+        let started = Instant::now();
         let operation = async {
             let send = async {
-                input
-                    .write_all(&bytes)
-                    .await
-                    .map_err(|_| err("SBF_WORKER_IO"))?;
+                for chunk in bytes.chunks(8192) {
+                    input
+                        .write_all(chunk)
+                        .await
+                        .map_err(|_| err("SBF_WORKER_IO"))?;
+                    input_progress.fetch_add(chunk.len(), Ordering::Relaxed);
+                }
                 drop(input);
                 Ok::<(), xone_domain::Error>(())
             };
             let (_, output, errors) = tokio::try_join!(
                 send,
-                limited(output, 512 * 1024),
-                limited(errors, 64 * 1024)
+                limited_with_progress(output, 512 * 1024, &output_progress),
+                limited_with_progress(errors, 64 * 1024, &error_progress)
             )?;
             let status = child.wait().await.map_err(|_| err("SBF_WORKER_IO"))?;
             if !status.success() {
@@ -415,10 +509,36 @@ impl Engine {
         let mut result = match value {
             Ok(Ok(value)) => value,
             Ok(Err(error)) => {
+                let exited = child.try_wait().ok().flatten().is_some();
+                eprintln!(
+                    "{}",
+                    worker_failure_diagnostic(
+                        &error.0,
+                        started.elapsed(),
+                        bytes.len(),
+                        input_progress.load(Ordering::Relaxed),
+                        output_progress.load(Ordering::Relaxed),
+                        error_progress.load(Ordering::Relaxed),
+                        exited
+                    )
+                );
                 let _ = child.kill().await;
                 return Err(error);
             }
             Err(_) => {
+                let exited = child.try_wait().ok().flatten().is_some();
+                eprintln!(
+                    "{}",
+                    worker_failure_diagnostic(
+                        "SBF_SIMULATION_TIMEOUT",
+                        started.elapsed(),
+                        bytes.len(),
+                        input_progress.load(Ordering::Relaxed),
+                        output_progress.load(Ordering::Relaxed),
+                        error_progress.load(Ordering::Relaxed),
+                        exited
+                    )
+                );
                 let _ = child.kill().await;
                 return Err(err("SBF_SIMULATION_TIMEOUT"));
             }
@@ -459,7 +579,22 @@ impl Engine {
         Ok(result)
     }
 }
-async fn limited(mut reader: impl AsyncRead + Unpin, limit: usize) -> Result<Vec<u8>> {
+fn worker_failure_diagnostic(
+    error: &str,
+    elapsed: Duration,
+    request_bytes: usize,
+    input_bytes: usize,
+    output_bytes: usize,
+    stderr_bytes: usize,
+    child_exited: bool,
+) -> Value {
+    json!({"event":"SBF_WORKER_FAILURE","error":error,"elapsedMs":elapsed.as_millis().min(u128::from(u64::MAX)) as u64,"requestBytes":request_bytes,"inputWrittenBytes":input_bytes,"outputReadBytes":output_bytes,"stderrReadBytes":stderr_bytes,"childExited":child_exited})
+}
+async fn limited_with_progress(
+    mut reader: impl AsyncRead + Unpin,
+    limit: usize,
+    progress: &AtomicUsize,
+) -> Result<Vec<u8>> {
     let mut output = Vec::new();
     let mut buffer = [0u8; 8192];
     loop {
@@ -470,9 +605,149 @@ async fn limited(mut reader: impl AsyncRead + Unpin, limit: usize) -> Result<Vec
         if count == 0 {
             return Ok(output);
         }
+        progress.fetch_add(count, Ordering::Relaxed);
         if output.len() + count > limit {
             return Err(err("SBF_WORKER_OUTPUT_LIMIT"));
         }
         output.extend_from_slice(&buffer[..count]);
+    }
+}
+
+#[cfg(test)]
+mod worker_io_tests {
+    use super::*;
+    #[tokio::test]
+    async fn bounded_output_keeps_the_limit_and_counts_observed_bytes() {
+        let progress = AtomicUsize::new(0);
+        assert_eq!(
+            limited_with_progress(&b"original"[..], 8, &progress)
+                .await
+                .unwrap(),
+            b"original"
+        );
+        assert_eq!(progress.load(Ordering::Relaxed), 8);
+        let progress = AtomicUsize::new(0);
+        assert_eq!(
+            limited_with_progress(&b"oversized"[..], 8, &progress)
+                .await
+                .unwrap_err()
+                .0,
+            "SBF_WORKER_OUTPUT_LIMIT"
+        );
+        assert_eq!(progress.load(Ordering::Relaxed), 9);
+    }
+    #[test]
+    fn failure_diagnostics_contain_counts_not_account_or_transaction_payloads() {
+        let result = worker_failure_diagnostic(
+            "SBF_SIMULATION_TIMEOUT",
+            Duration::from_millis(15001),
+            1024,
+            512,
+            0,
+            0,
+            false,
+        );
+        assert_eq!(
+            result,
+            json!({"event":"SBF_WORKER_FAILURE","error":"SBF_SIMULATION_TIMEOUT","elapsedMs":15001,"requestBytes":1024,"inputWrittenBytes":512,"outputReadBytes":0,"stderrReadBytes":0,"childExited":false})
+        );
+        assert_eq!(result.as_object().unwrap().len(), 8);
+    }
+    fn controlled_manifest() -> (tempfile::TempDir, PathBuf) {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source");
+        std::fs::create_dir_all(source.join("solders")).unwrap();
+        let executable = directory.path().join("python");
+        std::fs::write(&executable, b"controlled-executable-identity").unwrap();
+        let mut files = BTreeMap::new();
+        for (name, data) in [
+            ("solders/__init__.py", b"__version__='0.29.0'".as_slice()),
+            ("typing_extensions.py", b"# controlled runtime".as_slice()),
+        ] {
+            std::fs::write(source.join(name), data).unwrap();
+            files.insert(name.into(), digest(data));
+        }
+        let manifest = RuntimeManifest {
+            schema_version: 1,
+            chain_key: "solana:localnet".into(),
+            genesis_hash: "controlled-genesis".into(),
+            python_executable: FileRef {
+                path: executable.to_str().unwrap().into(),
+                sha256: digest(b"controlled-executable-identity"),
+            },
+            runtime_directory: source.to_str().unwrap().into(),
+            runtime_files: files,
+            banks: Vec::new(),
+            rpc_capture: true,
+            max_compute_units: 1_400_000,
+            timeout_ms: 15000,
+            concurrency: 1,
+        };
+        let path = directory.path().join("runtime.json");
+        std::fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+        (directory, path)
+    }
+    #[test]
+    fn verified_runtime_code_is_reused_but_engine_limits_remain_distinct() {
+        let (_directory, path) = controlled_manifest();
+        let first = Engine::load(&path).unwrap();
+        let mut manifest: RuntimeManifest =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        manifest.max_compute_units = 200_000;
+        manifest.timeout_ms = 100;
+        std::fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+        let second = Engine::load(&path).unwrap();
+        assert!(Arc::ptr_eq(&first.runtime, &second.runtime));
+        assert_ne!(first.manifest_hash, second.manifest_hash);
+        assert_eq!(first.manifest.max_compute_units, 1_400_000);
+        assert_eq!(second.manifest.max_compute_units, 200_000);
+        assert_eq!(first.manifest.timeout_ms, 15000);
+        assert_eq!(second.manifest.timeout_ms, 100);
+        assert!(!Arc::ptr_eq(&first.permits, &second.permits));
+    }
+    #[test]
+    fn cached_code_does_not_bypass_source_revalidation_or_survive_tampering() {
+        let (directory, path) = controlled_manifest();
+        let first = Engine::load(&path).unwrap();
+        std::fs::write(
+            directory.path().join("source/typing_extensions.py"),
+            b"changed-source",
+        )
+        .unwrap();
+        assert_eq!(Engine::load(&path).err().unwrap().0, "SBF_RUNTIME_CHANGED");
+        std::fs::write(
+            directory.path().join("source/typing_extensions.py"),
+            b"# controlled runtime",
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let worker = first.runtime.path().join("worker.py");
+            assert_eq!(
+                std::fs::metadata(&worker).unwrap().permissions().mode() & 0o222,
+                0
+            );
+            std::fs::set_permissions(&worker, std::fs::Permissions::from_mode(0o600)).unwrap();
+            std::fs::write(worker, b"changed worker").unwrap();
+            assert_eq!(Engine::load(&path).err().unwrap().0, "SBF_RUNTIME_CHANGED");
+        }
+    }
+    #[test]
+    fn verified_code_cache_is_bounded_and_eviction_does_not_drop_active_engines() {
+        VERIFIED_RUNTIMES.with(|cache| cache.borrow_mut().clear());
+        let (_a, pa) = controlled_manifest();
+        let first = Engine::load(&pa).unwrap();
+        let first_image = first.runtime.path().to_path_buf();
+        let (_b, pb) = controlled_manifest();
+        let second = Engine::load(&pb).unwrap();
+        let (_c, pc) = controlled_manifest();
+        let third = Engine::load(&pc).unwrap();
+        VERIFIED_RUNTIMES.with(|cache| assert_eq!(cache.borrow().len(), 2));
+        assert!(first_image.join("worker.py").is_file());
+        assert!(!Arc::ptr_eq(&first.runtime, &second.runtime));
+        assert!(!Arc::ptr_eq(&second.runtime, &third.runtime));
+        drop(first);
+        assert!(!first_image.exists());
     }
 }

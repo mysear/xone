@@ -1,4 +1,4 @@
-//! Pinned CP-Swap classic-SPL adapter. No implicit account creation or SOL conversion.
+//! Pinned CP-Swap classic SPL with explicit account creation and WSOL funding.
 use super::*;
 use xone_domain::raydium as r;
 fn owned<'a>(
@@ -36,13 +36,10 @@ pub(super) async fn resolve(
     request: SolanaRequest,
     capture: Capture,
 ) -> Result<Value> {
-    if request.create_destination_ata
+    let using_funding = request.create_destination_ata
         || request.wrap_source_sol
         || request.refund_wrapped_source
-        || request.unwrap_destination_sol
-    {
-        return Err(err("PREPARATION_OPTIONS_UNSUPPORTED"));
-    }
+        || request.unwrap_destination_sol;
     let p = &s.pool;
     let state = p.raydium_cpmm.as_ref().ok_or_else(bad)?;
     let (input, output, iv, ov) = if s.zero {
@@ -50,15 +47,9 @@ pub(super) async fn resolve(
     } else {
         (&p.token1, &p.token0, &state.vault1, &state.vault0)
     };
-    let source = request
-        .source_token_account
-        .unwrap_or(ata(&s.context.caller, input, TOKEN)?);
-    let destination =
-        request
-            .destination_token_account
-            .unwrap_or(ata(&s.context.recipient, output, TOKEN)?);
-    m::pubkey(&source)?;
-    m::pubkey(&destination)?;
+    let addresses = classic_funding::Addresses::new(s, &request, input, output)?;
+    let source = addresses.source.clone();
+    let destination = addresses.destination.clone();
     let pool_key = m::pubkey(&p.pool_id)?;
     let observation = m::pda(&[b"observation", &pool_key], r::PROGRAM_ID)?;
     let token_pd = m::pda(&[&m::pubkey(TOKEN)?], LOADER)?;
@@ -82,6 +73,13 @@ pub(super) async fn resolve(
         state.authority.clone(),
         RENT.into(),
     ];
+    if using_funding {
+        ids.extend([
+            SYSTEM.into(),
+            ASSOCIATED.into(),
+            m::pda(&[&m::pubkey(ASSOCIATED)?], LOADER)?,
+        ]);
+    }
     let mut unique = std::collections::BTreeSet::new();
     ids.retain(|id| unique.insert(id.clone()));
     let rpc = Rpc {
@@ -119,6 +117,14 @@ pub(super) async fn resolve(
         Some(state.deployed_slot),
     )?;
     code(&bank, TOKEN, &state.token_program_code_sha256, slot, None)?;
+    if using_funding {
+        code(&bank, ASSOCIATED, ASSOCIATED_CODE, slot, None)?;
+        let system = get(&bank, SYSTEM)?;
+        if !system.executable || system.owner != "NativeLoader1111111111111111111111111111111" {
+            return Err(bad());
+        }
+    }
+
     let raw = owned(&bank, &p.pool_id, r::PROGRAM_ID, 637)?;
     let cfg = owned(&bank, &state.amm_config, r::PROGRAM_ID, 236)?;
     if raw[..8] != [247, 237, 227, 245, 215, 195, 222, 70]
@@ -241,32 +247,15 @@ pub(super) async fn resolve(
         }
     }
     let required = if s.exact { s.limit } else { s.amount };
-    let before_in = bank
-        .get(&source)
-        .and_then(Option::as_ref)
-        .map(|a| token(a, input, &s.context.caller, TOKEN))
-        .transpose()?;
-    let before_out = bank
-        .get(&destination)
-        .and_then(Option::as_ref)
-        .map(|a| token(a, output, &s.context.recipient, TOKEN))
-        .transpose()?;
-    let mut blockers = Vec::new();
-    if before_in.is_none() {
-        blockers.push("SOURCE_ACCOUNT_MISSING");
-    } else if before_in.is_some_and(|n| n < required) {
-        blockers.push("INSUFFICIENT_TOKEN_BALANCE");
-    }
-    if before_out.is_none() {
-        blockers.push("DESTINATION_ACCOUNT_MISSING");
-    }
-    let payer = get(&bank, &s.context.caller)?;
-    if payer.owner != SYSTEM || payer.executable || !payer.data.is_empty() {
-        return Err(bad());
-    }
-    let mut result = json!({"quoteId":s.quote_view_id,"quoteViewId":s.quote_view_id,"planHash":s.plan_hash,"snapshotRef":s.snapshot,"observedSlot":slot,"ready":false,"blockers":blockers,"sourceTokenAccount":source,"destinationTokenAccount":destination,"sourceTokenProgram":TOKEN,"destinationTokenProgram":TOKEN,"destinationAccountSize":165,"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":false,"sourceAccountCreation":false,"wrapLamports":"0","rentLamports":"0","destinationRentLamports":"0","rentRefundLamports":"0","expectedDestinationTransferFee":"0","expectedNativeRefundLamports":"0","sourceWsolRetained":false,"refundWrappedSource":false,"unwrapDestinationSol":false,"temporaryWsolAccount":Value::Null,"expectedResidualWsol":"0","settlementAsset":output,"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
-    if !blockers.is_empty() {
-        return Ok(result);
+    let mut funding =
+        classic_funding::prepare(&rpc, &bank, s, &request, &addresses, required).await?;
+    funding.result["observedSlot"] = slot.into();
+    if !funding.result["blockers"]
+        .as_array()
+        .ok_or_else(bad)?
+        .is_empty()
+    {
+        return Ok(funding.result);
     }
     let latest = rpc
         .call(
@@ -310,11 +299,13 @@ pub(super) async fn resolve(
         meta(output, false, false),
         meta(&observation, false, true),
     ];
-    let instructions = vec![Instruction {
+    let mut instructions = std::mem::take(&mut funding.prefix);
+    instructions.push(Instruction {
         program_id: r::PROGRAM_ID.into(),
         accounts,
         data_base64: STANDARD.encode(data),
-    }];
+    });
+    instructions.extend(std::mem::take(&mut funding.suffix));
     let message = compile_message_many(&s.context.caller, blockhash, &instructions)?;
     let fee = rpc
         .call(
@@ -328,53 +319,41 @@ pub(super) async fn resolve(
     let cost = fee["value"]
         .as_u64()
         .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
-    if payer.lamports < cost {
-        result["blockers"] = json!(["INSUFFICIENT_FEE_BALANCE"]);
-        return Ok(result);
+    if !funding.finish(s, &request, cost)? {
+        return Ok(funding.result);
     }
+    let mut result = funding.result;
     let wire = unsigned_packet(&message)?;
     result["ready"] = true.into();
-    result["feeLamports"] = cost.to_string().into();
-    result["totalFundingLamports"] = cost.to_string().into();
-    result["expectedPayerLamportDelta"] = (-i128::from(cost)).to_string().into();
     result["recentBlockhash"] = blockhash.into();
     result["lastValidBlockHeight"] = last.into();
     result["instructions"] = json!(instructions);
     if request.simulate {
-        let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&wire),{"encoding":"base64","commitment":"finalized","minContextSlot":slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":[source,destination]}}])).await?;
+        let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&wire),{"encoding":"base64","commitment":"finalized","minContextSlot":slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":[source,destination,s.context.caller]}}])).await?;
         let observed = response["context"]["slot"]
             .as_u64()
             .filter(|n| *n >= slot)
             .ok_or_else(bad)?;
-        let value = &response["value"];
-        if value.get("err") != Some(&Value::Null) {
+        let v = &response["value"];
+        if v.get("err") != Some(&Value::Null) {
             return Err(err("PREPARATION_SIMULATION_FAILED"));
         }
-        let accounts = value["accounts"]
+        let after = v["accounts"]
             .as_array()
-            .filter(|v| v.len() == 2)
+            .filter(|v| v.len() == 3)
             .ok_or_else(bad)?;
-        let paid = before_in
-            .ok_or_else(bad)?
-            .checked_sub(token(
-                &account(&accounts[0])?.ok_or_else(bad)?,
-                input,
-                &s.context.caller,
-                TOKEN,
-            )?)
-            .ok_or_else(bad)?;
-        let received = token(
-            &account(&accounts[1])?.ok_or_else(bad)?,
-            output,
-            &s.context.recipient,
-            TOKEN,
-        )?
-        .checked_sub(before_out.ok_or_else(bad)?)
-        .ok_or_else(bad)?;
-        if paid != s.expected_input || received != s.expected_output {
-            return Err(err("PREPARATION_SIMULATION_AMOUNT_MISMATCH"));
-        }
-        result["simulation"] = json!({"level":"RPC_SIMULATED","success":true,"observedSlot":observed,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"unitsConsumed":value["unitsConsumed"],"independentProductionVerification":false});
+        let before = [
+            values[ids.iter().position(|v| v == &source).ok_or_else(bad)?].clone(),
+            values[ids.iter().position(|v| v == &destination).ok_or_else(bad)?].clone(),
+            values[ids
+                .iter()
+                .position(|v| v == &s.context.caller)
+                .ok_or_else(bad)?]
+            .clone(),
+        ];
+        let (paid, received) =
+            verify_simulated_settlement(&s.context, &result, &before, after, cost)?;
+        result["simulation"] = json!({"level":"RPC_SIMULATED","success":true,"observedSlot":observed,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"unitsConsumed":v["unitsConsumed"],"independentProductionVerification":false});
     }
     result["messageBase64"] = STANDARD.encode(message).into();
     result["unsignedTransaction"] = STANDARD.encode(wire).into();

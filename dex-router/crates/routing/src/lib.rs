@@ -414,37 +414,7 @@ fn evaluate_path_in_place(
         }
         shared_vault::propagate(pools, &q.next_pool)?;
         amount = q.amount_out;
-        if let Some(updated) = &q.next_pool.infinity_bin {
-            for other in pools.values_mut() {
-                let Some(target) = &mut other.infinity_bin else {
-                    continue;
-                };
-                if target.manager != updated.manager {
-                    continue;
-                }
-                for (token, reserve, fees) in [
-                    (
-                        &q.next_pool.token0,
-                        &updated.app_reserve0,
-                        &updated.protocol_fees0,
-                    ),
-                    (
-                        &q.next_pool.token1,
-                        &updated.app_reserve1,
-                        &updated.protocol_fees1,
-                    ),
-                ] {
-                    if other.token0 == *token {
-                        target.app_reserve0 = reserve.clone();
-                        target.protocol_fees0 = fees.clone();
-                    }
-                    if other.token1 == *token {
-                        target.app_reserve1 = reserve.clone();
-                        target.protocol_fees1 = fees.clone();
-                    }
-                }
-            }
-        }
+        propagate_bin_currency(pools, &q.next_pool);
         pools.insert(e.pool_id.clone(), q.next_pool.clone());
         let hop_funds = funds.map(|f| Funds {
             sender: f.sender,
@@ -696,4 +666,40 @@ pub fn search_bounded_with_funds(
         expansions,
         evaluations,
     })
+}
+
+/// Manager currency balances and protocol counters are shared across physical Bin pools.
+/// The caller owns atomic candidate state and commits it after successful full replay.
+pub(crate) fn propagate_bin_currency(pools: &mut BTreeMap<String, Pool>, next_pool: &Pool) {
+    if let Some(updated) = &next_pool.infinity_bin {
+        for other in pools.values_mut() {
+            let Some(target) = &mut other.infinity_bin else {
+                continue;
+            };
+            if target.manager != updated.manager {
+                continue;
+            }
+            for (token, reserve, fees) in [
+                (
+                    &next_pool.token0,
+                    &updated.app_reserve0,
+                    &updated.protocol_fees0,
+                ),
+                (
+                    &next_pool.token1,
+                    &updated.app_reserve1,
+                    &updated.protocol_fees1,
+                ),
+            ] {
+                if other.token0 == *token {
+                    target.app_reserve0 = reserve.clone();
+                    target.protocol_fees0 = fees.clone();
+                }
+                if other.token1 == *token {
+                    target.app_reserve1 = reserve.clone();
+                    target.protocol_fees1 = fees.clone();
+                }
+            }
+        }
+    }
 }

@@ -1,6 +1,6 @@
 # Xone 开发进度与完成情况
 
-更新：2026-11-13。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
+更新：2026-11-16。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
@@ -16,6 +16,17 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Raydium CLMM高级经典SPL执行（阶段84）|§12/14/15/23；WP05、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|Bitmap/自定义seed/动态费三个经典SPL模型完整准备、同捕获SBF、显式ATA/WSOL和钱包回执；能力/21|162API/162重启回执/324原交易，33门禁/306次Rust/667项Chrome（181新增）通过；见[阶段84](#plan-2026-11-16-rayclmm-advanced-execution)，其他版本/生产资格仍缺|
+|Raydium CLMM经典SPL执行（阶段83）|§12/14/15/23；WP05、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|三个固定经典SPL模型的完整准备、同捕获SBF、显式ATA/WSOL、钱包回执；能力/20|56API/56重启回执/112原交易，31门禁/135次Rust/486项Chrome（129新增）通过；见[阶段83](#plan-2026-11-16-rayclmm-execution)，高级扩展/生产资格仍缺|
+|Orca自适应SPL执行链路（阶段82）|§12/14/15/23；WP05、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|三个自适应经典SPL模型的Oracle全字节/写权限、资金准备、同次捕获SBF和钱包回执；能力/19|54API/54重启回执/108原交易、28检查/95次Rust/357项Chrome（121新增）通过；见[阶段82](#plan-2026-11-15-orca-adaptive-execution)，其他版本/Token2022/生产资格仍待完成|
+|Orca经典SPL执行链路（阶段81）|§12/14/15/23；WP05、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|静态/奖励经典SPL完整账户验证、原swap、ATA/WSOL组合、同捕获SBF与钱包回执；能力/18|32份API/32重启回执/64原交易，25检查/88次Rust/236项Chrome（81新增）通过；见[阶段81](#plan-2026-11-15-orca-execution)，adaptive/Token2022/生产资格仍待完成|
+|Raydium ATA与WSOL资金准备（阶段80）|§12/14/15/23；WP05、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|经典SPL显式ATA/WSOL补足、临时退款/输出解包；同次System/ATA/Rent捕获、原SBF/独立模拟和单次钱包发送回执|10场景/20原交易、21检查/26次Rust/155项Chrome（40新增资金）通过；见[阶段80](#plan-2026-11-15-raydium-funding)，Token2022/其他版本/生产与历史银行资格仍待完成|
+|Composable普通币对ExactOut（阶段79）|§12/13/14/15/23；WP12、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|原StableMath目标、任意BPT位置/完整注册向量、BPT拒绝、顺序/网格分配/API/计划/前端|288目标/216成功、72序列/216步、3顺序/3网格，20检查/52次Rust/6项Chrome通过；见[阶段79](#plan-2026-11-15-composable-exact-out)，执行模板仍未完成|
+|Managed Snapshot ExactOut（阶段78）|§12/13/14/15/23；WP12、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|实际压缩权重/fee的GIVEN_OUT、任意币对完整物理状态/网格/顺序分配、API/计划/前端|180目标、9状态/36步、3顺序/3网格、20检查/41次Rust/4项Chrome通过；见[阶段78](#plan-2026-11-15-managed-snapshot-exact-out)，执行模板仍未完成|
+|静态Infinity Bin ExactOut（阶段77）|§12/13/14/15/23；WP12、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|独立逐bin输出目标、完整树/active尘埃、共享币种账本同步、路由/计划/API/前端|264原场景、72连续步、2顺序/2网格、48真实burn；20检查/72次Rust/4项Chrome通过，见[阶段77](#plan-2026-11-15-infinity-bin-exact-out)；执行模板仍未完成|
+|零hook Singleton CL ExactOut（阶段76）|§12/13/14/15/23；WP12、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|双模型目标驱动数学/manager单池计划、容量网格和同池顺序分配、API与前端|644原始场景（424完整输出/220拒绝）、4连续/4同池序列及4容量网格；20检查/51次Rust/8项Chrome通过；见[阶段76](#plan-2026-11-15-singleton-exact-out)，执行模板仍未完成|
+|Balancer标准Stable2 ExactOut（阶段75）|§12/13/14/15/23；WP12、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|独立目标求解、费用/缩放与现金，复用固定块状态/路由/计划/API；模型/12|720原数学场景、45序列180步、3网格及3同池顺序分配；20检查/48次Rust/4项Chrome通过；见[阶段75](#plan-2026-11-15-stable-exact-out)，执行模板仍未完成|
+|Balancer不可变Weighted ExactOut（阶段74）|§12/13/14/15/23；WP12、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|三类Weighted独立GIVEN_OUT内核、全资产状态/显式token边、最小输入分配、API及能力版本/11|304原回调场景、48连续步、2组网格/2组同池顺序分配；最终17检查、33次Rust、12项Chrome通过，见[阶段74](#plan-2026-11-14-weighted-exact-out)；执行模板及其他协议仍未完成|
 |链/DEX解析、路由与兑换量计算收尾|§3/7/8/12/13；[计算收尾计划](#plan-2026-11-08-quote-completion)|IN_PROGRESS|新增最多8路拆单、独立池网格动态规划、共享状态有界搜索、浅池候选与预算报告；Velodrome V2独立版本和216原数学/8序列24步已实现|阶段46–48补齐旧LM、Slipstream及LFJ独立ExactOut注明范围；阶段49–53补齐限定DLMM MM/OnlyY/奖励/订单/Token2022/bitmap、Pump独立ExactOut及PumpSwap/毕业迁移；阶段57–59完成卖出目标及前端账户准备/包装，阶段60已补临时WSOL解包/余款退款，阶段61补限定Token2022收款ATA/withheld联验；策略交叉、其他协议组合/净链费用和第二批链仍有缺口，不宣称全链/全DEX完成|
 |R01–R04真实来源、持续采集与范围恢复|§7/8/18/27.3/28；[11项计划](#plan-2026-11-06-r01-r04)|IN_PROGRESS|三服务当前全check及167 Rust定向/174 EVM race、普通23检查/8恢复通过；13 EVM+3 SBF源码精确重建，新Polygon/Arbitrum原VM及normal收款一致|动态目录、同KV恢复、实际PG/Kafka与normal流已接并验；全目录可信历史bank/来源独立性/生产资格仍待闭合，参见[当前核对报告](integration/artifacts/local/r01-r04-current-final-audit.json)|
 |EVM在线头时间准入与撤销|§7.3/9/23；WP05、WP09、WP25|LOCAL_SCOPE_VERIFIED|在线head与提交前统一新鲜度检查，未来/过期头拒绝、旧引用保留及Tick撤销定向/全量通过|真实进程未来head故障撤销/恢复通过；独立可信头、完整provider矩阵及共识仍未完成|
@@ -99,7 +110,7 @@
 |pancake-v2|pancake-v2/core-1|EVM|4,7.3,11.3,12.2,12.11,12.14|WP02,WP05,WP10,WP12,WP13,WP18|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|真实链历史/执行收款差分与生产部署审计；税费/rebase/异常token与执行上下文；DEX版本专属calldata/独立执行；新版本或ABI/代码升级须独立接入；不自动兼容|
 |pancake-v3|pancake-v3/core-1|EVM|4,7.3,11.3,12.2,12.11,12.14|WP02,WP05,WP11,WP12,WP13,WP18|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|真实链历史/执行收款差分与生产部署审计；税费/rebase/异常token与执行上下文；DEX版本专属calldata/独立执行；新版本或ABI/代码升级须独立接入；不自动兼容|
 |sushiswap-v2|sushiswap-v2/core-1|EVM|4,7.3,11.3,12.2,12.11,12.14|WP02,WP05,WP10,WP12,WP13,WP18|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|真实链历史/执行收款差分与生产部署审计；税费/rebase/异常token与执行上下文；DEX版本专属calldata/独立执行；新版本或ABI/代码升级须独立接入；不自动兼容|
-|uniswap-v4|uniswap-v4/core-1 (source bea7f6d1)|EVM|4,12.2,12.11|WP02,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|零hook/静态LPfee<1e6/标准非零ERC20；独立manager/rawPoolId、extsload、方向费与完整tick证明已实现；动态fees/hooks/native/自定义会计、manager unlock/settlement及真实执行未完成；真实部署目录/历史块/特殊Token/生产验收未完成|
+|uniswap-v4|uniswap-v4/core-1 (source bea7f6d1)|EVM|4,12.2,12.11|WP02,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|零hook/静态LPfee<1e6/标准非零ERC20；独立manager/rawPoolId、extsload、方向费与完整tick证明已实现；动态fees/hooks/native/自定义会计、manager unlock/settlement及真实执行未完成；真实部署目录/历史块/特殊Token/生产验收未完成；阶段76补原生正数输出目标、容量拆单/顺序重算、manager计划/API/前端有限验收；完整Manager结算/执行仍未实现|
 |curve|每个stable/crypto具体合约版本待固定|EVM|4,12.2,12.11|WP11|NOT_IMPLEMENTED|PARTIAL_LOCAL|NOT_IMPLEMENTED|Plain2/3/4各独立profile已局部实现；标准Meta直接交换及NG已由独立profile接入服务，Crypto完整交换数学及标准settled独立版本的状态/解析/报价已补，经典SPL/fixed-array限定服务验收通过；其他Plain/Meta underlying/Lending、特殊Token、Crypto其他版本与active-ramp在线状态、完整执行仍未完成|
 |balancer|V2/V3分别适配，具体pool版本待固定|EVM|4,12.2,12.11|WP11|NOT_IMPLEMENTED|PARTIAL_LOCAL|NOT_IMPLEMENTED|Stable2、Weighted双币/多币及限定Managed/Composable regular另列已实现子集；原BPT数学内核不等于完整callback；非零BPT费用、供应/缓存/rate provider/V3及执行仍未完成|
 |aerodrome-v2-volatile|aerodrome-v2-volatile/pool-1|EVM|4,7.3,11.3,12.2,12.11|WP02,WP04,WP05,WP11,WP12,WP13|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|特殊Token/完整执行与部署目录审计；支持fee<=300/10000的标准Pool，factory动态值按同块读取；合成RPC与独立参考已验证，真实链历史块及收款差分仍未完成|
@@ -108,7 +119,7 @@
 |velodrome-v2-stable|velodrome-v2-stable/b3065d8b-1|EVM|3,7.3,11.3,12.2,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP18,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|独立_f舍入语义，保留Aerodrome旧_k分支；216原数学/8序列24步及30舍入控制，factory暂停/reorg/恢复通过；不将固定标签当实际OP部署证明|
 |lfj-lb-v21|lfj-lb/v2.1.0-fee-oracle-1|EVM|3,7.3,11.3,12.2,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP18,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|独立field31、完整有界bin集/份额、动态费/协议费/Oracle；96原ExactIn/19API38原swap及10负控通过；阶段48新增独立目标输入与显式额外到账，216完整/72拒绝/18连续及181API原Pair/24额外到账/9负控同源码通过；标准Token/同步余额/外部funds限定，真实Avalanche部署资格/公开执行与链费用仍未闭合|
 |curve-plain2-basic|curve-plain2-basic/factory-5|EVM|4,7.3,11.3,12.2,12.11|WP02,WP04,WP05,WP11,WP12,WP13|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|仅factory Plain2Basic Vyper0.3.1两币/固定rate_multipliers；其他plain/meta/crypto/NG、动态rate/rebase未支持；合成RPC与独立参考已验证，真实链历史块及收款差分仍未完成|
-|balancer-v2-stable2|balancer-v2-stable2/stable-1|EVM|4,7.3,11.3,12.2,12.11|WP02,WP04,WP05,WP11,WP12,WP13|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|仅历史V2非composable两币StablePool，无BPT/rate-provider；Weighted双币等权另列独立profile；composable/V3及执行未支持；合成RPC与独立参考已验证，真实链历史块及收款差分仍未完成|
+|balancer-v2-stable2|balancer-v2-stable2/stable-1|EVM|4,7.3,11.3,12.2,12.11|WP02,WP04,WP05,WP11,WP12,WP13|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|双币标准StablePool/零管理余额、固定块amp与scaling；阶段75补独立GIVEN_OUT及路由/输入分配/API/前端，720原StableMath场景和180连续步；参考为原数学/现金库包装，完整Vault/Token转账/Composable/BPT/rate及执行模板未验收|
 |aerodrome-slipstream|aerodrome-slipstream/cl-1|EVM|4,12.2,12.11|WP11,WP18|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|6word slot0/10word tick、factory及clone实现身份、两个fee module均为零的金额域；未实现非零外部费用模块、reward/fee-growth忠实重演及完整执行；金额参考目前为原V3 SDK；真实部署目录与Slipstream全合约执行差分未完成|
 |aerodrome-slipstream-context|aerodrome-slipstream/f8717faa-module-1|EVM|3,7.3,11.3,12.2,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP18,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|独立field32、固定原模块/Voter/Factory与有界调用方费用上下文、完整staking/reward/tick/Oracle后状态；原ExactIn90完整swap/4序列12步与13实际API通过；阶段47新增独立ExactOut90完整/18部分拒绝/12连续、49实际API原程序/9负控及当前同源码回归通过；其他模块/Token/真实Base来源、链费用与生产执行仍未完成|
 |pancake-infinity|其他CL/hook及Bin版本|EVM|4,12.2,12.11|WP11|NOT_IMPLEMENTED|NOT_IMPLEMENTED|NOT_IMPLEMENTED|pancake-infinity-cl/cl-1静态零hook标准域另列PARTIAL_LOCAL；其他CL参数/动态swap hook与native完整结算、Bin其他动态/hook/native组合及完整执行未完成；静态零hook完整树独立服务已在对应版本完成有限验收|
@@ -119,37 +130,37 @@
 |raydium-cpmm|archived cpmm-v1 decoder only; nonzero creator extension rejected|Solana|4,12.2,12.11|WP20|PARTIAL_LOCAL|NOT_IMPLEMENTED|NOT_IMPLEMENTED|仅archive旧零扩展布局有限解析，不报价；当前creator源码profile另列独立支持；此旧标签不自动升级；版本身份/Token扩展/执行不从新profile借用|
 |raydium-clmm|其他order/reward/Token与程序协议版本|Solana|4,12.2,12.11|WP20|NOT_IMPLEMENTED|NOT_IMPLEMENTED|NOT_IMPLEMENTED|raydium-clmm-static/token-fee/bitmap/custom-seed/dynamic五个固定6d7a0f82经典SPL范围另列局部实现；初始化奖励/限价订单/Token2022/其他程序版本及完整SBF执行未实现|
 |orca-whirlpools|其他Orca fee/oracle/token/reward版本|Solana|4,12.2,12.11|WP20|NOT_IMPLEMENTED|NOT_IMPLEMENTED|NOT_IMPLEMENTED|orca-whirlpools-static/rewards与新adaptive固定cc683ec9各自限定范围另列；adaptive初始化奖励/dynamic数组组合、Token2022/扩展及完整SBF执行未实现|
-|meteora-dlmm|1532e540独立MM/InputOnly、OnlyY、bitmap、rewards、orders、token2022版本|Solana|4,7.3,8,11.3,12.2,12.10,12.11,12.14,13|WP02,WP03,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|阶段49..51历史限定验收保留；阶段52新增扩展bitmap、双奖励、三层订单ExactIn、X侧Token2022转账费/epoch/withheld，408原银行与完整账本复验通过，33检查/56Rust/45实际计划限定验收通过；高级策略交叉/订单ExactOut/任意Token扩展/host/奖励领取/订单管理、可信银行及公开执行仍缺|
-|pump|pump-bonding/7a19affaa2c6-sol-1；独立migration版本|Solana|4,7.3,11.3,12.2,12.6,12.10,12.11,12.14|WP02,WP03,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|阶段51classic/SOL原银行与正常进程历史验收保留；阶段52独立buy目标与sell最小输入/显式盈余、迁移专用库存和已迁移清零状态、原migrate创建账户交接及重复幂等已验；最终限定验收通过；非SOL/Token2022/返还奖励/动态用户账户/自动发现/公开执行仍缺|
-|pump-amm-classic-wsol|pump-amm/6a7ad34596d8-classic-wsol-1|Solana|4,7.3,12.6,12.10,12.11,12.14|WP02,WP03,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|独立canonical AMM/真实vault；classic+backedWSOL v1 sell/buy_exact_quote_in/buy目标，27原案例/完整分账及迁移创建的真实池后续swap复验通过；最终同源限定验收通过；v2/Token2022资产/非WSOL/高级费用与共享多池/自动发现/公开构建仍缺|
-|pancake-infinity-bin|pancake-infinity-bin/3c5ef1be-static-1|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP14,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定原BinPoolManager/Vault，静态LP fee<=100000、零hook、标准非零ERC20；完整root/L1/L2/all bins/share、active与树外锁定dust、固定块来源和manager共享账本已接入；限定服务本地验收通过；动态hook/override/native、完整Vault unlock/settlement及真实部署未完成|
-|pancake-infinity-cl|pancake-infinity-cl/cl-1 (source 3c5ef1be)|EVM|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|零hook/静态LPfee<1e6/标准ERC20；parameters仅tickSpacing<<16，独立6word key/manager getters/pause；每方向protocol fee<=4000；未知参数/hook/dynamic/native/Bin拒绝；Vault约束/管理器unlock/settlement/真实执行及部署审计未完成|
-|raydium-cpmm-creator|raydium-cpmm/f4b9b263-spl-1|Solana|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP07,WP09,WP10,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定f4b9b263 creator布局/经典SPL域；十账户同finalized上下文、ProgramData及Tokenkeg代码hash、Clock/PDA/WSOL准入；actualcreator输入/输出ceil、protocol/fund计提与raw/账本/net后状态；独立native原程序参考，未执行完整SBF/Token程序；真实部署/source-binary/runtimeactivation、Token2022、流/WAL/历史补洞、交易/CU/账户锁/执行未完成|
-|orca-whirlpools-static|orca-whirlpools/cc683ec9-spl-static-1|Solana|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定cc683ec9、static tier/空systemoracle/无reward-control、经典SPL和backedWSOL；Q64与fixed/dynamic arrays独立状态/数学；一次finalized账户集/ProgramData-Tokenhash/Clock/PDA，方向最多3数组，完整消耗+feeGrowth/raw/owed后状态；adaptivefees/rewards/Token2022/实际部署source-binary/runtimeactivation/SBF/CPI/用户收款/CU/WAL/流未完成|
-|raydium-clmm-static|raydium-clmm/6d7a0f82-spl-static-1|Solana|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定6d7a0f82/inputfee/defaultDynamic/legacyseed/no-rewards/no-orders/classicSPL/WSOL，3..7数组/基础1024bit范围；同finalized程序/ProgramData/Tokenhash/Clock/PDA/实际布局；原Q64step及全Pool后状态；高级fee/订单/奖励/扩展bitmap/Token2022/真实部署/sourcebinary/runtimeactivation/流/WAL/完整交易/CU/SBF未完成|
-|raydium-clmm-token-fee|raydium-clmm/6d7a0f82-spl-token-fee-1|Solana|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定6d7a0f82静态费/classicSPL/basebitmap，显式Token0Only/Token1Only模式，与旧mode0profile隔离；968原native案例/24连续序列192步、21进程检查、两阶段独立审查与冻结完整回归通过；不等于SBF或部署验证；dynamicfee/customseed/reward/order/bitmapextension/Token2022/实际部署/流/WAL/交易/SBF/CPI未完成|
+|meteora-dlmm|1532e540独立MM/InputOnly、OnlyY、bitmap、rewards、orders、token2022版本|Solana|4,7.3,8,11.3,12.2,12.10,12.11,12.14,13|WP02,WP03,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|六个固定MM/OnlyY/bitmap/rewards/orders/选定Token2022版本已有局部解析及精确报价；单池unsigned准备、显式ATA/WSOL、同次RPC捕获与独立原SBF、钱包单次发送和恢复回执已实现。选定转账费不扩大为任意Token扩展；生产可信银行、跨版本/高级策略交叉、host/奖励领取与订单管理仍缺|
+|pump|pump-bonding/7a19affaa2c6-sol-1；独立migration版本|Solana|4,7.3,11.3,12.2,12.6,12.10,12.11,12.14|WP02,WP03,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|经典SOL曲线和独立migration模型已有局部精确数学；仅经典SOL曲线开放本地unsigned/显式ATA/独立原SBF/钱包回执，迁移不借用该执行能力。迁移库存/已迁移清零与原migrate账户交接和重复幂等的历史限定验收保留；非SOL/Token2022/返还奖励/自动发现/可信生产执行仍缺|
+|pump-amm-classic-wsol|pump-amm/6a7ad34596d8-classic-wsol-1|Solana|4,7.3,12.6,12.10,12.11,12.14|WP02,WP03,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|固定classic+backedWSOL与boost独立profile已有局部报价；单池unsigned、显式ATA/WSOL补足/临时退款/输出解包、同次RPC捕获独立原SBF、钱包单次发送及实际租金/重启回执已实现。本批旧资金22场景回归；v2/Token2022资产/非WSOL/高级费用与共享多池/自动发现、生产可信来源及公开执行仍缺|
+|pancake-infinity-bin|pancake-infinity-bin/3c5ef1be-static-1|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP14,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定原BinPoolManager/Vault，静态LP fee<=100000、零hook、标准非零ERC20；完整root/L1/L2/all bins/share、active与树外锁定dust、固定块来源和manager共享账本已接入；限定服务本地验收通过；动态hook/override/native、完整Vault unlock/settlement及真实部署未完成；阶段77补完整树ExactOut/真实burn尘埃、共享manager币种账本/分配/计划/API/前端；完整Manager/Vault结算及执行模板仍未完成；阶段77补完整树ExactOut/真实burn尘埃、共享manager币种账本/分配/计划/API/前端；完整Manager/Vault结算及执行模板仍未完成|
+|pancake-infinity-cl|pancake-infinity-cl/cl-1 (source 3c5ef1be)|EVM|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|零hook/静态LPfee<1e6/标准ERC20；parameters仅tickSpacing<<16，独立6word key/manager getters/pause；每方向protocol fee<=4000；未知参数/hook/dynamic/native/Bin拒绝；Vault约束/管理器unlock/settlement/真实执行及部署审计未完成；阶段76补原生正数输出目标、容量拆单/顺序重算、manager计划/API/前端有限验收；完整Manager结算/执行仍未实现|
+|raydium-cpmm-creator|raydium-cpmm/f4b9b263-spl-1|Solana|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP07,WP09,WP10,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|固定f4b9b263 creator布局/经典SPL域；同次finalized状态/ProgramData/Token/Clock与程序身份校验、creator费与完整后状态；原CP-Swap/Token SBF、RPC捕获独立模拟、显式ATA/WSOL补足/临时退款/解包、钱包单次发送及租金/重启回执通过；真实部署/source-binary/runtime activation、历史bank共识与生产准入、Token2022/其他版本、多路执行和完整链流/WAL/历史补洞仍待完成|
+|orca-whirlpools-static|orca-whirlpools/cc683ec9-spl-static-1|Solana|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|固定cc683ec9静态tier/空System Oracle/经典SPL，固定及动态数组精确数学；单池ExactIn/Out unsigned、显式ATA/WSOL/临时退款解包、完整Pool/tick同捕获原SBF和钱包单次发送/恢复回执已验；1/2/3方向数组原ABI、PDA/代码/Clock、Vault已有SOL捐赠保持原值；adaptive/Token2022/其他程序版本/生产与历史bank共识资格、完整流/WAL/历史补洞及多池执行仍缺|
+|raydium-clmm-static|raydium-clmm/6d7a0f82-spl-static-1|Solana|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|固定6d7a0f82经典SPL/WSOL、静态输入费/default dynamic/legacy seed/无奖励无挂单、基础bitmap与3..7数组；局部解析与精确ExactIn/Out、完整Pool/Observation/数组和费用/奖励后状态已验；阶段83补单池unsigned、同次捕获独立原SBF、显式ATA/WSOL/临时退款解包、实际资金/费用/租金及钱包单次发送和重启回执，三模型56场景统一本地验收通过；附属Token2022程序不开放Token2022资产扩展，bitmap/custom-seed/dynamic与奖励高级组合、订单/奖励领取、真实部署source-binary/runtime activation、历史bank共识/生产、多池执行和完整流/WAL仍待独立验收|
+|raydium-clmm-token-fee|raydium-clmm/6d7a0f82-spl-token-fee-1|Solana|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|固定6d7a0f82经典SPL/WSOL、静态费/default dynamic/legacy seed/无奖励无挂单、基础bitmap与Token0Only/Token1Only原分支舍入；局部解析与精确ExactIn/Out、完整Pool/Observation/数组和费用/奖励后状态已验；阶段83补单池unsigned、同次捕获独立原SBF、显式ATA/WSOL/临时退款解包、实际资金/费用/租金及钱包单次发送和重启回执，三模型56场景统一本地验收通过；附属Token2022程序不开放Token2022资产扩展，bitmap/custom-seed/dynamic与奖励高级组合、订单/奖励领取、真实部署source-binary/runtime activation、历史bank共识/生产、多池执行和完整流/WAL仍待独立验收|
 |raydium-clmm-bitmap|raydium-clmm/6d7a0f82-spl-bitmap-1|Solana|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|新profilemandatory1832extension、14正/负512bit分组与跨base范围，静态mode0/1/2/classicSPL；364原native案例/12序列24步、86源索引/4非法、28进程、两阶段审查与冻结完整回归通过；非完整SBF或部署证明；dynamicfee/customseed/rewards/orders/Token2022/实际部署/流/WAL/交易SBF未完成|
 |raydium-clmm-custom-seed|raydium-clmm/6d7a0f82-spl-custom-seed-1|Solana|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定create_customizable_pool_v2/seed1..65535u16LE、mandatorybitmap、staticfee0/1/2/classicSPL；旧profileseed0隔离；464原native案例/48序列96步、18身份错误探针/9身份向量、32进程、双seed状态隔离、两阶段审查和冻结完整回归通过；非完整SBF或部署证明；dynamicfee/rewards/orders/Token2022/真实部署/流/WAL/交易SBF与生产未完成|
 |raydium-clmm-dynamic|raydium-clmm/6d7a0f82-spl-dynamic-1|Solana|4,7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定DynamicFeeInfo9字段/原time-reference波动/spacing分段exact-in，mandatorybitmap/classicSPL/mode0..2/seed0..65535限定范围；348原native案例/12序列24步、8时间不变/6admission探针、2原始bank完整Pool及41进程、两阶段审查和冻结完整回归通过；非完整SBF或部署证明；reward/order/Token2022/其他程序版本/真实部署/流/WAL/交易SBF及生产未完成|
-|balancer-v2-weighted2-equal|balancer-v2-weighted2/equal-1|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|双币不可变50/50、普通非BPT代币及零资产管理器的版本限定模型；固定区块、765原onSwap案例、45组180步及17项PG/Kafka双副本检查通过；配置方标准非BPT声明不等于部署/Token行为证明；其他权重/Managed/Composable/RateProvider/V3未完成|
-|balancer-v2-weighted2-static|balancer-v2-weighted2/static-1|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|不可变双币、各权重≥1%且总和1e18，保留equal旧版；5355原onSwap案例/315组1260步、240pow向量及18项六池双副本验证通过；旧模型和canonical fixture保持；配置方标准非BPT声明不等于部署证明；多币/Managed/Composable/BPT/RateProvider/V3及执行未完成|
-|balancer-v2-weighted-multi|balancer-v2-weighted-multi/static-1|EVM|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|3至20币的单物理池余额向量、全token路由边和固定块读取已完成限定模型本地验收；原参考和六模型进程通过，Managed/Composable另列任务|
+|balancer-v2-weighted2-equal|balancer-v2-weighted2/equal-1|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|不可变双币50/50、普通非BPT与零资产管理器；既有765原onSwap/45组180步与PG/Kafka限定验收；阶段74补独立ExactOut、API及前端；配置方Token声明不等于部署证明，执行模板未完成|
+|balancer-v2-weighted2-static|balancer-v2-weighted2/static-1|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|不可变双币、权重各≥1%且总和1e18；既有5355原onSwap/315组1260步及240pow向量；阶段74补独立ExactOut、API与前端，保留equal旧版；多币另列profile，Managed/Composable/BPT/rate及执行不借用本版本|
+|balancer-v2-weighted-multi|balancer-v2-weighted-multi/static-1|EVM|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|3至20币单物理余额向量、全部token路由边与固定块读取；阶段74补GIVEN_OUT与非首币对路由、最小输入网格及同池顺序重算、API/前端；Managed/Composable另列，完整Vault/Token转账与执行模板未完成|
 |curve-plain3-basic|curve-plain3-basic/factory-1|EVM|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|三币Plain固定源码/布局/原exchange差分、完整后余额及正常RPC/路由通过，Meta/Lending/NG/Crypto不能由此替代|
 |curve-plain4-basic|curve-plain4-basic/factory-1|EVM|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|四币Plain固定源码/布局/原exchange差分、多资产路由与完整后余额通过|
 |curve-stableswap-ng|curve-stableswap-ng/3332cd44-standard-1|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定原Vyper版本2–8币标准type0；完整raw/admin/effective余额、动态费、packed价格/D/EMA及正常服务接入已开发，三组正式进程回归及限定范围验收通过；rebasing/oracle/ERC4626、clones及真实部署/完整执行仍未完成|
 |curve-crypto2-full|curve-crypto2-full/d7d04cd9-standard-1|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定d7d04cd9原CryptoSwap2及原V4 LP模板；标准ERC20/settled A-gamma，完整price-scale调整/fee/gulp/LP账本已接入固定块解析和普通报价；正常服务进程与独立审查通过；本版本继续拒绝active ramp，活动ramp由独立版本另列；其他Crypto版本/特殊Token、真实部署与完整执行未完成|
 |curve-crypto2-ramp|curve-crypto2-ramp/d7d04cd9-ramp-1|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定d7d04cd9原CryptoSwap2与原V4 LP；标准ERC20的活动/到期/停止ramp，完整起点/未来端点及时间；原公开管理调用/完整交换、固定块解析与双副本正常服务限定验收通过；其他版本/特殊Token/真实历史及完整执行未完成|
 |curve-metausd-direct|curve-metausd-direct/5272fd2b-fixed-base-1|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定MetaUSD实现与EIP1167初始化池，标准meta/3CRV直接兑换、base虚拟价格依赖和完整raw/admin状态；针对性与四组正式流程回归、有限范围验收均通过；underlying、可变base同计划及真实部署/完整执行未完成|
-|balancer-v2-managed-snapshot|balancer-v2-managed-snapshot/no-bpt-fees-1|EVM|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|2至38币当前权重快照，必须swaps enabled且协议/管理swap fee为零；非零费用BPT铸造仍未完成；后续非零费用批次发现所用旧参考源码runtime超EIP170，已有合成解析/零费数学结果不构成真实部署版本验收|
+|balancer-v2-managed-snapshot|balancer-v2-managed-snapshot/no-bpt-fees-1|EVM|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|2至38币当前权重快照，必须swaps enabled且协议/管理swap fee为零；非零费用BPT铸造仍未完成；后续非零费用批次发现所用旧参考源码runtime超EIP170，已有合成解析/零费数学结果不构成真实部署版本验收；阶段78补实际压缩/插值权重与费用的ExactOut/完整余额、任意币对/顺序分配/API/前端；保留原30%输出与开关/零BPT费用门禁，仍不构成生产部署/执行验收|
 |balancer-v2-managed-fees|balancer-v2-managed-fees/e281ff40-bpt-1（参考契约，在线拒绝）|EVM|7.3,11.3,12.2,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP13,WP25|NOT_IMPLEMENTED|PARTIAL_LOCAL|NOT_IMPLEMENTED|非零协议/管理费BPT数学、完整供应量/收款方状态与原回调参考已实现；该固定旧源码runtime超过EIP170，正常配置/parser拒绝、在线报价未开放，需可部署实际版本后继续闭环|
 |balancer-v2-managed-aum|balancer-v2/20230411-managed-aum-3|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|实际20230411原Factory/Vault正常部署、2–50币完整注册/AUM/实际钱包状态已接入；单池、四池目录及跨物理池共享Vault历史限定验收已完成（T34.8/9），新源码需重新冻结验证；旧版本继续拒绝活动schedule。BPT路由、rates/mixed、启用breaker、可信链/公开执行及其他版本仍未完成|
 |balancer-v2-managed-scheduled|balancer-v2/20230411-managed-scheduled-1|EVM|7.3,11.3,12.2,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|独立field40/raw整数clock、2/3币单池及两个三币物理池混合/双活动M1–M4已限定通过；234单池/144多池原状态、实际API两路、原VM真实余额/连续全后状态/新冻结全检与审查一致。ONE±2和固定SWAP/YIELD构造ID按原语义保留，旧aum-3不提升。全部2–50参数/能力组合、BPT/rates/breaker、可信链与public执行仍未完成|
-|balancer-v2-composable-regular|balancer-v2-composable-regular/no-rates-1|EVM|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|仅无rate provider的underlying间swap，完整余额含BPT但路由排除BPT；BPT数学内核有参考，完整待结费用/实际供应量/缓存刷新未完成|
-|orca-whirlpools-adaptive|orca-whirlpools/cc683ec9-spl-adaptive-1|Solana|7.3,8.12,11.3,12.2,12.5,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|完整初始化Oracle/独立fee tier PDA、3fixed arrays、经典SPL和未初始化reward的独立版本；完整source/bank/wire及raw/fee/Oracle/tick后状态已实现；正常进程本地验收通过；initialized rewards/dynamic arrays/Token2022/SBF与真实部署未完成|
-|orca-whirlpools-adaptive-rewards|orca-whirlpools/cc683ec9-spl-adaptive-rewards-1|Solana|7.3,8.12,11.3,12.2,12.5,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|固定cc683ec9 classic SPL/三fixed arrays/完整Oracle与初始化奖励增长、跨tick与完整后状态，正常RPC/双副本限定验收通过；dynamic arrays、Token2022、reward领取/position结算/SBF/CPI及真实历史仍未完成|
-|orca-whirlpools-adaptive-dynamic|orca-whirlpools/cc683ec9-spl-adaptive-dynamic-1|Solana|7.3,8.12,11.3,12.2,12.5,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|classic SPL/完整Oracle/三连续fixed或dynamic混合数组及奖励，正常解析/数学/双副本服务限定验收通过；补充/稀疏数组、Token2022、领取/position/SBF/CPI及真实部署历史仍未完成|
-|orca-whirlpools-rewards|orca-whirlpools/cc683ec9-spl-rewards-1|Solana|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP05,WP11,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|经典SPL/静态费，三奖励槽及tick增长；adaptive/Token2022/奖励领取和组合高级状态未完成|
-|raydium-clmm-rewards|raydium-clmm/6d7a0f82-spl-rewards-1|Solana|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP05,WP11,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|经典SPL/静态输入费/default seed/基础bitmap奖励版；订单/Token2022/动态费和奖励组合未完成|
+|balancer-v2-composable-regular|balancer-v2-composable-regular/no-rates-1|EVM|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP04,WP05,WP11,WP12,WP13|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|仅无rate provider的underlying间swap，完整余额含BPT但路由排除BPT；BPT数学内核有参考，完整待结费用/实际供应量/缓存刷新未完成；阶段79补underlying目标输出/任意BPT位置及完整现金、BPT数学/图/计划/HTTP拒绝、网格/API/前端；完整BPT/缓存/资金执行仍未完成|
+|orca-whirlpools-adaptive|orca-whirlpools/cc683ec9-spl-adaptive-1|Solana|7.3,8.12,11.3,12.2,12.5,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|完整初始化Oracle/独立fee tier PDA、3fixed arrays、经典SPL和未初始化reward的独立版本；完整source/bank/wire及raw/fee/Oracle/tick后状态已实现；正常进程本地验收通过；initialized rewards/dynamic arrays/Token2022/SBF与真实部署未完成；阶段82补该固定经典SPL模型的单池ExactIn/Out unsigned、完整初始化Oracle及写权限、ATA/WSOL资金、同捕获原SBF和真实钱包/租金/重启回执；54场景三模型统一本地验收通过，其他版本/Token2022/生产与历史bank共识资格和多池执行仍缺|
+|orca-whirlpools-adaptive-rewards|orca-whirlpools/cc683ec9-spl-adaptive-rewards-1|Solana|7.3,8.12,11.3,12.2,12.5,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|固定cc683ec9 classic SPL/三fixed arrays/完整Oracle与初始化奖励增长、跨tick与完整后状态，正常RPC/双副本限定验收通过；dynamic arrays、Token2022、reward领取/position结算/SBF/CPI及真实历史仍未完成；阶段82补该固定经典SPL模型的单池ExactIn/Out unsigned、完整初始化Oracle及写权限、ATA/WSOL资金、同捕获原SBF和真实钱包/租金/重启回执；54场景三模型统一本地验收通过，其他版本/Token2022/生产与历史bank共识资格和多池执行仍缺|
+|orca-whirlpools-adaptive-dynamic|orca-whirlpools/cc683ec9-spl-adaptive-dynamic-1|Solana|7.3,8.12,11.3,12.2,12.5,12.9,12.11,12.14|WP02,WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|classic SPL/完整Oracle/三连续fixed或dynamic混合数组及奖励，正常解析/数学/双副本服务限定验收通过；补充/稀疏数组、Token2022、领取/position/SBF/CPI及真实部署历史仍未完成；阶段82补该固定经典SPL模型的单池ExactIn/Out unsigned、完整初始化Oracle及写权限、ATA/WSOL资金、同捕获原SBF和真实钱包/租金/重启回执；54场景三模型统一本地验收通过，其他版本/Token2022/生产与历史bank共识资格和多池执行仍缺|
+|orca-whirlpools-rewards|orca-whirlpools/cc683ec9-spl-rewards-1|Solana|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP05,WP11,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|固定cc683ec9奖励经典SPL，完整三奖励信息/tick outside账本、固定及动态数组、双向ExactIn/Out和跨tick后状态；阶段81原legacy swap/同捕获独立SBF、ATA/WSOL显式资金、实际收款/费用租金及重启回执已验；原Pool/所有tick/Vault捐赠/Oracle与失败全账户回滚核对，未借用adaptive/Token2022/其他版本；奖励领取、生产历史bank共识资格、完整流/WAL和多池执行仍缺|
+|raydium-clmm-rewards|raydium-clmm/6d7a0f82-spl-rewards-1|Solana|7.3,11.3,12.2,12.9,12.14|WP02,WP03,WP05,WP11,WP20,WP25|PARTIAL_LOCAL|PARTIAL_LOCAL|PARTIAL_LOCAL|固定6d7a0f82经典SPL/WSOL、静态输入费/default dynamic/legacy seed/基础bitmap奖励版，完整三奖励与tick outside账本；局部解析与精确ExactIn/Out、完整Pool/Observation/数组和费用/奖励后状态已验；阶段83补单池unsigned、同次捕获独立原SBF、显式ATA/WSOL/临时退款解包、实际资金/费用/租金及钱包单次发送和重启回执，三模型56场景统一本地验收通过；附属Token2022程序不开放Token2022资产扩展，bitmap/custom-seed/dynamic与奖励高级组合、订单/奖励领取、真实部署source-binary/runtime activation、历史bank共识/生产、多池执行和完整流/WAL仍待独立验收|
 |uniswap-v4-advanced|uniswap-v4/core-advanced-1|EVM|7.3,11.3,12.2,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP14|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|key fee与live LP fee独立，native currency0/无swap回调hook；任意swap hook、自定义会计与真实settlement未完成|
 |pancake-infinity-cl-advanced|pancake-infinity-cl/cl-advanced-1|EVM|7.3,11.3,12.2,12.11,12.14|WP02,WP03,WP04,WP05,WP11,WP14|PARTIAL_LOCAL|PARTIAL_LOCAL|NOT_IMPLEMENTED|动态LP费快照/native/callback位校验与CL后状态；本CL版本不兼容Bin；静态零hookBin完整树/跨Bin服务已在独立版本验收，完整manager/Vault结算未完成|
 
@@ -434,6 +445,17 @@
 |12.orca-exact-out|WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Orca五类模型的精确输出数学、原始manager完整后状态、路由/网格与API/前端报价联验|仅固定cc683ec9经典SPL及三数组范围；执行准备/unsigned/SBF/钱包模板仍未实现，不以native数学参考替代交易验证|[验证记录](integration/artifacts/local/core-orca-exact-out-validation-20261114.json)|
 |12.rayclmm-exact-out|WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium CLMM六模型输出目标、选费/动态/奖励/Bitmap/Seed状态、路由与API/前端开发联验|固定6d7a0f82经典SPL；协议Token选费不含Token2022转账扩展；六模型执行模板仍待补齐|[验证记录](integration/artifacts/local/core-rayclmm-exact-out-validation-20261114.json)|
 |12.standard-v3-exact-out|WP03,WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|基础Uniswap/Pancake无LM V3目标输出、真实原Pool回调付款、简单路径/网格及API/前端开发联验|基础模型为定价状态投影；只接明确静态classic ERC20，无unsigned/钱包模板；Slipstream和LM上下文另列|[验证记录](integration/artifacts/local/core-v3-exact-out-validation-20261114.json)|
+|12.weighted-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|三类不可变Weighted独立GIVEN_OUT内核、物理余额向量和非首token路由、最小输入分配、API/前端|仅单池路线及配置网格；原回调facade无ERC20转账/完整Vault；Managed/Composable及执行模板继续未完成|[验证记录](integration/artifacts/local/weighted-exact-out-check/report.json)|
+|12.stable-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Balancer标准Stable2输出目标内核、单池有序路由和最小输入网格、HTTP/前端|原始StableMath包装参考；完整Vault/实际资金转账、Composable/BPT/rate及执行模板仍未实现|[验证记录](integration/artifacts/local/stable-exact-out-check/report.json)|
+|12.singleton-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|静态零hook V4/Infinity CL原生正数目标、逐word数学与物理状态、容量网格/同池分配、API/前端联验|仅核心定价投影；Manager/Vault/Token资金结算、advanced/hook/native与执行模板仍未完成|[验证记录](integration/artifacts/local/singleton-exact-out-check/report.json)|
+|12.infinity-bin-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|静态完整树原始BinPool正数目标、burn尘埃与物理投影、网格/顺序分配、API/前端|App/protocol账本为明示投影，完整Manager/Vault/Token结算、动态/hook/执行模板仍未完成|[验证记录](integration/artifacts/local/infinity-bin-exact-out-check/report.json)|
+|12.managed-snapshot-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|零BPT费用Managed快照实际压缩权重和费率、任意币对输出目标/顺序分配/API/前端|原ManagedPool+测试Vault facade，无完整Vault/资金执行；非零管理/协议swap费用及其他Managed版本另列|[验证记录](integration/artifacts/local/managed-snapshot-exact-out-check/report.json)|
+|12.composable-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|普通token输出目标、任意BPT位置映射/完整物理向量、BPT图/数学/计划/API拒绝和顺序/网格分配|原StableMath费用/缩放包装，不证明完整ComposablePool/Vault/资金执行；BPT兑换/供应/费账/缓存与执行模板另列|[验证记录](integration/artifacts/local/composable-exact-out-check/report.json)|
+|14.raydium-funding|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|Raydium经典SPL显式ATA、WSOL补足/临时退款/解包，原子前后账户捕获、独立SBF、钱包/回执；10场景20原交易/21检查/26次Rust/155项Chrome通过|仅本固定CP-Swap标准经典SPL；Token2022/其他版本/生产与历史bank资格不升级|[验证记录](integration/artifacts/local/raydium-funding-check/report.json)|
+|14.orca-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|静态/奖励经典SPL原swap、完整Pool/tick与WSOL捐赠验证、32银行/32API和重启回执、64原交易；25检查/88次Rust/236项Chrome通过|adaptive/Token2022/其他版本和完整链流/生产与历史bank资格不升级|[验证记录](integration/artifacts/local/orca-execution-check/report.json)|
+|14.orca-adaptive-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|三个自适应经典SPL执行、完整254字节Oracle/写权限和资金/模拟；54API/54回执/108原交易及28检查/95次Rust/357项Chrome通过|其他程序版本/Token2022、多池和生产与历史bank资格不升级|[验证记录](integration/artifacts/local/orca-adaptive-execution-check/report.json)|
+|14.rayclmm-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|静态/奖励/Token-fee经典SPL单池准备、完整Pool/Observation/数组、资金/独立SBF与钱包回执；56API/56回执/112实际wire原交易及31门禁/135次Rust/486项Chrome通过|bitmap/custom-seed/dynamic和Token2022资产、跨池/生产与历史bank资格仍待独立验收|[验证记录](integration/artifacts/local/rayclmm-execution-check/report.json)|
+|14.rayclmm-advanced-execution|WP05,WP14,WP15,WP16,WP25|IN_PROGRESS|三个已知高级经典SPL模型完整扩展/seed/动态费准备和同捕获worker接入，162受控银行与初步实际wire重放通过|正式162API/162回执/324原交易、45场景181Chrome及统一冻结验收待完成，其他扩展/生产资格不升级|[验证记录](integration/artifacts/local/rayclmm-advanced-execution-check/report.json)|
 |14.wallet-lifecycle|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|已有unsigned/独立SBF模板接Wallet Standard、显式发送与实际收付回执/恢复|默认关闭，按链启用；本批仅受控Solana模板，不等于全链全协议生产资格/完整多租户或多区执行验收|[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 
 <a id="batch-history"></a>
@@ -514,6 +536,17 @@
 |71|[Orca五模型精确输出](#plan-2026-11-14-orca-exact-out)|LOCAL_SCOPE_VERIFIED|600原manager场景/600服务流程、8序列、3组网格、101次Rust/91项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-orca-exact-out-validation-20261114.json)|
 |72|[Raydium CLMM六模型精确输出](#plan-2026-11-14-rayclmm-exact-out)|LOCAL_SCOPE_VERIFIED|1266原生场景/服务流程、280单步、6序列/12网格、304次Rust/109项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-rayclmm-exact-out-validation-20261114.json)|
 |73|[标准V3精确输出与回调路由](#plan-2026-11-14-standard-v3-exact-out)|LOCAL_SCOPE_VERIFIED|96实际原Pool场景/80预算控制、连续状态、4两跳/2网格及45次Rust/115项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-v3-exact-out-validation-20261114.json)|
+|74|[Balancer不可变Weighted精确输出](#plan-2026-11-14-weighted-exact-out)|LOCAL_SCOPE_VERIFIED|304原GIVEN_OUT回调场景、48连续步、2组双池网格/2组同池顺序分配、33次Rust和12项Chrome；17项统一检查通过；[验证记录](integration/artifacts/local/weighted-exact-out-check/report.json)|
+|75|[Balancer标准Stable2精确输出](#plan-2026-11-15-stable-exact-out)|LOCAL_SCOPE_VERIFIED|720原数学场景/180步、3网格/3同池顺序分配、48次Rust/4项Chrome和20项统一检查通过；[验证记录](integration/artifacts/local/stable-exact-out-check/report.json)|
+|76|[零hook Singleton CL精确输出](#plan-2026-11-15-singleton-exact-out)|LOCAL_SCOPE_VERIFIED|644原始场景/24连续步、4容量网格、51次Rust/8项Chrome和20项统一检查通过；[验证记录](integration/artifacts/local/singleton-exact-out-check/report.json)|
+|77|[静态Infinity Bin精确输出](#plan-2026-11-15-infinity-bin-exact-out)|LOCAL_SCOPE_VERIFIED|264原场景/48burn、78连续/有序步、2网格、72次Rust/4项Chrome和20项统一检查通过；[验证记录](integration/artifacts/local/infinity-bin-exact-out-check/report.json)|
+|78|[Managed Snapshot精确输出](#plan-2026-11-15-managed-snapshot-exact-out)|LOCAL_SCOPE_VERIFIED|180目标/9实际状态、36连续/9有序步、3网格及3关闭swap，41次Rust/4项Chrome和20检查通过；[验证记录](integration/artifacts/local/managed-snapshot-exact-out-check/report.json)|
+|79|[Composable普通币对精确输出](#plan-2026-11-15-composable-exact-out)|LOCAL_SCOPE_VERIFIED|288原目标/216连续步、BPT首中末位置、3顺序/3网格、52次Rust/6项Chrome及20检查通过；[验证记录](integration/artifacts/local/composable-exact-out-check/report.json)|
+|80|[Raydium ATA与WSOL资金准备](#plan-2026-11-15-raydium-funding)|LOCAL_SCOPE_VERIFIED|10场景/20原交易、21检查/26次Rust/155项真实Chrome（40新增资金）通过；[验证记录](integration/artifacts/local/raydium-funding-check/report.json)|
+|81|[Orca经典SPL执行链路](#plan-2026-11-15-orca-execution)|LOCAL_SCOPE_VERIFIED|32场景API/独立SBF和重启回执、64原始交易、25检查/88次Rust/236项真实Chrome（81新增）通过；[验证记录](integration/artifacts/local/orca-execution-check/report.json)|
+|82|[Orca自适应SPL执行链路](#plan-2026-11-15-orca-adaptive-execution)|LOCAL_SCOPE_VERIFIED|54场景API/独立SBF和重启回执、108实际wire原交易、28检查/95次Rust/357项Chrome（121新增）通过；[验证记录](integration/artifacts/local/orca-adaptive-execution-check/report.json)|
+|83|[Raydium CLMM经典SPL执行](#plan-2026-11-16-rayclmm-execution)|LOCAL_SCOPE_VERIFIED|56场景API/同捕获SBF和重启回执、112原交易，31门禁/135次Rust/486项Chrome（129新增）通过；[验证记录](integration/artifacts/local/rayclmm-execution-check/report.json)|
+|84|[Raydium CLMM高级经典SPL执行](#plan-2026-11-16-rayclmm-advanced-execution)|LOCAL_SCOPE_VERIFIED|三个模型/三收费模式162API/162回执/324原交易，33门禁/306Rust/667Chrome同源码冻结通过；[验证记录](integration/artifacts/local/rayclmm-advanced-execution-check/report.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2200,3 +2233,324 @@ Chrome验证五模型双向ExactOut并保持执行按钮禁用；编辑普通账
 前端新增两模型双向EVM报价/模式/执行门禁6项，与既有109项合计115项通过。314合同/12工具副本/164公共来源、公共协议、严格Clippy、前端/钱包单测和普通/-OO各17项文档检查通过。初始Pancake monorepo导入别名、实际参考chainId与声明身份一致性已修正，生产校验未放宽，失败日志保留。源码前后及当前摘要、官方artifact/上游清单、编译器/运行时/已加载模块、96份HTTP流程、原始复执行/实际Token余额与交易回执、桌面/移动截图和harness二进制摘要已冻结复核。复验make -C integration v3-exact-out-current-check，恢复入口v3-exact-out-reference，生成物/外部包/二进制不提交。
 
 运行时目录61个模型中29支持ExactOut（原27）、10具备执行准备。Pancake正常解析继续拒绝非零LM，LM与Slipstream上下文模型另列；本批两个基础V3执行模板和其他数学/版本、51个执行模板继续推进。未向公网发送。all_requested_features_complete=false、production_ready=false。
+
+
+<a id="plan-2026-11-14-weighted-exact-out"></a>
+
+## Balancer不可变Weighted精确输出（2026-11-14，阶段74）
+
+接续上一会话在阶段73后留下的未完成改动，按设计§12/13/14/15/23与区块解析、兑换量计算优先级完成 `balancer-v2-weighted2-equal`、`balancer-v2-weighted2-static`、`balancer-v2-weighted-multi` 的输出目标链路。复用现有Go固定块解析状态、Rust物理池副本/图及API，不新增服务或独立可变的币对状态。当前状态：`LOCAL_SCOPE_VERIFIED`（原回调、路由、API与前端的有限本地范围）。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F74.1|不可变Weighted GIVEN_OUT|WP12,WP25|PARTIAL_LOCAL|输出缩放、向上取整base/exponent/pow、输入反缩放后加费；输出30%上限、uint256中间值与uint112现金限制。304原回调场景（222成功/82拒绝）及12条序列48步数学对照已通过。|
+|F74.2|多资产物理状态与路由|WP12,WP14|PARTIAL_LOCAL|3–20币完整余额向量、显式from_token和所有token索引；保留单池单路线范围，重复池/内部资金/歧义token边拒绝；原子提交后状态。|
+|F74.3|最佳输入与顺序分配|WP14,WP15|PARTIAL_LOCAL|原回调双池四份额网格，逐次重算同一物理池；在已有有界搜索内选择最小输入，预算减一拒绝，不声明任意连续拆分全局最优。|
+|F74.4|HTTP与数学计划|WP15,WP16,WP25|PARTIAL_LOCAL|/v1/quote-exact-out、完整目标/maxSellAmount、显式token路径计划、协议视图和失效撤销；模型版本/11与报价能力保持一致。|
+|F74.5|前端与可复验入口|WP16,WP25|PARTIAL_LOCAL|三模型双向报价、非首币对、真实Chrome和执行按钮门禁；make -C integration weighted-exact-out-current-check。|
+
+独立参考锁定Balancerv2源码 `e281ff40583c39bf1d46c322334b2b13936e0e33`，逐文件SHA256核对后以原WeightedPool构造器和onSwap执行GIVEN_OUT，BalanceAllocation更新现金；测试Vault facade不包含ERC20转账、完整Vault或真实部署证明，不能据此升级unsigned/独立VM/钱包执行资格。原模型的Token、部署、固定块准入条件继续适用。Managed、Composable、BPT、RateProvider和Stable没有借用此内核开放ExactOut。
+
+实际能力目录为61模型、32支持ExactOut（原29）、10具备执行准备；本批三个Weighted执行模板及其余51个模板仍未实现。全量六阶段和26工作包完整验收继续未完成，all_requested_features_complete=false、production_ready=false。本批最优只覆盖指定离散网格的原始输入，净链费用和任意连续拆分的全局最优没有据此验收。
+
+
+最终同源码复验通过：`make -C integration weighted-exact-out-current-check` 执行17项检查全部成功，33次Rust测试执行（含旧Weighted输入、V2/V3目标报价与路径回归）、12项真实Chrome双向金额/门禁检查、11项前端单测、普通与-OO各17项进度文档检查通过。Go固定块Weighted/多资产、配置、状态和wire回归覆盖4个包；315份合同/12工具副本/164公共来源、公共协议生成物及严格Clippy（核心、计划和前端测试服务）通过。304个原回调场景为222成功/82拒绝，12条连续序列48步、2组双池四份额网格和2组同池三次顺序分配均与原回调一致。HTTP对应304目标场景、222个成功场景的预算减一拒绝、数学计划/协议视图及旧视图撤销通过；证据保留旧快照并标记snapshot_valid=false，旧构建返回SNAPSHOT_REORGED。
+
+报告位于[最终验证记录](integration/artifacts/local/weighted-exact-out-check/report.json)，代码与配置指纹 `43a2ed5278d7ca80ceaa4f4a47b89e3a02a70784d9b7225e62b6d83160d9e0ec`，参考语料SHA256 `061b67d3c2b3e43e875ca94ce72cda8b83d0b8ae46ba2838aa50774dfd573af9`。源码指纹覆盖未忽略的代码/配置/构建及校验工具，Markdown进度回填单独复核。原参考源码逐文件校验，294份实际加载的Node依赖摘要随生成记录保留；生成语料、日志、测试二进制和截图位于忽略目录。已查看多币非首币对页面，目标、实际消耗、单物理池和能力版本/11显示正确；下载/签名/广播门禁保持。最终测试进程退出，未提交公网交易。本批不升级完整链/DEX、独立生产执行或26工作包完整验收状态。
+
+
+<a id="plan-2026-11-15-stable-exact-out"></a>
+
+## Balancer标准Stable2精确输出（2026-11-15，阶段75）
+
+按原六阶段顺序继续补已有明确解析状态的独立数学，不将单批完成当全目标完成。标准 `balancer-v2-stable2` 复用Go固定块读取与原StableState，不新增核心服务、独立图或数据协议。状态：`LOCAL_SCOPE_VERIFIED`（注明的原数学包装、API与前端本地范围）。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F75.1|StableMath独立GIVEN_OUT|WP12,WP25|PARTIAL_LOCAL|原invariant与输入余额Newton求解，补一scaled单位后反缩放向上、再加raw费用；uint256中间值及uint112现金限制，不套Weighted的30%上限。|
+|F75.2|路由与顺序分配|WP14,WP15|PARTIAL_LOCAL|既有完整双币状态单池路线、双池四份额最小输入、同池逐次重算，内部Vault资金/多跳拒绝与失败原子性。|
+|F75.3|API/计划/视图|WP15,WP16|PARTIAL_LOCAL|输出目标/maxSellAmount、数学计划与协议子视图绑定、旧报价证据保留和构建撤销，版本/12只升级明确数学能力。|
+|F75.4|前端与回归|WP16,WP25|PARTIAL_LOCAL|真实Chrome双向金额和执行门禁、旧Weighted/V2/V3数学路由/API、固定块解析、Clippy与文档普通/-OO复验。|
+
+参考使用锁定 `e281ff40583c39bf1d46c322334b2b13936e0e33` 原始StableMath求解与FixedPoint，以及原BalanceAllocation现金更新；harness为费用/缩放数学包装，不是完整StablePool/Vault部署和ERC20成交证明。Managed、Composable、BPT、rate等模型不借此开放。实际执行准备/unsigned/独立执行/钱包资格保持关闭，净链费用和任意连续拆分全局最优未验收。复验入口 `make -C integration stable-exact-out-current-check`。
+
+实际目录61模型中33支持ExactOut、10具备执行准备；51个执行模板及其余数学/链组合按原设计继续。all_requested_features_complete=false、production_ready=false，全量六阶段继续进行中。
+
+
+阶段75最终同源码有限验收：`make -C integration stable-exact-out-current-check` 的20项检查全部通过，48次Rust测试执行、4项真实Chrome双向金额/门禁、11项前端单测、8类篡改反例普通/-OO各通过，普通/-OO各17项进度文档检查通过。原数学参考720场景（396成功/324拒绝），45条序列180步、3组双池四份额网格、3组同池三次有序目标完整对照；同一冻结源码下回归旧Weighted/V2/V3数学、路由、分配与API。HTTP保存720份真实请求/响应和396个成功场景的预算减一控制，核对计划/协议视图与撤销后的snapshot_valid=false及SNAPSHOT_REORGED。4包Go固定块/配置/状态/wire、316份合同/12工具副本/164公共来源、公共协议及核心/计划/前端测试服务严格Clippy均通过。
+
+代码/配置/校验工具指纹 `a665aa4a392dcc887d34f549f5a2af1be71a9732b6dfdc1d06d20b1909564485`，原参考语料SHA256 `9dd3f4a208488d9f233d64619b3b6785da300d89cce872e1b4f430ef4bed74f6`；748份日志/捕获/截图/语料/测试服务二进制摘要保留在[最终验证记录](integration/artifacts/local/stable-exact-out-check/report.json)。Markdown进度回填不计入代码指纹，回填后单独执行文档校验。294份已加载Node依赖、源文件和语料副本均核对。原始StablePool._onSwapGivenOut与BaseGeneralPool._swapGivenOut的同revision调用顺序另作源码核对，与本包装一致，仍不宣称已执行完整StablePool/Vault/ERC20交易。已查看前端实际输出/输入/单池和禁用执行能力，测试进程退出，未向公网发交易。
+
+后续主线继续：零hook Uniswap V4/Pancake Infinity CL 原始正数amountSpecified探针已在644场景中取得424完整输出及4条连续序列12步的结果，但尚未正式接入路由/API，不据此开放能力。原会话六阶段目标保持active；其他数学/链组合和51个执行模板继续未完成。all_requested_features_complete=false、production_ready=false。
+
+
+<a id="plan-2026-11-15-singleton-exact-out"></a>
+
+## 零hook Singleton CL精确输出（2026-11-15，阶段76）
+
+阶段75完整本地验收后继续原六阶段目标，不结束整体验收。只覆盖已明确静态零hook的 `uniswap-v4` 与 `pancake-infinity-cl`。新增内部输出驱动核心，复用位图/tick/liquidity与方向协议费快照，保持物理池id为manager/poolId。当前状态：`LOCAL_SCOPE_VERIFIED`（静态零hook核心定价投影、路由/API与前端的有限本地范围）。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F76.1|正数目标输出数学|WP12,WP25|PARTIAL_LOCAL|独立目标输出步进、反向sqrt价格、逐word费用/空流动性/跨tick、signed BalanceDelta边界与完整目标拒绝；644原始核心场景和4序列数学预检通过，正式固定参考继续复验。|
+|F76.2|单物理池路由与输入分配|WP14,WP15|PARTIAL_LOCAL|manager身份与单池路线、两费率池网格、同池连续目标、内部资金/缺位图与失败原子性已接入开发代码，待验证。|
+|F76.3|计划/API/协议视图|WP15,WP16|PARTIAL_LOCAL|显式单池目标/输入预算、manager/poolId计划身份、QuoteView绑定和重组撤销已接入开发代码，未知/advanced模型继续拒绝，待验证。|
+|F76.4|前端和统一验收|WP16,WP25|PARTIAL_LOCAL|双模型双向真实Chrome、旧Stable2/Weighted/V2/V3回归、原始拒绝和控制输入检查；待完成。|
+
+原始参考锁定既有Uniswap V4/Pancake Infinity CL源码清单，直接执行未改的Pool/CLPool swap，原ExactIn为负数amountSpecified，输出目标改为原生正数。harness显式seed状态并运输实际BalanceDelta、价格/tick/liquidity，`remainingOut`表示未完成目标。正式文件位于 `integration/tools/reference/singleton-exact-out`，原参考/语料不改写。初始内部预检644场景中424完整输出及220部分目标/原始拒绝，4个真实同调用连续序列12步与独立重新seed一致；这不证明Manager/Vault/ERC20结算、完整LP费账、hook或交易执行。新能力仍待路由/API/前端与完整最终验证，不能因原型通过记完成。
+
+实际能力目录为61模型、35个ExactOut（原33）、10个执行准备；双模型本批限定范围已验，六阶段目标active，all_requested_features_complete=false、production_ready=false。
+
+
+阶段76最终同源码有限验收：统一入口 `make -C integration singleton-exact-out-current-check` 的20项检查全部通过，51次Rust测试执行与8项真实Chrome检查通过，含旧Stable2/Weighted/V2/V3数学、路由、分配/API回归。644个正数原核心场景为424完整输出、220拒绝（172部分目标/整数范围、48原始回滚）；4条原调用内混合方向序列12步、4条同池同方向序列12步、4组容量网格与独立seed重放一致。每组网格5份额中3项可行，浅池整单或过大份额原始部分成交保留为不可行控制。HTTP保存644个实际场景与424次预算减一控制，均为预期200/404 NO_ROUTE/400 EXACT_OUT_MAX_INPUT，旧视图证据失效及构建SNAPSHOT_REORGED通过。
+
+10类篡改反例普通/-OO、进度文档各17项普通/-OO、11前端单测、Go固定块/配置/状态/wire、317合同/12工具副本/164公共来源及公共生成物和严格Clippy通过。代码/配置/验证工具指纹 `9714c5dca9466d94b09eb5155e90dd4745f263e7beff51ca7e496148ed210e41`，原核心语料SHA256 `60fae9ca232b4a2a9af76d9f07b9e8f66f36a8ff8d352cb2d6690ce3204f1835`；673份冻结日志、捕获、语料、截图与测试服务二进制摘要及302份已加载Node依赖核对在[最终验证记录](integration/artifacts/local/singleton-exact-out-check/report.json)。源码指纹不包含Markdown，进度回填后单独复验文档。已查看前端manager/poolId、原始输入输出及未实现执行门禁。
+
+模型只更新定价core，原始protocolAmount和swapFee保留在原参考；不将原Pool/CLPool的seed执行等同Manager unlock/资金结算、ERC20转账、完整LP费账、native/hooks/advanced或公开unsigned模板。以上仍按原设计继续开发；51个执行模板与其他协议/链/费用组合尚未完成。测试进程退出，无公网交易。all_requested_features_complete=false、production_ready=false；原会话六阶段目标保持active。
+
+
+<a id="plan-2026-11-15-infinity-bin-exact-out"></a>
+
+## 静态Infinity Bin精确输出（2026-11-15，阶段77）
+
+阶段76已完成限定本地验收，继续原会话链/DEX解析与兑换量计算优先主线。`pancake-infinity-bin` 保持已有静态零hook完整树/固定块状态，输出接口直接按原getAmountsIn分bin反解输入，不反复调用ExactIn搜索。当前状态：`LOCAL_SCOPE_VERIFIED`（静态完整树数学/物理状态投影、路由/API与前端有限本地范围）。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F77.1|完整树目标输出|WP12,WP25|PARTIAL_LOCAL|目标min当前bin输出现金，Q128价格转换和fee向上取整，protocol从fee按比例向下；uint128局部/整数delta范围/流动性与步数检查；初步原20基础场景通过。|
+|F77.2|burn脱离树active尘埃|WP12,WP25|PARTIAL_LOCAL|真实原burn后active不在树仍先处理尘埃；后续只遍历真实树成员，不制造虚假成员；48原burn输出场景初步通过。|
+|F77.3|物理状态/路由/计划|WP14,WP15|PARTIAL_LOCAL|复用输入路径的共享后状态投影，gross app cash、net bin余额及协议费累计各自更新；已补同manager币种账本到兄弟物理池同步，复用ExactIn同一实现；单池路线与manager/poolId、双费率池及同池顺序分配，本批最终回归已通过。|
+|F77.4|HTTP/前端/统一验收|WP16,WP25|PARTIAL_LOCAL|报价目标与预算、协议视图撤销、真实Chrome双向及能力门禁、旧协议回归与源码/参考完整性已通过本批复验。|
+
+原参考锁定3c5ef1be原BinPool/BinHelper/TreeMath与原burn；新包装仅把swap amountSpecified改为正数目标并保留实际delta/后bin/树/手续费。App/Vault和全局protocol计数是明确的定价投影，不宣称完整Manager/Vault/ERC20/native结算；动态/hook/其他版本/执行模板仍未完成。生成物忽略，不修改既有原语料。复验入口 `make -C integration infinity-bin-exact-out-current-check`。
+
+阶段77目录61模型、36个ExactOut（原35）、10个执行准备，新模型本批限定范围通过；51个执行模板与其他协议/链/净费用组合继续。all_requested_features_complete=false、production_ready=false，六阶段目标active。
+
+
+阶段77最终同源码有限验收：统一入口 `make -C integration infinity-bin-exact-out-current-check` 的20项检查全部通过，72次Rust测试执行、4项真实Chrome、11前端单测、10类普通/-OO篡改反例及普通/-OO各17项进度文档检查通过。264个实际原BinPool场景219成功/45回滚，48个场景先执行原burn形成active脱树尘埃；18连续序列72步、2同方向顺序序列6步、2双费率池四份额网格通过。81个单步实际跨bin、82个成功单步含非零protocol fee；完整raw bin/tree/份额与delta保持一致，app和协议累计为明示投影。HTTP保存264份请求/响应及219预算减一控制；输入为1时预算减至0返回INVALID_REQUEST，其余不足预算返回EXACT_OUT_MAX_INPUT，原始失败均为404 NO_ROUTE。
+
+新增共享manager币种账本同步回归：ExactIn与ExactOut复用同一传播函数，同manager相关app现金/protocol费用同步，兄弟池自身bins/active不改写，下一笔仍通过完整依赖验证；旧共享树/币种记账及Singleton/Stable2/Weighted/V2/V3数学、路由/分配/API一起回归。Go固定块解析/配置/状态/wire、319合同/12工具副本/164公共来源、公共生成物及核心/计划/前端测试服务严格Clippy通过。初期测试迁移字段名、未绑定模型bank和零预算控制的失败已修正，保留日志但不计为通过；生产bank/币种依赖校验未放宽。
+
+源码指纹 `f3c22ffaccaf64bde18a61a8d77bcc1ffc40a8e824e7ffed31e3e03392381c81`，语料SHA256 `c24f144b0ae4934b6dc2cffb4543038708fa607366564a38a6dbef8c8b533d2d`；292份冻结产物摘要、302份已加载运行时模块、所有锁定原源码/语料副本、实际HTTP流程已核对，详见[最终验证记录](integration/artifacts/local/infinity-bin-exact-out-check/report.json)。已查看Chrome双向金额及manager/poolId/禁用执行门禁。Markdown回填不计入代码指纹，回填后单独验证。原BinPool seed/burn/swap不升级完整Manager/Vault/ERC20资金结算，未知hook/动态/native与执行模板仍未实现。测试进程退出，无公网交易。原会话六阶段目标active；51执行模板和其余数学/链/净费用组合继续未完成，all_requested_features_complete=false、production_ready=false。
+
+
+<a id="plan-2026-11-15-managed-snapshot-exact-out"></a>
+
+阶段77报告中的37模式目录为随后Managed Snapshot开发代码加入后的回归计数；报告仅证明其标明的Infinity Bin与旧协议回归范围，Managed目标的独立验收另见阶段78，不计为本阶段交付。
+
+## Managed Snapshot精确输出（2026-11-15，阶段78）
+
+继续原会话六阶段主线的明确解析/数学范围，为 `balancer-v2-managed-snapshot/no-bpt-fees-1` 接入独立目标输出，不重归一化原始压缩权重。复用同一WeightedMath输出算术与30%输出上限，Managed的2–38币/正权重准入与静态2–20币/总和1e18/每权重≥1%分开。状态：`LOCAL_SCOPE_VERIFIED`（原回调、完整定价状态、路由/API和前端有限本地范围）。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F78.1|原始权重/费率目标数学|WP12,WP25|PARTIAL_LOCAL|真实ManagedPool schedule后读取9状态，180目标（108成功/72拒绝）；保留uint256/uint112、30%输出及缩放后加费顺序，零输出/开关/非零BPT费用拒绝。|
+|F78.2|完整物理余额与币对|WP14,WP15|PARTIAL_LOCAL|完整3/8/38币物理向量、显式from_token；单池路线和同池有序分配，3双池网格/3顺序分配预检通过，非法索引/内部资金/多跳门禁继续验证。|
+|F78.3|HTTP计划和快照|WP15,WP16|PARTIAL_LOCAL|同次实际blockHash/时间的权重/fee与报价快照一致，预算减一、计划token流/协议子视图和旧view撤销，API捕获本批最终联验通过。|
+|F78.4|前端与可复验|WP16,WP25|PARTIAL_LOCAL|非首币对双向Chrome和执行门禁、旧Managed ExactIn/静态Weighted等回归、严格Clippy、普通/-OO反例及文档检查本批限定联验通过。|
+
+原参考锁定e281ff40，执行未修改ManagedPool构造、公开渐变权重/费用更新、实际GIVEN_OUT回调和原BalanceAllocation。3/8/38币与三个时间范围读出的权重总和略低于1e18，不得归一化。原30%输出限制保持，非零protocol/management swap fee须BPT会计另验，不借此启用。Go既有同blockHash解析已要求swaps enabled与两项费用为0；不新增服务或wire字段。
+
+Vault facade、合成模型地址/现金和显式unlimited contract size仅为原回调参考，不提供生产部署、完整Vault/ERC20资金转移、AUM/BPT执行或新的unsigned/钱包资格。复验入口 `make -C integration managed-snapshot-exact-out-current-check`；生成物忽略，实际进度只在本文件。
+
+实际能力目录61模型中37个ExactOut（原36）、10个执行准备；阶段78本批有限范围已验，51个执行模板与其余数学/链/净费用范围继续。原会话目标active，all_requested_features_complete=false、production_ready=false。
+
+
+阶段78最终同源码有限验收：`make -C integration managed-snapshot-exact-out-current-check` 共20项检查、41次Rust测试执行、4项真实Chrome和11前端单测通过。180个原ManagedPool GIVEN_OUT目标含108成功/72拒绝，9个实际权重/费用/区块快照（3/8/38币，三个时间范围），9条连续序列36步、3条同池顺序分配9步、3组双池四份额网格及3关闭swap控制通过。实际未归一化权重、向上舍入、30%输出边界和uint112最终现金均保持；静态Weighted仍要求严格总和和最小权重，旧Managed ExactIn与静态Weighted差分、V2/V3路由/API同时回归。
+
+同一最终源码下保存180份实际HTTP请求/响应、108成功场景的预算减一、数学计划/协议视图绑定与旧视图撤销；失败严格为404 NO_ROUTE，预算不足为400 EXACT_OUT_MAX_INPUT，零预算按请求约束拒绝。10类篡改反例普通/-OO、普通/-OO各17项进度文档、4包Go固定块/配置/状态/wire、319合同/12工具副本/164公共来源、公共协议和核心/计划/前端测试服务严格Clippy通过。Chrome使用原参考完整录制的0↔2非首币对，报价正确且unsigned/签名/广播门禁保留。
+
+代码/配置/验证工具指纹 `6e05bacf315c4c42a87af31192836fb5556f38882ac5234b3778df1fcb2f3dba`，语料SHA256 `7c2cd94ba41e715bdd539255c7f5c333db80b1705918a213e3b7999d3828a002`；207份日志/捕获/语料/截图/测试服务二进制和294份已加载Node模块摘要核对一致，详见[最终验证记录](integration/artifacts/local/managed-snapshot-exact-out-check/report.json)。验收每次使用独立run目录并在中断时清理所属进程组；旧重叠日志因混写已作废，当前日志无NUL混写且HTTP捕获数量为强制检查。快照时间使用实际读取区块时间，不能用setTime请求值替代。Markdown进度回填不计入代码指纹，回填后单独复验。
+
+此参考仅为原回调+测试Vault facade，显式unlimited code size与合成模型身份不升级生产部署、完整Vault/ERC20、非零BPT费用、AUM/其他Managed版本或执行模板。51个执行模板及其余数学/链/净费用范围继续未完成；原会话六阶段目标active，all_requested_features_complete=false、production_ready=false。测试服务退出，无公网交易。
+
+
+<a id="plan-2026-11-15-composable-exact-out"></a>
+
+## Composable普通币对精确输出（2026-11-15，阶段79）
+
+阶段78注明范围已验后继续原六阶段主线，为 `balancer-v2-composable-regular/no-rates-1` 补普通underlying目标输出。BPT仍保留在完整注册向量和pool身份中，仅在原invariant/输入余额求解时移除并映射索引。状态：`LOCAL_SCOPE_VERIFIED`（原数学包装、普通币物理投影、路由/API与前端有限本地范围）。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F79.1|原StableMath目标输出|WP12,WP25|PARTIAL_LOCAL|e91a2b64原_calcInGivenOut、scaled补一/反缩放/费用向上，uint256/uint112边界；288目标和72序列参考，普通币输出不套Weighted30%限制。|
+|F79.2|完整状态与BPT隔离|WP14,WP15|PARTIAL_LOCAL|BPT首/中/末索引、2/3/5 underlying和完整现金向量；Graph已有排除BPT，新增数学/边/计划/HTTP显式拒绝，BPT现金不改写，本批最终验证通过。|
+|F79.3|路由/分配与API快照|WP14,WP15,WP16|PARTIAL_LOCAL|单池underlying路线、3双池网格/3同池顺序分配、预算与子QuoteView/计划、旧视图撤销，定向验证进行中。|
+|F79.4|前端与统一回归|WP16,WP25|PARTIAL_LOCAL|普通币双向Chrome与执行门禁、旧Composable ExactIn/Managed/Weighted和V2/V3回归、严格Clippy/普通与优化反例/文档及真实HTTP捕获本批限定联验通过。|
+
+参考只执行原始StableMath和FixedPoint，费用/缩放与显式uint112现金检查为测试包装；不加载未列入清单的其他源码，不宣称实际ComposableStablePool/Vault/ERC20交易。固定无rate-provider profile不扩展缓存/rate变化、BPT供应或待结协议费；BPT兑换仍需完整独立状态与执行证明。复验入口 `make -C integration composable-exact-out-current-check`，生成数据忽略。
+
+实际目录61模型中38个ExactOut（原37）、10个执行准备；阶段79本批注明范围已验，51个执行模板和其他数学/链/净费用范围继续。原会话六阶段目标active，all_requested_features_complete=false、production_ready=false。
+
+
+阶段79最终同源码有限验收：统一入口 `make -C integration composable-exact-out-current-check` 的20项检查全部通过，52次Rust测试执行、6项真实Chrome与11前端单测通过；288个原StableMath目标216成功/72拒绝、72条连续序列216步、3条同池顺序分配9步和3组双池四份额网格完整对照。2/3/5underlying加BPT，BPT首/中/末位置、不同小数/amp与40%输出均覆盖，BPT余额和其他注册顺序保持。原参考没有完整Pool/Vault/Token资金执行，显式现金边界为包装检查，不加载未列入原清单的BalanceAllocation。
+
+HTTP保留288份真实请求/响应及216预算减一控制，成功目标/计划token流/协议视图与旧view撤销一致。额外36次BPT买卖HTTP控制为404 NO_ROUTE，图无BPT边，直接数学/注入路径/含BPT计划全部拒绝；Chrome普通币双向金额、BPT不在可选币种和执行门禁通过。10类篡改反例普通/-OO、普通/-OO各17项文档、4包Go固定块/配置/状态/wire、320合同/12工具副本/164公共来源及协议生成物、核心/计划/前端测试服务严格Clippy通过；旧Composable ExactIn、Managed/Weighted及V2/V3路由/API回归通过。
+
+代码/配置/验证工具指纹 `0e7fc88d29920ca8972110f5dcab21351772fffab60be7fde25cf9b95a6672a1`，语料SHA256 `95bc1f5103a8921de4fc64714b422337f2730627f0ab5283fcfe3434e527a5f7`，315份冻结日志/捕获/语料/截图/测试服务二进制和294份已加载Node模块摘要核对，详见[最终验证记录](integration/artifacts/local/composable-exact-out-check/report.json)。每次独立run目录、HTTP捕获数量/状态强制检查，Markdown回填后单独复验。已查看最终Chrome的BPT排除、普通币路线/金额与能力版本/16，测试服务退出，无公网交易。
+
+目标输出只开放no-rates普通币模型；BPT供应/铸造/待结费用/缓存/rate与完整ComposableStablePool/Vault/ERC20资金执行仍需独立实现，执行准备/unsigned/钱包仍false。原会话六阶段目标继续active，51个执行模板和其余数学/链/净费用范围未完成，all_requested_features_complete=false、production_ready=false。后续执行链路已有Raydium经典SPL的WSOL补足/临时退款/解包原SBF探针，正式账户准备、独立模拟和钱包/回执验收继续推进。
+
+
+<a id="plan-2026-11-15-raydium-funding"></a>
+
+## Raydium ATA与WSOL资金准备（2026-11-15，阶段80）
+
+阶段79注明范围已验后，继续已明确数学的CP-Swap经典SPL执行链路。复用classic_funding的显式ATA/WSOL/租金组件，Raydium原状态/代码/Clock/币种/费用校验保留，不新增服务或签名私钥。状态：`LOCAL_SCOPE_VERIFIED`，能力版本/17与新资金选项已通过本批固定范围的统一联验。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F80.1|经典ATA与资金指令|WP14,WP16|LOCAL_SCOPE_VERIFIED|显式缺失收款ATA、WSOL源ATA创建/补足、独立临时输入余款退款和输出解包；普通无选项wire继续单指令，禁关已有账户、未显式授权创建/包装与临时地址占用均有拒绝回归。|
+|F80.2|完整同次捕获与独立执行|WP05,WP15,WP25|LOCAL_SCOPE_VERIFIED|额外System/ATA/可空ATA ProgramData/Rent同次读取，ATA原代码hash/System Native身份校验；10场景实际原SBF/RPC/独立模拟通过，断言独立模拟沿同捕获执行且不refetch。|
+|F80.3|真实租金/资金与回滚|WP15,WP25|LOCAL_SCOPE_VERIFIED|10场景20次原始unsigned wire执行及限制反例通过；完整Pool/Vault/原Oracle、独立后账户摘要、实际费用/租金/预存补差核对，失败除网络费外全账户回滚。|
+|F80.4|钱包/回执与前端|WP16,WP25|LOCAL_SCOPE_VERIFIED|10场景服务签名/单次loopback发送/真实费用租金和重启回执、4失败发送不重发通过；155项真实Chrome（40新增Ray资金）及旧资金/捕获/回执回归通过，浏览器仅传公开场景元数据。|
+
+原生程序仍固定既有CP-Swap源码/bytecode，经典Token程序与原Pool账本/Oracle保持。新增Runtime的System/ATA/Rent账户来自已锁定本地原运行时，RPC fixture明确返回其真实字节而非让独立VM静默补默认值；这不构成历史银行共识证明。ATA SHA256=6804554e...与既有生产校验常量一致，System Native账户身份按原运行时匹配，ProgramData缺失/不可执行/代码变化按既定边界拒绝。
+
+独立原参考按实际下载wire执行，逐项校验签名槽/权限/指令角色/资金顺序、捕获hash、Pool完整字节/原Oracle/原Vault、用户扣付/到账与原SBF后账户摘要。最大输入减一或最小输出加一在原程序失败，全账户创建/包装/兑换回滚，只扣实际网络费。钱包提交仍需要用户签名及独立确认，默认生产配置关闭；测试仅loopback原SBF，没有公网交易。
+
+最终统一验收：21项检查、26次Rust测试执行、155项真实Chrome（40项新增Raydium资金场景），10份实际服务准备/10份重启回执及20次原始交易验证通过。14项证据篡改控制分别在普通和`-OO`模式通过；严格Clippy、公共协议、契约副本、旧Pump资金与捕获/回执回归通过。源码指纹`d0c8975b03aa392bd14afb4ca96fc5a6b275d4af71ee5f06577e506553e6de1f`，398份产物摘要绑定独立目录`integration/artifacts/local/raydium-funding-check/runs/ee0783ded2f441b58ae9385c4901f30d`；[最终报告](integration/artifacts/local/raydium-funding-check/report.json)。浏览器场景元数据移除完整原账户/程序和after字节，服务持有的同次捕获与原生证据保持完整。
+
+实际ExactOut能力目录仍38/61、执行准备10/61；Raydium在原有准备能力内增加account_creation/native_funding，原生SOL直接交易与Token2022/其他Raydium版本不借此开放。51个执行模板与其他数学/链/净费用组合继续；原会话六阶段目标active，all_requested_features_complete=false、production_ready=false。
+
+<a id="plan-2026-11-15-orca-execution"></a>
+
+## Orca经典SPL执行链路（2026-11-15，阶段81）
+
+沿既有Orca精确数学和阶段80已验资金组件，补齐经典静态/奖励版的单池执行准备、独立模拟、钱包和回执。状态：`LOCAL_SCOPE_VERIFIED`；三服务与公共协议职责不变。能力目录/18新增两项注明范围的执行准备能力，本批通过本地原程序验收；生产或历史bank资格仍未开放。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F81.1|原始指令和全状态原参考|WP12,WP14,WP15|LOCAL_SCOPE_VERIFIED|32场景64次实际服务unsigned wire原Whirlpool/Token SBF执行通过；完整Pool、所有tick数组、双Vault全部字节与保留SOL捐赠、空Oracle/只读账户及失败全回滚核对。静态奖励清除/动态转换为显式控制。额外8次静态/动态双向跨tick原SBF探针单列于报告产物，未并入32服务场景。|
+|F81.2|账户准备和unsigned交易|WP05,WP14,WP16|LOCAL_SCOPE_VERIFIED|完整Pool/tick编码与PDA/代码/Clock/config/mint/vault逐项校验；1/2/3方向数组窗口重复最后实际账户填槽、原程序去重；ComputeBudget原账户和1400000单位指令纳入捕获/交易，容量不足运行时明确拒绝。|
+|F81.3|资金组合与独立捕获|WP05,WP15,WP16|LOCAL_SCOPE_VERIFIED|32实际服务准备、独立SBF同捕获不refetch通过；固定/动态、静态/奖励、双向ExactIn/Out、跨tick、ATA/WSOL补足/临时退款解包及预存租金均验。程序/config/mint/array/Oracle/epoch/Vault背书/资金选项和临时地址污染按边界拒绝。|
+|F81.4|钱包/回执与前端|WP16,WP25|LOCAL_SCOPE_VERIFIED|32实际单次发送/真实费用租金/重启回执和6发送失败不重发通过；20新场景81项真实Chrome，连同旧流程共236项Chrome。独立模拟后只一次账户读取，发送前另一次实时预检，刷新回执不再取账户或重发。原数学专用银行不能借用他池账户。|
+|F81.5|严格回归与进度|WP25|LOCAL_SCOPE_VERIFIED|25统一检查/88次Rust测试执行通过，含原数学/路由/Parser、旧Pump/Raydium资金、账户捕获/回执、严格API与核心Clippy、构建和前端单元；16证据控制普通/-OO及17文档控制普通/-OO通过，冻结源/银行/运行时和全部产物摘要。|
+
+最终统一验收：25检查、88次Rust执行、236项真实Chrome（81新增Orca）通过，32份实际准备/32份重启回执及64次原始交易验证完成；16项证据篡改控制普通/-OO通过。源码指纹`355880d339d0785cd80d5348800b85551957e48e635fa481ac6ef702b25e1137`，863份产物摘要绑定独立目录`integration/artifacts/local/orca-execution-check/runs/1e2bc953f8c146cb9b47525971e565ce`；[最终报告](integration/artifacts/local/orca-execution-check/report.json)。原始程序、运行时和银行输入摘要全部复核，浏览器最终截图已检查。
+
+[原始指令探针](integration/artifacts/local/orca-execution-probe.json)仅证明其注明的本地原程序范围，不能代替完整API/钱包/前端验收。adaptive动态费/奖励组合、Token2022与其他程序版本按独立适配范围处理，未知扩展继续明确拒绝。原会话整体目标保持active，all_requested_features_complete=false、production_ready=false。
+
+
+后续执行范围的独立探针：三个既有Orca自适应模型的实际原SBF双向ExactIn/Out共12场景通过，逐字节核对Pool、初始化Oracle、Vault与所有数组；[规范化slot/ProgramData/Token身份探针](integration/artifacts/local/orca-adaptive-execution-normalized-probe.json)与[重新计算PDA的WSOL受控池探针](integration/artifacts/local/orca-adaptive-execution-wsol-probe.json)分别保留原生证据。它们采用显式受控状态和既有实际程序字节，不代表公开池观察或历史bank共识；自适应执行适配、API、资金组合、钱包和Chrome仍待独立实现验收，本批能力标签不因此扩展。
+
+
+后续自适应执行银行草稿已扩展至54场景：三模型各18场景，包含普通双币、WSOL双币、双向ExactIn/Out、显式ATA/WSOL资金、临时退款/输出解包及预存租金。[银行生成草稿证据](integration/artifacts/local/orca-adaptive-execution-bank-draft.json)与[54次成功原SBF交易探针](integration/artifacts/local/orca-adaptive-bank-sbf-probe.json)已保留，最大wire为903字节，Pool/初始化Oracle/Vault/所有tick数组的实际后字节与新鲜原生参考相符。这些交易由独立探针构建，尚不是Router API产出的交易；适配草稿只在独立目录检查，当前统一验收源码和能力范围不变。
+
+
+自适应草稿的[54场景／108次原交易控制](integration/artifacts/local/orca-adaptive-bank-sbf-controls.json)进一步通过：ExactOut最大输入减一、ExactIn最小输出加一在原程序失败，所有已捕获及交易使用账户除payer实际5000网络费外恢复原值；成功时实际payer变化逐项核对包装、退租、未用输入退款、解包收款及预存租金补差。此控制仍只证明独立构建的本地交易，不代替Router产出wire、同次捕获、钱包和前端的后续验收。
+
+
+自适应独立模拟草稿新增[54场景实际worker入口验证](integration/artifacts/local/orca-adaptive-sbf-worker-probe.json)：通过与正式worker相同的有界stdin、unsigned message和RPC捕获结构调用原SBF，核对实际输入／输出、payer变化、wire摘要和源银行不变；三个模型将初始化Oracle改为只读时均拒绝。完整254字节Oracle所有字段及16/16/128预留区的篡改、缺失、owner/可执行标志、绑定和长度控制已在普通/-OO模式下通过。该worker仍只在草稿目录运行，当前Router生产源码和能力标签保持阶段81冻结范围。
+
+
+自适应组件草稿的[54份真实resolver准备与同捕获worker结果、72项Oracle拒绝控制](integration/artifacts/local/orca-adaptive-component-draft-verification.json)已完成：每场景通过真实Rust resolver读一次有界RPC账户、产生unsigned交易，再由草稿worker复用捕获执行原SBF；实际金额、资金/租金、消息hash和Oracle写权限均通过。初始化Oracle全部字段/预留区篡改及owner/长度/可执行标志/缺失均阻止交易产出。输入源码、草稿二进制和54份产物摘要已单独绑定；这些验证不含正式QuoteView缓存、HTTP API、钱包回执或Chrome准入，下一阶段仍需完成集成。
+
+当前能力目录：61模型中38项ExactOut、12项执行准备；本批新增Orca静态/奖励2项，剩余49个执行模板及其他数学/链/净费用组合继续开发。所有26工作包仍未获完整设计验收，all_requested_features_complete=false、production_ready=false，原会话六阶段目标保持active。
+
+
+<a id="plan-2026-11-15-orca-adaptive-execution"></a>
+
+## Orca自适应SPL执行链路（2026-11-15，阶段82）
+
+本批于2026-11-15启动，2026-11-16继续预检与正式验收；日期不代表历史bank或当前主网状态。
+
+阶段81的25门禁/88Rust/236Chrome正式完成后，继续三个已具备精确数学的自适应经典SPL模型：adaptive、adaptive-rewards、adaptive-dynamic。当前状态：`LOCAL_SCOPE_VERIFIED`；能力目录/19的三个自适应准备/资金/模拟模板已通过本批完整本地验收，生产资格与历史bank共识声明保持关闭。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F82.1|初始化Oracle与真实程序绑定|WP05,WP14,WP15|LOCAL_SCOPE_VERIFIED|完整254字节Oracle/Whirlpool绑定/16、16、128预留区逐字节验证，原legacy swap初始化Oracle可写；原程序和Token代码/部署slot、PDA/Clock及经典资产身份通过；错误/缺失/readonly Oracle明确拒绝。|
+|F82.2|资金与完整独立SBF|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|54份实际API准备和同捕获独立SBF通过，普通币对/WSOL、双向ExactIn/Out、固定/混合动态数组、ATA/临时退款/解包/预存租金均验；108次实际下载wire原SBF全Pool/Oracle/数组/Vault与全回滚核对通过。|
+|F82.3|钱包和回执|WP16,WP25|LOCAL_SCOPE_VERIFIED|54单次签名发送/真实费用租金与用户收付款/重启恢复回执、12失败发送不重发通过；WSOL背书拒绝使用实际WSOL银行验证，普通SPL的lamports不误当Token背书。|
+|F82.4|前端与门禁|WP16,WP25|LOCAL_SCOPE_VERIFIED|30场景121项新Chrome及原静态Orca81/旧流程155，共357项真实Chrome通过；28统一门禁/95次Rust执行、原数学/Parser/严格lint/构建、19证据控制及6Oracle worker控制普通/-OO和17文档控制普通/-OO通过。|
+
+[阶段81最终报告](integration/artifacts/local/orca-execution-check/report.json)保留了上一批冻结源码、运行时及863产物摘要，两份实际浏览器二进制已存入独立运行目录以供后续重建后的复查。阶段82的银行归档为独立`orca-adaptive-execution-bank.json`，原静态/奖励银行和数学语料不覆盖；受控slot/资产替换/PDA重算与真实程序代码边界均明确记录。当前数学ExactOut仍38/61，准备代码新增3模型到15/61但本批资格待完成；剩余46模板与其他数学/链/净费用范围继续，all_requested_features_complete=false、production_ready=false，原六阶段目标保持active。
+
+
+阶段82当前正式预检已产出42份API准备和11份重启回执；首批8份实际下载wire的16次外部原SBF成功/限制反例通过。6项初始化Oracle worker控制和16项证据控制均在普通/-OO通过，严格Clippy与自适应浏览器harness构建通过；54场景API组和30场景Chrome预检继续进行。状态拒绝测试中将WSOL背书用于普通SPL的断言已修正到实际WSOL银行，修正用例需待当前测试组结束后重编译复验，未计作通过。
+
+
+2026-11-16预检更新：30场景121项真实Chrome已通过，54份正式API准备均完成；54份重启回执仍在运行。当前整组测试保留了修正前的普通SPL/WSOL背书断言失败，修正源码已就绪，需在进程终止后单独重编译复验。完整实际wire原SBF重放进行中。证据控制扩至19项并在普通/-OO通过，新增重复ProgramData账户的有界存储复用检查；owner/lamports不同不合并、原始snapshot hash保持不变。
+
+
+后续Raydium CLMM执行的[16场景／32次原交易探针](integration/artifacts/local/rayclmm-execution-initial-evidence.json)于2026-11-16通过，覆盖保留来源的奖励版、显式清除奖励的静态版及Token0/Token1协议收费分支，双向ExactIn/ExactOut与输入/输出限制失败均验。Pool/Observation/全部已声明数组、双Vault全部Token字节和WSOL原有SOL余额变化、用户实际收付与全账户失败回滚和5000网络费相符。既有来源缺少Token2022 ProgramData，探针显式附加锁定本地运行时的Token2022完整闭包，Memo按保留原字节显式载入，不把VM隐式缓存当来源；不代表Token2022资产扩展或历史bank共识。Raydium CLMM的Router执行准备、同次捕获、钱包和前端尚未接入，本批Orca冻结源码与能力标签不变。
+
+
+Raydium CLMM后续受控银行草稿已扩展为56场景：奖励/静态/两种协议收费方向各14场景，覆盖双向ExactIn/Out、显式ATA/WSOL、临时退款/输出解包和预存租金。其[112次独立原SBF交易控制](integration/artifacts/local/rayclmm-bank-sbf-controls.json)通过，Pool/Observation/声明数组/双Vault完整字节及原有SOL余额、用户实际收款、payer费用/租金与失败全账户回滚均核对。该探针自行构建交易，尚不是Router API产出的wire；下一批仍需完整账户验证、同次捕获、钱包与前端接入，当前Orca能力范围未扩大。
+
+
+Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/local/rayclmm-component-draft-verification.json)已通过56场景：真实Rust resolver仅一次读取完整有界RPC、核对Pool/Observation/数组/配置/PDA/代码/Clock与资产后生成unsigned wire，外部原SBF重放112次成功/限制失败并验证实际资金租金和全回滚；同次捕获再交草稿worker独立模拟56次，源银行不变。56项resolver拒绝控制与8组worker普通/-OO控制通过，经济字段和未知扩展被拒绝，原程序允许的历史opaque填充及无挂单的order cohort保留。附属Memo与Token2022程序按显式字节加载并核对，未开放Token2022资产。草稿输入、二进制和56份产物摘要独立绑定；正式Router/QuoteView、钱包/回执及Chrome仍待下一批实现。
+
+
+阶段82统一冻结验收当前已通过54份正式准备、54份恢复回执、108次实际wire原SBF重放、19项证据控制和6项Oracle worker控制的普通/-OO门禁，旧Orca准备/钱包回归也已通过；其余旧资金/捕获/解析/前端和最终摘要门禁仍进行中，因此阶段状态不升级。当前源码及全部68份运行时/银行/原生参考输入摘要持续一致。
+
+阶段82最终验证完成于2026-11-16：28门禁、95次Rust执行、357项真实Chrome、54份实际API准备/54份恢复回执及108次原交易全部通过。源码指纹`dc54e6df7c6f30fe1d32a36ccb5840481fe6be64fff0f801915142b7caa838eb`，1458份产物摘要与运行时/银行/三个原生参考程序输入绑定独立目录`integration/artifacts/local/orca-adaptive-execution-check/runs/14207d2b93c547a38cca48d90baf92c0`；[最终报告](integration/artifacts/local/orca-adaptive-execution-check/report.json)。19项证据控制含大型ProgramData的无损内存复用：完整账户内容相同才共享，owner/lamports变化与原始快照hash均独立保留；6项Oracle全部字段/预留区拒绝控制在普通/-OO均通过。失败预检日志与修正回归保留，最终截图已检查。
+
+当前注明范围能力为61模型中38项ExactOut、15项执行准备；剩余46执行模板及其他数学/链/净费用范围继续。26工作包完整设计验收仍为0，all_requested_features_complete=false、production_ready=false，原会话六阶段目标保持active。
+
+
+<a id="plan-2026-11-16-rayclmm-execution"></a>
+
+## Raydium CLMM经典SPL执行（2026-11-16，阶段83）
+
+阶段82完成后继续固定6d7a0f82经典SPL的静态、奖励、Token-fee模型。状态：`LOCAL_SCOPE_VERIFIED`。正式执行准备、同次捕获SBF、代码准入和能力目录/20通过本批完整本地验收；bitmap/custom-seed/dynamic及Token2022资产扩展按独立模型拒绝。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F83.1|完整账户与原程序|WP05,WP14,WP15|LOCAL_SCOPE_VERIFIED|完整Pool1544/Observation4483/数组10240、config/PDA/Clock/程序/mint/vault和源WSOL捐赠逐项核对通过；原opaque历史填充与无挂单order cohort保留，未支持订单/动态/保留扩展拒绝，实际原程序全后状态及回滚通过。|
+|F83.2|unsigned与显式资金|WP14,WP16|LOCAL_SCOPE_VERIFIED|原swap_v2、显式ComputeBudget、实际方向数组和单签名通过；显式ATA/WSOL补足/临时退款解包/预存租金与真实payer变化匹配。来源Memo和锁定Token2022完整代码闭包明确加载校验，经典资产仍仅Tokenkeg。|
+|F83.3|API/独立模拟/钱包回执|WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|56实际API准备/同捕获独立SBF不refetch、56签名发送/真实费用租金/重启回执和16失败发送不重发通过；112实际下载wire原SBF检查完整Pool/Observation/全部数组/Vault/用户收付款与失败全账户回滚。|
+|F83.4|前端和统一验收|WP16,WP25|LOCAL_SCOPE_VERIFIED|31统一冻结门禁/135次Rust执行/486项真实Chrome（32新场景129检查）通过，含旧报价零动态账户读取、Parser/原数学/严格Clippy、23证据/8worker控制普通/-OO及17文档控制普通/-OO；源码/运行时与全部产物摘要绑定。|
+
+首次预检保留失败日志：未设置锁定Python运行时、Cargo未用rustup入口，以及新故障注入尚未接入/Token2022 ProgramData地址误写，均未计作通过；生产程序校验未因此放宽。当前18/61准备为注明范围已验收能力，仍不等于生产或完整协议资格；38/61 ExactOut不变，剩余43执行模板及其他数学/链/净费用范围仍未完成，all_requested_features_complete=false、production_ready=false，原会话整体目标active。
+
+
+阶段83预检更新：修正后的56份准备/同捕获SBF独立用例通过，56份钱包单次发送及重启回执用例通过，完整状态/资金选项/16失败发送不重发/运行时容量拒绝均通过。一次整组预检在第36场景正确拒绝过期报价，浏览器早期复验记录准备状态变化和第43场景独立模拟超时，均未计作成功且未放宽生产有效期/超时。后续单独复验32场景129项真实Chrome全部通过，明确检查实际准备和独立模拟HTTP响应。31项统一冻结验收已启动，要求56份当前API准备/56回执、112次实际wire原程序和四组共486项Chrome；门禁未全部完成前本批仍IN_PROGRESS。
+
+
+后续Raydium三个高级模型的[独立组件草稿证据](integration/artifacts/local/rayclmm-advanced-component-draft-verification.json)已扩展至162场景：Bitmap、自定义seed、动态费各覆盖三种收费模式、普通币对和明确重算PDA的WSOL币对、双向ExactIn/Out、ATA/补足/临时退款解包和预存租金。324次独立原SBF成功/限制失败验证通过，完整Pool/Observation/数组/扩展/Vault及资金租金与失败全回滚相符；162次真实Rust准备生成wire并沿同捕获交草稿worker模拟通过。新增完整1832字节扩展/seed及34字节动态费状态校验，9组worker普通/-OO控制通过。源码草稿、独立二进制和证据摘要已绑定；当前生产代码仍只开放阶段83冻结范围，后续正式API/钱包回执/Chrome尚待接入。
+
+
+2026-11-16中断后核查：上一轮验收父进程已不存在，测试日志显示5通过/2失败（`SBF_WORKER_IO`），其遗留RUNNING报告已按实际证据改为FAILED，未猜测未保留的进程退出码。独立复验56场景准备/同捕获模拟通过。原临时目录参考程序缺失，按仓库锁定离线构建脚本恢复后，新二进制摘要与旧摘要分别保留；[完整1546个原请求重放](integration/artifacts/local/rayclmm-restored-reference-replay.json)与225份上游源文件检查通过，1266报价/280数值结果全部与原记录一致，不据此声称二进制字节相同。当前新冻结验收重新绑定实际参考和银行输入，仍待所有门禁完成。验收中断的SIGINT/SIGTERM报告与子进程组清理2项控制分别在普通/-OO通过；交易负控独立构建函数新增4项回归后，证据控制为23项普通/-OO通过。
+
+阶段83最终统一结果：31门禁、135次Rust执行、486项真实Chrome、56实际准备/56恢复回执/112实际wire原SBF全部通过。源码指纹`db6e4b21429a193ce6749d0e8ab990454037951d2baaa2273521bd03b989723f`，1761份产物摘要与运行时/银行/实际原参考绑定独立目录`integration/artifacts/local/rayclmm-execution-check/runs/2a6bb3e7814b43ce804534b5456ae362`；[最终报告](integration/artifacts/local/rayclmm-execution-check/report.json)。最终完成截图和全部摘要已检查。失败预检均保留：fixture故障注入遗漏/地址误写已修正，过期报价和模拟超时均未被计为通过，也未放宽生产有效期或超时；新冻结运行独立证明完整结果。
+
+原始目标保持完整：38/61 ExactOut、18/61注明范围执行准备，仍有43执行模板和其他链/数学/净费用组合待完成；26工作包完整设计验收仍为0，all_requested_features_complete=false、production_ready=false，六阶段目标active。
+
+
+<a id="plan-2026-11-16-rayclmm-advanced-execution"></a>
+
+## Raydium CLMM高级经典SPL执行（2026-11-16，阶段84）
+
+在阶段83的31门禁/135Rust/486Chrome全部通过并保留1761产物及62输入摘要后，继续已有精确数学的Bitmap、自定义seed和动态费三个经典SPL模型。当前状态：`LOCAL_SCOPE_VERIFIED`；能力代码/21的三个新增经典SPL执行模板已通过整批本地验收，生产与历史bank资格仍关闭。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F84.1|扩展/seed/动态费身份|WP05,WP14,WP15|LOCAL_SCOPE_VERIFIED|完整1832字节Bitmap扩展/池绑定/112+112 words与PDA、非零seed的u16LE Pool PDA及bump、动态费34字节全部字段和1130后保留区校验；附属Token2022/Memo闭包沿原边界，未知扩展继续拒绝。|
+|F84.2|原交易与资金组合|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|162受控银行覆盖三个模型各三种收费模式、普通币对/明确重算PDA的WSOL、双向ExactIn/Out及资金/预存租金；324原SBF及162Rust准备/worker草稿通过，现启动正式API取证。|
+|F84.3|API与钱包回执|WP16,WP25|LOCAL_SCOPE_VERIFIED|正式162场景准备/同捕获SBF、162单次发送及重启回执、36类发送失败不重发与扩展污染拒绝回归运行中；组件证明不替代实际QuoteView/API/钱包证据。|
+|F84.4|前端/原参考/统一门禁|WP12,WP16,WP25|LOCAL_SCOPE_VERIFIED|45场景181项真实Chrome/harness及实际原wire参考已接入；原经典SPL/Orca/Pump回归、Parser/严格Clippy/契约和完整冻结验收待完成。|
+
+当前受控银行引用已恢复并完整重放1546原请求的当前源码参考，生成时重建所有WSOL Pool/Vault/Observation/array/extension PDA；未声称这些是公开历史池。程序与Token经典资产限制不变，订单/Token2022资产和未声明组合继续拒绝。当前21/61准备为代码接入范围，其中新增3项资格待完成；38/61 ExactOut不变，剩余40执行模板与其他链/数学/净费用范围未完成，all_requested_features_complete=false、production_ready=false，原会话六阶段目标保持active。
+
+
+阶段84正式预检当前已生成82份API准备，完整状态污染拒绝、资金选项显式授权及运行时容量检查通过，162场景的准备/SBF和钱包回执组仍运行中。首批8份实际API wire的16次外部原SBF成功/限制失败重放通过，覆盖普通资产、WSOL、ATA、退款与预存租金；完整Bitmap扩展及Pool/Observation/数组/Vault/费用租金/失败全回滚核对相符。严格API Clippy、23证据控制普通/-OO、9Oracle/扩展worker控制普通/-OO及17项进度文档门禁通过。45场景181Chrome测试程序已构建但尚未运行，32项最终冻结驱动已准备但尚未启动，不将这些草稿/局部结果视为完整阶段验收。
+
+
+阶段84实际准备审计：162份API准备／独立证据承诺、unsigned wire摘要、扩展账户位于原指令剩余账户首位且可写、三模型各三种收费模式均已核对；[审计记录](integration/artifacts/local/rayclmm-advanced-current-preparation-audit.json)明确记录核对时的部分回执数量，不作162份钱包完成声明。[实际API原wire矩阵](integration/artifacts/local/rayclmm-advanced-original-model-matrix.json)以18场景36次原交易覆盖三模型/三费模式和各类资金操作通过，是完整324次最终重放前的限定子集。当前长测试只剩162场景钱包回执循环，暂无失败。
+
+
+阶段84完整实际wire预检：162份正式API下载交易已完成324次原SBF成功／限制失败重放，完整Pool、Observation、全部声明数组和Bitmap扩展、双Vault/原SOL余额、用户实际收付、payer费用/租金及失败全账户回滚均通过。[原程序完整记录](integration/artifacts/local/rayclmm-advanced-original-full-preflight.json)保留真实捕获批次、交易/准备/独立证据摘要。162份钱包回执预检和45场景浏览器仍在运行，阶段84不借此提前升级完成状态。
+
+
+阶段84正式预检已全部齐备：162份API准备/独立SBF与162份实际单次发送/重启恢复回执通过，324次实际wire原程序成功/限制失败、23项证据控制/9组worker控制普通/-OO、严格Clippy及45场景181项Chrome全部通过。预检截图已检查，独立模拟/真实回执的输出与手续费、租金相符。32项最终冻结验收已从新目录启动，重新要求162当前准备/162回执/324原交易及五组共667项Chrome；源码和65份运行时/参考输入锁定，未全部通过前仍保持本批IN_PROGRESS。
+
+
+后续EVM执行链路的[原Router02离线签名／费用探针](integration/artifacts/local/evm-router02-wallet-probe.json)通过8次EIP1559原交易：双向ExactIn/ExactOut各含成功和限制失败，输入/输出均大于u64范围，未借用Solana金额宽度。原公开Factory/Pair/Router02/ERC20字节与pins校验、chain ID/nonce/目标/calldata/签名恢复/零ETH交易值绑定通过；每笔仅一次原始交易发送，回执恢复无重发，实际gasUsed×effectiveGasPrice与payer费用一致，成功时用户收付/双Vault和Swap日志核对，限制失败时全部合约余额与Pool状态回滚但扣实际网络费。只在本地受控VM与测试钱包运行，未提交公网交易，也尚未接入正式EVM准备、QuoteView绑定、独立生产验证或前端；该证据不扩大本批Orca/Raydium能力标签。
+
+
+后续EVM组件的[独立准备草稿验证](integration/artifacts/local/evm-preparation-component-draft-verification.json)已通过6组Rust控制及3组ethers编码／离线签名互验。组件重建现有单池ExactIn的完整BoundEvmExecution承诺，保留uint256金额，核对chain ID/pending nonce/源快照/caller/token/spender及费用预算；余额／授权不足不生成unsigned wire，也不自动插入approve。EIP1559九字段unsigned编码与独立ethers逐字节一致，原Router02 ABI核对调用参数并恢复指定测试账户签名，额外覆盖零nonce/priority与高于u128的费用字段。这些使用组件调用方提供的观察，不含实际RPC捕获、共识／部署验证、ExactOut准备、独立REVM执行、QuoteView/API缓存、正式钱包／回执或前端集成；未据此开放EVM能力或缩小原始目标。
+
+阶段84首次冻结运行的API组以6通过/1失败结束：第132个钱包场景的独立模拟超时，失败前131份回执成功，失败场景未发送。该失败报告保留，生产超时和有效期未调整。下一轮以完整相同场景集串行运行，并仅在进程生命周期内禁止系统空闲休眠，未加入自动重试或削减测试；执行环境单独写入新运行目录，当前阶段84仍IN_PROGRESS。
+
+阶段84最终冻结验收已完成：33项检查全部成功，306次Rust测试执行、162份正式API准备、162份单次发送及重启恢复回执、324次实际wire原SBF交易、五组共667项Chrome（其中高级模型181项）。2026-11-16复核源码指纹及全部65份运行时/参考输入与最终报告完全一致；最终运行目录为`166590019da046ed95e007aa4cdd8186`，保留3917项产物摘要。此前独立模拟超时的失败报告继续保留；新完整运行未减少场景或放宽生产超时。21/61执行准备、38/61 ExactOut为当前限定范围，剩余40种执行模板、其他数学及真实部署/历史bank/生产验证继续待完成。
