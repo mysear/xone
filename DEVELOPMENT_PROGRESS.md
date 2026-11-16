@@ -1,6 +1,6 @@
 # Xone 开发进度与完成情况
 
-更新：2026-11-16。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
+更新：2026-11-17。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
@@ -16,7 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
-|候选图增量索引与COW（阶段85）|§13.2/28.11/28.14；WP09、WP12|IN_PROGRESS|按物理池维护方向边、Arc共享邻接边；9项新增增量路由回归及四crate全目标Clippy已通过|副本/共享Vault/完整路由/分配器及API回归运行中，见[阶段85](#plan-2026-11-16-incremental-graph)|
+|候选图增量索引与COW（阶段85）|§13.2/28.11/28.14；WP09、WP12|LOCAL_SCOPE_VERIFIED|物理池方向边索引、不可变共享邻接边和状态副本局部发布；10项新增回归|8项门禁/249次Rust测试通过，源码和341份测试输入同批绑定；beam/共享DAG/严格收益界/生产容量仍待完成|
 |Raydium CLMM高级经典SPL执行（阶段84）|§12/14/15/23；WP05、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|Bitmap/自定义seed/动态费三个经典SPL模型完整准备、同捕获SBF、显式ATA/WSOL和钱包回执；能力/21|162API/162重启回执/324原交易，33门禁/306次Rust/667项Chrome（181新增）通过；见[阶段84](#plan-2026-11-16-rayclmm-advanced-execution)，其他版本/生产资格仍缺|
 |Raydium CLMM经典SPL执行（阶段83）|§12/14/15/23；WP05、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|三个固定经典SPL模型的完整准备、同捕获SBF、显式ATA/WSOL、钱包回执；能力/20|56API/56重启回执/112原交易，31门禁/135次Rust/486项Chrome（129新增）通过；见[阶段83](#plan-2026-11-16-rayclmm-execution)，高级扩展/生产资格仍缺|
 |Orca自适应SPL执行链路（阶段82）|§12/14/15/23；WP05、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|三个自适应经典SPL模型的Oracle全字节/写权限、资金准备、同次捕获SBF和钱包回执；能力/19|54API/54重启回执/108原交易、28检查/95次Rust/357项Chrome（121新增）通过；见[阶段82](#plan-2026-11-15-orca-adaptive-execution)，其他版本/Token2022/生产资格仍待完成|
@@ -80,7 +80,7 @@
 |WP09|Rust版本化状态副本|§28.11|PARTIAL_LOCAL|不可变QuoteView/池图原子发布、数值更新复用拓扑；两独立路由副本读取完整分区、禁自动提交offset、owner当前完整checkpoint+cursor恢复、有限Kafka尾窗；HTTP开发模式所有源失败暂停及同generation恢复；字段24独立state进入双完整路由，错误Solana依赖撤销该链旧视图，EVM链保持可用；新增adaptive-rewards双副本当前bank分发、故障撤销/新generation恢复和router重启通过；新增adaptive-dynamic双副本完整状态、撤销恢复与router重启验证|大池状态COW/慢句柄回收/内存压力、真实保留过期和大型图恢复、生产多实例容量仍需实测|
 |WP10|精确V2与基础Token行为|§28.12|PARTIAL_LOCAL|单一V2精确整数内核、先乘后除、方向/费率/大整数、consumed/refund；未知token行为失败；Raydium ceil输入组合费/creator拆分及输出creator费、protocol/fund floor、LP保留费与raw/净储备后状态，u64/u128checked；1604原代码差分；新增独立完整V2版本的raw/储备/累计价/锁及原VM差分完成限定验收|真实链参考合约/独立执行余额差分、税费/rebase等特殊Token未实现或验收|
 |WP11|V3、Stable及V4能力|§28.13|PARTIAL_LOCAL|标准Uniswap V3有界证明范围内的独立整数exact-in、逐word手续费舍入、跨tick净流动性、零流动性空段、int256/uint160/uint128边界及乘法溢出fallback；264项固定官方SDK差分（含最低初始化价）与双副本解析报价场景通过；RaydiumCLMM动态profile原spacing分段/时间filterdecay/ceilfee/cap/zeroL/index/逐步费用与完整后Pool，348原native案例及连续状态通过；本批限定范围整体验收通过；Balancer V2双币不可变50/50独立Weighted模型，固定区块及765原onSwap案例/45组180步完整余额与17项双副本进程检查通过；新增不可变双币任意合法归一化权重static版本，原整数LogExpMath/powUp、5355案例/315组1260步/240pow与18项双副本检查通过；五族联合增量已补多币物理状态、限定Managed/Composable、Plain3/4正常读取路由及Meta/NG/Crypto原数学子集、Solana静态奖励和V4/Infinity高级CL/单Bin内核，按各自边界完成本地测试；标准type0 NG2–8币已补齐固定源码模板/immutable读取、完整raw/admin/oracle后状态与原exchange差分及双副本连续报价；非零Managed协议/管理费BPT铸币、完整供应/收款余额与powDown数学已原回调验证，旧源码超限仅参考使用；MetaUSD标准meta/3CRV直接兑换已补齐独立clone版本、base VP只读依赖、完整状态/wire、正常RPC解析/双副本报价及共享池重算；本批新增Crypto完整调价/admin mint/gulp与完整后状态、Orca自适应费率管理器和Infinity跨Bin内核；Infinity静态零hook完整树在线接入已由后续Bin批次完成限定验收；本批Orca完整adaptive内核已接普通报价，完整Oracle/fee/ticks/raw后状态和全额/正输出约束、双副本及来源故障恢复已通过本地验收；本批静态零hook标准ERC20 Bin普通分派、真实tree遍历与树外active、完整储备/fee/app账本及全额正输出通过，完整Vault结算待补；新增Orca adaptive初始化奖励checked乘法溢出归零、wrapping global/outside及普通报价完整后状态与原native差分通过；新增三连续完整dynamic/fixed混合数组的adaptive奖励内核/普通分派及完整原后状态差分|其他Curve模型与特殊Token、Managed非零BPT费用/Composable BPT及rate-cache/V3、Slipstream外部module/reward、V4/Infinity dynamic/hooks/native/Bin与管理器完整执行、实际Token/部署审计仍未完成；五族全部功能仍未完成，详见联合计划明确剩余项；V2未同步raw余额的解析/完整数学后状态及共享路径依赖仍需补齐，不能由独立EVM单hop通过反推数学覆盖完整|
-|WP12|金额感知候选图|§28.14|PARTIAL_LOCAL|方向性多重图、物理池ID、金额计算排序、跳数/展开/候选/期限预算、范围内启发式语义；V3与V2混合图、按配置拆单粒度保留仅部分分配可完整消费的路径；RaydiumCLMM动态profile进入已有金额感知图，报价使用动态完整状态；专项回归通过，本批限定范围整体验收通过|大图增量索引、beam多标签、上界证明、全量小图oracle与跨跳shift反例仍需补充|
+|WP12|金额感知候选图|§28.14|PARTIAL_LOCAL|方向性多重图、物理池ID、金额计算排序、跳数/展开/候选/期限预算、范围内启发式语义；V3与V2混合图、按配置拆单粒度保留仅部分分配可完整消费的路径；RaydiumCLMM动态profile进入已有金额感知图，报价使用动态完整状态；专项回归通过，本批限定范围整体验收通过；阶段85补物理池增量边索引和Arc邻接边共享，128连续变更/256池局部更新及副本/路由/分配/API回归通过|完整银行与顶层索引规模化/压力验证、beam多标签、严格上界、全量小图oracle与跨跳shift反例仍需补充|
 |WP13|拆单、共享池与整数守恒|§28.15|PARTIAL_LOCAL|单路径/最多两路有界枚举、两种执行顺序、共享池状态模拟、余数逐跳重算、输入守恒、启用成本提案；共享V3物理池顺序更新sqrt/tick/liquidity，最终path/route输入输出都重算；RaydiumCLMM动态共享池连续消费完整volatility/reference/fee后状态，原序列及分配输入守恒通过；本批限定范围整体验收通过；本批新增Crypto共享池拆单连续重算价格/raw/LP账本验证；本批新增四组Orca adaptive两步共享allocation与原序列后状态匹配，后一步复用Oracle/fee/ticks/raw；本批共享manager/currency依赖冲突拒绝及每步app/protocol fees传播，4步跨物理池原序列和实际拆分计划21步原EVM重放通过；新增四组adaptive-rewards共享allocation复用完整奖励/Oracle/tick，实际选中计划36步原native连续重放通过；新增dynamic四组共享allocation和39个实际选中计划原生步骤验证|通用DAG合并/联合求解、税费、实际Gas/L1费换算与系统oracle gap测量尚未完成|
 |WP14|执行计划与calldata|§28.16|PARTIAL_LOCAL|caller/recipient/滑点/截止/快照/策略进入plan hash、单路径V2 ABI构造、目标白名单拒绝；Edge绑定protocol，V3/其他协议路径不能误编码为V2 router calldata；新增singleton profile只生成指示性计划，明确拒绝套V2 calldata，专属执行器/settlement未实现；T32新增标准V2单hop完整BOUND信封/执行器身份/精确calldata与本地独立执行绑定，限定本地验收通过；截至阶段84已完成21/61限定执行准备，Meteora/Pump/Raydium/Orca经典SPL单池的显式ATA/WSOL、unsigned wire、独立SBF和钱包回执按各批范围验证|其余40种执行准备、正式EVM资金/授权/费用与ExactOut退款、跨池/拆单DAG及受审计执行器仍待完成；生产VERIFIED保持关闭|
 |WP15|独立交易仿真|§28.17|PARTIAL_LOCAL|验证接口明确拒绝无后端的VERIFIED；固定blockHash eth_call仅标RPC_CALL_CHECKED；新增Shanghai单hop V2的严格REVM本地状态DB、独立真实余额差、执行预算与可终止子进程接口，原合约全状态差分、双副本故障恢复、全量及双审通过限定本地验收；阶段58–84限定Solana原SBF/Token-CPI、实际wire/收款差和钱包回执按独立批次验证|可信历史bank、生产独立验证、多链hardfork/L2费用、未覆盖协议/多池/拆单仿真与规模化容量仍缺，VERIFIED保持关闭|
@@ -458,7 +458,7 @@
 |14.rayclmm-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|静态/奖励/Token-fee经典SPL单池准备、完整Pool/Observation/数组、资金/独立SBF与钱包回执；56API/56回执/112实际wire原交易及31门禁/135次Rust/486项Chrome通过|bitmap/custom-seed/dynamic和Token2022资产、跨池/生产与历史bank资格仍待独立验收|[验证记录](integration/artifacts/local/rayclmm-execution-check/report.json)|
 |14.rayclmm-advanced-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|三个高级经典SPL模型完整扩展/seed/动态费准备、同捕获SBF、162API/162回执/324原交易及33门禁/306Rust/667Chrome冻结通过|其他扩展/Token2022、多池、真实历史bank与生产资格仍未完成|[验证记录](integration/artifacts/local/rayclmm-advanced-execution-check/report.json)|
 |14.wallet-lifecycle|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|已有unsigned/独立SBF模板接Wallet Standard、显式发送与实际收付回执/恢复|默认关闭，按链启用；本批仅受控Solana模板，不等于全链全协议生产资格/完整多租户或多区执行验收|[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
-|13.incremental-graph|WP09,WP12|IN_PROGRESS|物理池边索引、不可变共享邻接边、完整银行准入校验及状态副本局部刷新|局部更新与完整构图等价、共享依赖/重组/API与严格Clippy验收待完成；beam/联合DAG/收益界继续待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
+|13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚仍全量构图；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 
 <a id="batch-history"></a>
 
@@ -549,7 +549,7 @@
 |82|[Orca自适应SPL执行链路](#plan-2026-11-15-orca-adaptive-execution)|LOCAL_SCOPE_VERIFIED|54场景API/独立SBF和重启回执、108实际wire原交易、28检查/95次Rust/357项Chrome（121新增）通过；[验证记录](integration/artifacts/local/orca-adaptive-execution-check/report.json)|
 |83|[Raydium CLMM经典SPL执行](#plan-2026-11-16-rayclmm-execution)|LOCAL_SCOPE_VERIFIED|56场景API/同捕获SBF和重启回执、112原交易，31门禁/135次Rust/486项Chrome（129新增）通过；[验证记录](integration/artifacts/local/rayclmm-execution-check/report.json)|
 |84|[Raydium CLMM高级经典SPL执行](#plan-2026-11-16-rayclmm-advanced-execution)|LOCAL_SCOPE_VERIFIED|三个模型/三收费模式162API/162回执/324原交易，33门禁/306Rust/667Chrome同源码冻结通过；[验证记录](integration/artifacts/local/rayclmm-advanced-execution-check/report.json)|
-|85|[候选图增量索引与COW](#plan-2026-11-16-incremental-graph)|IN_PROGRESS|物理池局部更新、不可变邻接边共享和状态副本发布已接入，等待统一验证；[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
+|85|[候选图增量索引与COW](#plan-2026-11-16-incremental-graph)|LOCAL_SCOPE_VERIFIED|8项门禁/249次Rust测试通过，源码和341份测试输入同批绑定；[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -1357,7 +1357,7 @@ R03.2新基础：anchor_versioned/anchor_accounts对独立初始manifest、sourc
 |R10|高，可并行|§12.13/14/28.16/28.17；WP10,WP14,WP15,WP20|独立执行后端与真实收款余额差：EVM REVM/固定状态DB/链规则；Solana版本化账户及SBF/Token CPI|已有限REVM/实际收款差及正常simulate API；阶段58–84在Meteora/Pump/Raydium/Orca注明范围接入实际unsigned wire、同次账户捕获、原SBF/Token CPI余额差和钱包回执。可信历史bank与生产资格、多链规则/费用、其余协议和拆单执行仍需补齐，VERIFIED保持关闭。|
 |R11|高，依赖R10|§14/28.16/28.18/28.22；WP14,WP16,WP20|受审计执行器与可用交易：各协议/拆单DAG calldata、授权/wrap/费用/退款；Solana交易/CU/账户锁/blockhash|当前21/61协议模型具有限定单池执行准备，注明范围包含显式ATA/WSOL补足/退款/解包、原生SOL、SBF与单次钱包发送/重启回执；详见阶段58–84。其余40模板、正式EVM授权/费用/ExactOut、多hop/拆单DAG、跨收款人原生结算和生产审计继续待完成；不能把现有Solana钱包链路列为从未实现。|
 |R12|中，交易前完成|§12.10/13/28.14/28.15；WP12,WP13,WP16|实际Gas/L1数据费/原生费换算、净输出评分和费用完整性|quote响应netBuyAmountEstimate为null，CHAIN_FEE_MODEL_NOT_IMPLEMENTED；配置route_activation_cost只是提案成本，不是实测链上费用|
-|R13|中|§12.10/13/28.14/28.15；WP12,WP13|图增量索引/COW、beam多标签、共享DAG联合求解、小图穷举及收益gap|新增max_splits=1..8、独立V2/V3/Aero物理池子集DP与独立整数穷举；共享池按执行顺序有界多路分配、显式次数/时间预算和网格覆盖标记；默认4路，保留候选/网格外最优性边界。全量/进程验证见[计算收尾计划](#plan-2026-11-08-quote-completion)；增量图/通用DAG与严格收益界仍未完成|
+|R13|中|§12.10/13/28.14/28.15；WP12,WP13|图增量索引/COW、beam多标签、共享DAG联合求解、小图穷举及收益gap|新增max_splits=1..8、独立V2/V3/Aero物理池子集DP与独立整数穷举；共享池按执行顺序有界多路分配、显式次数/时间预算和网格覆盖标记；默认4路，保留候选/网格外最优性边界。全量/进程验证见[计算收尾计划](#plan-2026-11-08-quote-completion)；通用DAG与严格收益界仍未完成；阶段85已完成物理池增量索引/邻接边COW与本地回归，其余通用DAG/严格收益界和规模化仍缺|
 |R14|中|§12.10/12.13/13/28.12–28.16；WP10,WP11,WP13,WP14,WP16|ExactOut完整输入目标/退款语义、转账税/rebase/暂停/黑名单/代理升级能力分级|当前38/61模型支持独立ExactOut目标，包括已限定的V2/V3/LM/Slipstream/LFJ、Solana、Stable/Weighted/Managed快照/Composable普通币和零hook Singleton/Bin。各版本状态/计划/API/前端范围见独立批次，21执行模板独立统计。其余23模型、扩展组合/高级Token行为和完整目标退款/费用仍缺，不对ExactIn结果取倒数。|
 |R15|中，规模化前|§9/18/28.10/28.11/28.26；WP08,WP09,WP24|S3/对象存储不可变checkpoint、公共manifest校验、peer选择；大池COW/慢句柄回收和恢复容量|当前owner Protobuf bootstrap和有界Kafka tail已实现；未完成对象存储下载/上传故障、1小时/1天/30天停机、WAL溢出和无源恢复专项|
 |R16|上线前必做|§7.5–7.8/18/28.8/28.9/28.19/28.25；WP06,WP07,WP17,WP23|Kafka TLS/SASL/ACL、真实ISR/retention/topic重建与事务故障；PG切换、磁盘/节点/可用区故障、灾备RPO/RTO及shadow放量|现有专用单机PG/Kafka及进程接管测试已做；不等于多区/独立故障域验收，生产准入必须单独验证|
@@ -2568,9 +2568,12 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 |---|---|---|---|---|
 |F85.1|物理池增量边索引与不可变共享|WP09,WP12|LOCAL_SCOPE_VERIFIED|状态更新、增删池、币种/多资产变化、空图与恢复、重复池/跨链/坏状态拒绝。|
 |F85.2|候选顺序与全量构图对照|WP12|LOCAL_SCOPE_VERIFIED|128次连续变更及紧展开预算；任意变更后与完整构图的边、准入和顺序一致，未触及邻接边共享内存。|
-|F85.3|状态副本原子发布与回归|WP09,WP12|IN_PROGRESS|旧句柄、图版本、准入撤销、共享Vault、重组、路由/分配/API及严格Clippy；复验命令`make -C integration incremental-graph-current-check`。|
+|F85.3|状态副本原子发布与回归|WP09,WP12|LOCAL_SCOPE_VERIFIED|旧句柄、图版本、准入撤销、共享Vault、重组、路由/分配/API及严格Clippy；复验命令`make -C integration incremental-graph-current-check`。|
 
 本批范围为普通提交的候选图索引和邻接边COW；基线安装/恢复与scope重锚目前仍使用完整构图，下一轮接入同一增量索引。池状态向量、顶层索引映射仍需随完整银行处理，不声称O(变更池数)整批状态发布。beam多标签、通用共享DAG、严格收益界、慢句柄内存压力及生产容量仍未完成；生产与全部功能完成标志保持false。
+
+
+阶段85最终验证：8项门禁/249次Rust测试通过，源码和341份测试输入同批绑定。新增9项路由回归和1项副本回归覆盖局部复制、128次连续变更、256池中510个未触及邻接桶共享、旧句柄和紧预算候选顺序；现有默认路由/副本/分配器及指定API回归通过（需要额外认证实VM向量的ignored专项仍按原条件保留，不计本轮通过数），四crate全目标严格Clippy、契约及17项普通/优化进度文档检查通过。此前全目标Clippy发现的重复dead_code测试属性已修复，失败日志保留。本批不改变协议能力目录、生产独立验证或全功能完成标志。
 
 <a id="latest-code-gap-audit-2026-11-16"></a>
 
