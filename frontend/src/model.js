@@ -42,3 +42,26 @@ export function singlePreparationPool(quote,chain) {
   if(edges.length!==1)return null;
   return (chain?.pools||[]).find(pool=>pool.available&&pool.poolId===edges[0].pool_id&&pool.protocol===edges[0].protocol)||null;
 }
+
+
+export function evmPreparationPools(quote, chain) {
+  if (!quote?.chainKey?.startsWith('evm:') || quote.chainKey !== chain?.chainKey || quote.routes?.length !== 1) return [];
+  const path = quote.routes[0].path || quote.routes[0];
+  const edges = path.edges || [];
+  if (!edges.length || edges.length > 8 || (edges.length > 1 && quote.kind !== 'EXACT_OUT') || new Set(edges.map(e => e.pool_id)).size !== edges.length) return [];
+  const pools = edges.map(e => (chain.pools || []).find(p => p.available && p.poolId === e.pool_id && p.protocol === e.protocol && p.execution?.evmPreparation));
+  return pools.every(Boolean) ? pools : [];
+}
+export function unsignedInteger(value, label) {
+  if (value.length > 78 || !/^[0-9]+$/.test(value) || BigInt(value) >= (1n << 256n)) throw new Error(`${label}必须是非负整数`);
+  return BigInt(value).toString();
+}
+export function evmFeeRequest(gas, maximum, priority, budget) {
+  const gas_limit = String(boundedInteger(gas, 21000, 15000000, 'Gas上限'));
+  const max_fee_per_gas = unsignedInteger(maximum, '最高Gas单价');
+  const max_priority_fee_per_gas = unsignedInteger(priority, '优先费');
+  const max_network_fee = unsignedInteger(budget, '网络费预算');
+  if (BigInt(max_priority_fee_per_gas) > BigInt(max_fee_per_gas)) throw new Error('优先费不能大于最高Gas单价');
+  if (BigInt(gas_limit) * BigInt(max_fee_per_gas) > BigInt(max_network_fee)) throw new Error('网络费预算小于Gas上限乘以最高单价');
+  return {gas_limit, max_fee_per_gas, max_priority_fee_per_gas, max_network_fee};
+}

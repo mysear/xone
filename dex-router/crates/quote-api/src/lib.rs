@@ -1,4 +1,5 @@
 mod cache_gc;
+mod evm_preparation;
 mod exact_out;
 mod execution_receipts;
 mod preparation;
@@ -263,6 +264,10 @@ impl Api {
             .route("/v1/quote-options", get(quote_options))
             .route("/v1/quotes/{id}/build", post(build_transaction))
             .route("/v1/quotes/{id}/prepare", post(preparation::prepare))
+            .route(
+                "/v1/quotes/{id}/prepare-evm",
+                post(evm_preparation::prepare),
+            )
             .route(
                 "/v1/quotes/{id}/preparations/{preparation}/simulate-independent",
                 post(solana_simulation::simulate),
@@ -821,6 +826,12 @@ fn failure(e: xone_domain::Error) -> HttpError {
         | "PREPARATION_QUOTE_INVALID"
         | "PREPARATION_SIMULATION_FEE_MISMATCH"
         | "PREPARATION_SIMULATION_AMOUNT_MISMATCH" => StatusCode::UNPROCESSABLE_ENTITY,
+        code if code.starts_with("EVM_RPC_")
+            || code.starts_with("PREPARATION_EVM_")
+            || code.starts_with("EVM_PREPARATION_") =>
+        {
+            StatusCode::UNPROCESSABLE_ENTITY
+        }
         "PREPARATION_NOT_FOUND" | "RECEIPT_NOT_FOUND" => StatusCode::NOT_FOUND,
         "SUBMISSION_BUSY" | "SBF_SIMULATION_BUSY" => StatusCode::TOO_MANY_REQUESTS,
         code if code.starts_with("SIGNED_")
@@ -1099,6 +1110,20 @@ async fn quote_options(
                         .transaction_submission_chains
                         .iter()
                         .any(|key| key == &configured.key);
+                let evm_preparation = available
+                    && pool.protocol == xone_domain::v2_swap::PROFILE
+                    && configured.rpc_urls.len() == 1
+                    && api
+                        .config
+                        .config
+                        .api
+                        .evm_preparation
+                        .get(&configured.key)
+                        .is_some_and(|p| {
+                            p.token_code_sha256.contains_key(&pool.token0)
+                                && p.token_code_sha256.contains_key(&pool.token1)
+                                && pool.v2.as_ref().is_some_and(|v| v.factory == p.factory)
+                        });
                 pools.push(json!({
                     "protocolViewId":protocol_view.view_id,
                     "capabilities":capability,
@@ -1111,7 +1136,7 @@ async fn quote_options(
                     "directions": directions,
                     "available": available,
                     "unavailableReason": reason,
-                    "execution": {"quote": available, "preparation": available && capability.execution_preparation && !configured.rpc_urls.is_empty(), "unsignedPlan": available && capability.unsigned_transaction && !configured.rpc_urls.is_empty(), "rpcSimulation": available && capability.rpc_simulation && !configured.rpc_urls.is_empty(), "createDestinationAta":available && capability.account_creation && !configured.rpc_urls.is_empty(), "wrapSourceSol": available && capability.native_funding && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "unwrapDestinationSol": available && capability.native_funding && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "walletSubmission":wallet_submission,"receiptTracking":api.receipts.is_some(),"independentLocalSimulation":local_sbf,"simulation": false},
+                    "execution": {"evmPreparation":evm_preparation,"evmPreparationEndpoint":if evm_preparation{Some("/v1/quotes/{id}/prepare-evm")}else{None},"quote": available, "preparation": available && capability.execution_preparation && !configured.rpc_urls.is_empty(), "unsignedPlan": available && capability.unsigned_transaction && !configured.rpc_urls.is_empty(), "rpcSimulation": available && capability.rpc_simulation && !configured.rpc_urls.is_empty(), "createDestinationAta":available && capability.account_creation && !configured.rpc_urls.is_empty(), "wrapSourceSol": available && capability.native_funding && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "unwrapDestinationSol": available && capability.native_funding && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "walletSubmission":wallet_submission,"receiptTracking":api.receipts.is_some(),"independentLocalSimulation":local_sbf,"simulation": false},
                 }));
             }
         }

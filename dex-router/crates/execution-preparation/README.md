@@ -36,3 +36,21 @@ an owning reference. This removes repeated cold code-file creation in multi-API
 hosts without changing compute limits, production deadlines or evidence hashes.
 Worker failure logs contain bounded I/O counts and child exit state, not account
 or transaction content. Such diagnostics are not execution evidence.
+
+The explicit EVM `evm_rpc` resolver consumes the already bound ExactIn or ExactOut
+plan plus an operator supplied RPC/executor/token identity configuration. It
+collects one block-hash pinned observation set, checks the complete declared V2
+state, and rechecks canonical block and live nonce after reading balances and
+allowance. Call count, aggregate response bytes and total duration are bounded;
+redirects, retries and number-based state-read fallbacks are disabled. Errors do
+not contain the provider URL or server error messages. An unpredictable unknown
+block control checks all four balance/code/storage/call selector methods.
+
+This produces `HASH_PINNED_RPC_OBSERVATION` evidence. It does not verify consensus,
+a current hardfork fee model, full L2 fees, or independent execution. The server
+retains no private key, performs no signing and sends no transaction. The API is
+`POST /v1/quotes/{id}/prepare-evm`; the JSON request contains decimal-string
+`gas_limit`, `max_fee_per_gas`, `max_priority_fee_per_gas`, and `max_network_fee`.
+The runtime capability `execution.evmPreparation` is separate from the qualified
+Solana preparation and wallet interfaces. Unsupported pools or missing configured
+code identities fail closed; funding/approval blockers return no unsigned wire.

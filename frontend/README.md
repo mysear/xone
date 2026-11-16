@@ -177,3 +177,5 @@ Orca自适应经典SPL执行（阶段82，能力代码/19）：三个既有自�
 Raydium CLMM经典SPL执行（阶段83，能力代码/20）：静态、奖励、Token-fee模型接入单池ExactIn/ExactOut准备、显式ATA/WSOL资金、同捕获原SBF与钱包回执；协议Token收费方向不等于Token2022资产转账扩展。初始化Observation、完整数组及原Memo/附属Token2022程序身份均纳入验证；Bitmap、Custom Seed、动态费和其他版本仍需各自执行适配。复验入口为仓库根目录 `make -C integration rayclmm-execution-current-check`；实际验收状态只见根进度文档。
 
 Raydium已声明扩展模型执行（阶段84，能力代码/21）：Bitmap、自定义seed和动态费的完整状态接入经典SPL原swap_v2、显式ATA/WSOL、同次捕获模拟及钱包流程。45场景181项浏览器检查覆盖三个模型各三种收费模式，并核对扩展在剩余账户首位、可写且绑定当前池。复验入口为仓库根目录 `make -C integration rayclmm-advanced-execution-current-check`；本批33项冻结检查、162份API/162份回执/324次原交易及667项Chrome已通过本地限定验收，完整范围见根进度文档。
+
+EVM固定块准备（阶段88）：仅当链配置明确公布`execution.evmPreparation`时，页面提供Gas上限、最高Gas单价、优先费和网络费预算（wei），调用`POST /v1/quotes/{id}/prepare-evm`并下载完整待签名JSON。改变费用会撤销此前准备。此接口自行读取固定块RPC身份/状态/资金与pending nonce；来源级别为RPC观察，独立EVM执行及链特定费用尚未闭合。页面不使用Solana Wallet Standard签署EVM交易；核心服务不持钥、不签名、不广播。

@@ -1,3 +1,5 @@
+mod evm_preparation;
+pub use evm_preparation::EvmPreparationConfig;
 mod lfj;
 mod meteora;
 mod pancake_bsc_lm;
@@ -72,6 +74,8 @@ config_struct!(State {
 #[serde(deny_unknown_fields)]
 pub struct Api {
     pub listen: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub evm_preparation: BTreeMap<String, EvmPreparationConfig>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub solana_runtime_manifest: String,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -700,6 +704,26 @@ impl Config {
                 && (self.journal.transport != "kafka" || self.control.backend != "disabled"))
         {
             return Err(fail());
+        }
+        for (chain, preparation) in &self.api.evm_preparation {
+            preparation.validate()?;
+            let configured = self
+                .chains
+                .iter()
+                .find(|c| &c.key == chain)
+                .ok_or_else(|| err("EVM_PREPARATION_CONFIG"))?;
+            let digest = configured.genesis_hash.strip_prefix("0x").unwrap_or("");
+            if expected != "dex-router"
+                || !chain.starts_with("evm:")
+                || configured.rpc_urls.len() != 1
+                || digest.len() != 64
+                || !digest
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                || digest.bytes().all(|b| b == b'0')
+            {
+                return Err(err("EVM_PREPARATION_CONFIG"));
+            }
         }
         let s = &self.startup;
         let h = &self.history;

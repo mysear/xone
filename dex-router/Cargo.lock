@@ -3703,10 +3703,12 @@ dependencies = [
 name = "xone-execution-preparation"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "base64 0.22.1",
  "hex",
  "num-bigint",
  "reqwest",
+ "ring",
  "serde",
  "serde_json",
  "sha2",

@@ -8,7 +8,7 @@ use xone_execution_plan::{
     BoundEvmExecution,
 };
 
-mod decimal_u64 {
+pub(super) mod decimal_u64 {
     use serde::{Deserialize, Deserializer, Serializer};
     pub fn serialize<S: Serializer>(value: &u64, output: S) -> Result<S::Ok, S::Error> {
         output.serialize_str(&value.to_string())

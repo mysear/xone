@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 [dependencies]
+ring = "=0.17.14"
 xone-domain = { path = "../domain" }
 xone-execution-plan = { path = "../execution-plan" }
 xone-protocol-math = { path = "../protocol-math" }
@@ -19,3 +20,4 @@ hex.workspace = true
 xone-optimizer = { path = "../optimizer" }
 xone-routing = { path = "../routing" }
 num-bigint.workspace = true
+axum.workspace = true

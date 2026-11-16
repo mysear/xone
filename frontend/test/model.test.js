@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {positiveInteger,boundedInteger,routeView,snapshotView,escapeHtml,protocolBindingsMatch,singlePreparationPool} from '../src/model.js';
+import {positiveInteger,boundedInteger,routeView,snapshotView,escapeHtml,protocolBindingsMatch,singlePreparationPool,evmPreparationPools,evmFeeRequest} from '../src/model.js';
 test('raw amounts retain precision above Number.MAX_SAFE_INTEGER and reject decimal/exponent/overflow',()=>{
   assert.equal(positiveInteger('9007199254740993123456','数量'),'9007199254740993123456');assert.equal(positiveInteger('000123','数量'),'123');
   for(const v of ['0','-1','1e18','0.1','NaN','Infinity',' 10','1'.repeat(1000),(1n<<256n).toString()])assert.throws(()=>positiveInteger(v,'数量'));
@@ -29,4 +29,20 @@ test('preparation uses the exact singleton route and protocol, never a supported
  assert.equal(singlePreparationPool({routes:[{path:{edges:[edge]}}]},chain),pool);
  for(const quote of [{routes:[]},{routes:[{edges:[edge]},{edges:[edge]}]},{routes:[{edges:[edge,{pool_id:'other',protocol:'other'}]}]},{routes:[{edges:[{...edge,protocol:'other'}]}]}])assert.equal(singlePreparationPool(quote,chain),null);
  assert.equal(singlePreparationPool({routes:[{edges:[edge]}]},{pools:[{...pool,available:false}]}),null);
+});
+
+
+test('EVM preparation requires every exact route pool and keeps fee budgets in strings',()=>{
+ const edge={pool_id:'a',protocol:'uniswap-v2-complete'};const pool={poolId:'a',protocol:edge.protocol,available:true,execution:{evmPreparation:true}};
+ const chain={chainKey:'evm:1',pools:[pool]};const quote={chainKey:'evm:1',routes:[{edges:[edge]}]};
+ assert.deepEqual(evmPreparationPools(quote,chain),[pool]);
+ assert.deepEqual(evmPreparationPools({...quote,routes:[{edges:[edge,edge]}]},chain),[]);
+ assert.deepEqual(evmPreparationPools({...quote,chainKey:'evm:2'},chain),[]);
+ assert.deepEqual(evmPreparationPools(quote,{...chain,pools:[{...pool,execution:{}}]}),[]);
+ const second={...pool,poolId:'b'};const multi={...quote,routes:[{edges:[edge,{...edge,pool_id:'b'}]}]};
+ assert.deepEqual(evmPreparationPools(multi,{...chain,pools:[pool,second]}),[]);
+ assert.deepEqual(evmPreparationPools({...multi,kind:'EXACT_OUT'},{...chain,pools:[pool,second]}),[pool,second]);
+ assert.deepEqual(evmFeeRequest('500000','3000000000','1000000000','1500000000000000'),{gas_limit:'500000',max_fee_per_gas:'3000000000',max_priority_fee_per_gas:'1000000000',max_network_fee:'1500000000000000'});
+ assert.deepEqual(evmFeeRequest('21000','0','0','0'),{gas_limit:'21000',max_fee_per_gas:'0',max_priority_fee_per_gas:'0',max_network_fee:'0'});
+ for(const args of [['20999','0','0','0'],['21000','1','2','42000'],['21000','2','1','1'],['21000','1e10','0','1000000000000']]) assert.throws(()=>evmFeeRequest(...args));
 });

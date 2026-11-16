@@ -1,5 +1,5 @@
 import {createWalletRegistry,connectWallet,signPreparedTransaction} from './wallet.js';
-import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, singlePreparationPool, escapeHtml as esc} from './model.js';
+import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, singlePreparationPool, evmPreparationPools, evmFeeRequest, escapeHtml as esc} from './model.js';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, quote:null, preparation:null, independent:null, independentAbort:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
@@ -41,9 +41,13 @@ function renderPools() {
   const c=chain(); const pools=c?.pools || [];
   $('poolCount').textContent=`${pools.length} 个`;
   $('chainVersion').textContent=c?`图版本：${c.graphVersion ?? '—'} · View：${c.viewId ?? '—'} · 协议：${(c.protocols||[]).join(', ')||'—'}`:'';
-  $('poolTable').innerHTML=pools.length?`<table><thead><tr><th>协议</th><th>Adapter</th><th>协议视图 / 能力</th><th>Token0</th><th>Token1</th><th>报价模式</th><th>状态</th><th>Pool</th></tr></thead><tbody>${pools.map(p=>`<tr><td>${esc(p.protocol)}</td><td>${esc(p.adapterVersion)}</td><td>${esc(p.protocolViewId||'—')}<br>${esc(p.capabilities?.modelVersion||'—')}<br>${esc(p.execution?.preparation?'可准备待签名交易':p.capabilities?.executionBlocker||'执行未接入')}</td><td>${esc(p.token0)}</td><td>${esc(p.token1)}</td><td>${esc((p.quoteModes||[]).join(' / ')||'—')}</td><td>${esc(p.available?'可用':p.unavailableReason||'不可用')}</td><td>${esc(p.poolId)}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">当前链没有已发布池。</p>';
+  $('poolTable').innerHTML=pools.length?`<table><thead><tr><th>协议</th><th>Adapter</th><th>协议视图 / 能力</th><th>Token0</th><th>Token1</th><th>报价模式</th><th>状态</th><th>Pool</th></tr></thead><tbody>${pools.map(p=>`<tr><td>${esc(p.protocol)}</td><td>${esc(p.adapterVersion)}</td><td>${esc(p.protocolViewId||'—')}<br>${esc(p.capabilities?.modelVersion||'—')}<br>${esc((p.execution?.preparation||p.execution?.evmPreparation)?'可准备待签名交易':p.capabilities?.executionBlocker||'执行未接入')}</td><td>${esc(p.token0)}</td><td>${esc(p.token1)}</td><td>${esc((p.quoteModes||[]).join(' / ')||'—')}</td><td>${esc(p.available?'可用':p.unavailableReason||'不可用')}</td><td>${esc(p.poolId)}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">当前链没有已发布池。</p>';
 }
 function modes() {
+  const evm=chain()?.chainKey?.startsWith('evm:')===true;
+  $('evmFeeOptions').hidden=!evm;
+  for(const id of ['sourceAccount','destinationAccount','createDestinationAta','wrapSourceSol','refundWrappedSource','unwrapDestinationSol','simulatePreparation']) $(id).closest('label').hidden=evm;
+  document.querySelector('.wallet-panel').hidden=evm;
   const c=chain(); const exactOut=(c?.pools||[]).some(p=>p.available && (p.quoteModes||[]).includes('EXACT_OUT'));
   const exactOption=$('quoteKind').querySelector('option[value="EXACT_OUT"]'); exactOption.disabled=!exactOut;
   if (!exactOut && $('quoteKind').value==='EXACT_OUT') $('quoteKind').value='EXACT_IN';
@@ -109,7 +113,7 @@ function makeRequest() {
   else body.sellAmount=positiveInteger($('amount').value,'卖出数量');
   return body;
 }
-function preparationAvailable(q=state.quote) {return Boolean(q&&singlePreparationPool(q,chain())?.execution?.preparation);}
+function preparationAvailable(q=state.quote) {return Boolean(q&&(evmPreparationPools(q,chain()).length || singlePreparationPool(q,chain())?.execution?.preparation));}
 function renderQuote(q) {
   const routes=q.routes||[]; const prep=preparationAvailable(q);
   const details=[['Quote ID',q.quoteId],['快照',snapshotView(q)],['图版本',q.graphVersion],['协议视图',Object.values(q.protocolViewIds||{}).join(' / ')||'—'],['计划哈希',q.planHash],['最小到账',q.minBuyAmount],['额外到账',q.outputSurplus||'0'],['未用输入预算',q.unusedInputBudget||'0'],['退款',q.refund],['验证',q.verification?.level]];
@@ -133,12 +137,19 @@ $('quoteForm').addEventListener('submit',async event=>{
 $('prepareButton').addEventListener('click',async()=>{
   const q=state.quote; if (!q||!preparationAvailable(q)) return; const seq=state.quoteSeq, prepSeq=++state.prepareSeq; state.preparation=null;state.independent=null;state.independentAbort?.abort();resetWalletSigning();$('independentButton').disabled=true; $('downloadButton').disabled=true; $('prepareButton').disabled=true; $('preparation').textContent='正在核对账户…';
   try {
-    const payload={createDestinationAta:$('createDestinationAta').checked,simulate:$('simulatePreparation').checked,wrapSourceSol:$('wrapSourceSol').checked,refundWrappedSource:$('refundWrappedSource').checked,unwrapDestinationSol:$('unwrapDestinationSol').checked}; if ($('sourceAccount').value.trim()) payload.sourceTokenAccount=$('sourceAccount').value.trim(); if ($('destinationAccount').value.trim()) payload.destinationTokenAccount=$('destinationAccount').value.trim();
+    let payload={createDestinationAta:$('createDestinationAta').checked,simulate:$('simulatePreparation').checked,wrapSourceSol:$('wrapSourceSol').checked,refundWrappedSource:$('refundWrappedSource').checked,unwrapDestinationSol:$('unwrapDestinationSol').checked}; if ($('sourceAccount').value.trim()) payload.sourceTokenAccount=$('sourceAccount').value.trim(); if ($('destinationAccount').value.trim()) payload.destinationTokenAccount=$('destinationAccount').value.trim();
+    const evm=evmPreparationPools(q,chain()).length>0;
+    if(evm) payload=evmFeeRequest($('evmGasLimit').value,$('evmMaxFee').value,$('evmPriorityFee').value,$('evmFeeBudget').value);
     state.prepareAbort=new AbortController();
-    const prepared=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/prepare`,{method:'POST',body:JSON.stringify(payload),signal:state.prepareAbort.signal});
+    const prepared=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/${evm?'prepare-evm':'prepare'}`,{method:'POST',body:JSON.stringify(payload),signal:state.prepareAbort.signal});
     if (seq!==state.quoteSeq || prepSeq!==state.prepareSeq || state.quote!==q) return;
     state.preparation=prepared; $('downloadButton').disabled=!prepared.ready;refreshWalletActions();
     $('independentButton').disabled=!prepared.ready || !(chain()?.pools||[]).some(p=>p.execution?.independentLocalSimulation&&(q.routes||[]).some(r=>(r.path?.edges||r.edges||[]).some(e=>e.pool_id===p.poolId)));
+    if(evm) {
+      $('independentButton').disabled=true;
+      $('preparation').textContent=prepared.ready?`EVM账户检查通过 · 固定块 ${prepared.snapshotRef.block.number_or_slot} · 预计输入 ${prepared.requiredInput} 最小单位 · 最高网络费预留 ${prepared.maxNetworkFee} wei · nonce ${BigInt(prepared.transaction.nonce)} · 可下载待签名交易。链特定费用与独立执行仍待验证，签名与广播由上层钱包处理。`:`EVM资金条件未满足：${(prepared.blockers||[]).join(', ')}。授权或余额改变后请重新准备。`;
+      return;
+    }
     const wrapText=prepared.wrapLamports && prepared.wrapLamports!=='0'?` · SOL包装 ${prepared.wrapLamports} lamports${prepared.sourceWsolRetained?' · 预计剩余 '+prepared.expectedResidualWsol+' WSOL最小单位，余额仍保留为WSOL':' · 未用资金通过本次临时账户关闭转回SOL'}`:'';
     const tokenFeeText=prepared.destinationTokenProgram==='TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'?` · Token2022转账费 ${prepared.expectedDestinationTransferFee} 最小单位 · 收款账户 ${prepared.destinationAccountSize} 字节`:'';
     const prefundText=prepared.accountCreation&&prepared.destinationPrefundedLamports&&prepared.destinationPrefundedLamports!=='0'?` · 收款地址已有 ${prepared.destinationPrefundedLamports} lamports，本次只补足 ${prepared.destinationRentLamports??prepared.rentLamports} lamports 租金`:'';
@@ -166,7 +177,7 @@ $('downloadButton').addEventListener('click',()=>{
 });
 $('chainKey').addEventListener('change',()=>{invalidate(); tokens();schedule();});
 for (const id of ['sellToken','buyToken','quoteKind','amount','maxSell','caller','recipient','slippageBps','maxHops']) $(id).addEventListener('input',()=>{invalidate();modes();schedule();});
-for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation','wrapSourceSol','refundWrappedSource','unwrapDestinationSol']) $(id).addEventListener('input',()=>{modes();++state.prepareSeq;state.prepareAbort?.abort();state.preparation=null;state.independent=null;state.independentAbort?.abort();resetWalletSigning();$('independentButton').disabled=true;$('downloadButton').disabled=true;$('prepareButton').disabled=!preparationAvailable();$('preparation').textContent=preparationAvailable()?'执行准备参数已变化，请重新检查':'当前协议或 Router RPC 配置尚未提供执行准备能力。';});
+for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation','wrapSourceSol','refundWrappedSource','unwrapDestinationSol','evmGasLimit','evmMaxFee','evmPriorityFee','evmFeeBudget']) $(id).addEventListener('input',()=>{modes();++state.prepareSeq;state.prepareAbort?.abort();state.preparation=null;state.independent=null;state.independentAbort?.abort();resetWalletSigning();$('independentButton').disabled=true;$('downloadButton').disabled=true;$('prepareButton').disabled=!preparationAvailable();$('preparation').textContent=preparationAvailable()?'执行准备参数已变化，请重新检查':'当前协议或 Router RPC 配置尚未提供执行准备能力。';});
 $('flipButton').addEventListener('click',()=>{const sell=$('sellToken').value;$('sellToken').value=$('buyToken').value;$('buyToken').value=sell;invalidate();schedule();});
 $('refreshButton').addEventListener('click',()=>loadOptions());
 $('autoQuote').addEventListener('change',()=>{$('autoQuote').checked?schedule():clearTimeout(state.debounce);});

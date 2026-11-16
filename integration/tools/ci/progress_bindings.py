@@ -1662,3 +1662,14 @@ BINDINGS['14.evm-preparation-component'] = {
               'nonce_exhaustion_rejects_exact_output_before_producing_wire'],
     'evidence_refs': ['integration/artifacts/local/evm-preparation-component-check/report.json'],
 }
+
+BINDINGS['14.evm-rpc-preparation'] = {
+ 'paths':['integration/tools/acceptance/validate_evm_rpc_preparation.py','dex-router/crates/execution-preparation/src/evm_rpc.rs','dex-router/crates/execution-preparation/src/evm_rpc_json.rs',
+          'dex-router/crates/config/src/evm_preparation.rs','chain-parser-rust/crates/config/src/evm_preparation.rs',
+          'dex-router/crates/quote-api/src/evm_preparation.rs','dex-router/crates/quote-api/tests/evm_preparation.rs',
+          'dex-router/crates/execution-preparation/tests/evm_rpc.rs','frontend/test/evm-preparation-browser.mjs'],
+ 'tests':['fixed_original_state_is_checked_and_rpc_commitment_is_bound','identity_state_nonce_and_envelope_faults_never_emit_transactions',
+          'budgets_and_deadlines_fail_closed','explicit_evm_preparation_binds_quote_view_and_downloadable_wire',
+          'evm_prepare_auth_unknown_context_and_reorg_do_not_call_rpc','exact_output_preparation_uses_its_own_target_and_maximum_input'],
+ 'evidence_refs':['integration/artifacts/local/evm-rpc-preparation-check/report.json'],
+}

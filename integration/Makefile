@@ -1045,3 +1045,7 @@ cache-reclamation-current-check:
 .PHONY: evm-preparation-current-check
 evm-preparation-current-check:
 	python3 tools/acceptance/validate_evm_preparation.py
+
+.PHONY: evm-rpc-preparation-current-check
+evm-rpc-preparation-current-check:
+	python3 tools/acceptance/validate_evm_rpc_preparation.py
