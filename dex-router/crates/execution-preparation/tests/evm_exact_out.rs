@@ -325,7 +325,7 @@ fn multiple_output_routes_need_an_explicit_execution_template() {
     )
     .unwrap();
     assert_eq!(
-        bind_v2_exact_out_execution(&split, &pools, &e, &[e.target.clone()])
+        bind_v2_exact_out_execution(&split, &pools, &e, std::slice::from_ref(&e.target))
             .unwrap_err()
             .0,
         "EXECUTION_ADAPTER_UNSUPPORTED"

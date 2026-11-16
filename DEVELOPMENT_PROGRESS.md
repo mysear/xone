@@ -2648,3 +2648,5 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 阶段87独立预检：4份ExactIn与90份ExactOut导出结果通过原Router02 ABI、独立ethers RLP逐字节与受控离线签名恢复，含宽nonce；仅本地离线编码，不接RPC或广播。随后补零基础费/零小费观察下的合法零费准备，以及无access-list调用的EIP-2930基础intrinsic gas下界；该下界不替代当前hardfork的calldata floor或L2费用规则。新统一门禁要求95份导出结果、原90目标全集、篡改拒绝控制及完整代码/固定输入/独立Node依赖摘要闭合后才能升级本批状态。复验入口：`make -C integration evm-preparation-current-check`。
 
 阶段87首轮统一门禁保留FAILED：19项Rust通过，独立编码检查的案例全集比对将编号0误用为JavaScript假值而替换成文件名；这是校验器编号处理错误，已改为空值判断。修正后同批95个案例全部通过，含原90目标与5份ExactIn/费用边界，4项普通/4项优化篡改拒绝控制通过；Rust功能代码未因该校验器错误改动。后续仍完整运行统一门禁，当前不提前升级状态。
+
+阶段87第二轮统一门禁保留FAILED：19组件/31计划/2能力/10API共62次Rust、95份独立对照及普通/优化篡改控制全部通过；最后全目标Clippy指出新增测试的单元素目标切片多余clone。现改为借用切片，保持-D warnings，Rust产品逻辑/用例范围/输入不变，重新严格检查并完整复验。
