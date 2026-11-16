@@ -54,14 +54,52 @@ def runtime_inputs():
 
 
 def test_inputs():
+    # Include every operand of contracts.py, not just the Router's JSON banks.
     inputs = {}
-    for directory in ['dex-router/test/contracts', 'dex-router/test/fixtures', 'integration/test/contracts']:
-        for path in sorted((ROOT / directory).rglob('*.json')):
-            digest = hashlib.sha256()
-            with path.open('rb') as stream:
-                for block in iter(lambda: stream.read(1024 * 1024), b''):
-                    digest.update(block)
-            inputs[str(path.relative_to(ROOT))] = digest.hexdigest()
+    directories = [
+        'chain-parser-go/test/contracts', 'chain-parser-go/test/fixtures',
+        'chain-parser-rust/test/contracts', 'chain-parser-rust/test/fixtures',
+        'dex-router/test/contracts', 'dex-router/test/fixtures',
+        'integration/test/contracts', 'integration/test/evm', 'integration/test/solana',
+    ]
+    for directory in directories:
+        for path in sorted((ROOT / directory).rglob('*')):
+            if path.is_file():
+                inputs[str(path.relative_to(ROOT))] = sha_file(path)
+    source = ROOT / 'integration/test/source'
+    manifest = json.loads((source / 'chain-receipt-vectors/manifest.json').read_bytes())
+    selected = [
+        Path('chain-receipt-vectors/manifest.json'),
+        Path('deployment-catalog/v3-pool-template/two-real-pools.json'),
+        Path('deployment-catalog/verified-source-inputs/ethereum-uniswap-v3.json'),
+        Path('ethereum-mainnet/uniswap-v2-26355865-evidence.json'),
+    ]
+    for entry in manifest['files']:
+        relative = Path(entry['path'])
+        if relative.is_absolute() or '..' in relative.parts or not relative.parts:
+            raise ValueError('Nonlocal retained source fixture')
+        selected.append(Path('chain-receipt-vectors') / relative)
+    for relative in selected:
+        path = source / relative
+        inputs[str(path.relative_to(ROOT))] = sha_file(path)
+    for name in ['Pool.sol', 'Reference.sol']:
+        path = ROOT / 'integration/tools/reference/velodrome-v2' / name
+        inputs[str(path.relative_to(ROOT))] = sha_file(path)
+    # Documentation checks also consume retained compiler/source artifacts.
+    documents = [ROOT / 'README.md', ROOT / 'DEVELOPMENT_PROGRESS.md', ROOT / 'integration/README.md']
+    documents.extend((ROOT / 'docs').rglob('*.md'))
+    for document in documents:
+        text = re.sub(r'```.*?```', '', document.read_text(), flags=re.S)
+        for link in re.findall(r'\]\(([^\s)]+)\)', text):
+            if re.match(r'^[a-zA-Z]+:', link) or link.startswith('#'):
+                continue
+            path = Path(os.path.normpath(document.parent / link.split('#', 1)[0]))
+            try:
+                relative = path.relative_to(ROOT)
+            except ValueError:
+                continue
+            if str(relative).startswith(('integration/tools/reference/', 'integration/test/source/')) and path.is_file():
+                inputs[str(relative)] = sha_file(path)
     return inputs
 
 
@@ -76,14 +114,15 @@ def main():
     manifest = ['--locked', '--manifest-path', 'dex-router/Cargo.toml']
     checks = [
         ('format', cargo + ['fmt', '--all', '--check', '--manifest-path', 'dex-router/Cargo.toml']),
+        ('contracts', [sys.executable, 'integration/tools/ci/contracts.py']),
+        ('progress', [sys.executable, '-m', 'unittest', 'discover', '-s', 'integration/tools/ci/tests', '-p', 'test_progress_document.py']),
+        ('progress-optimized', [sys.executable, '-OO', '-m', 'unittest', 'discover', '-s', 'integration/tools/ci/tests', '-p', 'test_progress_document.py']),
         ('replica', cargo + ['test'] + manifest + ['-p', 'xone-state-replica']),
         ('cache-lifetimes', cargo + ['test'] + manifest + ['-p', 'xone-quote-api', '--lib', 'cache_gc::']),
         ('api-regression', cargo + ['test'] + manifest + ['-p', 'xone-quote-api', '--test', 'api', '--test', 'exact_out', '--test', 'transaction_lifecycle']),
         ('lint', cargo + ['clippy'] + manifest + ['-p', 'xone-state-replica', '-p', 'xone-quote-api', '--all-targets', '--', '-D', 'warnings']),
-        ('contracts', [sys.executable, 'integration/tools/ci/contracts.py']),
-        ('progress', [sys.executable, '-m', 'unittest', 'discover', '-s', 'integration/tools/ci/tests', '-p', 'test_progress_document.py']),
-        ('progress-optimized', [sys.executable, '-OO', '-m', 'unittest', 'discover', '-s', 'integration/tools/ci/tests', '-p', 'test_progress_document.py']),
     ]
+
     required_tests = {
         'replica': [
             'baseline_scope_expansion_reuses_untouched_edges_and_revokes_old_generation',
