@@ -1,3 +1,4 @@
+mod cache_gc;
 mod exact_out;
 mod execution_receipts;
 mod preparation;
@@ -1206,6 +1207,14 @@ pub async fn run(config: ConfigSnapshot) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(&api.config.config.api.listen)
         .await
         .map_err(|_| err("HTTP_LISTENER_FAILED"))?;
+    serve(api, listener, shutdown()).await
+}
+
+pub(crate) async fn serve(
+    api: Api,
+    listener: tokio::net::TcpListener,
+    signal: impl std::future::Future<Output = ()> + Send + 'static,
+) -> Result<()> {
     let sync = api.clone();
     let task = tokio::spawn(async move {
         let mut ticker = tokio::time::interval(Duration::from_millis(
@@ -1216,11 +1225,13 @@ pub async fn run(config: ConfigSnapshot) -> Result<()> {
             sync.sync_sources().await;
         }
     });
+    let maintenance = api.clone();
+    let maintenance_task = tokio::spawn(async move { maintenance.maintain_cached_views().await });
+    let mut tasks = cache_gc::BackgroundTasks(vec![task, maintenance_task]);
     let result = axum::serve(listener, api.handler())
-        .with_graceful_shutdown(shutdown())
+        .with_graceful_shutdown(signal)
         .await;
-    task.abort();
-    let _ = task.await;
+    tasks.stop().await;
     api.logger.flush();
     result.map_err(|_| err("HTTP_SERVER_FAILED"))
 }

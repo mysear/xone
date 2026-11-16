@@ -171,7 +171,13 @@ impl Replica {
                 return Err(err("STALE_BASELINE"));
             }
         }
-        let graph = Arc::new(Graph::build(&s.pools)?);
+        let graph = if let Some(old) = previous {
+            old.graph
+                .update(&s.pools)?
+                .map_or_else(|| old.graph.clone(), Arc::new)
+        } else {
+            Arc::new(Graph::build(&s.pools)?)
+        };
         if graph.adjacency.is_empty() {
             if let Some(old) = previous {
                 old.valid.store(false, Ordering::Release);

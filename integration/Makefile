@@ -1037,3 +1037,7 @@ rayclmm-advanced-execution-current-check:
 .PHONY: incremental-graph-current-check
 incremental-graph-current-check:
 	python3 tools/acceptance/validate_incremental_graph.py
+
+.PHONY: cache-reclamation-current-check
+cache-reclamation-current-check:
+	python3 tools/acceptance/validate_cache_reclamation.py

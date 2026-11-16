@@ -1,6 +1,6 @@
 # Xone 开发进度与完成情况
 
-更新：2026-11-16。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
+更新：2026-11-17。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|基线图复用与闲时缓存回收（阶段86）|§10/13.2/28.11/28.14；WP09、WP12、WP16|IN_PROGRESS|基线/恢复/scope扩容复用增量图；按1秒周期回收过期或撤权缓存，锁外释放、在途句柄保留及后台任务关闭已接入|临时副本7项组合生命周期与11项副本预检通过；本工作区正式统一验收待完成，见[阶段86](#plan-2026-11-17-baseline-cache-reclamation)|
 |候选图增量索引与COW（阶段85）|§13.2/28.11/28.14；WP09、WP12|IN_PROGRESS|按物理池维护方向边、Arc共享邻接边；9项新增增量路由回归及四crate全目标Clippy已通过|副本/共享Vault/完整路由/分配器及API回归运行中，见[阶段85](#plan-2026-11-16-incremental-graph)|
 |Raydium CLMM高级经典SPL执行（阶段84）|§12/14/15/23；WP05、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|Bitmap/自定义seed/动态费三个经典SPL模型完整准备、同捕获SBF、显式ATA/WSOL和钱包回执；能力/21|162API/162重启回执/324原交易，33门禁/306次Rust/667项Chrome（181新增）通过；见[阶段84](#plan-2026-11-16-rayclmm-advanced-execution)，其他版本/生产资格仍缺|
 |Raydium CLMM经典SPL执行（阶段83）|§12/14/15/23；WP05、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|三个固定经典SPL模型的完整准备、同捕获SBF、显式ATA/WSOL、钱包回执；能力/20|56API/56重启回执/112原交易，31门禁/135次Rust/486项Chrome（129新增）通过；见[阶段83](#plan-2026-11-16-rayclmm-execution)，高级扩展/生产资格仍缺|
@@ -459,6 +460,7 @@
 |14.rayclmm-advanced-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|三个高级经典SPL模型完整扩展/seed/动态费准备、同捕获SBF、162API/162回执/324原交易及33门禁/306Rust/667Chrome冻结通过|其他扩展/Token2022、多池、真实历史bank与生产资格仍未完成|[验证记录](integration/artifacts/local/rayclmm-advanced-execution-check/report.json)|
 |14.wallet-lifecycle|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|已有unsigned/独立SBF模板接Wallet Standard、显式发送与实际收付回执/恢复|默认关闭，按链启用；本批仅受控Solana模板，不等于全链全协议生产资格/完整多租户或多区执行验收|[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
 |13.incremental-graph|WP09,WP12|IN_PROGRESS|物理池边索引、不可变共享邻接边、完整银行准入校验及状态副本局部刷新|局部更新与完整构图等价、共享依赖/重组/API与严格Clippy验收待完成；beam/联合DAG/收益界继续待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
+|13.baseline-cache-reclamation|WP09,WP12,WP16|IN_PROGRESS|基线重锚复用图及未变邻接桶；ExactIn/ExactOut/准备缓存定时回收、锁外析构和HTTP服务后台任务生命周期已接入|正式副本/缓存/钱包回执/API/严格Clippy与同输入验收待完成；完整池状态COW、慢请求内存压力和生产容量继续待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 
 <a id="batch-history"></a>
 
@@ -550,6 +552,7 @@
 |83|[Raydium CLMM经典SPL执行](#plan-2026-11-16-rayclmm-execution)|LOCAL_SCOPE_VERIFIED|56场景API/同捕获SBF和重启回执、112原交易，31门禁/135次Rust/486项Chrome（129新增）通过；[验证记录](integration/artifacts/local/rayclmm-execution-check/report.json)|
 |84|[Raydium CLMM高级经典SPL执行](#plan-2026-11-16-rayclmm-advanced-execution)|LOCAL_SCOPE_VERIFIED|三个模型/三收费模式162API/162回执/324原交易，33门禁/306Rust/667Chrome同源码冻结通过；[验证记录](integration/artifacts/local/rayclmm-advanced-execution-check/report.json)|
 |85|[候选图增量索引与COW](#plan-2026-11-16-incremental-graph)|IN_PROGRESS|物理池局部更新、不可变邻接边共享和状态副本发布已接入，等待统一验证；[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
+|86|[基线图复用与闲时缓存回收](#plan-2026-11-17-baseline-cache-reclamation)|IN_PROGRESS|正式代码已接入隔离工作区，完整门禁进行中；[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2594,3 +2597,20 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 |8|§28.3/28.24–28.25 / WP01,WP22,WP23|本地make入口已有；CI平台执行、镜像/SBOM/扫描、RFQ多求解器与真实灾备放量仍缺|先接可复现CI与安全检查；RFQ/收益界和区域RPO/RTO按各自完整门槛交付|
 
 下一轮缓存回收预检（2026-11-16）：隔离临时crate的5项单元测试全部通过，验证三个缓存的到期边界、撤权后QuoteView/账户捕获实际释放、在途句柄保留、空闲维护和服务任务取消。补丁尚未接入主目录，不计入阶段85或正式功能完成数；主目录源码冻结不变，待本批验收/提交后接入正式服务并复验。
+
+<a id="plan-2026-11-17-baseline-cache-reclamation"></a>
+
+## 基线图复用与闲时缓存回收（2026-11-17，阶段86）
+
+本批补阶段85留下的基线安装路径，并处理无新请求时缓存持续持有旧QuoteView/账户捕获的问题。基线、owner checkpoint和scope扩容接入Graph::update；新QuoteView使用独立的有效性标志，恢复或新generation仍撤销旧句柄，未变的图/邻接桶可以共享。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F86.1|基线/恢复/scope扩容的增量图复用|WP09,WP12|LOCAL_SCOPE_VERIFIED|本工作区23项副本测试exit0；新增2项generation扩容/数值重锚对照完整构图，旧视图撤权、未变邻接桶及恢复图的Arc共享全部通过。|
+|F86.2|闲时缓存回收与实际内存释放|WP09,WP16|IN_PROGRESS|ExactIn/ExactOut/准备缓存按1秒周期清理过期或撤权条目，跳过积压tick；条目移除后在锁外析构，Weak/Drop检查实际释放与在途请求保留。|
+|F86.3|正常HTTP服务与后台任务关停|WP09,WP16|IN_PROGRESS|真实loopback HTTP服务无新报价时清理缓存；优雅关闭后不再回收，调用方取消时自动中止后台任务；回执继续由耐久journal管理。|
+|F86.4|正式工作区统一门禁|WP09,WP12,WP16|IN_PROGRESS|副本全包、7项缓存生命周期、普通API/ExactOut/8场景钱包回执、两crate全目标严格Clippy、契约和普通/优化文档检查；源码、JSON输入及固定SBF/Python运行时摘要统一绑定。|
+
+临时组合副本7项缓存/HTTP生命周期与11项副本预检均exit0；这些是正式接入前的组件证据，本批须重新通过当前工作区门禁。复验入口：`make -C integration cache-reclamation-current-check`。原工作区阶段85仍在同源码整批验收，本批在独立Git工作区推进并复用摘要固定的既有测试输入。
+
+本批覆盖图数据共享和缓存持有者回收。完整Pool状态向量/顶层索引COW、活跃慢请求的内存压力、对象存储恢复、beam/共享DAG/收益界及生产容量仍按原工作包推进；原26工作包和全部功能验收门槛保持不变。
