@@ -7,6 +7,10 @@ use serde::{Deserialize, Serialize};
 use xone_domain::{err, hash, Amount, Result, SnapshotRef};
 use xone_optimizer::Allocation;
 
+mod bound_v2_exact_out;
+pub use bound_v2_exact_out::{
+    bind_v2_exact_out_execution, validate_bound_exact_out_execution, BoundEvmExactOutExecution,
+};
 mod bound_v2;
 pub use bound_v2::{
     bind_v2_execution, validate_bound_execution, BoundEvmExecution, ExecutorIdentity,

@@ -1647,3 +1647,15 @@ BINDINGS['13.baseline-cache-reclamation'] = {
     ],
     'evidence_refs': ['integration/artifacts/local/cache-reclamation-check/report.json'],
 }
+
+BINDINGS['14.evm-preparation-component'] = {
+    'paths': ['dex-router/crates/execution-plan/src/bound_v2_exact_out.rs',
+              'dex-router/crates/execution-preparation/src/evm.rs',
+              'dex-router/crates/execution-preparation/tests/evm_preparation.rs',
+              'dex-router/crates/execution-preparation/tests/evm_exact_out.rs'],
+    'tests': ['unsigned_exact_input_keeps_uint256_amounts_and_full_bound_plan',
+              'every_original_router_output_case_binds_complete_paths_and_uint256_preparation',
+              'nonce_exhaustion_rejects_the_unusable_u64_maximum',
+              'nonce_exhaustion_rejects_exact_output_before_producing_wire'],
+    'evidence_refs': ['integration/artifacts/local/evm-preparation-component-check/report.json'],
+}

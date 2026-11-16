@@ -3705,6 +3705,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "hex",
+ "num-bigint",
  "reqwest",
  "serde",
  "serde_json",
@@ -3712,7 +3713,9 @@ dependencies = [
  "tokio",
  "xone-domain",
  "xone-execution-plan",
+ "xone-optimizer",
  "xone-protocol-math",
+ "xone-routing",
 ]
 
 [[package]]

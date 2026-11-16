@@ -34,7 +34,7 @@ pub struct BoundEvmExecution {
     pub binding_hash: String,
 }
 
-fn nonzero_address(value: &str) -> Result<()> {
+pub(super) fn nonzero_address(value: &str) -> Result<()> {
     protocols::validate_address(value)?;
     if crate::address(value)? == [0u8; 20] {
         return Err(err("ZERO_EVM_ADDRESS"));
@@ -42,7 +42,7 @@ fn nonzero_address(value: &str) -> Result<()> {
     Ok(())
 }
 
-fn code_hash(value: &str) -> Result<()> {
+pub(super) fn code_hash(value: &str) -> Result<()> {
     if value.len() != 64
         || !value
             .bytes()

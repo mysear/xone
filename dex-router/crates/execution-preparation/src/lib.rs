@@ -1,5 +1,6 @@
 //! Dynamic Solana account resolution and unsigned preparation. No quote cache,
 //! HTTP authorization, wallet keys, signing, or transaction submission lives here.
+pub mod evm;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Deserialize;
 use serde_json::{json, Value};
