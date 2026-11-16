@@ -1626,3 +1626,24 @@ BINDINGS['13.incremental-graph'] = {
     ],
     'evidence_refs': ['integration/artifacts/local/incremental-graph-check/report.json'],
 }
+
+BINDINGS['13.baseline-cache-reclamation'] = {
+    'paths': [
+        'dex-router/crates/state-replica/src/lib.rs',
+        'dex-router/crates/state-replica/tests/replica.rs',
+        'dex-router/crates/quote-api/src/lib.rs',
+        'dex-router/crates/quote-api/src/cache_gc.rs',
+        'integration/tools/acceptance/validate_cache_reclamation.py',
+    ],
+    'tests': [
+        'baseline_scope_expansion_reuses_untouched_edges_and_revokes_old_generation',
+        'numeric_rebaseline_reuses_graph_without_reusing_previous_validity_flag',
+        'expiry_boundary_prunes_all_three_caches_and_retains_live_entries',
+        'revocation_reclaims_cached_view_and_account_capture_without_more_requests',
+        'in_flight_handle_survives_cache_reclamation_until_request_drops_it',
+        'reclaimed_values_are_destroyed_after_cache_lock_is_released',
+        'normal_http_service_reclaims_idle_caches_and_stops_maintenance_on_shutdown',
+        'dropping_server_task_guard_aborts_its_workers',
+    ],
+    'evidence_refs': ['integration/artifacts/local/cache-reclamation-check/report.json'],
+}

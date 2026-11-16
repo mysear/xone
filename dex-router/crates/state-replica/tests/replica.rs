@@ -240,3 +240,61 @@ fn incremental_graph_shares_untouched_buckets_and_keeps_published_view_immutable
     );
     assert!(reserve.is_valid());
 }
+
+#[test]
+fn baseline_scope_expansion_reuses_untouched_edges_and_revokes_old_generation() {
+    use std::sync::Arc;
+    let mut s = snapshot();
+    let replica = Replica::new(vec![("evm:31337".into(), "chain-parser-go".into(), 1)]);
+    replica.install_baseline(s.clone()).unwrap();
+    let old = replica.view("evm:31337").unwrap();
+    let mut extra = s.pools[0].clone();
+    extra.pool_id = "expanded-pool".into();
+    extra.token0 = "NEW_A".into();
+    extra.token1 = "NEW_B".into();
+    s.pools.push(extra);
+    s.reference.scope_hash = scope_hash(&s.pools).unwrap();
+    s.reference.online_generation += 1;
+    s.reference.journal_seq += 1;
+    replica.install_baseline(s.clone()).unwrap();
+    let expanded = replica.view("evm:31337").unwrap();
+    assert!(!old.is_valid());
+    assert!(expanded.is_valid());
+    assert_ne!(expanded.reference.scope_hash, old.reference.scope_hash);
+    assert_eq!(expanded.graph_version, old.graph_version + 1);
+    for (token, edges) in &old.graph.adjacency {
+        assert!(Arc::ptr_eq(edges, &expanded.graph.adjacency[token]));
+    }
+    assert!(!old.graph.adjacency.contains_key("NEW_A"));
+    assert!(expanded.graph.adjacency.contains_key("NEW_A"));
+    assert_eq!(
+        expanded.graph.adjacency,
+        xone_routing::Graph::build(&s.pools).unwrap().adjacency
+    );
+    replica.suspend("evm:31337");
+    replica.restore_owner_checkpoint(s).unwrap();
+    let restored = replica.view("evm:31337").unwrap();
+    assert!(!expanded.is_valid());
+    assert!(restored.is_valid());
+    assert!(Arc::ptr_eq(&expanded.graph, &restored.graph));
+    assert_eq!(restored.graph_version, expanded.graph_version + 1);
+}
+
+#[test]
+fn numeric_rebaseline_reuses_graph_without_reusing_previous_validity_flag() {
+    use std::sync::Arc;
+    let mut s = snapshot();
+    let replica = Replica::new(vec![("evm:31337".into(), "chain-parser-go".into(), 1)]);
+    replica.install_baseline(s.clone()).unwrap();
+    let old = replica.view("evm:31337").unwrap();
+    s.pools[0].reserve0 = "2100000".parse().unwrap();
+    s.reference.online_generation += 1;
+    s.reference.journal_seq += 1;
+    replica.install_baseline(s).unwrap();
+    let next = replica.view("evm:31337").unwrap();
+    assert!(!old.is_valid());
+    assert!(next.is_valid());
+    assert!(Arc::ptr_eq(&old.graph, &next.graph));
+    assert_ne!(old.pools[0].reserve0, next.pools[0].reserve0);
+    assert_eq!(next.graph_version, old.graph_version + 1);
+}
