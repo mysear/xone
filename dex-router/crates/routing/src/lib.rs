@@ -4,12 +4,15 @@ mod shared_vault;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::Instant,
 };
 use xone_domain::{err, Amount, Pool, Result};
 use xone_protocol_math::quote_exact_in;
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Edge {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_token: Option<String>,
@@ -19,95 +22,206 @@ pub struct Edge {
     pub zero_for_one: bool,
     pub to: String,
 }
+/// Immutable adjacency buckets are shared across published graph generations.
 #[derive(Clone, Debug, Default)]
 pub struct Graph {
-    pub adjacency: BTreeMap<String, Vec<Edge>>,
+    pub adjacency: BTreeMap<String, Arc<Vec<Edge>>>,
     pub chain_key: String,
     /// Canonical pools retained in the source view but unavailable to this engine.
     pub excluded_pools: BTreeMap<String, String>,
+    topologies: BTreeMap<String, PoolTopology>,
+    pool_sources: BTreeMap<String, Arc<BTreeSet<String>>>,
+    pool_order: Vec<String>,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PoolTopology {
+    protocol: String,
+    token_behavior: String,
+    tokens: Vec<String>,
+    multi_asset: bool,
+}
+impl PoolTopology {
+    fn of(pool: &Pool) -> Self {
+        Self {
+            protocol: pool.protocol.clone(),
+            token_behavior: pool.token_behavior.clone(),
+            tokens: pool.multi_asset.as_ref().map_or_else(
+                || vec![pool.token0.clone(), pool.token1.clone()],
+                |state| {
+                    state
+                        .assets
+                        .iter()
+                        .map(|asset| asset.token.clone())
+                        .collect()
+                },
+            ),
+            multi_asset: pool.multi_asset.is_some(),
+        }
+    }
+    fn edges(&self, pool_id: &str) -> Vec<(String, Edge)> {
+        if !(xone_domain::protocols::protocol(&self.protocol).is_some()
+            || self.protocol == "fixture-cpmm")
+            || self.token_behavior != "standard"
+        {
+            return Vec::new();
+        }
+        let mut edges = Vec::new();
+        let mut push = |from: &str, to: &str, zero_for_one: bool| {
+            edges.push((
+                from.to_owned(),
+                Edge {
+                    from_token: self.multi_asset.then(|| from.to_owned()),
+                    protocol: self.protocol.clone(),
+                    pool_id: pool_id.to_owned(),
+                    zero_for_one,
+                    to: to.to_owned(),
+                },
+            ));
+        };
+        if self.multi_asset {
+            if self.protocol == xone_domain::managed_v2_bpt_state::PROTOCOL
+                || self.protocol == xone_domain::managed_v2_circuit_state::PROTOCOL
+            {
+                for token in &self.tokens {
+                    push(token, pool_id, false);
+                    push(pool_id, token, false);
+                }
+            }
+            for (i, from) in self.tokens.iter().enumerate() {
+                for (j, to) in self.tokens.iter().enumerate() {
+                    if i != j
+                        && !(self.protocol == "balancer-v2-composable-regular"
+                            && (from == pool_id || to == pool_id))
+                    {
+                        push(from, to, i == 0 && j == 1);
+                    }
+                }
+            }
+        } else {
+            push(&self.tokens[0], &self.tokens[1], true);
+            push(&self.tokens[1], &self.tokens[0], false);
+        }
+        edges
+    }
 }
 impl Graph {
     pub fn build(pools: &[Pool]) -> Result<Self> {
+        Ok(Self::default().update(pools)?.unwrap_or_default())
+    }
+    /// Validate a complete bank, then copy only adjacency buckets touched by
+    /// changed physical pools. None means the existing graph can be reused.
+    /// Admission is recomputed for the complete bank because a dependency or a
+    /// shared Vault registration may change availability of otherwise unchanged pools.
+    pub fn update(&self, pools: &[Pool]) -> Result<Option<Self>> {
         xone_domain::validate_pool_dependencies(pools.iter())?;
-        let mut g = Self {
-            excluded_pools: xone_domain::unavailable_pool_reasons(pools.iter())?,
-            ..Self::default()
-        };
-        let mut seen = BTreeSet::new();
-        for p in pools {
-            p.validate()?;
-            if !seen.insert(&p.pool_id) {
+        let excluded_pools = xone_domain::unavailable_pool_reasons(pools.iter())?;
+        let mut topologies = BTreeMap::new();
+        let mut pool_order = Vec::with_capacity(pools.len());
+        let mut chain_key = String::new();
+        for pool in pools {
+            pool.validate()?;
+            if topologies
+                .insert(pool.pool_id.clone(), PoolTopology::of(pool))
+                .is_some()
+            {
                 return Err(err("DUPLICATE_PHYSICAL_POOL"));
             }
-            if g.chain_key.is_empty() {
-                g.chain_key = p.chain_key.clone();
+            if chain_key.is_empty() {
+                chain_key = pool.chain_key.clone();
             }
-            if g.chain_key != p.chain_key {
+            if chain_key != pool.chain_key {
                 return Err(err("CROSS_CHAIN_GRAPH"));
             }
-            if g.excluded_pools.contains_key(&p.pool_id) {
-                continue;
-            }
-            if !(xone_domain::protocols::protocol(&p.protocol).is_some()
-                || p.protocol == "fixture-cpmm")
-                || p.token_behavior != "standard"
-            {
-                continue;
-            }
-            if let Some(multi) = &p.multi_asset {
-                if p.protocol == xone_domain::managed_v2_bpt_state::PROTOCOL
-                    || p.protocol == xone_domain::managed_v2_circuit_state::PROTOCOL
-                {
-                    for asset in &multi.assets {
-                        for (from, to) in [(&asset.token, &p.pool_id), (&p.pool_id, &asset.token)] {
-                            g.adjacency.entry(from.clone()).or_default().push(Edge {
-                                from_token: Some(from.clone()),
-                                protocol: p.protocol.clone(),
-                                pool_id: p.pool_id.clone(),
-                                zero_for_one: false,
-                                to: to.clone(),
-                            });
-                        }
-                    }
-                }
-                for (i, asset) in multi.assets.iter().enumerate() {
-                    for (j, target) in multi.assets.iter().enumerate() {
-                        if i == j
-                            || (p.protocol == "balancer-v2-composable-regular"
-                                && (asset.token == p.pool_id || target.token == p.pool_id))
-                        {
-                            continue;
-                        }
-                        g.adjacency
-                            .entry(asset.token.clone())
-                            .or_default()
-                            .push(Edge {
-                                from_token: Some(asset.token.clone()),
-                                pool_id: p.pool_id.clone(),
-                                protocol: p.protocol.clone(),
-                                zero_for_one: i == 0 && j == 1,
-                                to: target.token.clone(),
-                            });
-                    }
-                }
-                continue;
-            }
-            g.adjacency.entry(p.token0.clone()).or_default().push(Edge {
-                from_token: None,
-                pool_id: p.pool_id.clone(),
-                protocol: p.protocol.clone(),
-                zero_for_one: true,
-                to: p.token1.clone(),
-            });
-            g.adjacency.entry(p.token1.clone()).or_default().push(Edge {
-                from_token: None,
-                pool_id: p.pool_id.clone(),
-                protocol: p.protocol.clone(),
-                zero_for_one: false,
-                to: p.token0.clone(),
-            });
+            pool_order.push(pool.pool_id.clone());
         }
-        Ok(g)
+        if !self.chain_key.is_empty() && !chain_key.is_empty() && self.chain_key != chain_key {
+            return Err(err("CROSS_CHAIN_GRAPH"));
+        }
+        if self.topologies == topologies
+            && self.pool_order == pool_order
+            && self.excluded_pools == excluded_pools
+            && self.chain_key == chain_key
+        {
+            return Ok(None);
+        }
+        let changed: BTreeSet<&String> = self
+            .topologies
+            .keys()
+            .chain(topologies.keys())
+            .filter(|id| {
+                self.topologies.get(*id) != topologies.get(*id)
+                    || self.excluded_pools.get(*id) != excluded_pools.get(*id)
+            })
+            .collect();
+        let mut next = Self {
+            adjacency: self.adjacency.clone(),
+            pool_sources: self.pool_sources.clone(),
+            ..Self::default()
+        };
+        let mut affected = BTreeSet::new();
+        let mut additions: BTreeMap<String, Vec<Edge>> = BTreeMap::new();
+        for id in &changed {
+            if let Some(sources) = next.pool_sources.remove(*id) {
+                affected.extend(sources.iter().cloned());
+            }
+            if let Some(topology) = topologies
+                .get(*id)
+                .filter(|_| !excluded_pools.contains_key(*id))
+            {
+                let mut sources = BTreeSet::new();
+                for (from, edge) in topology.edges(id) {
+                    affected.insert(from.clone());
+                    sources.insert(from.clone());
+                    additions.entry(from).or_default().push(edge);
+                }
+                if !sources.is_empty() {
+                    next.pool_sources.insert((*id).clone(), Arc::new(sources));
+                }
+            }
+        }
+        // Preserve the exact order of a full build, including under request
+        // budgets: pool order first, each pool's original asset order second.
+        if self
+            .pool_order
+            .iter()
+            .filter(|id| topologies.contains_key(*id))
+            .ne(pool_order
+                .iter()
+                .filter(|id| self.topologies.contains_key(*id)))
+        {
+            affected.extend(self.adjacency.keys().cloned());
+        }
+        let rank: BTreeMap<&str, usize> = pool_order
+            .iter()
+            .enumerate()
+            .map(|(i, id)| (id.as_str(), i))
+            .collect();
+        for from in affected {
+            let mut edges: Vec<Edge> = self
+                .adjacency
+                .get(&from)
+                .into_iter()
+                .flat_map(|edges| edges.iter())
+                .filter(|edge| !changed.contains(&edge.pool_id))
+                .cloned()
+                .collect();
+            edges.extend(additions.remove(&from).unwrap_or_default());
+            edges.sort_by_key(|edge| rank[edge.pool_id.as_str()]);
+            if edges.is_empty() {
+                next.adjacency.remove(&from);
+            } else if self
+                .adjacency
+                .get(&from)
+                .is_none_or(|old| old.as_ref() != &edges)
+            {
+                next.adjacency.insert(from, Arc::new(edges));
+            }
+        }
+        next.chain_key = chain_key;
+        next.excluded_pools = excluded_pools;
+        next.topologies = topologies;
+        next.pool_order = pool_order;
+        Ok(Some(next))
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -525,7 +639,7 @@ pub fn search_bounded_with_funds(
             .adjacency
             .get(tokens.last().ok_or_else(|| err("INVALID_PATH"))?)
             .into_iter()
-            .flatten()
+            .flat_map(|edges| edges.iter())
         {
             if expansions >= budget.max_expansions {
                 exhausted = true;

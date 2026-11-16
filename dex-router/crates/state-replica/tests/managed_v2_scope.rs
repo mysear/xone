@@ -115,7 +115,11 @@ fn original_shared_managed_bank_publishes_all_records_and_both_directions() {
     assert_complete(&view, &s);
     assert!(view.graph.excluded_pools.is_empty());
     assert_eq!(
-        view.graph.adjacency.values().map(Vec::len).sum::<usize>(),
+        view.graph
+            .adjacency
+            .values()
+            .map(|edges| edges.len())
+            .sum::<usize>(),
         4
     );
     for p in &s.pools {
@@ -159,7 +163,12 @@ fn mixed_vault_publish_keeps_closed_bank_and_only_unrelated_edges_in_either_orde
             .values()
             .all(|r| r == "SHARED_VAULT_MIXED_ADAPTER_UNSUPPORTED"));
         let ordinary = s.pools.iter().find(|p| p.multi_asset.is_none()).unwrap();
-        let edges: Vec<_> = view.graph.adjacency.values().flatten().collect();
+        let edges: Vec<_> = view
+            .graph
+            .adjacency
+            .values()
+            .flat_map(|edges| edges.iter())
+            .collect();
         assert_eq!(edges.len(), 2);
         assert!(edges.iter().all(|e| e.pool_id == ordinary.pool_id));
         assert_ne!(
@@ -303,7 +312,11 @@ fn cross_pool_bpt_excludes_the_whole_vault_without_erasing_canonical_rows() {
         );
     }
     assert_eq!(
-        view.graph.adjacency.values().map(Vec::len).sum::<usize>(),
+        view.graph
+            .adjacency
+            .values()
+            .map(|edges| edges.len())
+            .sum::<usize>(),
         2
     );
     can_quote(&view, &s.pools[2]);
@@ -378,7 +391,7 @@ fn block_commit_refreshes_admission_even_when_tokens_and_protocols_are_unchanged
         .graph
         .adjacency
         .values()
-        .flatten()
+        .flat_map(|edges| edges.iter())
         .all(|edge| edge.pool_id == current.pools[3].pool_id));
     assert!(
         before.graph.excluded_pools.is_empty(),

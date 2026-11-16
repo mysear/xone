@@ -525,7 +525,7 @@ pub fn search(
     }
     let mut incoming: BTreeMap<String, Vec<(String, Edge)>> = BTreeMap::new();
     for (from, edges) in &graph.adjacency {
-        for edge in edges {
+        for edge in edges.iter() {
             if excluded.contains_key(&edge.pool_id) {
                 continue;
             }

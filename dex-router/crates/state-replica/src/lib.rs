@@ -338,37 +338,10 @@ impl Replica {
                 return Err(err("BLOCK_CONTINUITY"));
             }
         }
-        fn topology(pools: &[Pool]) -> Vec<(&str, Vec<&str>, &str, &str)> {
-            pools
-                .iter()
-                .map(|p| {
-                    (
-                        p.pool_id.as_str(),
-                        p.multi_asset
-                            .as_ref()
-                            .map(|s| {
-                                s.assets
-                                    .iter()
-                                    .map(|a| a.token.as_str())
-                                    .collect::<Vec<_>>()
-                            })
-                            .unwrap_or_else(|| vec![p.token0.as_str(), p.token1.as_str()]),
-                        p.protocol.as_str(),
-                        p.token_behavior.as_str(),
-                    )
-                })
-                .collect()
-        }
-        // Candidate admission depends on the complete bank (for example,
-        // shared Vault registrations), not just token endpoints/protocol labels.
-        let admission_changed =
-            xone_domain::unavailable_pool_reasons(r.pools.iter())? != old.graph.excluded_pools;
-        let changed = topology(&old.pools) != topology(&r.pools) || admission_changed;
-        let graph = if changed {
-            Arc::new(Graph::build(&r.pools)?)
-        } else {
-            old.graph.clone()
-        };
+        let updated = old.graph.update(&r.pools)?;
+        let changed = updated.is_some();
+        let graph = updated.map_or_else(|| old.graph.clone(), Arc::new);
+        let admission_changed = graph.excluded_pools != old.graph.excluded_pools;
         let is_reorg = r.reference.canonical_epoch != old.reference.canonical_epoch;
         if !is_reorg && !old.is_valid() {
             return Err(err("REANCHOR_REQUIRED"));

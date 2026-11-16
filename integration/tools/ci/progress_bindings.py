@@ -1607,3 +1607,22 @@ BINDINGS['14.rayclmm-advanced-execution']={
  'tests':['rayclmm_advanced_funding_accounts_execute_original_and_independent_vm','rayclmm_advanced_funding_wallet_receipts_reconcile_actual_rent_and_resume_without_resending','rayclmm_advanced_complete_source_state_and_runtime_closure_reject_mutations','test_extension_discriminator_pool_and_both_bitmap_sides_are_bound','test_all_dynamic_fee_members_are_bound','test_seed_change_cannot_reuse_an_unrelated_pool_pda'],
  'evidence_refs':['integration/artifacts/local/rayclmm-advanced-execution-check/report.json'],
 }
+
+BINDINGS['13.incremental-graph'] = {
+    'paths': [
+        'dex-router/crates/routing/src/lib.rs',
+        'dex-router/crates/state-replica/src/lib.rs',
+        'dex-router/crates/state-replica/src/protocol_view.rs',
+        'dex-router/crates/routing/tests/incremental_graph.rs',
+        'dex-router/crates/state-replica/tests/replica.rs',
+        'integration/tools/acceptance/validate_incremental_graph.py',
+    ],
+    'tests': [
+        'reserve_and_fee_state_reuse_the_complete_graph',
+        'changed_pool_only_copies_its_previous_and_current_token_buckets',
+        'deterministic_edit_sequences_match_full_builds_and_share_untouched_edges',
+        'reordered_pools_preserve_full_build_candidate_order_under_tight_budget',
+        'incremental_graph_shares_untouched_buckets_and_keeps_published_view_immutable',
+    ],
+    'evidence_refs': ['integration/artifacts/local/incremental-graph-check/report.json'],
+}

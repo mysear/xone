@@ -11,7 +11,14 @@ fn every_asset_pair_uses_one_mutable_physical_pool() {
     let s = p.multi_asset.as_ref().unwrap();
     let graph = Graph::build(std::slice::from_ref(&p)).unwrap();
     assert_eq!(graph.adjacency.len(), 3);
-    assert_eq!(graph.adjacency.values().map(Vec::len).sum::<usize>(), 6);
+    assert_eq!(
+        graph
+            .adjacency
+            .values()
+            .map(|edges| edges.len())
+            .sum::<usize>(),
+        6
+    );
     let input: Amount = "1000000000000000000".parse().unwrap();
     let result = search(
         &graph,

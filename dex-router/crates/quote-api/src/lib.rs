@@ -1040,7 +1040,7 @@ async fn quote_options(
             let mut by_pool = BTreeMap::<&str, Vec<(&String, &xone_routing::Edge)>>::new();
             if ready {
                 for (from, edges) in &v.graph.adjacency {
-                    for edge in edges {
+                    for edge in edges.iter() {
                         by_pool.entry(&edge.pool_id).or_default().push((from, edge));
                     }
                 }

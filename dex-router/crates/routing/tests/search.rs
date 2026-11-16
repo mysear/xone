@@ -197,7 +197,7 @@ fn every_unsearchable_source_row_has_an_explicit_candidate_exclusion() {
     assert!(graph
         .adjacency
         .values()
-        .flatten()
+        .flat_map(|edges| edges.iter())
         .all(|e| e.pool_id != "unknown-math" && e.pool_id != "unknown-token"));
     assert_eq!(pools.len(), 6, "canonical source rows were removed");
 }

@@ -137,7 +137,11 @@ fn bpt_is_absent_from_graph_and_cannot_be_injected_as_a_regular_output_edge() {
         let j = c["j"].as_u64().unwrap() as usize;
         let g = xone_routing::Graph::build(std::slice::from_ref(&p)).unwrap();
         assert!(!g.adjacency.contains_key(&p.pool_id));
-        assert!(g.adjacency.values().flatten().all(|e| e.to != p.pool_id));
+        assert!(g
+            .adjacency
+            .values()
+            .flat_map(|edges| edges.iter())
+            .all(|e| e.to != p.pool_id));
         let mut state = BTreeMap::from([(p.pool_id.clone(), p.clone())]);
         let before = state.clone();
         let target: Amount = "1000".parse().unwrap();

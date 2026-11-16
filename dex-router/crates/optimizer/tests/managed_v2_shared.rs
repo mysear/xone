@@ -106,5 +106,9 @@ fn bpt_is_not_silently_added_to_underlying_only_candidate_graph() {
     let p: Pool = serde_json::from_value(c["source_pool"].clone()).unwrap();
     let g = Graph::build(std::slice::from_ref(&p)).unwrap();
     assert!(!g.adjacency.contains_key(&p.pool_id));
-    assert!(g.adjacency.values().flatten().all(|e| e.to != p.pool_id));
+    assert!(g
+        .adjacency
+        .values()
+        .flat_map(|edges| edges.iter())
+        .all(|e| e.to != p.pool_id));
 }

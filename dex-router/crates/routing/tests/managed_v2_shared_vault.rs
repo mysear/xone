@@ -898,7 +898,7 @@ fn mixed_vault_is_explicitly_excluded_without_blocking_unrelated_routes() {
     assert!(graph
         .adjacency
         .values()
-        .flatten()
+        .flat_map(|edges| edges.iter())
         .all(|edge| !graph.excluded_pools.contains_key(&edge.pool_id)));
     let saved = map.clone();
     let ordinary = Edge {

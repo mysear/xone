@@ -50,7 +50,7 @@ pub(super) fn partition(
     let available: BTreeSet<&str> = graph
         .adjacency
         .values()
-        .flatten()
+        .flat_map(|edges| edges.iter())
         .map(|e| e.pool_id.as_str())
         .collect();
     let mut output = BTreeMap::new();

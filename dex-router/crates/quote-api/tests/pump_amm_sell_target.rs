@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 #[path = "support/execution_bank.rs"]
 mod execution_bank;
 use axum::{

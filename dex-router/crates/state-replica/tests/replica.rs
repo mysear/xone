@@ -173,7 +173,7 @@ fn token_capability_exclusion_is_visible_and_restores_without_deleting_source() 
         .graph
         .adjacency
         .values()
-        .flatten()
+        .flat_map(|edges| edges.iter())
         .all(|e| e.pool_id != id));
     s.reference.block.number_or_slot += 1;
     s.reference.block.parent_hash = s.reference.block.hash.clone();
@@ -187,6 +187,56 @@ fn token_capability_exclusion_is_visible_and_restores_without_deleting_source() 
         .graph
         .adjacency
         .values()
-        .flatten()
+        .flat_map(|edges| edges.iter())
         .any(|e| e.pool_id == id));
+}
+
+#[test]
+fn incremental_graph_shares_untouched_buckets_and_keeps_published_view_immutable() {
+    use std::sync::Arc;
+    let mut s = snapshot();
+    let replica = Replica::new(vec![("evm:31337".into(), "chain-parser-go".into(), 1)]);
+    replica.install_baseline(s.clone()).unwrap();
+    let first = replica.view("evm:31337").unwrap();
+    s.reference.block.number_or_slot += 1;
+    s.reference.block.parent_hash = s.reference.block.hash.clone();
+    s.reference.block.hash = "reserve-only".into();
+    s.reference.journal_seq += 1;
+    s.pools[0].reserve0 = "2000000".parse().unwrap();
+    replica.apply(record(&s, "BLOCK_COMMIT")).unwrap();
+    let reserve = replica.view("evm:31337").unwrap();
+    assert!(Arc::ptr_eq(&first.graph, &reserve.graph));
+    assert_eq!(first.graph_version, reserve.graph_version);
+    assert_ne!(first.pools[0].reserve0, reserve.pools[0].reserve0);
+    let untouched: Vec<_> = reserve
+        .graph
+        .adjacency
+        .iter()
+        .filter(|(_, edges)| edges.iter().all(|e| e.pool_id != s.pools[0].pool_id))
+        .map(|(token, edges)| (token.clone(), edges.clone()))
+        .collect();
+    assert!(!untouched.is_empty());
+    let old_token = s.pools[0].token1.clone();
+    s.pools[0].token1 = "NEW_TOKEN".into();
+    s.reference.block.number_or_slot += 1;
+    s.reference.block.parent_hash = s.reference.block.hash.clone();
+    s.reference.block.hash = "topology-change".into();
+    s.reference.journal_seq += 1;
+    replica.apply(record(&s, "BLOCK_COMMIT")).unwrap();
+    let changed = replica.view("evm:31337").unwrap();
+    assert!(!Arc::ptr_eq(&reserve.graph, &changed.graph));
+    assert_eq!(changed.graph_version, reserve.graph_version + 1);
+    for (token, edges) in untouched {
+        assert!(Arc::ptr_eq(&edges, &changed.graph.adjacency[&token]));
+    }
+    assert!(reserve.graph.adjacency[&old_token]
+        .iter()
+        .any(|e| e.pool_id == s.pools[0].pool_id));
+    assert!(!reserve.graph.adjacency.contains_key("NEW_TOKEN"));
+    assert!(changed.graph.adjacency.contains_key("NEW_TOKEN"));
+    assert_eq!(
+        changed.graph.adjacency,
+        xone_routing::Graph::build(&s.pools).unwrap().adjacency
+    );
+    assert!(reserve.is_valid());
 }

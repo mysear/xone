@@ -1033,3 +1033,7 @@ rayclmm-advanced-execution-reference:
 	python3 tools/ci/rayclmm-advanced-execution-bank.py
 rayclmm-advanced-execution-current-check:
 	python3 tools/acceptance/validate_rayclmm_advanced_execution.py
+
+.PHONY: incremental-graph-current-check
+incremental-graph-current-check:
+	python3 tools/acceptance/validate_incremental_graph.py
