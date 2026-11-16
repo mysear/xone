@@ -1041,3 +1041,7 @@ incremental-graph-current-check:
 .PHONY: cache-reclamation-current-check
 cache-reclamation-current-check:
 	python3 tools/acceptance/validate_cache_reclamation.py
+
+.PHONY: evm-preparation-current-check
+evm-preparation-current-check:
+	python3 tools/acceptance/validate_evm_preparation.py

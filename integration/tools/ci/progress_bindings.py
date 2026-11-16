@@ -1649,7 +1649,10 @@ BINDINGS['13.baseline-cache-reclamation'] = {
 }
 
 BINDINGS['14.evm-preparation-component'] = {
-    'paths': ['dex-router/crates/execution-plan/src/bound_v2_exact_out.rs',
+    'paths': ['integration/tools/acceptance/validate_evm_preparation.py',
+              'integration/tools/acceptance/evm_preparation_interop.cjs',
+              'integration/tools/acceptance/tests/test_evm_preparation_interop.py',
+              'dex-router/crates/execution-plan/src/bound_v2_exact_out.rs',
               'dex-router/crates/execution-preparation/src/evm.rs',
               'dex-router/crates/execution-preparation/tests/evm_preparation.rs',
               'dex-router/crates/execution-preparation/tests/evm_exact_out.rs'],

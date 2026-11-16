@@ -2644,3 +2644,7 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 本批尚无真实RPC捕获、当前来源/部署资格、链特定hardfork/L2费用、正式EVM模拟准备缓存或钱包链路；组件返回的ready仅表示给定观察下的内部准备条件满足。原26工作包、VERIFIED及生产准入继续按原完整标准验收，不以组件结果替代端到端功能。
 
 阶段87正式Rust预检exit0：7项目标绑定/准备与10项资金/数量控制，共17项测试全部通过；其中原Router02语料90个目标（含至少30多hop和9个宽金额目标）逐项绑定并核对原所需输入。nonce耗尽负例、最后可用u64值、宽费用、无损十进制JSON和规范RPC hex均通过。独立ABI/RLP、完整计划/旧模板回归及严格门禁仍待完成；没有将组件结果计作正式RPC/API/独立生产执行资格。
+
+阶段87独立预检：4份ExactIn与90份ExactOut导出结果通过原Router02 ABI、独立ethers RLP逐字节与受控离线签名恢复，含宽nonce；仅本地离线编码，不接RPC或广播。随后补零基础费/零小费观察下的合法零费准备，以及无access-list调用的EIP-2930基础intrinsic gas下界；该下界不替代当前hardfork的calldata floor或L2费用规则。新统一门禁要求95份导出结果、原90目标全集、篡改拒绝控制及完整代码/固定输入/独立Node依赖摘要闭合后才能升级本批状态。复验入口：`make -C integration evm-preparation-current-check`。
+
+阶段87首轮统一门禁保留FAILED：19项Rust通过，独立编码检查的案例全集比对将编号0误用为JavaScript假值而替换成文件名；这是校验器编号处理错误，已改为空值判断。修正后同批95个案例全部通过，含原90目标与5份ExactIn/费用边界，4项普通/4项优化篡改拒绝控制通过；Rust功能代码未因该校验器错误改动。后续仍完整运行统一门禁，当前不提前升级状态。

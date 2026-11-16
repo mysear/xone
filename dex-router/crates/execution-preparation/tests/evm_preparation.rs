@@ -57,7 +57,7 @@ fn unsigned_exact_input_keeps_uint256_amounts_and_full_bound_plan() {
             before,
             serde_json::to_value((&bound, &pools, &observed, &fees)).unwrap()
         );
-        if let Ok(directory) = std::env::var("XONE_EVM_DRAFT_OUTPUT") {
+        if let Ok(directory) = std::env::var("XONE_EVM_PREPARATION_DIR") {
             std::fs::create_dir_all(&directory).unwrap();
             std::fs::write(std::path::Path::new(&directory).join(format!("unsigned-{reverse}.json")),serde_json::to_vec_pretty(&serde_json::json!({"bound":bound,"preparation":p,"observed":observed,"fees":fees})).unwrap()).unwrap();
         }
@@ -218,7 +218,7 @@ fn zero_nonce_priority_and_wide_fee_fields_keep_canonical_encoding() {
             .max_priority_fee_per_gas,
         Amount::zero()
     );
-    if let Ok(directory) = std::env::var("XONE_EVM_DRAFT_OUTPUT") {
+    if let Ok(directory) = std::env::var("XONE_EVM_PREPARATION_DIR") {
         std::fs::create_dir_all(&directory).unwrap();
         std::fs::write(std::path::Path::new(&directory).join("unsigned-zero-wide-fee.json"),serde_json::to_vec_pretty(&serde_json::json!({"bound":bound,"preparation":prepared,"observed":observed,"fees":fees})).unwrap()).unwrap();
     }
@@ -278,6 +278,11 @@ fn quantities_are_lossless_strings_and_rpc_uses_canonical_hex() {
     assert_eq!(observation["pending_nonce"], (u64::MAX - 1).to_string());
     let decoded: FundingObservation = serde_json::from_value(observation).unwrap();
     assert_eq!(decoded.pending_nonce, u64::MAX - 1);
+    if let Ok(directory) = std::env::var("XONE_EVM_PREPARATION_DIR") {
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(std::path::Path::new(&directory).join("unsigned-wide-nonce.json"),
+            serde_json::to_vec_pretty(&serde_json::json!({"bound":bound,"preparation":prepared,"observed":observed,"fees":fees})).unwrap()).unwrap();
+    }
 }
 
 #[test]
@@ -299,4 +304,48 @@ fn quantity_json_rejects_numbers_overflow_and_noncanonical_strings() {
             assert!(serde_json::from_value::<FeeContext>(changed).is_err());
         }
     }
+}
+
+#[test]
+fn transaction_fee_zero_context_is_valid_without_fabricated_network_cost() {
+    let (bound, pools, mut observed, mut fees, now) = contexts(false);
+    observed.base_fee_per_gas = Amount::zero();
+    observed.native_balance = Amount::zero();
+    fees.max_fee_per_gas = Amount::zero();
+    fees.max_priority_fee_per_gas = Amount::zero();
+    fees.max_network_fee = Amount::zero();
+    let prepared = prepare(&bound, &pools, &[ROUTER.into()], &observed, &fees, now).unwrap();
+    assert!(prepared.ready);
+    assert_eq!(prepared.max_network_fee, Amount::zero());
+    assert_eq!(
+        prepared.rpc_transaction.as_ref().unwrap()["maxFeePerGas"],
+        "0x0"
+    );
+    assert_eq!(
+        prepared.rpc_transaction.as_ref().unwrap()["maxPriorityFeePerGas"],
+        "0x0"
+    );
+    if let Ok(directory) = std::env::var("XONE_EVM_PREPARATION_DIR") {
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(std::path::Path::new(&directory).join("unsigned-zero-fee.json"),
+            serde_json::to_vec_pretty(&serde_json::json!({"bound":bound,"preparation":prepared,"observed":observed,"fees":fees})).unwrap()).unwrap();
+    }
+}
+
+#[test]
+fn transaction_fee_context_rejects_gas_below_calldata_intrinsic_lower_bound() {
+    let (bound, pools, observed, mut fees, now) = contexts(false);
+    fees.gas_limit = 21000;
+    assert_eq!(
+        prepare(&bound, &pools, &[ROUTER.into()], &observed, &fees, now)
+            .unwrap_err()
+            .0,
+        "PREPARATION_EVM_FEE_CONTEXT"
+    );
+    let data = hex::decode(&bound.transaction.data[2..]).unwrap();
+    fees.gas_limit = 21000 + 16 * data.len() as u64;
+    let prepared = prepare(&bound, &pools, &[ROUTER.into()], &observed, &fees, now).unwrap();
+    assert!(prepared.ready);
+    assert!(prepared.intrinsic_gas_lower_bound > 21000);
+    assert!(prepared.intrinsic_gas_lower_bound <= fees.gas_limit);
 }

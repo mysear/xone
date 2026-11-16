@@ -186,7 +186,7 @@ fn every_original_router_output_case_binds_complete_paths_and_uint256_preparatio
             hash(&commitment).unwrap(),
             prepared.exact_out_preparation_hash
         );
-        if let Ok(directory) = std::env::var("XONE_EVM_EXACT_OUT_DRAFT_OUTPUT") {
+        if let Ok(directory) = std::env::var("XONE_EVM_EXACT_OUT_PREPARATION_DIR") {
             std::fs::create_dir_all(&directory).unwrap();
             std::fs::write(std::path::Path::new(&directory).join(format!("output-{}.json",case["id"])),serde_json::to_vec_pretty(&json!({"case_id":case["id"],"bound":bound,"preparation":prepared,"observed":o,"fees":f})).unwrap()).unwrap();
         }

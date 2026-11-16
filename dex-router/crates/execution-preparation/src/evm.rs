@@ -80,6 +80,8 @@ pub struct Preparation {
     pub blockers: Vec<String>,
     pub required_input: Amount,
     pub max_network_fee: Amount,
+    #[serde(with = "decimal_u64")]
+    pub intrinsic_gas_lower_bound: u64,
     pub transaction: Option<Eip1559Transaction>,
     pub unsigned_transaction: Option<String>,
     pub rpc_transaction: Option<serde_json::Value>,
@@ -143,6 +145,24 @@ fn address(value: &str) -> Result<Vec<u8>> {
     }
     Ok(bytes)
 }
+/// Baseline EIP-2930 call cost with an empty access list. Chain adapters must
+/// additionally validate their active hardfork, calldata floor and L2 fees.
+fn intrinsic_gas_lower_bound(data: &str) -> Result<u64> {
+    let bytes = hex::decode(
+        data.strip_prefix("0x")
+            .ok_or_else(|| err("PREPARATION_EVM_DATA"))?,
+    )
+    .map_err(|_| err("PREPARATION_EVM_DATA"))?;
+    if bytes.len() > 128 * 1024 {
+        return Err(err("PREPARATION_EVM_DATA_LIMIT"));
+    }
+    Ok(21000
+        + bytes
+            .iter()
+            .map(|byte| if *byte == 0 { 4u64 } else { 16u64 })
+            .sum::<u64>())
+}
+
 fn unsigned(tx: &Eip1559Transaction) -> Result<String> {
     let data = hex::decode(
         tx.data
@@ -232,11 +252,11 @@ fn prepare_bound(
     if fees.nonce == u64::MAX {
         return Err(err("PREPARATION_EVM_NONCE_EXHAUSTED"));
     }
-    if fees.gas_limit < 21000
+    let intrinsic = intrinsic_gas_lower_bound(&transaction.data)?;
+    if fees.gas_limit < intrinsic
         || fees.gas_limit > 15_000_000
         || fees.max_priority_fee_per_gas > fees.max_fee_per_gas
         || observed.base_fee_per_gas > fees.max_fee_per_gas
-        || fees.max_fee_per_gas == Amount::zero()
     {
         return Err(err("PREPARATION_EVM_FEE_CONTEXT"));
     }
@@ -298,6 +318,7 @@ fn prepare_bound(
         blockers,
         required_input: input,
         max_network_fee: fee_reserve,
+        intrinsic_gas_lower_bound: intrinsic,
         rpc_transaction: tx.as_ref().map(Eip1559Transaction::rpc_parameters),
         transaction: tx,
         unsigned_transaction: wire,
