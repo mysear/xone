@@ -1732,3 +1732,14 @@ BINDINGS['28.delivery-boundary-audit'] = {
               'test_absent_local_test_topology_does_not_assert_external_service_outage'],
     'evidence_refs': ['integration/artifacts/local/design-delivery-audit/report.json'],
 }
+
+BINDINGS['14.evm-prepared-exact-out'] = {
+ 'paths': ['dex-router/crates/simulation/src/prepared_evm.rs',
+           'dex-router/crates/simulation/src/evm_fixture.rs',
+           'dex-router/crates/simulation/tests/v2_complete.rs',
+           'integration/tools/acceptance/validate_evm_prepared_exact_out.py'],
+ 'tests': ['prepared_exact_out_16_original_banks_bind_both_commitments_and_unused_input',
+           'prepared_exact_out_rehashed_outer_inner_tampering_and_funding_fail_closed',
+           'prepared_exact_out_limits_and_cancellation_precede_bank_execution'],
+ 'evidence_refs': ['integration/artifacts/local/evm-prepared-exact-out-check/report.json'],
+}

@@ -1150,6 +1150,29 @@ pub fn simulate_bound_exact_out(
     budget: &SimulationBudget,
     control: core::ExecutionControl,
 ) -> Result<SimulationOutcome> {
+    simulate_bound_exact_out_with_funding(
+        bound,
+        pools,
+        allowlist,
+        fixture,
+        transaction_context,
+        budget,
+        control,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn simulate_bound_exact_out_with_funding(
+    bound: &BoundEvmExactOutExecution,
+    pools: &[Pool],
+    allowlist: &[String],
+    fixture: &FixtureState,
+    transaction_context: &TransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+    funding: Option<&xone_execution_preparation::evm::FundingObservation>,
+) -> Result<SimulationOutcome> {
     simulate_execution(
         BoundSource::ExactOut(bound),
         pools,
@@ -1158,7 +1181,7 @@ pub fn simulate_bound_exact_out(
         transaction_context,
         budget,
         control,
-        None,
+        funding,
     )
 }
 

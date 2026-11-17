@@ -1411,3 +1411,230 @@ fn exact_out_valid_multi_pool_binding_is_rejected_before_any_execution() {
         .detail
         .contains("SIMULATION_EXACT_OUT_SINGLE_POOL_REQUIRED"));
 }
+
+#[test]
+fn prepared_exact_out_16_original_banks_bind_both_commitments_and_unused_input() {
+    use xone_simulation::prepared_evm::{simulate_prepared_exact_out, PreparedExactOutExecution};
+    let mut count = 0;
+    for c in corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["service_eligible"] == true)
+    {
+        let case = prepared_contexts(c);
+        let exact = output_bound(
+            &case.bound,
+            &case.pools,
+            case.bound.plan.allocation.gross_buy_amount.clone(),
+            Amount::checked(&case.bound.plan.allocation.sell_amount.0 * 2u64).unwrap(),
+        );
+        let preparation = xone_execution_preparation::evm::prepare_exact_out(
+            &exact,
+            &case.pools,
+            std::slice::from_ref(&exact.executor.target),
+            &case.funding,
+            &case.fees,
+            case.fixture.execution_environment.timestamp * 1000,
+        )
+        .unwrap();
+        let original = serde_json::to_value(&preparation).unwrap();
+        let out = simulate_prepared_exact_out(
+            PreparedExactOutExecution {
+                bound: &exact,
+                pools: &case.pools,
+                allowed_targets: std::slice::from_ref(&exact.executor.target),
+                funding: &case.funding,
+                fees: &case.fees,
+                preparation: &preparation,
+            },
+            &case.fixture,
+            &budget(),
+            Default::default(),
+        )
+        .unwrap();
+        assert!(out.simulation.matches_plan);
+        assert!(!out.simulation.verified);
+        assert_eq!(
+            out.preparation_hash,
+            preparation.preparation.preparation_hash
+        );
+        assert_eq!(
+            out.exact_out_preparation_hash.as_ref(),
+            Some(&preparation.exact_out_preparation_hash)
+        );
+        assert_eq!(
+            out.simulation.actual_input_consumed,
+            exact.plan.allocation.required_input
+        );
+        assert_eq!(out.simulation.actual_buy_amount, preparation.target_output);
+        let unspent = out.simulation.unused_input_budget.as_ref().unwrap();
+        assert_eq!(
+            &unspent.0 + &out.simulation.actual_input_consumed.0,
+            exact.plan.max_sell_amount.0
+        );
+        assert_eq!(
+            &preparation.unused_quoted_input_budget.0 + &out.simulation.actual_input_consumed.0,
+            exact.plan.allocation.input_budget.0
+        );
+        // The request budget may exceed the slippage-limited encoded maximum.
+        assert!(exact.plan.max_sell_amount <= exact.plan.allocation.input_budget);
+        assert_eq!(out.simulation.refund, Amount::zero());
+        let raw = hex::decode(
+            &preparation
+                .preparation
+                .unsigned_transaction
+                .as_ref()
+                .unwrap()[2..],
+        )
+        .unwrap();
+        assert_eq!(
+            out.unsigned_transaction_hash,
+            hex::encode(Sha256::digest(raw))
+        );
+        let mut value = serde_json::to_value(&out).unwrap();
+        value.as_object_mut().unwrap().remove("commitment_hash");
+        assert_eq!(hash(&value).unwrap(), out.commitment_hash);
+        assert_eq!(serde_json::to_value(preparation).unwrap(), original);
+        count += 1;
+    }
+    assert_eq!(count, 16);
+}
+#[test]
+fn prepared_exact_out_rehashed_outer_inner_tampering_and_funding_fail_closed() {
+    use xone_simulation::prepared_evm::{simulate_prepared_exact_out, PreparedExactOutExecution};
+    let case = prepared_case();
+    let exact = output_bound(
+        &case.bound,
+        &case.pools,
+        case.bound.plan.allocation.gross_buy_amount.clone(),
+        Amount::checked(&case.bound.plan.allocation.sell_amount.0 * 2u64).unwrap(),
+    );
+    let prepare = |funding: &xone_execution_preparation::evm::FundingObservation| {
+        xone_execution_preparation::evm::prepare_exact_out(
+            &exact,
+            &case.pools,
+            std::slice::from_ref(&exact.executor.target),
+            funding,
+            &case.fees,
+            case.fixture.execution_environment.timestamp * 1000,
+        )
+        .unwrap()
+    };
+    let original = serde_json::to_value(prepare(&case.funding)).unwrap();
+    for mode in 0..16 {
+        let mut value = original.clone();
+        let mut funding = case.funding.clone();
+        match mode {
+            0 => value["target_output"] = json!("1"),
+            1 => value["max_sell_amount"] = json!("1"),
+            2 => value["unused_quoted_input_budget"] = json!("0"),
+            3 => value["preparation"]["transaction"]["data"] = json!("0x"),
+            4 => value["preparation"]["transaction"]["nonce"] = json!("0"),
+            5 => value["preparation"]["transaction"]["max_fee_per_gas"] = json!("0"),
+            6 => value["preparation"]["transaction"]["to"] = json!(exact.executor.factory),
+            7 => value["preparation"]["unsigned_transaction"] = json!("0x02"),
+            8 => value["preparation"]["rpc_transaction"]["data"] = json!("0x"),
+            9 => value["preparation"]["signed"] = json!(true),
+            10 => value["preparation"]["ready"] = json!(false),
+            11 => value["preparation"]["required_input"] = json!("1"),
+            12 => {
+                funding.native_balance = Amount::checked(&funding.native_balance.0 + 1u64).unwrap();
+                value = serde_json::to_value(prepare(&funding)).unwrap();
+            }
+            13 => {
+                funding.token_balance = Amount::checked(&funding.token_balance.0 + 1u64).unwrap();
+                value = serde_json::to_value(prepare(&funding)).unwrap();
+            }
+            14 => {
+                funding.allowance = Amount::checked(&funding.allowance.0 - 1u64).unwrap();
+                value = serde_json::to_value(prepare(&funding)).unwrap();
+            }
+            _ => {
+                funding.base_fee_per_gas =
+                    Amount::checked(&funding.base_fee_per_gas.0 + 1u64).unwrap()
+            }
+        }
+        value["preparation"]
+            .as_object_mut()
+            .unwrap()
+            .remove("preparation_hash");
+        value["preparation"]["preparation_hash"] = json!(hash(&value["preparation"]).unwrap());
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("exact_out_preparation_hash");
+        value["exact_out_preparation_hash"] = json!(hash(&value).unwrap());
+        let changed = serde_json::from_value(value).unwrap();
+        let error = simulate_prepared_exact_out(
+            PreparedExactOutExecution {
+                bound: &exact,
+                pools: &case.pools,
+                allowed_targets: std::slice::from_ref(&exact.executor.target),
+                funding: &funding,
+                fees: &case.fees,
+                preparation: &changed,
+            },
+            &case.fixture,
+            &budget(),
+            Default::default(),
+        )
+        .unwrap_err();
+        if (12..15).contains(&mode) {
+            assert_eq!(
+                error.code,
+                SimulationErrorCode::SimulationObservationMismatch
+            );
+        } else {
+            assert_eq!(error.code, SimulationErrorCode::SimulationBindingMismatch);
+            assert_eq!(error.usage.executions, 0);
+        }
+    }
+}
+#[test]
+fn prepared_exact_out_limits_and_cancellation_precede_bank_execution() {
+    use xone_simulation::prepared_evm::{simulate_prepared_exact_out, PreparedExactOutExecution};
+    let case = prepared_case();
+    let exact = output_bound(
+        &case.bound,
+        &case.pools,
+        case.bound.plan.allocation.gross_buy_amount.clone(),
+        Amount::checked(&case.bound.plan.allocation.sell_amount.0 * 2u64).unwrap(),
+    );
+    let preparation = xone_execution_preparation::evm::prepare_exact_out(
+        &exact,
+        &case.pools,
+        std::slice::from_ref(&exact.executor.target),
+        &case.funding,
+        &case.fees,
+        case.fixture.execution_environment.timestamp * 1000,
+    )
+    .unwrap();
+    for mode in 0..4 {
+        let mut lim = budget();
+        let mut control = ExecutionControl::default();
+        match mode {
+            0 => lim.max_fixture_json_bytes = 1,
+            1 => lim.max_input_bytes = 1,
+            2 => control
+                .cancellation
+                .store(true, std::sync::atomic::Ordering::Relaxed),
+            _ => control.deadline = Some(Instant::now()),
+        };
+        let error = simulate_prepared_exact_out(
+            PreparedExactOutExecution {
+                bound: &exact,
+                pools: &case.pools,
+                allowed_targets: std::slice::from_ref(&exact.executor.target),
+                funding: &case.funding,
+                fees: &case.fees,
+                preparation: &preparation,
+            },
+            &case.fixture,
+            &lim,
+            control,
+        )
+        .unwrap_err();
+        assert_eq!(error.usage.executions, 0);
+    }
+}

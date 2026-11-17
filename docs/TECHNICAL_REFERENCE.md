@@ -1869,3 +1869,5 @@ adaptive、adaptive-rewards、adaptive-dynamic继续使用固定程序的legacy 
 162受控银行包含三个模型各三种收费模式的普通币对/重新推导PDA的WSOL币对、双向输入/输出目标、ATA/包装/临时退款解包和预存租金。程序闭包与classic模板一致，Token2022资产与订单/未知组合仍拒绝；组件原SBF证据、正式API wire、钱包回执和Chrome应分别验收。复验 `make -C integration rayclmm-advanced-execution-current-check`，完成状态仅记根进度。
 
 SBF运行时程序映像的宿主生命周期：构造线程只保留至多两个已验证代码映像，线程退出或LRU淘汰时释放缓存持有引用，活跃Engine/子进程保持自己的引用；账户银行、并发许可和各Engine的计算／超时配置不共享。每次Engine构造仍读取并校验源程序摘要，复用时再将保留程序逐字节与刚验证源数据及编译worker比较，Unix程序文件只读；任何差异明确拒绝，不静默重建绕过。此处理消除多API宿主重复冷复制的开销，不提高生产15秒等预算，也不把程序映像复用当作来源／执行验证。worker异常仅记录输入／输出已传字节计数、耗时及子进程退出标志，辅助区分启动、管道与执行问题，不记录账户或交易负载。
+
+`prepared_evm::simulate_prepared_exact_out`接收完整ExactOut准备组件，重算内层交易及外层目标/maxSell/未用请求预算；结果保留`preparation_hash`和可选`exact_out_preparation_hash`，原unsigned字节摘要及simulation receipt继续独立。准备的`unused_quoted_input_budget`来自用户请求预算；实际执行的`unused_input_budget`来自calldata内经滑点收紧的最大输入，二者不可互换。二者均留在调用者账户，不发生退款转账。

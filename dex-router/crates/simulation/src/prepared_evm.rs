@@ -10,8 +10,10 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{io::Write, sync::atomic::Ordering, time::Instant};
 use xone_domain::{hash, Pool};
-use xone_execution_plan::BoundEvmExecution;
-use xone_execution_preparation::evm::{self, FeeContext, FundingObservation, Preparation};
+use xone_execution_plan::{BoundEvmExactOutExecution, BoundEvmExecution};
+use xone_execution_preparation::evm::{
+    self, ExactOutPreparation, FeeContext, FundingObservation, Preparation,
+};
 
 pub struct PreparedExecution<'a> {
     pub bound: &'a BoundEvmExecution,
@@ -21,11 +23,59 @@ pub struct PreparedExecution<'a> {
     pub fees: &'a FeeContext,
     pub preparation: &'a Preparation,
 }
+pub struct PreparedExactOutExecution<'a> {
+    pub bound: &'a BoundEvmExactOutExecution,
+    pub pools: &'a [Pool],
+    pub allowed_targets: &'a [String],
+    pub funding: &'a FundingObservation,
+    pub fees: &'a FeeContext,
+    pub preparation: &'a ExactOutPreparation,
+}
+
+enum PreparedSource<'a> {
+    ExactIn(PreparedExecution<'a>),
+    ExactOut(PreparedExactOutExecution<'a>),
+}
+struct CommonInput<'a> {
+    pools: &'a [Pool],
+    allowed_targets: &'a [String],
+    funding: &'a FundingObservation,
+    fees: &'a FeeContext,
+    preparation: &'a Preparation,
+}
+impl PreparedSource<'_> {
+    fn common(&self) -> CommonInput<'_> {
+        match self {
+            Self::ExactIn(i) => CommonInput {
+                pools: i.pools,
+                allowed_targets: i.allowed_targets,
+                funding: i.funding,
+                fees: i.fees,
+                preparation: i.preparation,
+            },
+            Self::ExactOut(i) => CommonInput {
+                pools: i.pools,
+                allowed_targets: i.allowed_targets,
+                funding: i.funding,
+                fees: i.fees,
+                preparation: &i.preparation.preparation,
+            },
+        }
+    }
+    fn data(&self) -> &str {
+        match self {
+            Self::ExactIn(i) => &i.bound.transaction.data,
+            Self::ExactOut(i) => &i.bound.transaction.data,
+        }
+    }
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PreparedSimulation {
     pub preparation_hash: String,
     pub unsigned_transaction_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exact_out_preparation_hash: Option<String>,
     pub simulation: SimulationOutcome,
     pub commitment_hash: String,
 }
@@ -77,6 +127,25 @@ pub fn simulate_prepared(
     budget: &SimulationBudget,
     control: ExecutionControl,
 ) -> evm_fixture::Result<PreparedSimulation> {
+    simulate_source(PreparedSource::ExactIn(input), fixture, budget, control)
+}
+
+/// Execute the exact output-specified component, including its outer target and budget commitment.
+pub fn simulate_prepared_exact_out(
+    input: PreparedExactOutExecution<'_>,
+    fixture: &FixtureState,
+    budget: &SimulationBudget,
+    control: ExecutionControl,
+) -> evm_fixture::Result<PreparedSimulation> {
+    simulate_source(PreparedSource::ExactOut(input), fixture, budget, control)
+}
+fn simulate_source(
+    source: PreparedSource<'_>,
+    fixture: &FixtureState,
+    budget: &SimulationBudget,
+    control: ExecutionControl,
+) -> evm_fixture::Result<PreparedSimulation> {
+    let input = source.common();
     check_control(&control)?;
     let mismatch = || {
         failure(
@@ -84,7 +153,7 @@ pub fn simulate_prepared(
             "prepared component differs from bound transaction or fee context",
         )
     };
-    let input_bytes = input.bound.transaction.data.len().saturating_sub(2) / 2;
+    let input_bytes = source.data().len().saturating_sub(2) / 2;
     if input_bytes > budget.max_input_bytes || input_bytes as u64 > budget.max_total_input_bytes {
         return Err(failure(
             SimulationErrorCode::SimulationBudgetExceeded,
@@ -92,13 +161,14 @@ pub fn simulate_prepared(
         ));
     }
     // Bound serialization before hashing/cloning caller-controlled wire and JSON.
-    serde_json::to_writer(
-        &mut CountBytes {
-            used: 0,
-            limit: budget.max_fixture_json_bytes,
-        },
-        input.preparation,
-    )
+    let mut counter = CountBytes {
+        used: 0,
+        limit: budget.max_fixture_json_bytes,
+    };
+    match &source {
+        PreparedSource::ExactIn(i) => serde_json::to_writer(&mut counter, i.preparation),
+        PreparedSource::ExactOut(i) => serde_json::to_writer(&mut counter, i.preparation),
+    }
     .map_err(|_| {
         failure(
             SimulationErrorCode::SimulationFixtureLimit,
@@ -113,15 +183,40 @@ pub fn simulate_prepared(
     if input.funding.base_fee_per_gas != fixture.execution_environment.base_fee {
         return Err(mismatch());
     }
-    let expected = evm::prepare(
-        input.bound,
-        input.pools,
-        input.allowed_targets,
-        input.funding,
-        input.fees,
-        now,
-    )
-    .map_err(|_| mismatch())?;
+    let (expected, exact_out_preparation_hash) = match &source {
+        PreparedSource::ExactIn(i) => (
+            evm::prepare(
+                i.bound,
+                input.pools,
+                input.allowed_targets,
+                input.funding,
+                input.fees,
+                now,
+            )
+            .map_err(|_| mismatch())?,
+            None,
+        ),
+        PreparedSource::ExactOut(i) => {
+            let expected = evm::prepare_exact_out(
+                i.bound,
+                input.pools,
+                input.allowed_targets,
+                input.funding,
+                input.fees,
+                now,
+            )
+            .map_err(|_| mismatch())?;
+            if hash(&expected).map_err(|_| mismatch())?
+                != hash(i.preparation).map_err(|_| mismatch())?
+            {
+                return Err(mismatch());
+            }
+            (
+                expected.preparation,
+                Some(expected.exact_out_preparation_hash),
+            )
+        }
+    };
     if !expected.ready
         || hash(&expected).map_err(|_| mismatch())?
             != hash(input.preparation).map_err(|_| mismatch())?
@@ -137,16 +232,28 @@ pub fn simulate_prepared(
         chain_id: tx.chain_id,
     };
     check_control(&control)?;
-    let simulation = evm_fixture::simulate_bound_with_funding(
-        input.bound,
-        input.pools,
-        input.allowed_targets,
-        fixture,
-        &context,
-        budget,
-        control.clone(),
-        Some(input.funding),
-    )?;
+    let simulation = match &source {
+        PreparedSource::ExactIn(i) => evm_fixture::simulate_bound_with_funding(
+            i.bound,
+            input.pools,
+            input.allowed_targets,
+            fixture,
+            &context,
+            budget,
+            control.clone(),
+            Some(input.funding),
+        ),
+        PreparedSource::ExactOut(i) => evm_fixture::simulate_bound_exact_out_with_funding(
+            i.bound,
+            input.pools,
+            input.allowed_targets,
+            fixture,
+            &context,
+            budget,
+            control.clone(),
+            Some(input.funding),
+        ),
+    }?;
     let native = simulation.native_fees.as_ref().ok_or_else(mismatch)?;
     if native.caller_before != input.funding.native_balance
         || simulation.balances.caller_sell_before != input.funding.token_balance
@@ -161,6 +268,7 @@ pub fn simulate_prepared(
         .ok_or_else(mismatch)?;
     let mut result = PreparedSimulation {
         preparation_hash: expected.preparation_hash,
+        exact_out_preparation_hash,
         unsigned_transaction_hash: hex::encode(Sha256::digest(
             hex::decode(&unsigned[2..]).map_err(|_| mismatch())?,
         )),
