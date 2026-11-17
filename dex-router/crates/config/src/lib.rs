@@ -649,14 +649,22 @@ pub fn load(path: impl AsRef<Path>, expected: &str) -> Result<ConfigSnapshot> {
     config.validate(expected)?;
     let token = config.api.auth_token.clone();
     let mut public_value = value;
-    public_value["api"]
+    // Match the compiler's typed defaults in Go while removing credentials.
+    // Omitted/explicit default checkpoint options must have one public identity.
+    let mut public_api =
+        serde_json::to_value(&config.api).map_err(|_| err("CONFIG_SCHEMA_MISMATCH"))?;
+    public_api
         .as_object_mut()
         .ok_or_else(|| err("CONFIG_SCHEMA_MISMATCH"))?
         .remove("auth_token");
-    public_value["journal"]
+    public_value["api"] = public_api;
+    let mut public_journal =
+        serde_json::to_value(&config.journal).map_err(|_| err("CONFIG_SCHEMA_MISMATCH"))?;
+    public_journal
         .as_object_mut()
         .ok_or_else(|| err("CONFIG_SCHEMA_MISMATCH"))?
         .remove("source_auth_tokens");
+    public_value["journal"] = public_journal;
     let public_hash = hash(&public_value)?;
     let economic_hash = hash(
         &serde_json::json!({"routing":public_value.get("routing"),"simulation":public_value.get("simulation"),"chains":public_value.get("chains")}),
@@ -767,7 +775,8 @@ impl Config {
         if let Some(store) = &j.checkpoint_store {
             store.validate()?;
             if store.publish_interval_ms > 0
-                && (expected != "chain-parser-go" || self.service.role != "online")
+                && ((expected != "chain-parser-go" && expected != "chain-parser-rust")
+                    || self.service.role != "online")
             {
                 return Err(err("CHECKPOINT_PUBLISH_OWNER"));
             }

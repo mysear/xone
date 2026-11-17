@@ -1955,3 +1955,13 @@ publish_interval_ms是相邻链轮次之间的等待，完成一个N链轮转至
 HTTP发布select关闭watch：Close发stop后立即撤掉待完成网络future，阻塞文件任务持owned gate直到退出，之后才释放租约。无store时保留阶段108空remote数组；有store配置时失败返回503，物理半对象可保留但不赋目录资格。Rust周期和旧对象恢复目录尚未启用。
 
 `make -C integration rust-remote-checkpoint-current-check`包含两个独立HTTP端口的正常owner发布/目录及故障控制，关闭在500ms内打断挂起对象请求；Go独立解码该次原Solana fixture protobuf和宽offset，以明确受控source范围证明互通。真实Solana bank/独立云存储与生产准入继续按原要求验收。
+
+## Rust周期发布、关闭信号与配置摘要
+
+阶段110。publish_interval_ms默认0仍为手动；100..3600000允许Go/Rust online parser，禁止dex-router及analytics启用。Rust正常Start后在同一服务内按配置链顺序轮转，每轮只发布一链、先推进位置，完成后等待interval；同一owned gate串行化手动和后台写入。失败不产生资格也不阻塞后续链，恢复后再用现有条件上传/原字节幂等。status与metrics区分active、completed_cycles和failed_cycles，空轮次不是上传成功。
+
+正常serve收到shutdown信号时先发送stop watch再等待HTTP graceful drain，周期/手动远端future随即取消。Close加入周期任务、等待本地blocking写任务持有的gate排空，再关闭来源/lease；停止后tick不再采集，末尾started=false。统一服务入口通过可注入shutdown future运行同一serve_started_until逻辑，测试不需要向开发者进程发送信号。
+
+Rust ConfigSnapshot的public_hash现在与Go一样先规范化typed API/journal再去除auth_token/source_auth_tokens，避免同一输入因字段省略而产生语言差异；optional checkpoint的false/0与省略同义，周期设置实际变化仍改变hash。economic_hash继续绑定原routing/simulation/chains。对于省略默认值的旧Rust配置，新版本加载后的public_hash可能变化，按原要求重启，不复用旧配置下的准备/缓存。两Rust读取同轮Go导出的5份配置与摘要，凭据只用测试假值且不进公开hash。
+
+`make -C integration rust-periodic-checkpoint-current-check`覆盖双链故障/更新/恢复/默认手动、正常关闭信号中断挂起HTTP/加入任务、Go原worker回归、两语言配置/摘要及Rust API/程序构建；公共真实Solana bank、Rust旧对象recovery目录、保留/配额和独立故障域仍独立验收。

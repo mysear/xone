@@ -89,8 +89,90 @@ func TestCheckpointPeriodicPublishingIsExplicitBoundedAndGoOnlineOnly(t *testing
 		t.Fatal(e)
 	}
 	cfg.Config.Service.Role = "online"
+	// Keep the original Go regression selector; stage110 separately enables Rust owner.
+	cfg.Config.Service.Name = "dex-router"
+	if e = cfg.Config.Validate("dex-router"); e == nil || e.Error() != "CHECKPOINT_PUBLISH_OWNER" {
+		t.Fatal(e)
+	}
+}
+
+func TestCheckpointPeriodicConfigurationAlsoAcceptsExplicitRustOnlineOwner(t *testing.T) {
+	cfg, e := Load("../../config/config-test.yaml", "chain-parser-go")
+	if e != nil {
+		t.Fatal(e)
+	}
 	cfg.Config.Service.Name = "chain-parser-rust"
+	cfg.Config.State.Engine = "rocksdb"
+	cfg.Config.Chains = []Chain{{Key: "solana:localnet", Owner: "chain-parser-rust", Assignment: 1, Genesis: "11111111111111111111111111111111", RPCURLs: []string{"http://127.0.0.1:8899"}, Pools: []PoolConfig{}, Confirmation: "finalized", ReorgWindow: 128}}
+	cfg.Config.Journal.CheckpointStore = &CheckpointStore{BaseURL: "https://objects.example/bucket", PublishIntervalMS: 100}
+	if e = cfg.Config.Validate("chain-parser-rust"); e != nil {
+		t.Fatal(e)
+	}
+	cfg.Config.Service.Role = "analytics"
 	if e = cfg.Config.Validate("chain-parser-rust"); e == nil || e.Error() != "CHECKPOINT_PUBLISH_OWNER" {
+		t.Fatal(e)
+	}
+}
+
+func TestCheckpointConfigExportsCanonicalDefaultsAndSecretFreeHashes(t *testing.T) {
+	directory := os.Getenv("XONE_CHECKPOINT_CONFIG_VECTORS_OUTPUT")
+	if directory == "" {
+		directory = t.TempDir()
+	}
+	if e := os.MkdirAll(directory, 0700); e != nil {
+		t.Fatal(e)
+	}
+	raw, e := os.ReadFile("../../config/config-test.yaml")
+	if e != nil {
+		t.Fatal(e)
+	}
+	var vectors []map[string]any
+	var hashes []string
+	for i := 0; i < 5; i++ {
+		var doc map[string]any
+		if e = json.Unmarshal(raw, &doc); e != nil {
+			t.Fatal(e)
+		}
+		journal := doc["journal"].(map[string]any)
+		if i > 0 {
+			store := map[string]any{"base_url": "https://objects.example/bucket"}
+			if i >= 2 {
+				store["allow_plaintext_development"] = false
+				store["publish_interval_ms"] = 0
+			}
+			if i >= 3 {
+				store["publish_interval_ms"] = 100
+			}
+			journal["checkpoint_store"] = store
+		}
+		if i == 4 {
+			journal["source_auth_tokens"] = map[string]string{"https://objects.example/bucket": "test-only-checkpoint-credential-20261118"}
+			doc["api"].(map[string]any)["auth_token"] = "test-only-api-credential-20261118"
+		}
+		encoded, e := json.Marshal(doc)
+		if e != nil {
+			t.Fatal(e)
+		}
+		name := "config-" + string(rune('0'+i)) + ".json"
+		path := filepath.Join(directory, name)
+		if e = os.WriteFile(path, encoded, 0600); e != nil {
+			t.Fatal(e)
+		}
+		loaded, e := Load(path, "chain-parser-go")
+		if e != nil {
+			t.Fatal(e)
+		}
+		hashes = append(hashes, loaded.PublicHash)
+		vectors = append(vectors, map[string]any{"file": name, "public_hash": loaded.PublicHash, "economic_hash": loaded.EconomicHash, "expected": "chain-parser-go"})
+	}
+	if hashes[1] != hashes[2] || hashes[3] != hashes[4] || hashes[0] == hashes[1] || hashes[2] == hashes[3] {
+		t.Fatal("public identity does not distinguish semantics or excludes defaults/secrets incorrectly", hashes)
+	}
+	encoded, e := json.MarshalIndent(map[string]any{"vectors": vectors}, "", "  ")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(filepath.Join(directory, "vectors.json"), encoded, 0600); e != nil {
 		t.Fatal(e)
 	}
 }

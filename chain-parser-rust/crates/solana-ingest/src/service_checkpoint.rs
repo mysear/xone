@@ -1,5 +1,8 @@
 use super::{failure, Duration, HeaderMap, Json, Ordering, Parser, State, StatusCode, Value};
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64},
+    Arc,
+};
 use xone_domain::{err, Result, SnapshotRef};
 use xone_kafka_transport::checkpoint::local;
 #[path = "service_checkpoint_remote.rs"]
@@ -22,7 +25,88 @@ impl Drop for CancelOnDrop {
         self.0.store(true, Ordering::Release);
     }
 }
+#[derive(Default)]
+pub(super) struct Metrics {
+    active: AtomicBool,
+    pub(super) cycles: AtomicU64,
+    pub(super) errors: AtomicU64,
+}
+struct Active(Arc<Metrics>);
+impl Drop for Active {
+    fn drop(&mut self) {
+        self.0.active.store(false, Ordering::Release);
+    }
+}
 impl Parser {
+    pub(super) async fn start_checkpoint_worker(&self) {
+        let Some(c) = self
+            .config
+            .config
+            .journal
+            .checkpoint_store
+            .as_ref()
+            .filter(|c| c.publish_interval_ms > 0)
+        else {
+            return;
+        };
+        let mut task = self.checkpoint_task.lock().await;
+        if task.is_some() || !self.started.load(Ordering::Acquire) || *self.stream_stop.borrow() {
+            return;
+        }
+        let interval = Duration::from_millis(c.publish_interval_ms);
+        let parser = self.clone();
+        *task = Some(tokio::spawn(async move {
+            parser
+                .checkpoint_metrics
+                .active
+                .store(true, Ordering::Release);
+            let _active = Active(parser.checkpoint_metrics.clone());
+            let mut stop = parser.stream_stop.subscribe();
+            let mut next = 0usize;
+            loop {
+                if *stop.borrow() || parser.config.config.chains.is_empty() {
+                    return;
+                }
+                let chain = &parser.config.config.chains[next % parser.config.config.chains.len()];
+                next = (next + 1) % parser.config.config.chains.len();
+                let result = parser.publish_checkpoints(Some(&chain.key)).await;
+                if *stop.borrow() {
+                    return;
+                }
+                parser
+                    .checkpoint_metrics
+                    .cycles
+                    .fetch_add(1, Ordering::Relaxed);
+                match result {
+                    Err(error) => {
+                        parser
+                            .checkpoint_metrics
+                            .errors
+                            .fetch_add(1, Ordering::Relaxed);
+                        parser.logger.event(
+                            "warn",
+                            "checkpoint.failed",
+                            serde_json::json!({"chain_key":chain.key,"error_code":error.0}),
+                        );
+                    }
+                    Ok(value) => {
+                        let count = value["remote_checkpoints"].as_array().map_or(0, Vec::len);
+                        if count > 0 {
+                            parser.logger.event("info","checkpoint.uploaded",serde_json::json!({"chain_key":chain.key,"checkpoint_count":count,"periodic":true}));
+                        }
+                    }
+                }
+                tokio::select! {_=stop.changed()=>return,_=tokio::time::sleep(interval)=>{}}
+            }
+        }));
+    }
+    async fn publish_checkpoints(&self, only: Option<&str>) -> Result<Value> {
+        let mut stop = self.stream_stop.subscribe();
+        tokio::select! {
+            result=tokio::time::timeout(Duration::from_millis(self.config.config.journal.request_timeout_ms),self.write_checkpoints(only))=>result.map_err(|_|err("CHECKPOINT_DEADLINE"))?,
+            _=stop.changed()=>Err(err("CHECKPOINT_CANCELLED")),
+        }
+    }
     async fn checkpoint_guard(&self, key: &str, reference: &SnapshotRef) -> Result<()> {
         if *self.stream_stop.borrow() {
             return Err(err("CHECKPOINT_OWNER_CLOSED"));
@@ -118,7 +202,7 @@ impl Parser {
         Ok(result)
     }
 
-    async fn write_checkpoints(&self) -> Result<Value> {
+    async fn write_checkpoints(&self, only: Option<&str>) -> Result<Value> {
         let mut gate = self.checkpoint_gate.clone().lock_owned().await;
         if !self.started.load(Ordering::Acquire) || *self.stream_stop.borrow() {
             return Err(err("CHECKPOINT_OWNER_CLOSED"));
@@ -127,7 +211,13 @@ impl Parser {
         let _cancel_on_drop = CancelOnDrop(cancelled.clone());
         let mut publications = Vec::new();
         let mut remote_publications = Vec::new();
-        for chain in &self.config.config.chains {
+        for chain in self
+            .config
+            .config
+            .chains
+            .iter()
+            .filter(|c| only.is_none_or(|key| c.key == key))
+        {
             let before = self.checked_current(&chain.key).await?;
             let boot = {
                 let store = self.stores[&chain.key]
@@ -260,11 +350,11 @@ pub(super) async fn publish(
     headers: HeaderMap,
 ) -> std::result::Result<Json<Value>, (StatusCode, Json<Value>)> {
     parser.authorize(&headers).map_err(failure)?;
-    let mut stop = parser.stream_stop.subscribe();
-    tokio::select! {
-        result=tokio::time::timeout(Duration::from_millis(parser.config.config.journal.request_timeout_ms),parser.write_checkpoints())=>result.map_err(|_|failure(err("CHECKPOINT_DEADLINE")))?.map(Json).map_err(failure),
-        _=stop.changed()=>Err(failure(err("CHECKPOINT_CANCELLED"))),
-    }
+    parser
+        .publish_checkpoints(None)
+        .await
+        .map(Json)
+        .map_err(failure)
 }
 #[cfg(test)]
 #[path = "service_checkpoint_tests.rs"]
@@ -288,3 +378,24 @@ pub(super) async fn catalog(
 #[cfg(test)]
 #[path = "service_checkpoint_remote_tests.rs"]
 mod remote_tests;
+
+pub(super) async fn status(
+    State(parser): State<Parser>,
+    headers: HeaderMap,
+) -> std::result::Result<Json<Value>, (StatusCode, Json<Value>)> {
+    parser.authorize(&headers).map_err(failure)?;
+    let interval = parser
+        .config
+        .config
+        .journal
+        .checkpoint_store
+        .as_ref()
+        .map_or(0, |c| c.publish_interval_ms);
+    Ok(Json(
+        serde_json::json!({"enabled":interval>0,"active":parser.checkpoint_metrics.active.load(Ordering::Acquire),"publish_interval_ms":interval,"completed_cycles":parser.checkpoint_metrics.cycles.load(Ordering::Relaxed),"failed_cycles":parser.checkpoint_metrics.errors.load(Ordering::Relaxed),"closed":*parser.stream_stop.borrow()}),
+    ))
+}
+
+#[cfg(test)]
+#[path = "service_checkpoint_periodic_tests.rs"]
+mod periodic_tests;

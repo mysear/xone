@@ -1133,3 +1133,7 @@ rust-checkpoint-publication-current-check:
 .PHONY: rust-remote-checkpoint-current-check
 rust-remote-checkpoint-current-check:
 	python3 tools/acceptance/validate_rust_remote_checkpoint.py
+
+.PHONY: rust-periodic-checkpoint-current-check
+rust-periodic-checkpoint-current-check:
+	python3 tools/acceptance/validate_rust_periodic_checkpoint.py

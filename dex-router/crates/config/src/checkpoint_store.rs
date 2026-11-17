@@ -142,14 +142,58 @@ mod tests {
             store.publish_interval_ms = interval;
             store.validate().unwrap();
             cfg.journal.checkpoint_store = Some(store.clone());
-            assert_eq!(
-                cfg.validate(&expected).unwrap_err().0,
-                "CHECKPOINT_PUBLISH_OWNER"
-            );
+            // Historical selector is retained; stage110 enables Rust online owner.
+            if expected == "chain-parser-rust" {
+                cfg.validate(&expected).unwrap();
+            } else {
+                assert_eq!(
+                    cfg.validate(&expected).unwrap_err().0,
+                    "CHECKPOINT_PUBLISH_OWNER"
+                );
+            }
         }
         for interval in [1, 99, 3600001, u64::MAX] {
             store.publish_interval_ms = interval;
             assert!(store.validate().is_err());
         }
+    }
+    #[test]
+    fn periodic_checkpoint_config_accepts_online_parser_roles_and_rejects_quote_roles() {
+        let mut cfg = crate::load("../../config/config-test.yaml", "dex-router")
+            .or_else(|_| crate::load("../../config/config-test.yaml", "chain-parser-rust"))
+            .unwrap()
+            .config;
+        cfg.service.name = "chain-parser-go".into();
+        cfg.service.role = "online".into();
+        cfg.state.engine = "pebble".into();
+        cfg.yellowstone.clear();
+        let mut chain = cfg.chains[0].clone();
+        chain.key = "evm:31337".into();
+        chain.owner_service = "chain-parser-go".into();
+        chain.genesis_hash = format!("0x{}", "0".repeat(64));
+        chain.confirmation_tag = "latest".into();
+        chain.rpc_urls = vec!["http://127.0.0.1:8545".into()];
+        chain.pools.clear();
+        cfg.chains = vec![chain];
+        cfg.journal.checkpoint_store = Some(CheckpointStore {
+            base_url: "https://objects.example/bucket".into(),
+            allow_plaintext_development: false,
+            publish_interval_ms: 100,
+        });
+        cfg.validate("chain-parser-go").unwrap();
+        cfg.service.name = "chain-parser-rust".into();
+        cfg.state.engine = "rocksdb".into();
+        cfg.chains[0].key = "solana:localnet".into();
+        cfg.chains[0].owner_service = "chain-parser-rust".into();
+        cfg.chains[0].genesis_hash = "11111111111111111111111111111111".into();
+        cfg.chains[0].confirmation_tag = "finalized".into();
+        cfg.chains[0].rpc_urls = vec!["http://127.0.0.1:8899".into()];
+        cfg.validate("chain-parser-rust").unwrap();
+        cfg.service.name = "dex-router".into();
+        cfg.state.engine = "memory".into();
+        assert_eq!(
+            cfg.validate("dex-router").unwrap_err().0,
+            "CHECKPOINT_PUBLISH_OWNER"
+        );
     }
 }

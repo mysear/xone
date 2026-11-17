@@ -10,10 +10,19 @@ use std::{collections::BTreeMap, sync::Mutex};
 use xone_kafka_transport::{Cursor, Unit};
 const OBJECT_TOKEN: &str = "rust-object-token-only-20261118";
 #[derive(Default)]
-struct Objects {
-    data: BTreeMap<String, Vec<u8>>,
-    requests: Vec<String>,
-    mode: String,
+pub(super) struct Objects {
+    pub(super) failed_id: Option<String>,
+    active: usize,
+    pub(super) max_active: usize,
+    pub(super) data: BTreeMap<String, Vec<u8>>,
+    pub(super) requests: Vec<String>,
+    pub(super) mode: String,
+}
+struct RequestActive(Arc<Mutex<Objects>>);
+impl Drop for RequestActive {
+    fn drop(&mut self) {
+        self.0.lock().unwrap().active -= 1;
+    }
 }
 type ObjectState = (
     Arc<Mutex<Objects>>,
@@ -36,22 +45,28 @@ impl Task {
         }
     }
 }
-struct Fixture {
-    parser: Parser,
-    objects: Arc<Mutex<Objects>>,
-    entered: Arc<tokio::sync::Notify>,
-    release: Arc<tokio::sync::Notify>,
+pub(super) struct Fixture {
+    pub(super) parser: Parser,
+    pub(super) objects: Arc<Mutex<Objects>>,
+    pub(super) entered: Arc<tokio::sync::Notify>,
+    pub(super) release: Arc<tokio::sync::Notify>,
     object_task: Task,
     owner_task: Task,
     root: std::path::PathBuf,
-    client: reqwest::Client,
-    owner: String,
-    base: String,
-    key: String,
+    pub(super) client: reqwest::Client,
+    pub(super) owner: String,
+    pub(super) base: String,
+    pub(super) key: String,
 }
 impl Fixture {
     async fn new() -> Self {
-        let objects = Arc::new(Mutex::new(Objects::default()));
+        Self::new_configured(0, false, "").await
+    }
+    pub(super) async fn new_configured(interval: u64, multi: bool, initial_mode: &str) -> Self {
+        let objects = Arc::new(Mutex::new(Objects {
+            mode: initial_mode.into(),
+            ..Objects::default()
+        }));
         let entered = Arc::new(tokio::sync::Notify::new());
         let release = Arc::new(tokio::sync::Notify::new());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -68,12 +83,28 @@ impl Fixture {
                         headers.get("authorization").and_then(|v| v.to_str().ok()),
                         Some(format!("Bearer {OBJECT_TOKEN}").as_str())
                     );
+                    let _active = {
+                        let mut state = objects.lock().unwrap();
+                        state.active += 1;
+                        state.max_active = state.max_active.max(state.active);
+                        RequestActive(objects.clone())
+                    };
                     let (status, mut data, mode) = {
                         let mut state = objects.lock().unwrap();
                         let path = uri.path();
                         state.requests.push(format!("{method} {path}"));
-                        let mode = state.mode.clone();
-                        if method == axum::http::Method::GET {
+                        let mode = if state
+                            .failed_id
+                            .as_ref()
+                            .is_some_and(|id| path.contains(&format!("/{id}/")))
+                        {
+                            "fail-all".to_owned()
+                        } else {
+                            state.mode.clone()
+                        };
+                        if mode == "fail-all" {
+                            (StatusCode::SERVICE_UNAVAILABLE, vec![], mode)
+                        } else if method == axum::http::Method::GET {
                             match state.data.get(path) {
                                 Some(raw) => (StatusCode::OK, raw.clone(), mode),
                                 None => (StatusCode::NOT_FOUND, vec![], mode),
@@ -129,20 +160,24 @@ impl Fixture {
         let object_task = Task(Some(tokio::spawn(async move {
             axum::serve(listener, routes).await.unwrap();
         })));
-        let mut parser = super::tests::fixture();
-        let root = parser.config.resolve(&parser.config.config.state.path);
-        {
-            let config = &mut Arc::get_mut(&mut parser.config).unwrap().config;
-            config.journal.checkpoint_store = Some(xone_config::CheckpointStore {
+        let parser = super::tests::fixture_configured(|snapshot| {
+            snapshot.config.journal.checkpoint_store = Some(xone_config::CheckpointStore {
                 base_url: base.clone(),
                 allow_plaintext_development: true,
-                publish_interval_ms: 0,
+                publish_interval_ms: interval,
             });
-            config
+            snapshot
+                .config
                 .journal
                 .source_auth_tokens
                 .insert(base.clone(), OBJECT_TOKEN.into());
-        }
+            if multi {
+                let mut second = snapshot.config.chains[0].clone();
+                second.key = "solana:other".into();
+                snapshot.config.chains.push(second);
+            }
+        });
+        let root = parser.config.resolve(&parser.config.config.state.path);
         parser.start().await.unwrap();
         let key = parser.config.config.chains[0].key.clone();
         let mut snapshot = parser.current(&key).unwrap();
@@ -190,7 +225,7 @@ impl Fixture {
             key,
         }
     }
-    async fn publish(&self) -> (reqwest::StatusCode, Value) {
+    pub(super) async fn publish(&self) -> (reqwest::StatusCode, Value) {
         let response = self
             .client
             .post(format!("{}/internal/checkpoints", self.owner))
@@ -202,7 +237,7 @@ impl Fixture {
         let raw = response.bytes().await.unwrap();
         (status, serde_json::from_slice(&raw).unwrap())
     }
-    async fn catalog(&self) -> (reqwest::StatusCode, Value) {
+    pub(super) async fn catalog(&self) -> (reqwest::StatusCode, Value) {
         let response = self
             .client
             .get(format!(
@@ -219,7 +254,7 @@ impl Fixture {
             serde_json::from_slice(&response.bytes().await.unwrap()).unwrap(),
         )
     }
-    async fn close(self) {
+    pub(super) async fn close(self) {
         self.parser.close().await;
         self.owner_task.close().await;
         self.object_task.close().await;

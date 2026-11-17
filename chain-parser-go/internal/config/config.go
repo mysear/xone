@@ -457,7 +457,7 @@ func (c Config) Validate(expected string) error {
 	if err := c.Journal.CheckpointStore.Validate(); err != nil {
 		return err
 	}
-	if store := c.Journal.CheckpointStore; store != nil && store.PublishIntervalMS != 0 && (expected != "chain-parser-go" || c.Service.Role != "online") {
+	if store := c.Journal.CheckpointStore; store != nil && store.PublishIntervalMS != 0 && ((expected != "chain-parser-go" && expected != "chain-parser-rust") || c.Service.Role != "online") {
 		return errors.New("CHECKPOINT_PUBLISH_OWNER")
 	}
 

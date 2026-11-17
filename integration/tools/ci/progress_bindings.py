@@ -1945,3 +1945,19 @@ BINDINGS['9.rust-owner-remote-checkpoints'] = {
            'TestCurrentRustRemotePublicationDecodesWithIndependentGoCodec'],
  'evidence_refs': ['integration/artifacts/local/rust-remote-checkpoint-check/report.json'],
 }
+
+BINDINGS['9.rust-periodic-checkpoint-publisher'] = {
+ 'paths': ['chain-parser-rust/crates/solana-ingest/src/service_checkpoint.rs',
+           'chain-parser-rust/crates/solana-ingest/src/service_checkpoint_periodic_tests.rs',
+           'chain-parser-rust/crates/solana-ingest/src/service.rs',
+           'chain-parser-go/internal/config/checkpoint_store_test.go',
+           'dex-router/crates/config/tests/checkpoint_vectors.rs',
+           'integration/tools/acceptance/validate_rust_periodic_checkpoint.py'],
+ 'tests': ['service::checkpoint::periodic_tests::rust_periodic_checkpoint_is_explicit_and_manual_mode_stays_idle',
+           'service::checkpoint::periodic_tests::rust_periodic_checkpoint_rotates_past_failed_chain_and_publishes_new_generations',
+           'service::checkpoint::periodic_tests::rust_periodic_checkpoint_normal_shutdown_signal_cancels_remote_work_and_joins_task',
+           'TestCheckpointPeriodicConfigurationAlsoAcceptsExplicitRustOnlineOwner',
+           'TestCheckpointConfigExportsCanonicalDefaultsAndSecretFreeHashes',
+           'current_go_checkpoint_config_defaults_and_secret_free_hashes_match'],
+ 'evidence_refs': ['integration/artifacts/local/rust-periodic-checkpoint-check/report.json'],
+}

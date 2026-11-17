@@ -2,6 +2,11 @@ use super::*;
 use xone_kafka_transport::{Cursor, Unit};
 static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 pub(super) fn fixture() -> Parser {
+    fixture_configured(|_| {})
+}
+pub(super) fn fixture_configured(
+    configure: impl FnOnce(&mut xone_config::ConfigSnapshot),
+) -> Parser {
     let mut config =
         xone_config::load("../../config/config-test.yaml", "chain-parser-rust").unwrap();
     config.config.state.path = std::env::temp_dir()
@@ -17,9 +22,18 @@ pub(super) fn fixture() -> Parser {
     let mut snapshot: xone_domain::Snapshot =
         serde_json::from_str(include_str!("../../../test/fixtures/solana/baseline.json")).unwrap();
     snapshot.reference.block.timestamp_ms = xone_observability::now_ms();
+    configure(&mut config);
     Parser::with_source(
         config,
-        Some(Arc::new(move |_: &xone_config::Chain| Ok(snapshot.clone()))),
+        Some(Arc::new(move |chain: &xone_config::Chain| {
+            let mut copy = snapshot.clone();
+            copy.reference.block.chain_key = chain.key.clone();
+            for pool in &mut copy.pools {
+                pool.chain_key = chain.key.clone();
+            }
+            copy.reference.scope_hash = xone_domain::scope_hash(&copy.pools)?;
+            Ok(copy)
+        })),
     )
     .unwrap()
 }

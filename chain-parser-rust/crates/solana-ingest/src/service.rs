@@ -31,6 +31,8 @@ use scope_runtime::ScopeMaterial;
 pub type SnapshotSource = Arc<dyn Fn(&Chain) -> Result<Snapshot> + Send + Sync>;
 #[derive(Clone)]
 pub struct Parser {
+    checkpoint_task: Arc<tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    checkpoint_metrics: Arc<checkpoint::Metrics>,
     checkpoint_gate: Arc<tokio::sync::Mutex<()>>,
     ingest_refs: Arc<Mutex<BTreeMap<String, std::collections::BTreeSet<String>>>>,
     certified: Arc<Mutex<BTreeMap<String, ScopeMaterial>>>,
@@ -113,6 +115,8 @@ impl Parser {
         let rpc = Rpc { http, max_bytes };
         let history = crate::history_runtime::HistoryRuntime::new(&config, &stores, rpc.clone())?;
         Ok(Self {
+            checkpoint_task: Arc::new(tokio::sync::Mutex::new(None)),
+            checkpoint_metrics: Arc::new(checkpoint::Metrics::default()),
             checkpoint_gate: Arc::new(tokio::sync::Mutex::new(())),
             ingest_refs: Arc::new(Mutex::new(BTreeMap::new())),
             certified: Arc::new(Mutex::new(BTreeMap::new())),
@@ -173,6 +177,7 @@ impl Parser {
         }
         self.started.store(true, Ordering::Release);
         self.history.start(self.stream_stop.subscribe()).await;
+        self.start_checkpoint_worker().await;
         Ok(())
     }
     async fn recover_revocation(&self, chain: &Chain) -> Result<()> {
@@ -443,6 +448,9 @@ impl Parser {
     }
     pub async fn tick(&self) {
         let _actor = self.recovery_lock.lock().await;
+        if !self.started.load(Ordering::Acquire) || *self.stream_stop.borrow() {
+            return;
+        }
         if let Some(pg) = self.control.get() {
             for chain in &self.config.config.chains {
                 let mut writer = self.writers[&chain.key].lock().await;
@@ -516,6 +524,7 @@ impl Parser {
             .route("/internal/config", get(config))
             .route("/internal/chains/{chain}/bootstrap", get(bootstrap))
             .route("/internal/checkpoints", post(checkpoint::publish))
+            .route("/internal/checkpoints/status", get(checkpoint::status))
             .route(
                 "/internal/chains/{chain}/checkpoint-catalog",
                 get(checkpoint::catalog),
@@ -543,6 +552,10 @@ impl Parser {
     pub async fn close(&self) {
         self.started.store(false, Ordering::Release);
         self.stream_stop.send_replace(true);
+        let checkpoint_task = self.checkpoint_task.lock().await.take();
+        if let Some(task) = checkpoint_task {
+            let _ = task.await;
+        }
         let _checkpoint_drain = self.checkpoint_gate.lock().await;
         self.history.close().await;
         for task in self.stream_tasks.lock().await.drain(..) {
@@ -558,6 +571,7 @@ impl Parser {
                 *writer = None;
             }
         }
+        self.started.store(false, Ordering::Release);
     }
     fn authorize(&self, headers: &HeaderMap) -> Result<()> {
         if !self.config.token.is_empty()
@@ -768,9 +782,11 @@ async fn source_evidence(
 
 async fn metrics(State(s): State<Parser>) -> String {
     format!(
-        "xone_log_dropped_total {}\nxone_log_write_errors_total {}\n",
+        "xone_log_dropped_total {}\nxone_log_write_errors_total {}\nxone_checkpoint_cycles_total {}\nxone_checkpoint_failures_total {}\n",
         s.logger.counters.dropped.load(Ordering::Relaxed),
-        s.logger.counters.write_errors.load(Ordering::Relaxed)
+        s.logger.counters.write_errors.load(Ordering::Relaxed),
+        s.checkpoint_metrics.cycles.load(Ordering::Relaxed),
+        s.checkpoint_metrics.errors.load(Ordering::Relaxed)
     )
 }
 pub async fn run(config: ConfigSnapshot) -> Result<()> {
@@ -788,6 +804,13 @@ pub async fn serve(parser: Parser) -> Result<()> {
             return Err(err("HTTP_LISTENER_FAILED"));
         }
     };
+    serve_started_until(parser, listener, shutdown()).await
+}
+pub(super) async fn serve_started_until(
+    parser: Parser,
+    listener: tokio::net::TcpListener,
+    signal: impl std::future::Future<Output = ()> + Send + 'static,
+) -> Result<()> {
     let background = parser.clone();
     let task = tokio::spawn(async move {
         let mut ticker = tokio::time::interval(Duration::from_millis(
@@ -798,8 +821,12 @@ pub async fn serve(parser: Parser) -> Result<()> {
             background.tick().await;
         }
     });
+    let stop = parser.stream_stop.clone();
     let result = axum::serve(listener, parser.handler())
-        .with_graceful_shutdown(shutdown())
+        .with_graceful_shutdown(async move {
+            signal.await;
+            stop.send_replace(true);
+        })
         .await;
     task.abort();
     let _ = task.await;
