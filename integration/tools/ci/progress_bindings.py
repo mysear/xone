@@ -1929,3 +1929,19 @@ BINDINGS['9.rust-owner-public-checkpoints'] = {
            'service::checkpoint::tests::rust_checkpoint_gate_wait_is_bounded_and_cancelled_before_file_io'],
  'evidence_refs': ['integration/artifacts/local/rust-checkpoint-publication-check/report.json'],
 }
+
+BINDINGS['9.rust-owner-remote-checkpoints'] = {
+ 'paths': ['chain-parser-rust/crates/solana-ingest/src/service_checkpoint.rs',
+           'chain-parser-rust/crates/solana-ingest/src/service_checkpoint_remote.rs',
+           'chain-parser-rust/crates/solana-ingest/src/service_checkpoint_remote_tests.rs',
+           'dex-router/crates/kafka-transport/src/checkpoint/local.rs',
+           'chain-parser-go/internal/checkpoint/bootstrap_test.go',
+           'integration/tools/acceptance/validate_rust_remote_checkpoint.py'],
+ 'tests': ['rust_local_checkpoint_certificates_are_bounded_immutable_and_pinned',
+           'service::checkpoint::remote_tests::normal_rust_remote_checkpoint_half_upload_retry_and_current_catalog_are_bound',
+           'service::checkpoint::remote_tests::rust_remote_checkpoint_false_ack_corruption_redirect_and_encoding_never_certify',
+           'service::checkpoint::remote_tests::rust_remote_checkpoint_source_change_between_payload_and_manifest_revokes_publication',
+           'service::checkpoint::remote_tests::rust_remote_checkpoint_close_interrupts_pending_http_before_manifest_and_drains_gate',
+           'TestCurrentRustRemotePublicationDecodesWithIndependentGoCodec'],
+ 'evidence_refs': ['integration/artifacts/local/rust-remote-checkpoint-check/report.json'],
+}

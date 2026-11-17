@@ -1,7 +1,7 @@
 use super::*;
 use xone_kafka_transport::{Cursor, Unit};
 static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-fn fixture() -> Parser {
+pub(super) fn fixture() -> Parser {
     let mut config =
         xone_config::load("../../config/config-test.yaml", "chain-parser-rust").unwrap();
     config.config.state.path = std::env::temp_dir()

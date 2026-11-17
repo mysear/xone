@@ -1945,3 +1945,13 @@ publish_interval_ms是相邻链轮次之间的等待，完成一个N链轮转至
 正常Rust parser新增授权POST /internal/checkpoints。先checked_current做来源/lease资格，锁内提取同reference committed bootstrap；无真实cursor的http-development返回空public数组，Kafka缺cursor拒绝。后台blocking写任务持有owned发布gate，取消时flag撤权；关闭先发送stop并等待gate排空再关闭来源/lease。写完成再次checked_current核对同代owner/schema/adapter/scope，成功才返回publication。该轮remote_checkpoints与旧manifests均为空，Rust远端上传/周期待接。
 
 `make -C integration rust-checkpoint-publication-current-check`运行两个workspace transport/独立导出、Go读取各自3组原manifest/payload（宽offset/u64/2^200）、Rust正常服务HTTP与ready/scope竞争回归，以及严格Clippy/Go vet和当前parser程序构建。raw导出按当轮目录隔离并核验前后摘要；未设置导出目录时跨语言Go测试显式skip，统一门禁要求实际PASS。
+
+## Rust owner远端条件上传与当前目录
+
+阶段109。正常Rust POST /internal/checkpoints在本地发布后读取/校验同一原manifest/payload，经固定checkpoint_store base派生URL上传；source_auth_tokens只取精确base键。GET已有对象时只接受精确字节；缺失对象使用If-None-Match:*，200/201/204或409/412均回读原字节确认，先payload后manifest，checked_current/owner/lease/代际guard围绕各阶段。禁环境proxy、redirect及Content-Encoding，元数据/流式读取均有上限，整轮沿用request_timeout_ms。token不进入返回值或固定错误码。
+
+全部确认后，同一local对象目录写`remote-<base-sha>.json`不可变证书；双Rust local模块提供objects/certify/certificate，固定证书名称格式、64KiB上限、原publication pin/manifest一致及发布前后guard。正常授权GET /internal/chains/{chain}/checkpoint-catalog按当前bootstrap重新编码内容ID，复核本地manifest/payload/cert和同store预期URL，再次检查完整reference/cursor后返回。目录不访问云存储或把其持续可用当作假设；实际下载仍需核验远端对象，远端损坏/缺失不能因此通过恢复。
+
+HTTP发布select关闭watch：Close发stop后立即撤掉待完成网络future，阻塞文件任务持owned gate直到退出，之后才释放租约。无store时保留阶段108空remote数组；有store配置时失败返回503，物理半对象可保留但不赋目录资格。Rust周期和旧对象恢复目录尚未启用。
+
+`make -C integration rust-remote-checkpoint-current-check`包含两个独立HTTP端口的正常owner发布/目录及故障控制，关闭在500ms内打断挂起对象请求；Go独立解码该次原Solana fixture protobuf和宽offset，以明确受控source范围证明互通。真实Solana bank/独立云存储与生产准入继续按原要求验收。

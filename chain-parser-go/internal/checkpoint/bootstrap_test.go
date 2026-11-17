@@ -355,3 +355,47 @@ func TestCurrentRustCheckpointVectorsDecodeIndependentlyInGo(t *testing.T) {
 		}
 	}
 }
+
+func TestCurrentRustRemotePublicationDecodesWithIndependentGoCodec(t *testing.T) {
+	directory := os.Getenv("XONE_RUST_REMOTE_CHECKPOINT_OUTPUT")
+	if directory == "" {
+		t.Skip("requires current normal Rust remote HTTP export")
+	}
+	raw, e := os.ReadFile(filepath.Join(directory, "normal-rust-remote-checkpoint.json"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	var document struct {
+		Manifest   string             `json:"manifest_raw"`
+		PayloadHex string             `json:"payload_hex"`
+		Reference  domain.SnapshotRef `json:"reference"`
+		Cursor     journal.Cursor     `json:"cursor"`
+		Response   struct {
+			Remote []struct {
+				Pin      string            `json:"manifest_sha256"`
+				Manifest BootstrapManifest `json:"manifest"`
+			} `json:"remote_checkpoints"`
+		} `json:"response"`
+	}
+	if e = json.Unmarshal(raw, &document); e != nil {
+		t.Fatal(e)
+	}
+	if len(document.Response.Remote) != 1 {
+		t.Fatal("missing actual remote publication")
+	}
+	payload, e := hex.DecodeString(document.PayloadHex)
+	if e != nil {
+		t.Fatal(e)
+	}
+	publication := document.Response.Remote[0]
+	boot, e := DecodeBootstrap([]byte(document.Manifest), payload, publication.Pin, 8<<20)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if boot.Snapshot.Reference != document.Reference || boot.Cursor != document.Cursor || publication.Manifest.Reference != document.Reference || document.Cursor.Offset != 9007199254741013 {
+		t.Fatal("Rust normal remote publication lost state/cursor identity")
+	}
+	if boot.Snapshot.Reference.OwnerService != "chain-parser-rust" || boot.Snapshot.Reference.Block.ChainKey != "solana:localnet" {
+		t.Fatal("wrong owner source")
+	}
+}

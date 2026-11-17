@@ -203,11 +203,65 @@ pub fn write(
     })
 }
 pub fn read(path: &Path, pin: &str, max_bytes: usize) -> Result<Bootstrap> {
+    let (_, manifest, payload) = objects(path, pin, max_bytes)?;
+    decode(&manifest, &payload, pin, max_bytes)
+}
+fn certificate_name(name: &str) -> Result<()> {
+    let digest = name
+        .strip_prefix("remote-")
+        .and_then(|s| s.strip_suffix(".json"))
+        .ok_or_else(|| err("CHECKPOINT_CERTIFICATE_NAME"))?;
+    if digest.len() != 64
+        || !digest
+            .bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    {
+        return Err(err("CHECKPOINT_CERTIFICATE_NAME"));
+    }
+    Ok(())
+}
+pub fn objects(path: &Path, pin: &str, max_bytes: usize) -> Result<(Manifest, Vec<u8>, Vec<u8>)> {
     if path.file_name().and_then(|n| n.to_str()) != Some("manifest.json") {
         return Err(err("CHECKPOINT_MANIFEST_PATH"));
     }
     let manifest = read_regular(path, 65536)?;
     let m = parse_manifest(&manifest, pin, max_bytes)?;
     let payload = read_regular(&path.with_file_name("bootstrap.pb"), m.size as usize)?;
-    decode(&manifest, &payload, pin, max_bytes)
+    decode(&manifest, &payload, pin, max_bytes)?;
+    Ok((m, manifest, payload))
+}
+pub fn certify(
+    p: &Publication,
+    max_bytes: usize,
+    name: &str,
+    raw: &[u8],
+    guard: impl Fn() -> Result<()>,
+) -> Result<()> {
+    certificate_name(name)?;
+    if raw.len() > 65536 {
+        return Err(err("CHECKPOINT_CERTIFICATE_LIMIT"));
+    }
+    guard()?;
+    let (m, _, _) = objects(&p.manifest_path, &p.manifest_sha256, max_bytes)?;
+    if serde_json::to_vec(&m).map_err(|_| err("CHECKPOINT_MANIFEST_INVALID"))?
+        != serde_json::to_vec(&p.manifest).map_err(|_| err("CHECKPOINT_MANIFEST_INVALID"))?
+    {
+        return Err(err("CHECKPOINT_CERTIFICATE_SOURCE"));
+    }
+    guard()?;
+    immutable(
+        p.manifest_path
+            .parent()
+            .ok_or_else(|| err("CHECKPOINT_MANIFEST_PATH"))?,
+        name,
+        raw,
+    )?;
+    guard()
+}
+pub fn certificate(path: &Path, name: &str) -> Result<Vec<u8>> {
+    certificate_name(name)?;
+    if path.file_name().and_then(|n| n.to_str()) != Some("manifest.json") {
+        return Err(err("CHECKPOINT_MANIFEST_PATH"));
+    }
+    read_regular(&path.with_file_name(name), 65536)
 }

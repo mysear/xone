@@ -516,6 +516,10 @@ impl Parser {
             .route("/internal/config", get(config))
             .route("/internal/chains/{chain}/bootstrap", get(bootstrap))
             .route("/internal/checkpoints", post(checkpoint::publish))
+            .route(
+                "/internal/chains/{chain}/checkpoint-catalog",
+                get(checkpoint::catalog),
+            )
             .route("/internal/chains/{chain}/stream-status", get(stream_status))
             .route(
                 "/internal/chains/{chain}/history-status",

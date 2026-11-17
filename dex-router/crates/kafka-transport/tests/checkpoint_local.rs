@@ -192,3 +192,33 @@ fn rust_local_checkpoint_exports_current_vectors_for_independent_go_decoder() {
     )
     .unwrap();
 }
+
+#[test]
+fn rust_local_checkpoint_certificates_are_bounded_immutable_and_pinned() {
+    let root = Temp::new();
+    let p = local::write(&root.0, &fixture(), 8 << 20, || Ok(())).unwrap();
+    let tag = format!("remote-{}.json", "a".repeat(64));
+    let raw = b"{\"confirmed\":true}";
+    local::certify(&p, 8 << 20, &tag, raw, || Ok(())).unwrap();
+    assert_eq!(local::certificate(&p.manifest_path, &tag).unwrap(), raw);
+    local::certify(&p, 8 << 20, &tag, raw, || Ok(())).unwrap();
+    assert!(local::certify(&p, 8 << 20, &tag, b"conflict", || Ok(())).is_err());
+    for name in ["../escape", "remote-anything.json", "manifest.json"] {
+        assert!(local::certify(&p, 8 << 20, name, raw, || Ok(())).is_err());
+        assert!(local::certificate(&p.manifest_path, name).is_err());
+    }
+    assert!(local::certify(
+        &p,
+        8 << 20,
+        &format!("remote-{}.json", "b".repeat(64)),
+        &vec![0; 65537],
+        || Ok(())
+    )
+    .is_err());
+    let mut changed = p.clone();
+    changed.manifest_sha256 = "b".repeat(64);
+    assert!(local::certify(&changed, 8 << 20, &tag, raw, || Ok(())).is_err());
+    let mut changed = p.clone();
+    changed.manifest.cursor.next_offset = "123".into();
+    assert!(local::certify(&changed, 8 << 20, &tag, raw, || Ok(())).is_err());
+}

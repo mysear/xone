@@ -1129,3 +1129,7 @@ checkpoint-replay-current-check:
 .PHONY: rust-checkpoint-publication-current-check
 rust-checkpoint-publication-current-check:
 	python3 tools/acceptance/validate_rust_checkpoint_publication.py
+
+.PHONY: rust-remote-checkpoint-current-check
+rust-remote-checkpoint-current-check:
+	python3 tools/acceptance/validate_rust_remote_checkpoint.py
