@@ -1,3 +1,4 @@
+pub mod checkpoint;
 use prost::Message as ProstMessage;
 use rdkafka::{
     consumer::{BaseConsumer, Consumer},

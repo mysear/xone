@@ -1828,3 +1828,16 @@ BINDINGS['16.analytics-continuous-worker'] = {
            'continuous_analytics_is_explicit_go_only_read_only_journal_role'],
  'evidence_refs': ['integration/artifacts/local/analytics-worker-check/report.json'],
 }
+
+BINDINGS['9.public-bootstrap-checkpoints'] = {
+ 'paths': ['chain-parser-go/internal/checkpoint/bootstrap.go',
+           'chain-parser-go/internal/service/checkpoint_test.go',
+           'dex-router/crates/kafka-transport/src/checkpoint.rs',
+           'chain-parser-rust/crates/kafka-transport/src/checkpoint.rs',
+           'integration/tools/acceptance/validate_public_bootstrap.py'],
+ 'tests': ['TestPublicBootstrapCheckpointBindsWideCursorAndIsImmutable',
+           'TestPublicBootstrapHalfPublicationHasNoManifestAndCanResume',
+           'TestNormalCheckpointEndpointPublishesBoundPublicBootstrapWithoutInventingCursor',
+           'current_go_checkpoint_vectors_match_reference_cursor_and_full_width_amounts'],
+ 'evidence_refs': ['integration/artifacts/local/public-bootstrap-check/report.json'],
+}

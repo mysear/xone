@@ -651,6 +651,7 @@ func (s *Service) Handler() http.Handler {
 	})
 	mux.HandleFunc("POST /internal/checkpoints", func(w http.ResponseWriter, r *http.Request) {
 		paths := []string{}
+		publications := []checkpoint.Publication{}
 		for key, store := range s.stores {
 			snapshot, ok := store.Current()
 			if !ok {
@@ -662,8 +663,33 @@ func (s *Service) Handler() http.Handler {
 				return
 			}
 			paths = append(paths, path)
+			boot, e := store.Bootstrap()
+			if e != nil {
+				if s.cfg.Config.Journal.Transport == "kafka" {
+					write(w, 503, map[string]string{"error": "CHECKPOINT_NOT_READY"})
+					return
+				}
+				continue
+			}
+			guard := func() error {
+				current, e := store.Bootstrap()
+				if e != nil {
+					return e
+				}
+				old, next := boot.Snapshot.Reference, current.Snapshot.Reference
+				if old.SchemaVersion != next.SchemaVersion || old.AdapterSetHash != next.AdapterSetHash || old.OwnerService != next.OwnerService || old.WriterEpoch != next.WriterEpoch || old.CanonicalEpoch != next.CanonicalEpoch || old.OnlineGeneration != next.OnlineGeneration || old.ScopeHash != next.ScopeHash || old.OwnerAssignmentVersion != next.OwnerAssignmentVersion {
+					return fmt.Errorf("CHECKPOINT_SOURCE_REVOKED")
+				}
+				return nil
+			}
+			publication, e := checkpoint.WriteBootstrap(filepath.Dir(filepath.Dir(path)), boot, s.cfg.Config.Journal.MaxBytes, guard)
+			if e != nil {
+				write(w, 503, map[string]string{"error": "CHECKPOINT_PUBLICATION_FAILED"})
+				return
+			}
+			publications = append(publications, publication)
 		}
-		write(w, 200, map[string]any{"manifests": paths})
+		write(w, 200, map[string]any{"manifests": paths, "public_checkpoints": publications})
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/internal/") && s.cfg.Token != "" {

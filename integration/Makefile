@@ -1101,3 +1101,7 @@ evm-prepared-frontend-current-check:
 .PHONY: analytics-worker-current-check
 analytics-worker-current-check:
 	python3 tools/acceptance/validate_analytics_worker.py
+
+.PHONY: public-bootstrap-current-check
+public-bootstrap-current-check:
+	python3 tools/acceptance/validate_public_bootstrap.py

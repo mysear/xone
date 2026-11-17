@@ -1885,3 +1885,15 @@ SBF运行时程序映像的宿主生命周期：构造线程只保留至多两�
 界面按`execution.evmIndependentLocalSimulation`判断是否开放EVM本地独立执行，运行时银行必须匹配当前快照源身份。浏览器对准备中原unsigned字节执行WebCrypto SHA-256，再核对quote/plan/view、API/RPC/组件hash、ExactOut外hash及实际输入/收款；费用参数变更立即撤销旧wire和执行证据。正常API响应显式给出quoteViewId，ExactIn报价给出kind。Solana能力和钱包行为保持各自语义，本地EVM成功不开放签名广播或生产VERIFIED。
 
 Go analytics可显式设置`service.role: analytics`和`service.mode: journal-continuous`，复用原有限`journal`模式的完整只读消费/耐久游标。每轮完成后按`journal.poll_interval_ms`等待，周期不重叠，SIGTERM取消等待或读取并清理reader；任何坏事实、保留缺口、topic变更或读取失败仍持久撤销发布并停止，不自动跳过。每链`analysis_interval_ms`必须1–86400000，poll必须1–60000；必须Kafka且control disabled。该角色不打开online KV或租约，不发布日志，不计作第四种服务。原`journal`模式仍单次完成后退出，持续ClickHouse和回补/shadow流程另行验收。
+
+<a id="public-bootstrap-checkpoints"></a>
+
+## 公开不可变Protobuf checkpoint
+
+设计§10.5，阶段102。Go授权`POST /internal/checkpoints`返回原`manifests`及新增`public_checkpoints`，后者含manifest路径、manifest原字节SHA256和元数据。仅真实reducer Bootstrap提供snapshot与committed Kafka cursor时发布；无cursor的HTTP开发模式返回空数组。服务在发布manifest前后核对owner、schema/adapter、assignment/writer/canonical/generation/scope；旧本地JSON格式独立保留。
+
+对象为`checkpoints/<chain>/public-v2/<payload-sha256>/{bootstrap.pb,manifest.json}`，Protobuf直接使用公共`dex.v1.OwnerBootstrap`。manifest版本2、codec固定，reference含块/seq和全部资格标识，cursor的next_offset采用规范十进制字符串保留i64精度；payload固定bootstrap.pb，声明精确size/SHA256。先文件fsync/目录fsync发布payload，再不可替换hard-link发布manifest；已有精确字节可续传，损坏对象拒绝，不写latest。发布后的资格守卫失败仍可能留下物理对象，调用方不得把其存在解释为可用目录声明。
+
+Go `ParseBootstrapManifest`/`ReadBootstrap`及两Rust `kafka_transport::checkpoint::parse_manifest`/`decode`先验证调用者可信pin和64KiB元数据上限，再按声明长度读取/核对payload（全局最大64MiB，运行时可更小）；拒绝非canonical JSON、重复/未知字段、路径替换、非canonical Protobuf以及元数据与payload的引用/cursor差异。本地读取拒绝对象symlink；配置root及其祖先为operator管理。不可变对象目录不供不可信本地进程写入。
+
+`make -C integration public-bootstrap-current-check`冻结源码/固定输入；当轮Go实际导出3组宽整数向量，两Rust独立target执行互通并核验导出文件前后摘要。此格式校验不证明owner权威、快照当前性、topic UUID/保留窗；远端下载和正常恢复调用方仍须单独验证这些资格。
