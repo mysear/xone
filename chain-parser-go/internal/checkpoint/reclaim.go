@@ -112,6 +112,10 @@ func (r *Remote) applyRetention(parent context.Context, dir string, boot journal
 	if plan.PlanID != request.PlanID {
 		return ReclaimResult{}, errors.New("CHECKPOINT_RECLAIM_PLAN_CHANGED")
 	}
+	return r.startReclaim(ctx, dir, boot, policy, plan, now, check, fault, previous, read)
+}
+func (r *Remote) startReclaim(ctx context.Context, dir string, boot journal.Bootstrap, policy config.CheckpointRetention, plan RetentionPlan, now time.Time, check func() error, fault reclaimFault, previous *reclaimJournal, read uint64) (ReclaimResult, error) {
+	var e error
 	budget := &reclaimBudget{policy: policy, guard: check, read: read + plan.ReadBytes, entries: 1 + plan.ScannedEntries, verified: reclaimVerified(plan)}
 	state := &reclaimJournal{BaseURL: r.base, Schema: 1, StoreSHA256: rawSHA([]byte(r.base)), OperationID: plan.PlanID, NamespaceSHA256: plan.NamespaceSHA256, Reference: boot.Snapshot.Reference, Cursor: plan.Cursor, Policy: policy, StartedAtMS: now.UnixMilli(), Status: "PREPARED", Objects: []reclaimObject{}}
 	if previous != nil {
@@ -170,6 +174,7 @@ func (r *Remote) applyRetention(parent context.Context, dir string, boot journal
 	}
 	return r.executeReclaim(ctx, root, ledger, namespace, boot, state, budget, now, false, fault)
 }
+
 func (r *Remote) resumeRetention(parent context.Context, dir string, boot journal.Bootstrap, policy config.CheckpointRetention, request RetentionResumeRequest, now time.Time, guard func() error, fault reclaimFault) (ReclaimResult, error) {
 	ctx, cancel := context.WithTimeout(parent, r.timeout)
 	defer cancel()
@@ -190,6 +195,10 @@ func (r *Remote) resumeRetention(parent context.Context, dir string, boot journa
 	if state == nil || state.OperationID != request.OperationID {
 		return ReclaimResult{}, errors.New("CHECKPOINT_RECLAIM_OPERATION_NOT_FOUND")
 	}
+	return r.resumeReclaimState(ctx, dir, boot, policy, state, read, now, check, fault)
+}
+func (r *Remote) resumeReclaimState(ctx context.Context, dir string, boot journal.Bootstrap, policy config.CheckpointRetention, state *reclaimJournal, read uint64, now time.Time, check func() error, fault reclaimFault) (ReclaimResult, error) {
+	var e error
 	if state.StoreSHA256 != rawSHA([]byte(r.base)) {
 		return state.result(true), errors.New("CHECKPOINT_RECLAIM_STORE_CHANGED")
 	}
@@ -227,6 +236,7 @@ func (r *Remote) resumeRetention(parent context.Context, dir string, boot journa
 	}
 	return r.executeReclaim(ctx, root, ledger, namespace, boot, state, budget, now, true, fault)
 }
+
 func (r *Remote) reclaimAuthority(state *reclaimJournal, boot journal.Bootstrap) error {
 	a, b := state.Reference, boot.Snapshot.Reference
 	if a.Block.ChainKey != b.Block.ChainKey || a.OwnerService != b.OwnerService || a.OwnerAssignmentVersion > b.OwnerAssignmentVersion || a.WriterEpoch > b.WriterEpoch || a.CanonicalEpoch > b.CanonicalEpoch || a.JournalSeq > b.JournalSeq {
@@ -721,4 +731,50 @@ func reclaimVerified(plan RetentionPlan) map[string]domain.SnapshotRef {
 		}
 	}
 	return result
+}
+
+// AutoReclaim uses one plan/read budget and at most one finite operation. It is
+// invoked by the owner's quota-pressure path, never by a read-only preview.
+func (r *Remote) AutoReclaim(parent context.Context, dir string, boot journal.Bootstrap, policy config.CheckpointRetention, now time.Time, guard func() error) (ReclaimResult, error) {
+	if guard == nil {
+		return ReclaimResult{}, errors.New("CHECKPOINT_RECLAIM_AUTHORITY_REQUIRED")
+	}
+	if e := reclaimEnabled(policy); e != nil {
+		return ReclaimResult{}, e
+	}
+	if !policy.AutoReclaim {
+		return ReclaimResult{}, errors.New("CHECKPOINT_RECLAIM_AUTOMATIC_DISABLED")
+	}
+	ctx, cancel := context.WithTimeout(parent, r.timeout)
+	defer cancel()
+	check := reclaimGuard(ctx, guard)
+	if e := check(); e != nil {
+		return ReclaimResult{}, e
+	}
+	previous, read, e := r.loadReclaim(dir, policy.MaxReadBytes)
+	if e != nil {
+		return ReclaimResult{}, e
+	}
+	if previous != nil {
+		if e = r.reclaimAuthority(previous, boot); e != nil {
+			return previous.result(false), e
+		}
+		if previous.Status != "COMPLETE" {
+			return r.resumeReclaimState(ctx, dir, boot, policy, previous, read, now, check, nil)
+		}
+	}
+	plan, e := r.planRetention(dir, boot, policy, now, check, read, 1)
+	if e != nil {
+		return ReclaimResult{}, e
+	}
+	if plan.SelectedObjects == 0 {
+		result := ReclaimResult{Status: "NO_ELIGIBLE_OBJECTS", ReadBytes: read + plan.ReadBytes, ScannedEntries: 1 + plan.ScannedEntries}
+		if previous != nil {
+			prior := previous.result(false)
+			result.TotalObjects = prior.TotalObjects
+			result.TotalBytes = prior.TotalBytes
+		}
+		return result, check()
+	}
+	return r.startReclaim(ctx, dir, boot, policy, plan, now, check, nil, previous, read)
 }

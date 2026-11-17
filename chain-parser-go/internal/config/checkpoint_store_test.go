@@ -438,3 +438,80 @@ func TestCheckpointReclaimExportsSharedOptInPolicyAndSecretFreeHashes(t *testing
 		t.Fatal(e)
 	}
 }
+
+func TestCheckpointAutoReclaimRequiresPeriodicGoOwnerQuotaAndExplicitReclaimOptIn(t *testing.T) {
+	cfg, e := Load("../../config/config-test.yaml", "chain-parser-go")
+	if e != nil {
+		t.Fatal(e)
+	}
+	policy := &CheckpointRetention{AutoReclaim: true, ReclaimEnabled: true, PlanTTLMS: 300000, KeepLatest: 2, MinAgeMS: 3600000, MaxRemove: 2, MaxObjects: 32, MaxEntries: 256, MaxReadBytes: 1 << 20}
+	cfg.Config.API.AuthToken = "explicit-test-auto-reclamation-token-20261118"
+	c := &CheckpointStore{BaseURL: "https://objects.example/bucket", LocalRetention: policy}
+	cfg.Config.Journal.CheckpointStore = c
+	if e = cfg.Config.Validate("chain-parser-go"); e == nil || e.Error() != "CHECKPOINT_RECLAIM_AUTO_CONFIG" {
+		t.Fatal(e)
+	}
+	c.PublishIntervalMS = 100
+	if e = cfg.Config.Validate("chain-parser-go"); e == nil || e.Error() != "CHECKPOINT_RECLAIM_AUTO_CONFIG" {
+		t.Fatal(e)
+	}
+	c.LocalBudget = &CheckpointBudget{MaxBytes: 1 << 20, MaxFiles: 19, MaxEntries: 64}
+	if e = cfg.Config.Validate("chain-parser-go"); e != nil {
+		t.Fatal(e)
+	}
+	policy.ReclaimEnabled = false
+	policy.PlanTTLMS = 0
+	if policy.Validate() == nil {
+		t.Fatal("automatic cleanup bypassed explicit reclamation flag")
+	}
+}
+func TestCheckpointAutoReclaimExportsExplicitPolicyAndCredentialFreeHashes(t *testing.T) {
+	raw, e := os.ReadFile("../../config/config-test.yaml")
+	if e != nil {
+		t.Fatal(e)
+	}
+	out := os.Getenv("XONE_CHECKPOINT_CONFIG_VECTORS_OUTPUT")
+	if out == "" {
+		out = t.TempDir()
+	}
+	if e = os.MkdirAll(out, 0700); e != nil {
+		t.Fatal(e)
+	}
+	var vectors []map[string]any
+	for i := 0; i < 3; i++ {
+		var doc map[string]any
+		if e = json.Unmarshal(raw, &doc); e != nil {
+			t.Fatal(e)
+		}
+		policy := CheckpointRetention{AutoReclaim: i > 0, ReclaimEnabled: true, PlanTTLMS: 300000, KeepLatest: 2, MinAgeMS: 3600000, MaxRemove: 2, MaxObjects: 32, MaxEntries: 256, MaxReadBytes: 1 << 20}
+		doc["api"].(map[string]any)["auth_token"] = "explicit-test-auto-reclamation-token-20261118"
+		if i == 2 {
+			doc["api"].(map[string]any)["auth_token"] = "rotated-test-auto-reclamation-token-20261118"
+		}
+		doc["journal"].(map[string]any)["checkpoint_store"] = &CheckpointStore{BaseURL: "https://objects.example/bucket", LocalRetention: &policy, LocalBudget: &CheckpointBudget{MaxBytes: 1 << 20, MaxFiles: 19, MaxEntries: 64}, PublishIntervalMS: 100}
+		encoded, e := json.Marshal(doc)
+		if e != nil {
+			t.Fatal(e)
+		}
+		name := "auto-reclaim-config-" + string(rune('0'+i)) + ".json"
+		path := filepath.Join(out, name)
+		if e = os.WriteFile(path, encoded, 0600); e != nil {
+			t.Fatal(e)
+		}
+		loaded, e := Load(path, "chain-parser-go")
+		if e != nil {
+			t.Fatal(e)
+		}
+		vectors = append(vectors, map[string]any{"file": name, "public_hash": loaded.PublicHash, "economic_hash": loaded.EconomicHash})
+	}
+	if vectors[0]["public_hash"] == vectors[1]["public_hash"] || vectors[1]["public_hash"] != vectors[2]["public_hash"] {
+		t.Fatal("automatic policy missing or credentials leaked")
+	}
+	encoded, e := json.MarshalIndent(map[string]any{"vectors": vectors}, "", "  ")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(filepath.Join(out, "auto-reclaim-vectors.json"), encoded, 0600); e != nil {
+		t.Fatal(e)
+	}
+}

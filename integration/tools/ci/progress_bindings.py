@@ -2044,3 +2044,20 @@ BINDINGS['9.explicit-checkpoint-reclamation'] = {
            'current_go_checkpoint_reclaim_opt_in_and_secret_free_hashes_match'],
  'evidence_refs': ['integration/artifacts/local/checkpoint-reclaim-check/report.json'],
 }
+
+BINDINGS['9.automatic-checkpoint-reclamation'] = {
+ 'paths': ['chain-parser-go/internal/checkpoint/reclaim.go',
+           'chain-parser-go/internal/checkpoint/reclaim_auto_test.go',
+           'chain-parser-go/internal/service/checkpoint_auto.go',
+           'chain-parser-go/internal/service/checkpoint_auto_test.go',
+           'chain-parser-go/internal/service/checkpoint_worker.go',
+           'integration/tools/acceptance/validate_checkpoint_auto_reclaim.py'],
+ 'tests': ['TestCheckpointAutoReclaimNeedsItsOwnOptInAndDoesNotJournalEmptyPlans',
+           'TestCheckpointAutoReclaimResumesOnlyOneBoundedOperationAndNeverReselectsPendingData',
+           'TestNormalCheckpointWorkerAutomaticallyReclaimsOneBatchUnderQuotaAndPublishesCurrentState',
+           'TestNormalCheckpointAutomaticPendingRecoveryAndQuotaCleanupAreSeparateFiniteCycles',
+           'TestNormalCheckpointAutomaticReclaimRequiresLiveRemoteBackupAndRecoversLater',
+           'TestNormalCheckpointManualPublicationDoesNotSilentlyInvokeAutomaticReclamation',
+           'current_go_checkpoint_automatic_reclaim_policy_and_hashes_match'],
+ 'evidence_refs': ['integration/artifacts/local/checkpoint-auto-reclaim-check/report.json'],
+}

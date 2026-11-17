@@ -92,6 +92,7 @@ func (c *CheckpointBudget) Validate() error {
 }
 
 type CheckpointRetention struct {
+	AutoReclaim    bool   `json:"auto_reclaim,omitempty"`
 	ReclaimEnabled bool   `json:"reclaim_enabled,omitempty"`
 	PlanTTLMS      uint64 `json:"plan_ttl_ms,omitempty"`
 	KeepLatest     uint64 `json:"keep_latest"`
@@ -105,6 +106,9 @@ type CheckpointRetention struct {
 func (c *CheckpointRetention) Validate() error {
 	if c == nil {
 		return nil
+	}
+	if c.AutoReclaim && !c.ReclaimEnabled {
+		return errors.New("CHECKPOINT_RECLAIM_AUTO_CONFIG")
 	}
 	if c.ReclaimEnabled && (c.PlanTTLMS < 1000 || c.PlanTTLMS > 600000) || !c.ReclaimEnabled && c.PlanTTLMS != 0 {
 		return errors.New("CHECKPOINT_RECLAIM_CONFIG")

@@ -785,6 +785,14 @@ impl Config {
                 if !(24..=8192).contains(&self.api.auth_token.len()) {
                     return Err(err("CHECKPOINT_RECLAIM_AUTH_REQUIRED"));
                 }
+                if store
+                    .local_retention
+                    .as_ref()
+                    .is_some_and(|policy| policy.auto_reclaim)
+                    && (store.local_budget.is_none() || store.publish_interval_ms == 0)
+                {
+                    return Err(err("CHECKPOINT_RECLAIM_AUTO_CONFIG"));
+                }
             }
             if store.local_retention.is_some()
                 && ((expected != "chain-parser-go" && expected != "chain-parser-rust")

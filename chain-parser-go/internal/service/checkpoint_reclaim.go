@@ -156,22 +156,7 @@ func (s *Service) checkpointReclaim(w http.ResponseWriter, r *http.Request, resu
 		reclaimResponse(w, 503, "CHECKPOINT_RETENTION_NOT_READY", nil)
 		return
 	}
-	guard := func() error {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if s.closed.Load() {
-			return errors.New("CHECKPOINT_OWNER_CLOSED")
-		}
-		reference, cursor, e := store.BootstrapHead()
-		if e != nil {
-			return e
-		}
-		if reference != boot.Snapshot.Reference || cursor != boot.Cursor {
-			return errors.New("CHECKPOINT_RETENTION_SOURCE_CHANGED")
-		}
-		return nil
-	}
+	guard := s.checkpointRetentionGuard(ctx, r.PathValue("chain"), boot)
 	remote, e := checkpoint.NewRemote(*c, s.cfg.Config.Journal.SourceAuthTokens[c.BaseURL], s.cfg.Config.Journal.MaxBytes, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
 	if e != nil {
 		reclaimResponse(w, 503, "CHECKPOINT_REMOTE_CONFIG", nil)

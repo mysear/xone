@@ -26,6 +26,8 @@ fn empty(s: &str) -> bool {
 #[serde(deny_unknown_fields)]
 pub struct Policy {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub auto_reclaim: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reclaim_enabled: bool,
     #[serde(default, skip_serializing_if = "zero")]
     pub plan_ttl_ms: u64,
@@ -41,6 +43,9 @@ fn zero(n: &u64) -> bool {
 }
 impl Policy {
     pub fn validate(&self) -> Result<()> {
+        if self.auto_reclaim && !self.reclaim_enabled {
+            return Err(err("CHECKPOINT_RECLAIM_AUTO_CONFIG"));
+        }
         if self.reclaim_enabled && !(1000..=600000).contains(&self.plan_ttl_ms)
             || !self.reclaim_enabled && self.plan_ttl_ms != 0
         {

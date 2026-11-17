@@ -2017,3 +2017,11 @@ GET .../checkpoint-retention/status是只读最后操作/累计计数观察。mu
 未完成隔离的文件仍占磁盘，因此Go正常checkpoint发布先读pending journal；pending或损坏则暂停该链新归档（其他链轮转继续），不把隔离副本算作可用新容量。在线KV、canonical journal、owner cursor不因cache回收而改变。清理只处理固定格式生成的空工作目录/未提交staging文件，未知非空证据保留。
 
 `make -C integration checkpoint-reclaim-current-check`运行九阶段中断、四次真实子进程退出且无defer、fresh owner恢复、源/计划/namespace/保留/云端/预算/文件变化拒绝、正常Go与对象API两个HTTP端口的apply/resume/status、单ledger与累计幂等、删除本地副本后的远端protobuf恢复，并回归原双Rust预览/同目录全JSON互通及实际Kafka owner-router恢复。全部执行只操作测试生成temp对象；本轮没有自动触发、Rust执行、真实对象锁或多区生产耐久资格。
+
+### Go周期checkpoint自动配额维护（阶段116）
+
+在阶段115 local_retention策略中显式设置`auto_reclaim: true`才开启。前提为Go online owner、`reclaim_enabled: true`、有效`plan_ttl_ms`、`checkpoint_store.local_budget`、正`publish_interval_ms`和24..8192字节管理API token；省略/false保持原行为。Rust配置可读取并核对同一Go配置摘要，Rust owner执行仍拒绝。
+
+正常周期worker在同一publication gate和总timeout内，先检查/恢复原pending冻结集合；未完成不归档，完成后本周期不再选择新集合。若无pending且公开cache准入因准确容量超限失败，最多调用一次AutoReclaim并重新准入一次；空eligible不创建journal，未知目录/读取预算等失败不触发删除。普通`POST /internal/checkpoints`保持显式手动回收要求。回收继续先核验配置store原远端备份、当前ref/cursor/candidates/最新保留与耐久journal，线上owner状态不变。
+
+checkpoint status及Prometheus增加自动尝试/失败/完成/空计划计数，checkpoint.reclaimed日志带automatic=true；不另开清理worker或HTTP自调用。`make -C integration checkpoint-auto-reclaim-current-check`验证正常周期达到配额后一个批次恢复发布、无eligible无忙循环、pending恢复与下一新选择分周期、远端不可用/恢复、关闭取消及手动发布语义，并回归真实进程崩溃、双owner预览及实际Kafka独立router恢复。范围仍为测试生成本地对象与单机loopback服务。

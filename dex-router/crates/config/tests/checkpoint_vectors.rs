@@ -137,3 +137,61 @@ fn current_go_checkpoint_reclaim_opt_in_and_secret_free_hashes_match() {
         }
     }
 }
+
+#[test]
+#[ignore = "requires this run's Go automatic checkpoint maintenance config exports"]
+fn current_go_checkpoint_automatic_reclaim_policy_and_hashes_match() {
+    let directory = std::path::PathBuf::from(
+        std::env::var("XONE_CHECKPOINT_CONFIG_VECTORS_OUTPUT")
+            .expect("current automatic policy exports required"),
+    );
+    let document: Value = serde_json::from_slice(
+        &std::fs::read(directory.join("auto-reclaim-vectors.json")).unwrap(),
+    )
+    .unwrap();
+    let cases = document["vectors"].as_array().unwrap();
+    assert_eq!(cases.len(), 3);
+    for case in cases {
+        let name = case["file"].as_str().unwrap();
+        assert!(
+            name.starts_with("auto-reclaim-config-") && !name.contains('/') && !name.contains('\\')
+        );
+        let loaded = xone_config::load(directory.join(name), "chain-parser-go").unwrap();
+        assert_eq!(loaded.public_hash, case["public_hash"]);
+        assert_eq!(loaded.economic_hash, case["economic_hash"]);
+        if loaded
+            .config
+            .journal
+            .checkpoint_store
+            .as_ref()
+            .unwrap()
+            .local_retention
+            .as_ref()
+            .unwrap()
+            .auto_reclaim
+        {
+            let mut no_quota = loaded.config.clone();
+            no_quota
+                .journal
+                .checkpoint_store
+                .as_mut()
+                .unwrap()
+                .local_budget = None;
+            assert_eq!(
+                no_quota.validate("chain-parser-go").unwrap_err().0,
+                "CHECKPOINT_RECLAIM_AUTO_CONFIG"
+            );
+            let mut no_period = loaded.config.clone();
+            no_period
+                .journal
+                .checkpoint_store
+                .as_mut()
+                .unwrap()
+                .publish_interval_ms = 0;
+            assert_eq!(
+                no_period.validate("chain-parser-go").unwrap_err().0,
+                "CHECKPOINT_RECLAIM_AUTO_CONFIG"
+            );
+        }
+    }
+}

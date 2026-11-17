@@ -32,15 +32,19 @@ import (
 type SnapshotSource func(context.Context, config.Chain) (domain.Snapshot, error)
 
 type Service struct {
-	checkpointContext   context.Context
-	checkpointStop      context.CancelFunc
-	checkpointGate      chan struct{}
-	checkpointLifecycle sync.Mutex
-	checkpointCancel    context.CancelFunc
-	checkpointWG        sync.WaitGroup
-	checkpointCycles    atomic.Uint64
-	checkpointErrors    atomic.Uint64
-	checkpointActive    atomic.Bool
+	checkpointAutoAttempts    atomic.Uint64
+	checkpointAutoFailures    atomic.Uint64
+	checkpointAutoCompletions atomic.Uint64
+	checkpointAutoNoop        atomic.Uint64
+	checkpointContext         context.Context
+	checkpointStop            context.CancelFunc
+	checkpointGate            chan struct{}
+	checkpointLifecycle       sync.Mutex
+	checkpointCancel          context.CancelFunc
+	checkpointWG              sync.WaitGroup
+	checkpointCycles          atomic.Uint64
+	checkpointErrors          atomic.Uint64
+	checkpointActive          atomic.Bool
 
 	rawMaintenance    *RawMaintenance
 	constructedAt     time.Time
@@ -596,6 +600,7 @@ func (s *Service) Handler() http.Handler {
 	})
 	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "xone_checkpoint_cycles_total %d\nxone_checkpoint_failures_total %d\n", s.checkpointCycles.Load(), s.checkpointErrors.Load())
+		fmt.Fprintf(w, "xone_checkpoint_auto_attempts_total %d\nxone_checkpoint_auto_failures_total %d\nxone_checkpoint_auto_completions_total %d\nxone_checkpoint_auto_noop_total %d\n", s.checkpointAutoAttempts.Load(), s.checkpointAutoFailures.Load(), s.checkpointAutoCompletions.Load(), s.checkpointAutoNoop.Load())
 		fmt.Fprintf(w, "xone_log_dropped_total %d\nxone_log_write_errors_total %d\nxone_chain_sync_errors_total %d\n", s.log.Dropped.Load(), s.log.WriteErrors.Load(), s.lastError.Load())
 		s.writeRecoveryMetrics(w)
 	})
@@ -729,7 +734,7 @@ func (s *Service) Handler() http.Handler {
 		if c := s.cfg.Config.Journal.CheckpointStore; c != nil {
 			interval = c.PublishIntervalMS
 		}
-		write(w, 200, map[string]any{"enabled": interval > 0, "active": s.checkpointActive.Load(), "publish_interval_ms": interval, "completed_cycles": s.checkpointCycles.Load(), "failed_cycles": s.checkpointErrors.Load(), "local_budget": func() *config.CheckpointBudget {
+		write(w, 200, map[string]any{"enabled": interval > 0, "active": s.checkpointActive.Load(), "publish_interval_ms": interval, "completed_cycles": s.checkpointCycles.Load(), "failed_cycles": s.checkpointErrors.Load(), "auto_reclaim_enabled": s.checkpointAutomaticEnabled(), "auto_reclaim_attempts": s.checkpointAutoAttempts.Load(), "auto_reclaim_failures": s.checkpointAutoFailures.Load(), "auto_reclaim_completions": s.checkpointAutoCompletions.Load(), "auto_reclaim_noop": s.checkpointAutoNoop.Load(), "local_budget": func() *config.CheckpointBudget {
 			if c := s.cfg.Config.Journal.CheckpointStore; c != nil {
 				return c.LocalBudget
 			}
@@ -759,22 +764,7 @@ func (s *Service) Handler() http.Handler {
 			write(w, 503, map[string]string{"error": "CHECKPOINT_RETENTION_NOT_READY"})
 			return
 		}
-		guard := func() error {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			if s.closed.Load() {
-				return errors.New("CHECKPOINT_OWNER_CLOSED")
-			}
-			reference, cursor, e := store.BootstrapHead()
-			if e != nil {
-				return e
-			}
-			if reference != boot.Snapshot.Reference || cursor != boot.Cursor {
-				return errors.New("CHECKPOINT_RETENTION_SOURCE_CHANGED")
-			}
-			return nil
-		}
+		guard := s.checkpointRetentionGuard(ctx, r.PathValue("chain"), boot)
 		remote, e := checkpoint.NewRemote(*c, s.cfg.Config.Journal.SourceAuthTokens[c.BaseURL], s.cfg.Config.Journal.MaxBytes, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
 		if e != nil {
 			write(w, 503, map[string]string{"error": "CHECKPOINT_REMOTE_CONFIG"})

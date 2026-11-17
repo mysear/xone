@@ -56,8 +56,23 @@ func (s *Service) publishCheckpointChains(parent context.Context, chains []confi
 		if e != nil {
 			return fail("CHECKPOINT_RECLAIM_STATE_INVALID")
 		}
+		maintained := false
 		if pending {
-			return fail("CHECKPOINT_RECLAIM_PENDING")
+			if !publicOnly || !s.checkpointAutomaticEnabled() {
+				return fail("CHECKPOINT_RECLAIM_PENDING")
+			}
+			current, e := store.Bootstrap()
+			if e != nil {
+				return fail("CHECKPOINT_NOT_READY")
+			}
+			result, e := s.maintainCheckpointAutomatic(ctx, chain.Key, dir, current)
+			if e != nil {
+				return fail("CHECKPOINT_RECLAIM_AUTOMATIC_FAILED")
+			}
+			if !result.Applied {
+				return fail("CHECKPOINT_RECLAIM_PENDING")
+			}
+			maintained = true
 		}
 		if !publicOnly {
 			path, e := checkpoint.Write(dir, snapshot)
@@ -94,8 +109,20 @@ func (s *Service) publishCheckpointChains(parent context.Context, chains []confi
 			return fail("CHECKPOINT_PUBLICATION_FAILED")
 		}
 		if c := s.cfg.Config.Journal.CheckpointStore; c != nil && c.LocalBudget != nil {
-			if _, e := checkpoint.AdmitBootstrap(dir, boot, s.cfg.Config.Journal.MaxBytes, c.BaseURL, c.LocalBudget, guard); e != nil {
-				return fail("CHECKPOINT_LOCAL_BUDGET_REJECTED")
+			if _, admissionError := checkpoint.AdmitBootstrap(dir, boot, s.cfg.Config.Journal.MaxBytes, c.BaseURL, c.LocalBudget, guard); admissionError != nil {
+				if !publicOnly || maintained || !s.checkpointAutomaticEnabled() || admissionError.Error() != "CHECKPOINT_LOCAL_BUDGET_EXCEEDED" {
+					return fail("CHECKPOINT_LOCAL_BUDGET_REJECTED")
+				}
+				cleaned, e := s.maintainCheckpointAutomatic(ctx, chain.Key, dir, boot)
+				if e != nil {
+					return fail("CHECKPOINT_RECLAIM_AUTOMATIC_FAILED")
+				}
+				if !cleaned.Applied {
+					return fail("CHECKPOINT_LOCAL_BUDGET_REJECTED")
+				}
+				if _, e = checkpoint.AdmitBootstrap(dir, boot, s.cfg.Config.Journal.MaxBytes, c.BaseURL, c.LocalBudget, guard); e != nil {
+					return fail("CHECKPOINT_LOCAL_BUDGET_REJECTED")
+				}
 			}
 		}
 		publication, e := checkpoint.WriteBootstrap(dir, boot, s.cfg.Config.Journal.MaxBytes, guard)

@@ -461,6 +461,10 @@ func (c Config) Validate(expected string) error {
 		if len(c.API.AuthToken) < 24 || len(c.API.AuthToken) > 8192 {
 			return errors.New("CHECKPOINT_RECLAIM_AUTH_REQUIRED")
 		}
+		if store.LocalRetention.AutoReclaim && (store.LocalBudget == nil || store.PublishIntervalMS == 0) {
+			return errors.New("CHECKPOINT_RECLAIM_AUTO_CONFIG")
+		}
+
 	}
 
 	if store := c.Journal.CheckpointStore; store != nil && store.LocalRetention != nil && ((expected != "chain-parser-go" && expected != "chain-parser-rust") || c.Service.Role != "online") {

@@ -39,6 +39,8 @@ impl CheckpointBudget {
 #[serde(deny_unknown_fields)]
 pub struct CheckpointRetention {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub auto_reclaim: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reclaim_enabled: bool,
     #[serde(default, skip_serializing_if = "zero")]
     pub plan_ttl_ms: u64,
@@ -51,6 +53,9 @@ pub struct CheckpointRetention {
 }
 impl CheckpointRetention {
     pub fn validate(&self) -> Result<()> {
+        if self.auto_reclaim && !self.reclaim_enabled {
+            return Err(err("CHECKPOINT_RECLAIM_AUTO_CONFIG"));
+        }
         if self.reclaim_enabled && !(1000..=600000).contains(&self.plan_ttl_ms)
             || !self.reclaim_enabled && self.plan_ttl_ms != 0
         {
@@ -321,6 +326,7 @@ mod tests {
     #[test]
     fn checkpoint_retention_policy_requires_finite_safe_parameters() {
         let valid = CheckpointRetention {
+            auto_reclaim: false,
             reclaim_enabled: false,
             plan_ttl_ms: 0,
             keep_latest: 2,
@@ -347,6 +353,7 @@ mod tests {
     #[test]
     fn checkpoint_reclaim_flag_requires_explicit_finite_plan_ttl() {
         let mut c = CheckpointRetention {
+            auto_reclaim: false,
             reclaim_enabled: false,
             plan_ttl_ms: 0,
             keep_latest: 2,
@@ -357,6 +364,9 @@ mod tests {
             max_read_bytes: 1 << 20,
         };
         c.validate().unwrap();
+        c.auto_reclaim = true;
+        assert!(c.validate().is_err());
+        c.auto_reclaim = false;
         c.plan_ttl_ms = 1000;
         assert!(c.validate().is_err());
         c.reclaim_enabled = true;
