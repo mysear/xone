@@ -11,9 +11,9 @@ async fn fixed_original_state_is_checked_and_rpc_commitment_is_bound() {
     let result = evm_rpc::prepare(&c, Bound::ExactIn(&b), &p, request()).await;
     task.abort();
     let result = result.unwrap();
-    assert_eq!(result.result["ready"], true);
-    assert_eq!(result.result["signed"], false);
-    assert_eq!(result.result["submitted"], false);
+    assert_eq!(result.result["component"]["ready"], true);
+    assert_eq!(result.result["component"]["signed"], false);
+    assert_eq!(result.result["component"]["submitted"], false);
     assert_eq!(result.result["rpc_observation"]["consensusVerified"], false);
     assert_eq!(
         result.result["rpc_observation"]["captureHash"],
@@ -26,6 +26,16 @@ async fn fixed_original_state_is_checked_and_rpc_commitment_is_bound() {
         .remove("rpc_preparation_hash")
         .unwrap();
     assert_eq!(expected, hash(&committed).unwrap());
+    let component = result.result["component"].clone();
+    let _: xone_execution_preparation::evm::Preparation =
+        serde_json::from_value(component.clone()).unwrap();
+    let mut plain = component.clone();
+    let expected = plain
+        .as_object_mut()
+        .unwrap()
+        .remove("preparation_hash")
+        .unwrap();
+    assert_eq!(expected, hash(&plain).unwrap());
     let calls = requests.lock().unwrap();
     assert!(calls.len() > 25);
     assert!(calls.iter().all(|q| !matches!(
@@ -75,10 +85,10 @@ async fn insufficient_funding_is_captured_without_unsigned_wire() {
         let result = evm_rpc::prepare(&c, Bound::ExactIn(&b), &p, request()).await;
         task.abort();
         let r = result.unwrap();
-        assert_eq!(r.result["ready"], false);
-        assert!(r.result["unsigned_transaction"].is_null());
-        assert!(r.result["rpc_transaction"].is_null());
-        assert!(r.result["blockers"].as_array().unwrap().len() == 1);
+        assert_eq!(r.result["component"]["ready"], false);
+        assert!(r.result["component"]["unsigned_transaction"].is_null());
+        assert!(r.result["component"]["rpc_transaction"].is_null());
+        assert!(r.result["component"]["blockers"].as_array().unwrap().len() == 1);
     }
 }
 #[tokio::test]

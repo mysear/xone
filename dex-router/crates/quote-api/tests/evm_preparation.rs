@@ -53,6 +53,24 @@ async fn explicit_evm_preparation_binds_quote_view_and_downloadable_wire() {
         .unwrap()
         .starts_with("0x02"));
     assert_eq!(p["transaction"]["chainId"], "0x7a69");
+    let _: xone_execution_preparation::evm::Preparation =
+        serde_json::from_value(p["component"].clone()).unwrap();
+    let mut component = p["component"].clone();
+    let committed = component
+        .as_object_mut()
+        .unwrap()
+        .remove("preparation_hash")
+        .unwrap();
+    assert_eq!(committed, xone_domain::hash(&component).unwrap());
+    let mut rpc = p["rpcPreparation"].clone();
+    let rpc_hash = rpc
+        .as_object_mut()
+        .unwrap()
+        .remove("rpc_preparation_hash")
+        .unwrap();
+    assert_eq!(rpc_hash, xone_domain::hash(&rpc).unwrap());
+    assert_eq!(rpc["component"], p["component"]);
+
     let mut expected = p.clone();
     let h = expected
         .as_object_mut()
@@ -149,6 +167,16 @@ async fn exact_output_preparation_uses_its_own_target_and_maximum_input() {
     task.abort();
     assert_eq!(status, StatusCode::OK, "{p}");
     assert_eq!(p["quoteKind"], "EXACT_OUT");
+    let _: xone_execution_preparation::evm::ExactOutPreparation =
+        serde_json::from_value(p["component"].clone()).unwrap();
+    let mut component = p["component"].clone();
+    let committed = component
+        .as_object_mut()
+        .unwrap()
+        .remove("exact_out_preparation_hash")
+        .unwrap();
+    assert_eq!(committed, xone_domain::hash(&component).unwrap());
+
     assert_eq!(p["component"]["target_output"], quote["grossBuyAmount"]);
     assert_eq!(p["requiredInput"], quote["requiredSellAmount"]);
     assert!(p["transaction"]["data"]

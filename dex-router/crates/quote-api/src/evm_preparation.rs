@@ -107,15 +107,15 @@ pub(super) async fn prepare(
     };
     current(&api, &view, &context).map_err(failure)?;
     let component = if kind == "EXACT_OUT" {
-        &capture.result["preparation"]
+        &capture.result["component"]["preparation"]
     } else {
-        &capture.result
+        &capture.result["component"]
     };
     let mut result = json!({"schemaVersion":1,"quoteId":id,"quoteKind":kind,"quoteViewId":view.view_id,
         "snapshotRef":view.reference,"ready":component["ready"],"blockers":component["blockers"],
         "unsignedTransaction":component["unsigned_transaction"],"transaction":component["rpc_transaction"],
         "requiredInput":component["required_input"],"maxNetworkFee":component["max_network_fee"],
-        "requiredSigners":component["required_signers"],"component":capture.result,
+        "requiredSigners":component["required_signers"],"component":capture.result["component"],"rpcPreparation":capture.result,
         "rpcObservations":capture.observations,"signed":false,"submitted":false,
         "independentExecutionVerified":false,"chainFeesComplete":false,"productionReady":false});
     result["preparationHash"] = hash(&result).map_err(failure)?.into();

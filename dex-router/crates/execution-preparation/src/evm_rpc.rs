@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use xone_domain::{err, hash, v2_swap, Amount, Pool, Result, SnapshotRef};
 use xone_execution_plan::{
     BoundEvmExactOutExecution, BoundEvmExecution, Context, ExecutorIdentity, Transaction,
@@ -401,12 +401,17 @@ pub async fn prepare(
         .checked_sub(clock_ms())
         .filter(|ms| *ms > 0)
         .ok_or_else(|| err("QUOTE_EXPIRED"))?;
-    tokio::time::timeout(
-        Duration::from_millis(config.timeout_ms.min(remaining)),
-        resolve(config, &bound, pools, &request, snapshot),
-    )
-    .await
-    .map_err(|_| err("EVM_RPC_TIMEOUT"))?
+    let limit = Duration::from_millis(config.timeout_ms.min(remaining));
+    let started = Instant::now();
+    let result = tokio::time::timeout(limit, resolve(config, &bound, pools, &request, snapshot))
+        .await
+        .map_err(|_| err("EVM_RPC_TIMEOUT"))??;
+    // A ready future may finish synchronous JSON/hash work before Tokio polls
+    // its timer again. Do not publish a result past the aggregate wall budget.
+    if started.elapsed() >= limit {
+        return Err(err("EVM_RPC_TIMEOUT"));
+    }
+    Ok(result)
 }
 async fn resolve(
     config: &RpcConfig,
@@ -546,7 +551,7 @@ async fn resolve(
         max_priority_fee_per_gas: request.max_priority_fee_per_gas.clone(),
         max_network_fee: request.max_network_fee.clone(),
     };
-    let mut result = match bound {
+    let component = match bound {
         Bound::ExactIn(b) => serde_json::to_value(evm::prepare(
             b,
             pools,
@@ -586,9 +591,10 @@ async fn resolve(
         return Err(err("QUOTE_EXPIRED"));
     }
     let capture_hash = hash(&rpc.observations)?;
-    result["rpc_observation"] = json!({"schemaVersion":1,"authority":"HASH_PINNED_RPC_OBSERVATION","snapshotHash":hash(snapshot)?,
+    let mut result = json!({"schema_version":1,"component":component,
+        "rpc_observation":{"schemaVersion":1,"authority":"HASH_PINNED_RPC_OBSERVATION","snapshotHash":hash(snapshot)?,
         "captureHash":capture_hash,"observedAtMs":clock_ms().to_string(),"calls":rpc.observations.len(),"consensusVerified":false,
-        "independentExecutionVerified":false,"currentNonceRechecked":true,"chainFeesComplete":false});
+        "independentExecutionVerified":false,"currentNonceRechecked":true,"chainFeesComplete":false}});
     // Preserve the component hash as a nested commitment; this outer hash binds
     // the RPC evidence as well. No URL, credentials or provider error text is exposed.
     result["rpc_preparation_hash"] = hash(&result)?.into();
