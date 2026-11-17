@@ -16,7 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
-|EVM固定块RPC准备与API（阶段88）|§14/15/21；WP04、WP14、WP15、WP16、WP25|IN_PROGRESS|固定块/代码/完整V2状态与资金观察、双次nonce及canonical复核、显式prepare-evm接口和前端费用/下载已接入|4RPC/2配置及9Chrome预检通过；JSON/完整API/严格门禁与同源冻结待完成，见[阶段88](#plan-2026-11-17-evm-rpc-preparation)|
+|EVM固定块RPC准备与API（阶段88）|§14/15/21；WP04、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|同块RPC身份/完整V2状态与资金/nonce观察、显式API、费用与交易下载；独立组件/RPC/API摘要|15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定；独立EVM执行/链特定费用/真实当前来源与生产仍待完成|
 |EVM计划绑定与准备组件（阶段87）|§14/15/21；WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|完整V2 ExactOut绑定、uint256资金/费用、无损数量与unsigned EIP-1559组件|13项门禁/62次Rust/95份独立ABI-RLP签名对照，899份固定输入/185份参考依赖绑定；真实RPC/链规则/VM/API继续开发，EVM能力未开放|
 |基线图复用与闲时缓存回收（阶段86）|§10/13.2/28.11/28.14；WP09、WP12、WP16|LOCAL_SCOPE_VERIFIED|基线/恢复/scope扩容复用图；三类缓存定时回收、锁外析构与HTTP后台任务关闭|8项门禁/41次Rust测试，899份固定测试输入与46份运行时输入同批绑定；完整池状态COW、内存压力与生产容量继续待完成|
 |候选图增量索引与COW（阶段85）|§13.2/28.11/28.14；WP09、WP12|LOCAL_SCOPE_VERIFIED|物理池方向边索引、不可变共享邻接边和状态副本局部发布；10项新增回归|8项门禁/249次Rust测试通过，源码和341份测试输入同批绑定；beam/共享DAG/严格收益界/生产容量仍待完成|
@@ -464,7 +464,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|仅调用方观察的内部组件；真实RPC捕获、当前链规则/L2费用、独立VM及正式API/准备缓存未接，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
-|14.evm-rpc-preparation|WP04,WP14,WP15,WP16,WP25|IN_PROGRESS|单端点同块读取、未知hash负对照、完整V2状态/代码、资金/授权/nonce与限额；显式API和前端下载|JSON重复成员/故障/QuoteView与全部门禁待完成；仅RPC观察，不含共识、当前链完整费用或独立EVM执行，静态协议能力不升级|[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
+|14.evm-rpc-preparation|WP04,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|固定hash方法负对照、代码/完整V2字段、资金/授权/nonce及严格JSON/预算；认证QuoteView API和EVM费用/下载，统一门禁通过|本批是受控RPC观察接线资格，账户资金故障为受控观察；非共识、状态根证明、完整当前费用或独立执行，静态协议能力和生产未升级|[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
 
 <a id="batch-history"></a>
 
@@ -558,7 +558,7 @@
 |85|[候选图增量索引与COW](#plan-2026-11-16-incremental-graph)|LOCAL_SCOPE_VERIFIED|8项门禁/249次Rust测试通过，源码和341份测试输入同批绑定；[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |86|[基线图复用与闲时缓存回收](#plan-2026-11-17-baseline-cache-reclamation)|LOCAL_SCOPE_VERIFIED|8项门禁/41次Rust测试，899份固定测试输入与46份运行时输入同批绑定；[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |87|[EVM计划绑定与准备组件](#plan-2026-11-17-evm-preparation-component)|LOCAL_SCOPE_VERIFIED|13项门禁/62次Rust/95份独立ABI-RLP签名对照，899份固定输入/185份参考依赖绑定；[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
-|88|[EVM固定块RPC准备与API](#plan-2026-11-17-evm-rpc-preparation)|IN_PROGRESS|固定观察与正常API/前端已接，统一门禁待完成；[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
+|88|[EVM固定块RPC准备与API](#plan-2026-11-17-evm-rpc-preparation)|LOCAL_SCOPE_VERIFIED|15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定；[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2664,10 +2664,10 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
-|F88.1|同块身份/完整状态/资金采集|WP04,WP14,WP15|IN_PROGRESS|实际chainId/genesis、Router/Factory/Pair/Token代码、完整getReserves/raw balances/cumulatives/unlocked与双向factory pair核对；未知hash负对照覆盖balance/nonce/code/storage/call；固定nonce与pending一致，读取后再次核对pending、canonical头和chainId。|
-|F88.2|边界、预算与观察承诺|WP04,WP14,WP16|IN_PROGRESS|总调用次数/总wire/总期限、禁止重定向与重试、严格JSON重复键/数量/ABI，资金或授权不足无unsigned wire；调用参数/结果摘要进入RPC准备与API的QuoteView承诺，错误不输出URL或provider消息。|
-|F88.3|显式配置/API/前端|WP14,WP16,WP25|IN_PROGRESS|api.evm_preparation按chain配置一个RPC端点，认证限流/共享并发；POST /v1/quotes/{id}/prepare-evm支持既有单池ExactIn与简单路径ExactOut，前后QuoteView复核；前端展示EVM费用上限与下载，金额仍字符串。|
-|F88.4|原状态回放/故障与统一门禁|WP04,WP14,WP15,WP16,WP25|IN_PROGRESS|原固定V2代码/getter经loopback RPC测试；RPC故障/重组/nonce/余额/授权、配置与认证、重复JSON、QuoteView与Chrome 9项预检通过部分；正式源码/输入统一验证待完成。|
+|F88.1|同块身份/完整状态/资金采集|WP04,WP14,WP15|LOCAL_SCOPE_VERIFIED|实际chainId/genesis、Router/Factory/Pair/Token代码、完整getReserves/raw balances/cumulatives/unlocked与双向factory pair核对；未知hash负对照覆盖balance/nonce/code/storage/call；固定nonce与pending一致，读取后再次核对pending、canonical头和chainId。|
+|F88.2|边界、预算与观察承诺|WP04,WP14,WP16|LOCAL_SCOPE_VERIFIED|总调用次数/总wire/总期限、禁止重定向与重试、严格JSON重复键/数量/ABI，资金或授权不足无unsigned wire；调用参数/结果摘要进入RPC准备与API的QuoteView承诺，错误不输出URL或provider消息。|
+|F88.3|显式配置/API/前端|WP14,WP16,WP25|LOCAL_SCOPE_VERIFIED|api.evm_preparation按chain配置一个RPC端点，认证限流/共享并发；POST /v1/quotes/{id}/prepare-evm支持既有单池ExactIn与简单路径ExactOut，前后QuoteView复核；前端展示EVM费用上限与下载，金额仍字符串。|
+|F88.4|原状态回放/故障与统一门禁|WP04,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|原固定V2代码/getter经loopback RPC测试；RPC故障/重组/nonce/余额/授权、配置与认证、重复JSON、QuoteView与Chrome 9项预检通过部分；正式源码/输入统一验证待完成。|
 
 预检首次失败包括：超时测试的单请求/总期限竞争（已由统一总期限覆盖）、鉴权用例漏设token（默认无认证的既有语义保持）、非法请求框架默认纯文本（现返回显式JSON错误）、页面label样式覆盖hidden（补标准hidden样式）。故障及旧日志保留；最终本批须同源码整体验证，不以预检替代。
 
@@ -2676,3 +2676,5 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 阶段88首次统一运行主动停止并保留CANCELLED记录：前9门禁通过后，承诺结构复核发现把RPC字段追加到组件对象会使原组件摘要无法直接按原严格结构重算。实际浏览器导出文件已留反例；现把原组件完整嵌入RPC封装，API保留component与rpcPreparation两个可独立重算层，并补严格反序列化/原组件摘要/RPC摘要回归。总期限在网络后同步JSON/摘要工作完成时再次检查，避免同步阶段越过预算后发布。随后完整复验。
 
 阶段88方法覆盖复核补齐固定块eth_getTransactionCount的未知hash负对照及只忽略该方法selector的故障用例；API在最后编码/摘要后再次核对QuoteView与期限。前次运行保留CANCELLED，严格检查范围未缩减，重新冻结全部源码并完整复验。
+
+阶段88最终限定验收：15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定。15命令全部exit0；原组件和旧API/Solana准备回归保留，三crate全目标严格Clippy通过；9项Chrome覆盖双模式准备/金额与QuoteView绑定、交易下载、费用变更撤销及独立/钱包边界。最终截图已检查，实际浏览器导出中的原组件/RPC/API三个摘要均独立重算一致；源码及固定/运行时输入运行前后完全一致，原失败/取消记录保留。本批loopback的Pair代码/getter来自留存原状态，资金/授权及故障为受控RPC观察，不冒充公开RPC或独立执行；当前链hardfork/L2费用、可信状态与原VM闭环、上层钱包及生产仍继续开发。
