@@ -173,6 +173,20 @@ impl PreparedExecution {
 }
 
 impl LocalSimulation {
+    pub(crate) fn matches_snapshot(
+        &self,
+        reference: &xone_domain::SnapshotRef,
+        genesis: &str,
+    ) -> bool {
+        let source = &self.bundle.fixture.state_anchor;
+        let block = &reference.block;
+        source.genesis_hash == genesis
+            && source.chain_key == block.chain_key
+            && source.block_number == block.number_or_slot
+            && source.block_hash == block.hash
+            && source.parent_hash == block.parent_hash
+            && source.timestamp.checked_mul(1000) == Some(block.timestamp_ms)
+    }
     pub fn load(config: &ConfigSnapshot) -> Result<Option<Arc<Self>>> {
         let sim = &config.config.simulation;
         if sim.backend != "revm-fixture" {
@@ -1493,6 +1507,70 @@ mod tests {
             }
             assert!(decode_response(&serde_json::to_vec(&changed).unwrap(), "expected").is_err());
         }
+    }
+
+    #[tokio::test]
+    async fn runtime_evm_independent_capability_requires_matching_bank_and_rpc_preparation() {
+        use tower::ServiceExt;
+        let (mut api, _) = api_with_exact_out_quote().await;
+        let (_, _, rpc, _) = super::execution_source::fixture();
+        let reference = api.replica.view(&rpc.chain_key).unwrap().reference.clone();
+        let backend = api.local_simulation.as_ref().unwrap();
+        assert!(backend.matches_snapshot(&reference, &rpc.genesis_hash));
+        let mut wrong = reference.clone();
+        wrong.block.hash = format!("0x{}", "ff".repeat(32));
+        assert!(!backend.matches_snapshot(&wrong, &rpc.genesis_hash));
+        assert!(!backend.matches_snapshot(&reference, &format!("0x{}", "ff".repeat(32))));
+        let config = Arc::make_mut(&mut api.config);
+        config.config.chains[0].rpc_urls = vec!["http://127.0.0.1:1".into()];
+        config.config.api.evm_preparation.insert(
+            rpc.chain_key.clone(),
+            xone_config::EvmPreparationConfig {
+                router: rpc.executor.target,
+                router_code_sha256: rpc.executor.code_sha256,
+                factory: rpc.executor.factory,
+                factory_code_sha256: rpc.executor.factory_code_sha256,
+                token_code_sha256: rpc.token_code_sha256,
+                timeout_ms: rpc.timeout_ms,
+                max_calls: rpc.max_calls,
+                max_response_bytes: rpc.max_response_bytes,
+            },
+        );
+        let request = || {
+            axum::http::Request::builder()
+                .uri("/v1/quote-options")
+                .header("authorization", format!("Bearer {}", api.config.token))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let response = api.handler().oneshot(request()).await.unwrap();
+        let value: Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            value["chains"][0]["pools"][0]["execution"]["evmIndependentLocalSimulation"],
+            true
+        );
+        api.local_simulation = None;
+        let request = axum::http::Request::builder()
+            .uri("/v1/quote-options")
+            .header("authorization", format!("Bearer {}", api.config.token))
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let response = api.handler().oneshot(request).await.unwrap();
+        let value: Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            value["chains"][0]["pools"][0]["execution"]["evmIndependentLocalSimulation"],
+            false
+        );
     }
 
     #[test]

@@ -1,5 +1,5 @@
 import {createWalletRegistry,connectWallet,signPreparedTransaction} from './wallet.js';
-import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, singlePreparationPool, evmPreparationPools, evmFeeRequest, escapeHtml as esc} from './model.js';
+import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, singlePreparationPool, evmPreparationPools, evmPreparedSimulationAvailable, evmPreparedEvidenceMatches, evmFeeRequest, escapeHtml as esc} from './model.js';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, quote:null, preparation:null, independent:null, independentAbort:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
@@ -146,8 +146,8 @@ $('prepareButton').addEventListener('click',async()=>{
     state.preparation=prepared; $('downloadButton').disabled=!prepared.ready;refreshWalletActions();
     $('independentButton').disabled=!prepared.ready || !(chain()?.pools||[]).some(p=>p.execution?.independentLocalSimulation&&(q.routes||[]).some(r=>(r.path?.edges||r.edges||[]).some(e=>e.pool_id===p.poolId)));
     if(evm) {
-      $('independentButton').disabled=true;
-      $('preparation').textContent=prepared.ready?`EVM账户检查通过 · 固定块 ${prepared.snapshotRef.block.number_or_slot} · 预计输入 ${prepared.requiredInput} 最小单位 · 最高网络费预留 ${prepared.maxNetworkFee} wei · nonce ${BigInt(prepared.transaction.nonce)} · 可下载待签名交易。链特定费用与独立执行仍待验证，签名与广播由上层钱包处理。`:`EVM资金条件未满足：${(prepared.blockers||[]).join(', ')}。授权或余额改变后请重新准备。`;
+      $('independentButton').disabled=!prepared.ready||!evmPreparedSimulationAvailable(q,chain());
+      $('preparation').textContent=prepared.ready?`EVM账户检查通过 · 固定块 ${prepared.snapshotRef.block.number_or_slot} · 预计输入 ${prepared.requiredInput} 最小单位 · 最高网络费预留 ${prepared.maxNetworkFee} wei · nonce ${BigInt(prepared.transaction.nonce)} · 可下载待签名交易。可用时可执行本地独立模拟；链特定费用与生产资格仍待验证。`:`EVM资金条件未满足：${(prepared.blockers||[]).join(', ')}。授权或余额改变后请重新准备。`;
       return;
     }
     const wrapText=prepared.wrapLamports && prepared.wrapLamports!=='0'?` · SOL包装 ${prepared.wrapLamports} lamports${prepared.sourceWsolRetained?' · 预计剩余 '+prepared.expectedResidualWsol+' WSOL最小单位，余额仍保留为WSOL':' · 未用资金通过本次临时账户关闭转回SOL'}`:'';
@@ -164,8 +164,19 @@ $('independentButton').addEventListener('click',async()=>{
   const q=state.quote,p=state.preparation,seq=state.quoteSeq,preparationSeq=state.prepareSeq;if(!q||!p?.ready)return;
   state.independentAbort?.abort();state.independentAbort=new AbortController();state.independent=null;resetWalletSigning();$('independentButton').disabled=true;
   try{
-    const evidence=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/preparations/${encodeURIComponent(p.preparationHash)}/simulate-independent`,{method:'POST',signal:state.independentAbort.signal});
+    const evm=q.chainKey?.startsWith('evm:');
+    const evidence=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/preparations/${encodeURIComponent(p.preparationHash)}/${evm?'simulate-evm':'simulate-independent'}`,{method:'POST',signal:state.independentAbort.signal});
     if(seq!==state.quoteSeq||preparationSeq!==state.prepareSeq||state.preparation!==p)return;
+    if(evm) {
+      if(!/^0x(?:[0-9a-f]{2})+$/i.test(p.unsignedTransaction))throw new Error('待签名交易格式无效');
+      const bytes=Uint8Array.from(p.unsignedTransaction.slice(2).match(/../g),value=>Number.parseInt(value,16));
+      const unsignedHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),value=>value.toString(16).padStart(2,'0')).join('');
+      if(seq!==state.quoteSeq||preparationSeq!==state.prepareSeq||state.preparation!==p)return;
+      if(!evmPreparedEvidenceMatches(q,p,evidence,unsignedHash))throw new Error('独立模拟证据与当前EVM交易不一致');
+      state.independent=evidence;
+      $('preparation').textContent+=` · 本地EVM独立执行通过，实际输入 ${evidence.outcome.actual_input_consumed} / 到账 ${evidence.outcome.actual_buy_amount}，执行费 ${evidence.fees.evmFeeWei} wei（给定银行，生产资格未开放）`;
+      return;
+    }
     if(evidence.preparationHash!==p.preparationHash||evidence.planHash!==q.planHash||evidence.quoteViewId!==q.quoteViewId||evidence.success!==true)throw new Error('独立模拟证据与当前交易不一致');
     state.independent=evidence;refreshWalletActions();$('preparation').textContent+=` · 独立本地SBF模拟通过，实际输入 ${evidence.actualInput} / 到账 ${evidence.actualOutput}，CU ${evidence.unitsConsumed}，证据 ${evidence.evidenceHash}（${evidence.accountSource==='PREPARATION_RPC_CAPTURE'?'RPC账户快照，非历史银行证明':'受控银行'}，生产资格未开放）`;
   }catch(e){if(seq===state.quoteSeq&&preparationSeq===state.prepareSeq&&e.name!=='AbortError'){$('preparation').textContent=`独立模拟失败：${e.message}`;state.independent=null;}}

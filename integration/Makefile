@@ -1093,3 +1093,7 @@ evm-source-fees-current-check:
 .PHONY: evm-prepared-api-current-check
 evm-prepared-api-current-check:
 	python3 tools/acceptance/validate_evm_prepared_api.py
+
+.PHONY: evm-prepared-frontend-current-check
+evm-prepared-frontend-current-check:
+	python3 tools/acceptance/validate_evm_prepared_frontend.py

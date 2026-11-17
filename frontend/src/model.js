@@ -65,3 +65,25 @@ export function evmFeeRequest(gas, maximum, priority, budget) {
   if (BigInt(gas_limit) * BigInt(max_fee_per_gas) > BigInt(max_network_fee)) throw new Error('网络费预算小于Gas上限乘以最高单价');
   return {gas_limit, max_fee_per_gas, max_priority_fee_per_gas, max_network_fee};
 }
+
+export function evmPreparedSimulationAvailable(quote,chain) {
+  const pools=evmPreparationPools(quote,chain);
+  return pools.length>0 && pools.every(p=>p.execution?.evmIndependentLocalSimulation===true);
+}
+export function evmPreparedEvidenceMatches(quote,preparation,evidence,unsignedHash) {
+  const kind=quote?.kind||'EXACT_IN';
+  const component=kind==='EXACT_OUT'?preparation?.component?.preparation:preparation?.component;
+  const result=evidence?.preparedExecution;
+  return Boolean(quote && preparation?.ready && result && /^[0-9a-f]{64}$/.test(unsignedHash)
+    && evidence.quoteKind===kind && evidence.quoteId===quote.quoteId && evidence.planHash===quote.planHash
+    && evidence.quoteViewId===quote.quoteViewId && preparation.quoteViewId===quote.quoteViewId
+    && evidence.apiPreparationHash===preparation.preparationHash
+    && evidence.rpcPreparationHash===preparation.rpcPreparation?.rpc_preparation_hash
+    && result.preparation_hash===component?.preparation_hash && result.unsigned_transaction_hash===unsignedHash
+    && (kind!=='EXACT_OUT'||result.exact_out_preparation_hash===preparation.component?.exact_out_preparation_hash)
+    && evidence.verification?.success===true && evidence.verified===false
+    && evidence.authority==='PROVIDED_LOCAL_STATE' && evidence.fees?.chainFeeCompleteness==='LOCAL_EVM_ONLY'
+    && result.simulation?.verified===false && result.simulation?.matches_plan===true
+    && result.simulation?.actual_input_consumed===preparation.requiredInput
+    && result.simulation?.actual_buy_amount===quote.grossBuyAmount);
+}

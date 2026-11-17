@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|EVM原准备独立执行界面（阶段100）|§14/15/21；WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|按匹配银行显式开放本地执行，浏览器SHA256核对原wire、报价/视图/准备hash、实际收付费率|16门禁/168次Rust、13Node、新旧18Chrome与桌面/移动截图通过；901固定/97参考输入绑定|
 |EVM缓存RPC准备到独立worker（阶段99）|§14/15/28.17–28.18；WP14–16|LOCAL_SCOPE_VERIFIED|原API/RPC/组件/wire/独立receipt绑定、双模式显式执行接口、准备替换撤权及有界缓存|15门禁/167次Rust、双模式实际HTTP/worker、错误资金拒绝、901固定/97参考输入通过；界面接线后续|
 |EVM来源块与执行块费用上下文（阶段98）|§14.2/14.3/28.17；WP15|LOCAL_SCOPE_VERIFIED|来源H base fee与H+1执行费分开承诺，真实来源观察不覆盖执行环境|8门禁/134次Rust，16原银行/双模式原header费用和错源/缺源/cap通过，901固定输入绑定|
 |EVM ExactIn多池与双模式正常HTTP（阶段97）|§14/15/28.16–28.18；WP14–16、WP25|LOCAL_SCOPE_VERIFIED|完整ExactIn简单路径绑定、逐hop源码/源银行、原交易/准备/VM与双模式3hop HTTP|17门禁/168次Rust、6原输入路径/9重算变形和3hop双模式HTTP、901固定/97参考输入通过|
@@ -475,6 +476,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|15.evm-prepared-frontend|WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|EVM双模式原准备界面和浏览器wire摘要/状态/金额核对|统一门禁通过；当前银行捕获/其他链规则与钱包功能继续|[验证记录](integration/artifacts/local/evm-prepared-frontend-check/report.json)|
 |15.evm-prepared-api|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|缓存原RPC准备、双模式同银行worker、原hash/unsigned/receipt重算及32MiB载荷预算|统一门禁通过；界面、实时完整RPC银行/真实链规则和钱包继续|[验证记录](integration/artifacts/local/evm-prepared-api-check/report.json)|
 |14.evm-source-fees|WP15|LOCAL_SCOPE_VERIFIED|显式源H base fee与H+1执行base fee独立校验和承诺|统一门禁通过；来源仍为显式提供银行，真实RPC状态捕获/chain费用继续|[验证记录](integration/artifacts/local/evm-source-fees-check/report.json)|
 |14.evm-input-paths|WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|ExactIn多池完整计划重算和原wire/VM，双模式正常HTTP与界面准备条件|统一门禁通过；同池重用/共享DAG/RPC完整银行与钱包仍待补|[验证记录](integration/artifacts/local/evm-input-path-check/report.json)|
@@ -595,6 +597,7 @@
 |97|[EVM ExactIn多池与双模式正常HTTP](#plan-2026-11-17-evm-input-paths)|LOCAL_SCOPE_VERIFIED|17门禁/168次Rust、6原输入路径/9变形及双模式3hop HTTP；[验证记录](integration/artifacts/local/evm-input-path-check/report.json)|
 |98|[EVM来源块与执行块费用上下文](#plan-2026-11-17-evm-source-fees)|LOCAL_SCOPE_VERIFIED|8门禁/134次Rust、16原H/H+1银行与双模式准备；[验证记录](integration/artifacts/local/evm-source-fees-check/report.json)|
 |99|[EVM缓存RPC准备到独立worker](#plan-2026-11-17-evm-prepared-api)|LOCAL_SCOPE_VERIFIED|15门禁/167次Rust、双模式真实HTTP/原准备wire/错误资金；[验证记录](integration/artifacts/local/evm-prepared-api-check/report.json)|
+|100|[EVM原准备独立执行界面](#plan-2026-11-17-evm-prepared-frontend)|LOCAL_SCOPE_VERIFIED|16门禁/168次Rust、13Node/18Chrome、wire摘要及移动布局；[验证记录](integration/artifacts/local/evm-prepared-frontend-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -2625,7 +2628,7 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 |---|---|---|---|
 |1|§28.14.2 / WP09,WP12|普通提交及阶段86的基线/恢复/scope重锚已接增量图复用|局部与完整构图、128变更/256池共享和统一回归通过；完整池状态COW与规模化压力继续待补|
 |2|§28.11 / WP09,WP16|阶段86已接三类缓存的闲时回收和后台任务关闭|23副本/7缓存与HTTP/11API回归通过；活跃慢句柄及总内存压力/容量后续验证|
-|3|§14/28.16–28.18 / WP14,WP15,WP16|`preparation::selected`保留Solana路径；阶段87/88已接独立EVM准备组件及显式固定块RPC/API/下载，独立执行与上层钱包链路仍缺|本轮补Shanghai EIP-1559独立原VM与准备组件绑定；可信完整当前状态、链规则/L2费用和一次发送回执仍需继续；草稿不计完成|
+|3|§14/28.16–28.18 / WP14,WP15,WP16|`preparation::selected`保留Solana路径；阶段87–100已补双模式简单路径、原RPC准备/缓存/worker与界面；实时完整银行及上层钱包链路仍缺|双模式简单路径原VM/准备组件/HTTP/界面已逐轮验收；可信完整当前状态、链规则/L2费用和一次发送回执继续；未验收的草稿不计完成|
 |4|§12/28.12–28.13 / WP10,WP11,WP20|能力目录61模型中38个ExactOut、21个执行准备；其余数学、执行和Token行为范围分别缺失|按真实版本逐项补状态/原数学/完整后状态/正常服务/独立执行，目标模式与执行资格独立统计|
 |5|§9/18/28.10 / WP08,WP24|`checkpoint::Write/Read`只有本地原子目录及摘要；owner bootstrap不提供对象存储的不可变发布/下载和peer资格|补对象存储manifest先后/半上传/错误摘要/预算与无源恢复，以及真实保留过期和故障域验收|
 |6|§15/18/20 / WP16,WP17,WP25|API单凭据/共享限流；生产TLS/SASL/ACL、多区切换及业务SLO仍有缺口|独立租户身份/额度、可信来源隔离和正式设施安全配置；按故障矩阵验收，不把单机PG/Kafka当多区HA|
@@ -2911,3 +2914,19 @@ B93.2 独立故障域与部署验收（§18/20/28.25）：三个生产配置无K
 预检真实ExactIn/ExactOut准备与worker已通过，更新gas_limit后旧preparationHash不可执行；错误资金观察被SIMULATION_OBSERVATION_MISMATCH拒绝。harness的bank模式直接读取保留原账户/slot，不把FF余额占位用于独立验证。首次构建发现测试harness的RPC句柄未显式读取，已在服务结束时abort，不降低严格lint。实际来源是受控loopback原银行，非公网RPC/共识证明；准备上下文只缓存小组件及资金/费用，不把整份RPC观察body留入准备缓存，不承诺同等于32MiB实际总堆内存。
 
 阶段99最终限定验收：15门禁全部exit0，167次Rust（仿真99/API14/准备RPC23/旧API19/cache7/路径5），实际ExactIn/ExactOut从原RPC准备到原worker成功及错误资金观察拒绝通过；参数变更后的旧hash、迟到证据写入、序列化载荷额度和GC/在途保留控制均通过，全目标严格Clippy通过。源码/901固定输入/97参考文件前后一致，运行目录`3ca6dc7a1e294ca48db1cdb252e62dbd`。本批正常服务已连通缓存准备独立执行，界面与上层钱包、实时完整RPC银行/真实链规则继续独立推进。
+
+<a id="plan-2026-11-17-evm-prepared-frontend"></a>
+
+## EVM原准备独立执行界面（2026-11-17，阶段100）
+
+本批补正常界面之前强制关闭EVM独立按钮的缺口。quote-options单独声明evmIndependentLocalSimulation，只有原RPC准备配置存在且启动时银行的chain/genesis/完整源块身份与当前QuoteView匹配时为true，不借用Solana静态或独立SBF能力。原ExactIn响应现在显式包含kind=EXACT_IN，前端兼容旧响应缺省模式。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F100.1|运行时银行能力与双模式界面|WP16,WP25|LOCAL_SCOPE_VERIFIED|有RPC准备但无匹配银行时保持关闭；有匹配银行时按真实quote/preparation发送simulate-evm，不开放EVM钱包/VERIFIED。|
+|F100.2|浏览器原wire与经济上下文复核|WP15,WP25|LOCAL_SCOPE_VERIFIED|WebCrypto重新计算原unsigned字节SHA256，核对API/RPC/组件/ExactOut外hash、quote/plan/view及实际输入/收款；改变wire摘要或金额/权限边界的响应拒绝。|
+|F100.3|真实Chrome/旧边界/统一验收|WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|实际原RPC准备与worker双模式、摘要篡改、费用变化撤销旧wire/证据、桌面/移动布局共9Chrome预检通过，13Node通过；旧无银行浏览器边界及完整统一门禁通过。|
+
+首次真实Chrome预检已通过并检查桌面/移动截图。浏览器日志保留真实Chrome版本、harness字节hash和两种证据及截图摘要；预检不替代冻结门禁。报价仍为INDICATIVE，执行证据为给定银行的本地独立执行，不表示公开历史银行/当前共识/生产完整费用；签名、广播、真实银行捕获及其他未完设计项继续单列。
+
+阶段100最终限定验收：16门禁全部exit0，168次Rust（仿真99/API15/准备RPC23/旧API19/cache7/路径5）、13Node、实际新9/旧9共18Chrome检查通过，全目标严格Clippy通过。真实双模式原RPC准备→缓存wire→worker→浏览器WebCrypto核对一致，错误unsigned摘要、费率变更旧证据撤销及旧无银行禁用边界均通过；桌面/移动截图已检查。源码/901固定输入/97参考文件前后相同，最终运行目录`350a4f4fc0c0459e8a4bd7e053d0ef0b`。来源/当前链/完整费用/钱包与其他工作包仍未完成，继续按设计差距推进，不将第100轮号视为全系统完成。

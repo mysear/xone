@@ -16,7 +16,7 @@ async fn main() {
         }
         return;
     }
-    assert_eq!(args.len(), 2, "INFO_PATH");
+    assert!((2..=3).contains(&args.len()), "INFO_PATH [FRONTEND_ORIGIN]");
     let info_path = std::path::Path::new(&args[1]);
     let bundle_path = info_path.with_extension("state.json");
     let (bound, mut pools, mut rpc, mut original) = bank::fixture();
@@ -141,6 +141,9 @@ async fn main() {
         source: "RETAINED_ORIGINAL_ROUTER_PROVIDED_BANK".into(),
         history_gaps: vec![],
     };
+    if args.len() == 3 {
+        config.config.api.cors_allowed_origins = vec![args[2].clone()];
+    }
     let api = xone_quote_api::Api::new(config).unwrap();
     api.replica.install_baseline(snapshot).unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

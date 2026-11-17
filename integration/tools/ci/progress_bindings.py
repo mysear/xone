@@ -1801,3 +1801,14 @@ BINDINGS['15.evm-prepared-api'] = {
            'local_simulation::tests::prepared_worker_response_is_exclusive_and_its_outer_commitment_is_recomputed'],
  'evidence_refs': ['integration/artifacts/local/evm-prepared-api-check/report.json'],
 }
+
+BINDINGS['15.evm-prepared-frontend'] = {
+ 'paths': ['dex-router/crates/quote-api/src/lib.rs',
+           'dex-router/crates/quote-api/src/local_simulation.rs',
+           'frontend/src/app.js', 'frontend/src/model.js',
+           'frontend/test/evm-prepared-browser.mjs',
+           'integration/tools/acceptance/validate_evm_prepared_frontend.py'],
+ 'tests': ['local_simulation::tests::runtime_evm_independent_capability_requires_matching_bank_and_rpc_preparation',
+           'EVM independent simulation requires every selected pool runtime and retains authority boundaries'],
+ 'evidence_refs': ['integration/artifacts/local/evm-prepared-frontend-check/report.json'],
+}

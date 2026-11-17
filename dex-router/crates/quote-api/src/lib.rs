@@ -436,7 +436,7 @@ impl Api {
                 .iter()
                 .flat_map(|r| r.path.edges.iter().map(|e| e.pool_id.as_str())),
         )?;
-        let response = json!({"protocolViewIds":protocol_view_ids,"quoteId":quote_id,"requestHash":request_hash,"chainKey":request.chain_key,"snapshotRef":view.reference,"ownerService":view.reference.owner_service,"onlineGeneration":view.reference.online_generation,"scopeHash":view.reference.scope_hash,"quoteViewId":view.view_id,"graphVersion":view.graph_version,"engineVersion":"xone-router/0.1","economicPolicyHash":self.config.economic_hash,"configRelease":self.config.release,"sellAmount":request.sell_amount,"consumedIn":plan.allocation.sell_amount,"refund":plan.allocation.refund,"grossBuyAmount":plan.allocation.gross_buy_amount,"minBuyAmount":plan.min_buy_amount,"netBuyAmountEstimate":Value::Null,"costs":{"unavailableReason":"CHAIN_FEE_MODEL_NOT_IMPLEMENTED","proposalActivationCostBuyToken":self.config.config.routing.route_activation_cost},"routes":plan.allocation.routes,"planHash":plan.plan_hash,"verification":{"level":"INDICATIVE","success":false,"reason":"INDEPENDENT_SIMULATION_UNAVAILABLE"},"validity":{"expiresAtMs":expires,"canonicalEpoch":view.reference.canonical_epoch},"quality":{"budgetExhausted":exhausted,"candidateScope":view.pools.iter().filter(|p|!view.graph.excluded_pools.contains_key(&p.pool_id)).map(|p|p.pool_id.clone()).collect::<Vec<_>>(),"excludedPools":view.graph.excluded_pools,"source":view.source,"historyIndependent":true,"optimalityClaim":"HEURISTIC_WITHIN_SCOPE","allocationSearch":{"evaluations":optimizer_evaluations,"exhaustiveWithinGrid":grid_exhaustive,"gridParts":self.config.config.routing.split_parts,"maxSplits":self.config.config.routing.max_splits},"expansions":expansions}});
+        let response = json!({"kind":"EXACT_IN","protocolViewIds":protocol_view_ids,"quoteId":quote_id,"requestHash":request_hash,"chainKey":request.chain_key,"snapshotRef":view.reference,"ownerService":view.reference.owner_service,"onlineGeneration":view.reference.online_generation,"scopeHash":view.reference.scope_hash,"quoteViewId":view.view_id,"graphVersion":view.graph_version,"engineVersion":"xone-router/0.1","economicPolicyHash":self.config.economic_hash,"configRelease":self.config.release,"sellAmount":request.sell_amount,"consumedIn":plan.allocation.sell_amount,"refund":plan.allocation.refund,"grossBuyAmount":plan.allocation.gross_buy_amount,"minBuyAmount":plan.min_buy_amount,"netBuyAmountEstimate":Value::Null,"costs":{"unavailableReason":"CHAIN_FEE_MODEL_NOT_IMPLEMENTED","proposalActivationCostBuyToken":self.config.config.routing.route_activation_cost},"routes":plan.allocation.routes,"planHash":plan.plan_hash,"verification":{"level":"INDICATIVE","success":false,"reason":"INDEPENDENT_SIMULATION_UNAVAILABLE"},"validity":{"expiresAtMs":expires,"canonicalEpoch":view.reference.canonical_epoch},"quality":{"budgetExhausted":exhausted,"candidateScope":view.pools.iter().filter(|p|!view.graph.excluded_pools.contains_key(&p.pool_id)).map(|p|p.pool_id.clone()).collect::<Vec<_>>(),"excludedPools":view.graph.excluded_pools,"source":view.source,"historyIndependent":true,"optimalityClaim":"HEURISTIC_WITHIN_SCOPE","allocationSearch":{"evaluations":optimizer_evaluations,"exhaustiveWithinGrid":grid_exhaustive,"gridParts":self.config.config.routing.split_parts,"maxSplits":self.config.config.routing.max_splits},"expansions":expansions}});
         let mut cache = self.cache.lock().map_err(|_| err("CACHE_LOCK"))?;
         let capacity = (self.config.config.api.requests_per_minute as usize).clamp(16, 10000);
         if cache.len() >= capacity {
@@ -1015,6 +1015,7 @@ fn publish_simulation(
     }
     api.check_view(&cached.view).map_err(failure)?;
     response["quoteId"] = id.into();
+    response["quoteViewId"] = cached.view.view_id.clone().into();
     response["planHash"] = cached.plan.plan_hash.clone().into();
     response["snapshotRef"] =
         serde_json::to_value(&cached.plan.snapshot).map_err(|_| failure(err("HASH_ENCODING")))?;
@@ -1060,6 +1061,7 @@ fn publish_exact_out_simulation(
     }
     api.check_view(&cached.view).map_err(failure)?;
     response["quoteId"] = id.into();
+    response["quoteViewId"] = cached.view.view_id.clone().into();
     response["planHash"] = cached.plan.plan_hash.clone().into();
     response["snapshotRef"] =
         serde_json::to_value(&cached.plan.snapshot).map_err(|_| failure(err("HASH_ENCODING")))?;
@@ -1204,6 +1206,10 @@ async fn quote_options(
                                 && p.token_code_sha256.contains_key(&pool.token1)
                                 && pool.v2.as_ref().is_some_and(|v| v.factory == p.factory)
                         });
+                let evm_local = evm_preparation
+                    && api.local_simulation.as_ref().is_some_and(|backend| {
+                        backend.matches_snapshot(&v.reference, &configured.genesis_hash)
+                    });
                 pools.push(json!({
                     "protocolViewId":protocol_view.view_id,
                     "capabilities":capability,
@@ -1216,7 +1222,7 @@ async fn quote_options(
                     "directions": directions,
                     "available": available,
                     "unavailableReason": reason,
-                    "execution": {"evmPreparation":evm_preparation,"evmPreparationEndpoint":if evm_preparation{Some("/v1/quotes/{id}/prepare-evm")}else{None},"quote": available, "preparation": available && capability.execution_preparation && !configured.rpc_urls.is_empty(), "unsignedPlan": available && capability.unsigned_transaction && !configured.rpc_urls.is_empty(), "rpcSimulation": available && capability.rpc_simulation && !configured.rpc_urls.is_empty(), "createDestinationAta":available && capability.account_creation && !configured.rpc_urls.is_empty(), "wrapSourceSol": available && capability.native_funding && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "unwrapDestinationSol": available && capability.native_funding && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "walletSubmission":wallet_submission,"receiptTracking":api.receipts.is_some(),"independentLocalSimulation":local_sbf,"simulation": false},
+                    "execution": {"evmIndependentLocalSimulation":evm_local,"evmPreparation":evm_preparation,"evmPreparationEndpoint":if evm_preparation{Some("/v1/quotes/{id}/prepare-evm")}else{None},"quote": available, "preparation": available && capability.execution_preparation && !configured.rpc_urls.is_empty(), "unsignedPlan": available && capability.unsigned_transaction && !configured.rpc_urls.is_empty(), "rpcSimulation": available && capability.rpc_simulation && !configured.rpc_urls.is_empty(), "createDestinationAta":available && capability.account_creation && !configured.rpc_urls.is_empty(), "wrapSourceSol": available && capability.native_funding && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "unwrapDestinationSol": available && capability.native_funding && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "walletSubmission":wallet_submission,"receiptTracking":api.receipts.is_some(),"independentLocalSimulation":local_sbf,"simulation": false},
                 }));
             }
         }
