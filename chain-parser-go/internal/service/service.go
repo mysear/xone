@@ -652,6 +652,7 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("POST /internal/checkpoints", func(w http.ResponseWriter, r *http.Request) {
 		paths := []string{}
 		publications := []checkpoint.Publication{}
+		remotes := []checkpoint.RemotePublication{}
 		for key, store := range s.stores {
 			snapshot, ok := store.Current()
 			if !ok {
@@ -688,8 +689,22 @@ func (s *Service) Handler() http.Handler {
 				return
 			}
 			publications = append(publications, publication)
+			if remoteConfig := s.cfg.Config.Journal.CheckpointStore; remoteConfig != nil {
+				remote, err := checkpoint.NewRemote(*remoteConfig, s.cfg.Config.Journal.SourceAuthTokens[remoteConfig.BaseURL], s.cfg.Config.Journal.MaxBytes, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
+				if err != nil {
+					write(w, 503, map[string]string{"error": "CHECKPOINT_REMOTE_CONFIG"})
+					return
+				}
+				published, err := remote.Publish(r.Context(), publication, guard)
+				remote.Close()
+				if err != nil {
+					write(w, 503, map[string]string{"error": "CHECKPOINT_REMOTE_PUBLICATION_FAILED"})
+					return
+				}
+				remotes = append(remotes, published)
+			}
 		}
-		write(w, 200, map[string]any{"manifests": paths, "public_checkpoints": publications})
+		write(w, 200, map[string]any{"manifests": paths, "public_checkpoints": publications, "remote_checkpoints": remotes})
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/internal/") && s.cfg.Token != "" {

@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|远端checkpoint对象读写（阶段103）|§10.5/17.7；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|配置HTTP条件写入对象API、回读精确字节、先manifest pin后有界下载及正常管理入口|13门禁/142次Go/125次Rust冻结验收通过；可信目录和router正常恢复待补|
 |公开Protobuf checkpoint（阶段102）|§9/10.5/17.7；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|公开格式绑定完整快照、committed Kafka游标、owner/代际/范围与原字节摘要，不可变先payload后manifest发布|13门禁/74次Go/42次Rust、同轮3组跨语言向量与源码/901固定输入通过；远端存储/来源资格与正常恢复后续|
 |显式常驻分析worker（阶段101）|§16/28.21/28.23；WP19、WP21|LOCAL_SCOPE_VERIFIED|Go只读角色journal-continuous、耐久游标周期消费、取消/错误停止及跨语言配置|13门禁/97次Go/81次Rust、实际Kafka连续消费/重启/异常事实拒绝通过；ClickHouse持续事实仍缺|
 |EVM原准备独立执行界面（阶段100）|§14/15/21；WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|按匹配银行显式开放本地执行，浏览器SHA256核对原wire、报价/视图/准备hash、实际收付费率|16门禁/168次Rust、13Node、新旧18Chrome与桌面/移动截图通过；901固定/97参考输入绑定|
@@ -478,6 +479,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|9.remote-checkpoint-objects|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go正常入口可上传独立HTTP对象API，半上传可续传、冲突不覆盖，受限下载验证pin及状态/cursor|13门禁限定对象API验收通过；目录声明/正常router恢复/真实独立存储故障域仍缺|[验证记录](integration/artifacts/local/remote-checkpoint-check/report.json)|
 |9.public-bootstrap-checkpoints|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|公开OwnerBootstrap和固定摘要manifest，游标无损十进制字符串，Go写入及双Rust校验|13门禁本地格式冻结验收通过；远端上传下载/可信目录/正常恢复继续|[验证记录](integration/artifacts/local/public-bootstrap-check/report.json)|
 |16.analytics-continuous-worker|WP19,WP21|LOCAL_SCOPE_VERIFIED|现有Go服务内显式常驻只读分析模式，串行有界周期、耐久重启和异常停止|统一门禁通过；大规模事实保留/ClickHouse/shadow及查询继续|[验证记录](integration/artifacts/local/analytics-worker-check/report.json)|
 |15.evm-prepared-frontend|WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|EVM双模式原准备界面和浏览器wire摘要/状态/金额核对|统一门禁通过；当前银行捕获/其他链规则与钱包功能继续|[验证记录](integration/artifacts/local/evm-prepared-frontend-check/report.json)|
@@ -604,6 +606,7 @@
 |100|[EVM原准备独立执行界面](#plan-2026-11-17-evm-prepared-frontend)|LOCAL_SCOPE_VERIFIED|16门禁/168次Rust、13Node/18Chrome、wire摘要及移动布局；[验证记录](integration/artifacts/local/evm-prepared-frontend-check/report.json)|
 |101|[显式常驻分析worker](#plan-2026-11-17-analytics-worker)|LOCAL_SCOPE_VERIFIED|13门禁/97次Go/81次Rust、实际Go服务/独立Kafka连续消费与重启；[验证记录](integration/artifacts/local/analytics-worker-check/report.json)|
 |102|[公开Protobuf checkpoint](#plan-2026-11-17-public-bootstrap-checkpoints)|LOCAL_SCOPE_VERIFIED|13门禁/74次Go/42次Rust、3组原字节互通；[验证记录](integration/artifacts/local/public-bootstrap-check/report.json)|
+|103|[远端checkpoint对象读写](#plan-2026-11-17-remote-checkpoint-objects)|LOCAL_SCOPE_VERIFIED|13门禁/142次Go/125次Rust；[验证记录](integration/artifacts/local/remote-checkpoint-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -2974,3 +2977,19 @@ B93.2 独立故障域与部署验收（§18/20/28.25）：三个生产配置无K
 该轮仅公开本地格式和管理入口；远端对象存储、canonical目录声明、可信来源选择、正常router恢复和独立故障域演练尚未完成。摘要只证明给定对象完整性，不赋予owner授权/当前性或Kafka topic生命周期证明。
 
 阶段102最终限定验收：13门禁全部exit0，74次Go（checkpoint/journal/reducer73及正常服务checkpoint1）race测试、两个独立Rust transport workspace共42次测试（各含当前Go导出3组互通）通过，Go vet、当前Go服务二进制构建与双Rust全目标严格Clippy通过。源树和901份固定输入及当轮7个Go导出文件前后摘要一致，最终目录`72a3131d77f94d2aac61a29e7ac8de78`。manifest先pin后payload I/O、发布后撤权无资格返回、半发布续传/符号链接/并发幂等均通过；远端存储和正常恢复继续实现。
+
+<a id="plan-2026-11-17-remote-checkpoint-objects"></a>
+
+## 远端checkpoint对象读写（2026-11-17，阶段103）
+
+沿用阶段102公开格式，补齐远端HTTP对象读写及正常Go管理入口。配置journal.checkpoint_store显式base_url和开发明文开关，凭据复用source_auth_tokens的精确base URL键；两个Rust配置副本解析及校验同样字段。仅HTTPS或显式127.0.0.1明文开发地址，禁止URL凭据/query/fragment/转义与相对路径、自动代理/跳转/解压；凭据不进入公开配置hash。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F103.1|不可变远端条件发布与精确回读|WP08,WP24|LOCAL_SCOPE_VERIFIED|上传前校验本地pin/完整状态，GET已存在对象比字节，缺失时If-None-Match:* PUT并GET回读；先payload后manifest，409/412仅精确字节成功，损坏/丢写/半上传/撤权不返回资格。|
+|F103.2|受限下载与固定凭据范围|WP08,WP09|LOCAL_SCOPE_VERIFIED|URL仅配置base+内容SHA派生；manifest先pin/长度校验才请求payload，精确size/摘要/引用/游标，整轮timeout/ctx、声明/流式大小限额、状态/跳转/编码拒绝。|
+|F103.3|正常checkpoint入口及跨语言配置|WP08,WP24|LOCAL_SCOPE_VERIFIED|授权管理入口返回remote_checkpoints；独立HTTP对象API成功/503经正常handler，Go race/配置hash与双Rust配置/transport回归及严格lint统一冻结验收通过。|
+
+对象API合同要求实现原子条件PUT及read-after-write；当前不内置S3签名、供应商SDK或存储服务，也不把HTTP成功解释为独立故障域耐久/WORM。独立HTTP测试对象API实际读写但驻内存；真实云存储部署与目录资格、canonical声明和router自动远端恢复仍另列。首次定向配置测试误把未用adapter空Amount重新Marshal，受INVALID_AMOUNT拒绝；测试改用原配置文档字段存在性，原数值约束未放宽。
+
+阶段103最终限定验收：13门禁全部exit0，142次Go race测试及两个独立Rust workspace共125次配置/transport测试通过；Go vet/正常服务程序构建、双Rust全目标严格Clippy、格式/契约和进度校验通过。源树/901固定输入与当轮Go跨语言导出前后相同，最终目录`7548bc48538a4691b01045ee2983d014`。真实HTTP对象API和正常授权handler已覆盖成功及故障边界；不把该限定实现写为云存储已部署、独立备份或正常router远端恢复完成。

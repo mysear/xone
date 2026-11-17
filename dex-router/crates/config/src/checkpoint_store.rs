@@ -1,0 +1,118 @@
+use serde::{Deserialize, Serialize};
+use xone_domain::{err, Result};
+/// Conditional-PUT HTTP object API. Tokens use the exact base URL key in source_auth_tokens.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CheckpointStore {
+    pub base_url: String,
+    pub allow_plaintext_development: bool,
+}
+impl CheckpointStore {
+    pub fn validate(&self) -> Result<()> {
+        let fail = || err("CHECKPOINT_STORE_CONFIG_INVALID");
+        if self.base_url.len() > 2048 {
+            return Err(fail());
+        }
+        let (rest, secure) = if let Some(rest) = self.base_url.strip_prefix("https://") {
+            (rest, true)
+        } else if let Some(rest) = self.base_url.strip_prefix("http://") {
+            (rest, false)
+        } else {
+            return Err(fail());
+        };
+        if !secure && !self.allow_plaintext_development {
+            return Err(fail());
+        }
+        let mut parts = rest.split('/');
+        let authority = parts
+            .next()
+            .ok_or_else(fail)?
+            .split(':')
+            .collect::<Vec<_>>();
+        let host = authority[0];
+        if authority.len() > 2 || host.is_empty() || host.len() > 253 {
+            return Err(fail());
+        }
+        for label in host.split('.') {
+            if label.is_empty()
+                || label.len() > 63
+                || label.starts_with('-')
+                || label.ends_with('-')
+                || !label
+                    .bytes()
+                    .all(|v| v.is_ascii_lowercase() || v.is_ascii_digit() || v == b'-')
+            {
+                return Err(fail());
+            }
+        }
+        if authority.len() == 2 {
+            let port = authority[1].parse::<u16>().map_err(|_| fail())?;
+            if port == 0 || port.to_string() != authority[1] {
+                return Err(fail());
+            }
+        }
+        if !secure && host != "127.0.0.1" {
+            return Err(fail());
+        }
+        for part in parts {
+            if part.is_empty()
+                || [".", ".."].contains(&part)
+                || !part
+                    .bytes()
+                    .all(|v| v.is_ascii_alphanumeric() || b"._-".contains(&v))
+            {
+                return Err(fail());
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn checkpoint_store_url_scope_is_explicit_and_shared() {
+        let mut cfg = crate::load("../../config/config-test.yaml", "dex-router")
+            .or_else(|_| crate::load("../../config/config-test.yaml", "chain-parser-rust"))
+            .unwrap()
+            .config;
+        let expected = cfg.service.name.clone();
+        for url in [
+            "https://objects.example/bucket",
+            "https://objects.example:443/bucket-1",
+            "http://127.0.0.1:8092/bucket",
+        ] {
+            cfg.journal.checkpoint_store = Some(CheckpointStore {
+                base_url: url.into(),
+                allow_plaintext_development: true,
+            });
+            cfg.validate(&expected).unwrap();
+        }
+        for url in [
+            "http://objects.example/bucket",
+            "https://objects.example/",
+            "https://objects.example/a/../b",
+            "https://objects.example/a%2fb",
+            "https://user:secret@objects.example",
+            "https://objects.example?token=secret",
+            "https://objects.example/#x",
+            "https://objects.example:0/b",
+            "https://objects.example:0443/b",
+            "https://Objects.example/b",
+            "https://objects.example/a//b",
+            "http://127.0.0.10:8092",
+        ] {
+            cfg.journal.checkpoint_store = Some(CheckpointStore {
+                base_url: url.into(),
+                allow_plaintext_development: true,
+            });
+            assert!(cfg.validate(&expected).is_err(), "{url}");
+        }
+        cfg.journal.checkpoint_store = Some(CheckpointStore {
+            base_url: "http://127.0.0.1:8092/bucket".into(),
+            allow_plaintext_development: false,
+        });
+        assert!(cfg.validate(&expected).is_err());
+    }
+}

@@ -1,3 +1,5 @@
+mod checkpoint_store;
+pub use checkpoint_store::CheckpointStore;
 mod evm_preparation;
 pub use evm_preparation::EvmPreparationConfig;
 mod lfj;
@@ -57,6 +59,8 @@ config_struct!(Kafka {brokers:Vec<String>,topics:BTreeMap<String,String>,replica
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Journal {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkpoint_store: Option<CheckpointStore>,
     pub kafka: Kafka,
     pub transport: String,
     pub source_urls: Vec<String>,
@@ -760,6 +764,9 @@ impl Config {
             return Err(fail());
         }
         let j = &self.journal;
+        if let Some(store) = &j.checkpoint_store {
+            store.validate()?;
+        }
         if !["http-development", "kafka"].contains(&j.transport.as_str())
             || j.poll_interval_ms == 0
             || j.request_timeout_ms == 0

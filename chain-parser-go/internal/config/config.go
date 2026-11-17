@@ -68,6 +68,7 @@ type RawEvidenceConfig struct {
 	MaxRecordBytes int64 `json:"max_record_bytes"`
 }
 type Journal struct {
+	CheckpointStore  *CheckpointStore      `json:"checkpoint_store,omitempty"`
 	RawMaintenance   *RawMaintenanceConfig `json:"raw_maintenance,omitempty"`
 	RawEvidence      *RawEvidenceConfig    `json:"raw_evidence,omitempty"`
 	SourceAuthTokens map[string]string     `json:"source_auth_tokens,omitempty"`
@@ -453,6 +454,9 @@ func Load(path, expected string) (*Snapshot, error) {
 	return &Snapshot{Config: cfg, Release: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), PublicHash: public, EconomicHash: economic, Root: root, Token: token, ControlDSN: controlDSN}, nil
 }
 func (c Config) Validate(expected string) error {
+	if err := c.Journal.CheckpointStore.Validate(); err != nil {
+		return err
+	}
 	if err := c.Journal.RawMaintenance.Validate(c.Journal.RawEvidence); err != nil {
 		return err
 	}

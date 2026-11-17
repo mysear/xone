@@ -1105,3 +1105,7 @@ analytics-worker-current-check:
 .PHONY: public-bootstrap-current-check
 public-bootstrap-current-check:
 	python3 tools/acceptance/validate_public_bootstrap.py
+
+.PHONY: remote-checkpoint-current-check
+remote-checkpoint-current-check:
+	python3 tools/acceptance/validate_remote_checkpoint.py

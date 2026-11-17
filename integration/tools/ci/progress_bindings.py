@@ -1841,3 +1841,19 @@ BINDINGS['9.public-bootstrap-checkpoints'] = {
            'current_go_checkpoint_vectors_match_reference_cursor_and_full_width_amounts'],
  'evidence_refs': ['integration/artifacts/local/public-bootstrap-check/report.json'],
 }
+
+BINDINGS['9.remote-checkpoint-objects'] = {
+ 'paths': ['chain-parser-go/internal/checkpoint/remote.go',
+           'chain-parser-go/internal/checkpoint/remote_test.go',
+           'chain-parser-go/internal/config/checkpoint_store.go',
+           'dex-router/crates/config/src/checkpoint_store.rs',
+           'chain-parser-go/internal/service/checkpoint_test.go',
+           'integration/tools/acceptance/validate_remote_checkpoint.py'],
+ 'tests': ['TestRemoteCheckpointPublishReadbackRoundtripAndConcurrentRetry',
+           'TestRemoteCheckpointHalfUploadRetryConflictAndRevocation',
+           'TestRemoteCheckpointPutAcknowledgementRequiresActualExactObject',
+           'TestRemoteCheckpointManifestAuthenticationPrecedesPayloadDownload',
+           'TestRemoteCheckpointCancellationDeadlineAndLocalCorruptionPreventQualification',
+           'checkpoint_store::tests::checkpoint_store_url_scope_is_explicit_and_shared'],
+ 'evidence_refs': ['integration/artifacts/local/remote-checkpoint-check/report.json'],
+}

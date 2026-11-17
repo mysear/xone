@@ -3,9 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 	"xone/chain-parser-go/internal/checkpoint"
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/journal"
@@ -88,4 +92,84 @@ func TestNormalCheckpointEndpointPublishesBoundPublicBootstrapWithoutInventingCu
 	if again.Code != http.StatusOK {
 		t.Fatal(again.Code, again.Body.String())
 	}
+	// This is the normal authenticated service handler, with a separately listening object API.
+	var mu sync.Mutex
+	objects := map[string][]byte{}
+	unavailable := false
+	objectAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		if r.Header.Get("Authorization") != "Bearer object-api-secret-20261117" {
+			w.WriteHeader(401)
+			return
+		}
+		if unavailable {
+			w.WriteHeader(503)
+			return
+		}
+		switch r.Method {
+		case "GET":
+			raw, ok := objects[r.URL.Path]
+			if !ok {
+				w.WriteHeader(404)
+				return
+			}
+			w.Write(raw)
+		case "PUT":
+			if r.Header.Get("If-None-Match") != "*" {
+				w.WriteHeader(400)
+				return
+			}
+			if _, ok := objects[r.URL.Path]; ok {
+				w.WriteHeader(412)
+				return
+			}
+			raw, e := io.ReadAll(r.Body)
+			if e != nil {
+				w.WriteHeader(400)
+				return
+			}
+			objects[r.URL.Path] = raw
+			w.WriteHeader(201)
+		default:
+			w.WriteHeader(405)
+		}
+	}))
+	defer objectAPI.Close()
+	remoteConfig := &config.CheckpointStore{BaseURL: objectAPI.URL + "/checkpoint-bucket", AllowPlaintext: true}
+	cfg.Config.Journal.CheckpointStore = remoteConfig
+	cfg.Config.Journal.SourceAuthTokens = map[string]string{remoteConfig.BaseURL: "object-api-secret-20261117"}
+	w = request(true)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	var remoteResponse struct {
+		Remote []checkpoint.RemotePublication `json:"remote_checkpoints"`
+	}
+	if e = json.Unmarshal(w.Body.Bytes(), &remoteResponse); e != nil || len(remoteResponse.Remote) != 1 {
+		t.Fatal(w.Body.String(), e)
+	}
+	remotePublication := remoteResponse.Remote[0]
+	if !strings.HasPrefix(remotePublication.ManifestURL, remoteConfig.BaseURL+"/public-v2/") || remotePublication.ManifestSHA256 != publication.ManifestSHA256 {
+		t.Fatal(remotePublication)
+	}
+	remote, e := checkpoint.NewRemote(*remoteConfig, cfg.Config.Journal.SourceAuthTokens[remoteConfig.BaseURL], cfg.Config.Journal.MaxBytes, 5*time.Second)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer remote.Close()
+	fetched, e := remote.Fetch(context.Background(), publication.Manifest.SHA256, publication.ManifestSHA256)
+	if e != nil || fetched.Cursor != cursor || fetched.Snapshot.Reference != current.Reference {
+		t.Fatal("normal service remote state/cursor mismatch", e)
+	}
+	mu.Lock()
+	if len(objects) != 2 {
+		t.Fatal(objects)
+	}
+	unavailable = true
+	mu.Unlock()
+	if failed := request(true); failed.Code != 503 || !strings.Contains(failed.Body.String(), "CHECKPOINT_REMOTE_PUBLICATION_FAILED") {
+		t.Fatal(failed.Code, failed.Body.String())
+	}
+
 }
