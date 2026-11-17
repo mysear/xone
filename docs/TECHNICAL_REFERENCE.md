@@ -1973,3 +1973,13 @@ Rust ConfigSnapshot的public_hash现在与Go一样先规范化typed API/journal�
 RemotePublication/RecoveryCatalog和recovery_target现在由两个Rust kafka-transport副本统一实现。控制目录schema1仍要求同generation；schema2允许旧checkpoint到当前head之间generation单调前进，其他owner/assignment/writer/canonical/schema/adapter/scope必须一致。Rust正常owner当前以完整ONLINE_BASELINE_COMMIT推进，Store仍拒绝未知BLOCK_COMMIT；router在私有Replica重放时，v2完整baseline通过install_baseline验证，普通BLOCK_COMMIT仍通过原连续apply，seq/cursor/完整transaction边界和最终head全部精确匹配。writer变更、reorg、scope/schema变更继续失败并尝试当前来源。
 
 `make -C integration rust-owner-recovery-current-check`在同一冻结批次起独立Kafka，运行两个不同当前测试程序：Rust owner维持真实正常HTTP和对象API，提交真实Kafka旧baseline与两次完整baseline；独立router通过原恢复路径私有追平/正常sync/实际HTTP报价，缺owner凭据无ready。测试使用受控Solana fixture来源和显式测试producer，不声明实网bank/PG lease或跨区域存储资格。目录/旧对象数据另由Go独立解码，原v1 EVM两块追平与exact-current Kafka回归显式运行。
+
+## 公开checkpoint本地逻辑容量准入
+
+阶段112。`journal.checkpoint_store.local_budget={"max_bytes":1073741824,"max_files":1000,"max_entries":2048}`为显式按链public-v2命名空间限制，省略则沿用原行为。参数非空时bytes1..1TiB、files1..100000、entries≥files且≤1000000，非法设置在加载时拒绝。它进入公开配置hash但不改变经济策略hash；Go3组当前配置供双Rust实际load核对。
+
+两owner在单一共享发布gate中先编码当次public manifest/payload，规划精确remote证书及candidate字节/名字，再有界扫描现存namespace。所有普通文件（含未知及遗留staging）计入bytes/files，每个文件和目录计入entries；链接/非普通对象/深度超过4、枚举超过max_entries或现有/预计逻辑占用超限均失败。读取不跟随对象链接，逐entry检查取消。既有对象只按现存大小和必要增量规划，不因重复发布完整相同对象再收一次持久容量。失败在公开对象write/远端request之前，不删除旧candidate/cert/对象。
+
+Go周期路径改为仅写公共Protobuf和远端元数据，避免每轮再复制旧本地JSON；手动POST仍返回旧JSON manifests兼容，旧手动JSON/底层KV不在public-v2预算内。status暴露local_budget，nil表示未启用。此为逻辑文件准入，非实际磁盘块/WAL/metadata/原子临时副本的空间预留；要求同namespace仅一个owner进程写入，不替代跨进程锁或远端总存储预算。自动保留策略后续接入，当前满额明确拒绝新发布。
+
+`make -C integration checkpoint-budget-current-check`验证精确边界、旧对象重试/新代拒绝、未知文件与目录/链接/取消，以及两正常owner配额不足无public写入/remote请求；两个Rust读取Go当轮实际对象和Usage/配置hash，原独立正常owner-router Kafka追平显式回归。

@@ -63,6 +63,17 @@ impl Fixture {
         Self::new_configured(0, false, "").await
     }
     pub(super) async fn new_configured(interval: u64, multi: bool, initial_mode: &str) -> Self {
+        Self::new_options(interval, multi, initial_mode, None).await
+    }
+    pub(super) async fn new_budget(interval: u64, budget: xone_config::CheckpointBudget) -> Self {
+        Self::new_options(interval, false, "", Some(budget)).await
+    }
+    async fn new_options(
+        interval: u64,
+        multi: bool,
+        initial_mode: &str,
+        budget: Option<xone_config::CheckpointBudget>,
+    ) -> Self {
         let objects = Arc::new(Mutex::new(Objects {
             mode: initial_mode.into(),
             ..Objects::default()
@@ -162,6 +173,7 @@ impl Fixture {
         })));
         let parser = super::tests::fixture_configured(|snapshot| {
             snapshot.config.journal.checkpoint_store = Some(xone_config::CheckpointStore {
+                local_budget: budget.clone(),
                 base_url: base.clone(),
                 allow_plaintext_development: true,
                 publish_interval_ms: interval,

@@ -176,3 +176,61 @@ func TestCheckpointConfigExportsCanonicalDefaultsAndSecretFreeHashes(t *testing.
 		t.Fatal(e)
 	}
 }
+
+func TestCheckpointLocalBudgetConfigAndIndependentHashes(t *testing.T) {
+	cfg, e := Load("../../config/config-test.yaml", "chain-parser-go")
+	if e != nil {
+		t.Fatal(e)
+	}
+	cfg.Config.Journal.CheckpointStore = &CheckpointStore{BaseURL: "https://objects.example/bucket"}
+	for _, budget := range []CheckpointBudget{{MaxBytes: 0, MaxFiles: 1, MaxEntries: 1}, {MaxBytes: 1<<40 + 1, MaxFiles: 1, MaxEntries: 1}, {MaxBytes: 1, MaxFiles: 0, MaxEntries: 1}, {MaxBytes: 1, MaxFiles: 100001, MaxEntries: 100001}, {MaxBytes: 1, MaxFiles: 5, MaxEntries: 4}, {MaxBytes: 1, MaxFiles: 1, MaxEntries: 1000001}} {
+		cfg.Config.Journal.CheckpointStore.LocalBudget = &budget
+		if cfg.Config.Validate("chain-parser-go") == nil {
+			t.Fatal(budget)
+		}
+	}
+	raw, e := os.ReadFile("../../config/config-test.yaml")
+	if e != nil {
+		t.Fatal(e)
+	}
+	out := os.Getenv("XONE_CHECKPOINT_CONFIG_VECTORS_OUTPUT")
+	if out == "" {
+		out = t.TempDir()
+	}
+	if e = os.MkdirAll(out, 0700); e != nil {
+		t.Fatal(e)
+	}
+	var vectors []map[string]any
+	for i, budget := range []*CheckpointBudget{nil, {MaxBytes: 1, MaxFiles: 1, MaxEntries: 1}, {MaxBytes: 1 << 30, MaxFiles: 1000, MaxEntries: 2048}} {
+		var doc map[string]any
+		if e = json.Unmarshal(raw, &doc); e != nil {
+			t.Fatal(e)
+		}
+		store := &CheckpointStore{BaseURL: "https://objects.example/bucket", LocalBudget: budget}
+		doc["journal"].(map[string]any)["checkpoint_store"] = store
+		encoded, e := json.Marshal(doc)
+		if e != nil {
+			t.Fatal(e)
+		}
+		name := "budget-config-" + string(rune('0'+i)) + ".json"
+		path := filepath.Join(out, name)
+		if e = os.WriteFile(path, encoded, 0600); e != nil {
+			t.Fatal(e)
+		}
+		loaded, e := Load(path, "chain-parser-go")
+		if e != nil {
+			t.Fatal(e)
+		}
+		vectors = append(vectors, map[string]any{"file": name, "public_hash": loaded.PublicHash, "economic_hash": loaded.EconomicHash})
+	}
+	encoded, e := json.MarshalIndent(map[string]any{"vectors": vectors}, "", "  ")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(filepath.Join(out, "budget-vectors.json"), encoded, 0600); e != nil {
+		t.Fatal(e)
+	}
+	if vectors[0]["public_hash"] == vectors[1]["public_hash"] || vectors[1]["public_hash"] == vectors[2]["public_hash"] {
+		t.Fatal("budgets omitted from public hash")
+	}
+}

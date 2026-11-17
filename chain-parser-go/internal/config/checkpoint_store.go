@@ -9,14 +9,18 @@ import (
 // CheckpointStore is an explicitly configured conditional-PUT HTTP object API.
 // Credentials use the exact base URL key in journal.source_auth_tokens.
 type CheckpointStore struct {
-	PublishIntervalMS uint64 `json:"publish_interval_ms,omitempty"`
-	BaseURL           string `json:"base_url"`
-	AllowPlaintext    bool   `json:"allow_plaintext_development"`
+	LocalBudget       *CheckpointBudget `json:"local_budget,omitempty"`
+	PublishIntervalMS uint64            `json:"publish_interval_ms,omitempty"`
+	BaseURL           string            `json:"base_url"`
+	AllowPlaintext    bool              `json:"allow_plaintext_development"`
 }
 
 func (c *CheckpointStore) Validate() error {
 	if c == nil {
 		return nil
+	}
+	if e := c.LocalBudget.Validate(); e != nil {
+		return e
 	}
 	fail := errors.New("CHECKPOINT_STORE_CONFIG_INVALID")
 	if len(c.BaseURL) > 2048 || c.PublishIntervalMS > 3600000 || c.PublishIntervalMS > 0 && c.PublishIntervalMS < 100 {
@@ -63,6 +67,22 @@ func (c *CheckpointStore) Validate() error {
 				return fail
 			}
 		}
+	}
+	return nil
+}
+
+type CheckpointBudget struct {
+	MaxBytes   uint64 `json:"max_bytes"`
+	MaxFiles   uint64 `json:"max_files"`
+	MaxEntries uint64 `json:"max_entries"`
+}
+
+func (c *CheckpointBudget) Validate() error {
+	if c == nil {
+		return nil
+	}
+	if c.MaxBytes == 0 || c.MaxBytes > 1<<40 || c.MaxFiles == 0 || c.MaxFiles > 100000 || c.MaxEntries < c.MaxFiles || c.MaxEntries > 1000000 {
+		return errors.New("CHECKPOINT_LOCAL_BUDGET_CONFIG")
 	}
 	return nil
 }

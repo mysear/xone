@@ -184,3 +184,29 @@ async fn rust_periodic_checkpoint_normal_shutdown_signal_cancels_remote_work_and
     );
     f.close().await;
 }
+
+#[tokio::test]
+async fn rust_periodic_checkpoint_local_budget_rejects_before_file_and_remote_io() {
+    let f = Fixture::new_budget(
+        100,
+        xone_config::CheckpointBudget {
+            max_bytes: 1,
+            max_files: 4,
+            max_entries: 8,
+        },
+    )
+    .await;
+    wait(|| f.parser.checkpoint_metrics.errors.load(Ordering::Relaxed) > 0).await;
+    assert!(f.objects.lock().unwrap().requests.is_empty());
+    let root = f.parser.config.resolve(&f.parser.config.config.state.path);
+    assert!(!root.join("checkpoints").exists());
+    let (status, value) = f.publish().await;
+    assert_eq!(status, reqwest::StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        value["error"],
+        serde_json::json!("CHECKPOINT_LOCAL_BUDGET_EXCEEDED")
+    );
+    assert!(f.objects.lock().unwrap().requests.is_empty());
+    assert!(!root.join("checkpoints").exists());
+    f.close().await;
+}

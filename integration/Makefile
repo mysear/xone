@@ -1141,3 +1141,7 @@ rust-periodic-checkpoint-current-check:
 .PHONY: rust-owner-recovery-current-check
 rust-owner-recovery-current-check:
 	python3 tools/acceptance/validate_rust_owner_recovery.py
+
+.PHONY: checkpoint-budget-current-check
+checkpoint-budget-current-check:
+	python3 tools/acceptance/validate_checkpoint_budget.py

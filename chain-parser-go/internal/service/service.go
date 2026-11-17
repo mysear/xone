@@ -729,7 +729,12 @@ func (s *Service) Handler() http.Handler {
 		if c := s.cfg.Config.Journal.CheckpointStore; c != nil {
 			interval = c.PublishIntervalMS
 		}
-		write(w, 200, map[string]any{"enabled": interval > 0, "active": s.checkpointActive.Load(), "publish_interval_ms": interval, "completed_cycles": s.checkpointCycles.Load(), "failed_cycles": s.checkpointErrors.Load()})
+		write(w, 200, map[string]any{"enabled": interval > 0, "active": s.checkpointActive.Load(), "publish_interval_ms": interval, "completed_cycles": s.checkpointCycles.Load(), "failed_cycles": s.checkpointErrors.Load(), "local_budget": func() *config.CheckpointBudget {
+			if c := s.cfg.Config.Journal.CheckpointStore; c != nil {
+				return c.LocalBudget
+			}
+			return nil
+		}()})
 	})
 	mux.HandleFunc("POST /internal/checkpoints", func(w http.ResponseWriter, r *http.Request) {
 		result, code := s.publishCheckpoints(r.Context())

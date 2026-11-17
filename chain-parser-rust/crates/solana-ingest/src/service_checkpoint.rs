@@ -336,21 +336,57 @@ impl Parser {
             let key = chain.key.clone();
             let stopped = cancelled.clone();
             let maximum = self.config.config.journal.max_payload_bytes;
+            let budget = self
+                .config
+                .config
+                .journal
+                .checkpoint_store
+                .as_ref()
+                .and_then(|store| store.local_budget.clone());
+            let base = self
+                .config
+                .config
+                .journal
+                .checkpoint_store
+                .as_ref()
+                .map(|store| store.base_url.clone())
+                .unwrap_or_default();
             let (publication, returned_gate) = tokio::task::spawn_blocking(move || {
-                let result = local::write(&directory, &boot, maximum, || {
-                    if stopped.load(Ordering::Acquire) || *copy.stream_stop.borrow() {
-                        return Err(err("CHECKPOINT_CANCELLED"));
+                let result = (|| {
+                    if let Some(budget) = budget {
+                        xone_kafka_transport::checkpoint::budget::admit(
+                            &directory,
+                            &boot,
+                            maximum,
+                            &base,
+                            &xone_kafka_transport::checkpoint::budget::Budget {
+                                max_bytes: budget.max_bytes,
+                                max_files: budget.max_files,
+                                max_entries: budget.max_entries,
+                            },
+                            || {
+                                if stopped.load(Ordering::Acquire) || *copy.stream_stop.borrow() {
+                                    return Err(err("CHECKPOINT_CANCELLED"));
+                                }
+                                Ok(())
+                            },
+                        )?;
                     }
-                    let current = copy.stores[&key]
-                        .lock()
-                        .map_err(|_| err("STATE_LOCK_POISONED"))?
-                        .current()
-                        .ok_or_else(|| err("CHECKPOINT_SOURCE_REVOKED"))?;
-                    if !same_era(&reference, &current.reference) {
-                        return Err(err("CHECKPOINT_SOURCE_REVOKED"));
-                    }
-                    Ok(())
-                });
+                    local::write(&directory, &boot, maximum, || {
+                        if stopped.load(Ordering::Acquire) || *copy.stream_stop.borrow() {
+                            return Err(err("CHECKPOINT_CANCELLED"));
+                        }
+                        let current = copy.stores[&key]
+                            .lock()
+                            .map_err(|_| err("STATE_LOCK_POISONED"))?
+                            .current()
+                            .ok_or_else(|| err("CHECKPOINT_SOURCE_REVOKED"))?;
+                        if !same_era(&reference, &current.reference) {
+                            return Err(err("CHECKPOINT_SOURCE_REVOKED"));
+                        }
+                        Ok(())
+                    })
+                })();
                 (result, gate)
             })
             .await
@@ -485,7 +521,7 @@ pub(super) async fn status(
         .as_ref()
         .map_or(0, |c| c.publish_interval_ms);
     Ok(Json(
-        serde_json::json!({"enabled":interval>0,"active":parser.checkpoint_metrics.active.load(Ordering::Acquire),"publish_interval_ms":interval,"completed_cycles":parser.checkpoint_metrics.cycles.load(Ordering::Relaxed),"failed_cycles":parser.checkpoint_metrics.errors.load(Ordering::Relaxed),"closed":*parser.stream_stop.borrow()}),
+        serde_json::json!({"enabled":interval>0,"active":parser.checkpoint_metrics.active.load(Ordering::Acquire),"publish_interval_ms":interval,"completed_cycles":parser.checkpoint_metrics.cycles.load(Ordering::Relaxed),"failed_cycles":parser.checkpoint_metrics.errors.load(Ordering::Relaxed),"closed":*parser.stream_stop.borrow(),"local_budget":parser.config.config.journal.checkpoint_store.as_ref().and_then(|s|s.local_budget.as_ref())}),
     ))
 }
 

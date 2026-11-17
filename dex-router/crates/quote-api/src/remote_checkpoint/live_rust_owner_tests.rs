@@ -34,6 +34,7 @@ async fn actual_rust_owner_remote_checkpoint_replays_into_independent_router_and
         .insert(chain.into(), ready["topic"].as_str().unwrap().into());
     cfg.config.journal.source_urls = vec![source.into()];
     cfg.config.journal.checkpoint_store = Some(xone_config::CheckpointStore {
+        local_budget: None,
         base_url: object_base.into(),
         allow_plaintext_development: true,
         publish_interval_ms: 0,

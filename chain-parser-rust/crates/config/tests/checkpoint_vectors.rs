@@ -31,3 +31,29 @@ fn current_go_checkpoint_config_defaults_and_secret_free_hashes_match() {
         );
     }
 }
+
+#[test]
+#[ignore = "requires this run's Go checkpoint quota config exports"]
+fn current_go_checkpoint_local_budget_configs_and_hashes_match() {
+    let directory = std::path::PathBuf::from(
+        std::env::var("XONE_CHECKPOINT_CONFIG_VECTORS_OUTPUT")
+            .expect("current Go quota config exports required"),
+    );
+    let document: Value =
+        serde_json::from_slice(&std::fs::read(directory.join("budget-vectors.json")).unwrap())
+            .unwrap();
+    let cases = document["vectors"].as_array().unwrap();
+    assert_eq!(cases.len(), 3);
+    for case in cases {
+        let name = case["file"].as_str().unwrap();
+        assert!(
+            name.starts_with("budget-config-")
+                && name.ends_with(".json")
+                && !name.contains('/')
+                && !name.contains('\\')
+        );
+        let loaded = xone_config::load(directory.join(name), "chain-parser-go").unwrap();
+        assert_eq!(loaded.public_hash, case["public_hash"]);
+        assert_eq!(loaded.economic_hash, case["economic_hash"]);
+    }
+}

@@ -5,9 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -409,5 +412,34 @@ func TestCheckpointWorkerFairRotationIsolatesPersistentChainFailureAndRecovers(t
 	objects.mu.Unlock()
 	if maximum != 1 {
 		t.Fatal("rotation overlapped network operations", maximum)
+	}
+}
+
+func TestCheckpointWorkerLocalBudgetRejectsBeforePublicDiskAndRemoteIO(t *testing.T) {
+	s, objects := checkpointWorkerServiceConfigured(t, 100, context.Background(), func(snapshot *config.Snapshot) {
+		snapshot.Config.Journal.CheckpointStore.LocalBudget = &config.CheckpointBudget{MaxBytes: 1, MaxFiles: 4, MaxEntries: 8}
+	}, nil)
+	workerBootstrap(t, s, 9007199254741061)
+	workerWait(t, func() bool { return s.checkpointErrors.Load() > 0 })
+	objects.mu.Lock()
+	requests := objects.requests
+	objects.mu.Unlock()
+	if requests != 0 {
+		t.Fatal("quota rejection followed remote requests", requests)
+	}
+	namespace := filepath.Join(s.cfg.Config.State.Path, "checkpoints", "evm-31337", "public-v2")
+	if _, e := os.Stat(namespace); !errors.Is(e, os.ErrNotExist) {
+		t.Fatal("quota rejection wrote public objects", e)
+	}
+	if _, e := os.Stat(filepath.Dir(namespace)); !errors.Is(e, os.ErrNotExist) {
+		t.Fatal("periodic path duplicated legacy JSON", e)
+	}
+	if w := workerRequest(s, context.Background(), "POST", "/internal/checkpoints"); w.Code != 503 || !strings.Contains(w.Body.String(), "CHECKPOINT_LOCAL_BUDGET_REJECTED") {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	objects.mu.Lock()
+	defer objects.mu.Unlock()
+	if objects.requests != 0 {
+		t.Fatal("manual rejection sent remote data")
 	}
 }

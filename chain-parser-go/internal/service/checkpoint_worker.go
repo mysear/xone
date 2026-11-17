@@ -19,9 +19,9 @@ type checkpointResult struct {
 // Both manual and background publications use one cancellable gate and one total
 // deadline. No snapshot/actor lock is held during remote I/O.
 func (s *Service) publishCheckpoints(parent context.Context) (checkpointResult, string) {
-	return s.publishCheckpointChains(parent, s.cfg.Config.Chains)
+	return s.publishCheckpointChains(parent, s.cfg.Config.Chains, false)
 }
-func (s *Service) publishCheckpointChains(parent context.Context, chains []config.Chain) (checkpointResult, string) {
+func (s *Service) publishCheckpointChains(parent context.Context, chains []config.Chain, publicOnly bool) (checkpointResult, string) {
 	result := checkpointResult{Manifests: []string{}, Public: []checkpoint.Publication{}, Remote: []checkpoint.RemotePublication{}}
 	fail := func(code string) (checkpointResult, string) { return checkpointResult{}, code }
 	ctx, cancel := context.WithTimeout(parent, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
@@ -52,11 +52,13 @@ func (s *Service) publishCheckpointChains(parent context.Context, chains []confi
 			return fail("CHECKPOINT_CANCELLED")
 		}
 		dir := filepath.Join(s.cfg.Resolve(s.cfg.Config.State.Path), "checkpoints", strings.ReplaceAll(chain.Key, ":", "-"))
-		path, e := checkpoint.Write(dir, snapshot)
-		if e != nil {
-			return fail("CHECKPOINT_FAILED")
+		if !publicOnly {
+			path, e := checkpoint.Write(dir, snapshot)
+			if e != nil {
+				return fail("CHECKPOINT_FAILED")
+			}
+			result.Manifests = append(result.Manifests, path)
 		}
-		result.Manifests = append(result.Manifests, path)
 		boot, e := store.Bootstrap()
 		if e != nil {
 			if s.cfg.Config.Journal.Transport == "kafka" {
@@ -83,6 +85,11 @@ func (s *Service) publishCheckpointChains(parent context.Context, chains []confi
 		}
 		if e = guard(); e != nil {
 			return fail("CHECKPOINT_PUBLICATION_FAILED")
+		}
+		if c := s.cfg.Config.Journal.CheckpointStore; c != nil && c.LocalBudget != nil {
+			if _, e := checkpoint.AdmitBootstrap(dir, boot, s.cfg.Config.Journal.MaxBytes, c.BaseURL, c.LocalBudget, guard); e != nil {
+				return fail("CHECKPOINT_LOCAL_BUDGET_REJECTED")
+			}
 		}
 		publication, e := checkpoint.WriteBootstrap(dir, boot, s.cfg.Config.Journal.MaxBytes, guard)
 		if e != nil {
@@ -141,7 +148,7 @@ func (s *Service) startCheckpointWorker(parent context.Context) {
 			}
 			chain := chains[next%len(chains)]
 			next = (next + 1) % len(chains)
-			result, code := s.publishCheckpointChains(ctx, []config.Chain{chain})
+			result, code := s.publishCheckpointChains(ctx, []config.Chain{chain}, true)
 			if ctx.Err() != nil {
 				return
 			}

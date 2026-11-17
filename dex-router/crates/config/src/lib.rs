@@ -1,5 +1,5 @@
 mod checkpoint_store;
-pub use checkpoint_store::CheckpointStore;
+pub use checkpoint_store::{CheckpointBudget, CheckpointStore};
 mod evm_preparation;
 pub use evm_preparation::EvmPreparationConfig;
 mod lfj;

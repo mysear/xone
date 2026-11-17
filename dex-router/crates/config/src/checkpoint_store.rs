@@ -4,17 +4,43 @@ use xone_domain::{err, Result};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CheckpointStore {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_budget: Option<CheckpointBudget>,
     #[serde(default, skip_serializing_if = "zero")]
     pub publish_interval_ms: u64,
     pub base_url: String,
     #[serde(default)]
     pub allow_plaintext_development: bool,
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CheckpointBudget {
+    pub max_bytes: u64,
+    pub max_files: u64,
+    pub max_entries: u64,
+}
+impl CheckpointBudget {
+    pub fn validate(&self) -> Result<()> {
+        if self.max_bytes == 0
+            || self.max_bytes > 1 << 40
+            || self.max_files == 0
+            || self.max_files > 100000
+            || self.max_entries < self.max_files
+            || self.max_entries > 1000000
+        {
+            return Err(err("CHECKPOINT_LOCAL_BUDGET_CONFIG"));
+        }
+        Ok(())
+    }
+}
 fn zero(n: &u64) -> bool {
     *n == 0
 }
 impl CheckpointStore {
     pub fn validate(&self) -> Result<()> {
+        if let Some(budget) = &self.local_budget {
+            budget.validate()?;
+        }
         let fail = || err("CHECKPOINT_STORE_CONFIG_INVALID");
         if self.base_url.len() > 2048
             || self.publish_interval_ms > 3600000
@@ -93,6 +119,7 @@ mod tests {
             "http://127.0.0.1:8092/bucket",
         ] {
             cfg.journal.checkpoint_store = Some(CheckpointStore {
+                local_budget: None,
                 publish_interval_ms: 0,
                 base_url: url.into(),
                 allow_plaintext_development: true,
@@ -114,6 +141,7 @@ mod tests {
             "http://127.0.0.10:8092",
         ] {
             cfg.journal.checkpoint_store = Some(CheckpointStore {
+                local_budget: None,
                 publish_interval_ms: 0,
                 base_url: url.into(),
                 allow_plaintext_development: true,
@@ -121,6 +149,7 @@ mod tests {
             assert!(cfg.validate(&expected).is_err(), "{url}");
         }
         cfg.journal.checkpoint_store = Some(CheckpointStore {
+            local_budget: None,
             publish_interval_ms: 0,
             base_url: "http://127.0.0.1:8092/bucket".into(),
             allow_plaintext_development: false,
@@ -176,6 +205,7 @@ mod tests {
         chain.pools.clear();
         cfg.chains = vec![chain];
         cfg.journal.checkpoint_store = Some(CheckpointStore {
+            local_budget: None,
             base_url: "https://objects.example/bucket".into(),
             allow_plaintext_development: false,
             publish_interval_ms: 100,
@@ -195,5 +225,49 @@ mod tests {
             cfg.validate("dex-router").unwrap_err().0,
             "CHECKPOINT_PUBLISH_OWNER"
         );
+    }
+    #[test]
+    fn checkpoint_local_budget_parameters_fail_before_runtime() {
+        for budget in [
+            CheckpointBudget {
+                max_bytes: 0,
+                max_files: 1,
+                max_entries: 1,
+            },
+            CheckpointBudget {
+                max_bytes: (1u64 << 40) + 1,
+                max_files: 1,
+                max_entries: 1,
+            },
+            CheckpointBudget {
+                max_bytes: 1,
+                max_files: 0,
+                max_entries: 1,
+            },
+            CheckpointBudget {
+                max_bytes: 1,
+                max_files: 100001,
+                max_entries: 100001,
+            },
+            CheckpointBudget {
+                max_bytes: 1,
+                max_files: 5,
+                max_entries: 4,
+            },
+            CheckpointBudget {
+                max_bytes: 1,
+                max_files: 1,
+                max_entries: 1000001,
+            },
+        ] {
+            assert!(budget.validate().is_err());
+        }
+        CheckpointBudget {
+            max_bytes: 1,
+            max_files: 1,
+            max_entries: 1,
+        }
+        .validate()
+        .unwrap();
     }
 }

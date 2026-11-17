@@ -1978,3 +1978,20 @@ BINDINGS['9.rust-owner-recovery-catalogue'] = {
            'remote_checkpoint::live_rust_owner_tests::actual_rust_owner_remote_checkpoint_replays_into_independent_router_and_quotes_attested_head'],
  'evidence_refs': ['integration/artifacts/local/rust-owner-recovery-check/report.json'],
 }
+
+BINDINGS['9.public-checkpoint-local-budgets'] = {
+ 'paths': ['chain-parser-go/internal/checkpoint/budget.go',
+           'chain-parser-go/internal/checkpoint/budget_test.go',
+           'chain-parser-go/internal/service/checkpoint_worker.go',
+           'dex-router/crates/kafka-transport/src/checkpoint/budget.rs',
+           'chain-parser-rust/crates/solana-ingest/src/service_checkpoint.rs',
+           'integration/tools/acceptance/validate_checkpoint_budget.py'],
+ 'tests': ['TestCheckpointBudgetProjectsExactPublicObjectsAndAllowsIdempotentRetry',
+           'TestCheckpointBudgetBoundsScanningAndRejectsSymlinkAndDepth',
+           'TestCheckpointWorkerLocalBudgetRejectsBeforePublicDiskAndRemoteIO',
+           'public_checkpoint_budget_preflights_exact_bytes_files_and_existing_retries',
+           'current_go_checkpoint_budget_projection_and_actual_objects_match',
+           'current_go_checkpoint_local_budget_configs_and_hashes_match',
+           'service::checkpoint::periodic_tests::rust_periodic_checkpoint_local_budget_rejects_before_file_and_remote_io'],
+ 'evidence_refs': ['integration/artifacts/local/checkpoint-budget-check/report.json'],
+}
