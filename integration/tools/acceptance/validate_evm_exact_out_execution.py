@@ -11,7 +11,7 @@ if __name__ == '__main__':
              'exact_out_original_router_16_banks_measure_required_input_and_unused_budget',
              'exact_out_original_router_rejects_mutations_and_missing_state',
              'exact_out_original_router_reverts_leave_full_budget_and_charge_real_gas',
-             'exact_out_valid_multi_pool_binding_is_rejected_before_any_execution',
+             'exact_out_valid_multi_pool_binding_still_rejects_unrelated_execution_bank',
          ],
          extra_report=dict(exact_out_original_router_banks=16, exact_out_revert_controls=3,
-                           multi_pool_execution_supported=False))
+                           multi_pool_execution_supported=True))

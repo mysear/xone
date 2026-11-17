@@ -1273,7 +1273,7 @@ fn exact_out_original_router_reverts_leave_full_budget_and_charge_real_gas() {
 }
 
 #[test]
-fn exact_out_valid_multi_pool_binding_is_rejected_before_any_execution() {
+fn exact_out_valid_multi_pool_binding_still_rejects_unrelated_execution_bank() {
     use xone_optimizer::exact_out::{evaluate_allocation, ExactOutProposal};
     let doc: Value =
         serde_json::from_str(include_str!("../../../test/contracts/v2-exact-out.json")).unwrap();
@@ -1405,11 +1405,8 @@ fn exact_out_valid_multi_pool_binding_is_rejected_before_any_execution() {
         Default::default(),
     )
     .unwrap_err();
-    assert_eq!(error.code, SimulationErrorCode::SimulationBindingMismatch);
+    assert_eq!(error.code, SimulationErrorCode::SimulationAnchorMismatch);
     assert_eq!(error.usage.executions, 0);
-    assert!(error
-        .detail
-        .contains("SIMULATION_EXACT_OUT_SINGLE_POOL_REQUIRED"));
 }
 
 #[test]

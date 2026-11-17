@@ -1716,7 +1716,7 @@ BINDINGS['14.evm-exact-out-execution'] = {
     'tests': ['exact_out_original_router_16_banks_measure_required_input_and_unused_budget',
               'exact_out_original_router_rejects_mutations_and_missing_state',
               'exact_out_original_router_reverts_leave_full_budget_and_charge_real_gas',
-              'exact_out_valid_multi_pool_binding_is_rejected_before_any_execution'],
+              'exact_out_valid_multi_pool_binding_still_rejects_unrelated_execution_bank'],
     'evidence_refs': ['integration/artifacts/local/evm-exact-out-execution-check/report.json'],
 }
 
@@ -1755,4 +1755,15 @@ BINDINGS['15.evm-exact-out-api'] = {
            'local_simulation::tests::exact_out_publication_rechecks_expiry_view_and_preserves_quote_evidence',
            'local_simulation::tests::exact_out_http_cancellation_reaps_worker_and_releases_shared_admission'],
  'evidence_refs': ['integration/artifacts/local/evm-exact-out-api-check/report.json'],
+}
+
+BINDINGS['14.evm-path-execution'] = {
+ 'paths': ['dex-router/crates/simulation/src/evm_fixture.rs',
+           'dex-router/crates/simulation/tests/v2_path_execution.rs',
+           'integration/tools/ci/v2-path-execution-reference.cjs',
+           'integration/tools/acceptance/validate_evm_path_execution.py'],
+ 'tests': ['original_twelve_path_receipts_match_all_native_accounts_and_declared_storage',
+           'exact_out_six_original_simple_paths_and_preparations_match_mined_transactions',
+           'exact_out_every_hop_bank_identity_code_state_and_shared_budgets_are_checked'],
+ 'evidence_refs': ['integration/artifacts/local/evm-path-execution-check/report.json'],
 }

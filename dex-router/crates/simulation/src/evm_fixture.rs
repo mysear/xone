@@ -1140,7 +1140,7 @@ pub(crate) fn simulate_bound_with_funding(
     )
 }
 
-/// Single physical-pool, original Router02 ExactOut execution over provided H/H+1 state.
+/// Simple-path original Router02 ExactOut execution over provided H/H+1 state.
 pub fn simulate_bound_exact_out(
     bound: &BoundEvmExactOutExecution,
     pools: &[Pool],
@@ -1230,15 +1230,7 @@ impl BoundSource<'_> {
     fn validate(&self, pools: &[Pool], allowed: &[String]) -> xone_domain::Result<()> {
         match self {
             Self::ExactIn(b) => validate_bound_execution(b, pools, allowed),
-            Self::ExactOut(b) => {
-                validate_bound_exact_out_execution(b, pools, allowed)?;
-                if b.touched_pool_ids.len() != 1 || b.plan.allocation.routes[0].edges.len() != 1 {
-                    return Err(xone_domain::err(
-                        "SIMULATION_EXACT_OUT_SINGLE_POOL_REQUIRED",
-                    ));
-                }
-                Ok(())
-            }
+            Self::ExactOut(b) => validate_bound_exact_out_execution(b, pools, allowed),
         }
     }
 }
@@ -1302,65 +1294,76 @@ fn simulate_execution(
         ));
     }
     let image = fixture.to_image(budget)?;
-    let pool_id = bound
+    let touched_pools = bound
         .touched_pool_ids
-        .first()
-        .ok_or_else(|| failure(SimulationBindingMismatch, "pool", "selected pool missing"))?;
-    let pool = pools
         .iter()
-        .find(|p| &p.pool_id == pool_id)
-        .ok_or_else(|| failure(SimulationBindingMismatch, "pool", "selected pool missing"))?;
-    if pool.protocol == xone_domain::v2_swap::PROFILE {
-        let v2 = pool.v2.as_ref().ok_or_else(|| {
-            failure(
-                SimulationBindingMismatch,
-                "complete_state",
-                "V2 identity required",
-            )
-        })?;
-        let swap = v2.swap.as_ref().ok_or_else(|| {
-            failure(
-                SimulationBindingMismatch,
-                "complete_state",
-                "swap state required",
-            )
-        })?;
-        let source = &fixture.state_anchor;
-        if swap.bank_block_number != source.block_number
-            || swap.bank_block_hash != source.block_hash
-            || swap.bank_unix_timestamp != source.timestamp
-        {
-            return Err(failure(
-                SimulationAnchorMismatch,
-                "complete_state",
-                "swap bank must identify source H",
-            ));
+        .map(|id| {
+            pools
+                .iter()
+                .find(|p| &p.pool_id == id)
+                .ok_or_else(|| failure(SimulationBindingMismatch, "pool", "selected pool missing"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if touched_pools.is_empty() {
+        return Err(failure(
+            SimulationBindingMismatch,
+            "pool",
+            "selected pool missing",
+        ));
+    }
+    for pool in &touched_pools {
+        if pool.protocol == xone_domain::v2_swap::PROFILE {
+            let v2 = pool.v2.as_ref().ok_or_else(|| {
+                failure(
+                    SimulationBindingMismatch,
+                    "complete_state",
+                    "V2 identity required",
+                )
+            })?;
+            let swap = v2.swap.as_ref().ok_or_else(|| {
+                failure(
+                    SimulationBindingMismatch,
+                    "complete_state",
+                    "swap state required",
+                )
+            })?;
+            let source = &fixture.state_anchor;
+            if swap.bank_block_number != source.block_number
+                || swap.bank_block_hash != source.block_hash
+                || swap.bank_unix_timestamp != source.timestamp
+            {
+                return Err(failure(
+                    SimulationAnchorMismatch,
+                    "complete_state",
+                    "swap bank must identify source H",
+                ));
+            }
+            if v2.code_sha256 != xone_domain::v2_swap::PAIR_CODE_SHA256
+                || swap.factory_code_sha256 != xone_domain::v2_swap::FACTORY_CODE_SHA256
+                || swap.factory_code_sha256 != bound.executor.factory_code_sha256
+            {
+                return Err(failure(
+                    SimulationCodeMismatch,
+                    "complete_state",
+                    "fixed Pair/Factory identity required",
+                ));
+            }
         }
-        if v2.code_sha256 != xone_domain::v2_swap::PAIR_CODE_SHA256
-            || swap.factory_code_sha256 != xone_domain::v2_swap::FACTORY_CODE_SHA256
-            || swap.factory_code_sha256 != bound.executor.factory_code_sha256
-        {
-            return Err(failure(
-                SimulationCodeMismatch,
-                "complete_state",
-                "fixed Pair/Factory identity required",
-            ));
-        }
+        code_check(
+            &image,
+            &pool.pool_id,
+            &pool
+                .v2
+                .as_ref()
+                .ok_or_else(|| failure(SimulationBindingMismatch, "pool", "V2 identity required"))?
+                .code_sha256,
+        )?;
     }
     code_check(&image, &bound.executor.target, &bound.executor.code_sha256)?;
     code_check(
         &image,
         &bound.executor.factory,
         &bound.executor.factory_code_sha256,
-    )?;
-    code_check(
-        &image,
-        &pool.pool_id,
-        &pool
-            .v2
-            .as_ref()
-            .ok_or_else(|| failure(SimulationBindingMismatch, "pool", "V2 identity required"))?
-            .code_sha256,
     )?;
     let source_fixture_hash = canonical_hash(fixture)?;
     let context = bound.context;
@@ -1374,7 +1377,9 @@ fn simulate_execution(
         observations: vec![],
         caller_address: caller,
     };
-    runner.preflight(image.clone(), bound.executor, pool)?;
+    for pool in &touched_pools {
+        runner.preflight(image.clone(), bound.executor, pool)?;
+    }
     let sell_before = runner.balance(
         image.clone(),
         &context.sell_token,
@@ -1462,8 +1467,10 @@ fn simulate_execution(
         &context.recipient,
         "recipient_buy_after",
     )?;
-    if pool.protocol == xone_domain::v2_swap::PROFILE {
-        runner.complete_poststate(post.clone(), pool)?;
+    for pool in &touched_pools {
+        if pool.protocol == xone_domain::v2_swap::PROFILE {
+            runner.complete_poststate(post.clone(), pool)?;
+        }
     }
     if sell_after > sell_before || buy_after < buy_before {
         return Err(runner.error(

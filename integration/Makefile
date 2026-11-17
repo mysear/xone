@@ -1077,3 +1077,7 @@ evm-prepared-exact-out-current-check:
 .PHONY: evm-exact-out-api-current-check
 evm-exact-out-api-current-check:
 	python3 tools/acceptance/validate_evm_exact_out_api.py
+
+.PHONY: evm-path-execution-current-check
+evm-path-execution-current-check:
+	python3 tools/acceptance/validate_evm_path_execution.py
