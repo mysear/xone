@@ -982,6 +982,8 @@ Vault `reservesOfApp(manager,currency)` 和 manager `protocolFeesAccrued(currenc
 
 本地仿真API的`fees.gasPriceWei`在动态交易中表示实际effective price，`fees.evmFeeWei`为原REVM执行费；`transactionContext.gas_price`继续保留max fee。响应的`executionBaseFee`来自送入worker的显式执行环境。父进程核对native receipt的有效价格、base burn和tip分解，缺失或矛盾拒绝，不能把最大预算当实际扣款。`chainFeeCompleteness=LOCAL_EVM_ONLY`不因本地执行成功改变。
 
+`evm_fixture::simulate_bound_exact_out`接受原Router02完整ExactOut绑定及给定H/H+1状态，只准入单条单物理池路径，执行原`swapTokensForExactTokens`。成功匹配同时要求实际输入等于计划required_input、实际收款等于target_output；nonce、gas、native费与完整后状态仍来自相同REVM执行。可选`unused_input_budget`为max_sell_amount减实际消耗，表示留在调用者账户的未用额度；`refund=0`保持未发生退款转账的事实。普通ExactIn结果省略该可选字段，旧承诺结构保持。多池路径、当前链资格和普通ExactOut HTTP独立执行需分别接入并验收。
+
 ## 原 Uniswap V2 完整 Swap 状态版本
 
 `uniswap-v2-complete` / `uniswap-v2/core-1.0.1-full-swap-1` 使用原 core 1.0.1

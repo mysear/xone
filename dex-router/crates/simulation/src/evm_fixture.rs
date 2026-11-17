@@ -14,7 +14,10 @@ use std::{
     time::Instant,
 };
 use xone_domain::{Amount, Pool};
-use xone_execution_plan::{validate_bound_execution, BoundEvmExecution};
+use xone_execution_plan::{
+    validate_bound_exact_out_execution, validate_bound_execution, BoundEvmExactOutExecution,
+    BoundEvmExecution, Context, ExecutorIdentity, Transaction,
+};
 pub const SIMULATOR_VERSION: &str = "provided-local-state/shanghai-v1";
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -396,8 +399,11 @@ impl FixtureState {
     }
     /// This wrapper supports historical H -> H+1 replay only, not an implicit mix of contexts.
     pub fn validate_environment(&self, bound: &BoundEvmExecution) -> Result<()> {
+        self.validate_snapshot_environment(&bound.plan.snapshot)
+    }
+    fn validate_snapshot_environment(&self, snapshot: &xone_domain::SnapshotRef) -> Result<()> {
         let source = &self.state_anchor;
-        let block = &bound.plan.snapshot.block;
+        let block = &snapshot.block;
         let env = &self.execution_environment;
         let timestamp = source.timestamp.checked_mul(1000).ok_or_else(|| {
             failure(
@@ -517,8 +523,11 @@ pub struct SimulationOutcome {
     pub matches_plan: bool,
     pub balances: BalanceMeasurements,
     pub actual_input_consumed: Amount,
-    /// Covered exact-input adapter has no separately modeled refund leg; matching requires full input consumption.
+    /// No prefunding transfer is performed; an unused ExactOut maximum stays with the caller.
     pub refund: Amount,
+    /// ExactOut maximum budget that stayed with the caller; not a transfer refund.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unused_input_budget: Option<Amount>,
     pub actual_buy_amount: Amount,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_fees: Option<NativeFeeMeasurements>,
@@ -975,10 +984,9 @@ impl Runner<'_> {
     fn preflight(
         &mut self,
         image: Arc<core::StateImage>,
-        bound: &BoundEvmExecution,
+        executor: &ExecutorIdentity,
         pool: &Pool,
     ) -> Result<()> {
-        let executor = &bound.executor;
         self.expect_address(
             image.clone(),
             &executor.target,
@@ -1120,7 +1128,110 @@ pub(crate) fn simulate_bound_with_funding(
     control: core::ExecutionControl,
     funding: Option<&xone_execution_preparation::evm::FundingObservation>,
 ) -> Result<SimulationOutcome> {
+    simulate_execution(
+        BoundSource::ExactIn(bound),
+        pools,
+        allowlist,
+        fixture,
+        transaction_context,
+        budget,
+        control,
+        funding,
+    )
+}
+
+/// Single physical-pool, original Router02 ExactOut execution over provided H/H+1 state.
+pub fn simulate_bound_exact_out(
+    bound: &BoundEvmExactOutExecution,
+    pools: &[Pool],
+    allowlist: &[String],
+    fixture: &FixtureState,
+    transaction_context: &TransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+) -> Result<SimulationOutcome> {
+    simulate_execution(
+        BoundSource::ExactOut(bound),
+        pools,
+        allowlist,
+        fixture,
+        transaction_context,
+        budget,
+        control,
+        None,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum BoundSource<'a> {
+    ExactIn(&'a BoundEvmExecution),
+    ExactOut(&'a BoundEvmExactOutExecution),
+}
+impl Serialize for BoundSource<'_> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        match self {
+            Self::ExactIn(b) => b.serialize(serializer),
+            Self::ExactOut(b) => b.serialize(serializer),
+        }
+    }
+}
+struct BoundView<'a> {
+    context: &'a Context,
+    snapshot: &'a xone_domain::SnapshotRef,
+    transaction: &'a Transaction,
+    executor: &'a ExecutorIdentity,
+    touched_pool_ids: &'a [String],
+}
+impl BoundSource<'_> {
+    fn view(&self) -> BoundView<'_> {
+        match self {
+            Self::ExactIn(b) => BoundView {
+                context: &b.plan.context,
+                snapshot: &b.plan.snapshot,
+                transaction: &b.transaction,
+                executor: &b.executor,
+                touched_pool_ids: &b.touched_pool_ids,
+            },
+            Self::ExactOut(b) => BoundView {
+                context: &b.plan.context,
+                snapshot: &b.plan.snapshot,
+                transaction: &b.transaction,
+                executor: &b.executor,
+                touched_pool_ids: &b.touched_pool_ids,
+            },
+        }
+    }
+    fn validate(&self, pools: &[Pool], allowed: &[String]) -> xone_domain::Result<()> {
+        match self {
+            Self::ExactIn(b) => validate_bound_execution(b, pools, allowed),
+            Self::ExactOut(b) => {
+                validate_bound_exact_out_execution(b, pools, allowed)?;
+                if b.touched_pool_ids.len() != 1 || b.plan.allocation.routes[0].edges.len() != 1 {
+                    return Err(xone_domain::err(
+                        "SIMULATION_EXACT_OUT_SINGLE_POOL_REQUIRED",
+                    ));
+                }
+                Ok(())
+            }
+        }
+    }
+}
+#[allow(clippy::too_many_arguments)]
+fn simulate_execution(
+    source: BoundSource<'_>,
+    pools: &[Pool],
+    allowlist: &[String],
+    fixture: &FixtureState,
+    transaction_context: &TransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+    funding: Option<&xone_execution_preparation::evm::FundingObservation>,
+) -> Result<SimulationOutcome> {
     control_check(&control, "entry")?;
+    let bound = source.view();
     // Bound calldata is untrusted too: cap it before binding validation serializes/clones it.
     let input_length = bound.transaction.data.len().saturating_sub(2) / 2;
     let total_input = u64::try_from(input_length)
@@ -1133,10 +1244,11 @@ pub(crate) fn simulate_bound_with_funding(
         ));
     }
     hex_length(&bound.transaction.data, None)?;
-    validate_bound_execution(bound, pools, allowlist)
+    source
+        .validate(pools, allowlist)
         .map_err(|e| failure(SimulationBindingMismatch, "binding", e))?;
     fixture.validate_shape(budget)?;
-    fixture.validate_environment(bound)?;
+    fixture.validate_snapshot_environment(bound.snapshot)?;
     let tx = transaction_context;
     if tx.chain_id != fixture.execution_environment.chain_id
         || tx.gas_limit == 0
@@ -1228,7 +1340,7 @@ pub(crate) fn simulate_bound_with_funding(
             .code_sha256,
     )?;
     let source_fixture_hash = canonical_hash(fixture)?;
-    let context = &bound.plan.context;
+    let context = bound.context;
     let caller = address(&bound.transaction.from)?;
     let mut runner = Runner {
         budget,
@@ -1239,7 +1351,7 @@ pub(crate) fn simulate_bound_with_funding(
         observations: vec![],
         caller_address: caller,
     };
-    runner.preflight(image.clone(), bound, pool)?;
+    runner.preflight(image.clone(), bound.executor, pool)?;
     let sell_before = runner.balance(
         image.clone(),
         &context.sell_token,
@@ -1368,10 +1480,31 @@ pub(crate) fn simulate_bound_with_funding(
                 "caller missing",
             )
         })?;
-    let matches_plan = status == EvmStatus::Success
-        && spent == amount(&bound.plan.allocation.sell_amount)?
-        && bought == amount(&bound.plan.allocation.gross_buy_amount)?
-        && bought >= amount(&bound.plan.min_buy_amount)?;
+    let (matches_plan, unused_input_budget) = match source {
+        BoundSource::ExactIn(b) => (
+            status == EvmStatus::Success
+                && spent == amount(&b.plan.allocation.sell_amount)?
+                && bought == amount(&b.plan.allocation.gross_buy_amount)?
+                && bought >= amount(&b.plan.min_buy_amount)?,
+            None,
+        ),
+        BoundSource::ExactOut(b) => {
+            let maximum = amount(&b.plan.max_sell_amount)?;
+            let unused = maximum.checked_sub(spent).ok_or_else(|| {
+                runner.error(
+                    SimulationBalanceDirection,
+                    "exact_out_budget",
+                    "actual input exceeds maximum",
+                )
+            })?;
+            (
+                status == EvmStatus::Success
+                    && spent == amount(&b.plan.allocation.required_input)?
+                    && bought == amount(&b.plan.allocation.target_output)?,
+                Some(as_amount(unused)?),
+            )
+        }
+    };
     let native_fees = if let Some(tip) = priority_fee {
         let coinbase = address(&fixture.execution_environment.coinbase)?;
         let native_balance = |state: &core::StateImage, owner: Address| -> Result<U256> {
@@ -1430,6 +1563,7 @@ pub(crate) fn simulate_bound_with_funding(
         },
         actual_input_consumed: as_amount(spent)?,
         refund: Amount::zero(),
+        unused_input_budget,
         actual_buy_amount: as_amount(bought)?,
         native_fees,
         observations: runner.observations,
@@ -1444,7 +1578,7 @@ pub(crate) fn simulate_bound_with_funding(
         map.remove("receipt_hash");
     }
     outcome.receipt_hash = canonical_hash(
-        &serde_json::json!({"bound":bound,"source_fixture_hash":outcome.source_fixture_hash,"transaction_context":transaction_context,"limits":budget,"simulator_version":SIMULATOR_VERSION,"outcome":value}),
+        &serde_json::json!({"bound":source,"source_fixture_hash":outcome.source_fixture_hash,"transaction_context":transaction_context,"limits":budget,"simulator_version":SIMULATOR_VERSION,"outcome":value}),
     )?;
     control_check(&runner.control, "receipt").map_err(|mut e| {
         e.usage = outcome.usage.clone();

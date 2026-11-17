@@ -1061,3 +1061,7 @@ evm-prepared-execution-current-check:
 .PHONY: evm-dynamic-fee-api-current-check
 evm-dynamic-fee-api-current-check:
 	python3 tools/acceptance/validate_evm_dynamic_fee_api.py
+
+.PHONY: evm-exact-out-execution-current-check
+evm-exact-out-execution-current-check:
+	python3 tools/acceptance/validate_evm_exact_out_execution.py

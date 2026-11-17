@@ -1054,3 +1054,360 @@ fn prepared_observation_context_limits_and_cancellation_fail_closed() {
         }
     }
 }
+
+fn output_bound(
+    b: &BoundEvmExecution,
+    pools: &[Pool],
+    target: Amount,
+    budget: Amount,
+) -> xone_execution_plan::BoundEvmExactOutExecution {
+    use xone_optimizer::exact_out::{evaluate_allocation, ExactOutProposal};
+    let route = &b.plan.allocation.routes[0];
+    let allocation = evaluate_allocation(
+        pools,
+        &[ExactOutProposal {
+            edges: route.path.edges.clone(),
+            amount_out: target.clone(),
+        }],
+        &target,
+        &budget,
+        xone_routing::Funds {
+            sender: &b.plan.context.caller,
+            recipient: &b.plan.context.recipient,
+        },
+    )
+    .unwrap();
+    let plan = xone_execution_plan::exact_out::build(
+        &b.plan.context,
+        &allocation,
+        &b.plan.snapshot,
+        "original-router-exact-out-bank",
+    )
+    .unwrap();
+    xone_execution_plan::bind_v2_exact_out_execution(
+        &plan,
+        pools,
+        &b.executor,
+        std::slice::from_ref(&b.executor.target),
+    )
+    .unwrap()
+}
+#[test]
+fn exact_out_original_router_16_banks_measure_required_input_and_unused_budget() {
+    let mut count = 0;
+    for c in corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["service_eligible"] == true)
+    {
+        let (b, p, f, mut tx) = bound(c);
+        let target = b.plan.allocation.gross_buy_amount.clone();
+        let maximum = Amount::checked(&b.plan.allocation.sell_amount.0 * 2u64).unwrap();
+        let exact = output_bound(&b, &p, target.clone(), maximum);
+        tx.max_priority_fee_per_gas = Some("1".parse().unwrap());
+        let out = simulate_bound_exact_out(
+            &exact,
+            &p,
+            std::slice::from_ref(&b.executor.target),
+            &f,
+            &tx,
+            &budget(),
+            Default::default(),
+        )
+        .unwrap();
+        assert!(out.matches_plan, "{}", c["name"]);
+        assert_eq!(out.execution.status, EvmStatus::Success);
+        assert_eq!(out.actual_buy_amount, target);
+        assert_eq!(
+            out.actual_input_consumed,
+            exact.plan.allocation.required_input
+        );
+        let unused = out.unused_input_budget.unwrap();
+        assert_eq!(
+            &unused.0 + &out.actual_input_consumed.0,
+            exact.plan.max_sell_amount.0
+        );
+        assert_eq!(out.refund, Amount::zero());
+        assert_ne!(unused, Amount::zero());
+        // Decode original Router's actual returned amounts; the recipient balance remains authority.
+        let returned = hex::decode(&out.execution.output[2..]).unwrap();
+        assert_eq!(returned.len(), 128);
+        assert_eq!(
+            Amount::from_be_bytes(&returned[64..96]).unwrap(),
+            out.actual_input_consumed
+        );
+        assert_eq!(
+            Amount::from_be_bytes(&returned[96..128]).unwrap(),
+            out.actual_buy_amount
+        );
+        assert_eq!(
+            out.native_fees.as_ref().unwrap().effective_gas_price,
+            Amount::checked(&f.execution_environment.base_fee.0 + 1u64).unwrap()
+        );
+        count += 1;
+    }
+    assert_eq!(count, 16);
+}
+#[test]
+fn exact_out_original_router_rejects_mutations_and_missing_state() {
+    let c = corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["service_eligible"] == true)
+        .unwrap();
+    let (b, p, f, tx) = bound(c);
+    let exact = output_bound(
+        &b,
+        &p,
+        b.plan.allocation.gross_buy_amount.clone(),
+        Amount::checked(&b.plan.allocation.sell_amount.0 * 2u64).unwrap(),
+    );
+    for mode in 0..6 {
+        let mut changed = exact.clone();
+        let mut fixture = f.clone();
+        match mode {
+            0 => changed.transaction.data.replace_range(2..10, "38ed1739"),
+            1 => changed.plan.max_sell_amount = "1".parse().unwrap(),
+            2 => changed.plan.allocation.required_input = "1".parse().unwrap(),
+            3 => fixture
+                .accounts
+                .retain(|a| a.address != b.plan.context.sell_token),
+            4 => fixture
+                .accounts
+                .iter_mut()
+                .find(|a| a.address == p[0].pool_id)
+                .unwrap()
+                .storage
+                .clear(),
+            _ => fixture.execution_environment.parent_hash = format!("0x{}", "ff".repeat(32)),
+        }
+        let error = simulate_bound_exact_out(
+            &changed,
+            &p,
+            std::slice::from_ref(&b.executor.target),
+            &fixture,
+            &tx,
+            &budget(),
+            Default::default(),
+        )
+        .unwrap_err();
+        assert!(!format!("{error}").is_empty());
+    }
+}
+
+#[test]
+fn exact_out_original_router_reverts_leave_full_budget_and_charge_real_gas() {
+    let c = corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["service_eligible"] == true)
+        .unwrap();
+    let (b, p, f, mut tx) = bound(c);
+    tx.max_priority_fee_per_gas = Some("1".parse().unwrap());
+    let exact = output_bound(
+        &b,
+        &p,
+        b.plan.allocation.gross_buy_amount.clone(),
+        Amount::checked(&b.plan.allocation.sell_amount.0 * 2u64).unwrap(),
+    );
+    for mode in 0..3 {
+        let mut fixture = f.clone();
+        if mode == 2 {
+            fixture.execution_environment.timestamp = exact.plan.context.deadline_ms / 1000 + 1;
+        } else {
+            let mut outer = [0u8; 64];
+            outer[12..32].copy_from_slice(
+                Address::from_str(&b.plan.context.caller)
+                    .unwrap()
+                    .as_slice(),
+            );
+            let slot = if mode == 0 {
+                outer[63] = 2;
+                let mut inner = [0u8; 64];
+                inner[12..32]
+                    .copy_from_slice(Address::from_str(&b.executor.target).unwrap().as_slice());
+                inner[32..].copy_from_slice(revm::primitives::keccak256(outer).as_slice());
+                revm::primitives::keccak256(inner)
+            } else {
+                outer[63] = 1;
+                revm::primitives::keccak256(outer)
+            };
+            let slot = format!("0x{}", hex::encode(slot));
+            let account = fixture
+                .accounts
+                .iter_mut()
+                .find(|a| a.address == b.plan.context.sell_token)
+                .unwrap();
+            account
+                .storage
+                .iter_mut()
+                .find(|s| s.slot == slot)
+                .unwrap()
+                .value = format!("0x{}", "00".repeat(32));
+        }
+        let out = simulate_bound_exact_out(
+            &exact,
+            &p,
+            std::slice::from_ref(&b.executor.target),
+            &fixture,
+            &tx,
+            &budget(),
+            Default::default(),
+        )
+        .unwrap();
+        assert_eq!(out.execution.status, EvmStatus::Revert, "{mode}");
+        assert!(!out.matches_plan);
+        assert_eq!(out.actual_input_consumed, Amount::zero());
+        assert_eq!(out.actual_buy_amount, Amount::zero());
+        assert_eq!(
+            out.unused_input_budget.as_ref(),
+            Some(&exact.plan.max_sell_amount)
+        );
+        assert_eq!(out.refund, Amount::zero());
+        assert_eq!(out.execution.sender_nonce_after, tx.nonce + 1);
+        assert_ne!(out.native_fees.unwrap().execution_fee, Amount::zero());
+    }
+}
+
+#[test]
+fn exact_out_valid_multi_pool_binding_is_rejected_before_any_execution() {
+    use xone_optimizer::exact_out::{evaluate_allocation, ExactOutProposal};
+    let doc: Value =
+        serde_json::from_str(include_str!("../../../test/contracts/v2-exact-out.json")).unwrap();
+    let c = doc["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["path"].as_array().unwrap().len() > 2)
+        .unwrap();
+    let pools: Vec<Pool> = serde_json::from_value(c["pools"].clone()).unwrap();
+    let tokens = c["path"].as_array().unwrap();
+    let edges = tokens
+        .windows(2)
+        .map(|pair| {
+            let from = pair[0].as_str().unwrap();
+            let to = pair[1].as_str().unwrap();
+            let p = pools
+                .iter()
+                .find(|p| {
+                    (p.token0 == from && p.token1 == to) || (p.token1 == from && p.token0 == to)
+                })
+                .unwrap();
+            Edge {
+                pool_id: p.pool_id.clone(),
+                protocol: p.protocol.clone(),
+                zero_for_one: p.token0 == from,
+                from_token: None,
+                to: to.into(),
+            }
+        })
+        .collect();
+    let context = Context {
+        chain_key: "evm:31337".into(),
+        caller: doc["context"]["sender"].as_str().unwrap().into(),
+        recipient: doc["context"]["recipient"].as_str().unwrap().into(),
+        sell_token: tokens[0].as_str().unwrap().into(),
+        buy_token: tokens.last().unwrap().as_str().unwrap().into(),
+        slippage_bps: 0,
+        deadline_ms: doc["context"]["deadline"].as_u64().unwrap() * 1000,
+    };
+    let target: Amount = c["amount_out"].as_str().unwrap().parse().unwrap();
+    let maximum: Amount = c["max_input"].as_str().unwrap().parse().unwrap();
+    let allocation = evaluate_allocation(
+        &pools,
+        &[ExactOutProposal {
+            edges,
+            amount_out: target.clone(),
+        }],
+        &target,
+        &maximum,
+        xone_routing::Funds {
+            sender: &context.caller,
+            recipient: &context.recipient,
+        },
+    )
+    .unwrap();
+    let h = &c["source"]["header"];
+    let snapshot = SnapshotRef {
+        block: BlockRef {
+            chain_key: context.chain_key.clone(),
+            number_or_slot: h["number"].as_u64().unwrap(),
+            hash: h["hash"].as_str().unwrap().into(),
+            parent_hash: h["parent_hash"].as_str().unwrap().into(),
+            timestamp_ms: h["timestamp"].as_u64().unwrap() * 1000,
+        },
+        canonical_epoch: 1,
+        journal_seq: 1,
+        schema_version: 1,
+        adapter_set_hash: hash(&vec![v2_swap::ADAPTER]).unwrap(),
+        online_generation: 1,
+        scope_hash: scope_hash(&pools).unwrap(),
+        writer_epoch: 1,
+        owner_service: "chain-parser-go".into(),
+        owner_assignment_version: 1,
+    };
+    let plan = xone_execution_plan::exact_out::build(
+        &context,
+        &allocation,
+        &snapshot,
+        "multi-pool-refusal",
+    )
+    .unwrap();
+    let executor = ExecutorIdentity {
+        target: doc["identities"]["router"]["address"]
+            .as_str()
+            .unwrap()
+            .into(),
+        code_sha256: doc["identities"]["router"]["runtime_sha256"]
+            .as_str()
+            .unwrap()
+            .into(),
+        factory: doc["identities"]["factory"]["address"]
+            .as_str()
+            .unwrap()
+            .into(),
+        factory_code_sha256: doc["identities"]["factory"]["runtime_sha256"]
+            .as_str()
+            .unwrap()
+            .into(),
+        adapter_version: "uniswap-v2-router02/1.1.0-beta.0".into(),
+    };
+    let exact = xone_execution_plan::bind_v2_exact_out_execution(
+        &plan,
+        &pools,
+        &executor,
+        std::slice::from_ref(&executor.target),
+    )
+    .unwrap();
+    xone_execution_plan::validate_bound_exact_out_execution(
+        &exact,
+        &pools,
+        std::slice::from_ref(&executor.target),
+    )
+    .unwrap();
+    let first = corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["service_eligible"] == true)
+        .unwrap();
+    let (_, _, fixture, tx) = bound(first);
+    let error = simulate_bound_exact_out(
+        &exact,
+        &pools,
+        std::slice::from_ref(&executor.target),
+        &fixture,
+        &tx,
+        &budget(),
+        Default::default(),
+    )
+    .unwrap_err();
+    assert_eq!(error.code, SimulationErrorCode::SimulationBindingMismatch);
+    assert_eq!(error.usage.executions, 0);
+    assert!(error
+        .detail
+        .contains("SIMULATION_EXACT_OUT_SINGLE_POOL_REQUIRED"));
+}

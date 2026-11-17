@@ -1708,3 +1708,14 @@ BINDINGS['15.evm-dynamic-fee-api'] = {
     'tests': ['local_simulation::tests::dynamic_fee_api_reports_measured_effective_price_and_rejects_inconsistent_fees'],
     'evidence_refs': ['integration/artifacts/local/evm-dynamic-fee-api-check/report.json'],
 }
+
+BINDINGS['14.evm-exact-out-execution'] = {
+    'paths': ['dex-router/crates/simulation/src/evm_fixture.rs',
+              'dex-router/crates/simulation/tests/v2_complete.rs',
+              'integration/tools/acceptance/validate_evm_exact_out_execution.py'],
+    'tests': ['exact_out_original_router_16_banks_measure_required_input_and_unused_budget',
+              'exact_out_original_router_rejects_mutations_and_missing_state',
+              'exact_out_original_router_reverts_leave_full_budget_and_charge_real_gas',
+              'exact_out_valid_multi_pool_binding_is_rejected_before_any_execution'],
+    'evidence_refs': ['integration/artifacts/local/evm-exact-out-execution-check/report.json'],
+}
