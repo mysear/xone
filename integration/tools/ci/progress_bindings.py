@@ -1887,3 +1887,13 @@ BINDINGS['9.periodic-checkpoint-publisher'] = {
            'checkpoint_store::tests::checkpoint_periodic_publishing_is_bounded_and_never_enabled_for_rust_roles'],
  'evidence_refs': ['integration/artifacts/local/checkpoint-worker-check/report.json'],
 }
+
+BINDINGS['9.fair-checkpoint-chain-scheduling'] = {
+ 'paths': ['chain-parser-go/internal/service/checkpoint_worker.go',
+           'chain-parser-go/internal/service/checkpoint_worker_test.go',
+           'integration/tools/acceptance/validate_checkpoint_fairness.py'],
+ 'tests': ['TestCheckpointWorkerFairRotationIsolatesPersistentChainFailureAndRecovers',
+           'TestCheckpointWorkerGateCancellationAndCloseInterruptInflightUpload',
+           'TestCheckpointCloseAlsoCancelsManualUploadAndDisabledWorkerStaysIdle'],
+ 'evidence_refs': ['integration/artifacts/local/checkpoint-fairness-check/report.json'],
+}

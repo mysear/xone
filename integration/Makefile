@@ -1117,3 +1117,7 @@ checkpoint-recovery-current-check:
 .PHONY: checkpoint-worker-current-check
 checkpoint-worker-current-check:
 	python3 tools/acceptance/validate_checkpoint_worker.py
+
+.PHONY: checkpoint-fairness-current-check
+checkpoint-fairness-current-check:
+	python3 tools/acceptance/validate_checkpoint_fairness.py

@@ -1923,3 +1923,9 @@ Service.Close先取消整个checkpoint生命周期，取消进行中的手动和
 授权`GET /internal/checkpoints/status`返回enabled/active/interval/completed_cycles/failed_cycles；metrics增加xone_checkpoint_cycles_total与xone_checkpoint_failures_total。completed包含无对象可发布的正常轮次，不能读成成功上传数；有确认远端对象才记录checkpoint.uploaded，失败记录固定错误码checkpoint.failed。正常HTTP服务WriteTimeout取至少5秒及发布请求预算加1秒，以便在预算截止后返回错误响应。
 
 `make -C integration checkpoint-worker-current-check`包含真实正常服务handler/独立HTTP对象端口的race、关闭和取消测试，Go状态/cursor不变检查，以及同轮Go原wire下载和实际Kafka冷恢复回归。周期上传和读取当前目录属于已实现范围，旧快照追平与canonical离线目录继续单列。
+
+## 多链checkpoint周期的公平性
+
+阶段106。后台使用配置链顺序的轮转，每次只发布一条链，选择时立即推进下一位置，因此某链持续503、缺cursor或发布超时不会让后续链永久等待。每条链发布有自己的request_timeout_ms预算；仍通过全服务同一gate串行执行，与手动任务共享取消/Close规则。日志增加chain_key以区分失败范围。手动POST /internal/checkpoints保持整批首错响应，不推进或重置后台轮转。
+
+publish_interval_ms是相邻链轮次之间的等待，完成一个N链轮转至少需要N个interval和上传时间。`make -C integration checkpoint-fairness-current-check`跑双链正常服务race：受控第一链对象持续失败，第二链仍上传/更新generation，第一链修复后恢复，全部网络串行；旧取消/关闭/手动回归保留。真实公共链与多故障域资格仍按原验收要求单列。

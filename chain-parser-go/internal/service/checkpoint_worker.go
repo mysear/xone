@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 	"xone/chain-parser-go/internal/checkpoint"
+	"xone/chain-parser-go/internal/config"
 )
 
 type checkpointResult struct {
@@ -18,6 +19,9 @@ type checkpointResult struct {
 // Both manual and background publications use one cancellable gate and one total
 // deadline. No snapshot/actor lock is held during remote I/O.
 func (s *Service) publishCheckpoints(parent context.Context) (checkpointResult, string) {
+	return s.publishCheckpointChains(parent, s.cfg.Config.Chains)
+}
+func (s *Service) publishCheckpointChains(parent context.Context, chains []config.Chain) (checkpointResult, string) {
 	result := checkpointResult{Manifests: []string{}, Public: []checkpoint.Publication{}, Remote: []checkpoint.RemotePublication{}}
 	fail := func(code string) (checkpointResult, string) { return checkpointResult{}, code }
 	ctx, cancel := context.WithTimeout(parent, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
@@ -35,7 +39,7 @@ func (s *Service) publishCheckpoints(parent context.Context) (checkpointResult, 
 	if ctx.Err() != nil || s.closed.Load() {
 		return fail("CHECKPOINT_CANCELLED")
 	}
-	for _, chain := range s.cfg.Config.Chains {
+	for _, chain := range chains {
 		store := s.stores[chain.Key]
 		if store == nil {
 			continue
@@ -119,6 +123,7 @@ func (s *Service) startCheckpointWorker(parent context.Context) {
 		defer s.checkpointActive.Store(false)
 		timer := time.NewTimer(0)
 		defer timer.Stop()
+		next := 0
 		for {
 			select {
 			case <-ctx.Done():
@@ -128,16 +133,24 @@ func (s *Service) startCheckpointWorker(parent context.Context) {
 			if ctx.Err() != nil {
 				return
 			}
-			result, code := s.publishCheckpoints(ctx)
+			// Select before execution and advance even after failure. A bad chain
+			// cannot consume every cycle while healthy chains wait forever.
+			chains := s.cfg.Config.Chains
+			if len(chains) == 0 {
+				return
+			}
+			chain := chains[next%len(chains)]
+			next = (next + 1) % len(chains)
+			result, code := s.publishCheckpointChains(ctx, []config.Chain{chain})
 			if ctx.Err() != nil {
 				return
 			}
 			s.checkpointCycles.Add(1)
 			if code != "" {
 				s.checkpointErrors.Add(1)
-				s.log.Event("warn", "checkpoint.failed", map[string]any{"error_code": code})
+				s.log.Event("warn", "checkpoint.failed", map[string]any{"chain_key": chain.Key, "error_code": code})
 			} else if len(result.Remote) > 0 {
-				s.log.Event("info", "checkpoint.uploaded", map[string]any{"checkpoint_count": len(result.Remote), "periodic": true})
+				s.log.Event("info", "checkpoint.uploaded", map[string]any{"chain_key": chain.Key, "checkpoint_count": len(result.Remote), "periodic": true})
 			}
 			// A timer starts only after completion; long uploads never queue ticks.
 			timer.Reset(time.Duration(c.PublishIntervalMS) * time.Millisecond)
