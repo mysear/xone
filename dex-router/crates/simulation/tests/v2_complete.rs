@@ -1635,3 +1635,148 @@ fn prepared_exact_out_limits_and_cancellation_precede_bank_execution() {
         assert_eq!(error.usage.executions, 0);
     }
 }
+
+fn source_fee(c: &Value) -> Amount {
+    let value = c["evidence"]["preblock_header"]["baseFeePerGas"]
+        .as_str()
+        .unwrap();
+    Amount::from_be_bytes(
+        &U256::from_str_radix(&value[2..], 16)
+            .unwrap()
+            .to_be_bytes::<32>(),
+    )
+    .unwrap()
+}
+#[test]
+fn prepared_source_h_fee_and_execution_h_plus_one_fee_are_distinct_in_16_banks() {
+    use xone_simulation::prepared_evm::{
+        simulate_prepared, simulate_prepared_exact_out, PreparedExactOutExecution,
+    };
+    let mut count = 0;
+    for c in corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["service_eligible"] == true)
+    {
+        let mut case = prepared_contexts(c);
+        let actual_source_fee = source_fee(c);
+        assert_ne!(
+            actual_source_fee,
+            case.fixture.execution_environment.base_fee
+        );
+        case.fixture.state_anchor.base_fee_per_gas = Some(actual_source_fee.clone());
+        case.funding.base_fee_per_gas = actual_source_fee;
+        case.fees.max_priority_fee_per_gas = "1".parse().unwrap();
+        case.prepare();
+        let input =
+            simulate_prepared(case.input(), &case.fixture, &budget(), Default::default()).unwrap();
+        assert!(input.simulation.matches_plan);
+        assert_eq!(
+            input
+                .simulation
+                .native_fees
+                .as_ref()
+                .unwrap()
+                .effective_gas_price,
+            Amount::checked(&case.fixture.execution_environment.base_fee.0 + 1u64).unwrap()
+        );
+        let exact = output_bound(
+            &case.bound,
+            &case.pools,
+            case.bound.plan.allocation.gross_buy_amount.clone(),
+            Amount::checked(&case.bound.plan.allocation.sell_amount.0 * 2u64).unwrap(),
+        );
+        let preparation = xone_execution_preparation::evm::prepare_exact_out(
+            &exact,
+            &case.pools,
+            std::slice::from_ref(&exact.executor.target),
+            &case.funding,
+            &case.fees,
+            case.fixture.execution_environment.timestamp * 1000,
+        )
+        .unwrap();
+        let output = simulate_prepared_exact_out(
+            PreparedExactOutExecution {
+                bound: &exact,
+                pools: &case.pools,
+                allowed_targets: std::slice::from_ref(&exact.executor.target),
+                funding: &case.funding,
+                fees: &case.fees,
+                preparation: &preparation,
+            },
+            &case.fixture,
+            &budget(),
+            Default::default(),
+        )
+        .unwrap();
+        assert!(output.simulation.matches_plan);
+        assert_eq!(
+            input
+                .simulation
+                .native_fees
+                .as_ref()
+                .unwrap()
+                .effective_gas_price,
+            output
+                .simulation
+                .native_fees
+                .as_ref()
+                .unwrap()
+                .effective_gas_price
+        );
+        count += 1;
+    }
+    assert_eq!(count, 16);
+}
+#[test]
+fn wrong_or_missing_source_fee_cannot_reuse_prepared_commitment_and_execution_cap_still_applies() {
+    use xone_simulation::prepared_evm::simulate_prepared;
+    let c = corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["service_eligible"] == true)
+        .unwrap();
+    let mut case = prepared_contexts(c);
+    case.funding.base_fee_per_gas = source_fee(c);
+    case.fixture.state_anchor.base_fee_per_gas = Some(case.funding.base_fee_per_gas.clone());
+    case.prepare();
+    for mode in 0..3 {
+        let mut f = case.fixture.clone();
+        match mode {
+            0 => f.state_anchor.base_fee_per_gas = None,
+            1 => {
+                f.state_anchor.base_fee_per_gas =
+                    Some(Amount::checked(&case.funding.base_fee_per_gas.0 + 1u64).unwrap())
+            }
+            _ => {
+                f.execution_environment.base_fee =
+                    Amount::checked(&case.fees.max_fee_per_gas.0 + 1u64).unwrap()
+            }
+        }
+        let error = simulate_prepared(case.input(), &f, &budget(), Default::default()).unwrap_err();
+        if mode == 2 {
+            assert_eq!(
+                error.code,
+                SimulationErrorCode::SimulationTransactionContext
+            );
+        } else {
+            assert_eq!(error.code, SimulationErrorCode::SimulationBindingMismatch);
+        }
+        assert_eq!(error.usage.executions, 0);
+    }
+    let original =
+        simulate_prepared(case.input(), &case.fixture, &budget(), Default::default()).unwrap();
+    case.fixture.state_anchor.base_fee_per_gas =
+        Some(case.fixture.execution_environment.base_fee.clone());
+    case.funding.base_fee_per_gas = case.fixture.execution_environment.base_fee.clone();
+    case.prepare();
+    let changed =
+        simulate_prepared(case.input(), &case.fixture, &budget(), Default::default()).unwrap();
+    assert_ne!(
+        original.simulation.source_fixture_hash,
+        changed.simulation.source_fixture_hash
+    );
+    assert_ne!(original.commitment_hash, changed.commitment_hash);
+}

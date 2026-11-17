@@ -180,7 +180,12 @@ fn simulate_source(
         .timestamp
         .checked_mul(1000)
         .ok_or_else(mismatch)?;
-    if input.funding.base_fee_per_gas != fixture.execution_environment.base_fee {
+    let observed_base_fee = fixture
+        .state_anchor
+        .base_fee_per_gas
+        .as_ref()
+        .unwrap_or(&fixture.execution_environment.base_fee);
+    if &input.funding.base_fee_per_gas != observed_base_fee {
         return Err(mismatch());
     }
     let (expected, exact_out_preparation_hash) = match &source {

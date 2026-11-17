@@ -1877,3 +1877,5 @@ SBF运行时程序映像的宿主生命周期：构造线程只保留至多两�
 原Router02 ExactOut独立执行扩展到已有完整绑定所支持的无重复token/物理池简单路径。VM对每个touched pool分别核对源码/银行/getter/锁并观察swap后状态，使用一次真实交易和共享预算；最多8hop仍由绑定层限制，原交易差分现覆盖1–3hop双向。来源继续为显式提供的完整声明银行；旧ExactIn多池绑定需另行实现，不能只删除校验放行。
 
 `bind_v2_execution`的完整V2 ExactIn分支支持1–8hop简单路径：每步校验Pool/Factory/源码/源bank及token方向，token和物理池不重复，重新计算全部分配并按顺序绑定所有touched池。多hop不混用旧reserve-only版本；拆单/共享DAG需要独立执行模板。正常prepare-evm/本地worker沿用同一绑定，界面准备判断允许双模式单路径多hop，未准入池和重复池保持拒绝。
+
+`StateAnchor.base_fee_per_gas`可显式记录来源H的base fee。准备资金观察与此值核对，实际REVM交易继续使用`execution_environment.base_fee`（H+1），二者都进入银行/执行承诺，不能互相覆盖。旧bundle省略该可选字段时保留原同费率约束；若真实H与H+1不同，应明确提供源费用，否则拒绝准备复用。H+1超过交易cap始终拒绝，此声明不授予源header的共识或状态根证明。

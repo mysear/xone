@@ -1779,3 +1779,13 @@ BINDINGS['14.evm-input-paths'] = {
            'exact_in_path_rehashed_cycles_wrong_endpoints_and_later_hop_identities_reject'],
  'evidence_refs': ['integration/artifacts/local/evm-input-path-check/report.json'],
 }
+
+BINDINGS['14.evm-source-fees'] = {
+ 'paths': ['dex-router/crates/simulation/src/evm_fixture.rs',
+           'dex-router/crates/simulation/src/prepared_evm.rs',
+           'dex-router/crates/simulation/tests/v2_complete.rs',
+           'integration/tools/acceptance/validate_evm_source_fees.py'],
+ 'tests': ['prepared_source_h_fee_and_execution_h_plus_one_fee_are_distinct_in_16_banks',
+           'wrong_or_missing_source_fee_cannot_reuse_prepared_commitment_and_execution_cap_still_applies'],
+ 'evidence_refs': ['integration/artifacts/local/evm-source-fees-check/report.json'],
+}

@@ -28,6 +28,9 @@ pub struct StateAnchor {
     pub parent_hash: String,
     pub timestamp: u64,
     pub genesis_hash: String,
+    /// Explicit source-H base fee, separate from the H+1 execution environment.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_fee_per_gas: Option<Amount>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -273,6 +276,9 @@ impl FixtureState {
             ));
         }
         chain_id(&self.state_anchor.chain_key)?;
+        if let Some(base) = &self.state_anchor.base_fee_per_gas {
+            amount(base)?;
+        }
         for h in [
             &self.state_anchor.block_hash,
             &self.state_anchor.parent_hash,
