@@ -172,7 +172,14 @@ func (r *Remote) Publish(ctx context.Context, p Publication, guard func() error)
 	if e = check(); e != nil {
 		return fail(e)
 	}
-	return RemotePublication{ManifestURL: manifestURL, ManifestSHA256: p.ManifestSHA256, Reference: m}, nil
+	publication := r.publication(p, m)
+	if e = r.recordCompletion(filepath.Dir(p.ManifestPath), publication); e != nil {
+		return fail(e)
+	}
+	if e = check(); e != nil {
+		return fail(e)
+	}
+	return publication, nil
 }
 
 // Fetch accepts a content ID and a pin obtained independently by the caller.

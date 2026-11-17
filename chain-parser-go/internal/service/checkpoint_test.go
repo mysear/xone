@@ -149,6 +149,21 @@ func TestNormalCheckpointEndpointPublishesBoundPublicBootstrapWithoutInventingCu
 	if e = json.Unmarshal(w.Body.Bytes(), &remoteResponse); e != nil || len(remoteResponse.Remote) != 1 {
 		t.Fatal(w.Body.String(), e)
 	}
+	catalog := func(auth bool) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", "/internal/chains/evm:31337/checkpoint-catalog", nil)
+		if auth {
+			req.Header.Set("Authorization", "Bearer "+cfg.Token)
+		}
+		w := httptest.NewRecorder()
+		service.Handler().ServeHTTP(w, req)
+		return w
+	}
+	if denied := catalog(false); denied.Code != 401 {
+		t.Fatal(denied.Code)
+	}
+	if available := catalog(true); available.Code != 200 {
+		t.Fatal(available.Code, available.Body.String())
+	}
 	remotePublication := remoteResponse.Remote[0]
 	if !strings.HasPrefix(remotePublication.ManifestURL, remoteConfig.BaseURL+"/public-v2/") || remotePublication.ManifestSHA256 != publication.ManifestSHA256 {
 		t.Fatal(remotePublication)
@@ -170,6 +185,24 @@ func TestNormalCheckpointEndpointPublishesBoundPublicBootstrapWithoutInventingCu
 	mu.Unlock()
 	if failed := request(true); failed.Code != 503 || !strings.Contains(failed.Body.String(), "CHECKPOINT_REMOTE_PUBLICATION_FAILED") {
 		t.Fatal(failed.Code, failed.Body.String())
+	}
+
+	// A successful upload of an old seq never qualifies a newer live snapshot.
+	next := current
+	next.Reference.JournalSeq++
+	next.Reference.Block.Number++
+	next.Reference.Block.ParentHash = current.Reference.Block.Hash
+	next.Reference.Block.Hash = "0x" + strings.Repeat("3", 64)
+	next.Reference.Block.TimestampMS++
+	if e = store.Prepare(journal.Unit{Kind: "BLOCK_COMMIT", Snapshot: next}); e != nil {
+		t.Fatal(e)
+	}
+	cursor.Offset++
+	if e = store.ApplyPrepared(cursor); e != nil {
+		t.Fatal(e)
+	}
+	if stale := catalog(true); stale.Code != 503 {
+		t.Fatal("stale checkpoint catalog remained available", stale.Code, stale.Body.String())
 	}
 
 }

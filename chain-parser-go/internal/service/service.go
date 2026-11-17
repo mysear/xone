@@ -649,6 +649,37 @@ func (s *Service) Handler() http.Handler {
 		}
 		write(w, 200, records)
 	})
+	mux.HandleFunc("GET /internal/chains/{chain}/checkpoint-catalog", func(w http.ResponseWriter, r *http.Request) {
+		store := s.stores[r.PathValue("chain")]
+		remoteConfig := s.cfg.Config.Journal.CheckpointStore
+		if store == nil || remoteConfig == nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_CATALOG_UNAVAILABLE"})
+			return
+		}
+		boot, e := store.Bootstrap()
+		if e != nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_CATALOG_NOT_READY"})
+			return
+		}
+		remote, e := checkpoint.NewRemote(*remoteConfig, s.cfg.Config.Journal.SourceAuthTokens[remoteConfig.BaseURL], s.cfg.Config.Journal.MaxBytes, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
+		if e != nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_REMOTE_CONFIG"})
+			return
+		}
+		defer remote.Close()
+		dir := filepath.Join(s.cfg.Resolve(s.cfg.Config.State.Path), "checkpoints", strings.ReplaceAll(r.PathValue("chain"), ":", "-"))
+		publication, e := remote.Catalog(dir, boot)
+		if e != nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_CATALOG_UNPUBLISHED"})
+			return
+		}
+		current, e := store.Bootstrap()
+		if e != nil || current.Snapshot.Reference != boot.Snapshot.Reference || current.Cursor != boot.Cursor {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_CATALOG_SOURCE_CHANGED"})
+			return
+		}
+		write(w, 200, publication)
+	})
 	mux.HandleFunc("POST /internal/checkpoints", func(w http.ResponseWriter, r *http.Request) {
 		paths := []string{}
 		publications := []checkpoint.Publication{}

@@ -5,6 +5,7 @@ use xone_domain::{err, Result};
 #[serde(deny_unknown_fields)]
 pub struct CheckpointStore {
     pub base_url: String,
+    #[serde(default)]
     pub allow_plaintext_development: bool,
 }
 impl CheckpointStore {

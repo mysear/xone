@@ -3,6 +3,7 @@ mod evm_preparation;
 mod exact_out;
 mod execution_receipts;
 mod preparation;
+mod remote_checkpoint;
 mod solana_simulation;
 mod transaction_lifecycle;
 pub use exact_out::ExactOutRequest;
@@ -631,11 +632,7 @@ impl Api {
         Ok(())
     }
     async fn restore_kafka(&self, source: &str, chain: &str) -> Result<()> {
-        let boot = xone_kafka_transport::decode_bootstrap(
-            &self
-                .fetch_raw(&format!("{source}/internal/chains/{chain}/bootstrap"))
-                .await?,
-        )?;
+        let (boot, recovery_source) = self.recovery_bootstrap(source, chain).await?;
         if boot.snapshot.reference.block.chain_key != chain
             || self.config.config.journal.kafka.topics.get(chain) != Some(&boot.cursor.topic)
             || boot.cursor.partition != 0
@@ -678,13 +675,21 @@ impl Api {
             .lock()
             .map_err(|_| err("READER_LOCK"))?
             .insert(chain.into(), reader);
-        self.logger.event("info","quote_scope_restored",json!({"chain_key":chain,"source":"OWNER_CHECKPOINT_AND_KAFKA","history_independent":true}));
+        self.logger.event(
+            "info",
+            "quote_scope_restored",
+            json!({"chain_key":chain,"source":recovery_source,"history_independent":true}),
+        );
         Ok(())
     }
     async fn fetch(&self, path: &str) -> Result<Value> {
         serde_json::from_slice(&self.fetch_raw(path).await?).map_err(|_| err("STATE_SOURCE_JSON"))
     }
     async fn fetch_raw(&self, path: &str) -> Result<Vec<u8>> {
+        self.fetch_raw_limited(path, self.config.config.journal.max_payload_bytes)
+            .await
+    }
+    async fn fetch_raw_limited(&self, path: &str, limit: usize) -> Result<Vec<u8>> {
         let client = reqwest::Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
@@ -717,13 +722,16 @@ impl Api {
         if !response.status().is_success() {
             return Err(err("STATE_SOURCE_STATUS"));
         }
+        if response.content_length().is_some_and(|n| n > limit as u64) {
+            return Err(err("STATE_SOURCE_LIMIT"));
+        }
         let mut b = Vec::new();
         while let Some(chunk) = response
             .chunk()
             .await
             .map_err(|_| err("STATE_SOURCE_NETWORK"))?
         {
-            if b.len() + chunk.len() > self.config.config.journal.max_payload_bytes {
+            if b.len().saturating_add(chunk.len()) > limit {
                 return Err(err("STATE_SOURCE_LIMIT"));
             }
             b.extend(chunk);

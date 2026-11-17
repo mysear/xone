@@ -1905,3 +1905,11 @@ Go `ParseBootstrapManifest`/`ReadBootstrap`及两Rust `kafka_transport::checkpoi
 凭据使用`journal.source_auth_tokens[base_url]`，不回退到父URL/其他源token，不进公开hash；客户端禁环境proxy、重定向和自动解压。服务入口在本地发布后上传，先校验本地完整数据、检查来源guard，确认远端payload，再guard/manifest/guard，成功才返回remote_checkpoints。失败可能保留物理对象，后续续传仅接受同字节。远端manifest摘要必须由可信独立调用方提供，不能从下载数据自行生成pin；`Remote.Fetch`先核验该pin及manifest限额才请求payload，限定精确对象长度、统一ctx/整轮timeout，最后跨格式校验状态和cursor。
 
 运行`make -C integration remote-checkpoint-current-check`。定向测试覆盖实际独立HTTP端口、正常服务handler、条件竞争/并发续传、半上传、冲突、假成功/回读损坏、缺对象、错误pin、流式/声明超限、编码和跳转、ctx取消/截止时间。对象API并非S3 SigV4，AWS/GCS类存储需提供兼容网关；当前不声明canonical可用目录、router自动远端恢复或真实独立故障域耐久。
+
+## 当前owner资格化目录与router远端恢复
+
+阶段104。Go成功发布并回读两个远端对象后，写同目录`remote-<base-url-sha256>.json`不可变完成标记，再做来源guard。授权`GET /internal/chains/{chain}/checkpoint-catalog`按当前完整Bootstrap重新计算内容SHA，只在本地manifest/payload/该store完成标记全部精确一致时返回`{manifest_url,manifest_sha256,manifest}`，返回前再核对当前reference和cursor。该入口不扫描latest/高度候选，不上传任何新对象；源更新后若尚未发布同状态对象，则503。标记是给可信owner检查的完成依据，本地文件存在本身不赋予远端来源资格。
+
+配置checkpoint_store的正常dex-router Kafka恢复先请求配置owner的目录，以其独立给定pin和owner/assignment/chain/topic校验限定对象；store请求只用source_auth_tokens中精确base_url的token。先64KiB manifest、再声明精确长度payload，禁止redirect/content-encoding，整轮timeout，校验格式/原字节摘要及状态和cursor后，再请求owner同目录确认未变。随后仍走正常bootstrap年龄、Kafka cursor保留窗/有界尾窗和Replica owner/代际校验；仅下载完成不发布视图。远端错误记录值无关错误码，可选择同一配置owner的当前bootstrap，全部失败由原sync_sources暂停。日志恢复来源区分REMOTE_CHECKPOINT_AND_KAFKA与OWNER_CHECKPOINT_AND_KAFKA。
+
+`make -C integration checkpoint-recovery-current-check`包含同轮Go原字节HTTP下载和明确启用的独立Kafka冷恢复/正常HTTP报价。目录当前是owner在线控制面；自动发布、canonical公告、离线目录、旧快照追平及独立故障域恢复属于后续范围。默认不开生产准入或VERIFIED报价。

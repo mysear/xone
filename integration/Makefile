@@ -1109,3 +1109,7 @@ public-bootstrap-current-check:
 .PHONY: remote-checkpoint-current-check
 remote-checkpoint-current-check:
 	python3 tools/acceptance/validate_remote_checkpoint.py
+
+.PHONY: checkpoint-recovery-current-check
+checkpoint-recovery-current-check:
+	python3 tools/acceptance/validate_checkpoint_recovery.py

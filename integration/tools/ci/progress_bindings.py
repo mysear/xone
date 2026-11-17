@@ -1857,3 +1857,17 @@ BINDINGS['9.remote-checkpoint-objects'] = {
            'checkpoint_store::tests::checkpoint_store_url_scope_is_explicit_and_shared'],
  'evidence_refs': ['integration/artifacts/local/remote-checkpoint-check/report.json'],
 }
+
+BINDINGS['9.current-remote-checkpoint-recovery'] = {
+ 'paths': ['chain-parser-go/internal/checkpoint/catalog.go',
+           'chain-parser-go/internal/service/checkpoint_test.go',
+           'dex-router/crates/quote-api/src/remote_checkpoint.rs',
+           'dex-router/crates/quote-api/src/remote_checkpoint/tests.rs',
+           'dex-router/crates/quote-api/src/lib.rs',
+           'integration/tools/acceptance/validate_checkpoint_recovery.py'],
+ 'tests': ['TestRemoteCheckpointCatalogRequiresReadbackMarkerExactLiveStateAndStoreIdentity',
+           'remote_checkpoint::tests::remote_checkpoint_download_uses_exact_configured_credentials_and_reattests',
+           'remote_checkpoint::tests::remote_checkpoint_downloads_current_go_wire_without_reserializing_payload',
+           'remote_checkpoint::tests::remote_checkpoint_normal_router_cold_restore_and_quote_with_actual_kafka'],
+ 'evidence_refs': ['integration/artifacts/local/checkpoint-recovery-check/report.json'],
+}

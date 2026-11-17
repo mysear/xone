@@ -390,3 +390,71 @@ func TestRemoteCheckpointPutAcknowledgementRequiresActualExactObject(t *testing.
 		})
 	}
 }
+
+func TestRemoteCheckpointCatalogRequiresReadbackMarkerExactLiveStateAndStoreIdentity(t *testing.T) {
+	f, server := objectStore(t)
+	remote := remoteFixture(t, server.URL+"/bucket", 5*time.Second)
+	boot := bootstrapFixture(t)
+	dir := t.TempDir()
+	p, e := WriteBootstrap(dir, boot, 8<<20, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = remote.Catalog(dir, boot); e == nil {
+		t.Fatal("local checkpoint qualified before upload")
+	}
+	f.mu.Lock()
+	f.failManifest = true
+	f.mu.Unlock()
+	if _, e = remote.Publish(context.Background(), p, nil); e == nil {
+		t.Fatal("partial upload qualified")
+	}
+	if _, e = remote.Catalog(dir, boot); e == nil {
+		t.Fatal("half upload entered catalog")
+	}
+	f.mu.Lock()
+	f.failManifest = false
+	f.mu.Unlock()
+	published, e := remote.Publish(context.Background(), p, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	got, e := remote.Catalog(dir, boot)
+	if e != nil || got.ManifestURL != published.ManifestURL || got.ManifestSHA256 != published.ManifestSHA256 {
+		t.Fatal(got, e)
+	}
+	reopened := remoteFixture(t, server.URL+"/bucket", 5*time.Second)
+	if restored, e := reopened.Catalog(dir, boot); e != nil || restored.ManifestSHA256 != published.ManifestSHA256 {
+		t.Fatal("durable catalogue marker unavailable after client restart", e)
+	}
+	for _, mode := range []string{"seq", "cursor", "generation", "owner", "store", "content"} {
+		t.Run(mode, func(t *testing.T) {
+			changed := bootstrapFixture(t)
+			use := remote
+			switch mode {
+			case "seq":
+				changed.Snapshot.Reference.JournalSeq++
+			case "cursor":
+				changed.Cursor.Offset++
+			case "generation":
+				changed.Snapshot.Reference.OnlineGeneration++
+			case "owner":
+				changed.Snapshot.Reference.WriterEpoch++
+			case "store":
+				use = remoteFixture(t, server.URL+"/other-store", 5*time.Second)
+			case "content":
+				changed.Snapshot.HistoryGaps = append(changed.Snapshot.HistoryGaps, changed.Snapshot.HistoryGaps...)
+				changed.Snapshot.Source = "OTHER_SOURCE"
+			}
+			if _, e := use.Catalog(dir, changed); e == nil {
+				t.Fatal("catalog qualified other live state", mode)
+			}
+		})
+	}
+	if e = os.WriteFile(filepath.Join(filepath.Dir(p.ManifestPath), remote.completionName()), []byte("corrupt"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = remote.Catalog(dir, boot); e == nil {
+		t.Fatal("corrupt completion marker qualified")
+	}
+}
