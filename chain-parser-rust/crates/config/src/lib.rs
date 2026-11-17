@@ -766,6 +766,11 @@ impl Config {
         let j = &self.journal;
         if let Some(store) = &j.checkpoint_store {
             store.validate()?;
+            if store.publish_interval_ms > 0
+                && (expected != "chain-parser-go" || self.service.role != "online")
+            {
+                return Err(err("CHECKPOINT_PUBLISH_OWNER"));
+            }
         }
         if !["http-development", "kafka"].contains(&j.transport.as_str())
             || j.poll_interval_ms == 0

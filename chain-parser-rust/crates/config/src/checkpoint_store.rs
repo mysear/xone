@@ -4,14 +4,22 @@ use xone_domain::{err, Result};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CheckpointStore {
+    #[serde(default, skip_serializing_if = "zero")]
+    pub publish_interval_ms: u64,
     pub base_url: String,
     #[serde(default)]
     pub allow_plaintext_development: bool,
 }
+fn zero(n: &u64) -> bool {
+    *n == 0
+}
 impl CheckpointStore {
     pub fn validate(&self) -> Result<()> {
         let fail = || err("CHECKPOINT_STORE_CONFIG_INVALID");
-        if self.base_url.len() > 2048 {
+        if self.base_url.len() > 2048
+            || self.publish_interval_ms > 3600000
+            || (self.publish_interval_ms > 0 && self.publish_interval_ms < 100)
+        {
             return Err(fail());
         }
         let (rest, secure) = if let Some(rest) = self.base_url.strip_prefix("https://") {
@@ -85,6 +93,7 @@ mod tests {
             "http://127.0.0.1:8092/bucket",
         ] {
             cfg.journal.checkpoint_store = Some(CheckpointStore {
+                publish_interval_ms: 0,
                 base_url: url.into(),
                 allow_plaintext_development: true,
             });
@@ -105,15 +114,42 @@ mod tests {
             "http://127.0.0.10:8092",
         ] {
             cfg.journal.checkpoint_store = Some(CheckpointStore {
+                publish_interval_ms: 0,
                 base_url: url.into(),
                 allow_plaintext_development: true,
             });
             assert!(cfg.validate(&expected).is_err(), "{url}");
         }
         cfg.journal.checkpoint_store = Some(CheckpointStore {
+            publish_interval_ms: 0,
             base_url: "http://127.0.0.1:8092/bucket".into(),
             allow_plaintext_development: false,
         });
         assert!(cfg.validate(&expected).is_err());
+    }
+    #[test]
+    fn checkpoint_periodic_publishing_is_bounded_and_never_enabled_for_rust_roles() {
+        let mut cfg = crate::load("../../config/config-test.yaml", "dex-router")
+            .or_else(|_| crate::load("../../config/config-test.yaml", "chain-parser-rust"))
+            .unwrap()
+            .config;
+        let expected = cfg.service.name.clone();
+        let mut store: CheckpointStore =
+            serde_json::from_str(r#"{"base_url":"https://objects.example/bucket"}"#).unwrap();
+        assert_eq!(store.publish_interval_ms, 0);
+        store.validate().unwrap();
+        for interval in [100, 1000, 3600000] {
+            store.publish_interval_ms = interval;
+            store.validate().unwrap();
+            cfg.journal.checkpoint_store = Some(store.clone());
+            assert_eq!(
+                cfg.validate(&expected).unwrap_err().0,
+                "CHECKPOINT_PUBLISH_OWNER"
+            );
+        }
+        for interval in [1, 99, 3600001, u64::MAX] {
+            store.publish_interval_ms = interval;
+            assert!(store.validate().is_err());
+        }
     }
 }

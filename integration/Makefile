@@ -1113,3 +1113,7 @@ remote-checkpoint-current-check:
 .PHONY: checkpoint-recovery-current-check
 checkpoint-recovery-current-check:
 	python3 tools/acceptance/validate_checkpoint_recovery.py
+
+.PHONY: checkpoint-worker-current-check
+checkpoint-worker-current-check:
+	python3 tools/acceptance/validate_checkpoint_worker.py

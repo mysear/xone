@@ -64,3 +64,33 @@ func TestCheckpointStoreURLScopeAndSecretFingerprint(t *testing.T) {
 		t.Fatal("object credential entered public identity")
 	}
 }
+
+func TestCheckpointPeriodicPublishingIsExplicitBoundedAndGoOnlineOnly(t *testing.T) {
+	cfg, e := Load("../../config/config-test.yaml", "chain-parser-go")
+	if e != nil {
+		t.Fatal(e)
+	}
+	cfg.Config.Journal.CheckpointStore = &CheckpointStore{BaseURL: "https://objects.example/bucket"}
+	for _, interval := range []uint64{0, 100, 1000, 3600000} {
+		cfg.Config.Journal.CheckpointStore.PublishIntervalMS = interval
+		if e = cfg.Config.Validate("chain-parser-go"); e != nil {
+			t.Fatal(interval, e)
+		}
+	}
+	for _, interval := range []uint64{1, 99, 3600001, ^uint64(0)} {
+		cfg.Config.Journal.CheckpointStore.PublishIntervalMS = interval
+		if cfg.Config.Validate("chain-parser-go") == nil {
+			t.Fatal(interval)
+		}
+	}
+	cfg.Config.Journal.CheckpointStore.PublishIntervalMS = 100
+	cfg.Config.Service.Role = "analytics"
+	if e = cfg.Config.Validate("chain-parser-go"); e == nil || e.Error() != "CHECKPOINT_PUBLISH_OWNER" {
+		t.Fatal(e)
+	}
+	cfg.Config.Service.Role = "online"
+	cfg.Config.Service.Name = "chain-parser-rust"
+	if e = cfg.Config.Validate("chain-parser-rust"); e == nil || e.Error() != "CHECKPOINT_PUBLISH_OWNER" {
+		t.Fatal(e)
+	}
+}

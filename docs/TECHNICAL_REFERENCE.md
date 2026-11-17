@@ -1913,3 +1913,13 @@ Go `ParseBootstrapManifest`/`ReadBootstrap`及两Rust `kafka_transport::checkpoi
 配置checkpoint_store的正常dex-router Kafka恢复先请求配置owner的目录，以其独立给定pin和owner/assignment/chain/topic校验限定对象；store请求只用source_auth_tokens中精确base_url的token。先64KiB manifest、再声明精确长度payload，禁止redirect/content-encoding，整轮timeout，校验格式/原字节摘要及状态和cursor后，再请求owner同目录确认未变。随后仍走正常bootstrap年龄、Kafka cursor保留窗/有界尾窗和Replica owner/代际校验；仅下载完成不发布视图。远端错误记录值无关错误码，可选择同一配置owner的当前bootstrap，全部失败由原sync_sources暂停。日志恢复来源区分REMOTE_CHECKPOINT_AND_KAFKA与OWNER_CHECKPOINT_AND_KAFKA。
 
 `make -C integration checkpoint-recovery-current-check`包含同轮Go原字节HTTP下载和明确启用的独立Kafka冷恢复/正常HTTP报价。目录当前是owner在线控制面；自动发布、canonical公告、离线目录、旧快照追平及独立故障域恢复属于后续范围。默认不开生产准入或VERIFIED报价。
+
+## Go周期checkpoint发布生命周期
+
+阶段105（2026-11-18）。`journal.checkpoint_store.publish_interval_ms`省略/0为手动，100..3600000为Go online正常服务周期；两个Rust配置副本允许识别该字段，但拒绝在Rust服务/analytics启用，避免未实现设置默默生效。正常Start后先做一轮，再在每轮完成后等待interval，不积累ticker。后台与授权POST /internal/checkpoints共用同一可取消发布通道和整轮request_timeout_ms截止时间；局部snapshot/cursor读取后，网络阶段仍按原epoch/owner/schema/scope guard核对，无actor锁跨网络。
+
+Service.Close先取消整个checkpoint生命周期，取消进行中的手动和后台HTTP请求，等待worker及占用发布通道的请求退出，再关闭reducer/PG和日志；父Start ctx取消只停止周期，不使独立手动调用凭空失效。目录入口关闭后不返回资格。原JSON/Protobuf/remote返回字段保留；后台没有真实cursor时不伪造位置，也不推进owner日志。
+
+授权`GET /internal/checkpoints/status`返回enabled/active/interval/completed_cycles/failed_cycles；metrics增加xone_checkpoint_cycles_total与xone_checkpoint_failures_total。completed包含无对象可发布的正常轮次，不能读成成功上传数；有确认远端对象才记录checkpoint.uploaded，失败记录固定错误码checkpoint.failed。正常HTTP服务WriteTimeout取至少5秒及发布请求预算加1秒，以便在预算截止后返回错误响应。
+
+`make -C integration checkpoint-worker-current-check`包含真实正常服务handler/独立HTTP对象端口的race、关闭和取消测试，Go状态/cursor不变检查，以及同轮Go原wire下载和实际Kafka冷恢复回归。周期上传和读取当前目录属于已实现范围，旧快照追平与canonical离线目录继续单列。

@@ -1871,3 +1871,19 @@ BINDINGS['9.current-remote-checkpoint-recovery'] = {
            'remote_checkpoint::tests::remote_checkpoint_normal_router_cold_restore_and_quote_with_actual_kafka'],
  'evidence_refs': ['integration/artifacts/local/checkpoint-recovery-check/report.json'],
 }
+
+BINDINGS['9.periodic-checkpoint-publisher'] = {
+ 'paths': ['chain-parser-go/internal/service/checkpoint_worker.go',
+           'chain-parser-go/internal/service/checkpoint_worker_test.go',
+           'chain-parser-go/internal/config/checkpoint_store.go',
+           'chain-parser-go/internal/app/app.go',
+           'dex-router/crates/config/src/checkpoint_store.rs',
+           'integration/tools/acceptance/validate_checkpoint_worker.py'],
+ 'tests': ['TestCheckpointWorkerPublishesWithoutManualPOSTAndRecoversFailedUpload',
+           'TestCheckpointWorkerGateCancellationAndCloseInterruptInflightUpload',
+           'TestCheckpointCloseAlsoCancelsManualUploadAndDisabledWorkerStaysIdle',
+           'TestCheckpointWorkerParentCancellationLeavesManualPublicationAvailable',
+           'TestCheckpointPeriodicPublishingIsExplicitBoundedAndGoOnlineOnly',
+           'checkpoint_store::tests::checkpoint_periodic_publishing_is_bounded_and_never_enabled_for_rust_roles'],
+ 'evidence_refs': ['integration/artifacts/local/checkpoint-worker-check/report.json'],
+}

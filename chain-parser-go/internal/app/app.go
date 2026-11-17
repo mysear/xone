@@ -29,7 +29,11 @@ func Run(cfg *config.Snapshot, source service.SnapshotSource) error {
 	if e = s.Start(ctx); e != nil {
 		return e
 	}
-	server := &http.Server{Addr: cfg.Config.API.Listen, Handler: s.Handler(), ReadHeaderTimeout: time.Duration(cfg.Config.Journal.TimeoutMS) * time.Millisecond, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, MaxHeaderBytes: 16384}
+	writeTimeout := time.Duration(cfg.Config.Journal.TimeoutMS)*time.Millisecond + time.Second
+	if writeTimeout < 5*time.Second {
+		writeTimeout = 5 * time.Second
+	}
+	server := &http.Server{Addr: cfg.Config.API.Listen, Handler: s.Handler(), ReadHeaderTimeout: time.Duration(cfg.Config.Journal.TimeoutMS) * time.Millisecond, ReadTimeout: 5 * time.Second, WriteTimeout: writeTimeout, MaxHeaderBytes: 16384}
 	fail := make(chan error, 1)
 	go func() { fail <- server.ListenAndServe() }()
 	ticker := time.NewTicker(time.Duration(cfg.Config.Journal.PollMS) * time.Millisecond)

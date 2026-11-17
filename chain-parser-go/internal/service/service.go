@@ -32,6 +32,16 @@ import (
 type SnapshotSource func(context.Context, config.Chain) (domain.Snapshot, error)
 
 type Service struct {
+	checkpointContext   context.Context
+	checkpointStop      context.CancelFunc
+	checkpointGate      chan struct{}
+	checkpointLifecycle sync.Mutex
+	checkpointCancel    context.CancelFunc
+	checkpointWG        sync.WaitGroup
+	checkpointCycles    atomic.Uint64
+	checkpointErrors    atomic.Uint64
+	checkpointActive    atomic.Bool
+
 	rawMaintenance    *RawMaintenance
 	constructedAt     time.Time
 	scopeTimings      map[string]*scopeRestoreStats
@@ -74,7 +84,8 @@ func NewWithSource(cfg *config.Snapshot, source SnapshotSource) (*Service, error
 	if cfg.Config.Service.Role != "online" {
 		return nil, errors.New("ANALYTICS_REQUIRES_JOB_ENTRY")
 	}
-	s := &Service{constructedAt: time.Now(), scopeTimings: map[string]*scopeRestoreStats{}, recoveries: map[string]*bootstrap.EmbeddedScopeStore{}, cfg: cfg, source: source, stores: map[string]*reducer.Store{}, adapters: map[string]*evm.Adapter{}, log: observability.New(os.Stdout, "chain-parser-go", cfg.Config.Service.Role, cfg.Release, cfg.PublicHash, cfg.Config.Logging)}
+	checkpointContext, checkpointStop := context.WithCancel(context.Background())
+	s := &Service{checkpointContext: checkpointContext, checkpointStop: checkpointStop, checkpointGate: make(chan struct{}, 1), constructedAt: time.Now(), scopeTimings: map[string]*scopeRestoreStats{}, recoveries: map[string]*bootstrap.EmbeddedScopeStore{}, cfg: cfg, source: source, stores: map[string]*reducer.Store{}, adapters: map[string]*evm.Adapter{}, log: observability.New(os.Stdout, "chain-parser-go", cfg.Config.Service.Role, cfg.Release, cfg.PublicHash, cfg.Config.Logging)}
 	s.rawSources = map[string]*rawRecorder{}
 	s.wake = make(chan struct{}, 1)
 	s.nextHTTP = map[string]time.Time{}
@@ -173,6 +184,7 @@ func (s *Service) Start(ctx context.Context) error {
 		}
 	}
 	s.started.Store(true)
+	s.startCheckpointWorker(ctx)
 	return nil
 }
 func (s *Service) reanchor(ctx context.Context, chain config.Chain, fork bool) error {
@@ -583,6 +595,7 @@ func (s *Service) Handler() http.Handler {
 		write(w, code, map[string]any{"ready": ready, "scope": "PARSER_STATE_SCOPE"})
 	})
 	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "xone_checkpoint_cycles_total %d\nxone_checkpoint_failures_total %d\n", s.checkpointCycles.Load(), s.checkpointErrors.Load())
 		fmt.Fprintf(w, "xone_log_dropped_total %d\nxone_log_write_errors_total %d\nxone_chain_sync_errors_total %d\n", s.log.Dropped.Load(), s.log.WriteErrors.Load(), s.lastError.Load())
 		s.writeRecoveryMetrics(w)
 	})
@@ -652,7 +665,7 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("GET /internal/chains/{chain}/checkpoint-catalog", func(w http.ResponseWriter, r *http.Request) {
 		store := s.stores[r.PathValue("chain")]
 		remoteConfig := s.cfg.Config.Journal.CheckpointStore
-		if store == nil || remoteConfig == nil {
+		if s.closed.Load() || store == nil || remoteConfig == nil {
 			write(w, 503, map[string]string{"error": "CHECKPOINT_CATALOG_UNAVAILABLE"})
 			return
 		}
@@ -674,69 +687,32 @@ func (s *Service) Handler() http.Handler {
 			return
 		}
 		current, e := store.Bootstrap()
-		if e != nil || current.Snapshot.Reference != boot.Snapshot.Reference || current.Cursor != boot.Cursor {
+		if s.closed.Load() || e != nil || current.Snapshot.Reference != boot.Snapshot.Reference || current.Cursor != boot.Cursor {
 			write(w, 503, map[string]string{"error": "CHECKPOINT_CATALOG_SOURCE_CHANGED"})
 			return
 		}
 		write(w, 200, publication)
 	})
-	mux.HandleFunc("POST /internal/checkpoints", func(w http.ResponseWriter, r *http.Request) {
-		paths := []string{}
-		publications := []checkpoint.Publication{}
-		remotes := []checkpoint.RemotePublication{}
-		for key, store := range s.stores {
-			snapshot, ok := store.Current()
-			if !ok {
-				continue
-			}
-			path, e := checkpoint.Write(filepath.Join(s.cfg.Resolve(s.cfg.Config.State.Path), "checkpoints", strings.ReplaceAll(key, ":", "-")), snapshot)
-			if e != nil {
-				write(w, 500, map[string]string{"error": "CHECKPOINT_FAILED"})
-				return
-			}
-			paths = append(paths, path)
-			boot, e := store.Bootstrap()
-			if e != nil {
-				if s.cfg.Config.Journal.Transport == "kafka" {
-					write(w, 503, map[string]string{"error": "CHECKPOINT_NOT_READY"})
-					return
-				}
-				continue
-			}
-			guard := func() error {
-				current, e := store.Bootstrap()
-				if e != nil {
-					return e
-				}
-				old, next := boot.Snapshot.Reference, current.Snapshot.Reference
-				if old.SchemaVersion != next.SchemaVersion || old.AdapterSetHash != next.AdapterSetHash || old.OwnerService != next.OwnerService || old.WriterEpoch != next.WriterEpoch || old.CanonicalEpoch != next.CanonicalEpoch || old.OnlineGeneration != next.OnlineGeneration || old.ScopeHash != next.ScopeHash || old.OwnerAssignmentVersion != next.OwnerAssignmentVersion {
-					return fmt.Errorf("CHECKPOINT_SOURCE_REVOKED")
-				}
-				return nil
-			}
-			publication, e := checkpoint.WriteBootstrap(filepath.Dir(filepath.Dir(path)), boot, s.cfg.Config.Journal.MaxBytes, guard)
-			if e != nil {
-				write(w, 503, map[string]string{"error": "CHECKPOINT_PUBLICATION_FAILED"})
-				return
-			}
-			publications = append(publications, publication)
-			if remoteConfig := s.cfg.Config.Journal.CheckpointStore; remoteConfig != nil {
-				remote, err := checkpoint.NewRemote(*remoteConfig, s.cfg.Config.Journal.SourceAuthTokens[remoteConfig.BaseURL], s.cfg.Config.Journal.MaxBytes, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
-				if err != nil {
-					write(w, 503, map[string]string{"error": "CHECKPOINT_REMOTE_CONFIG"})
-					return
-				}
-				published, err := remote.Publish(r.Context(), publication, guard)
-				remote.Close()
-				if err != nil {
-					write(w, 503, map[string]string{"error": "CHECKPOINT_REMOTE_PUBLICATION_FAILED"})
-					return
-				}
-				remotes = append(remotes, published)
-			}
+	mux.HandleFunc("GET /internal/checkpoints/status", func(w http.ResponseWriter, r *http.Request) {
+		interval := uint64(0)
+		if c := s.cfg.Config.Journal.CheckpointStore; c != nil {
+			interval = c.PublishIntervalMS
 		}
-		write(w, 200, map[string]any{"manifests": paths, "public_checkpoints": publications, "remote_checkpoints": remotes})
+		write(w, 200, map[string]any{"enabled": interval > 0, "active": s.checkpointActive.Load(), "publish_interval_ms": interval, "completed_cycles": s.checkpointCycles.Load(), "failed_cycles": s.checkpointErrors.Load()})
 	})
+	mux.HandleFunc("POST /internal/checkpoints", func(w http.ResponseWriter, r *http.Request) {
+		result, code := s.publishCheckpoints(r.Context())
+		if code != "" {
+			status := 503
+			if code == "CHECKPOINT_FAILED" {
+				status = 500
+			}
+			write(w, status, map[string]string{"error": code})
+			return
+		}
+		write(w, 200, result)
+	})
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/internal/") && s.cfg.Token != "" {
 			expected := "Bearer " + s.cfg.Token
@@ -753,6 +729,7 @@ func (s *Service) Close() {
 	if !s.closed.CompareAndSwap(false, true) {
 		return
 	}
+	s.stopCheckpointWorker()
 	if s.rawMaintenance != nil {
 		_ = s.rawMaintenance.Close()
 	}
