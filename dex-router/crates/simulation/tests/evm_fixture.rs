@@ -368,6 +368,7 @@ fn case(buy_delta: u64, revert: bool) -> Case {
             nonce: 7,
             gas_limit: 500_000,
             gas_price: "3".parse().unwrap(),
+            max_priority_fee_per_gas: None,
             chain_id: 31337,
         },
     }
@@ -875,4 +876,104 @@ fn unsynced_pair_surplus_is_observed_without_rejecting_actual_execution() {
     assert_eq!(out.observations.len(), 12);
     assert_eq!(out.usage.executions, 13);
     assert_eq!(serde_json::to_value(&c.fixture).unwrap(), original);
+}
+
+#[test]
+fn dynamic_fees_observe_actual_native_balances_and_fee_cap_clipping() {
+    for (cap, tip, effective) in [(10u64, 2u64, 3u64), (2, 2, 2), (10, 0, 1), (1, 1, 1)] {
+        for revert in [false, true] {
+            let mut c = case(5, revert);
+            c.tx.gas_price = cap.to_string().parse().unwrap();
+            c.tx.max_priority_fee_per_gas = Some(tip.to_string().parse().unwrap());
+            let out = run(&c).unwrap();
+            let fees = out.native_fees.as_ref().unwrap();
+            let gas = out.execution.gas_used;
+            assert_eq!(fees.effective_gas_price.to_string(), effective.to_string());
+            assert_eq!(
+                fees.execution_fee.to_string(),
+                (gas * effective).to_string()
+            );
+            assert_eq!(fees.base_fee_burned.to_string(), gas.to_string());
+            assert_eq!(
+                fees.priority_fee_paid.to_string(),
+                (gas * (effective - 1)).to_string()
+            );
+            assert_eq!(
+                &fees.caller_before.0 - &fees.caller_after.0,
+                fees.execution_fee.0
+            );
+            assert_eq!(
+                &fees.coinbase_after.0 - &fees.coinbase_before.0,
+                fees.priority_fee_paid.0
+            );
+            let hash = out.receipt_hash;
+            let overlay = out.execution.post_state_digest;
+            c.tx.gas_price = effective.to_string().parse().unwrap();
+            c.tx.max_priority_fee_per_gas = None;
+            let legacy = run(&c).unwrap();
+            assert_eq!(legacy.execution.post_state_digest, overlay);
+            assert_ne!(legacy.receipt_hash, hash);
+            assert!(legacy.native_fees.is_none());
+        }
+    }
+}
+
+#[test]
+fn dynamic_fee_validation_precedes_state_reads_and_rejects_insufficient_maximum_funding() {
+    for (cap, tip) in [(0u64, 0u64), (2, 3)] {
+        let mut c = case(5, false);
+        c.tx.gas_price = cap.to_string().parse().unwrap();
+        c.tx.max_priority_fee_per_gas = Some(tip.to_string().parse().unwrap());
+        let e = run(&c).unwrap_err();
+        assert_eq!(e.code, SimulationErrorCode::SimulationTransactionContext);
+        assert_eq!(e.usage.executions, 0);
+    }
+    let mut c = case(5, false);
+    // Effective price 3 is affordable, but the maximum up-front commitment is not.
+    c.tx.gas_price = "100000000000000000000".parse().unwrap();
+    c.tx.max_priority_fee_per_gas = Some("2".parse().unwrap());
+    assert!(run(&c).is_err());
+}
+
+#[test]
+fn dynamic_fee_zero_base_and_caller_coinbase_keep_measured_deltas() {
+    let mut c = case(5, false);
+    c.fixture.execution_environment.coinbase = c.bound.plan.context.caller.clone();
+    c.tx.gas_price = "10".parse().unwrap();
+    c.tx.max_priority_fee_per_gas = Some("2".parse().unwrap());
+    let out = run(&c).unwrap();
+    let fees = out.native_fees.unwrap();
+    assert_eq!(
+        &fees.caller_before.0 - &fees.caller_after.0,
+        fees.base_fee_burned.0
+    );
+    assert_eq!(fees.caller_before, fees.coinbase_before);
+    assert_eq!(fees.caller_after, fees.coinbase_after);
+    c.fixture.execution_environment.base_fee = "0".parse().unwrap();
+    c.tx.gas_price = "0".parse().unwrap();
+    c.tx.max_priority_fee_per_gas = Some("0".parse().unwrap());
+    let out = run(&c).unwrap();
+    let fees = out.native_fees.unwrap();
+    assert_eq!(fees.execution_fee.to_string(), "0");
+    assert_eq!(fees.caller_before, fees.caller_after);
+}
+
+#[test]
+fn dynamic_fee_wire_preserves_legacy_commitments_and_rejects_numeric_priority() {
+    let c = case(5, false);
+    let legacy = serde_json::to_value(&c.tx).unwrap();
+    assert!(legacy.get("max_priority_fee_per_gas").is_none());
+    assert!(serde_json::from_value::<TransactionContext>(legacy.clone())
+        .unwrap()
+        .max_priority_fee_per_gas
+        .is_none());
+    let mut dynamic = legacy.clone();
+    dynamic["max_priority_fee_per_gas"] = json!(2);
+    assert!(serde_json::from_value::<TransactionContext>(dynamic).is_err());
+    let mut dynamic = legacy;
+    dynamic["max_priority_fee_per_gas"] = json!("2");
+    assert!(serde_json::from_value::<TransactionContext>(dynamic)
+        .unwrap()
+        .max_priority_fee_per_gas
+        .is_some());
 }

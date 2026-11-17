@@ -769,3 +769,40 @@ fn legacy_observation_missing_calldata_remains_invalid_and_storage_roundtrips() 
     let decoded: Observation = serde_json::from_value(lock.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), lock);
 }
+
+#[test]
+fn complete_original_router_eip1559_matches_legacy_overlay_and_measured_native_fees() {
+    let mut count = 0;
+    for c in corpus()["cases"].as_array().unwrap() {
+        if c["service_eligible"] != true {
+            continue;
+        }
+        let (b, p, f, mut tx) = bound(c);
+        let legacy = simulate(&b, &p, &f, &tx, &budget()).unwrap();
+        let price = tx.gas_price.clone();
+        tx.max_priority_fee_per_gas = Some(price.clone());
+        // Priority is clipped to the cap minus the explicitly captured base fee.
+        let dynamic = simulate(&b, &p, &f, &tx, &budget()).unwrap();
+        assert_eq!(
+            legacy.execution.post_state_digest,
+            dynamic.execution.post_state_digest
+        );
+        assert_eq!(legacy.actual_buy_amount, dynamic.actual_buy_amount);
+        let fees = dynamic.native_fees.unwrap();
+        assert_eq!(fees.effective_gas_price, price);
+        assert_eq!(
+            &fees.caller_before.0 - &fees.caller_after.0,
+            fees.execution_fee.0
+        );
+        assert_eq!(
+            &fees.coinbase_after.0 - &fees.coinbase_before.0,
+            fees.priority_fee_paid.0
+        );
+        assert_eq!(
+            &fees.base_fee_burned.0 + &fees.priority_fee_paid.0,
+            fees.execution_fee.0
+        );
+        count += 1;
+    }
+    assert_eq!(count, 16);
+}

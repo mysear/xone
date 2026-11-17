@@ -1049,3 +1049,7 @@ evm-preparation-current-check:
 .PHONY: evm-rpc-preparation-current-check
 evm-rpc-preparation-current-check:
 	python3 tools/acceptance/validate_evm_rpc_preparation.py
+
+.PHONY: evm-dynamic-fees-current-check
+evm-dynamic-fees-current-check:
+	python3 tools/acceptance/validate_evm_dynamic_fees.py

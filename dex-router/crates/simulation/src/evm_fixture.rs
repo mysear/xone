@@ -76,7 +76,10 @@ pub struct FixtureState {
 pub struct TransactionContext {
     pub nonce: u64,
     pub gas_limit: u64,
+    /// Legacy gas price, or the EIP-1559 maximum when a priority fee is present.
     pub gas_price: Amount,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_priority_fee_per_gas: Option<Amount>,
     pub chain_id: u64,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -486,6 +489,20 @@ pub struct EvmReceipt {
     pub sender_nonce_after: u64,
     pub post_state_digest: String,
 }
+/// Native balances are observed from the same REVM pre/post images as token deltas.
+/// Execution fees cover the declared Shanghai L1 environment; L2 data fees are separate.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NativeFeeMeasurements {
+    pub caller_before: Amount,
+    pub caller_after: Amount,
+    pub coinbase_before: Amount,
+    pub coinbase_after: Amount,
+    pub effective_gas_price: Amount,
+    pub execution_fee: Amount,
+    pub base_fee_burned: Amount,
+    pub priority_fee_paid: Amount,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SimulationOutcome {
@@ -503,6 +520,8 @@ pub struct SimulationOutcome {
     /// Covered exact-input adapter has no separately modeled refund leg; matching requires full input consumption.
     pub refund: Amount,
     pub actual_buy_amount: Amount,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_fees: Option<NativeFeeMeasurements>,
     pub observations: Vec<Observation>,
     pub usage: BudgetUsage,
     pub source_fixture_hash: String,
@@ -1103,7 +1122,20 @@ pub fn simulate_bound(
             "chain/gas/memory/zero ETH scope",
         ));
     }
-    amount(&tx.gas_price)?;
+    let max_fee = amount(&tx.gas_price)?;
+    let priority_fee = tx
+        .max_priority_fee_per_gas
+        .as_ref()
+        .map(amount)
+        .transpose()?;
+    let base_fee = amount(&fixture.execution_environment.base_fee)?;
+    if priority_fee.is_some_and(|tip| tip > max_fee || max_fee < base_fee) {
+        return Err(failure(
+            SimulationTransactionContext,
+            "transaction_context",
+            "invalid EIP-1559 fee cap or priority fee",
+        ));
+    }
     let image = fixture.to_image(budget)?;
     let pool_id = bound
         .touched_pool_ids
@@ -1203,7 +1235,8 @@ pub fn simulate_bound(
             nonce: Some(tx.nonce),
             chain_id: Some(tx.chain_id),
             gas_limit: tx.gas_limit,
-            gas_price: amount(&tx.gas_price)?,
+            gas_price: max_fee,
+            gas_priority_fee: priority_fee,
             ..TxEnv::default()
         },
         "swap",
@@ -1272,6 +1305,40 @@ pub fn simulate_bound(
         && spent == amount(&bound.plan.allocation.sell_amount)?
         && bought == amount(&bound.plan.allocation.gross_buy_amount)?
         && bought >= amount(&bound.plan.min_buy_amount)?;
+    let native_fees = if let Some(tip) = priority_fee {
+        let coinbase = address(&fixture.execution_environment.coinbase)?;
+        let native_balance = |state: &core::StateImage, owner: Address| -> Result<U256> {
+            match state.data().accounts.get(&owner) {
+                Some(Some(info)) => Ok(info.balance),
+                Some(None) => Ok(U256::ZERO),
+                None => Err(runner.error(
+                    SimulationObservationUnavailable,
+                    "native_fees",
+                    "account not captured",
+                )),
+            }
+        };
+        let effective_tip = tip.min(max_fee - base_fee);
+        let price = base_fee + effective_tip;
+        let gas = U256::from(actual.result.gas_used());
+        let multiply = |value: U256| {
+            value.checked_mul(gas).ok_or_else(|| {
+                runner.error(SimulationTransactionContext, "native_fees", "fee overflow")
+            })
+        };
+        Some(NativeFeeMeasurements {
+            caller_before: as_amount(native_balance(&image, caller)?)?,
+            caller_after: as_amount(native_balance(&post, caller)?)?,
+            coinbase_before: as_amount(native_balance(&image, coinbase)?)?,
+            coinbase_after: as_amount(native_balance(&post, coinbase)?)?,
+            effective_gas_price: as_amount(price)?,
+            execution_fee: as_amount(multiply(price)?)?,
+            base_fee_burned: as_amount(multiply(base_fee)?)?,
+            priority_fee_paid: as_amount(multiply(effective_tip)?)?,
+        })
+    } else {
+        None
+    };
     let mut outcome = SimulationOutcome {
         verified: false,
         authority: DataAuthority::ProvidedLocalState,
@@ -1297,6 +1364,7 @@ pub fn simulate_bound(
         actual_input_consumed: as_amount(spent)?,
         refund: Amount::zero(),
         actual_buy_amount: as_amount(bought)?,
+        native_fees,
         observations: runner.observations,
         usage: runner.usage,
         source_fixture_hash,

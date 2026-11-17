@@ -642,6 +642,7 @@ mod tests {
                 nonce: 7,
                 gas_limit: 1_000_000,
                 gas_price: gas_price.parse().unwrap(),
+                max_priority_fee_per_gas: None,
                 chain_id: 31337,
             },
             executor: ExecutorIdentity {

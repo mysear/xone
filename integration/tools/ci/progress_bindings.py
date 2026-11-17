@@ -1673,3 +1673,16 @@ BINDINGS['14.evm-rpc-preparation'] = {
           'evm_prepare_auth_unknown_context_and_reorg_do_not_call_rpc','exact_output_preparation_uses_its_own_target_and_maximum_input'],
  'evidence_refs':['integration/artifacts/local/evm-rpc-preparation-check/report.json'],
 }
+
+BINDINGS['14.evm-dynamic-fees'] = {
+    'paths': ['dex-router/crates/simulation/src/evm_fixture.rs',
+              'dex-router/crates/simulation/tests/evm_fixture.rs',
+              'dex-router/crates/simulation/tests/v2_complete.rs',
+              'integration/tools/acceptance/validate_evm_dynamic_fees.py'],
+    'tests': ['dynamic_fees_observe_actual_native_balances_and_fee_cap_clipping',
+              'dynamic_fee_validation_precedes_state_reads_and_rejects_insufficient_maximum_funding',
+              'dynamic_fee_zero_base_and_caller_coinbase_keep_measured_deltas',
+              'dynamic_fee_wire_preserves_legacy_commitments_and_rejects_numeric_priority',
+              'complete_original_router_eip1559_matches_legacy_overlay_and_measured_native_fees'],
+    'evidence_refs': ['integration/artifacts/local/evm-dynamic-fees-check/report.json'],
+}

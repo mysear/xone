@@ -958,6 +958,8 @@ Vault `reservesOfApp(manager,currency)` 和 manager `protocolFeesAccrued(currenc
 
 ## 独立 EVM 本地状态执行
 
+`TransactionContext`支持可选的十进制字符串`max_priority_fee_per_gas`。存在时，`gas_price`表示EIP-1559的max fee，二者原样传给REVM；省略时保留既有legacy语义和JSON承诺。cap低于执行块base fee、tip超过cap或最大预付资金不足均拒绝。动态费用结果增加`native_fees`，记录同次银行调用者/coinbase原生币pre/post、实际effective gas price、execution fee、base fee burn和priority fee；这些字段进入receipt承诺。caller等于coinbase时，其净扣款包含返还给自己的tip，不能按净扣款再次收取tip。该结果只覆盖给定Shanghai银行的执行费用，L2 data fee和当前链资格独立验收。
+
 现有 dex-router 可配置 `simulation.backend: revm-fixture`。`state_file` 指向严格
 `LocalSimulationBundle`：显式账户/code/storage/blockhash、源块 H 身份、实际 H+1
 执行环境、固定 executor 身份和 transaction_context。账户/slot 缺失不会默认为零；
