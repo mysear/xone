@@ -405,3 +405,41 @@ func TestWeightedCurrentSnapshotCannotMutateStoredState(t *testing.T) {
 		t.Fatal("returned snapshot mutated durable state")
 	}
 }
+
+func TestBootstrapHeadHasSameAtomicReadinessAndCursorAsFullBootstrap(t *testing.T) {
+	snapshot := baseline(t)
+	store, e := Open(t.TempDir(), "chain-parser-go", 1, 128)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer store.Close()
+	if _, _, e = store.BootstrapHead(); e == nil {
+		t.Fatal("head without committed state")
+	}
+	if e = store.Prepare(journal.Unit{Kind: "ONLINE_BASELINE_COMMIT", Snapshot: snapshot}); e != nil {
+		t.Fatal(e)
+	}
+	if _, _, e = store.BootstrapHead(); e == nil {
+		t.Fatal("uncommitted head exposed")
+	}
+	cursor := journal.Cursor{Topic: "canonical.test", Partition: 0, Offset: 9007199254741033}
+	if e = store.ApplyPrepared(cursor); e != nil {
+		t.Fatal(e)
+	}
+	ref, position, e := store.BootstrapHead()
+	if e != nil || ref != snapshot.Reference || position != cursor {
+		t.Fatal(ref, position, e)
+	}
+	full, e := store.Bootstrap()
+	if e != nil || full.Snapshot.Reference != ref || full.Cursor != position {
+		t.Fatal(e)
+	}
+	store.SetAuthorityDeadline(time.Now().Add(-time.Second))
+	if _, _, e = store.BootstrapHead(); e == nil {
+		t.Fatal("expired owner head exposed")
+	}
+	store.Close()
+	if _, _, e = store.BootstrapHead(); e == nil {
+		t.Fatal("closed owner head exposed")
+	}
+}

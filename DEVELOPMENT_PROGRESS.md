@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|旧checkpoint有限尾窗追平（阶段107）|§10.5/17.5/18/28.10；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|owner绑定旧不可变对象及当前ref/cursor，Rust私有Replica有界重放/最终目录复核后激活|19门禁/152次Go/166次Rust、实际Kafka两后续块私有追平/HTTP报价/撤权及半事务拒绝通过|
 |多链checkpoint公平调度（阶段106）|§10.5/18/28.10；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|后台按配置链轮转、失败仍推进下一链、每链独立预算与同一可取消通道，手动整批语义保留|7门禁/149次Go race及当前Go程序构建通过；双链故障/持续更新/恢复和串行界限通过|
 |周期checkpoint发布（阶段105）|§10.5/17.7/28.10；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|正常Go服务显式周期发布，完成后再计时、手动/后台共用可取消通道，关闭取消并等待所有发布|18门禁/148次Go/164次Rust及实际Kafka恢复回归通过；多链公平性、旧快照追平与canonical目录继续|
 |当前远端checkpoint冷恢复（阶段104）|§10.5/17.7/28.10；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|Go当前owner目录、耐久完成标记、Rust有界下载/目录二次核对和正常恢复来源选择|18门禁/143次Go/162次Rust、实际Kafka冷恢复/正常HTTP报价与损坏暂停通过|
@@ -97,7 +98,7 @@
 |WP05|区块读取、解码与完整性组块|§28.7|PARTIAL_LOCAL|EVM固定blockHash读取、token身份、receipt/log完整性、同块读后锚点复核；单链串行提交；RaydiumCLMM DynamicFeeInfo1096..1130九字段实际解析、1130..1544未知padding拒绝、正常RPC动态分派与原完整Pool样本通过；本批限定范围整体验收通过；本轮receipt结构与日志连续性校验完成，Go全check/race及新旧27范围回归通过；多RPC完整receipt/尾部遗漏差异核验与恢复闭环通过；正常Solana RPC原始响应证据WAL、独立耐久head/损坏封闭与重启新会话验证通过；主源/全部witness的consensus receipt根重算、严格可选字段与bloom校验、前后root锚点及共同删尾拒绝完成局部验证；超过100依赖可用最多32片构造同context当前基线，归档/混合协议同样执行屏障；13池CLMM seed状态完整保留，16池134账户进程验证通过；本批新增Crypto完整状态解析及专属版本拒绝边界，旧settled仍拒绝active ramp，独立ramp版本已完成限定在线验收；本批新增initialized Oracle专属profile、Clock/源bank/timestamp绑定和完整账户解析，旧static/rewards拒绝边界不变；本批新增Bin完整树与树外active1000share/dust解析、原getters/storage核对及source重锚，10种进程来源故障撤销/新generation恢复通过；新增classic SPL三fixed数组/初始化Oracle与奖励组合正常解析、13来源故障撤销恢复及完整后状态限定验证通过；新增adaptive-dynamic真实compact账户解析与16来源故障撤销恢复限定验证；normal服务并行staging/有序提交、工厂动态目录、先归档后decode、持久DLQ修复重放及owner责任已接线并有本地进程验证|持续生产归档保留/吞吐、真实工厂目录及更多版本完整事实、可信头/最终性与实网重组发布资格仍需补验，详见R01–R04复核|
 |WP06|Canonical Journal、事务与幂等|§28.8|PARTIAL_LOCAL|Go/Rust公共BEGIN/CHUNK/COMMIT契约、完整屏障/校验/Protobuf二进制/32字节大端金额；真实Kafka事务发布、read_committed消费、稳定transactional.id、分区0/单分区检查、prepared与state/cursor原子应用、未知结果从journal确认；prepared对照确定性wire hash；只读analytics Reader不创建producer或fencing|生产TLS/SASL/ACL、DLQ原始证据、topic重建/迁移全链校验、真实ISR/保留损坏/消费者重平衡专项仍未验收|
 |WP07|Reducer、分叉与旧主隔离|§28.9|PARTIAL_LOCAL|真实PG互斥租约/server clock/过期不可续租/owner投影/单调版本下界与关键激活审计；两解析器接入Kafka fencing和prepared恢复；限定V2旧分支精确BlockRef倒序撤销与新分支事实在REORG_COMMIT整体提交并供隔离analytics更正；Rust来源错误广播ONLINE_SCOPE_REVOKED，精确同scope/块/epoch/代seq+1，prepare/Kafka/PG/apply持久化与合格高代基线恢复；receipt根/共识字段异常的旧scope撤销、HEAD_FIRST新代恢复、无伪造BLOCK_COMMIT与后续正常提交经13项进程验证|真实链交叉来源/多块历史fixture、通用事实/BLOCK_REVERT独立记录、Solana完整fork、PG故障切换/区域及独立故障域、对象存储fencing和完整控制审计仍未完成/验收|
-|WP08|当前基线、归档与HEAD_FIRST空盘恢复|§28.10|PARTIAL_LOCAL|Go/Rust owner Protobuf bootstrap和无KV/有限Kafka恢复；新增公开快照+committed cursor不可变manifest、Go条件HTTP上传/精确回读/完成标记与当前owner目录；正常router有界远端下载/二次资格核对及真实Kafka冷恢复/HTTP报价通过，半上传/损坏拒绝；Go新增周期发布/取消关闭、手动共享通道及双链公平轮转/失败隔离，Rust旧KV不自动ready|Rust owner自动发布、canonical目录声明/离线peer选择、旧快照有限尾窗追平、多对象分片、真实独立存储故障域/保留过期和长停机演练待完成|
+|WP08|当前基线、归档与HEAD_FIRST空盘恢复|§28.10|PARTIAL_LOCAL|Go/Rust owner Protobuf bootstrap和无KV/有限Kafka恢复；新增公开快照+committed cursor不可变manifest、Go条件HTTP上传/精确回读/完成标记与当前owner目录；正常router有界远端下载/二次资格核对及真实Kafka冷恢复/HTTP报价通过，半上传/损坏拒绝；Go新增周期发布/取消关闭、手动共享通道及双链公平轮转/失败隔离；当前owner资格化旧对象及head/cursor，router私有有限尾窗追平后激活，Rust旧KV不自动ready|Rust owner自动发布、canonical目录声明/离线peer选择、跨代/reorg恢复与多对象分片、真实独立存储故障域/保留过期和长停机演练待完成|
 |WP09|Rust版本化状态副本|§28.11|PARTIAL_LOCAL|不可变QuoteView/池图原子发布、数值更新复用拓扑；两独立路由副本读取完整分区、禁自动提交offset、owner当前完整checkpoint+cursor恢复、有限Kafka尾窗；HTTP开发模式所有源失败暂停及同generation恢复；字段24独立state进入双完整路由，错误Solana依赖撤销该链旧视图，EVM链保持可用；新增adaptive-rewards双副本当前bank分发、故障撤销/新generation恢复和router重启通过；新增adaptive-dynamic双副本完整状态、撤销恢复与router重启验证；阶段86补基线/owner checkpoint/scope扩容图复用与闲时缓存回收、锁外实际释放及HTTP后台任务生命周期；阶段104新增当前owner资格化远端对象下载/目录二次核对和实际Kafka冷恢复/正常HTTP报价，统一本地验收通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算与压力、真实保留过期/大型图恢复及生产多实例容量仍需实测|
 |WP10|精确V2与基础Token行为|§28.12|PARTIAL_LOCAL|单一V2精确整数内核、先乘后除、方向/费率/大整数、consumed/refund；未知token行为失败；Raydium ceil输入组合费/creator拆分及输出creator费、protocol/fund floor、LP保留费与raw/净储备后状态，u64/u128checked；1604原代码差分；新增独立完整V2版本的raw/储备/累计价/锁及原VM差分完成限定验收|真实链参考合约/独立执行余额差分、税费/rebase等特殊Token未实现或验收|
 |WP11|V3、Stable及V4能力|§28.13|PARTIAL_LOCAL|标准Uniswap V3有界证明范围内的独立整数exact-in、逐word手续费舍入、跨tick净流动性、零流动性空段、int256/uint160/uint128边界及乘法溢出fallback；264项固定官方SDK差分（含最低初始化价）与双副本解析报价场景通过；RaydiumCLMM动态profile原spacing分段/时间filterdecay/ceilfee/cap/zeroL/index/逐步费用与完整后Pool，348原native案例及连续状态通过；本批限定范围整体验收通过；Balancer V2双币不可变50/50独立Weighted模型，固定区块及765原onSwap案例/45组180步完整余额与17项双副本进程检查通过；新增不可变双币任意合法归一化权重static版本，原整数LogExpMath/powUp、5355案例/315组1260步/240pow与18项双副本检查通过；五族联合增量已补多币物理状态、限定Managed/Composable、Plain3/4正常读取路由及Meta/NG/Crypto原数学子集、Solana静态奖励和V4/Infinity高级CL/单Bin内核，按各自边界完成本地测试；标准type0 NG2–8币已补齐固定源码模板/immutable读取、完整raw/admin/oracle后状态与原exchange差分及双副本连续报价；非零Managed协议/管理费BPT铸币、完整供应/收款余额与powDown数学已原回调验证，旧源码超限仅参考使用；MetaUSD标准meta/3CRV直接兑换已补齐独立clone版本、base VP只读依赖、完整状态/wire、正常RPC解析/双副本报价及共享池重算；本批新增Crypto完整调价/admin mint/gulp与完整后状态、Orca自适应费率管理器和Infinity跨Bin内核；Infinity静态零hook完整树在线接入已由后续Bin批次完成限定验收；本批Orca完整adaptive内核已接普通报价，完整Oracle/fee/ticks/raw后状态和全额/正输出约束、双副本及来源故障恢复已通过本地验收；本批静态零hook标准ERC20 Bin普通分派、真实tree遍历与树外active、完整储备/fee/app账本及全额正输出通过，完整Vault结算待补；新增Orca adaptive初始化奖励checked乘法溢出归零、wrapping global/outside及普通报价完整后状态与原native差分通过；新增三连续完整dynamic/fixed混合数组的adaptive奖励内核/普通分派及完整原后状态差分|其他Curve模型与特殊Token、Managed非零BPT费用/Composable BPT及rate-cache/V3、Slipstream外部module/reward、V4/Infinity dynamic/hooks/native/Bin与管理器完整执行、实际Token/部署审计仍未完成；五族全部功能仍未完成，详见联合计划明确剩余项；V2未同步raw余额的解析/完整数学后状态及共享路径依赖仍需补齐，不能由独立EVM单hop通过反推数学覆盖完整|
@@ -482,6 +483,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|9.bounded-checkpoint-tail-replay|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|已完成上传候选只作提示，owner当前头+游标资格；Rust同代连续BLOCK_COMMIT私有重放，精确完整边界/最终ref与目录复核|19门禁当前范围通过；跨代/reorg转当前源、canonical公告/离线peer与真实保留/故障域仍缺|[验证记录](integration/artifacts/local/checkpoint-replay-check/report.json)|
 |9.fair-checkpoint-chain-scheduling|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|单链持续失败不再使其他链饿死，正常服务双链持续发布/代际更新/故障恢复和旧生命周期回归|7门禁当前限定范围通过；旧快照追平、Rust发布和canonical公告继续|[验证记录](integration/artifacts/local/checkpoint-fairness-check/report.json)|
 |9.periodic-checkpoint-publisher|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go online-only publish_interval_ms，串行完成后等待，错误重试、代际更新、取消/关闭等待与值无关指标|18门禁单链周期/生命周期通过；多链公平性、Rust owner周期上传及旧快照有限尾窗/canonical目录未完成|[验证记录](integration/artifacts/local/checkpoint-worker-check/report.json)|
 |9.current-remote-checkpoint-recovery|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|当前owner只资格化同状态/cursor已上传对象，Rust固定凭据范围下载并二次核对目录，正常Kafka恢复接线|18门禁当前范围通过；自动周期发布/canonical声明/旧快照有限尾窗与独立故障域仍缺|[验证记录](integration/artifacts/local/checkpoint-recovery-check/report.json)|
@@ -616,6 +618,7 @@
 |104|[当前远端checkpoint冷恢复](#plan-2026-11-17-current-remote-checkpoint-recovery)|LOCAL_SCOPE_VERIFIED|18门禁/143次Go/162次Rust、实际Kafka冷恢复/HTTP报价；[验证记录](integration/artifacts/local/checkpoint-recovery-check/report.json)|
 |105|[周期checkpoint发布](#plan-2026-11-18-checkpoint-worker)|LOCAL_SCOPE_VERIFIED|18门禁/148次Go/164次Rust；[验证记录](integration/artifacts/local/checkpoint-worker-check/report.json)|
 |106|[多链checkpoint公平调度](#plan-2026-11-18-checkpoint-fairness)|LOCAL_SCOPE_VERIFIED|7门禁/149次Go race、双链持续失败/更新/恢复；[验证记录](integration/artifacts/local/checkpoint-fairness-check/report.json)|
+|107|[旧checkpoint有限尾窗追平](#plan-2026-11-18-checkpoint-tail-replay)|LOCAL_SCOPE_VERIFIED|19门禁/152次Go/166次Rust、实际Kafka有限尾窗；[验证记录](integration/artifacts/local/checkpoint-replay-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3052,3 +3055,21 @@ B93.2 独立故障域与部署验收（§18/20/28.25）：三个生产配置无K
 publish_interval_ms现在表示全服务相邻链轮次之间的等待；N条链走完整轮至少N个interval加各自上传耗时，避免隐含每条链都有同等独占频率。该轮证明是正常Go服务中的两个受控链状态及HTTP对象API，不表示实际两条公共链/独立云存储故障域验收。
 
 阶段106最终限定验收：7门禁全部exit0，149次Go race（核心143及正常服务新旧6）通过；Go vet、当前正常程序构建、格式/契约与进度校验通过。源树及901固定输入前后同批绑定，运行目录`6e4d86b185e4491aaca5a62f9355f840`。双受控链+HTTP对象API已验证持续坏链不饿死健康链、健康新generation继续、手动503不重置调度、故障链恢复和网络并发上限1；沿用原关闭/取消回归。该轮仅Go调度与测试变动，Rust/原wire/真实Kafka先前证明明确引用阶段105，不重复计为本轮运行。
+
+<a id="plan-2026-11-18-checkpoint-tail-replay"></a>
+
+## 旧checkpoint有限尾窗追平（2026-11-18，阶段107）
+
+补周期发布落后于当前区块时的正常恢复。成功回读对象/写完成标记后更新store专属candidate提示文件；该文件可变但不赋资格，reader必须核对pin、不可变manifest/payload/完成标记并由当前owner重新资格化。新授权GET /internal/chains/{chain}/checkpoint-recovery-catalog返回已上传checkpoint及同一次reducer锁内读取的head_reference/head_cursor；只允许同owner/assignment/writer/canonical/generation/schema/scope/adapter，seq/块/cursor不得倒退或超限。原exact-current目录仍保持原语义。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F107.1|owner旧对象/当前头控制面资格|WP08,WP24|LOCAL_SCOPE_VERIFIED|candidate只作索引，完整本地不可变对象/标记复核、无损i64头游标/完整ref、半上传/损坏/不同代/错误源/尾窗超限拒绝，head读取不复制全部池。|
+|F107.2|Rust有限尾窗私有重放与最终激活|WP08,WP09|LOCAL_SCOPE_VERIFIED|正常restore先试owner recovery目录；下载旧Protobuf后用独立Replica及实际Reader只读连续同代BLOCK_COMMIT，帧数/整轮deadline/保留窗/引用/cursor精确校验；中间图不进入公共replica，完整边界且二次目录一致才激活。|
+|F107.3|双语言/正常服务与实际Kafka|WP01,WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go管理入口旧对象绑定新head、BootstrapHead与原ready一致；Rust旧对象+实际2块、目录撤权/半事务边界/预算拒绝、正常HTTP报价与原冷恢复回归，源码和固定输入冻结验收通过。|
+
+有界追平只接受同代普通连续块；reorg/范围撤销/新baseline/未知kind明确转当前源，不声称跨代历史恢复。Reader新增完整atomic unit边界查询，游标/序列checked_add和高水位倒退拒绝，不把消费组offset当状态。阻塞任务只持私有状态且有共同deadline，外层取消后不可能发布公共视图；底层Kafka单次请求受剩余时间限制。candidate更新失败仍返回发布失败；文件提示即使留下旧值或被篡改也不能越过对象/owner资格检查。
+
+阶段107实际Kafka预检保留FAILED：旧checkpoint+2块追平、私有不泄漏/目录撤权/半事务边界/低预算拒绝及正常sync最终head均已执行，随后手写HTTP请求误用snake_case被公开接口INVALID_REQUEST_AMOUNT_MUST_BE_STRING拒绝；测试改为规定camelCase，未放宽业务反序列化。正在进行的旧冻结批次已显式取消为CANCELLED（非通过），修正后重新完整门禁。
+
+阶段107最终限定验收：19门禁全部exit0，152次Go race、166次Rust（双配置/transport127、API36、Go原wire HTTP下载1、实际Kafka exact-current冷恢复1及旧checkpoint有限重放1）通过；双Rust相关全目标严格Clippy、Go vet/两个当前程序构建、格式/契约与进度检查通过。真实Kafka旧offset3/seq1经两个完整BLOCK_COMMIT私有重放到offset11/seq3，正常HTTP报价成功，目录撤权/目标落半事务/低尾窗预算拒绝且公共视图不提前可用；最终仅激活精确head。源树/901固定输入及Go导出文件前后相同，运行目录`339d7dd3e96645ccbdf9e023e18bd2a5`。实际API/重放证明保存于同批actual-api目录，摘要见report；跨代/reorg、真实保留过期/丢盘、多区故障域与canonical离线目录仍待补。

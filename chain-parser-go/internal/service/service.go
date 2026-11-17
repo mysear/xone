@@ -662,6 +662,37 @@ func (s *Service) Handler() http.Handler {
 		}
 		write(w, 200, records)
 	})
+	mux.HandleFunc("GET /internal/chains/{chain}/checkpoint-recovery-catalog", func(w http.ResponseWriter, r *http.Request) {
+		store := s.stores[r.PathValue("chain")]
+		c := s.cfg.Config.Journal.CheckpointStore
+		if s.closed.Load() || store == nil || c == nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_CATALOG_UNAVAILABLE"})
+			return
+		}
+		head, cursor, e := store.BootstrapHead()
+		if e != nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_CATALOG_NOT_READY"})
+			return
+		}
+		remote, e := checkpoint.NewRemote(*c, s.cfg.Config.Journal.SourceAuthTokens[c.BaseURL], s.cfg.Config.Journal.MaxBytes, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
+		if e != nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_REMOTE_CONFIG"})
+			return
+		}
+		defer remote.Close()
+		dir := filepath.Join(s.cfg.Resolve(s.cfg.Config.State.Path), "checkpoints", strings.ReplaceAll(r.PathValue("chain"), ":", "-"))
+		catalog, e := remote.RecoveryCatalog(dir, head, cursor, s.cfg.Config.Journal.Kafka.MaxTailRecords)
+		if e != nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_RECOVERY_CATALOG_UNAVAILABLE"})
+			return
+		}
+		after, position, e := store.BootstrapHead()
+		if s.closed.Load() || e != nil || after != head || position != cursor {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_CATALOG_SOURCE_CHANGED"})
+			return
+		}
+		write(w, 200, catalog)
+	})
 	mux.HandleFunc("GET /internal/chains/{chain}/checkpoint-catalog", func(w http.ResponseWriter, r *http.Request) {
 		store := s.stores[r.PathValue("chain")]
 		remoteConfig := s.cfg.Config.Journal.CheckpointStore

@@ -631,6 +631,17 @@ func (s *Store) Bootstrap() (journal.Bootstrap, error) {
 	return journal.Bootstrap{Snapshot: clone(*s.current), Cursor: *s.cursor}, nil
 }
 
+// BootstrapHead copies the same committed identity and cursor without encoding
+// all pool state for a control-plane attestation.
+func (s *Store) BootstrapHead() (domain.SnapshotRef, journal.Cursor, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed || s.failed || s.current == nil || s.cursor == nil || !s.authorityDeadline.IsZero() && time.Now().After(s.authorityDeadline) {
+		return domain.SnapshotRef{}, journal.Cursor{}, errors.New("BOOTSTRAP_NOT_READY")
+	}
+	return s.current.Reference, *s.cursor, nil
+}
+
 func (s *Store) SetAuthorityDeadline(deadline time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

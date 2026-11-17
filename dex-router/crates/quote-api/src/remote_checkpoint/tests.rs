@@ -9,7 +9,7 @@ use xone_kafka_transport::{Cursor, Unit};
 fn sha(raw: &[u8]) -> String {
     hex::encode(Sha256::digest(raw))
 }
-fn boot() -> Bootstrap {
+pub(super) fn boot() -> Bootstrap {
     let mut snapshot: Snapshot =
         serde_json::from_str(include_str!("../../../../test/fixtures/evm/baseline.json")).unwrap();
     snapshot.reference.block.timestamp_ms = xone_observability::now_ms();
@@ -22,19 +22,21 @@ fn boot() -> Bootstrap {
         },
     }
 }
-struct Capture {
-    catalog: Vec<u8>,
-    manifest: Vec<u8>,
-    payload: Vec<u8>,
-    mode: String,
-    requests: Vec<String>,
-    catalog_reads: usize,
-    fallback: Option<Vec<u8>>,
+pub(super) struct Capture {
+    pub(super) recovery: Option<Vec<u8>>,
+    pub(super) recovery_reads: usize,
+    pub(super) catalog: Vec<u8>,
+    pub(super) manifest: Vec<u8>,
+    pub(super) payload: Vec<u8>,
+    pub(super) mode: String,
+    pub(super) requests: Vec<String>,
+    pub(super) catalog_reads: usize,
+    pub(super) fallback: Option<Vec<u8>>,
 }
-struct Fixture {
-    api: Api,
-    owner: String,
-    state: Arc<Mutex<Capture>>,
+pub(super) struct Fixture {
+    pub(super) api: Api,
+    pub(super) owner: String,
+    pub(super) state: Arc<Mutex<Capture>>,
     task: tokio::task::JoinHandle<()>,
 }
 impl Drop for Fixture {
@@ -42,7 +44,7 @@ impl Drop for Fixture {
         self.task.abort();
     }
 }
-async fn fixture(boot: Bootstrap) -> Fixture {
+pub(super) async fn fixture(boot: Bootstrap) -> Fixture {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
     let owner = format!("{base}/owner");
@@ -68,6 +70,8 @@ async fn fixture(boot: Bootstrap) -> Fixture {
         manifest,
     };
     let state = Arc::new(Mutex::new(Capture {
+        recovery: None,
+        recovery_reads: 0,
         catalog: serde_json::to_vec(&catalog).unwrap(),
         manifest: raw,
         payload,
@@ -93,7 +97,16 @@ async fn fixture(boot: Bootstrap) -> Fixture {
                         Some(expected)
                     );
                     let mode = s.mode.clone();
-                    if path.ends_with("checkpoint-catalog") {
+                    if path.ends_with("checkpoint-recovery-catalog") {
+                        s.recovery_reads += 1;
+                        if mode == "replay-revoked" && s.recovery_reads > 1 {
+                            (StatusCode::SERVICE_UNAVAILABLE, vec![], mode)
+                        } else if let Some(raw) = &s.recovery {
+                            (StatusCode::OK, raw.clone(), mode)
+                        } else {
+                            (StatusCode::NOT_FOUND, vec![], mode)
+                        }
+                    } else if path.ends_with("checkpoint-catalog") {
                         s.catalog_reads += 1;
                         if mode == "revoked" && s.catalog_reads > 1 {
                             (StatusCode::SERVICE_UNAVAILABLE, vec![], mode)

@@ -632,6 +632,23 @@ impl Api {
         Ok(())
     }
     async fn restore_kafka(&self, source: &str, chain: &str) -> Result<()> {
+        if self.config.config.journal.checkpoint_store.is_some() {
+            match self.replay_remote_checkpoint(source, chain).await {
+                Ok((boot, reader)) => {
+                    return self.activate_recovery(
+                        chain,
+                        boot,
+                        reader,
+                        "REMOTE_CHECKPOINT_BOUNDED_REPLAY",
+                    )
+                }
+                Err(error) => self.logger.event(
+                    "debug",
+                    "remote_checkpoint_replay_unavailable",
+                    json!({"chain_key":chain,"error_code":error.0}),
+                ),
+            }
+        }
         let (boot, recovery_source) = self.recovery_bootstrap(source, chain).await?;
         if boot.snapshot.reference.block.chain_key != chain
             || self.config.config.journal.kafka.topics.get(chain) != Some(&boot.cursor.topic)
@@ -665,16 +682,24 @@ impl Api {
         })
         .await
         .map_err(|_| err("KAFKA_READER_TASK"))??;
+        self.activate_recovery(chain, boot, reader, recovery_source)
+    }
+    fn activate_recovery(
+        &self,
+        chain: &str,
+        boot: xone_kafka_transport::Bootstrap,
+        reader: Reader,
+        recovery_source: &str,
+    ) -> Result<()> {
+        let mut applied = self
+            .applied_cursors
+            .lock()
+            .map_err(|_| err("CURSOR_LOCK"))?;
+        let mut readers = self.readers.lock().map_err(|_| err("READER_LOCK"))?;
         let applied_reference = boot.snapshot.reference.clone();
         self.replica.restore_owner_checkpoint(boot.snapshot)?;
-        self.applied_cursors
-            .lock()
-            .map_err(|_| err("CURSOR_LOCK"))?
-            .insert(chain.into(), (applied_reference, boot.cursor));
-        self.readers
-            .lock()
-            .map_err(|_| err("READER_LOCK"))?
-            .insert(chain.into(), reader);
+        applied.insert(chain.into(), (applied_reference, boot.cursor));
+        readers.insert(chain.into(), reader);
         self.logger.event(
             "info",
             "quote_scope_restored",

@@ -1929,3 +1929,11 @@ Service.Close先取消整个checkpoint生命周期，取消进行中的手动和
 阶段106。后台使用配置链顺序的轮转，每次只发布一条链，选择时立即推进下一位置，因此某链持续503、缺cursor或发布超时不会让后续链永久等待。每条链发布有自己的request_timeout_ms预算；仍通过全服务同一gate串行执行，与手动任务共享取消/Close规则。日志增加chain_key以区分失败范围。手动POST /internal/checkpoints保持整批首错响应，不推进或重置后台轮转。
 
 publish_interval_ms是相邻链轮次之间的等待，完成一个N链轮转至少需要N个interval和上传时间。`make -C integration checkpoint-fairness-current-check`跑双链正常服务race：受控第一链对象持续失败，第二链仍上传/更新generation，第一链修复后恢复，全部网络串行；旧取消/关闭/手动回归保留。真实公共链与多故障域资格仍按原验收要求单列。
+
+## 旧远端checkpoint与有限Kafka尾窗
+
+阶段107。每次完整远端回读与来源guard后，可原子更新本地`public-v2/candidate-<store-sha>.json`提示。它只记录同store的已完成对象位置，不是ready声明。授权`checkpoint-recovery-catalog`精确校验候选的pin/manifest/payload/不可变完成标记，再将它与当前owner committed head的reference/cursor绑定；同代资格字段必须全部一致，seq/块/offset单调且offset差≤max_tail_records。当前head通过reducer BootstrapHead锁内读取，只拷贝身份与cursor，沿用完整Bootstrap的ready/租约/关闭规则。响应前再次核对当前头，变化则拒绝。
+
+正常router Kafka恢复先试此目录，再可回退原exact-current远端/owner当前bootstrap。旧checkpoint下载后在私有Replica按同代连续BLOCK_COMMIT重放，实际帧数和初始lag不超max_tail_records，整轮request_timeout_ms含目录/下载/Reader构造/重放/最终目录复核。每个complete unit先通过原Replica连续性、池依赖及scope验证；目标cursor若处在BEGIN/CHUNK中间、最终seq/hash/ref不同、保留窗过期/高水位倒退、未知kind/reorg/新代均失败。所有中间图与cursor仅在私有任务中，最终完整状态及Reader经owner目录二次核对后一次发布到正常replica，日志来源REMOTE_CHECKPOINT_BOUNDED_REPLAY。
+
+`make -C integration checkpoint-replay-current-check`显式执行独立Kafka旧快照+两个后续块的私有追平/正常HTTP报价，覆盖目录撤权、半事务边界和帧预算；原同轮Go wire HTTP下载、周期/关闭/多链公平性和exact-current冷恢复回归。跨代历史重放、离线canonical目录、真实topic重建/保留/多区故障域仍需后续验收。

@@ -57,6 +57,71 @@ impl Api {
             .await?;
         serde_json::from_slice(&raw).map_err(|_| err("CHECKPOINT_CATALOG_INVALID"))
     }
+    async fn download_checkpoint(
+        &self,
+        catalog: &Catalog,
+        chain: &str,
+        timeout: Duration,
+    ) -> Result<Bootstrap> {
+        let store = self
+            .config
+            .config
+            .journal
+            .checkpoint_store
+            .as_ref()
+            .ok_or_else(|| err("CHECKPOINT_STORE_REQUIRED"))?;
+        store.validate()?;
+        let raw =
+            serde_json::to_vec(&catalog.manifest).map_err(|_| err("CHECKPOINT_CATALOG_INVALID"))?;
+        let maximum = self.config.config.journal.max_payload_bytes;
+        let m = checkpoint::parse_manifest(&raw, &catalog.manifest_sha256, maximum)?;
+        let configured = self
+            .config
+            .config
+            .chains
+            .iter()
+            .find(|c| c.key == chain)
+            .ok_or_else(|| err("UNKNOWN_CHAIN"))?;
+        if m.reference.block.chain_key != chain
+            || m.reference.owner_service != configured.owner_service
+            || m.reference.owner_assignment_version != configured.assignment_version
+            || self.config.config.journal.kafka.topics.get(chain) != Some(&m.cursor.topic)
+        {
+            return Err(err("CHECKPOINT_CATALOG_AUTHORITY"));
+        }
+        let directory = format!("{}/public-v2/{}", store.base_url, m.sha256);
+        let manifest_url = format!("{directory}/manifest.json");
+        if catalog.manifest_url != manifest_url {
+            return Err(err("CHECKPOINT_CATALOG_LOCATION"));
+        }
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(timeout)
+            .build()
+            .map_err(|_| err("CHECKPOINT_DOWNLOAD_CLIENT"))?;
+        let token = self
+            .config
+            .config
+            .journal
+            .source_auth_tokens
+            .get(&store.base_url)
+            .map(String::as_str);
+        let manifest = download(&client, &manifest_url, token, 65536).await?;
+        let downloaded = checkpoint::parse_manifest(&manifest, &catalog.manifest_sha256, maximum)?;
+        if downloaded.sha256 != m.sha256 || manifest != raw {
+            return Err(err("CHECKPOINT_CATALOG_CONTENT"));
+        }
+        let payload = download(
+            &client,
+            &format!("{directory}/bootstrap.pb"),
+            token,
+            downloaded.size as usize,
+        )
+        .await?;
+        let boot = checkpoint::decode(&manifest, &payload, &catalog.manifest_sha256, maximum)?;
+        Ok(boot)
+    }
     pub(crate) async fn remote_bootstrap(&self, source: &str, chain: &str) -> Result<Bootstrap> {
         let timeout = Duration::from_millis(self.config.config.journal.request_timeout_ms);
         tokio::time::timeout(timeout, async {
@@ -69,56 +134,7 @@ impl Api {
                 .ok_or_else(|| err("CHECKPOINT_STORE_REQUIRED"))?;
             store.validate()?;
             let catalog = self.checkpoint_catalog(source, chain).await?;
-            let raw = serde_json::to_vec(&catalog.manifest)
-                .map_err(|_| err("CHECKPOINT_CATALOG_INVALID"))?;
-            let maximum = self.config.config.journal.max_payload_bytes;
-            let m = checkpoint::parse_manifest(&raw, &catalog.manifest_sha256, maximum)?;
-            let configured = self
-                .config
-                .config
-                .chains
-                .iter()
-                .find(|c| c.key == chain)
-                .ok_or_else(|| err("UNKNOWN_CHAIN"))?;
-            if m.reference.block.chain_key != chain
-                || m.reference.owner_service != configured.owner_service
-                || m.reference.owner_assignment_version != configured.assignment_version
-                || self.config.config.journal.kafka.topics.get(chain) != Some(&m.cursor.topic)
-            {
-                return Err(err("CHECKPOINT_CATALOG_AUTHORITY"));
-            }
-            let directory = format!("{}/public-v2/{}", store.base_url, m.sha256);
-            let manifest_url = format!("{directory}/manifest.json");
-            if catalog.manifest_url != manifest_url {
-                return Err(err("CHECKPOINT_CATALOG_LOCATION"));
-            }
-            let client = reqwest::Client::builder()
-                .no_proxy()
-                .redirect(reqwest::redirect::Policy::none())
-                .timeout(timeout)
-                .build()
-                .map_err(|_| err("CHECKPOINT_DOWNLOAD_CLIENT"))?;
-            let token = self
-                .config
-                .config
-                .journal
-                .source_auth_tokens
-                .get(&store.base_url)
-                .map(String::as_str);
-            let manifest = download(&client, &manifest_url, token, 65536).await?;
-            let downloaded =
-                checkpoint::parse_manifest(&manifest, &catalog.manifest_sha256, maximum)?;
-            if downloaded.sha256 != m.sha256 || manifest != raw {
-                return Err(err("CHECKPOINT_CATALOG_CONTENT"));
-            }
-            let payload = download(
-                &client,
-                &format!("{directory}/bootstrap.pb"),
-                token,
-                downloaded.size as usize,
-            )
-            .await?;
-            let boot = checkpoint::decode(&manifest, &payload, &catalog.manifest_sha256, maximum)?;
+            let boot = self.download_checkpoint(&catalog, chain, timeout).await?;
             // The catalogue attests exactly current state, not the newest-looking old file.
             let after = self.checkpoint_catalog(source, chain).await?;
             if serde_json::to_vec(&after).map_err(|_| err("CHECKPOINT_CATALOG_INVALID"))?
@@ -157,4 +173,199 @@ impl Api {
 }
 
 #[cfg(test)]
+mod replay_tests;
+#[cfg(test)]
 mod tests;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct RecoveryCatalog {
+    schema_version: u32,
+    checkpoint: Catalog,
+    head_reference: xone_domain::SnapshotRef,
+    head_cursor: checkpoint::ManifestCursor,
+}
+fn same_era(a: &xone_domain::SnapshotRef, b: &xone_domain::SnapshotRef) -> bool {
+    a.block.chain_key == b.block.chain_key
+        && a.schema_version == b.schema_version
+        && a.owner_service == b.owner_service
+        && a.owner_assignment_version == b.owner_assignment_version
+        && a.writer_epoch == b.writer_epoch
+        && a.canonical_epoch == b.canonical_epoch
+        && a.online_generation == b.online_generation
+        && a.scope_hash == b.scope_hash
+        && a.adapter_set_hash == b.adapter_set_hash
+}
+fn recovery_target(
+    c: &RecoveryCatalog,
+    max_bytes: usize,
+    max_tail: usize,
+) -> Result<xone_kafka_transport::Cursor> {
+    if c.schema_version != 1 || !(1..=1000000).contains(&max_tail) {
+        return Err(err("CHECKPOINT_RECOVERY_CATALOG_INVALID"));
+    }
+    let raw = serde_json::to_vec(&c.checkpoint.manifest)
+        .map_err(|_| err("CHECKPOINT_CATALOG_INVALID"))?;
+    let m = checkpoint::parse_manifest(&raw, &c.checkpoint.manifest_sha256, max_bytes)?;
+    let head = &c.head_reference;
+    let normalized = xone_domain::wire_conversion::ref_from_proto(
+        xone_domain::wire_conversion::ref_to_proto(head)?,
+    )?;
+    let offset = c
+        .head_cursor
+        .next_offset
+        .parse::<i64>()
+        .map_err(|_| err("CHECKPOINT_HEAD_CURSOR"))?;
+    let before = m
+        .cursor
+        .next_offset
+        .parse::<i64>()
+        .map_err(|_| err("CHECKPOINT_HEAD_CURSOR"))?;
+    if normalized != *head
+        || !same_era(&m.reference, head)
+        || c.head_cursor.topic != m.cursor.topic
+        || c.head_cursor.partition != 0
+        || offset < before
+        || offset.to_string() != c.head_cursor.next_offset
+        || offset - before > max_tail as i64
+        || head.journal_seq < m.reference.journal_seq
+        || head.block.number_or_slot < m.reference.block.number_or_slot
+    {
+        return Err(err("CHECKPOINT_RECOVERY_REANCHOR"));
+    }
+    if head.journal_seq == m.reference.journal_seq {
+        if head != &m.reference || offset != before {
+            return Err(err("CHECKPOINT_HEAD_CONFLICT"));
+        }
+    } else if offset <= before
+        || head.block.number_or_slot <= m.reference.block.number_or_slot
+        || head.journal_seq - m.reference.journal_seq > (offset - before) as u64
+    {
+        return Err(err("CHECKPOINT_HEAD_CONFLICT"));
+    }
+    Ok(xone_kafka_transport::Cursor {
+        topic: c.head_cursor.topic.clone(),
+        partition: 0,
+        offset,
+    })
+}
+impl Api {
+    async fn recovery_catalog(&self, source: &str, chain: &str) -> Result<RecoveryCatalog> {
+        let raw = self
+            .fetch_raw_limited(
+                &format!("{source}/internal/chains/{chain}/checkpoint-recovery-catalog"),
+                65536,
+            )
+            .await?;
+        serde_json::from_slice(&raw).map_err(|_| err("CHECKPOINT_RECOVERY_CATALOG_INVALID"))
+    }
+    pub(crate) async fn replay_remote_checkpoint(
+        &self,
+        source: &str,
+        chain: &str,
+    ) -> Result<(Bootstrap, xone_kafka_transport::Reader)> {
+        let timeout = Duration::from_millis(self.config.config.journal.request_timeout_ms);
+        let deadline = std::time::Instant::now() + timeout;
+        tokio::time::timeout(timeout, async {
+            let catalog = self.recovery_catalog(source, chain).await?;
+            let cfg = self.config.clone();
+            let target = recovery_target(
+                &catalog,
+                cfg.config.journal.max_payload_bytes,
+                cfg.config.journal.kafka.max_tail_records,
+            )?;
+            let boot = self
+                .download_checkpoint(&catalog.checkpoint, chain, timeout)
+                .await?;
+            let expected = catalog.head_reference.clone();
+            if expected.block.timestamp_ms > xone_observability::now_ms().saturating_add(30000)
+                || xone_observability::now_ms().saturating_sub(expected.block.timestamp_ms)
+                    > cfg.config.startup.max_baseline_age_ms
+            {
+                return Err(err("BASELINE_TOO_OLD"));
+            }
+            let chain_key = chain.to_owned();
+            let (boot, reader) = tokio::task::spawn_blocking(move || {
+                let remaining = || {
+                    deadline
+                        .checked_duration_since(std::time::Instant::now())
+                        .filter(|d| !d.is_zero())
+                        .ok_or_else(|| err("CHECKPOINT_REPLAY_DEADLINE"))
+                };
+                let k = &cfg.config.journal.kafka;
+                let mut reader = xone_kafka_transport::Reader::open(
+                    &k.brokers,
+                    &format!("quote.{}.{}", chain_key, k.replica_id),
+                    &boot.cursor,
+                    cfg.config.journal.max_payload_bytes,
+                    k.max_tail_records,
+                    remaining()?,
+                )?;
+                reader.last_sequence = boot.snapshot.reference.journal_seq;
+                // All intermediate views live only in this private replica.
+                let staged = xone_state_replica::Replica::new(
+                    cfg.config
+                        .chains
+                        .iter()
+                        .map(|c| (c.key.clone(), c.owner_service.clone(), c.assignment_version))
+                        .collect(),
+                );
+                staged.restore_owner_checkpoint(boot.snapshot.clone())?;
+                let mut final_boot = boot;
+                let mut frames = 0usize;
+                while reader.cursor().offset < target.offset {
+                    let before = reader.cursor();
+                    let unit = reader.poll(remaining()?.min(Duration::from_millis(50)))?;
+                    let position = reader.cursor();
+                    if position != before {
+                        frames = frames
+                            .checked_add(1)
+                            .ok_or_else(|| err("CHECKPOINT_REPLAY_FRAME_LIMIT"))?;
+                    }
+                    if frames > k.max_tail_records || position.offset > target.offset {
+                        return Err(err("CHECKPOINT_REPLAY_CURSOR"));
+                    }
+                    if let Some(unit) = unit {
+                        if unit.kind != "BLOCK_COMMIT"
+                            || !same_era(&unit.snapshot.reference, &expected)
+                            || unit.snapshot.reference.journal_seq > expected.journal_seq
+                        {
+                            return Err(err("CHECKPOINT_REPLAY_REANCHOR"));
+                        }
+                        staged.apply(xone_domain::Record {
+                            reference: unit.snapshot.reference.clone(),
+                            kind: unit.kind,
+                            record_id: String::new(),
+                            payload_hash: xone_domain::hash(&unit.snapshot.pools)?,
+                            pools: unit.snapshot.pools.clone(),
+                        })?;
+                        final_boot = Bootstrap {
+                            snapshot: unit.snapshot,
+                            cursor: position,
+                        };
+                    }
+                }
+                if !reader.at_committed_boundary()
+                    || reader.cursor() != target
+                    || final_boot.cursor != target
+                    || final_boot.snapshot.reference != expected
+                {
+                    return Err(err("CHECKPOINT_REPLAY_INCOMPLETE"));
+                }
+                staged.view(&chain_key)?;
+                Ok::<_, xone_domain::Error>((final_boot, reader))
+            })
+            .await
+            .map_err(|_| err("CHECKPOINT_REPLAY_TASK"))??;
+            let after = self.recovery_catalog(source, chain).await?;
+            if serde_json::to_vec(&after).map_err(|_| err("CHECKPOINT_CATALOG_INVALID"))?
+                != serde_json::to_vec(&catalog).map_err(|_| err("CHECKPOINT_CATALOG_INVALID"))?
+            {
+                return Err(err("CHECKPOINT_CATALOG_REVOKED"));
+            }
+            Ok((boot, reader))
+        })
+        .await
+        .map_err(|_| err("CHECKPOINT_REPLAY_DEADLINE"))?
+    }
+}

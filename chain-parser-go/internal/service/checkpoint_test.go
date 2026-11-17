@@ -205,4 +205,16 @@ func TestNormalCheckpointEndpointPublishesBoundPublicBootstrapWithoutInventingCu
 		t.Fatal("stale checkpoint catalog remained available", stale.Code, stale.Body.String())
 	}
 
+	req := httptest.NewRequest("GET", "/internal/chains/evm:31337/checkpoint-recovery-catalog", nil)
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	recovered := httptest.NewRecorder()
+	service.Handler().ServeHTTP(recovered, req)
+	var replay checkpoint.RecoveryCatalog
+	if recovered.Code != 200 || json.Unmarshal(recovered.Body.Bytes(), &replay) != nil {
+		t.Fatal(recovered.Code, recovered.Body.String())
+	}
+	if replay.HeadReference != next.Reference || replay.Checkpoint.ManifestSHA256 != publication.ManifestSHA256 || replay.HeadCursor.NextOffset != "9007199254741012" {
+		t.Fatal("replay catalog lost old-state/current-head binding", replay)
+	}
+
 }

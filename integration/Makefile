@@ -1121,3 +1121,7 @@ checkpoint-worker-current-check:
 .PHONY: checkpoint-fairness-current-check
 checkpoint-fairness-current-check:
 	python3 tools/acceptance/validate_checkpoint_fairness.py
+
+.PHONY: checkpoint-replay-current-check
+checkpoint-replay-current-check:
+	python3 tools/acceptance/validate_checkpoint_replay.py

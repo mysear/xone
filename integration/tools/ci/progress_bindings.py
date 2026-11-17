@@ -1897,3 +1897,19 @@ BINDINGS['9.fair-checkpoint-chain-scheduling'] = {
            'TestCheckpointCloseAlsoCancelsManualUploadAndDisabledWorkerStaysIdle'],
  'evidence_refs': ['integration/artifacts/local/checkpoint-fairness-check/report.json'],
 }
+
+BINDINGS['9.bounded-checkpoint-tail-replay'] = {
+ 'paths': ['chain-parser-go/internal/checkpoint/recovery_catalog.go',
+           'chain-parser-go/internal/checkpoint/recovery_catalog_test.go',
+           'chain-parser-go/internal/reducer/store.go',
+           'dex-router/crates/quote-api/src/remote_checkpoint.rs',
+           'dex-router/crates/quote-api/src/remote_checkpoint/replay_tests.rs',
+           'dex-router/crates/kafka-transport/src/lib.rs',
+           'integration/tools/acceptance/validate_checkpoint_replay.py'],
+ 'tests': ['TestRecoveryCatalogQualifiesCompletedOlderCheckpointAndBindsWideHead',
+           'TestRecoveryCatalogRejectsEraCursorConflictCorruptionAndMissingObject',
+           'TestBootstrapHeadHasSameAtomicReadinessAndCursorAsFullBootstrap',
+           'remote_checkpoint::replay_tests::recovery_catalog_target_preserves_wide_cursor_and_rejects_era_and_head_confusion',
+           'remote_checkpoint::replay_tests::older_remote_checkpoint_replays_actual_kafka_privately_then_publishes_only_attested_head'],
+ 'evidence_refs': ['integration/artifacts/local/checkpoint-replay-check/report.json'],
+}

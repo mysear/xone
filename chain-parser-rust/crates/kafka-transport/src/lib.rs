@@ -424,10 +424,18 @@ impl Reader {
         }
         let payload = message.payload().ok_or_else(|| err("KAFKA_EMPTY_RECORD"))?;
         let frame = decode_frame(payload)?;
-        self.next_offset = message.offset() + 1;
+        self.next_offset = message
+            .offset()
+            .checked_add(1)
+            .ok_or_else(|| err("JOURNAL_CURSOR_OVERFLOW"))?;
         let unit = self.assembler.push(frame)?;
         if let Some(u) = &unit {
-            if self.last_sequence != 0 && u.snapshot.reference.journal_seq != self.last_sequence + 1
+            if self.last_sequence != 0
+                && u.snapshot.reference.journal_seq
+                    != self
+                        .last_sequence
+                        .checked_add(1)
+                        .ok_or_else(|| err("JOURNAL_SEQUENCE_OVERFLOW"))?
             {
                 return Err(err("JOURNAL_SEQUENCE_GAP"));
             }
@@ -442,12 +450,18 @@ impl Reader {
             offset: self.next_offset,
         }
     }
+    pub fn at_committed_boundary(&self) -> bool {
+        !self.assembler.in_progress()
+    }
     pub fn check_lag(&self, timeout: Duration) -> Result<()> {
         let (low, high) = self
             .consumer
             .fetch_watermarks(&self.topic, 0, Timeout::After(timeout))
             .map_err(|_| err("KAFKA_WATERMARKS"))?;
-        if self.next_offset < low || high - self.next_offset > self.max_tail {
+        if self.next_offset < low
+            || self.next_offset > high
+            || high - self.next_offset > self.max_tail
+        {
             return Err(err("KAFKA_REANCHOR_REQUIRED"));
         }
         Ok(())

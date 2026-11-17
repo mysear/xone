@@ -179,6 +179,12 @@ func (r *Remote) Publish(ctx context.Context, p Publication, guard func() error)
 	if e = check(); e != nil {
 		return fail(e)
 	}
+	if e = r.recordCandidate(filepath.Dir(p.ManifestPath), publication); e != nil {
+		return fail(e)
+	}
+	if e = check(); e != nil {
+		return fail(e)
+	}
 	return publication, nil
 }
 
