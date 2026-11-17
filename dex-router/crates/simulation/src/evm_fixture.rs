@@ -774,6 +774,12 @@ impl Runner<'_> {
                 chain_id: Some(self.tx.chain_id),
                 gas_limit: self.budget.probe_gas_limit,
                 gas_price: amount(&self.tx.gas_price)?,
+                gas_priority_fee: self
+                    .tx
+                    .max_priority_fee_per_gas
+                    .as_ref()
+                    .map(amount)
+                    .transpose()?,
                 ..TxEnv::default()
             },
             phase,
@@ -1090,6 +1096,30 @@ pub fn simulate_bound(
     budget: &SimulationBudget,
     control: core::ExecutionControl,
 ) -> Result<SimulationOutcome> {
+    simulate_bound_with_funding(
+        bound,
+        pools,
+        allowlist,
+        fixture,
+        transaction_context,
+        budget,
+        control,
+        None,
+    )
+}
+
+// The optional preparation observation shares the same image, probes and budgets.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn simulate_bound_with_funding(
+    bound: &BoundEvmExecution,
+    pools: &[Pool],
+    allowlist: &[String],
+    fixture: &FixtureState,
+    transaction_context: &TransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+    funding: Option<&xone_execution_preparation::evm::FundingObservation>,
+) -> Result<SimulationOutcome> {
     control_check(&control, "entry")?;
     // Bound calldata is untrusted too: cap it before binding validation serializes/clones it.
     let input_length = bound.transaction.data.len().saturating_sub(2) / 2;
@@ -1222,6 +1252,43 @@ pub fn simulate_bound(
         &context.recipient,
         "recipient_buy_before",
     )?;
+    if let Some(observed) = funding {
+        let allowance = runner.probe(
+            image.clone(),
+            &context.sell_token,
+            calldata(
+                "allowance(address,address)",
+                &[
+                    address_word(&context.caller)?,
+                    address_word(&bound.executor.target)?,
+                ],
+            ),
+            "caller_allowance_before",
+            32,
+        )?;
+        let (native, nonce) = match image.data().accounts.get(&caller) {
+            Some(Some(info)) => (info.balance, info.nonce),
+            Some(None) => (U256::ZERO, 0),
+            None => {
+                return Err(runner.error(
+                    SimulationObservationUnavailable,
+                    "prepared_funding",
+                    "caller account not captured",
+                ))
+            }
+        };
+        if native != amount(&observed.native_balance)?
+            || nonce != observed.pending_nonce
+            || sell_before != amount(&observed.token_balance)?
+            || U256::from_be_slice(&allowance) != amount(&observed.allowance)?
+        {
+            return Err(runner.error(
+                SimulationObservationMismatch,
+                "prepared_funding",
+                "funding observation differs from execution bank",
+            ));
+        }
+    }
     let output = runner.run(
         image.clone(),
         TxEnv {

@@ -16,11 +16,13 @@ ROOT = Path(__file__).resolve().parents[3]
 BASE = ROOT / 'integration/artifacts/local/evm-dynamic-fees-check'
 
 
-def main():
-    out = BASE / 'runs' / uuid.uuid4().hex
+def main(*, output_base=None, verification_scope='EVM_SHANGHAI_DYNAMIC_FEE_SIMULATION_PROVIDED_LOCAL_STATE', extra_required=(), extra_report=None):
+    base = output_base or BASE
+    out = base / 'runs' / uuid.uuid4().hex
     out.mkdir(parents=True, exist_ok=False)
     env = dict(os.environ, PATH=str(Path.home() / '.cargo/bin') + os.pathsep + os.environ['PATH'])
-    env.setdefault('CARGO_BUILD_JOBS', '1')
+    env.setdefault('CARGO_BUILD_JOBS', '2')
+    env.setdefault('CARGO_TARGET_DIR', str(ROOT / 'integration/.runtime/design-review-target'))
     env.setdefault('RUST_TEST_THREADS', '1')
     if sys.platform == 'darwin':
         import platform
@@ -47,18 +49,19 @@ def main():
         'dynamic_fee_wire_preserves_legacy_commitments_and_rejects_numeric_priority',
         'complete_original_router_eip1559_matches_legacy_overlay_and_measured_native_fees',
     ]
+    required.extend(extra_required)
     report = dict(passed=False, state='RUNNING', source_tree_sha256=shared.fingerprint(),
                   started_ms=int(time.time() * 1000), run_directory=str(out.relative_to(ROOT)),
                   checks=[], test_inputs={}, publicTransactionsSubmitted=False,
                   production_ready=False, all_requested_features_complete=False,
-                  verification_scope='EVM_SHANGHAI_DYNAMIC_FEE_SIMULATION_PROVIDED_LOCAL_STATE')
+                  verification_scope=verification_scope, build_target_directory=env['CARGO_TARGET_DIR'])
 
     def save():
         text = json.dumps(report, indent=2) + '\n'
         (out / 'report.json').write_text(text)
-        temp = BASE / 'report.tmp'
+        temp = base / 'report.tmp'
         temp.write_text(text)
-        temp.replace(BASE / 'report.json')
+        temp.replace(base / 'report.json')
 
     def interrupted(signum, frame):
         raise KeyboardInterrupt(f'Interrupted by signal {signum}')
@@ -104,6 +107,7 @@ def main():
             raise ValueError('Source or fixed inputs changed during validation')
         report.update(passed=True, state='LOCAL_SCOPE_VERIFIED', original_router_dynamic_cases=16,
                       rust_test_executions=sum(c['rust_test_executions'] for c in report['checks']))
+        report.update(extra_report or {})
     except KeyboardInterrupt:
         report.update(state='CANCELLED', error='INTERRUPTED')
         raise

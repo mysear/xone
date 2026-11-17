@@ -978,6 +978,8 @@ Vault `reservesOfApp(manager,currency)` 和 manager `protocolFeesAccrued(currenc
 随后`make evm-execution-smoke evm-execution-acceptance`。验收需要先通过全服务
 `tools/acceptance/verify.py`及当前输入的两阶段审查；开发状态只维护根进度文档。
 
+`xone_simulation::prepared_evm::simulate_prepared`提供显式银行的准备组件执行入口。它根据bound plan、资金观察和费用上下文重算完整组件，任何字段、RPC参数、unsigned wire或资格标记不同均拒绝；资金观察再通过同次REVM银行实际读取native余额/nonce、sell余额和allowance核对，使用原预算。执行结果分别保留原组件hash、原unsigned字节SHA256和原simulation receipt，再计算外层commitment。此入口限定ExactIn和PROVIDED_LOCAL_STATE，执行时间是显式H+1环境；普通HTTP请求的时效和QuoteView仍由API原检查负责，不能据此授权VERIFIED。所有动态费用只读探针同时传递cap和tip，使GASPRICE与实际swap相同。
+
 ## 原 Uniswap V2 完整 Swap 状态版本
 
 `uniswap-v2-complete` / `uniswap-v2/core-1.0.1-full-swap-1` 使用原 core 1.0.1

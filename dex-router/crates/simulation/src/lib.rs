@@ -1,4 +1,5 @@
 pub mod evm_fixture;
+pub mod prepared_evm;
 pub mod revm_backend;
 pub mod solana_sbf;
 pub mod worker;

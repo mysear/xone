@@ -1686,3 +1686,16 @@ BINDINGS['14.evm-dynamic-fees'] = {
               'complete_original_router_eip1559_matches_legacy_overlay_and_measured_native_fees'],
     'evidence_refs': ['integration/artifacts/local/evm-dynamic-fees-check/report.json'],
 }
+
+BINDINGS['14.evm-prepared-execution'] = {
+    'paths': ['dex-router/crates/simulation/src/prepared_evm.rs',
+              'dex-router/crates/simulation/src/evm_fixture.rs',
+              'dex-router/crates/simulation/tests/v2_complete.rs',
+              'dex-router/crates/simulation/tests/evm_fixture.rs',
+              'integration/tools/acceptance/validate_evm_prepared_execution.py'],
+    'tests': ['prepared_original_router_executes_exact_unsigned_component_in_16_banks',
+              'prepared_tampering_even_with_rehashed_component_never_starts_execution',
+              'prepared_observation_context_limits_and_cancellation_fail_closed',
+              'dynamic_fee_balance_probes_observe_effective_gasprice_instead_of_cap'],
+    'evidence_refs': ['integration/artifacts/local/evm-prepared-execution-check/report.json'],
+}

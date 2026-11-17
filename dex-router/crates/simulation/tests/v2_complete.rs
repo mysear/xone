@@ -806,3 +806,251 @@ fn complete_original_router_eip1559_matches_legacy_overlay_and_measured_native_f
     }
     assert_eq!(count, 16);
 }
+
+struct PreparedCase {
+    bound: BoundEvmExecution,
+    pools: Vec<Pool>,
+    fixture: FixtureState,
+    funding: xone_execution_preparation::evm::FundingObservation,
+    fees: xone_execution_preparation::evm::FeeContext,
+    component: xone_execution_preparation::evm::Preparation,
+}
+impl PreparedCase {
+    fn input(&self) -> xone_simulation::prepared_evm::PreparedExecution<'_> {
+        xone_simulation::prepared_evm::PreparedExecution {
+            bound: &self.bound,
+            pools: &self.pools,
+            allowed_targets: std::slice::from_ref(&self.bound.executor.target),
+            funding: &self.funding,
+            fees: &self.fees,
+            preparation: &self.component,
+        }
+    }
+    fn prepare(&mut self) {
+        self.component = xone_execution_preparation::evm::prepare(
+            &self.bound,
+            &self.pools,
+            std::slice::from_ref(&self.bound.executor.target),
+            &self.funding,
+            &self.fees,
+            self.fixture.execution_environment.timestamp * 1000,
+        )
+        .unwrap();
+    }
+}
+fn original_allowance(f: &FixtureState, token: &str, owner: &str, spender: &str) -> Amount {
+    // The retained original reference ERC20 declares balances at slot 1 and allowances at slot 2.
+    let mut outer = [0u8; 64];
+    outer[12..32].copy_from_slice(Address::from_str(owner).unwrap().as_slice());
+    outer[63] = 2;
+    let mut inner = [0u8; 64];
+    inner[12..32].copy_from_slice(Address::from_str(spender).unwrap().as_slice());
+    inner[32..].copy_from_slice(revm::primitives::keccak256(outer).as_slice());
+    let slot = format!("0x{}", hex::encode(revm::primitives::keccak256(inner)));
+    let account = f.accounts.iter().find(|a| a.address == token).unwrap();
+    let value = &account
+        .storage
+        .iter()
+        .find(|s| s.slot == slot)
+        .unwrap()
+        .value;
+    Amount::from_be_bytes(&hex::decode(&value[2..]).unwrap()).unwrap()
+}
+fn prepared_contexts(c: &Value) -> PreparedCase {
+    use xone_execution_preparation::evm::{FeeContext, FundingObservation};
+    let (b, p, f, tx) = bound(c);
+    let before = simulate(&b, &p, &f, &tx, &budget()).unwrap();
+    let native = f
+        .accounts
+        .iter()
+        .find(|a| a.address == b.transaction.from)
+        .unwrap();
+    let funding = FundingObservation {
+        snapshot_hash: hash(&b.plan.snapshot).unwrap(),
+        caller: b.plan.context.caller.clone(),
+        sell_token: b.plan.context.sell_token.clone(),
+        spender: b.executor.target.clone(),
+        pending_nonce: tx.nonce,
+        native_balance: native.balance.clone(),
+        token_balance: before.balances.caller_sell_before,
+        allowance: original_allowance(
+            &f,
+            &b.plan.context.sell_token,
+            &b.plan.context.caller,
+            &b.executor.target,
+        ),
+        base_fee_per_gas: f.execution_environment.base_fee.clone(),
+    };
+    let fees = FeeContext {
+        chain_id: tx.chain_id,
+        nonce: tx.nonce,
+        gas_limit: tx.gas_limit,
+        max_fee_per_gas: tx.gas_price.clone(),
+        max_priority_fee_per_gas: tx.gas_price.clone(),
+        max_network_fee: Amount::checked(&tx.gas_price.0 * tx.gas_limit).unwrap(),
+    };
+    let component = xone_execution_preparation::evm::prepare(
+        &b,
+        &p,
+        std::slice::from_ref(&b.executor.target),
+        &funding,
+        &fees,
+        f.execution_environment.timestamp * 1000,
+    )
+    .unwrap();
+    PreparedCase {
+        bound: b,
+        pools: p,
+        fixture: f,
+        funding,
+        fees,
+        component,
+    }
+}
+fn prepared_case() -> PreparedCase {
+    let c = corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["service_eligible"] == true)
+        .unwrap();
+    prepared_contexts(c)
+}
+#[test]
+fn prepared_original_router_executes_exact_unsigned_component_in_16_banks() {
+    use xone_simulation::prepared_evm::simulate_prepared;
+    let mut count = 0;
+    for c in corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["service_eligible"] == true)
+    {
+        let case = prepared_contexts(c);
+        let before = serde_json::to_value(&case.component).unwrap();
+        let out =
+            simulate_prepared(case.input(), &case.fixture, &budget(), Default::default()).unwrap();
+        assert!(out.simulation.matches_plan);
+        assert!(!out.simulation.verified);
+        assert_eq!(out.preparation_hash, case.component.preparation_hash);
+        assert_eq!(
+            out.simulation.actual_buy_amount.to_string(),
+            c["expected"]["amount_out"].as_str().unwrap()
+        );
+        assert!(out
+            .simulation
+            .observations
+            .iter()
+            .any(|o| o.phase == "caller_allowance_before"));
+        let raw = hex::decode(&case.component.unsigned_transaction.as_ref().unwrap()[2..]).unwrap();
+        assert_eq!(
+            out.unsigned_transaction_hash,
+            hex::encode(Sha256::digest(raw))
+        );
+        assert_eq!(serde_json::to_value(&case.component).unwrap(), before);
+        let mut value = serde_json::to_value(&out).unwrap();
+        value.as_object_mut().unwrap().remove("commitment_hash");
+        assert_eq!(hash(&value).unwrap(), out.commitment_hash);
+        count += 1;
+    }
+    assert_eq!(count, 16);
+}
+#[test]
+fn prepared_tampering_even_with_rehashed_component_never_starts_execution() {
+    use xone_simulation::prepared_evm::simulate_prepared;
+    let mut case = prepared_case();
+    let original = serde_json::to_value(&case.component).unwrap();
+    for mode in 0..25 {
+        let mut value = original.clone();
+        match mode {
+            0 => value["plan_hash"] = json!("other"),
+            1 => value["binding_hash"] = json!("other"),
+            2 => value["snapshot_hash"] = json!("other"),
+            3 => value["funding_observation_hash"] = json!("other"),
+            4 => value["transaction"]["nonce"] = json!((case.fees.nonce + 1).to_string()),
+            5 => value["transaction"]["gas_limit"] = json!((case.fees.gas_limit - 1).to_string()),
+            6 => value["transaction"]["max_fee_per_gas"] = json!("0"),
+            7 => value["transaction"]["max_priority_fee_per_gas"] = json!("0"),
+            8 => value["transaction"]["from"] = json!(case.bound.executor.factory),
+            9 => value["transaction"]["to"] = json!(case.bound.executor.factory),
+            10 => value["transaction"]["value"] = json!("1"),
+            11 => value["transaction"]["data"] = json!("0x"),
+            12 => value["transaction"]["chain_id"] = json!("1"),
+            13 => value["unsigned_transaction"] = json!("0x02"),
+            14 => value["rpc_transaction"]["nonce"] = json!("0x0"),
+            15 => value["rpc_transaction"]["data"] = json!("0x"),
+            16 => value["required_signers"] = json!([]),
+            17 => value["max_network_fee"] = json!("0"),
+            18 => value["intrinsic_gas_lower_bound"] = json!("0"),
+            19 => value["signed"] = json!(true),
+            20 => value["submitted"] = json!(true),
+            21 => value["independent_production_verification"] = json!(true),
+            22 => value["ready"] = json!(false),
+            23 => value["blockers"] = json!(["new blocker"]),
+            _ => value["schema_version"] = json!(2),
+        }
+        value.as_object_mut().unwrap().remove("preparation_hash");
+        value["preparation_hash"] = json!(hash(&value).unwrap());
+        case.component = serde_json::from_value(value).unwrap();
+        let error = simulate_prepared(case.input(), &case.fixture, &budget(), Default::default())
+            .unwrap_err();
+        assert_eq!(
+            error.code,
+            SimulationErrorCode::SimulationBindingMismatch,
+            "{mode}"
+        );
+        assert_eq!(error.usage.executions, 0, "{mode}");
+    }
+}
+#[test]
+fn prepared_observation_context_limits_and_cancellation_fail_closed() {
+    use xone_simulation::prepared_evm::simulate_prepared;
+    for mode in 0..10 {
+        let mut case = prepared_case();
+        let mut lim = budget();
+        let mut control = ExecutionControl::default();
+        match mode {
+            0 => {
+                case.funding.base_fee_per_gas =
+                    Amount::checked(&case.funding.base_fee_per_gas.0 + 1u64).unwrap()
+            }
+            1 => case.fees.gas_limit -= 1,
+            2 => {
+                case.funding.native_balance =
+                    Amount::checked(&case.funding.native_balance.0 + 1u64).unwrap();
+                case.prepare();
+            }
+            3 => {
+                case.funding.token_balance =
+                    Amount::checked(&case.funding.token_balance.0 + 1u64).unwrap();
+                case.prepare();
+            }
+            4 => {
+                case.funding.allowance = Amount::checked(&case.funding.allowance.0 - 1u64).unwrap();
+                case.prepare();
+            }
+            5 => {
+                case.funding.pending_nonce += 1;
+                case.fees.nonce += 1;
+                case.prepare();
+            }
+            6 => lim.max_fixture_json_bytes = 1,
+            7 => control
+                .cancellation
+                .store(true, std::sync::atomic::Ordering::Relaxed),
+            8 => control.deadline = Some(Instant::now()),
+            _ => lim.max_input_bytes = 1,
+        }
+        let error = simulate_prepared(case.input(), &case.fixture, &lim, control).unwrap_err();
+        if matches!(mode, 2..=5) {
+            assert_eq!(
+                error.code,
+                SimulationErrorCode::SimulationObservationMismatch,
+                "{mode}"
+            );
+            assert!(error.usage.executions > 0);
+        } else {
+            assert_eq!(error.usage.executions, 0);
+        }
+    }
+}

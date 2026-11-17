@@ -977,3 +977,31 @@ fn dynamic_fee_wire_preserves_legacy_commitments_and_rejects_numeric_priority() 
         .max_priority_fee_per_gas
         .is_some());
 }
+
+#[test]
+fn dynamic_fee_balance_probes_observe_effective_gasprice_instead_of_cap() {
+    let mut c = case(5, false);
+    let gasprice_token = dispatch(
+        vec![(
+            "balanceOf(address)",
+            vec![0x3a, 0x5f, 0x52, 0x60, 32, 0x5f, 0xf3],
+        )],
+        vec![0],
+    );
+    for account in &mut c.fixture.accounts {
+        if account.address == c.bound.plan.context.sell_token
+            || account.address == c.bound.plan.context.buy_token
+        {
+            account.code = format!("0x{}", hex::encode(&gasprice_token));
+        }
+    }
+    c.tx.gas_price = "10".parse().unwrap();
+    c.tx.max_priority_fee_per_gas = Some("2".parse().unwrap());
+    let out = run(&c).unwrap();
+    assert_eq!(out.balances.caller_sell_before.to_string(), "3");
+    assert_eq!(out.balances.recipient_buy_before.to_string(), "3");
+    assert_eq!(out.balances.caller_sell_after.to_string(), "3");
+    assert_eq!(out.balances.recipient_buy_after.to_string(), "3");
+    assert!(!out.matches_plan);
+    assert!(!out.verified);
+}

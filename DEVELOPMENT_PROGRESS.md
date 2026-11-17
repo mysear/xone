@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|EVM准备组件与同银行独立执行（阶段90）|§14.1–14.5/28.16–28.17；WP14、WP15|LOCAL_SCOPE_VERIFIED|严格重算组件/unsigned wire、同银行余额/nonce/allowance与实际原Router；getter费用上下文对齐|8门禁/121次Rust、16银行/25重算篡改/10控制及899固定输入通过；真实状态DB/当前链规则/API执行仍缺|
 |EVM独立仿真动态费用（阶段89）|§14.2–14.5/28.17；WP15|LOCAL_SCOPE_VERIFIED|仿真传递EIP-1559 cap/tip，记录同次REVM调用者及coinbase余额、实际执行费/base burn/tip|8项门禁/117次Rust、16原Router对照和899固定输入通过；当前链规则/L2费用/可信当前状态仍缺|
 |EVM固定块RPC准备与API（阶段88）|§14/15/21；WP04、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|同块RPC身份/完整V2状态与资金/nonce观察、显式API、费用与交易下载；独立组件/RPC/API摘要|15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定；独立EVM执行/链特定费用/真实当前来源与生产仍待完成|
 |EVM计划绑定与准备组件（阶段87）|§14/15/21；WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|完整V2 ExactOut绑定、uint256资金/费用、无损数量与unsigned EIP-1559组件|13项门禁/62次Rust/95份独立ABI-RLP签名对照，899份固定输入/185份参考依赖绑定；RPC/API已由阶段88接通；当前链规则/独立VM/钱包继续开发，EVM能力未开放|
@@ -465,6 +466,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|14.evm-prepared-execution|WP14,WP15|LOCAL_SCOPE_VERIFIED|完整准备组件重算、原wire摘要、同银行资金与独立VM绑定，getter有效gas price对齐|统一验证通过；限定显式给定状态ExactIn，真实RPC状态DB/ExactOut VM/当前链规则/普通API执行仍待补|[验证记录](integration/artifacts/local/evm-prepared-execution-check/report.json)|
 |14.evm-dynamic-fees|WP15|LOCAL_SCOPE_VERIFIED|独立Shanghai仿真的cap/tip、真实native pre/post与费用承诺|统一门禁通过；当前源/其他hardfork/L2数据费仍待完成|[验证记录](integration/artifacts/local/evm-dynamic-fees-check/report.json)|
 |14.evm-rpc-preparation|WP04,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|固定hash方法负对照、代码/完整V2字段、资金/授权/nonce及严格JSON/预算；认证QuoteView API和EVM费用/下载，统一门禁通过|本批是受控RPC观察接线资格，账户资金故障为受控观察；非共识、状态根证明、完整当前费用或独立执行，静态协议能力和生产未升级|[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
 
@@ -562,6 +564,7 @@
 |87|[EVM计划绑定与准备组件](#plan-2026-11-17-evm-preparation-component)|LOCAL_SCOPE_VERIFIED|13项门禁/62次Rust/95份独立ABI-RLP签名对照，899份固定输入/185份参考依赖绑定；[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
 |88|[EVM固定块RPC准备与API](#plan-2026-11-17-evm-rpc-preparation)|LOCAL_SCOPE_VERIFIED|15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定；[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
 |89|[EVM独立仿真动态费用](#plan-2026-11-17-evm-dynamic-fees)|LOCAL_SCOPE_VERIFIED|8门禁/117次Rust、16原Router对照、899固定输入；[验证记录](integration/artifacts/local/evm-dynamic-fees-check/report.json)|
+|90|[EVM准备组件与同银行独立执行](#plan-2026-11-17-evm-prepared-execution)|LOCAL_SCOPE_VERIFIED|8门禁/121次Rust、16原银行/25重算篡改/10控制、899固定输入；[验证记录](integration/artifacts/local/evm-prepared-execution-check/report.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2705,3 +2708,19 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 阶段89用户中断（2026-11-17）：117次Rust测试和format/contracts/进度契约均已通过，全目标严格Clippy尚未完成即中断；最终运行记录为CANCELLED/USER_INTERRUPTED，不计作整批验收通过。本轮修改尚未commit或push。临时目录已随会话中断清除，相应失效的编译缓存链接已移除，缺失的过程宏编译产物由后续Cargo构建重建；源代码与测试输入保留。
 
 阶段89恢复后的最终限定验收：恢复前核对源码、899份固定输入及7份已通过门禁日志摘要全部一致，保留中断报告和Clippy未完成日志后只续跑缺失的全目标严格Clippy；独立持久化构建目录的Clippy在1分41秒内exit0。最终8项门禁、117次Rust测试（独立仿真86、API上下文8、准备/RPC23）通过，16个原Router银行的动态费用与legacy有效价后状态对照通过。源码及固定输入前后完全一致，最终运行目录`5ffe6c2a49634fc795ae6b03a788954e`；各次失败/取消记录保留。当前执行准备21/61、ExactOut38/61，全部功能与生产完成标记保持false。
+
+<a id="plan-2026-11-17-evm-prepared-execution"></a>
+
+## EVM准备组件与同银行独立执行（2026-11-17，阶段90）
+
+对照§14.1–14.5/28.16–28.17，本批将阶段87/88准备组件与阶段89独立费用执行绑定。`prepared_evm::simulate_prepared`重新生成完整组件并比较其全部字段；不是只核对输入自报hash。交易nonce、chain、gas/cap/tip、caller/target/calldata/value、签名者、RPC参数和unsigned wire必须一致，所有资格标记保持原始受限值。实际执行使用该组件的EIP-1559上下文，原wire字节SHA256、原组件hash及独立receipt各自保留，再由外层commitment绑定。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F90.1|准备组件与实际交易严格绑定|WP14,WP15|LOCAL_SCOPE_VERIFIED|16原Router服务银行的完整准备和REVM兑换量对照；25种修改后重算hash的组件仍在实际执行前拒绝，原组件保持不变。|
+|F90.2|同银行资金核对和getter上下文|WP15|LOCAL_SCOPE_VERIFIED|同一次Runner、StrictDB和共享预算读取native/nonce/token及真实allowance；准备观察值不一致在swap前拒绝。所有只读getter传递相同cap/tip，GASPRICE反例检查有效价而非cap。|
+|F90.3|预算/取消/统一门禁|WP14,WP15|LOCAL_SCOPE_VERIFIED|准备JSON先流式计数再hash，限额与取消/到期先拒绝；10项观察上下文控制、原仿真/准备/API及严格Clippy统一验证通过。|
+
+本批是显式提供H/H+1银行的内部ExactIn组件。新增allowance probe计入原聚合read/byte/gas/instruction预算；未添加另一个可绕过预算的VM。来源继续为PROVIDED_LOCAL_STATE/verified=false，不升级普通EVM API或静态协议能力。RPC到完整可信执行状态DB、ExactOut独立VM、当前链hardfork/L2费用、钱包签名广播和生产部署仍待完成；其中本地实现差距与需要operator提供的正式来源/基础设施分别记录，不将所有待实现项标为外部阻塞。
+
+阶段90最终限定验收：8项门禁全部exit0，121次Rust（仿真90/API上下文8/准备RPC23）通过；16原Router银行的组件/原wire/余额差核对、25次重算hash篡改拒绝、10项上下文控制和实际GASPRICE反例通过。全目标严格Clippy通过，源码和899份固定输入前后完全一致；运行目录`95a24af96f7847ee8190cc0213f3cf74`。当前组件不生成签名或广播、不开放普通API VERIFIED，执行准备21/61与ExactOut38/61限定资格不变。
