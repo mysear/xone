@@ -1,5 +1,6 @@
 //! Integrity-checked public checkpoint format. A pinned digest is not owner
 //! authorization, freshness, or a Kafka topic-lifecycle proof; callers enforce those.
+pub mod local;
 use crate::{decode_bootstrap, Bootstrap};
 use prost::Message;
 use serde::{Deserialize, Serialize};

@@ -310,3 +310,48 @@ func TestPublicBootstrapPostPublicationRevocationReturnsNoQualification(t *testi
 		t.Fatal(files, err)
 	}
 }
+
+func TestCurrentRustCheckpointVectorsDecodeIndependentlyInGo(t *testing.T) {
+	directory := os.Getenv("XONE_RUST_CHECKPOINT_VECTORS_OUTPUT")
+	if directory == "" {
+		t.Skip("requires current validation run Rust checkpoint exports")
+	}
+	raw, e := os.ReadFile(filepath.Join(directory, "vectors.json"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	var document struct {
+		Vectors []struct {
+			Manifest   string             `json:"manifest"`
+			PayloadHex string             `json:"payload_hex"`
+			Pin        string             `json:"manifest_sha256"`
+			Reference  domain.SnapshotRef `json:"reference"`
+			Cursor     journal.Cursor     `json:"cursor"`
+		} `json:"vectors"`
+	}
+	if e = json.Unmarshal(raw, &document); e != nil {
+		t.Fatal(e)
+	}
+	if len(document.Vectors) != 3 {
+		t.Fatal("incomplete Rust vectors")
+	}
+	for i, v := range document.Vectors {
+		payload, e := hex.DecodeString(v.PayloadHex)
+		if e != nil {
+			t.Fatal(e)
+		}
+		boot, e := DecodeBootstrap([]byte(v.Manifest), payload, v.Pin, 8<<20)
+		if e != nil {
+			t.Fatal(i, e)
+		}
+		if boot.Snapshot.Reference != v.Reference || boot.Cursor != v.Cursor {
+			t.Fatal("Rust/Go state cursor mismatch", i)
+		}
+		if i == 1 && (boot.Cursor.Offset != math.MaxInt64-1 || boot.Snapshot.Reference.JournalSeq != uint64(1)<<63+7) {
+			t.Fatal("wide integer narrowed")
+		}
+		if i == 2 && boot.Snapshot.Pools[0].Reserve0 != domain.Amount("1606938044258990275541962092341162602522202993782792835301376") {
+			t.Fatal("amount narrowed")
+		}
+	}
+}

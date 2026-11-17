@@ -22,6 +22,8 @@ use xone_observability::{now_ms, Logger};
 #[path = "normal_stream.rs"]
 mod normal_stream;
 pub use normal_stream::{StreamEvidence, StreamStatus};
+#[path = "service_checkpoint.rs"]
+mod checkpoint;
 #[path = "service_scope_runtime.rs"]
 mod scope_runtime;
 use scope_runtime::ScopeMaterial;
@@ -29,6 +31,7 @@ use scope_runtime::ScopeMaterial;
 pub type SnapshotSource = Arc<dyn Fn(&Chain) -> Result<Snapshot> + Send + Sync>;
 #[derive(Clone)]
 pub struct Parser {
+    checkpoint_gate: Arc<tokio::sync::Mutex<()>>,
     ingest_refs: Arc<Mutex<BTreeMap<String, std::collections::BTreeSet<String>>>>,
     certified: Arc<Mutex<BTreeMap<String, ScopeMaterial>>>,
     stream_statuses: Arc<Mutex<BTreeMap<String, StreamStatus>>>,
@@ -110,6 +113,7 @@ impl Parser {
         let rpc = Rpc { http, max_bytes };
         let history = crate::history_runtime::HistoryRuntime::new(&config, &stores, rpc.clone())?;
         Ok(Self {
+            checkpoint_gate: Arc::new(tokio::sync::Mutex::new(())),
             ingest_refs: Arc::new(Mutex::new(BTreeMap::new())),
             certified: Arc::new(Mutex::new(BTreeMap::new())),
             stream_statuses: Arc::new(Mutex::new(
@@ -511,6 +515,7 @@ impl Parser {
             .route("/health/ready", get(ready))
             .route("/internal/config", get(config))
             .route("/internal/chains/{chain}/bootstrap", get(bootstrap))
+            .route("/internal/checkpoints", post(checkpoint::publish))
             .route("/internal/chains/{chain}/stream-status", get(stream_status))
             .route(
                 "/internal/chains/{chain}/history-status",
@@ -534,6 +539,7 @@ impl Parser {
     pub async fn close(&self) {
         self.started.store(false, Ordering::Release);
         self.stream_stop.send_replace(true);
+        let _checkpoint_drain = self.checkpoint_gate.lock().await;
         self.history.close().await;
         for task in self.stream_tasks.lock().await.drain(..) {
             let _ = task.await;

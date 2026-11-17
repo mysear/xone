@@ -1125,3 +1125,7 @@ checkpoint-fairness-current-check:
 .PHONY: checkpoint-replay-current-check
 checkpoint-replay-current-check:
 	python3 tools/acceptance/validate_checkpoint_replay.py
+
+.PHONY: rust-checkpoint-publication-current-check
+rust-checkpoint-publication-current-check:
+	python3 tools/acceptance/validate_rust_checkpoint_publication.py

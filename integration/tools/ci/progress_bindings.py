@@ -1913,3 +1913,19 @@ BINDINGS['9.bounded-checkpoint-tail-replay'] = {
            'remote_checkpoint::replay_tests::older_remote_checkpoint_replays_actual_kafka_privately_then_publishes_only_attested_head'],
  'evidence_refs': ['integration/artifacts/local/checkpoint-replay-check/report.json'],
 }
+
+BINDINGS['9.rust-owner-public-checkpoints'] = {
+ 'paths': ['dex-router/crates/kafka-transport/src/checkpoint/local.rs',
+           'chain-parser-rust/crates/kafka-transport/src/checkpoint/local.rs',
+           'chain-parser-rust/crates/solana-ingest/src/service_checkpoint.rs',
+           'chain-parser-rust/crates/solana-ingest/src/service_checkpoint_tests.rs',
+           'chain-parser-go/internal/checkpoint/bootstrap_test.go',
+           'integration/tools/acceptance/validate_rust_checkpoint_publication.py'],
+ 'tests': ['rust_local_checkpoint_immutable_roundtrip_and_concurrent_retry',
+           'rust_local_checkpoint_partial_publication_and_revocation_are_not_qualified',
+           'rust_local_checkpoint_exports_current_vectors_for_independent_go_decoder',
+           'TestCurrentRustCheckpointVectorsDecodeIndependentlyInGo',
+           'service::checkpoint::tests::normal_rust_checkpoint_endpoint_requires_auth_and_committed_cursor',
+           'service::checkpoint::tests::rust_checkpoint_gate_wait_is_bounded_and_cancelled_before_file_io'],
+ 'evidence_refs': ['integration/artifacts/local/rust-checkpoint-publication-check/report.json'],
+}

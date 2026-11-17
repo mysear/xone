@@ -1937,3 +1937,11 @@ publish_interval_ms是相邻链轮次之间的等待，完成一个N链轮转至
 正常router Kafka恢复先试此目录，再可回退原exact-current远端/owner当前bootstrap。旧checkpoint下载后在私有Replica按同代连续BLOCK_COMMIT重放，实际帧数和初始lag不超max_tail_records，整轮request_timeout_ms含目录/下载/Reader构造/重放/最终目录复核。每个complete unit先通过原Replica连续性、池依赖及scope验证；目标cursor若处在BEGIN/CHUNK中间、最终seq/hash/ref不同、保留窗过期/高水位倒退、未知kind/reorg/新代均失败。所有中间图与cursor仅在私有任务中，最终完整状态及Reader经owner目录二次核对后一次发布到正常replica，日志来源REMOTE_CHECKPOINT_BOUNDED_REPLAY。
 
 `make -C integration checkpoint-replay-current-check`显式执行独立Kafka旧快照+两个后续块的私有追平/正常HTTP报价，覆盖目录撤权、半事务边界和帧预算；原同轮Go wire HTTP下载、周期/关闭/多链公平性和exact-current冷恢复回归。跨代历史重放、离线canonical目录、真实topic重建/保留/多区故障域仍需后续验收。
+
+## Rust owner公开checkpoint本地发布
+
+阶段108。两个Rust kafka-transport副本提供`checkpoint::local::{encode,write,read}`，使用与Go相同OwnerBootstrap protobuf及规范manifest版本2。写入`checkpoints/<chain>/public-v2/<payload-sha>/{bootstrap.pb,manifest.json}`，payload先fsync再manifest硬链接不可替换/目录fsync；原字节幂等、冲突拒绝、manifest发布前后guard。符号链接对象/namespace拒绝；配置root/祖先需operator管理，新目录0700/文件0600（Unix）。文件读取先验证manifest pin/上限，再按精确payload长度解码，不把物理存在当owner资格。
+
+正常Rust parser新增授权POST /internal/checkpoints。先checked_current做来源/lease资格，锁内提取同reference committed bootstrap；无真实cursor的http-development返回空public数组，Kafka缺cursor拒绝。后台blocking写任务持有owned发布gate，取消时flag撤权；关闭先发送stop并等待gate排空再关闭来源/lease。写完成再次checked_current核对同代owner/schema/adapter/scope，成功才返回publication。该轮remote_checkpoints与旧manifests均为空，Rust远端上传/周期待接。
+
+`make -C integration rust-checkpoint-publication-current-check`运行两个workspace transport/独立导出、Go读取各自3组原manifest/payload（宽offset/u64/2^200）、Rust正常服务HTTP与ready/scope竞争回归，以及严格Clippy/Go vet和当前parser程序构建。raw导出按当轮目录隔离并核验前后摘要；未设置导出目录时跨语言Go测试显式skip，统一门禁要求实际PASS。
