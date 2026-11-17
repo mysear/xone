@@ -1879,3 +1879,5 @@ SBF运行时程序映像的宿主生命周期：构造线程只保留至多两�
 `bind_v2_execution`的完整V2 ExactIn分支支持1–8hop简单路径：每步校验Pool/Factory/源码/源bank及token方向，token和物理池不重复，重新计算全部分配并按顺序绑定所有touched池。多hop不混用旧reserve-only版本；拆单/共享DAG需要独立执行模板。正常prepare-evm/本地worker沿用同一绑定，界面准备判断允许双模式单路径多hop，未准入池和重复池保持拒绝。
 
 `StateAnchor.base_fee_per_gas`可显式记录来源H的base fee。准备资金观察与此值核对，实际REVM交易继续使用`execution_environment.base_fee`（H+1），二者都进入银行/执行承诺，不能互相覆盖。旧bundle省略该可选字段时保留原同费率约束；若真实H与H+1不同，应明确提供源费用，否则拒绝准备复用。H+1超过交易cap始终拒绝，此声明不授予源header的共识或状态根证明。
+
+`POST /v1/quotes/{id}/preparations/{hash}/simulate-evm`执行服务端当前缓存的RPC准备，body仅空或{}；双模式共用同二进制worker和取消/预算。结果保持原SimulationOutcome，并以`preparedExecution`保留原unsigned字节摘要/组件hash/ExactOut外hash和独立commitment，再绑定`apiPreparationHash`及`rpcPreparationHash`。父进程重算返回commitment；准备被替换时旧hash不可执行，旧在途结果在写证据锁内再次核对。组件序列化载荷限制单个64KiB/整体32MiB，额度随quote失效释放，在途操作保留所需引用。配置的提供银行仍须与RPC观察的链/源H/资金/账户一致，不满足则拒绝，不自动退回eth_call或虚构状态。当前接口不签名、不广播，也不升级VERIFIED/当前链/完整费用资格。

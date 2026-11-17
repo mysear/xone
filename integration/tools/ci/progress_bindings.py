@@ -1789,3 +1789,15 @@ BINDINGS['14.evm-source-fees'] = {
            'wrong_or_missing_source_fee_cannot_reuse_prepared_commitment_and_execution_cap_still_applies'],
  'evidence_refs': ['integration/artifacts/local/evm-source-fees-check/report.json'],
 }
+
+BINDINGS['15.evm-prepared-api'] = {
+ 'paths': ['dex-router/crates/simulation/src/worker.rs',
+           'dex-router/crates/execution-preparation/src/evm_rpc.rs',
+           'dex-router/crates/quote-api/src/evm_preparation.rs',
+           'dex-router/crates/quote-api/src/local_simulation.rs',
+           'integration/tools/acceptance/validate_evm_prepared_api.py',
+           'integration/tools/acceptance/evm_prepared_http.py'],
+ 'tests': ['local_simulation::tests::prepared_cache_replacement_blocks_late_evidence_and_reclaims_bounded_bytes',
+           'local_simulation::tests::prepared_worker_response_is_exclusive_and_its_outer_commitment_is_recomputed'],
+ 'evidence_refs': ['integration/artifacts/local/evm-prepared-api-check/report.json'],
+}

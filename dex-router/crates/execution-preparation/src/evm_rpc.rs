@@ -42,6 +42,8 @@ pub struct RpcObservation {
 pub struct CapturedPreparation {
     pub result: Value,
     pub observations: Vec<RpcObservation>,
+    pub funding: FundingObservation,
+    pub fees: FeeContext,
 }
 pub enum Bound<'a> {
     ExactIn(&'a BoundEvmExecution),
@@ -602,5 +604,7 @@ async fn resolve(
     Ok(CapturedPreparation {
         result,
         observations: rpc.observations,
+        funding: observed,
+        fees,
     })
 }

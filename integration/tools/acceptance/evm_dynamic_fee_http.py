@@ -26,7 +26,7 @@ def sha(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def run(binary, output, *, exact_out=False, path_case=None):
+def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None):
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     binary = binary.resolve(strict=True)
@@ -39,6 +39,8 @@ def run(binary, output, *, exact_out=False, path_case=None):
         with (output / 'process.log').open('wb') as log:
             env = dict(os.environ)
             env.pop('XONE_EVM_PATH_CASE', None)
+            env.pop('XONE_EVM_PREPARED_HTTP', None)
+            if prepared_mode is not None: env['XONE_EVM_PREPARED_HTTP']=prepared_mode
             if path_case is not None: env['XONE_EVM_PATH_CASE'] = path_case
             process = subprocess.Popen([str(staged), str(info_path)], cwd=ROOT, env=env,
                                        stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -75,7 +77,28 @@ def run(binary, output, *, exact_out=False, path_case=None):
                 quote_id = quote['quoteId']
                 status, invalid = post(f'/v1/quotes/{quote_id}/simulate', {'gasPrice': '0'})
                 require(status >= 400, 'Simulation accepted a caller fee override')
-                status, result = post(f'/v1/quotes/{quote_id}/simulate', None)
+                preparation = None
+                simulate_path = f'/v1/quotes/{quote_id}/simulate'
+                if prepared_mode is not None:
+                    fee_request = dict(gas_limit='7000000',max_fee_per_gas=info['maxFeePerGas'],
+                        max_priority_fee_per_gas='1',max_network_fee=str(7000000*int(info['maxFeePerGas'])))
+                    status, preparation = post(f'/v1/quotes/{quote_id}/prepare-evm',fee_request)
+                    require(status==200 and preparation.get('ready') is True,'RPC preparation failed: '+json.dumps(preparation))
+                    (output/'preparation.json').write_text(json.dumps(preparation,indent=2)+'\n')
+                    simulate_path=f'/v1/quotes/{quote_id}/preparations/{preparation["preparationHash"]}/simulate-evm'
+                    status, bad_override = post(simulate_path,{'nonce':'0'})
+                    require(status>=400,'Prepared simulation accepted request override')
+                status, result = post(simulate_path, None)
+                if prepared_mode=='bank-mismatch':
+                    require(status==422 and result.get('error')=='SIMULATION_OBSERVATION_MISMATCH',
+                            'Wrong RPC funding was accepted by independent bank: '+json.dumps(result))
+                    report=dict(passed=True,quote_kind='EXACT_OUT' if exact_out else 'EXACT_IN',
+                        controlled_funding_mismatch_rejected=True,harness_sha256=digest,
+                        publicTransactionsSubmitted=False,production_ready=False,all_requested_features_complete=False)
+                    (output/'rejection.json').write_text(json.dumps(result,indent=2)+'\n')
+                    (output/'report.json').write_text(json.dumps(report,indent=2)+'\n')
+                    print(json.dumps(report),flush=True)
+                    return report
                 require(status == 200, 'Actual worker simulation failed: ' + json.dumps(result))
                 (output / 'quote.json').write_text(json.dumps(quote, indent=2) + '\n')
                 (output / 'simulation.json').write_text(json.dumps(result, indent=2) + '\n')
@@ -118,8 +141,26 @@ def run(binary, output, *, exact_out=False, path_case=None):
                     require(evidence['quote'] == quote and evidence['simulation_evidence'] == result,
                             'ExactOut evidence overwrote quote or omitted simulation')
                     (output/'evidence.json').write_text(json.dumps(evidence,indent=2)+'\n')
+                if preparation is not None:
+                    require(result['apiPreparationHash']==preparation['preparationHash'],'API preparation binding lost')
+                    require(result['rpcPreparationHash']==preparation['rpcPreparation']['rpc_preparation_hash'],
+                            'RPC preparation binding lost')
+                    component=preparation['component']['preparation'] if exact_out else preparation['component']
+                    prepared=result['preparedExecution']
+                    require(prepared['preparation_hash']==component['preparation_hash'],'Original component changed')
+                    require(prepared['unsigned_transaction_hash']==hashlib.sha256(bytes.fromhex(preparation['unsignedTransaction'][2:])).hexdigest(),
+                            'Prepared unsigned wire changed')
+                    require(prepared['simulation']==result['outcome'],'Prepared and published execution differ')
+                    if exact_out:
+                        require(prepared['exact_out_preparation_hash']==preparation['component']['exact_out_preparation_hash'],
+                                'Outer ExactOut component changed')
+                    newer_request=dict(fee_request,gas_limit='6999999')
+                    status,newer=post(f'/v1/quotes/{quote_id}/prepare-evm',newer_request)
+                    require(status==200 and newer['preparationHash']!=preparation['preparationHash'],'Updated preparation did not replace old wire')
+                    status,replaced=post(simulate_path,None)
+                    require(status==422 and replaced['error']=='EVM_PREPARATION_UNKNOWN_OR_REPLACED','Old preparation remained executable')
                 report = dict(passed=True, harness_sha256=digest, actual_worker_executions=1,
-                              quote_kind='EXACT_OUT' if exact_out else 'EXACT_IN', path_case=path_case,
+                              quote_kind='EXACT_OUT' if exact_out else 'EXACT_IN', path_case=path_case, prepared_mode=prepared_mode,
                               gas_used=gas, effective_gas_price=str(effective), max_fee_per_gas=str(maximum),
                               actual_fee=str(gas*effective), overstatement_prevented=str(gas*(maximum-effective)),
                               publicTransactionsSubmitted=False, production_ready=False,

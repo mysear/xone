@@ -55,12 +55,28 @@ async fn main() {
         reference.scope_hash = xone_domain::scope_hash(&pools).unwrap();
         reference.adapter_set_hash = hash(&vec![xone_domain::v2_swap::ADAPTER]).unwrap();
     }
-    let fixture: FixtureState = serde_json::from_value(json!({
+    let mut fixture: FixtureState = serde_json::from_value(json!({
         "schema_version":1,"state_anchor":original["state_anchor"],
         "execution_environment":original["execution_environment"],"accounts":original["accounts"],"block_hashes":[]
     })).unwrap();
     let original_tx: TransactionContext =
         serde_json::from_value(original["transaction_context"].clone()).unwrap();
+    let prepared_http = std::env::var("XONE_EVM_PREPARED_HTTP").ok();
+    let mut rpc_task = None;
+    if prepared_http.is_some() {
+        assert!(
+            std::env::var("XONE_EVM_PATH_CASE").is_err(),
+            "prepared harness uses retained complete single bank"
+        );
+        let value = original["evidence"]["preblock_header"]["baseFeePerGas"]
+            .as_str()
+            .unwrap();
+        let amount = u64::from_str_radix(&value[2..], 16).unwrap();
+        fixture.state_anchor.base_fee_per_gas = Some(amount.to_string().parse().unwrap());
+        let (_, _, ready, _, task) = bank::serve(prepared_http.as_deref().unwrap()).await;
+        rpc = ready;
+        rpc_task = Some(task);
+    }
     let max_fee = original_tx.gas_price.clone();
     let bundle = LocalSimulationBundle {
         schema_version: 1,
@@ -80,6 +96,22 @@ async fn main() {
     config.token = "dynamic-fee-http-local-test-20261117".into();
     config.config.chains.retain(|c| c.key == rpc.chain_key);
     config.config.chains[0].genesis_hash = rpc.genesis_hash;
+    if prepared_http.is_some() {
+        config.config.chains[0].rpc_urls = vec![rpc.url.clone()];
+        config.config.api.evm_preparation.insert(
+            config.config.chains[0].key.clone(),
+            xone_config::EvmPreparationConfig {
+                router: rpc.executor.target.clone(),
+                router_code_sha256: rpc.executor.code_sha256.clone(),
+                factory: rpc.executor.factory.clone(),
+                factory_code_sha256: rpc.executor.factory_code_sha256.clone(),
+                token_code_sha256: rpc.token_code_sha256.clone(),
+                timeout_ms: rpc.timeout_ms,
+                max_calls: rpc.max_calls,
+                max_response_bytes: rpc.max_response_bytes,
+            },
+        );
+    }
     config.config.simulation.backend = "revm-fixture".into();
     config.config.simulation.state_file = bundle_path.to_str().unwrap().into();
     config.config.simulation.allowed_targets = vec![rpc.executor.target];
@@ -123,4 +155,7 @@ async fn main() {
         })
         .await
         .unwrap();
+    if let Some(task) = rpc_task {
+        task.abort();
+    }
 }

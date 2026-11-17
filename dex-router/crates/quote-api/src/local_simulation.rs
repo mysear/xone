@@ -24,7 +24,7 @@ use xone_simulation::{
     evm_fixture::{NativeFeeMeasurements, SimulationBudget, TransactionContext},
     revm_backend::StateImage,
     worker::{
-        executable_sha256, LocalSimulationBundle, WorkerRequest, WorkerResponse,
+        executable_sha256, LocalSimulationBundle, WorkerPreparation, WorkerRequest, WorkerResponse,
         MAX_WORKER_INPUT_BYTES, MAX_WORKER_OUTPUT_BYTES, WORKER_PROTOCOL,
     },
 };
@@ -81,7 +81,13 @@ impl Selection {
             Self::ExactOut(c) => &c.plan.snapshot,
         }
     }
-    fn context(&self) -> &xone_execution_plan::Context {
+    pub(crate) fn prepared(&self) -> Option<&crate::evm_preparation::Prepared> {
+        match self {
+            Self::ExactIn(c) => c.evm_preparation.as_ref(),
+            Self::ExactOut(c) => c.evm_preparation.as_ref(),
+        }
+    }
+    pub(crate) fn context(&self) -> &xone_execution_plan::Context {
         match self {
             Self::ExactIn(c) => &c.plan.context,
             Self::ExactOut(c) => &c.plan.context,
@@ -106,6 +112,7 @@ pub(crate) struct LocalSimulation {
 struct ExecutionCommitment {
     binding_hash: String,
     quote_kind: &'static str,
+    expected_preparation: Option<(String, Option<String>)>,
     transaction: Transaction,
     transaction_context: TransactionContext,
     execution_base_fee: Amount,
@@ -120,6 +127,30 @@ impl PreparedExecution {
         let mut output = LimitedWriter(Vec::new());
         serde_json::to_writer(&mut output, &request)
             .map_err(|_| Failure::new("SIMULATION_WORKER_INPUT_LIMIT", "serialize"))?;
+        let expected_preparation = if let Some(p) = &request.prepared {
+            let component = if request.exact_out_bound.is_some() {
+                &p.component["preparation"]
+            } else {
+                &p.component
+            };
+            let inner = component["preparation_hash"]
+                .as_str()
+                .ok_or_else(|| Failure::new("SIMULATION_WORKER_BINDING", "prepare"))?
+                .to_owned();
+            let outer = if request.exact_out_bound.is_some() {
+                Some(
+                    p.component["exact_out_preparation_hash"]
+                        .as_str()
+                        .ok_or_else(|| Failure::new("SIMULATION_WORKER_BINDING", "prepare"))?
+                        .to_owned(),
+                )
+            } else {
+                None
+            };
+            Some((inner, outer))
+        } else {
+            None
+        };
         let (binding_hash, transaction, executor, quote_kind) =
             match (request.bound, request.exact_out_bound) {
                 (Some(b), None) => (b.binding_hash, b.transaction, b.executor, "EXACT_IN"),
@@ -133,6 +164,7 @@ impl PreparedExecution {
                 transaction,
                 executor,
                 quote_kind,
+                expected_preparation,
                 transaction_context: request.transaction_context,
                 execution_base_fee: request.fixture.execution_environment.base_fee,
             },
@@ -232,7 +264,26 @@ impl LocalSimulation {
         cached: impl Into<Selection>,
         deadline: Instant,
     ) -> std::result::Result<Value, Failure> {
-        let cached = cached.into();
+        self.execute_inner(config, cached.into(), deadline, None)
+            .await
+    }
+    pub async fn execute_prepared(
+        self: Arc<Self>,
+        config: Arc<ConfigSnapshot>,
+        cached: Selection,
+        deadline: Instant,
+        prepared: WorkerPreparation,
+    ) -> std::result::Result<Value, Failure> {
+        self.execute_inner(config, cached, deadline, Some(prepared))
+            .await
+    }
+    async fn execute_inner(
+        self: Arc<Self>,
+        config: Arc<ConfigSnapshot>,
+        cached: Selection,
+        deadline: Instant,
+        prepared: Option<WorkerPreparation>,
+    ) -> std::result::Result<Value, Failure> {
         let permit = self
             .permits
             .clone()
@@ -307,7 +358,11 @@ impl LocalSimulation {
                     pools: cached.view().pools.clone(),
                     allowed_targets: config.config.simulation.allowed_targets.clone(),
                     fixture: state.bundle.fixture.clone(),
-                    transaction_context: state.bundle.transaction_context.clone(),
+                    transaction_context: prepared
+                        .as_ref()
+                        .map(WorkerPreparation::transaction_context)
+                        .unwrap_or_else(|| state.bundle.transaction_context.clone()),
+                    prepared,
                     budget: state.budget.clone(),
                     expected_genesis_hash: genesis,
                     timeout_ms,
@@ -344,12 +399,26 @@ impl LocalSimulation {
             if Instant::now() >= deadline {
                 return Err(Failure::new("SIMULATION_TIMEOUT", "response"));
             }
-            diagnostic_response(
-                outcome,
+            if outcome.prepared.as_ref().map(|p| {
+                (
+                    p.preparation_hash.clone(),
+                    p.exact_out_preparation_hash.clone(),
+                )
+            }) != commitment.expected_preparation
+            {
+                return Err(Failure::new("SIMULATION_WORKER_PROTOCOL", "preparation"));
+            }
+            let mut response = diagnostic_response(
+                outcome.outcome,
                 &commitment,
                 &self.bundle_sha256,
                 &self.worker_sha256,
-            )
+            )?;
+            if let Some(prepared) = outcome.prepared {
+                response["preparedExecution"] = serde_json::to_value(prepared)
+                    .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "preparation"))?;
+            }
+            Ok(response)
         });
         tokio::select! {
             result = &mut job => result.map_err(|_| Failure::new("SIMULATION_SUPERVISOR_FAILED", "supervisor"))?,
@@ -520,16 +589,42 @@ async fn run_process(
     }
     result
 }
-fn decode_response(bytes: &[u8], worker_hash: &str) -> std::result::Result<Value, Failure> {
+#[derive(Debug)]
+struct Decoded {
+    outcome: Value,
+    prepared: Option<xone_simulation::prepared_evm::PreparedSimulation>,
+}
+fn decode_response(bytes: &[u8], worker_hash: &str) -> std::result::Result<Decoded, Failure> {
     let response: WorkerResponse = serde_json::from_slice(bytes)
         .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "response"))?;
     if response.protocol != WORKER_PROTOCOL || response.worker_binary_sha256 != worker_hash {
         return Err(Failure::new("SIMULATION_WORKER_IDENTITY", "response"));
     }
-    match (response.outcome, response.error) {
-        (Some(outcome), None) => serde_json::to_value(outcome)
-            .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "response")),
-        (None, Some(error)) => Err(Failure {
+    match (response.outcome, response.prepared, response.error) {
+        (Some(outcome), None, None) => Ok(Decoded {
+            outcome: serde_json::to_value(outcome)
+                .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "response"))?,
+            prepared: None,
+        }),
+        (None, Some(prepared), None) => {
+            let mut value = serde_json::to_value(&prepared)
+                .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "response"))?;
+            value
+                .as_object_mut()
+                .ok_or_else(|| Failure::new("SIMULATION_WORKER_PROTOCOL", "response"))?
+                .remove("commitment_hash");
+            if hash(&value).map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "response"))?
+                != prepared.commitment_hash
+            {
+                return Err(Failure::new("SIMULATION_WORKER_PROTOCOL", "preparation"));
+            }
+            Ok(Decoded {
+                outcome: serde_json::to_value(&prepared.simulation)
+                    .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "response"))?,
+                prepared: Some(prepared),
+            })
+        }
+        (None, None, Some(error)) => Err(Failure {
             code: serde_json::to_value(error.code)
                 .ok()
                 .and_then(|v| v.as_str().map(str::to_owned))
@@ -736,6 +831,7 @@ mod tests {
         ExecutionCommitment {
             binding_hash: "binding".into(),
             quote_kind: "EXACT_IN",
+            expected_preparation: None,
             transaction: Transaction {
                 chain_key: "evm:31337".into(),
                 from: "0x0000000000000000000000000000000000000011".into(),
@@ -909,6 +1005,7 @@ mod tests {
             protocol: WORKER_PROTOCOL.into(),
             bound: Some(bound),
             exact_out_bound: None,
+            prepared: None,
             pools: cached.view.pools.clone(),
             allowed_targets: api.config.config.simulation.allowed_targets.clone(),
             fixture: backend.bundle.fixture.clone(),
@@ -1133,6 +1230,7 @@ mod tests {
             protocol: WORKER_PROTOCOL.into(),
             bound: None,
             exact_out_bound: Some(bound),
+            prepared: None,
             pools: cached.view.pools.clone(),
             allowed_targets: api.config.config.simulation.allowed_targets.clone(),
             fixture: backend.bundle.fixture.clone(),
@@ -1279,6 +1377,122 @@ mod tests {
         assert!(api.exact_out_cache.lock().unwrap()[&id]
             .simulation_evidence
             .is_none());
+    }
+
+    #[tokio::test]
+    async fn prepared_cache_replacement_blocks_late_evidence_and_reclaims_bounded_bytes() {
+        let (api, id) = api_with_exact_out_quote().await;
+        let cached = api.exact_out_cache.lock().unwrap()[&id].clone();
+        let backend = api.local_simulation.as_ref().unwrap();
+        let funding = xone_execution_preparation::evm::FundingObservation {
+            snapshot_hash: hash(&cached.plan.snapshot).unwrap(),
+            caller: cached.plan.context.caller.clone(),
+            sell_token: cached.plan.context.sell_token.clone(),
+            spender: backend.bundle.executor.target.clone(),
+            pending_nonce: backend.bundle.transaction_context.nonce,
+            native_balance: "1".parse().unwrap(),
+            token_balance: "1".parse().unwrap(),
+            allowance: "1".parse().unwrap(),
+            base_fee_per_gas: backend
+                .bundle
+                .fixture
+                .execution_environment
+                .base_fee
+                .clone(),
+        };
+        let tx = &backend.bundle.transaction_context;
+        let input = WorkerPreparation {
+            funding,
+            fees: xone_execution_preparation::evm::FeeContext {
+                chain_id: tx.chain_id,
+                nonce: tx.nonce,
+                gas_limit: tx.gas_limit,
+                max_fee_per_gas: tx.gas_price.clone(),
+                max_priority_fee_per_gas: Amount::zero(),
+                max_network_fee: "1000000000000000000".parse().unwrap(),
+            },
+            component: json!({}),
+        };
+        let capacity = api.evm_preparation_budget.available_permits();
+        let first = crate::evm_preparation::Prepared::retain(
+            &api,
+            "1".repeat(64),
+            "a".repeat(64),
+            input.clone(),
+        )
+        .unwrap();
+        api.exact_out_cache
+            .lock()
+            .unwrap()
+            .get_mut(&id)
+            .unwrap()
+            .evm_preparation = Some(first.clone());
+        assert!(api.evm_preparation_budget.available_permits() < capacity);
+        let late = json!({"apiPreparationHash":first.hash,"verification":{"success":true}});
+        let second = crate::evm_preparation::Prepared::retain(
+            &api,
+            "2".repeat(64),
+            "b".repeat(64),
+            input.clone(),
+        )
+        .unwrap();
+        api.exact_out_cache
+            .lock()
+            .unwrap()
+            .get_mut(&id)
+            .unwrap()
+            .evm_preparation = Some(second);
+        let error = crate::publish_exact_out_simulation(&api, &id, &cached, late).unwrap_err();
+        assert_eq!(error.1 .0["error"], "EVM_PREPARATION_REPLACED");
+        assert!(api.exact_out_cache.lock().unwrap()[&id]
+            .simulation_evidence
+            .is_none());
+        api.exact_out_cache
+            .lock()
+            .unwrap()
+            .get_mut(&id)
+            .unwrap()
+            .expires = 0;
+        api.prune_cached_views(u64::MAX).unwrap();
+        // The in-flight first handle still owns its reservation.
+        assert!(api.evm_preparation_budget.available_permits() < capacity);
+        drop(first);
+        assert_eq!(api.evm_preparation_budget.available_permits(), capacity);
+        let hold = api
+            .evm_preparation_budget
+            .clone()
+            .try_acquire_many_owned(capacity as u32)
+            .unwrap();
+        let limited =
+            crate::evm_preparation::Prepared::retain(&api, "3".repeat(64), "c".repeat(64), input);
+        assert!(limited.is_err());
+        drop(hold);
+        assert_eq!(api.evm_preparation_budget.available_permits(), capacity);
+    }
+
+    #[test]
+    fn prepared_worker_response_is_exclusive_and_its_outer_commitment_is_recomputed() {
+        let mut prepared = json!({"preparation_hash":"component","unsigned_transaction_hash":"wire",
+            "exact_out_preparation_hash":"outer-component","simulation":outcome("SUCCESS",true)});
+        prepared["commitment_hash"] = hash(&prepared).unwrap().into();
+        let response = json!({"protocol":WORKER_PROTOCOL,"worker_binary_sha256":"expected",
+            "outcome":null,"prepared":prepared,"error":null});
+        let decoded = decode_response(&serde_json::to_vec(&response).unwrap(), "expected").unwrap();
+        assert_eq!(decoded.outcome["receipt_hash"], "receipt");
+        assert_eq!(
+            decoded.prepared.as_ref().unwrap().preparation_hash,
+            "component"
+        );
+        for mode in 0..4 {
+            let mut changed = response.clone();
+            match mode {
+                0 => changed["outcome"] = outcome("SUCCESS", true),
+                1 => changed["prepared"]["simulation"]["actual_buy_amount"] = "2".into(),
+                2 => changed["prepared"]["simulation"]["verified"] = true.into(),
+                _ => changed["prepared"]["extra"] = true.into(),
+            }
+            assert!(decode_response(&serde_json::to_vec(&changed).unwrap(), "expected").is_err());
+        }
     }
 
     #[test]

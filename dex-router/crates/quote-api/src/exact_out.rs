@@ -67,6 +67,7 @@ pub(super) struct ExactOutCached {
     pub(super) expires: u64,
     request_hash: String,
     pub(super) simulation_evidence: Option<Value>,
+    pub(super) evm_preparation: Option<evm_preparation::Prepared>,
 }
 impl Api {
     pub async fn quote_exact_out(&self, request: ExactOutRequest) -> Result<Value> {
@@ -273,6 +274,7 @@ impl Api {
                     expires,
                     request_hash,
                     simulation_evidence: None,
+                    evm_preparation: None,
                 },
             );
         }

@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|EVM缓存RPC准备到独立worker（阶段99）|§14/15/28.17–28.18；WP14–16|LOCAL_SCOPE_VERIFIED|原API/RPC/组件/wire/独立receipt绑定、双模式显式执行接口、准备替换撤权及有界缓存|15门禁/167次Rust、双模式实际HTTP/worker、错误资金拒绝、901固定/97参考输入通过；界面接线后续|
 |EVM来源块与执行块费用上下文（阶段98）|§14.2/14.3/28.17；WP15|LOCAL_SCOPE_VERIFIED|来源H base fee与H+1执行费分开承诺，真实来源观察不覆盖执行环境|8门禁/134次Rust，16原银行/双模式原header费用和错源/缺源/cap通过，901固定输入绑定|
 |EVM ExactIn多池与双模式正常HTTP（阶段97）|§14/15/28.16–28.18；WP14–16、WP25|LOCAL_SCOPE_VERIFIED|完整ExactIn简单路径绑定、逐hop源码/源银行、原交易/准备/VM与双模式3hop HTTP|17门禁/168次Rust、6原输入路径/9重算变形和3hop双模式HTTP、901固定/97参考输入通过|
 |EVM多池ExactOut原交易执行（阶段96）|§14/28.16–28.17；WP14、WP15|LOCAL_SCOPE_VERIFIED|实际原Router多池交易银行、逐hop身份/状态前后核对、统一共享预算和准备组件|11门禁/135次Rust、12原矿工回执全声明后状态/6目标路径、901固定输入/97参考输入通过|
@@ -474,6 +475,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|15.evm-prepared-api|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|缓存原RPC准备、双模式同银行worker、原hash/unsigned/receipt重算及32MiB载荷预算|统一门禁通过；界面、实时完整RPC银行/真实链规则和钱包继续|[验证记录](integration/artifacts/local/evm-prepared-api-check/report.json)|
 |14.evm-source-fees|WP15|LOCAL_SCOPE_VERIFIED|显式源H base fee与H+1执行base fee独立校验和承诺|统一门禁通过；来源仍为显式提供银行，真实RPC状态捕获/chain费用继续|[验证记录](integration/artifacts/local/evm-source-fees-check/report.json)|
 |14.evm-input-paths|WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|ExactIn多池完整计划重算和原wire/VM，双模式正常HTTP与界面准备条件|统一门禁通过；同池重用/共享DAG/RPC完整银行与钱包仍待补|[验证记录](integration/artifacts/local/evm-input-path-check/report.json)|
 |14.evm-path-execution|WP14,WP15|LOCAL_SCOPE_VERIFIED|原Router简单路径ExactOut逐池检查与完整声明前后银行|统一门禁通过；ExactIn路径绑定/当前RPC与链规则仍待补|[验证记录](integration/artifacts/local/evm-path-execution-check/report.json)|
@@ -592,6 +594,7 @@
 |96|[EVM多池ExactOut原交易执行](#plan-2026-11-17-evm-path-execution)|LOCAL_SCOPE_VERIFIED|11门禁/135次Rust、12原交易完整银行/6目标路径、901固定/97参考输入；[验证记录](integration/artifacts/local/evm-path-execution-check/report.json)|
 |97|[EVM ExactIn多池与双模式正常HTTP](#plan-2026-11-17-evm-input-paths)|LOCAL_SCOPE_VERIFIED|17门禁/168次Rust、6原输入路径/9变形及双模式3hop HTTP；[验证记录](integration/artifacts/local/evm-input-path-check/report.json)|
 |98|[EVM来源块与执行块费用上下文](#plan-2026-11-17-evm-source-fees)|LOCAL_SCOPE_VERIFIED|8门禁/134次Rust、16原H/H+1银行与双模式准备；[验证记录](integration/artifacts/local/evm-source-fees-check/report.json)|
+|99|[EVM缓存RPC准备到独立worker](#plan-2026-11-17-evm-prepared-api)|LOCAL_SCOPE_VERIFIED|15门禁/167次Rust、双模式真实HTTP/原准备wire/错误资金；[验证记录](integration/artifacts/local/evm-prepared-api-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -2892,3 +2895,19 @@ B93.2 独立故障域与部署验收（§18/20/28.25）：三个生产配置无K
 新字段是给定状态的来源声明，不构成header/stateRoot/共识证明；实际RPC到完整银行捕获后续继续。不得用修改base fee把真实H+1环境强行改成H，也不得因本批通过就声称当前链完整费用。
 
 阶段98最终限定验收：8门禁全部exit0，134次Rust（仿真99/API12/准备RPC23），16原银行的双模式源H与H+1费率独立核对、缺失/错误源费用及下一块超cap控制通过；旧无字段bundle和原交易回归继续通过，全目标严格Clippy通过。源码及901固定输入前后相同，运行目录`3aa4be9e7ead47a292e1954690e599ac`。下一步继续把RPC准备缓存与原worker完整连通，不以本批替代真实来源或生产资格。
+
+<a id="plan-2026-11-17-evm-prepared-api"></a>
+
+## EVM缓存RPC准备到独立worker（2026-11-17，阶段99）
+
+本批把原RPC prepare-evm输出与其后独立执行连成正常服务路径。新增POST /v1/quotes/{id}/preparations/{hash}/simulate-evm，只接受空body/空对象；交易、资金观察和费用只取服务端当前缓存，不接受HTTP覆盖。worker原二进制扩展可选prepared上下文，nonce/gas/cap/tip与明确transaction_context必须一致，按目标模式重算原组件并执行。父进程核对原组件hash、ExactOut外hash与返回外commitment，结果附原API/RPC准备hash及preparedExecution，原SimulationOutcome保持可独立重算的嵌套结构。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F99.1|原缓存准备到实际双模式worker|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|真实hash固定RPC prepare→缓存→原同二进制worker，原unsigned SHA/组件/实际收付/native费与外层准备hash全链核对；来源H与执行H+1费用分开。|
+|F99.2|替换/时效/撤权与有界载荷|WP15,WP16|LOCAL_SCOPE_VERIFIED|每quote只留最新准备，64KiB单组件/32MiB总体序列化载荷额度；旧准备晚返回在写证据锁内拒绝，quote GC回收额度，在途句柄保留自己的额度。|
+|F99.3|错误来源/协议/旧入口/统一验证|WP15,WP16|LOCAL_SCOPE_VERIFIED|受控RPC native余额+1时原组件可自洽但独立银行拒绝；响应只允许plain/prepared/error一种并重算外commitment，原无准备worker/取消/cache/API回归及统一Clippy通过。|
+
+预检真实ExactIn/ExactOut准备与worker已通过，更新gas_limit后旧preparationHash不可执行；错误资金观察被SIMULATION_OBSERVATION_MISMATCH拒绝。harness的bank模式直接读取保留原账户/slot，不把FF余额占位用于独立验证。首次构建发现测试harness的RPC句柄未显式读取，已在服务结束时abort，不降低严格lint。实际来源是受控loopback原银行，非公网RPC/共识证明；准备上下文只缓存小组件及资金/费用，不把整份RPC观察body留入准备缓存，不承诺同等于32MiB实际总堆内存。
+
+阶段99最终限定验收：15门禁全部exit0，167次Rust（仿真99/API14/准备RPC23/旧API19/cache7/路径5），实际ExactIn/ExactOut从原RPC准备到原worker成功及错误资金观察拒绝通过；参数变更后的旧hash、迟到证据写入、序列化载荷额度和GC/在途保留控制均通过，全目标严格Clippy通过。源码/901固定输入/97参考文件前后一致，运行目录`3ca6dc7a1e294ca48db1cdb252e62dbd`。本批正常服务已连通缓存准备独立执行，界面与上层钱包、实时完整RPC银行/真实链规则继续独立推进。

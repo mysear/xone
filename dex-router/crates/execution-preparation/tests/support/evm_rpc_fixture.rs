@@ -146,6 +146,44 @@ pub fn request() -> Request {
         max_network_fee: "1400000000000000".parse().unwrap(),
     }
 }
+fn bank_slot(case: &Value, contract: &Value, data: &str) -> String {
+    use tiny_keccak::{Hasher, Keccak};
+    let keccak = |bytes: &[u8]| {
+        let mut out = [0u8; 32];
+        let mut hash = Keccak::v256();
+        hash.update(bytes);
+        hash.finalize(&mut out);
+        out
+    };
+    let input = hex::decode(&data[10..]).unwrap();
+    let mut outer = [0u8; 64];
+    outer[..32].copy_from_slice(&input[..32]);
+    let balance = data.starts_with("0x70a08231");
+    outer[63] = if balance { 1 } else { 2 };
+    let slot = if balance {
+        keccak(&outer)
+    } else {
+        let mut inner = [0u8; 64];
+        inner[..32].copy_from_slice(&input[32..64]);
+        inner[32..].copy_from_slice(&keccak(&outer));
+        keccak(&inner)
+    };
+    let slot = format!("0x{}", hex::encode(slot));
+    case["accounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["address"] == *contract)
+        .unwrap()["storage"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["slot"] == slot)
+        .expect("declared token storage")["value"]
+        .as_str()
+        .unwrap()
+        .into()
+}
 #[derive(Clone)]
 struct Server {
     case: Value,
@@ -243,6 +281,19 @@ async fn respond(State(s): State<Server>, Json(q): Json<Value>) -> Json<Value> {
                 }
                 json!(format!("0x{nonce:x}"))
             }
+            "eth_getBalance" if s.mode.starts_with("bank") => {
+                let row = s.case["accounts"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|a| a["address"] == params[0])
+                    .unwrap();
+                let mut amount: Amount = row["balance"].as_str().unwrap().parse().unwrap();
+                if s.mode == "bank-mismatch" {
+                    amount = Amount::checked(&amount.0 + 1u64).unwrap();
+                }
+                json!(format!("0x{:x}", amount.0))
+            }
             "eth_getBalance" => json!(if s.mode == "funding" {
                 "0x0"
             } else {
@@ -270,6 +321,12 @@ async fn respond(State(s): State<Server>, Json(q): Json<Value>) -> Json<Value> {
                     } else {
                         format!("0x{}", "f".repeat(64))
                     }));
+                }
+                let data = call["data"].as_str().unwrap();
+                if s.mode.starts_with("bank")
+                    && (data.starts_with("0x70a08231") || data.starts_with("0xdd62ed3e"))
+                {
+                    found = Some(json!(bank_slot(&s.case, &call["to"], data)));
                 }
                 let mut value = found.expect("All RPC calls must be covered by the test source");
                 if s.mode == "reserves" && call["data"] == "0x0902f1ac" {

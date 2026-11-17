@@ -1089,3 +1089,7 @@ evm-input-path-current-check:
 .PHONY: evm-source-fees-current-check
 evm-source-fees-current-check:
 	python3 tools/acceptance/validate_evm_source_fees.py
+
+.PHONY: evm-prepared-api-current-check
+evm-prepared-api-current-check:
+	python3 tools/acceptance/validate_evm_prepared_api.py

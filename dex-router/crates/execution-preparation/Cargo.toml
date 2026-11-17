@@ -17,6 +17,7 @@ sha2.workspace = true
 hex.workspace = true
 
 [dev-dependencies]
+tiny-keccak = { version = "=2.0.2", features = ["keccak"] }
 xone-optimizer = { path = "../optimizer" }
 xone-routing = { path = "../routing" }
 num-bigint.workspace = true

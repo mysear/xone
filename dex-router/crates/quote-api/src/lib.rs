@@ -111,6 +111,7 @@ struct Cached {
     expires: u64,
     request_hash: String,
     simulation_evidence: Option<Value>,
+    evm_preparation: Option<evm_preparation::Prepared>,
 }
 #[derive(Default)]
 pub struct Metrics {
@@ -139,6 +140,7 @@ pub struct Api {
     local_simulation: Option<Arc<local_simulation::LocalSimulation>>,
     solana_sbf: Option<Arc<xone_simulation::solana_sbf::Engine>>,
     preparations: Arc<Mutex<BTreeMap<String, solana_simulation::Prepared>>>,
+    evm_preparation_budget: Arc<Semaphore>,
     receipts: Option<Arc<Mutex<execution_receipts::Journal>>>,
     flights: Arc<Vec<AsyncMutex<()>>>,
     rate: Arc<Mutex<(u64, u64)>>,
@@ -184,6 +186,7 @@ impl Api {
             local_simulation,
             solana_sbf,
             preparations: Arc::new(Mutex::new(BTreeMap::new())),
+            evm_preparation_budget: Arc::new(Semaphore::new(32 * 1024 * 1024)),
             receipts,
             flights: Arc::new((0..concurrency).map(|_| AsyncMutex::new(())).collect()),
             rate: Arc::new(Mutex::new((0, 0))),
@@ -283,6 +286,10 @@ impl Api {
             .route(
                 "/v1/transactions/{signature}",
                 get(transaction_lifecycle::receipt),
+            )
+            .route(
+                "/v1/quotes/{id}/preparations/{hash}/simulate-evm",
+                post(evm_preparation::simulate),
             )
             .route("/v1/quotes/{id}/simulate", post(simulate_transaction))
             .route("/internal/quotes/{id}/evidence", get(evidence))
@@ -446,6 +453,7 @@ impl Api {
                 expires,
                 request_hash,
                 simulation_evidence: None,
+                evm_preparation: None,
             },
         );
         drop(cache);
@@ -1023,6 +1031,11 @@ fn publish_simulation(
         if current.plan.plan_hash != cached.plan.plan_hash {
             return Err(failure(err("SNAPSHOT_REORGED")));
         }
+        if let Some(expected) = response.get("apiPreparationHash") {
+            if current.evm_preparation.as_ref().map(|p| p.hash.as_str()) != expected.as_str() {
+                return Err(failure(err("EVM_PREPARATION_REPLACED")));
+            }
+        }
         current.simulation_evidence = Some(response.clone());
     }
     if response["verification"]["success"] == true {
@@ -1065,6 +1078,11 @@ fn publish_exact_out_simulation(
         api.check_view(&current.view).map_err(failure)?;
         if current.plan.plan_hash != cached.plan.plan_hash {
             return Err(failure(err("SNAPSHOT_REORGED")));
+        }
+        if let Some(expected) = response.get("apiPreparationHash") {
+            if current.evm_preparation.as_ref().map(|p| p.hash.as_str()) != expected.as_str() {
+                return Err(failure(err("EVM_PREPARATION_REPLACED")));
+            }
         }
         current.simulation_evidence = Some(response.clone());
     }
