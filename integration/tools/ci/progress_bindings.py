@@ -2011,3 +2011,18 @@ BINDINGS['9.bounded-checkpoint-retention-plan'] = {
            'current_go_checkpoint_retention_policies_and_hashes_match'],
  'evidence_refs': ['integration/artifacts/local/checkpoint-retention-plan-check/report.json'],
 }
+
+BINDINGS['9.rust-bounded-retention-plan'] = {
+ 'paths': ['dex-router/crates/kafka-transport/src/checkpoint/retention.rs',
+           'chain-parser-rust/crates/kafka-transport/src/checkpoint/retention.rs',
+           'chain-parser-rust/crates/solana-ingest/src/service_checkpoint.rs',
+           'chain-parser-rust/crates/solana-ingest/src/service_checkpoint_retention_tests.rs',
+           'chain-parser-go/internal/checkpoint/retention_test.go',
+           'integration/tools/acceptance/validate_rust_retention_plan.py'],
+ 'tests': ['current_go_retention_directory_and_entire_plan_match_rust_without_mutation',
+           'rust_retention_plan_preserves_current_and_uncertified_objects',
+           'TestCheckpointRetentionAllowsExplicitRustOnlineOwner',
+           'service::checkpoint::retention_tests::normal_rust_retention_preview_requires_auth_and_preserves_objects_without_network',
+           'service::checkpoint::retention_tests::rust_retention_preview_waiter_cancels_on_close_and_preserves_publication_gate'],
+ 'evidence_refs': ['integration/artifacts/local/rust-retention-plan-check/report.json'],
+}

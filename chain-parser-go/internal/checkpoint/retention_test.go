@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 	"xone/chain-parser-go/internal/config"
@@ -14,10 +15,19 @@ import (
 )
 
 func retentionFixture(t *testing.T) (*Remote, string, []Publication, []journal.Bootstrap, time.Time) {
+	return retentionFixtureAt(t, "")
+}
+func retentionFixtureAt(t *testing.T, output string) (*Remote, string, []Publication, []journal.Bootstrap, time.Time) {
 	t.Helper()
 	_, server := objectStore(t)
 	remote := remoteFixture(t, server.URL, 5*time.Second)
 	directory := t.TempDir()
+	if output != "" {
+		directory = filepath.Join(output, "objects")
+		if e := os.MkdirAll(directory, 0700); e != nil {
+			t.Fatal(e)
+		}
+	}
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	old := now.Add(-48 * time.Hour)
 	var publications []Publication
@@ -49,7 +59,8 @@ func retentionPolicy() config.CheckpointRetention {
 	return config.CheckpointRetention{KeepLatest: 2, MinAgeMS: 3600000, MaxRemove: 2, MaxObjects: 32, MaxEntries: 256, MaxReadBytes: 1 << 20}
 }
 func TestCheckpointRetentionPlanProtectsCurrentCandidatesAndNewestBackupsWithoutMutation(t *testing.T) {
-	remote, directory, pubs, boots, now := retentionFixture(t)
+	output := os.Getenv("XONE_CHECKPOINT_RETENTION_VECTORS_OUTPUT")
+	remote, directory, pubs, boots, now := retentionFixtureAt(t, output)
 	policy := retentionPolicy()
 	// A prior configured store still references the oldest object: protect every candidate.
 	other := remoteFixture(t, remote.base+"/other", 5*time.Second)
@@ -84,6 +95,16 @@ func TestCheckpointRetentionPlanProtectsCurrentCandidatesAndNewestBackupsWithout
 	for _, p := range pubs {
 		if _, e = ReadBootstrap(p.ManifestPath, p.ManifestSHA256, 8<<20); e != nil {
 			t.Fatal("planning deleted checkpoint", e)
+		}
+	}
+
+	if output != "" {
+		raw, e := json.MarshalIndent(map[string]any{"base_url": remote.base, "bootstrap": boots[5], "policy": policy, "observed_at_ms": now.UnixMilli(), "plan": plan}, "", "  ")
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = os.WriteFile(filepath.Join(output, "retention-vector.json"), raw, 0600); e != nil {
+			t.Fatal(e)
 		}
 	}
 	if output := os.Getenv("XONE_CHECKPOINT_RETENTION_PLAN_OUTPUT"); output != "" {
@@ -157,7 +178,7 @@ func TestCheckpointRetentionPlanBindsOwnerAndNamespaceAndHonorsAgeAndLimits(t *t
 	}
 }
 func TestCheckpointRetentionPlanRejectsCorruptCertificatesPayloadsAndCandidateLinks(t *testing.T) {
-	for _, mode := range []string{"certificate", "payload", "candidate", "link"} {
+	for _, mode := range []string{"certificate", "payload", "candidate", "link", "invalid-name"} {
 		t.Run(mode, func(t *testing.T) {
 			remote, directory, pubs, boots, now := retentionFixture(t)
 			switch mode {
@@ -171,6 +192,13 @@ func TestCheckpointRetentionPlanRejectsCorruptCertificatesPayloadsAndCandidateLi
 				}
 			case "candidate":
 				if e := os.WriteFile(filepath.Join(directory, "public-v2", remote.candidateName()), []byte("bad"), 0600); e != nil {
+					t.Fatal(e)
+				}
+			case "invalid-name":
+				if e := os.WriteFile(filepath.Join(directory, "public-v2", string([]byte{0xff})), nil, 0600); e != nil {
+					if errors.Is(e, syscall.EILSEQ) {
+						t.Skip("filesystem already rejects invalid UTF-8 before the planner can observe it")
+					}
 					t.Fatal(e)
 				}
 			case "link":

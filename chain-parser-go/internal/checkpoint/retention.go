@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/journal"
@@ -137,6 +138,9 @@ func (r *Remote) PlanRetention(dir string, boot journal.Bootstrap, policy config
 				return nil, errors.New("CHECKPOINT_RETENTION_SCAN_BUDGET")
 			}
 			name := next[0].Name()
+			if !utf8.ValidString(name) {
+				return nil, errors.New("CHECKPOINT_RETENTION_LAYOUT")
+			}
 			meta, e := root.Lstat(name)
 			if e != nil {
 				return nil, e
@@ -144,11 +148,15 @@ func (r *Remote) PlanRetention(dir string, boot journal.Bootstrap, policy config
 			if meta.Mode()&os.ModeSymlink != 0 || !meta.Mode().IsRegular() && !meta.IsDir() {
 				return nil, errors.New("CHECKPOINT_RETENTION_LAYOUT")
 			}
+			ns := meta.ModTime().UnixNano()
+			if !time.Unix(0, ns).Equal(meta.ModTime()) {
+				return nil, errors.New("CHECKPOINT_RETENTION_CLOCK")
+			}
 			kind := "file"
 			if meta.IsDir() {
 				kind = "directory"
 			}
-			inventory = append(inventory, inventoryEntry{Path: prefix + name, Kind: kind, Size: meta.Size(), ModifiedNS: meta.ModTime().UnixNano()})
+			inventory = append(inventory, inventoryEntry{Path: prefix + name, Kind: kind, Size: meta.Size(), ModifiedNS: ns})
 			result[name] = meta
 		}
 	}

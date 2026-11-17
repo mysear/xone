@@ -550,3 +550,115 @@ pub(super) async fn recovery_catalog(
 #[cfg(test)]
 #[path = "service_checkpoint_recovery_tests.rs"]
 mod recovery_tests;
+
+impl Parser {
+    async fn retention_plan(
+        &self,
+        key: &str,
+    ) -> Result<xone_kafka_transport::checkpoint::retention::Plan> {
+        let gate = self.checkpoint_gate.clone().lock_owned().await;
+        if !self.started.load(Ordering::Acquire) || *self.stream_stop.borrow() {
+            return Err(err("CHECKPOINT_OWNER_CLOSED"));
+        }
+        let config = self
+            .config
+            .config
+            .journal
+            .checkpoint_store
+            .as_ref()
+            .ok_or_else(|| err("CHECKPOINT_STORE_REQUIRED"))?;
+        let policy = config
+            .local_retention
+            .as_ref()
+            .ok_or_else(|| err("CHECKPOINT_RETENTION_UNAVAILABLE"))?;
+        let policy = serde_json::from_value::<xone_kafka_transport::checkpoint::retention::Policy>(
+            serde_json::to_value(policy).map_err(|_| err("CHECKPOINT_RETENTION_CONFIG"))?,
+        )
+        .map_err(|_| err("CHECKPOINT_RETENTION_CONFIG"))?;
+        let before = self.checked_current(key).await?;
+        let boot = self
+            .stores
+            .get(key)
+            .ok_or_else(|| err("UNKNOWN_CHAIN"))?
+            .lock()
+            .map_err(|_| err("STATE_LOCK_POISONED"))?
+            .bootstrap()?;
+        if boot.snapshot.reference != before.reference {
+            return Err(err("SCOPE_READY_REFERENCE_CHANGED"));
+        }
+        let reference = boot.snapshot.reference.clone();
+        let cursor = boot.cursor.clone();
+        let copy = self.clone();
+        let chain = key.to_owned();
+        let base = config.base_url.clone();
+        let maximum = self.config.config.journal.max_payload_bytes;
+        let directory = self
+            .config
+            .resolve(&self.config.config.state.path)
+            .join("checkpoints")
+            .join(key.replace(':', "-"));
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let _cancel = CancelOnDrop(cancelled.clone());
+        let observed = i64::try_from(xone_observability::now_ms())
+            .map_err(|_| err("CHECKPOINT_RETENTION_CLOCK"))?;
+        let result = tokio::task::spawn_blocking(move || {
+            let _gate = gate;
+            xone_kafka_transport::checkpoint::retention::plan(
+                &directory,
+                &boot,
+                maximum,
+                &base,
+                &policy,
+                observed,
+                || {
+                    if cancelled.load(Ordering::Acquire) || *copy.stream_stop.borrow() {
+                        return Err(err("CHECKPOINT_CANCELLED"));
+                    }
+                    let actual = copy.stores[&chain]
+                        .lock()
+                        .map_err(|_| err("STATE_LOCK_POISONED"))?
+                        .bootstrap_head()?;
+                    if actual.0 != reference || actual.1 != cursor {
+                        return Err(err("CHECKPOINT_RETENTION_SOURCE_CHANGED"));
+                    }
+                    Ok(())
+                },
+            )
+        })
+        .await
+        .map_err(|_| err("CHECKPOINT_FILE_TASK"))??;
+        let after = self.checked_current(key).await?;
+        let actual = self.stores[key]
+            .lock()
+            .map_err(|_| err("STATE_LOCK_POISONED"))?
+            .bootstrap_head()?;
+        if *self.stream_stop.borrow()
+            || after.reference != result.reference
+            || actual.0 != result.reference
+            || actual.1.offset.to_string() != result.cursor.next_offset
+            || actual.1.topic != result.cursor.topic
+            || actual.1.partition != result.cursor.partition
+        {
+            return Err(err("CHECKPOINT_RETENTION_SOURCE_CHANGED"));
+        }
+        Ok(result)
+    }
+}
+pub(super) async fn retention_plan(
+    State(parser): State<Parser>,
+    headers: HeaderMap,
+    super::Path(chain): super::Path<String>,
+) -> std::result::Result<
+    Json<xone_kafka_transport::checkpoint::retention::Plan>,
+    (StatusCode, Json<Value>),
+> {
+    parser.authorize(&headers).map_err(failure)?;
+    let mut stop = parser.stream_stop.subscribe();
+    tokio::select! {
+        result=tokio::time::timeout(Duration::from_millis(parser.config.config.journal.request_timeout_ms),parser.retention_plan(&chain))=>result.map_err(|_|failure(err("CHECKPOINT_RETENTION_DEADLINE")))?.map(Json).map_err(failure),
+        _=stop.changed()=>Err(failure(err("CHECKPOINT_CANCELLED"))),
+    }
+}
+#[cfg(test)]
+#[path = "service_checkpoint_retention_tests.rs"]
+mod retention_tests;

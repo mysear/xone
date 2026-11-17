@@ -2,6 +2,7 @@
 //! authorization, freshness, or a Kafka topic-lifecycle proof; callers enforce those.
 pub mod budget;
 pub mod local;
+pub mod retention;
 use crate::{decode_bootstrap, Bootstrap};
 use prost::Message;
 use serde::{Deserialize, Serialize};

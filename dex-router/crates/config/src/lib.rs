@@ -775,7 +775,8 @@ impl Config {
         if let Some(store) = &j.checkpoint_store {
             store.validate()?;
             if store.local_retention.is_some()
-                && (expected != "chain-parser-go" || self.service.role != "online")
+                && ((expected != "chain-parser-go" && expected != "chain-parser-rust")
+                    || self.service.role != "online")
             {
                 return Err(err("CHECKPOINT_RETENTION_OWNER"));
             }

@@ -106,7 +106,7 @@ fn root(path: &Path) -> Result<PathBuf> {
     sync_dir(&resolved)?;
     Ok(resolved)
 }
-fn read_regular(path: &Path, limit: usize) -> Result<Vec<u8>> {
+pub(super) fn read_regular(path: &Path, limit: usize) -> Result<Vec<u8>> {
     let before = fs::symlink_metadata(path).map_err(|_| err("CHECKPOINT_FILE"))?;
     if !before.is_file() || before.file_type().is_symlink() || before.len() > limit as u64 {
         return Err(err("CHECKPOINT_FILE_LIMIT"));

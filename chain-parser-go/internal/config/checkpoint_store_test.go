@@ -268,7 +268,7 @@ func TestCheckpointRetentionPolicyIsBoundedAndGoOwnerOnly(t *testing.T) {
 	if e = cfg.Config.Validate("chain-parser-go"); e != nil {
 		t.Fatal(e)
 	}
-	for _, expected := range []string{"chain-parser-rust", "dex-router"} {
+	for _, expected := range []string{"dex-router"} {
 		if e = cfg.Config.Validate(expected); e == nil || e.Error() != "CHECKPOINT_RETENTION_OWNER" {
 			t.Fatal(expected, e)
 		}
@@ -322,6 +322,24 @@ func TestCheckpointRetentionExportsSharedPolicyHashes(t *testing.T) {
 		t.Fatal(e)
 	}
 	if e = os.WriteFile(filepath.Join(directory, "retention-vectors.json"), encoded, 0600); e != nil {
+		t.Fatal(e)
+	}
+}
+
+func TestCheckpointRetentionAllowsExplicitRustOnlineOwner(t *testing.T) {
+	cfg, e := Load("../../config/config-test.yaml", "chain-parser-go")
+	if e != nil {
+		t.Fatal(e)
+	}
+	cfg.Config.Service.Name = "chain-parser-rust"
+	cfg.Config.State.Engine = "rocksdb"
+	cfg.Config.Chains = []Chain{{Key: "solana:localnet", Owner: "chain-parser-rust", Assignment: 1, Genesis: "11111111111111111111111111111111", RPCURLs: []string{"http://127.0.0.1:8899"}, Pools: []PoolConfig{}, Confirmation: "finalized", ReorgWindow: 128}}
+	cfg.Config.Journal.CheckpointStore = &CheckpointStore{BaseURL: "https://objects.example/bucket", LocalRetention: &CheckpointRetention{KeepLatest: 2, MinAgeMS: 3600000, MaxRemove: 2, MaxObjects: 32, MaxEntries: 256, MaxReadBytes: 1 << 20}}
+	if e = cfg.Config.Validate("chain-parser-rust"); e != nil {
+		t.Fatal(e)
+	}
+	cfg.Config.Service.Role = "analytics"
+	if e = cfg.Config.Validate("chain-parser-rust"); e == nil || e.Error() != "CHECKPOINT_RETENTION_OWNER" {
 		t.Fatal(e)
 	}
 }

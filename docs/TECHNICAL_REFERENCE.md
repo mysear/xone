@@ -1993,3 +1993,11 @@ Go周期路径改为仅写公共Protobuf和远端元数据，避免每轮再复�
 计划返回applied=false、每对象保护/可选原因、selected、完整性覆盖、scanned_entries/read_bytes、namespace_sha256与plan_id。命名空间摘要口径FILE_METADATA_AND_VERIFIED_KNOWN_OBJECT_BYTES：已验证对象绑定完整原字节，未知/不完整/其他owner只metadata并保留；不能误称整个磁盘内容摘要。policy/当前owner/cursor/观察时刻一起参与planId。执行器必须另行重验owner、文件和范围，不能仅凭一个planId删除。
 
 `make -C integration checkpoint-retention-plan-current-check`覆盖6对象/2store候选、当前/最近2份保护/只选最旧2项、min-age/metadata变化、取消/各预算/损坏/符号链接，以及正常Go HTTP认证/只读/owner过期/关闭，无删除且无远端请求。2份Go policy配置经双Rust核对公有/经济摘要；实际回收、自动触发、崩溃恢复和Rust计划为后续工作。
+
+## Rust只读保留计划与全字段独立对照
+
+阶段114。local_retention现在允许Go/Rust online parser，router/analytics拒绝；两owner的GET /internal/chains/{chain}/checkpoint-retention-plan均为认证只读预览。两个Rust kafka-transport提供retention::Policy/Plan/plan，规则和Go一致，保留CURRENT_STATE/所有store候选/LATEST_BACKUP/age及未来身份，完整解码并核对本store原证书后才可列eligible，未知/不完整只metadata不选。
+
+正常Rust接口先checked_current并锁内取同ref的Bootstrap，owned发布gate随阻塞扫描任务保留；stop/取消flag和每次读/枚举的精确BootstrapHead守卫阻止旧source计划，结束再核对完整reference和cursor。Close可取消等待中的preview，等待者取消不会释放别人持有的gate。HTTP预览不联系对象API，也不写文件；过期owner/关闭返回拒绝。
+
+`make -C integration rust-retention-plan-current-check`让两个Rust直接读Go当轮保留的同一6对象/2store候选目录及原观察时刻，完整JSON比较包含policy、保护原因、选择集合、bytes/files/entries/read_bytes、namespace_sha256与plan_id；同目录重复分析不改变文件。mtime以无损i64 ns进入证据，异常超范围时钟和非法UTF8路径两语言均拒绝。完整对象文件摘要消费前后固定，两个正常HTTP预览和实际Kafka恢复显式回归。全部计划仍applied=false，执行删除/自动保留/崩溃恢复尚未接入。

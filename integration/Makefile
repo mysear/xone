@@ -1149,3 +1149,7 @@ checkpoint-budget-current-check:
 .PHONY: checkpoint-retention-plan-current-check
 checkpoint-retention-plan-current-check:
 	python3 tools/acceptance/validate_checkpoint_retention_plan.py
+
+.PHONY: rust-retention-plan-current-check
+rust-retention-plan-current-check:
+	python3 tools/acceptance/validate_rust_retention_plan.py

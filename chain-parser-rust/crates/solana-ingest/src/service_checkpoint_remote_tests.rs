@@ -63,16 +63,34 @@ impl Fixture {
         Self::new_configured(0, false, "").await
     }
     pub(super) async fn new_configured(interval: u64, multi: bool, initial_mode: &str) -> Self {
-        Self::new_options(interval, multi, initial_mode, None).await
+        Self::new_options(interval, multi, initial_mode, None, None).await
     }
     pub(super) async fn new_budget(interval: u64, budget: xone_config::CheckpointBudget) -> Self {
-        Self::new_options(interval, false, "", Some(budget)).await
+        Self::new_options(interval, false, "", Some(budget), None).await
+    }
+    pub(super) async fn new_retention() -> Self {
+        Self::new_options(
+            0,
+            false,
+            "",
+            None,
+            Some(xone_config::CheckpointRetention {
+                keep_latest: 2,
+                min_age_ms: 3600000,
+                max_remove: 2,
+                max_objects: 32,
+                max_entries: 256,
+                max_read_bytes: 1 << 20,
+            }),
+        )
+        .await
     }
     async fn new_options(
         interval: u64,
         multi: bool,
         initial_mode: &str,
         budget: Option<xone_config::CheckpointBudget>,
+        retention: Option<xone_config::CheckpointRetention>,
     ) -> Self {
         let objects = Arc::new(Mutex::new(Objects {
             mode: initial_mode.into(),
@@ -173,7 +191,7 @@ impl Fixture {
         })));
         let parser = super::tests::fixture_configured(|snapshot| {
             snapshot.config.journal.checkpoint_store = Some(xone_config::CheckpointStore {
-                local_retention: None,
+                local_retention: retention.clone(),
                 local_budget: budget.clone(),
                 base_url: base.clone(),
                 allow_plaintext_development: true,
