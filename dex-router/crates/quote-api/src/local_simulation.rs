@@ -20,7 +20,7 @@ use xone_config::ConfigSnapshot;
 use xone_domain::{err, hash, Amount, Result};
 use xone_execution_plan::{ExecutorIdentity, Transaction};
 use xone_simulation::{
-    evm_fixture::{SimulationBudget, TransactionContext},
+    evm_fixture::{NativeFeeMeasurements, SimulationBudget, TransactionContext},
     revm_backend::StateImage,
     worker::{
         executable_sha256, LocalSimulationBundle, WorkerRequest, WorkerResponse,
@@ -65,6 +65,7 @@ struct ExecutionCommitment {
     binding_hash: String,
     transaction: Transaction,
     transaction_context: TransactionContext,
+    execution_base_fee: Amount,
     executor: ExecutorIdentity,
 }
 struct PreparedExecution {
@@ -82,6 +83,7 @@ impl PreparedExecution {
                 binding_hash: request.bound.binding_hash,
                 transaction: request.bound.transaction,
                 transaction_context: request.transaction_context,
+                execution_base_fee: request.fixture.execution_environment.base_fee,
                 executor: request.bound.executor,
             },
         })
@@ -301,13 +303,39 @@ fn diagnostic_response(
         .to_string()
         .parse()
         .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "receipt"))?;
-    let gas_price = &commitment.transaction_context.gas_price;
-    let fee = Amount::checked(&gas_amount.0 * &gas_price.0)
-        .map_err(|_| Failure::new("SIMULATION_FEE_OVERFLOW", "receipt"))?;
+    let maximum = &commitment.transaction_context.gas_price;
+    let (gas_price, fee) =
+        if let Some(priority) = &commitment.transaction_context.max_priority_fee_per_gas {
+            let invalid = || Failure::new("SIMULATION_WORKER_PROTOCOL", "fees");
+            let native: NativeFeeMeasurements =
+                serde_json::from_value(outcome["native_fees"].clone()).map_err(|_| invalid())?;
+            let base = &commitment.execution_base_fee;
+            if priority > maximum || base > maximum {
+                return Err(invalid());
+            }
+            let headroom = &maximum.0 - &base.0;
+            let tip = priority.0.clone().min(headroom);
+            let price = Amount::checked(&base.0 + &tip).map_err(|_| invalid())?;
+            let fee = Amount::checked(&gas_amount.0 * &price.0).map_err(|_| invalid())?;
+            let burn = Amount::checked(&gas_amount.0 * &base.0).map_err(|_| invalid())?;
+            let paid_tip = Amount::checked(&gas_amount.0 * &tip).map_err(|_| invalid())?;
+            if native.effective_gas_price != price
+                || native.execution_fee != fee
+                || native.base_fee_burned != burn
+                || native.priority_fee_paid != paid_tip
+            {
+                return Err(invalid());
+            }
+            (price, fee)
+        } else {
+            let fee = Amount::checked(&gas_amount.0 * &maximum.0)
+                .map_err(|_| Failure::new("SIMULATION_FEE_OVERFLOW", "receipt"))?;
+            (maximum.clone(), fee)
+        };
     let success = outcome["matches_plan"] == true && outcome["execution"]["status"] == "SUCCESS";
     Ok(
         json!({"bindingHash":commitment.binding_hash,"bundleHash":bundle_hash,"workerHash":worker_hash,
-        "transaction":commitment.transaction,"transactionContext":commitment.transaction_context,"executor":commitment.executor,
+        "transaction":commitment.transaction,"transactionContext":commitment.transaction_context,"executionBaseFee":commitment.execution_base_fee,"executor":commitment.executor,
         "verification":{"level":"LOCAL_EVM_EXECUTED","success":success,"verified":false},"verified":false,
         "authority":"PROVIDED_LOCAL_STATE","outcome":outcome,
         "fees":{"evmGasUsed":gas,"gasPriceWei":gas_price,"evmFeeWei":fee,"chainFeeCompleteness":"LOCAL_EVM_ONLY"}}),
@@ -645,6 +673,7 @@ mod tests {
                 max_priority_fee_per_gas: None,
                 chain_id: 31337,
             },
+            execution_base_fee: "1".parse().unwrap(),
             executor: ExecutorIdentity {
                 target: "0x0000000000000000000000000000000000000022".into(),
                 code_sha256: "ab".repeat(32),
@@ -679,6 +708,44 @@ mod tests {
         forged["verified"] = true.into();
         let response = json!({"protocol":WORKER_PROTOCOL,"worker_binary_sha256":"expected","outcome":forged,"error":null});
         assert!(decode_response(&serde_json::to_vec(&response).unwrap(), "expected").is_err());
+    }
+
+    #[test]
+    fn dynamic_fee_api_reports_measured_effective_price_and_rejects_inconsistent_fees() {
+        for (cap, tip, price) in [("10", "2", "3"), ("2", "2", "2"), ("1", "0", "1")] {
+            let mut commitment = diagnostic_commitment(cap);
+            commitment.transaction_context.max_priority_fee_per_gas = Some(tip.parse().unwrap());
+            let mut value = outcome("SUCCESS", true);
+            let price: u64 = price.parse().unwrap();
+            value["native_fees"] = json!({"caller_before":"1000000","caller_after":(1000000 - 21000*price).to_string(),
+                "coinbase_before":"0","coinbase_after":(21000*(price-1)).to_string(),
+                "effective_gas_price":price.to_string(),"execution_fee":(21000*price).to_string(),
+                "base_fee_burned":"21000","priority_fee_paid":(21000*(price-1)).to_string()});
+            let response =
+                diagnostic_response(value.clone(), &commitment, "bundle", "worker").unwrap();
+            assert_eq!(response["fees"]["gasPriceWei"], price.to_string());
+            assert_eq!(response["fees"]["evmFeeWei"], (21000 * price).to_string());
+            assert_eq!(response["executionBaseFee"], "1");
+            assert_eq!(response["fees"]["chainFeeCompleteness"], "LOCAL_EVM_ONLY");
+            for field in [
+                "effective_gas_price",
+                "execution_fee",
+                "base_fee_burned",
+                "priority_fee_paid",
+            ] {
+                let mut changed = value.clone();
+                changed["native_fees"][field] = "0".into();
+                if value["native_fees"][field] == "0" {
+                    changed["native_fees"][field] = "1".into();
+                }
+                assert!(
+                    diagnostic_response(changed, &commitment, "bundle", "worker").is_err(),
+                    "{field}"
+                );
+            }
+            value.as_object_mut().unwrap().remove("native_fees");
+            assert!(diagnostic_response(value, &commitment, "bundle", "worker").is_err());
+        }
     }
 
     async fn api_with_cached_quote() -> (crate::Api, String) {

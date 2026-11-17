@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|EVM实际HTTP/worker动态费用（阶段91）|§14.2–14.5/15；WP15、WP16|LOCAL_SCOPE_VERIFIED|API从原REVM receipt有效价计算实际费用，核对base burn/tip，保留max fee承诺|10门禁/122次Rust及实际HTTP/同二进制worker通过，899固定输入绑定；真实当前状态与生产仍缺|
 |EVM准备组件与同银行独立执行（阶段90）|§14.1–14.5/28.16–28.17；WP14、WP15|LOCAL_SCOPE_VERIFIED|严格重算组件/unsigned wire、同银行余额/nonce/allowance与实际原Router；getter费用上下文对齐|8门禁/121次Rust、16银行/25重算篡改/10控制及899固定输入通过；真实状态DB/当前链规则/API执行仍缺|
 |EVM独立仿真动态费用（阶段89）|§14.2–14.5/28.17；WP15|LOCAL_SCOPE_VERIFIED|仿真传递EIP-1559 cap/tip，记录同次REVM调用者及coinbase余额、实际执行费/base burn/tip|8项门禁/117次Rust、16原Router对照和899固定输入通过；当前链规则/L2费用/可信当前状态仍缺|
 |EVM固定块RPC准备与API（阶段88）|§14/15/21；WP04、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|同块RPC身份/完整V2状态与资金/nonce观察、显式API、费用与交易下载；独立组件/RPC/API摘要|15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定；独立EVM执行/链特定费用/真实当前来源与生产仍待完成|
@@ -466,6 +467,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|15.evm-dynamic-fee-api|WP15,WP16|LOCAL_SCOPE_VERIFIED|API校验REVM实际有效价/费用分解，保留原上限，实际HTTP子进程验证|统一门禁通过；仍是给定Shanghai银行，非当前链/完整费用/生产资格|[验证记录](integration/artifacts/local/evm-dynamic-fee-api-check/report.json)|
 |14.evm-prepared-execution|WP14,WP15|LOCAL_SCOPE_VERIFIED|完整准备组件重算、原wire摘要、同银行资金与独立VM绑定，getter有效gas price对齐|统一验证通过；限定显式给定状态ExactIn，真实RPC状态DB/ExactOut VM/当前链规则/普通API执行仍待补|[验证记录](integration/artifacts/local/evm-prepared-execution-check/report.json)|
 |14.evm-dynamic-fees|WP15|LOCAL_SCOPE_VERIFIED|独立Shanghai仿真的cap/tip、真实native pre/post与费用承诺|统一门禁通过；当前源/其他hardfork/L2数据费仍待完成|[验证记录](integration/artifacts/local/evm-dynamic-fees-check/report.json)|
 |14.evm-rpc-preparation|WP04,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|固定hash方法负对照、代码/完整V2字段、资金/授权/nonce及严格JSON/预算；认证QuoteView API和EVM费用/下载，统一门禁通过|本批是受控RPC观察接线资格，账户资金故障为受控观察；非共识、状态根证明、完整当前费用或独立执行，静态协议能力和生产未升级|[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
@@ -565,6 +567,7 @@
 |88|[EVM固定块RPC准备与API](#plan-2026-11-17-evm-rpc-preparation)|LOCAL_SCOPE_VERIFIED|15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定；[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
 |89|[EVM独立仿真动态费用](#plan-2026-11-17-evm-dynamic-fees)|LOCAL_SCOPE_VERIFIED|8门禁/117次Rust、16原Router对照、899固定输入；[验证记录](integration/artifacts/local/evm-dynamic-fees-check/report.json)|
 |90|[EVM准备组件与同银行独立执行](#plan-2026-11-17-evm-prepared-execution)|LOCAL_SCOPE_VERIFIED|8门禁/121次Rust、16原银行/25重算篡改/10控制、899固定输入；[验证记录](integration/artifacts/local/evm-prepared-execution-check/report.json)|
+|91|[EVM实际HTTP/worker动态费用](#plan-2026-11-17-evm-dynamic-fee-api)|LOCAL_SCOPE_VERIFIED|10门禁/122次Rust、实际HTTP/worker、899固定输入；[验证记录](integration/artifacts/local/evm-dynamic-fee-api-check/report.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2724,3 +2727,21 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 本批是显式提供H/H+1银行的内部ExactIn组件。新增allowance probe计入原聚合read/byte/gas/instruction预算；未添加另一个可绕过预算的VM。来源继续为PROVIDED_LOCAL_STATE/verified=false，不升级普通EVM API或静态协议能力。RPC到完整可信执行状态DB、ExactOut独立VM、当前链hardfork/L2费用、钱包签名广播和生产部署仍待完成；其中本地实现差距与需要operator提供的正式来源/基础设施分别记录，不将所有待实现项标为外部阻塞。
 
 阶段90最终限定验收：8项门禁全部exit0，121次Rust（仿真90/API上下文8/准备RPC23）通过；16原Router银行的组件/原wire/余额差核对、25次重算hash篡改拒绝、10项上下文控制和实际GASPRICE反例通过。全目标严格Clippy通过，源码和899份固定输入前后完全一致；运行目录`95a24af96f7847ee8190cc0213f3cf74`。当前组件不生成签名或广播、不开放普通API VERIFIED，执行准备21/61与ExactOut38/61限定资格不变。
+
+<a id="plan-2026-11-17-evm-dynamic-fee-api"></a>
+
+## EVM实际HTTP/worker动态费用（2026-11-17，阶段91）
+
+本批代码复核发现LocalSimulation的diagnostic_response仍把gas_price直接视为实际价格；动态上下文中该字段是max fee，会高报执行费用。现根据相同WorkerRequest的execution base fee和cap/tip核对REVM返回的effective price、execution fee、base burn和priority fee；任何缺失或不一致均拒绝，不从cap推定实际费用。原交易上下文保留max fee和priority，新增executionBaseFee承诺，旧legacy价格语义不变。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F91.1|API实际价格与费用核对|WP15,WP16|LOCAL_SCOPE_VERIFIED|三种cap/tip组合、四种费用字段篡改、缺失native费用反例定向通过。|
+|F91.2|实际HTTP到同二进制worker|WP15,WP16|LOCAL_SCOPE_VERIFIED|新loopback实例加载原Router银行，正式/v1/quote和/simulate路径实际派生worker，检查收款/native/coinbase、真实费用、拒绝HTTP覆盖费用与认证；统一验证通过。|
+|F91.3|统一门禁及输入冻结|WP15,WP16|LOCAL_SCOPE_VERIFIED|复用8项Rust/契约/严格Clippy门禁，增加harness构建与实际HTTP检查；未签名未广播，生产标记保持false。|
+
+首次HTTP预检保留失败：测试运行目录传相对路径，bundle经配置根再次解析导致SIMULATION_STATE_UNREADABLE；验收器已在启动前规范化绝对输出目录，产品路径解析保持原语义。不是功能通过记录，重新执行完整HTTP与门禁。
+
+阶段91第二次HTTP预检保留失败：测试误用复数报价路径得到404；已按正常路由改为/v1/quote并保留非JSON错误的有界诊断，不改产品接口。
+
+阶段91最终限定验收：10项门禁全部exit0，122次Rust（仿真90/API上下文9/准备RPC23）、实际HTTP及同二进制worker通过，源码与899份固定输入前后完全一致；运行目录`d79033cae53e4731952d69c74ae01629`。实际原Router使用104566 gas，max fee 2000000000 wei、有效价226958868 wei，执行费23732180991288 wei；阻止误报差额185399819008712 wei。核对原账户/coinbase净变化、收款与报价、原cap/tip承诺、认证和拒绝HTTP参数覆盖，VERIFIED/链完整费用/生产资格保持关闭。

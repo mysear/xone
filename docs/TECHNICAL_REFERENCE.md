@@ -980,6 +980,8 @@ Vault `reservesOfApp(manager,currency)` 和 manager `protocolFeesAccrued(currenc
 
 `xone_simulation::prepared_evm::simulate_prepared`提供显式银行的准备组件执行入口。它根据bound plan、资金观察和费用上下文重算完整组件，任何字段、RPC参数、unsigned wire或资格标记不同均拒绝；资金观察再通过同次REVM银行实际读取native余额/nonce、sell余额和allowance核对，使用原预算。执行结果分别保留原组件hash、原unsigned字节SHA256和原simulation receipt，再计算外层commitment。此入口限定ExactIn和PROVIDED_LOCAL_STATE，执行时间是显式H+1环境；普通HTTP请求的时效和QuoteView仍由API原检查负责，不能据此授权VERIFIED。所有动态费用只读探针同时传递cap和tip，使GASPRICE与实际swap相同。
 
+本地仿真API的`fees.gasPriceWei`在动态交易中表示实际effective price，`fees.evmFeeWei`为原REVM执行费；`transactionContext.gas_price`继续保留max fee。响应的`executionBaseFee`来自送入worker的显式执行环境。父进程核对native receipt的有效价格、base burn和tip分解，缺失或矛盾拒绝，不能把最大预算当实际扣款。`chainFeeCompleteness=LOCAL_EVM_ONLY`不因本地执行成功改变。
+
 ## 原 Uniswap V2 完整 Swap 状态版本
 
 `uniswap-v2-complete` / `uniswap-v2/core-1.0.1-full-swap-1` 使用原 core 1.0.1

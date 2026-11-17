@@ -1699,3 +1699,12 @@ BINDINGS['14.evm-prepared-execution'] = {
               'dynamic_fee_balance_probes_observe_effective_gasprice_instead_of_cap'],
     'evidence_refs': ['integration/artifacts/local/evm-prepared-execution-check/report.json'],
 }
+
+BINDINGS['15.evm-dynamic-fee-api'] = {
+    'paths': ['dex-router/crates/quote-api/src/local_simulation.rs',
+              'dex-router/crates/quote-api/examples/evm_dynamic_fee_harness.rs',
+              'integration/tools/acceptance/evm_dynamic_fee_http.py',
+              'integration/tools/acceptance/validate_evm_dynamic_fee_api.py'],
+    'tests': ['local_simulation::tests::dynamic_fee_api_reports_measured_effective_price_and_rejects_inconsistent_fees'],
+    'evidence_refs': ['integration/artifacts/local/evm-dynamic-fee-api-check/report.json'],
+}
