@@ -769,3 +769,252 @@ fn legacy_observation_missing_calldata_remains_invalid_and_storage_roundtrips() 
     let decoded: Observation = serde_json::from_value(lock.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), lock);
 }
+
+fn type2_context(transaction: &TransactionContext, priority: &Amount) -> Type2TransactionContext {
+    Type2TransactionContext {
+        transaction: transaction.clone(),
+        max_priority_fee_per_gas: priority.clone(),
+    }
+}
+
+#[test]
+fn typed_exact_in_measures_native_fee_and_preserves_original_token_balance_deltas() {
+    let priority: Amount = "1000000000".parse().unwrap();
+    let mut count = 0;
+    for case in corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["service_eligible"] == true)
+    {
+        let (binding, pools, fixture, tx) = bound(case);
+        let before = serde_json::to_value(&fixture).unwrap();
+        let result = simulate_bound_type2(
+            &binding,
+            &pools,
+            std::slice::from_ref(&binding.executor.target),
+            &fixture,
+            &type2_context(&tx, &priority),
+            &budget(),
+            ExecutionControl::default(),
+        )
+        .unwrap();
+        assert!(result.outcome.matches_plan, "{}", case["name"]);
+        assert_eq!(
+            result.outcome.actual_buy_amount.to_string(),
+            case["expected"]["amount_out"]
+        );
+        assert_eq!(
+            result.outcome.actual_input_consumed,
+            binding.plan.allocation.sell_amount
+        );
+        assert_eq!(result.actual_native_fee, result.actual_caller_native_debit);
+        assert_eq!(result.caller_beneficiary_credit, Amount::zero());
+        assert!(result.actual_native_fee > Amount::zero());
+        assert_eq!(before, serde_json::to_value(&fixture).unwrap());
+        count += 1;
+    }
+    assert_eq!(count, 16);
+}
+
+#[test]
+fn typed_exact_output_runs_original_router_and_measures_exact_target_and_input() {
+    let priority: Amount = "1000000000".parse().unwrap();
+    let mut count = 0;
+    for case in corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["service_eligible"] == true)
+    {
+        let (binding, pools, fixture, tx) = bound(case);
+        let target = Amount::checked(&binding.plan.allocation.gross_buy_amount.0 / 2u8).unwrap();
+        let proposal = xone_optimizer::exact_out::ExactOutProposal {
+            edges: binding.plan.allocation.routes[0].path.edges.clone(),
+            amount_out: target.clone(),
+        };
+        let allocation = xone_optimizer::exact_out::evaluate_allocation(
+            &pools,
+            &[proposal],
+            &target,
+            &binding.plan.allocation.sell_amount,
+            xone_routing::Funds {
+                sender: &binding.plan.context.caller,
+                recipient: &binding.plan.context.recipient,
+            },
+        )
+        .unwrap();
+        let plan = xone_execution_plan::exact_out::build(
+            &binding.plan.context,
+            &allocation,
+            &binding.plan.snapshot,
+            &binding.plan.economic_policy_hash,
+        )
+        .unwrap();
+        let output = xone_execution_plan::bind_v2_exact_out_execution(
+            &plan,
+            &pools,
+            &binding.executor,
+            std::slice::from_ref(&binding.executor.target),
+        )
+        .unwrap();
+        let result = simulate_exact_out_type2(
+            &output,
+            &pools,
+            std::slice::from_ref(&binding.executor.target),
+            &fixture,
+            &type2_context(&tx, &priority),
+            &budget(),
+            ExecutionControl::default(),
+        )
+        .unwrap();
+        assert!(result.outcome.matches_plan, "{}", case["name"]);
+        assert_eq!(result.outcome.actual_buy_amount, target);
+        assert_eq!(
+            result.outcome.actual_input_consumed,
+            allocation.required_input
+        );
+        assert_eq!(result.actual_native_fee, result.actual_caller_native_debit);
+        assert_eq!(result.outcome.refund, Amount::zero());
+        count += 1;
+    }
+    assert_eq!(count, 16);
+}
+
+#[test]
+fn typed_execution_caller_as_beneficiary_separates_credit_from_actual_gas_charge() {
+    let case = &corpus()["cases"][0];
+    let (binding, pools, mut fixture, tx) = bound(case);
+    fixture.execution_environment.coinbase = binding.plan.context.caller.clone();
+    // Counterfactual execution environment over the retained source H. This is
+    // deliberately not the original mined H+1 header or a chain proof.
+    fixture.execution_environment.block_hash = format!("0x{}", "ce".repeat(32));
+    let result = simulate_bound_type2(
+        &binding,
+        &pools,
+        std::slice::from_ref(&binding.executor.target),
+        &fixture,
+        &type2_context(&tx, &"1000000000".parse().unwrap()),
+        &budget(),
+        ExecutionControl::default(),
+    )
+    .unwrap();
+    assert!(result.outcome.matches_plan);
+    assert!(result.caller_beneficiary_credit > Amount::zero());
+    assert_eq!(
+        result.actual_native_fee.0,
+        &result.actual_caller_native_debit.0 + &result.caller_beneficiary_credit.0
+    );
+}
+
+#[test]
+fn typed_execution_fee_caps_and_missing_storage_fail_without_source_mutation() {
+    let (binding, pools, fixture, tx) = bound(&corpus()["cases"][0]);
+    let original = serde_json::to_value(&fixture).unwrap();
+    let error = simulate_bound_type2(
+        &binding,
+        &pools,
+        std::slice::from_ref(&binding.executor.target),
+        &fixture,
+        &type2_context(&tx, &Amount::checked(&tx.gas_price.0 + 1u8).unwrap()),
+        &budget(),
+        ExecutionControl::default(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        error.code,
+        SimulationErrorCode::SimulationTransactionContext
+    );
+    let mut missing = fixture.clone();
+    missing
+        .accounts
+        .iter_mut()
+        .find(|a| a.address == pools[0].pool_id)
+        .unwrap()
+        .storage
+        .clear();
+    assert!(simulate_bound_type2(
+        &binding,
+        &pools,
+        std::slice::from_ref(&binding.executor.target),
+        &missing,
+        &type2_context(&tx, &Amount::zero()),
+        &budget(),
+        ExecutionControl::default()
+    )
+    .is_err());
+    assert_eq!(original, serde_json::to_value(&fixture).unwrap());
+}
+
+#[test]
+fn typed_revert_charges_only_actual_native_gas_and_rolls_back_token_transfers() {
+    let (binding, pools, mut fixture, tx) = bound(&corpus()["cases"][0]);
+    let caller = addr(&binding.plan.context.caller);
+    let router = addr(&binding.executor.target);
+    let mut owner_slot = [0u8; 64];
+    owner_slot[12..32].copy_from_slice(caller.as_slice());
+    owner_slot[63] = 2;
+    let inner = revm::primitives::keccak256(owner_slot);
+    let mut spender_slot = [0u8; 64];
+    spender_slot[12..32].copy_from_slice(router.as_slice());
+    spender_slot[32..].copy_from_slice(inner.as_slice());
+    let slot = format!("{}", revm::primitives::keccak256(spender_slot));
+    let account = fixture
+        .accounts
+        .iter_mut()
+        .find(|a| a.address == binding.plan.context.sell_token)
+        .unwrap();
+    let allowance = account
+        .storage
+        .iter_mut()
+        .find(|s| s.slot == slot)
+        .expect("Original token allowance slot must be declared");
+    allowance.value = format!("0x{}", "0".repeat(64));
+    let source = serde_json::to_value(&fixture).unwrap();
+    let result = simulate_bound_type2(
+        &binding,
+        &pools,
+        std::slice::from_ref(&binding.executor.target),
+        &fixture,
+        &type2_context(&tx, &"1000000000".parse().unwrap()),
+        &budget(),
+        ExecutionControl::default(),
+    )
+    .unwrap();
+    assert_eq!(result.outcome.execution.status, EvmStatus::Revert);
+    assert!(!result.outcome.matches_plan);
+    assert_eq!(result.outcome.actual_input_consumed, Amount::zero());
+    assert_eq!(result.outcome.actual_buy_amount, Amount::zero());
+    assert!(result.actual_native_fee > Amount::zero());
+    assert_eq!(result.actual_native_fee, result.actual_caller_native_debit);
+    assert_eq!(result.outcome.execution.sender_nonce_after, tx.nonce + 1);
+    assert_eq!(source, serde_json::to_value(&fixture).unwrap());
+}
+
+#[test]
+fn typed_zero_fee_counterfactual_does_not_fabricate_a_native_network_charge() {
+    let (binding, pools, mut fixture, mut tx) = bound(&corpus()["cases"][0]);
+    // Explicit supplied H+1 environment, not a retained mined header.
+    fixture.execution_environment.block_hash = format!("0x{}", "cf".repeat(32));
+    fixture.execution_environment.base_fee = Amount::zero();
+    tx.gas_price = Amount::zero();
+    let result = simulate_bound_type2(
+        &binding,
+        &pools,
+        std::slice::from_ref(&binding.executor.target),
+        &fixture,
+        &type2_context(&tx, &Amount::zero()),
+        &budget(),
+        ExecutionControl::default(),
+    )
+    .unwrap();
+    assert!(result.outcome.matches_plan);
+    assert_eq!(result.effective_gas_price, Amount::zero());
+    assert_eq!(result.actual_native_fee, Amount::zero());
+    assert_eq!(result.actual_caller_native_debit, Amount::zero());
+    assert_eq!(result.caller_native_before, result.caller_native_after);
+    assert_eq!(
+        result.outcome.actual_buy_amount,
+        binding.plan.allocation.gross_buy_amount
+    );
+}

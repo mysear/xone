@@ -13,8 +13,11 @@ use std::{
     sync::{atomic::Ordering, Arc},
     time::Instant,
 };
-use xone_domain::{Amount, Pool};
-use xone_execution_plan::{validate_bound_execution, BoundEvmExecution};
+use xone_domain::{Amount, Pool, SnapshotRef};
+use xone_execution_plan::{
+    validate_bound_exact_out_execution, validate_bound_execution, BoundEvmExactOutExecution,
+    BoundEvmExecution, Context, ExecutorIdentity, Transaction,
+};
 pub const SIMULATOR_VERSION: &str = "provided-local-state/shanghai-v1";
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -393,8 +396,11 @@ impl FixtureState {
     }
     /// This wrapper supports historical H -> H+1 replay only, not an implicit mix of contexts.
     pub fn validate_environment(&self, bound: &BoundEvmExecution) -> Result<()> {
+        self.validate_source_environment(&bound.plan.snapshot)
+    }
+    fn validate_source_environment(&self, reference: &SnapshotRef) -> Result<()> {
         let source = &self.state_anchor;
-        let block = &bound.plan.snapshot.block;
+        let block = &reference.block;
         let env = &self.execution_environment;
         let timestamp = source.timestamp.checked_mul(1000).ok_or_else(|| {
             failure(
@@ -573,6 +579,7 @@ struct Runner<'a> {
     budget: &'a SimulationBudget,
     env: &'a ExecutionEnvironment,
     tx: &'a TransactionContext,
+    priority_fee: Option<U256>,
     control: core::ExecutionControl,
     usage: BudgetUsage,
     observations: Vec<Observation>,
@@ -755,6 +762,7 @@ impl Runner<'_> {
                 chain_id: Some(self.tx.chain_id),
                 gas_limit: self.budget.probe_gas_limit,
                 gas_price: amount(&self.tx.gas_price)?,
+                gas_priority_fee: self.priority_fee,
                 ..TxEnv::default()
             },
             phase,
@@ -950,10 +958,9 @@ impl Runner<'_> {
     fn preflight(
         &mut self,
         image: Arc<core::StateImage>,
-        bound: &BoundEvmExecution,
+        executor: &ExecutorIdentity,
         pool: &Pool,
     ) -> Result<()> {
-        let executor = &bound.executor;
         self.expect_address(
             image.clone(),
             &executor.target,
@@ -1062,6 +1069,97 @@ impl Runner<'_> {
 /// Revalidate a complete binding and replay local source H in the explicit H+1 environment.
 /// Every probe and swap shares remaining read/instruction/input/gas budgets and one control context.
 /// No input receipt or caller assertion is accepted as execution evidence.
+enum SwapBinding<'a> {
+    ExactIn(&'a BoundEvmExecution),
+    ExactOut(&'a BoundEvmExactOutExecution),
+}
+impl SwapBinding<'_> {
+    fn validate(&self, pools: &[Pool], allowed: &[String]) -> Result<()> {
+        match self {
+            Self::ExactIn(b) => validate_bound_execution(b, pools, allowed),
+            Self::ExactOut(b) => validate_bound_exact_out_execution(b, pools, allowed),
+        }
+        .map_err(|e| failure(SimulationBindingMismatch, "binding", e))
+    }
+    fn context(&self) -> &Context {
+        match self {
+            Self::ExactIn(b) => &b.plan.context,
+            Self::ExactOut(b) => &b.plan.context,
+        }
+    }
+    fn reference(&self) -> &SnapshotRef {
+        match self {
+            Self::ExactIn(b) => &b.plan.snapshot,
+            Self::ExactOut(b) => &b.plan.snapshot,
+        }
+    }
+    fn executor(&self) -> &ExecutorIdentity {
+        match self {
+            Self::ExactIn(b) => &b.executor,
+            Self::ExactOut(b) => &b.executor,
+        }
+    }
+    fn transaction(&self) -> &Transaction {
+        match self {
+            Self::ExactIn(b) => &b.transaction,
+            Self::ExactOut(b) => &b.transaction,
+        }
+    }
+    fn touched(&self) -> &[String] {
+        match self {
+            Self::ExactIn(b) => &b.touched_pool_ids,
+            Self::ExactOut(b) => &b.touched_pool_ids,
+        }
+    }
+    fn input(&self) -> &Amount {
+        match self {
+            Self::ExactIn(b) => &b.plan.allocation.sell_amount,
+            Self::ExactOut(b) => &b.plan.allocation.required_input,
+        }
+    }
+    fn output(&self) -> &Amount {
+        match self {
+            Self::ExactIn(b) => &b.plan.allocation.gross_buy_amount,
+            Self::ExactOut(b) => &b.plan.allocation.target_output,
+        }
+    }
+    fn minimum(&self) -> &Amount {
+        match self {
+            Self::ExactIn(b) => &b.plan.min_buy_amount,
+            Self::ExactOut(b) => &b.plan.min_buy_amount,
+        }
+    }
+    fn witness(&self) -> Result<serde_json::Value> {
+        match self {
+            Self::ExactIn(b) => serde_json::to_value(b),
+            Self::ExactOut(b) => serde_json::to_value(b),
+        }
+        .map_err(|e| failure(SimulationInvalidFixture, "binding", e))
+    }
+}
+/// Internal exact-integer worker context. `transaction.gas_price` is the
+/// EIP-1559 max-fee cap here; the actual GASPRICE is computed by REVM.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Type2TransactionContext {
+    pub transaction: TransactionContext,
+    pub max_priority_fee_per_gas: Amount,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Type2SimulationOutcome {
+    pub outcome: SimulationOutcome,
+    pub max_fee_per_gas: Amount,
+    pub max_priority_fee_per_gas: Amount,
+    pub effective_gas_price: Amount,
+    pub actual_native_fee: Amount,
+    pub actual_caller_native_debit: Amount,
+    pub caller_beneficiary_credit: Amount,
+    pub caller_native_before: Amount,
+    pub caller_native_after: Amount,
+    pub evidence_hash: String,
+}
 pub fn simulate_bound(
     bound: &BoundEvmExecution,
     pools: &[Pool],
@@ -1071,9 +1169,155 @@ pub fn simulate_bound(
     budget: &SimulationBudget,
     control: core::ExecutionControl,
 ) -> Result<SimulationOutcome> {
+    simulate_internal(
+        SwapBinding::ExactIn(bound),
+        pools,
+        allowlist,
+        fixture,
+        transaction_context,
+        None,
+        budget,
+        control,
+    )
+    .map(|v| v.0)
+}
+pub fn simulate_bound_type2(
+    bound: &BoundEvmExecution,
+    pools: &[Pool],
+    allowlist: &[String],
+    fixture: &FixtureState,
+    transaction_context: &Type2TransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+) -> Result<Type2SimulationOutcome> {
+    typed(
+        SwapBinding::ExactIn(bound),
+        pools,
+        allowlist,
+        fixture,
+        transaction_context,
+        budget,
+        control,
+    )
+}
+pub fn simulate_exact_out_type2(
+    bound: &BoundEvmExactOutExecution,
+    pools: &[Pool],
+    allowlist: &[String],
+    fixture: &FixtureState,
+    transaction_context: &Type2TransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+) -> Result<Type2SimulationOutcome> {
+    typed(
+        SwapBinding::ExactOut(bound),
+        pools,
+        allowlist,
+        fixture,
+        transaction_context,
+        budget,
+        control,
+    )
+}
+fn typed(
+    bound: SwapBinding<'_>,
+    pools: &[Pool],
+    allowlist: &[String],
+    fixture: &FixtureState,
+    context: &Type2TransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+) -> Result<Type2SimulationOutcome> {
+    let tx = &context.transaction;
+    let priority = &context.max_priority_fee_per_gas;
+    let caller = bound.context().caller.clone();
+    let maximum = amount(&tx.gas_price)?;
+    let priority_value = amount(priority)?;
+    let base = amount(&fixture.execution_environment.base_fee)?;
+    if priority_value > maximum || base > maximum {
+        return Err(failure(
+            SimulationTransactionContext,
+            "fees",
+            "invalid EIP-1559 fee caps",
+        ));
+    }
+    let effective = maximum.min(base.saturating_add(priority_value));
+    let (outcome, before, after) = simulate_internal(
+        bound,
+        pools,
+        allowlist,
+        fixture,
+        tx,
+        Some(priority),
+        budget,
+        control.clone(),
+    )?;
+    let before_value = amount(&before)?;
+    let after_value = amount(&after)?;
+    let paid = before_value.checked_sub(after_value).ok_or_else(|| {
+        failure(
+            SimulationBalanceDirection,
+            "fees",
+            "caller native balance increased",
+        )
+    })?;
+    let expected = effective
+        .checked_mul(U256::from(outcome.execution.gas_used))
+        .ok_or_else(|| failure(SimulationTransactionContext, "fees", "fee overflow"))?;
+    let credited = if address(&fixture.execution_environment.coinbase)? == address(&caller)? {
+        effective
+            .checked_sub(base)
+            .and_then(|tip| tip.checked_mul(U256::from(outcome.execution.gas_used)))
+            .ok_or_else(|| {
+                failure(
+                    SimulationTransactionContext,
+                    "fees",
+                    "beneficiary credit overflow",
+                )
+            })?
+    } else {
+        U256::ZERO
+    };
+    if paid.checked_add(credited) != Some(expected) {
+        return Err(failure(
+            SimulationObservationMismatch,
+            "fees",
+            "native debit differs from measured gas charge and declared beneficiary credit",
+        ));
+    }
+    let mut result = Type2SimulationOutcome {
+        outcome,
+        max_fee_per_gas: tx.gas_price.clone(),
+        max_priority_fee_per_gas: priority.clone(),
+        effective_gas_price: as_amount(effective)?,
+        actual_native_fee: as_amount(expected)?,
+        actual_caller_native_debit: as_amount(paid)?,
+        caller_beneficiary_credit: as_amount(credited)?,
+        caller_native_before: before,
+        caller_native_after: after,
+        evidence_hash: String::new(),
+    };
+    let mut value =
+        serde_json::to_value(&result).map_err(|e| failure(SimulationInvalidFixture, "hash", e))?;
+    value.as_object_mut().unwrap().remove("evidence_hash");
+    result.evidence_hash = canonical_hash(&value)?;
+    control_check(&control, "typed_receipt")?;
+    Ok(result)
+}
+#[allow(clippy::too_many_arguments)]
+fn simulate_internal(
+    bound: SwapBinding<'_>,
+    pools: &[Pool],
+    allowlist: &[String],
+    fixture: &FixtureState,
+    transaction_context: &TransactionContext,
+    priority: Option<&Amount>,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+) -> Result<(SimulationOutcome, Amount, Amount)> {
     control_check(&control, "entry")?;
     // Bound calldata is untrusted too: cap it before binding validation serializes/clones it.
-    let input_length = bound.transaction.data.len().saturating_sub(2) / 2;
+    let input_length = bound.transaction().data.len().saturating_sub(2) / 2;
     let total_input = u64::try_from(input_length)
         .map_err(|e| failure(SimulationBudgetExceeded, "transaction_input", e))?;
     if input_length > budget.max_input_bytes || total_input > budget.max_total_input_bytes {
@@ -1083,16 +1327,15 @@ pub fn simulate_bound(
             "input bytes",
         ));
     }
-    hex_length(&bound.transaction.data, None)?;
-    validate_bound_execution(bound, pools, allowlist)
-        .map_err(|e| failure(SimulationBindingMismatch, "binding", e))?;
+    hex_length(&bound.transaction().data, None)?;
+    bound.validate(pools, allowlist)?;
     fixture.validate_shape(budget)?;
-    fixture.validate_environment(bound)?;
+    fixture.validate_source_environment(bound.reference())?;
     let tx = transaction_context;
     if tx.chain_id != fixture.execution_environment.chain_id
         || tx.gas_limit == 0
         || tx.gas_limit > budget.max_transaction_gas
-        || bound.transaction.value != Amount::zero()
+        || bound.transaction().value != Amount::zero()
         || budget.probe_gas_limit < 21000
         || budget.max_memory_bytes == 0
         || budget.max_memory_bytes > 256 * 1024 * 1024
@@ -1106,7 +1349,7 @@ pub fn simulate_bound(
     amount(&tx.gas_price)?;
     let image = fixture.to_image(budget)?;
     let pool_id = bound
-        .touched_pool_ids
+        .touched()
         .first()
         .ok_or_else(|| failure(SimulationBindingMismatch, "pool", "selected pool missing"))?;
     let pool = pools
@@ -1141,7 +1384,7 @@ pub fn simulate_bound(
         }
         if v2.code_sha256 != xone_domain::v2_swap::PAIR_CODE_SHA256
             || swap.factory_code_sha256 != xone_domain::v2_swap::FACTORY_CODE_SHA256
-            || swap.factory_code_sha256 != bound.executor.factory_code_sha256
+            || swap.factory_code_sha256 != bound.executor().factory_code_sha256
         {
             return Err(failure(
                 SimulationCodeMismatch,
@@ -1150,11 +1393,15 @@ pub fn simulate_bound(
             ));
         }
     }
-    code_check(&image, &bound.executor.target, &bound.executor.code_sha256)?;
     code_check(
         &image,
-        &bound.executor.factory,
-        &bound.executor.factory_code_sha256,
+        &bound.executor().target,
+        &bound.executor().code_sha256,
+    )?;
+    code_check(
+        &image,
+        &bound.executor().factory,
+        &bound.executor().factory_code_sha256,
     )?;
     code_check(
         &image,
@@ -1166,18 +1413,34 @@ pub fn simulate_bound(
             .code_sha256,
     )?;
     let source_fixture_hash = canonical_hash(fixture)?;
-    let context = &bound.plan.context;
-    let caller = address(&bound.transaction.from)?;
+    let context = &bound.context();
+    let caller = address(&bound.transaction().from)?;
     let mut runner = Runner {
         budget,
         env: &fixture.execution_environment,
         tx,
+        priority_fee: priority.map(amount).transpose()?,
         control,
         usage: BudgetUsage::default(),
         observations: vec![],
         caller_address: caller,
     };
-    runner.preflight(image.clone(), bound, pool)?;
+    for id in bound.touched() {
+        let selected = pools
+            .iter()
+            .find(|p| &p.pool_id == id)
+            .ok_or_else(|| failure(SimulationBindingMismatch, "pool", "missing touched pool"))?;
+        code_check(
+            &image,
+            &selected.pool_id,
+            &selected
+                .v2
+                .as_ref()
+                .ok_or_else(|| failure(SimulationBindingMismatch, "pool", "V2 identity required"))?
+                .code_sha256,
+        )?;
+        runner.preflight(image.clone(), bound.executor(), selected)?;
+    }
     let sell_before = runner.balance(
         image.clone(),
         &context.sell_token,
@@ -1194,16 +1457,17 @@ pub fn simulate_bound(
         image.clone(),
         TxEnv {
             caller,
-            transact_to: TxKind::Call(address(&bound.transaction.to)?),
+            transact_to: TxKind::Call(address(&bound.transaction().to)?),
             value: U256::ZERO,
             data: Bytes::from(
-                hex::decode(&bound.transaction.data[2..])
+                hex::decode(&bound.transaction().data[2..])
                     .map_err(|e| failure(SimulationInvalidFixture, "transaction_input", e))?,
             ),
             nonce: Some(tx.nonce),
             chain_id: Some(tx.chain_id),
             gas_limit: tx.gas_limit,
             gas_price: amount(&tx.gas_price)?,
+            gas_priority_fee: runner.priority_fee,
             ..TxEnv::default()
         },
         "swap",
@@ -1227,8 +1491,13 @@ pub fn simulate_bound(
         &context.recipient,
         "recipient_buy_after",
     )?;
-    if pool.protocol == xone_domain::v2_swap::PROFILE {
-        runner.complete_poststate(post.clone(), pool)?;
+    for id in bound.touched() {
+        let selected = pools.iter().find(|p| &p.pool_id == id).ok_or_else(|| {
+            runner.error(SimulationBindingMismatch, "pool", "missing touched pool")
+        })?;
+        if selected.protocol == xone_domain::v2_swap::PROFILE {
+            runner.complete_poststate(post.clone(), selected)?;
+        }
     }
     if sell_after > sell_before || buy_after < buy_before {
         return Err(runner.error(
@@ -1269,9 +1538,35 @@ pub fn simulate_bound(
             )
         })?;
     let matches_plan = status == EvmStatus::Success
-        && spent == amount(&bound.plan.allocation.sell_amount)?
-        && bought == amount(&bound.plan.allocation.gross_buy_amount)?
-        && bought >= amount(&bound.plan.min_buy_amount)?;
+        && spent == amount(bound.input())?
+        && bought == amount(bound.output())?
+        && bought >= amount(bound.minimum())?;
+    let native_before = image
+        .data()
+        .accounts
+        .get(&caller)
+        .and_then(|a| a.as_ref())
+        .ok_or_else(|| {
+            runner.error(
+                SimulationExecutionUnavailable,
+                "native_before",
+                "caller unavailable",
+            )
+        })?
+        .balance;
+    let native_after = post
+        .data()
+        .accounts
+        .get(&caller)
+        .and_then(|a| a.as_ref())
+        .ok_or_else(|| {
+            runner.error(
+                SimulationExecutionUnavailable,
+                "native_after",
+                "caller unavailable",
+            )
+        })?
+        .balance;
     let mut outcome = SimulationOutcome {
         verified: false,
         authority: DataAuthority::ProvidedLocalState,
@@ -1308,14 +1603,17 @@ pub fn simulate_bound(
     if let Some(map) = value.as_object_mut() {
         map.remove("receipt_hash");
     }
-    outcome.receipt_hash = canonical_hash(
-        &serde_json::json!({"bound":bound,"source_fixture_hash":outcome.source_fixture_hash,"transaction_context":transaction_context,"limits":budget,"simulator_version":SIMULATOR_VERSION,"outcome":value}),
-    )?;
+    let mut commitment = serde_json::json!({"bound":bound.witness()?,"source_fixture_hash":outcome.source_fixture_hash,"transaction_context":transaction_context,"limits":budget,"simulator_version":SIMULATOR_VERSION,"outcome":value});
+    if let Some(priority) = priority {
+        commitment["eip1559_priority_fee"] = serde_json::to_value(priority)
+            .map_err(|e| failure(SimulationInvalidFixture, "hash", e))?;
+    }
+    outcome.receipt_hash = canonical_hash(&commitment)?;
     control_check(&runner.control, "receipt").map_err(|mut e| {
         e.usage = outcome.usage.clone();
         e
     })?;
-    Ok(outcome)
+    Ok((outcome, as_amount(native_before)?, as_amount(native_after)?))
 }
 
 fn deserialize_false<'de, D: serde::Deserializer<'de>>(

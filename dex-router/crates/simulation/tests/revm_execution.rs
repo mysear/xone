@@ -623,3 +623,34 @@ fn nested_memory_ceiling_cannot_be_swallowed_by_parent_call() {
     assert_eq!(error.reason(), "memory_limit");
     assert_eq!(error.telemetry.calls, 2);
 }
+
+#[test]
+fn type2_returned_gasprice_and_native_balances_use_the_effective_fee() {
+    // GASPRICE; PUSH0; MSTORE; PUSH1 32; PUSH0; RETURN.
+    let code = [0x3a, 0x5f, 0x52, 0x60, 0x20, 0x5f, 0xf3];
+    for (maximum, priority, effective) in [(10u64, 2u64, 3u64), (2, 2, 2), (1, 0, 1)] {
+        let source = image(&code);
+        let original = source.data().clone();
+        let mut tx = request();
+        tx.tx.gas_price = U256::from(maximum);
+        tx.tx.gas_priority_fee = Some(U256::from(priority));
+        let output = execute(source.clone(), tx, limits(), ExecutionControl::default()).unwrap();
+        let receipt = &output.result_and_state;
+        assert!(receipt.result.is_success());
+        assert_eq!(
+            U256::from_be_slice(receipt.result.output().unwrap()),
+            U256::from(effective)
+        );
+        let post = source.apply(&receipt.state).unwrap();
+        let before = original.accounts[&sender()].as_ref().unwrap().balance;
+        let after = post.data().accounts[&sender()].as_ref().unwrap().balance;
+        let gas = U256::from(receipt.result.gas_used());
+        assert_eq!(before - after, gas * U256::from(effective));
+        let miner_before = original.accounts[&miner()].as_ref().unwrap().balance;
+        let miner_after = post.data().accounts[&miner()]
+            .as_ref()
+            .map_or(U256::ZERO, |a| a.balance);
+        assert_eq!(miner_after - miner_before, gas * U256::from(effective - 1));
+        assert_eq!(source.data(), &original);
+    }
+}

@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|EVM type-2与ExactOut原VM执行（阶段89）|§14/28.17；WP14、WP15、WP16|IN_PROGRESS|显式Shanghai H→H+1状态内的type-2 ExactIn/ExactOut入口、实际收付/native费与受益人credit分离；旧worker语义保持|正式43项预检通过；全回归/严格门禁、多hop原参考及准备/worker/API绑定待完成，见[阶段89](#plan-2026-11-17-evm-type2-simulation)|
 |EVM固定块RPC准备与API（阶段88）|§14/15/21；WP04、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|同块RPC身份/完整V2状态与资金/nonce观察、显式API、费用与交易下载；独立组件/RPC/API摘要|15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定；独立EVM执行/链特定费用/真实当前来源与生产仍待完成|
 |EVM计划绑定与准备组件（阶段87）|§14/15/21；WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|完整V2 ExactOut绑定、uint256资金/费用、无损数量与unsigned EIP-1559组件|13项门禁/62次Rust/95份独立ABI-RLP签名对照，899份固定输入/185份参考依赖绑定；真实RPC/链规则/VM/API继续开发，EVM能力未开放|
 |基线图复用与闲时缓存回收（阶段86）|§10/13.2/28.11/28.14；WP09、WP12、WP16|LOCAL_SCOPE_VERIFIED|基线/恢复/scope扩容复用图；三类缓存定时回收、锁外析构与HTTP后台任务关闭|8项门禁/41次Rust测试，899份固定测试输入与46份运行时输入同批绑定；完整池状态COW、内存压力与生产容量继续待完成|
@@ -465,6 +466,7 @@
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|仅调用方观察的内部组件；真实RPC捕获、当前链规则/L2费用、独立VM及正式API/准备缓存未接，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
 |14.evm-rpc-preparation|WP04,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|固定hash方法负对照、代码/完整V2字段、资金/授权/nonce及严格JSON/预算；认证QuoteView API和EVM费用/下载，统一门禁通过|本批是受控RPC观察接线资格，账户资金故障为受控观察；非共识、状态根证明、完整当前费用或独立执行，静态协议能力和生产未升级|[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
+|14.evm-type2-simulation|WP14,WP15,WP16|IN_PROGRESS|复用严格DB/预算的type-2 ExactIn/ExactOut、实际Token/native账本观察及费用拆分，原24交易与旧状态回归通过预检|完整门禁、多hop独立原状态、准备wire/worker/API端到端绑定尚未完成，仍为ProvidedLocalState且无生产资格|[验证记录](integration/artifacts/local/evm-type2-simulation-check/report.json)|
 
 <a id="batch-history"></a>
 
@@ -559,6 +561,7 @@
 |86|[基线图复用与闲时缓存回收](#plan-2026-11-17-baseline-cache-reclamation)|LOCAL_SCOPE_VERIFIED|8项门禁/41次Rust测试，899份固定测试输入与46份运行时输入同批绑定；[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |87|[EVM计划绑定与准备组件](#plan-2026-11-17-evm-preparation-component)|LOCAL_SCOPE_VERIFIED|13项门禁/62次Rust/95份独立ABI-RLP签名对照，899份固定输入/185份参考依赖绑定；[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
 |88|[EVM固定块RPC准备与API](#plan-2026-11-17-evm-rpc-preparation)|LOCAL_SCOPE_VERIFIED|15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定；[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
+|89|[EVM type-2与ExactOut原VM执行](#plan-2026-11-17-evm-type2-simulation)|IN_PROGRESS|正式入口及43项预检已接入；[验证记录](integration/artifacts/local/evm-type2-simulation-check/report.json)|
 
 |45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
 
@@ -2678,3 +2681,20 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 阶段88方法覆盖复核补齐固定块eth_getTransactionCount的未知hash负对照及只忽略该方法selector的故障用例；API在最后编码/摘要后再次核对QuoteView与期限。前次运行保留CANCELLED，严格检查范围未缩减，重新冻结全部源码并完整复验。
 
 阶段88最终限定验收：15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定。15命令全部exit0；原组件和旧API/Solana准备回归保留，三crate全目标严格Clippy通过；9项Chrome覆盖双模式准备/金额与QuoteView绑定、交易下载、费用变更撤销及独立/钱包边界。最终截图已检查，实际浏览器导出中的原组件/RPC/API三个摘要均独立重算一致；源码及固定/运行时输入运行前后完全一致，原失败/取消记录保留。本批loopback的Pair代码/getter来自留存原状态，资金/授权及故障为受控RPC观察，不冒充公开RPC或独立执行；当前链hardfork/L2费用、可信状态与原VM闭环、上层钱包及生产仍继续开发。
+
+<a id="plan-2026-11-17-evm-type2-simulation"></a>
+
+## EVM type-2与ExactOut原VM执行（2026-11-17，阶段89）
+
+本批继续阶段88尚未闭合的独立EVM执行，先扩展既有严格REVM内核；原H→H+1/Shanghai/ProvidedLocalState权威边界不变。type-2上下文显式携带max fee cap和priority，实际GASPRICE/nonce/账户余额写入由原VM产生，观察调用仍丢弃所有overlay写入，实际swap才应用状态。当前旧worker协议与正常API尚未改接新入口。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F89.1|type-2 fee上下文及实际native收付|WP15|IN_PROGRESS|实际GASPRICE/发送方扣费/miner credit、调用方与受益人重合、零费用/不足/溢出及预算；费用与Token收付分开，不将fee cap当实收费用。|
+|F89.2|ExactOut绑定与原VM账本|WP14,WP15|IN_PROGRESS|复用阶段87完整目标绑定，按全部物理池核对源/后状态；16个单池原状态ExactOut预检与逐整数输入/目标输出通过，多hop独立原VM参考仍待补。|
+|F89.3|旧执行兼容与失败/状态回滚|WP15,WP16|IN_PROGRESS|原24交易gas/ETH/nonce/code/全部声明slot、旧legacy观测wire、既有核心预算控制与新费用/回滚检查预检通过；prepared wire/worker/正常API绑定待完成。|
+|F89.4|统一门禁与有限范围证据|WP14,WP15,WP16|IN_PROGRESS|43项正式预检（26核心+17 V2）、独立草稿15项通过；完整模拟包/旧API/严格Clippy及同源码输入冻结验收待完成。|
+
+当前新增测试包括16原状态ExactIn、16原状态ExactOut、GASPRICE opcode实际值/ETH余额差、revert扣真实gas但Token全回滚、caller=beneficiary及零费反例。后两者采用明确的反事实H+1环境，不冒充原已挖出区块；输入原H保持只读。尚未接入阶段88 RPC捕获的完整状态DB、prepared EIP-1559 wire重验或正常API，不扩大静态协议能力目录、VERIFIED或生产资格，原26工作包验收继续保留。
+
+阶段89正式预检：43项（26核心+17 V2）全部exit0，定向严格Clippy通过；现准备8项核心回归门禁入口`make -C integration evm-type2-core-current-check`。该门禁即使通过也仅记PARTIAL_LOCAL，报告显式保留multi_hop_original_reference_verified=false、prepared_wire_bound=false和typed_worker_api_integrated=false，直至对应原要求实际补齐，不将单池内核通过替代完整阶段或设计验收。

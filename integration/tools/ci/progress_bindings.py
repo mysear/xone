@@ -1673,3 +1673,14 @@ BINDINGS['14.evm-rpc-preparation'] = {
           'evm_prepare_auth_unknown_context_and_reorg_do_not_call_rpc','exact_output_preparation_uses_its_own_target_and_maximum_input'],
  'evidence_refs':['integration/artifacts/local/evm-rpc-preparation-check/report.json'],
 }
+
+BINDINGS['14.evm-type2-simulation'] = {
+ 'paths':['integration/tools/acceptance/validate_evm_type2.py','dex-router/crates/simulation/src/evm_fixture.rs','dex-router/crates/simulation/tests/v2_complete.rs','dex-router/crates/simulation/tests/revm_execution.rs'],
+ 'tests':['typed_exact_in_measures_native_fee_and_preserves_original_token_balance_deltas',
+          'typed_exact_output_runs_original_router_and_measures_exact_target_and_input',
+          'typed_execution_caller_as_beneficiary_separates_credit_from_actual_gas_charge',
+          'typed_revert_charges_only_actual_native_gas_and_rolls_back_token_transfers',
+          'typed_zero_fee_counterfactual_does_not_fabricate_a_native_network_charge',
+          'type2_returned_gasprice_and_native_balances_use_the_effective_fee'],
+ 'evidence_refs':['integration/artifacts/local/evm-type2-simulation-check/report.json'],
+}
