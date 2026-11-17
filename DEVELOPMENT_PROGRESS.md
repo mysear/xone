@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|EVM ExactOut正常HTTP独立模拟（阶段95）|§14/15/28.17–28.18；WP15、WP16|LOCAL_SCOPE_VERIFIED|正常/simulate选ExactOut计划，同二进制worker、独立证据缓存及过期/撤权/取消处理|12门禁/151次Rust、实际双模式HTTP/worker、899固定输入通过；多池/可信RPC银行继续|
 |EVM ExactOut准备与独立执行（阶段94）|§14/28.16–28.17；WP14、WP15|LOCAL_SCOPE_VERIFIED|完整外层目标/最大输入/未用请求预算与内层交易双重重算、同银行资金检查|8门禁/129次Rust、16原银行/16篡改资金/4预算取消、899固定输入通过；正常HTTP执行继续|
 |完整交付范围与外部验收边界审计（阶段93）|§7/14.2/18/20/28.25；WP01、WP23、WP24|LOCAL_SCOPE_VERIFIED|逐项区分本地代码差距与正式链/部署输入，配置摘要、当前CLI正负对照、开发Kafka拓扑|5检查/12次审计控制、当前CLI正负对照通过；已确认正式来源与独立故障域部署输入缺失，完整功能/生产仍false|
 |EVM原Router单池ExactOut独立执行（阶段92）|§14/28.16–28.17；WP14、WP15|LOCAL_SCOPE_VERIFIED|原swapTokensForExactTokens与完整目标绑定、实际输入/收款、未用预算/退款分列，原gas及完整后状态|8门禁/126次Rust、16原银行/3类revert/有效多池拒绝及899固定输入通过；多池VM/准备API/真实链资格仍缺|
@@ -470,6 +471,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|15.evm-exact-out-api|WP15,WP16|LOCAL_SCOPE_VERIFIED|普通ExactOut HTTP、真实worker、独立缓存证据及费用/未用预算|统一门禁通过；多池/可信RPC银行与钱包继续|[验证记录](integration/artifacts/local/evm-exact-out-api-check/report.json)|
 |14.evm-prepared-exact-out|WP14,WP15|LOCAL_SCOPE_VERIFIED|ExactOut双层准备承诺、同银行资金和实际原Router目标执行|统一验证通过；普通HTTP准备执行与多池VM后续继续|[验证记录](integration/artifacts/local/evm-prepared-exact-out-check/report.json)|
 |28.delivery-boundary-audit|WP01,WP23,WP24|LOCAL_SCOPE_VERIFIED|三服务生产配置与当前CLI、开发拓扑和26工作包审计；不复制凭据，不把开发测试升格|当前源码审计通过；所有本地实现差距保留，不将未实现功能改记为外部阻塞|[审计记录](integration/artifacts/local/design-delivery-audit/report.json)|
 |15.evm-dynamic-fee-api|WP15,WP16|LOCAL_SCOPE_VERIFIED|API校验REVM实际有效价/费用分解，保留原上限，实际HTTP子进程验证|统一门禁通过；仍是给定Shanghai银行，非当前链/完整费用/生产资格|[验证记录](integration/artifacts/local/evm-dynamic-fee-api-check/report.json)|
@@ -580,6 +582,7 @@
 |92|[EVM原Router单池ExactOut独立执行](#plan-2026-11-17-evm-exact-out-execution)|LOCAL_SCOPE_VERIFIED|8门禁/126次Rust、16原银行/3revert/有效多池拒绝、899固定输入；[验证记录](integration/artifacts/local/evm-exact-out-execution-check/report.json)|
 |93|[完整交付范围与外部验收边界审计](#plan-2026-11-17-design-delivery-audit)|LOCAL_SCOPE_VERIFIED|5检查/12控制、当前CLI正负对照/3份开发拓扑，确认外部验收输入缺失；[审计记录](integration/artifacts/local/design-delivery-audit/report.json)|
 |94|[EVM ExactOut准备与独立执行](#plan-2026-11-17-evm-prepared-exact-out)|LOCAL_SCOPE_VERIFIED|8门禁/129次Rust、16银行/16篡改/4控制；[验证记录](integration/artifacts/local/evm-prepared-exact-out-check/report.json)|
+|95|[EVM ExactOut正常HTTP独立模拟](#plan-2026-11-17-evm-exact-out-api)|LOCAL_SCOPE_VERIFIED|12门禁/151次Rust、实际双模式HTTP/worker及证据生命周期；[验证记录](integration/artifacts/local/evm-exact-out-api-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -2812,3 +2815,21 @@ B93.2 独立故障域与部署验收（§18/20/28.25）：三个生产配置无K
 首次定向测试保留失败：错误地把请求input_budget余量与滑点收紧后的max_sell_amount余量当成同一值。已按现有语义分开核对：prepare.unused_quoted_input_budget=allocation.input_budget-required_input；simulation.unused_input_budget=max_sell_amount-actual_input。二者均非实际退款，产品额度语义不变；未放宽任何资金或承诺验证。后续普通HTTP/worker集成继续，不升级当前链来源或生产资格。
 
 阶段94最终限定验收：8门禁全部exit0，129次Rust测试（仿真97/API9/准备RPC23），16原银行、16篡改或资金变化及4预算/取消控制通过；完整旧ExactIn、组件/链路与原24交易后状态回归保留，全目标严格Clippy通过。源码和899固定输入前后相同，最终运行目录`2162ce7389954ead9815d50d367a10a9`；后续HTTP集成继续，不把本轮内部组件声明为整个EVM功能完成。
+
+<a id="plan-2026-11-17-evm-exact-out-api"></a>
+
+## EVM ExactOut正常HTTP独立模拟（2026-11-17，阶段95）
+
+本批取消revm-fixture配置下普通ExactOut模拟入口此前的无条件拒绝。请求仍只接受空body或空对象；模式/金额/费用/状态由已缓存计划和启动时固定bundle决定。ExactIn与ExactOut重用同一有界worker管理器、共享模拟并发、硬期限和取消回收；worker envelope必须恰好指定一种bound，旧ExactIn JSON保留bound字段形式，不增加空模式字段。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F95.1|普通ExactOut接口到实际worker|WP15,WP16|LOCAL_SCOPE_VERIFIED|原/v1/quote-exact-out与/v1/quotes/id/simulate实际启动同二进制worker，原ExactOut selector、输入消耗/目标收款、native费用及未用编码预算核对。|
+|F95.2|独立缓存证据和时效撤权|WP16|LOCAL_SCOPE_VERIFIED|ExactOut新增独立simulation_evidence，取证接口保留原quote/plan；发布前和写缓存时复核过期及QuoteView，签名和VERIFIED仍关闭。|
+|F95.3|模式/取消回收/旧入口与统一门禁|WP15,WP16|LOCAL_SCOPE_VERIFIED|双模式或无模式worker请求拒绝；ExactOut HTTP取消回收实际子进程/共享许可，缓存锁不跨I/O；实际ExactIn HTTP及旧API回归，统一验证通过。|
+
+首次编译预检发现自动替换命中了相邻build入口的同形缓存代码，已把模式分派限定到simulate_transaction并恢复原build拒绝逻辑，失败日志保留。首次实际ExactOut HTTP已通过，真实原Router gas104574、有效价226958868wei、执行费23733996662232wei；此为预检不替代最终冻结门禁。来源继续PROVIDED_LOCAL_STATE，单池/Shanghai限制不变，多池及RPC完整银行后续继续。
+
+阶段95定向测试发现新单元测试配置未填写revm-fixture必需的instructions/memory/concurrency，三个测试按原配置约束拒绝；已补齐显式预算，保留失败日志，第一整体验证主动取消后重跑。实际HTTP预检此前已通过，不视为替代完整回归。
+
+阶段95最终限定验收：12门禁全部exit0，151次Rust（仿真97/上下文12/准备RPC23/旧API19），普通双模式HTTP分别实际运行同二进制worker并验证原selector、输入/收款/native费/未用编码预算及证据保存。ExactOut取消实际子进程并归还许可，发布过期或撤权结果拒绝；全目标严格Clippy通过。源码及899固定输入前后一致，运行目录`c2b8b152ba5b489a81be1453622a110d`。旧无backend拒绝、原build关闭和所有旧API回归保留，普通ExactOut仍为PROVIDED_LOCAL_STATE，当前链来源、完整费用和钱包生命周期继续独立待补。

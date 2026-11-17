@@ -1,4 +1,5 @@
 //! Configured local-state diagnostics, isolated in the current executable's worker mode.
+use crate::exact_out::ExactOutCached;
 use crate::{Cached, CancelOnDrop};
 use serde_json::{json, Value};
 use std::{
@@ -46,6 +47,47 @@ impl Failure {
     }
 }
 
+#[derive(Clone)]
+pub(crate) enum Selection {
+    ExactIn(Cached),
+    ExactOut(ExactOutCached),
+}
+impl From<Cached> for Selection {
+    fn from(c: Cached) -> Self {
+        Self::ExactIn(c)
+    }
+}
+impl From<ExactOutCached> for Selection {
+    fn from(c: ExactOutCached) -> Self {
+        Self::ExactOut(c)
+    }
+}
+impl Selection {
+    pub(crate) fn view(&self) -> &Arc<crate::QuoteView> {
+        match self {
+            Self::ExactIn(c) => &c.view,
+            Self::ExactOut(c) => &c.view,
+        }
+    }
+    pub(crate) fn expires(&self) -> u64 {
+        match self {
+            Self::ExactIn(c) => c.expires,
+            Self::ExactOut(c) => c.expires,
+        }
+    }
+    fn snapshot(&self) -> &xone_domain::SnapshotRef {
+        match self {
+            Self::ExactIn(c) => &c.plan.snapshot,
+            Self::ExactOut(c) => &c.plan.snapshot,
+        }
+    }
+    fn context(&self) -> &xone_execution_plan::Context {
+        match self {
+            Self::ExactIn(c) => &c.plan.context,
+            Self::ExactOut(c) => &c.plan.context,
+        }
+    }
+}
 pub(crate) struct LocalSimulation {
     bundle: Arc<LocalSimulationBundle>,
     // Retained immutable validation image; each child creates its own overlay.
@@ -63,6 +105,7 @@ pub(crate) struct LocalSimulation {
 // Keeping them together also makes the reported fee context unambiguous.
 struct ExecutionCommitment {
     binding_hash: String,
+    quote_kind: &'static str,
     transaction: Transaction,
     transaction_context: TransactionContext,
     execution_base_fee: Amount,
@@ -77,14 +120,21 @@ impl PreparedExecution {
         let mut output = LimitedWriter(Vec::new());
         serde_json::to_writer(&mut output, &request)
             .map_err(|_| Failure::new("SIMULATION_WORKER_INPUT_LIMIT", "serialize"))?;
+        let (binding_hash, transaction, executor, quote_kind) =
+            match (request.bound, request.exact_out_bound) {
+                (Some(b), None) => (b.binding_hash, b.transaction, b.executor, "EXACT_IN"),
+                (None, Some(b)) => (b.binding_hash, b.transaction, b.executor, "EXACT_OUT"),
+                _ => return Err(Failure::new("SIMULATION_WORKER_BINDING", "prepare")),
+            };
         Ok(Self {
             input: output.0,
             commitment: ExecutionCommitment {
-                binding_hash: request.bound.binding_hash,
-                transaction: request.bound.transaction,
+                binding_hash,
+                transaction,
+                executor,
+                quote_kind,
                 transaction_context: request.transaction_context,
                 execution_base_fee: request.fixture.execution_environment.base_fee,
-                executor: request.bound.executor,
             },
         })
     }
@@ -179,9 +229,10 @@ impl LocalSimulation {
     pub async fn execute(
         self: Arc<Self>,
         config: Arc<ConfigSnapshot>,
-        cached: Cached,
+        cached: impl Into<Selection>,
         deadline: Instant,
     ) -> std::result::Result<Value, Failure> {
+        let cached = cached.into();
         let permit = self
             .permits
             .clone()
@@ -203,23 +254,43 @@ impl LocalSimulation {
                 if identity != state.worker_sha256 {
                     return Err(Failure::new("SIMULATION_WORKER_IDENTITY", "identity"));
                 }
-                let bound = xone_execution_plan::bind_v2_execution(
-                    &cached.plan,
-                    &cached.view.pools,
-                    &state.bundle.executor,
-                    &config.config.simulation.allowed_targets,
-                )
-                .map_err(|e| Failure::new(&e.0, "binding"))?;
+                let allowed = &config.config.simulation.allowed_targets;
+                let (bound, exact_out_bound) = match &cached {
+                    Selection::ExactIn(c) => (
+                        Some(
+                            xone_execution_plan::bind_v2_execution(
+                                &c.plan,
+                                &c.view.pools,
+                                &state.bundle.executor,
+                                allowed,
+                            )
+                            .map_err(|e| Failure::new(&e.0, "binding"))?,
+                        ),
+                        None,
+                    ),
+                    Selection::ExactOut(c) => (
+                        None,
+                        Some(
+                            xone_execution_plan::bind_v2_exact_out_execution(
+                                &c.plan,
+                                &c.view.pools,
+                                &state.bundle.executor,
+                                allowed,
+                            )
+                            .map_err(|e| Failure::new(&e.0, "binding"))?,
+                        ),
+                    ),
+                };
                 let genesis = config
                     .config
                     .chains
                     .iter()
-                    .find(|c| c.key == cached.plan.context.chain_key)
+                    .find(|c| c.key == cached.context().chain_key)
                     .ok_or_else(|| Failure::new("SIMULATION_STATE_CHAIN_MISMATCH", "anchor"))?
                     .genesis_hash
                     .clone();
                 let anchor = &state.bundle.fixture.state_anchor;
-                let block = &cached.plan.snapshot.block;
+                let block = &cached.snapshot().block;
                 if anchor.chain_key != block.chain_key
                     || anchor.genesis_hash != genesis
                     || anchor.block_number != block.number_or_slot
@@ -232,7 +303,8 @@ impl LocalSimulation {
                 let request = WorkerRequest {
                     protocol: WORKER_PROTOCOL.into(),
                     bound,
-                    pools: cached.view.pools.clone(),
+                    exact_out_bound,
+                    pools: cached.view().pools.clone(),
                     allowed_targets: config.config.simulation.allowed_targets.clone(),
                     fixture: state.bundle.fixture.clone(),
                     transaction_context: state.bundle.transaction_context.clone(),
@@ -334,7 +406,7 @@ fn diagnostic_response(
         };
     let success = outcome["matches_plan"] == true && outcome["execution"]["status"] == "SUCCESS";
     Ok(
-        json!({"bindingHash":commitment.binding_hash,"bundleHash":bundle_hash,"workerHash":worker_hash,
+        json!({"quoteKind":commitment.quote_kind,"bindingHash":commitment.binding_hash,"bundleHash":bundle_hash,"workerHash":worker_hash,
         "transaction":commitment.transaction,"transactionContext":commitment.transaction_context,"executionBaseFee":commitment.execution_base_fee,"executor":commitment.executor,
         "verification":{"level":"LOCAL_EVM_EXECUTED","success":success,"verified":false},"verified":false,
         "authority":"PROVIDED_LOCAL_STATE","outcome":outcome,
@@ -517,6 +589,10 @@ impl TestLaunch {
 }
 
 #[cfg(test)]
+#[path = "../../execution-preparation/tests/support/evm_rpc_fixture.rs"]
+mod execution_source;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -659,6 +735,7 @@ mod tests {
     fn diagnostic_commitment(gas_price: &str) -> ExecutionCommitment {
         ExecutionCommitment {
             binding_hash: "binding".into(),
+            quote_kind: "EXACT_IN",
             transaction: Transaction {
                 chain_key: "evm:31337".into(),
                 from: "0x0000000000000000000000000000000000000011".into(),
@@ -830,7 +907,8 @@ mod tests {
         .unwrap();
         let request = WorkerRequest {
             protocol: WORKER_PROTOCOL.into(),
-            bound,
+            bound: Some(bound),
+            exact_out_bound: None,
             pools: cached.view.pools.clone(),
             allowed_targets: api.config.config.simulation.allowed_targets.clone(),
             fixture: backend.bundle.fixture.clone(),
@@ -991,6 +1069,216 @@ mod tests {
         );
         assert_reaped(&pid);
         assert!(api.cache.lock().unwrap()[&id].simulation_evidence.is_none());
+    }
+
+    async fn api_with_exact_out_quote() -> (crate::Api, String) {
+        let (bound, pools, rpc, original) = super::execution_source::fixture();
+        let file = pid_path().with_extension("state.json");
+        let value = json!({"schema_version":1,"fixture":{"schema_version":1,
+            "state_anchor":original["state_anchor"],"execution_environment":original["execution_environment"],
+            "accounts":original["accounts"],"block_hashes":[]},"executor":rpc.executor,
+            "transaction_context":original["transaction_context"]});
+        std::fs::write(&file, serde_json::to_vec(&value).unwrap()).unwrap();
+        let mut config = xone_config::load("../../config/config-test.yaml", "dex-router").unwrap();
+        config.token = "exact-out-local-api-test-20261117".into();
+        config
+            .config
+            .chains
+            .retain(|c| c.key == bound.plan.context.chain_key);
+        config.config.chains[0].genesis_hash = rpc.genesis_hash;
+        config.config.simulation.backend = "revm-fixture".into();
+        config.config.simulation.state_file = file.to_str().unwrap().into();
+        config.config.simulation.allowed_targets = vec![bound.executor.target.clone()];
+        config.config.simulation.max_state_bytes = 8 * 1024 * 1024;
+        config.config.simulation.max_state_reads = 8192;
+        config.config.simulation.max_instructions = 2_000_000;
+        config.config.simulation.max_memory_bytes = 64 * 1024 * 1024;
+        config.config.simulation.concurrency = 1;
+        config.config.simulation.max_gas = 15_000_000;
+        config.config.simulation.timeout_ms = 10000;
+        config.config.routing.max_splits = 1;
+        config.config.routing.quote_ttl_ms = 60000;
+        let api = crate::Api::new(config).unwrap();
+        std::fs::remove_file(file).unwrap();
+        api.replica
+            .install_baseline(xone_domain::Snapshot {
+                reference: bound.plan.snapshot.clone(),
+                pools,
+                source: "RETAINED_ORIGINAL_BANK".into(),
+                history_gaps: vec![],
+            })
+            .unwrap();
+        let quote=api.quote_exact_out(serde_json::from_value(json!({"chainKey":bound.plan.context.chain_key,
+            "kind":"EXACT_OUT","sellToken":bound.plan.context.sell_token,"buyToken":bound.plan.context.buy_token,
+            "buyAmount":bound.plan.allocation.gross_buy_amount,
+            "maxSellAmount":Amount::checked(&bound.plan.allocation.sell_amount.0*2u64).unwrap(),
+            "caller":bound.plan.context.caller,"recipient":bound.plan.context.recipient,
+            "slippageBps":50,"verification":"FAST"})).unwrap()).await.unwrap();
+        (api, quote["quoteId"].as_str().unwrap().into())
+    }
+
+    #[tokio::test]
+    async fn exact_out_worker_request_selects_one_mode_and_preserves_legacy_wire() {
+        let (api, id) = api_with_exact_out_quote().await;
+        let cached = api.exact_out_cache.lock().unwrap()[&id].clone();
+        let backend = api.local_simulation.as_ref().unwrap();
+        let bound = xone_execution_plan::bind_v2_exact_out_execution(
+            &cached.plan,
+            &cached.view.pools,
+            &backend.bundle.executor,
+            &api.config.config.simulation.allowed_targets,
+        )
+        .unwrap();
+        let request = WorkerRequest {
+            protocol: WORKER_PROTOCOL.into(),
+            bound: None,
+            exact_out_bound: Some(bound),
+            pools: cached.view.pools.clone(),
+            allowed_targets: api.config.config.simulation.allowed_targets.clone(),
+            fixture: backend.bundle.fixture.clone(),
+            transaction_context: backend.bundle.transaction_context.clone(),
+            budget: backend.budget.clone(),
+            expected_genesis_hash: backend.bundle.fixture.state_anchor.genesis_hash.clone(),
+            timeout_ms: 10000,
+        };
+        let value = serde_json::to_value(&request).unwrap();
+        assert!(value.get("bound").is_none());
+        let prepared = PreparedExecution::from_request(request.clone()).unwrap();
+        assert_eq!(prepared.commitment.quote_kind, "EXACT_OUT");
+        assert!(prepared
+            .commitment
+            .transaction
+            .data
+            .starts_with("0x8803dbee"));
+        let mut missing = request.clone();
+        missing.exact_out_bound = None;
+        assert!(PreparedExecution::from_request(missing).is_err());
+        let (other, other_id) = api_with_cached_quote().await;
+        let other_cached = other.cache.lock().unwrap()[&other_id].clone();
+        let other_backend = other.local_simulation.as_ref().unwrap();
+        let legacy = xone_execution_plan::bind_v2_execution(
+            &other_cached.plan,
+            &other_cached.view.pools,
+            &other_backend.bundle.executor,
+            &other.config.config.simulation.allowed_targets,
+        )
+        .unwrap();
+        let mut ambiguous = request;
+        ambiguous.bound = Some(legacy);
+        assert!(PreparedExecution::from_request(ambiguous.clone()).is_err());
+        ambiguous.exact_out_bound = None;
+        let legacy_value = serde_json::to_value(&ambiguous).unwrap();
+        assert!(legacy_value.get("bound").unwrap().is_object());
+        assert!(legacy_value.get("exact_out_bound").is_none());
+    }
+
+    #[tokio::test]
+    async fn exact_out_publication_rechecks_expiry_view_and_preserves_quote_evidence() {
+        let (api, id) = api_with_exact_out_quote().await;
+        let cached = api.exact_out_cache.lock().unwrap()[&id].clone();
+        let mut response = outcome("SUCCESS", true);
+        response =
+            json!({"quoteKind":"EXACT_OUT","verification":{"success":true},"outcome":response});
+        let result = crate::publish_exact_out_simulation(&api, &id, &cached, response.clone())
+            .unwrap()
+            .0;
+        assert_eq!(result["quoteId"], id);
+        assert_eq!(result["planHash"], cached.plan.plan_hash);
+        assert_eq!(result["verification"]["verified"], false);
+        assert_eq!(
+            api.exact_out_cache.lock().unwrap()[&id].response,
+            cached.response
+        );
+        let evidence = api.exact_out_evidence(&id).unwrap();
+        assert_eq!(evidence["quote"], cached.response);
+        assert_eq!(evidence["simulation_evidence"], result);
+        api.exact_out_cache
+            .lock()
+            .unwrap()
+            .get_mut(&id)
+            .unwrap()
+            .expires = 0;
+        assert_eq!(
+            crate::publish_exact_out_simulation(&api, &id, &cached, response.clone())
+                .unwrap_err()
+                .1
+                 .0["error"],
+            "QUOTE_EXPIRED"
+        );
+        api.exact_out_cache
+            .lock()
+            .unwrap()
+            .get_mut(&id)
+            .unwrap()
+            .expires = cached.expires;
+        api.replica.suspend(&cached.plan.context.chain_key);
+        assert_eq!(
+            crate::publish_exact_out_simulation(&api, &id, &cached, response)
+                .unwrap_err()
+                .1
+                 .0["error"],
+            "SNAPSHOT_REORGED"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn exact_out_http_cancellation_reaps_worker_and_releases_shared_admission() {
+        use tower::ServiceExt;
+        let (mut api, id) = api_with_exact_out_quote().await;
+        let pid = pid_path();
+        Arc::get_mut(api.local_simulation.as_mut().unwrap())
+            .unwrap()
+            .test_launch = Some(TestLaunch {
+            mode: "http-cancellation".into(),
+            pid_file: Some(pid.clone()),
+        });
+        let request = axum::http::Request::builder()
+            .method("POST")
+            .uri(format!("/v1/quotes/{id}/simulate"))
+            .header("authorization", format!("Bearer {}", api.config.token))
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let task = tokio::spawn(api.handler().oneshot(request));
+        let deadline = Instant::now() + Duration::from_secs(8);
+        while !pid.exists() && Instant::now() < deadline {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(pid.exists(), "ExactOut worker did not start");
+        assert!(api.exact_out_cache.try_lock().is_ok());
+        assert_eq!(
+            api.local_simulation
+                .as_ref()
+                .unwrap()
+                .permits
+                .available_permits(),
+            0
+        );
+        task.abort();
+        let _ = task.await;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while api
+            .local_simulation
+            .as_ref()
+            .unwrap()
+            .permits
+            .available_permits()
+            == 0
+            && Instant::now() < deadline
+        {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(
+            api.local_simulation
+                .as_ref()
+                .unwrap()
+                .permits
+                .available_permits(),
+            1
+        );
+        assert_reaped(&pid);
+        assert!(api.exact_out_cache.lock().unwrap()[&id]
+            .simulation_evidence
+            .is_none());
     }
 
     #[test]

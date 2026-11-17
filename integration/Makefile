@@ -1073,3 +1073,7 @@ design-delivery-current-audit:
 .PHONY: evm-prepared-exact-out-current-check
 evm-prepared-exact-out-current-check:
 	python3 tools/acceptance/validate_evm_prepared_exact_out.py
+
+.PHONY: evm-exact-out-api-current-check
+evm-exact-out-api-current-check:
+	python3 tools/acceptance/validate_evm_exact_out_api.py

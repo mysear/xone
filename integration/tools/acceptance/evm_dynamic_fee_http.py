@@ -26,7 +26,7 @@ def sha(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def run(binary, output):
+def run(binary, output, *, exact_out=False):
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     binary = binary.resolve(strict=True)
@@ -65,7 +65,9 @@ def run(binary, output):
 
                 status, denied = post('/v1/quotes/missing/simulate', None, False)
                 require(status == 401 and denied['error'] == 'UNAUTHORIZED', 'Authentication boundary changed')
-                status, quote = post('/v1/quote', info['request'])
+                request = info['exactOutRequest'] if exact_out else info['request']
+                quote_path = '/v1/quote-exact-out' if exact_out else '/v1/quote'
+                status, quote = post(quote_path, request)
                 require(status == 200, 'Quote failed: ' + json.dumps(quote))
                 quote_id = quote['quoteId']
                 status, invalid = post(f'/v1/quotes/{quote_id}/simulate', {'gasPrice': '0'})
@@ -96,7 +98,25 @@ def run(binary, output):
                 require(result['authority'] == 'PROVIDED_LOCAL_STATE'
                         and fees['chainFeeCompleteness'] == 'LOCAL_EVM_ONLY', 'Authority upgraded')
                 require(result['outcome']['actual_buy_amount'] == quote['grossBuyAmount'], 'Recipient delta differs from quote')
+                if exact_out:
+                    require(result['quoteKind'] == 'EXACT_OUT', 'Worker used wrong target mode')
+                    require(result['outcome']['actual_buy_amount'] == quote['buyAmount'], 'Actual target amount differs')
+                    require(result['outcome']['actual_input_consumed'] == quote['requiredSellAmount'], 'Actual input differs')
+                    require(int(result['outcome']['unused_input_budget']) + int(result['outcome']['actual_input_consumed'])
+                            == int(quote['maxSellAmount']), 'Encoded maximum conservation mismatch')
+                    require(result['outcome']['refund'] == '0', 'Unused budget was falsely classified as refund')
+                    require(result['transaction']['data'].startswith('0x8803dbee'), 'Worker did not execute original ExactOut selector')
+                    require(result['planHash'] == quote['planHash'] and result['snapshotRef'] == quote['snapshotRef'],
+                            'Quote/plan/snapshot binding changed')
+                    evidence_request = urllib.request.Request(info['api']+f'/internal/quotes/{quote_id}/evidence',
+                        headers={'Authorization': 'Bearer '+info['token']})
+                    with opener.open(evidence_request, timeout=5) as response:
+                        evidence = json.load(response)
+                    require(evidence['quote'] == quote and evidence['simulation_evidence'] == result,
+                            'ExactOut evidence overwrote quote or omitted simulation')
+                    (output/'evidence.json').write_text(json.dumps(evidence,indent=2)+'\n')
                 report = dict(passed=True, harness_sha256=digest, actual_worker_executions=1,
+                              quote_kind='EXACT_OUT' if exact_out else 'EXACT_IN',
                               gas_used=gas, effective_gas_price=str(effective), max_fee_per_gas=str(maximum),
                               actual_fee=str(gas*effective), overstatement_prevented=str(gas*(maximum-effective)),
                               publicTransactionsSubmitted=False, production_ready=False,

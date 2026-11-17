@@ -62,6 +62,12 @@ async fn main() {
         "sellToken":bound.plan.context.sell_token,"buyToken":bound.plan.context.buy_token,
         "sellAmount":bound.plan.allocation.sell_amount,"caller":bound.plan.context.caller,
         "recipient":bound.plan.context.recipient,"slippageBps":50,"verification":"FAST"});
+    let exact_out_request = json!({"chainKey":bound.plan.context.chain_key,"kind":"EXACT_OUT",
+        "sellToken":bound.plan.context.sell_token,"buyToken":bound.plan.context.buy_token,
+        "buyAmount":bound.plan.allocation.gross_buy_amount,
+        "maxSellAmount":xone_domain::Amount::checked(&bound.plan.allocation.sell_amount.0*2u64).unwrap(),
+        "caller":bound.plan.context.caller,"recipient":bound.plan.context.recipient,
+        "slippageBps":50,"verification":"FAST"});
     let snapshot = Snapshot {
         reference: bound.plan.snapshot,
         pools,
@@ -72,7 +78,7 @@ async fn main() {
     api.replica.install_baseline(snapshot).unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let info: Value = json!({"api":format!("http://{}",listener.local_addr().unwrap()),
-        "token":api.config.token,"request":request,"maxFeePerGas":max_fee,
+        "token":api.config.token,"request":request,"exactOutRequest":exact_out_request,"maxFeePerGas":max_fee,
         "executionBaseFee":bundle.fixture.execution_environment.base_fee,
         "bundleHash":hash(&bundle).unwrap(),"unsigned":true,"submitted":false});
     std::fs::write(info_path, serde_json::to_vec_pretty(&info).unwrap()).unwrap();

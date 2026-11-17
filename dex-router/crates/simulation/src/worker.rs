@@ -12,7 +12,7 @@ use std::{
     time::{Duration, Instant},
 };
 use xone_domain::{err, Pool, Result};
-use xone_execution_plan::{BoundEvmExecution, ExecutorIdentity};
+use xone_execution_plan::{BoundEvmExactOutExecution, BoundEvmExecution, ExecutorIdentity};
 
 pub const WORKER_PROTOCOL: &str = "xone-local-evm-worker/1";
 pub const MAX_WORKER_INPUT_BYTES: usize = 32 * 1024 * 1024;
@@ -29,7 +29,10 @@ pub struct LocalSimulationBundle {
 #[serde(deny_unknown_fields)]
 pub struct WorkerRequest {
     pub protocol: String,
-    pub bound: BoundEvmExecution,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bound: Option<BoundEvmExecution>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exact_out_bound: Option<BoundEvmExactOutExecution>,
     pub pools: Vec<Pool>,
     pub allowed_targets: Vec<String>,
     pub fixture: FixtureState,
@@ -87,15 +90,27 @@ pub fn run_stdio() -> Result<()> {
         deadline: Some(Instant::now() + Duration::from_millis(request.timeout_ms)),
         progress: None,
     };
-    let result = evm_fixture::simulate_bound(
-        &request.bound,
-        &request.pools,
-        &request.allowed_targets,
-        &request.fixture,
-        &request.transaction_context,
-        &request.budget,
-        control,
-    );
+    let result = match (&request.bound, &request.exact_out_bound) {
+        (Some(bound), None) => evm_fixture::simulate_bound(
+            bound,
+            &request.pools,
+            &request.allowed_targets,
+            &request.fixture,
+            &request.transaction_context,
+            &request.budget,
+            control,
+        ),
+        (None, Some(bound)) => evm_fixture::simulate_bound_exact_out(
+            bound,
+            &request.pools,
+            &request.allowed_targets,
+            &request.fixture,
+            &request.transaction_context,
+            &request.budget,
+            control,
+        ),
+        _ => return Err(err("SIMULATION_WORKER_BINDING")),
+    };
     let (outcome, error) = match result {
         Ok(value) => (Some(value), None),
         Err(error) => (None, Some(error)),

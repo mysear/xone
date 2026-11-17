@@ -939,24 +939,35 @@ async fn simulate_transaction(
         serde_json::from_value::<SimulationRequest>(value)
             .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?;
     }
-    if api.exact_out_execution(&id).map_err(failure)? {
-        return Err(failure(err("INDEPENDENT_SIMULATION_UNAVAILABLE")));
-    }
+    let is_exact_out = api.exact_out_execution(&id).map_err(failure)?;
     let backend = api
         .local_simulation
         .clone()
         .ok_or_else(|| failure(err("INDEPENDENT_SIMULATION_UNAVAILABLE")))?;
-    let cached = {
+    let cached = if is_exact_out {
+        let cache = api
+            .exact_out_cache
+            .lock()
+            .map_err(|_| failure(err("CACHE_LOCK")))?;
+        local_simulation::Selection::ExactOut(
+            cache
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?,
+        )
+    } else {
         let cache = api.cache.lock().map_err(|_| failure(err("CACHE_LOCK")))?;
-        cache
-            .get(&id)
-            .cloned()
-            .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?
+        local_simulation::Selection::ExactIn(
+            cache
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?,
+        )
     };
-    if cached.expires <= now_ms() {
+    if cached.expires() <= now_ms() {
         return Err(failure(err("QUOTE_EXPIRED")));
     }
-    api.check_view(&cached.view).map_err(failure)?;
+    api.check_view(cached.view()).map_err(failure)?;
     api.metrics
         .simulation_started
         .fetch_add(1, Ordering::Relaxed);
@@ -976,7 +987,14 @@ async fn simulate_transaction(
             return Err(simulation_failure(error));
         }
     };
-    publish_simulation(&api, &id, &cached, response)
+    match cached {
+        local_simulation::Selection::ExactIn(cached) => {
+            publish_simulation(&api, &id, &cached, response)
+        }
+        local_simulation::Selection::ExactOut(cached) => {
+            publish_exact_out_simulation(&api, &id, &cached, response)
+        }
+    }
 }
 fn publish_simulation(
     api: &Api,
@@ -1018,6 +1036,50 @@ fn publish_simulation(
     }
     Ok(Json(response))
 }
+fn publish_exact_out_simulation(
+    api: &Api,
+    id: &str,
+    cached: &exact_out::ExactOutCached,
+    mut response: Value,
+) -> std::result::Result<Json<Value>, HttpError> {
+    if cached.expires <= now_ms() {
+        return Err(failure(err("QUOTE_EXPIRED")));
+    }
+    api.check_view(&cached.view).map_err(failure)?;
+    response["quoteId"] = id.into();
+    response["planHash"] = cached.plan.plan_hash.clone().into();
+    response["snapshotRef"] =
+        serde_json::to_value(&cached.plan.snapshot).map_err(|_| failure(err("HASH_ENCODING")))?;
+    response["verification"]["verified"] = false.into();
+    {
+        let mut cache = api
+            .exact_out_cache
+            .lock()
+            .map_err(|_| failure(err("CACHE_LOCK")))?;
+        let current = cache
+            .get_mut(id)
+            .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?;
+        if current.expires <= now_ms() {
+            return Err(failure(err("QUOTE_EXPIRED")));
+        }
+        api.check_view(&current.view).map_err(failure)?;
+        if current.plan.plan_hash != cached.plan.plan_hash {
+            return Err(failure(err("SNAPSHOT_REORGED")));
+        }
+        current.simulation_evidence = Some(response.clone());
+    }
+    if response["verification"]["success"] == true {
+        api.metrics
+            .simulation_success
+            .fetch_add(1, Ordering::Relaxed);
+    } else {
+        api.metrics
+            .simulation_failed
+            .fetch_add(1, Ordering::Relaxed);
+    }
+    Ok(Json(response))
+}
+
 async fn evidence(
     State(api): State<Api>,
     headers: HeaderMap,

@@ -63,9 +63,10 @@ impl ExactOutRequest {
 pub(super) struct ExactOutCached {
     pub(super) view: Arc<QuoteView>,
     pub(super) plan: ExactOutPlan,
-    response: Value,
+    pub(super) response: Value,
     pub(super) expires: u64,
     request_hash: String,
+    pub(super) simulation_evidence: Option<Value>,
 }
 impl Api {
     pub async fn quote_exact_out(&self, request: ExactOutRequest) -> Result<Value> {
@@ -271,6 +272,7 @@ impl Api {
                     response: response.clone(),
                     expires,
                     request_hash,
+                    simulation_evidence: None,
                 },
             );
         }
@@ -301,7 +303,7 @@ impl Api {
         let c = cache.get(id).ok_or_else(|| err("UNKNOWN_QUOTE"))?;
         Ok(
             json!({"quote": c.response, "execution_plan": c.plan, "expired": c.expires <= now_ms(),
-            "snapshot_valid": c.view.is_valid(), "simulation_evidence": Value::Null}),
+            "snapshot_valid": c.view.is_valid(), "simulation_evidence": c.simulation_evidence}),
         )
     }
 }

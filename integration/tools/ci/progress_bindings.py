@@ -1743,3 +1743,16 @@ BINDINGS['14.evm-prepared-exact-out'] = {
            'prepared_exact_out_limits_and_cancellation_precede_bank_execution'],
  'evidence_refs': ['integration/artifacts/local/evm-prepared-exact-out-check/report.json'],
 }
+
+BINDINGS['15.evm-exact-out-api'] = {
+ 'paths': ['dex-router/crates/simulation/src/worker.rs',
+           'dex-router/crates/quote-api/src/local_simulation.rs',
+           'dex-router/crates/quote-api/src/exact_out.rs',
+           'dex-router/crates/quote-api/src/lib.rs',
+           'integration/tools/acceptance/validate_evm_exact_out_api.py',
+           'integration/tools/acceptance/evm_exact_out_http.py'],
+ 'tests': ['local_simulation::tests::exact_out_worker_request_selects_one_mode_and_preserves_legacy_wire',
+           'local_simulation::tests::exact_out_publication_rechecks_expiry_view_and_preserves_quote_evidence',
+           'local_simulation::tests::exact_out_http_cancellation_reaps_worker_and_releases_shared_admission'],
+ 'evidence_refs': ['integration/artifacts/local/evm-exact-out-api-check/report.json'],
+}
