@@ -399,3 +399,44 @@ func TestCurrentRustRemotePublicationDecodesWithIndependentGoCodec(t *testing.T)
 		t.Fatal("wrong owner source")
 	}
 }
+
+func TestCurrentRustRecoveryCatalogBindsOldObjectAndNewHeadInGo(t *testing.T) {
+	directory := os.Getenv("XONE_RUST_RECOVERY_CATALOG_OUTPUT")
+	if directory == "" {
+		t.Skip("requires current Rust normal recovery catalogue export")
+	}
+	raw, e := os.ReadFile(filepath.Join(directory, "normal-rust-recovery-catalog.json"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	var document struct {
+		Catalog    RecoveryCatalog    `json:"catalog"`
+		Manifest   string             `json:"checkpoint_manifest_raw"`
+		PayloadHex string             `json:"checkpoint_payload_hex"`
+		Reference  domain.SnapshotRef `json:"reference"`
+		Cursor     journal.Cursor     `json:"cursor"`
+	}
+	if e = json.Unmarshal(raw, &document); e != nil {
+		t.Fatal(e)
+	}
+	payload, e := hex.DecodeString(document.PayloadHex)
+	if e != nil {
+		t.Fatal(e)
+	}
+	boot, e := DecodeBootstrap([]byte(document.Manifest), payload, document.Catalog.Checkpoint.ManifestSHA256, 8<<20)
+	if e != nil {
+		t.Fatal(e)
+	}
+	old, next := boot.Snapshot.Reference, document.Catalog.HeadReference
+	cursor, e := (BootstrapManifest{Cursor: document.Catalog.HeadCursor}).cursor()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if document.Catalog.Schema != 2 || next != document.Reference || cursor != document.Cursor || next.OnlineGeneration <= old.OnlineGeneration || next.JournalSeq <= old.JournalSeq || cursor.Offset <= boot.Cursor.Offset {
+		t.Fatal("Rust recovery catalogue lost old/head progression")
+	}
+	old.OnlineGeneration = next.OnlineGeneration
+	if !sameEra(old, next) {
+		t.Fatal("Rust recovery catalogue crossed an unauthorized domain")
+	}
+}

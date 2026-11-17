@@ -1965,3 +1965,11 @@ HTTP发布select关闭watch：Close发stop后立即撤掉待完成网络future�
 Rust ConfigSnapshot的public_hash现在与Go一样先规范化typed API/journal再去除auth_token/source_auth_tokens，避免同一输入因字段省略而产生语言差异；optional checkpoint的false/0与省略同义，周期设置实际变化仍改变hash。economic_hash继续绑定原routing/simulation/chains。对于省略默认值的旧Rust配置，新版本加载后的public_hash可能变化，按原要求重启，不复用旧配置下的准备/缓存。两Rust读取同轮Go导出的5份配置与摘要，凭据只用测试假值且不进公开hash。
 
 `make -C integration rust-periodic-checkpoint-current-check`覆盖双链故障/更新/恢复/默认手动、正常关闭信号中断挂起HTTP/加入任务、Go原worker回归、两语言配置/摘要及Rust API/程序构建；公共真实Solana bank、Rust旧对象recovery目录、保留/配额和独立故障域仍独立验收。
+
+## Rust owner旧对象目录与版本2恢复策略
+
+阶段111。Rust成功发布后写store专属candidate提示，目录GET /internal/chains/{chain}/checkpoint-recovery-catalog按原pin/固定URL校验manifest/payload/cert，结合checked_current和Store.bootstrap_head锁内同次committed reference/cursor，对返回前再次检查。candidate可变但不ready，损坏/符号链接/任意外部URL、过期owner/不同store或原对象丢失都拒绝。原exact-current目录继续只返回精确当前对象。
+
+RemotePublication/RecoveryCatalog和recovery_target现在由两个Rust kafka-transport副本统一实现。控制目录schema1仍要求同generation；schema2允许旧checkpoint到当前head之间generation单调前进，其他owner/assignment/writer/canonical/schema/adapter/scope必须一致。Rust正常owner当前以完整ONLINE_BASELINE_COMMIT推进，Store仍拒绝未知BLOCK_COMMIT；router在私有Replica重放时，v2完整baseline通过install_baseline验证，普通BLOCK_COMMIT仍通过原连续apply，seq/cursor/完整transaction边界和最终head全部精确匹配。writer变更、reorg、scope/schema变更继续失败并尝试当前来源。
+
+`make -C integration rust-owner-recovery-current-check`在同一冻结批次起独立Kafka，运行两个不同当前测试程序：Rust owner维持真实正常HTTP和对象API，提交真实Kafka旧baseline与两次完整baseline；独立router通过原恢复路径私有追平/正常sync/实际HTTP报价，缺owner凭据无ready。测试使用受控Solana fixture来源和显式测试producer，不声明实网bank/PG lease或跨区域存储资格。目录/旧对象数据另由Go独立解码，原v1 EVM两块追平与exact-current Kafka回归显式运行。

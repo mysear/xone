@@ -317,6 +317,26 @@ impl Store {
         }
         self.apply(u.snapshot, Some(cursor), &u.kind)
     }
+    pub fn bootstrap_head(&self) -> Result<(SnapshotRef, Cursor)> {
+        if self.uncertain
+            || self
+                .authority_deadline
+                .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+        {
+            return Err(err("CHAIN_NOT_READY"));
+        }
+        let reference = self
+            .current
+            .as_ref()
+            .ok_or_else(|| err("CHAIN_NOT_READY"))?
+            .reference
+            .clone();
+        let cursor = self
+            .cursor
+            .clone()
+            .ok_or_else(|| err("BOOTSTRAP_NOT_READY"))?;
+        Ok((reference, cursor))
+    }
     pub fn bootstrap(&self) -> Result<Bootstrap> {
         Ok(Bootstrap {
             snapshot: self.current().ok_or_else(|| err("CHAIN_NOT_READY"))?,

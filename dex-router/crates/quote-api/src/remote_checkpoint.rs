@@ -1,17 +1,14 @@
 //! Read a current owner-qualified catalogue, download only configured immutable
 //! objects, and re-attest the same catalogue before handing state to recovery.
 use super::{Api, Duration};
-use serde::{Deserialize, Serialize};
 use xone_domain::{err, Result};
-use xone_kafka_transport::{checkpoint, Bootstrap};
+use xone_kafka_transport::{
+    checkpoint::{
+        self, recovery_compatible, recovery_target, RecoveryCatalog, RemotePublication as Catalog,
+    },
+    Bootstrap,
+};
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Catalog {
-    manifest_url: String,
-    manifest_sha256: String,
-    manifest: checkpoint::Manifest,
-}
 async fn download(
     client: &reqwest::Client,
     url: &str,
@@ -177,78 +174,6 @@ mod replay_tests;
 #[cfg(test)]
 mod tests;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct RecoveryCatalog {
-    schema_version: u32,
-    checkpoint: Catalog,
-    head_reference: xone_domain::SnapshotRef,
-    head_cursor: checkpoint::ManifestCursor,
-}
-fn same_era(a: &xone_domain::SnapshotRef, b: &xone_domain::SnapshotRef) -> bool {
-    a.block.chain_key == b.block.chain_key
-        && a.schema_version == b.schema_version
-        && a.owner_service == b.owner_service
-        && a.owner_assignment_version == b.owner_assignment_version
-        && a.writer_epoch == b.writer_epoch
-        && a.canonical_epoch == b.canonical_epoch
-        && a.online_generation == b.online_generation
-        && a.scope_hash == b.scope_hash
-        && a.adapter_set_hash == b.adapter_set_hash
-}
-fn recovery_target(
-    c: &RecoveryCatalog,
-    max_bytes: usize,
-    max_tail: usize,
-) -> Result<xone_kafka_transport::Cursor> {
-    if c.schema_version != 1 || !(1..=1000000).contains(&max_tail) {
-        return Err(err("CHECKPOINT_RECOVERY_CATALOG_INVALID"));
-    }
-    let raw = serde_json::to_vec(&c.checkpoint.manifest)
-        .map_err(|_| err("CHECKPOINT_CATALOG_INVALID"))?;
-    let m = checkpoint::parse_manifest(&raw, &c.checkpoint.manifest_sha256, max_bytes)?;
-    let head = &c.head_reference;
-    let normalized = xone_domain::wire_conversion::ref_from_proto(
-        xone_domain::wire_conversion::ref_to_proto(head)?,
-    )?;
-    let offset = c
-        .head_cursor
-        .next_offset
-        .parse::<i64>()
-        .map_err(|_| err("CHECKPOINT_HEAD_CURSOR"))?;
-    let before = m
-        .cursor
-        .next_offset
-        .parse::<i64>()
-        .map_err(|_| err("CHECKPOINT_HEAD_CURSOR"))?;
-    if normalized != *head
-        || !same_era(&m.reference, head)
-        || c.head_cursor.topic != m.cursor.topic
-        || c.head_cursor.partition != 0
-        || offset < before
-        || offset.to_string() != c.head_cursor.next_offset
-        || offset - before > max_tail as i64
-        || head.journal_seq < m.reference.journal_seq
-        || head.block.number_or_slot < m.reference.block.number_or_slot
-    {
-        return Err(err("CHECKPOINT_RECOVERY_REANCHOR"));
-    }
-    if head.journal_seq == m.reference.journal_seq {
-        if head != &m.reference || offset != before {
-            return Err(err("CHECKPOINT_HEAD_CONFLICT"));
-        }
-    } else if offset <= before
-        || head.block.number_or_slot <= m.reference.block.number_or_slot
-        || head.journal_seq - m.reference.journal_seq > (offset - before) as u64
-    {
-        return Err(err("CHECKPOINT_HEAD_CONFLICT"));
-    }
-    Ok(xone_kafka_transport::Cursor {
-        topic: c.head_cursor.topic.clone(),
-        partition: 0,
-        offset,
-    })
-}
 impl Api {
     async fn recovery_catalog(&self, source: &str, chain: &str) -> Result<RecoveryCatalog> {
         let raw = self
@@ -278,6 +203,7 @@ impl Api {
                 .download_checkpoint(&catalog.checkpoint, chain, timeout)
                 .await?;
             let expected = catalog.head_reference.clone();
+            let version = catalog.schema_version;
             if expected.block.timestamp_ms > xone_observability::now_ms().saturating_add(30000)
                 || xone_observability::now_ms().saturating_sub(expected.block.timestamp_ms)
                     > cfg.config.startup.max_baseline_age_ms
@@ -326,19 +252,24 @@ impl Api {
                         return Err(err("CHECKPOINT_REPLAY_CURSOR"));
                     }
                     if let Some(unit) = unit {
-                        if unit.kind != "BLOCK_COMMIT"
-                            || !same_era(&unit.snapshot.reference, &expected)
+                        if !(unit.kind == "BLOCK_COMMIT"
+                            || version == 2 && unit.kind == "ONLINE_BASELINE_COMMIT")
+                            || !recovery_compatible(&unit.snapshot.reference, &expected, version)
                             || unit.snapshot.reference.journal_seq > expected.journal_seq
                         {
                             return Err(err("CHECKPOINT_REPLAY_REANCHOR"));
                         }
-                        staged.apply(xone_domain::Record {
-                            reference: unit.snapshot.reference.clone(),
-                            kind: unit.kind,
-                            record_id: String::new(),
-                            payload_hash: xone_domain::hash(&unit.snapshot.pools)?,
-                            pools: unit.snapshot.pools.clone(),
-                        })?;
+                        if unit.kind == "ONLINE_BASELINE_COMMIT" {
+                            staged.install_baseline(unit.snapshot.clone())?;
+                        } else {
+                            staged.apply(xone_domain::Record {
+                                reference: unit.snapshot.reference.clone(),
+                                kind: unit.kind,
+                                record_id: String::new(),
+                                payload_hash: xone_domain::hash(&unit.snapshot.pools)?,
+                                pools: unit.snapshot.pools.clone(),
+                            })?;
+                        }
                         final_boot = Bootstrap {
                             snapshot: unit.snapshot,
                             cursor: position,
@@ -369,3 +300,7 @@ impl Api {
         .map_err(|_| err("CHECKPOINT_REPLAY_DEADLINE"))?
     }
 }
+
+#[cfg(test)]
+#[path = "remote_checkpoint/live_rust_owner_tests.rs"]
+mod live_rust_owner_tests;

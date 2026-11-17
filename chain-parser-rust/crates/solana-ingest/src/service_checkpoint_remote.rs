@@ -1,15 +1,8 @@
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::time::Duration;
 use xone_domain::{err, Result};
+pub(super) use xone_kafka_transport::checkpoint::RemotePublication;
 use xone_kafka_transport::checkpoint::{self, Manifest};
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RemotePublication {
-    pub manifest_url: String,
-    pub manifest_sha256: String,
-    pub manifest: Manifest,
-}
 pub struct Remote {
     base: String,
     token: String,
@@ -51,6 +44,12 @@ impl Remote {
     }
     pub fn manifest_url(&self, m: &Manifest) -> String {
         format!("{}/public-v2/{}/manifest.json", self.base, m.sha256)
+    }
+    pub fn candidate_name(&self) -> String {
+        format!(
+            "candidate-{}.json",
+            hex::encode(Sha256::digest(self.base.as_bytes()))
+        )
     }
     pub fn marker_name(&self) -> String {
         format!(

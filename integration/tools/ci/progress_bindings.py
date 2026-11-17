@@ -1961,3 +1961,20 @@ BINDINGS['9.rust-periodic-checkpoint-publisher'] = {
            'current_go_checkpoint_config_defaults_and_secret_free_hashes_match'],
  'evidence_refs': ['integration/artifacts/local/rust-periodic-checkpoint-check/report.json'],
 }
+
+BINDINGS['9.rust-owner-recovery-catalogue'] = {
+ 'paths': ['chain-parser-rust/crates/solana-ingest/src/service_checkpoint.rs',
+           'chain-parser-rust/crates/solana-ingest/src/service_checkpoint_recovery_tests.rs',
+           'chain-parser-rust/crates/solana-ingest/src/store.rs',
+           'dex-router/crates/kafka-transport/src/checkpoint.rs',
+           'dex-router/crates/quote-api/src/remote_checkpoint/live_rust_owner_tests.rs',
+           'integration/tools/acceptance/live_rust_checkpoint_recovery.py',
+           'integration/tools/acceptance/validate_rust_owner_recovery.py'],
+ 'tests': ['service::checkpoint::recovery_tests::normal_rust_recovery_catalog_attests_uploaded_old_object_and_committed_head',
+           'service::checkpoint::recovery_tests::rust_recovery_catalog_rejects_corrupt_hint_and_owner_head_expiration',
+           'recovery_catalog_v2_allows_complete_baseline_generations_only_inside_same_owner_domain',
+           'TestCurrentRustRecoveryCatalogBindsOldObjectAndNewHeadInGo',
+           'service::checkpoint::recovery_tests::actual_rust_owner_serves_uploaded_checkpoint_and_two_real_kafka_baselines_to_external_router',
+           'remote_checkpoint::live_rust_owner_tests::actual_rust_owner_remote_checkpoint_replays_into_independent_router_and_quotes_attested_head'],
+ 'evidence_refs': ['integration/artifacts/local/rust-owner-recovery-check/report.json'],
+}

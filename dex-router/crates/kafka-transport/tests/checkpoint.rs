@@ -131,3 +131,60 @@ fn current_go_checkpoint_vectors_match_reference_cursor_and_full_width_amounts()
         .is_err());
     }
 }
+
+#[test]
+fn recovery_catalog_v2_allows_complete_baseline_generations_only_inside_same_owner_domain() {
+    let (manifest, _) = fixture();
+    let mut head = manifest.reference.clone();
+    head.online_generation += 2;
+    head.journal_seq += 2;
+    head.block.number_or_slot += 2;
+    head.block.parent_hash = head.block.hash.clone();
+    head.block.hash = format!("0x{}", "3".repeat(64));
+    let raw = serde_json::to_vec(&manifest).unwrap();
+    let mut catalog = checkpoint::RecoveryCatalog {
+        schema_version: 2,
+        checkpoint: checkpoint::RemotePublication {
+            manifest_url: "https://objects.example/manifest.json".into(),
+            manifest_sha256: sha(&raw),
+            manifest,
+        },
+        head_reference: head,
+        head_cursor: ManifestCursor {
+            topic: "canonical.evm-31337.v1".into(),
+            partition: 0,
+            next_offset: "9007199254741017".into(),
+        },
+    };
+    let target = checkpoint::recovery_target(&catalog, 8 << 20, 100).unwrap();
+    assert_eq!(target.offset, 9_007_199_254_741_017);
+    catalog.schema_version = 1;
+    assert!(checkpoint::recovery_target(&catalog, 8 << 20, 100).is_err());
+    catalog.schema_version = 2;
+    for mode in [
+        "writer",
+        "canonical",
+        "owner",
+        "scope",
+        "adapter",
+        "assignment",
+        "older-generation",
+        "invalid-version",
+    ] {
+        let mut changed = catalog.clone();
+        match mode {
+            "writer" => changed.head_reference.writer_epoch += 1,
+            "canonical" => changed.head_reference.canonical_epoch += 1,
+            "owner" => changed.head_reference.owner_service = "chain-parser-rust".into(),
+            "scope" => changed.head_reference.scope_hash = "a".repeat(64),
+            "adapter" => changed.head_reference.adapter_set_hash = "a".repeat(64),
+            "assignment" => changed.head_reference.owner_assignment_version += 1,
+            "older-generation" => changed.head_reference.online_generation = 0,
+            _ => changed.schema_version = 3,
+        }
+        assert!(
+            checkpoint::recovery_target(&changed, 8 << 20, 100).is_err(),
+            "{mode}"
+        );
+    }
+}

@@ -529,6 +529,10 @@ impl Parser {
                 "/internal/chains/{chain}/checkpoint-catalog",
                 get(checkpoint::catalog),
             )
+            .route(
+                "/internal/chains/{chain}/checkpoint-recovery-catalog",
+                get(checkpoint::recovery_catalog),
+            )
             .route("/internal/chains/{chain}/stream-status", get(stream_status))
             .route(
                 "/internal/chains/{chain}/history-status",

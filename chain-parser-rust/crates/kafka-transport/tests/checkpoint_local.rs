@@ -222,3 +222,31 @@ fn rust_local_checkpoint_certificates_are_bounded_immutable_and_pinned() {
     changed.manifest.cursor.next_offset = "123".into();
     assert!(local::certify(&changed, 8 << 20, &tag, raw, || Ok(())).is_err());
 }
+
+#[test]
+fn rust_local_checkpoint_candidate_is_a_bounded_replaceable_hint_not_a_certificate() {
+    let root = Temp::new();
+    let p = local::write(&root.0, &fixture(), 8 << 20, || Ok(())).unwrap();
+    let name = format!("candidate-{}.json", "a".repeat(64));
+    local::set_candidate(&p, &name, b"first", || Ok(())).unwrap();
+    assert_eq!(local::candidate(&root.0, &name).unwrap(), b"first");
+    local::set_candidate(&p, &name, b"second", || Ok(())).unwrap();
+    assert_eq!(local::candidate(&root.0, &name).unwrap(), b"second");
+    assert!(local::set_candidate(&p, "../escape", b"bad", || Ok(())).is_err());
+    assert!(local::set_candidate(&p, &name, &vec![0; 65537], || Ok(())).is_err());
+    assert!(local::set_candidate(&p, &name, b"denied", || Err(err("SOURCE_REVOKED"))).is_err());
+    assert_eq!(local::candidate(&root.0, &name).unwrap(), b"second");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::symlink;
+        let path = root.0.join("public-v2").join(&name);
+        std::fs::remove_file(&path).unwrap();
+        let outside = Temp::new();
+        let destination = outside.0.join("unchanged");
+        std::fs::write(&destination, b"outside").unwrap();
+        symlink(&destination, &path).unwrap();
+        assert!(local::set_candidate(&p, &name, b"wrong", || Ok(())).is_err());
+        assert!(local::candidate(&root.0, &name).is_err());
+        assert_eq!(std::fs::read(destination).unwrap(), b"outside");
+    }
+}

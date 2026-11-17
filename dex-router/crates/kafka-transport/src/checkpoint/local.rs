@@ -265,3 +265,82 @@ pub fn certificate(path: &Path, name: &str) -> Result<Vec<u8>> {
     }
     read_regular(&path.with_file_name(name), 65536)
 }
+
+fn candidate_name(name: &str) -> Result<()> {
+    let digest = name
+        .strip_prefix("candidate-")
+        .and_then(|s| s.strip_suffix(".json"))
+        .ok_or_else(|| err("CHECKPOINT_CANDIDATE_NAME"))?;
+    if digest.len() != 64
+        || !digest
+            .bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    {
+        return Err(err("CHECKPOINT_CANDIDATE_NAME"));
+    }
+    Ok(())
+}
+/// A mutable hint only. Its reader still requires original immutable objects,
+/// the store certificate and a fresh owner head attestation before recovery.
+pub fn set_candidate(
+    p: &Publication,
+    name: &str,
+    raw: &[u8],
+    guard: impl Fn() -> Result<()>,
+) -> Result<()> {
+    candidate_name(name)?;
+    if raw.len() > 65536 {
+        return Err(err("CHECKPOINT_CANDIDATE_LIMIT"));
+    }
+    guard()?;
+    let directory = p
+        .manifest_path
+        .parent()
+        .and_then(Path::parent)
+        .ok_or_else(|| err("CHECKPOINT_MANIFEST_PATH"))?;
+    let destination = directory.join(name);
+    match fs::symlink_metadata(&destination) {
+        Ok(m) if !m.is_file() || m.file_type().is_symlink() => {
+            return Err(err("CHECKPOINT_CANDIDATE_FILE"))
+        }
+        Ok(_) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => return Err(err("CHECKPOINT_CANDIDATE_FILE")),
+    }
+    let mut selected = None;
+    for _ in 0..64 {
+        let path = directory.join(format!(
+            ".checkpoint-staging-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        match options.open(&path) {
+            Ok(f) => {
+                selected = Some((Temporary(path), f));
+                break;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(_) => return Err(err("CHECKPOINT_STAGING")),
+        }
+    }
+    let (temporary, mut file) = selected.ok_or_else(|| err("CHECKPOINT_STAGING"))?;
+    file.write_all(raw)
+        .and_then(|_| file.sync_all())
+        .map_err(|_| err("CHECKPOINT_FILE_SYNC"))?;
+    drop(file);
+    guard()?;
+    fs::rename(&temporary.0, &destination).map_err(|_| err("CHECKPOINT_CANDIDATE_PUBLICATION"))?;
+    sync_dir(directory)?;
+    guard()
+}
+pub fn candidate(root: &Path, name: &str) -> Result<Vec<u8>> {
+    candidate_name(name)?;
+    read_regular(&root.join("public-v2").join(name), 65536)
+}

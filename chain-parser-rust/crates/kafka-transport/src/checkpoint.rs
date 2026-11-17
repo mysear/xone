@@ -121,3 +121,96 @@ pub fn decode(
     }
     Ok(boot)
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RemotePublication {
+    pub manifest_url: String,
+    pub manifest_sha256: String,
+    pub manifest: Manifest,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryCatalog {
+    pub schema_version: u32,
+    pub checkpoint: RemotePublication,
+    pub head_reference: xone_domain::SnapshotRef,
+    pub head_cursor: ManifestCursor,
+}
+pub fn same_era(a: &xone_domain::SnapshotRef, b: &xone_domain::SnapshotRef) -> bool {
+    a.block.chain_key == b.block.chain_key
+        && a.schema_version == b.schema_version
+        && a.owner_service == b.owner_service
+        && a.owner_assignment_version == b.owner_assignment_version
+        && a.writer_epoch == b.writer_epoch
+        && a.canonical_epoch == b.canonical_epoch
+        && a.online_generation == b.online_generation
+        && a.scope_hash == b.scope_hash
+        && a.adapter_set_hash == b.adapter_set_hash
+}
+/// Version 2 permits full baseline commits to advance generation inside the same
+/// authenticated owner/writer/canonical/schema/scope domain. Version 1 stays same-era.
+pub fn recovery_compatible(a: &SnapshotRef, b: &SnapshotRef, version: u32) -> bool {
+    if version == 1 {
+        return same_era(a, b);
+    }
+    if version != 2 || a.online_generation > b.online_generation {
+        return false;
+    }
+    let mut normalized = a.clone();
+    normalized.online_generation = b.online_generation;
+    same_era(&normalized, b)
+}
+pub fn recovery_target(
+    c: &RecoveryCatalog,
+    max_bytes: usize,
+    max_tail: usize,
+) -> Result<crate::Cursor> {
+    if ![1, 2].contains(&c.schema_version) || !(1..=1000000).contains(&max_tail) {
+        return Err(err("CHECKPOINT_RECOVERY_CATALOG_INVALID"));
+    }
+    let raw = serde_json::to_vec(&c.checkpoint.manifest)
+        .map_err(|_| err("CHECKPOINT_CATALOG_INVALID"))?;
+    let m = parse_manifest(&raw, &c.checkpoint.manifest_sha256, max_bytes)?;
+    let head = &c.head_reference;
+    let normalized = xone_domain::wire_conversion::ref_from_proto(
+        xone_domain::wire_conversion::ref_to_proto(head)?,
+    )?;
+    let offset = c
+        .head_cursor
+        .next_offset
+        .parse::<i64>()
+        .map_err(|_| err("CHECKPOINT_HEAD_CURSOR"))?;
+    let before = m
+        .cursor
+        .next_offset
+        .parse::<i64>()
+        .map_err(|_| err("CHECKPOINT_HEAD_CURSOR"))?;
+    if normalized != *head
+        || !recovery_compatible(&m.reference, head, c.schema_version)
+        || c.head_cursor.topic != m.cursor.topic
+        || c.head_cursor.partition != 0
+        || offset < before
+        || offset.to_string() != c.head_cursor.next_offset
+        || offset - before > max_tail as i64
+        || head.journal_seq < m.reference.journal_seq
+        || head.block.number_or_slot < m.reference.block.number_or_slot
+    {
+        return Err(err("CHECKPOINT_RECOVERY_REANCHOR"));
+    }
+    if head.journal_seq == m.reference.journal_seq {
+        if head != &m.reference || offset != before {
+            return Err(err("CHECKPOINT_HEAD_CONFLICT"));
+        }
+    } else if offset <= before
+        || head.block.number_or_slot <= m.reference.block.number_or_slot
+        || head.journal_seq - m.reference.journal_seq > (offset - before) as u64
+    {
+        return Err(err("CHECKPOINT_HEAD_CONFLICT"));
+    }
+    Ok(crate::Cursor {
+        topic: c.head_cursor.topic.clone(),
+        partition: 0,
+        offset,
+    })
+}

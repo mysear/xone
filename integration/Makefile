@@ -1137,3 +1137,7 @@ rust-remote-checkpoint-current-check:
 .PHONY: rust-periodic-checkpoint-current-check
 rust-periodic-checkpoint-current-check:
 	python3 tools/acceptance/validate_rust_periodic_checkpoint.py
+
+.PHONY: rust-owner-recovery-current-check
+rust-owner-recovery-current-check:
+	python3 tools/acceptance/validate_rust_owner_recovery.py

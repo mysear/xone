@@ -117,6 +117,94 @@ impl Parser {
         }
         Ok(())
     }
+    async fn recovery_checkpoint_catalog(
+        &self,
+        key: &str,
+    ) -> Result<xone_kafka_transport::checkpoint::RecoveryCatalog> {
+        use xone_kafka_transport::checkpoint::{self, RecoveryCatalog};
+        if !self.started.load(Ordering::Acquire) || *self.stream_stop.borrow() {
+            return Err(err("CHECKPOINT_OWNER_CLOSED"));
+        }
+        let before = self.checked_current(key).await?;
+        let (head, cursor) = self
+            .stores
+            .get(key)
+            .ok_or_else(|| err("UNKNOWN_CHAIN"))?
+            .lock()
+            .map_err(|_| err("STATE_LOCK_POISONED"))?
+            .bootstrap_head()?;
+        if head != before.reference {
+            return Err(err("SCOPE_READY_REFERENCE_CHANGED"));
+        }
+        let store = self
+            .config
+            .config
+            .journal
+            .checkpoint_store
+            .as_ref()
+            .ok_or_else(|| err("CHECKPOINT_STORE_REQUIRED"))?
+            .clone();
+        let directory = self
+            .config
+            .resolve(&self.config.config.state.path)
+            .join("checkpoints")
+            .join(key.replace(':', "-"));
+        let maximum = self.config.config.journal.max_payload_bytes;
+        let max_tail = self.config.config.journal.kafka.max_tail_records;
+        let timeout = Duration::from_millis(self.config.config.journal.request_timeout_ms);
+        let expected_cursor = cursor.clone();
+        let expected_head = head.clone();
+        let catalog = tokio::task::spawn_blocking(move || {
+            let remote = Remote::new(&store, "", timeout)?;
+            let raw = local::candidate(&directory, &remote.candidate_name())?;
+            let p: RemotePublication =
+                serde_json::from_slice(&raw).map_err(|_| err("CHECKPOINT_CANDIDATE_INVALID"))?;
+            let canonical =
+                serde_json::to_vec(&p).map_err(|_| err("CHECKPOINT_CANDIDATE_INVALID"))?;
+            if raw != canonical || p.manifest_url != remote.manifest_url(&p.manifest) {
+                return Err(err("CHECKPOINT_CANDIDATE_LOCATION"));
+            }
+            let catalog = RecoveryCatalog {
+                schema_version: 2,
+                checkpoint: p,
+                head_reference: head,
+                head_cursor: checkpoint::ManifestCursor {
+                    topic: cursor.topic,
+                    partition: cursor.partition,
+                    next_offset: cursor.offset.to_string(),
+                },
+            };
+            checkpoint::recovery_target(&catalog, maximum, max_tail)?;
+            let path = directory
+                .join("public-v2")
+                .join(&catalog.checkpoint.manifest.sha256)
+                .join("manifest.json");
+            let (_, manifest, _) =
+                local::objects(&path, &catalog.checkpoint.manifest_sha256, maximum)?;
+            if manifest
+                != serde_json::to_vec(&catalog.checkpoint.manifest)
+                    .map_err(|_| err("CHECKPOINT_MANIFEST_INVALID"))?
+                || local::certificate(&path, &remote.marker_name())? != canonical
+            {
+                return Err(err("CHECKPOINT_CANDIDATE_CONTENT"));
+            }
+            Ok::<_, xone_domain::Error>(catalog)
+        })
+        .await
+        .map_err(|_| err("CHECKPOINT_FILE_TASK"))??;
+        let after = self.checked_current(key).await?;
+        let actual = self.stores[key]
+            .lock()
+            .map_err(|_| err("STATE_LOCK_POISONED"))?
+            .bootstrap_head()?;
+        if *self.stream_stop.borrow()
+            || after.reference != expected_head
+            || actual != (expected_head, expected_cursor)
+        {
+            return Err(err("CHECKPOINT_CATALOG_SOURCE_CHANGED"));
+        }
+        Ok(catalog)
+    }
     async fn current_checkpoint_catalog(&self, key: &str) -> Result<RemotePublication> {
         if !self.started.load(Ordering::Acquire) || *self.stream_stop.borrow() {
             return Err(err("CHECKPOINT_OWNER_CLOSED"));
@@ -309,13 +397,14 @@ impl Parser {
                 let certificate = serde_json::to_vec(&published)
                     .map_err(|_| err("CHECKPOINT_CERTIFICATE_ENCODING"))?;
                 let tag = remote.marker_name();
+                let candidate_tag = remote.candidate_name();
                 let p = publication.clone();
                 let key = chain.key.clone();
                 let reference = before.reference.clone();
                 let copy = self.clone();
                 let stopped = cancelled.clone();
                 let (saved, returned_gate) = tokio::task::spawn_blocking(move || {
-                    let saved = local::certify(&p, maximum, &tag, &certificate, || {
+                    let guard = || {
                         if stopped.load(Ordering::Acquire) || *copy.stream_stop.borrow() {
                             return Err(err("CHECKPOINT_CANCELLED"));
                         }
@@ -328,6 +417,10 @@ impl Parser {
                             return Err(err("CHECKPOINT_SOURCE_REVOKED"));
                         }
                         Ok(())
+                    };
+                    let saved = local::certify(&p, maximum, &tag, &certificate, guard);
+                    let saved = saved.and_then(|_| {
+                        local::set_candidate(&p, &candidate_tag, &certificate, guard)
                     });
                     (saved, gate)
                 })
@@ -399,3 +492,25 @@ pub(super) async fn status(
 #[cfg(test)]
 #[path = "service_checkpoint_periodic_tests.rs"]
 mod periodic_tests;
+
+pub(super) async fn recovery_catalog(
+    State(parser): State<Parser>,
+    headers: HeaderMap,
+    super::Path(chain): super::Path<String>,
+) -> std::result::Result<
+    Json<xone_kafka_transport::checkpoint::RecoveryCatalog>,
+    (StatusCode, Json<Value>),
+> {
+    parser.authorize(&headers).map_err(failure)?;
+    tokio::time::timeout(
+        Duration::from_millis(parser.config.config.journal.request_timeout_ms),
+        parser.recovery_checkpoint_catalog(&chain),
+    )
+    .await
+    .map_err(|_| failure(err("CHECKPOINT_DEADLINE")))?
+    .map(Json)
+    .map_err(failure)
+}
+#[cfg(test)]
+#[path = "service_checkpoint_recovery_tests.rs"]
+mod recovery_tests;
