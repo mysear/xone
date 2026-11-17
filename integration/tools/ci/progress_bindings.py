@@ -1719,3 +1719,16 @@ BINDINGS['14.evm-exact-out-execution'] = {
               'exact_out_valid_multi_pool_binding_is_rejected_before_any_execution'],
     'evidence_refs': ['integration/artifacts/local/evm-exact-out-execution-check/report.json'],
 }
+
+BINDINGS['28.delivery-boundary-audit'] = {
+    'paths': ['integration/tools/acceptance/design_delivery_audit.py',
+              'integration/tools/acceptance/tests/test_design_delivery_audit.py',
+              'dex-router/cmd/dex-router/main.rs',
+              'dex-router/config/config-prod.yaml',
+              'chain-parser-go/config/config-prod.yaml',
+              'chain-parser-rust/config/config-prod.yaml'],
+    'tests': ['test_rpc_missing_and_deployment_missing_are_distinct_external_inputs',
+              'test_declared_external_inputs_do_not_create_a_blocker_or_a_completion_claim',
+              'test_absent_local_test_topology_does_not_assert_external_service_outage'],
+    'evidence_refs': ['integration/artifacts/local/design-delivery-audit/report.json'],
+}

@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|完整交付范围与外部验收边界审计（阶段93）|§7/14.2/18/20/28.25；WP01、WP23、WP24|LOCAL_SCOPE_VERIFIED|逐项区分本地代码差距与正式链/部署输入，配置摘要、当前CLI正负对照、开发Kafka拓扑|5检查/12次审计控制、当前CLI正负对照通过；已确认正式来源与独立故障域部署输入缺失，完整功能/生产仍false|
 |EVM原Router单池ExactOut独立执行（阶段92）|§14/28.16–28.17；WP14、WP15|LOCAL_SCOPE_VERIFIED|原swapTokensForExactTokens与完整目标绑定、实际输入/收款、未用预算/退款分列，原gas及完整后状态|8门禁/126次Rust、16原银行/3类revert/有效多池拒绝及899固定输入通过；多池VM/准备API/真实链资格仍缺|
 |EVM实际HTTP/worker动态费用（阶段91）|§14.2–14.5/15；WP15、WP16|LOCAL_SCOPE_VERIFIED|API从原REVM receipt有效价计算实际费用，核对base burn/tip，保留max fee承诺|10门禁/122次Rust及实际HTTP/同二进制worker通过，899固定输入绑定；真实当前状态与生产仍缺|
 |EVM准备组件与同银行独立执行（阶段90）|§14.1–14.5/28.16–28.17；WP14、WP15|LOCAL_SCOPE_VERIFIED|严格重算组件/unsigned wire、同银行余额/nonce/allowance与实际原Router；getter费用上下文对齐|8门禁/121次Rust、16银行/25重算篡改/10控制及899固定输入通过；真实状态DB/当前链规则/API执行仍缺|
@@ -468,6 +469,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|28.delivery-boundary-audit|WP01,WP23,WP24|LOCAL_SCOPE_VERIFIED|三服务生产配置与当前CLI、开发拓扑和26工作包审计；不复制凭据，不把开发测试升格|当前源码审计通过；所有本地实现差距保留，不将未实现功能改记为外部阻塞|[审计记录](integration/artifacts/local/design-delivery-audit/report.json)|
 |15.evm-dynamic-fee-api|WP15,WP16|LOCAL_SCOPE_VERIFIED|API校验REVM实际有效价/费用分解，保留原上限，实际HTTP子进程验证|统一门禁通过；仍是给定Shanghai银行，非当前链/完整费用/生产资格|[验证记录](integration/artifacts/local/evm-dynamic-fee-api-check/report.json)|
 |14.evm-exact-out-execution|WP14,WP15|LOCAL_SCOPE_VERIFIED|原Router02单池ExactOut的独立REVM输入消耗/收款、未用预算、revert费用|统一门禁通过；多池路径和正式准备API集成/当前状态与链规则仍待补|[验证记录](integration/artifacts/local/evm-exact-out-execution-check/report.json)|
 |14.evm-prepared-execution|WP14,WP15|LOCAL_SCOPE_VERIFIED|完整准备组件重算、原wire摘要、同银行资金与独立VM绑定，getter有效gas price对齐|统一验证通过；限定显式给定状态ExactIn，真实RPC状态DB/ExactOut VM/当前链规则/普通API执行仍待补|[验证记录](integration/artifacts/local/evm-prepared-execution-check/report.json)|
@@ -504,7 +506,6 @@
 |20|[Balancer V2双币不可变50/50权重池](#plan-2026-10-30-balancer-weighted2-equal)|LOCAL_SCOPE_VERIFIED|[本批验收](integration/artifacts/local/weighted-acceptance.json)|
 |21|[Balancer V2双币不可变任意合法权重](#plan-2026-10-30-balancer-weighted2-static)|LOCAL_SCOPE_VERIFIED|[本批验收](integration/artifacts/local/weighted-static-acceptance.json)|
 |22|[五组协议联合增量：已实现子集](#plan-2026-10-31-five-protocol-families)|PARTIAL_LOCAL|[限定子集验收](integration/artifacts/local/five-family-acceptance.json)|
-
 |23|[Curve NG固定区块服务接入与完整交换后状态](#plan-2026-11-01-curve-ng-full-state)|LOCAL_SCOPE_VERIFIED|[NG限定范围验收](integration/artifacts/local/curve-ng-acceptance.json)|
 |24|[Managed非零BPT费用完整交换状态](#plan-2026-11-01-managed-bpt-fees)|PARTIAL_LOCAL|[限定原回调参考验收](integration/artifacts/local/managed-reference-acceptance.json)|
 |25|[MetaUSD直接兑换服务闭环](#plan-2026-11-01-metausd-direct)|LOCAL_SCOPE_VERIFIED|[Meta限定范围验收](integration/artifacts/local/curve-meta-acceptance.json)|
@@ -527,6 +528,10 @@
 |42|[状态驱动的路由准入刷新](#plan-2026-11-09-graph-admission)|LOCAL_SCOPE_VERIFIED|3池准入反例修复，空候选水位推进/撤权与恢复；17副本/12API和相关全target lint通过，正常13API原程序/6迁移回归通过；[最终报告](integration/artifacts/local/core-graph-admission-local-20261109.json)|
 |43|[候选范围与不可用池披露](#plan-2026-11-09-candidate-scope)|LOCAL_SCOPE_VERIFIED|修复left6/right4候选披露；52 Router/11解析域回归、相关全target lint和正常13API原程序/6迁移回归通过；[最终报告](integration/artifacts/local/core-candidate-scope-local-20261109.json)|
 |44|[ExactOut独立输入目标与原Router基准](#plan-2026-11-09-exact-out)|LOCAL_SCOPE_VERIFIED|独立V2完整状态ExactOut数学/反向路径/有序拆单/API；整单探测遗漏反例先红后绿；90原交易/162 Pair转换、39网格/38可行、45实际API/61原交易/7负控、84 Rust执行及Router全目标lint通过；[当前限定验收](integration/artifacts/local/core-exact-out-local-q1-20261109.json)|
+|45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
+|46|[固定98684794旧LM独立ExactOut](#plan-2026-11-10-legacy-lm-exact-out)|LOCAL_SCOPE_VERIFIED|原80完整/20部分拒绝/4无效/12连续，49实际API与原兑换、9负控；20检查/106 Rust及Router全目标lint、BSC4和V2正常回归通过；[限定验收](integration/artifacts/local/core-legacy-lm-exact-out-local-q1-20261110.json)|
+|47|[Slipstream调用者费率独立ExactOut](#plan-2026-11-10-slipstream-exact-out)|LOCAL_SCOPE_VERIFIED|90完整/18部分拒绝/12连续原步骤，49实际API与原兑换/9负控、121 Rust执行/24检查及5项正常服务回归通过；候选截断标志红绿修复；[限定验收](integration/artifacts/local/core-slipstream-exact-out-local-q1-20261110.json)|
+|48|[LFJ最小输入目标与额外输出](#plan-2026-11-10-lfj-exact-out)|LOCAL_SCOPE_VERIFIED|216完整/72部分拒绝/60额外输出/18连续原步骤，181实际API/原Pair和24额外到账/9负控；136 Rust执行/27检查/7项正常回归同源码通过；[限定验收](integration/artifacts/local/core-lfj-exact-out-local-q1-20261110.json)|
 |49|[Meteora DLMM固定MM-only ExactIn](#plan-2026-11-10-meteora-mm)|LOCAL_SCOPE_VERIFIED|独立field35/原完整账本/普通RPC/路由/共享优化/API；95原案例及20连续后续、108 Rust/26检查、71 API/71原SBF和9故障/重启同源通过；[限定验收](integration/artifacts/local/core-meteora-mm-validation-20261110.json)|
 |50|[Meteora DLMM 固定 MM-only ExactOut](#plan-2026-11-11-meteora-exact-out)|LOCAL_SCOPE_VERIFIED|独立输出驱动与完整bin/vault账本、单池路径/有序分配/API；65 Rust/19检查、43实际API原SBF与43输入减一及9故障/重启通过；[同源验收](integration/artifacts/local/core-meteora-exact-out-local-q1-20261111.json)|
 |51|[DLMM OnlyY、Pump classic/SOL与组合边界](#plan-2026-11-11-dlmm-pump-combinations)|LOCAL_SCOPE_VERIFIED|历史限定验收23检查/44Rust、38计划原SBF及8篡改控制通过；[凭证](integration/artifacts/local/core-family-expansion-acceptance-20261111.json)|
@@ -571,14 +576,7 @@
 |90|[EVM准备组件与同银行独立执行](#plan-2026-11-17-evm-prepared-execution)|LOCAL_SCOPE_VERIFIED|8门禁/121次Rust、16原银行/25重算篡改/10控制、899固定输入；[验证记录](integration/artifacts/local/evm-prepared-execution-check/report.json)|
 |91|[EVM实际HTTP/worker动态费用](#plan-2026-11-17-evm-dynamic-fee-api)|LOCAL_SCOPE_VERIFIED|10门禁/122次Rust、实际HTTP/worker、899固定输入；[验证记录](integration/artifacts/local/evm-dynamic-fee-api-check/report.json)|
 |92|[EVM原Router单池ExactOut独立执行](#plan-2026-11-17-evm-exact-out-execution)|LOCAL_SCOPE_VERIFIED|8门禁/126次Rust、16原银行/3revert/有效多池拒绝、899固定输入；[验证记录](integration/artifacts/local/evm-exact-out-execution-check/report.json)|
-
-|45|[实际BSC第四代LM独立ExactOut](#plan-2026-11-10-bsc4-exact-out)|LOCAL_SCOPE_VERIFIED|独立负amountSpecified与完整LM账本/单池路由/API；48完整/16部分拒绝/4无效/15连续原执行，41实际API/41原swap/31迁移/13负控；97 Rust执行/Router全目标lint与V2正常回归通过；[限定验收](integration/artifacts/local/core-bsc4-exact-out-local-q1-20261110.json)|
-
-|46|[固定98684794旧LM独立ExactOut](#plan-2026-11-10-legacy-lm-exact-out)|LOCAL_SCOPE_VERIFIED|原80完整/20部分拒绝/4无效/12连续，49实际API与原兑换、9负控；20检查/106 Rust及Router全目标lint、BSC4和V2正常回归通过；[限定验收](integration/artifacts/local/core-legacy-lm-exact-out-local-q1-20261110.json)|
-
-|47|[Slipstream调用者费率独立ExactOut](#plan-2026-11-10-slipstream-exact-out)|LOCAL_SCOPE_VERIFIED|90完整/18部分拒绝/12连续原步骤，49实际API与原兑换/9负控、121 Rust执行/24检查及5项正常服务回归通过；候选截断标志红绿修复；[限定验收](integration/artifacts/local/core-slipstream-exact-out-local-q1-20261110.json)|
-
-|48|[LFJ最小输入目标与额外输出](#plan-2026-11-10-lfj-exact-out)|LOCAL_SCOPE_VERIFIED|216完整/72部分拒绝/60额外输出/18连续原步骤，181实际API/原Pair和24额外到账/9负控；136 Rust执行/27检查/7项正常回归同源码通过；[限定验收](integration/artifacts/local/core-lfj-exact-out-local-q1-20261110.json)|
+|93|[完整交付范围与外部验收边界审计](#plan-2026-11-17-design-delivery-audit)|LOCAL_SCOPE_VERIFIED|5检查/12控制、当前CLI正负对照/3份开发拓扑，确认外部验收输入缺失；[审计记录](integration/artifacts/local/design-delivery-audit/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -2764,3 +2762,35 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 首次编译预检保留失败：测试调用BigUint的is_zero但没有引入其trait；改为Amount原生零值比较，未新增依赖或改变功能。原16银行执行预检已通过；这些是留存银行上的原VM调用，不是原链ExactOut矿工回执，来源继续PROVIDED_LOCAL_STATE。静态执行模板与生产资格不因本批升级，ExactOut API/钱包、链规则与真实来源继续待补。
 
 阶段92最终限定验收：8项门禁全部exit0，126次Rust（仿真94/API上下文9/准备RPC23）通过，16个原Router银行ExactOut实测输入/收款、三个revert的完整预算与费用/nonce、原有效多池绑定进入VM前拒绝均通过。旧ExactIn原24交易完整后状态、准备组件/动态费/API上下文继续回归，源码及899固定输入前后完全一致；全目标严格Clippy通过，运行目录`7e61cb2f8d99423181b8b6f2641aecac`。原组件与HTTP准备资格仍独立统计，多池与普通ExactOut HTTP VM未开放，生产与全部功能完成标记仍false。
+
+<a id="plan-2026-11-17-design-delivery-audit"></a>
+
+## 完整交付范围与外部验收边界审计（2026-11-17，阶段93）
+
+本次连续完成并逐轮提交/推送阶段89–92：动态费用原生币执行、准备组件与同银行绑定、实际HTTP/worker费用、单池ExactOut原VM。此后按原设计范围复核，不把这些限定能力写成全系统完成。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F93.1|配置与生产验收外部输入证据|WP01,WP23,WP24|LOCAL_SCOPE_VERIFIED|固定三服务生产配置SHA256，仅投影端点数量/身份占位/控制与安全模式；不读取或复制URL凭据/DSN内容。|
+|F93.2|当前二进制正负CLI与本机拓扑|WP01,WP23|LOCAL_SCOPE_VERIFIED|从当前源码构建router；同二进制config-test正对照及config-prod检查，检查最近3份本地Kafka拓扑，不能用多个临时单broker当多区。|
+|F93.3|完整设计与本地差距保留|WP23,WP24|LOCAL_SCOPE_VERIFIED|按现有26工作包与协议覆盖表核对；外部输入和本地实现分别列出，完整功能/生产标记保持false。|
+
+本地代码剩余：RPC完整执行状态DB、EVM多池/ExactOut准备HTTP和钱包链路、其他hardfork/L2费用；剩余协议数学/执行及Token行为；完整池COW、共享DAG/收益界、对象存储不可变恢复；生产TLS/SASL/ACL、租户额度、持续analytics、CI安全产物及高级求解。这些仍是实现任务，不因缺少外部环境而改称已经完成或全部外部阻塞。
+
+外部验收输入核对范围限于本仓库明确配置的生产验收环境，不推断用户在其他主机或账户是否持有基础设施。设计§7/14.2/18/20要求的真实当前链/独立来源和多区故障验收，须有明确选定的链/genesis、可用来源及真实部署/故障域/访问与演练范围；这些事实不能从本机合成银行或单broker进程产生。当前配置缺失情况和当前源码CLI结果以本批实际报告为准。
+
+阶段93首次控制预检保留失败：importlib载入审计模块时缺少acceptance模块搜索路径，已将同目录工具路径显式加入；当前router从最新源码已构建成功，正式审计仍待全部控制通过。
+
+阶段93实际审计完成：5项检查全部exit0，6项普通/6项优化审计控制、17项进度契约、公共契约和最新router构建通过；当前同二进制读取config-test exit0/valid=true，读取config-prod exit1/error=CONFIG_CONSTRAINT_VIOLATION。三服务生产文件均为0 RPC来源/0 Kafka端点；两个EVM生产链身份仍为全零genesis。最近3份本机开发Kafka配置均为broker/controller合进程、单controller、事务副本因子1/min ISR1/loopback，报告只证明本地配置事实、不声称已检查远端服务是否存在。报告运行目录`d86990d2910f4ba59900934054bab409`，源码及三生产文件摘要前后一致。
+
+B93.1 正式链来源与执行资格验收（§7/9/14.2/18）：三个生产配置没有RPC来源，EVM genesis占位，当前二进制生产配置拒绝，因此当前链/独立来源/可信状态与真实历史Bank验收被阻塞。解除需要operator明确选定的真实链/genesis、可访问且有来源/故障域说明的RPC或流服务，以及执行/历史状态验收所需的可信状态权限。
+
+B93.2 独立故障域与部署验收（§18/20/28.25）：三个生产配置无Kafka端点，现有样本是同机单broker，当前没有配置可执行多区故障、远端独立存储恢复、业务SLO与RPO/RTO验收的正式部署。解除需要指定真实部署/区域/可独立故障的资源、broker/数据库/独立归档访问，并给出可实施的负载和故障演练范围。
+
+本次依用户约定，在确认上述真实外部验收输入缺失处停止；没有伪造链身份、故障域或生产凭据，也没有把缺环境的项目记为通过。阶段89–92的局部功能交付与阶段93的审计均已独立留证；原26工作包完整设计验收仍为0，61模型的全范围尚未完成，all_requested_features_complete=false、production_ready=false。本地代码差距继续保留在F93前的独立清单与各工作包“待完成范围”，不是“只有外部配置未填”的完成声明。
+
+阶段93最终文档契约复核发现计划章节内追加不同列数的阻塞表会被统一任务表读取器拒绝；现按普通段落保存两项外部输入证据，保留失败日志，不修改既有严格表格解析规则。最终文档契约重新验证。
+
+阶段93最终最新批次复核发现原历史45–48行散落在新增批次之后，导致current_batch误指旧LFJ批次。已仅按原序号重排历史表，全部原行内容保留；最新批次现可按实际第93轮解析，历史scope仍由原显式anchor定位，重新运行普通/优化契约。
+
+阶段93最新批次顺序修正后完整审计再验：5项检查再次全部exit0，普通/优化各6控制、17进度契约、公共契约和当前二进制正负CLI不变。最终报告目录`927d2ca228224549adefc3f4a52a8433`，current_batch正确为第93轮；原目录作为第一次成功审计保留。stop_condition=CONFIRMED_CONFIGURED_EXTERNAL_ACCEPTANCE_BLOCKER，完整功能与生产标记仍false。

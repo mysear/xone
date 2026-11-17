@@ -1065,3 +1065,7 @@ evm-dynamic-fee-api-current-check:
 .PHONY: evm-exact-out-execution-current-check
 evm-exact-out-execution-current-check:
 	python3 tools/acceptance/validate_evm_exact_out_execution.py
+
+.PHONY: design-delivery-current-audit
+design-delivery-current-audit:
+	python3 tools/acceptance/design_delivery_audit.py
