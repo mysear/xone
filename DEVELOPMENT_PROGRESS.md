@@ -8,7 +8,7 @@
 
 优先级：区块解析和精确兑换量计算优先，分析功能低优先级。三服务各自独立，公共协议位于common。
 
-导航：[最新差距复核](#design-gap-review-2026-11-18) · [本轮开发](#active-work) · [工作包](#work-packages) · [协议覆盖](#protocol-coverage) · [逐项功能](#design-traceability) · [已验证批次](#batch-history) · [剩余功能及优先级](#remaining-priorities)
+导航：[剩余功能执行顺序](#remaining-execution-order-2026-11-18) · [最新差距复核](#design-gap-review-2026-11-18) · [本轮开发](#active-work) · [工作包](#work-packages) · [协议覆盖](#protocol-coverage) · [逐项功能](#design-traceability) · [已验证批次](#batch-history) · [剩余功能及优先级](#remaining-priorities)
 
 <a id="active-work"></a>
 
@@ -3301,3 +3301,33 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 本次同时修正旧列表中已过时的“对象上传下载尚未实现”“持续分析调度尚未实现”“WP18完全未开始”和固定21/61、38/61统计措辞。原v2 profile不能自动继承新增v2-complete能力；也不能把Solana已有钱包链路说成未开发。设计§4明确候选链/DEX矩阵是建议目标，未确定的未来版本不据此承诺已纳入强制上线范围。
 
 真实外部依赖包括可持续访问且有清晰权威/版本证据的链与provider/Yellowstone数据、目标部署二进制及可信bank，以及具备TLS/ACL/ISR/独立存储和多区条件的基础设施与演练权限。本轮按用户要求停止，未将这些事项标记为已确认不可解决的阻塞；G01/G03/G07/G09/G12/G13等仍有明确本地代码工作，不能把全部未完成项归因为外部阻塞。
+
+<a id="remaining-execution-order-2026-11-18"></a>
+
+## 剩余功能优先级、实现建议与退出标准（2026-11-18，恢复持续开发）
+
+用户已要求恢复持续开发，并将剩余工作按以下顺序逐项完成，每轮验证、记录、commit和push。第116轮暂停是历史状态，本节为当前执行规则。数据解析与精确数学优先，先收敛一个明确的chain/protocol/version端到端闭环，再扩版本；原26工作包和G01–G16范围不缩减。单项仅在列明退出条件和对应当前源码证据均满足后关闭；局部实现记LOCAL_SCOPE_VERIFIED，整包ACCEPTED仍以设计§28为准。
+
+|顺序|差距 / 工作包|实现建议|退出标准 / 后续边界|当前状态|
+|---|---|---|---|---|
+|P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
+|P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
+|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用|NOT_STARTED|
+|P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
+|P1-1|G03限定交易；WP14,WP15,WP20|先补单池/简单路径的calldata、授权、wrap、recipient、期限/退款、签名发送和耐久回执|报价→准备→独立仿真→用户签名→一次发送→回执收付款一致；先复用已有Solana链路，EVM独立补齐|PARTIAL_LOCAL|
+|P1-2|G06现有模型；WP11,WP13,WP14,WP16|已准入ExactOut先贯通最大输入、实际消耗、退款/费用和独立执行|数学输入目标与执行一致，拒绝不能保证的路径；复杂跨家族/共享拆单留P3-1|PARTIAL_LOCAL|
+|P1-3并行|G11/G15；WP01,WP02,WP06,WP07,WP25,WP26|随主线建设Kafka TLS/SASL/ACL、secret版本、schema兼容、镜像/SBOM/扫描及耐久控制审计|错误配置/凭据在写入前拒绝，真实CI和安全/审计故障检查通过；生产上线硬门槛|PARTIAL_LOCAL|
+|P1-4|G12；WP16,WP17|租户身份/独立额度、内部与任意仿真隔离、热点/超时/取消和业务成功率|租户与工作负载互不耗尽额度，资源有界且取消可回收，开放API前完成|PARTIAL_LOCAL|
+|P2-1|G09；WP08,WP09,WP24|Rust回收/中断恢复/自动维护、离线目录与peer发现、多对象分片、全盘/WAL/远端配额|保留/长停机1h/1d/30d与跨writer/reorg/scope恢复、独立存储故障/永久审计均有证据；Go限定自动回收已在116完成|PARTIAL_LOCAL|
+|P2-2|G08；WP09,WP12,WP17|Pool及顶层索引增量COW、旧版本活跃慢请求总内存预算与取消|大池/多副本/慢句柄/重组压力下容量受限并能恢复，扩大scope前完成|PARTIAL_LOCAL|
+|P2-3上线门槛|G16及G09/G11生产验收；WP06,WP08,WP17,WP18,WP23,WP24|逐链独立费用/ready/SLO，PG/Kafka故障、磁盘/节点/AZ丢失、区域恢复、灰度/adapter回退与逐tenant放量|第二/第三真实链端到端及真实独立故障域RPO/RTO达标；单机loopback不充当多区验收|PARTIAL_LOCAL|
+|P3-1|G03/G04/G05/G06扩展；WP05,WP10,WP11,WP13,WP14,WP20|按明确上线矩阵逐版本扩Curve/Balancer/V4/Infinity/LM/Solana组合、特殊Token、多hop/共享节点/拆单DAG|每个版本分别有完整状态/解析/原数学/独立执行/恢复证据；未知hook和扩展不隐式准入|PARTIAL_LOCAL|
+|P3-2|G07；WP12,WP13,WP22|beam/多标签、共享DAG联合求解、适用条件上界、小图oracle和网格外gap|正确性/费用/执行先稳定；候选及网格外最优性不夸大，完整收益和尾部报告|PARTIAL_LOCAL|
+|P4-1|G13；WP19,WP21|分析专属DLQ/raw重放、ClickHouse事实/revision/dataset、shadow发布、查询/水位和迟到更正|分析故障隔离于canonical/报价，重复/重组/升级回补和发布查询语义通过|PARTIAL_LOCAL|
+|P4-2|G14；WP22|RFQ/聚合器/多求解器、有效期和调用者约束、统一独立仿真净成本评分|数据/执行/成本口径稳定后接入，含失败和输样本收益分布，外部来源不绕过资格|NOT_STARTED|
+
+逐轮执行规则：先选择最前的可推进缺项，记录设计条款、代码缺口和本轮有限退出条件；实现正常入口并加入能击中真实风险的验证，冻结源码与输入，更新同一进度文档及必要技术说明；全部必需门禁通过后commit/push并检查远端同步，随后进入下一项。外部证据不足保留具体URL/能力/错误/日期和可复验输入，不把未尝试事项标作阻塞；一个事项外部受限时继续其他本地可推进项。禁止以测试条数、一个本地样本或仅有配置开关判定全功能完成。
+
+首个实现切片：检查v2-complete普通native来源的状态承诺和执行准备的信任边界，优先补足可验证的来源/状态绑定；已有native reader和MPT核验复用，避免重复建设。数学/费用/VERIFIED各有独立退出标准，不能因源码重编译或本地VM成功就跳过生产来源资格。
+
+推送目标事实：当前仅配置`origin = git@github.com:mysear/xone.git`，无GitLab远端。恢复后每轮继续推送既有origin，明确不称为GitLab推送；GitLab目标需提供准确仓库地址后配置。该远端差异不阻断本地实现/验证，也不改变功能完成判据。
