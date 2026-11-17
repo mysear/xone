@@ -63,6 +63,7 @@ async fn identity_state_nonce_and_envelope_faults_never_emit_transactions() {
         ("ignored_code", "EVM_RPC_HASH_SELECTOR_IGNORED"),
         ("ignored_storage", "EVM_RPC_HASH_SELECTOR_IGNORED"),
         ("ignored_call", "EVM_RPC_HASH_SELECTOR_IGNORED"),
+        ("ignored_nonce", "EVM_RPC_HASH_SELECTOR_IGNORED"),
         ("caller_contract", "EVM_RPC_CONTRACT_CALLER_UNSUPPORTED"),
         ("code", "EVM_RPC_CODE_CHANGED"),
         ("lock", "QUOTE_STATE_CHANGED"),

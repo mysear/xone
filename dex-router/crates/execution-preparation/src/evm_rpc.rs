@@ -456,6 +456,7 @@ async fn resolve(
     let control = json!({"blockHash":format!("0x{}",hex::encode(random)),"requireCanonical":true});
     for (method, params) in [
         ("eth_getBalance", json!([context.caller, control])),
+        ("eth_getTransactionCount", json!([context.caller, control])),
         ("eth_getCode", json!([executor.target, control])),
         (
             "eth_getStorageAt",

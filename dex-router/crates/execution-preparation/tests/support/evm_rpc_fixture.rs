@@ -170,7 +170,8 @@ async fn respond(State(s): State<Server>, Json(q): Json<Value>) -> Json<Value> {
     let ignore_selector = s.mode == "ignored_selector"
         || s.mode == "ignored_code" && method == "eth_getCode"
         || s.mode == "ignored_storage" && method == "eth_getStorageAt"
-        || s.mode == "ignored_call" && method == "eth_call";
+        || s.mode == "ignored_call" && method == "eth_call"
+        || s.mode == "ignored_nonce" && method == "eth_getTransactionCount";
     let result = if anchor.is_some_and(|p| p["blockHash"] != block) && !ignore_selector {
         return Json(
             json!({"jsonrpc":"2.0","id":q["id"],"error":{"code":-32000,"message":"unknown block"}}),

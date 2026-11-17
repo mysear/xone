@@ -44,7 +44,7 @@ state, and rechecks canonical block and live nonce after reading balances and
 allowance. Call count, aggregate response bytes and total duration are bounded;
 redirects, retries and number-based state-read fallbacks are disabled. Errors do
 not contain the provider URL or server error messages. An unpredictable unknown
-block control checks all four balance/code/storage/call selector methods.
+block control checks balance/nonce/code/storage/call selector methods.
 
 This produces `HASH_PINNED_RPC_OBSERVATION` evidence. It does not verify consensus,
 a current hardfork fee model, full L2 fees, or independent execution. The server

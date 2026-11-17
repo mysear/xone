@@ -119,5 +119,6 @@ pub(super) async fn prepare(
         "rpcObservations":capture.observations,"signed":false,"submitted":false,
         "independentExecutionVerified":false,"chainFeesComplete":false,"productionReady":false});
     result["preparationHash"] = hash(&result).map_err(failure)?.into();
+    current(&api, &view, &context).map_err(failure)?;
     Ok(Json(result))
 }

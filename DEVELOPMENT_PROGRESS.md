@@ -2664,7 +2664,7 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
-|F88.1|同块身份/完整状态/资金采集|WP04,WP14,WP15|IN_PROGRESS|实际chainId/genesis、Router/Factory/Pair/Token代码、完整getReserves/raw balances/cumulatives/unlocked与双向factory pair核对；未知hash负对照覆盖balance/code/storage/call；固定nonce与pending一致，读取后再次核对pending、canonical头和chainId。|
+|F88.1|同块身份/完整状态/资金采集|WP04,WP14,WP15|IN_PROGRESS|实际chainId/genesis、Router/Factory/Pair/Token代码、完整getReserves/raw balances/cumulatives/unlocked与双向factory pair核对；未知hash负对照覆盖balance/nonce/code/storage/call；固定nonce与pending一致，读取后再次核对pending、canonical头和chainId。|
 |F88.2|边界、预算与观察承诺|WP04,WP14,WP16|IN_PROGRESS|总调用次数/总wire/总期限、禁止重定向与重试、严格JSON重复键/数量/ABI，资金或授权不足无unsigned wire；调用参数/结果摘要进入RPC准备与API的QuoteView承诺，错误不输出URL或provider消息。|
 |F88.3|显式配置/API/前端|WP14,WP16,WP25|IN_PROGRESS|api.evm_preparation按chain配置一个RPC端点，认证限流/共享并发；POST /v1/quotes/{id}/prepare-evm支持既有单池ExactIn与简单路径ExactOut，前后QuoteView复核；前端展示EVM费用上限与下载，金额仍字符串。|
 |F88.4|原状态回放/故障与统一门禁|WP04,WP14,WP15,WP16,WP25|IN_PROGRESS|原固定V2代码/getter经loopback RPC测试；RPC故障/重组/nonce/余额/授权、配置与认证、重复JSON、QuoteView与Chrome 9项预检通过部分；正式源码/输入统一验证待完成。|
@@ -2674,3 +2674,5 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 本批结果是HASH_PINNED_RPC_OBSERVATION：nonce与代码/状态读取在同次采集中绑定，不能因此称为独立执行、完整当前费用、真实历史共识或生产准入。原始观察与component承诺均随结果提供，源码能力目录仍为21/61执行模板与38/61 ExactOut；quote-options额外明确按运行配置声明evmPreparation，不借用Solana准备或钱包接口。独立EVM状态DB/实际余额差、hardfork/L2费用、当前源资格与上层钱包签名广播仍继续开发，核心服务默认不持钥/不签名/不广播。
 
 阶段88首次统一运行主动停止并保留CANCELLED记录：前9门禁通过后，承诺结构复核发现把RPC字段追加到组件对象会使原组件摘要无法直接按原严格结构重算。实际浏览器导出文件已留反例；现把原组件完整嵌入RPC封装，API保留component与rpcPreparation两个可独立重算层，并补严格反序列化/原组件摘要/RPC摘要回归。总期限在网络后同步JSON/摘要工作完成时再次检查，避免同步阶段越过预算后发布。随后完整复验。
+
+阶段88方法覆盖复核补齐固定块eth_getTransactionCount的未知hash负对照及只忽略该方法selector的故障用例；API在最后编码/摘要后再次核对QuoteView与期限。前次运行保留CANCELLED，严格检查范围未缩减，重新冻结全部源码并完整复验。
