@@ -1983,3 +1983,13 @@ RemotePublication/RecoveryCatalog和recovery_target现在由两个Rust kafka-tra
 Go周期路径改为仅写公共Protobuf和远端元数据，避免每轮再复制旧本地JSON；手动POST仍返回旧JSON manifests兼容，旧手动JSON/底层KV不在public-v2预算内。status暴露local_budget，nil表示未启用。此为逻辑文件准入，非实际磁盘块/WAL/metadata/原子临时副本的空间预留；要求同namespace仅一个owner进程写入，不替代跨进程锁或远端总存储预算。自动保留策略后续接入，当前满额明确拒绝新发布。
 
 `make -C integration checkpoint-budget-current-check`验证精确边界、旧对象重试/新代拒绝、未知文件与目录/链接/取消，以及两正常owner配额不足无public写入/remote请求；两个Rust读取Go当轮实际对象和Usage/配置hash，原独立正常owner-router Kafka追平显式回归。
+
+## Go只读checkpoint保留计划
+
+阶段113。配置checkpoint_store.local_retention例如`{"keep_latest":2,"min_age_ms":3600000,"max_remove":2,"max_objects":32,"max_entries":256,"max_read_bytes":1048576}`。字段全部显式且验证有限上限；当前仅Go online预览实现，两个Rust compiler可读取相同Go配置并核对hash，但Rust owner/router/analytics启用会被CHECKPOINT_RETENTION_OWNER拒绝。
+
+认证GET /internal/chains/{chain}/checkpoint-retention-plan使用发布gate、整轮request_timeout_ms和Service关闭取消；先取得完整Bootstrap，结束再核对精确ref/cursor。读取现存public-v2而不写入，所有候选文件验证规范格式并保护其指向SHA（包括旧store），当前完整state内容SHA永远保护。对象只有原manifest/payload完整解码及本store回读证书都匹配才可进入年龄/keep_latest规则，未来writer/canonical/assignment/seq被保护且不挤占当前域最近备份数量。最小年龄同时要求链anchor与本地manifest均足够旧；按seq最旧先选且不超max_remove。
+
+计划返回applied=false、每对象保护/可选原因、selected、完整性覆盖、scanned_entries/read_bytes、namespace_sha256与plan_id。命名空间摘要口径FILE_METADATA_AND_VERIFIED_KNOWN_OBJECT_BYTES：已验证对象绑定完整原字节，未知/不完整/其他owner只metadata并保留；不能误称整个磁盘内容摘要。policy/当前owner/cursor/观察时刻一起参与planId。执行器必须另行重验owner、文件和范围，不能仅凭一个planId删除。
+
+`make -C integration checkpoint-retention-plan-current-check`覆盖6对象/2store候选、当前/最近2份保护/只选最旧2项、min-age/metadata变化、取消/各预算/损坏/符号链接，以及正常Go HTTP认证/只读/owner过期/关闭，无删除且无远端请求。2份Go policy配置经双Rust核对公有/经济摘要；实际回收、自动触发、崩溃恢复和Rust计划为后续工作。

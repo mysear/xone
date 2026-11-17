@@ -9,10 +9,11 @@ import (
 // CheckpointStore is an explicitly configured conditional-PUT HTTP object API.
 // Credentials use the exact base URL key in journal.source_auth_tokens.
 type CheckpointStore struct {
-	LocalBudget       *CheckpointBudget `json:"local_budget,omitempty"`
-	PublishIntervalMS uint64            `json:"publish_interval_ms,omitempty"`
-	BaseURL           string            `json:"base_url"`
-	AllowPlaintext    bool              `json:"allow_plaintext_development"`
+	LocalRetention    *CheckpointRetention `json:"local_retention,omitempty"`
+	LocalBudget       *CheckpointBudget    `json:"local_budget,omitempty"`
+	PublishIntervalMS uint64               `json:"publish_interval_ms,omitempty"`
+	BaseURL           string               `json:"base_url"`
+	AllowPlaintext    bool                 `json:"allow_plaintext_development"`
 }
 
 func (c *CheckpointStore) Validate() error {
@@ -20,6 +21,9 @@ func (c *CheckpointStore) Validate() error {
 		return nil
 	}
 	if e := c.LocalBudget.Validate(); e != nil {
+		return e
+	}
+	if e := c.LocalRetention.Validate(); e != nil {
 		return e
 	}
 	fail := errors.New("CHECKPOINT_STORE_CONFIG_INVALID")
@@ -83,6 +87,25 @@ func (c *CheckpointBudget) Validate() error {
 	}
 	if c.MaxBytes == 0 || c.MaxBytes > 1<<40 || c.MaxFiles == 0 || c.MaxFiles > 100000 || c.MaxEntries < c.MaxFiles || c.MaxEntries > 1000000 {
 		return errors.New("CHECKPOINT_LOCAL_BUDGET_CONFIG")
+	}
+	return nil
+}
+
+type CheckpointRetention struct {
+	KeepLatest   uint64 `json:"keep_latest"`
+	MinAgeMS     uint64 `json:"min_age_ms"`
+	MaxRemove    uint64 `json:"max_remove"`
+	MaxObjects   uint64 `json:"max_objects"`
+	MaxEntries   uint64 `json:"max_entries"`
+	MaxReadBytes uint64 `json:"max_read_bytes"`
+}
+
+func (c *CheckpointRetention) Validate() error {
+	if c == nil {
+		return nil
+	}
+	if c.KeepLatest < 2 || c.KeepLatest > 1000 || c.MinAgeMS == 0 || c.MinAgeMS > 31536000000 || c.MaxRemove == 0 || c.MaxRemove > 64 || c.MaxObjects < c.KeepLatest || c.MaxObjects > 4096 || c.MaxEntries < c.MaxObjects || c.MaxEntries > 100000 || c.MaxReadBytes == 0 || c.MaxReadBytes > 256<<20 {
+		return errors.New("CHECKPOINT_RETENTION_CONFIG")
 	}
 	return nil
 }

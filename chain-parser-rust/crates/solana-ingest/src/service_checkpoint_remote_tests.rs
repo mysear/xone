@@ -173,6 +173,7 @@ impl Fixture {
         })));
         let parser = super::tests::fixture_configured(|snapshot| {
             snapshot.config.journal.checkpoint_store = Some(xone_config::CheckpointStore {
+                local_retention: None,
                 local_budget: budget.clone(),
                 base_url: base.clone(),
                 allow_plaintext_development: true,

@@ -1995,3 +1995,19 @@ BINDINGS['9.public-checkpoint-local-budgets'] = {
            'service::checkpoint::periodic_tests::rust_periodic_checkpoint_local_budget_rejects_before_file_and_remote_io'],
  'evidence_refs': ['integration/artifacts/local/checkpoint-budget-check/report.json'],
 }
+
+BINDINGS['9.bounded-checkpoint-retention-plan'] = {
+ 'paths': ['chain-parser-go/internal/checkpoint/retention.go',
+           'chain-parser-go/internal/checkpoint/retention_test.go',
+           'chain-parser-go/internal/service/service.go',
+           'chain-parser-go/internal/service/checkpoint_worker_test.go',
+           'chain-parser-go/internal/config/checkpoint_store.go',
+           'integration/tools/acceptance/validate_checkpoint_retention_plan.py'],
+ 'tests': ['TestCheckpointRetentionPlanProtectsCurrentCandidatesAndNewestBackupsWithoutMutation',
+           'TestCheckpointRetentionPlanBindsOwnerAndNamespaceAndHonorsAgeAndLimits',
+           'TestCheckpointRetentionPlanRejectsCorruptCertificatesPayloadsAndCandidateLinks',
+           'TestNormalCheckpointRetentionPlanIsAuthenticatedReadOnlyAndOwnerBound',
+           'TestCheckpointRetentionPolicyIsBoundedAndGoOwnerOnly',
+           'current_go_checkpoint_retention_policies_and_hashes_match'],
+ 'evidence_refs': ['integration/artifacts/local/checkpoint-retention-plan-check/report.json'],
+}

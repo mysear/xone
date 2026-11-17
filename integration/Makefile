@@ -1145,3 +1145,7 @@ rust-owner-recovery-current-check:
 .PHONY: checkpoint-budget-current-check
 checkpoint-budget-current-check:
 	python3 tools/acceptance/validate_checkpoint_budget.py
+
+.PHONY: checkpoint-retention-plan-current-check
+checkpoint-retention-plan-current-check:
+	python3 tools/acceptance/validate_checkpoint_retention_plan.py

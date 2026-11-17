@@ -443,3 +443,68 @@ func TestCheckpointWorkerLocalBudgetRejectsBeforePublicDiskAndRemoteIO(t *testin
 		t.Fatal("manual rejection sent remote data")
 	}
 }
+
+func TestNormalCheckpointRetentionPlanIsAuthenticatedReadOnlyAndOwnerBound(t *testing.T) {
+	policy := config.CheckpointRetention{KeepLatest: 2, MinAgeMS: 3600000, MaxRemove: 2, MaxObjects: 32, MaxEntries: 256, MaxReadBytes: 1 << 20}
+	s, objects := checkpointWorkerServiceConfigured(t, 0, context.Background(), func(cfg *config.Snapshot) { cfg.Config.Journal.CheckpointStore.LocalRetention = &policy }, nil)
+	boot := workerBootstrap(t, s, 9007199254741081)
+	if w := workerRequest(s, context.Background(), "POST", "/internal/checkpoints"); w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	path := "/internal/chains/evm:31337/checkpoint-retention-plan"
+	req := httptest.NewRequest("GET", path, nil)
+	denied := httptest.NewRecorder()
+	s.Handler().ServeHTTP(denied, req)
+	if denied.Code != 401 {
+		t.Fatal(denied.Code)
+	}
+	objects.mu.Lock()
+	count := objects.requests
+	objects.mu.Unlock()
+	response := workerRequest(s, context.Background(), "GET", path)
+	if response.Code != 200 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	var plan checkpoint.RetentionPlan
+	if e := json.Unmarshal(response.Body.Bytes(), &plan); e != nil {
+		t.Fatal(e)
+	}
+	if plan.Applied || plan.PlanID == "" || plan.Reference != boot.Snapshot.Reference || plan.SelectedObjects != 0 || len(plan.Objects) != 1 || plan.Objects[0].Reason != "CURRENT_STATE" {
+		t.Fatal(plan)
+	}
+	if output := os.Getenv("XONE_CHECKPOINT_RETENTION_PLAN_OUTPUT"); output != "" {
+		if e := os.MkdirAll(output, 0700); e != nil {
+			t.Fatal(e)
+		}
+		raw, e := json.MarshalIndent(map[string]any{"plan": plan, "http_status": response.Code, "verification_scope": "NORMAL_GO_OWNER_AUTHENTICATED_READ_ONLY_RETENTION_PLAN"}, "", "  ")
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = os.WriteFile(filepath.Join(output, "normal-owner-retention-plan.json"), raw, 0600); e != nil {
+			t.Fatal(e)
+		}
+	}
+	again := workerRequest(s, context.Background(), "GET", path)
+	var repeat checkpoint.RetentionPlan
+	if again.Code != 200 || json.Unmarshal(again.Body.Bytes(), &repeat) != nil || repeat.NamespaceSHA256 != plan.NamespaceSHA256 {
+		t.Fatal(again.Code, again.Body.String())
+	}
+	objects.mu.Lock()
+	if objects.requests != count {
+		t.Fatal("retention preview accessed remote storage")
+	}
+	objects.mu.Unlock()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if rejected := workerRequest(s, ctx, "GET", path); rejected.Code != 503 {
+		t.Fatal(rejected.Code, rejected.Body.String())
+	}
+	s.stores["evm:31337"].SetAuthorityDeadline(time.Now().Add(-time.Second))
+	if expired := workerRequest(s, context.Background(), "GET", path); expired.Code != 503 {
+		t.Fatal("expired owner emitted deletion preview", expired.Code)
+	}
+	s.Close()
+	if closed := workerRequest(s, context.Background(), "GET", path); closed.Code != 503 {
+		t.Fatal(closed.Code)
+	}
+}

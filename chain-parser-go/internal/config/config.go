@@ -454,6 +454,10 @@ func Load(path, expected string) (*Snapshot, error) {
 	return &Snapshot{Config: cfg, Release: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), PublicHash: public, EconomicHash: economic, Root: root, Token: token, ControlDSN: controlDSN}, nil
 }
 func (c Config) Validate(expected string) error {
+	if store := c.Journal.CheckpointStore; store != nil && store.LocalRetention != nil && (expected != "chain-parser-go" || c.Service.Role != "online") {
+		return errors.New("CHECKPOINT_RETENTION_OWNER")
+	}
+
 	if err := c.Journal.CheckpointStore.Validate(); err != nil {
 		return err
 	}

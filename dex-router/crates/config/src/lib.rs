@@ -1,5 +1,5 @@
 mod checkpoint_store;
-pub use checkpoint_store::{CheckpointBudget, CheckpointStore};
+pub use checkpoint_store::{CheckpointBudget, CheckpointRetention, CheckpointStore};
 mod evm_preparation;
 pub use evm_preparation::EvmPreparationConfig;
 mod lfj;
@@ -774,6 +774,11 @@ impl Config {
         let j = &self.journal;
         if let Some(store) = &j.checkpoint_store {
             store.validate()?;
+            if store.local_retention.is_some()
+                && (expected != "chain-parser-go" || self.service.role != "online")
+            {
+                return Err(err("CHECKPOINT_RETENTION_OWNER"));
+            }
             if store.publish_interval_ms > 0
                 && ((expected != "chain-parser-go" && expected != "chain-parser-rust")
                     || self.service.role != "online")

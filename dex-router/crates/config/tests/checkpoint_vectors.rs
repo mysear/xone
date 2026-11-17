@@ -57,3 +57,32 @@ fn current_go_checkpoint_local_budget_configs_and_hashes_match() {
         assert_eq!(loaded.economic_hash, case["economic_hash"]);
     }
 }
+
+#[test]
+#[ignore = "requires the current Go read-only retention policy exports"]
+fn current_go_checkpoint_retention_policies_and_hashes_match() {
+    let directory = std::path::PathBuf::from(
+        std::env::var("XONE_CHECKPOINT_CONFIG_VECTORS_OUTPUT")
+            .expect("current Go retention policy exports required"),
+    );
+    let document: Value =
+        serde_json::from_slice(&std::fs::read(directory.join("retention-vectors.json")).unwrap())
+            .unwrap();
+    let cases = document["vectors"].as_array().unwrap();
+    assert_eq!(cases.len(), 2);
+    for case in cases {
+        let name = case["file"].as_str().unwrap();
+        assert!(
+            name.starts_with("retention-config-") && !name.contains('/') && !name.contains('\\')
+        );
+        let loaded = xone_config::load(directory.join(name), "chain-parser-go").unwrap();
+        assert_eq!(loaded.public_hash, case["public_hash"]);
+        assert_eq!(loaded.economic_hash, case["economic_hash"]);
+        let mut disabled = loaded.config.clone();
+        disabled.service.role = "analytics".into();
+        assert_eq!(
+            disabled.validate("chain-parser-go").unwrap_err().0,
+            "CHECKPOINT_RETENTION_OWNER"
+        );
+    }
+}

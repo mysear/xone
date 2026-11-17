@@ -234,3 +234,94 @@ func TestCheckpointLocalBudgetConfigAndIndependentHashes(t *testing.T) {
 		t.Fatal("budgets omitted from public hash")
 	}
 }
+
+func TestCheckpointRetentionPolicyIsBoundedAndGoOwnerOnly(t *testing.T) {
+	valid := CheckpointRetention{KeepLatest: 2, MinAgeMS: 3600000, MaxRemove: 2, MaxObjects: 32, MaxEntries: 256, MaxReadBytes: 1 << 20}
+	if e := valid.Validate(); e != nil {
+		t.Fatal(e)
+	}
+	for mode := 0; mode < 6; mode++ {
+		policy := valid
+		switch mode {
+		case 0:
+			policy.KeepLatest = 1
+		case 1:
+			policy.MinAgeMS = 0
+		case 2:
+			policy.MaxRemove = 65
+		case 3:
+			policy.MaxObjects = 1
+		case 4:
+			policy.MaxEntries = 1
+		case 5:
+			policy.MaxReadBytes = 256<<20 + 1
+		}
+		if policy.Validate() == nil {
+			t.Fatal(mode)
+		}
+	}
+	cfg, e := Load("../../config/config-test.yaml", "chain-parser-go")
+	if e != nil {
+		t.Fatal(e)
+	}
+	cfg.Config.Journal.CheckpointStore = &CheckpointStore{BaseURL: "https://objects.example/bucket", LocalRetention: &valid}
+	if e = cfg.Config.Validate("chain-parser-go"); e != nil {
+		t.Fatal(e)
+	}
+	for _, expected := range []string{"chain-parser-rust", "dex-router"} {
+		if e = cfg.Config.Validate(expected); e == nil || e.Error() != "CHECKPOINT_RETENTION_OWNER" {
+			t.Fatal(expected, e)
+		}
+	}
+	cfg.Config.Service.Role = "analytics"
+	if e = cfg.Config.Validate("chain-parser-go"); e == nil || e.Error() != "CHECKPOINT_RETENTION_OWNER" {
+		t.Fatal(e)
+	}
+}
+
+func TestCheckpointRetentionExportsSharedPolicyHashes(t *testing.T) {
+	raw, e := os.ReadFile("../../config/config-test.yaml")
+	if e != nil {
+		t.Fatal(e)
+	}
+	directory := os.Getenv("XONE_CHECKPOINT_CONFIG_VECTORS_OUTPUT")
+	if directory == "" {
+		directory = t.TempDir()
+	}
+	if e = os.MkdirAll(directory, 0700); e != nil {
+		t.Fatal(e)
+	}
+	var vectors []map[string]any
+	for i := 0; i < 2; i++ {
+		var doc map[string]any
+		if e = json.Unmarshal(raw, &doc); e != nil {
+			t.Fatal(e)
+		}
+		policy := &CheckpointRetention{KeepLatest: 2 + uint64(i), MinAgeMS: 3600000, MaxRemove: 2, MaxObjects: 32, MaxEntries: 256, MaxReadBytes: 1 << 20}
+		doc["journal"].(map[string]any)["checkpoint_store"] = &CheckpointStore{BaseURL: "https://objects.example/bucket", LocalRetention: policy}
+		encoded, e := json.Marshal(doc)
+		if e != nil {
+			t.Fatal(e)
+		}
+		name := "retention-config-" + string(rune('0'+i)) + ".json"
+		path := filepath.Join(directory, name)
+		if e = os.WriteFile(path, encoded, 0600); e != nil {
+			t.Fatal(e)
+		}
+		loaded, e := Load(path, "chain-parser-go")
+		if e != nil {
+			t.Fatal(e)
+		}
+		vectors = append(vectors, map[string]any{"file": name, "public_hash": loaded.PublicHash, "economic_hash": loaded.EconomicHash})
+	}
+	if vectors[0]["public_hash"] == vectors[1]["public_hash"] || vectors[0]["economic_hash"] != vectors[1]["economic_hash"] {
+		t.Fatal("retention policy not separated from economic identity")
+	}
+	encoded, e := json.MarshalIndent(map[string]any{"vectors": vectors}, "", "  ")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(filepath.Join(directory, "retention-vectors.json"), encoded, 0600); e != nil {
+		t.Fatal(e)
+	}
+}

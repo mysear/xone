@@ -5,6 +5,8 @@ use xone_domain::{err, Result};
 #[serde(deny_unknown_fields)]
 pub struct CheckpointStore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_retention: Option<CheckpointRetention>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub local_budget: Option<CheckpointBudget>,
     #[serde(default, skip_serializing_if = "zero")]
     pub publish_interval_ms: u64,
@@ -33,6 +35,36 @@ impl CheckpointBudget {
         Ok(())
     }
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CheckpointRetention {
+    pub keep_latest: u64,
+    pub min_age_ms: u64,
+    pub max_remove: u64,
+    pub max_objects: u64,
+    pub max_entries: u64,
+    pub max_read_bytes: u64,
+}
+impl CheckpointRetention {
+    pub fn validate(&self) -> Result<()> {
+        if self.keep_latest < 2
+            || self.keep_latest > 1000
+            || self.min_age_ms == 0
+            || self.min_age_ms > 31536000000
+            || self.max_remove == 0
+            || self.max_remove > 64
+            || self.max_objects < self.keep_latest
+            || self.max_objects > 4096
+            || self.max_entries < self.max_objects
+            || self.max_entries > 100000
+            || self.max_read_bytes == 0
+            || self.max_read_bytes > 256 << 20
+        {
+            return Err(err("CHECKPOINT_RETENTION_CONFIG"));
+        }
+        Ok(())
+    }
+}
 fn zero(n: &u64) -> bool {
     *n == 0
 }
@@ -40,6 +72,9 @@ impl CheckpointStore {
     pub fn validate(&self) -> Result<()> {
         if let Some(budget) = &self.local_budget {
             budget.validate()?;
+        }
+        if let Some(retention) = &self.local_retention {
+            retention.validate()?;
         }
         let fail = || err("CHECKPOINT_STORE_CONFIG_INVALID");
         if self.base_url.len() > 2048
@@ -119,6 +154,7 @@ mod tests {
             "http://127.0.0.1:8092/bucket",
         ] {
             cfg.journal.checkpoint_store = Some(CheckpointStore {
+                local_retention: None,
                 local_budget: None,
                 publish_interval_ms: 0,
                 base_url: url.into(),
@@ -141,6 +177,7 @@ mod tests {
             "http://127.0.0.10:8092",
         ] {
             cfg.journal.checkpoint_store = Some(CheckpointStore {
+                local_retention: None,
                 local_budget: None,
                 publish_interval_ms: 0,
                 base_url: url.into(),
@@ -149,6 +186,7 @@ mod tests {
             assert!(cfg.validate(&expected).is_err(), "{url}");
         }
         cfg.journal.checkpoint_store = Some(CheckpointStore {
+            local_retention: None,
             local_budget: None,
             publish_interval_ms: 0,
             base_url: "http://127.0.0.1:8092/bucket".into(),
@@ -205,6 +243,7 @@ mod tests {
         chain.pools.clear();
         cfg.chains = vec![chain];
         cfg.journal.checkpoint_store = Some(CheckpointStore {
+            local_retention: None,
             local_budget: None,
             base_url: "https://objects.example/bucket".into(),
             allow_plaintext_development: false,
@@ -269,5 +308,29 @@ mod tests {
         }
         .validate()
         .unwrap();
+    }
+    #[test]
+    fn checkpoint_retention_policy_requires_finite_safe_parameters() {
+        let valid = CheckpointRetention {
+            keep_latest: 2,
+            min_age_ms: 3600000,
+            max_remove: 2,
+            max_objects: 32,
+            max_entries: 256,
+            max_read_bytes: 1 << 20,
+        };
+        valid.validate().unwrap();
+        for mode in 0..6 {
+            let mut c = valid.clone();
+            match mode {
+                0 => c.keep_latest = 1,
+                1 => c.min_age_ms = 0,
+                2 => c.max_remove = 65,
+                3 => c.max_objects = 1,
+                4 => c.max_entries = 1,
+                _ => c.max_read_bytes = (256 << 20) + 1,
+            };
+            assert!(c.validate().is_err());
+        }
     }
 }

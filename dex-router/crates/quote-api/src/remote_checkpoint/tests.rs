@@ -165,6 +165,7 @@ pub(super) async fn fixture(boot: Bootstrap) -> Fixture {
     });
     let mut config = xone_config::load("../../config/config-test.yaml", "dex-router").unwrap();
     config.config.journal.checkpoint_store = Some(xone_config::CheckpointStore {
+        local_retention: None,
         local_budget: None,
         publish_interval_ms: 0,
         base_url: store.clone(),

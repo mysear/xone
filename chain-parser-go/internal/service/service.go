@@ -736,6 +736,59 @@ func (s *Service) Handler() http.Handler {
 			return nil
 		}()})
 	})
+	mux.HandleFunc("GET /internal/chains/{chain}/checkpoint-retention-plan", func(w http.ResponseWriter, r *http.Request) {
+		c := s.cfg.Config.Journal.CheckpointStore
+		store := s.stores[r.PathValue("chain")]
+		if s.closed.Load() || c == nil || c.LocalRetention == nil || store == nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_RETENTION_UNAVAILABLE"})
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
+		defer cancel()
+		stop := context.AfterFunc(s.checkpointContext, cancel)
+		defer stop()
+		select {
+		case <-ctx.Done():
+			write(w, 503, map[string]string{"error": "CHECKPOINT_RETENTION_CANCELLED"})
+			return
+		case s.checkpointGate <- struct{}{}:
+		}
+		defer func() { <-s.checkpointGate }()
+		boot, e := store.Bootstrap()
+		if e != nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_RETENTION_NOT_READY"})
+			return
+		}
+		guard := func() error {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if s.closed.Load() {
+				return errors.New("CHECKPOINT_OWNER_CLOSED")
+			}
+			reference, cursor, e := store.BootstrapHead()
+			if e != nil {
+				return e
+			}
+			if reference != boot.Snapshot.Reference || cursor != boot.Cursor {
+				return errors.New("CHECKPOINT_RETENTION_SOURCE_CHANGED")
+			}
+			return nil
+		}
+		remote, e := checkpoint.NewRemote(*c, s.cfg.Config.Journal.SourceAuthTokens[c.BaseURL], s.cfg.Config.Journal.MaxBytes, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
+		if e != nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_REMOTE_CONFIG"})
+			return
+		}
+		defer remote.Close()
+		dir := filepath.Join(s.cfg.Resolve(s.cfg.Config.State.Path), "checkpoints", strings.ReplaceAll(r.PathValue("chain"), ":", "-"))
+		plan, e := remote.PlanRetention(dir, boot, *c.LocalRetention, time.Now(), guard)
+		if e != nil {
+			write(w, 503, map[string]string{"error": "CHECKPOINT_RETENTION_PLAN_REJECTED"})
+			return
+		}
+		write(w, 200, plan)
+	})
 	mux.HandleFunc("POST /internal/checkpoints", func(w http.ResponseWriter, r *http.Request) {
 		result, code := s.publishCheckpoints(r.Context())
 		if code != "" {
