@@ -48,7 +48,7 @@ export function evmPreparationPools(quote, chain) {
   if (!quote?.chainKey?.startsWith('evm:') || quote.chainKey !== chain?.chainKey || quote.routes?.length !== 1) return [];
   const path = quote.routes[0].path || quote.routes[0];
   const edges = path.edges || [];
-  if (!edges.length || edges.length > 8 || (edges.length > 1 && quote.kind !== 'EXACT_OUT') || new Set(edges.map(e => e.pool_id)).size !== edges.length) return [];
+  if (!edges.length || edges.length > 8 || new Set(edges.map(e => e.pool_id)).size !== edges.length) return [];
   const pools = edges.map(e => (chain.pools || []).find(p => p.available && p.poolId === e.pool_id && p.protocol === e.protocol && p.execution?.evmPreparation));
   return pools.every(Boolean) ? pools : [];
 }

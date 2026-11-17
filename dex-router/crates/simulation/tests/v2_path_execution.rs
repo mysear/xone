@@ -433,3 +433,206 @@ fn exact_out_every_hop_bank_identity_code_state_and_shared_budgets_are_checked()
         assert_eq!(e.code, SimulationErrorCode::SimulationBudgetExceeded);
     }
 }
+
+fn input_bound(c: &Value) -> (xone_execution_plan::BoundEvmExecution, Vec<Pool>) {
+    let (output, pools) = bound(c);
+    let amount: Amount = c["amount_in"].as_str().unwrap().parse().unwrap();
+    let route = &output.plan.allocation.routes[0];
+    let allocation = xone_optimizer::evaluate_allocation(
+        &pools,
+        &[xone_optimizer::AllocatedRoute {
+            path: xone_routing::PathQuote {
+                edges: route.edges.clone(),
+                tokens: route.tokens.clone(),
+                amount_in: amount.clone(),
+                amount_out: Amount::zero(),
+            },
+            amount_in: amount,
+            amount_out: Amount::zero(),
+        }],
+        &Amount::zero(),
+    )
+    .unwrap();
+    let plan = xone_execution_plan::build(
+        &output.plan.context,
+        &allocation,
+        &output.plan.snapshot,
+        "original-input-path-bank",
+    )
+    .unwrap();
+    let b = xone_execution_plan::bind_v2_execution(
+        &plan,
+        &pools,
+        &output.executor,
+        std::slice::from_ref(&output.executor.target),
+    )
+    .unwrap();
+    (b, pools)
+}
+#[test]
+fn exact_in_six_original_simple_paths_bind_prepare_and_execute_mined_wire() {
+    use xone_simulation::prepared_evm::{simulate_prepared, PreparedExecution};
+    let mut count = 0;
+    for c in corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["kind"] == "EXACT_IN")
+    {
+        let (b, p) = input_bound(c);
+        let (shadow, _) = bound(c);
+        let f = fixture(c);
+        let tx: TransactionContext =
+            serde_json::from_value(c["transaction_context"].clone()).unwrap();
+        assert_eq!(b.transaction.data, c["transaction"]["data"]);
+        let out = simulate_bound(
+            &b,
+            &p,
+            std::slice::from_ref(&b.executor.target),
+            &f,
+            &tx,
+            &budget(),
+            Default::default(),
+        )
+        .unwrap();
+        assert!(out.matches_plan);
+        assert_eq!(
+            out.execution.gas_used.to_string(),
+            c["expected"]["gas_used"]
+        );
+        assert_eq!(
+            out.actual_input_consumed.to_string(),
+            c["expected"]["actual_input"]
+        );
+        assert_eq!(
+            out.actual_buy_amount.to_string(),
+            c["expected"]["actual_output"]
+        );
+        for id in &b.touched_pool_ids {
+            assert!(out
+                .observations
+                .iter()
+                .any(|o| &o.target == id && o.phase == "pair_reserves_after"));
+        }
+        let observed = funding(c, &shadow);
+        let fees = FeeContext {
+            chain_id: tx.chain_id,
+            nonce: tx.nonce,
+            gas_limit: tx.gas_limit,
+            max_fee_per_gas: tx.gas_price.clone(),
+            max_priority_fee_per_gas: tx.gas_price.clone(),
+            max_network_fee: Amount::checked(&tx.gas_price.0 * tx.gas_limit).unwrap(),
+        };
+        let component = xone_execution_preparation::evm::prepare(
+            &b,
+            &p,
+            std::slice::from_ref(&b.executor.target),
+            &observed,
+            &fees,
+            f.execution_environment.timestamp * 1000,
+        )
+        .unwrap();
+        let prepared = simulate_prepared(
+            PreparedExecution {
+                bound: &b,
+                pools: &p,
+                allowed_targets: std::slice::from_ref(&b.executor.target),
+                funding: &observed,
+                fees: &fees,
+                preparation: &component,
+            },
+            &f,
+            &budget(),
+            Default::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            prepared.simulation.execution.post_state_digest,
+            out.execution.post_state_digest
+        );
+        assert_eq!(prepared.simulation.actual_buy_amount, out.actual_buy_amount);
+        count += 1;
+    }
+    assert_eq!(count, 6);
+}
+#[test]
+fn exact_in_path_rehashed_cycles_wrong_endpoints_and_later_hop_identities_reject() {
+    let c = corpus()["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["kind"] == "EXACT_IN" && c["path"].as_array().unwrap().len() == 4)
+        .unwrap();
+    let (b, p) = input_bound(c);
+    for mode in 0..9 {
+        let mut plan = b.plan.clone();
+        let mut pools = p.clone();
+        match mode {
+            0 => {
+                plan.allocation.routes[0].path.tokens[1] =
+                    plan.allocation.routes[0].path.tokens[0].clone()
+            }
+            1 => {
+                plan.allocation.routes[0].path.edges[1].pool_id =
+                    plan.allocation.routes[0].path.edges[0].pool_id.clone()
+            }
+            2 => {
+                plan.allocation.routes[0].path.edges[2].zero_for_one =
+                    !plan.allocation.routes[0].path.edges[2].zero_for_one
+            }
+            3 => plan.allocation.routes[0].path.edges[1].to = b.plan.context.sell_token.clone(),
+            4 => plan.allocation.routes[0]
+                .path
+                .tokens
+                .pop()
+                .map(|_| ())
+                .unwrap(),
+            5 => {
+                pools
+                    .iter_mut()
+                    .find(|pool| pool.pool_id == b.touched_pool_ids[1])
+                    .unwrap()
+                    .v2
+                    .as_mut()
+                    .unwrap()
+                    .factory = b.plan.context.caller.clone()
+            }
+            6 => {
+                pools
+                    .iter_mut()
+                    .find(|pool| pool.pool_id == b.touched_pool_ids[2])
+                    .unwrap()
+                    .v2
+                    .as_mut()
+                    .unwrap()
+                    .swap
+                    .as_mut()
+                    .unwrap()
+                    .bank_block_hash = format!("0x{}", "ff".repeat(32))
+            }
+            7 => {
+                pools
+                    .iter_mut()
+                    .find(|pool| pool.pool_id == b.touched_pool_ids[1])
+                    .unwrap()
+                    .token_behavior = "transfer-fee".into()
+            }
+            _ => plan.allocation.routes[0].amount_out = Amount::zero(),
+        }
+        plan.plan_hash=hash(&serde_json::json!({"context":plan.context,"snapshot":plan.snapshot,
+            "allocation":plan.allocation,"min_buy_amount":plan.min_buy_amount,"economic_policy_hash":plan.economic_policy_hash})).unwrap();
+        if mode != 8 {
+            xone_execution_plan::verify_plan_hash(&plan).unwrap();
+        }
+        assert!(
+            xone_execution_plan::bind_v2_execution(
+                &plan,
+                &pools,
+                &b.executor,
+                std::slice::from_ref(&b.executor.target)
+            )
+            .is_err(),
+            "{mode}"
+        );
+    }
+}

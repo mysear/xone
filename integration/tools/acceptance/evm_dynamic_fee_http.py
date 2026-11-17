@@ -26,7 +26,7 @@ def sha(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def run(binary, output, *, exact_out=False):
+def run(binary, output, *, exact_out=False, path_case=None):
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     binary = binary.resolve(strict=True)
@@ -37,7 +37,10 @@ def run(binary, output, *, exact_out=False):
         require(sha(staged) == digest == sha(binary), 'Harness changed while staging')
         info_path = output / 'info.json'
         with (output / 'process.log').open('wb') as log:
-            process = subprocess.Popen([str(staged), str(info_path)], cwd=ROOT,
+            env = dict(os.environ)
+            env.pop('XONE_EVM_PATH_CASE', None)
+            if path_case is not None: env['XONE_EVM_PATH_CASE'] = path_case
+            process = subprocess.Popen([str(staged), str(info_path)], cwd=ROOT, env=env,
                                        stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             try:
                 deadline = time.monotonic() + 30
@@ -116,7 +119,7 @@ def run(binary, output, *, exact_out=False):
                             'ExactOut evidence overwrote quote or omitted simulation')
                     (output/'evidence.json').write_text(json.dumps(evidence,indent=2)+'\n')
                 report = dict(passed=True, harness_sha256=digest, actual_worker_executions=1,
-                              quote_kind='EXACT_OUT' if exact_out else 'EXACT_IN',
+                              quote_kind='EXACT_OUT' if exact_out else 'EXACT_IN', path_case=path_case,
                               gas_used=gas, effective_gas_price=str(effective), max_fee_per_gas=str(maximum),
                               actual_fee=str(gas*effective), overstatement_prevented=str(gas*(maximum-effective)),
                               publicTransactionsSubmitted=False, production_ready=False,

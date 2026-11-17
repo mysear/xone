@@ -40,7 +40,7 @@ test('EVM preparation requires every exact route pool and keeps fee budgets in s
  assert.deepEqual(evmPreparationPools({...quote,chainKey:'evm:2'},chain),[]);
  assert.deepEqual(evmPreparationPools(quote,{...chain,pools:[{...pool,execution:{}}]}),[]);
  const second={...pool,poolId:'b'};const multi={...quote,routes:[{edges:[edge,{...edge,pool_id:'b'}]}]};
- assert.deepEqual(evmPreparationPools(multi,{...chain,pools:[pool,second]}),[]);
+ assert.deepEqual(evmPreparationPools(multi,{...chain,pools:[pool,second]}),[pool,second]);
  assert.deepEqual(evmPreparationPools({...multi,kind:'EXACT_OUT'},{...chain,pools:[pool,second]}),[pool,second]);
  assert.deepEqual(evmFeeRequest('500000','3000000000','1000000000','1500000000000000'),{gas_limit:'500000',max_fee_per_gas:'3000000000',max_priority_fee_per_gas:'1000000000',max_network_fee:'1500000000000000'});
  assert.deepEqual(evmFeeRequest('21000','0','0','0'),{gas_limit:'21000',max_fee_per_gas:'0',max_priority_fee_per_gas:'0',max_network_fee:'0'});

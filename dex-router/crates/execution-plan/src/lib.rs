@@ -117,9 +117,15 @@ pub fn evm_transaction(plan: &Plan, target: &str, allowlist: &[String]) -> Resul
     let route = &plan.allocation.routes[0];
     let legacy =
         !route.path.edges.is_empty() && route.path.edges.iter().all(|e| e.protocol == "uniswap-v2");
-    let complete = route.path.edges.len() == 1
-        && route.path.tokens.len() == 2
-        && route.path.edges[0].protocol == xone_domain::v2_swap::PROFILE;
+    let complete = !route.path.edges.is_empty()
+        && route
+            .path
+            .edges
+            .iter()
+            .all(|edge| edge.protocol == xone_domain::v2_swap::PROFILE);
+    if route.path.edges.len() > 8 || route.path.tokens.len() != route.path.edges.len() + 1 {
+        return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
+    }
     if !(legacy || complete) {
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
     }

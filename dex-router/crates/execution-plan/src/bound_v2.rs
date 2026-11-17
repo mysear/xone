@@ -54,7 +54,7 @@ pub(super) fn code_hash(value: &str) -> Result<()> {
     Ok(())
 }
 
-/// Bind one exact-input, one-hop Uniswap V2 standard ERC20 swap with zero ETH.
+/// Bind one ordered, simple-path Uniswap V2 standard ERC20 swap with zero ETH.
 /// `pools` must contain the complete snapshot scope. Quote math is recomputed only
 /// as an internal consistency check; it supplies no independent execution evidence.
 /// Current-time freshness and actual code/account identity are backend obligations.
@@ -123,62 +123,93 @@ pub fn bind_v2_execution(
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
     }
     let route = &allocation.routes[0];
-    if route.path.edges.len() != 1 || route.path.tokens.len() != 2 {
-        return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
-    }
-    let edge = &route.path.edges[0];
-    let pool = pools
-        .iter()
-        .find(|p| p.pool_id == edge.pool_id)
-        .ok_or_else(|| err("MISSING_POOL"))?;
-    let complete = pool.protocol == xone_domain::v2_swap::PROFILE
-        && pool.adapter_version == xone_domain::v2_swap::ADAPTER;
-    let legacy = pool.protocol == "uniswap-v2" && pool.adapter_version == "uniswap-v2/1";
-    if !(legacy || complete)
-        || edge.protocol != pool.protocol
-        || pool.token_behavior != "standard"
-        || pool.fee_numerator != 3
-        || pool.fee_denominator != 1000
+    if route.path.edges.is_empty()
+        || route.path.edges.len() > 8
+        || route.path.tokens.len() != route.path.edges.len() + 1
+        || route.path.tokens.first() != Some(&context.sell_token)
+        || route.path.tokens.last() != Some(&context.buy_token)
+        || route.path.tokens.iter().collect::<BTreeSet<_>>().len() != route.path.tokens.len()
+        || route
+            .path
+            .edges
+            .iter()
+            .map(|e| &e.pool_id)
+            .collect::<BTreeSet<_>>()
+            .len()
+            != route.path.edges.len()
     {
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
     }
-    for address in [&pool.pool_id, &pool.token0, &pool.token1] {
-        nonzero_address(address)?;
-    }
-    let identity = pool
-        .v2
-        .as_ref()
-        .ok_or_else(|| err("V2_IDENTITY_REQUIRED"))?;
-    nonzero_address(&identity.factory)?;
-    code_hash(&identity.code_sha256)?;
-    if complete {
-        let swap = identity
-            .swap
-            .as_ref()
-            .ok_or_else(|| err("V2_SWAP_STATE_REQUIRED"))?;
-        if identity.code_sha256 != xone_domain::v2_swap::PAIR_CODE_SHA256
-            || swap.factory_code_sha256 != xone_domain::v2_swap::FACTORY_CODE_SHA256
-            || swap.factory_code_sha256 != executor.factory_code_sha256
+    let mut touched_pool_ids = Vec::new();
+    for (index, edge) in route.path.edges.iter().enumerate() {
+        let pool = pools
+            .iter()
+            .find(|p| p.pool_id == edge.pool_id)
+            .ok_or_else(|| err("MISSING_POOL"))?;
+        let complete = pool.protocol == xone_domain::v2_swap::PROFILE
+            && pool.adapter_version == xone_domain::v2_swap::ADAPTER;
+        let legacy = pool.protocol == "uniswap-v2" && pool.adapter_version == "uniswap-v2/1";
+        if !(legacy || complete)
+            || edge.protocol != pool.protocol
+            || pool.token_behavior != "standard"
+            || pool.fee_numerator != 3
+            || pool.fee_denominator != 1000
         {
-            return Err(err("EXECUTION_FACTORY_CODE_MISMATCH"));
+            return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
         }
-    }
-    if identity.factory != executor.factory {
-        return Err(err("EXECUTION_FACTORY_MISMATCH"));
-    }
-    let (sell, buy) = if edge.zero_for_one {
-        (&pool.token0, &pool.token1)
-    } else {
-        (&pool.token1, &pool.token0)
-    };
-    if &context.sell_token != sell
-        || &context.buy_token != buy
-        || &route.path.tokens[0] != sell
-        || &route.path.tokens[1] != buy
-        || &edge.to != buy
-        || edge.from_token.as_ref().is_some_and(|from| from != sell)
-    {
-        return Err(err("EXECUTION_PATH_MISMATCH"));
+        for address in [&pool.pool_id, &pool.token0, &pool.token1] {
+            nonzero_address(address)?;
+        }
+        let identity = pool
+            .v2
+            .as_ref()
+            .ok_or_else(|| err("V2_IDENTITY_REQUIRED"))?;
+        nonzero_address(&identity.factory)?;
+        code_hash(&identity.code_sha256)?;
+        if complete {
+            let swap = identity
+                .swap
+                .as_ref()
+                .ok_or_else(|| err("V2_SWAP_STATE_REQUIRED"))?;
+            if identity.code_sha256 != xone_domain::v2_swap::PAIR_CODE_SHA256
+                || swap.factory_code_sha256 != xone_domain::v2_swap::FACTORY_CODE_SHA256
+                || swap.factory_code_sha256 != executor.factory_code_sha256
+            {
+                return Err(err("EXECUTION_FACTORY_CODE_MISMATCH"));
+            }
+        }
+        if route.path.edges.len() > 1 && !complete {
+            return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
+        }
+        if complete {
+            let bank = identity
+                .swap
+                .as_ref()
+                .ok_or_else(|| err("V2_SWAP_STATE_REQUIRED"))?;
+            if bank.bank_block_number != plan.snapshot.block.number_or_slot
+                || bank.bank_block_hash != plan.snapshot.block.hash
+                || bank.bank_unix_timestamp.checked_mul(1000)
+                    != Some(plan.snapshot.block.timestamp_ms)
+            {
+                return Err(err("PREPARATION_EVM_POOL_SOURCE"));
+            }
+        }
+        if identity.factory != executor.factory {
+            return Err(err("EXECUTION_FACTORY_MISMATCH"));
+        }
+        let (sell, buy) = if edge.zero_for_one {
+            (&pool.token0, &pool.token1)
+        } else {
+            (&pool.token1, &pool.token0)
+        };
+        if &route.path.tokens[index] != sell
+            || &route.path.tokens[index + 1] != buy
+            || &edge.to != buy
+            || edge.from_token.as_ref().is_some_and(|from| from != sell)
+        {
+            return Err(err("EXECUTION_PATH_MISMATCH"));
+        }
+        touched_pool_ids.push(pool.pool_id.clone());
     }
     if allocation.sell_amount == Amount::zero()
         || allocation.refund != Amount::zero()
@@ -192,7 +223,9 @@ pub fn bind_v2_execution(
     // Routing's legacy two-token evaluator expects an absent from_token. Its value
     // was checked above; normalize only that redundant field for mathematical replay.
     let mut routes = allocation.routes.clone();
-    routes[0].path.edges[0].from_token = None;
+    for edge in &mut routes[0].path.edges {
+        edge.from_token = None;
+    }
     let expected = evaluate_allocation(pools, &routes, &Amount::zero())?;
     if expected.sell_amount != allocation.sell_amount
         || expected.gross_buy_amount != allocation.gross_buy_amount
@@ -206,7 +239,7 @@ pub fn bind_v2_execution(
         plan: plan.clone(),
         executor: executor.clone(),
         transaction: evm_transaction(plan, &executor.target, allowlist)?,
-        touched_pool_ids: vec![pool.pool_id.clone()],
+        touched_pool_ids,
         pool_state_hash: hash(&ordered_pools)?,
         binding_hash: String::new(),
     };

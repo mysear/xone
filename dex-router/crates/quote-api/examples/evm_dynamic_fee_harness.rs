@@ -19,7 +19,42 @@ async fn main() {
     assert_eq!(args.len(), 2, "INFO_PATH");
     let info_path = std::path::Path::new(&args[1]);
     let bundle_path = info_path.with_extension("state.json");
-    let (bound, pools, rpc, original) = bank::fixture();
+    let (bound, mut pools, mut rpc, mut original) = bank::fixture();
+    let mut context = bound.plan.context;
+    let mut reference = bound.plan.snapshot;
+    let mut sell_amount = bound.plan.allocation.sell_amount;
+    let mut buy_amount = bound.plan.allocation.gross_buy_amount;
+    if let Ok(case_id) = std::env::var("XONE_EVM_PATH_CASE") {
+        let doc: Value = serde_json::from_str(include_str!(
+            "../../../test/contracts/v2-path-execution.json"
+        ))
+        .unwrap();
+        let c = doc["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == case_id)
+            .expect("declared path case");
+        let f = &c["fixture"];
+        original = f.clone();
+        original["transaction_context"] = c["transaction_context"].clone();
+        pools = serde_json::from_value(c["pools"].clone()).unwrap();
+        rpc.executor = serde_json::from_value(c["executor"].clone()).unwrap();
+        rpc.genesis_hash = f["state_anchor"]["genesis_hash"].as_str().unwrap().into();
+        context.caller = c["transaction"]["from"].as_str().unwrap().into();
+        context.recipient = c["recipient"].as_str().unwrap().into();
+        let tokens = c["path"].as_array().unwrap();
+        context.sell_token = tokens[0].as_str().unwrap().into();
+        context.buy_token = tokens.last().unwrap().as_str().unwrap().into();
+        sell_amount = c["amount_in"].as_str().unwrap().parse().unwrap();
+        buy_amount = c["amount_out"].as_str().unwrap().parse().unwrap();
+        reference.block.number_or_slot = f["state_anchor"]["block_number"].as_u64().unwrap();
+        reference.block.hash = f["state_anchor"]["block_hash"].as_str().unwrap().into();
+        reference.block.parent_hash = f["state_anchor"]["parent_hash"].as_str().unwrap().into();
+        reference.block.timestamp_ms = f["state_anchor"]["timestamp"].as_u64().unwrap() * 1000;
+        reference.scope_hash = xone_domain::scope_hash(&pools).unwrap();
+        reference.adapter_set_hash = hash(&vec![xone_domain::v2_swap::ADAPTER]).unwrap();
+    }
     let fixture: FixtureState = serde_json::from_value(json!({
         "schema_version":1,"state_anchor":original["state_anchor"],
         "execution_environment":original["execution_environment"],"accounts":original["accounts"],"block_hashes":[]
@@ -58,18 +93,18 @@ async fn main() {
     config.config.api.quote_timeout_ms = 15000;
     config.config.routing.quote_ttl_ms = 60000;
     config.config.routing.max_splits = 1;
-    let request = json!({"chainKey":bound.plan.context.chain_key,"kind":"EXACT_IN",
-        "sellToken":bound.plan.context.sell_token,"buyToken":bound.plan.context.buy_token,
-        "sellAmount":bound.plan.allocation.sell_amount,"caller":bound.plan.context.caller,
-        "recipient":bound.plan.context.recipient,"slippageBps":50,"verification":"FAST"});
-    let exact_out_request = json!({"chainKey":bound.plan.context.chain_key,"kind":"EXACT_OUT",
-        "sellToken":bound.plan.context.sell_token,"buyToken":bound.plan.context.buy_token,
-        "buyAmount":bound.plan.allocation.gross_buy_amount,
-        "maxSellAmount":xone_domain::Amount::checked(&bound.plan.allocation.sell_amount.0*2u64).unwrap(),
-        "caller":bound.plan.context.caller,"recipient":bound.plan.context.recipient,
+    let request = json!({"chainKey":context.chain_key,"kind":"EXACT_IN",
+        "sellToken":context.sell_token,"buyToken":context.buy_token,
+        "sellAmount":sell_amount,"caller":context.caller,
+        "recipient":context.recipient,"slippageBps":50,"verification":"FAST"});
+    let exact_out_request = json!({"chainKey":context.chain_key,"kind":"EXACT_OUT",
+        "sellToken":context.sell_token,"buyToken":context.buy_token,
+        "buyAmount":buy_amount,
+        "maxSellAmount":xone_domain::Amount::checked(&sell_amount.0*2u64).unwrap(),
+        "caller":context.caller,"recipient":context.recipient,
         "slippageBps":50,"verification":"FAST"});
     let snapshot = Snapshot {
-        reference: bound.plan.snapshot,
+        reference,
         pools,
         source: "RETAINED_ORIGINAL_ROUTER_PROVIDED_BANK".into(),
         history_gaps: vec![],

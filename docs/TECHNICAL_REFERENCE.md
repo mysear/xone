@@ -1875,3 +1875,5 @@ SBF运行时程序映像的宿主生命周期：构造线程只保留至多两�
 配置`revm-fixture`后，普通`POST /v1/quotes/{quoteId}/simulate`支持已缓存的EVM单池ExactOut计划。worker使用独立`exact_out_bound`，与旧`bound`恰好二选一，接口不允许请求覆盖目标模式、交易或费用。返回`quoteKind=EXACT_OUT`，保留原plan/snapshot、actual input、target收款、未用编码预算及实际native费；`/internal/quotes/{id}/evidence`保存原报价与独立模拟证据。ExactOut共享原worker资源、取消和期限，缓存证据发布前/写入时复核失效；`VERIFIED`、build和生产准入继续按各自条件拒绝。
 
 原Router02 ExactOut独立执行扩展到已有完整绑定所支持的无重复token/物理池简单路径。VM对每个touched pool分别核对源码/银行/getter/锁并观察swap后状态，使用一次真实交易和共享预算；最多8hop仍由绑定层限制，原交易差分现覆盖1–3hop双向。来源继续为显式提供的完整声明银行；旧ExactIn多池绑定需另行实现，不能只删除校验放行。
+
+`bind_v2_execution`的完整V2 ExactIn分支支持1–8hop简单路径：每步校验Pool/Factory/源码/源bank及token方向，token和物理池不重复，重新计算全部分配并按顺序绑定所有touched池。多hop不混用旧reserve-only版本；拆单/共享DAG需要独立执行模板。正常prepare-evm/本地worker沿用同一绑定，界面准备判断允许双模式单路径多hop，未准入池和重复池保持拒绝。

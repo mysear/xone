@@ -1767,3 +1767,15 @@ BINDINGS['14.evm-path-execution'] = {
            'exact_out_every_hop_bank_identity_code_state_and_shared_budgets_are_checked'],
  'evidence_refs': ['integration/artifacts/local/evm-path-execution-check/report.json'],
 }
+
+BINDINGS['14.evm-input-paths'] = {
+ 'paths': ['dex-router/crates/execution-plan/src/bound_v2.rs',
+           'dex-router/crates/execution-plan/src/lib.rs',
+           'dex-router/crates/simulation/tests/v2_path_execution.rs',
+           'dex-router/crates/quote-api/examples/evm_dynamic_fee_harness.rs',
+           'integration/tools/acceptance/validate_evm_input_paths.py',
+           'frontend/src/model.js'],
+ 'tests': ['exact_in_six_original_simple_paths_bind_prepare_and_execute_mined_wire',
+           'exact_in_path_rehashed_cycles_wrong_endpoints_and_later_hop_identities_reject'],
+ 'evidence_refs': ['integration/artifacts/local/evm-input-path-check/report.json'],
+}
