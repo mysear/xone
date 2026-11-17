@@ -62,11 +62,19 @@ type retentionObject struct {
 // PlanRetention is read-only. It binds observed file bytes and current owner state;
 // an executor must recheck both rather than treating this plan as deletion authority.
 func (r *Remote) PlanRetention(dir string, boot journal.Bootstrap, policy config.CheckpointRetention, observed time.Time, guard func() error) (RetentionPlan, error) {
+	return r.planRetention(dir, boot, policy, observed, guard, 0, 0)
+}
+func (r *Remote) planRetention(dir string, boot journal.Bootstrap, policy config.CheckpointRetention, observed time.Time, guard func() error, spentRead, spentEntries uint64) (RetentionPlan, error) {
 	var plan RetentionPlan
 	fail := func(e error) (RetentionPlan, error) { return RetentionPlan{}, e }
 	if e := policy.Validate(); e != nil {
 		return fail(e)
 	}
+	if spentRead > policy.MaxReadBytes || spentEntries > policy.MaxEntries {
+		return fail(errors.New("CHECKPOINT_RETENTION_BUDGET"))
+	}
+	availableRead := policy.MaxReadBytes - spentRead
+	availableEntries := policy.MaxEntries - spentEntries
 	check := func() error {
 		if guard != nil {
 			return guard()
@@ -102,14 +110,14 @@ func (r *Remote) PlanRetention(dir string, boot journal.Bootstrap, policy config
 		if e := check(); e != nil {
 			return nil, e
 		}
-		if size < 0 || size > maximum || uint64(size) > policy.MaxReadBytes-readBytes {
+		if size < 0 || size > maximum || uint64(size) > availableRead-readBytes {
 			return nil, errors.New("CHECKPOINT_RETENTION_READ_BUDGET")
 		}
 		raw, e := readRegular(root, name, maximum)
 		if e != nil {
 			return nil, e
 		}
-		if uint64(len(raw)) > policy.MaxReadBytes-readBytes {
+		if uint64(len(raw)) > availableRead-readBytes {
 			return nil, errors.New("CHECKPOINT_RETENTION_READ_BUDGET")
 		}
 		readBytes += uint64(len(raw))
@@ -134,7 +142,7 @@ func (r *Remote) PlanRetention(dir string, boot journal.Bootstrap, policy config
 				return nil, e
 			}
 			entries++
-			if entries > policy.MaxEntries {
+			if entries > availableEntries {
 				return nil, errors.New("CHECKPOINT_RETENTION_SCAN_BUDGET")
 			}
 			name := next[0].Name()

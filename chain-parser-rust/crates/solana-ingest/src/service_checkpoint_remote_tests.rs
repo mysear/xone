@@ -75,6 +75,8 @@ impl Fixture {
             "",
             None,
             Some(xone_config::CheckpointRetention {
+                reclaim_enabled: false,
+                plan_ttl_ms: 0,
                 keep_latest: 2,
                 min_age_ms: 3600000,
                 max_remove: 2,

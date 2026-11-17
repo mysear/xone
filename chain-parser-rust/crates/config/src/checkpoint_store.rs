@@ -38,6 +38,10 @@ impl CheckpointBudget {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CheckpointRetention {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reclaim_enabled: bool,
+    #[serde(default, skip_serializing_if = "zero")]
+    pub plan_ttl_ms: u64,
     pub keep_latest: u64,
     pub min_age_ms: u64,
     pub max_remove: u64,
@@ -47,6 +51,11 @@ pub struct CheckpointRetention {
 }
 impl CheckpointRetention {
     pub fn validate(&self) -> Result<()> {
+        if self.reclaim_enabled && !(1000..=600000).contains(&self.plan_ttl_ms)
+            || !self.reclaim_enabled && self.plan_ttl_ms != 0
+        {
+            return Err(err("CHECKPOINT_RECLAIM_CONFIG"));
+        }
         if self.keep_latest < 2
             || self.keep_latest > 1000
             || self.min_age_ms == 0
@@ -312,6 +321,8 @@ mod tests {
     #[test]
     fn checkpoint_retention_policy_requires_finite_safe_parameters() {
         let valid = CheckpointRetention {
+            reclaim_enabled: false,
+            plan_ttl_ms: 0,
             keep_latest: 2,
             min_age_ms: 3600000,
             max_remove: 2,
@@ -330,6 +341,28 @@ mod tests {
                 4 => c.max_entries = 1,
                 _ => c.max_read_bytes = (256 << 20) + 1,
             };
+            assert!(c.validate().is_err());
+        }
+    }
+    #[test]
+    fn checkpoint_reclaim_flag_requires_explicit_finite_plan_ttl() {
+        let mut c = CheckpointRetention {
+            reclaim_enabled: false,
+            plan_ttl_ms: 0,
+            keep_latest: 2,
+            min_age_ms: 3600000,
+            max_remove: 2,
+            max_objects: 32,
+            max_entries: 256,
+            max_read_bytes: 1 << 20,
+        };
+        c.validate().unwrap();
+        c.plan_ttl_ms = 1000;
+        assert!(c.validate().is_err());
+        c.reclaim_enabled = true;
+        c.validate().unwrap();
+        for ttl in [0, 999, 600001, u64::MAX] {
+            c.plan_ttl_ms = ttl;
             assert!(c.validate().is_err());
         }
     }

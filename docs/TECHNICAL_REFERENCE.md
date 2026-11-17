@@ -2001,3 +2001,19 @@ Go周期路径改为仅写公共Protobuf和远端元数据，避免每轮再复�
 正常Rust接口先checked_current并锁内取同ref的Bootstrap，owned发布gate随阻塞扫描任务保留；stop/取消flag和每次读/枚举的精确BootstrapHead守卫阻止旧source计划，结束再核对完整reference和cursor。Close可取消等待中的preview，等待者取消不会释放别人持有的gate。HTTP预览不联系对象API，也不写文件；过期owner/关闭返回拒绝。
 
 `make -C integration rust-retention-plan-current-check`让两个Rust直接读Go当轮保留的同一6对象/2store候选目录及原观察时刻，完整JSON比较包含policy、保护原因、选择集合、bytes/files/entries/read_bytes、namespace_sha256与plan_id；同目录重复分析不改变文件。mtime以无损i64 ns进入证据，异常超范围时钟和非法UTF8路径两语言均拒绝。完整对象文件摘要消费前后固定，两个正常HTTP预览和实际Kafka恢复显式回归。全部计划仍applied=false，执行删除/自动保留/崩溃恢复尚未接入。
+
+## 显式Go checkpoint回收和可恢复隔离
+
+阶段115。local_retention新增reclaim_enabled（默认false）及plan_ttl_ms；启用仅允许Go online、TTL1000..600000ms和显式24..8192字节API auth token。两个Rust compiler核对同样设置/公有hash和去凭据，但Rust服务启用执行会CHECKPOINT_RECLAIM_OWNER拒绝。旧配置继续只读预览，不静默自动删除。
+
+新增认证POST /internal/chains/{chain}/checkpoint-retention/apply，JSON仅`{"plan_id":"<preview sha256>","observed_at_ms":<preview time>}`。server先验证固定≤1024字节JSON/重复与未知字段/类型，再拿相同checkpoint gate与总request_timeout_ms。只有新鲜owner的ref/cursor/原policy/原观察时刻/目录复算planId相同且未过TTL，才使用固定选择。公共library入口要求authority guard，runtime逐次检查完整BootstrapHead/取消/关闭；没有传入路径或待删列表的接口。
+
+逐选中对象再次核对原本地文件哈希、完整manifest/payload和store certificate，并GET配置base下的原manifest/payload核对精确长度/原字节SHA。不会向远端发DELETE，不跟随journal中旧URL执行网络。通过后先把完整文件列表/哈希、source/计划、阶段及累计计数原子fsync到私有retirements/state.json（最大1MiB、4096叶文件），再rooted rename public-v2/<sha>→retirements/<op>/<sha>并fsync两父目录，持久化QUARANTINED后逐个固定叶文件释放/目录fsync，最后持久化DONE/COMPLETE。无递归RemoveAll，额外文件/链接/内容变化会停止并保留journal。
+
+POST .../checkpoint-retention/resume只接受`{"operation_id":"<pending id>"}`，不重新选对象；当前授权owner可在HEAD_FIRST新writer/generation后重新验证同链/owner单调身份、当前保留规则和全部candidate（含指向隔离对象的candidate），重读同store原备份及尚存文件，再从rename已做但阶段未写、部分文件释放、目录已删或complete回执前继续。旧pending绑定store；配置切换地址拒绝接续，不把旧URI当新凭据目标。旧操作完成后可切换store发起新计划，累计计数保持。
+
+GET .../checkpoint-retention/status是只读最后操作/累计计数观察。mutation结果区分applied、idempotent、receipt_confirmed；最终回执未确认时COMPLETION_UNCONFIRMED/applied=false，complete已fsync但响应未送达时可读journal/幂等重试，重试会fsync确认。只保留一个active/最后完成记录和累计计数，非永久审计历史。budgeted_read_bytes包含按原长度预留的remote GET内容，budgeted_entries计入本轮控制/目录扫描；两个上限沿用显式policy。未知结果/失败仍有待恢复状态，不能无限重选、跳过保护或重复计数。
+
+未完成隔离的文件仍占磁盘，因此Go正常checkpoint发布先读pending journal；pending或损坏则暂停该链新归档（其他链轮转继续），不把隔离副本算作可用新容量。在线KV、canonical journal、owner cursor不因cache回收而改变。清理只处理固定格式生成的空工作目录/未提交staging文件，未知非空证据保留。
+
+`make -C integration checkpoint-reclaim-current-check`运行九阶段中断、四次真实子进程退出且无defer、fresh owner恢复、源/计划/namespace/保留/云端/预算/文件变化拒绝、正常Go与对象API两个HTTP端口的apply/resume/status、单ledger与累计幂等、删除本地副本后的远端protobuf恢复，并回归原双Rust预览/同目录全JSON互通及实际Kafka owner-router恢复。全部执行只操作测试生成temp对象；本轮没有自动触发、Rust执行、真实对象锁或多区生产耐久资格。

@@ -52,6 +52,13 @@ func (s *Service) publishCheckpointChains(parent context.Context, chains []confi
 			return fail("CHECKPOINT_CANCELLED")
 		}
 		dir := filepath.Join(s.cfg.Resolve(s.cfg.Config.State.Path), "checkpoints", strings.ReplaceAll(chain.Key, ":", "-"))
+		pending, e := checkpoint.HasPendingReclaim(dir)
+		if e != nil {
+			return fail("CHECKPOINT_RECLAIM_STATE_INVALID")
+		}
+		if pending {
+			return fail("CHECKPOINT_RECLAIM_PENDING")
+		}
 		if !publicOnly {
 			path, e := checkpoint.Write(dir, snapshot)
 			if e != nil {

@@ -31,6 +31,8 @@ impl Drop for Temp {
 }
 fn policy() -> Policy {
     Policy {
+        reclaim_enabled: false,
+        plan_ttl_ms: 0,
         keep_latest: 2,
         min_age_ms: 3600000,
         max_remove: 2,

@@ -25,6 +25,10 @@ fn empty(s: &str) -> bool {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Policy {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reclaim_enabled: bool,
+    #[serde(default, skip_serializing_if = "zero")]
+    pub plan_ttl_ms: u64,
     pub keep_latest: u64,
     pub min_age_ms: u64,
     pub max_remove: u64,
@@ -32,8 +36,16 @@ pub struct Policy {
     pub max_entries: u64,
     pub max_read_bytes: u64,
 }
+fn zero(n: &u64) -> bool {
+    *n == 0
+}
 impl Policy {
     pub fn validate(&self) -> Result<()> {
+        if self.reclaim_enabled && !(1000..=600000).contains(&self.plan_ttl_ms)
+            || !self.reclaim_enabled && self.plan_ttl_ms != 0
+        {
+            return Err(err("CHECKPOINT_RECLAIM_CONFIG"));
+        }
         if self.keep_latest < 2
             || self.keep_latest > 1000
             || self.min_age_ms == 0

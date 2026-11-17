@@ -2026,3 +2026,21 @@ BINDINGS['9.rust-bounded-retention-plan'] = {
            'service::checkpoint::retention_tests::rust_retention_preview_waiter_cancels_on_close_and_preserves_publication_gate'],
  'evidence_refs': ['integration/artifacts/local/rust-retention-plan-check/report.json'],
 }
+
+BINDINGS['9.explicit-checkpoint-reclamation'] = {
+ 'paths': ['chain-parser-go/internal/checkpoint/reclaim.go',
+           'chain-parser-go/internal/checkpoint/reclaim_journal.go',
+           'chain-parser-go/internal/checkpoint/reclaim_test.go',
+           'chain-parser-go/internal/checkpoint/reclaim_crash_test.go',
+           'chain-parser-go/internal/service/checkpoint_reclaim.go',
+           'chain-parser-go/internal/service/checkpoint_reclaim_test.go',
+           'integration/tools/acceptance/validate_checkpoint_reclaim.py'],
+ 'tests': ['TestCheckpointReclaimExecutesOnlySelectedConfirmedOldCopiesAndIsDurablyIdempotent',
+           'TestCheckpointReclaimRealProcessCrashAndFreshOwnerResume',
+           'TestCheckpointReclaimFaultedPhasesResumeWithoutReselectingOrDoubleCounting',
+           'TestCheckpointReclaimResumeRechecksProtectedReferencesPolicyAndQuarantinedBytes',
+           'TestCheckpointReclaimStoreRotationCannotResumeOldPendingDataButCanStartAfterCompletion',
+           'TestNormalCheckpointReclaimHTTPRequiresOptInAndAuthThenAppliesAndResumesBoundedJournal',
+           'current_go_checkpoint_reclaim_opt_in_and_secret_free_hashes_match'],
+ 'evidence_refs': ['integration/artifacts/local/checkpoint-reclaim-check/report.json'],
+}

@@ -92,17 +92,22 @@ func (c *CheckpointBudget) Validate() error {
 }
 
 type CheckpointRetention struct {
-	KeepLatest   uint64 `json:"keep_latest"`
-	MinAgeMS     uint64 `json:"min_age_ms"`
-	MaxRemove    uint64 `json:"max_remove"`
-	MaxObjects   uint64 `json:"max_objects"`
-	MaxEntries   uint64 `json:"max_entries"`
-	MaxReadBytes uint64 `json:"max_read_bytes"`
+	ReclaimEnabled bool   `json:"reclaim_enabled,omitempty"`
+	PlanTTLMS      uint64 `json:"plan_ttl_ms,omitempty"`
+	KeepLatest     uint64 `json:"keep_latest"`
+	MinAgeMS       uint64 `json:"min_age_ms"`
+	MaxRemove      uint64 `json:"max_remove"`
+	MaxObjects     uint64 `json:"max_objects"`
+	MaxEntries     uint64 `json:"max_entries"`
+	MaxReadBytes   uint64 `json:"max_read_bytes"`
 }
 
 func (c *CheckpointRetention) Validate() error {
 	if c == nil {
 		return nil
+	}
+	if c.ReclaimEnabled && (c.PlanTTLMS < 1000 || c.PlanTTLMS > 600000) || !c.ReclaimEnabled && c.PlanTTLMS != 0 {
+		return errors.New("CHECKPOINT_RECLAIM_CONFIG")
 	}
 	if c.KeepLatest < 2 || c.KeepLatest > 1000 || c.MinAgeMS == 0 || c.MinAgeMS > 31536000000 || c.MaxRemove == 0 || c.MaxRemove > 64 || c.MaxObjects < c.KeepLatest || c.MaxObjects > 4096 || c.MaxEntries < c.MaxObjects || c.MaxEntries > 100000 || c.MaxReadBytes == 0 || c.MaxReadBytes > 256<<20 {
 		return errors.New("CHECKPOINT_RETENTION_CONFIG")

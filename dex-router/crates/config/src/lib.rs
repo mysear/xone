@@ -774,6 +774,18 @@ impl Config {
         let j = &self.journal;
         if let Some(store) = &j.checkpoint_store {
             store.validate()?;
+            if store
+                .local_retention
+                .as_ref()
+                .is_some_and(|policy| policy.reclaim_enabled)
+            {
+                if expected != "chain-parser-go" || self.service.role != "online" {
+                    return Err(err("CHECKPOINT_RECLAIM_OWNER"));
+                }
+                if !(24..=8192).contains(&self.api.auth_token.len()) {
+                    return Err(err("CHECKPOINT_RECLAIM_AUTH_REQUIRED"));
+                }
+            }
             if store.local_retention.is_some()
                 && ((expected != "chain-parser-go" && expected != "chain-parser-rust")
                     || self.service.role != "online")

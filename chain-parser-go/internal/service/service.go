@@ -789,6 +789,7 @@ func (s *Service) Handler() http.Handler {
 		}
 		write(w, 200, plan)
 	})
+	s.mountCheckpointReclaim(mux)
 	mux.HandleFunc("POST /internal/checkpoints", func(w http.ResponseWriter, r *http.Request) {
 		result, code := s.publishCheckpoints(r.Context())
 		if code != "" {

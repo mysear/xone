@@ -86,3 +86,54 @@ fn current_go_checkpoint_retention_policies_and_hashes_match() {
         );
     }
 }
+
+#[test]
+#[ignore = "requires this run's explicit Go reclamation policy exports"]
+fn current_go_checkpoint_reclaim_opt_in_and_secret_free_hashes_match() {
+    let directory = std::path::PathBuf::from(
+        std::env::var("XONE_CHECKPOINT_CONFIG_VECTORS_OUTPUT")
+            .expect("current Go reclamation exports required"),
+    );
+    let document: Value =
+        serde_json::from_slice(&std::fs::read(directory.join("reclaim-vectors.json")).unwrap())
+            .unwrap();
+    let cases = document["vectors"].as_array().unwrap();
+    assert_eq!(cases.len(), 4);
+    for case in cases {
+        let name = case["file"].as_str().unwrap();
+        assert!(name.starts_with("reclaim-config-") && !name.contains('/') && !name.contains('\\'));
+        let loaded = xone_config::load(directory.join(name), "chain-parser-go").unwrap();
+        assert_eq!(loaded.public_hash, case["public_hash"]);
+        assert_eq!(loaded.economic_hash, case["economic_hash"]);
+        if loaded
+            .config
+            .journal
+            .checkpoint_store
+            .as_ref()
+            .unwrap()
+            .local_retention
+            .as_ref()
+            .unwrap()
+            .reclaim_enabled
+        {
+            let mut weak = loaded.config.clone();
+            weak.api.auth_token.clear();
+            assert_eq!(
+                weak.validate("chain-parser-go").unwrap_err().0,
+                "CHECKPOINT_RECLAIM_AUTH_REQUIRED"
+            );
+            let mut oversized = loaded.config.clone();
+            oversized.api.auth_token = "a".repeat(8193);
+            assert_eq!(
+                oversized.validate("chain-parser-go").unwrap_err().0,
+                "CHECKPOINT_RECLAIM_AUTH_REQUIRED"
+            );
+            let mut wrong = loaded.config.clone();
+            wrong.service.name = "chain-parser-rust".into();
+            assert_eq!(
+                wrong.validate("chain-parser-rust").unwrap_err().0,
+                "CHECKPOINT_RECLAIM_OWNER"
+            );
+        }
+    }
+}

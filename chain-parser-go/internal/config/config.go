@@ -454,6 +454,15 @@ func Load(path, expected string) (*Snapshot, error) {
 	return &Snapshot{Config: cfg, Release: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), PublicHash: public, EconomicHash: economic, Root: root, Token: token, ControlDSN: controlDSN}, nil
 }
 func (c Config) Validate(expected string) error {
+	if store := c.Journal.CheckpointStore; store != nil && store.LocalRetention != nil && store.LocalRetention.ReclaimEnabled {
+		if expected != "chain-parser-go" || c.Service.Role != "online" {
+			return errors.New("CHECKPOINT_RECLAIM_OWNER")
+		}
+		if len(c.API.AuthToken) < 24 || len(c.API.AuthToken) > 8192 {
+			return errors.New("CHECKPOINT_RECLAIM_AUTH_REQUIRED")
+		}
+	}
+
 	if store := c.Journal.CheckpointStore; store != nil && store.LocalRetention != nil && ((expected != "chain-parser-go" && expected != "chain-parser-rust") || c.Service.Role != "online") {
 		return errors.New("CHECKPOINT_RETENTION_OWNER")
 	}

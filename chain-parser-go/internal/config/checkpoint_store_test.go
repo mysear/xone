@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -340,6 +341,100 @@ func TestCheckpointRetentionAllowsExplicitRustOnlineOwner(t *testing.T) {
 	}
 	cfg.Config.Service.Role = "analytics"
 	if e = cfg.Config.Validate("chain-parser-rust"); e == nil || e.Error() != "CHECKPOINT_RETENTION_OWNER" {
+		t.Fatal(e)
+	}
+}
+
+func TestCheckpointReclaimRequiresExplicitGoOwnerTTLAndStrongAuthentication(t *testing.T) {
+	cfg, e := Load("../../config/config-test.yaml", "chain-parser-go")
+	if e != nil {
+		t.Fatal(e)
+	}
+	policy := &CheckpointRetention{KeepLatest: 2, MinAgeMS: 3600000, MaxRemove: 2, MaxObjects: 32, MaxEntries: 256, MaxReadBytes: 1 << 20, ReclaimEnabled: true, PlanTTLMS: 300000}
+	cfg.Config.Journal.CheckpointStore = &CheckpointStore{BaseURL: "https://objects.example/bucket", LocalRetention: policy}
+	if e = cfg.Config.Validate("chain-parser-go"); e == nil || e.Error() != "CHECKPOINT_RECLAIM_AUTH_REQUIRED" {
+		t.Fatal(e)
+	}
+	cfg.Config.API.AuthToken = "explicit-test-reclamation-token-20261118"
+	if e = cfg.Config.Validate("chain-parser-go"); e != nil {
+		t.Fatal(e)
+	}
+	for _, ttl := range []uint64{0, 999, 600001, ^uint64(0)} {
+		policy.PlanTTLMS = ttl
+		if policy.Validate() == nil {
+			t.Fatal(ttl)
+		}
+	}
+	policy.PlanTTLMS = 300000
+	policy.ReclaimEnabled = false
+	if policy.Validate() == nil {
+		t.Fatal("inactive policy accepted active TTL")
+	}
+	policy.ReclaimEnabled = true
+	for _, expected := range []string{"chain-parser-rust", "dex-router"} {
+		if e = cfg.Config.Validate(expected); e == nil || e.Error() != "CHECKPOINT_RECLAIM_OWNER" {
+			t.Fatal(expected, e)
+		}
+	}
+	cfg.Config.API.AuthToken = strings.Repeat("a", 8193)
+	if e = cfg.Config.Validate("chain-parser-go"); e == nil || e.Error() != "CHECKPOINT_RECLAIM_AUTH_REQUIRED" {
+		t.Fatal(e)
+	}
+}
+func TestCheckpointReclaimExportsSharedOptInPolicyAndSecretFreeHashes(t *testing.T) {
+	raw, e := os.ReadFile("../../config/config-test.yaml")
+	if e != nil {
+		t.Fatal(e)
+	}
+	directory := os.Getenv("XONE_CHECKPOINT_CONFIG_VECTORS_OUTPUT")
+	if directory == "" {
+		directory = t.TempDir()
+	}
+	if e = os.MkdirAll(directory, 0700); e != nil {
+		t.Fatal(e)
+	}
+	var vectors []map[string]any
+	for i := 0; i < 4; i++ {
+		var doc map[string]any
+		if e = json.Unmarshal(raw, &doc); e != nil {
+			t.Fatal(e)
+		}
+		policy := CheckpointRetention{KeepLatest: 2, MinAgeMS: 3600000, MaxRemove: 2, MaxObjects: 32, MaxEntries: 256, MaxReadBytes: 1 << 20}
+		if i > 0 {
+			policy.ReclaimEnabled = true
+			policy.PlanTTLMS = 300000
+			doc["api"].(map[string]any)["auth_token"] = "explicit-test-reclamation-token-20261118"
+		}
+		if i == 2 {
+			doc["api"].(map[string]any)["auth_token"] = "rotated-test-reclamation-token-20261118"
+		}
+		if i == 3 {
+			policy.PlanTTLMS = 60000
+		}
+		doc["journal"].(map[string]any)["checkpoint_store"] = &CheckpointStore{BaseURL: "https://objects.example/bucket", LocalRetention: &policy}
+		encoded, e := json.Marshal(doc)
+		if e != nil {
+			t.Fatal(e)
+		}
+		name := "reclaim-config-" + string(rune('0'+i)) + ".json"
+		path := filepath.Join(directory, name)
+		if e = os.WriteFile(path, encoded, 0600); e != nil {
+			t.Fatal(e)
+		}
+		loaded, e := Load(path, "chain-parser-go")
+		if e != nil {
+			t.Fatal(e)
+		}
+		vectors = append(vectors, map[string]any{"file": name, "public_hash": loaded.PublicHash, "economic_hash": loaded.EconomicHash})
+	}
+	if vectors[0]["public_hash"] == vectors[1]["public_hash"] || vectors[1]["public_hash"] != vectors[2]["public_hash"] || vectors[2]["public_hash"] == vectors[3]["public_hash"] {
+		t.Fatal("unsafe policy or credential hashing", vectors)
+	}
+	encoded, e := json.MarshalIndent(map[string]any{"vectors": vectors}, "", "  ")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(filepath.Join(directory, "reclaim-vectors.json"), encoded, 0600); e != nil {
 		t.Fatal(e)
 	}
 }

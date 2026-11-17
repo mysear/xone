@@ -1153,3 +1153,7 @@ checkpoint-retention-plan-current-check:
 .PHONY: rust-retention-plan-current-check
 rust-retention-plan-current-check:
 	python3 tools/acceptance/validate_rust_retention_plan.py
+
+.PHONY: checkpoint-reclaim-current-check
+checkpoint-reclaim-current-check:
+	python3 tools/acceptance/validate_checkpoint_reclaim.py
