@@ -66,6 +66,7 @@ func TestJournalAnalyticsModeIsExplicitAndCannotOwnLease(t *testing.T) {
 		t.Fatal("online service accepted journal-only mode")
 	}
 	cfg.Config.Service.Role = "analytics"
+	cfg.Config.Chains[0].AnalysisIntervalMS = 60000
 	cfg.Config.Journal.Transport = "kafka"
 	cfg.Config.Journal.Kafka.Brokers = []string{"127.0.0.1:9092"}
 	cfg.Config.Journal.Kafka.Topics = map[string]string{"evm:31337": "canonical.evm"}
@@ -391,5 +392,29 @@ func TestWalletSubmissionCannotBeEnabledInParser(t *testing.T) {
 		if c.Validate("chain-parser-go") == nil {
 			t.Fatal("parser accepted wallet policy", which)
 		}
+	}
+}
+
+func TestContinuousJournalAnalyticsCannotRunAsOnlineOrAcquireALease(t *testing.T) {
+	cfg, e := Load("../../config/config-test.yaml", "chain-parser-go")
+	if e != nil {
+		t.Fatal(e)
+	}
+	cfg.Config.Service.Mode = "journal-continuous"
+	if cfg.Config.Validate("chain-parser-go") == nil {
+		t.Fatal("online continuous worker admitted")
+	}
+	cfg.Config.Service.Role = "analytics"
+	cfg.Config.Chains[0].AnalysisIntervalMS = 60000
+	cfg.Config.Journal.Transport = "kafka"
+	cfg.Config.Journal.Kafka.Brokers = []string{"127.0.0.1:9092"}
+	cfg.Config.Journal.Kafka.Topics = map[string]string{"evm:31337": "canonical.evm"}
+	if e = cfg.Config.Validate("chain-parser-go"); e != nil {
+		t.Fatal(e)
+	}
+	cfg.Config.Control.Backend = "postgres"
+	cfg.Config.Control.DSNFile = "secrets/dsn"
+	if cfg.Config.Validate("chain-parser-go") == nil {
+		t.Fatal("continuous analytics lease admitted")
 	}
 }

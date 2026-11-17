@@ -345,7 +345,20 @@ pub struct PumpConfig {
     pub token_program_upgrade: Option<TokenProgramUpgradeConfig>,
 }
 config_struct!(PoolConfig {pump:Option<PumpConfig>,meteora:Option<MeteoraConfig>,pancake_bsc_lm:Option<PancakeBscLmConfig>,pancake_lm:Option<PancakeLmConfig>,slipstream_context:Option<SlipstreamContextConfig>,lfj:Option<LfjConfig>,infinity_bin:Option<InfinityBinConfig>,singleton_advanced:Option<SingletonAdvancedPoolConfig>,multi_asset:Option<MultiAssetConfig>,weighted:Option<WeightedPoolConfig>,raydium_clmm:Option<RaydiumCLMMConfig>,orca_whirlpool:Option<OrcaWhirlpoolConfig>,raydium_cpmm:Option<RaydiumCPMMConfig>,singleton_cl:Option<SingletonCLPoolConfig>,id:String,protocol:String,token0:String,token1:String,fee_numerator:u64,fee_denominator:u64,program_id:String,accounts:Vec<String>,v3:Option<V3PoolConfig>,v2:Option<V2PoolConfig>,stable:Option<StablePoolConfig>});
-config_struct!(Chain {key:String,owner_service:String,assignment_version:u64,genesis_hash:String,rpc_urls:Vec<String>,pools:Vec<PoolConfig>,confirmation_tag:String,auto_reorg_window:u64});
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Chain {
+    pub key: String,
+    pub owner_service: String,
+    pub assignment_version: u64,
+    pub genesis_hash: String,
+    pub rpc_urls: Vec<String>,
+    pub pools: Vec<PoolConfig>,
+    pub confirmation_tag: String,
+    pub auto_reorg_window: u64,
+    #[serde(default, skip_serializing_if = "simulation_zero_u64")]
+    pub analysis_interval_ms: u64,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ArchiveRetention {
@@ -699,8 +712,8 @@ impl Config {
             || !(["rpc"].contains(&self.service.mode.as_str())
                 || expected == "chain-parser-go"
                     && self.service.role == "analytics"
-                    && self.service.mode == "journal")
-            || (self.service.mode == "journal"
+                    && ["journal", "journal-continuous"].contains(&self.service.mode.as_str()))
+            || (["journal", "journal-continuous"].contains(&self.service.mode.as_str())
                 && (self.journal.transport != "kafka" || self.control.backend != "disabled"))
         {
             return Err(fail());
@@ -877,6 +890,13 @@ impl Config {
         }
         let mut seen = std::collections::BTreeSet::new();
         for c in &self.chains {
+            if expected == "chain-parser-go"
+                && self.service.role == "analytics"
+                && ["journal", "journal-continuous"].contains(&self.service.mode.as_str())
+                && !(1..=86_400_000).contains(&c.analysis_interval_ms)
+            {
+                return Err(fail());
+            }
             for p in &c.pools {
                 let profile = xone_domain::protocols::protocol(&p.protocol);
                 if p.pump.is_some()
@@ -1940,7 +1960,11 @@ impl Config {
             if k.brokers.is_empty()
                 || k.security_protocol != "PLAINTEXT"
                 || !k.allow_plaintext_development
-                || expected != "dex-router" && c.backend != "postgres"
+                || expected != "dex-router"
+                    && c.backend != "postgres"
+                    && !(expected == "chain-parser-go"
+                        && self.service.role == "analytics"
+                        && ["journal", "journal-continuous"].contains(&self.service.mode.as_str()))
                 || c.min_commit_remaining_ms <= k.transaction_timeout_ms
             {
                 return Err(fail());

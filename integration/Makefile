@@ -1097,3 +1097,7 @@ evm-prepared-api-current-check:
 .PHONY: evm-prepared-frontend-current-check
 evm-prepared-frontend-current-check:
 	python3 tools/acceptance/validate_evm_prepared_frontend.py
+
+.PHONY: analytics-worker-current-check
+analytics-worker-current-check:
+	python3 tools/acceptance/validate_analytics_worker.py

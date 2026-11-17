@@ -1883,3 +1883,5 @@ SBF运行时程序映像的宿主生命周期：构造线程只保留至多两�
 `POST /v1/quotes/{id}/preparations/{hash}/simulate-evm`执行服务端当前缓存的RPC准备，body仅空或{}；双模式共用同二进制worker和取消/预算。结果保持原SimulationOutcome，并以`preparedExecution`保留原unsigned字节摘要/组件hash/ExactOut外hash和独立commitment，再绑定`apiPreparationHash`及`rpcPreparationHash`。父进程重算返回commitment；准备被替换时旧hash不可执行，旧在途结果在写证据锁内再次核对。组件序列化载荷限制单个64KiB/整体32MiB，额度随quote失效释放，在途操作保留所需引用。配置的提供银行仍须与RPC观察的链/源H/资金/账户一致，不满足则拒绝，不自动退回eth_call或虚构状态。当前接口不签名、不广播，也不升级VERIFIED/当前链/完整费用资格。
 
 界面按`execution.evmIndependentLocalSimulation`判断是否开放EVM本地独立执行，运行时银行必须匹配当前快照源身份。浏览器对准备中原unsigned字节执行WebCrypto SHA-256，再核对quote/plan/view、API/RPC/组件hash、ExactOut外hash及实际输入/收款；费用参数变更立即撤销旧wire和执行证据。正常API响应显式给出quoteViewId，ExactIn报价给出kind。Solana能力和钱包行为保持各自语义，本地EVM成功不开放签名广播或生产VERIFIED。
+
+Go analytics可显式设置`service.role: analytics`和`service.mode: journal-continuous`，复用原有限`journal`模式的完整只读消费/耐久游标。每轮完成后按`journal.poll_interval_ms`等待，周期不重叠，SIGTERM取消等待或读取并清理reader；任何坏事实、保留缺口、topic变更或读取失败仍持久撤销发布并停止，不自动跳过。每链`analysis_interval_ms`必须1–86400000，poll必须1–60000；必须Kafka且control disabled。该角色不打开online KV或租约，不发布日志，不计作第四种服务。原`journal`模式仍单次完成后退出，持续ClickHouse和回补/shadow流程另行验收。

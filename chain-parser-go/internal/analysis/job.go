@@ -12,7 +12,7 @@ import (
 // RunJournalJob is a finite, independently restartable role of the parser
 // binary. It consumes public committed facts and never opens online KV or PG.
 func RunJournalJob(ctx context.Context, cfg *config.Snapshot) error {
-	if cfg.Config.Service.Role != "analytics" || cfg.Config.Service.Mode != "journal" || cfg.Config.Journal.Transport != "kafka" || cfg.Config.Control.Backend != "disabled" {
+	if cfg.Config.Service.Role != "analytics" || (cfg.Config.Service.Mode != "journal" && cfg.Config.Service.Mode != "journal-continuous") || cfg.Config.Journal.Transport != "kafka" || cfg.Config.Control.Backend != "disabled" {
 		return errors.New("ANALYTICS_JOURNAL_CONFIG")
 	}
 	for _, chain := range cfg.Config.Chains {

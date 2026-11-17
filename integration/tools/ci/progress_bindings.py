@@ -1812,3 +1812,19 @@ BINDINGS['15.evm-prepared-frontend'] = {
            'EVM independent simulation requires every selected pool runtime and retains authority boundaries'],
  'evidence_refs': ['integration/artifacts/local/evm-prepared-frontend-check/report.json'],
 }
+
+BINDINGS['16.analytics-continuous-worker'] = {
+ 'paths': ['chain-parser-go/internal/analysis/worker.go',
+           'chain-parser-go/internal/analysis/job.go',
+           'chain-parser-go/internal/analysis/worker_integration_test.go',
+           'chain-parser-go/internal/app/app.go',
+           'chain-parser-go/internal/config/config.go',
+           'dex-router/crates/config/src/lib.rs',
+           'integration/tools/acceptance/validate_analytics_worker.py'],
+ 'tests': ['TestJournalWorkerRepeatsSeriallyAndStopsWithoutQueuedTicks',
+           'TestJournalWorkerCancellationReachesActiveReadAndIdleWait',
+           'TestJournalWorkerErrorsStopWithoutPublishingOrSkipping',
+           'TestContinuousAnalyticsActualServiceResumesWithoutFencingOrPoisonSkipping',
+           'continuous_analytics_is_explicit_go_only_read_only_journal_role'],
+ 'evidence_refs': ['integration/artifacts/local/analytics-worker-check/report.json'],
+}

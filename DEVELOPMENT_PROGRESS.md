@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|显式常驻分析worker（阶段101）|§16/28.21/28.23；WP19、WP21|LOCAL_SCOPE_VERIFIED|Go只读角色journal-continuous、耐久游标周期消费、取消/错误停止及跨语言配置|13门禁/97次Go/81次Rust、实际Kafka连续消费/重启/异常事实拒绝通过；ClickHouse持续事实仍缺|
 |EVM原准备独立执行界面（阶段100）|§14/15/21；WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|按匹配银行显式开放本地执行，浏览器SHA256核对原wire、报价/视图/准备hash、实际收付费率|16门禁/168次Rust、13Node、新旧18Chrome与桌面/移动截图通过；901固定/97参考输入绑定|
 |EVM缓存RPC准备到独立worker（阶段99）|§14/15/28.17–28.18；WP14–16|LOCAL_SCOPE_VERIFIED|原API/RPC/组件/wire/独立receipt绑定、双模式显式执行接口、准备替换撤权及有界缓存|15门禁/167次Rust、双模式实际HTTP/worker、错误资金拒绝、901固定/97参考输入通过；界面接线后续|
 |EVM来源块与执行块费用上下文（阶段98）|§14.2/14.3/28.17；WP15|LOCAL_SCOPE_VERIFIED|来源H base fee与H+1执行费分开承诺，真实来源观察不覆盖执行环境|8门禁/134次Rust，16原银行/双模式原header费用和错源/缺源/cap通过，901固定输入绑定|
@@ -102,9 +103,9 @@
 |WP16|报价API、认证、配额及质量语义|§28.18|PARTIAL_LOCAL|FAST指示性ExactIn、字符串金额、鉴权、单凭据配额、并发/期限、single-flight、证据、缓存版本、旧quote build拒绝；新增认证simulate API、缓存前后新鲜度复核、实际余额/费用/worker证据；限定本地验收通过|多租户独立额度、任意仿真隔离、成本完整性、VERIFIED可执行闭环与完整业务成功率SLO待完成|
 |WP17|多副本、高可用、监控与发布|§28.19|PARTIAL_LOCAL|进程health/startup/按链状态、SIGTERM、日志/报价低基数指标、三个独立Dockerfile及本地compose|多区主备、PG/Kafka故障/磁盘满/节点或区丢失演练、OTel、灰度/发布控制与生产readiness待完成|
 |WP18|第二与第三条EVM链|§28.20|NOT_STARTED|chain_key隔离、两个解析源独立范围；配置可描述多条EVM链；多DEX版本以chainKey+code/factory+adapter配置域区分，协议覆盖矩阵单列每版本解析/数学/执行|第二/第三条真实EVM链部署、硬分叉/Gas差异、真实协议/版本目录与升级审计未验收；合成同链不算真实多链上线|
-|WP19|分析事件与worker基础|§28.21|PARTIAL_LOCAL|现有Go解析二进制analytics角色已接只读Kafka有限Job；持久cursor、topic身份、事实去重、毒消息暂停及失败状态checkpoint已实现；不占用在线KV/PG|持续worker调度、持久DLQ/raw回放、ClickHouse重试/发布、跨插件隔离配额与故障验收待完成|
+|WP19|分析事件与worker基础|§28.21|PARTIAL_LOCAL|现有Go解析二进制analytics角色已接只读Kafka有限Job及显式常驻journal-continuous模式；持久cursor、topic身份、事实去重、毒消息暂停及失败状态checkpoint已实现；不占用在线KV/PG|持续调度/取消/故障停止与实际重启已验；持久DLQ/raw回放、ClickHouse重试/发布、跨插件隔离配额与故障验收待完成|
 |WP20|Solana数据与执行适配|§28.22|PARTIAL_LOCAL|Rust RocksDB、账户依赖/完成屏障、来源session/write_version隔离、skipped范围验证；RPC整批限定布局CPMM数据解码；固定6d7a0f82动态费独立profile，classicSPL/backedWSOL、fee0/1/2、seed0..65535及mandatoryextension，原解析/分段exact-in和41真实PG-Kafka双router检查通过；本批限定范围整体验收通过；正常Solana RPC原始响应证据WAL、独立耐久head/损坏封闭与重启新会话验证通过；当前RPC分片bootstrap、失败整批丢弃/切源重新采集、全scope/报价快照引用及WAL新会话恢复局部验证完成；经典SPL静态费Orca/Raydium奖励增长及完整后状态已由联合批次局部验证；本批新增固定Orca原FeeRateManager的逐group/时间/波动原native差分，限定adaptive在线解析由本批独立版本完成；其他组合未完成；本批新增经典SPL三fixed数组/未初始化奖励的Orca adaptive账户解析及正常分派；其余组合和完整SBF执行待补；新增独立adaptive-rewards版classic SPL/三fixed数组/完整Oracle/初始化奖励增长与跨tick状态，20原bank及双router/13故障恢复限定验收通过；新增classic SPL/完整Oracle/三完整dynamic或fixed混合数组与初始化奖励的解析/报价/双副本限定验收；normal tonic/帧WAL/manifest/owner发布桥与认证scope控制已接本地持久后端；截至阶段84的Meteora/Pump/Raydium/Orca执行范围以逐批表为准|真实同源Yellowstone连续性/fork/补洞资格、完整版本化bank与动态scope联验、订单/奖励领取/Token2022交叉及未覆盖协议版本、生产CU/账户锁/交易负载仍待完成|
-|WP21|K线、重组更正与历史分析发布|§28.23|PARTIAL_LOCAL|精确有理数OHLC、事件时间排序、撤销最高/最低成交后独立重算、revision、离线原子发布；现有Go二进制analytics journal有限Job只读消费公共事实，无在线KV/PG；HEAD_PROVISIONAL事件时间水位/原子单位和历史缺口；有限预算失败状态持久化|ClickHouse事实/版本表、shadow/发布指针、FINAL及merge前查询、正式分析API/查询配额、迟到/decoder升级回补、真实链与生产故障条款待实现/验收|
+|WP21|K线、重组更正与历史分析发布|§28.23|PARTIAL_LOCAL|精确有理数OHLC、事件时间排序、撤销最高/最低成交后独立重算、revision、离线原子发布；现有Go二进制analytics journal有限Job及显式常驻只读消费公共事实，无在线KV/PG；HEAD_PROVISIONAL事件时间水位/原子单位和历史缺口；有限预算失败状态持久化|ClickHouse事实/版本表、shadow/发布指针、FINAL及merge前查询、正式分析API/查询配额、迟到/decoder升级回补、真实链与生产故障条款待实现/验收|
 |WP22|高级优化与外部来源竞争|§28.24|NOT_STARTED|保留HEURISTIC_WITHIN_SCOPE，不声称全局最优|RFQ/聚合器、多个求解器、有效期/调用者约束、可证明上界及收益分布尚未开发|
 |WP23|迁移、灾备与生产放量|§28.25|PARTIAL_LOCAL|本地重启/无KV路由恢复演练入口与报告；明确发布阻断项|真实生产shadow迁移、区域灾备、RPO/RTO、adapter灰度回退及逐租户放量未实施|
 |WP24|HEAD_FIRST启动与历史解耦（前置工作）|§28.26|PARTIAL_LOCAL|HEAD_FIRST不以旧KV/cursor/history gap置ready；owner分配代际、PG/Kafka下界恢复、当前完整checkpoint加有界尾窗；未确认分叉持久暂停、可信源确认后HEAD_FIRST恢复；临时源故障恢复不误增canonical epoch；正常Solana RPC原始响应证据WAL、独立耐久head/损坏封闭与重启新会话验证通过；16池134账户当前bootstrap与空内存路由副本/解析器重启恢复通过；不依赖历史补洞，不假定普通RPC提供严格版本化bank；认证EnsurePoolScope及Go32→33池扩容、Rust subset/actor bridge、WAL/manifest owner原子发布已接并有本地验证|1小时/1天/30天真实停机、流WAL溢出/范围扩容/历史隔离的完整公开来源资格、资源配额和首个VERIFIED报价时间仍未完成|
@@ -476,6 +477,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|16.analytics-continuous-worker|WP19,WP21|LOCAL_SCOPE_VERIFIED|现有Go服务内显式常驻只读分析模式，串行有界周期、耐久重启和异常停止|统一门禁通过；大规模事实保留/ClickHouse/shadow及查询继续|[验证记录](integration/artifacts/local/analytics-worker-check/report.json)|
 |15.evm-prepared-frontend|WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|EVM双模式原准备界面和浏览器wire摘要/状态/金额核对|统一门禁通过；当前银行捕获/其他链规则与钱包功能继续|[验证记录](integration/artifacts/local/evm-prepared-frontend-check/report.json)|
 |15.evm-prepared-api|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|缓存原RPC准备、双模式同银行worker、原hash/unsigned/receipt重算及32MiB载荷预算|统一门禁通过；界面、实时完整RPC银行/真实链规则和钱包继续|[验证记录](integration/artifacts/local/evm-prepared-api-check/report.json)|
 |14.evm-source-fees|WP15|LOCAL_SCOPE_VERIFIED|显式源H base fee与H+1执行base fee独立校验和承诺|统一门禁通过；来源仍为显式提供银行，真实RPC状态捕获/chain费用继续|[验证记录](integration/artifacts/local/evm-source-fees-check/report.json)|
@@ -598,6 +600,7 @@
 |98|[EVM来源块与执行块费用上下文](#plan-2026-11-17-evm-source-fees)|LOCAL_SCOPE_VERIFIED|8门禁/134次Rust、16原H/H+1银行与双模式准备；[验证记录](integration/artifacts/local/evm-source-fees-check/report.json)|
 |99|[EVM缓存RPC准备到独立worker](#plan-2026-11-17-evm-prepared-api)|LOCAL_SCOPE_VERIFIED|15门禁/167次Rust、双模式真实HTTP/原准备wire/错误资金；[验证记录](integration/artifacts/local/evm-prepared-api-check/report.json)|
 |100|[EVM原准备独立执行界面](#plan-2026-11-17-evm-prepared-frontend)|LOCAL_SCOPE_VERIFIED|16门禁/168次Rust、13Node/18Chrome、wire摘要及移动布局；[验证记录](integration/artifacts/local/evm-prepared-frontend-check/report.json)|
+|101|[显式常驻分析worker](#plan-2026-11-17-analytics-worker)|LOCAL_SCOPE_VERIFIED|13门禁/97次Go/81次Rust、实际Go服务/独立Kafka连续消费与重启；[验证记录](integration/artifacts/local/analytics-worker-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -2632,7 +2635,7 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 |4|§12/28.12–28.13 / WP10,WP11,WP20|能力目录61模型中38个ExactOut、21个执行准备；其余数学、执行和Token行为范围分别缺失|按真实版本逐项补状态/原数学/完整后状态/正常服务/独立执行，目标模式与执行资格独立统计|
 |5|§9/18/28.10 / WP08,WP24|`checkpoint::Write/Read`只有本地原子目录及摘要；owner bootstrap不提供对象存储的不可变发布/下载和peer资格|补对象存储manifest先后/半上传/错误摘要/预算与无源恢复，以及真实保留过期和故障域验收|
 |6|§15/18/20 / WP16,WP17,WP25|API单凭据/共享限流；生产TLS/SASL/ACL、多区切换及业务SLO仍有缺口|独立租户身份/额度、可信来源隔离和正式设施安全配置；按故障矩阵验收，不把单机PG/Kafka当多区HA|
-|7|§16/28.21/28.23 / WP19,WP21|`RunJournalJob`是有限只读Job；持续分析调度、ClickHouse事实/版本/shadow发布/查询尚缺|在线报价优先完成后补持续worker、迟到/修订/decoder回补及发布原子性|
+|7|§16/28.21/28.23 / WP19,WP21|有限Job和显式常驻worker已接入，ClickHouse事实/版本/shadow发布/查询尚缺|继续补持久DLQ/raw重放、迟到/修订/decoder回补、分析存储与发布原子性|
 |8|§28.3/28.24–28.25 / WP01,WP22,WP23|本地make入口已有；CI平台执行、镜像/SBOM/扫描、RFQ多求解器与真实灾备放量仍缺|先接可复现CI与安全检查；RFQ/收益界和区域RPO/RTO按各自完整门槛交付|
 
 下一轮缓存回收预检（2026-11-16）：隔离临时crate的5项单元测试全部通过，验证三个缓存的到期边界、撤权后QuoteView/账户捕获实际释放、在途句柄保留、空闲维护和服务任务取消。补丁尚未接入主目录，不计入阶段85或正式功能完成数；主目录源码冻结不变，待本批验收/提交后接入正式服务并复验。
@@ -2930,3 +2933,25 @@ B93.2 独立故障域与部署验收（§18/20/28.25）：三个生产配置无K
 首次真实Chrome预检已通过并检查桌面/移动截图。浏览器日志保留真实Chrome版本、harness字节hash和两种证据及截图摘要；预检不替代冻结门禁。报价仍为INDICATIVE，执行证据为给定银行的本地独立执行，不表示公开历史银行/当前共识/生产完整费用；签名、广播、真实银行捕获及其他未完设计项继续单列。
 
 阶段100最终限定验收：16门禁全部exit0，168次Rust（仿真99/API15/准备RPC23/旧API19/cache7/路径5）、13Node、实际新9/旧9共18Chrome检查通过，全目标严格Clippy通过。真实双模式原RPC准备→缓存wire→worker→浏览器WebCrypto核对一致，错误unsigned摘要、费率变更旧证据撤销及旧无银行禁用边界均通过；桌面/移动截图已检查。源码/901固定输入/97参考文件前后相同，最终运行目录`350a4f4fc0c0459e8a4bd7e053d0ef0b`。来源/当前链/完整费用/钱包与其他工作包仍未完成，继续按设计差距推进，不将第100轮号视为全系统完成。
+
+<a id="plan-2026-11-17-analytics-worker"></a>
+
+## 显式常驻分析worker（2026-11-17，阶段101）
+
+本批补“只有有限RunJournalJob”的剩余实现，新增同一个Go服务的明确配置role=analytics/mode=journal-continuous；原mode=journal仍为有限Job。不增加第四种服务，不打开online KV/lease或producer。每轮复用原完整只读日志和耐久checkpoint，完成后才等待poll_interval再串行开始下一轮，不积压ticker或并行周期。取消可打断等待及Reader的ctx，semantic/transport/retention/topic错误仍由原Job耐久撤销发布并停止，不自动跳过坏事实。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F101.1|正常服务常驻调度及明确隔离|WP19,WP21|LOCAL_SCOPE_VERIFIED|mode显式、Go analytics-only、Kafka只读且control disabled；窗口1..86400000ms/poll1..60000ms预校验，取消不留排队周期。|
+|F101.2|实际服务跨轮/重启/故障事实|WP19,WP21|LOCAL_SCOPE_VERIFIED|独立本机Kafka中，当前Go程序跨周期消费新事实、SIGTERM干净退出、重启不重复计数，writer继续可提交；复杂交换使worker停止/游标保留/发布撤销，重启不跳过坏事实，不产生online KV文件。|
+|F101.3|race/双语言配置及统一验收|WP01,WP19,WP21|LOCAL_SCOPE_VERIFIED|Go race调度/配置/原分析日志回归、两个Rust配置副本与完整格式/严格lint；正式源码/输入冻结验收通过。|
+
+预检保留失败及修复：首次Rust配置测试发现旧Kafka约束要求解析器必须有PG，与Go analytics禁用PG约束冲突；现仅对明确Go只读analytics（有限/常驻）豁免，其他服务规则不变。分析窗口字段补入Rust Chain的可选字段以保持旧JSON省略语义；两个Solana测试构造仅补显式0。首次实际服务测试重写配置时试图序列化未使用adapter的空Amount，被原INVALID_AMOUNT拒绝；测试改为保留原配置JSON字段存在性后精确修改角色/参数，未把未知量默认成0。实际Kafka第二轮预检已通过，原记录保留。工具首轮Go命令在仓库根目录执行被模块边界拒绝，正式命令固定Go模块cwd，不创建根go.mod。
+
+该常驻模式仍按原单轮max_tail_records/max_payload/timeout限额消费，历史积压超限明确停机并保留游标，不伪造完整历史。ClickHouse事实/迟到修订/shadow发布/查询与大规模保留继续待补；本机独立测试Kafka不等于真实多区验收。
+
+阶段101首次统一门禁保留FAILED：格式通过，契约拒绝Rust测试直接引用另一服务Go配置文件。已改为读取各自本地配置并构造相同最小只读角色，不放宽跨服务依赖检查；验收器也为基础设施启动添加覆盖取消/启动异常的finally清理，重新完整运行。
+
+阶段101第二次统一门禁保留FAILED：Go race96项及router配置40项通过；parser配置测试日志出现与实际parser源码不符的router测试名称，确认两个独立Rust workspace共用target目录复用了同名测试产物。现为parser使用独立持久化target，逐检查记录目标目录，避免把错误二进制运行算作该服务通过；原配置约束不放宽，重新完整复验。
+
+阶段101最终限定验收：13门禁全部exit0，97次Go测试（含96定向race及当前服务真实Kafka集成1）、81次Rust配置测试通过，两个配置副本全目标严格Clippy、Go vet、格式/契约与进度检查通过。实际当前Go服务跨周期读取新事实、SIGTERM正常退出/重启幂等，复杂事实持久拒绝/重启不跳过、原writer继续提交和无online KV文件均通过；测试Kafka/PG由本轮创建并停止。源码与901固定输入前后相同，实际服务二进制及checkpoint/log均保留摘要，最终目录`f08d324113e5402c9c396380afc41bd7`。当前仅完成明确有界只读常驻调度，ClickHouse/持续事实保留、shadow发布/查询及其他设计范围仍待完成。

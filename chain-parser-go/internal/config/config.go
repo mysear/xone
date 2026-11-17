@@ -468,7 +468,7 @@ func (c Config) Validate(expected string) error {
 			return invalid()
 		}
 	}
-	journalAnalytics := expected == "chain-parser-go" && c.Service.Role == "analytics" && c.Service.Mode == "journal"
+	journalAnalytics := expected == "chain-parser-go" && c.Service.Role == "analytics" && (c.Service.Mode == "journal" || c.Service.Mode == "journal-continuous")
 	if journalAnalytics && (c.Journal.Transport != "kafka" || c.Control.Backend != "disabled") {
 		return invalid()
 	}
@@ -550,6 +550,9 @@ func (c Config) Validate(expected string) error {
 	}
 	seen := map[string]bool{}
 	for _, ch := range c.Chains {
+		if journalAnalytics && (ch.AnalysisIntervalMS == 0 || ch.AnalysisIntervalMS > 86400000) {
+			return invalid()
+		}
 		if err := ch.ProviderProbe.Validate(ch.Key); err != nil {
 			return err
 		}

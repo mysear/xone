@@ -53,11 +53,16 @@ func Run(cfg *config.Snapshot, source service.SnapshotSource) error {
 	}
 }
 func analyticsJob(ctx context.Context, cfg *config.Snapshot) error {
-	if cfg.Config.Service.Mode != "journal" {
+	if cfg.Config.Service.Mode != "journal" && cfg.Config.Service.Mode != "journal-continuous" {
 		return fmt.Errorf("ANALYTICS_JOURNAL_REQUIRED")
 	}
 	logger := observability.New(os.Stdout, "chain-parser-go", "analytics", cfg.Release, cfg.PublicHash, cfg.Config.Logging)
 	defer logger.Close()
+	if cfg.Config.Service.Mode == "journal-continuous" {
+		return analysis.RunJournalWorker(ctx, cfg, func() {
+			logger.Event("info", "analytics_journal_checkpoint_published", map[string]any{"plugin_version": "candles/1", "continuous": true})
+		})
+	}
 	if e := analysis.RunJournalJob(ctx, cfg); e != nil {
 		return e
 	}

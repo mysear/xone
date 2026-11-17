@@ -59,6 +59,7 @@ impl Fixture {
             pools: vec![pool.clone()],
             confirmation_tag: "finalized".into(),
             auto_reorg_window: 32,
+            analysis_interval_ms: 0,
         };
         let mut state = vec![0; 637];
         state[..8].copy_from_slice(&[247, 237, 227, 245, 215, 195, 222, 70]);
