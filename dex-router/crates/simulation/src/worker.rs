@@ -50,6 +50,71 @@ impl WorkerPreparation {
         }
     }
 }
+/// Full signed envelope and source attributes, never independent VM overrides.
+/// This optional extension is absent on the existing Shanghai worker wire.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkerOpUser {
+    pub transaction_hash: String,
+    pub signed_wire: String,
+    pub attributes_calldata: String,
+}
+impl WorkerOpUser {
+    pub fn authenticated_context(
+        &self,
+        fixture: &FixtureState,
+        caller: &str,
+        budget: &SimulationBudget,
+    ) -> Result<evm_fixture::OpTransactionContext> {
+        let invalid = || err("SIMULATION_WORKER_OP_BINDING");
+        let decode = |value: &str, maximum: usize| -> Result<Vec<u8>> {
+            let raw = value.strip_prefix("0x").ok_or_else(invalid)?;
+            if raw.len() % 2 != 0
+                || raw.len() / 2 > maximum
+                || !raw
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return Err(invalid());
+            }
+            hex::decode(raw).map_err(|_| invalid())
+        };
+        let wire = decode(
+            &self.signed_wire,
+            budget.max_input_bytes.min(16 * 1024 * 1024),
+        )?;
+        let attributes = decode(&self.attributes_calldata, 260)?;
+        let hash = decode(&self.transaction_hash, 32)?;
+        if hash.len() != 32 {
+            return Err(invalid());
+        }
+        let expected_caller = caller.parse().map_err(|_| invalid())?;
+        let transaction = crate::op_transaction::authenticate_user(
+            fixture.execution_environment.chain_id,
+            revm::primitives::B256::from_slice(&hash),
+            expected_caller,
+            &wire,
+            budget.max_input_bytes,
+        )
+        .map_err(|_| invalid())?;
+        use crate::revm_backend::OpFork;
+        let fork = match fixture.execution_environment.fork.as_str() {
+            "op-regolith" => OpFork::Regolith,
+            "op-canyon" => OpFork::Canyon,
+            "op-ecotone" => OpFork::Ecotone,
+            "op-fjord" => OpFork::Fjord,
+            "op-granite" => OpFork::Granite,
+            "op-holocene" => OpFork::Holocene,
+            "op-isthmus" => OpFork::Isthmus,
+            _ => return Err(invalid()),
+        };
+        Ok(evm_fixture::OpTransactionContext {
+            fork,
+            transaction,
+            attributes_calldata: attributes,
+        })
+    }
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WorkerRequest {
@@ -60,6 +125,8 @@ pub struct WorkerRequest {
     pub exact_out_bound: Option<BoundEvmExactOutExecution>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prepared: Option<WorkerPreparation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub op_user: Option<WorkerOpUser>,
     pub pools: Vec<Pool>,
     pub allowed_targets: Vec<String>,
     pub fixture: FixtureState,
@@ -123,8 +190,55 @@ pub fn run_stdio() -> Result<()> {
         Plain(SimulationOutcome),
         Prepared(PreparedSimulation),
     }
-    let result = match (&request.bound, &request.exact_out_bound, &request.prepared) {
-        (Some(bound), None, None) => evm_fixture::simulate_bound(
+    let op_context = if let Some(op) = &request.op_user {
+        if request.prepared.is_some() {
+            return Err(err("SIMULATION_WORKER_OP_BINDING"));
+        }
+        let caller = match (&request.bound, &request.exact_out_bound) {
+            (Some(bound), None) => &bound.transaction.from,
+            (None, Some(bound)) => &bound.transaction.from,
+            _ => return Err(err("SIMULATION_WORKER_OP_BINDING")),
+        };
+        let authenticated = op.authenticated_context(&request.fixture, caller, &request.budget)?;
+        if xone_domain::hash(&request.transaction_context)?
+            != xone_domain::hash(
+                &evm_fixture::op_context(&authenticated)
+                    .map_err(|_| err("SIMULATION_WORKER_OP_BINDING"))?,
+            )?
+        {
+            return Err(err("SIMULATION_WORKER_OP_BINDING"));
+        }
+        Some(authenticated)
+    } else {
+        None
+    };
+    let result = match (
+        &request.bound,
+        &request.exact_out_bound,
+        &request.prepared,
+        &op_context,
+    ) {
+        (Some(bound), None, None, Some(op)) => evm_fixture::simulate_bound_op_user(
+            bound,
+            &request.pools,
+            &request.allowed_targets,
+            &request.fixture,
+            op,
+            &request.budget,
+            control,
+        )
+        .map(Completed::Plain),
+        (None, Some(bound), None, Some(op)) => evm_fixture::simulate_bound_op_user_exact_out(
+            bound,
+            &request.pools,
+            &request.allowed_targets,
+            &request.fixture,
+            op,
+            &request.budget,
+            control,
+        )
+        .map(Completed::Plain),
+        (Some(bound), None, None, None) => evm_fixture::simulate_bound(
             bound,
             &request.pools,
             &request.allowed_targets,
@@ -134,7 +248,7 @@ pub fn run_stdio() -> Result<()> {
             control,
         )
         .map(Completed::Plain),
-        (None, Some(bound), None) => evm_fixture::simulate_bound_exact_out(
+        (None, Some(bound), None, None) => evm_fixture::simulate_bound_exact_out(
             bound,
             &request.pools,
             &request.allowed_targets,
@@ -144,7 +258,7 @@ pub fn run_stdio() -> Result<()> {
             control,
         )
         .map(Completed::Plain),
-        (Some(bound), None, Some(prepared)) => {
+        (Some(bound), None, Some(prepared), None) => {
             if xone_domain::hash(&request.transaction_context)?
                 != xone_domain::hash(&prepared.transaction_context())?
             {
@@ -167,7 +281,7 @@ pub fn run_stdio() -> Result<()> {
             )
             .map(Completed::Prepared)
         }
-        (None, Some(bound), Some(prepared)) => {
+        (None, Some(bound), Some(prepared), None) => {
             if xone_domain::hash(&request.transaction_context)?
                 != xone_domain::hash(&prepared.transaction_context())?
             {

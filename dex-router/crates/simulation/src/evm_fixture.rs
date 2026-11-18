@@ -1176,7 +1176,7 @@ pub struct OpTransactionContext {
     pub transaction: crate::op_transaction::AuthenticatedUser,
     pub attributes_calldata: Vec<u8>,
 }
-fn op_context(op: &OpTransactionContext) -> Result<TransactionContext> {
+pub(crate) fn op_context(op: &OpTransactionContext) -> Result<TransactionContext> {
     let e = op.transaction.environment();
     Ok(TransactionContext {
         nonce: e.nonce.unwrap(),

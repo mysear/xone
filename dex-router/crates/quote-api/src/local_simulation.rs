@@ -388,6 +388,7 @@ impl LocalSimulation {
                     return Err(Failure::new("SIMULATION_ANCHOR_MISMATCH", "anchor"));
                 }
                 let request = WorkerRequest {
+                    op_user: None,
                     protocol: WORKER_PROTOCOL.into(),
                     bound,
                     exact_out_bound,
@@ -1414,6 +1415,7 @@ mod tests {
         )
         .unwrap();
         let request = WorkerRequest {
+            op_user: None,
             protocol: WORKER_PROTOCOL.into(),
             bound: Some(bound),
             exact_out_bound: None,
@@ -1634,6 +1636,7 @@ mod tests {
         )
         .unwrap();
         let request = WorkerRequest {
+            op_user: None,
             protocol: WORKER_PROTOCOL.into(),
             bound: None,
             exact_out_bound: Some(bound),

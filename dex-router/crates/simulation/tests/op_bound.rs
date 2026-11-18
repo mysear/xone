@@ -621,3 +621,181 @@ fn op_bound_exact_maximum_funding_probes_failures_and_control_are_accounted_once
         SimulationErrorCode::SimulationCancelled
     );
 }
+
+fn signed_worker_request(c: &Case) -> xone_simulation::worker::WorkerRequest {
+    use xone_simulation::worker::*;
+    let e = c.op.transaction.environment();
+    WorkerRequest {
+        protocol: WORKER_PROTOCOL.into(),
+        bound: if c.exact.is_some() {
+            None
+        } else {
+            Some(c.bound.clone())
+        },
+        exact_out_bound: c.exact.clone(),
+        prepared: None,
+        op_user: Some(WorkerOpUser {
+            transaction_hash: format!("{:#x}", c.op.transaction.transaction_hash()),
+            signed_wire: format!("0x{}", hex::encode(&c.wire)),
+            attributes_calldata: format!("0x{}", hex::encode(&c.op.attributes_calldata)),
+        }),
+        pools: c.pools.clone(),
+        allowed_targets: vec![c.bound.executor.target.clone()],
+        fixture: c.fixture.clone(),
+        transaction_context: TransactionContext {
+            nonce: e.nonce.unwrap(),
+            gas_limit: e.gas_limit,
+            gas_price: e.gas_price.to_string().parse().unwrap(),
+            max_priority_fee_per_gas: e.gas_priority_fee.map(|n| n.to_string().parse().unwrap()),
+            chain_id: e.chain_id.unwrap(),
+        },
+        budget: bank::budget(),
+        expected_genesis_hash: c.fixture.state_anchor.genesis_hash.clone(),
+        timeout_ms: 60_000,
+    }
+}
+fn worker_binary() -> (tempfile::TempDir, std::path::PathBuf, String) {
+    use xone_simulation::worker::executable_sha256;
+    let source = std::path::PathBuf::from(
+        std::env::var("XONE_OP_ROUTER_BINARY").expect("actual built dex-router binary required"),
+    );
+    let digest = executable_sha256(&source).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("dex-router");
+    std::fs::copy(&source, &path).unwrap();
+    assert_eq!(executable_sha256(&path).unwrap(), digest);
+    assert_eq!(executable_sha256(&source).unwrap(), digest);
+    (dir, path, digest)
+}
+fn invoke_worker(binary: &std::path::Path, input: &Value) -> std::process::Output {
+    use std::{
+        io::Write,
+        process::{Command, Stdio},
+    };
+    let mut child = Command::new(binary)
+        .arg("--evm-simulation-worker")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&serde_json::to_vec(input).unwrap())
+        .unwrap();
+    child.wait_with_output().unwrap()
+}
+#[test]
+#[ignore = "requires actual built router binary and historical OP attributes"]
+fn actual_signed_op_worker_executes_both_bound_modes_and_preserves_the_complete_receipt() {
+    use xone_simulation::worker::*;
+    let (_dir, binary, digest) = worker_binary();
+    let mut index = 0;
+    let mut n = 0;
+    matrix(|c| {
+        let selected = index % 64 < 8;
+        index += 1;
+        if !selected {
+            return;
+        }
+        let request = signed_worker_request(&c);
+        let direct = run(&c, &bank::budget()).unwrap();
+        let output = invoke_worker(&binary, &serde_json::to_value(request).unwrap());
+        assert!(
+            output.status.success(),
+            "{} {}",
+            c.id,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.stdout.len() <= MAX_WORKER_OUTPUT_BYTES);
+        let response: WorkerResponse = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(response.protocol, WORKER_PROTOCOL);
+        assert_eq!(response.worker_binary_sha256, digest);
+        assert!(response.error.is_none());
+        assert!(response.prepared.is_none());
+        assert_eq!(
+            serde_json::to_value(response.outcome.unwrap()).unwrap(),
+            serde_json::to_value(direct).unwrap(),
+            "{} worker receipt",
+            c.id
+        );
+        n += 1;
+    });
+    assert_eq!(n, 56);
+    assert_eq!(executable_sha256(&binary).unwrap(), digest);
+}
+#[test]
+#[ignore = "requires actual built router binary; malformed signed requests must never execute"]
+fn actual_signed_op_worker_rejects_envelope_context_state_and_mode_substitutions() {
+    use xone_simulation::worker::*;
+    let (_dir, binary, digest) = worker_binary();
+    let v = original();
+    let r = v["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["input"]["rule"] == "isthmus" && r["input"]["chain"] == 10)
+        .unwrap();
+    let c = make(&bank::corpus()["cases"][0], r, 2, false);
+    let source = serde_json::to_value(signed_worker_request(&c)).unwrap();
+    for mode in 0..17 {
+        let mut q = source.clone();
+        match mode {
+            0 => q["transaction_context"]["nonce"] = 0.into(),
+            1 => q["transaction_context"]["gas_limit"] = 21_000.into(),
+            2 => q["transaction_context"]["gas_price"] = "3000000001".into(),
+            3 => q["transaction_context"]["max_priority_fee_per_gas"] = "1".into(),
+            4 => q["op_user"]["transaction_hash"] = format!("0x{}", "00".repeat(32)).into(),
+            5 => q["op_user"]["signed_wire"] = "0x02".into(),
+            6 => q["op_user"]["signed_wire"] = format!("0x{}00", hex::encode(&c.wire)).into(),
+            7 => q["op_user"]["attributes_calldata"] = "0x00".into(),
+            8 => q["fixture"]["execution_environment"]["fork"] = "shanghai".into(),
+            9 => q["expected_genesis_hash"] = "0x00".into(),
+            10 => q["op_user"]["ignored_field"] = true.into(),
+            11 => {
+                q.as_object_mut().unwrap().remove("op_user");
+            }
+            12 => {
+                q["exact_out_bound"] = serde_json::to_value(bank::output_bound(
+                    &c.bound,
+                    &c.pools,
+                    c.bound.plan.allocation.gross_buy_amount.clone(),
+                    c.bound.plan.allocation.sell_amount.clone(),
+                ))
+                .unwrap()
+            }
+            13 => q["budget"]["max_input_bytes"] = 1.into(),
+            14 => q["op_user"]["attributes_calldata"] = format!("0x{}", "00".repeat(261)).into(),
+            15 => q["transaction_context"]["chain_id"] = 8453.into(),
+            _ => q["bound"]["transaction"]["from"] = format!("0x{}", "11".repeat(20)).into(),
+        }
+        let output = invoke_worker(&binary, &q);
+        if output.status.success() {
+            let response: WorkerResponse = serde_json::from_slice(&output.stdout).unwrap();
+            assert_eq!(response.worker_binary_sha256, digest);
+            assert!(
+                response.error.is_some()
+                    && response.outcome.is_none()
+                    && response.prepared.is_none(),
+                "mode {mode}"
+            );
+        } else {
+            assert!(
+                output.stdout.is_empty(),
+                "rejected input emitted stdout: {mode}"
+            );
+            assert!(!output.stderr.is_empty());
+        }
+    }
+    let mut old = source;
+    old.as_object_mut().unwrap().remove("op_user");
+    let parsed: WorkerRequest = serde_json::from_value(old).unwrap();
+    assert!(parsed.op_user.is_none());
+    assert!(!serde_json::to_value(parsed)
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .contains_key("op_user"));
+}
