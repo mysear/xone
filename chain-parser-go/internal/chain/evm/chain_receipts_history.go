@@ -10,6 +10,7 @@ import (
 )
 
 type NativeHistoryEvidence struct {
+	OPPackedFeeInputs   *OPPackedFeeInputs        `json:"op_packed_fee_inputs,omitempty"`
 	OPRegolithFeeInputs *OPRegolithFeeInputs      `json:"op_regolith_fee_inputs,omitempty"`
 	SchemaVersion       uint64                    `json:"schema_version"`
 	ScopeDatasetID      string                    `json:"scope_dataset_id"`
@@ -47,7 +48,7 @@ func buildNativeHistoryEvidence(chain config.Chain, b RawBlock, batch domain.Fac
 	if err != nil {
 		return out, err
 	}
-	return NativeHistoryEvidence{SchemaVersion: 1, ScopeDatasetID: scope, DatasetID: dataset, NativeSemanticsID: b.NativeCoverage.NativeSemanticsID, Block: b, Evidence: *b.NativeCoverage.Evidence, Facts: batch, Candidates: candidates, OPRegolithFeeInputs: b.NativeCoverage.OPRegolithFeeInputs}, nil
+	return NativeHistoryEvidence{SchemaVersion: 1, ScopeDatasetID: scope, DatasetID: dataset, NativeSemanticsID: b.NativeCoverage.NativeSemanticsID, Block: b, Evidence: *b.NativeCoverage.Evidence, Facts: batch, Candidates: candidates, OPRegolithFeeInputs: b.NativeCoverage.OPRegolithFeeInputs, OPPackedFeeInputs: b.NativeCoverage.OPPackedFeeInputs}, nil
 }
 func VerifyNativeHistoryEvidence(ctx context.Context, chain config.Chain, e NativeHistoryEvidence) (domain.FactBatch, []ingest.FactoryCandidate, error) {
 	var empty domain.FactBatch
@@ -73,6 +74,13 @@ func VerifyNativeHistoryEvidence(ctx context.Context, chain config.Chain, e Nati
 		actual, _ := domain.Hash(e.OPRegolithFeeInputs)
 		if expected != actual {
 			return empty, nil, errors.New("HISTORY_OP_FEE_INPUT_PROJECTION_MISMATCH")
+		}
+	}
+	if e.OPPackedFeeInputs != nil {
+		expected, _ := domain.Hash(coverage.OPPackedFeeInputs)
+		actual, _ := domain.Hash(e.OPPackedFeeInputs)
+		if expected != actual {
+			return empty, nil, errors.New("HISTORY_OP_PACKED_FEE_INPUT_PROJECTION_MISMATCH")
 		}
 	}
 	dataset, err := NativeHistoryDatasetID(chain, coverage)

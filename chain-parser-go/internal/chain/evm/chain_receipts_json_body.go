@@ -174,9 +174,10 @@ func encodeOPDepositJSON(fields map[string]json.RawMessage) ([]byte, error) {
 		return nil, errors.New("OP_DEPOSIT_TRANSACTION_INVALID")
 	}
 	toBytes := []byte{}
-	if value := fields["to"]; len(value) == 0 {
-		return nil, errors.New("OP_DEPOSIT_TRANSACTION_INVALID")
-	} else if string(value) != "null" {
+	// Native contract-creation deposits may omit to, as well as return null.
+	// The empty destination is RLP committed; a dropped nonempty destination
+	// still fails the transaction hash/body root, never becoming a new tx.
+	if value := fields["to"]; len(value) != 0 && string(value) != "null" {
 		if json.Unmarshal(value, &to) != nil || !receiptHex(to, 20) {
 			return nil, errors.New("OP_DEPOSIT_TRANSACTION_INVALID")
 		}

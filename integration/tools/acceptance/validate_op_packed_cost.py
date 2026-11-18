@@ -44,7 +44,7 @@ def validate():
              ('go-current-normal-source',go_env+go_test),
              ('go-regolith-regression',['go','-C','chain-parser-go','test','-race','-count=1','-v','./internal/chain/evm','-run','^TestOPRegolith(NormalSource|ArchiveWhitespace|ProjectionChecks|ReplayRejects|NormalSourceRejects)']),
              ('go-vet',['go','-C','chain-parser-go','vet','./internal/chain/evm']),
-             ('packed-original-costs',['env','XONE_OP_PACKED_VECTORS='+str(independent)]+cargo+['test']+manifest+['-p','xone-execution-preparation','--test','op_packed_cost','--','--include-ignored']),
+             ('packed-original-costs',['env','XONE_OP_PACKED_VECTORS='+str(independent)]+cargo+['test']+manifest+['-p','xone-execution-preparation','--test','op_packed_cost','--','--include-ignored','--skip','normal_versioned_op_sources_feed_rust_across_four_real_upgrade_boundaries']),
              ('regolith-arithmetic',cargo+['test']+manifest+['-p','xone-execution-preparation','--test','op_l1_cost']),
              ('original-reference-guards',[sys.executable]+tests),
              ('original-reference-guards-optimized',[sys.executable,'-OO']+tests),

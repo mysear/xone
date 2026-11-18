@@ -93,6 +93,9 @@ func VerifyNativeReceiptEvidence(ctx context.Context, chainKey string, target Ra
 		if err == nil {
 			out.OPRegolithFeeInputs, err = projectOPRegolithFeeInputs(ctx, out, header, block, &budget)
 		}
+		if err == nil {
+			out.OPPackedFeeInputs, err = projectOPPackedFeeInputs(ctx, out, header, block, &budget)
+		}
 		out.ProofBytesUsed = limits.MaxBytes - budget.remaining
 	default:
 		return out, errors.New("NATIVE_EVIDENCE_KIND_UNSUPPORTED")

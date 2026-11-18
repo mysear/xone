@@ -339,6 +339,9 @@ func (a *Adapter) readNativeReceiptCoverageCached(ctx context.Context, target Ra
 		return empty, err
 	}
 	coverage.OPRegolithFeeInputs, err = projectOPRegolithFeeInputs(r.ctx, coverage, header, body, &r.budget)
+	if err == nil {
+		coverage.OPPackedFeeInputs, err = projectOPPackedFeeInputs(r.ctx, coverage, header, body, &r.budget)
+	}
 	if err != nil {
 		return empty, err
 	}

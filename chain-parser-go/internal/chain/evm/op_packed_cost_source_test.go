@@ -65,6 +65,9 @@ func TestOPPackedActualPublicNormalBodyReceiptsAndSignedInputs(t *testing.T) {
 	if captured == nil || !captured.CanonicalBodyProven || !captured.CanonicalReceiptsProven || captured.Evidence == nil || captured.OPRegolithFeeInputs != nil || f.fullReads.Load() != 2 {
 		t.Fatal("normal source commitment missing or historical fee model leaked")
 	}
+	if captured.OPPackedFeeInputs == nil || captured.OPPackedFeeInputs.DataFeeRule != "Fjord" || captured.OPPackedFeeInputs.OperatorFeeRule != "Jovian" || len(captured.OPPackedFeeInputs.UserTransactions) != 49 {
+		t.Fatal("normal modern fee projection missing")
+	}
 	archives := 0
 	a.OnHistoryEvidence = func(ctx context.Context, e NativeHistoryEvidence) error {
 		archives++
@@ -142,7 +145,7 @@ func TestOPPackedActualPublicNormalBodyReceiptsAndSignedInputs(t *testing.T) {
 		})
 	}
 	if output := os.Getenv("XONE_OP_PACKED_INPUT_OUTPUT"); output != "" {
-		data, err := json.MarshalIndent(map[string]any{"passed": true, "authority": "RPC_HEADER_BODY_COMMITMENT_NOT_CONSENSUS", "block_hash": vector.Block.Hash, "timestamp": vector.Block.Timestamp, "native_semantics_id": captured.NativeSemanticsID, "attributes": hex.EncodeToString(deposit.Data), "users": users, "normal_archive_replayed": true, "source_mutations_rejected": 4, "parser_fee_math_added": false, "production_ready": false}, "", "  ")
+		data, err := json.MarshalIndent(map[string]any{"passed": true, "authority": "RPC_HEADER_BODY_COMMITMENT_NOT_CONSENSUS", "block_hash": vector.Block.Hash, "timestamp": vector.Block.Timestamp, "native_semantics_id": captured.NativeSemanticsID, "attributes": hex.EncodeToString(deposit.Data), "users": users, "production_projection": captured.OPPackedFeeInputs, "normal_archive_replayed": true, "source_mutations_rejected": 4, "parser_fee_math_added": false, "production_ready": false}, "", "  ")
 		if err != nil {
 			t.Fatal(err)
 		}

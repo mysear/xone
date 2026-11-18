@@ -179,3 +179,104 @@ fn original_op_geth_packed_costs_and_current_public_signed_users_match_rust() {
     assert_eq!(public, 49);
     assert!(overflow > 0);
 }
+
+#[test]
+#[ignore = "requires current normal versioned Go source and original upgrade vectors"]
+fn normal_versioned_op_sources_feed_rust_across_four_real_upgrade_boundaries() {
+    let read = |name| -> Value {
+        serde_json::from_slice(&std::fs::read(std::env::var(name).unwrap()).unwrap()).unwrap()
+    };
+    let source = read("XONE_OP_UPGRADE_INPUTS");
+    let vectors = read("XONE_OP_UPGRADE_VECTORS");
+    assert_eq!(source["passed"], true);
+    assert_eq!(source["projection_mutations_rejected"], 60);
+    assert_eq!(source["old_archive_compatible"], true);
+    assert_eq!(source["parser_fee_math_added"], false);
+    assert_eq!(source["production_ready"], false);
+    assert_eq!(vectors["public_signed_users"], 128);
+    let blocks = source["blocks"].as_array().unwrap();
+    assert_eq!(blocks.len(), 8);
+    let mut users = 0;
+    let mut upgrades = 0;
+    for block in blocks {
+        let p = &block["inputs"];
+        assert_eq!(
+            p["authority"],
+            "RPC_HEADER_BODY_RECEIPTS_COMMITMENT_NOT_CONSENSUS"
+        );
+        assert_eq!(p["chain_key"], "evm:10");
+        let transactions = p["user_transactions"].as_array().unwrap();
+        if p["upgrade_block"] == true {
+            assert!(transactions.is_empty());
+            upgrades += 1;
+            continue;
+        }
+        let attributes = hex::decode(
+            p["attributes_calldata"]
+                .as_str()
+                .unwrap()
+                .strip_prefix("0x")
+                .unwrap(),
+        )
+        .unwrap();
+        let parameters = decode_packed_attributes(&attributes).unwrap();
+        let rule = match p["data_fee_rule"].as_str().unwrap() {
+            "Ecotone" => DataFeeRule::Ecotone,
+            "Fjord" => DataFeeRule::Fjord,
+            _ => panic!("unknown source data rule"),
+        };
+        for tx in transactions {
+            let original = vectors["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["transaction_hash"] == tx["hash"])
+                .unwrap();
+            let wire = hex::decode(
+                tx["encoded_transaction"]
+                    .as_str()
+                    .unwrap()
+                    .strip_prefix("0x")
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(hex::encode(&wire), original["encoded_transaction"]);
+            assert_eq!(hex::encode(&attributes), original["attributes"]);
+            assert_eq!(block["name"], original["block_name"]);
+            let c = data_cost(&parameters, rule, &wire, wire.len()).unwrap();
+            assert_eq!(c.l1_data_fee_native.to_string(), original["fee"]);
+            assert_eq!(c.l1_gas_used.to_string(), original["l1_gas_used"]);
+            assert_eq!(
+                serde_json::to_value(&c).unwrap()["parameters"]["attributes_sha256"],
+                p["attributes_sha256"]
+            );
+            let op_rule = match p["operator_fee_rule"].as_str().unwrap() {
+                "NotActive" => None,
+                "Isthmus" => Some(OperatorFeeRule::Isthmus),
+                "Jovian" => Some(OperatorFeeRule::Jovian),
+                _ => panic!("unknown source operator rule"),
+            };
+            if let Some(rule) = op_rule {
+                let gas = tx["gas_used"].as_u64().unwrap();
+                assert_eq!(gas.to_string(), original["gas_used"]);
+                assert_eq!(
+                    operator_cost(&parameters, rule, gas)
+                        .unwrap()
+                        .operator_fee_native
+                        .to_string(),
+                    original["operator_fee"]
+                );
+            } else {
+                assert!(operator_cost(
+                    &parameters,
+                    OperatorFeeRule::Isthmus,
+                    tx["gas_used"].as_u64().unwrap()
+                )
+                .is_err());
+            }
+            users += 1;
+        }
+    }
+    assert_eq!(users, 128);
+    assert_eq!(upgrades, 4);
+}

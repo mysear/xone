@@ -2171,3 +2171,9 @@ Go普通native来源及archive replay在同一header/body/receipt证明之后，
 `execution-preparation::op_packed_cost`只解码164/176/178三种精确selector/长度，不代替chain/fork/首块选择。显式Ecotone按4/16字节Gas，Fjord对完整user wire采用固定原FastLZ长度/最小100字节的scaled回归；宽中间值保留、最终uint256。Isthmus operator为gas×scalar/1e6+constant，Jovian为gas×scalar×100+constant；属性缺operator参数时不可用，不默认零。来源、签名、fee-charged gas/refund及时效需调用方认证，16MiB硬预算与调用方更低预算并用。DA footprint仅保留属性，不加成一笔假费用。
 
 当日原OP块159697405的完整JSON/逐笔receipt经普通native读取及历史重放验证header/body/receipt承诺，49用户签名恢复后交固定原op-geth函数和Rust对照。605输入中556为明确算术探针；额外RPC费用字段不是receipt trie承诺。旧Regolith入口不扩展，正常报价完整链费/净扣款、版本选择与生产资格仍待接线。阶段136限定验收已通过18门禁/150次Rust/6次Go和605原参考（49原signed用户、556探针、103溢出），冻结源码/输入及正常来源重导出摘要一致；结果统一记录到主进度文档。
+
+### OP现代费用版本来源与真实升级首块（阶段137）
+
+普通native coverage/历史归档可选`op_packed_fee_inputs`仅在同块header/body/receipts重验后派生；记录固定native语义、chain/版本、属性/deposit sourceHash和完整user wire/签名者/index及承诺累计Gas差分，无费用金额。四升级首块保留旧属性ABI且仅deposit，不推断缺省operator为零，任何user拒绝；后继采用新规则。现代和旧Regolith字段按时间域隔离，旧归档缺字段继续原事实。
+
+真实升级创建deposit省略to的normal解码兼容空目标，对照固定原op-geth；删除普通call目标仍因原txID/body承诺不符拒绝。8实际升级块/128后继原signed用户和当日49用户经普通读取/归档重放交Rust对固定原函数；60投影篡改/15语义预算故障与4升级user、1unsigned后继控制不扩大来源权限。阶段137最终19门禁/153次Rust/214次Go通过，冻结源码/911固定输入/45运行pins/148参考及正常来源重导出摘要一致，原Go状态读取与Rust费用内核限定联验完成；正常报价完整链费/净估值和生产资格继续未开放。
