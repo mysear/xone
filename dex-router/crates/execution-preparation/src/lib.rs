@@ -14,6 +14,7 @@ mod pump_amm;
 mod pump_curve;
 mod rayclmm;
 mod raydium;
+mod solana_native_cost;
 use std::sync::{Arc, Mutex};
 use std::{
     collections::BTreeMap,
@@ -102,7 +103,10 @@ pub struct SolanaPreparation {
     pub accounts: Option<AccountSnapshot>,
 }
 #[derive(Clone, Default)]
-struct Capture(Arc<Mutex<Option<AccountSnapshot>>>);
+struct Capture(
+    Arc<Mutex<Option<AccountSnapshot>>>,
+    Arc<Mutex<Option<solana_native_cost::FeeObservation>>>,
+);
 pub async fn prepare_solana(
     config: &SolanaRpcConfig,
     s: &SolanaQuote,
@@ -159,7 +163,7 @@ pub async fn prepare_solana_captured(
         .filter(|n| *n > 0)
         .ok_or_else(|| err("QUOTE_EXPIRED"))?;
     let capture = Capture::default();
-    let result = tokio::time::timeout(
+    let mut result = tokio::time::timeout(
         Duration::from_millis(remaining.min(15000)),
         resolve(config, s, request, capture.clone()),
     )
@@ -173,6 +177,12 @@ pub async fn prepare_solana_captured(
     if result["ready"] != true {
         captured = None;
     }
+    let fee = capture
+        .1
+        .lock()
+        .map_err(|_| err("PREPARATION_CAPTURE_LOCK"))?
+        .take();
+    solana_native_cost::attach(&mut result, s, captured.as_ref(), fee.as_ref())?;
     Ok(SolanaPreparation {
         result,
         accounts: captured,
@@ -262,6 +272,18 @@ impl Rpc {
                 return Err(err("PREPARATION_CAPTURE_MULTIPLE_BANKS"));
             }
             *capture = Some(snapshot);
+        }
+        if method == "getFeeForMessage" {
+            let observation = solana_native_cost::FeeObservation::read(&params, &value)?;
+            let mut captured = self
+                .capture
+                .1
+                .lock()
+                .map_err(|_| err("PREPARATION_CAPTURE_LOCK"))?;
+            if captured.is_some() {
+                return Err(err("PREPARATION_CAPTURE_MULTIPLE_FEE_QUOTES"));
+            }
+            *captured = Some(observation);
         }
         Ok(value)
     }

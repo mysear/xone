@@ -584,7 +584,7 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
             json!({"context":{"slot":slot},"value":{"blockhash":d["blockhash"],"lastValidBlockHeight":999999999}})
         }
         "getFeeForMessage" => {
-            json!({"context":{"slot":slot},"value":if mode=="expired_blockhash"{Value::Null}else{json!(5000)}})
+            json!({"context":{"slot":if mode=="fee_context_ahead"{slot+1}else{slot}},"value":if mode=="expired_blockhash"{Value::Null}else{json!(5000)}})
         }
         _ => Value::Null,
     };

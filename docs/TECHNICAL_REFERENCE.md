@@ -2101,3 +2101,11 @@ costs明确nativeKnownSubtotalKind=GROSS_EXECUTION_CHARGE、payerCostModelVersio
 正常ExactIn在链费/可靠Token估值均未具备时，用零数值的排序扣项优化毛输出，并继续遵守maxHops/maxSplits/候选/网格/预算；这不代表实际链费为零。ExactOut沿用最小requiredSellAmount目标。两模式costs给出unknown Gas/native/data/授权/总费用null、chainFeeCompleteness/tokenValuationStatus=UNAVAILABLE，net不输出；quality.costRanking公布raw目标与限定搜索范围。
 
 原proposalActivationCostBuyToken现在表示实际proposal计算采用的值（零），ignoredConfiguredActivationCostBuyToken单列未采用的配置值，configuredActivationCostApplied=false。既有独立plan projector继续使用实际proposal cost重放，同一planHash内的allocation保持一致。optimizer独立显式cost接口保留用于测试/研究，不能被视为已具备可靠成本来源。make -C integration cost-unavailable-ranking-current-check包含三池独立整数反例、原ExactOut独立交易grid、预算/用户约束与四HTTP原执行费用回归。
+
+### Solana准备消息原生费用与资金分类（阶段127）
+
+Solana普通准备器的共享Capture增加单次getFeeForMessage观察，保存实际查询消息、minimum/observed slot及canonical解码RPC Result投影摘要（非原始HTTP envelope）；ready后统一核对消息与unsigned transaction（单签名legacy/零签名/1232字节上限）、费用字段与账户快照payer余额。费用minimum slot必须等于捕获账户slot，observed可以更高，来源明确MIN_CONTEXT_SLOT_NOT_SAME_BANK；不能仅因满足minContextSlot就声称同一bank。
+
+网络费用小计只含RPC实际返回的message fee，租金押金、预期可退/留存租金、swap/wrap本金单列。总资金=fee+rent+principal，checked u64且原payer余额覆盖；预期退款不能抵消交易开始前的资金要求。costs含chain/genesis、plan/view、message/fee-response/account-snapshot摘要及blockhash/有效高度；加入后重新seal preparationHash，正常API及独立SBF/签名流程保持完整绑定。sourceAuthority为PREPARATION_RPC_OBSERVATION，chainFeeCompleteness为PREPARED_MESSAGE_RPC_ESTIMATE；总估值与net仍null，不升级历史银行/生产资格。make -C integration solana-native-cost-current-check验证正式20个HTTP/SBF场景和资金/捕获/钱包回归。
+
+阶段127冻结验证完成：20个正式HTTP准备/原SBF与独立Python审计、资金/捕获/钱包回归、准备/API严格Clippy及正常构建通过。单次费用观察与账户slot可以不同；该费用来源仍为RPC估计，不授予历史bank、完整费用、净排序或生产VERIFIED资格。

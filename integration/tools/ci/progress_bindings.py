@@ -2191,3 +2191,16 @@ BINDINGS['13.cost-unavailable-ranking'] = {
            'unavailable_cost_fallback_preserves_user_constraints_and_budget_exhaustion'],
  'evidence_refs': ['integration/artifacts/local/cost-unavailable-ranking-check/report.json'],
 }
+
+BINDINGS['13.solana-message-native-cost'] = {
+ 'paths': ['dex-router/crates/execution-preparation/src/solana_native_cost.rs',
+           'dex-router/crates/execution-preparation/src/lib.rs',
+           'dex-router/crates/quote-api/tests/solana_native_cost.rs',
+           'integration/tools/acceptance/solana_native_cost_evidence.py',
+           'integration/tools/acceptance/validate_solana_native_cost.py'],
+ 'tests': ['solana_native_cost_binds_rpc_message_and_separates_fee_rent_and_principal',
+           'solana_native_cost_rejects_changed_wire_amounts_source_balances_and_fee_slots',
+           'solana_native_cost_native_input_is_principal_and_blocked_preparation_is_unavailable',
+           'solana_native_cost_actual_http_binds_message_fee_funding_and_original_sbf'],
+ 'evidence_refs': ['integration/artifacts/local/solana-native-cost-check/report.json'],
+}
