@@ -434,7 +434,7 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
         "getSignatureStatuses" => {
             let values=q["params"][0].as_array().unwrap().iter().map(|s|{
                 let ledger=b.transactions.lock().unwrap();let tx=ledger.get(s.as_str().unwrap());
-                if let Some(tx)=tx.filter(|v|v["dropped"]!=true){json!({"slot":slot,"confirmations":Value::Null,"confirmationStatus":if mode=="submit_pending"{"processed"}else if mode=="submit_confirmed"{"confirmed"}else{"finalized"},"err":tx["meta"]["err"]})}else{Value::Null}
+                if mode=="failure_disappeared" { Value::Null } else if let Some(tx)=tx.filter(|v|v["dropped"]!=true){json!({"slot":slot,"confirmations":Value::Null,"confirmationStatus":if mode=="submit_pending"||mode=="failure_processed"{"processed"}else if mode=="submit_confirmed"||mode=="failure_confirmed"{"confirmed"}else{"finalized"},"err":if mode=="failure_error_type"{json!(false)}else{tx["meta"]["err"].clone()}})}else{Value::Null}
             }).collect::<Vec<_>>();
             json!({"context":{"slot":slot},"value":values})
         }
@@ -448,6 +448,54 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                 .unwrap_or(Value::Null);
             if mode == "receipt_missing" {
                 tx = Value::Null;
+            }
+            if mode.starts_with("failure_") && !tx.is_null() {
+                match mode.as_str() {
+                    "failure_missing" => tx = Value::Null,
+                    "failure_meta_missing" => {
+                        tx.as_object_mut().unwrap().remove("meta");
+                    }
+                    "failure_fee_missing" => {
+                        tx["meta"].as_object_mut().unwrap().remove("fee");
+                    }
+                    "failure_tokens_missing" => {
+                        tx["meta"]
+                            .as_object_mut()
+                            .unwrap()
+                            .remove("postTokenBalances");
+                    }
+                    "failure_wire" => tx["transaction"][0] = "wrong".into(),
+                    "failure_slot" => tx["slot"] = (slot + 1).into(),
+                    "failure_fee" => tx["meta"]["fee"] = 1.into(),
+                    "failure_fee_type" => tx["meta"]["fee"] = "5000".into(),
+                    "failure_payer" => tx["meta"]["postBalances"][0] = 0.into(),
+                    "failure_other_native" => tx["meta"]["postBalances"][1] = 1.into(),
+                    "failure_balance_length" => {
+                        tx["meta"]["postBalances"].as_array_mut().unwrap().pop();
+                    }
+                    "failure_meta_success" => tx["meta"]["err"] = Value::Null,
+                    "failure_meta_error" => tx["meta"]["err"] = false.into(),
+                    "failure_error_type" => tx["meta"]["err"] = false.into(),
+                    "failure_token_amount" => {
+                        tx["meta"]["postTokenBalances"][0]["uiTokenAmount"]["amount"] = "1".into()
+                    }
+                    "failure_token_owner" => {
+                        tx["meta"]["postTokenBalances"][0]["owner"] =
+                            d["sourceTokenAccount"].clone()
+                    }
+                    "failure_token_duplicate" => {
+                        let t = tx["meta"]["postTokenBalances"][0].clone();
+                        tx["meta"]["postTokenBalances"]
+                            .as_array_mut()
+                            .unwrap()
+                            .push(t);
+                    }
+                    "failure_token_omit_both" => {
+                        tx["meta"]["preTokenBalances"] = json!([]);
+                        tx["meta"]["postTokenBalances"] = json!([]);
+                    }
+                    _ => {}
+                }
             }
             if mode == "receipt_mismatch" && !tx.is_null() {
                 let values = tx["meta"]["postTokenBalances"].as_array_mut().unwrap();

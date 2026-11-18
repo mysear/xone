@@ -51,6 +51,8 @@ pub struct Receipt {
     pub confirmation_status: Option<String>,
     pub slot: Option<u64>,
     pub settlement: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_fee: Option<Value>,
     pub error: Option<Value>,
 }
 impl Receipt {
@@ -63,7 +65,7 @@ impl Receipt {
         hash(&identity)
     }
     pub fn public(&self) -> Value {
-        json!({"signature":self.signature,"transactionSha256":self.transaction_sha256,"chainKey":self.context.chain_key,"caller":self.context.caller,"recipient":self.context.recipient,"sellToken":self.context.sell_token,"buyToken":self.context.buy_token,"quoteId":self.quote_id,"preparationHash":self.preparation["preparationHash"],"evidenceHash":self.evidence_hash,"feePreflight":self.fee_preflight,"state":self.state,"createdAtMs":self.created_at_ms,"updatedAtMs":self.updated_at_ms,"confirmationStatus":self.confirmation_status,"slot":self.slot,"settlement":self.settlement,"error":self.error,"signed":true,"sendAttempted":true,"productionReady":false})
+        json!({"signature":self.signature,"transactionSha256":self.transaction_sha256,"chainKey":self.context.chain_key,"caller":self.context.caller,"recipient":self.context.recipient,"sellToken":self.context.sell_token,"buyToken":self.context.buy_token,"quoteId":self.quote_id,"preparationHash":self.preparation["preparationHash"],"evidenceHash":self.evidence_hash,"feePreflight":self.fee_preflight,"state":self.state,"createdAtMs":self.created_at_ms,"updatedAtMs":self.updated_at_ms,"confirmationStatus":self.confirmation_status,"slot":self.slot,"settlement":self.settlement,"failureFee":self.failure_fee,"error":self.error,"signed":true,"sendAttempted":true,"productionReady":false})
     }
 }
 #[derive(Serialize, Deserialize)]
@@ -308,6 +310,7 @@ mod tests {
             confirmation_status: None,
             slot: None,
             settlement: None,
+            failure_fee: None,
             error: None,
         }
     }
@@ -359,6 +362,7 @@ mod tests {
         let old = receipt();
         let wire = serde_json::to_value(&old).unwrap();
         assert!(wire.get("feePreflight").is_none());
+        assert!(wire.get("failureFee").is_none());
         let legacy_identity = hash(&json!({"schemaVersion":old.schema_version,"signature":old.signature,"transactionSha256":old.transaction_sha256,"signedTransaction":old.signed_transaction,"context":old.context,"genesisHash":old.genesis_hash,"quoteId":old.quote_id,"preparation":old.preparation,"evidenceHash":old.evidence_hash,"createdAtMs":old.created_at_ms})).unwrap();
         assert_eq!(old.identity().unwrap(), legacy_identity);
         let previous = "0".repeat(64);
@@ -418,5 +422,30 @@ mod tests {
             restored.public()["feePreflight"],
             value.fee_preflight.unwrap()
         );
+    }
+    #[test]
+    fn failed_fee_observation_is_durable_result_and_entry_hash_protected() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("receipts");
+        let mut journal = Journal::open(&path, 2).unwrap();
+        let mut value = receipt();
+        let identity = value.identity().unwrap();
+        journal.reserve(value.clone()).unwrap();
+        value.state = State::Failed;
+        value.failure_fee = Some(json!({"networkFeeNative":"5000"}));
+        assert_eq!(value.identity().unwrap(), identity);
+        journal.update(value.clone()).unwrap();
+        drop(journal);
+        let journal = Journal::open(&path, 2).unwrap();
+        assert_eq!(
+            journal.get(&value.signature).unwrap().failure_fee,
+            value.failure_fee
+        );
+        drop(journal);
+        let raw = std::fs::read_to_string(&path)
+            .unwrap()
+            .replace("5000", "5001");
+        std::fs::write(&path, raw).unwrap();
+        assert!(Journal::open(&path, 2).is_err());
     }
 }

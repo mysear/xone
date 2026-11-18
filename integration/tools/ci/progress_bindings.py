@@ -2238,3 +2238,15 @@ BINDINGS['15.native-economics-view'] = {
            'native economics rejects cross-transaction, wrong source and unsupported authority displays'],
  'evidence_refs': ['integration/artifacts/local/native-economics-view-check/report.json'],
 }
+
+BINDINGS['15.solana-failure-fees'] = {
+ 'paths': ['dex-router/crates/quote-api/src/failure_fees.rs',
+           'dex-router/crates/quote-api/src/transaction_lifecycle.rs',
+           'dex-router/crates/quote-api/src/execution_receipts.rs',
+           'dex-router/crates/quote-api/tests/solana_failure_fees.rs',
+           'integration/tools/acceptance/solana_failure_fee_evidence.py'],
+ 'tests': ['failed_signed_swaps_verify_actual_fee_rollback_metadata_and_durable_retry',
+           'failed_fee_observation_is_durable_result_and_entry_hash_protected',
+           'failed_fee_token_rollback_rejects_duplicates_identity_and_integer_tampering'],
+ 'evidence_refs': ['integration/artifacts/local/solana-failure-fee-check/report.json'],
+}

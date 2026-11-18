@@ -339,6 +339,7 @@ pub(crate) async fn submit(
         preparation: p.result,
         evidence_hash: request.evidence_hash,
         fee_preflight: Some(preflight.witness),
+        failure_fee: None,
         state: TransactionState::Submitting,
         created_at_ms: now,
         updated_at_ms: now,
@@ -501,7 +502,7 @@ fn closed_temporary(meta: &Value, index: usize) -> Result<()> {
     }
     Ok(())
 }
-fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
+pub(crate) fn receipt_transaction(receipt: &Receipt, tx: &Value) -> Result<SignedTransaction> {
     let wire = tx["transaction"][0]
         .as_str()
         .ok_or_else(|| err("RECEIPT_META_MISSING"))?;
@@ -520,6 +521,14 @@ fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
     if tx["slot"].as_u64() != receipt.slot {
         return Err(err("RECEIPT_SLOT_MISMATCH"));
     }
+    if info.signature != receipt.signature || info.transaction_sha256 != receipt.transaction_sha256
+    {
+        return Err(err("RECEIPT_WIRE_MISMATCH"));
+    }
+    Ok(info)
+}
+fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
+    let info = receipt_transaction(receipt, tx)?;
     let p = &receipt.preparation;
     let c = &receipt.context;
     let meta = &tx["meta"];
@@ -643,7 +652,7 @@ fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
     {
         return Err(err("RECEIPT_AMOUNT_MISMATCH"));
     }
-    let mut observation = json!({"verified":true,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"minBuyAmount":minimum.to_string(),"maxSellAmount":p["requiredInput"],"feeLamports":fee.to_string(),"actualPersistentRentLamports":persistent.to_string(),"payerLamportDelta":(i128::from(native_after)-i128::from(native_before)).to_string(),"settlementAsset":p["settlementAsset"],"transactionSha256":format!("{:x}",Sha256::digest(decode(wire)?))});
+    let mut observation = json!({"verified":true,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"minBuyAmount":minimum.to_string(),"maxSellAmount":p["requiredInput"],"feeLamports":fee.to_string(),"actualPersistentRentLamports":persistent.to_string(),"payerLamportDelta":(i128::from(native_after)-i128::from(native_before)).to_string(),"settlementAsset":p["settlementAsset"],"transactionSha256":info.transaction_sha256});
     let costs =
         native_economics::evaluated(c, p, &observation, native_economics::Source::RpcReceipt)?;
     observation["costs"] = costs;
@@ -688,6 +697,9 @@ pub(crate) async fn receipt(
     let value = &values[0];
     record.updated_at_ms = now_ms();
     record.settlement = None;
+    record.failure_fee = None;
+    record.confirmation_status = None;
+    record.slot = None;
     if value.is_null() {
         let height = rpc(
             &api,
@@ -722,13 +734,35 @@ pub(crate) async fn receipt(
                 .ok_or_else(|| failure(err("TRANSACTION_RPC_INVALID")))?,
         );
         record.error = None;
-        if value.get("err") != Some(&Value::Null) {
-            record.state = if status == "finalized" {
-                TransactionState::Failed
-            } else {
-                TransactionState::ReceiptPending
-            };
-            record.error = Some(json!({"code":"ONCHAIN_TRANSACTION_FAILED","detail":value["err"]}));
+        let onchain_error = value
+            .get("err")
+            .ok_or_else(|| failure(err("TRANSACTION_RPC_INVALID")))?;
+        if !onchain_error.is_null() {
+            record.state = TransactionState::ReceiptPending;
+            record.error =
+                Some(json!({"code":"ONCHAIN_TRANSACTION_FAILED","detail":onchain_error}));
+            if status != "processed" {
+                let tx=rpc(&api,&record.context.chain_key,"getTransaction",json!([signature,{"encoding":"base64","commitment":status,"maxSupportedTransactionVersion":0}])).await.map_err(failure)?;
+                if tx.is_null() {
+                    record.error.as_mut().unwrap()["feeVerificationError"] =
+                        "RECEIPT_META_MISSING".into();
+                } else {
+                    match failure_fees::observed(&record, &tx, onchain_error) {
+                        Ok(fee) => {
+                            record.failure_fee = Some(fee);
+                            if status == "finalized" {
+                                record.state = TransactionState::Failed;
+                            }
+                        }
+                        Err(error) => {
+                            if !error.0.ends_with("MISSING") {
+                                record.state = TransactionState::SettlementMismatch;
+                            }
+                            record.error.as_mut().unwrap()["feeVerificationError"] = error.0.into();
+                        }
+                    }
+                }
+            }
         } else if status == "processed" {
             record.state = TransactionState::Processed;
         } else {

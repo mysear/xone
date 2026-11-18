@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Solana失败签名费用与回滚核验（阶段131，P0-3）|§13.1/14/15.3；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|读取原签名失败交易、核对实际网络费及观察到的原生币/Token回滚，独立结果不冒充成功成交净额|13门禁/52次Rust；3原程序失败/18故障/30审计篡改，八钱包和11成功交易回归通过|
 |Solana费用后经济净额前端闭环（阶段130，P0-3）|§13.1/14/15.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|当前SBF证据及耐久回执分别展示费用后金额、网络费和资本押金；不同交易/来源不展示净额|8门禁/18前端单测/16浏览器检查；5类正常HTTP/SBF/签名回执、重载实际可见及桌面/手机截图复核通过|
 |Solana原生同单位费用后净额（阶段129，P0-3）|§12.5/13.1/14/15.3；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|共用整数核算已接独立SBF证据和实际回执；原生SOL/明确解包WSOL按lamport同单位估值，租金资本与费用分列|16门禁/50次Rust、11正常SBF/签名回执与独立原余额审计、20准备家族回归通过|
 |Solana提交前费用上下文与耐久凭证（阶段128，P0-3）|§13.1/14/15.3；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|预检继承准备fee slot，费用→账户→签名仿真→发送slot连续；绑定原消息/fee Result凭证耐久保存，旧v1兼容/重试幂等|11门禁/46次Rust，实际八种钱包生命周期、并发一次发送与原SOL/WSOL资金钱包通过|
@@ -510,6 +511,7 @@
 |13.solana-signed-fee-context|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|提交前费用源context与账户/仿真/发送min slot连续；不可变费用凭证与原v1回执兼容、幂等重试|11门禁/46次Rust，slot/费用拒绝、耐久/旧v1及实际钱包回归通过|[验证记录](integration/artifacts/local/solana-fee-preflight-check/report.json)|
 |13.solana-native-economics|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|已执行准备交易的native/显式WSOL结算同单位估值；经济净额与押金/原生现金分列，未知币值不伪造net|16门禁/50次Rust、11正常SBF/回执与独立签名/wire/原余额审计通过|[验证记录](integration/artifacts/local/solana-native-economics-check/report.json)|
 |15.native-economics-view|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|已执行交易的原生同单位净额/费用/押金展示；普通币/负净额/旧回执兼容且不伪造FAST净排名|8门禁/16浏览器检查，五类回执实际可见、整数/身份及截图复核通过|[验证记录](integration/artifacts/local/native-economics-view-check/report.json)|
+|15.solana-failure-fees|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|失败签名交易原wire/slot/err与实际fee、原生币/Token回滚绑定并耐久保存|13门禁/3真实本地失败及独立余额审计通过；可信bank与完整费用估值仍缺|[验证记录](integration/artifacts/local/solana-failure-fee-check/report.json)|
 |13.cost-unavailable-ranking|WP13,WP16,WP18|LOCAL_SCOPE_VERIFIED|无可信成本及估值时不以route_activation_cost改变报价排序，明确raw目标、费用缺失/未扣及原搜索约束|16门禁/176次Rust、三池与原ExactOut grid/约束预算/四HTTP通过|[验证记录](integration/artifacts/local/cost-unavailable-ranking-check/report.json)|
 |13.evm-native-payer-cost|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|按原bank余额校验最大gas资金准入，费用gross与payer实际net分列，alias自付tip返回|14门禁/146次Rust、56向量/四HTTP通过；完整成本与净排序仍缺|[验证记录](integration/artifacts/local/evm-native-payer-cost-check/report.json)|
 |13.evm-native-fee-balance-audit|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|绝对before绑定原bank输入，fee与实际native debit/beneficiary credit守恒；caller=coinbase净扣burn不重复tip，未知数据/资金操作拒绝|14门禁/同state/修改/平移/alias及四次actual HTTP通过；生产资格与完整成本仍缺|[验证记录](integration/artifacts/local/evm-native-balance-audit-check/report.json)|
@@ -688,6 +690,7 @@
 |128|[Solana提交前费用上下文与耐久凭证](#plan-2026-11-18-solana-fee-preflight)|LOCAL_SCOPE_VERIFIED|11门禁/46次Rust，实际签名/资金/旧回执和冻结输入一致；[验证记录](integration/artifacts/local/solana-fee-preflight-check/report.json)|
 |129|[Solana原生同单位费用后净额](#plan-2026-11-18-solana-native-economics)|LOCAL_SCOPE_VERIFIED|16门禁/50次Rust，11场景SBF/实际签名回执与20准备家族冻结回归通过；[验证记录](integration/artifacts/local/solana-native-economics-check/report.json)|
 |130|[Solana费用后经济净额前端闭环](#plan-2026-11-18-native-economics-view)|LOCAL_SCOPE_VERIFIED|签名区/回执区分离；8门禁/16浏览器检查及实际可见截图复核通过；[验证记录](integration/artifacts/local/native-economics-view-check/report.json)|
+|131|[Solana失败签名费用与回滚核验](#plan-2026-11-18-solana-failure-fees)|LOCAL_SCOPE_VERIFIED|13门禁/3原程序失败/18故障/30独立审计篡改、成功交易回归通过；[验证记录](integration/artifacts/local/solana-failure-fee-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3628,3 +3631,24 @@ costs.nativeKnownSubtotal仅含RPC估计的message network fee；nativeFundingRe
 阶段130截图复核拒绝首批`b9c4f6d5476841eb95a7a298f82f34c0`：自动16项检查只核对回执文本，重载默认EVM链后整个wallet-panel隐藏，导致已恢复Solana回执及新净额在画面不可见；保留自动报告原文和FAILED_MANUAL_VISUAL_REVIEW报告/截图。修复将耐久回执面板与链特定签名面板分离，加入真正可见性断言，完整门禁待重跑；不将DOM中隐藏文本作为用户可见闭环通过。
 
 阶段130修复后最终限定验收：运行目录`07d79503063f4f5799b27f8239e3b393`，8门禁全部exit0、18前端单测、16正常浏览器检查。普通Token、原SOL实际超额收款5971、原生输入5003并单列2039280租金、WSOL退款5004和解包负净额不可用，五类SBF/实际签名本地原程序回执分别展示正确；重载后回执和刷新按钮真实可见，发送次数不增加。新增正常执行前/重载后截图及手机截图均绑定报告；人工复核确认默认EVM控件不会再隐藏恢复的Solana回执，手机负净额原因可见且无横向溢出。独立Python复核五份SBF/回执整数核算，普通/优化进度各17项、格式/契约/正常harness构建通过，源码/911固定输入/45运行输入前后一致，harness实际二进制前后摘要相同。保留首次自动通过但被人工截图拒绝的原报告及FAILED_MANUAL_VISUAL_REVIEW结果，没有把隐藏DOM文本当作最终通过。该轮只完成限定已执行经济净额的前端闭环，完整可信估值/全候选净路由、失败交易费用核算、可信bank/链规则、生产VERIFIED和其余工作包继续；下一轮按P0-3补失败签名交易的实际网络费用与回滚收付核验。
+
+<a id="plan-2026-11-18-solana-failure-fees"></a>
+
+## Solana失败签名费用与回滚核验（2026-11-18，阶段131，P0-3）
+
+设计§13.1/14.3/14.5/15.3及WP13–16要求费用有实际来源、守恒及独立失败语义。原正常回执在签名状态err非空时直接标FAILED，未读取getTransaction，遗漏失败交易仍扣网络费。本轮为已支持的recent-blockhash InstructionError失败增加独立failureFee观察；同一原签名wire、签名/transaction摘要、slot和status/meta错误绑定，meta原生付款人差额只扣实际fee，其他native余额及全部已报告Token整数/身份/精度保持。已知原有源/目标Token账户仍要求元数据，重复/越界/缺失/错误类型均拒绝；没有将RPC元数据覆盖等同完整原账户状态或共识bank证明。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F131.1|失败网络费/回滚观察与耐久结果|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|原签名绑定、整数/身份回滚、独立failureFee与旧v1兼容，已通过冻结门禁。|
+|F131.2|实际失败钱包/故障/重启与独立审计|WP01,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|三类原程序失败，18故障、processed/confirmed/消失/最终恢复、独立Python和成功回归冻结验证通过。|
+
+processed或meta缺失保持RECEIPT_PENDING；confirmed已核对费用也不提前终态，允许最终确认或签名消失撤销费用观察；finalized且完整核对才FAILED。矛盾/篡改标SETTLEMENT_MISMATCH，保留ONCHAIN_TRANSACTION_FAILED及具体feeVerificationError。新字段默认省略，旧v1 entry/identity hash不变，结果受完整entry hash保护。未知失败类别和nonce未扩展；失败收付款/net不虚构为成功。受控本地原程序执行不升级生产VERIFIED，完整链费/可信Token估值/净排序及其余设计工作继续。
+
+三类原型均通过，首次独立审计明确因原型仅含17故障而拒绝，保留日志；正式集合增加第18项错误类别及confirmed签名消失撤销检查后再完整验证，不放宽检查。
+
+阶段131冻结记录：首个冻结批次`7894472440314150a1b87d19a113f61d`在格式通过后主动取消并保留CANCELLED报告，原因是复核发现新Make入口用了未定义PYTHON变量；停止总控并确认exit130后改为现有python3入口，同时补签名消失时清空旧confirmationStatus/slot和InstructionError索引范围守卫。随后重新冻结全部非Markdown源码，不借用已取消批次作为验收。
+
+阶段131当轮实际交易与独立审计已通过（最终门禁仍进行中）：Token2022单instruction在0处Custom17回退；Raydium临时WSOL七instruction在5处回退；原生SOL创建ATA两instruction在1处回退。三者原付款人分别10000000000→9999995000、10000000000→9999995000、1000000000000→999999995000；实际网络费均5000、留存租金0。16/16/19个native账户和5/2/1个Token账户观察匹配，原签名重启结果一致。18种缺失/篡改/矛盾故障及各自可恢复分支通过，独立Python普通/优化模式均核对实际wire与原余额，并各拒绝30次审计篡改。八场景原生命周期、11成功经济净额回归和严格Clippy/构建继续，尚不提前记整轮通过。
+
+阶段131最终限定验收：运行目录`0b9e9c453c3048c59dba606fa44dbfb2`，13门禁全部exit0、52次Rust（API库49实际通过、5原有忽略，实际失败3场景集成1项、原钱包8场景集成1项、成功经济净额11场景集成1项）。3次实际签名原SBF失败、18种API元数据故障及恢复、普通/优化各30独立审计篡改、普通/优化各17进度检查、准备/API全目标严格Clippy和正常router/harness构建通过。三种失败均仅实际扣费5000、资金操作与账户创建回滚、留存租金0；processed/confirmed保持可重查，签名消失清除fee/旧确认slot，重新确认和最终失败及重启结果一致，重复提交仅一次send。原成功净额与租金分类回归通过。源码/911固定输入/45 pinned运行输入前后一致，主报告绑定实际交易审计摘要和各门禁日志hash；旧v1无新字段的identity/entry hash兼容，新failureFee完整entry篡改拒绝。首个Make变量问题批次CANCELLED与17故障原型审计拒绝记录保留，无放宽断言或产品预算。该轮不升级RPC观察为历史bank/生产VERIFIED，也未实现通用Token可信估值/全候选净排序/未知失败类别及nonce；全部设计与原26工作包仍未完成。下一轮补失败费用与待核验状态的真实页面展示和刷新/重载闭环，再继续P0-3剩余费用估值及原优先级。

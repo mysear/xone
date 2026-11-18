@@ -3,6 +3,7 @@ mod cost_fallback;
 mod evm_preparation;
 mod exact_out;
 mod execution_receipts;
+mod failure_fees;
 mod native_economics;
 mod preparation;
 mod remote_checkpoint;

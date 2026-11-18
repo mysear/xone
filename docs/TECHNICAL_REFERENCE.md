@@ -2127,3 +2127,9 @@ native_economics对正常SBF证据和签名回执共用核算：仅原生SOL或�
 ### 已执行Solana费用后金额的前端展示（阶段130，限定本地验证）
 
 nativeEconomicsText仅展示当前transaction/preparation/chain绑定的经济净额，区分本地SBF与RPC回执来源，留存租金作为资本另列。原金额字符串/BigInt保留精度；旧costs缺失为空、普通Token或负净输出显式不可用，FAST报价不伪造净排名。首批自动检查通过但被截图复核拒绝后，已将链特定签名区与耐久回执区分离；五类正常SBF/签名回执、重载实际可见、18前端单测/16浏览器检查和8项冻结门禁及桌面/手机截图复核通过。保留首次失败结果，旧回执仍可读；通用价格、净排名和失败交易费用核算继续未完成。
+
+### Solana失败签名交易网络费（阶段131，限定本地验证）
+
+`GET /v1/transactions/{signature}`对已确认InstructionError读取原签名getTransaction；`failureFee`与成功`settlement`分开，绑定签名/wire hash/slot/status err、meta投影摘要及实际fee。payer只扣fee，其他已报告native/Token前后状态回滚，已知原有Token账户元数据必需。processed/元数据缺失及confirmed保持可重查；finalized完整核对才FAILED，矛盾SETTLEMENT_MISMATCH。费用观察可随签名消失撤销，旧v1日志兼容；不宣称完整账户data回滚证明、nonce支持、通用失败类别或可信历史bank，净额保持null。
+
+阶段131限定验收通过：三类实际失败签名原程序、18元数据故障与恢复、30独立审计篡改及原成功/钱包回归；13门禁、52次Rust和冻结源码/输入摘要通过。原账户data完整回滚证明、其他TransactionError/nonce和生产资格仍不在该核验范围内。
