@@ -2216,3 +2216,16 @@ BINDINGS['13.solana-signed-fee-context'] = {
            'wallet_submission_requires_signature_evidence_confirmation_and_durable_reconciliation'],
  'evidence_refs': ['integration/artifacts/local/solana-fee-preflight-check/report.json'],
 }
+
+BINDINGS['13.solana-native-economics'] = {
+ 'paths': ['dex-router/crates/quote-api/src/native_economics.rs',
+           'dex-router/crates/quote-api/src/solana_simulation.rs',
+           'dex-router/crates/quote-api/src/transaction_lifecycle.rs',
+           'dex-router/crates/quote-api/tests/solana_native_economics.rs',
+           'integration/tools/acceptance/solana_native_economics_evidence.py',
+           'integration/tools/acceptance/validate_solana_native_economics.py'],
+ 'tests': ['native_fee_adjusted_amounts_keep_capital_deposits_out_of_network_expense',
+           'fee_larger_than_output_is_explicitly_unavailable_and_exact_zero_is_not_clamped',
+           'native_economics_original_sbf_and_signed_receipts_use_actual_amounts_and_separate_deposits'],
+ 'evidence_refs': ['integration/artifacts/local/solana-native-economics-check/report.json'],
+}

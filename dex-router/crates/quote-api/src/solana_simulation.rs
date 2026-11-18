@@ -151,6 +151,14 @@ pub(crate) async fn simulate(
             .await
             .map_err(failure)?
     };
+    let cost_source = if engine.uses_rpc_capture() {
+        native_economics::Source::CapturedSbf
+    } else {
+        native_economics::Source::LocalSbf
+    };
+    let costs = native_economics::evaluated(&p.context, &p.result, &evidence, cost_source)
+        .map_err(failure)?;
+    evidence["costs"] = costs;
     current(&api, &p).map_err(failure)?;
     evidence["quoteId"] = id.into();
     evidence["protocolViewIds"] = json!(p

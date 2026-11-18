@@ -2117,3 +2117,9 @@ preflight先继承准备账户及fee的最新slot，当前getFeeForMessage须返
 新增可选feePreflight对旧schemaVersion=1日志省略序列化，旧entry/identity hash保持精确；新字段进入日志和不可变identity。并发重复reserve以已保存的凭证为准，允许同一签名的观察时间变化但不改写首次intent；后续update变更/删除凭证仍拒绝。make -C integration solana-fee-preflight-current-check冻结原SOL/WSOL钱包、实际签名一次发送与旧日志兼容验证。
 
 阶段128冻结验收完成：实际八种签名生命周期、六种费用/slot守卫、并发一次发送、重启凭证不变与旧v1精确日志兼容通过；Pump/Raydium原SOL/WSOL资金钱包回归和严格构建通过。仍为提交RPC观察约束，通用net估值、净收益路由与可信bank/链规则资格继续未完成。
+
+### Solana限定结算的原生同单位经济净额（阶段129，限定本地验证）
+
+native_economics对正常SBF证据和签名回执共用核算：仅原生SOL或显式临时WSOL退款/解包可用NATIVE_UNIT_IDENTITY。实际input+fee或output-fee形成单侧net估值，未涉及的一侧明确unavailable reason；fee超过output保持null，零值保留。经济净额排除可退/留存资本押金，原生现金另按实际fee/rent/principal核对；不调整原quote或optimizer排序。
+
+来源分开标明本地SBF、RPC捕获SBF和RPC回执，均不升级历史bank/生产VERIFIED。实现已通过正常HTTP/11场景原SBF及实际签名回执、独立原余额审计和16项冻结门禁；20原准备家族回归通过。签名wire/meta是受控本地原程序执行的实际结果，不冒称主网或原始HTTP归档。

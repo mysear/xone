@@ -643,9 +643,11 @@ fn settlement(receipt: &Receipt, tx: &Value) -> Result<Value> {
     {
         return Err(err("RECEIPT_AMOUNT_MISMATCH"));
     }
-    Ok(
-        json!({"verified":true,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"minBuyAmount":minimum.to_string(),"maxSellAmount":p["requiredInput"],"feeLamports":fee.to_string(),"actualPersistentRentLamports":persistent.to_string(),"payerLamportDelta":(i128::from(native_after)-i128::from(native_before)).to_string(),"settlementAsset":p["settlementAsset"],"transactionSha256":format!("{:x}",Sha256::digest(decode(wire)?))}),
-    )
+    let mut observation = json!({"verified":true,"actualInput":paid.to_string(),"actualOutput":received.to_string(),"minBuyAmount":minimum.to_string(),"maxSellAmount":p["requiredInput"],"feeLamports":fee.to_string(),"actualPersistentRentLamports":persistent.to_string(),"payerLamportDelta":(i128::from(native_after)-i128::from(native_before)).to_string(),"settlementAsset":p["settlementAsset"],"transactionSha256":format!("{:x}",Sha256::digest(decode(wire)?))});
+    let costs =
+        native_economics::evaluated(c, p, &observation, native_economics::Source::RpcReceipt)?;
+    observation["costs"] = costs;
+    Ok(observation)
 }
 pub(crate) async fn receipt(
     State(api): State<Api>,
