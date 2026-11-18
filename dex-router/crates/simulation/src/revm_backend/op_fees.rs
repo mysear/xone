@@ -15,7 +15,7 @@ fn bad() -> ExecutionFailure {
 fn l1() -> Address {
     Address::from_slice(&hex::decode("4200000000000000000000000000000000000015").unwrap())
 }
-fn accounts(tx: &TxEnv, beneficiary: Address) -> [Address; 5] {
+pub(super) fn accounts(tx: &TxEnv, beneficiary: Address) -> [Address; 5] {
     [
         tx.caller,
         beneficiary,
@@ -148,7 +148,7 @@ pub(super) fn validate_bank(
     Ok(())
 }
 
-fn calculate(
+pub(super) fn calculate(
     fork: OpFork,
     tx: &TxEnv,
     base: U256,

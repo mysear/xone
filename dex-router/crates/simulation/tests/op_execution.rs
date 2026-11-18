@@ -447,3 +447,369 @@ fn op_runtime_memory_instructions_and_cooperative_cancellation_are_fatal() {
     shared.cancellation.store(true, Ordering::Release);
     assert_eq!(task.join().unwrap().unwrap_err().reason(), "cancelled");
 }
+
+fn fee_report(r: &Value, funding: &str, out: &OpExecutionOutput) -> Value {
+    let mut accounts = serde_json::Map::new();
+    for owner in r[funding]["before"].as_object().unwrap().keys() {
+        accounts.insert(
+            owner.to_lowercase(),
+            serde_json::json!({"before":r[funding]["before"][owner],"after":r[funding]["after"][owner]}),
+        );
+    }
+    serde_json::json!({
+        "transaction_hash":r["transaction_hash"],"transaction_type":match r["input"]["kind"].as_str().unwrap() {"legacy"=>0,"access"=>1,"dynamic"=>2,_=>panic!()},
+        "chain_cost":out.costs,"payer_cost":out.payer_cost,"accounts":accounts
+    })
+}
+
+#[test]
+#[ignore = "requires full original signed OP transitions"]
+fn retained_signed_op_fee_audit_matches_original_roles_aliases_funding_and_refunds() {
+    let v = reference();
+    let mut count = 0;
+    for r in v["cases"].as_array().unwrap() {
+        for funding in ["actual", "exact_funding"] {
+            let (d, q) = setup(r, funding);
+            let image = Arc::new(StateImage::new(d.clone()).unwrap());
+            let execution = run(d.clone(), q).unwrap();
+            let (_, q) = setup(r, funding);
+            let report = fee_report(r, funding, &execution);
+            let audited = audit_op_fee_measurements(
+                image.clone(),
+                &q,
+                r[funding]["gas_used"].as_u64().unwrap(),
+                &report,
+                limits(),
+                ExecutionControl::default(),
+            )
+            .unwrap_or_else(|e| panic!("{} {funding}: {e}; report={report}", r["input"]["id"]));
+            assert_eq!(
+                serde_json::to_value(audited.costs).unwrap(),
+                report["chain_cost"]
+            );
+            assert_eq!(
+                serde_json::to_value(audited.payer_cost).unwrap(),
+                report["payer_cost"]
+            );
+            assert_eq!(audited.telemetry.reads.basic, 6);
+            assert!(audited.telemetry.reads.storage >= 3);
+            assert_eq!(audited.telemetry.instructions, 0);
+            assert_eq!(audited.telemetry.calls, 0);
+            assert_eq!(image.data(), &d);
+            count += 1;
+        }
+    }
+    assert_eq!(count, 896);
+}
+
+#[test]
+#[ignore = "requires full original signed OP transitions"]
+fn retained_op_fee_audit_rejects_report_source_and_signature_substitutions() {
+    let v = reference();
+    let mut checks = 0;
+    for rule in [
+        "regolith", "canyon", "ecotone", "fjord", "granite", "holocene", "isthmus",
+    ] {
+        let r = v["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["input"]["rule"] == rule && r["input"]["outcome"] == "refund")
+            .unwrap();
+        let (d, q) = setup(r, "actual");
+        let report = fee_report(r, "actual", &run(d, q).unwrap());
+        let gas = r["actual"]["gas_used"].as_u64().unwrap();
+        let check = |value: &Value| {
+            let (d, q) = setup(r, "actual");
+            audit_op_fee_measurements(
+                Arc::new(StateImage::new(d).unwrap()),
+                &q,
+                gas,
+                value,
+                limits(),
+                ExecutionControl::default(),
+            )
+            .unwrap_err()
+        };
+        for group in ["chain_cost", "payer_cost"] {
+            for (key, old) in report[group].as_object().unwrap() {
+                let mut changed = report.clone();
+                changed[group][key] =
+                    if let Some(n) = old.as_str().and_then(|s| s.parse::<U256>().ok()) {
+                        (n + U256::from(1)).to_string().into()
+                    } else {
+                        "changed".into()
+                    };
+                let e = check(&changed);
+                assert_eq!(e.reason(), "op_execution_context");
+                assert!(e.telemetry.reads.reads >= 9);
+                checks += 1;
+                let mut missing = report.clone();
+                missing[group].as_object_mut().unwrap().remove(key);
+                check(&missing);
+                checks += 1;
+            }
+            let mut unknown = report.clone();
+            unknown[group]["unknown"] = "1".into();
+            check(&unknown);
+            checks += 1;
+        }
+        for (owner, balances) in report["accounts"].as_object().unwrap() {
+            for field in ["before", "after"] {
+                let mut changed = report.clone();
+                changed["accounts"][owner][field] = (num(balances[field].as_str().unwrap())
+                    + U256::from(1))
+                .to_string()
+                .into();
+                check(&changed);
+                checks += 1;
+            }
+            let mut changed = report.clone();
+            for field in ["before", "after"] {
+                changed["accounts"][owner][field] = (num(balances[field].as_str().unwrap())
+                    + U256::from(1))
+                .to_string()
+                .into();
+            }
+            check(&changed);
+            checks += 1;
+            let mut missing = report.clone();
+            missing["accounts"].as_object_mut().unwrap().remove(owner);
+            check(&missing);
+            checks += 1;
+            let mut unknown = report.clone();
+            unknown["accounts"][owner]["unknown"] = "1".into();
+            check(&unknown);
+            checks += 1;
+            let mut numeric = report.clone();
+            numeric["accounts"][owner]["before"] = 1.into();
+            check(&numeric);
+            checks += 1;
+        }
+        for (field, value) in [
+            (
+                "transaction_hash",
+                Value::from(format!("0x{}", "00".repeat(32))),
+            ),
+            ("transaction_type", Value::from(99)),
+            ("unknown", Value::from(1)),
+        ] {
+            let mut changed = report.clone();
+            changed[field] = value;
+            check(&changed);
+            checks += 1;
+        }
+        let mut extra = report.clone();
+        extra["accounts"][format!("0x{}", "99".repeat(20))] =
+            serde_json::json!({"before":"0","after":"0"});
+        check(&extra);
+        checks += 1;
+        for measured in [
+            0,
+            gas - 1,
+            gas + 1,
+            r["input"]["gas_limit"].as_u64().unwrap() + 1,
+        ] {
+            let (d, q) = setup(r, "actual");
+            audit_op_fee_measurements(
+                Arc::new(StateImage::new(d).unwrap()),
+                &q,
+                measured,
+                &report,
+                limits(),
+                ExecutionControl::default(),
+            )
+            .unwrap_err();
+            checks += 1;
+        }
+        let (d, _) = setup(r, "actual");
+        for key in d.storage.keys().filter(|(a, _)| *a == l1()) {
+            let (mut d, q) = setup(r, "actual");
+            d.storage.remove(key);
+            let e = audit_op_fee_measurements(
+                Arc::new(StateImage::new(d).unwrap()),
+                &q,
+                gas,
+                &report,
+                limits(),
+                ExecutionControl::default(),
+            )
+            .unwrap_err();
+            assert_eq!(e.reason(), "unknown_storage");
+            assert!(e.telemetry.reads.storage > 0);
+            checks += 1;
+        }
+        for owner in report["accounts"].as_object().unwrap().keys() {
+            for missing in [true, false] {
+                let (mut changed, q) = setup(r, "actual");
+                let owner = addr(owner);
+                if missing {
+                    changed.accounts.remove(&owner);
+                    changed.storage.retain(|(a, _), _| *a != owner);
+                } else {
+                    changed
+                        .accounts
+                        .get_mut(&owner)
+                        .unwrap()
+                        .as_mut()
+                        .unwrap()
+                        .balance += U256::from(1);
+                }
+                audit_op_fee_measurements(
+                    Arc::new(StateImage::new(changed).unwrap()),
+                    &q,
+                    gas,
+                    &report,
+                    limits(),
+                    ExecutionControl::default(),
+                )
+                .unwrap_err();
+                checks += 1;
+            }
+        }
+        for kind in 0..7 {
+            let (mut d, mut q) = setup(r, "actual");
+            match kind {
+                0 => {
+                    d.accounts
+                        .get_mut(&q.transaction.environment().caller)
+                        .unwrap()
+                        .as_mut()
+                        .unwrap()
+                        .nonce += 1;
+                }
+                1 => {
+                    d.accounts
+                        .get_mut(&q.transaction.environment().caller)
+                        .unwrap()
+                        .as_mut()
+                        .unwrap()
+                        .balance = U256::from_str(r["maximum_funding"].as_str().unwrap()).unwrap()
+                        - U256::from(1);
+                }
+                2 => {
+                    d.accounts.remove(&q.transaction.environment().caller);
+                }
+                3 => {
+                    q.attributes_calldata[0] ^= 1;
+                }
+                4 => {
+                    q.block.timestamp = U256::from(1_764_691_201);
+                }
+                5 => {
+                    q.block.basefee += U256::from(1);
+                }
+                _ => {
+                    let wire = hex::decode(
+                        v["cases"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .find(|c| {
+                                c["transaction_hash"] != r["transaction_hash"]
+                                    && c["input"]["chain"] == r["input"]["chain"]
+                            })
+                            .unwrap()["signed_wire"]
+                            .as_str()
+                            .unwrap(),
+                    )
+                    .unwrap();
+                    q.transaction = authenticate_user(
+                        q.transaction.environment().chain_id.unwrap(),
+                        keccak256(&wire),
+                        q.transaction.environment().caller,
+                        &wire,
+                        wire.len(),
+                    )
+                    .unwrap();
+                }
+            }
+            audit_op_fee_measurements(
+                Arc::new(StateImage::new(d).unwrap()),
+                &q,
+                gas,
+                &report,
+                limits(),
+                ExecutionControl::default(),
+            )
+            .unwrap_err();
+            checks += 1;
+        }
+    }
+    assert!(checks > 650, "{checks}");
+}
+
+#[test]
+#[ignore = "requires full original signed OP transitions"]
+fn retained_op_fee_audit_charges_reads_preserves_failure_usage_and_honors_control() {
+    let v = reference();
+    let r = &v["cases"][0];
+    let (d, q) = setup(r, "actual");
+    let report = fee_report(r, "actual", &run(d, q).unwrap());
+    let (d, q) = setup(r, "actual");
+    let image = Arc::new(StateImage::new(d.clone()).unwrap());
+    let gas = r["actual"]["gas_used"].as_u64().unwrap();
+    let out = audit_op_fee_measurements(
+        image.clone(),
+        &q,
+        gas,
+        &report,
+        limits(),
+        ExecutionControl::default(),
+    )
+    .unwrap();
+    let mut exact = limits();
+    exact.reads.max_reads = out.telemetry.reads.reads;
+    exact.reads.max_bytes = out.telemetry.reads.bytes;
+    assert_eq!(
+        audit_op_fee_measurements(
+            image.clone(),
+            &q,
+            gas,
+            &report,
+            exact,
+            ExecutionControl::default()
+        )
+        .unwrap()
+        .telemetry,
+        out.telemetry
+    );
+    for which in 0..4 {
+        let mut l = exact;
+        match which {
+            0 => l.reads.max_reads -= 1,
+            1 => l.reads.max_bytes -= 1,
+            2 => l.max_gas_limit = 1,
+            _ => l.max_input_bytes = 0,
+        }
+        let e = audit_op_fee_measurements(
+            image.clone(),
+            &q,
+            gas,
+            &report,
+            l,
+            ExecutionControl::default(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            e.reason(),
+            ["read_limit", "byte_limit", "gas_limit", "input_limit"][which]
+        );
+        if which < 2 {
+            assert_eq!(e.telemetry.reads.reads, out.telemetry.reads.reads);
+            assert_eq!(e.telemetry.reads.bytes, out.telemetry.reads.bytes);
+        }
+    }
+    for stop in [true, false] {
+        let mut c = ExecutionControl::default();
+        if stop {
+            c.cancellation.store(true, Ordering::Release);
+        } else {
+            c.deadline = Some(Instant::now() - Duration::from_secs(1));
+        }
+        let e = audit_op_fee_measurements(image.clone(), &q, gas, &report, exact, c).unwrap_err();
+        assert_eq!(e.reason(), if stop { "cancelled" } else { "deadline" });
+        assert_eq!(e.telemetry, Telemetry::default());
+    }
+    assert_eq!(image.data(), &d);
+}

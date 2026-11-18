@@ -2203,3 +2203,8 @@ Go普通native来源及archive replay在同一header/body/receipt证明之后，
 ### OP受限worker签名协议（阶段141）
 
 现有私有`WorkerRequest`可选`op_user`携带完整原signed wire/hash/属性，严格hex/预算并在实际worker认证，再核验请求nonce/Gas/fee/chain与认证环境一致。只开放唯一BOUND ExactIn或Out，禁止prepared混用，历史fork/银行/全部预算继续由阶段140路径检查；无新服务/端口/交易发送。旧请求省略字段保持hash/序列化形状，正常API仍只传None且拒绝未绑定OP费用回执。19门禁/159次Rust通过，七规则56实际router子进程完整回执一致、17拒绝与8旧Shanghai HTTP回归通过，actual worker二进制及源码/固定输入在整个冻结区间一致，结果见[阶段141](../DEVELOPMENT_PROGRESS.md#plan-2026-11-18-op-signed-worker)。
+
+
+### OP费用回执源一致性核验（阶段142）
+
+`revm_backend::audit_op_fee_measurements`使用调用者保留的`OpExecutionRequest`和严格源image，按共享checked费用模型重算全部链费、最大资金、退款和payer自收credit/net；L1Block slot和费用账户均经过有界读取，要求报告before精确匹配源银行及唯一角色集合，after差额精确守恒。失败读遥测保留，取消/期限检查贯穿调用；返回读消耗必须计入父进程总预算。接口不执行VM，不能将费用一致性核验等同真实执行证明；当前正常OP API尚未接入，源银行/现行VM/完整报价净估值与生产资格不升级。实现和冻结结果见[阶段142](../DEVELOPMENT_PROGRESS.md#plan-2026-11-18-op-fee-measurements)。
