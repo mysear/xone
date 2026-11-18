@@ -2239,3 +2239,12 @@ Go普通native来源及archive replay在同一header/body/receipt证明之后，
 `OpFork::Karst`当前只提供组件表，正常历史准入仍拒绝Karst，直到CLZ/Gas cap/完整原签名转换及正常API验收闭合。原参考在隔离Rust1.99环境编译固定官方spec/precompiles与REVM43.0.3，产品保持1.90及原Cargo.lock；认证原archive、锁依赖archive和实际源目录，组件资格不升级为完整现代客户端/共识或可信bank。最终状态见进度文档阶段146。
 
 阶段146统一冻结30门禁/171次Rust通过，9452原组件输入与产品逐成功/Gas/输出/OutOfGas一致，32正常OP和8旧Shanghai HTTP回归通过。完整Karst VM仍不准入；下一轮补CLZ及交易Gas上限并验证完整原状态转换，不能仅凭预编译通过升级当前链资格。最终摘要和证据见进度文档阶段146。
+
+
+### Karst CLZ/Gas cap与完整原VM组件（阶段147）
+
+Karst的0x1e CLZ在instruction table的inspector包装之前注册，执行Gas 5并使用安全栈接口；每步仍统一核验指令/取消/期限。普通交易Gas cap 2^24在源bank读取前检查，内部观察受自身预算限制。Jovian/operator私有缓存倍率适配也用于Karst组件，真实源slot不变。
+
+本轮固定完整官方op-revm与REVM43.0.3，不改原handler；完整signed wire独立恢复、费用/nonce/code/storage转换和拒绝回滚在468明确本地场景对照。超宽来源basefee显式改为现代原BlockEnv的u64最大值，保留宽signed费用字段并记录转换，不宣称原超宽环境获现代资格。公开Karst schedule仍关闭，测试仅对同一私有内核绕过schedule，正常Karst API/可信bank/区块派生/共识资格未升级；最终结果见进度文档阶段147。
+
+阶段147统一冻结35门禁/173次Rust通过，468原场景（401产品执行/67拒绝）逐Gas/输出/费用账户/code/nonce/storage一致；257 CLZ结果、真实签名Gas临界值、指令预算和取消/期限守卫通过。9452预编译及32正常OP/8旧HTTP回归通过。公开Karst准入继续关闭，下一轮完成正常BOUND/worker/父审计/API后再扩大规则准入，源bank/共识和报价净估值仍须分别验证。

@@ -295,6 +295,15 @@ fn execute_mode(
     if chain_id != request.chain_id {
         return Err(reject(ExecutionFailure::ChainIdMismatch));
     }
+    if !observation
+        && op.is_some_and(|(_, fork)| fork == OpFork::Karst)
+        && request.tx.gas_limit > super::karst_execution::TX_GAS_LIMIT_CAP
+    {
+        return Err(reject(ExecutionFailure::GasLimit {
+            requested: request.tx.gas_limit,
+            maximum: super::karst_execution::TX_GAS_LIMIT_CAP,
+        }));
+    }
     if request.tx.gas_limit == 0 || request.tx.gas_limit > limits.max_gas_limit {
         return Err(reject(ExecutionFailure::GasLimit {
             requested: request.tx.gas_limit,
@@ -348,14 +357,22 @@ fn execute_mode(
             false,
         ))
     };
+    let karst = op.is_some_and(|(_, fork)| fork == OpFork::Karst);
     let mut evm = builder
+        .append_handler_register_box(Box::new(move |handler| {
+            if karst {
+                handler
+                    .instruction_table
+                    .insert(0x1e, super::karst_execution::clz);
+            }
+        }))
         .append_handler_register(revm::inspector_handle_register)
         .build();
     if let Some((_, fork)) = op {
         evm.handler.pre_execution.load_precompiles =
             Arc::new(move || super::op_precompiles::load::<super::StrictDB, BudgetInspector>(fork));
     }
-    if op.is_some_and(|(_, fork)| fork == OpFork::Jovian) && !observation {
+    if op.is_some_and(|(_, fork)| matches!(fork, OpFork::Jovian | OpFork::Karst)) && !observation {
         evm.handler.validation.tx_against_state = Arc::new(|context| {
             revm::optimism::validate_tx_against_state::<
                 revm::primitives::IsthmusSpec,
@@ -710,3 +727,7 @@ mod jovian_schedule_tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "karst_execution_tests.rs"]
+mod karst_execution_tests;

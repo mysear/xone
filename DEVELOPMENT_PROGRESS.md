@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Karst用户执行组件与完整原引擎（阶段147，P0-3/P0-4）|§14.2/14.4/28.17；WP03、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|CLZ/Gas cap及原完整OpEvm签名转换，正常Karst准入保持关闭|35门禁/173次Rust、468原场景/401执行/67拒绝及32 OP/8旧HTTP通过|
 |Karst预编译组件与固定现代原参考（阶段146，P0-3/P0-4）|§14.2/14.4/28.17；WP03、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|Osaka MODEXP/P256及Karst BN上限组件，完整VM准入保持关闭|30门禁/171次Rust、9452原组件、历史签名/32 OP/8旧HTTP通过|
 |OP Mainnet历史Jovian用户执行（阶段145，P0-3/P0-4）|§14.2/14.4/28.17；WP03、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|原operator单位与预编译上限接入，严格限定历史区间|25门禁/168次Rust、64原签名场景、7056预编译输入/160签名转换、32 OP及8旧HTTP通过|
 |OP预编译加密后端与Isthmus限制（阶段144，P0-3/P0-4）|§14.2/14.4/28.17；WP03、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|KZG/BLS固定后端、Isthmus BLS输入上限和原Gas检查顺序接入实际执行|24门禁/165次Rust、3558原输入/110签名转换、28 OP及8旧HTTP通过；当前VM/可信bank继续|
@@ -723,6 +724,7 @@
 |144|[OP预编译加密后端与Isthmus限制](#plan-2026-11-18-op-precompiles)|LOCAL_SCOPE_VERIFIED|24门禁/165次Rust、3558原输入/110签名转换、28 OP及8旧HTTP；[验证记录](integration/artifacts/local/op-precompiles-check/report.json)|
 |145|[OP Mainnet历史Jovian用户执行](#plan-2026-11-18-op-jovian)|LOCAL_SCOPE_VERIFIED|25门禁/168次Rust、64原场景、7056输入/160签名转换、32 OP及8旧HTTP；[验证记录](integration/artifacts/local/op-jovian-check/report.json)|
 |146|[Karst预编译组件与固定现代原参考](#plan-2026-11-19-karst-precompiles)|LOCAL_SCOPE_VERIFIED|30门禁/171次Rust、9452原组件及32 OP/8旧HTTP；[验证记录](integration/artifacts/local/karst-precompiles-check/report.json)|
+|147|[Karst用户执行组件与完整原引擎](#plan-2026-11-19-karst-execution)|LOCAL_SCOPE_VERIFIED|35门禁/173次Rust、468原场景与历史API；[验证记录](integration/artifacts/local/karst-execution-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3389,7 +3391,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 |---|---|---|---|---|
 |P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
-|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，完整Karst VM/可信bank仍缺；通用可信估值、净评分及完整链费仍未完成|PARTIAL_LOCAL|
+|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，Karst正常准入/可信bank仍缺；通用可信估值、净评分及完整链费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
 |P1-1|G03限定交易；WP14,WP15,WP20|先补单池/简单路径的calldata、授权、wrap、recipient、期限/退款、签名发送和耐久回执|报价→准备→独立仿真→用户签名→一次发送→回执收付款一致；先复用已有Solana链路，EVM独立补齐|PARTIAL_LOCAL|
 |P1-2|G06现有模型；WP11,WP13,WP14,WP16|已准入ExactOut先贯通最大输入、实际消耗、退款/费用和独立执行|数学输入目标与执行一致，拒绝不能保证的路径；复杂跨家族/共享拆单留P3-1|PARTIAL_LOCAL|
@@ -4040,3 +4042,31 @@ MODEXP先检查原最低Gas，再解码右补零的三长度并执行EIP-7823上
 阶段146最终限定验收：运行目录`97bbe25ecfa34c0bb7913abed8502762`，30门禁全部exit0、171次Rust通过。9452原Karst组件（1248 MODEXP、6249 P256及其余BN/KZG/BLS）、普通/优化各4参考守卫、原组件副本完整重放通过；64 Jovian原签名场景/128产品执行/63不足1拒绝/128独立源费用审计、7056历史预编译输入/160原签名转换、32正常OP HTTP/192错误请求/32未授权build拒绝及8旧Shanghai HTTP回归全部通过。最长OP HTTP为1.390863秒，原15秒产品期限保持。
 
 冻结源码`208d04f8ae3560a0948cd36aac4967c2af4177de3db154b64bd9ff2c226f5e6e`、911固定输入、46运行pins、12437参考操作数（含逐archive认证的原依赖和工具链）、7产物及30日志摘要独立复核一致；256 OP原JSON及8旧simulation原文件摘要重新核验，无残留worker/harness。两次无通过资格的预演均保留，未缩减语料或放宽预算。该轮只完成实际预编译组件，Karst完整签名VM/正常当前API、可信bank/共识和可靠估值/全候选净评分仍未完成；原26工作包完整验收仍0、生产VERIFIED关闭。下一轮继续既定P0-3/P0-4，补CLZ和EIP-7825交易Gas cap及完整原引擎差分后再准入Karst；推送实际配置的GitHub origin。
+
+<a id="plan-2026-11-19-karst-execution"></a>
+
+## Karst用户执行组件与完整原引擎（2026-11-19，阶段147，P0-3/P0-4）
+
+继续设计§14.2实际链规则/原生节点差分、§14.4资源约束和§28.17独立交易仿真。本轮补CLZ opcode 0x1e（Gas 5）及普通用户EIP-7825交易Gas cap 2^24，使用同一固定官方Optimism提交60360273aada79572fe2212497de578ad2fa249b的完整op-revm包和固定REVM43.0.3直接执行；不再只执行两个预编译组件。完整原文件与path依赖仍逐archive认证，Rust1.99隔离参考，产品保持1.90和原Cargo.lock。阶段146两个组件范围不被改写为完整VM证据。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F147.1|CLZ、Gas cap和统一控制预算|WP03,WP15,WP18|LOCAL_SCOPE_VERIFIED|CLZ先于inspector注册，Gas cap在源读前拒绝；真实签名边界、257数值/栈不足/循环及控制守卫冻结通过。|
+|F147.2|固定完整原OP VM与签名后状态|WP03,WP13,WP15,WP18|LOCAL_SCOPE_VERIFIED|468明确本地场景，完整signed wire恢复、401执行/67拒绝、费用alias/退款/回滚及全部声明后状态冻结通过。|
+|F147.3|历史正常API及组件回归|WP13,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|9452预编译、Jovian/历史签名及32正常OP/8旧HTTP同源码统一冻结通过；Karst时间准入保持关闭。|
+
+CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装之前，不能插入新opcode而绕过步数/取消/期限。交易cap仅约束实际普通交易，内部只读probe继续由既有预算限定；deposit/升级首块仍不在用户Call范围。Jovian operator私有缓存倍率适配同步扩为Karst组件，但真实L1Block slot8和独立checked资金验证不改。统一门禁中仅测试模块绕过schedule、直接进入同一私有执行内核，实际签名认证、严格源bank、费用、资源限制全运行；公开execute_op_user/正常API仍拒绝Karst。
+
+原参考468场景由191资金/别名/退款/失败、257个CLZ结果、栈不足与循环、18笔真正重新签名的Legacy/type2 Gas边界组成。真实现代原BlockEnv只接受u64 basefee；来源矩阵中超宽basefee明确改为u64最大值并记录base_fee_remapped_to_u64，保留原signed wire的宽费用字段，不静默截断或宣称超宽原环境已验证。参考全额费用账户守恒由Python独立整数核验，成功、拒绝及完整code/nonce/storage/source before均受守卫；现代原参考不授予可信bank/区块导入/派生/共识资格。
+
+预检完整原引擎先对4笔既有Jovian Router交易交叉核验，Gas及完整声明后状态与原op-geth一致。首次完整468预演因原handler正常清空交易L1费用缓存，wrapper直接unwrap已清空缓存而停止，无通过报告；保留prototype-1原输入/源码/日志，改为调用原calculate_tx_l1_cost重新计算，不改原handler或费用规则。prototype-2原468结果与两项产品执行/控制预检通过；测试代码一次字段误写为getter的编译拒绝保留日志，改为原公开字段。最终使用新完整守卫/元数据重建原输入，预演不替代统一冻结。
+
+工具：[validate_karst_execution.py](integration/tools/acceptance/validate_karst_execution.py)、[karst_execution_vectors.py](integration/tools/acceptance/karst_execution_vectors.py)。本轮限定退出条件是实际Karst执行组件与完整原引擎差分及历史链路回归；下一轮才验证schedule准入、BOUND/worker/父审计和正常Karst build/签名simulate。原26完整工作包验收仍0、生产VERIFIED关闭，可信bank/共识、可靠Token估值/全候选净评分和其余优先级继续；每轮验证后commit/push到实际GitHub origin。
+
+阶段147参考守卫首次曾对旧prototype-2运行，新守卫正确拒绝其缺少完整原提交/版本元数据，保留该失败输出；prototype-3已从头生成含显式basefee转换标记和原提交/版本的完整输入，不修改旧参考报告伪造通过。正式冻结将使用最终格式后的新运行副本。
+
+阶段147最终限定验收：运行目录`88c7544791e8468ca649f935e55da913`，35门禁全部exit0、173次Rust通过。固定完整原OpEvm468签名场景、401产品执行/67拒绝逐Gas/输出/完整声明code/nonce/storage与费用账户一致；257 CLZ结果、18笔真实签名Gas边界、source最大资金/退款/别名/失败回滚、八档指令预算与取消/期限守卫通过。普通/优化各4完整原VM守卫、完整原副本重放、9452预编译组件及原Jovian/历史矩阵、32正常OP HTTP/192错误请求/32未授权build拒绝与8旧Shanghai HTTP回归全部通过；最长OP HTTP 1.391009秒，原15秒期限保持。
+
+冻结源码`e9db1b64e90cf5d14619c16a3dde7b3752c92f260fc20cf1447568fcd54cd6aa`、911固定输入、46运行pins、13671参考操作数、8产物和35日志摘要独立复核一致，256 OP原JSON和8旧simulation原文件摘要再次核验，无残留worker/harness。实际metadata确认完整原op-revm20.0.0和op-alloy-consensus2.0.0来自上述固定monorepo路径，依赖REVM43.0.3/alloy-consensus2.5.0；不与早期发布的同名op-revm20.0.0（另一提交/另一REVM版本）混淆。仅3个资金子场景显式将原超宽basefee改为u64最大值，均在原输入记录，未宣称超宽环境获现代资格。
+
+该轮补齐实际执行组件而未开放Karst schedule；全部原始预演和失败记录保留。下一轮按P0-3/P0-4验证OP Mainnet Karst具体时间准入，贯通BOUND/实际worker/父进程源费用审计和正常build/签名simulate，并用完整原引擎执行同一笔正常入口签名；可信bank/共识、可靠Token估值/全候选净评分和其余优先级继续。原26完整工作包验收仍0、生产VERIFIED关闭；验证后提交并推送实际GitHub origin，再继续开发。
