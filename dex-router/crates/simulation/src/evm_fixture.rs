@@ -405,9 +405,13 @@ impl FixtureState {
     }
     /// This wrapper supports historical H -> H+1 replay only, not an implicit mix of contexts.
     pub fn validate_environment(&self, bound: &BoundEvmExecution) -> Result<()> {
-        self.validate_snapshot_environment(&bound.plan.snapshot)
+        self.validate_snapshot_environment(&bound.plan.snapshot, "shanghai")
     }
-    fn validate_snapshot_environment(&self, snapshot: &xone_domain::SnapshotRef) -> Result<()> {
+    fn validate_snapshot_environment(
+        &self,
+        snapshot: &xone_domain::SnapshotRef,
+        fork: &str,
+    ) -> Result<()> {
         let source = &self.state_anchor;
         let block = &snapshot.block;
         let env = &self.execution_environment;
@@ -431,7 +435,7 @@ impl FixtureState {
             ));
         }
         if chain_id(&source.chain_key)? != env.chain_id
-            || env.fork != "shanghai"
+            || env.fork != fork
             || source.block_number.checked_add(1) != Some(env.block_number)
             || env.parent_hash != source.block_hash
             || env.timestamp < source.timestamp
@@ -441,7 +445,7 @@ impl FixtureState {
             return Err(failure(
                 SimulationEnvironmentMismatch,
                 "environment",
-                "require Shanghai H+1 with parent H and nondecreasing timestamp",
+                "require declared fork H+1 with parent H and nondecreasing timestamp",
             ));
         }
         Ok(())
@@ -537,6 +541,9 @@ pub struct SimulationOutcome {
     pub actual_buy_amount: Amount,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_fees: Option<NativeFeeMeasurements>,
+    /// Complete signed historical OP fee report, never a Shanghai burn measurement.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub op_fees: Option<serde_json::Value>,
     pub observations: Vec<Observation>,
     pub usage: BudgetUsage,
     pub source_fixture_hash: String,
@@ -610,6 +617,8 @@ struct Runner<'a> {
     control: core::ExecutionControl,
     usage: BudgetUsage,
     observations: Vec<Observation>,
+    op: Option<&'a OpTransactionContext>,
+    op_fees: Option<serde_json::Value>,
 }
 impl Runner<'_> {
     fn error(
@@ -677,7 +686,7 @@ impl Runner<'_> {
         let gas_limit = tx.gas_limit;
         let env = self.env;
         let request = core::TransactionRequest {
-            fork: SpecId::SHANGHAI,
+            fork: self.op.map_or(SpecId::SHANGHAI, |op| op.fork.spec()),
             chain_id: env.chain_id,
             block: BlockEnv {
                 number: U256::from(env.block_number),
@@ -686,31 +695,93 @@ impl Runner<'_> {
                 gas_limit: U256::from(env.gas_limit),
                 basefee: amount(&env.base_fee)?,
                 prevrandao: Some(B256::from(fixed::<32>(&env.prevrandao)?)),
-                blob_excess_gas_and_price: None,
+                // OP does not carry blobs: its Ecotone+ header uses zero excess gas.
+                blob_excess_gas_and_price: self
+                    .op
+                    .filter(|op| !matches!(op.fork, core::OpFork::Regolith | core::OpFork::Canyon))
+                    .map(|_| revm::primitives::BlobExcessGasAndPrice::new(0, false)),
                 ..BlockEnv::default()
             },
             tx,
         };
-        let engine = if probe { core::observe } else { core::execute };
-        let result = engine(
-            image,
-            request,
-            core::ExecutionLimits {
-                reads: core::BoundReadLimits {
-                    max_reads: reads,
-                    max_bytes: read_bytes,
-                },
-                max_gas_limit: if probe {
-                    self.budget.probe_gas_limit
-                } else {
-                    self.budget.max_transaction_gas
-                },
-                max_instructions: instructions,
-                max_input_bytes: self.budget.max_input_bytes,
-                max_memory_bytes: self.budget.max_memory_bytes,
+        let limits = core::ExecutionLimits {
+            reads: core::BoundReadLimits {
+                max_reads: reads,
+                max_bytes: read_bytes,
             },
-            self.control.clone(),
-        );
+            max_gas_limit: if probe {
+                self.budget.probe_gas_limit
+            } else {
+                self.budget.max_transaction_gas
+            },
+            max_instructions: instructions,
+            max_input_bytes: self.budget.max_input_bytes,
+            max_memory_bytes: self.budget.max_memory_bytes,
+        };
+        let result = if let Some(op) = self.op {
+            if probe {
+                core::observe_op(image, request, op.fork, limits, self.control.clone())
+            } else {
+                if request.tx != *op.transaction.environment() {
+                    return Err(self.error(
+                        SimulationBindingMismatch,
+                        phase,
+                        "signed OP transaction differs",
+                    ));
+                }
+                core::execute_op_user(
+                    image.clone(),
+                    core::OpExecutionRequest {
+                        fork: op.fork,
+                        block: request.block,
+                        transaction: op.transaction.clone(),
+                        attributes_calldata: op.attributes_calldata.clone(),
+                    },
+                    limits,
+                    self.control.clone(),
+                )
+                .map(|out| {
+                    use xone_execution_preparation::op_chain_cost as cost;
+                    let mut accounts = BTreeMap::new();
+                    // The engine has already required every fee-role account
+                    // and reconciled its before/after balance under the budget.
+                    for owner in [
+                        self.caller_address,
+                        address(&self.env.coinbase).unwrap(),
+                        Address::from(cost::BASE_FEE_VAULT),
+                        Address::from(cost::L1_FEE_VAULT),
+                        Address::from(cost::OPERATOR_FEE_VAULT),
+                    ] {
+                        let before = image.data().accounts[&owner]
+                            .as_ref()
+                            .map_or(U256::ZERO, |a| a.balance);
+                        let after = out
+                            .execution
+                            .result_and_state
+                            .state
+                            .get(&owner)
+                            .map_or(before, |a| a.info.balance);
+                        accounts.insert(
+                            format!("{owner:#x}"),
+                            serde_json::json!({
+                                "before": before.to_string(), "after": after.to_string()
+                            }),
+                        );
+                    }
+                    self.op_fees = Some(serde_json::json!({
+                        "transaction_hash": format!("{:#x}", op.transaction.transaction_hash()),
+                        "transaction_type": op.transaction.transaction_type(),
+                        "chain_cost": out.costs,
+                        "payer_cost": out.payer_cost,
+                        "accounts": accounts
+                    }));
+                    out.execution
+                })
+            }
+        } else {
+            let engine = if probe { core::observe } else { core::execute };
+            engine(image, request, limits, self.control.clone())
+        };
         let telemetry = match &result {
             Ok(out) => out.telemetry,
             Err(e) => e.telemetry,
@@ -1098,6 +1169,69 @@ impl Runner<'_> {
         Ok(())
     }
 }
+/// Internal historical OP invocation. Source bank authentication stays separate.
+#[derive(Clone, Debug)]
+pub struct OpTransactionContext {
+    pub fork: core::OpFork,
+    pub transaction: crate::op_transaction::AuthenticatedUser,
+    pub attributes_calldata: Vec<u8>,
+}
+fn op_context(op: &OpTransactionContext) -> Result<TransactionContext> {
+    let e = op.transaction.environment();
+    Ok(TransactionContext {
+        nonce: e.nonce.unwrap(),
+        gas_limit: e.gas_limit,
+        gas_price: as_amount(e.gas_price)?,
+        max_priority_fee_per_gas: e.gas_priority_fee.map(as_amount).transpose()?,
+        chain_id: e.chain_id.unwrap(),
+    })
+}
+/// Execute the exact BOUND plan under authenticated historical OP rules.
+/// Observations and the swap share budgets; fee-only native scope remains closed.
+pub fn simulate_bound_op_user(
+    bound: &BoundEvmExecution,
+    pools: &[Pool],
+    allowlist: &[String],
+    fixture: &FixtureState,
+    op: &OpTransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+) -> Result<SimulationOutcome> {
+    simulate_execution(
+        BoundSource::ExactIn(bound),
+        pools,
+        allowlist,
+        fixture,
+        &op_context(op)?,
+        budget,
+        control,
+        None,
+        Some(op),
+    )
+}
+/// Output-specified equivalent; no implicit change to calldata, recipient or fees.
+pub fn simulate_bound_op_user_exact_out(
+    bound: &BoundEvmExactOutExecution,
+    pools: &[Pool],
+    allowlist: &[String],
+    fixture: &FixtureState,
+    op: &OpTransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+) -> Result<SimulationOutcome> {
+    simulate_execution(
+        BoundSource::ExactOut(bound),
+        pools,
+        allowlist,
+        fixture,
+        &op_context(op)?,
+        budget,
+        control,
+        None,
+        Some(op),
+    )
+}
+
 /// Revalidate a complete binding and replay local source H in the explicit H+1 environment.
 /// Every probe and swap shares remaining read/instruction/input/gas budgets and one control context.
 /// No input receipt or caller assertion is accepted as execution evidence.
@@ -1143,6 +1277,7 @@ pub(crate) fn simulate_bound_with_funding(
         budget,
         control,
         funding,
+        None,
     )
 }
 
@@ -1188,6 +1323,7 @@ pub(crate) fn simulate_bound_exact_out_with_funding(
         budget,
         control,
         funding,
+        None,
     )
 }
 
@@ -1250,6 +1386,7 @@ fn simulate_execution(
     budget: &SimulationBudget,
     control: core::ExecutionControl,
     funding: Option<&xone_execution_preparation::evm::FundingObservation>,
+    op: Option<&OpTransactionContext>,
 ) -> Result<SimulationOutcome> {
     control_check(&control, "entry")?;
     let bound = source.view();
@@ -1269,7 +1406,8 @@ fn simulate_execution(
         .validate(pools, allowlist)
         .map_err(|e| failure(SimulationBindingMismatch, "binding", e))?;
     fixture.validate_shape(budget)?;
-    fixture.validate_snapshot_environment(bound.snapshot)?;
+    fixture
+        .validate_snapshot_environment(bound.snapshot, op.map_or("shanghai", |o| o.fork.label()))?;
     let tx = transaction_context;
     if tx.chain_id != fixture.execution_environment.chain_id
         || tx.gas_limit == 0
@@ -1299,6 +1437,42 @@ fn simulate_execution(
             "invalid gas price, EIP-1559 fee cap or priority fee",
         ));
     }
+    let op_input = if let Some(op) = op {
+        let authenticated = op.transaction.environment();
+        if authenticated.caller != address(&bound.transaction.from)?
+            || authenticated.transact_to != TxKind::Call(address(&bound.transaction.to)?)
+            || authenticated.value != amount(&bound.transaction.value)?
+            || authenticated.data.as_ref()
+                != hex::decode(&bound.transaction.data[2..])
+                    .unwrap()
+                    .as_slice()
+        {
+            return Err(failure(
+                SimulationBindingMismatch,
+                "op_signed_binding",
+                "signed envelope differs from BOUND plan",
+            ));
+        }
+        let wire = authenticated.optimism.enveloped_tx.as_ref().unwrap();
+        let bytes = wire
+            .len()
+            .checked_add(op.attributes_calldata.len())
+            .filter(|n| {
+                u64::try_from(*n).is_ok_and(|n| n <= budget.max_total_input_bytes)
+                    && wire.len() <= budget.max_input_bytes
+                    && op.attributes_calldata.len() <= 260
+            })
+            .ok_or_else(|| {
+                failure(
+                    SimulationBudgetExceeded,
+                    "op_signed_input",
+                    "signed wire and attributes budget",
+                )
+            })?;
+        bytes as u64
+    } else {
+        0
+    };
     let image = fixture.to_image(budget)?;
     let touched_pools = bound
         .touched_pool_ids
@@ -1379,8 +1553,13 @@ fn simulate_execution(
         env: &fixture.execution_environment,
         tx,
         control,
-        usage: BudgetUsage::default(),
+        usage: BudgetUsage {
+            input_bytes: op_input,
+            ..Default::default()
+        },
         observations: vec![],
+        op,
+        op_fees: None,
         caller_address: caller,
     };
     for pool in &touched_pools {
@@ -1435,26 +1614,44 @@ fn simulate_execution(
             ));
         }
     }
-    let output = runner.run(
-        image.clone(),
-        TxEnv {
-            caller,
-            transact_to: TxKind::Call(address(&bound.transaction.to)?),
-            value: U256::ZERO,
-            data: Bytes::from(
-                hex::decode(&bound.transaction.data[2..])
-                    .map_err(|e| failure(SimulationInvalidFixture, "transaction_input", e))?,
-            ),
-            nonce: Some(tx.nonce),
-            chain_id: Some(tx.chain_id),
-            gas_limit: tx.gas_limit,
-            gas_price: max_fee,
-            gas_priority_fee: priority_fee,
-            ..TxEnv::default()
-        },
-        "swap",
-        false,
-    )?;
+    let expected_tx = TxEnv {
+        caller,
+        transact_to: TxKind::Call(address(&bound.transaction.to)?),
+        value: U256::ZERO,
+        data: Bytes::from(
+            hex::decode(&bound.transaction.data[2..])
+                .map_err(|e| failure(SimulationInvalidFixture, "transaction_input", e))?,
+        ),
+        nonce: Some(tx.nonce),
+        chain_id: Some(tx.chain_id),
+        gas_limit: tx.gas_limit,
+        gas_price: max_fee,
+        gas_priority_fee: priority_fee,
+        ..TxEnv::default()
+    };
+    let actual_tx = if let Some(op) = op {
+        let authenticated = op.transaction.environment();
+        if authenticated.caller != expected_tx.caller
+            || authenticated.transact_to != expected_tx.transact_to
+            || authenticated.value != expected_tx.value
+            || authenticated.data != expected_tx.data
+            || authenticated.nonce != expected_tx.nonce
+            || authenticated.chain_id != expected_tx.chain_id
+            || authenticated.gas_limit != expected_tx.gas_limit
+            || authenticated.gas_price != expected_tx.gas_price
+            || authenticated.gas_priority_fee != expected_tx.gas_priority_fee
+        {
+            return Err(runner.error(
+                SimulationBindingMismatch,
+                "op_signed_binding",
+                "signed envelope differs from BOUND plan",
+            ));
+        }
+        authenticated.clone()
+    } else {
+        expected_tx
+    };
+    let output = runner.run(image.clone(), actual_tx, "swap", false)?;
     let actual = &output.result_and_state;
     let post = Arc::new(
         image
@@ -1541,7 +1738,9 @@ fn simulate_execution(
             )
         }
     };
-    let native_fees = {
+    let native_fees = if op.is_some() {
+        None
+    } else {
         let coinbase = address(&fixture.execution_environment.coinbase)?;
         let native_balance = |state: &core::StateImage, owner: Address| -> Result<U256> {
             match state.data().accounts.get(&owner) {
@@ -1574,6 +1773,11 @@ fn simulate_execution(
             priority_fee_paid: as_amount(multiply(effective_tip)?)?,
         })
     };
+    let simulator_version = if op.is_some() {
+        "provided-local-state/op-signed-v1"
+    } else {
+        SIMULATOR_VERSION
+    };
     let mut outcome = SimulationOutcome {
         verified: false,
         authority: DataAuthority::ProvidedLocalState,
@@ -1601,10 +1805,11 @@ fn simulate_execution(
         unused_input_budget,
         actual_buy_amount: as_amount(bought)?,
         native_fees,
+        op_fees: runner.op_fees,
         observations: runner.observations,
         usage: runner.usage,
         source_fixture_hash,
-        simulator_version: SIMULATOR_VERSION.into(),
+        simulator_version: simulator_version.into(),
         receipt_hash: String::new(),
     };
     let mut value =
@@ -1613,7 +1818,7 @@ fn simulate_execution(
         map.remove("receipt_hash");
     }
     outcome.receipt_hash = canonical_hash(
-        &serde_json::json!({"bound":source,"source_fixture_hash":outcome.source_fixture_hash,"transaction_context":transaction_context,"limits":budget,"simulator_version":SIMULATOR_VERSION,"outcome":value}),
+        &serde_json::json!({"bound":source,"source_fixture_hash":outcome.source_fixture_hash,"transaction_context":transaction_context,"limits":budget,"simulator_version":simulator_version,"outcome":value}),
     )?;
     control_check(&runner.control, "receipt").map_err(|mut e| {
         e.usage = outcome.usage.clone();

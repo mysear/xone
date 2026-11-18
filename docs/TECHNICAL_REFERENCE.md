@@ -2191,3 +2191,10 @@ Go普通native来源及archive replay在同一header/body/receipt证明之后，
 `simulation::op_transaction::authenticate_user`认证完整EIP155 Legacy/type1/type2签名wire，校验chain/hash/恢复caller、规范RLP及整数/签名/访问列表预算，私有`AuthenticatedUser`仅提供只读环境。`revm_backend::execute_op_user`消费该对象，REVM实际执行字段和L1计费完整wire始终来自同笔交易；范围为OP/Base已固定Regolith到Isthmus七规则的零value普通Call。Jovian及之后、upgrade activation首块、deposit/blob/type4、原生本金/内部原生转移不具备本入口资格。
 
 执行前在同一StrictDB预算校验L1Block账户、实际storage和属性费用输入，checked最大资金；执行后独立共用完整费用组件核验实际Gas/费用账户/付款人净扣款，且在审计后再检查取消/期限。既有Shanghai路径显式mainnet handler并拒绝OP字段，现有HTTP/worker不自动改用OP。来源owner仍需认证block/state和全部依赖，库内签名恢复不提供历史bank/共识资格。本轮20门禁/160次Rust、448原signed场景/1337原状态转换、896产品执行/441资金拒绝、180归档公链签名认证与8正常Shanghai HTTP回归通过；最终限定结果见[阶段139](../DEVELOPMENT_PROGRESS.md#plan-2026-11-18-op-signed-execution)。
+
+
+### OP认证BOUND与完整Router执行（阶段140）
+
+`evm_fixture::simulate_bound_op_user`与`simulate_bound_op_user_exact_out`分别复用既有BOUND重验、完整代码身份/Pair状态、Token balanceOf与实际后状态观察；签名caller/to/value/data与计划必须一致，全部nonce/Gas/费用来自私有认证对象。同一OP规则的观察不计费/不改nonce并丢状态，主swap才执行完整L1/operator/VM费用；完整signed wire与属性额外计入共享输入预算。历史OP Ecotone+按原客户端无blob规则使用excess0/BLOBBASEFEE1。
+
+结果单列`op_fees`的原交易hash/type、完整checked链费/付款人净扣和费用账户before/after；Shanghai继续原native_fees格式及hash兼容，正常unsigned worker/API拒绝OP费用回执，尚未开放正常OP执行。18门禁/157次Rust与8正常Shanghai HTTP回归通过；448个本地构造完整Router的原op-geth差分、448次BOUND及448次直接OP执行一致，覆盖七规则、Legacy/type2、ExactIn/Out与全部声明账户/code/nonce/storage；不提供历史bank/共识或当前Jovian及后续执行资格。最终进度见[阶段140](../DEVELOPMENT_PROGRESS.md#plan-2026-11-18-op-bound-router)。

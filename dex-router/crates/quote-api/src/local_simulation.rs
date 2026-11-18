@@ -473,6 +473,14 @@ fn diagnostic_response(
     bundle_hash: &str,
     worker_hash: &str,
 ) -> std::result::Result<Value, Failure> {
+    // This normal worker contract still binds an unsigned Shanghai plan. A
+    // signed OP receipt needs its own authenticated envelope/attribute source.
+    if outcome.get("op_fees").is_some_and(|v| !v.is_null()) {
+        return Err(Failure::new(
+            "SIMULATION_WORKER_PROTOCOL",
+            "op_execution_not_enabled",
+        ));
+    }
     let gas = outcome["execution"]["gas_used"]
         .as_u64()
         .ok_or_else(|| Failure::new("SIMULATION_WORKER_PROTOCOL", "receipt"))?;
@@ -970,6 +978,19 @@ mod tests {
                 adapter_version: "uniswap-v2-router02/1.1.0-beta.0".into(),
             },
         }
+    }
+    #[test]
+    fn normal_shanghai_worker_rejects_unbound_op_fee_receipts() {
+        let mut value = outcome("SUCCESS", true);
+        value["op_fees"] =
+            json!({"transaction_hash":"different","chain_cost":{"gross_charge":"0"}});
+        let rejected = diagnostic_response(
+            value,
+            &diagnostic_commitment("2000000000"),
+            "bundle",
+            "worker",
+        );
+        assert!(rejected.is_err());
     }
     #[test]
     fn actual_success_and_fee_token_mismatch_never_claim_verified_or_full_chain_fees() {

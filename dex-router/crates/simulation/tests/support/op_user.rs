@@ -44,9 +44,12 @@ pub fn fields(kind: u8) -> Vec<Vec<u8>> {
     f
 }
 pub fn signed_fields(kind: u8, fields: &[Vec<u8>]) -> Vec<Vec<u8>> {
+    signed_fields_on_chain(kind, fields, 10)
+}
+pub fn signed_fields_on_chain(kind: u8, fields: &[Vec<u8>], chain: u64) -> Vec<Vec<u8>> {
     let mut unsigned = fields.concat();
     if kind == 0 {
-        unsigned.extend([number(U256::from(10)), vec![0x80], vec![0x80]].concat());
+        unsigned.extend([number(U256::from(chain)), vec![0x80], vec![0x80]].concat());
     }
     let mut signing = encoded(&unsigned, true);
     if kind > 0 {
@@ -61,7 +64,7 @@ pub fn signed_fields(kind: u8, fields: &[Vec<u8>]) -> Vec<Vec<u8>> {
     let (id, sig) = sig.serialize_compact();
     let mut parts = fields.to_vec();
     parts.push(number(U256::from(
-        id.to_i32() as u64 + if kind == 0 { 55 } else { 0 },
+        id.to_i32() as u64 + if kind == 0 { chain * 2 + 35 } else { 0 },
     )));
     parts.push(number(U256::from_be_slice(&sig[..32])));
     parts.push(number(U256::from_be_slice(&sig[32..])));

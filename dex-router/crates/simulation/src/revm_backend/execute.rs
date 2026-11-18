@@ -80,7 +80,7 @@ pub enum OpFork {
     Isthmus,
 }
 impl OpFork {
-    fn spec(self) -> SpecId {
+    pub(crate) fn spec(self) -> SpecId {
         match self {
             Self::Regolith => SpecId::REGOLITH,
             Self::Canyon => SpecId::CANYON,
@@ -89,6 +89,17 @@ impl OpFork {
             Self::Granite => SpecId::GRANITE,
             Self::Holocene => SpecId::HOLOCENE,
             Self::Isthmus => SpecId::ISTHMUS,
+        }
+    }
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Regolith => "op-regolith",
+            Self::Canyon => "op-canyon",
+            Self::Ecotone => "op-ecotone",
+            Self::Fjord => "op-fjord",
+            Self::Granite => "op-granite",
+            Self::Holocene => "op-holocene",
+            Self::Isthmus => "op-isthmus",
         }
     }
     fn at(chain: u64, time: u64) -> Option<Self> {
@@ -211,6 +222,30 @@ pub(crate) fn observe(
 ) -> Result<ExecutionOutput, ExecutionError> {
     execute_mode(image, request, limits, control, true, None)
 }
+
+/// Internal read-only probes use the selected OP VM rules without paying fees
+/// or changing nonce. They discard state and cannot produce swap evidence.
+pub(crate) fn observe_op(
+    image: Arc<StateImage>,
+    request: TransactionRequest,
+    fork: OpFork,
+    limits: ExecutionLimits,
+    control: ExecutionControl,
+) -> Result<ExecutionOutput, ExecutionError> {
+    if request.tx.optimism != Default::default()
+        || request.fork != fork.spec()
+        || u64::try_from(request.block.timestamp)
+            .ok()
+            .and_then(|time| OpFork::at(request.chain_id, time))
+            != Some(fork)
+    {
+        return Err(ExecutionError {
+            failure: ExecutionFailure::InvalidOpContext("OP observation context"),
+            telemetry: Telemetry::default(),
+        });
+    }
+    execute_mode(image, request, limits, control, true, Some((&[], fork)))
+}
 fn execute_mode(
     image: Arc<StateImage>,
     request: TransactionRequest,
@@ -273,7 +308,7 @@ fn execute_mode(
     let mut db = super::StrictDB::new(image, limits.reads, control);
     db.check_control()
         .map_err(|error| reject(ExecutionFailure::Evm(Box::new(EVMError::Database(error)))))?;
-    if let Some((attributes, fork)) = op {
+    if let Some((attributes, fork)) = op.filter(|_| !observation) {
         super::op_fees::validate_bank(&mut db, attributes, fork, &request.tx, &request.block)
             .map_err(|failure| ExecutionError {
                 failure,
@@ -552,6 +587,48 @@ mod observation_tests {
         );
     }
 
+    #[test]
+    fn op_observation_preserves_native_context_without_l1_fee_or_nonce_payment() {
+        for (fork, time) in [
+            (OpFork::Regolith, 1_686_068_904u64),
+            (OpFork::Isthmus, 1_746_806_403),
+        ] {
+            // CALLER.balance and GASPRICE; Cancun+ additionally BLOBBASEFEE.
+            let mut code = vec![0x33, 0x31, 0x60, 0, 0x52, 0x3a, 0x60, 0x20, 0x52];
+            if fork == OpFork::Isthmus {
+                code.extend([0x4a, 0x60, 0x40, 0x52]);
+            }
+            let width = if fork == OpFork::Isthmus { 96 } else { 64 };
+            code.extend([0x60, width, 0x60, 0, 0xf3]);
+            let (image, mut request, limits) = setup(&code);
+            request.fork = fork.spec();
+            request.chain_id = 10;
+            request.tx.chain_id = Some(10);
+            request.block.timestamp = U256::from(time);
+            request.block.set_blob_excess_gas_and_price(0, false);
+            let original = image.clone();
+            let out =
+                observe_op(image, request, fork, limits, ExecutionControl::default()).unwrap();
+            let bytes = out.result_and_state.result.output().unwrap();
+            assert_eq!(bytes.len(), width as usize);
+            assert_eq!(U256::from_be_slice(&bytes[..32]), U256::from(123456));
+            assert_eq!(
+                U256::from_be_slice(&bytes[32..64]),
+                U256::from(2_000_000_000u64)
+            );
+            if fork == OpFork::Isthmus {
+                assert_eq!(U256::from_be_slice(&bytes[64..]), U256::from(1));
+            }
+            assert!(out.result_and_state.state.is_empty());
+            assert_eq!(
+                original.data().accounts[&Address::repeat_byte(0x11)]
+                    .as_ref()
+                    .unwrap()
+                    .nonce,
+                7
+            );
+        }
+    }
     #[test]
     fn observation_cannot_create_or_transfer_value() {
         let (image, mut request, limits) = setup(&[0x00]);
