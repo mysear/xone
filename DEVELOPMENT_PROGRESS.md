@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP预编译加密后端与Isthmus限制（阶段144，P0-3/P0-4）|§14.2/14.4/28.17；WP03、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|KZG/BLS固定后端、Isthmus BLS输入上限和原Gas检查顺序接入实际执行|24门禁/165次Rust、3558原输入/110签名转换、28 OP及8旧HTTP通过；当前VM/可信bank继续|
 |正常历史OP构建与签名模拟（阶段143，P0-3）|§5.1/14.2/14.4/15.3；WP13、WP14、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|正常build返回完整RPC待签名交易，simulate认证完整wire并由父进程重验源费用/回执/总预算|19门禁/161次Rust、28正常OP HTTP/168拒绝及8旧Shanghai HTTP通过；预编译完整规则/当前VM/可信估值继续|
 |OP费用回执的独立源核验（阶段142，P0-3）|§5.1/14.2/14.4/15.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|保留的签名请求与严格源银行重算全部费用、最大资金及付款人净扣，核验费用账户before/after|17门禁/160次Rust、896费用源核验及至少650反例、8正常HTTP通过；正常OP API继续|
 |OP签名受限worker协议与实际子进程（阶段141，P0-3）|§5.1/14.2/14.4/15.3；WP14、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|完整OP签名及属性经现有stdin/stdout worker认证并执行BOUND|19门禁/159次Rust、56实际OP子进程完整回执/17拒绝及8正常Shanghai HTTP通过；正常OP API继续|
@@ -717,6 +718,7 @@
 |141|[OP签名受限worker协议与实际子进程](#plan-2026-11-18-op-signed-worker)|LOCAL_SCOPE_VERIFIED|19门禁/159次Rust、56实际OP子进程/17拒绝与8正常Shanghai HTTP通过；[验证记录](integration/artifacts/local/op-worker-check/report.json)|
 |142|[OP费用回执的独立源核验](#plan-2026-11-18-op-fee-measurements)|LOCAL_SCOPE_VERIFIED|17门禁/160次Rust，896源费用核验与8正常HTTP通过；[验证记录](integration/artifacts/local/op-fee-measurements-check/report.json)|
 |143|[正常历史OP构建与签名模拟](#plan-2026-11-18-op-normal-api)|LOCAL_SCOPE_VERIFIED|19门禁/161次Rust、28正常OP HTTP/168拒绝及8旧Shanghai HTTP；[验证记录](integration/artifacts/local/op-api-check/report.json)|
+|144|[OP预编译加密后端与Isthmus限制](#plan-2026-11-18-op-precompiles)|LOCAL_SCOPE_VERIFIED|24门禁/165次Rust、3558原输入/110签名转换、28 OP及8旧HTTP；[验证记录](integration/artifacts/local/op-precompiles-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3383,7 +3385,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 |---|---|---|---|---|
 |P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
-|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–143补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，当前OP VM/可信bank仍缺；通用可信估值、净评分及完整链费仍未完成|PARTIAL_LOCAL|
+|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–144补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，当前OP VM/可信bank仍缺；通用可信估值、净评分及完整链费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
 |P1-1|G03限定交易；WP14,WP15,WP20|先补单池/简单路径的calldata、授权、wrap、recipient、期限/退款、签名发送和耐久回执|报价→准备→独立仿真→用户签名→一次发送→回执收付款一致；先复用已有Solana链路，EVM独立补齐|PARTIAL_LOCAL|
 |P1-2|G06现有模型；WP11,WP13,WP14,WP16|已准入ExactOut先贯通最大输入、实际消耗、退款/费用和独立执行|数学输入目标与执行一致，拒绝不能保证的路径；复杂跨家族/共享拆单留P3-1|PARTIAL_LOCAL|
@@ -3948,3 +3950,33 @@ OP和prepared模式暂不混用，ExactIn/Out严格唯一；worker先检查expec
 阶段143最终限定验收：运行目录`bc3c76cc99814c6bbda10ebedfc825f2`，19门禁全部exit0、161次Rust（仿真101/API21/准备23/BOUND及父进程回执4/签名执行及费用源12）通过。七历史规则×Legacy/type2×ExactIn/Out共28笔正常build实际签名/HTTP执行与原完整op-geth逐Gas、实际Token和费用账户一致；168错误签名/旧计划/未知覆盖拒绝及28次build未授权拒绝通过，28个父进程回执场景及252次重新seal篡改拒绝、旧8笔正常Shanghai实际worker全部通过。全目标严格Clippy、正常router/harness构建、普通/优化各17进度及各4原参考守卫通过。源码`08d04e6024c144788e6c80c1d370bdcad4e8e3c3e86e93ba276e8f213080fd29`、911固定输入、46运行输入、1488参考输入、4产物、19日志和28 OP场景224原JSON文件及8旧HTTP原simulation摘要独立复核一致，无残留worker/harness。
 
 下一轮优先修复已发现的规则完整性缺口（P0-3/P0-4、§14.2）：当前固定REVM构建未启用BLS/KZG特性，Isthmus BLS输入上限还需独立适配；本轮28个原Router场景不调用这些预编译，不能据此外推完整fork支持。先启用对应加密后端并按固定原客户端逐输入/Gas/错误/升级前后分派差分，补Isthmus三项输入上限，再继续Jovian operator fee单位/四预编译上限与当前可信bank、可信估值/全候选净评分。原26工作包完整验收仍0、生产VERIFIED关闭；仅推送实际配置的GitHub origin，不冒称GitLab，无阻断全部可开发工作的真实外部阻塞。
+
+<a id="plan-2026-11-18-op-precompiles"></a>
+
+## OP预编译加密后端与Isthmus限制（2026-11-18，阶段144，P0-3/P0-4）
+
+设计映射：§14.2每链真实执行规则、§14.4资源边界、§28.17独立VM差分，WP03/WP15/WP16/WP18。阶段143原Router场景不调用BLS/KZG，不能据此认定该fork所有执行规则已完整支持。本轮修复固定构建的缺失加密后端及OP专用输入上限，维持旧历史时间区间；Jovian及后续VM与可信bank不在本轮准入。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F144.1|启用KZG/BLS及OP预编译分派|WP03,WP15|LOCAL_SCOPE_VERIFIED|固定REVM19.7开启已有锁版本c-kzg/blst；Ecotone含KZG、Fjord含P256、Isthmus含七BLS，升级前保持普通账户语义；24门禁统一冻结验收通过。|
+|F144.2|Isthmus限制与Gas检查优先级|WP15,WP18|LOCAL_SCOPE_VERIFIED|按固定原op-geth的三BLS上限和BN Granite上限，先RequiredGas再输入校验；共享原加密实现，成功Gas/返回字节逐项对照；24门禁统一冻结验收通过。|
+|F144.3|原语料与完整签名交易差分|WP03,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|3558直接输入、110实际签名/完整原状态转换；覆盖七规则分派、输入/Gas/上限，复跑原BOUND/正常OP与Shanghai HTTP；24门禁统一冻结验收通过。|
+
+实际适配同时用于swap执行和只读观察，source/输入/指令/Gas/取消/期限与worker回收预算保持。BLS上限513760/488448/235008字节分别绑定G1MSM/G2MSM/pairing；BN上限112687字节。上限先于原生加密调用检查，Gas少于原RequiredGas时先报OutOfGas。共享BLS的折扣表直接读取锁定依赖，不另造密码学运算或更改原客户端。KZG明确启用实际后端，避免只靠构建成功判断能力。原18地址注册表、成功/错误/低Gas与cap边界均纳入差分。
+
+原始语料来自完整归档已验证的op-geth core/vm/testdata，原数据继续留本地。新wrapper直接执行未修改的原预编译和core.ApplyMessage，并复用既有wrapper的配置/初态辅助函数；只重命名其入口，原客户端不修改。完整交易在初态Finalise(false)后执行，实际费用账户、nonce、Gas及返回字节由两引擎对照。首个原wrapper预演因Isthmus低Gas交易未满足EIP7623 calldata floor被原客户端拒绝，失败输入/日志保留；第二预演按原core.FloorDataGas构造合法总Gas，直接调用和完整交易各自比较，不假定floor产生的额外可用Gas与直接调用相等，未修改产品规则或放宽预算。
+
+工具：[validate_op_precompiles.py](integration/tools/acceptance/validate_op_precompiles.py)、[op_precompile_vectors.py](integration/tools/acceptance/op_precompile_vectors.py)，报告：[op-precompiles-check/report.json](integration/artifacts/local/op-precompiles-check/report.json)。原26完整工作包验收仍0、生产VERIFIED关闭；本轮成功仅证明列明预编译范围，继续当前VM/可信bank、可靠Token估值和全候选净评分。每轮验证通过后commit并推送实际GitHub origin，再按既定优先级继续。
+
+阶段144文档预检发现新任务表列名未使用既有解析器约定，已改回“任务/内容/工作包/状态/验证”，不修改进度校验器；当时聚合报告尚未创建，报告链接检查随正式总控写入RUNNING报告后执行，未伪造通过记录。
+
+阶段144严格Clippy预检拒绝捕获非Send/Sync原handler的Arc闭包；已改为按固定fork直接构造原注册表并施加上限，闭包仅捕获Copy规则枚举，不添加lint豁免。3558原语料（含OutOfGas优先级）、110签名转换及普通/优化各3验收守卫预检通过，最终资格仍以同一源码的统一冻结验收为准。
+
+阶段144首轮冻结`360c6062766e460491ca1a9159e8a0fa`在前19门禁通过后，第15笔正常OP HTTP触发15秒supervisor期限，报告FAILED及全部原HTTP/日志保留；未计为通过。总控已退出，独立确认无worker/harness残留后才修改源码。使用失败组保留的source WorkerRequest单独执行成功（该请求不是正常HTTP新build后的签名），耗时8.292秒，完整111099512字节可执行文件SHA与Python独立摘要一致；macOS原生采样455主线程样本中452位于executable_sha256，451位于SHA压缩路径，数据保留在`integration/.runtime/design-review/op-precompile-hash-profile`。因此仅对固定sha2依赖的dev/test编译开启opt-level=3；算法、每次完整文件读取、父/子独立身份核验及原15秒期限不变，不引入摘要缓存或跳过核验。重建后先隔离复验，再从头冻结全部门禁，首轮通过部分不沿用最终资格。
+
+优化后同一保留source worker请求首次单独执行2.438秒，完整outcome与优化前一致，二进制摘要继续与Python独立计算一致；原失败Fjord/type2组重新由正常build签名，ExactIn/Out实际HTTP分别1.281/1.250秒、12错误请求拒绝，费用/Gas/实际Token继续与原完整客户端一致。预演只用于定位与修复验证，随后重新冻结全套3558输入、110转换和28正常HTTP，不以两个快速请求替代完整验收。
+
+阶段144最终限定验收：运行目录`63246ced12134db28a894faa253b2c6d`，24门禁全部exit0、165次Rust通过；3558原预编译输入逐Gas/返回字节/成功与OutOfGas/规则分派一致，110完整原签名状态转换逐Gas、nonce、返回字节及全部声明费用账户一致。28笔正常OP HTTP（最长1.874秒）、168错误请求及28次build未授权拒绝通过，原8笔正常Shanghai HTTP实际worker回归通过；原BOUND/父进程回执与费用源审计、普通/优化各3新语料守卫及各4原BOUND守卫、全目标严格Clippy、正常router/harness构建通过。源码`2232a53da97a995cd28bc183e1019921db30a96914a12ff94e4e177e5a33873b`、911固定输入、46运行输入、1521参考输入、5产物、24日志、28 OP场景224原JSON与8旧HTTP simulation摘要独立复核一致，无残留worker/harness。首次FAILED报告及原始输入/采样保留并作为本次引用固定，不放宽15秒期限，不减少28笔覆盖，不跳过完整二进制身份核验。
+
+下一轮继续P0-3/P0-4：依据原客户端内置registry明确OP Mainnet的Jovian历史区间，再验证operator费单位及四预编译输入上限，贯通BOUND/worker/父进程/正常API。固定registry提交`ac4e48516794322e20abfe4f4c175e379b9a5d19`记录OP的Karst激活为2026-07-08 16:00:01 UTC（1783526401），原op-geth自该时间起拒绝构建/导入区块，因此历史Jovian不等于当前链资格，当前Karst及后续仍需适配有效客户端与规则；不能默认Base沿用未核实的后续时间表。原26完整工作包验收仍为0、生产VERIFIED关闭，可信bank/共识、可靠Token估值/全候选净评分与其余优先级继续；实际推送目标仍为GitHub origin。

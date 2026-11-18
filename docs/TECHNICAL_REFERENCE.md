@@ -2215,3 +2215,9 @@ Go普通native来源及archive replay在同一header/body/receipt证明之后，
 配置的本地`LocalSimulationBundle`可选`op_attributes_calldata`；只接受已明确准入的七历史规则和属性格式。正常build按缓存ExactIn/Out重新BOUND，返回完整`rpcTransaction`和nonce/Gas/Legacy或type2费用、H源/H+1环境及build hash；未签名前完整链费未知，ready=false且用途限定历史本地仿真。正常simulate新增可选`signedOpTransaction:{transactionHash,signedWire}`，属性来自固定bundle，其他调用者覆盖字段拒绝；源无OP时仍保持旧空请求及Shanghai模式。
 
 `worker_op::OpReceiptCommitment`在父进程保留重新认证的签名和BOUND/source/limits，重算worker receipt/source摘要与nonce，再调用阶段142有界费用核验。父进程读数从worker已消费后的剩余预算分配，`costs.totalUsage`公开合计；所有有效worker仍重新核验实际二进制SHA，取消、期限和permit持有到回收。OP费用按execution（base vault/priority）、L1 data、operator、最大资金/预付/退款及payer净扣分开；额外资金操作与可信Token估值仍未知，不提升当前OP VM、可信bank、报价净排序或生产VERIFIED。原Shanghai章节只适用于无OP配置的请求；本节是显式限定扩展，OP prepared路径仍关闭。冻结结果及范围见[阶段143](../DEVELOPMENT_PROGRESS.md#plan-2026-11-18-op-normal-api)。
+
+### OP预编译加密后端与上限（阶段144）
+
+固定REVM19.7显式启用c-kzg/blst。历史Ecotone起提供实际KZG，Isthmus加入七个BLS；OP专用wrapper对三BLS执行513760/488448/235008字节上限、BN使用112687字节上限，先检查原Gas再拒绝输入，不进入超长原生密码学调用。该注册表同时用于真实签名执行及只读观察，原上游加密运算/折扣表复用。验收使用原op-geth语料与完整签名状态转换并复跑正常HTTP；不因此开放Jovian及后续或生产VERIFIED。具体状态和报告见DEVELOPMENT_PROGRESS.md阶段144。
+
+阶段144统一验收通过，具体输入和报告绑定见进度文档。固定sha2依赖在dev/test使用opt-level=3，消除大可执行文件未优化摘要的期限压力；父进程和子进程仍每次完整读取文件并核对独立摘要，不使用身份缓存，原期限保持。当前OP规则的后续适配须尊重原registry的Karst边界，原op-geth历史执行不能充当当前链客户端资格。

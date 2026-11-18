@@ -12,8 +12,10 @@ from validate_cache_reclamation import runtime_inputs
 from validate_evm_dynamic_fees import main
 
 
-def validate():
-    output = ROOT / 'integration/artifacts/local/op-api-check'
+def validate(*, output_base=None, additional_checks=(), additional_references=None,
+             additional_artifacts=(), additional_required=None, additional_report=None,
+             verification_scope='NORMAL_HTTP_BUILD_FIXED_LOCAL_WALLET_SIGNED_HISTORICAL_OP_BOUND_EXECUTION_PARENT_SOURCE_FEES_NOT_CURRENT_VM_OR_TRUSTED_BANK'):
+    output = output_base or ROOT / 'integration/artifacts/local/op-api-check'
     original = output / 'original-runs' / uuid.uuid4().hex
     original.mkdir(parents=True)
     prior_path = ROOT / 'integration/artifacts/local/op-fee-measurements-check/runs/e7b46c8919bd487c97254bdc5d91b37a/report.json'
@@ -44,14 +46,15 @@ def validate():
     runners, inputs = prepare(original / 'original-client')
     refs.update(inputs)
     refs.update(runtime_inputs())
+    refs.update(additional_references or {})
     http = output / 'http-runs' / uuid.uuid4().hex
     replay = original / 'replay.json'
     cargo, manifest = ['cargo', '+1.90.0'], ['--locked', '--manifest-path', 'dex-router/Cargo.toml']
     test_env = ['env', 'XONE_OP_EXECUTION_VECTORS=' + str(execution), 'XONE_OP_BOUND_VECTORS=' + str(vectors), 'XONE_OP_PUBLIC_USERS=' + str(public)]
     guards = ['-m', 'unittest', 'discover', '-s', 'integration/tools/acceptance/tests', '-p', 'test_op_bound_vectors.py']
     main(output_base=output,
-         verification_scope='NORMAL_HTTP_BUILD_FIXED_LOCAL_WALLET_SIGNED_HISTORICAL_OP_BOUND_EXECUTION_PARENT_SOURCE_FEES_NOT_CURRENT_VM_OR_TRUSTED_BANK',
-         extra_checks=[
+         verification_scope=verification_scope,
+         extra_checks=list(additional_checks) + [
              ('original-signer-format', [sys.executable, '-c', 'import subprocess,sys;r=subprocess.check_output(["gofmt","-l","integration/tools/acceptance/reference/op_api_sign.go"],text=True);print(r,end="");sys.exit(bool(r))']),
              ('original-bound-replay', [sys.executable, 'integration/tools/acceptance/op_bound_vectors.py', '--replay', str(vectors), str(replay)]),
              ('signed-bound-router', test_env + cargo + ['test'] + manifest + ['-p', 'xone-simulation', '--test', 'op_bound', '--', '--include-ignored', '--skip', 'export_original_op_bound_inputs', '--skip', 'actual_signed_op_worker_']),
@@ -63,7 +66,7 @@ def validate():
              ('actual-legacy-http', [sys.executable, 'integration/tools/acceptance/evm_native_cost_http.py', str(target / 'debug/examples/evm_dynamic_fee_harness'), str(http / 'legacy'), '--legacy-payer-cost']),
              ('actual-dynamic-http', [sys.executable, 'integration/tools/acceptance/evm_native_cost_http.py', str(target / 'debug/examples/evm_dynamic_fee_harness'), str(http / 'dynamic'), '--payer-cost']),
              ('router-build', cargo + ['build'] + manifest + ['--bin', 'dex-router']),
-         ], required_by_check={
+         ], required_by_check={**(additional_required or {}),
              'api-context': ['local_simulation::tests::normal_shanghai_worker_rejects_unbound_op_fee_receipts'],
              'signed-bound-router': ['bound_signed_op_router_measures_real_tokens_complete_state_and_all_chain_fees',
                                      'op_bound_rejects_rehashed_signed_plan_substitutions_and_preserves_probe_budgets',
@@ -75,8 +78,8 @@ def validate():
                                          'authenticated_strict_op_execution_matches_original_gas_accounts_nonce_and_storage',
                                          'archived_normal_sources_authenticate_all_original_public_signed_users'],
          }, reference_inputs=refs,
-         artifact_reports=[str(p.relative_to(ROOT)) for p in [replay, http / 'op/report.json', http / 'legacy/report.json', http / 'dynamic/report.json']],
-         extra_report=dict(normal_signed_op_http_executions=28, normal_signed_op_http_rejections=168,
+         artifact_reports=list(additional_artifacts) + [str(p.relative_to(ROOT)) for p in [replay, http / 'op/report.json', http / 'legacy/report.json', http / 'dynamic/report.json']],
+         extra_report=dict(additional_report or {}, normal_signed_op_http_executions=28, normal_signed_op_http_rejections=168,
                            original_client_signed_and_executed_normal_calldata=28,
                            parent_receipt_commitment_cases=28, parent_rehashed_receipt_mutations=252,
                            legacy_shanghai_http_worker_executions=8,

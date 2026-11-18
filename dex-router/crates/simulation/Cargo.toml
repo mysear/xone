@@ -7,7 +7,7 @@ rust-version.workspace = true
 base64.workspace = true
 tokio.workspace = true
 tempfile = "=3.27.0"
-revm = { version = "=19.7.0", default-features = false, features = ["std", "secp256k1", "portable", "memory_limit", "optimism"] }
+revm = { version = "=19.7.0", default-features = false, features = ["std", "secp256k1", "portable", "memory_limit", "optimism", "c-kzg", "blst"] }
 xone-domain = { path = "../domain" }
 xone-execution-plan = { path = "../execution-plan" }
 xone-execution-preparation = { path = "../execution-preparation" }

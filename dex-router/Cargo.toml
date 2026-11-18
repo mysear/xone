@@ -100,3 +100,12 @@ path = "test/tools/pump_plan_projector.rs"
 [[example]]
 name = "solana-plan-projector"
 path = "test/tools/solana_plan_projector.rs"
+
+# Worker identity rereads the complete executable on every admission and in the
+# child. Keep the fixed SHA-256 engine optimized in local builds as well, so
+# debug arithmetic does not consume the simulation's unchanged deadline.
+[profile.dev.package.sha2]
+opt-level = 3
+
+[profile.test.package.sha2]
+opt-level = 3

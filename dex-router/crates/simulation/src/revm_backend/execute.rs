@@ -339,6 +339,10 @@ fn execute_mode(
     let mut evm = builder
         .append_handler_register(revm::inspector_handle_register)
         .build();
+    if let Some((_, fork)) = op {
+        evm.handler.pre_execution.load_precompiles =
+            Arc::new(move || super::op_precompiles::load::<super::StrictDB, BudgetInspector>(fork));
+    }
     if observation {
         // These hooks apply only to read observations, never actual execution.
         // Do not fund the caller or rewrite the gas price: contracts may inspect

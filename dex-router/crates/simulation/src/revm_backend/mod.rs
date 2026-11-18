@@ -6,6 +6,7 @@ pub mod image;
 pub mod limits;
 mod op_fees;
 mod op_measurements;
+mod op_precompiles;
 pub use db::StrictDB;
 pub use error::{DbError, ImageError};
 pub use execute::{execute, ExecutionError, ExecutionFailure, ExecutionOutput, TransactionRequest};
