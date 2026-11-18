@@ -2145,3 +2145,12 @@ nativeEconomicsText仅展示当前transaction/preparation/chain绑定的经济�
 正常worker为Legacy和EIP1559都从原image及实际afterstate返回native_fees。Legacy effective gas price等于明确gasPrice，priority=gasPrice−baseFee；caller/coinbase分离时payer扣gross execution，重合时净扣burn、自付priority分列返回。API校验before绑定原worker输入、最大reserve及同一checked费用模型，再返回payerNetNativeDebit；旧Legacy无测量仍保持未知，EIP1559缺测量仍拒绝。完整链费/市场估值/当前主网链规则资格不由该测量推断。
 
 阶段133限定验收通过：14门禁/148次Rust、16原银行、Legacy/EIP1559各四正常HTTP和56独立整数向量；成功/回退/HALT的实际原生测量、source-bound前余额、alias自付priority和最大reserve守卫通过。旧缺测量兼容保留，完整链费/价格与生产链规则资格仍未开放。
+
+
+### OP Regolith历史L1数据费（阶段134，算术内核）
+
+`execution-preparation::op_l1_cost`提供`decode_parameters`和`data_cost`共享Rust入口。只接受OP/Base已知Regolith至Ecotone前的时间域及Bedrock属性ABI，完整编码user wire按4/16计数据Gas，加入原overhead，乘原L1 baseFee/scalar后向下除1e6；gas与中间乘积保留宽整数，最终native fee限uint256，显式零有效。结果保留属性/交易字节摘要与原L1时间/区块，调用方必须另外认证交易格式/签名、deposit/链身份、block承诺与时效；本模块不赋予这些资格。输入预算由调用方明确传入。
+
+固定原op-geth函数以独立Go执行，与三笔留存公链signed wire及RPC l1Fee/l1GasUsed对照；synthetic算术向量只验证整数，非真实执行证明。当前没有将该历史内核接入正常报价链费/付款人完整净成本或路由排名；现行OP模型、Ecotone首块和后续版本、完整来源/链规则与生产资格仍关闭。
+
+阶段134内核限定验收通过：16门禁/147次Rust、75原Go向量（三原signed交易与72算术探针）、普通/优化参考守卫及8次原worker HTTP回归。完整来源接线与现行OP费用继续待实现，报告与首批文档失败记录见进度文档。
