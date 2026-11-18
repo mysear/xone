@@ -59,6 +59,15 @@ async fn main() {
         "schema_version":1,"state_anchor":original["state_anchor"],
         "execution_environment":original["execution_environment"],"accounts":original["accounts"],"block_hashes":[]
     })).unwrap();
+    let native_alias = std::env::var("XONE_EVM_COINBASE_ALIAS").ok().as_deref() == Some("1");
+    if native_alias {
+        fixture.execution_environment.coinbase = context.caller.clone();
+        fixture.execution_environment.block_hash =
+            format!("0x{}", hash(&json!({
+            "kind":"COUNTERFACTUAL_LOCAL_COINBASE_ALIAS",
+            "source":fixture.state_anchor.block_hash,"environment":fixture.execution_environment
+        })).unwrap());
+    }
     let original_tx: TransactionContext =
         serde_json::from_value(original["transaction_context"].clone()).unwrap();
     let prepared_http = std::env::var("XONE_EVM_PREPARED_HTTP").ok();
@@ -150,6 +159,8 @@ async fn main() {
     let info: Value = json!({"api":format!("http://{}",listener.local_addr().unwrap()),
         "token":api.config.token,"request":request,"exactOutRequest":exact_out_request,"maxFeePerGas":max_fee,
         "executionBaseFee":bundle.fixture.execution_environment.base_fee,
+        "executionCoinbase":bundle.fixture.execution_environment.coinbase,
+        "counterfactualCoinbaseAlias":native_alias,
         "bundleHash":hash(&bundle).unwrap(),"unsigned":true,"submitted":false});
     std::fs::write(info_path, serde_json::to_vec_pretty(&info).unwrap()).unwrap();
     axum::serve(listener, api.handler())

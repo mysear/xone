@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|EVM费用原生余额守恒与源绑定（阶段124，P0-3）|§13.1/14/15.3/28.17；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|EIP1559费用测量的before绑定原worker输入，付款人/coinbase分离或重合分别守恒；未知不默认零，Legacy标不可核验；native atomic单位与executionCoinbase披露|14门禁/144次Rust、56独立向量与四次actual HTTP/源绑定/分离-alias守恒通过；完整链费/估值/净排序仍缺|
 |EVM原生费用模型与覆盖披露（阶段123，P0-3）|§13.1/14/15.3/28.15/28.17；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|共享Legacy/EIP1559有效单价、burn/tip/最大reserve/实际费用checked uint256，准备与API复用；验证Gas不超已绑定上限，costs区分已知小计/未实现费用与换算，不伪造net|14门禁/142次Rust、56独立整数向量与实际HTTP两worker通过，16原bank H/H+1/准备/VM回归通过；完整链费与净收益排序仍缺|
 |真实V2原字节码收款与完整后状态差分（阶段122，P0-2）|§12.14/28.5/28.12/28.17；WP03、WP10、WP14、WP15|LOCAL_SCOPE_VERIFIED|新固定actual bank+MPT原WETH/DAI/Pair三call本地执行，测真实recipient delta/完整Pair后状态；多1输出原K拒绝；Go原VM结果与独立Rust数学全状态比较|14门禁/16次Go/16次Rust、原VM实际收款及q+1原K回退/完整后状态跨内核通过；合成native资金覆盖/非签名call序列，非完整链费/生产VERIFIED|
 |真实V2固定bank独立离线夹具（阶段121，P0-1）|§28.3/28.5/28.6/28.11/28.26；WP01、WP03、WP04、WP05、WP09、WP24|LOCAL_SCOPE_VERIFIED|将阶段120真实32原raw封装为有界gzip+元数据pin；按既有政策原数据留本地，跟踪恢复工具/hash；Go服务内同字节副本可独立正常读取/拒绝证明，双router/owner恢复离线回归|13门禁/83次Go/36次Rust、9守卫及固定actual bank/双router冷恢复/owner升代/五来源反例通过；不伪称本轮新实网资格|
@@ -499,6 +500,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|13.evm-native-fee-balance-audit|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|绝对before绑定原bank输入，fee与实际native debit/beneficiary credit守恒；caller=coinbase净扣burn不重复tip，未知数据/资金操作拒绝|14门禁/同state/修改/平移/alias及四次actual HTTP通过；生产资格与完整成本仍缺|[验证记录](integration/artifacts/local/evm-native-balance-audit-check/report.json)|
 |13.evm-native-cost-components|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|共享checked uint256原生执行费与最大reserve、Legacy/EIP1559有效单价，API回执Gas/价格/fee组件核对，scope/binding/未定项明确|14门禁/142次Rust/56独立向量/两实际HTTP执行通过；额外链费/授权资金操作/可靠价格/FAST路由净收益仍缺|[验证记录](integration/artifacts/local/evm-native-cost-model-check/report.json)|
 |12.14.public-v2-original-execution|WP03,WP10,WP14,WP15|LOCAL_SCOPE_VERIFIED|原始实际code+MPT状态、显式local native funding经原WETH deposit/transfer和Pair.swap，实际收款/完整after state、多1输出原K回退；Rust独立比较|14门禁/Go原VM与Rust全状态冻结差分通过；未签名call序列/非未来交易保证/非生产VERIFY；其余方向/费用/更多版本仍需扩展|[验证记录](integration/artifacts/local/public-v2-original-execution-check/report.json)|
 |7.current-v2-pinned-offline-fixture|WP01,WP03,WP04,WP05,WP09,WP24|LOCAL_SCOPE_VERIFIED|固定actual公开block/runtime/proof/receipt原字节与获取元数据；无网络恢复工具、同字节Go本地副本、封闭loopback及多进程回归|13门禁/83次Go/36次Rust固定bank离线验收通过；数据仍依赖明确外部bundle，缺失须失败，不临时下载或改预期|[验证记录](integration/artifacts/local/current-v2-fixed-check/report.json)|
@@ -667,6 +669,7 @@
 |121|[真实V2固定bank独立离线夹具](#plan-2026-11-18-current-v2-fixed-fixture)|LOCAL_SCOPE_VERIFIED|13门禁/83次Go/36次Rust；真实bank固定离线通过；[验证记录](integration/artifacts/local/current-v2-fixed-check/report.json)|
 |122|[真实V2原字节码收款与完整后状态差分](#plan-2026-11-18-public-v2-original-execution)|LOCAL_SCOPE_VERIFIED|14门禁/16次Go/16次Rust；原VM actual收款/完整状态通过；[验证记录](integration/artifacts/local/public-v2-original-execution-check/report.json)|
 |123|[EVM原生费用模型与覆盖披露](#plan-2026-11-18-evm-native-cost-model)|LOCAL_SCOPE_VERIFIED|14门禁/142次Rust；P0-3原生费用与缺项披露通过；[验证记录](integration/artifacts/local/evm-native-cost-model-check/report.json)|
+|124|[EVM费用原生余额守恒与源绑定](#plan-2026-11-18-evm-native-balance-audit)|LOCAL_SCOPE_VERIFIED|14门禁/144次Rust；P0-3源绑定/alias守恒通过；[验证记录](integration/artifacts/local/evm-native-balance-audit-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3486,3 +3489,20 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 未知链特定data/其他native费、额外授权/资金操作、可靠Token换算仍明确列missingComponents；nativeKnownSubtotal仅含已观测EVM execution。base burn与priority是execution的分解，不额外加到小计；reserveHeadroom是预留预算差额，不冒充Token refund。返回authority=PROVIDED_LOCAL_STATE、chainFeeCompleteness=LOCAL_EVM_ONLY，totalNativeEstimate/net仍null。FAST quote仍缺完整cost来源/估值/净排序，因此CHAIN_FEE_MODEL_NOT_IMPLEMENTED总链路缺口并未关闭，P0-3继续；生产VERIFIED和P0-4亦未开放。
 
 阶段123最终限定验收：14门禁全部exit0，142次Rust、56份独立Python整数向量（48有效8拒绝）、3项Python守卫、普通/优化各17项进度检查、准备/仿真/API全相关all-target严格Clippy及当前router/HTTP worker构建通过，运行目录`09c3655bd378448abdbe28a442997b7a`。实际HTTP原Router ExactIn/Out各一次owned worker，actualnative caller debit/coinbase credit、有效单价而非maxcap、费用子项和新costs/binding字段均一致；source H与execution H+1、原16银行及准备/VM/取消/证据绑定回归通过。costs gasNative/nativeKnownSubtotal为唯一execution费用，burn/tip只是其拆分，reserve/headroom不假作实际fee/refund；L2/data/额外授权资金/可靠Token换算缺失保持null，total/net与生产VERIFIED未开放。源码/911固定输入和独立向量hash前后不变，实际HTTP报告摘要已绑定主report。该轮无全设计或P0-3整项完成声明；下一轮继续将EIP1559原生余额守恒与caller/coinbase重合的费用证据核验完整接入，随后补范围化成本来源/估值与净排序。
+
+<a id="plan-2026-11-18-evm-native-balance-audit"></a>
+
+## EVM费用原生余额守恒与源绑定（2026-11-18，阶段124，P0-3）
+
+阶段123核对fee算术仍不足以认证worker所报账户余额；同时改变before/after可能保持差额而伪造绝对值。本轮将原worker输入中的caller/coinbase初始余额保存在parent commitment中，EIP1559测量先逐项绑定，再核对费用守恒。适用边界为既有zero-value bound ERC20交易；其他原生币资金流需要单独完整会计，不默认放行。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F124.1|原bank native初值绑定|WP15,WP16|LOCAL_SCOPE_VERIFIED|由已序列化原worker request提取caller/coinbase余额；明确exists=false可得零，账户未声明则None；测量before必须精确相同，拒绝单字段变化及同时平移before/after。|
+|F124.2|分离/重合账户守恒|WP13,WP15|LOCAL_SCOPE_VERIFIED|分离时payer扣execution fee、coinbase增tip；相同账户时before/after对应字段一致且净扣base burn，不把自付tip重复扣；uint256/资金不足和scope外value流拒绝。|
+|F124.3|费用单位/不可用语义与反例|WP15,WP16|LOCAL_SCOPE_VERIFIED|costs.nativeUnit=EVM_NATIVE_ATOMS、executionCoinbase与balanceReconciliation披露；Legacy无原测量标UNAVAILABLE；缺原余额、无效地址/非零value、改任一字段/成对平移/零base或alias反例验证。|
+|F124.4|实际HTTP四场景及冻结回归|WP01,WP03,WP15,WP16|LOCAL_SCOPE_VERIFIED|原Router ExactIn/Out×payer/coinbase分离或重合四owned worker，明确alias为合成H+1环境且重新派生环境标识，不混称原header；原16bank/源H与H+1费用/准备/取消/整数向量及严格Clippy/构建/源码输入冻结通过。|
+
+该核验只认证指定本地执行上下文的原生费用守恒；不会因MATCHED开放生产VERIFIED或伪称完整链费。缺L2/data/额外授权资金/可靠价格时仍为LOCAL_EVM_ONLY/缺项null。HTTP alias模式仅验收helper显式counterfactualCoinbaseAlias=true，原source H不变，H+1环境为明确合成；不广播交易，不声称本轮新公链挖矿/验证人资格。
+
+阶段124最终限定验收：14门禁全部exit0，144次Rust、56份独立Python整数向量/3守卫、普通与优化各17进度检查、准备/仿真/API相关全目标严格Clippy及当前router/worker构建通过；运行目录`34880799bcb640ac9acabd26260acf73`。四次actual HTTP owned worker覆盖ExactIn/Out×分离/alias，原输入native before、实际payer debit/beneficiary credit、原base/tip/cap/fee、costs chain/binding/unit与source H/H+1核对通过。单字段或成对平移before/after、未声明原余额、native value流及零base/alias反例拒绝；Legacy未报告native余额明确UNAVAILABLE，不默认零；旧费用与16原bank/准备/取消回归保持。源码/911固定输入/当轮56向量与实际四HTTP报告摘要前后相同。该轮只关闭指定local执行上下文的原生费守恒缺口，不授予完整链费、可信Token估值、FAST净排序或生产VERIFIED。下一轮继续P0-3的最大预留资金准入与付款人净扣款/自付priority语义，避免将费用总账gross charge与实际账户净成本混为一项，再接范围化价格/成本来源。

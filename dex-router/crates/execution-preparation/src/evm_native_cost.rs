@@ -57,3 +57,44 @@ pub fn reserve(gas_limit: u64, maximum: &Amount) -> Result<Amount> {
     Amount::checked(maximum.0.clone())?;
     Amount::checked(&maximum.0 * gas_limit)
 }
+
+/// Reconcile the existing zero-value bound ERC20 transaction scope. Native
+/// value transfers/unwraps require their own complete flow accounting.
+#[derive(Clone, Debug)]
+pub struct NativeBalances {
+    pub payer_before: Amount,
+    pub payer_after: Amount,
+    pub beneficiary_before: Amount,
+    pub beneficiary_after: Amount,
+}
+
+pub fn reconcile_native_balances(
+    cost: &NativeCost,
+    balances: &NativeBalances,
+    same_account: bool,
+) -> Result<()> {
+    for value in [
+        &balances.payer_before,
+        &balances.payer_after,
+        &balances.beneficiary_before,
+        &balances.beneficiary_after,
+    ] {
+        Amount::checked(value.0.clone())?;
+    }
+    if same_account {
+        if balances.payer_before != balances.beneficiary_before
+            || balances.payer_after != balances.beneficiary_after
+            || balances.payer_before < cost.base_fee_burned
+            || &balances.payer_before.0 - &cost.base_fee_burned.0 != balances.payer_after.0
+        {
+            return Err(err("EVM_NATIVE_BALANCE_MISMATCH"));
+        }
+    } else if balances.payer_before < cost.execution_fee
+        || &balances.payer_before.0 - &cost.execution_fee.0 != balances.payer_after.0
+        || Amount::checked(&balances.beneficiary_before.0 + &cost.priority_fee_paid.0)?
+            != balances.beneficiary_after
+    {
+        return Err(err("EVM_NATIVE_BALANCE_MISMATCH"));
+    }
+    Ok(())
+}

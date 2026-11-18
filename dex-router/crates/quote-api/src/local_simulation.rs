@@ -116,6 +116,9 @@ struct ExecutionCommitment {
     transaction: Transaction,
     transaction_context: TransactionContext,
     execution_base_fee: Amount,
+    execution_coinbase: String,
+    caller_native_before: Option<Amount>,
+    coinbase_native_before: Option<Amount>,
     executor: ExecutorIdentity,
 }
 struct PreparedExecution {
@@ -157,6 +160,22 @@ impl PreparedExecution {
                 (None, Some(b)) => (b.binding_hash, b.transaction, b.executor, "EXACT_OUT"),
                 _ => return Err(Failure::new("SIMULATION_WORKER_BINDING", "prepare")),
             };
+        let balance = |owner: &str| {
+            request
+                .fixture
+                .accounts
+                .iter()
+                .find(|a| a.address.eq_ignore_ascii_case(owner))
+                .map(|a| {
+                    if a.exists {
+                        a.balance.clone()
+                    } else {
+                        Amount::zero()
+                    }
+                })
+        };
+        let caller_native_before = balance(&transaction.from);
+        let coinbase_native_before = balance(&request.fixture.execution_environment.coinbase);
         Ok(Self {
             input: output.0,
             commitment: ExecutionCommitment {
@@ -167,6 +186,9 @@ impl PreparedExecution {
                 expected_preparation,
                 transaction_context: request.transaction_context,
                 execution_base_fee: request.fixture.execution_environment.base_fee,
+                execution_coinbase: request.fixture.execution_environment.coinbase,
+                caller_native_before,
+                coinbase_native_before,
             },
         })
     }
@@ -465,6 +487,8 @@ fn diagnostic_response(
             .as_ref(),
     )
     .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"))?;
+    let mut balance_reconciliation =
+        json!({"status":"UNAVAILABLE","reason":"LEGACY_NATIVE_BALANCES_NOT_REPORTED"});
     if commitment
         .transaction_context
         .max_priority_fee_per_gas
@@ -472,13 +496,46 @@ fn diagnostic_response(
     {
         let native: NativeFeeMeasurements = serde_json::from_value(outcome["native_fees"].clone())
             .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"))?;
-        if native.effective_gas_price != model.effective_gas_price
+        if commitment.caller_native_before.as_ref() != Some(&native.caller_before)
+            || commitment.coinbase_native_before.as_ref() != Some(&native.coinbase_before)
+            || native.effective_gas_price != model.effective_gas_price
             || native.execution_fee != model.execution_fee
             || native.base_fee_burned != model.base_fee_burned
             || native.priority_fee_paid != model.priority_fee_paid
         {
             return Err(Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"));
         }
+        let account = |value: &str| {
+            if value.len() != 42 || !value.starts_with("0x") {
+                return Err(Failure::new(
+                    "SIMULATION_WORKER_PROTOCOL",
+                    "native_fee_balances",
+                ));
+            }
+            hex::decode(&value[2..])
+                .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_balances"))
+        };
+        if commitment.transaction.value != Amount::zero() {
+            return Err(Failure::new(
+                "SIMULATION_WORKER_PROTOCOL",
+                "native_fee_balances",
+            ));
+        }
+        let same =
+            account(&commitment.transaction.from)? == account(&commitment.execution_coinbase)?;
+        xone_execution_preparation::evm_native_cost::reconcile_native_balances(
+            &model,
+            &xone_execution_preparation::evm_native_cost::NativeBalances {
+                payer_before: native.caller_before,
+                payer_after: native.caller_after,
+                beneficiary_before: native.coinbase_before,
+                beneficiary_after: native.coinbase_after,
+            },
+            same,
+        )
+        .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_balances"))?;
+        balance_reconciliation = json!({"status":"MATCHED","scope":"ZERO_VALUE_BOUND_ERC20_TRANSACTION",
+            "caller":commitment.transaction.from,"coinbase":commitment.execution_coinbase,"sameAccount":same});
     } else if outcome.get("native_fees").is_some_and(|v| !v.is_null()) {
         return Err(Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"));
     }
@@ -487,6 +544,7 @@ fn diagnostic_response(
         "chainKey":commitment.transaction.chain_key,"bindingHash":commitment.binding_hash,
         "scope":"DECLARED_LOCAL_EVM_TRANSACTION","authority":"PROVIDED_LOCAL_STATE",
         "gasUnits":gas.to_string(),"gasNative":model.execution_fee,
+        "nativeUnit":"EVM_NATIVE_ATOMS","balanceReconciliation":balance_reconciliation,
         "gasPriceNativePerUnit":model.effective_gas_price,
         "maxExecutionReserveNative":model.gas_limit_reserve,
         "reserveHeadroomNative":Amount::checked(&model.gas_limit_reserve.0 - &model.execution_fee.0)
@@ -503,7 +561,7 @@ fn diagnostic_response(
     let success = outcome["matches_plan"] == true && outcome["execution"]["status"] == "SUCCESS";
     Ok(
         json!({"quoteKind":commitment.quote_kind,"bindingHash":commitment.binding_hash,"bundleHash":bundle_hash,"workerHash":worker_hash,
-        "transaction":commitment.transaction,"transactionContext":commitment.transaction_context,"executionBaseFee":commitment.execution_base_fee,"executor":commitment.executor,
+        "transaction":commitment.transaction,"transactionContext":commitment.transaction_context,"executionBaseFee":commitment.execution_base_fee,"executionCoinbase":commitment.execution_coinbase,"executor":commitment.executor,
         "verification":{"level":"LOCAL_EVM_EXECUTED","success":success,"verified":false},"verified":false,
         "authority":"PROVIDED_LOCAL_STATE","outcome":outcome,
         "fees":{"evmGasUsed":gas,"gasPriceWei":model.effective_gas_price,"evmFeeWei":model.execution_fee,"chainFeeCompleteness":"LOCAL_EVM_ONLY"},"costs":costs}),
@@ -874,6 +932,9 @@ mod tests {
                 chain_id: 31337,
             },
             execution_base_fee: "1".parse().unwrap(),
+            execution_coinbase: "0x0000000000000000000000000000000000000033".into(),
+            caller_native_before: Some("1000000".parse().unwrap()),
+            coinbase_native_before: Some(Amount::zero()),
             executor: ExecutorIdentity {
                 target: "0x0000000000000000000000000000000000000022".into(),
                 code_sha256: "ab".repeat(32),
@@ -964,6 +1025,7 @@ mod tests {
         assert_eq!(costs["feeBreakdown"][0]["amountNative"], costs["gasNative"]);
         assert_eq!(costs["maxExecutionReserveNative"], "2000000000000000");
         assert_eq!(costs["reserveHeadroomNative"], "1958000000000000");
+        assert_eq!(costs["balanceReconciliation"]["status"], "UNAVAILABLE");
         assert_eq!(costs["deductedFromQuoteOutput"], false);
         assert_eq!(costs["chainFeeCompleteness"], "LOCAL_EVM_ONLY");
         assert!(costs["l1DataNative"].is_null());
@@ -993,6 +1055,91 @@ mod tests {
         let mut receipt = outcome("SUCCESS", true);
         receipt["native_fees"] = json!({"execution_fee":"0"});
         assert!(diagnostic_response(receipt, &commitment, "bundle", "worker").is_err());
+    }
+
+    #[test]
+    fn dynamic_fee_balance_reconciliation_rejects_changed_measurements_and_handles_alias() {
+        for same in [false, true] {
+            for base in ["0", "1"] {
+                let mut commitment = diagnostic_commitment("10");
+                commitment.execution_base_fee = base.parse().unwrap();
+                commitment.transaction_context.max_priority_fee_per_gas =
+                    Some("2".parse().unwrap());
+                if same {
+                    commitment.execution_coinbase = commitment.transaction.from.clone();
+                }
+                let base: u64 = base.parse().unwrap();
+                let before = 1_000_000u64;
+                let fee = 21_000 * (base + 2);
+                let burn = 21_000 * base;
+                let tip = 42_000;
+                let (payer_after, coinbase_before, coinbase_after) = if same {
+                    (before - burn, before, before - burn)
+                } else {
+                    (before - fee, 17, 17 + tip)
+                };
+                commitment.caller_native_before = Some(before.to_string().parse().unwrap());
+                commitment.coinbase_native_before =
+                    Some(coinbase_before.to_string().parse().unwrap());
+                let mut value = outcome("SUCCESS", true);
+                value["native_fees"] = json!({"caller_before":before.to_string(),"caller_after":payer_after.to_string(),"coinbase_before":coinbase_before.to_string(),"coinbase_after":coinbase_after.to_string(),"effective_gas_price":(base+2).to_string(),"execution_fee":fee.to_string(),"base_fee_burned":burn.to_string(),"priority_fee_paid":tip.to_string()});
+                let result =
+                    diagnostic_response(value.clone(), &commitment, "bundle", "worker").unwrap();
+                assert_eq!(
+                    result["costs"]["balanceReconciliation"]["status"],
+                    "MATCHED"
+                );
+                assert_eq!(
+                    result["costs"]["balanceReconciliation"]["sameAccount"],
+                    same
+                );
+                assert_eq!(result["executionCoinbase"], commitment.execution_coinbase);
+                assert_eq!(result["costs"]["nativeUnit"], "EVM_NATIVE_ATOMS");
+                for field in [
+                    "caller_before",
+                    "caller_after",
+                    "coinbase_before",
+                    "coinbase_after",
+                ] {
+                    let mut changed = value.clone();
+                    let n: u64 = changed["native_fees"][field]
+                        .as_str()
+                        .unwrap()
+                        .parse()
+                        .unwrap();
+                    changed["native_fees"][field] = (n + 1).to_string().into();
+                    assert!(
+                        diagnostic_response(changed, &commitment, "bundle", "worker").is_err(),
+                        "{field} same={same}"
+                    );
+                }
+                for fields in [
+                    ["caller_before", "caller_after"],
+                    ["coinbase_before", "coinbase_after"],
+                ] {
+                    let mut changed = value.clone();
+                    for field in fields {
+                        let n: u64 = changed["native_fees"][field]
+                            .as_str()
+                            .unwrap()
+                            .parse()
+                            .unwrap();
+                        changed["native_fees"][field] = (n + 1).to_string().into();
+                    }
+                    assert!(
+                        diagnostic_response(changed, &commitment, "bundle", "worker").is_err(),
+                        "shifted balances must still bind to original input"
+                    );
+                }
+                let before_commitment = commitment.caller_native_before.take();
+                assert!(
+                    diagnostic_response(value.clone(), &commitment, "bundle", "worker").is_err()
+                );
+                commitment.caller_native_before = before_commitment;
+                commitment.transaction.value = "1".parse().unwrap();
+                assert!(diagnostic_response(value, &commitment, "bundle", "worker").is_err());
+            }
+        }
     }
 
     async fn api_with_cached_quote() -> (crate::Api, String) {

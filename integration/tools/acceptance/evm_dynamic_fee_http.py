@@ -26,7 +26,7 @@ def sha(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None):
+def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None, native_alias=False):
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     binary = binary.resolve(strict=True)
@@ -40,6 +40,8 @@ def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None):
             env = dict(os.environ)
             env.pop('XONE_EVM_PATH_CASE', None)
             env.pop('XONE_EVM_PREPARED_HTTP', None)
+            env.pop('XONE_EVM_COINBASE_ALIAS', None)
+            if native_alias:env['XONE_EVM_COINBASE_ALIAS']='1'
             if prepared_mode is not None: env['XONE_EVM_PREPARED_HTTP']=prepared_mode
             if path_case is not None: env['XONE_EVM_PATH_CASE'] = path_case
             process = subprocess.Popen([str(staged), str(info_path)], cwd=ROOT, env=env,
@@ -113,10 +115,15 @@ def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None):
                 require(fees['evmFeeWei'] == native['execution_fee'] == str(gas * effective), 'Execution fee mismatch')
                 require(native['base_fee_burned'] == str(gas * base), 'Base fee burn mismatch')
                 require(native['priority_fee_paid'] == str(gas * (effective - base)), 'Priority fee mismatch')
-                require(int(native['caller_before']) - int(native['caller_after']) == gas * effective,
-                        'Measured caller debit differs')
-                require(int(native['coinbase_after']) - int(native['coinbase_before']) == gas * (effective-base),
-                        'Measured coinbase credit differs')
+                if native_alias:
+                    require(info['counterfactualCoinbaseAlias'] is True,'Alias environment not explicitly declared')
+                    require(native['caller_before']==native['coinbase_before'] and native['caller_after']==native['coinbase_after'], 'Alias account snapshots disagree')
+                    require(int(native['caller_before'])-int(native['caller_after'])==gas*base,'Alias payer charged its own priority twice')
+                else:
+                    require(int(native['caller_before']) - int(native['caller_after']) == gas * effective,
+                            'Measured caller debit differs')
+                    require(int(native['coinbase_after']) - int(native['coinbase_before']) == gas * (effective-base),
+                            'Measured coinbase credit differs')
                 require(result['transactionContext']['gas_price'] == str(maximum), 'Original maximum commitment lost')
                 require(result['transactionContext']['max_priority_fee_per_gas'] == '1', 'Original priority commitment lost')
                 require(result['verification']['success'] is True and result['verified'] is False,
@@ -161,6 +168,7 @@ def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None):
                     require(status==422 and replaced['error']=='EVM_PREPARATION_UNKNOWN_OR_REPLACED','Old preparation remained executable')
                 report = dict(passed=True, harness_sha256=digest, actual_worker_executions=1,
                               quote_kind='EXACT_OUT' if exact_out else 'EXACT_IN', path_case=path_case, prepared_mode=prepared_mode,
+                              counterfactual_coinbase_alias=native_alias,
                               gas_used=gas, effective_gas_price=str(effective), max_fee_per_gas=str(maximum),
                               actual_fee=str(gas*effective), overstatement_prevented=str(gas*(maximum-effective)),
                               publicTransactionsSubmitted=False, production_ready=False,

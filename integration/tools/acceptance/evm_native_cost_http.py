@@ -5,10 +5,10 @@ from pathlib import Path
 import sys
 from evm_dynamic_fee_http import run,require,sha
 
-def main(binary,output):
+def main(binary,output,balance_audit=False):
     output=Path(output).resolve();output.mkdir(parents=True,exist_ok=False);rows=[]
-    for exact_out in [False,True]:
-        directory=output/('exact-out' if exact_out else 'exact-in');report=run(Path(binary),directory,exact_out=exact_out)
+    for exact_out,native_alias in [(False,False),(True,False)]+([(False,True),(True,True)] if balance_audit else []):
+        directory=output/(('alias-' if native_alias else '')+('exact-out' if exact_out else 'exact-in'));report=run(Path(binary),directory,exact_out=exact_out,native_alias=native_alias)
         result=json.loads((directory/'simulation.json').read_text());quote=json.loads((directory/'quote.json').read_text());cost=result['costs'];native=result['outcome']['native_fees']
         require(cost['modelVersion']=='xone-evm-native-cost/1' and cost['scope']=='DECLARED_LOCAL_EVM_TRANSACTION','Native cost version/scope changed')
         require(cost['chainKey']==quote['chainKey'] and cost['bindingHash']==result['bindingHash'],'Native cost binding changed')
@@ -20,7 +20,11 @@ def main(binary,output):
         require(cost['gasUnits']==str(report['gas_used']) and cost['gasPriceNativePerUnit']==report['effective_gas_price'],'Actual gas/price missing')
         require(all(cost[key] is None for key in ['l1DataNative','approvalNative','totalNativeEstimate','netBuyAmountEstimate','netSellAmountEstimate']),'Missing chain cost/valuation treated as zero')
         require(cost['deductedFromQuoteOutput'] is False and len(cost['missingComponents'])==3 and cost['chainFeeCompleteness']=='LOCAL_EVM_ONLY' and result['verified'] is False,'Native cost promoted beyond source scope')
-        rows.append({'quote_kind':report['quote_kind'],'simulation_sha256':sha(directory/'simulation.json'),'native_execution_fee':cost['gasNative'],'cost_model_version':cost['modelVersion'],'all_disclosure_checks_passed':True})
-    (output/'report.json').write_text(json.dumps({'passed':True,'actual_worker_executions':2,'cases':rows,'complete_chain_cost_claimed':False,'publicTransactionsSubmitted':False},indent=2)+'\n')
+        if balance_audit:
+            audit=cost['balanceReconciliation'];require(audit['status']=='MATCHED' and audit['sameAccount']==native_alias and audit['scope']=='ZERO_VALUE_BOUND_ERC20_TRANSACTION','Native balance reconciliation was not observed')
+            require(audit['caller']==result['transaction']['from'] and audit['coinbase']==result['executionCoinbase'],'Measured fee account identity changed')
+            require(cost['nativeUnit']=='EVM_NATIVE_ATOMS','Native atomic units not declared')
+        rows.append({'quote_kind':report['quote_kind'],'simulation_sha256':sha(directory/'simulation.json'),'native_execution_fee':cost['gasNative'],'cost_model_version':cost['modelVersion'],'all_disclosure_checks_passed':True,'coinbase_alias':native_alias,'balance_audit_required':balance_audit})
+    (output/'report.json').write_text(json.dumps({'passed':True,'actual_worker_executions':len(rows),'cases':rows,'complete_chain_cost_claimed':False,'publicTransactionsSubmitted':False},indent=2)+'\n')
 if __name__=='__main__':
-    require(len(sys.argv)==3,'Expected BINARY OUTPUT_DIRECTORY');main(sys.argv[1],sys.argv[2])
+    require(len(sys.argv) in [3,4] and (len(sys.argv)==3 or sys.argv[3]=='--balance-audit'),'Expected BINARY OUTPUT_DIRECTORY [--balance-audit]');main(sys.argv[1],sys.argv[2],len(sys.argv)==4)

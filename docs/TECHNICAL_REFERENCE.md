@@ -2081,3 +2081,11 @@ execution-preparation::evm_native_cost集中核算Legacy/EIP1559原生执行费�
 正常simulation响应保留原fees字段并增加costs版本/chainKey/binding、gasUnits字符串、gasNative、nativeKnownSubtotal、reserve/headroom和execution的burn/tip分量。burn/tip不再累计到execution小计；未知l1DataNative/approvalNative/totalNativeEstimate/net保持null，missingComponents列链特定data费/额外授权资金操作/可靠Token估值，deductedFromQuoteOutput=false。来源仍为PROVIDED_LOCAL_STATE/LOCAL_EVM_ONLY，不授予VERIFIED或FAST净排序资格。
 
 `make -C integration evm-native-cost-current-check`固定56份当轮独立Python整数向量，由Rust完整读取比较；实际HTTP原Router worker执行ExactIn/Out，核对native caller/coinbase delta、有效价、成本与quote/binding保留，回归原16银行H与H+1费用区分、准备/VM/协议拒绝和资源取消、严格Clippy/构建/源与输入hash。P0-3的完整链费源、L2、授权/资金操作和可靠估值仍需后续实现。
+
+### EVM原生费用余额源绑定（阶段124）
+
+parent在序列化实际worker输入时保存caller与H+1 coinbase的原bank余额；已声明不存在可得零，未声明不可默认零。EIP1559返回的caller_before/coinbase_before先与该输入精确绑定，再要求zero-value bound ERC20范围的余额守恒：不同账户扣execution fee/增tip；同账户两个before/after投影相同且净扣base burn。防止同时平移测量前后余额仍通过差额检查。未知余额、scope外native value流、无效账户/uint256溢出或不守恒拒绝。
+
+响应保留原费用语义，补executionCoinbase、costs.nativeUnit=EVM_NATIVE_ATOMS和balanceReconciliation（MATCHED或Legacy测量缺失UNAVAILABLE）。字段名MATCHED只表示指定local bank/上下文核验，不是生产VERIFIED；价格/额外费用缺项继续null。
+
+`make -C integration evm-native-balance-audit-current-check`在原费用门禁上，实际HTTP原Router ExactIn/Out各运行分离/alias两个情景，共四owned worker，核对真实native debit/credit。alias是显式合成H+1 coinbase环境（新环境标识，source H保持），原native数据/所有fee算术/准备/VM/取消/Clippy/构建和冻结输入完整回归，不广播任何交易。

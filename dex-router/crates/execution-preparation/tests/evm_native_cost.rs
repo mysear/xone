@@ -107,3 +107,54 @@ fn current_python_native_cost_vectors_match_all_components_and_rejections() {
         );
     }
 }
+
+#[test]
+fn native_balance_conservation_handles_distinct_and_alias_beneficiary_without_double_fee() {
+    use xone_execution_preparation::evm_native_cost::{reconcile_native_balances, NativeBalances};
+    for base in ["0", "1", "10"] {
+        let cost = measured_native_cost(
+            21_000,
+            100_000,
+            &amount(base),
+            &amount("20"),
+            Some(&amount("2")),
+        )
+        .unwrap();
+        let before = amount("10000000");
+        let distinct = NativeBalances {
+            payer_before: before.clone(),
+            payer_after: Amount::checked(&before.0 - &cost.execution_fee.0).unwrap(),
+            beneficiary_before: amount("17"),
+            beneficiary_after: Amount::checked(amount("17").0 + &cost.priority_fee_paid.0).unwrap(),
+        };
+        reconcile_native_balances(&cost, &distinct, false).unwrap();
+        let alias_after = Amount::checked(&before.0 - &cost.base_fee_burned.0).unwrap();
+        let alias = NativeBalances {
+            payer_before: before.clone(),
+            payer_after: alias_after.clone(),
+            beneficiary_before: before.clone(),
+            beneficiary_after: alias_after,
+        };
+        reconcile_native_balances(&cost, &alias, true).unwrap();
+        for field in 0..4 {
+            let mut changed = alias.clone();
+            let destination = match field {
+                0 => &mut changed.payer_before,
+                1 => &mut changed.payer_after,
+                2 => &mut changed.beneficiary_before,
+                _ => &mut changed.beneficiary_after,
+            };
+            *destination = Amount::checked(&destination.0 + 1u8).unwrap();
+            assert!(reconcile_native_balances(&cost, &changed, true).is_err());
+            let mut changed = distinct.clone();
+            let destination = match field {
+                0 => &mut changed.payer_before,
+                1 => &mut changed.payer_after,
+                2 => &mut changed.beneficiary_before,
+                _ => &mut changed.beneficiary_after,
+            };
+            *destination = Amount::checked(&destination.0 + 1u8).unwrap();
+            assert!(reconcile_native_balances(&cost, &changed, false).is_err());
+        }
+    }
+}

@@ -2156,3 +2156,14 @@ BINDINGS['13.evm-native-cost-components'] = {
            'native_cost_receipt_cannot_exceed_signed_gas_or_use_invalid_base_price'],
  'evidence_refs': ['integration/artifacts/local/evm-native-cost-model-check/report.json'],
 }
+
+BINDINGS['13.evm-native-fee-balance-audit'] = {
+ 'paths': ['dex-router/crates/execution-preparation/src/evm_native_cost.rs',
+           'dex-router/crates/execution-preparation/tests/evm_native_cost.rs',
+           'dex-router/crates/quote-api/src/local_simulation.rs',
+           'dex-router/crates/quote-api/examples/evm_dynamic_fee_harness.rs',
+           'integration/tools/acceptance/validate_evm_native_balance_audit.py'],
+ 'tests': ['native_balance_conservation_handles_distinct_and_alias_beneficiary_without_double_fee',
+           'dynamic_fee_balance_reconciliation_rejects_changed_measurements_and_handles_alias'],
+ 'evidence_refs': ['integration/artifacts/local/evm-native-balance-audit-check/report.json'],
+}

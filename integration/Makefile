@@ -1189,3 +1189,7 @@ public-v2-original-execution-current-check:
 .PHONY: evm-native-cost-current-check
 evm-native-cost-current-check:
 	python3 tools/acceptance/validate_evm_native_cost.py
+
+.PHONY: evm-native-balance-audit-current-check
+evm-native-balance-audit-current-check:
+	python3 tools/acceptance/validate_evm_native_balance_audit.py
