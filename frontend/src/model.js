@@ -117,3 +117,33 @@ export function nativeEconomicsText(observed, identity, receipt=false) {
   parts.push(`留存租金押金 ${c.retainedRentDepositNative} lamports（资本另列）`);
   return ' · '+parts.join(' · ');
 }
+
+// Failure fees describe spent native funds; they never create swap settlement.
+export function failedFeeText(receipt) {
+  const f=receipt?.failureFee;
+  if(!f) {
+    if(receipt?.error?.code==='ONCHAIN_TRANSACTION_FAILED'&&receipt.state==='RECEIPT_PENDING')return ' · 失败交易网络费待核验';
+    if(receipt?.error?.code==='ONCHAIN_TRANSACTION_FAILED'&&receipt.state==='SETTLEMENT_MISMATCH')return ' · 失败交易网络费不可用：费用或余额核验未通过';
+    if(receipt?.state==='FAILED')return ' · 失败交易网络费不可用：尚无已核验费用记录';
+    return '';
+  }
+  const amount=v=>typeof v==='string'&&/^(0|[1-9][0-9]*)$/.test(v)&&v.length<=20&&BigInt(v)<(1n<<64n);
+  const hash=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
+  const failure=f.onchainError?.InstructionError;
+  const valid=['FAILED','RECEIPT_PENDING'].includes(receipt.state)&&receipt.confirmationStatus===(receipt.state==='FAILED'?'finalized':'confirmed')
+    &&receipt.settlement===null&&receipt.error?.code==='ONCHAIN_TRANSACTION_FAILED'
+    &&f.modelVersion==='xone-solana-failed-fee/1'&&f.scope==='FAILED_PREPARED_RECENT_BLOCKHASH_INSTRUCTION'&&f.sourceAuthority==='RPC_TRANSACTION_RECEIPT'
+    &&typeof receipt.chainKey==='string'&&receipt.chainKey.startsWith('solana:')&&f.chainKey===receipt.chainKey
+    &&hash(f.preparationHash)&&f.preparationHash===receipt.preparationHash&&hash(f.transactionSha256)&&f.transactionSha256===receipt.transactionSha256
+    &&typeof f.signature==='string'&&f.signature.length>0&&f.signature===receipt.signature&&Number.isSafeInteger(f.slot)&&f.slot>=0&&f.slot===receipt.slot
+    &&hash(f.transactionResultHash)&&hash(f.metaProjectionHash)&&f.nativeUnit==='LAMPORTS'
+    &&Array.isArray(failure)&&failure.length===2&&Number.isInteger(failure[0])&&failure[0]>=0&&failure[0]<=255
+    &&JSON.stringify(f.onchainError)===JSON.stringify(receipt.error.detail)
+    &&f.observedNativeRollbackMatched===true&&f.observedTokenRollbackMatched===true&&f.retainedRentDepositNative==='0'
+    &&f.settlementApplied===false&&f.netBuyAmountEstimate===null&&f.netSellAmountEstimate===null
+    &&f.quoteRankingApplied===false&&f.historicalBankVerified===false&&f.independentProductionVerification===false
+    &&amount(f.networkFeeNative)&&amount(f.payerNativeBefore)&&amount(f.payerNativeAfter)
+    &&BigInt(f.payerNativeBefore)-BigInt(f.payerNativeAfter)===BigInt(f.networkFeeNative)&&f.payerLamportDelta===String(-BigInt(f.networkFeeNative));
+  if(!valid)return ' · 失败交易网络费不可用：费用证据与当前失败回执不一致';
+  return ` · RPC回执失败交易网络费 ${f.networkFeeNative} lamports（${receipt.state==='FAILED'?'已最终确认':'待最终确认'}） · 付款人SOL净变动 ${f.payerLamportDelta} lamports · 已报告余额回滚一致 · 留存租金押金 0 lamports · 失败收付不计为成交净额`;
+}

@@ -2250,3 +2250,13 @@ BINDINGS['15.solana-failure-fees'] = {
            'failed_fee_token_rollback_rejects_duplicates_identity_and_integer_tampering'],
  'evidence_refs': ['integration/artifacts/local/solana-failure-fee-check/report.json'],
 }
+
+BINDINGS['15.failed-fee-view'] = {
+ 'paths': ['frontend/src/model.js', 'frontend/src/app.js',
+           'frontend/test/failed-fee-view.test.js', 'frontend/test/failed-fee-browser.mjs',
+           'dex-router/crates/quote-api/examples/frontend_harness.rs'],
+ 'tests': ['failed receipt displays bound spent fee and rollback separately from settlement',
+           'failed fee display refuses mixed settlement and changed source or transaction identity',
+           'failed fee display keeps u64 precision, exact zero and canonical native conservation'],
+ 'evidence_refs': ['integration/artifacts/local/failed-fee-view-check/report.json'],
+}

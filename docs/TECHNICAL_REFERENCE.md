@@ -2133,3 +2133,9 @@ nativeEconomicsText仅展示当前transaction/preparation/chain绑定的经济�
 `GET /v1/transactions/{signature}`对已确认InstructionError读取原签名getTransaction；`failureFee`与成功`settlement`分开，绑定签名/wire hash/slot/status err、meta投影摘要及实际fee。payer只扣fee，其他已报告native/Token前后状态回滚，已知原有Token账户元数据必需。processed/元数据缺失及confirmed保持可重查；finalized完整核对才FAILED，矛盾SETTLEMENT_MISMATCH。费用观察可随签名消失撤销，旧v1日志兼容；不宣称完整账户data回滚证明、nonce支持、通用失败类别或可信历史bank，净额保持null。
 
 阶段131限定验收通过：三类实际失败签名原程序、18元数据故障与恢复、30独立审计篡改及原成功/钱包回归；13门禁、52次Rust和冻结源码/输入摘要通过。原账户data完整回滚证明、其他TransactionError/nonce和生产资格仍不在该核验范围内。
+
+### 失败交易网络费的页面语义（阶段132，限定本地验证）
+
+回执区依据failureFee展示已核对的RPC失败网络费/付款人原生差额/已报告余额回滚；confirmed标待最终确认，元数据未齐标待核验，矛盾或旧回执不猜零。chain、preparation、signed transaction、signature、slot、错误与确认状态均需一致，金额为规范u64字符串并以BigInt验证守恒。失败不展示成功收付和net；成功对照继续显示原5971净收款。刷新/重载只查签名，不自动再次发送。
+
+阶段132限定验收：9门禁/22前端测试/13真实浏览器检查，三失败与一成功对照及重载/手机原图人工复核通过；原生资金/账户创建失败不保留租金，成功对照净收5971，二者不混用。费用与bank资格仍遵循原API边界。

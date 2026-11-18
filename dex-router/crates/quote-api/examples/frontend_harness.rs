@@ -321,6 +321,15 @@ async fn delay(State(c): State<Control>, req: axum::extract::Request, next: Next
 async fn mode(State(c): State<Control>, Json(body): Json<Value>) -> Json<Value> {
     let mode = body["mode"].as_str().unwrap();
     *c.bank.mode.lock().unwrap() = mode.into();
+    if body["walletBanks"] == true {
+        for bank in [&c.raydium, &c.pump, &c.curve, &c.curve_ata]
+            .into_iter()
+            .chain(c.funding.iter())
+            .chain(c.ray_funding.iter())
+        {
+            *bank.mode.lock().unwrap() = mode.into();
+        }
+    }
     let mut s = c.snapshot.lock().unwrap();
     if mode == "suspend" {
         c.api.replica.suspend(&s.reference.block.chain_key);

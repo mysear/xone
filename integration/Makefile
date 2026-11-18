@@ -1221,3 +1221,7 @@ native-economics-view-current-check:
 .PHONY: solana-failure-fees-current-check
 solana-failure-fees-current-check:
 	python3 tools/acceptance/validate_solana_failure_fees.py
+
+.PHONY: failed-fee-view-current-check
+failed-fee-view-current-check:
+	python3 tools/acceptance/validate_failed_fee_view.py

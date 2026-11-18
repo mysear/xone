@@ -1,5 +1,5 @@
 import {createWalletRegistry,connectWallet,signPreparedTransaction} from './wallet.js';
-import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, singlePreparationPool, evmPreparationPools, evmPreparedSimulationAvailable, evmPreparedEvidenceMatches, evmFeeRequest, nativeEconomicsText, escapeHtml as esc} from './model.js';
+import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, singlePreparationPool, evmPreparationPools, evmPreparedSimulationAvailable, evmPreparedEvidenceMatches, evmFeeRequest, nativeEconomicsText, failedFeeText, escapeHtml as esc} from './model.js';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, quote:null, preparation:null, independent:null, independentAbort:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
@@ -243,9 +243,10 @@ $('walletSign').addEventListener('click',async()=>{
 $('confirmSubmission').addEventListener('change',refreshWalletActions);
 function showReceipt(receipt){
   walletState.receipt=receipt;$('receiptRefresh').disabled=false;if(receipt.signed===true)$('walletStatus').textContent='该签名已有发送记录，执行状态见下方回执。';
-  const settlement=receipt.settlement;const states={SUBMITTING:'正在发送或结果待核对',SUBMITTED:'RPC已接受，等待链上确认',UNKNOWN:'发送或链上状态不明确，按签名查询',PROCESSED:'已处理，等待确认',RECEIPT_PENDING:'链上状态已返回，等待回执校验',CONFIRMED:'已确认，等待最终确认',FINALIZED:'已最终确认',FAILED:'链上执行失败',EXPIRED:'有效期已过且当前节点未观察到签名',SETTLEMENT_MISMATCH:'链上回执或收付不一致'};
+  const settlement=!receipt.failureFee&&['CONFIRMED','FINALIZED'].includes(receipt.state)?receipt.settlement:null;const states={SUBMITTING:'正在发送或结果待核对',SUBMITTED:'RPC已接受，等待链上确认',UNKNOWN:'发送或链上状态不明确，按签名查询',PROCESSED:'已处理，等待确认',RECEIPT_PENDING:'链上状态已返回，等待回执校验',CONFIRMED:'已确认，等待最终确认',FINALIZED:'已最终确认',FAILED:'链上执行失败',EXPIRED:'有效期已过且当前节点未观察到签名',SETTLEMENT_MISMATCH:'链上回执或收付不一致'};
   $('transactionReceipt').textContent=`${states[receipt.state]||receipt.state} · ${receipt.chainKey}${receipt.sellToken&&receipt.buyToken?' · 交易 '+receipt.sellToken+' → '+receipt.buyToken:''}${receipt.quoteId?' · 回执报价 '+receipt.quoteId:''} · 收款 ${receipt.recipient} · 签名 ${receipt.signature}${settlement?.verified?' · 实际输入 '+settlement.actualInput+' / 到账 '+settlement.actualOutput+' · 费用 '+settlement.feeLamports+' lamports'+(settlement.actualPersistentRentLamports!==undefined?' · 实际账户租金 '+settlement.actualPersistentRentLamports+' lamports':'')+(settlement.payerLamportDelta!==undefined?' · 用户SOL净变动 '+settlement.payerLamportDelta+' lamports':''):''}${receipt.error?' · '+(receipt.error.code||JSON.stringify(receipt.error)):''}`;
-  if(settlement?.verified)$('transactionReceipt').textContent+=nativeEconomicsText(settlement,receipt,true);
+  if(settlement?.verified&&!receipt.failureFee&&['CONFIRMED','FINALIZED'].includes(receipt.state))$('transactionReceipt').textContent+=nativeEconomicsText(settlement,receipt,true);
+  $('transactionReceipt').textContent+=failedFeeText(receipt);
 }
 function clearReceiptContext(){
   ++walletState.receiptSeq;clearTimeout(walletState.timer);walletState.receipt=null;walletState.receiptBase=null;$('receiptRefresh').disabled=true;
