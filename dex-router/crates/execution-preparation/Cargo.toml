@@ -22,3 +22,7 @@ xone-optimizer = { path = "../optimizer" }
 xone-routing = { path = "../routing" }
 num-bigint.workspace = true
 axum.workspace = true
+
+[[bin]]
+name = "xone-market-price"
+path = "src/market_price_main.rs"

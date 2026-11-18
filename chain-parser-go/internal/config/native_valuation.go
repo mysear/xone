@@ -1,6 +1,7 @@
 package config
 
 import (
+	"math/big"
 	"strings"
 
 	"xone/chain-parser-go/internal/domain"
@@ -8,15 +9,59 @@ import (
 
 // Only public oracle authorities belong in configuration, never private keys.
 type NativePricePolicy struct {
-	SourceID      string            `json:"source_id"`
-	ChainKey      string            `json:"chain_key"`
-	GenesisHash   string            `json:"genesis_hash"`
-	Token         string            `json:"token"`
-	Signers       map[string]string `json:"signers"`
-	Threshold     int               `json:"threshold"`
-	MaxAgeMS      uint64            `json:"max_age_ms"`
-	MaxValidityMS uint64            `json:"max_validity_ms"`
+	SourceID      string                  `json:"source_id"`
+	ChainKey      string                  `json:"chain_key"`
+	GenesisHash   string                  `json:"genesis_hash"`
+	Token         string                  `json:"token"`
+	Signers       map[string]string       `json:"signers"`
+	Threshold     int                     `json:"threshold"`
+	MaxAgeMS      uint64                  `json:"max_age_ms"`
+	MaxValidityMS uint64                  `json:"max_validity_ms"`
+	MarketFeed    *ChainlinkUSDPairPolicy `json:"market_feed,omitempty"`
 }
+type ChainlinkFeedPolicy struct {
+	Proxy                string        `json:"proxy"`
+	ProxyCodeSHA256      string        `json:"proxy_code_sha256"`
+	Aggregator           string        `json:"aggregator"`
+	AggregatorCodeSHA256 string        `json:"aggregator_code_sha256"`
+	Description          string        `json:"description"`
+	Decimals             uint8         `json:"decimals"`
+	MinAnswer            domain.Amount `json:"min_answer"`
+	MaxAnswer            domain.Amount `json:"max_answer"`
+	MaxAgeMS             uint64        `json:"max_age_ms"`
+}
+type ChainlinkUSDPairPolicy struct {
+	SchemaVersion  uint32              `json:"schema_version"`
+	NativeDecimals uint8               `json:"native_decimals"`
+	TokenDecimals  uint8               `json:"token_decimals"`
+	NativeUSD      ChainlinkFeedPolicy `json:"native_usd"`
+	TokenUSD       ChainlinkFeedPolicy `json:"token_usd"`
+}
+
+func (v ChainlinkUSDPairPolicy) valid(chain, genesis string) bool {
+	if v.SchemaVersion != 1 || chain != "evm:1" || genesis != "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3" || v.NativeDecimals != 18 || v.TokenDecimals > 36 || v.NativeUSD.Description != "ETH / USD" || v.NativeUSD.Proxy == v.TokenUSD.Proxy && v.NativeUSD != v.TokenUSD {
+		return false
+	}
+	for _, f := range []ChainlinkFeedPolicy{v.NativeUSD, v.TokenUSD} {
+		lo, lok := new(big.Int).SetString(string(f.MinAnswer), 10)
+		hi, hik := new(big.Int).SetString(string(f.MaxAnswer), 10)
+		if domain.ValidateEVMAddress(f.Proxy) != nil || domain.ValidateEVMAddress(f.Aggregator) != nil || f.Proxy == "0x"+strings.Repeat("0", 40) || f.Aggregator == "0x"+strings.Repeat("0", 40) || f.Decimals > 18 || !strings.HasSuffix(f.Description, " / USD") || len(f.Description) < 7 || len(f.Description) > 128 || f.MaxAgeMS == 0 || f.MaxAgeMS > 86400000 || !lok || !hik || lo.Sign() <= 0 || lo.Cmp(hi) > 0 || hi.BitLen() > 255 || string(f.MinAnswer) != lo.String() || string(f.MaxAnswer) != hi.String() {
+			return false
+		}
+		for _, b := range []byte(f.Description) {
+			if b < 32 || b > 126 {
+				return false
+			}
+		}
+		for _, h := range []string{f.ProxyCodeSHA256, f.AggregatorCodeSHA256} {
+			if !canonicalPriceHex(h, 32) || h == strings.Repeat("0", 64) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 type NativeValuationConfig struct {
 	ObservationsFile string              `json:"observations_file"`
 	Policies         []NativePricePolicy `json:"policies"`
@@ -59,6 +104,9 @@ func (v NativeValuationConfig) valid(chains []Chain) bool {
 			found = found || chain.Key == p.ChainKey && chain.Genesis == p.GenesisHash
 		}
 		if !found {
+			return false
+		}
+		if p.MarketFeed != nil && !p.MarketFeed.valid(p.ChainKey, p.GenesisHash) {
 			return false
 		}
 		keys := map[string]bool{}

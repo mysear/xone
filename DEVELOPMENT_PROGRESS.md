@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|批准Chainlink feed的真实来源适配（阶段152，P0-3）|§13.1/14.2/15.3/21.2–21.3；WP02、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|批准部署/原ABI与签名绑定、宽整数换算、有界只读采集/待签署CLI|68门禁/223次Rust/80次Go、48向量/148换算、49 CLI/17原RPC重放通过；持续live刷新/可信bank/完整净额继续|
 |正常报价本地逐候选执行费用接线（阶段151，P0-3）|§13.1/13.3/13.5/14.2/14.4/15.3；WP02、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|显式启用单路线V2、逐候选BOUND/实际worker/父费用审计和授权换算、固定deadline|59门禁/215次Rust/78次Go、16报价/30原执行和4 OP未知费用回退及旧61 HTTP全部通过；完整净成本/真实价格继续|
 |逐完整候选费用评分内核（阶段150，P0-3）|§13.1/13.3/13.5；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|ExactIn/Out完整候选成本回调、有符号目标、缺成本统一回退与共享状态有界顺序网格|54门禁/208次Rust/77次Go、22优化器/2正常API回退及全部价格/VM/61 HTTP回归通过；正常API成本接线继续|
 |配置预言机授权与已执行交易费用换算（阶段149，P0-3）|§13.1/14.2/14.4/15.3；WP02、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|服务端批准签名者、源块/币种/时效绑定、原子整数换算及父费用审计后单笔金额|51门禁/184次Rust/77次Go、独立42向量、13 EVM/4 Karst及36 OP/8旧HTTP通过；真实市价/全候选净评分继续|
@@ -732,6 +733,7 @@
 |148|[Karst正常本地签名API与完整原Router](#plan-2026-11-19-karst-api)|LOCAL_SCOPE_VERIFIED|39门禁/176次Rust、36正常OP/8旧HTTP与完整原Router通过；[验证记录](integration/artifacts/local/karst-api-check/report.json)|
 |149|[配置预言机授权与已执行交易费用换算](#plan-2026-11-19-native-valuation)|LOCAL_SCOPE_VERIFIED|51门禁/184次Rust/77次Go及61正常HTTP通过；[验证记录](integration/artifacts/local/native-valuation-check/report.json)|
 |150|[逐完整候选费用评分内核](#plan-2026-11-19-candidate-costs)|LOCAL_SCOPE_VERIFIED|54门禁/208次Rust/77次Go、22优化器/2 API回退与61 HTTP通过；[验证记录](integration/artifacts/local/candidate-cost-check/report.json)|
+|152|[批准Chainlink feed的真实来源适配](#plan-2026-11-19-approved-chainlink-feeds)|LOCAL_SCOPE_VERIFIED|68门禁/223次Rust/80次Go、8有效/14无效配置、48独立向量/148换算与公开原响应重放通过；[验证记录](integration/artifacts/local/approved-market-feed-check/report.json)|
 |151|[正常报价本地逐候选执行费用接线](#plan-2026-11-19-normal-candidate-costs)|LOCAL_SCOPE_VERIFIED|59门禁/215次Rust/78次Go、16报价/30原候选重放及4 OP回退，旧61 HTTP通过；[验证记录](integration/artifacts/local/normal-candidate-cost-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
@@ -3399,7 +3401,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 |---|---|---|---|---|
 |P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
-|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；阶段149补服务端配置预言机签名授权、源块/币种/历史时效绑定和父源审计后的单笔原子单位换算/费后金额；阶段150完成逐完整候选费用评分组件及有符号目标/完整覆盖检查/统一毛额回退，阶段151接通显式启用的单路线V2正常报价、逐候选实际worker/父费用核验/授权换算和固定计划deadline；其他执行/成本模型、可信bank、真实市场价格适配、完整全候选净评分及报价总费仍未完成|PARTIAL_LOCAL|
+|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；阶段149补服务端配置预言机签名授权、源块/币种/历史时效绑定和父源审计后的单笔原子单位换算/费后金额；阶段150完成逐完整候选费用评分组件及有符号目标/完整覆盖检查/统一毛额回退，阶段151接通显式启用的单路线V2正常报价、逐候选实际worker/父费用核验/授权换算和固定计划deadline；阶段152补批准Ethereum Chainlink USD双feed固定部署/原ABI/时效和签名来源绑定、全宽约分/换算与有界采集/待签署CLI；其他执行/成本模型、可信bank、持续live价格刷新/授权发布及其他链来源、完整全候选净评分及报价总费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
 |P1-1|G03限定交易；WP14,WP15,WP20|先补单池/简单路径的calldata、授权、wrap、recipient、期限/退款、签名发送和耐久回执|报价→准备→独立仿真→用户签名→一次发送→回执收付款一致；先复用已有Solana链路，EVM独立补齐|PARTIAL_LOCAL|
 |P1-2|G06现有模型；WP11,WP13,WP14,WP16|已准入ExactOut先贯通最大输入、实际消耗、退款/费用和独立执行|数学输入目标与执行一致，拒绝不能保证的路径；复杂跨家族/共享拆单留P3-1|PARTIAL_LOCAL|
@@ -4209,3 +4211,36 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 阶段151提交前补查：第一份冻结运行与独立复核已通过，但`git diff --cached --check`发现新验收脚本第32行存在一个行尾空格（此前工作区diff不覆盖未跟踪新文件）。确认总控/worker/harness全部退出后仅移除该空格；不改功能、断言或预算。第一份LOCAL_SCOPE_VERIFIED报告及其`033d71…`源码摘要保留，仅证明修正前字节。当前任务暂回IN_PROGRESS，重新运行完整59门禁，最终提交资格以第二份冻结及独立复核为准，不能用行为未变替代精确源码一致性。
 
 阶段151最终提交资格：移除单个行尾空格后的完整冻结运行`6f0c325abe344e6c87713c5789fefef0`再次59门禁全部exit0、215次Rust/78次Go通过；本轮16报价/30候选worker/30原Router重放、额外4 OP未知费用回退与原61正常HTTP完整保留。源码`12173ec4f6ca6b61e0f433eeffc7b4990ad2fdfbc3cb9c1c1efe2ea3a629e307`、913固定输入、46运行pins、13827参考输入、14产物和59日志摘要均独立重算一致，694份嵌套原始文件及8旧HTTP simulation摘要通过。[本次独立复核](integration/artifacts/local/normal-candidate-cost-check/runs/6f0c325abe344e6c87713c5789fefef0/independent-audit.json)。最长候选报价3.017708秒、原OP HTTP 1.439458秒，原15秒预算保持。第一份报告仅保留其原字节资格；本轮状态恢复LOCAL_SCOPE_VERIFIED，完整设计/生产资格边界不变。总控、worker和harness均已退出，提交前同时检查暂存区与工作区空白，最终文档普通/优化检查后commit/push实际origin，再进入下一项。
+
+
+<a id="plan-2026-11-19-approved-chainlink-feeds"></a>
+
+## 批准Chainlink feed的真实来源适配（2026-11-19，阶段152，P0-3）
+
+阶段151已提交并推送`eb008fb462b0e80974e3bb3ba0496bb407c4b75d`，本地/远端HEAD一致，工作区干净。本轮仍按§13.1/14.2/15.3的可靠价格与时间要求，补已有签名比率缺少具体市场来源适配的问题。先限Ethereum主网的服务端批准AggregatorV3 USD双feed，不能自动推及L2 sequencer/其他链。官方接口固定到chainlink-evm `cfc3cc2381a2c83ba0e3242ed740609a800f5fff` 的AggregatorV3Interface.sol（SHA256 `87fd1685e015c2001673b442c212f07847a64afa2f3b22bbbcb7f211ed293e88`）。公开RPC已实际成功返回固定块feed，不记录为外部阻塞。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F152.1|可选批准feed策略与跨语言配置身份|WP02,WP13,WP18|LOCAL_SCOPE_VERIFIED|代理/聚合器与代码、USD描述、精度、答案上下界/时效进入策略身份；旧策略省略新字段保持兼容。|
+|F152.2|原始ABI证据、整数比率推导及签名授权接线|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|同源块/币种，拒绝负数/零/脏宽度/轮次/未来或过期/升级不匹配；全宽约分后uint256，换算一次ceil；签名覆盖完整来源。|
+|F152.3|有界只读固定块采集和待签署输出|WP03,WP13,WP18|LOCAL_SCOPE_VERIFIED|EIP1898 blockHash/requireCanonical、链/创世身份与原响应留存；不持有生产签名私钥，输出待批准/签名观察值。|
+|F152.4|真实公共返回、独立算术/反例与既有链路回归|WP02,WP13,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|公开返回仅证明捕获的RPC/具体feed范围；本地签名者明确测试用途，不能据此授予bank共识/来源独立性/生产资格。|
+
+本轮局部退出标准是批准来源适配器、严格授权与源时效/精度边界及正常成本链路回归，不是完整P0-3关闭。生产配置仍须真实操作方审核feed身份/币种/上下界和更新策略；公开RPC一致性不等于共识证明。未完成的可信bank、拆单完整执行/成本、额外授权/资金操作费用和其余既定优先级继续，原26完整工作包验收仍0、生产VERIFIED关闭。最终冻结期间禁止修改非Markdown源码，记录真实门禁和摘要后commit/push实际GitHub origin，继续下一项。
+
+阶段152预检：四项源绑定/独立算术/时效/拒绝测试通过，48合成精度/宽整数案例与一份真实公共feed观察交叉验证；Go与Router的8有效/14无效配置互读通过。Parser首份预检因测试加载了本服务配置却指定dex-router而拒绝，已修正测试服务名，不改生产验证规则；随后重跑。采集器普通/优化各6项控制通过，绝对总期限拥有并回收子进程，HTTP429原返回保留且不回显provider异常文本。CLI对49组候选及真实原始RPC的完整离线重放预检通过，历史捕获时间显式保留。
+
+公开来源预检事实：首份finalized采集在实际读取时其ETH轮次已超过批准的一小时age，正确拒绝，`integration/artifacts/local/approved-market-feed-precheck-20261119/publicnode/report.json`保留FAILED，未放宽age。随后显式当前块`0x92c236c39c86b66fa8176aeadaeb94b994f76f10412ab7aaf6006250b5f903cc`的捕获通过（block 26444392），明确不声明最终性，原始code/ABI与同高度canonical复查保留于`explicit-publicnode`。另一Cloudflare尝试读取失败记录保留，单来源成功不证明来源独立性；不能把公共RPC全部记录为阻塞。全部市场捕获使用公开测试签名者，仅授权测试语料，不是生产批准。
+
+本轮继续保留`live_market_price_adapter_supported=false`作为完整持续live book链路未完成的边界，新增`approved_ethereum_chainlink_usd_pair_adapter_supported`单独标识本轮有限功能。已有book在服务生命周期内不可变；持续更新/授权发布和同可信bank联验仍待后续实现。48向量与公开原始响应由当前源码冻结验收后才取得本轮最终资格，预检不替代正式门禁。
+
+
+阶段152最终限定验收：完整冻结运行`b880a8f71f784227bfdcdba4d4a678e3`的68门禁全部exit0、223次Rust与80次Go通过，无FAILED/CANCELLED冻结。Go与两独立Rust workspace的8有效/14无效市场策略与public/economic hash一致；默认省略的新字段保持原六身份向量与42固定签名/整数案例通过。48独立Fraction向量包含37可表示/11最终比率溢出、148费用换算，四源/ABI/精度/时间/升级/重新签名篡改守卫通过；普通/优化采集器各6项资源/错误测试通过。
+
+当前产品CLI对48合成向量与1真实公开观察逐一重验，49结果与独立观察/签名消息一致；17份原始RPC返回以固定请求和原捕获时间完整离线重放，不进行新公共读取，也不更新旧轮次时间。固定官方AggregatorV3/Proxy/EACProxy源码摘要一致，公开测试策略固定到实际proxy/aggregator代码；实际市场数据、合成算术样本和公开测试签名者的权限边界分别保留。当前CLI构建摘要为`3c37d58654faada3712dc93d2ddbaa2af72a78606bb438869c87de693a84dfc9`。
+
+原59门禁完整保留：16正常候选报价/30实际worker/30原Router重放、4未签名OP回退与后续签名执行、原61正常HTTP及全部现代/历史原引擎、父费用审计、严格Clippy和正常构建均通过。最长本轮候选报价2.837371秒、原OP HTTP 1.462419秒，原15秒预算不变。源码`bd7d177ef6ef76170002cd9b60fa19750f75330f6860a04580931d607c12220b`、913固定输入、46运行pins、13856参考输入、16产物和68日志均独立重算一致；840份原始产物、8旧HTTP simulation、49 CLI观察及当前校验器二进制摘要再次核验。[独立复核](integration/artifacts/local/approved-market-feed-check/runs/b880a8f71f784227bfdcdba4d4a678e3/independent-audit.json)。总控/worker/harness/采集子进程已退出。
+
+该轮完成批准Ethereum feed的有限适配/授权与采集工具，未完成持续live book刷新、可信bank联验、L2 sequencer/其他链来源、拆单完整执行及报价总成本。`approved_ethereum_chainlink_usd_pair_adapter_supported=true`，完整live/完整净评分/生产边界继续false，原26完整工作包验收仍0。最终文档普通/优化检查后commit/push实际GitHub origin，再进入下一项；GitLab远端仍未配置。
+
+下一轮按P0-3、§13.1/15.3，补正常报价成本与候选评分的同源披露：当前`quality.costRanking.selectedExecution`已有逐计划审计的Gas/原币费用/授权换算，但正常报价`costs`仍一律写全部未知。仅对真正选中且成功、来源/计划/绑定一致的执行披露已知局部交易费用与单笔换算，选中计划无证据则保持未知，不借用其他候选；继续保留额外操作/未知链费和完整net为null，不把局部Gas当完整报价成本。然后继续拆单执行/完整费用及既定优先级，不因本轮限定通过停止目标。

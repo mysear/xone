@@ -2298,3 +2298,17 @@ Karst的0x1e CLZ在instruction table的inspector包装之前注册，执行Gas 5
 `quality.costRanking.scope=LOCAL_EVM_TRANSACTION_EXECUTION_FEES_ONLY`，`costAdjustmentApplied`仅指该局部目标。`optimizer`包含有限已评估完整候选计数及宽整数经济目标，`simulationAttempts/maxSimulationPlans/simulationBudgetExhausted`说明实际执行预算，`unavailableReasons`说明统一毛额回退，`candidateExecutions`和`selectedExecution`绑定各自planHash。达到计划数不会把剩余候选成本当零；worker协议/身份/繁忙/超时错误直接失败。未签名OP在评分前保持未知，`OP_SIGNED_ENVELOPE_REQUIRED`不执行候选，也不猜测完整压缩wire费用。
 
 额外授权/资金操作、通用链额外费、可信bank和真实市价仍未具备；`completeQuoteCostRanking=false`、`productionVerified=false`，正常报价继续INDICATIVE，顶层完整net/总费保持null。此处的配置签名价格没有独立来源/市场正确性或bank共识证明，验收只用固定测试签名者和合成比率；不应把局部费用目标作为完整报价净额。
+
+### 批准的Ethereum Chainlink USD双feed（阶段152）
+
+对应设计§13.1/14.2/15.3/21.2–21.3。`PricePolicy.market_feed`是可选策略；省略保持旧配置和观察的规范hash。启用时仅准入`evm:1`及Ethereum创世身份，固定native decimals=18、Token decimals=0..36、feed decimals=0..18。每条feed批准具体proxy/aggregator地址、两者runtime SHA256、USD描述、正int256答案上下界和最长24小时age；native描述必须为`ETH / USD`。这些字段进入三语言配置身份，改变部署或策略会使旧签名失效。
+
+`PriceObservation.market_feed`包含原始code及`aggregator()/decimals()/description()/latestRoundData()` ABI返回、Token decimals返回、provider摘要和实际`source_read_at_ms`。产品严格解码并校验代码/地址/描述/精度，拒绝脏宽度、非正答案、未来/过期更新和不匹配轮次。本限定profile要求正roundId、`answeredInRound == roundId`及非零`startedAt <= updatedAt`，这是准入限制，不是所有AggregatorV3实现的通用规则。`updatedAt`与采集时间分列，重新读取旧轮次不能续期。
+
+整数比率为`nativeUsdAnswer * 10^(tokenFeedDecimals + tokenDecimals) / (tokenUsdAnswer * 10^(nativeFeedDecimals + nativeDecimals))`，全宽中间积经GCD约分后两侧分别检查uint256；执行费用仍在完整乘积除法后只ceil一次。整个原始证据和比率由既有观察签名覆盖，服务授权时重新推导并要求一致；批准feed缺证据、普通策略夹带feed或移除feed试图降级均拒绝。实际执行时间继续检查源轮次和观察到期，既有父费用审计、候选绑定及未知回退不变。`buyPrice/sellPrice.marketFeed`披露具体来源/更新时间/代码摘要和证据hash。
+
+操作方使用`integration/tools/market/capture_chainlink.py --policy POLICY.json --rpc-url PUBLIC_HTTPS_URL --validator PATH_TO_xone-market-price --output NEW_DIRECTORY [--block-hash HASH]`。校验器通过`cargo build --locked --manifest-path dex-router/Cargo.toml -p xone-execution-preparation --bin xone-market-price`构建。它从stdin读取最多1MiB的`{policy,anchor,market_feed,valid_until_ms}`，只输出严格推导的observation及`signing_message_hex`，不会签名或修改配置。采集器默认读取configured provider的finalized标签；显式hash模式不声明最终性，所有feed/code调用均采用EIP1898 `blockHash/requireCanonical`，结束时再次检查同高度canonical hash。
+
+采集器保存原始响应、请求和摘要；只允许五种只读RPC、32次请求、每响应256KiB、总2MiB和60秒网络总期限。每次读取在拥有并回收的子进程内执行，缓慢分段响应不能无限延长总期限。禁止重定向及带用户信息/query/fragment的URL，失败诊断不输出端点或provider异常文本。签署方须独立审核同源块、部署/币种身份、上下界及观测，再以既有格式组装PriceBook；核心Router不持有生产私钥。
+
+该适配器的真实性边界是“配置签署方认证的固定块RPC返回”，没有独立storage proof、bank共识或来源独立性证明。公开采集中的固定测试公钥与宽测试上下界不属于生产批准配置，离线重放保留原捕获时间，只验证当时的feed，不代表当前可用价格。服务内book仍生命周期不可变；持续live刷新/轮换、可信bank和全部链/Token覆盖继续未完成，不能据此开放VERIFIED或完整报价净额。当前限定结果见进度文档阶段152。

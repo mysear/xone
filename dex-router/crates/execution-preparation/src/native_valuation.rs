@@ -36,6 +36,8 @@ pub struct PriceObservation {
     pub native_atoms: Amount,
     pub observed_at_ms: u64,
     pub valid_until_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub market_feed: Option<crate::market_feed::MarketRead>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -67,6 +69,8 @@ pub struct AuthorizedPrice {
     policy: PricePolicy,
     signers: Vec<String>,
     observation_hash: String,
+    market_evidence: Option<Value>,
+    market_valid_until_ms: Option<u64>,
 }
 impl SignedPrice {
     pub fn authorize(&self, policy: &PricePolicy) -> Result<AuthorizedPrice> {
@@ -91,6 +95,22 @@ impl SignedPrice {
         {
             return Err(bad());
         }
+        let market = match (&policy.market_feed, &o.market_feed) {
+            (None, None) => None,
+            (Some(_), Some(read)) => {
+                let d = crate::market_feed::derive(policy, &o.anchor, read)?;
+                if d.token_atoms != o.token_atoms
+                    || d.native_atoms != o.native_atoms
+                    || o.observed_at_ms != o.anchor.timestamp_ms
+                    || o.valid_until_ms > d.valid_until_ms
+                    || o.valid_until_ms <= read.source_read_at_ms
+                {
+                    return Err(bad());
+                }
+                Some(d)
+            }
+            _ => return Err(bad()),
+        };
         let message = signing_message(o)?;
         let mut seen = BTreeSet::new();
         for signature in &self.signatures {
@@ -109,6 +129,8 @@ impl SignedPrice {
             policy: policy.clone(),
             signers: seen.into_iter().collect(),
             observation_hash: hash(o)?,
+            market_valid_until_ms: market.as_ref().map(|m| m.valid_until_ms),
+            market_evidence: market.map(|m| m.evidence),
         })
     }
 }
@@ -123,6 +145,9 @@ impl AuthorizedPrice {
             || execution_timestamp_ms < o.observed_at_ms
             || execution_timestamp_ms - o.observed_at_ms > self.policy.max_age_ms
             || execution_timestamp_ms >= o.valid_until_ms
+            || self
+                .market_valid_until_ms
+                .is_some_and(|until| execution_timestamp_ms >= until)
         {
             return Err(err("NATIVE_VALUATION_TIME"));
         }
@@ -143,14 +168,18 @@ impl AuthorizedPrice {
         Amount::checked(result)
     }
     pub fn evidence(&self) -> Value {
-        json!({"modelVersion":VERSION,"authority":"CONFIGURED_ORACLE_SIGNER_QUORUM",
+        let mut evidence = json!({"modelVersion":VERSION,"authority":"CONFIGURED_ORACLE_SIGNER_QUORUM",
             "sourceId":self.policy.source_id,"policyHash":self.observation.policy_hash,
             "observationHash":self.observation_hash,"anchor":self.observation.anchor,
             "token":self.observation.token,"tokenAtoms":self.observation.token_atoms,"nativeAtoms":self.observation.native_atoms,
             "observedAtMs":self.observation.observed_at_ms,"validUntilMs":self.observation.valid_until_ms,
             "signers":self.signers,"threshold":self.policy.threshold,"costRounding":"CEIL_ONCE_AFTER_FULL_WIDTH_PRODUCT",
             "priceTimePolicy":"EXECUTION_BLOCK_TIME_NOT_CURRENT_WALL_CLOCK",
-            "bankConsensusAttested":false,"sourceIndependenceAttested":false})
+            "bankConsensusAttested":false,"sourceIndependenceAttested":false});
+        if let Some(market) = &self.market_evidence {
+            evidence["marketFeed"] = market.clone();
+        }
+        evidence
     }
     pub fn token(&self) -> &str {
         &self.observation.token

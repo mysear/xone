@@ -1,6 +1,6 @@
 //! Server-approved oracle authorities. Authorization is configuration, never
 //! accepted from a quote or simulation request. Rates describe atomic units.
-use crate::{err, hash, protocols::validate_address, validate_chain, Result};
+use crate::{err, hash, protocols::validate_address, validate_chain, Amount, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -15,6 +15,71 @@ pub struct PricePolicy {
     pub threshold: usize,
     pub max_age_ms: u64,
     pub max_validity_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub market_feed: Option<ChainlinkUsdPairPolicy>,
+}
+
+/// Explicitly approved deployments, never discovered from an HTTP request.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ChainlinkFeedPolicy {
+    pub proxy: String,
+    pub proxy_code_sha256: String,
+    pub aggregator: String,
+    pub aggregator_code_sha256: String,
+    pub description: String,
+    pub decimals: u8,
+    pub min_answer: Amount,
+    pub max_answer: Amount,
+    pub max_age_ms: u64,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChainlinkUsdPairPolicy {
+    pub schema_version: u32,
+    pub native_decimals: u8,
+    pub token_decimals: u8,
+    pub native_usd: ChainlinkFeedPolicy,
+    pub token_usd: ChainlinkFeedPolicy,
+}
+pub const ETHEREUM_GENESIS: &str =
+    "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3";
+impl ChainlinkUsdPairPolicy {
+    pub fn validate(&self, chain: &str, genesis: &str) -> Result<()> {
+        let bad = || err("NATIVE_VALUATION_MARKET_POLICY");
+        if self.schema_version != 1
+            || chain != "evm:1"
+            || genesis != ETHEREUM_GENESIS
+            || self.native_decimals != 18
+            || self.token_decimals > 36
+            || self.native_usd.description != "ETH / USD"
+            || (self.native_usd.proxy == self.token_usd.proxy && self.native_usd != self.token_usd)
+        {
+            return Err(bad());
+        }
+        for f in [&self.native_usd, &self.token_usd] {
+            validate_address(&f.proxy)?;
+            validate_address(&f.aggregator)?;
+            if f.proxy == format!("0x{}", "0".repeat(40))
+                || f.aggregator == format!("0x{}", "0".repeat(40))
+                || f.decimals > 18
+                || !f.description.ends_with(" / USD")
+                || f.description.len() < 7
+                || f.description.len() > 128
+                || !f.description.bytes().all(|b| (32..=126).contains(&b))
+                || !(1..=86_400_000).contains(&f.max_age_ms)
+                || f.min_answer == Amount::zero()
+                || f.min_answer > f.max_answer
+                || f.max_answer.0.bits() > 255
+                || [&f.proxy_code_sha256, &f.aggregator_code_sha256]
+                    .iter()
+                    .any(|h| !canonical_hex(h, 32) || h.bytes().all(|b| b == b'0'))
+            {
+                return Err(bad());
+            }
+        }
+        Ok(())
+    }
 }
 pub fn canonical_hex(s: &str, bytes: usize) -> bool {
     s.len() == bytes * 2
@@ -49,6 +114,9 @@ impl PricePolicy {
             || self.signers.values().collect::<BTreeSet<_>>().len() != self.signers.len()
         {
             return Err(err("NATIVE_VALUATION_POLICY"));
+        }
+        if let Some(feed) = &self.market_feed {
+            feed.validate(&self.chain_key, &self.genesis_hash)?;
         }
         Ok(())
     }
