@@ -78,6 +78,7 @@ pub enum OpFork {
     Granite,
     Holocene,
     Isthmus,
+    Jovian,
 }
 impl OpFork {
     pub(crate) fn spec(self) -> SpecId {
@@ -88,7 +89,7 @@ impl OpFork {
             Self::Fjord => SpecId::FJORD,
             Self::Granite => SpecId::GRANITE,
             Self::Holocene => SpecId::HOLOCENE,
-            Self::Isthmus => SpecId::ISTHMUS,
+            Self::Isthmus | Self::Jovian => SpecId::ISTHMUS,
         }
     }
     pub(crate) fn label(self) -> &'static str {
@@ -100,6 +101,7 @@ impl OpFork {
             Self::Granite => "op-granite",
             Self::Holocene => "op-holocene",
             Self::Isthmus => "op-isthmus",
+            Self::Jovian => "op-jovian",
         }
     }
     pub(crate) fn at(chain: u64, time: u64) -> Option<Self> {
@@ -108,9 +110,15 @@ impl OpFork {
             8453 => 1_686_789_347,
             _ => return None,
         };
-        // Pinned OP/Base schedule. Jovian and later need a separately verified
-        // runtime. Upgrade blocks are not inferred from an uninitialized bank.
-        if time < start || time >= 1_764_691_201 {
+        // The pinned registry admits historical OP Jovian until Karst only.
+        // Base has no authenticated later schedule here. Reject activation
+        // blocks: their attributes/bank require separate upgrade processing.
+        let end = if chain == 10 {
+            1_783_526_401
+        } else {
+            1_764_691_201
+        };
+        if time < start || time >= end {
             return None;
         }
         let mut result = Self::Regolith;
@@ -121,6 +129,7 @@ impl OpFork {
             (1_726_070_401, Self::Granite),
             (1_736_445_601, Self::Holocene),
             (1_746_806_401, Self::Isthmus),
+            (1_764_691_201, Self::Jovian),
         ] {
             if time == timestamp {
                 return None;
@@ -342,6 +351,29 @@ fn execute_mode(
     if let Some((_, fork)) = op {
         evm.handler.pre_execution.load_precompiles =
             Arc::new(move || super::op_precompiles::load::<super::StrictDB, BudgetInspector>(fork));
+    }
+    if op.is_some_and(|(_, fork)| fork == OpFork::Jovian) && !observation {
+        evm.handler.validation.tx_against_state = Arc::new(|context| {
+            revm::optimism::validate_tx_against_state::<
+                revm::primitives::IsthmusSpec,
+                BudgetInspector,
+                super::StrictDB,
+            >(context)?;
+            // Jovian charges raw_scalar * gas * 100. The pinned engine's
+            // Isthmus handler divides by 1e6, so scale only its private cache.
+            // Source slot8 remains untouched; validate_bank already checked
+            // the true Jovian maximum funding using independent checked math.
+            let info = context
+                .evm
+                .inner
+                .l1_block_info
+                .as_mut()
+                .expect("validated OP bank");
+            info.operator_fee_scalar = info
+                .operator_fee_scalar
+                .map(|scalar| scalar * revm::primitives::U256::from(100_000_000));
+            Ok(())
+        });
     }
     if observation {
         // These hooks apply only to read observations, never actual execution.
@@ -656,5 +688,22 @@ mod observation_tests {
                 .reason(),
             "invalid_observation"
         );
+    }
+}
+
+#[cfg(test)]
+mod jovian_schedule_tests {
+    use super::OpFork;
+    #[test]
+    fn jovian_admission_uses_only_the_pinned_op_interval_and_rejects_upgrade_blocks() {
+        assert_eq!(OpFork::at(10, 1_764_691_200), Some(OpFork::Isthmus));
+        assert_eq!(OpFork::at(10, 1_764_691_201), None);
+        assert_eq!(OpFork::at(10, 1_764_691_202), Some(OpFork::Jovian));
+        assert_eq!(OpFork::at(10, 1_783_526_400), Some(OpFork::Jovian));
+        assert_eq!(OpFork::at(10, 1_783_526_401), None);
+        assert_eq!(OpFork::at(10, 1_799_999_999), None);
+        for chain in [8453, 1, 42161] {
+            assert_eq!(OpFork::at(chain, 1_764_691_202), None);
+        }
     }
 }

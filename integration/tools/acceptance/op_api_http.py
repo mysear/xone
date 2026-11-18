@@ -60,12 +60,13 @@ def run(binary, sources, runners, output, maximum_groups=None):
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     sources = json.loads(Path(sources).read_bytes())
-    require(len(sources) == 28, 'Normal API source matrix changed')
+    expected = 32 if any(r['request']['fixture']['execution_environment']['fork'] == 'op-jovian' for r in sources) else 28
+    require(len(sources) == expected and len({r['id'] for r in sources}) == expected, 'Normal API source matrix changed')
     groups = {}
     for source in sources:
         prefix, mode = source['id'].rsplit('-', 1)
         groups.setdefault(prefix, {})[mode] = source
-    require(len(groups) == 14 and all(set(v) == {'in', 'out'} for v in groups.values()), 'Normal API build mode coverage changed')
+    require(len(groups) == expected // 2 and all(set(v) == {'in', 'out'} for v in groups.values()), 'Normal API build mode coverage changed')
     rows, rejected = [], 0
     binary_sha = digest(binary)
     with tempfile.TemporaryDirectory(prefix='xone-op-api-http-') as temp:
@@ -170,7 +171,7 @@ def run(binary, sources, runners, output, maximum_groups=None):
                             process.wait()
             require(process.returncode == 0, 'OP HTTP harness did not cleanly exit')
         require(digest(binary) == digest(staged) == binary_sha, 'Actual normal API binary changed during run')
-    require(len(rows) == (28 if maximum_groups is None else maximum_groups * 2), 'Actual normal API scenario count changed')
+    require(len(rows) == (expected if maximum_groups is None else maximum_groups * 2), 'Actual normal API scenario count changed')
     report = dict(passed=True, cases=rows, actual_worker_executions=len(rows), rejected_requests=rejected,
                   harness_sha256=binary_sha, publicTransactionsSubmitted=False, production_ready=False,
                   all_requested_features_complete=False, scope='NORMAL_HTTP_SIGNED_LOCAL_HISTORICAL_OP_NOT_TRUSTED_BANK_OR_CURRENT_VM')

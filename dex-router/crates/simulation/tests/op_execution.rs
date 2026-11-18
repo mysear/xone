@@ -37,10 +37,11 @@ fn fork(rule: &str) -> OpFork {
         "granite" => OpFork::Granite,
         "holocene" => OpFork::Holocene,
         "isthmus" => OpFork::Isthmus,
+        "jovian" => OpFork::Jovian,
         _ => panic!(),
     }
 }
-fn setup(r: &Value, funding: &str) -> (ImageData, OpExecutionRequest) {
+pub(crate) fn setup(r: &Value, funding: &str) -> (ImageData, OpExecutionRequest) {
     let s = &r["input"];
     let a = hex::decode(s["attributes"].as_str().unwrap()).unwrap();
     let chain = s["chain"].as_u64().unwrap();
@@ -137,7 +138,7 @@ fn setup(r: &Value, funding: &str) -> (ImageData, OpExecutionRequest) {
         },
     )
 }
-fn limits() -> ExecutionLimits {
+pub(crate) fn limits() -> ExecutionLimits {
     ExecutionLimits {
         reads: BoundReadLimits {
             max_reads: 1000,
@@ -149,7 +150,10 @@ fn limits() -> ExecutionLimits {
         max_memory_bytes: 65536,
     }
 }
-fn run(d: ImageData, r: OpExecutionRequest) -> Result<OpExecutionOutput, ExecutionError> {
+pub(crate) fn run(
+    d: ImageData,
+    r: OpExecutionRequest,
+) -> Result<OpExecutionOutput, ExecutionError> {
     execute_op_user(
         Arc::new(StateImage::new(d).unwrap()),
         r,
@@ -160,7 +164,14 @@ fn run(d: ImageData, r: OpExecutionRequest) -> Result<OpExecutionOutput, Executi
 #[test]
 #[ignore = "requires full original signed OP transitions"]
 fn authenticated_strict_op_execution_matches_original_gas_accounts_nonce_and_storage() {
-    let v = reference();
+    check_original_execution(&reference(), 7, 896, 441);
+}
+pub(crate) fn check_original_execution(
+    v: &Value,
+    rules: usize,
+    expected_accepted: usize,
+    expected_rejected: usize,
+) {
     let mut counts = std::collections::BTreeMap::<String, usize>::new();
     let mut accepted = 0;
     let mut rejected = 0;
@@ -229,9 +240,9 @@ fn authenticated_strict_op_execution_matches_original_gas_accounts_nonce_and_sto
             rejected += 1;
         }
     }
-    assert_eq!(counts.len(), 7);
-    assert_eq!(accepted, 896);
-    assert_eq!(rejected, 441);
+    assert_eq!(counts.len(), rules);
+    assert_eq!(accepted, expected_accepted);
+    assert_eq!(rejected, expected_rejected);
 }
 #[test]
 #[ignore = "requires full original signed OP transitions"]
@@ -448,7 +459,7 @@ fn op_runtime_memory_instructions_and_cooperative_cancellation_are_fatal() {
     assert_eq!(task.join().unwrap().unwrap_err().reason(), "cancelled");
 }
 
-fn fee_report(r: &Value, funding: &str, out: &OpExecutionOutput) -> Value {
+pub(crate) fn fee_report(r: &Value, funding: &str, out: &OpExecutionOutput) -> Value {
     let mut accounts = serde_json::Map::new();
     for owner in r[funding]["before"].as_object().unwrap().keys() {
         accounts.insert(
@@ -465,7 +476,9 @@ fn fee_report(r: &Value, funding: &str, out: &OpExecutionOutput) -> Value {
 #[test]
 #[ignore = "requires full original signed OP transitions"]
 fn retained_signed_op_fee_audit_matches_original_roles_aliases_funding_and_refunds() {
-    let v = reference();
+    check_original_fee_audit(&reference(), 896);
+}
+pub(crate) fn check_original_fee_audit(v: &Value, expected: usize) {
     let mut count = 0;
     for r in v["cases"].as_array().unwrap() {
         for funding in ["actual", "exact_funding"] {
@@ -499,7 +512,7 @@ fn retained_signed_op_fee_audit_matches_original_roles_aliases_funding_and_refun
             count += 1;
         }
     }
-    assert_eq!(count, 896);
+    assert_eq!(count, expected);
 }
 
 #[test]

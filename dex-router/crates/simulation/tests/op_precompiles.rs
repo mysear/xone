@@ -35,6 +35,7 @@ fn signed_op_precompiles_match_full_original_transitions_fees_and_fork_dispatch(
             "granite" => OpFork::Granite,
             "holocene" => OpFork::Holocene,
             "isthmus" => OpFork::Isthmus,
+            "jovian" => OpFork::Jovian,
             _ => panic!(),
         };
         let mut d = ImageData::default();
@@ -72,7 +73,7 @@ fn signed_op_precompiles_match_full_original_transitions_fees_and_fork_dispatch(
             scalars[16..24].copy_from_slice(&a[4..12]);
             d.storage
                 .insert((l1, U256::from(3)), U256::from_be_bytes(scalars));
-            if a.len() == 176 {
+            if a.len() >= 176 {
                 let mut op = [0; 32];
                 op[20..32].copy_from_slice(&a[164..176]);
                 d.storage

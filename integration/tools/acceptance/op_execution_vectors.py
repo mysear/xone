@@ -23,8 +23,9 @@ def cases():
     return rows
 
 
-def audit(rows):
-    require(len(rows)==448 and [r['input'] for r in rows]==cases(),'Original execution coverage changed')
+def audit(rows, expected_inputs=None):
+    expected = cases() if expected_inputs is None else expected_inputs
+    require(len(rows)==len(expected) and [r['input'] for r in rows]==expected,'Original execution coverage changed')
     coverage={}
     for r in rows:
         s=r['input'];coverage[s['rule']]=coverage.get(s['rule'],0)+1
@@ -42,19 +43,19 @@ def audit(rows):
             for address in before:require(after[address]==before[address]+credits[address]-(gas*price+int(r['l1_fee'])+int(a['operator_fee']) if address==payer else 0),'Original account delta differs')
         b=r['below_funding']
         require(b is None or b['accepted'] is False and b['insufficient_funds'] is True and b['nonce_after']==0 and b['before']==b['after'],'Underfunded original execution accepted')
-    require(len(coverage)==7 and set(coverage.values())=={64},'Fork coverage differs')
+    require(set(coverage)=={r['rule'] for r in expected} and set(coverage.values())=={64},'Fork coverage differs')
 
 
-def write(output):
+def write(output, selected=None):
     output=Path(output).resolve();output.parent.mkdir(parents=True,exist_ok=False)
     refs=original_inputs();refs[str(RUNNER.relative_to(ROOT))]=digest(RUNNER)
     module=output.parent/'runner';module.mkdir();shutil.copyfile(RUNNER,module/'main.go')
     (module/'go.mod').write_text('module xone-op-execution-reference\n\ngo 1.24.0\n\nrequire github.com/ethereum/go-ethereum v0.0.0\n\nreplace github.com/ethereum/go-ethereum => '+str(SOURCE)+'\n')
-    inputs=cases();(output.parent/'inputs.json').write_text(json.dumps(inputs,indent=2)+'\n')
+    inputs=cases() if selected is None else selected;(output.parent/'inputs.json').write_text(json.dumps(inputs,indent=2)+'\n')
     result=subprocess.run(['go','run','-mod=mod','.'],cwd=module,input=json.dumps(inputs),text=True,capture_output=True,timeout=300)
     (output.parent/'original.stderr').write_text(result.stderr)
     require(result.returncode==0,'Original execution failed: '+result.stderr[-3000:])
-    actual=json.loads(result.stdout);require([r['input'] for r in actual]==inputs,'Original scenario identity differs');audit(actual)
+    actual=json.loads(result.stdout);require([r['input'] for r in actual]==inputs,'Original scenario identity differs');audit(actual, inputs)
     for name in ['main.go','go.mod','go.sum']:p=module/name;refs[str(p.relative_to(ROOT))]=digest(p)
     report=dict(passed=True,cases=actual,scenario_count=len(actual),transition_count=sum(2+(r['below_funding'] is not None) for r in actual),references=refs,production_ready=False,all_requested_features_complete=False,scope='LOCAL_SIGNED_ZERO_VALUE_HISTORICAL_OP_EXECUTION_NOT_HISTORICAL_BANK_AUTHENTICATION_OR_CURRENT_CHAIN')
     output.write_text(json.dumps(report,indent=2)+'\n')

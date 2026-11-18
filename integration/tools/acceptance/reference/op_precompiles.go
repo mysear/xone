@@ -43,6 +43,8 @@ func registry(fork string) vm.PrecompiledContracts {
 		return vm.PrecompiledContractsGranite
 	case "isthmus":
 		return vm.PrecompiledContractsIsthmus
+	case "jovian":
+		return vm.PrecompiledContractsJovian
 	default:
 		panic("unsupported historical fork")
 	}

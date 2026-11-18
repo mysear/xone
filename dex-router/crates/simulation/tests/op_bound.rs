@@ -25,6 +25,7 @@ fn fork(s: &str) -> OpFork {
         "granite" => OpFork::Granite,
         "holocene" => OpFork::Holocene,
         "isthmus" => OpFork::Isthmus,
+        "jovian" => OpFork::Jovian,
         _ => panic!(),
     }
 }
@@ -107,7 +108,7 @@ fn make(c: &Value, r: &Value, kind: u8, exact: bool) -> Case {
         let mut s = [0; 32];
         s[16..24].copy_from_slice(&a[4..12]);
         put(3, &s);
-        if a.len() == 176 {
+        if a.len() >= 176 {
             let mut s = [0; 32];
             s[20..32].copy_from_slice(&a[164..176]);
             put(8, &s);
@@ -899,6 +900,37 @@ fn export_original_op_bound_inputs_for_normal_op_api_sources() {
     assert_eq!(rows.len(), 28);
     std::fs::write(
         std::env::var("XONE_OP_API_INPUTS").unwrap(),
+        serde_json::to_vec_pretty(&rows).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
+#[ignore = "exports historical Jovian sources for normal HTTP build/sign/simulate"]
+fn export_original_op_bound_inputs_for_jovian_normal_api_sources() {
+    let v: Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("XONE_OP_JOVIAN_VECTORS").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let r = &v["cases"][0];
+    assert_eq!(r["input"]["rule"], "jovian");
+    let corpus = bank::corpus();
+    let c = corpus["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["service_eligible"] == true)
+        .unwrap();
+    let mut rows = Vec::new();
+    for kind in [0, 2] {
+        for exact in [false, true] {
+            let c = make(c, r, kind, exact);
+            rows.push(json!({"id":c.id,"request":signed_worker_request(&c)}));
+        }
+    }
+    assert_eq!(rows.len(), 4);
+    std::fs::write(
+        std::env::var("XONE_OP_JOVIAN_API_INPUTS").unwrap(),
         serde_json::to_vec_pretty(&rows).unwrap(),
     )
     .unwrap();

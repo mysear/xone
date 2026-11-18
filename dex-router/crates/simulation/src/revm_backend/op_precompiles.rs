@@ -61,23 +61,24 @@ pub(super) fn load<DB: Database, EXT>(fork: OpFork) -> ContextPrecompiles<DB> {
         OpFork::Fjord => load_precompiles::<FjordSpec, EXT, DB>(),
         OpFork::Granite => load_precompiles::<GraniteSpec, EXT, DB>(),
         OpFork::Holocene => load_precompiles::<HoloceneSpec, EXT, DB>(),
-        OpFork::Isthmus => load_precompiles::<IsthmusSpec, EXT, DB>(),
+        OpFork::Isthmus | OpFork::Jovian => load_precompiles::<IsthmusSpec, EXT, DB>(),
     };
     install(fork, &mut table);
     table
 }
 
 pub(super) fn install<DB: Database>(fork: OpFork, table: &mut ContextPrecompiles<DB>) {
-    if fork != OpFork::Isthmus {
+    if !matches!(fork, OpFork::Isthmus | OpFork::Jovian) {
         return;
     }
+    let jovian = fork == OpFork::Jovian;
     for (address, maximum) in [
-        (8, Some(112687)),
+        (8, Some(if jovian { 81984 } else { 112687 })),
         (11, None),
-        (12, Some(513760)),
+        (12, Some(if jovian { 288960 } else { 513760 })),
         (13, None),
-        (14, Some(488448)),
-        (15, Some(235008)),
+        (14, Some(if jovian { 278784 } else { 488448 })),
+        (15, Some(if jovian { 156672 } else { 235008 })),
         (16, None),
         (17, None),
     ] {
@@ -116,12 +117,13 @@ mod tests {
             (OpFork::Granite, 11),
             (OpFork::Holocene, 11),
             (OpFork::Isthmus, 18),
+            (OpFork::Jovian, 18),
         ] {
             let mut t = table(fork);
             assert_eq!(t.addresses().len(), count, "{fork:?}");
             assert_eq!(
                 t.contains(&Address::with_last_byte(11)),
-                fork == OpFork::Isthmus
+                matches!(fork, OpFork::Isthmus | OpFork::Jovian)
             );
             // KZG is callable from Ecotone onward; a missing backend must never
             // silently turn it into an empty account or a fatal host error.
@@ -162,6 +164,7 @@ mod tests {
                 "granite" => OpFork::Granite,
                 "holocene" => OpFork::Holocene,
                 "isthmus" => OpFork::Isthmus,
+                "jovian" => OpFork::Jovian,
                 _ => panic!(),
             };
             let mut t = table(fork);

@@ -16,7 +16,7 @@ FILES = {8: ['bn256Pairing'], 10: ['pointEvaluation'], 11: ['blsG1Add', 'fail-bl
          17: ['blsMapG2', 'fail-blsMapG2'], 256: ['p256VerifyFjord']}
 
 
-def cases():
+def cases(include_jovian=False):
     corpus = SOURCE / 'core/vm/testdata/precompiles'
     rows, refs, samples = [], {}, {}
     for address, names in FILES.items():
@@ -45,15 +45,38 @@ def cases():
         for label, size in [('last-valid-width', cap//width*width), ('cap', cap), ('cap-plus-one', cap+1), ('first-over-width', (cap//width+1)*width)]:
             rows.append(dict(id=f'cap-{address}-{label}', fork='isthmus', address=f'0x{address:040x}', data='00'*size, gas=30_000_000, transition=True, attributes=sources['isthmus']['attributes'], timestamp=sources['isthmus']['timestamp']))
     require(len(rows) == 3558 and sum(r['transition'] for r in rows) == 110 and len({r['id'] for r in rows}) == len(rows), 'Precompile corpus incomplete')
+    if include_jovian:
+        from op_chain_cost_vectors import cases as fee_cases
+        source = next(r for r in fee_cases() if r['rule'] == 'jovian')
+        extra = []
+        caps = {8: (81984, 192), 12: (288960, 160), 14: (278784, 288), 15: (156672, 384)}
+        for old in rows:
+            if old['fork'] != 'isthmus':
+                continue
+            row = dict(old, id='jovian-' + old['id'], fork='jovian')
+            if row['transition']:
+                row.update(attributes=source['attributes'], timestamp=source['timestamp'])
+            if old['id'].startswith('cap-'):
+                address = int(old['address'], 16)
+                cap, width = caps[address]
+                label = old['id'].split('-', 2)[2]
+                size = {'last-valid-width': cap//width*width, 'cap': cap,
+                        'cap-plus-one': cap+1, 'first-over-width': (cap//width+1)*width}[label]
+                row['data'] = '00' * size
+            extra.append(row)
+        require(len(extra) == 3498 and sum(r['transition'] for r in extra) == 50, 'Jovian corpus incomplete')
+        rows.extend(extra)
     return rows, refs
 
 
 def audit(inputs, rows):
-    require(len(rows) == len(inputs) == 3558 and len({r['id'] for r in inputs}) == 3558 and sum(r['transition'] for r in inputs) == 110, 'Original precompile matrix changed')
+    jovian = any(r['fork'] == 'jovian' for r in inputs)
+    expected, _ = cases(include_jovian=jovian)
+    require(inputs == expected and len(rows) == len(inputs), 'Original precompile matrix changed')
     for expected, row in zip(inputs, rows):
         require(row['input'] == expected, 'Original precompile input changed')
         address = int(expected['address'], 16)
-        present = address <= 9 or (address == 10 and expected['fork'] not in ['regolith', 'canyon']) or (address == 256 and expected['fork'] in ['fjord', 'granite', 'holocene', 'isthmus']) or (11 <= address <= 17 and expected['fork'] == 'isthmus')
+        present = address <= 9 or (address == 10 and expected['fork'] not in ['regolith', 'canyon']) or (address == 256 and expected['fork'] in ['fjord', 'granite', 'holocene', 'isthmus', 'jovian']) or (11 <= address <= 17 and expected['fork'] in ['isthmus', 'jovian'])
         require(row['present'] is present, 'Original fork dispatch changed')
         if row['present'] and row['success']:
             require(row['remaining_gas'] + row['required_gas'] == expected['gas'] and not row['out_of_gas'], 'Original precompile gas not conserved')
@@ -65,11 +88,11 @@ def audit(inputs, rows):
             require(sum(map(int, t['before'].values())) == sum(map(int, t['after'].values())), 'Original full fees not conserved')
 
 
-def write(output):
+def write(output, include_jovian=False):
     output = Path(output).resolve()
     output.parent.mkdir(parents=True, exist_ok=False)
     refs = original_inputs()
-    inputs, corpus = cases()
+    inputs, corpus = cases(include_jovian=include_jovian)
     refs.update(corpus)
     for p in [RUNNER, HELPERS]:
         refs[str(p.relative_to(ROOT))] = digest(p)
@@ -98,7 +121,7 @@ def replay(vector, output):
     v = json.loads(vector.read_bytes())
     for name, expected in v['references'].items():
         require(digest(ROOT / name) == expected, 'Pinned original precompile operand changed: ' + name)
-    inputs, _ = cases()
+    inputs, _ = cases(include_jovian=any(r['input']['fork'] == 'jovian' for r in v['cases']))
     p = subprocess.run(['go', 'run', '-mod=readonly', '.'], cwd=vector.parent / 'runner', input=json.dumps(inputs), capture_output=True, text=True, timeout=300)
     Path(output).with_suffix('.stderr').write_text(p.stderr)
     require(p.returncode == 0, 'Original precompile replay failed: ' + p.stderr[-1500:])

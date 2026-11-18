@@ -14,6 +14,7 @@ from validate_evm_dynamic_fees import main
 
 def validate(*, output_base=None, additional_checks=(), additional_references=None,
              additional_artifacts=(), additional_required=None, additional_report=None,
+             additional_api_sources=None,
              verification_scope='NORMAL_HTTP_BUILD_FIXED_LOCAL_WALLET_SIGNED_HISTORICAL_OP_BOUND_EXECUTION_PARENT_SOURCE_FEES_NOT_CURRENT_VM_OR_TRUSTED_BANK'):
     output = output_base or ROOT / 'integration/artifacts/local/op-api-check'
     original = output / 'original-runs' / uuid.uuid4().hex
@@ -41,6 +42,16 @@ def validate(*, output_base=None, additional_checks=(), additional_references=No
     (original / 'export.log').write_text(result.stdout + result.stderr)
     require(result.returncode == 0 and 'test export_original_op_bound_inputs_for_normal_op_api_sources ... ok' in result.stdout, 'Normal API source export failed: ' + result.stderr[-1500:])
     require(len(json.loads(sources.read_bytes())) == 28, 'Normal API source matrix changed')
+    normal_count = 28
+    if additional_api_sources is not None:
+        extra_path = Path(additional_api_sources)
+        extra = json.loads(extra_path.read_bytes())
+        require(len(extra) == 4 and all(r['request']['fixture']['execution_environment']['fork'] == 'op-jovian' for r in extra), 'Jovian API sources changed')
+        rows = json.loads(sources.read_bytes()) + extra
+        require(len({r['id'] for r in rows}) == 32, 'API source identities overlap')
+        sources.write_text(json.dumps(rows, indent=2) + '\n')
+        refs[str(extra_path.relative_to(ROOT))] = digest(extra_path)
+        normal_count = 32
     for p in [sources, original / 'export.log']:
         refs[str(p.relative_to(ROOT))] = digest(p)
     runners, inputs = prepare(original / 'original-client')
@@ -79,8 +90,8 @@ def validate(*, output_base=None, additional_checks=(), additional_references=No
                                          'archived_normal_sources_authenticate_all_original_public_signed_users'],
          }, reference_inputs=refs,
          artifact_reports=list(additional_artifacts) + [str(p.relative_to(ROOT)) for p in [replay, http / 'op/report.json', http / 'legacy/report.json', http / 'dynamic/report.json']],
-         extra_report=dict(additional_report or {}, normal_signed_op_http_executions=28, normal_signed_op_http_rejections=168,
-                           original_client_signed_and_executed_normal_calldata=28,
+         extra_report=dict(additional_report or {}, normal_signed_op_http_executions=normal_count, normal_signed_op_http_rejections=normal_count*6,
+                           original_client_signed_and_executed_normal_calldata=normal_count,
                            parent_receipt_commitment_cases=28, parent_rehashed_receipt_mutations=252,
                            legacy_shanghai_http_worker_executions=8,
                            normal_historical_op_api_supported=True, current_op_execution_supported=False,

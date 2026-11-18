@@ -2221,3 +2221,12 @@ Go普通native来源及archive replay在同一header/body/receipt证明之后，
 固定REVM19.7显式启用c-kzg/blst。历史Ecotone起提供实际KZG，Isthmus加入七个BLS；OP专用wrapper对三BLS执行513760/488448/235008字节上限、BN使用112687字节上限，先检查原Gas再拒绝输入，不进入超长原生密码学调用。该注册表同时用于真实签名执行及只读观察，原上游加密运算/折扣表复用。验收使用原op-geth语料与完整签名状态转换并复跑正常HTTP；不因此开放Jovian及后续或生产VERIFIED。具体状态和报告见DEVELOPMENT_PROGRESS.md阶段144。
 
 阶段144统一验收通过，具体输入和报告绑定见进度文档。固定sha2依赖在dev/test使用opt-level=3，消除大可执行文件未优化摘要的期限压力；父进程和子进程仍每次完整读取文件并核对独立摘要，不使用身份缓存，原期限保持。当前OP规则的后续适配须尊重原registry的Karst边界，原op-geth历史执行不能充当当前链客户端资格。
+
+
+### 历史OP Mainnet Jovian用户VM（阶段145）
+
+`OpFork::Jovian`严格限定chain10在1764691201之后、1783526401之前，激活首块和Karst及之后拒绝；Base仍停在已核验历史范围。固定Isthmus handler验证源bank后，仅内部operator scalar缓存乘1e8，匹配Jovian的raw scalar×gas×100；真实source slot8不改，独立checked最大资金/费用和父进程来源审计均使用Jovian规则。预编译调用顺序不变，四上限改为81984/288960/278784/156672，真实执行及观察共用。
+
+正常历史build/签名simulate使用178字节Jovian属性并沿用完整BOUND、实际worker身份、总预算和父进程费用源核验。单笔用户VM不执行DA footprint区块准入/共识，不授予Karst/当前链或可信bank资格；验证状态以进度文档阶段145为准。
+
+阶段145统一冻结通过：64原签名场景、128产品执行/63不足1拒绝及128独立费用源审计，7056原预编译输入/160签名转换、32正常OP及8旧Shanghai HTTP均通过。当前Karst适配仍须独立验证Osaka相关Gas/输入限制/CLZ及具体客户端来源，历史Jovian不能充当现行链资格；最终source/输入/原报告见进度文档。
