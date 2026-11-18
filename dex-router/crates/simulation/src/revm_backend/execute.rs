@@ -79,7 +79,7 @@ pub enum OpFork {
     Holocene,
     Isthmus,
     Jovian,
-    /// Components only; `at` deliberately admits no Karst VM yet.
+    /// Scoped OP Mainnet ordinary calls with explicit Osaka adaptations.
     Karst,
 }
 impl OpFork {
@@ -113,11 +113,11 @@ impl OpFork {
             8453 => 1_686_789_347,
             _ => return None,
         };
-        // The pinned registry admits historical OP Jovian until Karst only.
+        // The pinned registry bounds OP Mainnet Karst before Lagoon.
         // Base has no authenticated later schedule here. Reject activation
         // blocks: their attributes/bank require separate upgrade processing.
         let end = if chain == 10 {
-            1_783_526_401
+            1_799_683_201
         } else {
             1_764_691_201
         };
@@ -133,6 +133,7 @@ impl OpFork {
             (1_736_445_601, Self::Holocene),
             (1_746_806_401, Self::Isthmus),
             (1_764_691_201, Self::Jovian),
+            (1_783_526_401, Self::Karst),
         ] {
             if time == timestamp {
                 return None;
@@ -295,14 +296,9 @@ fn execute_mode(
     if chain_id != request.chain_id {
         return Err(reject(ExecutionFailure::ChainIdMismatch));
     }
-    if !observation
-        && op.is_some_and(|(_, fork)| fork == OpFork::Karst)
-        && request.tx.gas_limit > super::karst_execution::TX_GAS_LIMIT_CAP
-    {
-        return Err(reject(ExecutionFailure::GasLimit {
-            requested: request.tx.gas_limit,
-            maximum: super::karst_execution::TX_GAS_LIMIT_CAP,
-        }));
+    if op.is_some_and(|(_, fork)| fork == OpFork::Karst) {
+        super::karst_execution::validate_context(&request.tx, &request.block, observation)
+            .map_err(reject)?;
     }
     if request.tx.gas_limit == 0 || request.tx.gas_limit > limits.max_gas_limit {
         return Err(reject(ExecutionFailure::GasLimit {

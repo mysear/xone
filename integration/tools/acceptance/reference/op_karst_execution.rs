@@ -65,6 +65,71 @@ fn snapshot(db: &mut InMemoryDB, fixture: &Value) -> Value {
     }
     Value::Object(accounts)
 }
+// Read-only observations on discarded copies. Preserve actual caller balance,
+// GASPRICE and source nonce; use the original system-call path only for probes.
+fn balance(
+    db: &InMemoryDB,
+    cfg: &CfgEnv<OpSpecId>,
+    block: &BlockEnv,
+    signed: &OpTransaction<TxEnv>,
+    token: Address,
+    owner: Address,
+) -> U256 {
+    let mut source = db.clone();
+    let mut tx = signed.clone();
+    let cfg = cfg.clone();
+    tx.base.nonce = source.basic(tx.base.caller).unwrap().unwrap().nonce;
+    tx.base.kind = op_revm::revm::primitives::TxKind::Call(token);
+    tx.base.gas_limit = 200_000;
+    let mut data = hex::decode("70a08231").unwrap();
+    data.extend([0u8; 12]);
+    data.extend(owner.as_slice());
+    tx.base.data = data.into();
+    let mut evm = OpContext::op()
+        .with_db(source)
+        .with_cfg(cfg)
+        .with_block(block.clone())
+        .with_tx(tx)
+        .build_op();
+    use op_revm::revm::handler::Handler;
+    let mut handler = op_revm::handler::OpHandler::<
+        _,
+        op_revm::revm::context::result::EVMError<
+            std::convert::Infallible,
+            op_revm::OpTransactionError,
+        >,
+        op_revm::revm::handler::EthFrame<op_revm::revm::interpreter::interpreter::EthInterpreter>,
+    >::new();
+    let result = handler
+        .run_system_call(&mut evm)
+        .expect("original balanceOf probe");
+    let state = evm.finalize();
+    assert!(result.is_success());
+    assert!(result.tx_gas_used() <= 200_000);
+    for (owner, a) in &state {
+        let before = evm
+            .0
+            .ctx
+            .journaled_state
+            .database
+            .basic(*owner)
+            .unwrap()
+            .unwrap_or_default();
+        assert_eq!(
+            a.info.balance, before.balance,
+            "balanceOf must not transfer native value"
+        );
+        assert!(
+            a.storage.values().all(|slot| !slot.is_changed()),
+            "balanceOf must not change storage"
+        );
+        assert!(!a.is_selfdestructed());
+    }
+    let bytes = result.output().unwrap();
+    assert_eq!(bytes.len(), 32);
+    U256::from_be_slice(bytes)
+}
+
 fn main() {
     let mut input = String::new();
     std::io::stdin()
@@ -124,6 +189,22 @@ fn main() {
             ..Default::default()
         };
         let db = install(fixture);
+        let tokens = s.get("token_in").map(|_| {
+            (
+                address(text(&s, "token_in")),
+                address(text(&s, "token_out")),
+                address(text(&s, "recipient")),
+            )
+        });
+        let token_before = tokens.map(|(sell, buy, recipient)| {
+            (
+                balance(&db, &cfg, &block, &tx, sell, caller),
+                balance(&db, &cfg, &block, &tx, buy, recipient),
+            )
+        });
+        let probe_cfg = cfg.clone();
+        let probe_block = block.clone();
+        let probe_tx = tx.clone();
         let mut before_db = db.clone();
         let before = snapshot(&mut before_db, fixture);
         let mut evm = OpContext::op()
@@ -161,6 +242,42 @@ fn main() {
             Err(error) => {
                 row["accepted"] = json!(false);
                 row["error"] = json!(format!("{error:?}"));
+            }
+        }
+        if row["accepted"] == true {
+            if let (Some((sell, buy, recipient)), Some((sell_before, buy_before))) =
+                (tokens, token_before)
+            {
+                let db = &evm.0.ctx.journaled_state.database;
+                row["spent"] = json!(
+                    sell_before
+                        .checked_sub(balance(
+                            db,
+                            &probe_cfg,
+                            &probe_block,
+                            &probe_tx,
+                            sell,
+                            caller
+                        ))
+                        .unwrap()
+                        .to_string()
+                );
+                row["bought"] = json!(
+                    balance(db, &probe_cfg, &probe_block, &probe_tx, buy, recipient)
+                        .checked_sub(buy_before)
+                        .unwrap()
+                        .to_string()
+                );
+                row["nonce_after"] = json!(
+                    evm.0
+                        .ctx
+                        .journaled_state
+                        .database
+                        .basic(caller)
+                        .unwrap()
+                        .unwrap()
+                        .nonce
+                );
             }
         }
         row["accounts"] = snapshot(&mut evm.0.ctx.journaled_state.database, fixture);

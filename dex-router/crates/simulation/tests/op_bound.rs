@@ -26,6 +26,7 @@ fn fork(s: &str) -> OpFork {
         "holocene" => OpFork::Holocene,
         "isthmus" => OpFork::Isthmus,
         "jovian" => OpFork::Jovian,
+        "karst" => OpFork::Karst,
         _ => panic!(),
     }
 }
@@ -934,4 +935,95 @@ fn export_original_op_bound_inputs_for_jovian_normal_api_sources() {
         serde_json::to_vec_pretty(&rows).unwrap(),
     )
     .unwrap();
+}
+
+#[test]
+#[ignore = "exports scoped Karst sources for normal HTTP signing"]
+fn export_original_op_bound_inputs_for_karst_normal_api_sources() {
+    let v: Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("XONE_OP_JOVIAN_VECTORS").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let mut r = v["cases"][0].clone();
+    r["input"]["rule"] = "karst".into();
+    r["input"]["timestamp"] = 1_783_526_403u64.into();
+    let corpus = bank::corpus();
+    let c = corpus["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["service_eligible"] == true)
+        .unwrap();
+    let mut rows = Vec::new();
+    for kind in [0, 2] {
+        for exact in [false, true] {
+            let c = make(c, &r, kind, exact);
+            rows.push(json!({"id":c.id,"request":signed_worker_request(&c)}));
+        }
+    }
+    assert_eq!(rows.len(), 4);
+    std::fs::write(
+        std::env::var("XONE_OP_KARST_API_INPUTS").unwrap(),
+        serde_json::to_vec_pretty(&rows).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
+#[ignore = "requires complete original Karst Router transitions"]
+fn karst_bound_router_tokens_fees_and_complete_poststate_match_full_original() {
+    let v: Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("XONE_OP_JOVIAN_VECTORS").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let mut r = v["cases"][0].clone();
+    r["input"]["rule"] = "karst".into();
+    r["input"]["timestamp"] = 1_783_526_403u64.into();
+    let original: Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("XONE_OP_KARST_BOUND_VECTORS").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let rows = original["cases"].as_array().unwrap();
+    assert_eq!(rows.len(), 4);
+    assert_eq!(original["passed"], true);
+    let corpus = bank::corpus();
+    let c = corpus["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["service_eligible"] == true)
+        .unwrap();
+    let mut count = 0;
+    for kind in [0, 2] {
+        for exact in [false, true] {
+            let c = make(c, &r, kind, exact);
+            let expected = rows.iter().find(|r| r["id"] == c.id).unwrap();
+            let out = run(&c, &bank::budget()).unwrap();
+            complete_state(&c, &out, expected);
+            assert!(out.matches_plan);
+            assert!(!out.verified);
+            assert_eq!(
+                out.actual_input_consumed.to_string(),
+                expected["spent"].as_str().unwrap()
+            );
+            assert_eq!(
+                out.actual_buy_amount.to_string(),
+                expected["bought"].as_str().unwrap()
+            );
+            assert_eq!(
+                out.execution.gas_used,
+                expected["gas_used"].as_u64().unwrap()
+            );
+            assert_eq!(
+                out.op_fees.as_ref().unwrap()["chain_cost"]["l1_data_fee"],
+                expected["l1_fee"]
+            );
+            assert_eq!(
+                out.op_fees.as_ref().unwrap()["chain_cost"]["operator_fee"],
+                expected["operator_fee"]
+            );
+            count += 1;
+        }
+    }
+    assert_eq!(count, 4);
 }

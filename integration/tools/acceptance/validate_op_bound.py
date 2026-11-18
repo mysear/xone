@@ -34,7 +34,7 @@ def validate():
          extra_checks=[
              ('original-runner-format',[sys.executable,'-c','import subprocess,sys;r=subprocess.check_output(["gofmt","-l","integration/tools/acceptance/reference/op_bound.go"],text=True);print(r,end="");sys.exit(bool(r))']),
              ('original-bound-replay',[sys.executable,'integration/tools/acceptance/op_bound_vectors.py','--replay',str(vectors),str(actual/'replay.json')]),
-             ('signed-bound-router',env+cargo+['test']+manifest+['-p','xone-simulation','--test','op_bound','--','--include-ignored','--skip','export_original_op_bound_inputs','--skip','actual_signed_op_worker_']),
+             ('signed-bound-router',env+cargo+['test']+manifest+['-p','xone-simulation','--test','op_bound','--','--include-ignored','--skip','export_original_op_bound_inputs','--skip','actual_signed_op_worker_','--skip','karst_bound_router_']),
              ('signed-engine-regression',env+cargo+['test']+manifest+['-p','xone-simulation','--test','op_execution','--test','op_transaction','--','--include-ignored']),
              ('original-bound-guards',env+[sys.executable]+guards),
              ('original-bound-guards-optimized',env+[sys.executable,'-OO']+guards),

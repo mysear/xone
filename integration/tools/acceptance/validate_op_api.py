@@ -14,7 +14,7 @@ from validate_evm_dynamic_fees import main
 
 def validate(*, output_base=None, additional_checks=(), additional_references=None,
              additional_artifacts=(), additional_required=None, additional_report=None,
-             additional_api_sources=None,
+             additional_api_sources=None, additional_api_runners=None,
              verification_scope='NORMAL_HTTP_BUILD_FIXED_LOCAL_WALLET_SIGNED_HISTORICAL_OP_BOUND_EXECUTION_PARENT_SOURCE_FEES_NOT_CURRENT_VM_OR_TRUSTED_BANK'):
     output = output_base or ROOT / 'integration/artifacts/local/op-api-check'
     original = output / 'original-runs' / uuid.uuid4().hex
@@ -46,16 +46,17 @@ def validate(*, output_base=None, additional_checks=(), additional_references=No
     if additional_api_sources is not None:
         extra_path = Path(additional_api_sources)
         extra = json.loads(extra_path.read_bytes())
-        require(len(extra) == 4 and all(r['request']['fixture']['execution_environment']['fork'] == 'op-jovian' for r in extra), 'Jovian API sources changed')
+        require(len(extra) in [4,8] and sum(r['request']['fixture']['execution_environment']['fork']=='op-jovian' for r in extra)==4 and sum(r['request']['fixture']['execution_environment']['fork']=='op-karst' for r in extra)==len(extra)-4, 'Additional OP API sources changed')
         rows = json.loads(sources.read_bytes()) + extra
-        require(len({r['id'] for r in rows}) == 32, 'API source identities overlap')
+        require(len({r['id'] for r in rows}) == 28+len(extra), 'API source identities overlap')
         sources.write_text(json.dumps(rows, indent=2) + '\n')
         refs[str(extra_path.relative_to(ROOT))] = digest(extra_path)
-        normal_count = 32
+        normal_count = 28+len(extra)
     for p in [sources, original / 'export.log']:
         refs[str(p.relative_to(ROOT))] = digest(p)
     runners, inputs = prepare(original / 'original-client')
     refs.update(inputs)
+    runners.update(additional_api_runners or {})
     refs.update(runtime_inputs())
     refs.update(additional_references or {})
     http = output / 'http-runs' / uuid.uuid4().hex
@@ -68,12 +69,12 @@ def validate(*, output_base=None, additional_checks=(), additional_references=No
          extra_checks=list(additional_checks) + [
              ('original-signer-format', [sys.executable, '-c', 'import subprocess,sys;r=subprocess.check_output(["gofmt","-l","integration/tools/acceptance/reference/op_api_sign.go"],text=True);print(r,end="");sys.exit(bool(r))']),
              ('original-bound-replay', [sys.executable, 'integration/tools/acceptance/op_bound_vectors.py', '--replay', str(vectors), str(replay)]),
-             ('signed-bound-router', test_env + cargo + ['test'] + manifest + ['-p', 'xone-simulation', '--test', 'op_bound', '--', '--include-ignored', '--skip', 'export_original_op_bound_inputs', '--skip', 'actual_signed_op_worker_']),
+             ('signed-bound-router', test_env + cargo + ['test'] + manifest + ['-p', 'xone-simulation', '--test', 'op_bound', '--', '--include-ignored', '--skip', 'export_original_op_bound_inputs', '--skip', 'actual_signed_op_worker_', '--skip', 'karst_bound_router_']),
              ('retained-fee-source-audit', test_env + cargo + ['test'] + manifest + ['-p', 'xone-simulation', '--test', 'op_execution', '--test', 'op_transaction', '--', '--include-ignored']),
              ('original-bound-guards', test_env + [sys.executable] + guards),
              ('original-bound-guards-optimized', test_env + [sys.executable, '-OO'] + guards),
              ('http-build', cargo + ['build'] + manifest + ['-p', 'xone-quote-api', '--example', 'evm_dynamic_fee_harness']),
-             ('normal-signed-op-http', [sys.executable, 'integration/tools/acceptance/op_api_http.py', str(target / 'debug/examples/evm_dynamic_fee_harness'), str(sources), str(runners['signer']), str(runners['transition']), str(http / 'op')]),
+             ('normal-signed-op-http', [sys.executable, 'integration/tools/acceptance/op_api_http.py', str(target / 'debug/examples/evm_dynamic_fee_harness'), str(sources), str(runners['signer']), str(runners['transition']), str(http / 'op')] + (['--karst-transition',str(runners['karst_transition'])] if 'karst_transition' in runners else [])),
              ('actual-legacy-http', [sys.executable, 'integration/tools/acceptance/evm_native_cost_http.py', str(target / 'debug/examples/evm_dynamic_fee_harness'), str(http / 'legacy'), '--legacy-payer-cost']),
              ('actual-dynamic-http', [sys.executable, 'integration/tools/acceptance/evm_native_cost_http.py', str(target / 'debug/examples/evm_dynamic_fee_harness'), str(http / 'dynamic'), '--payer-cost']),
              ('router-build', cargo + ['build'] + manifest + ['--bin', 'dex-router']),

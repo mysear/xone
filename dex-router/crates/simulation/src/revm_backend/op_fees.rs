@@ -94,6 +94,9 @@ pub(super) fn validate_bank(
     tx: &TxEnv,
     block: &BlockEnv,
 ) -> Result<(), ExecutionFailure> {
+    if fork == OpFork::Karst {
+        super::karst_execution::validate_context(tx, block, false)?;
+    }
     let time = u64::try_from(block.timestamp).map_err(|_| bad())?;
     let costs = calculate(fork, tx, block.basefee, time, a, tx.gas_limit)?;
     if db.basic(l1()).map_err(read_error)?.is_none() {

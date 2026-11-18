@@ -46,7 +46,7 @@ def validate():
          verification_scope='RETAINED_SIGNED_HISTORICAL_OP_FEE_RECEIPT_SOURCE_CONSISTENCY_NO_VM_ATTESTATION_OR_NORMAL_OP_API',
          extra_checks=[
              ('original-bound-replay', [sys.executable, 'integration/tools/acceptance/op_bound_vectors.py', '--replay', str(vectors), str(replay)]),
-             ('signed-bound-router', env + cargo + ['test'] + manifest + ['-p', 'xone-simulation', '--test', 'op_bound', '--', '--include-ignored', '--skip', 'export_original_op_bound_inputs', '--skip', 'actual_signed_op_worker_']),
+             ('signed-bound-router', env + cargo + ['test'] + manifest + ['-p', 'xone-simulation', '--test', 'op_bound', '--', '--include-ignored', '--skip', 'export_original_op_bound_inputs', '--skip', 'actual_signed_op_worker_', '--skip', 'karst_bound_router_']),
              ('retained-fee-source-audit', env + cargo + ['test'] + manifest + ['-p', 'xone-simulation', '--test', 'op_execution', '--test', 'op_transaction', '--', '--include-ignored']),
              ('original-bound-guards', env + [sys.executable] + guards),
              ('original-bound-guards-optimized', env + [sys.executable, '-OO'] + guards),

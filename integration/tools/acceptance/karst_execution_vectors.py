@@ -2,7 +2,7 @@
 """Pinned full original Karst VM transitions over explicit local banks.
 
 No current-bank, derivation or consensus qualification is implied. Product
-schedule admission remains closed while these execution additions are qualified.
+qualification alone does not grant schedule admission or trusted-bank authority.
 """
 import copy
 import hashlib
@@ -161,7 +161,7 @@ def write(output):
     refs=originals();inputs,retained_refs=cases();refs.update(retained_refs);refs[str(RUNNER.relative_to(ROOT))]=digest(RUNNER)
     module=output.parent/'runner';(module/'src').mkdir(parents=True)
     shutil.copyfile(RUNNER,module/'src/main.rs');shutil.copyfile(OP/'rust/Cargo.lock',module/'Cargo.lock')
-    (module/'Cargo.toml').write_text('[package]\nname="xone-karst-original-execution"\nversion="0.0.0"\nedition="2024"\n[workspace]\n[dependencies]\nop-revm={path="'+str(OP/'rust/op-revm')+'"}\nalloy-consensus={version="=2.5.0",features=["k256"]}\nalloy-eips="=2.5.0"\nserde_json="1.0"\nhex="=0.4.3"\n')
+    (module/'Cargo.toml').write_text('[package]\nname="xone-karst-original-execution"\nversion="0.0.0"\nedition="2024"\n[workspace]\n[dependencies]\nop-revm={path="'+str(OP/'rust/op-revm')+'",default-features=true}\nalloy-consensus={version="=2.5.0",features=["k256"]}\nalloy-eips="=2.5.0"\nserde_json="1.0"\nhex="=0.4.3"\n')
     env=dict(os.environ,PATH=str(Path.home()/'.cargo/bin')+os.pathsep+os.environ['PATH'],CARGO_BUILD_JOBS='2',CARGO_INCREMENTAL='0',CARGO_TARGET_DIR=str(BASE/'target'))
     result=subprocess.run(['cargo','+1.99.0','build','--manifest-path',str(module/'Cargo.toml')],cwd=ROOT,env=env,capture_output=True,text=True,timeout=600)
     (output.parent/'build.log').write_text(result.stdout+result.stderr);require(result.returncode==0,'Original full engine build failed: '+result.stderr[-2500:])

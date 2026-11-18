@@ -60,7 +60,8 @@ def run(binary, sources, runners, output, maximum_groups=None):
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     sources = json.loads(Path(sources).read_bytes())
-    expected = 32 if any(r['request']['fixture']['execution_environment']['fork'] == 'op-jovian' for r in sources) else 28
+    forks={r['request']['fixture']['execution_environment']['fork'] for r in sources}
+    expected = 36 if 'op-karst' in forks else 32 if 'op-jovian' in forks else 28
     require(len(sources) == expected and len({r['id'] for r in sources}) == expected, 'Normal API source matrix changed')
     groups = {}
     for source in sources:
@@ -142,7 +143,8 @@ def run(binary, sources, runners, output, maximum_groups=None):
                         request = source['request']
                         context = request['bound']['plan']['context'] if request.get('bound') is not None else request['exact_out_bound']['plan']['context']
                         reference_input = dict(id=source['id'], rule=request['fixture']['execution_environment']['fork'][3:], fixture=request['fixture'], signed_wire=signed['signedWire'][2:], transaction_hash=signed['transactionHash'], caller=context['caller'], token_in=context['sell_token'], token_out=context['buy_token'], recipient=context['recipient'])
-                        reference = original(runners['transition'], [reference_input])[0]
+                        reference = original(runners['karst_transition'] if reference_input['rule']=='karst' else runners['transition'], [reference_input])[0]
+                        if reference_input['rule']=='karst': require(reference['accepted'] is True and reference['failed'] is False, 'Original full Karst engine rejected normal Router')
                         outcome = simulation['outcome']
                         fees, costs = outcome['op_fees'], simulation['costs']
                         require(outcome['execution']['gas_used'] == reference['gas_used'] and outcome['actual_input_consumed'] == reference['spent'] and outcome['actual_buy_amount'] == reference['bought'], 'Normal OP Gas or actual Token transfers differ from original client')
@@ -181,5 +183,9 @@ def run(binary, sources, runners, output, maximum_groups=None):
 
 if __name__ == '__main__':
     import sys
-    require(len(sys.argv) == 6, 'Expected HARNESS SOURCES SIGNER TRANSITION OUTPUT')
-    run(Path(sys.argv[1]), Path(sys.argv[2]), dict(signer=Path(sys.argv[3]), transition=Path(sys.argv[4])), Path(sys.argv[5]))
+    require(len(sys.argv) in [6,8], 'Expected HARNESS SOURCES SIGNER TRANSITION OUTPUT [--karst-transition RUNNER]')
+    runners=dict(signer=Path(sys.argv[3]),transition=Path(sys.argv[4]))
+    if len(sys.argv)==8:
+        require(sys.argv[6]=='--karst-transition','Unknown OP HTTP runner option');runners['karst_transition']=Path(sys.argv[7])
+    else: require(len(sys.argv)==6,'Unexpected OP HTTP arguments')
+    run(Path(sys.argv[1]), Path(sys.argv[2]), runners, Path(sys.argv[5]))

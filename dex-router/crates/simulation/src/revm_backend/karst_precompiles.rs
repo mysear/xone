@@ -1,5 +1,4 @@
-//! Osaka-sensitive precompile components. Karst VM admission remains closed
-//! until the other execution rules and signed transitions are qualified.
+//! Osaka-sensitive precompile components used by scoped Karst user execution.
 use revm::{
     precompile::{modexp, secp256r1},
     primitives::{Bytes, PrecompileError, PrecompileOutput, PrecompileResult, U256},
@@ -77,8 +76,11 @@ mod tests {
     use crate::revm_backend::{op_precompiles, OpFork};
     use revm::{db::EmptyDB, primitives::*, InnerEvmContext};
     #[test]
-    fn karst_components_do_not_admit_a_partial_current_vm() {
-        assert_eq!(OpFork::at(10, 1_783_526_403), None);
+    fn karst_schedule_excludes_upgrade_blocks_future_rules_and_unverified_chains() {
+        assert_eq!(OpFork::at(10, 1_783_526_401), None);
+        assert_eq!(OpFork::at(10, 1_783_526_402), Some(OpFork::Karst));
+        assert_eq!(OpFork::at(10, 1_799_683_200), Some(OpFork::Karst));
+        assert_eq!(OpFork::at(10, 1_799_683_201), None);
         assert_eq!(OpFork::at(8453, 1_783_526_403), None);
         // Nonzero exponent costs more than 500 even if output length is zero.
         let mut input = vec![0; 128];

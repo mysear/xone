@@ -10,7 +10,7 @@ from op_jovian_vectors import ROOT, write, digest, require
 from validate_op_api import validate
 
 
-def main(*, output_base=None, additional_checks=(), additional_references=None, additional_artifacts=(), additional_required=None, additional_report=None, verification_scope='LOCAL_SIGNED_OP_MAINNET_HISTORICAL_JOVIAN_USER_VM_FEES_CRYPTO_NORMAL_HTTP_NOT_KARST_OR_CURRENT_VM_OR_TRUSTED_BANK'):
+def main(*, output_base=None, additional_checks=(), additional_references=None, additional_artifacts=(), additional_required=None, additional_report=None, additional_api_sources=None, additional_api_runners=None, verification_scope='LOCAL_SIGNED_OP_MAINNET_HISTORICAL_JOVIAN_USER_VM_FEES_CRYPTO_NORMAL_HTTP_NOT_KARST_OR_CURRENT_VM_OR_TRUSTED_BANK'):
     output = output_base or ROOT / 'integration/artifacts/local/op-jovian-check'
     directory = output / 'original-runs' / uuid.uuid4().hex
     refs = write(directory)
@@ -31,12 +31,18 @@ def main(*, output_base=None, additional_checks=(), additional_references=None, 
     log.write_text(result.stdout + result.stderr)
     require(result.returncode == 0 and 'test export_original_op_bound_inputs_for_jovian_normal_api_sources ... ok' in result.stdout, 'Jovian source export failed: ' + result.stderr[-2000:])
     for p in [sources, log]: refs[str(p.relative_to(ROOT))] = digest(p)
+    if additional_api_sources is not None:
+        extra_path=Path(additional_api_sources); extra=json.loads(extra_path.read_bytes())
+        require(len(extra)==4 and all(r['request']['fixture']['execution_environment']['fork']=='op-karst' for r in extra),'Karst API sources changed')
+        refs[str(extra_path.relative_to(ROOT))]=digest(extra_path)
+        combined=directory/'jovian-karst-api-sources.json';combined.write_text(json.dumps(json.loads(sources.read_bytes())+extra,indent=2)+'\n');sources=combined
+        refs[str(sources.relative_to(ROOT))]=digest(sources)
     replay = directory / 'replay.json'
     guard_env = ['env', 'XONE_OP_JOVIAN_REFERENCE=' + str(directory)]
     crypto_env = ['env', 'XONE_OP_PRECOMPILE_VECTORS=' + str(crypto)]
     signed_env = ['env', 'XONE_OP_JOVIAN_VECTORS=' + str(execution)]
     guards = ['-m', 'unittest', 'discover', '-s', 'integration/tools/acceptance/tests', '-p', 'test_op_jovian_vectors.py']
-    validate(output_base=output, additional_api_sources=sources, additional_references=refs,
+    validate(output_base=output, additional_api_sources=sources, additional_api_runners=additional_api_runners, additional_references=refs,
              additional_checks=list(additional_checks) + [
                  ('jovian-reference-guards', guard_env + [sys.executable] + guards),
                  ('jovian-reference-guards-optimized', guard_env + [sys.executable, '-OO'] + guards),
