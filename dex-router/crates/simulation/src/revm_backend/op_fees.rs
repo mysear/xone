@@ -41,7 +41,7 @@ fn rollup<'a>(
     let rules = match fork {
         OpFork::Ecotone => cost::PackedRules::Ecotone,
         OpFork::Isthmus => cost::PackedRules::Isthmus,
-        OpFork::Jovian => cost::PackedRules::Jovian,
+        OpFork::Jovian | OpFork::Karst => cost::PackedRules::Jovian,
         _ => cost::PackedRules::Fjord,
     };
     cost::RollupInputs::Packed {
@@ -71,7 +71,7 @@ fn parameters(
         ));
     }
     let (selector, len) = match fork {
-        OpFork::Jovian => ([0x3d, 0xb6, 0xbe, 0x2b], 178),
+        OpFork::Jovian | OpFork::Karst => ([0x3d, 0xb6, 0xbe, 0x2b], 178),
         OpFork::Isthmus => ([0x09, 0x89, 0x99, 0xbe], 176),
         _ => ([0x44, 0x0a, 0x5e, 0x20], 164),
     };
@@ -116,7 +116,7 @@ pub(super) fn validate_bank(
         if scalars[16..24] != a[4..12] {
             return Err(bad());
         }
-        if matches!(fork, OpFork::Isthmus | OpFork::Jovian) {
+        if matches!(fork, OpFork::Isthmus | OpFork::Jovian | OpFork::Karst) {
             let op = db
                 .storage(l1(), U256::from(8))
                 .map_err(read_error)?

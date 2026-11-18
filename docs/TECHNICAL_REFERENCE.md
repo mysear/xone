@@ -2230,3 +2230,12 @@ Go普通native来源及archive replay在同一header/body/receipt证明之后，
 正常历史build/签名simulate使用178字节Jovian属性并沿用完整BOUND、实际worker身份、总预算和父进程费用源核验。单笔用户VM不执行DA footprint区块准入/共识，不授予Karst/当前链或可信bank资格；验证状态以进度文档阶段145为准。
 
 阶段145统一冻结通过：64原签名场景、128产品执行/63不足1拒绝及128独立费用源审计，7056原预编译输入/160签名转换、32正常OP及8旧Shanghai HTTP均通过。当前Karst适配仍须独立验证Osaka相关Gas/输入限制/CLZ及具体客户端来源，历史Jovian不能充当现行链资格；最终source/输入/原报告见进度文档。
+
+
+### Karst预编译组件与现代原参考（阶段146）
+
+`karst_precompiles`在原产品锁版本上适配Osaka MODEXP的三个1024字节限制、500最低价和复杂度/迭代倍率，复用原模幂运算；零输出长度仍按exponent实际价格计费。P256价格改6900，Karst BN输入上限57600，现代OP表的cap/Gas顺序从未修改的固定原OP组件对照。历史Jovian及之前表保持各自原顺序。
+
+`OpFork::Karst`当前只提供组件表，正常历史准入仍拒绝Karst，直到CLZ/Gas cap/完整原签名转换及正常API验收闭合。原参考在隔离Rust1.99环境编译固定官方spec/precompiles与REVM43.0.3，产品保持1.90及原Cargo.lock；认证原archive、锁依赖archive和实际源目录，组件资格不升级为完整现代客户端/共识或可信bank。最终状态见进度文档阶段146。
+
+阶段146统一冻结30门禁/171次Rust通过，9452原组件输入与产品逐成功/Gas/输出/OutOfGas一致，32正常OP和8旧Shanghai HTTP回归通过。完整Karst VM仍不准入；下一轮补CLZ及交易Gas上限并验证完整原状态转换，不能仅凭预编译通过升级当前链资格。最终摘要和证据见进度文档阶段146。

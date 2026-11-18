@@ -3,6 +3,7 @@ pub mod db;
 pub mod error;
 pub mod execute;
 pub mod image;
+mod karst_precompiles;
 pub mod limits;
 mod op_fees;
 mod op_measurements;

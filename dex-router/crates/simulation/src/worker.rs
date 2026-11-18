@@ -133,7 +133,7 @@ pub fn historical_op_attributes(
         )?;
     } else {
         let (selector, size) = match fork {
-            OpFork::Jovian => ([0x3d, 0xb6, 0xbe, 0x2b], 178),
+            OpFork::Jovian | OpFork::Karst => ([0x3d, 0xb6, 0xbe, 0x2b], 178),
             OpFork::Isthmus => ([0x09, 0x89, 0x99, 0xbe], 176),
             _ => ([0x44, 0x0a, 0x5e, 0x20], 164),
         };

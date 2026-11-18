@@ -14,6 +14,7 @@ struct OpPrecompile {
     engine: Precompile,
     address: u8,
     maximum: Option<usize>,
+    cap_before_gas: bool,
 }
 impl OpPrecompile {
     fn required_gas(&self, len: usize) -> u64 {
@@ -39,6 +40,9 @@ impl OpPrecompile {
 }
 impl StatefulPrecompile for OpPrecompile {
     fn call(&self, input: &Bytes, gas: u64, env: &Env) -> PrecompileResult {
+        if self.cap_before_gas && self.maximum.is_some_and(|max| input.len() > max) {
+            return Err(PrecompileError::Other("OP precompile input limit".into()).into());
+        }
         // Native op-geth charges RequiredGas before checking input validity.
         // Enforce caps before entering the native crypto implementation.
         if gas < self.required_gas(input.len()) {
@@ -61,19 +65,31 @@ pub(super) fn load<DB: Database, EXT>(fork: OpFork) -> ContextPrecompiles<DB> {
         OpFork::Fjord => load_precompiles::<FjordSpec, EXT, DB>(),
         OpFork::Granite => load_precompiles::<GraniteSpec, EXT, DB>(),
         OpFork::Holocene => load_precompiles::<HoloceneSpec, EXT, DB>(),
-        OpFork::Isthmus | OpFork::Jovian => load_precompiles::<IsthmusSpec, EXT, DB>(),
+        OpFork::Isthmus | OpFork::Jovian | OpFork::Karst => {
+            load_precompiles::<IsthmusSpec, EXT, DB>()
+        }
     };
     install(fork, &mut table);
     table
 }
 
 pub(super) fn install<DB: Database>(fork: OpFork, table: &mut ContextPrecompiles<DB>) {
-    if !matches!(fork, OpFork::Isthmus | OpFork::Jovian) {
+    if !matches!(fork, OpFork::Isthmus | OpFork::Jovian | OpFork::Karst) {
         return;
     }
-    let jovian = fork == OpFork::Jovian;
+    let karst = fork == OpFork::Karst;
+    let jovian = matches!(fork, OpFork::Jovian | OpFork::Karst);
     for (address, maximum) in [
-        (8, Some(if jovian { 81984 } else { 112687 })),
+        (
+            8,
+            Some(if karst {
+                57600
+            } else if jovian {
+                81984
+            } else {
+                112687
+            }),
+        ),
         (11, None),
         (12, Some(if jovian { 288960 } else { 513760 })),
         (13, None),
@@ -93,8 +109,19 @@ pub(super) fn install<DB: Database>(fork: OpFork, table: &mut ContextPrecompiles
                 engine,
                 address,
                 maximum,
+                cap_before_gas: karst,
             })
             .into(),
+        );
+    }
+    if karst {
+        table.to_mut().insert(
+            Address::with_last_byte(5),
+            Precompile::Standard(super::karst_precompiles::modexp_osaka).into(),
+        );
+        table.to_mut().insert(
+            revm::primitives::address!("0000000000000000000000000000000000000100"),
+            Precompile::Standard(super::karst_precompiles::p256_osaka).into(),
         );
     }
 }

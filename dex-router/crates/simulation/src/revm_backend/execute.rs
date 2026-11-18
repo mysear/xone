@@ -79,6 +79,8 @@ pub enum OpFork {
     Holocene,
     Isthmus,
     Jovian,
+    /// Components only; `at` deliberately admits no Karst VM yet.
+    Karst,
 }
 impl OpFork {
     pub(crate) fn spec(self) -> SpecId {
@@ -89,7 +91,7 @@ impl OpFork {
             Self::Fjord => SpecId::FJORD,
             Self::Granite => SpecId::GRANITE,
             Self::Holocene => SpecId::HOLOCENE,
-            Self::Isthmus | Self::Jovian => SpecId::ISTHMUS,
+            Self::Isthmus | Self::Jovian | Self::Karst => SpecId::ISTHMUS,
         }
     }
     pub(crate) fn label(self) -> &'static str {
@@ -102,6 +104,7 @@ impl OpFork {
             Self::Holocene => "op-holocene",
             Self::Isthmus => "op-isthmus",
             Self::Jovian => "op-jovian",
+            Self::Karst => "op-karst",
         }
     }
     pub(crate) fn at(chain: u64, time: u64) -> Option<Self> {
