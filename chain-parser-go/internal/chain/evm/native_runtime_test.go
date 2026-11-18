@@ -65,7 +65,7 @@ func (f *normalNativeFixture) serve(t *testing.T) *httptest.Server {
 		var result any
 		switch req.Method {
 		case "eth_chainId":
-			ids := map[string]string{"evm:43114": "0xa86a", "evm:42161": "0xa4b1", "evm:137": "0x89"}
+			ids := map[string]string{"evm:43114": "0xa86a", "evm:42161": "0xa4b1", "evm:137": "0x89", "evm:10": "0xa", "evm:8453": "0x2105"}
 			result = ids[f.chain.Key]
 		case "eth_getBlockByNumber":
 			var tag string

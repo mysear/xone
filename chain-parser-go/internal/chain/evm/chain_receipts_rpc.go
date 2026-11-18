@@ -338,6 +338,10 @@ func (a *Adapter) readNativeReceiptCoverageCached(ctx context.Context, target Ra
 	if err = attachNativeSemantics(&coverage, header); err != nil {
 		return empty, err
 	}
+	coverage.OPRegolithFeeInputs, err = projectOPRegolithFeeInputs(r.ctx, coverage, header, body, &r.budget)
+	if err != nil {
+		return empty, err
+	}
 	bodyCopy := body
 	coverage.Evidence = &NativeReceiptEvidence{SchemaVersion: 1, ChainKey: r.chainKey, GenesisHash: r.genesis, NativeSemanticsID: coverage.NativeSemanticsID, Kind: "own-header-receipts", Block: &bodyCopy}
 	coverage.ProofBytesUsed += r.limits.MaxBytes - r.budget.remaining

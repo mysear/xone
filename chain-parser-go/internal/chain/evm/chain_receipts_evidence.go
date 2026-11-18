@@ -90,6 +90,9 @@ func VerifyNativeReceiptEvidence(ctx context.Context, chainKey string, target Ra
 		}
 		out = VerifiedReceiptCoverage{ChainKey: chainKey, Block: target, CanonicalBlock: target, CanonicalReceipts: block.Receipts, CanonicalBodyProven: true, CanonicalReceiptsProven: true, WholeBlockReceiptEventsProven: true, SystemObservationCoverage: "all-canonical-receipts-committed", ReceiptAuthority: "own-header-receipts-root", ReceiptRoot: header.ReceiptsRoot, WindowStart: height, WindowEnd: height, StateAnchor: &ExecutionStateAnchor{Height: height, BlockHash: target.Hash, StateRoot: header.StateRoot, SettlingHeight: height, SettlingHash: target.Hash, Authority: "native-post-execution-header-state-root", AccountEncodingID: accountEncoding}}
 		err = attachNativeSemantics(&out, header)
+		if err == nil {
+			out.OPRegolithFeeInputs, err = projectOPRegolithFeeInputs(ctx, out, header, block, &budget)
+		}
 		out.ProofBytesUsed = limits.MaxBytes - budget.remaining
 	default:
 		return out, errors.New("NATIVE_EVIDENCE_KIND_UNSUPPORTED")

@@ -10,14 +10,15 @@ import (
 )
 
 type NativeHistoryEvidence struct {
-	SchemaVersion     uint64                    `json:"schema_version"`
-	ScopeDatasetID    string                    `json:"scope_dataset_id"`
-	DatasetID         string                    `json:"dataset_id"`
-	NativeSemanticsID string                    `json:"native_semantics_id"`
-	Block             RawBlock                  `json:"block"`
-	Evidence          NativeReceiptEvidence     `json:"evidence"`
-	Facts             domain.FactBatch          `json:"facts"`
-	Candidates        []ingest.FactoryCandidate `json:"candidates"`
+	OPRegolithFeeInputs *OPRegolithFeeInputs      `json:"op_regolith_fee_inputs,omitempty"`
+	SchemaVersion       uint64                    `json:"schema_version"`
+	ScopeDatasetID      string                    `json:"scope_dataset_id"`
+	DatasetID           string                    `json:"dataset_id"`
+	NativeSemanticsID   string                    `json:"native_semantics_id"`
+	Block               RawBlock                  `json:"block"`
+	Evidence            NativeReceiptEvidence     `json:"evidence"`
+	Facts               domain.FactBatch          `json:"facts"`
+	Candidates          []ingest.FactoryCandidate `json:"candidates"`
 }
 
 // NativeHistoryDatasetID adds the actual activation/header semantics to the
@@ -46,7 +47,7 @@ func buildNativeHistoryEvidence(chain config.Chain, b RawBlock, batch domain.Fac
 	if err != nil {
 		return out, err
 	}
-	return NativeHistoryEvidence{SchemaVersion: 1, ScopeDatasetID: scope, DatasetID: dataset, NativeSemanticsID: b.NativeCoverage.NativeSemanticsID, Block: b, Evidence: *b.NativeCoverage.Evidence, Facts: batch, Candidates: candidates}, nil
+	return NativeHistoryEvidence{SchemaVersion: 1, ScopeDatasetID: scope, DatasetID: dataset, NativeSemanticsID: b.NativeCoverage.NativeSemanticsID, Block: b, Evidence: *b.NativeCoverage.Evidence, Facts: batch, Candidates: candidates, OPRegolithFeeInputs: b.NativeCoverage.OPRegolithFeeInputs}, nil
 }
 func VerifyNativeHistoryEvidence(ctx context.Context, chain config.Chain, e NativeHistoryEvidence) (domain.FactBatch, []ingest.FactoryCandidate, error) {
 	var empty domain.FactBatch
@@ -64,6 +65,15 @@ func VerifyNativeHistoryEvidence(ctx context.Context, chain config.Chain, e Nati
 	}
 	if err = VerifyNativeBusinessCoverage(chain, coverage); err != nil {
 		return empty, nil, err
+	}
+	// Old archives may omit this additive projection. If present, it must be
+	// recreated from verified raw evidence; serialized trust/amounts do not win.
+	if e.OPRegolithFeeInputs != nil {
+		expected, _ := domain.Hash(coverage.OPRegolithFeeInputs)
+		actual, _ := domain.Hash(e.OPRegolithFeeInputs)
+		if expected != actual {
+			return empty, nil, errors.New("HISTORY_OP_FEE_INPUT_PROJECTION_MISMATCH")
+		}
 	}
 	dataset, err := NativeHistoryDatasetID(chain, coverage)
 	if err != nil || dataset != e.DatasetID || coverage.NativeSemanticsID != e.NativeSemanticsID {

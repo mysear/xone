@@ -25,7 +25,9 @@ def validate():
     main(output_base=output,
          verification_scope='HISTORICAL_OP_REGOLITH_ARITHMETIC_AND_RETAINED_RPC_OBSERVATIONS_NOT_SOURCE_QUALIFIED_CHAIN_FEES',
          extra_checks=[
-             ('op-l1-kernel', ['env', 'XONE_OP_L1_COST_VECTORS='+str(independent)] + cargo + ['test'] + manifest + ['-p', 'xone-execution-preparation', '--test', 'op_l1_cost', '--', '--include-ignored']),
+             # Source/replay integration belongs to validate_op_l1_source_inputs;
+             # this historical arithmetic scope has no normal Go export input.
+             ('op-l1-kernel', ['env', 'XONE_OP_L1_COST_VECTORS='+str(independent)] + cargo + ['test'] + manifest + ['-p', 'xone-execution-preparation', '--test', 'op_l1_cost', '--', '--include-ignored', '--skip', 'current_normal_go_committed_inputs_feed_rust_fee_kernel_without_rpc_fee_fields']),
              ('original-reference-guards', [sys.executable]+tests),
              ('original-reference-guards-optimized', [sys.executable, '-OO']+tests),
              ('preparation-lint', cargo+['clippy']+manifest+['-p', 'xone-execution-preparation', '--all-targets', '--', '-D', 'warnings']),

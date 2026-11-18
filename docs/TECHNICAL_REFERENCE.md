@@ -2154,3 +2154,14 @@ nativeEconomicsText仅展示当前transaction/preparation/chain绑定的经济�
 固定原op-geth函数以独立Go执行，与三笔留存公链signed wire及RPC l1Fee/l1GasUsed对照；synthetic算术向量只验证整数，非真实执行证明。当前没有将该历史内核接入正常报价链费/付款人完整净成本或路由排名；现行OP模型、Ecotone首块和后续版本、完整来源/链规则与生产资格仍关闭。
 
 阶段134内核限定验收通过：16门禁/147次Rust、75原Go向量（三原signed交易与72算术探针）、普通/优化参考守卫及8次原worker HTTP回归。完整来源接线与现行OP费用继续待实现，报告与首批文档失败记录见进度文档。
+
+
+### OP Regolith费用输入来源与历史重放（阶段135）
+
+Go普通native来源及archive replay在同一header/body/receipt证明之后，派生可选`OPRegolithFeeInputs`；仅历史Regolith时间域启用。首L1属性deposit的发送者/目标/零mint和value/system标志/260字节ABI必须正确，user原wire匹配body的hash/index、chain ID并恢复签名者；投影只有事实，无L1费用数学。分配与保留费用计入原共享递减证明预算，不新增RPC调用；正常最后锚点不变。非支持链/版本不提供该投影。
+
+历史记录保存可选投影，重放用原证据重新派生并核对，旧缺省仅兼容原事实，不是零费用。compact header摘要兼容RawMessage保存时的空白压缩；attributes/raw user字节精确保留。Rust消费正常来源导出的三笔输入再对原op-geth核算的测试不授予共识、独立L1证明、完整现行OP执行或报价净成本资格，正常API全链费接线仍待继续。
+
+阶段135追加sourceHash核验：L1-info deposit必须使用原domain 1，由属性内L1 hash和sequence计算并与原wire的sourceHash一致；原Optimism方法固定摘要并执行25独立参考。该内部关联不授予L1包含性/最终性资格。首批总控已主动取消并保留，补充后重跑完整验收。
+
+阶段135限定验收通过：18门禁、148次Rust及209次Go（203 EVM race、6正常服务race），三原signed输入从普通读取/历史重放交Rust与原参考核算一致；25原sourceHash及12投影篡改/6来源故障/2发布拒绝/15语义预算控制通过。源码、911固定输入、45运行pins及8参考摘要一致；旧缺省归档与空白兼容保留。完整现行OP费用/报价净成本接线和可信估值继续未完成。

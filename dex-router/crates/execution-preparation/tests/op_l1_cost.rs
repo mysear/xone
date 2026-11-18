@@ -129,3 +129,73 @@ fn current_original_op_geth_and_public_receipts_match_rust_data_fees() {
         assert_eq!(result.nonzero_bytes, row["ones"].as_u64().unwrap());
     }
 }
+
+#[test]
+#[ignore = "requires current normal Go header/body/replay output and independent op-geth vectors"]
+fn current_normal_go_committed_inputs_feed_rust_fee_kernel_without_rpc_fee_fields() {
+    let source: Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("XONE_OP_L1_SOURCE_INPUTS").expect("normal Go source output"))
+            .unwrap(),
+    )
+    .unwrap();
+    let vectors: Value = serde_json::from_slice(
+        &std::fs::read(
+            std::env::var("XONE_OP_L1_COST_VECTORS").expect("original op-geth reference"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(source["passed"], true);
+    assert_eq!(source["production_ready"], false);
+    assert_eq!(source["fee_arithmetic_performed_by_parser"], false);
+    assert_eq!(source["projection_mutations_rejected"], 12);
+    let inputs = &source["inputs"];
+    assert_eq!(inputs["version"], "op-regolith-committed-fee-inputs/1");
+    assert_eq!(
+        inputs["authority"],
+        "RPC_HEADER_BODY_COMMITMENT_NOT_CONSENSUS"
+    );
+    assert_eq!(inputs["chain_key"], "evm:10");
+    let attributes = hex::decode(
+        inputs["attributes_calldata"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("0x")
+            .unwrap(),
+    )
+    .unwrap();
+    let p = decode_parameters(
+        inputs["chain_key"].as_str().unwrap(),
+        inputs["execution_timestamp"].as_u64().unwrap(),
+        &attributes,
+    )
+    .unwrap();
+    let transactions = inputs["user_transactions"].as_array().unwrap();
+    assert_eq!(transactions.len(), 3);
+    for (i, tx) in transactions.iter().enumerate() {
+        let original = vectors["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["transaction_hash"] == tx["hash"])
+            .expect("same retained signed public transaction");
+        let wire = hex::decode(
+            tx["encoded_transaction"]
+                .as_str()
+                .unwrap()
+                .strip_prefix("0x")
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(hex::encode(&wire), original["encoded_transaction"]);
+        assert_eq!(hex::encode(&attributes), original["attributes"]);
+        assert_eq!(tx["index"], i + 1);
+        let cost = data_cost(&p, &wire, wire.len()).unwrap();
+        assert_eq!(cost.attributes_sha256, inputs["attributes_sha256"]);
+        assert_eq!(cost.l1_gas_used, original["gas"]);
+        assert_eq!(
+            cost.l1_data_fee_native,
+            original["fee"].as_str().unwrap().parse().unwrap()
+        );
+    }
+}

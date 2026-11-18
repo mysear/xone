@@ -58,6 +58,7 @@ type SystemReceiptObservation struct {
 // block event coverage, state height and non-member system observations. A
 // canonical prefix proof never upgrades excluded observations to proven logs.
 type VerifiedReceiptCoverage struct {
+	OPRegolithFeeInputs           *OPRegolithFeeInputs       `json:"op_regolith_fee_inputs,omitempty"`
 	ProofBytesUsed                int                        `json:"proof_bytes_used"`
 	Evidence                      *NativeReceiptEvidence     `json:"evidence,omitempty"`
 	NativeSemantics               *NativeSemanticsDescriptor `json:"native_semantics,omitempty"`

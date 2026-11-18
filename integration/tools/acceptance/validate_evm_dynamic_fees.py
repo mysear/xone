@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
 BASE = ROOT / 'integration/artifacts/local/evm-dynamic-fees-check'
 
 
-def main(*, output_base=None, verification_scope='EVM_SHANGHAI_DYNAMIC_FEE_SIMULATION_PROVIDED_LOCAL_STATE', extra_required=(), extra_report=None, extra_checks=(), required_by_check=None, reference_inputs=None, artifact_reports=()):
+def main(*, output_base=None, verification_scope='EVM_SHANGHAI_DYNAMIC_FEE_SIMULATION_PROVIDED_LOCAL_STATE', extra_required=(), extra_report=None, extra_checks=(), required_by_check=None, reference_inputs=None, artifact_reports=(), go_required_by_check=None):
     base = output_base or BASE
     out = base / 'runs' / uuid.uuid4().hex
     out.mkdir(parents=True, exist_ok=False)
@@ -101,11 +101,14 @@ def main(*, output_base=None, verification_scope='EVM_SHANGHAI_DYNAMIC_FEE_SIMUL
             expected = list(required) if name == 'simulation' else []
             expected.extend((required_by_check or {}).get(name, []))
             missing = [test for test in expected if test not in found]
+            go_found = set(re.findall(r'^--- PASS: ([A-Za-z0-9_]+) ', text, re.M))
+            missing.extend(test for test in (go_required_by_check or {}).get(name, []) if test not in go_found)
             if sys.platform == 'darwin' and name in ['simulation', 'api-context', 'preparation-regression'] and 'XONE_STAGED_NATIVE sha256=' not in text:
                 missing.append('byte-identical native runner execution')
             if missing or (name == 'simulation' and count < len(required)):
                 code = 1
             report['checks'].append(dict(name=name, exit_code=code, rust_test_executions=count,
+                                         go_test_executions=len(go_found),
                                          missing_required_tests=missing, log_sha256=hashlib.sha256(raw).hexdigest()))
             save()
             if code:
@@ -125,7 +128,8 @@ def main(*, output_base=None, verification_scope='EVM_SHANGHAI_DYNAMIC_FEE_SIMUL
                 raise ValueError('Required actual artifact report did not pass: ' + name)
             report['artifact_reports'][name] = shared.sha_file(artifact)
         report.update(passed=True, state='LOCAL_SCOPE_VERIFIED', original_router_dynamic_cases=16,
-                      rust_test_executions=sum(c['rust_test_executions'] for c in report['checks']))
+                      rust_test_executions=sum(c['rust_test_executions'] for c in report['checks']),
+                      go_test_executions=sum(c['go_test_executions'] for c in report['checks']))
         report.update(extra_report or {})
     except KeyboardInterrupt:
         report.update(state='CANCELLED', error='INTERRUPTED')
