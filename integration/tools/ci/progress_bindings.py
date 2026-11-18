@@ -2229,3 +2229,12 @@ BINDINGS['13.solana-native-economics'] = {
            'native_economics_original_sbf_and_signed_receipts_use_actual_amounts_and_separate_deposits'],
  'evidence_refs': ['integration/artifacts/local/solana-native-economics-check/report.json'],
 }
+
+BINDINGS['15.native-economics-view'] = {
+ 'paths': ['frontend/src/model.js', 'frontend/src/app.js', 'frontend/index.html', 'frontend/src/styles.css',
+           'frontend/test/native-economics-view.test.js',
+           'frontend/test/native-economics-browser.mjs'],
+ 'tests': ['native economics displays actual excess output and capital separately for SBF and receipt',
+           'native economics rejects cross-transaction, wrong source and unsupported authority displays'],
+ 'evidence_refs': ['integration/artifacts/local/native-economics-view-check/report.json'],
+}

@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Solana费用后经济净额前端闭环（阶段130，P0-3）|§13.1/14/15.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|当前SBF证据及耐久回执分别展示费用后金额、网络费和资本押金；不同交易/来源不展示净额|8门禁/18前端单测/16浏览器检查；5类正常HTTP/SBF/签名回执、重载实际可见及桌面/手机截图复核通过|
 |Solana原生同单位费用后净额（阶段129，P0-3）|§12.5/13.1/14/15.3；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|共用整数核算已接独立SBF证据和实际回执；原生SOL/明确解包WSOL按lamport同单位估值，租金资本与费用分列|16门禁/50次Rust、11正常SBF/签名回执与独立原余额审计、20准备家族回归通过|
 |Solana提交前费用上下文与耐久凭证（阶段128，P0-3）|§13.1/14/15.3；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|预检继承准备fee slot，费用→账户→签名仿真→发送slot连续；绑定原消息/fee Result凭证耐久保存，旧v1兼容/重试幂等|11门禁/46次Rust，实际八种钱包生命周期、并发一次发送与原SOL/WSOL资金钱包通过|
 |Solana准备消息费用来源与原生资金分类（阶段127，P0-3）|§13.1/14/15.3/28.17；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|准备RPC费用绑定具体message/unsigned wire及同请求账户快照，校验总资金与付款人余额；网络费/租金/预期退款/本金分列，不同slot明确披露|14门禁/29次Rust、20实际HTTP/SBF及独立审计通过；完整净估值仍未完成|
@@ -508,6 +509,7 @@
 |13.solana-message-native-cost|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|绑定getFeeForMessage原消息/slot/fee和账户snapshot，资金checked u64，网络费单独小计；租金与swap/wrap本金不当fee|14门禁/29次Rust、20实际HTTP与原SBF及独立审计通过；来源/固定输入/runtime冻结一致|[验证记录](integration/artifacts/local/solana-native-cost-check/report.json)|
 |13.solana-signed-fee-context|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|提交前费用源context与账户/仿真/发送min slot连续；不可变费用凭证与原v1回执兼容、幂等重试|11门禁/46次Rust，slot/费用拒绝、耐久/旧v1及实际钱包回归通过|[验证记录](integration/artifacts/local/solana-fee-preflight-check/report.json)|
 |13.solana-native-economics|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|已执行准备交易的native/显式WSOL结算同单位估值；经济净额与押金/原生现金分列，未知币值不伪造net|16门禁/50次Rust、11正常SBF/回执与独立签名/wire/原余额审计通过|[验证记录](integration/artifacts/local/solana-native-economics-check/report.json)|
+|15.native-economics-view|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|已执行交易的原生同单位净额/费用/押金展示；普通币/负净额/旧回执兼容且不伪造FAST净排名|8门禁/16浏览器检查，五类回执实际可见、整数/身份及截图复核通过|[验证记录](integration/artifacts/local/native-economics-view-check/report.json)|
 |13.cost-unavailable-ranking|WP13,WP16,WP18|LOCAL_SCOPE_VERIFIED|无可信成本及估值时不以route_activation_cost改变报价排序，明确raw目标、费用缺失/未扣及原搜索约束|16门禁/176次Rust、三池与原ExactOut grid/约束预算/四HTTP通过|[验证记录](integration/artifacts/local/cost-unavailable-ranking-check/report.json)|
 |13.evm-native-payer-cost|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|按原bank余额校验最大gas资金准入，费用gross与payer实际net分列，alias自付tip返回|14门禁/146次Rust、56向量/四HTTP通过；完整成本与净排序仍缺|[验证记录](integration/artifacts/local/evm-native-payer-cost-check/report.json)|
 |13.evm-native-fee-balance-audit|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|绝对before绑定原bank输入，fee与实际native debit/beneficiary credit守恒；caller=coinbase净扣burn不重复tip，未知数据/资金操作拒绝|14门禁/同state/修改/平移/alias及四次actual HTTP通过；生产资格与完整成本仍缺|[验证记录](integration/artifacts/local/evm-native-balance-audit-check/report.json)|
@@ -685,6 +687,7 @@
 |127|[Solana准备消息费用来源与原生资金分类](#plan-2026-11-18-solana-native-cost)|LOCAL_SCOPE_VERIFIED|14门禁/20 HTTP与SBF、独立审计及原资金/捕获/钱包回归通过；[验证记录](integration/artifacts/local/solana-native-cost-check/report.json)|
 |128|[Solana提交前费用上下文与耐久凭证](#plan-2026-11-18-solana-fee-preflight)|LOCAL_SCOPE_VERIFIED|11门禁/46次Rust，实际签名/资金/旧回执和冻结输入一致；[验证记录](integration/artifacts/local/solana-fee-preflight-check/report.json)|
 |129|[Solana原生同单位费用后净额](#plan-2026-11-18-solana-native-economics)|LOCAL_SCOPE_VERIFIED|16门禁/50次Rust，11场景SBF/实际签名回执与20准备家族冻结回归通过；[验证记录](integration/artifacts/local/solana-native-economics-check/report.json)|
+|130|[Solana费用后经济净额前端闭环](#plan-2026-11-18-native-economics-view)|LOCAL_SCOPE_VERIFIED|签名区/回执区分离；8门禁/16浏览器检查及实际可见截图复核通过；[验证记录](integration/artifacts/local/native-economics-view-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3606,3 +3609,22 @@ costs.nativeKnownSubtotal仅含RPC估计的message network fee；nativeFundingRe
 该范围只产生所选已执行准备交易的限定费用后金额，非可信链bank或全候选Gas-aware路由；普通Token价格、完整多链费用/链规则、通用净评分与其余原26工作包仍需继续。
 
 阶段129最终限定验收：16门禁全部exit0、50次Rust（API库46项实际执行及5项原有忽略、11场景集成一项、20家族准备回归一项、八场景钱包生命周期一项及原生SOL签名回执一项），普通/优化各17进度检查和4项独立审计守卫、准备/API全目标严格Clippy、正常router/frontend harness构建通过；运行目录`d40750b2eca24fafb243f2e8d336b797`。11次正常HTTP独立原SBF与11次实际签名本地原程序执行的回执，逐一验证净额/押金/原付款人余额，重复提交只发送一次、重启后最终回执一致；另外20种原准备/SBF家族回归及其独立审计通过。独立Python读取保留的实际签名wire、meta原生/Token前后余额、实际fee/账户创建押金，不借用被测net字段计算期望；准备和证据hash覆盖新增费用字段，源码/911固定输入/45运行输入前后一致。ExactOut请求1000而实际收10971，费用后5971；原生输入1000000加fee得1005000，2039280租金另列，原生现金包含押金；fee大于输出保持null、精确零保留。原型与正式门禁分开，首次单独进度检查在尚未创建正式报告前发现链接不存在，正式运行建立真实RUNNING报告后两模式全通过，未创建虚假通过占位。该轮仅赋予明确已执行native/临时WSOL的lamport同单位核算；RPC回执为受控本地原程序执行观察，非主网交易或共识银行，普通Token可信估值、全候选净排名/完整链规则/生产VERIFIED及原26工作包仍未全部完成。
+
+<a id="plan-2026-11-18-native-economics-view"></a>
+
+## Solana费用后经济净额前端闭环（2026-11-18，阶段130，P0-3）
+
+设计§13.1/14/15.3要求费用的来源、金额和单位明确。阶段129后正常API已返回限定已执行交易的native同单位净额，但前端只显示毛输入/输出和单独fee，用户尚不能看到净额与不可用原因。本轮在当前SBF证据和实际回执分别显示费用后输入或收款、网络费与留存资本押金；旧回执无costs字段保持原有可读性，零保留，费用大于输出明确不可用。展示前绑定chain/preparation/实际transaction摘要、来源与单位，拒绝不同交易/错误资格/非规范金额。所有金额继续字符串/BigInt处理，不丢失大整数精度。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F130.1|SBF/回执经济净额显示与身份守卫|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|SBF/实际回执来源与当前chain/preparation/transaction绑定；金额字符串及BigInt、zero/null、普通Token不可用和旧回执兼容通过，签名区/回执区分离后重载默认EVM仍显示原Solana回执。|
+|F130.2|真实浏览器/钱包/重启与冻结回归|WP01,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|五类正常HTTP/原SBF/签名回执及重载实际可见，8门禁、18前端单测、16浏览器检查和桌面/手机截图复核通过；源码/911固定输入/45运行输入前后一致。|
+
+该轮只是已有已执行交易经济净额的客户端闭环，不添加新的市场价格、不将受控RPC回执提升为主网/共识来源。通用可信Token估值、全候选净收益排序、链特定费用/生产VERIFIED和其余设计功能继续未完成。
+
+阶段130首批自动检查结果（后续人工截图复核发现未通过显示验收）：8门禁全部exit0，正常浏览器16项检查，五类正常Router HTTP/独立原SBF/实际签名本地原程序回执及重启展示通过。普通Token不显示伪造net，原SOL实际超额收款显示5971，原生买入显示费用后输入5003并单列2039280租金，WSOL退款5004与解包负净输出不可用均符合服务端观测；刷新页面不重复发送。前端整数/来源/交易绑定及旧回执、zero/null兼容守卫通过；普通/优化进度各17项、契约、格式与正常harness构建通过。运行目录`b9c4f6d5476841eb95a7a298f82f34c0`，源码/911固定输入/45运行输入前后一致，五份原始正常API观测和画面摘要绑定报告。独立Python分别复核五份SBF/回执的整数成本和来源。该轮UI仅展示绑定的已执行交易经济净额，未将FAST报价、通用价格来源、全候选净排序、生产VERIFIED或其余工作包提升为完成；后续继续P0-3和剩余优先级。
+
+阶段130截图复核拒绝首批`b9c4f6d5476841eb95a7a298f82f34c0`：自动16项检查只核对回执文本，重载默认EVM链后整个wallet-panel隐藏，导致已恢复Solana回执及新净额在画面不可见；保留自动报告原文和FAILED_MANUAL_VISUAL_REVIEW报告/截图。修复将耐久回执面板与链特定签名面板分离，加入真正可见性断言，完整门禁待重跑；不将DOM中隐藏文本作为用户可见闭环通过。
+
+阶段130修复后最终限定验收：运行目录`07d79503063f4f5799b27f8239e3b393`，8门禁全部exit0、18前端单测、16正常浏览器检查。普通Token、原SOL实际超额收款5971、原生输入5003并单列2039280租金、WSOL退款5004和解包负净额不可用，五类SBF/实际签名本地原程序回执分别展示正确；重载后回执和刷新按钮真实可见，发送次数不增加。新增正常执行前/重载后截图及手机截图均绑定报告；人工复核确认默认EVM控件不会再隐藏恢复的Solana回执，手机负净额原因可见且无横向溢出。独立Python复核五份SBF/回执整数核算，普通/优化进度各17项、格式/契约/正常harness构建通过，源码/911固定输入/45运行输入前后一致，harness实际二进制前后摘要相同。保留首次自动通过但被人工截图拒绝的原报告及FAILED_MANUAL_VISUAL_REVIEW结果，没有把隐藏DOM文本当作最终通过。该轮只完成限定已执行经济净额的前端闭环，完整可信估值/全候选净路由、失败交易费用核算、可信bank/链规则、生产VERIFIED和其余工作包继续；下一轮按P0-3补失败签名交易的实际网络费用与回滚收付核验。

@@ -87,3 +87,33 @@ export function evmPreparedEvidenceMatches(quote,preparation,evidence,unsignedHa
     && result.simulation?.actual_input_consumed===preparation.requiredInput
     && result.simulation?.actual_buy_amount===quote.grossBuyAmount);
 }
+
+// Display the evaluated transaction's economics without promoting the FAST quote.
+export function nativeEconomicsText(observed, identity, receipt=false) {
+  const c=observed?.costs;
+  if (!c) return ''; // Older durable receipts remain displayable.
+  const amount=v=>typeof v==='string'&&/^(0|[1-9][0-9]*)$/.test(v)&&v.length<=20&&BigInt(v)<(1n<<64n);
+  const signed=v=>typeof v==='string'&&/^(0|-?[1-9][0-9]*)$/.test(v)&&v.length<=21&&BigInt(v)>-(1n<<64n)&&BigInt(v)<(1n<<64n);
+  const allowed=receipt?['RPC_TRANSACTION_RECEIPT']:['PINNED_LOCAL_SBF_EXECUTION','RPC_CAPTURE_SBF_EXECUTION'];
+  const valid=(receipt?observed?.verified===true:observed?.success===true)&&c.modelVersion==='xone-solana-native-economics/1'&&allowed.includes(c.sourceAuthority)
+    &&c.scope==='EVALUATED_PREPARED_TRANSACTION_ONLY'&&c.amountBasis==='OBSERVED_ACTUAL_SETTLEMENT'
+    &&c.nativeUnit==='LAMPORTS'&&c.chainKey===identity?.chainKey&&c.preparationHash===identity?.preparationHash
+    &&c.transactionSha256===observed.transactionSha256&&(!receipt||c.transactionSha256===identity?.transactionSha256)&&c.historicalBankVerified===false
+    &&c.independentProductionVerification===false&&c.quoteRankingApplied===false&&c.deductedFromQuoteOutput===false
+    &&c.networkFeeIncludedInSwapAmounts===false&&c.depositTreatment==='CAPITAL_DEPOSIT_SEPARATE_FROM_NETWORK_FEE'
+    &&amount(c.networkFeeNative)&&c.networkFeeNative===observed.feeLamports
+    &&amount(c.retainedRentDepositNative)&&signed(c.actualPayerNativeDelta)&&c.actualPayerNativeDelta===observed.payerLamportDelta;
+  if(!valid)return ' · 费用后金额不可用：费用证据与当前交易不一致';
+  const native=c.tokenValuationStatus==='NATIVE_UNIT_IDENTITY';
+  const input=c.netSellAmountEstimate,output=c.netBuyAmountEstimate;
+  if ((input!==null&&!amount(input))||(output!==null&&!amount(output))
+    ||(input!==null&&output!==null)||(!native&&(input!==null||output!==null)))return ' · 费用后金额不可用：金额或估值状态无效';
+  if(native&&(c.nativeCashReconciliation!=='MATCHED'||c.valuationRatio?.numerator!=='1'||c.valuationRatio?.denominator!=='1'||c.valuationRatio?.method!=='NATIVE_UNIT_IDENTITY'))return ' · 费用后金额不可用：同单位估值证据无效';
+  const basis=receipt?'RPC回执':'本地执行';
+  const parts=[`${basis}网络费 ${c.networkFeeNative} lamports`];
+  if(input!==null)parts.push(`费用后输入 ${input} lamports（SOL同单位）`);
+  else if(output!==null)parts.push(`费用后收款 ${output} lamports（SOL同单位）`);
+  else parts.push(c.netBuyUnavailableReason==='NETWORK_FEE_EXCEEDS_GROSS_OUTPUT'?'费用后收款不可用：网络费超过实际收款':'费用后金额不可用：缺少适用的同单位估值');
+  parts.push(`留存租金押金 ${c.retainedRentDepositNative} lamports（资本另列）`);
+  return ' · '+parts.join(' · ');
+}

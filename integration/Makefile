@@ -1213,3 +1213,7 @@ solana-fee-preflight-current-check:
 .PHONY: solana-native-economics-current-check
 solana-native-economics-current-check:
 	python3 tools/acceptance/validate_solana_native_economics.py
+
+.PHONY: native-economics-view-current-check
+native-economics-view-current-check:
+	python3 tools/acceptance/validate_native_economics_view.py

@@ -2123,3 +2123,7 @@ preflight先继承准备账户及fee的最新slot，当前getFeeForMessage须返
 native_economics对正常SBF证据和签名回执共用核算：仅原生SOL或显式临时WSOL退款/解包可用NATIVE_UNIT_IDENTITY。实际input+fee或output-fee形成单侧net估值，未涉及的一侧明确unavailable reason；fee超过output保持null，零值保留。经济净额排除可退/留存资本押金，原生现金另按实际fee/rent/principal核对；不调整原quote或optimizer排序。
 
 来源分开标明本地SBF、RPC捕获SBF和RPC回执，均不升级历史bank/生产VERIFIED。实现已通过正常HTTP/11场景原SBF及实际签名回执、独立原余额审计和16项冻结门禁；20原准备家族回归通过。签名wire/meta是受控本地原程序执行的实际结果，不冒称主网或原始HTTP归档。
+
+### 已执行Solana费用后金额的前端展示（阶段130，限定本地验证）
+
+nativeEconomicsText仅展示当前transaction/preparation/chain绑定的经济净额，区分本地SBF与RPC回执来源，留存租金作为资本另列。原金额字符串/BigInt保留精度；旧costs缺失为空、普通Token或负净输出显式不可用，FAST报价不伪造净排名。首批自动检查通过但被截图复核拒绝后，已将链特定签名区与耐久回执区分离；五类正常SBF/签名回执、重载实际可见、18前端单测/16浏览器检查和8项冻结门禁及桌面/手机截图复核通过。保留首次失败结果，旧回执仍可读；通用价格、净排名和失败交易费用核算继续未完成。

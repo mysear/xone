@@ -1,5 +1,5 @@
 import {createWalletRegistry,connectWallet,signPreparedTransaction} from './wallet.js';
-import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, singlePreparationPool, evmPreparationPools, evmPreparedSimulationAvailable, evmPreparedEvidenceMatches, evmFeeRequest, escapeHtml as esc} from './model.js';
+import {positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, singlePreparationPool, evmPreparationPools, evmPreparedSimulationAvailable, evmPreparedEvidenceMatches, evmFeeRequest, nativeEconomicsText, escapeHtml as esc} from './model.js';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, quote:null, preparation:null, independent:null, independentAbort:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
@@ -179,6 +179,7 @@ $('independentButton').addEventListener('click',async()=>{
     }
     if(evidence.preparationHash!==p.preparationHash||evidence.planHash!==q.planHash||evidence.quoteViewId!==q.quoteViewId||evidence.success!==true)throw new Error('独立模拟证据与当前交易不一致');
     state.independent=evidence;refreshWalletActions();$('preparation').textContent+=` · 独立本地SBF模拟通过，实际输入 ${evidence.actualInput} / 到账 ${evidence.actualOutput}，CU ${evidence.unitsConsumed}，证据 ${evidence.evidenceHash}（${evidence.accountSource==='PREPARATION_RPC_CAPTURE'?'RPC账户快照，非历史银行证明':'受控银行'}，生产资格未开放）`;
+    $('preparation').textContent+=nativeEconomicsText(evidence,{chainKey:q.chainKey,preparationHash:p.preparationHash});
   }catch(e){if(seq===state.quoteSeq&&preparationSeq===state.prepareSeq&&e.name!=='AbortError'){$('preparation').textContent=`独立模拟失败：${e.message}`;state.independent=null;}}
   finally{if(seq===state.quoteSeq&&preparationSeq===state.prepareSeq)$('independentButton').disabled=false;}
 });
@@ -244,6 +245,7 @@ function showReceipt(receipt){
   walletState.receipt=receipt;$('receiptRefresh').disabled=false;if(receipt.signed===true)$('walletStatus').textContent='该签名已有发送记录，执行状态见下方回执。';
   const settlement=receipt.settlement;const states={SUBMITTING:'正在发送或结果待核对',SUBMITTED:'RPC已接受，等待链上确认',UNKNOWN:'发送或链上状态不明确，按签名查询',PROCESSED:'已处理，等待确认',RECEIPT_PENDING:'链上状态已返回，等待回执校验',CONFIRMED:'已确认，等待最终确认',FINALIZED:'已最终确认',FAILED:'链上执行失败',EXPIRED:'有效期已过且当前节点未观察到签名',SETTLEMENT_MISMATCH:'链上回执或收付不一致'};
   $('transactionReceipt').textContent=`${states[receipt.state]||receipt.state} · ${receipt.chainKey}${receipt.sellToken&&receipt.buyToken?' · 交易 '+receipt.sellToken+' → '+receipt.buyToken:''}${receipt.quoteId?' · 回执报价 '+receipt.quoteId:''} · 收款 ${receipt.recipient} · 签名 ${receipt.signature}${settlement?.verified?' · 实际输入 '+settlement.actualInput+' / 到账 '+settlement.actualOutput+' · 费用 '+settlement.feeLamports+' lamports'+(settlement.actualPersistentRentLamports!==undefined?' · 实际账户租金 '+settlement.actualPersistentRentLamports+' lamports':'')+(settlement.payerLamportDelta!==undefined?' · 用户SOL净变动 '+settlement.payerLamportDelta+' lamports':''):''}${receipt.error?' · '+(receipt.error.code||JSON.stringify(receipt.error)):''}`;
+  if(settlement?.verified)$('transactionReceipt').textContent+=nativeEconomicsText(settlement,receipt,true);
 }
 function clearReceiptContext(){
   ++walletState.receiptSeq;clearTimeout(walletState.timer);walletState.receipt=null;walletState.receiptBase=null;$('receiptRefresh').disabled=true;
