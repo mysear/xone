@@ -79,4 +79,27 @@ class FixedCurrentV2Fixture(unittest.TestCase):
             blob=source/'responses.json.gz';saved=source/'saved';blob.rename(saved);blob.symlink_to(saved)
             with self.assertRaisesRegex(ValueError,'FIXTURE_COMPRESSED_BUDGET'):m.unpack_fixture(source,Path(root)/'target')
 
+
+class PublicExecutionFixture(unittest.TestCase):
+    def test_execution_fixture_keeps_exact_separate_anchor_and_extra_projection_scope(self):
+        source=m.ROOT/'integration/test/source/current-v2-execution-public'
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest=m.unpack_fixture(source,Path(temporary)/'raw')
+        self.assertEqual(manifest['block']['number_or_slot'],26439090)
+        self.assertEqual(manifest['record_count'],33)
+        self.assertFalse(manifest['execution_extras']['full_http_envelope_retained'])
+        extra=(source/manifest['execution_extras']['file']).read_bytes()
+        self.assertEqual(m.sha(extra),manifest['execution_extras']['sha256'])
+        self.assertEqual(len(json.loads(extra)),2)
+        self.assertEqual(manifest['quote_request']['sellToken'],manifest['pool']['token1'])
+    def test_changed_execution_extra_proofs_never_restore_or_relabel_base_fixture(self):
+        import restore_current_v2_fixture as restore
+        with tempfile.TemporaryDirectory() as temporary:
+            bad=Path(temporary)/'extra.json';bad.write_text('[]')
+            source=m.ROOT/'integration/test/source/current-v2-execution-public'
+            with self.assertRaisesRegex(ValueError,'PINNED_EXTRA_PROOF_HASH'):
+                restore.restore(bundle=source/'responses.json.gz',profile='execution',extra_proofs=bad)
+        with self.assertRaisesRegex(ValueError,'FIXTURE_PROFILE'):
+            restore.restore(bundle=source/'responses.json.gz',profile='unknown')
+
 if __name__=='__main__':unittest.main()

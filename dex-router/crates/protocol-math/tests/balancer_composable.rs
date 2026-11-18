@@ -1,7 +1,6 @@
-#[path = "../src/balancer_composable.rs"]
-mod balancer_composable;
 use balancer_composable::{quote_bpt_exact_in_after_fees, quote_exact_in};
 use num_bigint::BigUint;
+use xone_protocol_math::balancer_composable;
 fn n(v: &str) -> BigUint {
     v.parse().unwrap()
 }
@@ -148,4 +147,48 @@ fn composable_guards_check_indices_rates_amp_and_integer_limits() {
         true
     )
     .is_err());
+}
+
+#[test]
+fn regular_exact_out_preserves_bpt_and_rejects_supply_paths_and_bad_targets() {
+    let balances = vec![
+        n("1000000000000000000000000"),
+        n("2596148429267413814265248164610048"),
+        n("1000000000000"),
+        n("1000000000000000000000000"),
+    ];
+    let scales = vec![e(), e(), n("1000000000000000000000000000000"), e()];
+    let amp = n("100000");
+    let fee = n("1000000000000000");
+    let target = n("1000000");
+    let quote =
+        balancer_composable::quote_exact_out(&balances, &amp, &scales, &fee, &target, 0, 2, 1)
+            .unwrap();
+    assert!(quote.amount_in > n("0"));
+    assert_eq!(quote.next_balances[0], &balances[0] + &quote.amount_in);
+    assert_eq!(quote.next_balances[2], &balances[2] - &target);
+    assert_eq!(quote.next_balances[1], balances[1]);
+    assert_eq!(quote.next_balances[3], balances[3]);
+    let forward =
+        quote_exact_in(&balances, &amp, &scales, &fee, &quote.amount_in, 0, 2, 1).unwrap();
+    assert!(forward.amount_out >= target);
+    for (input, output, bpt) in [(1, 2, 1), (0, 1, 1), (0, 0, 1), (usize::MAX, 2, 1)] {
+        assert!(balancer_composable::quote_exact_out(
+            &balances, &amp, &scales, &fee, &target, input, output, bpt,
+        )
+        .is_err());
+    }
+    for impossible in [n("0"), balances[2].clone()] {
+        assert!(balancer_composable::quote_exact_out(
+            &balances,
+            &amp,
+            &scales,
+            &fee,
+            &impossible,
+            0,
+            2,
+            1,
+        )
+        .is_err());
+    }
 }

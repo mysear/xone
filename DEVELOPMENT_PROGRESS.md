@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|真实V2原字节码收款与完整后状态差分（阶段122，P0-2）|§12.14/28.5/28.12/28.17；WP03、WP10、WP14、WP15|LOCAL_SCOPE_VERIFIED|新固定actual bank+MPT原WETH/DAI/Pair三call本地执行，测真实recipient delta/完整Pair后状态；多1输出原K拒绝；Go原VM结果与独立Rust数学全状态比较|14门禁/16次Go/16次Rust、原VM实际收款及q+1原K回退/完整后状态跨内核通过；合成native资金覆盖/非签名call序列，非完整链费/生产VERIFIED|
 |真实V2固定bank独立离线夹具（阶段121，P0-1）|§28.3/28.5/28.6/28.11/28.26；WP01、WP03、WP04、WP05、WP09、WP24|LOCAL_SCOPE_VERIFIED|将阶段120真实32原raw封装为有界gzip+元数据pin；按既有政策原数据留本地，跟踪恢复工具/hash；Go服务内同字节副本可独立正常读取/拒绝证明，双router/owner恢复离线回归|13门禁/83次Go/36次Rust、9守卫及固定actual bank/双router冷恢复/owner升代/五来源反例通过；不伪称本轮新实网资格|
 |真实当前V2 normal owner/router与来源拒绝（阶段120，P0-1）|§7/28.5/28.6/28.11/28.26；WP03、WP04、WP05、WP09、WP10、WP24|LOCAL_SCOPE_VERIFIED|固定真实DAI/WETH部署/原始RPC归档，普通Go owner到独立Rust router双方向ExactIn/Out；公开字节离线重放/双副本冷重建/owner重启与五来源反例；拒绝会话原因不冒充预算耗尽|13门禁/81次Go/36次Rust、实际公开源/32原raw与双方向4报价、离线重放/副本冷恢复/升代/五错误来源通过；HTTP开发日志及provider声明finalized，不授予生产VERIFIED/共识/实际执行余额差资格|
 |EVM当前头确认策略与披露（阶段119，P0-1）|§7.1/7.3/18/28.6/28.26/28.27；WP04、WP05、WP24、WP25|LOCAL_SCOPE_VERIFIED|Go/双Rust只接受latest/safe/finalized，拒绝数字历史高度/earliest/pending/未知/空；正常source-evidence披露配置策略但不声称共识|19门禁/81次Go/97次Rust，双编译器15配置、当前CLI/无状态写入与不支持safe无降级通过|
@@ -497,6 +498,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|12.14.public-v2-original-execution|WP03,WP10,WP14,WP15|LOCAL_SCOPE_VERIFIED|原始实际code+MPT状态、显式local native funding经原WETH deposit/transfer和Pair.swap，实际收款/完整after state、多1输出原K回退；Rust独立比较|14门禁/Go原VM与Rust全状态冻结差分通过；未签名call序列/非未来交易保证/非生产VERIFY；其余方向/费用/更多版本仍需扩展|[验证记录](integration/artifacts/local/public-v2-original-execution-check/report.json)|
 |7.current-v2-pinned-offline-fixture|WP01,WP03,WP04,WP05,WP09,WP24|LOCAL_SCOPE_VERIFIED|固定actual公开block/runtime/proof/receipt原字节与获取元数据；无网络恢复工具、同字节Go本地副本、封闭loopback及多进程回归|13门禁/83次Go/36次Rust固定bank离线验收通过；数据仍依赖明确外部bundle，缺失须失败，不临时下载或改预期|[验证记录](integration/artifacts/local/current-v2-fixed-check/report.json)|
 |7.current-v2-public-source-replay|WP03,WP04,WP05,WP09,WP10,WP24|LOCAL_SCOPE_VERIFIED|真实公共当前state→normal owner/router；封装及内层raw身份验证、来源分离只读重放、双方向独立整数oracle、无KV副本/owner升代重启与坏来源拒绝|13门禁/81次Go/36次Rust及实际公开源/离线多进程通过；其他版本/历史重组/实际交易后余额与生产资格仍缺|[验证记录](integration/artifacts/local/current-v2-check/report.json)|
 |7.evm-current-head-confirmation-policy|WP04,WP05,WP24,WP25|LOCAL_SCOPE_VERIFIED|EVM确认策略限制为当前provider标签，明确拒绝历史游标/pending/未知别名；配置哈希/前置拒绝/来源披露|19门禁、跨语言同轮15配置/hash/拒绝码、当前CLI和普通服务验证通过|[验证记录](integration/artifacts/local/confirmation-policy-check/report.json)|
@@ -661,6 +663,7 @@
 |119|[EVM当前头确认策略与披露](#plan-2026-11-18-evm-confirmation-policy)|LOCAL_SCOPE_VERIFIED|19门禁/81次Go/97次Rust；P0-1当前头策略通过；[验证记录](integration/artifacts/local/confirmation-policy-check/report.json)|
 |120|[真实当前V2 normal owner/router与来源拒绝](#plan-2026-11-18-current-v2-public-source)|LOCAL_SCOPE_VERIFIED|13门禁/81次Go/36次Rust；P0-1实际公开当前state与恢复通过；[验证记录](integration/artifacts/local/current-v2-check/report.json)|
 |121|[真实V2固定bank独立离线夹具](#plan-2026-11-18-current-v2-fixed-fixture)|LOCAL_SCOPE_VERIFIED|13门禁/83次Go/36次Rust；真实bank固定离线通过；[验证记录](integration/artifacts/local/current-v2-fixed-check/report.json)|
+|122|[真实V2原字节码收款与完整后状态差分](#plan-2026-11-18-public-v2-original-execution)|LOCAL_SCOPE_VERIFIED|14门禁/16次Go/16次Rust；原VM actual收款/完整状态通过；[验证记录](integration/artifacts/local/public-v2-original-execution-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3440,3 +3443,26 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 原数据不进Git是既有仓库政策，不将数据藏到tools目录或force-add绕过。新机器离线命令：`python3 integration/tools/acceptance/restore_current_v2_fixture.py --bundle <准确responses.json.gz>`；同pin原capture也可--capture恢复。构建/证明本身只用当前仓库实现和服务本地数据，不依赖其他服务源码。原始Pin误差/缺数据必须失败，真实RPC不可用不能改写成本轮新实网通过。P0-1全来源矩阵/长期恢复与P0-2/3/4数学/链费/独立执行仍继续。
 
 阶段121最终限定验收：13门禁全部exit0，83次Go race、36次Rust API、9项Python守卫、17项进度、Clippy/vet/模块/当前构建及契约通过，运行目录`30bfb64076d4489e928b0f7002c8cc59`。实际固定块26438995的32原raw、2,387,964byte gzip/12,337,328byte解码及9,250,774byte原Envelope与全部嵌套hash保持；metadata/source/Go本地副本逐byte匹配。源码和905份固定输入前后相同（新增4份source/Go数据），两次独立Go normal读取与完整Pool相同，原proof/header篡改实际拒绝；双router无KV冷恢复/owner升代/四方向金额oracle和五来源控制均通过。live_public_source_observed=false，明确仅历史公开字节离线资格，不授予新实网/共识/交易后余额/费用资格。最初Go fixture预检使用10秒总读取时限导致真实大块witness校验超时，改为与normal live相同60秒后全部通过；未改产品预算/断言。可跟踪恢复工具/metadata已准备，原本地数据按既有gitignore保留而不force-add。下一轮推进选定V2的P0-2真实bank原执行差分；旧H补取额外proof已实际遇到historical state unavailable，保留失败响应，单独取得新当前bank后原WETH deposit/transfer与Pair.swap的本地原VM收款原型成功，尚未计作正式执行资格。
+
+<a id="plan-2026-11-18-public-v2-original-execution"></a>
+
+## 真实V2原字节码收款与完整后状态差分（2026-11-18，阶段122，P0-2）
+
+原Pair支付指定quoted output再比较到账相同，本身不足以证明整数精度，低报也可能成交。本轮以新固定actual Ethereum bank26439090的原WETH/DAI/Pair代码及MPT状态为基础，测试独立原字节码执行actual input，输出q成功且q+1必须因原UniswapV2: K回退；随后将实际完整后状态交给独立Rust数学核对。实现只在测试/验收边界，online parser不计算用户路由或执行交易。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F122.1|原bank/额外证明与严谨来源范围|WP03,WP10|LOCAL_SCOPE_VERIFIED|33份原raw/metadata及额外2个eth_getProof结果全部pin，header/hash/账户code/storage root/nonce/balance核对；额外结果保留原Result投影而非全HTTP envelope，明确full_http_envelope_retained=false；绝不把旧H缺proof与新H混用。|
+|F122.2|本地原VM收款/精度与完整后状态|WP03,WP10,WP15|LOCAL_SCOPE_VERIFIED|固定geth1.16.7，显式synthetic EOA account/native funding，原WETH deposit→transfer Pair→原Pair swap三call；actual DAI余额差及slot8/9/a/c、原Token raw余额构造after Pool，不用被测数学填答案；q+1必须原K回退。|
+|F122.3|证明/取消/资源失败封闭|WP03,WP15|LOCAL_SCOPE_VERIFIED|账户/代码/余额/nonce和每个SLOAD/SSTORE初值均需证明，未知账户/槽拒绝，外部未知调用/CREATE/DELEGATECALL/SELFDESTRUCT/BLOCKHASH拒绝；固定每call2Mgas、总1Mopcode/最多64槽4账户，ctx逐opcode检查，缺proof/账户/10opcode/取消控制。|
+|F122.4|独立Rust差分与统一冻结|WP01,WP03,WP10|LOCAL_SCOPE_VERIFIED|Go当轮导出actualdelta/fullafter结果，独立Rustquote_exact_in比较output/consumed/remaining及所有Pool字段；原v2单元/连续原bank语料、Go真实bank/native/普通服务、Clippy/vet/模块/构建/输入冻结通过。|
+
+本轮执行是同H的本地原合约call序列，使用人为建立的EOA及原生币余额，随后通过原WETH公开deposit产生输入，而不是伪造Token storage；不是已签名原Router完整交易，也不声称链上Gas/费用/未来区块或真实用户资金资格。timestamp/部分环境显式固定，源root只为provider/RPC锚定承诺；真实账户代码与storageproof核验不等于独立共识。旧固定H补取额外proof确实返回historical state unavailable，后续再次读取还出现HTTP403，均留在原探测产物；新H另行采集并在窗口内取得两额外proof，来源范围单独固定。
+
+阶段122首次冻结`4322ceb5ed014899b5f4481ab3e16aa8`已通过Go actual原执行/Rust完整after差分及原v2回归，但完整数学all-target严格Clippy发现既有balancer_composable测试私有包含源码而未覆盖GIVEN_OUT，报两项dead_code。保留FAILED报告；补测试实际调用ExactOut核对双尺度余额/保留BPT/其他币不变及BPT/非法索引/0或全额目标拒绝，不放宽警告或库实现。该测试纳入正式回归后全部重新冻结。
+
+阶段122第二轮冻结`3c81d09bcd394d58b832bbfacabf9796`通过Go原执行/实际bank与Rust差分/原v2，但普通native服务的既有polygon-synthetic发现用例在10秒fixture deadline返回context deadline exceeded（其余source用例通过）。该FAILED记录保留；不修改产品或测试deadline，先对同一测试无改动定向复现，再重跑全套门禁，不能把一次超时静默计作通过。
+
+阶段122第三次冻结`3b7a24837f3b4d9f84caa677bec03f29`中普通native原测试通过，但Clippy继续发现Composable独立原数学差分文件也重复私有包含同一实现，仍有未使用GIVEN_OUT。两处旧私有源码包含统一改为直接调用正式公开crate单一内核（均仅使用public API，不改差分fixture/断言），新增ExactOut边界测试保留，原差分也纳入本轮命令。完整Clippy预检后重新冻结，不将该次FAILED升级为通过。
+
+阶段122最终限定验收：14门禁全部exit0，16次Go race、16次Rust（包括当轮Go原执行结果的独立Rust完整afterstate比较、原v2连续bank及Composable原差分与新增ExactOut边界）、11项证据守卫、17项进度、完整数学all-target严格Clippy、Go vet/模块及当前Go/router构建通过；运行目录`fa5846888a8641eba36e9699adc2ccf3`。固定实际H26439090原MPT/code+显式合成EOA/native funding，本地原WETH deposit/transfer/Pair.swap三call测DAI收款增量17974138206626645829，q+1原合约因UniswapV2: K回退；储备/raw/cumulative/time/lock及原bank身份与Rust完整nextPool一致。缺槽/账户、10opcode、取消均拒绝，不用默认零或被测数学生成VM期望；源码与911固定输入及当轮导出前后一致。额外两proof为实际Result投影且fullHTTP未保留的限制显式记录；保留旧H proof不可用/403、Clippy重复私有模块和一次native fixture deadline的失败日志，正式门禁全部实际通过，不放宽产品预算/断言。该差分是一个真实bank下限定原call序列的P0-2证据，不授予完整签名Router交易、真实EOA资金、链费/生产VERIFIED或所有Token行为资格。下一轮按P0-3开始Legacy/EIP1559原生费用核算与覆盖范围，缺失L2/授权/可靠价格时继续明确不可用。

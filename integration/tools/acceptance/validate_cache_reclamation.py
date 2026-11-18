@@ -75,6 +75,9 @@ def test_inputs():
         Path('ethereum-mainnet/uniswap-v2-26355865-evidence.json'),
         Path('current-v2-public/manifest.json'),
         Path('current-v2-public/responses.json.gz'),
+        Path('current-v2-execution-public/manifest.json'),
+        Path('current-v2-execution-public/responses.json.gz'),
+        Path('current-v2-execution-public/extra-proofs.json'),
     ]
     for entry in manifest['files']:
         relative = Path(entry['path'])

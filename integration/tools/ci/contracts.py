@@ -104,6 +104,11 @@ source_fixture_count += 1
 for name in ['manifest.json','responses.json.gz']:
     check_copy(source_root/'current-v2-public'/name, root/'chain-parser-go/test/fixtures/current-v2-public'/name)
     source_fixture_count += 1
+check_copy(root/'integration/tools/reference/current-v2-execution-public/source-metadata.json',source_root/'current-v2-execution-public/manifest.json')
+source_fixture_count += 1
+for name in ['manifest.json','responses.json.gz','extra-proofs.json']:
+    check_copy(source_root/'current-v2-execution-public'/name, root/'chain-parser-go/test/fixtures/current-v2-execution-public'/name)
+    source_fixture_count += 1
 
 print(json.dumps({
     'passed': True,

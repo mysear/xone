@@ -2065,3 +2065,11 @@ native会话现区分来源拒绝与真实配额耗尽：拒绝保存terminal标
 解包只读取固定gzip JSON/base64成员，不解tar、不解释任意路径，压缩与解码各32MB上限、最多1024成员，原raw总128MB，原成员/Envelope/Owner/内层响应全校验；重复/链接/逃逸/变更hash/输出冲突拒绝。Go测试仅读自己fixture和普通RPC adapter；实际公开header/body/receipt/MPT/token view与原完整Pool精确匹配，坏header/proof拒绝。使用与normal live相同60秒总来源读取上限适配真实大块race回归，不修改产品资源配置；首次预检10秒超时已明确定位。
 
 `make -C integration current-v2-fixed-source-check`构建当前服务并只用固定公开源+封闭loopback运行正常owner/双router、无KV重建/owner升代与五故障控制；live_public_source_observed=false，不把历史捕获当当前实网。源码/所有本地固定输入及压缩包hash绑定到本轮report。固定输入不包含生产共识/原交易执行后余额或链费资格。
+
+### 固定实际V2 bank原执行差分（阶段122）
+
+当前测试源额外固定actual block26439090和33份原始RPC/raw。原字节码与MPT proof验证header-root、account code/storage/nonce/balance及原storage，不接受默认未知零。两个额外proof保存的是实际getProof Result原投影，未保留完整HTTP envelope；metadata明确该限制，且每份仍要对原header stateRoot重新验证。恢复命令`restore_current_v2_fixture.py --profile execution --bundle <固定responses.json.gz> --extra-proofs <固定extra-proofs.json>`只接受精确pin，无网络。
+
+测试独立geth1.16.7执行固定本地合成EOA/原生币资金覆盖的原WETH deposit、transfer及原Pair.swap三call，实际DAI收款delta和全部Pair/raw后状态由执行观察生成。相同起点q+1必须返回原UniswapV2: K，防止低报也成交却误以为精度通过；Rust当轮独立quote_exact_in比较output及完整nextPool。账户/槽初值全部证明，未声明依赖/生命周期拒绝，每call2Mgas与总1Mopcode/64slot/4account为测试资源上限，不是费用模型。ctx逐opcode检查、未知账户/槽与取消资源反例通过后才可生成输出。
+
+该边界是原交易逻辑的本地call序列，EOA/原生币资金显式合成（不声称真实该EOA的nonce/code/balance），不能称为已签名原Router完整交易、真实用户余额、未来区块执行保证或完整链费。`make -C integration public-v2-original-execution-current-check`冻结当轮Go执行输出并由Rust直接独立读取/完整比较，回归固定原v2连续bank、actual原证明/完整状态、普通native服务、守卫/模块/vet/Clippy/构建；P0-3费用与P0-4可信完整交易执行仍独立推进。

@@ -65,19 +65,22 @@ func publicV2RequestKey(method string, params []json.RawMessage) string {
 	return method + ":" + string(raw)
 }
 func publicV2Fixture(t *testing.T) (publicV2Manifest, map[string][]publicV2Read) {
+	return publicV2FixtureAt(t, publicV2FixtureRoot)
+}
+func publicV2FixtureAt(t *testing.T, root string) (publicV2Manifest, map[string][]publicV2Read) {
 	t.Helper()
 	var m publicV2Manifest
-	raw, e := os.ReadFile(filepath.Join(publicV2FixtureRoot, "manifest.json"))
+	raw, e := os.ReadFile(filepath.Join(root, "manifest.json"))
 	if e != nil {
 		t.Fatal(e)
 	}
 	if e = json.Unmarshal(raw, &m); e != nil {
 		t.Fatal(e)
 	}
-	if m.Schema != 1 || m.Count != 32 || len(m.Records) != m.Count || m.File != "responses.json.gz" || m.BundleBytes > 32<<20 || m.DecodedBytes > 32<<20 {
+	if m.Schema != 1 || m.Count <= 0 || m.Count > 1024 || len(m.Records) != m.Count || m.File != "responses.json.gz" || m.BundleBytes > 32<<20 || m.DecodedBytes > 32<<20 {
 		t.Fatal("fixed fixture shape")
 	}
-	compressed, e := os.ReadFile(filepath.Join(publicV2FixtureRoot, m.File))
+	compressed, e := os.ReadFile(filepath.Join(root, m.File))
 	if e != nil {
 		t.Fatal(e)
 	}

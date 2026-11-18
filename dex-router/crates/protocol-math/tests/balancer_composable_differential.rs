@@ -1,7 +1,6 @@
-#[path = "../src/balancer_composable.rs"]
-mod balancer_composable;
 use num_bigint::BigUint;
 use serde_json::Value;
+use xone_protocol_math::balancer_composable;
 fn amount(v: &Value) -> BigUint {
     v.as_str().unwrap().parse().unwrap()
 }

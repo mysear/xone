@@ -2130,3 +2130,15 @@ BINDINGS['7.current-v2-pinned-offline-fixture'] = {
            'test_changed_blob_or_manifest_membership_never_publishes_partial_capture'],
  'evidence_refs': ['integration/artifacts/local/current-v2-fixed-check/report.json'],
 }
+
+BINDINGS['12.14.public-v2-original-execution'] = {
+ 'paths': ['chain-parser-go/internal/chain/evm/v2_public_execution_test.go',
+           'dex-router/crates/protocol-math/tests/public_v2_execution.rs',
+           'integration/tools/reference/current-v2-execution-public/source-metadata.json',
+           'integration/tools/acceptance/restore_current_v2_fixture.py',
+           'integration/tools/acceptance/validate_public_v2_original_execution.py'],
+ 'tests': ['TestV2RealPublicOriginalExecutionMatchesQuoteAndMaximalIntegerOutput',
+           'TestV2RealPublicOriginalExecutionRejectsMissingProofAndBoundsWork',
+           'current_go_public_v2_original_execution_and_full_after_state_match'],
+ 'evidence_refs': ['integration/artifacts/local/public-v2-original-execution-check/report.json'],
+}

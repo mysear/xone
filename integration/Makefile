@@ -1181,3 +1181,7 @@ current-v2-public-source-check:
 .PHONY: current-v2-fixed-source-check
 current-v2-fixed-source-check:
 	python3 tools/acceptance/validate_fixed_current_v2.py
+
+.PHONY: public-v2-original-execution-current-check
+public-v2-original-execution-current-check:
+	python3 tools/acceptance/validate_public_v2_original_execution.py
