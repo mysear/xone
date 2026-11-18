@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|v2-complete native Token余额证明（阶段118，P0-1）|§7/11/12.14/28.6/28.7/28.12；WP03、WP04、WP05、WP10|LOCAL_SCOPE_VERIFIED|实际Token代码与MPT account绑定，Berlin稳定只读指令子集重放balanceOf；SLOAD未证明先停止，最多8slot/9pass/每pass100kGas，复用原native总预算|8门禁/77次Go race通过；原bank两余额/六证明、空root/五证明与受限指令/分支/资源反例通过；转账行为/代理与外部调用/可信共识/生产VERIFIED仍缺|
 |v2-complete native Pair/Factory状态承诺（阶段117，P0-1）|§7/12.14/28.6/28.7/28.12；WP03、WP04、WP05、WP10|LOCAL_SCOPE_VERIFIED|正常ReadState复用原native proof session，将原Pair/Factory代码及Pair身份/储备/累计价/锁/双向工厂映射与同block stateRoot绑定|8门禁/488次Go race通过，原合约bank与16类失败/预算/取消及普通native服务回归通过；Token balanceOf、可信共识/完整bank和生产VERIFIED仍缺|
 |Go周期checkpoint自动配额维护（阶段116）|§10.5/17.7/18/23.9；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|默认关闭auto_reclaim；Go周期worker配额超限有限回收、pending优先且一周期最多一操作，来源/备份/取消保护与手动语义保持|27门禁/127次Go/233次Rust、真实周期/分周期边界/故障恢复/四真实进程退出及实际Kafka回归通过；本轮后按用户要求停止，差距见最新复核|
 |显式Go checkpoint回收与中断恢复（阶段115）|§10.5/17.7/18/23.9；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|新增默认关闭的reclaim_enabled/有期计划，认证apply/resume/status，先远端恢复核验/耐久意图/隔离rename/逐文件释放/完成回执；pending暂停后续归档|27门禁/117次Go/231次Rust、九阶段/四真实进程退出/正常HTTP/幂等/隔离保护与实际Kafka回归通过；Go自动维护由阶段116补齐，Rust执行/独立存储验收后续|
@@ -493,6 +494,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|7.v2-complete-native-token-balance-proof|WP03,WP04,WP05,WP10|LOCAL_SCOPE_VERIFIED|原Token代码与每个实际SLOAD的MPT承诺支持独立只读余额重放；无未证明默认零/任意布局假定，Gas/slot/pass及原session总预算有界|8门禁/77次Go race与241外部模块缓存校验通过；仅固定零caller view，不证明Token转账行为或共识|[验证记录](integration/artifacts/local/v2-native-balance-proof-check/report.json)|
 |7.v2-complete-native-state-proof|WP03,WP04,WP05,WP10|LOCAL_SCOPE_VERIFIED|原Pair/Factory runtime的SHA与MPT account Keccak双绑定，读取同native session证明逻辑slot并核对getter；失败耗尽session|8门禁/488次Go race、正常同block证明及16类拒绝通过；不授予Token余额/共识资格|[验证记录](integration/artifacts/local/v2-native-state-proof-check/report.json)|
 |9.automatic-checkpoint-reclamation|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go显式auto_reclaim/周期/配额条件，来源守卫/单发布通道/总deadline，pending优先且不在同轮重新选择；无eligible不写控制journal|27门禁通过；Rust执行、全盘和远端容量及独立故障域仍缺|[验证记录](integration/artifacts/local/checkpoint-auto-reclaim-check/report.json)|
 |9.explicit-checkpoint-reclamation|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go显式manual回收、当前/候选/最近备份保护、原远端字节核验、有限自校验journal/隔离/恢复与幂等、正常HTTP；原预览仍只读|27门禁Go显式执行范围通过；Go自动维护由阶段116补齐，Rust执行/真实独立故障域仍缺|[验证记录](integration/artifacts/local/checkpoint-reclaim-check/report.json)|
@@ -649,6 +651,7 @@
 |115|[显式Go checkpoint回收与中断恢复](#plan-2026-11-18-checkpoint-reclaim)|LOCAL_SCOPE_VERIFIED|27门禁/117次Go/231次Rust、真实进程中断/正常HTTP；[验证记录](integration/artifacts/local/checkpoint-reclaim-check/report.json)|
 |116|[Go周期checkpoint自动配额维护](#plan-2026-11-18-checkpoint-auto-reclaim)|LOCAL_SCOPE_VERIFIED|27门禁/127次Go/233次Rust、正常周期与实际Kafka；收尾差距已记录，本轮后停止；[验证记录](integration/artifacts/local/checkpoint-auto-reclaim-check/report.json)|
 |117|[v2-complete native Pair/Factory状态承诺](#plan-2026-11-18-v2-native-state-proof)|LOCAL_SCOPE_VERIFIED|8门禁/488次Go race；P0-1限定Pair/Factory状态证明通过；[验证记录](integration/artifacts/local/v2-native-state-proof-check/report.json)|
+|118|[v2-complete native Token余额证明](#plan-2026-11-18-v2-native-balance-proof)|LOCAL_SCOPE_VERIFIED|8门禁/77次Go race；P0-1限定余额view证明通过；[验证记录](integration/artifacts/local/v2-native-balance-proof-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3353,3 +3356,22 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 阶段117首轮冻结`e89a20b360fb49fcbe43e1461861ff27`在Go全EVM包默认600秒整包alarm中止，未出现断言失败，新增Pair/Factory成功及16种错误/预算/取消子场景均实际通过。原包还包含大量固定原合约bank逐项回归，后续runner显式给整包20分钟收集时限；单次RPC与取消/预算测试deadline、断言保持原值。该FAILED报告保留，重跑全部门禁后才确认本轮。
 
 阶段117最终限定验收：8门禁全部exit0，488次Go race测试通过（EVM全包185、普通native服务6、domain/config/reducer297），17项进度检查、格式/契约/vet及当前Go二进制构建通过；运行目录`c9b96344b2a14534a3452931d5ad467c`。源码和901份固定输入冻结前后相同；正常Adapter.ReadState导出实际两份证明请求、Pool bank与返回block hash一致的证据，16类getter/承诺slot/代码/账户/缺proof/预算/取消控制均实际通过。首轮默认10分钟整包超时记录保留，显式20分钟整包门禁未修改单次RPC或取消测试deadline。Token原balanceOf状态证明/可信共识头/生产VERIFIED仍未完成，下一轮继续P0-1的Token只读余额证明。
+
+<a id="plan-2026-11-18-v2-native-balance-proof"></a>
+
+## v2-complete native Token余额证明（2026-11-18，阶段118，P0-1）
+
+紧接117继续证明RawBalance0/1。不能把通用ERC20余额假定放在slot1，也不能用Pair/receipt证明替代Token代码/状态。先读取Token account proof和同block原runtime并核对Keccak，再在全新内存overlay执行固定零caller/origin/value、balanceOf(pool)的确定性只读子集；每次未证明SLOAD在执行前停止，原共享native session获取该逻辑slot的MPT证明后从头重放，已证明空root可直接导出零。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F118.1|Token代码/存储证明与正常路径|WP03,WP04,WP05,WP10|LOCAL_SCOPE_VERIFIED|复用原root/块/来源/总预算；代码Keccak绑定实际account，使用sealed StorageValue而非输出投影；两Token原返回余额与执行结果相同才发布。|
+|F118.2|确定性只读内核和有限重放|WP04,WP05,WP10|LOCAL_SCOPE_VERIFIED|固定Berlin稳定指令子集，拒绝外部CALL/DELEGATECALL、外部账户/区块/费用/GAS及写入；每pass100000Gas、最多8已证明slot/9pass、code24576byte及36byte输入/32byte输出；逐opcode检查ctx。|
+|F118.3|反例/空root与资源控制|WP03,WP04,WP05|LOCAL_SCOPE_VERIFIED|未证明零不能改变分支，证明后正确选择分支；getter/已承诺余额/代码/缺proof/不支持view拒绝；9slot超限停止，loop/巨大内存/写/外部调用/短返回/revert及取消有界失败；已证明空root不额外请求slot。|
+|F118.4|依赖/原bank/native回归冻结|WP01,WP03,WP05,WP10|LOCAL_SCOPE_VERIFIED|沿用固定go-ethereum v1.16.7，只补其VM/state三个传递依赖与现有uint256直接使用，不升级原模块；定向原v2全部bank/native/合约storage/普通服务、模块校验/vet/构建与源码/输入冻结通过。|
+
+该内核不是完整链上交易模拟器。Berlin稳定子集仅用于确定性view结果，100kGas是资源上限而非真实费用；不支持PUSH0/代理/外部调用/环境依赖的view明确失败。只证明固定零caller的balanceOf返回值，不证明税费/rebase/Token转账行为、未来交易、独立共识头或生产VERIFIED。原v2-complete完整swap数学状态与实际balance输入的绑定得到增强，P0-1真实部署/可信head/长期恢复和P0-4生产资格仍继续。
+
+阶段118首轮冻结`edb70847dd8248dc8c1e79330a18576f`已通过v2/native/contract-storage定向race及正常native服务，但原go mod verify将已有本地replace的xone/common/protoc/golang v0.0.0当作需要ziphash的模块而中止；FAILED报告保留。新增模块缓存门禁只在临时modfile移除已验证的唯一local protobuf要求/replace，比较移除前后全部外部模块Path/Version/Sum/Main身份一致后运行真正go mod verify；本地protobuf仍由冻结源码和契约门禁覆盖。预检241个外部模块缓存校验通过，不修改产品go.mod/go.sum，也不跳过外部依赖校验；全部门禁重新冻结运行。
+
+阶段118最终限定验收：8门禁全部exit0，77次Go race（全部v2/native/contract-storage相关71、普通native服务6），241个外部模块缓存校验、17项进度检查、格式/契约/vet和当前Go二进制构建通过；运行目录`aaa23bc8ff8643ee8e3223012bbc2671`。源码和901份固定输入冻结前后相同；正常原bank六次proof并独立重放两Token余额，已证明空root只需五次proof；未证明零分支、getter/承诺余额/代码/缺proof、未知环境view/第九槽以及13类指令/loop/内存/返回/写反例通过。测试仍使用明确合成header与原runtime/storage，不授予真实链共识/Token转账行为资格；原117全EVM185项报告保留原冻结，118只声明本轮相关路径。模块替换首轮FAILED记录保留；另以当前同字节只读内核对256个opcode边界做隔离预检，未发现非私有panic，不替代正式门禁。下一轮继续P0-1，修正EVM confirmation_tag任意历史高度/earliest/pending/空值仍能通过配置校验的实际缺口（原二进制check-config已确认）。

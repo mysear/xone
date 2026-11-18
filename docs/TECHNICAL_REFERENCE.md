@@ -2033,3 +2033,11 @@ checkpoint status及Prometheus增加自动尝试/失败/完成/空计划计数�
 任何不一致都拒绝整个pool batch并耗尽原session，不能再次尝试使用剩余预算；正常最终canonical/settling重验保持。legacy模式不伪称新资格。Token balanceOf仍缺对应代码/layout或完整执行证明，RPC header并非共识checkpoint，因此本轮不开放生产VERIFIED。
 
 `make -C integration v2-native-state-proof-current-check`冻结源码与输入，使用原合约bank/runtime/storage构造真实MPT和合成自哈希header，通过正常Adapter入口验证成功与篡改/缺proof/预算/取消反例，并运行EVM全包、原有正常native服务、wire/config/reducer、契约、vet和Go当前程序构建。合成header不宣称实际公链部署/共识资格。
+
+### v2-complete native Token余额证明（阶段118）
+
+阶段117的native状态路径现在继续对Token0/1的balanceOf(pool)验证。读取同native block的account proof及实际代码，验证代码Keccak；使用固定Berlin稳定指令只读重放，不声明完整链规则。SLOAD前若slot没有证明便立即停止，不允许默认零参与分支；由原session读取sealed逻辑slot证明后在新overlay重放，最多8slot/9pass，每pass100kGas。已证明空storage root可安全得到零，无须单独请求key。输入固定36byte，输出严格32byte，代码最多24576byte；caller/origin/value固定零，与parser eth_call相同。
+
+CALL/DELEGATECALL、外部账户、区块/费用/GAS、写入、PUSH0及不支持指令均拒绝；read-only内核不带网络/外部状态读取，只有上层受同一总预算约束的proof请求。每opcode检查ctx，私有停止sentinel仅在本边界恢复，其他panic不吞掉；overlay/内存DB每pass关闭。该结果只证明view返回值，不升级税费/rebase/转账行为、共识或生产VERIFIED资格。
+
+`make -C integration v2-native-balance-proof-current-check`使用原runtime/storage真实MPT及明确合成header，验证正常六份Pair/Factory/Token证明请求、两余额与原bank一致、零值分支与空root、Getter/承诺/代码/缺proof/超8slot和不支持路径；回归全部v2/native/contract-storage及普通服务，检查现有geth锁定版本的三个新增传递依赖、契约、vet和构建。117报告是历史冻结范围，118报告记录当前源码的增强路径。

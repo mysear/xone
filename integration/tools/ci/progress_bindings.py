@@ -2072,3 +2072,17 @@ BINDINGS['7.v2-complete-native-state-proof'] = {
            'TestV2CompleteNativeStateProofFailureExhaustsSharedSessionAndHonorsCancellation'],
  'evidence_refs': ['integration/artifacts/local/v2-native-state-proof-check/report.json'],
 }
+
+BINDINGS['7.v2-complete-native-token-balance-proof'] = {
+ 'paths': ['chain-parser-go/internal/chain/evm/committed_view.go',
+           'chain-parser-go/internal/chain/evm/committed_view_test.go',
+           'chain-parser-go/internal/chain/evm/v2_complete_balance_proof.go',
+           'chain-parser-go/internal/chain/evm/v2_complete_balance_proof_test.go',
+           'integration/tools/acceptance/validate_v2_native_balance_proof.py'],
+ 'tests': ['TestCommittedViewStopsAtUnprovedStorageBeforeZeroCanAffectControlFlow',
+           'TestCommittedViewRejectsNonlocalEnvironmentWritesAndUnboundedExecution',
+           'TestV2CompleteNativeBalanceProofBindsOriginalTokenCodeAndReachedSlots',
+           'TestV2CompleteNativeBalanceProofRejectsGetterStateCodeAndUnsupportedView',
+           'TestV2CompleteNativeBalanceProofUsesSealedEmptyRootWithoutUnnecessarySlotIO'],
+ 'evidence_refs': ['integration/artifacts/local/v2-native-balance-proof-check/report.json'],
+}

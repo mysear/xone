@@ -16,8 +16,8 @@ import (
 
 // A verified native header/receipt root does not authenticate eth_call output.
 // Bind this pinned Pair/Factory layout to the same execution-state commitment.
-// Token balanceOf still requires its own code/layout or execution proof; this
-// check does not grant complete-bank or consensus/production VERIFIED authority.
+// Token balanceOf is separately executed against proved single-account slots;
+// this does not grant token-transfer or consensus/production VERIFIED authority.
 func (a *Adapter) verifyNativeV2CompleteState(ctx context.Context, reader *Adapter, block RawBlock, pool domain.Pool) (err error) {
 	if a.Chain.BlockIntegrity != ChainNativeCommitmentsV2 {
 		return nil
@@ -61,7 +61,13 @@ func (a *Adapter) verifyNativeV2CompleteState(ctx context.Context, reader *Adapt
 	}
 	keys := []string{v2CompletePairMapping(pool.Token0, pool.Token1), v2CompletePairMapping(pool.Token1, pool.Token0)}
 	pair := new(big.Int).SetBytes(common.FromHex(pool.PoolID))
-	return a.verifyV2CompleteAccount(ctx, reader, block, pool.V2.Factory, domain.V2CompleteFactoryCodeSHA256, keys, map[string]*big.Int{keys[0]: pair, keys[1]: pair})
+	if err = a.verifyV2CompleteAccount(ctx, reader, block, pool.V2.Factory, domain.V2CompleteFactoryCodeSHA256, keys, map[string]*big.Int{keys[0]: pair, keys[1]: pair}); err != nil {
+		return err
+	}
+	if err = a.verifyNativeV2Balance(ctx, reader, block, pool.Token0, pool.PoolID, swap.RawBalance0); err != nil {
+		return err
+	}
+	return a.verifyNativeV2Balance(ctx, reader, block, pool.Token1, pool.PoolID, swap.RawBalance1)
 }
 
 func v2CompletePairMapping(first, second string) string {

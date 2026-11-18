@@ -57,10 +57,34 @@ func newV2ProofBank(t *testing.T, fault string) *v2ProofBank {
 	t.Helper()
 	f := &v2ProofBank{bank: loadCompleteV2OriginalBank(t), state: trie.NewEmpty(nil), storage: map[string]*trie.Trie{}}
 	f.bank.Pool.ChainKey = "evm:1"
+
+	if fault == "slot-limit-token" {
+		for i := range f.bank.Accounts {
+			if f.bank.Accounts[i].Address == f.bank.Pool.Token0 {
+				code := "0x"
+				for n := 0; n < 9; n++ {
+					code += fmt.Sprintf("60%02x5450", n)
+				}
+				f.bank.Accounts[i].Code = code + "600060005260206000f3"
+			}
+		}
+	}
+
+	if fault == "unsupported-token-view" {
+		for i := range f.bank.Accounts {
+			if f.bank.Accounts[i].Address == f.bank.Pool.Token0 {
+				f.bank.Accounts[i].Code = "0x4360005260206000f3"
+			}
+		}
+	}
 	for _, account := range f.bank.Accounts {
 		tree := trie.NewEmpty(nil)
 		for _, slot := range account.Storage {
 			n := new(big.Int).SetBytes(common.FromHex(slot.Value))
+			if fault == "committed-token-balance" && account.Address == f.bank.Pool.Token0 && common.HexToHash(slot.Slot) == common.BytesToHash(completeV2Mapping(f.bank.Pool.PoolID, common.BigToHash(big.NewInt(1)).Bytes())) {
+				n.Add(n, big.NewInt(1))
+			}
+
 			if account.Address == f.bank.Pool.PoolID {
 				target := map[string]string{"committed-identity": "0x5", "committed-reserves": "0x8", "committed-cumulative": "0x9", "committed-lock": "0xc"}[fault]
 				if target != "" && common.HexToHash(target) == common.HexToHash(slot.Slot) {
@@ -83,6 +107,9 @@ func newV2ProofBank(t *testing.T, fault string) *v2ProofBank {
 			if e := tree.Update(crypto.Keccak256(common.HexToHash(slot.Slot).Bytes()), encoded); e != nil {
 				t.Fatal(e)
 			}
+		}
+		if fault == "empty-token-storage" && account.Address == f.bank.Pool.Token0 {
+			tree = trie.NewEmpty(nil)
 		}
 		raw := common.FromHex(account.Code)
 		if fault == "committed-pair-code" && account.Address == f.bank.Pool.PoolID {
@@ -134,8 +161,15 @@ func (f *v2ProofBank) proof(t *testing.T, address string, keys []string) emptySt
 func (f *v2ProofBank) adapter(t *testing.T, fault string) *Adapter {
 	t.Helper()
 	base := &completeV2RPC{t: t, bank: f.bank, seen: map[string]int{}}
-	if strings.HasPrefix(fault, "getter-") {
+	if strings.HasPrefix(fault, "getter-") || fault == "empty-token-storage" {
 		base.mutate = func(method, to, data string, result any) any {
+
+			if fault == "empty-token-storage" && method == "eth_call" && to == f.bank.Pool.Token0 && strings.HasPrefix(data, "0x70a08231") {
+				return completeV2Word(0)
+			}
+			if fault == "getter-token-balance" && method == "eth_call" && to == f.bank.Pool.Token0 && strings.HasPrefix(data, "0x70a08231") {
+				return completeV2Word(1)
+			}
 			if method == "eth_call" && to == f.bank.Pool.PoolID {
 				switch fault {
 				case "getter-reserves":
@@ -202,6 +236,13 @@ func (f *v2ProofBank) adapter(t *testing.T, fault string) *Adapter {
 			if fault == "bad-node" {
 				p.AccountProof = []string{"0xc0"}
 			}
+
+			if fault == "missing-token-storage" && address == f.bank.Pool.Token0 && len(p.StorageProof) > 0 {
+				p.StorageProof = []emptyStateSlot{}
+			}
+			if fault == "token-code-mismatch" && address == f.bank.Pool.Token0 {
+				p.CodeHash = crypto.Keccak256Hash([]byte{0}).Hex()
+			}
 			if fault == "wrong-account" {
 				p.Address = "0x" + strings.Repeat("11", 20)
 			}
@@ -225,14 +266,14 @@ func TestV2CompleteNativeStateProofNormalReadBindsOriginalPairAndFactory(t *test
 	if e != nil || len(pools) != 1 {
 		t.Fatal(e, len(pools))
 	}
-	if ref.Hash != f.bank.StateAnchor.Hash || pools[0].V2.Swap.BankBlockHash != ref.Hash || f.proofReads.Load() != 2 {
+	if ref.Hash != f.bank.StateAnchor.Hash || pools[0].V2.Swap.BankBlockHash != ref.Hash || f.proofReads.Load() != 6 {
 		t.Fatal("normal state did not verify both commitments", ref, f.proofReads.Load())
 	}
 	if out := os.Getenv("XONE_V2_NATIVE_PROOF_OUTPUT"); out != "" {
 		if e = os.MkdirAll(out, 0700); e != nil {
 			t.Fatal(e)
 		}
-		raw, _ := json.MarshalIndent(map[string]any{"scope": "SYNTHETIC_HASHED_HEADER_REAL_MPT_ORIGINAL_RUNTIME_AND_STORAGE", "reference": ref, "pool": pools[0], "proof_requests": f.proofReads.Load(), "consensus_verified": false, "token_balances_proven": false}, "", "  ")
+		raw, _ := json.MarshalIndent(map[string]any{"scope": "SYNTHETIC_HASHED_HEADER_REAL_MPT_ORIGINAL_RUNTIME_AND_STORAGE", "reference": ref, "pool": pools[0], "proof_requests": f.proofReads.Load(), "consensus_verified": false, "token_balances_proven": true}, "", "  ")
 		if e = os.WriteFile(filepath.Join(out, "normal-pair-factory-state-proof.json"), raw, 0600); e != nil {
 			t.Fatal(e)
 		}
