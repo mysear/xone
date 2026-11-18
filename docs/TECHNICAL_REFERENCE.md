@@ -2165,3 +2165,9 @@ Go普通native来源及archive replay在同一header/body/receipt证明之后，
 阶段135追加sourceHash核验：L1-info deposit必须使用原domain 1，由属性内L1 hash和sequence计算并与原wire的sourceHash一致；原Optimism方法固定摘要并执行25独立参考。该内部关联不授予L1包含性/最终性资格。首批总控已主动取消并保留，补充后重跑完整验收。
 
 阶段135限定验收通过：18门禁、148次Rust及209次Go（203 EVM race、6正常服务race），三原signed输入从普通读取/历史重放交Rust与原参考核算一致；25原sourceHash及12投影篡改/6来源故障/2发布拒绝/15语义预算控制通过。源码、911固定输入、45运行pins及8参考摘要一致；旧缺省归档与空白兼容保留。完整现行OP费用/报价净成本接线和可信估值继续未完成。
+
+### OP packed属性及显式现代费用算术（阶段136）
+
+`execution-preparation::op_packed_cost`只解码164/176/178三种精确selector/长度，不代替chain/fork/首块选择。显式Ecotone按4/16字节Gas，Fjord对完整user wire采用固定原FastLZ长度/最小100字节的scaled回归；宽中间值保留、最终uint256。Isthmus operator为gas×scalar/1e6+constant，Jovian为gas×scalar×100+constant；属性缺operator参数时不可用，不默认零。来源、签名、fee-charged gas/refund及时效需调用方认证，16MiB硬预算与调用方更低预算并用。DA footprint仅保留属性，不加成一笔假费用。
+
+当日原OP块159697405的完整JSON/逐笔receipt经普通native读取及历史重放验证header/body/receipt承诺，49用户签名恢复后交固定原op-geth函数和Rust对照。605输入中556为明确算术探针；额外RPC费用字段不是receipt trie承诺。旧Regolith入口不扩展，正常报价完整链费/净扣款、版本选择与生产资格仍待接线。阶段136限定验收已通过18门禁/150次Rust/6次Go和605原参考（49原signed用户、556探针、103溢出），冻结源码/输入及正常来源重导出摘要一致；结果统一记录到主进度文档。
