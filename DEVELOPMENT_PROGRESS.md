@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP完整费用账户与原状态转换核验（阶段138，P0-3）|§5.1/7.3/13.1/14.2/15.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|Regolith至Jovian的零value费用、最大资金、operator退款与vault/coinbase账户守恒|24门禁/151次Rust、原Go320场景955状态转换与REVM256场景、8原HTTP通过；正常报价总费接线继续|
 |OP现代费用版本来源与升级首块重放（阶段137，P0-3）|§5.1/7.3/13.1/14.2/15.3；WP03、WP05、WP13、WP15、WP18|LOCAL_SCOPE_VERIFIED|普通native/历史重放增加现代fee inputs；四升级首块/后继及当日块的原交易/累计Gas与规则绑定|19门禁/153次Rust/214次Go、八块128原signed用户及当日49用户、60投影与15语义反例通过；完整链费/净排序仍待补|
 |OP packed费用与FastLZ独立核算（阶段136，P0-3）|§5.1/7.3/13.1/14.2/15.3；WP03、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|三种精确packed属性、显式Ecotone/Fjord数据费和Isthmus/Jovian operator规则；正常来源核验当日OP块与49原signed users|18门禁/150次Rust/6次Go、605原参考及49原signed用户通过；版本选择/报价接线仍未完成|
 |OP Regolith同body费用输入来源与重放（阶段135，P0-3）|§5.1/7.3/13.1/14.2/15.3；WP03、WP05、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|普通native读取/历史重放从已核验body提取deposit属性和恢复签名者的完整user wire，费用计算仍在Rust|18门禁/148次Rust/209次Go通过；三笔原signed来源→Rust对原参考、25原sourceHash及来源/发布/语义反例通过|
@@ -705,6 +706,7 @@
 |135|[OP Regolith同body费用输入来源与重放](#plan-2026-11-18-op-l1-source-inputs)|LOCAL_SCOPE_VERIFIED|18门禁/148次Rust/209次Go及三原signed跨语言核算通过；[验证记录](integration/artifacts/local/op-l1-source-inputs-check/report.json)|
 |136|[OP packed费用与FastLZ独立核算](#plan-2026-11-18-op-packed-cost)|LOCAL_SCOPE_VERIFIED|18门禁/150次Rust/6次Go及605原参考通过；[验证记录](integration/artifacts/local/op-packed-cost-check/report.json)|
 |137|[OP现代费用版本来源与升级首块重放](#plan-2026-11-18-op-packed-source-inputs)|LOCAL_SCOPE_VERIFIED|19门禁/153次Rust/214次Go，真实升级来源/归档重放及原参考跨语言通过；[验证记录](integration/artifacts/local/op-packed-source-inputs-check/report.json)|
+|138|[OP完整费用账户与原状态转换核验](#plan-2026-11-18-op-chain-cost)|LOCAL_SCOPE_VERIFIED|24门禁/151次Rust，320原Go场景955状态转换、256独立REVM与8原HTTP通过；[验证记录](integration/artifacts/local/op-chain-cost-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3371,7 +3373,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 |---|---|---|---|---|
 |P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
-|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–137补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放；通用可信估值、净评分及完整链费仍未完成|PARTIAL_LOCAL|
+|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–138补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核；通用可信估值、净评分及完整链费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
 |P1-1|G03限定交易；WP14,WP15,WP20|先补单池/简单路径的calldata、授权、wrap、recipient、期限/退款、签名发送和耐久回执|报价→准备→独立仿真→用户签名→一次发送→回执收付款一致；先复用已有Solana链路，EVM独立补齐|PARTIAL_LOCAL|
 |P1-2|G06现有模型；WP11,WP13,WP14,WP16|已准入ExactOut先贯通最大输入、实际消耗、退款/费用和独立执行|数学输入目标与执行一致，拒绝不能保证的路径；复杂跨家族/共享拆单留P3-1|PARTIAL_LOCAL|
@@ -3782,3 +3784,25 @@ Fjord对完整编码user wire计算FastLZ压缩长度，估算大小`max(100e6,8
 历史归档保存可选新投影；重放从原header/body/receipt重新派生，60次规则/格式/属性/Gas/sender/wire/index/root/deposit/authority/activation/upgrade/header/time篡改拒绝。旧记录缺字段兼容原事实；原字段不是可信价格、共识/L1最终性证明或完整OP VM。128后继原signed users交Rust显式内核，对固定原Go函数和留存非trie费用观察一致；Ecotone未激活operator保持NotActive，缺参数不调用operator估算。当前49原signed用户沿同生产投影继续回归。工具：[validate_op_packed_source_inputs.py](integration/tools/acceptance/validate_op_packed_source_inputs.py)，报告：[op-packed-source-inputs-check/report.json](integration/artifacts/local/op-packed-source-inputs-check/report.json)。完整正常报价链费/付款人净扣款、可信估值/候选净排序、独立链执行和生产VERIFIED仍待继续，原26工作包未关闭。
 
 阶段137最终限定验收：运行目录`5b702f530c124f618ee95f6ba8369435`，19门禁全部exit0、153次Rust及214次Go（208全EVM race与6正常service race）通过。八真实升级块158交易/128后继原signed用户、四首块deposit-only及当日49用户经普通native/原证据重放交Rust对固定原op-geth；60投影篡改、15语义预算/取消、四首块user及后继unsigned、创建deposit缺省/null目标一致与普通call删除目标拒绝全部通过。旧Regolith来源、仿真/API/准备、Go vet/build、普通/优化各参考守卫、全目标严格Clippy及正常router构建通过。源码`a00a3481d1a020f68084629e85f0f84828c8bb2cfdf2e151cf08c1bb2dac3cde`、911固定输入、45运行pins与148参考输入前后一致，五份来源/向量产物及全部日志摘要独立核对。仅完成固定版本的来源与跨语言费用算术，不授予共识/L1最终性、完整当前OP执行或报价总费资格；下一轮继续P0-3的完整付款人链费/最大资金与原客户端状态转换对照，然后推进可信估值、净评分及其余优先级。
+
+<a id="plan-2026-11-18-op-chain-cost"></a>
+
+## OP完整费用账户与原状态转换核验（2026-11-18，阶段138，P0-3）
+
+按设计§5.1/7.3/13.1/14.2/15.3继续补完整链费的付款人核算。Rust新增`op_chain_cost`，复用已独立核验的Regolith/packed原属性和完整signed wire内核，显式选择Ecotone/Fjord/Isthmus/Jovian正常user规则并严格绑定ABI；不支持的首块、原生value转账和缺费参数保持关闭。费用包含execution、L1 data和operator，分别返回gross实际扣款、effective价预付、fee cap最大资金、execution/operator退款，宽中间值和uint256最终总和均检查。OP base fee记入base fee vault，不能套Ethereum burn；coinbase/三个vault按地址聚合后核对源before/独立after，付款人自收priority减入净扣，不能凭小净额绕过最大资金。该组件不认证签名/来源或交易中任意native流，调用方须先绑定原交易和零value fee-only执行范围。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F138.1|完整OP费用、预付/最大资金及退款|WP13,WP15|LOCAL_SCOPE_VERIFIED|五规则、Legacy/type1/type2和宽金额，最终总和溢出/规则/ABI/native value/预算拒绝；[验证记录](integration/artifacts/local/op-chain-cost-check/report.json)。|
+|F138.2|费用账户聚合和付款人原生净扣款|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|分离/payer/base/L1/operator coinbase五别名，源before与独立after精确地址覆盖、资金门限、缺失/额外/篡改和burn替换拒绝；[验证记录](integration/artifacts/local/op-chain-cost-check/report.json)。|
+|F138.3|完整原客户端状态转换和初始状态一致性|WP01,WP13,WP15,WP18|LOCAL_SCOPE_VERIFIED|固定原op-geth完整源码无改动执行core.ApplyMessage；320本地签名场景/955实际状态转换、交易前committed/current storage一致，正常Ethereum worker/API回归；[验证记录](integration/artifacts/local/op-chain-cost-check/report.json)。|
+
+独立参考固定原op-geth commit `79e9d244748a1201fe686ca8a882b5fe7e173348`，codeload归档SHA256 `baee7f36d27a3074e0e601a32618183ce88e4f8f17a86bd23c1b78fef08aa492`，逐文件对照归档核验完整解包源码，所有原Go文件及go.mod/go.sum在统一验收前后固定摘要。只新增外部场景/I/O wrapper，不抽取重写状态转换；通过原`TransactionToMessage`恢复真实本地签名者，nonce与transaction检查均启用；原`NewL1CostFunc/NewOperatorCostFunc`从初始化本地L1Block storage取参数，原VM执行成功、SSTORE清除退款、状态写入后REVERT及INVALID耗尽Gas。五费用规则×三交易类型×四结果×五coinbase地址，另20个零费/精确base/未clip/wide场景，共320；每例富余额/精确最大资金均实际执行，315例不足1拒绝且费用账户/nonce未变，共955状态转换。该bank是明确构造的本地费用隔离场景，不是历史公链bank或真实协议成交。
+
+原wrapper预检首遇旧GasPool API编译拒绝，修正为固定客户端的NewGasPool；手工Rust检查曾因PATH使用旧rustc而拒绝，现明确使用1.90工具链。进一步独立REVM对照发现原wrapper在设置初始storage后直接执行，GetCommittedState仍返回旧零值，构成交易内dirty write而非已完成的交易前状态，导致退款场景失真。已在安装完整本地初始状态后调用原Finalise(false)，并硬检查GetCommittedState与GetState一致、refund计数为零；不会改原客户端函数。此前基于该不一致参考提出的计费Gas下界修改和API/整数正例全部撤回，共享native函数仍按原有准入行为，未把错误参考结果推进产品。工具：[validate_op_chain_cost.py](integration/tools/acceptance/validate_op_chain_cost.py)，报告：[op-chain-cost-check/report.json](integration/artifacts/local/op-chain-cost-check/report.json)。正常报价仍披露LOCAL_EVM_ONLY/未知L1项；该轮不升级完整当前OP执行/历史bank、可信Token估值/全候选净排序或生产VERIFIED，后续继续P0-3的正常来源链费接线与其余优先级。
+
+阶段138前两次统一验收记录保留：首轮`03255dea7f5540f9b7f4251b7f3721e7`为FAILED，仿真100次Rust通过、API旧下界测试19通过/1失败；第二轮`d1115457ebfe4f1e8ea80e4e172a8399`已有局部门禁和Legacy HTTP通过，但进一步原Go/独立REVM对照揭示初始storage未完成的参考错误，主动SIGTERM取消，总控exit130、子进程确认回收后才修改源码。先前“57个真实退款场景证明可低于21000”结论撤回；该值来自不一致的原始slot上下文，不能作为合法已提交初始状态依据。撤回相关共享函数/API改动，修正外部场景初始化并加硬断言，再完整对照两个独立内核及重新冻结验收。旧报告/原始参考和REVM差异记录保留，不升级本轮状态。
+
+修正初始状态后的预检：320原Go签名场景/955状态转换和Rust三项测试通过；独立REVM19.7明确OP handler对同一committed初始状态执行256个Regolith/Ecotone/Fjord/Isthmus场景，逐Gas、费用账户、付款人nonce、成功/回退及目标storage全部一致，Jovian64场景显式不支持且只由原op-geth核验。原Go当前最低计费Gas21056，没有低于21000的已提交场景。跨内核参考单独固定Cargo.lock/来源/二进制摘要并加入本轮统一门禁，不接入产品OP执行入口；错误参考及其派生修改没有提交。
+
+阶段138最终限定验收：运行目录`9a33d71e7fe4404290e5823f5f38393d`，24门禁全部exit0、151次Rust（仿真100/API20/准备23/OP费用3/native费用5）通过；原op-geth320本地签名场景955状态转换、独立REVM256历史版本场景、普通/优化各原参考4守卫及native3守卫、56独立整数向量与8正常HTTP原worker（Legacy4/EIP1559 4）回归通过。完整初始状态Finalise后逐Gas、费用账户、nonce及目标storage与两客户端一致；Jovian64仅原Go范围，独立REVM未准入。gross/预付/最大资金、execution/operator退款、coinbase/vault别名及4000余源before/执行after/账户覆盖/burn篡改拒绝通过，资金不足1的315次原状态转换不变nonce/费用账户。源码`bdbe16e54bad32b774a63efc6b2eae66ccb7e8cc08303839af9ffa94a3f59148`、911固定输入、45运行pins与1419参考输入前后一致，五份参考/重放/跨内核/HTTP产物及全部日志摘要复核。前两次FAILED/CANCELLED、未完成初始storage的错误参考与差异记录均保留，错误低Gas结论和未提交的共享费用/API修改已撤回；取消的第二轮还发现脱离原进程组的本地HTTP harness，已按已知运行路径终止并确认退出，清理记录留存。本轮仅完成零value fee-only费用核算组件与独立参考，不认证任意native流/签名来源，也未接入完整当前OP VM或正常报价总链费、可信Token估值/候选净排序。下一轮继续P0-3的完整签名wire与OP执行上下文绑定和正常来源接线，随后按既定优先级推进。

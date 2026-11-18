@@ -4,6 +4,7 @@ pub mod evm;
 pub mod evm_native_cost;
 pub mod evm_rpc;
 mod evm_rpc_json;
+pub mod op_chain_cost;
 pub mod op_l1_cost;
 pub mod op_packed_cost;
 use base64::{engine::general_purpose::STANDARD, Engine};

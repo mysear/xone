@@ -38,6 +38,15 @@ pub struct PackedParameters {
     da_footprint_scalar: Option<u16>,
 }
 
+impl PackedParameters {
+    pub(crate) fn format(&self) -> &str {
+        self.format
+    }
+    pub(crate) fn attributes_sha256(&self) -> &str {
+        &self.attributes_sha256
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct DataCost {
     pub model_version: &'static str,

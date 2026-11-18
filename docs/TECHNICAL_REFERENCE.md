@@ -2177,3 +2177,10 @@ Go普通native来源及archive replay在同一header/body/receipt证明之后，
 普通native coverage/历史归档可选`op_packed_fee_inputs`仅在同块header/body/receipts重验后派生；记录固定native语义、chain/版本、属性/deposit sourceHash和完整user wire/签名者/index及承诺累计Gas差分，无费用金额。四升级首块保留旧属性ABI且仅deposit，不推断缺省operator为零，任何user拒绝；后继采用新规则。现代和旧Regolith字段按时间域隔离，旧归档缺字段继续原事实。
 
 真实升级创建deposit省略to的normal解码兼容空目标，对照固定原op-geth；删除普通call目标仍因原txID/body承诺不符拒绝。8实际升级块/128后继原signed用户和当日49用户经普通读取/归档重放交Rust对固定原函数；60投影篡改/15语义预算故障与4升级user、1unsigned后继控制不扩大来源权限。阶段137最终19门禁/153次Rust/214次Go通过，冻结源码/911固定输入/45运行pins/148参考及正常来源重导出摘要一致，原Go状态读取与Rust费用内核限定联验完成；正常报价完整链费/净估值和生产资格继续未开放。
+
+
+### OP完整费用账户与原状态转换（阶段138）
+
+`execution-preparation::op_chain_cost`计算明确零value fee-only范围的execution/L1 data/operator总费，分开effective预付、fee cap最大资金及execution/operator退款；独立的源before/执行after按payer/coinbase/三vault的实际地址聚合，base fee入vault而非burn。ABI与显式版本不符、缺参数/账户、金额总和溢出、资金不足及不支持native value拒绝；源与签名认证由调用链负责，组件结果不自动获得可信来源资格。
+
+完整固定原op-geth源码经归档逐文件核验，在独立模块无改动执行`core.ApplyMessage`，真实本地signed Legacy/type1/type2、五费用规则、成功/退款/REVERT/HALT及五coinbase别名共320场景，955原状态转换核对费用账户、nonce、回滚和精确最大资金边界。初始wrapper曾因未完成storage初始化而误报过低Gas；独立REVM差分发现后取消验收，先Finalise(false)并硬查原始/当前storage相等，撤回基于失真参考的共享算术/API改动。原客户端本地bank不等同历史公链bank；修正初始状态后256个历史版本场景由独立REVM核对Gas/费用账户/nonce/目标storage一致，Jovian64个场景明确无REVM资格；该对照已加入本轮门禁，阶段138统一24门禁/151次Rust、320原Go场景955状态转换/256独立REVM与8正常HTTP回归通过，冻结源码/911固定输入/45运行pins/1419参考及五产物摘要一致，正常报价完整链费/净估值及生产资格继续未开放。
