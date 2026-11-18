@@ -2061,3 +2061,14 @@ BINDINGS['9.automatic-checkpoint-reclamation'] = {
            'current_go_checkpoint_automatic_reclaim_policy_and_hashes_match'],
  'evidence_refs': ['integration/artifacts/local/checkpoint-auto-reclaim-check/report.json'],
 }
+
+BINDINGS['7.v2-complete-native-state-proof'] = {
+ 'paths': ['chain-parser-go/internal/chain/evm/adapter.go',
+           'chain-parser-go/internal/chain/evm/v2_complete_proof.go',
+           'chain-parser-go/internal/chain/evm/v2_complete_proof_test.go',
+           'integration/tools/acceptance/validate_v2_native_state_proof.py'],
+ 'tests': ['TestV2CompleteNativeStateProofNormalReadBindsOriginalPairAndFactory',
+           'TestV2CompleteNativeStateProofRejectsGetterAndProofContradictions',
+           'TestV2CompleteNativeStateProofFailureExhaustsSharedSessionAndHonorsCancellation'],
+ 'evidence_refs': ['integration/artifacts/local/v2-native-state-proof-check/report.json'],
+}

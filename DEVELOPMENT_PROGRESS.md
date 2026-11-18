@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|v2-complete native Pair/Factory状态承诺（阶段117，P0-1）|§7/12.14/28.6/28.7/28.12；WP03、WP04、WP05、WP10|LOCAL_SCOPE_VERIFIED|正常ReadState复用原native proof session，将原Pair/Factory代码及Pair身份/储备/累计价/锁/双向工厂映射与同block stateRoot绑定|8门禁/488次Go race通过，原合约bank与16类失败/预算/取消及普通native服务回归通过；Token balanceOf、可信共识/完整bank和生产VERIFIED仍缺|
 |Go周期checkpoint自动配额维护（阶段116）|§10.5/17.7/18/23.9；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|默认关闭auto_reclaim；Go周期worker配额超限有限回收、pending优先且一周期最多一操作，来源/备份/取消保护与手动语义保持|27门禁/127次Go/233次Rust、真实周期/分周期边界/故障恢复/四真实进程退出及实际Kafka回归通过；本轮后按用户要求停止，差距见最新复核|
 |显式Go checkpoint回收与中断恢复（阶段115）|§10.5/17.7/18/23.9；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|新增默认关闭的reclaim_enabled/有期计划，认证apply/resume/status，先远端恢复核验/耐久意图/隔离rename/逐文件释放/完成回执；pending暂停后续归档|27门禁/117次Go/231次Rust、九阶段/四真实进程退出/正常HTTP/幂等/隔离保护与实际Kafka回归通过；Go自动维护由阶段116补齐，Rust执行/独立存储验收后续|
 |Rust只读保留计划与整计划互通（阶段114）|§10.5/18/23.9；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|双Rust共享只读plan/资源边界、正常Rust认证HTTP/取消关闭、允许两online owner；直接读取Go同一目录并全计划JSON一致|26门禁/104次Go/227次Rust、两份Rust全JSON/planId一致、两normal HTTP及实际Kafka回归通过|
@@ -492,6 +493,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|7.v2-complete-native-state-proof|WP03,WP04,WP05,WP10|LOCAL_SCOPE_VERIFIED|原Pair/Factory runtime的SHA与MPT account Keccak双绑定，读取同native session证明逻辑slot并核对getter；失败耗尽session|8门禁/488次Go race、正常同block证明及16类拒绝通过；不授予Token余额/共识资格|[验证记录](integration/artifacts/local/v2-native-state-proof-check/report.json)|
 |9.automatic-checkpoint-reclamation|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go显式auto_reclaim/周期/配额条件，来源守卫/单发布通道/总deadline，pending优先且不在同轮重新选择；无eligible不写控制journal|27门禁通过；Rust执行、全盘和远端容量及独立故障域仍缺|[验证记录](integration/artifacts/local/checkpoint-auto-reclaim-check/report.json)|
 |9.explicit-checkpoint-reclamation|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go显式manual回收、当前/候选/最近备份保护、原远端字节核验、有限自校验journal/隔离/恢复与幂等、正常HTTP；原预览仍只读|27门禁Go显式执行范围通过；Go自动维护由阶段116补齐，Rust执行/真实独立故障域仍缺|[验证记录](integration/artifacts/local/checkpoint-reclaim-check/report.json)|
 |9.rust-bounded-retention-plan|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Rust同等当前/全部候选/最近备份/年龄保护，完整对象/cert/owner绑定和预算，独立读取Go同一实际目录全JSON/planId一致|Go显式执行/中断恢复已由阶段115接入，Go自动维护由阶段116补齐；Rust执行和真实独立故障域仍缺|[验证记录](integration/artifacts/local/rust-retention-plan-check/report.json)|
@@ -646,6 +648,7 @@
 |114|[Rust只读保留计划与整计划互通](#plan-2026-11-18-rust-retention-plan)|LOCAL_SCOPE_VERIFIED|26门禁/104次Go/227次Rust、全计划同目录互通；[验证记录](integration/artifacts/local/rust-retention-plan-check/report.json)|
 |115|[显式Go checkpoint回收与中断恢复](#plan-2026-11-18-checkpoint-reclaim)|LOCAL_SCOPE_VERIFIED|27门禁/117次Go/231次Rust、真实进程中断/正常HTTP；[验证记录](integration/artifacts/local/checkpoint-reclaim-check/report.json)|
 |116|[Go周期checkpoint自动配额维护](#plan-2026-11-18-checkpoint-auto-reclaim)|LOCAL_SCOPE_VERIFIED|27门禁/127次Go/233次Rust、正常周期与实际Kafka；收尾差距已记录，本轮后停止；[验证记录](integration/artifacts/local/checkpoint-auto-reclaim-check/report.json)|
+|117|[v2-complete native Pair/Factory状态承诺](#plan-2026-11-18-v2-native-state-proof)|LOCAL_SCOPE_VERIFIED|8门禁/488次Go race；P0-1限定Pair/Factory状态证明通过；[验证记录](integration/artifacts/local/v2-native-state-proof-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3331,3 +3334,22 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 首个实现切片：检查v2-complete普通native来源的状态承诺和执行准备的信任边界，优先补足可验证的来源/状态绑定；已有native reader和MPT核验复用，避免重复建设。数学/费用/VERIFIED各有独立退出标准，不能因源码重编译或本地VM成功就跳过生产来源资格。
 
 推送目标事实：当前仅配置`origin = git@github.com:mysear/xone.git`，无GitLab远端。恢复后每轮继续推送既有origin，明确不称为GitLab推送；GitLab目标需提供准确仓库地址后配置。该远端差异不阻断本地实现/验证，也不改变功能完成判据。
+
+<a id="plan-2026-11-18-v2-native-state-proof"></a>
+
+## v2-complete native Pair/Factory状态承诺（2026-11-18，阶段117，P0-1）
+
+按执行顺序先补v2-complete的实际来源绑定缺口。现有native header/body/receipt和独立EIP-1186核验已存在，但普通ReadState调用的eth_call值不能仅靠receipt root认证；本轮将固定原Pair/Factory布局绑定到同一native execution-state root。仅在原known-evm-native-commitments-v2模式启用，legacy路径不获得额外资格。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F117.1|正常ReadState证明接线与代码身份|WP03,WP04,WP05|LOCAL_SCOPE_VERIFIED|复用原共享native session和ContractAccountProof、请求原blockHash/requireCanonical；SHA256核对固定原runtime且Keccak与MPT account codeHash相同。|
+|F117.2|完整Pair slot与Factory双向映射|WP05,WP10|LOCAL_SCOPE_VERIFIED|按原源码slot5/6/7身份、slot8双112bit reserves+uint32 time、slot9/a累计价与slotc锁，以及Factory slot2嵌套mapping两方向逐项核对，读取sealed logical StorageValue，不信任可编辑输出map。|
+|F117.3|错误/取消/资源边界|WP04,WP05|LOCAL_SCOPE_VERIFIED|getter和已承诺slot矛盾、错误runtime/账户/节点、缺proof拒绝发布；同chain/hash/number/time绑定、超预算和取消失败后session不可重用，不产生额外proof请求。|
+|F117.4|独立原bank/正常路径与冻结回归|WP01,WP03,WP05,WP10|LOCAL_SCOPE_VERIFIED|使用服务本地固定原合约runtime和captured storage构造真实MPT/自哈希合成header，直接调用正常Adapter.ReadState并导出范围证据；固定原bank/native/normal service/契约/vet/构建回归通过。|
+
+本轮只证明Pair/Factory承诺与getter一致。原Token balanceOf的代码/layout/执行证明尚未接入，header仍为RPC锚定承诺而非独立共识checkpoint；测试自哈希header和MPT明确为合成构造，原runtime/storage来源为既有固定原合约bank，不能称公开历史bank。完整bank/可信执行来源/生产VERIFIED及其余P0退出标准仍未完成，继续推进。
+
+阶段117首轮冻结`e89a20b360fb49fcbe43e1461861ff27`在Go全EVM包默认600秒整包alarm中止，未出现断言失败，新增Pair/Factory成功及16种错误/预算/取消子场景均实际通过。原包还包含大量固定原合约bank逐项回归，后续runner显式给整包20分钟收集时限；单次RPC与取消/预算测试deadline、断言保持原值。该FAILED报告保留，重跑全部门禁后才确认本轮。
+
+阶段117最终限定验收：8门禁全部exit0，488次Go race测试通过（EVM全包185、普通native服务6、domain/config/reducer297），17项进度检查、格式/契约/vet及当前Go二进制构建通过；运行目录`c9b96344b2a14534a3452931d5ad467c`。源码和901份固定输入冻结前后相同；正常Adapter.ReadState导出实际两份证明请求、Pool bank与返回block hash一致的证据，16类getter/承诺slot/代码/账户/缺proof/预算/取消控制均实际通过。首轮默认10分钟整包超时记录保留，显式20分钟整包门禁未修改单次RPC或取消测试deadline。Token原balanceOf状态证明/可信共识头/生产VERIFIED仍未完成，下一轮继续P0-1的Token只读余额证明。

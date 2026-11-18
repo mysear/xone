@@ -2025,3 +2025,11 @@ GET .../checkpoint-retention/status是只读最后操作/累计计数观察。mu
 正常周期worker在同一publication gate和总timeout内，先检查/恢复原pending冻结集合；未完成不归档，完成后本周期不再选择新集合。若无pending且公开cache准入因准确容量超限失败，最多调用一次AutoReclaim并重新准入一次；空eligible不创建journal，未知目录/读取预算等失败不触发删除。普通`POST /internal/checkpoints`保持显式手动回收要求。回收继续先核验配置store原远端备份、当前ref/cursor/candidates/最新保留与耐久journal，线上owner状态不变。
 
 checkpoint status及Prometheus增加自动尝试/失败/完成/空计划计数，checkpoint.reclaimed日志带automatic=true；不另开清理worker或HTTP自调用。`make -C integration checkpoint-auto-reclaim-current-check`验证正常周期达到配额后一个批次恢复发布、无eligible无忙循环、pending恢复与下一新选择分周期、远端不可用/恢复、关闭取消及手动发布语义，并回归真实进程崩溃、双owner预览及实际Kafka独立router恢复。范围仍为测试生成本地对象与单机loopback服务。
+
+### v2-complete native Pair/Factory状态承诺（阶段117）
+
+在known-evm-native-commitments-v2模式下，正常ReadState读完v2-complete后强制读取Pair/Factory的EIP-1186证明，原native session共享请求/响应/证明/输出预算及context。复核receipt/state authority后按当前blockHash/requireCanonical取proof，将原runtime SHA256与MPT account Keccak双绑定；Pair slot5/6/7的Factory/token0/token1、slot8储备/最后时间、slot9/a累计价、slotc锁，与读取的Pool逐项比较；Factory原slot2嵌套getPair映射两方向均证明。Coreth逻辑slot沿用既有物理key转换，不另造proof解释器。
+
+任何不一致都拒绝整个pool batch并耗尽原session，不能再次尝试使用剩余预算；正常最终canonical/settling重验保持。legacy模式不伪称新资格。Token balanceOf仍缺对应代码/layout或完整执行证明，RPC header并非共识checkpoint，因此本轮不开放生产VERIFIED。
+
+`make -C integration v2-native-state-proof-current-check`冻结源码与输入，使用原合约bank/runtime/storage构造真实MPT和合成自哈希header，通过正常Adapter入口验证成功与篡改/缺proof/预算/取消反例，并运行EVM全包、原有正常native服务、wire/config/reducer、契约、vet和Go当前程序构建。合成header不宣称实际公链部署/共识资格。

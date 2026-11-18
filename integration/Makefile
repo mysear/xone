@@ -1161,3 +1161,7 @@ checkpoint-reclaim-current-check:
 .PHONY: checkpoint-auto-reclaim-current-check
 checkpoint-auto-reclaim-current-check:
 	python3 tools/acceptance/validate_checkpoint_auto_reclaim.py
+
+.PHONY: v2-native-state-proof-current-check
+v2-native-state-proof-current-check:
+	python3 tools/acceptance/validate_v2_native_state_proof.py

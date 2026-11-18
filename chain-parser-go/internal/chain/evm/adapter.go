@@ -313,6 +313,9 @@ func (a *Adapter) readState(ctx context.Context, tag string, completeBlock bool)
 			pool, e = stateReader.readV3(ctx, p, anchor)
 		} else if p.Protocol == domain.V2CompleteProtocol {
 			pool, e = stateReader.readV2Complete(ctx, p, anchor, ref)
+			if e == nil {
+				e = a.verifyNativeV2CompleteState(ctx, stateReader, b, pool)
+			}
 		} else {
 			pool, e = stateReader.readV2(ctx, p, anchor)
 		}
