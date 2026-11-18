@@ -108,18 +108,19 @@ type Routing struct {
 	TTL            uint64        `json:"quote_ttl_ms"`
 }
 type Simulation struct {
-	NativeValuation *NativeValuationConfig `json:"native_valuation,omitempty"`
-	Backend         string                 `json:"backend"`
-	RPCURL          string                 `json:"rpc_url"`
-	MaxGas          uint64                 `json:"max_gas"`
-	MaxReads        uint64                 `json:"max_state_reads"`
-	TimeoutMS       uint64                 `json:"timeout_ms"`
-	AllowedTargets  []string               `json:"allowed_targets"`
-	StateFile       string                 `json:"state_file,omitempty"`
-	MaxStateBytes   uint64                 `json:"max_state_bytes,omitempty"`
-	MaxInstructions uint64                 `json:"max_instructions,omitempty"`
-	MaxMemoryBytes  uint64                 `json:"max_memory_bytes,omitempty"`
-	Concurrency     uint64                 `json:"concurrency,omitempty"`
+	CandidateCostMaxPlans uint64                 `json:"candidate_cost_max_plans,omitempty"`
+	NativeValuation       *NativeValuationConfig `json:"native_valuation,omitempty"`
+	Backend               string                 `json:"backend"`
+	RPCURL                string                 `json:"rpc_url"`
+	MaxGas                uint64                 `json:"max_gas"`
+	MaxReads              uint64                 `json:"max_state_reads"`
+	TimeoutMS             uint64                 `json:"timeout_ms"`
+	AllowedTargets        []string               `json:"allowed_targets"`
+	StateFile             string                 `json:"state_file,omitempty"`
+	MaxStateBytes         uint64                 `json:"max_state_bytes,omitempty"`
+	MaxInstructions       uint64                 `json:"max_instructions,omitempty"`
+	MaxMemoryBytes        uint64                 `json:"max_memory_bytes,omitempty"`
+	Concurrency           uint64                 `json:"concurrency,omitempty"`
 }
 type V3PoolConfig struct {
 	ExpectedImplementation           string `json:"expected_implementation,omitempty"`
@@ -557,6 +558,9 @@ func (c Config) Validate(expected string) error {
 		return invalid()
 	}
 	sim := c.Simulation
+	if sim.CandidateCostMaxPlans > 0 && (expected != "dex-router" || sim.Backend != "revm-fixture" || sim.NativeValuation == nil || sim.CandidateCostMaxPlans > 16 || c.Routing.MaxSplits != 1) {
+		return invalid()
+	}
 	if sim.NativeValuation != nil && (expected != "dex-router" || sim.Backend != "revm-fixture" || !sim.NativeValuation.valid(c.Chains)) {
 		return invalid()
 	}

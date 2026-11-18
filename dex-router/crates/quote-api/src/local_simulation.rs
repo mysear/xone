@@ -320,6 +320,30 @@ impl LocalSimulation {
         })))
     }
 
+    pub(crate) fn candidate_binding(
+        &self,
+        config: &ConfigSnapshot,
+        cached: &Selection,
+    ) -> Result<String> {
+        let allowed = &config.config.simulation.allowed_targets;
+        match cached {
+            Selection::ExactIn(c) => Ok(xone_execution_plan::bind_v2_execution(
+                &c.plan,
+                &c.view.pools,
+                &self.bundle.executor,
+                allowed,
+            )?
+            .binding_hash),
+            Selection::ExactOut(c) => Ok(xone_execution_plan::bind_v2_exact_out_execution(
+                &c.plan,
+                &c.view.pools,
+                &self.bundle.executor,
+                allowed,
+            )?
+            .binding_hash),
+        }
+    }
+
     pub(crate) fn has_op_source(&self) -> bool {
         self.bundle.op_attributes_calldata.is_some()
     }

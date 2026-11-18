@@ -25,10 +25,12 @@ async fn main() {
     let mut sell_amount = bound.plan.allocation.sell_amount;
     let mut buy_amount = bound.plan.allocation.gross_buy_amount;
     if let Ok(case_id) = std::env::var("XONE_EVM_PATH_CASE") {
-        let doc: Value = serde_json::from_str(include_str!(
-            "../../../test/contracts/v2-path-execution.json"
-        ))
-        .unwrap();
+        let raw = if let Ok(path) = std::env::var("XONE_CANDIDATE_COST_CORPUS") {
+            std::fs::read_to_string(path).unwrap()
+        } else {
+            include_str!("../../../test/contracts/v2-path-execution.json").into()
+        };
+        let doc: Value = serde_json::from_str(&raw).unwrap();
         let c = doc["cases"]
             .as_array()
             .unwrap()
@@ -194,6 +196,9 @@ async fn main() {
     if let Ok(path) = std::env::var("XONE_NATIVE_VALUATION_CONFIG") {
         config.config.simulation.native_valuation =
             Some(serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap());
+    }
+    if let Ok(max) = std::env::var("XONE_CANDIDATE_COST_MAX_PLANS") {
+        config.config.simulation.candidate_cost_max_plans = max.parse().unwrap();
     }
     config.config.api.quote_timeout_ms = 15000;
     config.config.routing.quote_ttl_ms = 60000;

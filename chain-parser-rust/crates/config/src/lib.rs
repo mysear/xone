@@ -117,6 +117,8 @@ config_struct!(Routing {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Simulation {
+    #[serde(default, skip_serializing_if = "simulation_zero_usize")]
+    pub candidate_cost_max_plans: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_valuation: Option<xone_domain::native_valuation::NativeValuationConfig>,
     pub backend: String,
@@ -895,6 +897,15 @@ impl Config {
             if self.api.quote_timeout_ms == 0 || !(1..=256).contains(&self.api.quote_concurrency) {
                 return Err(fail());
             }
+        }
+        if sim.candidate_cost_max_plans > 0
+            && (expected != "dex-router"
+                || sim.backend != "revm-fixture"
+                || sim.native_valuation.is_none()
+                || sim.candidate_cost_max_plans > 16
+                || r.max_splits != 1)
+        {
+            return Err(fail());
         }
         if let Some(valuation) = &sim.native_valuation {
             valuation.validate()?;

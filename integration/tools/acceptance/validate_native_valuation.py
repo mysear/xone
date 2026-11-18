@@ -16,14 +16,15 @@ def go_configs(directory):
     r=subprocess.run(['go','test','./internal/config','-count=1','-v'],cwd=ROOT/'chain-parser-go',env=env,capture_output=True,text=True,timeout=300)
     raw=r.stdout+r.stderr;(directory/'go.log').write_text(raw);print(raw,end='')
     require(r.returncode==0 and all('--- PASS: '+name+' ' in raw for name in ['TestOraclePolicyRejectsWrongChainsKeysQuorumsAndBackend','TestOracleAuthoritiesArePartOfPublicAndEconomicIdentity']),'Go oracle configuration gate failed')
-    doc=json.loads((directory/'vectors.json').read_bytes());require(len(doc['vectors'])==4,'Oracle config identity coverage changed')
-    (directory/'report.json').write_text(json.dumps(dict(passed=True,configs=4,artifacts={str(p.relative_to(directory)):digest(p) for p in directory.iterdir() if p.is_file()}),indent=2)+'\n')
+    doc=json.loads((directory/'vectors.json').read_bytes());require(len(doc['vectors'])==6,'Oracle config identity coverage changed')
+    (directory/'report.json').write_text(json.dumps(dict(passed=True,configs=6,artifacts={str(p.relative_to(directory)):digest(p) for p in directory.iterdir() if p.is_file()}),indent=2)+'\n')
 
 
-def main(*, output_base=None, extra_checks=(), extra_required=None, extra_report=None, verification_scope='CONFIGURED_ORACLE_QUORUM_SOURCE_BLOCK_TIME_BOUND_ATOMIC_CONVERSION_AND_EVALUATED_TRANSACTION_ECONOMICS_PLUS_FULL_KARST_HISTORICAL_REGRESSION_NOT_LIVE_MARKET_TRUSTED_BANK_ALL_CANDIDATE_NET_RANKING_OR_PRODUCTION'):
+def main(*, output_base=None, extra_checks=(), extra_required=None, extra_report=None, extra_artifacts=(), extra_references=None, verification_scope='CONFIGURED_ORACLE_QUORUM_SOURCE_BLOCK_TIME_BOUND_ATOMIC_CONVERSION_AND_EVALUATED_TRANSACTION_ECONOMICS_PLUS_FULL_KARST_HISTORICAL_REGRESSION_NOT_LIVE_MARKET_TRUSTED_BANK_ALL_CANDIDATE_NET_RANKING_OR_PRODUCTION'):
     output=output_base or ROOT/'integration/artifacts/local/native-valuation-check';directory=output/'original-runs'/uuid.uuid4().hex
     v=prepare(directory);refs={}
     prior=ROOT/'integration/artifacts/local/karst-api-check/runs/ecb91103ff6b4430ab10292f747e93b2/report.json';old=json.loads(prior.read_bytes());require(old['passed'] is True,'Completed normal Karst qualification required')
+    refs.update(extra_references or {})
     refs[str(prior.relative_to(ROOT))]=digest(prior)
     for n,h in old['reference_inputs'].items():
         if '/original-client/signer/' in n:
@@ -57,7 +58,7 @@ def main(*, output_base=None, extra_checks=(), extra_required=None, extra_report
             'signed_prices_cannot_cross_source_blocks_chains_time_or_expiry',
             'transaction_net_amounts_bind_token_units_round_up_and_never_clamp_or_double_charge',
         ],
-    },extra_artifacts=[str((p/'report.json').relative_to(ROOT)) for p in [configs,http,op]],extra_report=dict(extra_report or {},
+    },extra_artifacts=list(extra_artifacts)+[str((p/'report.json').relative_to(ROOT)) for p in [configs,http,op]],extra_report=dict(extra_report or {},
         authenticated_atomic_price_cost_arithmetic=True,configured_oracle_quorum_supported=True,
         price_reference_cases=42,priced_evm_http_executions=13,priced_signed_karst_http_executions=4,
         forged_oracle_startup_rejections=6,live_market_price_adapter_supported=False,

@@ -98,7 +98,7 @@ fn current_go_oracle_authority_config_and_public_economic_hashes_match() {
     let v: Value =
         serde_json::from_slice(&std::fs::read(directory.join("vectors.json")).unwrap()).unwrap();
     let rows = v["vectors"].as_array().unwrap();
-    assert_eq!(rows.len(), 4);
+    assert_eq!(rows.len(), 6);
     for row in rows {
         let name = row["file"].as_str().unwrap();
         assert!(
@@ -110,5 +110,38 @@ fn current_go_oracle_authority_config_and_public_economic_hashes_match() {
         let c = load(directory.join(name), "dex-router").unwrap();
         assert_eq!(c.public_hash, row["public_hash"].as_str().unwrap());
         assert_eq!(c.economic_hash, row["economic_hash"].as_str().unwrap());
+    }
+}
+
+#[test]
+fn candidate_execution_cost_config_is_opt_in_bounded_and_single_route_only() {
+    let mut v = priced();
+    assert!(v["simulation"].get("candidate_cost_max_plans").is_none());
+    v["routing"]["max_splits"] = 1.into();
+    v["simulation"]["candidate_cost_max_plans"] = 16.into();
+    serde_json::from_value::<Config>(v.clone())
+        .unwrap()
+        .validate("dex-router")
+        .unwrap();
+    for mode in ["limit", "backend", "valuation", "splits"] {
+        let mut bad = v.clone();
+        match mode {
+            "limit" => bad["simulation"]["candidate_cost_max_plans"] = 17.into(),
+            "backend" => bad["simulation"]["backend"] = "disabled".into(),
+            "valuation" => {
+                bad["simulation"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("native_valuation");
+            }
+            _ => bad["routing"]["max_splits"] = 2.into(),
+        }
+        assert!(
+            serde_json::from_value::<Config>(bad)
+                .unwrap()
+                .validate("dex-router")
+                .is_err(),
+            "{mode}"
+        );
     }
 }

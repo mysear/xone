@@ -58,7 +58,7 @@ func TestOracleAuthoritiesArePartOfPublicAndEconomicIdentity(t *testing.T) {
 	}
 	var vectors []map[string]any
 	seenPublic, seenEconomic := map[string]bool{}, map[string]bool{}
-	for i, mode := range []string{"absent", "configured", "rotated", "age"} {
+	for i, mode := range []string{"absent", "configured", "rotated", "age", "candidate-costs", "candidate-limit"} {
 		c := oracleConfig(t)
 		switch mode {
 		case "absent":
@@ -67,6 +67,12 @@ func TestOracleAuthoritiesArePartOfPublicAndEconomicIdentity(t *testing.T) {
 			c.Simulation.NativeValuation.Policies[0].Signers["a"] = strings.Repeat("44", 32)
 		case "age":
 			c.Simulation.NativeValuation.Policies[0].MaxAgeMS = 50000
+		case "candidate-costs":
+			c.Routing.MaxSplits = 1
+			c.Simulation.CandidateCostMaxPlans = 16
+		case "candidate-limit":
+			c.Routing.MaxSplits = 1
+			c.Simulation.CandidateCostMaxPlans = 1
 		}
 		name := "config-" + string(rune('0'+i)) + ".json"
 		raw, err := json.Marshal(c)
@@ -93,5 +99,26 @@ func TestOracleAuthoritiesArePartOfPublicAndEconomicIdentity(t *testing.T) {
 	}
 	if err = os.WriteFile(filepath.Join(directory, "vectors.json"), raw, 0600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCandidateExecutionCostsRequireOptInBoundedSingleRouteConfiguration(t *testing.T) {
+	for _, mode := range []string{"valid", "limit", "backend", "valuation", "splits"} {
+		c := oracleConfig(t)
+		c.Routing.MaxSplits = 1
+		c.Simulation.CandidateCostMaxPlans = 16
+		switch mode {
+		case "limit":
+			c.Simulation.CandidateCostMaxPlans = 17
+		case "backend":
+			c.Simulation.Backend = "disabled"
+		case "valuation":
+			c.Simulation.NativeValuation = nil
+		case "splits":
+			c.Routing.MaxSplits = 2
+		}
+		if (c.Validate("dex-router") == nil) != (mode == "valid") {
+			t.Fatal("candidate cost configuration", mode)
+		}
 	}
 }

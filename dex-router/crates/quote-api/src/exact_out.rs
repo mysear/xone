@@ -65,7 +65,7 @@ pub(super) struct ExactOutCached {
     pub(super) plan: ExactOutPlan,
     pub(super) response: Value,
     pub(super) expires: u64,
-    request_hash: String,
+    pub(super) request_hash: String,
     pub(super) simulation_evidence: Option<Value>,
     pub(super) evm_preparation: Option<evm_preparation::Prepared>,
 }
@@ -108,6 +108,8 @@ impl Api {
         let worker_view = view.clone();
         let req = request.clone();
         let deadline = started + timeout;
+        let mut cost_model = (self.config.config.simulation.candidate_cost_max_plans > 0)
+            .then(|| candidate_costs::Model::new(self, view.clone(), cancelled.clone(), deadline));
         let task = tokio::task::spawn_blocking(move || {
             let _permit = permit;
             let max_hops = req
@@ -145,30 +147,65 @@ impl Api {
                     funds: Some(funds),
                 },
             )?;
-            let optimized = xone_optimizer::exact_out::optimize(
-                &worker_view.pools,
-                &candidates.candidates,
-                &req.buy_amount,
-                &req.max_sell_amount,
-                xone_optimizer::OptimizationLimits {
-                    parts: routing.split_parts,
-                    max_splits: routing.max_splits,
-                    max_evaluations: routing.max_expansions,
-                },
-                funds,
-                Some((&cancelled, deadline)),
-            )?;
             let expires = now_ms()
                 .checked_add(routing.quote_ttl_ms)
                 .ok_or_else(|| err("TIMESTAMP_OVERFLOW"))?;
             let context = Context {
-                chain_key: req.chain_key,
-                caller: req.caller,
-                recipient: req.recipient,
-                sell_token: req.sell_token,
-                buy_token: req.buy_token,
+                chain_key: req.chain_key.clone(),
+                caller: req.caller.clone(),
+                recipient: req.recipient.clone(),
+                sell_token: req.sell_token.clone(),
+                buy_token: req.buy_token.clone(),
                 slippage_bps: req.slippage_bps,
                 deadline_ms: expires,
+            };
+            let (optimized, cost_ranking) = if let Some(mut model) = cost_model.take() {
+                let scored = xone_optimizer::exact_out::optimize_with_costs(
+                    &worker_view.pools,
+                    &candidates.candidates,
+                    &req.buy_amount,
+                    &req.max_sell_amount,
+                    xone_optimizer::OptimizationLimits {
+                        parts: routing.split_parts,
+                        max_splits: routing.max_splits,
+                        max_evaluations: routing.max_expansions,
+                    },
+                    xone_optimizer::OptimizationExecution {
+                        budget: Some((&cancelled, deadline)),
+                        funds: Some(funds),
+                    },
+                    &mut |allocation| {
+                        model.exact_out(plan::build(
+                            &context,
+                            allocation,
+                            &worker_view.reference,
+                            &policy,
+                        )?)
+                    },
+                )?;
+                let selected = plan::build(
+                    &context,
+                    &scored.optimization.allocation,
+                    &worker_view.reference,
+                    &policy,
+                )?;
+                let ranking = model.finish(&scored.ranking, &selected.plan_hash);
+                (scored.optimization, Some(ranking))
+            } else {
+                let optimized = xone_optimizer::exact_out::optimize(
+                    &worker_view.pools,
+                    &candidates.candidates,
+                    &req.buy_amount,
+                    &req.max_sell_amount,
+                    xone_optimizer::OptimizationLimits {
+                        parts: routing.split_parts,
+                        max_splits: routing.max_splits,
+                        max_evaluations: routing.max_expansions,
+                    },
+                    funds,
+                    Some((&cancelled, deadline)),
+                )?;
+                (optimized, None)
             };
             let commitment = plan::build(
                 &context,
@@ -176,9 +213,9 @@ impl Api {
                 &worker_view.reference,
                 &policy,
             )?;
-            Ok((commitment, candidates, optimized, expires))
+            Ok((commitment, candidates, optimized, expires, cost_ranking))
         });
-        let (plan, candidates, optimized, expires) =
+        let (plan, candidates, optimized, expires, cost_ranking) =
             tokio::time::timeout(deadline.saturating_duration_since(Instant::now()), task)
                 .await
                 .map_err(|_| err("BUDGET_EXHAUSTED"))?
@@ -238,7 +275,7 @@ impl Api {
                 .iter()
                 .flat_map(|r| r.edges.iter().map(|e| e.pool_id.as_str())),
         )?;
-        let response = json!({
+        let mut response = json!({
             "protocolViewIds":protocol_view_ids,
             "quoteId": quote_id, "requestHash": request_hash, "kind": "EXACT_OUT",
             "chainKey": request.chain_key, "snapshotRef": view.reference,
@@ -257,8 +294,22 @@ impl Api {
             "validity": {"expiresAtMs": expires, "canonicalEpoch": view.reference.canonical_epoch},
             "quality": quality
         });
+        if let Some(ranking) = cost_ranking {
+            if expires <= now_ms() {
+                return Err(err("QUOTE_EXPIRED"));
+            }
+            if ranking["simulationBudgetExhausted"] == true {
+                response["quality"]["budgetExhausted"] = true.into();
+            }
+            response["quality"]["costRanking"] = ranking;
+            response["quality"]["optimalityClaim"] = "LOCAL_EXECUTION_FEE_OBJECTIVE_WITHIN_EVALUATED_ORDERED_GRID_OR_UNIFORM_RAW_FALLBACK".into();
+        }
         {
             let mut cache = self.exact_out_cache.lock().map_err(|_| err("CACHE_LOCK"))?;
+            self.check_view(&view)?;
+            if expires <= now_ms() {
+                return Err(err("QUOTE_EXPIRED"));
+            }
             let capacity = (self.config.config.api.requests_per_minute as usize).clamp(16, 10000);
             if cache.len() >= capacity {
                 if let Some(key) = cache.keys().next().cloned() {

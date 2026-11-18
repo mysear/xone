@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|正常报价本地逐候选执行费用接线（阶段151，P0-3）|§13.1/13.3/13.5/14.2/14.4/15.3；WP02、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|显式启用单路线V2、逐候选BOUND/实际worker/父费用审计和授权换算、固定deadline|59门禁/215次Rust/78次Go、16报价/30原执行和4 OP未知费用回退及旧61 HTTP全部通过；完整净成本/真实价格继续|
 |逐完整候选费用评分内核（阶段150，P0-3）|§13.1/13.3/13.5；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|ExactIn/Out完整候选成本回调、有符号目标、缺成本统一回退与共享状态有界顺序网格|54门禁/208次Rust/77次Go、22优化器/2正常API回退及全部价格/VM/61 HTTP回归通过；正常API成本接线继续|
 |配置预言机授权与已执行交易费用换算（阶段149，P0-3）|§13.1/14.2/14.4/15.3；WP02、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|服务端批准签名者、源块/币种/时效绑定、原子整数换算及父费用审计后单笔金额|51门禁/184次Rust/77次Go、独立42向量、13 EVM/4 Karst及36 OP/8旧HTTP通过；真实市价/全候选净评分继续|
 |Karst正常本地签名API与完整原Router（阶段148，P0-3/P0-4）|§14.2/14.4/28.17；WP03、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|有界OP Mainnet Karst普通Call、BOUND/父费用源审计及正常build/实际签名simulate|39门禁/176次Rust、四原Router完整后状态、401公开执行/父审计与36 OP/8旧HTTP通过|
@@ -731,6 +732,7 @@
 |148|[Karst正常本地签名API与完整原Router](#plan-2026-11-19-karst-api)|LOCAL_SCOPE_VERIFIED|39门禁/176次Rust、36正常OP/8旧HTTP与完整原Router通过；[验证记录](integration/artifacts/local/karst-api-check/report.json)|
 |149|[配置预言机授权与已执行交易费用换算](#plan-2026-11-19-native-valuation)|LOCAL_SCOPE_VERIFIED|51门禁/184次Rust/77次Go及61正常HTTP通过；[验证记录](integration/artifacts/local/native-valuation-check/report.json)|
 |150|[逐完整候选费用评分内核](#plan-2026-11-19-candidate-costs)|LOCAL_SCOPE_VERIFIED|54门禁/208次Rust/77次Go、22优化器/2 API回退与61 HTTP通过；[验证记录](integration/artifacts/local/candidate-cost-check/report.json)|
+|151|[正常报价本地逐候选执行费用接线](#plan-2026-11-19-normal-candidate-costs)|LOCAL_SCOPE_VERIFIED|59门禁/215次Rust/78次Go、16报价/30原候选重放及4 OP回退，旧61 HTTP通过；[验证记录](integration/artifacts/local/normal-candidate-cost-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3397,7 +3399,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 |---|---|---|---|---|
 |P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
-|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；阶段149补服务端配置预言机签名授权、源块/币种/历史时效绑定和父源审计后的单笔原子单位换算/费后金额；阶段150完成逐完整候选费用评分组件及有符号目标/完整覆盖检查/统一毛额回退；正常API成本模型接线、可信bank、真实市场价格适配、全候选净评分及完整报价总费仍未完成|PARTIAL_LOCAL|
+|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；阶段149补服务端配置预言机签名授权、源块/币种/历史时效绑定和父源审计后的单笔原子单位换算/费后金额；阶段150完成逐完整候选费用评分组件及有符号目标/完整覆盖检查/统一毛额回退，阶段151接通显式启用的单路线V2正常报价、逐候选实际worker/父费用核验/授权换算和固定计划deadline；其他执行/成本模型、可信bank、真实市场价格适配、完整全候选净评分及报价总费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
 |P1-1|G03限定交易；WP14,WP15,WP20|先补单池/简单路径的calldata、授权、wrap、recipient、期限/退款、签名发送和耐久回执|报价→准备→独立仿真→用户签名→一次发送→回执收付款一致；先复用已有Solana链路，EVM独立补齐|PARTIAL_LOCAL|
 |P1-2|G06现有模型；WP11,WP13,WP14,WP16|已准入ExactOut先贯通最大输入、实际消耗、退款/费用和独立执行|数学输入目标与执行一致，拒绝不能保证的路径；复杂跨家族/共享拆单留P3-1|PARTIAL_LOCAL|
@@ -4166,3 +4168,44 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 该轮只完成可接服务执行/成本模型的算法组件；回调不认证价格或bank，测试费用明确合成。`normal_quote_cost_model_connected=false`与`all_candidate_net_cost_ranking_supported=false`保留，正常API继续毛额回退，不能把组件通过记作完整设计完成。下一轮按上面的实现建议接限定正常报价、逐候选实际执行/父费用核验与来源/时间/单位绑定，然后继续可靠真实价格来源、拆单执行成本及其余既定优先级；原26完整工作包验收仍0、生产VERIFIED关闭。
 
 阶段150独立复核：冻结源码`b5985eeb2589f9a824e25ae25afc23247e83c6d458f49ebeca58dabbbac3d389`、913固定输入、46运行pins、13683参考输入、12产物、54门禁日志摘要一致，484份嵌套原始文件及8旧HTTP simulation摘要重新核验；正常OP最长HTTP为1.361364秒，原15秒预算保持。[独立复核记录](integration/artifacts/local/candidate-cost-check/runs/b53bf6ef3d3e4ddb8a2e1d8a2f17bede/independent-audit.json)。
+
+
+<a id="plan-2026-11-19-normal-candidate-costs"></a>
+
+## 正常报价本地逐候选执行费用接线（2026-11-19，阶段151，P0-3）
+
+阶段150已提交并推送`512870a82dfe9a02b4eca71e9f8814c3cfc06376`，本地/远端HEAD一致。本轮按设计§13.1/13.3/13.5/14.2/14.4/15.3继续，把完整候选成本组件接入正常ExactIn/ExactOut报价。仍限既有三服务和同二进制worker，未改变生产VERIFIED准入，原26工作包完整验收仍0。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F151.1|可选有界配置、三语言互读与费用策略身份|WP02,WP13,WP18|LOCAL_SCOPE_VERIFIED|candidate_cost_max_plans默认0省略；限1..16、revm-fixture、授权价格/max_splits=1；六Go/Rust配置身份与拒绝、59门禁冻结通过。|
+|F151.2|正常ExactIn/Out逐候选真实执行与固定计划绑定|WP13,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|同view/source/caller/recipient及固定deadline/plan/binding，实际worker/父审计/授权价格；未知统一回退、错误/取消不吞为零；59门禁冻结通过。|
+|F151.3|正常HTTP与原合约逐calldata/Gas/收付对照及完整历史回归|WP03,WP13,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|16报价/30原候选执行、4未签名OP回退/后续签名执行和旧61 HTTP；59门禁/215次Rust/78次Go、独立摘要复核通过。|
+
+可选`simulation.candidate_cost_max_plans`进入public/economic配置身份，默认0保持旧序列化及毛额回退；非Router/无授权价格/非本地VM或多路拆单启用配置拒绝。正常报价创建一次Context/deadline，优化器每完整allocation生成独立plan及BOUND，随后实际worker执行并由父进程核验费用，授权价格按源块/执行时间换算。最终选中计划使用相同deadline，不在评分后续期。每候选成本都绑定本次实际输入/输出/费用，禁止把毛额最优交易的费用外推其他路线。
+
+本轮仅能计算`LOCAL_EVM_TRANSACTION_EXECUTION_FEES_ONLY`目标，不包含额外授权/资金交易和未知链专用费用。`quality.costRanking`披露局部目标、完整候选计数、仿真预算、逐候选实际证据与最终选中plan；`completeQuoteCostRanking=false`、顶层完整net/总费null和INDICATIVE保留。已授权换算可用但净目标为负或加费达257位时继续宽整数比较；缺价/过期/换算溢出/执行不匹配或超仿真计划数时，相同已评估集合统一毛额回退。worker协议/身份/繁忙/超时等错误直接失败，不计免费成本。未签名OP不启动候选worker，明确`OP_SIGNED_ENVELOPE_REQUIRED`，不构造假签名估算压缩wire费。
+
+异步执行桥接复用外层总期限/取消，10毫秒检查取消并drop现有执行future，由既有owned job持有独立permit直到子进程回收；不会在一笔候选结束时误取消后续候选。发布前重新检查view/过期，缓存和内部evidence保存同一费用评分与最终plan。单笔额外simulate可核对评分时绑定/calldata/outcome不变。
+
+预检以原未修改Router02/Factory/Pair/Token构造直达与两跳竞争，同一银行下两跳毛额较优且Gas较高；固定测试签名者与明确合成价格让实际费用改变最优路线。16正常报价覆盖ExactIn/Out、Legacy/type2、额度1、过期/未来/缺价/负目标/换算溢出；30实际候选分别由独立Ganache执行精确HTTP calldata，逐Gas/Token收付/分离付款人净扣一致。独立重放保留两侧header，显式effective gasPrice相同；不宣称Ganache重放baseFee/区块hash与产品执行环境相同，原Router零value且不读BASEFEE。完整费用账户、alias及历史/现代OP继续由已有独立原参考覆盖。
+
+预检报告`integration/artifacts/local/candidate-normal-cost-precheck-20261119-a/report.json`通过，报价1.378..3.058秒（原15秒预算不变）；最终资格必须来自随后同一源码完整冻结，预检不替代正式门禁。工具：[validate_normal_candidate_costs.py](integration/tools/acceptance/validate_normal_candidate_costs.py)、[candidate_cost_http.py](integration/tools/acceptance/candidate_cost_http.py)、[原竞争路径生成器](integration/tools/ci/candidate-cost-execution-reference.cjs)、[原calldata重放](integration/tools/ci/candidate-cost-original-replay.cjs)。原输入和生成产物本地保留，不强制提交ignored数据。
+
+真实市场价格来源适配、拆单执行绑定/完整成本、可信bank/区块派生/共识和其余既定优先级仍未完成。仅有GitHub origin而无GitLab远端，本轮通过后commit/push实际origin；不冒称GitLab。没有阻断全部可开发工作的真实外部阻塞，继续按优先级推进。
+
+
+阶段151首份限定验收（行尾空格修正前源码）：冻结运行`e5c5ebeb7c174000b7199fcad9039f9b`的59门禁全部exit0、215次Rust与78次Go通过，无FAILED/CANCELLED冻结。16正常报价覆盖ExactIn/Out、Legacy/type2、费用改变路线选择、全部负目标、过期/未来/缺价/换算溢出与额度1；30候选实际worker及30独立Ganache原Router同calldata逐Gas/Token收付/分离付款人净扣一致。缓存重用/内部evidence/最终额外simulate保持同deadline/plan/binding/calldata/outcome，客户端成本覆盖拒绝；三个绑定/宽整数/取消桥接测试、两侧新增配置限制及六Go/Rust身份互读通过。
+
+额外四Karst正常报价在模型启用时明确未签名费用未知、零候选worker；当时正常build后的实际签名/worker/原完整引擎执行和24错误请求拒绝继续通过。旧13带价格EVM/4带价格Karst、36 OP签名HTTP与8 Shanghai HTTP全部保留，共原61正常HTTP不减；原448 BOUND/父费用源核验、现代9452组件及全部历史Gas/签名/费用/原生余额回归保持。优化器、公共crate、仿真/API全目标严格Clippy及正常router/harness构建通过。
+
+独立复核：源码`033d71fac1be05af23e8240a69c7170cd0b59047d2b58909165f7ddc58051592`、913固定输入、46运行pins、13827参考输入、14产物和59日志摘要一致，694份嵌套原始文件及8旧HTTP simulation摘要重新核验；16正常成本报价最长2.894542秒，旧OP最长1.516594秒，原15秒预算不变。[独立复核记录](integration/artifacts/local/normal-candidate-cost-check/runs/e5c5ebeb7c174000b7199fcad9039f9b/independent-audit.json)。确认无总控、worker或harness残留。验收期间仅清理可重建Go编译缓存以回收磁盘，未删除原参考、测试二进制或报告，冻结源码/输入摘要未变。
+
+本轮`normal_quote_cost_model_connected=true`仅指上述可选本地单路线V2目标；`complete_quote_cost_ranking_supported=false`、`all_candidate_net_cost_ranking_supported=false`与`live_market_price_adapter_supported=false`保留。证据有单worker输出1MiB及每请求最多16计划的局部上界；租户/缓存总字节配额仍属P1-4/P2-2后续范围，不据此宣称生产内存容量通过。原26完整工作包验收仍0、生产VERIFIED关闭。
+
+下一轮继续P0-3：补可靠真实市场价格来源适配，固定具体feed/版本、币种原子精度、同源块和时效，保留原始返回及授权边界，不能把固定测试比率或多数签名本身当成市场真实性。原价格授权和本轮执行接线复用；缺乏可信来源继续披露原币费用/统一毛额回退。随后接拆单完整执行绑定/成本和其他既定优先级；正常costs与局部评分披露也须同源一致。完整来源/生产资格不足逐项记录，继续其余可本地开发功能；本轮最终文档检查后commit/push实际GitHub origin，再进入下一项，不因本地范围通过停止目标。
+
+
+阶段151提交前补查：第一份冻结运行与独立复核已通过，但`git diff --cached --check`发现新验收脚本第32行存在一个行尾空格（此前工作区diff不覆盖未跟踪新文件）。确认总控/worker/harness全部退出后仅移除该空格；不改功能、断言或预算。第一份LOCAL_SCOPE_VERIFIED报告及其`033d71…`源码摘要保留，仅证明修正前字节。当前任务暂回IN_PROGRESS，重新运行完整59门禁，最终提交资格以第二份冻结及独立复核为准，不能用行为未变替代精确源码一致性。
+
+阶段151最终提交资格：移除单个行尾空格后的完整冻结运行`6f0c325abe344e6c87713c5789fefef0`再次59门禁全部exit0、215次Rust/78次Go通过；本轮16报价/30候选worker/30原Router重放、额外4 OP未知费用回退与原61正常HTTP完整保留。源码`12173ec4f6ca6b61e0f433eeffc7b4990ad2fdfbc3cb9c1c1efe2ea3a629e307`、913固定输入、46运行pins、13827参考输入、14产物和59日志摘要均独立重算一致，694份嵌套原始文件及8旧HTTP simulation摘要通过。[本次独立复核](integration/artifacts/local/normal-candidate-cost-check/runs/6f0c325abe344e6c87713c5789fefef0/independent-audit.json)。最长候选报价3.017708秒、原OP HTTP 1.439458秒，原15秒预算保持。第一份报告仅保留其原字节资格；本轮状态恢复LOCAL_SCOPE_VERIFIED，完整设计/生产资格边界不变。总控、worker和harness均已退出，提交前同时检查暂存区与工作区空白，最终文档普通/优化检查后commit/push实际origin，再进入下一项。

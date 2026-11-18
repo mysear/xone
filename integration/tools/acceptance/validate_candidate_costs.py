@@ -4,13 +4,13 @@ from karst_api_vectors import ROOT
 from validate_native_valuation import main as validate
 
 
-def main():
+def main(*, output_base=None, extra_checks=(), extra_required=None, extra_report=None, extra_artifacts=(), extra_references=None, verification_scope=None):
     cargo=['cargo','+1.90.0'];manifest=['--locked','--manifest-path','dex-router/Cargo.toml']
-    validate(output_base=ROOT/'integration/artifacts/local/candidate-cost-check',extra_checks=[
+    validate(output_base=output_base or ROOT/'integration/artifacts/local/candidate-cost-check',extra_checks=[
         ('candidate-cost-optimizer',cargo+['test']+manifest+['-p','xone-optimizer','--test','candidate_costs','--test','grid_oracle','--test','split','--test','exact_out']),
         ('candidate-cost-normal-api-fallback',cargo+['test']+manifest+['-p','xone-quote-api','--test','cost_fallback']),
         ('candidate-cost-optimizer-lint',cargo+['clippy']+manifest+['-p','xone-optimizer','--all-targets','--','-D','warnings']),
-    ],extra_required={
+    ]+list(extra_checks),extra_required={**(extra_required or {}),
         'candidate-cost-optimizer':[
             'candidate_costs_match_independent_ordered_integer_grid_including_shared_state',
             'negative_candidate_scores_are_not_clamped_or_ranked_by_gross_output',
@@ -28,13 +28,13 @@ def main():
             'unavailable_cost_exact_in_ignores_unvalued_penalty_and_matches_independent_grid',
             'unavailable_cost_fallback_preserves_user_constraints_and_budget_exhaustion',
         ],
-    },extra_report=dict(optimizer_whole_candidate_cost_callback_supported=True,
+    },extra_artifacts=extra_artifacts,extra_references=extra_references,extra_report=dict(optimizer_whole_candidate_cost_callback_supported=True,
         optimizer_cost_callback_confers_price_or_bank_authority=False,
         optimizer_signed_negative_objectives_supported=True,
         optimizer_incomplete_costs_uniform_raw_fallback=True,
         optimizer_nonadditive_costs_use_ordered_enumeration=True,
-        normal_quote_cost_model_connected=False),
-        verification_scope='BOUNDED_OPTIMIZER_WHOLE_CANDIDATE_COST_CALLBACK_ORDERED_GRID_UNIFORM_FALLBACK_SIGNED_OBJECTIVES_PLUS_FULL_NATIVE_VALUATION_AND_KARST_REGRESSION_NOT_NORMAL_QUOTE_NET_RANKING_LIVE_PRICE_TRUSTED_BANK_OR_PRODUCTION')
+        **{'normal_quote_cost_model_connected':False,**(extra_report or {})}),
+        verification_scope=verification_scope or 'BOUNDED_OPTIMIZER_WHOLE_CANDIDATE_COST_CALLBACK_ORDERED_GRID_UNIFORM_FALLBACK_SIGNED_OBJECTIVES_PLUS_FULL_NATIVE_VALUATION_AND_KARST_REGRESSION_NOT_NORMAL_QUOTE_NET_RANKING_LIVE_PRICE_TRUSTED_BANK_OR_PRODUCTION')
 
 
 if __name__=='__main__':main()

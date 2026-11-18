@@ -2287,3 +2287,14 @@ Karst的0x1e CLZ在instruction table的inspector包装之前注册，执行Gas 5
 每个完整可行候选都在次数/时间预算内评分；部分seed不计完整交易成本，任意方案成本入口关闭只适用于可加目标的独立池DP。任一完整候选缺成本时，返回相同已评估集合的毛额最优，`cost_adjustment_applied=false`；模型错误和uint256成本溢出直接失败。ExactIn比较输出减成本的有符号整数，负数不截零；ExactOut比较所需输入加成本的完整宽度整数。`ranking.signed_objective_token_units`表示该经济目标，`selected_cost_token_units`另列，allocation中的旧net字段不代表本入口的费用后目标。
 
 `grid_exhaustive`仅涉及传入候选、有序整数网格、max_splits和每候选最多一次；预算截断明确披露。结果不证明网格间/范围外最优，也不授予真实成本或生产资格。阶段150只补算法组件，正常报价在执行/成本模型接线前继续原毛额回退。
+
+
+### 正常报价本地候选执行费用（阶段151）
+
+可选配置`simulation.candidate_cost_max_plans: 1..16`用于正常ExactIn/ExactOut的受限本地逐完整候选执行；默认0省略序列化。仅Router/revm-fixture、已配置native_valuation且routing.max_splits=1可启用，避免把当前V2单路线BOUND外推为拆单交易。三语言配置验证与public/economic身份同步。
+
+每候选保留独立plan/binding/calldata、源view及固定deadline，通过现有实际worker、父费用源核验与授权价格取得buy/sell Token原子费用，再交逐候选优化器比较。评分后最终Context不续期；额外simulate和内部evidence保持同计划。独立仿真permit、每请求计划数/总期限、取消及子进程回收约束同时生效。
+
+`quality.costRanking.scope=LOCAL_EVM_TRANSACTION_EXECUTION_FEES_ONLY`，`costAdjustmentApplied`仅指该局部目标。`optimizer`包含有限已评估完整候选计数及宽整数经济目标，`simulationAttempts/maxSimulationPlans/simulationBudgetExhausted`说明实际执行预算，`unavailableReasons`说明统一毛额回退，`candidateExecutions`和`selectedExecution`绑定各自planHash。达到计划数不会把剩余候选成本当零；worker协议/身份/繁忙/超时错误直接失败。未签名OP在评分前保持未知，`OP_SIGNED_ENVELOPE_REQUIRED`不执行候选，也不猜测完整压缩wire费用。
+
+额外授权/资金操作、通用链额外费、可信bank和真实市价仍未具备；`completeQuoteCostRanking=false`、`productionVerified=false`，正常报价继续INDICATIVE，顶层完整net/总费保持null。此处的配置签名价格没有独立来源/市场正确性或bank共识证明，验收只用固定测试签名者和合成比率；不应把局部费用目标作为完整报价净额。

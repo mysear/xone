@@ -55,7 +55,7 @@ def write(path, value):
     path.write_text(json.dumps(value, indent=2) + '\n')
 
 
-def run(binary, sources, runners, output, maximum_groups=None, *, scoped_karst=False, valuation_configs=None):
+def run(binary, sources, runners, output, maximum_groups=None, *, scoped_karst=False, valuation_configs=None, candidate_cost_max_plans=None):
     binary = Path(binary).resolve(strict=True)
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -84,6 +84,9 @@ def run(binary, sources, runners, output, maximum_groups=None, *, scoped_karst=F
             write(source_path, modes['in']['request'])
             env = {k: v for k, v in os.environ.items() if not k.startswith('XONE_EVM_') and k != 'XONE_OP_API_SOURCE'}
             env.pop('XONE_NATIVE_VALUATION_CONFIG',None)
+            env.pop('XONE_CANDIDATE_COST_MAX_PLANS',None)
+            env.pop('XONE_CANDIDATE_COST_CORPUS',None)
+            if candidate_cost_max_plans is not None:env['XONE_CANDIDATE_COST_MAX_PLANS']=str(candidate_cost_max_plans)
             if valuation_configs is not None: env['XONE_NATIVE_VALUATION_CONFIG']=str(Path(valuation_configs[prefix]).resolve())
             env['XONE_OP_API_SOURCE'] = str(source_path)
             info_path = group / 'info.json'
