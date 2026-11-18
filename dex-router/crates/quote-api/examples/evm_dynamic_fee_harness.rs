@@ -92,7 +92,13 @@ async fn main() {
         executor: rpc.executor.clone(),
         fixture,
         transaction_context: TransactionContext {
-            max_priority_fee_per_gas: Some("1".parse().unwrap()),
+            max_priority_fee_per_gas: if std::env::var("XONE_EVM_LEGACY_FEE").ok().as_deref()
+                == Some("1")
+            {
+                None
+            } else {
+                Some("1".parse().unwrap())
+            },
             ..original_tx
         },
     };

@@ -501,6 +501,7 @@ fn diagnostic_response(
         .transaction_context
         .max_priority_fee_per_gas
         .is_some()
+        || outcome.get("native_fees").is_some_and(|v| !v.is_null())
     {
         let native: NativeFeeMeasurements = serde_json::from_value(outcome["native_fees"].clone())
             .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"))?;
@@ -548,8 +549,6 @@ fn diagnostic_response(
             .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_balances"))?;
         balance_reconciliation = json!({"status":"MATCHED","scope":"ZERO_VALUE_BOUND_ERC20_TRANSACTION",
             "caller":commitment.transaction.from,"coinbase":commitment.execution_coinbase,"sameAccount":same});
-    } else if outcome.get("native_fees").is_some_and(|v| !v.is_null()) {
-        return Err(Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"));
     }
     let costs = json!({
         "schemaVersion":1,"modelVersion":xone_execution_preparation::evm_native_cost::VERSION,
@@ -1134,6 +1133,112 @@ mod tests {
                     result["costs"]["priorityReturnedToPayerNative"],
                     if same { tip.to_string() } else { "0".into() }
                 );
+                for field in [
+                    "caller_before",
+                    "caller_after",
+                    "coinbase_before",
+                    "coinbase_after",
+                ] {
+                    let mut changed = value.clone();
+                    let n: u64 = changed["native_fees"][field]
+                        .as_str()
+                        .unwrap()
+                        .parse()
+                        .unwrap();
+                    changed["native_fees"][field] = (n + 1).to_string().into();
+                    assert!(
+                        diagnostic_response(changed, &commitment, "bundle", "worker").is_err(),
+                        "{field} same={same}"
+                    );
+                }
+                for fields in [
+                    ["caller_before", "caller_after"],
+                    ["coinbase_before", "coinbase_after"],
+                ] {
+                    let mut changed = value.clone();
+                    for field in fields {
+                        let n: u64 = changed["native_fees"][field]
+                            .as_str()
+                            .unwrap()
+                            .parse()
+                            .unwrap();
+                        changed["native_fees"][field] = (n + 1).to_string().into();
+                    }
+                    assert!(
+                        diagnostic_response(changed, &commitment, "bundle", "worker").is_err(),
+                        "shifted balances must still bind to original input"
+                    );
+                }
+                let before_commitment = commitment.caller_native_before.take();
+                assert!(
+                    diagnostic_response(value.clone(), &commitment, "bundle", "worker").is_err()
+                );
+                commitment.caller_native_before = before_commitment;
+                commitment.transaction.value = "1".parse().unwrap();
+                assert!(diagnostic_response(value, &commitment, "bundle", "worker").is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn legacy_fee_balance_reconciliation_binds_source_and_rejects_shifted_or_forged_native_cost() {
+        for same in [false, true] {
+            for base in ["0", "1"] {
+                let mut commitment = diagnostic_commitment("10");
+                commitment.transaction_context.gas_limit = 100000;
+                commitment.execution_base_fee = base.parse().unwrap();
+                commitment.transaction_context.max_priority_fee_per_gas = None;
+                if same {
+                    commitment.execution_coinbase = commitment.transaction.from.clone();
+                }
+                let base: u64 = base.parse().unwrap();
+                let before = 1_000_000u64;
+                let fee = 21_000 * 10;
+                let burn = 21_000 * base;
+                let tip = 21_000 * (10 - base);
+                let (payer_after, coinbase_before, coinbase_after) = if same {
+                    (before - burn, before, before - burn)
+                } else {
+                    (before - fee, 17, 17 + tip)
+                };
+                commitment.caller_native_before = Some(before.to_string().parse().unwrap());
+                commitment.coinbase_native_before =
+                    Some(coinbase_before.to_string().parse().unwrap());
+                let mut value = outcome("SUCCESS", true);
+                value["native_fees"] = json!({"caller_before":before.to_string(),"caller_after":payer_after.to_string(),"coinbase_before":coinbase_before.to_string(),"coinbase_after":coinbase_after.to_string(),"effective_gas_price":"10","execution_fee":fee.to_string(),"base_fee_burned":burn.to_string(),"priority_fee_paid":tip.to_string()});
+                let result =
+                    diagnostic_response(value.clone(), &commitment, "bundle", "worker").unwrap();
+                assert_eq!(
+                    result["costs"]["balanceReconciliation"]["status"],
+                    "MATCHED"
+                );
+                assert_eq!(
+                    result["costs"]["balanceReconciliation"]["sameAccount"],
+                    same
+                );
+                assert_eq!(result["executionCoinbase"], commitment.execution_coinbase);
+                assert_eq!(result["costs"]["nativeUnit"], "EVM_NATIVE_ATOMS");
+                assert_eq!(
+                    result["costs"]["payerNetNativeDebit"],
+                    (before - payer_after).to_string()
+                );
+                assert_eq!(
+                    result["costs"]["priorityReturnedToPayerNative"],
+                    if same { tip.to_string() } else { "0".into() }
+                );
+                for field in [
+                    "effective_gas_price",
+                    "execution_fee",
+                    "base_fee_burned",
+                    "priority_fee_paid",
+                ] {
+                    let mut changed = value.clone();
+                    changed["native_fees"][field] = "1".into();
+                    assert!(
+                        diagnostic_response(changed, &commitment, "bundle", "worker").is_err(),
+                        "{field}"
+                    );
+                }
                 for field in [
                     "caller_before",
                     "caller_after",

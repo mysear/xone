@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|EVM Legacy原生费用来源与净扣款（阶段133，P0-3）|§13.1/14/15.3；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|正常worker补Legacy实际原生币余额测量，API共用源绑定/最大资金/alias守恒；旧无测量回执兼容|14门禁/148次Rust；16原Router bank、8次HTTP/56独立整数向量与源绑定守卫通过|
 |失败交易费用前端闭环（阶段132，P0-3）|§13.1/14/15.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|展示原失败回执费用、回滚及待核验状态，绑定实际交易并拒绝混合成功收付|9门禁/22前端单测/13浏览器检查；四真实签名回执、重载可见和桌面/手机截图复核通过|
 |Solana失败签名费用与回滚核验（阶段131，P0-3）|§13.1/14/15.3；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|读取原签名失败交易、核对实际网络费及观察到的原生币/Token回滚，独立结果不冒充成功成交净额|13门禁/52次Rust；3原程序失败/18故障/30审计篡改，八钱包和11成功交易回归通过|
 |Solana费用后经济净额前端闭环（阶段130，P0-3）|§13.1/14/15.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|当前SBF证据及耐久回执分别展示费用后金额、网络费和资本押金；不同交易/来源不展示净额|8门禁/18前端单测/16浏览器检查；5类正常HTTP/SBF/签名回执、重载实际可见及桌面/手机截图复核通过|
@@ -514,6 +515,7 @@
 |15.native-economics-view|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|已执行交易的原生同单位净额/费用/押金展示；普通币/负净额/旧回执兼容且不伪造FAST净排名|8门禁/16浏览器检查，五类回执实际可见、整数/身份及截图复核通过|[验证记录](integration/artifacts/local/native-economics-view-check/report.json)|
 |15.solana-failure-fees|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|失败签名交易原wire/slot/err与实际fee、原生币/Token回滚绑定并耐久保存|13门禁/3真实本地失败及独立余额审计通过；可信bank与完整费用估值仍缺|[验证记录](integration/artifacts/local/solana-failure-fee-check/report.json)|
 |15.failed-fee-view|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|失败费用与未核验/矛盾/旧回执独立展示；保留成功成交净额|9门禁/四实际场景/13浏览器检查及实际可见截图复核通过|[验证记录](integration/artifacts/local/failed-fee-view-check/report.json)|
+|15.evm-legacy-native-fees|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|Legacy原生费测量与付款人净扣款，旧缺测量保留未知|14门禁/16原bank/8次HTTP和56独立向量通过；完整链费与价格换算仍缺|[验证记录](integration/artifacts/local/evm-legacy-native-fee-check/report.json)|
 |13.cost-unavailable-ranking|WP13,WP16,WP18|LOCAL_SCOPE_VERIFIED|无可信成本及估值时不以route_activation_cost改变报价排序，明确raw目标、费用缺失/未扣及原搜索约束|16门禁/176次Rust、三池与原ExactOut grid/约束预算/四HTTP通过|[验证记录](integration/artifacts/local/cost-unavailable-ranking-check/report.json)|
 |13.evm-native-payer-cost|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|按原bank余额校验最大gas资金准入，费用gross与payer实际net分列，alias自付tip返回|14门禁/146次Rust、56向量/四HTTP通过；完整成本与净排序仍缺|[验证记录](integration/artifacts/local/evm-native-payer-cost-check/report.json)|
 |13.evm-native-fee-balance-audit|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|绝对before绑定原bank输入，fee与实际native debit/beneficiary credit守恒；caller=coinbase净扣burn不重复tip，未知数据/资金操作拒绝|14门禁/同state/修改/平移/alias及四次actual HTTP通过；生产资格与完整成本仍缺|[验证记录](integration/artifacts/local/evm-native-balance-audit-check/report.json)|
@@ -694,6 +696,7 @@
 |130|[Solana费用后经济净额前端闭环](#plan-2026-11-18-native-economics-view)|LOCAL_SCOPE_VERIFIED|签名区/回执区分离；8门禁/16浏览器检查及实际可见截图复核通过；[验证记录](integration/artifacts/local/native-economics-view-check/report.json)|
 |131|[Solana失败签名费用与回滚核验](#plan-2026-11-18-solana-failure-fees)|LOCAL_SCOPE_VERIFIED|13门禁/3原程序失败/18故障/30独立审计篡改、成功交易回归通过；[验证记录](integration/artifacts/local/solana-failure-fee-check/report.json)|
 |132|[失败交易费用前端闭环](#plan-2026-11-18-failed-fee-view)|LOCAL_SCOPE_VERIFIED|9门禁/22前端单测/13实际浏览器检查及截图复核通过；[验证记录](integration/artifacts/local/failed-fee-view-check/report.json)|
+|133|[EVM Legacy原生费用来源与净扣款](#plan-2026-11-18-evm-legacy-native-fees)|LOCAL_SCOPE_VERIFIED|14门禁/148次Rust、8次HTTP和56独立整数向量通过；[验证记录](integration/artifacts/local/evm-legacy-native-fee-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3360,7 +3363,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 |---|---|---|---|---|
 |P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
-|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–132补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环；通用可信估值、净评分及完整链费仍未完成|PARTIAL_LOCAL|
+|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–133补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款；通用可信估值、净评分及完整链费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
 |P1-1|G03限定交易；WP14,WP15,WP20|先补单池/简单路径的calldata、授权、wrap、recipient、期限/退款、签名发送和耐久回执|报价→准备→独立仿真→用户签名→一次发送→回执收付款一致；先复用已有Solana链路，EVM独立补齐|PARTIAL_LOCAL|
 |P1-2|G06现有模型；WP11,WP13,WP14,WP16|已准入ExactOut先贯通最大输入、实际消耗、退款/费用和独立执行|数学输入目标与执行一致，拒绝不能保证的路径；复杂跨家族/共享拆单留P3-1|PARTIAL_LOCAL|
@@ -3670,3 +3673,18 @@ processed或meta缺失保持RECEIPT_PENDING；confirmed已核对费用也不提�
 正常HTTP/独立原SBF预演成功后，受控本地钱包签名，send时才注入冻结账户使真实原程序回退；不伪造报价或回执。测试控制扩展只作用明确本地harness，可同时设置受控wallet banks，正常服务入口不增加测试模式。成功/失败金额不混用，不将RPC观察升级为历史bank或生产VERIFIED；通用价格来源/净路由和其余设计优先级继续。
 
 阶段132最终限定验收：运行目录`69616c6ba1e947a7b83b1c0924f4056d`，9门禁全部exit0，22前端单测与13正常浏览器检查通过。普通Token、原SOL创建ATA、临时WSOL三次真实签名原程序回退，页面显示RPC网络费5000、payer差额-5000、已报告余额回滚和留存租金0；成功对照仍显示实际10971/费用后5971。四类正常HTTP/独立原SBF/实际签名回执、重载默认EVM后回执与刷新按钮真实可见且发送次数不增，手机无横向溢出。人工复核正常成功执行、原SOL失败重载和手机原图，确认没有将隐藏DOM文本当显示通过；原图与API结果摘要均绑定报告。独立Python检查失败费用整数守恒/交易绑定/资格及成功净额，普通/优化各17进度、harness严格Clippy与正常构建通过，源码/911固定输入/45运行pins及harness二进制前后一致。旧/未核验/矛盾回执不猜零，跨交易/错误来源/混合成功收付/u64精度守卫通过。该轮仅完成已执行失败费用的页面闭环，完整多链费用、可信Token估值/全候选净评分、可信bank/链规则及其余原26工作包继续；按既定P0-3推进剩余实现。
+
+<a id="plan-2026-11-18-evm-legacy-native-fees"></a>
+
+## EVM Legacy原生费用来源与净扣款（2026-11-18，阶段133，P0-3）
+
+设计§13.1/14.2/14.3/15.3要求实际费用来源、Gas口径与付款人余额守恒明确。阶段123–125已实现Legacy算术和最大资金准入，但正常worker只为EIP1559返回native_fees，Legacy的payerNetNativeDebit因此未知。本轮将同一原始执行前/后image的caller/coinbase余额测量扩展到Legacy，以实际gasPrice而非EIP1559 priority cap计算；共用base burn/priority分解、最大reserve、源before绑定和caller=coinbase净扣burn语义。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F133.1|Legacy原生测量与API源绑定|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|三price×两账户关系×成功/回退/HALT原型通过；源绑定/整体平移/伪造fee拒绝与16原合约bank通过。|
+|F133.2|正常HTTP/独立向量及原执行回归|WP01,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|Legacy和EIP1559各ExactIn/Out×分离/alias四HTTP、16原Router bank及56独立整数向量，14门禁冻结验证通过。|
+
+旧Legacy缺native_fees仍明确UNAVAILABLE/net debit null，不从公式伪造余额观测；已有EIP1559缺测量继续拒绝。新Legacy测量不允许通过整体平移before/after绕过源绑定，预留上限与实际fee分列，alias也必须具备最大预留资金。仅限定零value/提供本地Shanghai执行的原生费用，不授予完整链规则、L2/data费用、可信Token换算、全候选净路由或生产VERIFIED。
+
+阶段133最终限定验收：运行目录`7ce6512b07a248c093603bdd7b0ede46`，14门禁全部exit0、148次Rust，16原Router银行的Legacy/等价EIP1559原生测量与afterstate对照通过，18种price×alias×成功/回退/HALT控制组合及精确零/低于base fee边界通过；回退和HALT没有伪造Token成交。正常HTTP原worker共8次（Legacy和EIP1559各ExactIn/Out×分离/alias），实际gasPrice/有效动态价、burn/tip/gross charge与源before/实际after一致。56份独立Python整数向量（48有效8拒绝）、3审计守卫、普通/优化各17进度、准备回归、仿真/API全目标严格Clippy和正常router/harness构建通过。源before单独或整体平移、错误费用分解/原生value、缺源及最大资金不足均拒绝；Legacy旧无native_fees结果仍未知，EIP1559缺测量继续拒绝。Legacy分离账户ExactIn实际gas104566、gasPrice2000000000、gross费209132000000000；alias时自付priority返回，仅净扣已观测base burn，最大reserve准入保持。源码/911固定输入/56向量前后一致，两组四HTTP报告及各simulation/日志摘要复核一致。本轮未以Legacy测量补齐声称L2/data fee、额外资金授权、可信Token价格/净排序或当前真实链规则资格；原26工作包和设计全范围仍未完成，继续按P0-3剩余费用来源/估值/净评分与后续优先级推进。

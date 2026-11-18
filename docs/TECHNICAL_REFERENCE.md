@@ -2139,3 +2139,9 @@ nativeEconomicsText仅展示当前transaction/preparation/chain绑定的经济�
 回执区依据failureFee展示已核对的RPC失败网络费/付款人原生差额/已报告余额回滚；confirmed标待最终确认，元数据未齐标待核验，矛盾或旧回执不猜零。chain、preparation、signed transaction、signature、slot、错误与确认状态均需一致，金额为规范u64字符串并以BigInt验证守恒。失败不展示成功收付和net；成功对照继续显示原5971净收款。刷新/重载只查签名，不自动再次发送。
 
 阶段132限定验收：9门禁/22前端测试/13真实浏览器检查，三失败与一成功对照及重载/手机原图人工复核通过；原生资金/账户创建失败不保留租金，成功对照净收5971，二者不混用。费用与bank资格仍遵循原API边界。
+
+### Legacy本地执行原生币测量（阶段133，限定本地验证）
+
+正常worker为Legacy和EIP1559都从原image及实际afterstate返回native_fees。Legacy effective gas price等于明确gasPrice，priority=gasPrice−baseFee；caller/coinbase分离时payer扣gross execution，重合时净扣burn、自付priority分列返回。API校验before绑定原worker输入、最大reserve及同一checked费用模型，再返回payerNetNativeDebit；旧Legacy无测量仍保持未知，EIP1559缺测量仍拒绝。完整链费/市场估值/当前主网链规则资格不由该测量推断。
+
+阶段133限定验收通过：14门禁/148次Rust、16原银行、Legacy/EIP1559各四正常HTTP和56独立整数向量；成功/回退/HALT的实际原生测量、source-bound前余额、alias自付priority和最大reserve守卫通过。旧缺测量兼容保留，完整链费/价格与生产链规则资格仍未开放。

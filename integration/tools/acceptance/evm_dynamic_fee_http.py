@@ -26,7 +26,8 @@ def sha(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None, native_alias=False):
+def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None, native_alias=False, legacy=False):
+    require(not (legacy and prepared_mode is not None), 'Legacy harness covers diagnostic bound execution, not type-2 preparation')
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     binary = binary.resolve(strict=True)
@@ -41,6 +42,8 @@ def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None, 
             env.pop('XONE_EVM_PATH_CASE', None)
             env.pop('XONE_EVM_PREPARED_HTTP', None)
             env.pop('XONE_EVM_COINBASE_ALIAS', None)
+            env.pop('XONE_EVM_LEGACY_FEE', None)
+            if legacy:env['XONE_EVM_LEGACY_FEE']='1'
             if native_alias:env['XONE_EVM_COINBASE_ALIAS']='1'
             if prepared_mode is not None: env['XONE_EVM_PREPARED_HTTP']=prepared_mode
             if path_case is not None: env['XONE_EVM_PATH_CASE'] = path_case
@@ -109,8 +112,8 @@ def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None, 
                 gas = int(fees['evmGasUsed'])
                 base = int(info['executionBaseFee'])
                 maximum = int(info['maxFeePerGas'])
-                effective = base + min(1, maximum - base)
-                require(effective < maximum, 'Counterexample does not distinguish maximum from actual fee')
+                effective = maximum if legacy else base + min(1, maximum - base)
+                require(effective == maximum if legacy else effective < maximum, 'Declared legacy gas price/dynamic cap semantics changed')
                 require(fees['gasPriceWei'] == str(effective), 'API reports cap instead of effective price')
                 require(fees['evmFeeWei'] == native['execution_fee'] == str(gas * effective), 'Execution fee mismatch')
                 require(native['base_fee_burned'] == str(gas * base), 'Base fee burn mismatch')
@@ -125,7 +128,7 @@ def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None, 
                     require(int(native['coinbase_after']) - int(native['coinbase_before']) == gas * (effective-base),
                             'Measured coinbase credit differs')
                 require(result['transactionContext']['gas_price'] == str(maximum), 'Original maximum commitment lost')
-                require(result['transactionContext']['max_priority_fee_per_gas'] == '1', 'Original priority commitment lost')
+                require(result['transactionContext'].get('max_priority_fee_per_gas') == (None if legacy else '1'), 'Original fee model/priority commitment lost')
                 require(result['verification']['success'] is True and result['verified'] is False,
                         'Replay success or authority changed')
                 require(result['authority'] == 'PROVIDED_LOCAL_STATE'
@@ -168,7 +171,7 @@ def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None, 
                     require(status==422 and replaced['error']=='EVM_PREPARATION_UNKNOWN_OR_REPLACED','Old preparation remained executable')
                 report = dict(passed=True, harness_sha256=digest, actual_worker_executions=1,
                               quote_kind='EXACT_OUT' if exact_out else 'EXACT_IN', path_case=path_case, prepared_mode=prepared_mode,
-                              counterfactual_coinbase_alias=native_alias,
+                              counterfactual_coinbase_alias=native_alias, fee_model='LEGACY' if legacy else 'EIP1559',
                               gas_used=gas, effective_gas_price=str(effective), max_fee_per_gas=str(maximum),
                               actual_fee=str(gas*effective), overstatement_prevented=str(gas*(maximum-effective)),
                               publicTransactionsSubmitted=False, production_ready=False,

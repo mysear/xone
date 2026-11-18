@@ -2260,3 +2260,15 @@ BINDINGS['15.failed-fee-view'] = {
            'failed fee display keeps u64 precision, exact zero and canonical native conservation'],
  'evidence_refs': ['integration/artifacts/local/failed-fee-view-check/report.json'],
 }
+
+BINDINGS['15.evm-legacy-native-fees'] = {
+ 'paths': ['dex-router/crates/simulation/src/evm_fixture.rs',
+           'dex-router/crates/simulation/tests/evm_fixture.rs',
+           'dex-router/crates/simulation/tests/v2_complete.rs',
+           'dex-router/crates/quote-api/src/local_simulation.rs',
+           'integration/tools/acceptance/evm_native_cost_http.py'],
+ 'tests': ['legacy_fees_measure_gas_price_burn_and_alias_for_success_revert_and_halt',
+           'legacy_fee_balance_reconciliation_binds_source_and_rejects_shifted_or_forged_native_cost',
+           'complete_original_router_eip1559_matches_legacy_overlay_and_measured_native_fees'],
+ 'evidence_refs': ['integration/artifacts/local/evm-legacy-native-fee-check/report.json'],
+}

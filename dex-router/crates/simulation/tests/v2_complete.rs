@@ -788,6 +788,10 @@ fn complete_original_router_eip1559_matches_legacy_overlay_and_measured_native_f
             dynamic.execution.post_state_digest
         );
         assert_eq!(legacy.actual_buy_amount, dynamic.actual_buy_amount);
+        assert_eq!(
+            serde_json::to_value(&legacy.native_fees).unwrap(),
+            serde_json::to_value(&dynamic.native_fees).unwrap()
+        );
         let fees = dynamic.native_fees.unwrap();
         assert_eq!(fees.effective_gas_price, price);
         assert_eq!(

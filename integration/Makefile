@@ -1225,3 +1225,7 @@ solana-failure-fees-current-check:
 .PHONY: failed-fee-view-current-check
 failed-fee-view-current-check:
 	python3 tools/acceptance/validate_failed_fee_view.py
+
+.PHONY: evm-legacy-native-fee-current-check
+evm-legacy-native-fee-current-check:
+	python3 tools/acceptance/validate_evm_legacy_native_fees.py

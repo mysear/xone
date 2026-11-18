@@ -913,7 +913,10 @@ fn dynamic_fees_observe_actual_native_balances_and_fee_cap_clipping() {
             let legacy = run(&c).unwrap();
             assert_eq!(legacy.execution.post_state_digest, overlay);
             assert_ne!(legacy.receipt_hash, hash);
-            assert!(legacy.native_fees.is_none());
+            assert_eq!(
+                serde_json::to_value(&legacy.native_fees).unwrap(),
+                serde_json::to_value(&out.native_fees).unwrap()
+            );
         }
     }
 }
@@ -1004,4 +1007,73 @@ fn dynamic_fee_balance_probes_observe_effective_gasprice_instead_of_cap() {
     assert_eq!(out.balances.recipient_buy_after.to_string(), "3");
     assert!(!out.matches_plan);
     assert!(!out.verified);
+}
+
+#[test]
+fn legacy_fees_measure_gas_price_burn_and_alias_for_success_revert_and_halt() {
+    for price in [1u64, 2, 10] {
+        for alias in [false, true] {
+            for mode in ["success", "revert", "halt"] {
+                let mut c = case(5, mode == "revert");
+                if mode == "halt" {
+                    replace_router_control(&mut c, 0, 0, true);
+                }
+                c.tx.gas_price = price.to_string().parse().unwrap();
+                c.tx.max_priority_fee_per_gas = None;
+                if alias {
+                    c.fixture.execution_environment.coinbase = c.bound.plan.context.caller.clone();
+                }
+                let before = serde_json::to_value(&c.fixture).unwrap();
+                let out = run(&c).unwrap();
+                let fees = out.native_fees.as_ref().unwrap();
+                let gas = out.execution.gas_used;
+                assert_eq!(fees.effective_gas_price.to_string(), price.to_string());
+                assert_eq!(fees.execution_fee.to_string(), (gas * price).to_string());
+                assert_eq!(fees.base_fee_burned.to_string(), gas.to_string());
+                assert_eq!(
+                    fees.priority_fee_paid.to_string(),
+                    (gas * (price - 1)).to_string()
+                );
+                assert_eq!(
+                    (&fees.caller_before.0 - &fees.caller_after.0).to_string(),
+                    (gas * if alias { 1 } else { price }).to_string()
+                );
+                if alias {
+                    assert_eq!(fees.caller_before, fees.coinbase_before);
+                    assert_eq!(fees.caller_after, fees.coinbase_after);
+                } else {
+                    assert_eq!(
+                        (&fees.coinbase_after.0 - &fees.coinbase_before.0).to_string(),
+                        (gas * (price - 1)).to_string()
+                    );
+                }
+                assert_eq!(serde_json::to_value(&c.fixture).unwrap(), before);
+                assert_eq!(
+                    out.execution.status,
+                    match mode {
+                        "success" => EvmStatus::Success,
+                        "revert" => EvmStatus::Revert,
+                        _ => EvmStatus::Halt,
+                    }
+                );
+                if mode != "success" {
+                    assert_eq!(out.actual_input_consumed.to_string(), "0");
+                    assert_eq!(out.actual_buy_amount.to_string(), "0");
+                }
+            }
+        }
+    }
+    let mut below_base = case(5, false);
+    below_base.tx.gas_price = "0".parse().unwrap();
+    let invalid = run(&below_base).unwrap_err();
+    assert_eq!(
+        invalid.code,
+        SimulationErrorCode::SimulationTransactionContext
+    );
+    assert_eq!(invalid.usage.executions, 0);
+    below_base.fixture.execution_environment.base_fee = "0".parse().unwrap();
+    let zero = run(&below_base).unwrap().native_fees.unwrap();
+    assert_eq!(zero.execution_fee.to_string(), "0");
+    assert_eq!(zero.caller_before, zero.caller_after);
+    assert_eq!(zero.coinbase_before, zero.coinbase_after);
 }

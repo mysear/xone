@@ -1292,11 +1292,11 @@ fn simulate_execution(
         .map(amount)
         .transpose()?;
     let base_fee = amount(&fixture.execution_environment.base_fee)?;
-    if priority_fee.is_some_and(|tip| tip > max_fee || max_fee < base_fee) {
+    if max_fee < base_fee || priority_fee.is_some_and(|tip| tip > max_fee) {
         return Err(failure(
             SimulationTransactionContext,
             "transaction_context",
-            "invalid EIP-1559 fee cap or priority fee",
+            "invalid gas price, EIP-1559 fee cap or priority fee",
         ));
     }
     let image = fixture.to_image(budget)?;
@@ -1541,7 +1541,7 @@ fn simulate_execution(
             )
         }
     };
-    let native_fees = if let Some(tip) = priority_fee {
+    let native_fees = {
         let coinbase = address(&fixture.execution_environment.coinbase)?;
         let native_balance = |state: &core::StateImage, owner: Address| -> Result<U256> {
             match state.data().accounts.get(&owner) {
@@ -1554,7 +1554,8 @@ fn simulate_execution(
                 )),
             }
         };
-        let effective_tip = tip.min(max_fee - base_fee);
+        let effective_tip =
+            priority_fee.map_or(max_fee - base_fee, |tip| tip.min(max_fee - base_fee));
         let price = base_fee + effective_tip;
         let gas = U256::from(actual.result.gas_used());
         let multiply = |value: U256| {
@@ -1572,8 +1573,6 @@ fn simulate_execution(
             base_fee_burned: as_amount(multiply(base_fee)?)?,
             priority_fee_paid: as_amount(multiply(effective_tip)?)?,
         })
-    } else {
-        None
     };
     let mut outcome = SimulationOutcome {
         verified: false,
