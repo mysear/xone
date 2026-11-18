@@ -1197,3 +1197,7 @@ evm-native-balance-audit-current-check:
 .PHONY: evm-native-payer-cost-current-check
 evm-native-payer-cost-current-check:
 	python3 tools/acceptance/validate_evm_native_payer_cost.py
+
+.PHONY: cost-unavailable-ranking-current-check
+cost-unavailable-ranking-current-check:
+	python3 tools/acceptance/validate_cost_unavailable_ranking.py

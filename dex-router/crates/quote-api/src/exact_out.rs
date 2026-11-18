@@ -189,7 +189,7 @@ impl Api {
             hash(&json!({"request_hash": request_hash,
             "plan_hash": plan.plan_hash, "expires": expires}))?
         );
-        let quality = json!({"budgetExhausted": candidates.budget_exhausted || optimized.budget_exhausted,
+        let quality = json!({"costRanking":cost_fallback::ranking(true),"budgetExhausted": candidates.budget_exhausted || optimized.budget_exhausted,
                 "candidateScope": view.pools.iter().filter(|p| !candidates.excluded_pools.contains_key(&p.pool_id))
                     .map(|p| p.pool_id.clone()).collect::<Vec<_>>(),
                 "excludedPools": candidates.excluded_pools, "source": view.source, "historyIndependent": true,
@@ -251,7 +251,7 @@ impl Api {
             "requiredSellAmount": plan.allocation.required_input, "consumedIn": plan.allocation.required_input,
             "inputBudget": plan.allocation.input_budget, "maxSellAmount": plan.max_sell_amount,
             "unusedInputBudget": plan.allocation.unused_input_budget, "refund": "0",
-            "netSellAmountEstimate": Value::Null, "costs": {"unavailableReason": "CHAIN_FEE_MODEL_NOT_IMPLEMENTED"},
+            "netSellAmountEstimate": Value::Null, "costs": cost_fallback::costs(&self.config.config.routing.route_activation_cost),
             "routes": plan.allocation.routes, "planHash": plan.plan_hash,
             "verification": {"level": "INDICATIVE", "success": false, "reason": "INDEPENDENT_SIMULATION_UNAVAILABLE"},
             "validity": {"expiresAtMs": expires, "canonicalEpoch": view.reference.canonical_epoch},

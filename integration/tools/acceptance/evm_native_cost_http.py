@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 from evm_dynamic_fee_http import run,require,sha
 
-def main(binary,output,balance_audit=False,payer_cost=False):
+def main(binary,output,balance_audit=False,payer_cost=False,cost_fallback=False):
     output=Path(output).resolve();output.mkdir(parents=True,exist_ok=False);rows=[]
     for exact_out,native_alias in [(False,False),(True,False)]+([(False,True),(True,True)] if balance_audit else []):
         directory=output/(('alias-' if native_alias else '')+('exact-out' if exact_out else 'exact-in'));report=run(Path(binary),directory,exact_out=exact_out,native_alias=native_alias)
@@ -31,7 +31,14 @@ def main(binary,output,balance_audit=False,payer_cost=False):
             returned=int(parts['priorityFeeNative']) if native_alias else 0
             require(cost['payerNetNativeDebit']==str(debit) and cost['priorityReturnedToPayerNative']==str(returned),'Payer debit/returned priority differ from original execution')
             require(debit+returned==int(cost['gasNative']),'Payer net and gross cost fail conservation')
-        rows.append({'quote_kind':report['quote_kind'],'simulation_sha256':sha(directory/'simulation.json'),'native_execution_fee':cost['gasNative'],'cost_model_version':cost['modelVersion'],'all_disclosure_checks_passed':True,'coinbase_alias':native_alias,'balance_audit_required':balance_audit,'payer_cost_required':payer_cost})
+        if cost_fallback:
+            ranking=quote['quality']['costRanking'];unavailable=quote['costs']
+            require(ranking['version']=='xone-cost-unavailable-ranking/1' and ranking['costAdjustmentApplied'] is False,'Unvalued cost changed ranking')
+            require(ranking['objective']==('MINIMUM_REQUIRED_SELL_AMOUNT' if exact_out else 'MAXIMUM_GROSS_BUY_AMOUNT'),'Raw amount objective missing')
+            require(unavailable['chainFeeCompleteness']=='UNAVAILABLE' and unavailable['configuredActivationCostApplied'] is False and unavailable['proposalActivationCostBuyToken']=='0','Configured amount presented as chain cost')
+            require(all(unavailable[key] is None for key in ['gasUnits','gasNative','l1DataNative','approvalNative','totalNativeEstimate']),'Unknown quote cost fabricated')
+            require(quote['netSellAmountEstimate' if exact_out else 'netBuyAmountEstimate'] is None,'Raw fallback presented as net objective')
+        rows.append({'quote_kind':report['quote_kind'],'simulation_sha256':sha(directory/'simulation.json'),'native_execution_fee':cost['gasNative'],'cost_model_version':cost['modelVersion'],'all_disclosure_checks_passed':True,'coinbase_alias':native_alias,'balance_audit_required':balance_audit,'payer_cost_required':payer_cost,'cost_fallback_required':cost_fallback})
     (output/'report.json').write_text(json.dumps({'passed':True,'actual_worker_executions':len(rows),'cases':rows,'complete_chain_cost_claimed':False,'publicTransactionsSubmitted':False},indent=2)+'\n')
 if __name__=='__main__':
-    require(len(sys.argv) in [3,4] and (len(sys.argv)==3 or sys.argv[3] in ['--balance-audit','--payer-cost']),'Expected BINARY OUTPUT_DIRECTORY [--balance-audit|--payer-cost]');main(sys.argv[1],sys.argv[2],len(sys.argv)==4,len(sys.argv)==4 and sys.argv[3]=='--payer-cost')
+    require(len(sys.argv) in [3,4] and (len(sys.argv)==3 or sys.argv[3] in ['--balance-audit','--payer-cost','--cost-fallback']),'Expected BINARY OUTPUT_DIRECTORY [--balance-audit|--payer-cost|--cost-fallback]');main(sys.argv[1],sys.argv[2],len(sys.argv)==4,len(sys.argv)==4 and sys.argv[3] in ['--payer-cost','--cost-fallback'],len(sys.argv)==4 and sys.argv[3]=='--cost-fallback')

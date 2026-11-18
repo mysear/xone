@@ -36,6 +36,9 @@ fn source(f: &Value) -> Snapshot {
     s
 }
 fn api(s: &Snapshot) -> Api {
+    api_with_cost(s, "0")
+}
+fn api_with_cost(s: &Snapshot, cost: &str) -> Api {
     let mut c = xone_config::load(
         concat!(env!("CARGO_MANIFEST_DIR"), "/../../config/config-test.yaml"),
         "dex-router",
@@ -45,6 +48,7 @@ fn api(s: &Snapshot) -> Api {
     c.config.routing.max_state_age_ms = 315_360_000_000;
     c.config.routing.max_hops = 3;
     c.config.routing.max_splits = 3;
+    c.config.routing.route_activation_cost = cost.parse().unwrap();
     c.config.routing.split_parts = 4;
     c.config.routing.max_expansions = 10000;
     c.config.routing.max_candidates = 10;
@@ -102,7 +106,11 @@ async fn exact_out_http_matches_original_grid_and_has_distinct_amount_and_plan_c
         q["quality"]["allocationSearch"]["exhaustiveWithinGrid"],
         true
     );
-    assert_eq!(q["costs"].as_object().unwrap().len(), 1);
+    assert_eq!(q["costs"]["chainFeeCompleteness"], "UNAVAILABLE");
+    assert_eq!(
+        q["quality"]["costRanking"]["objective"],
+        "MINIMUM_REQUIRED_SELL_AMOUNT"
+    );
     assert!(q["netSellAmountEstimate"].is_null());
     assert_eq!(q["verification"]["level"], "INDICATIVE");
     assert_eq!(
@@ -317,4 +325,33 @@ async fn exact_out_http_retains_a_feasible_whole_order_when_split_probe_fails() 
     assert_eq!(q["maxSellAmount"], "1001");
     assert_eq!(q["routes"].as_array().unwrap().len(), 1);
     assert_eq!(q["quality"]["budgetExhausted"], false);
+}
+
+#[tokio::test]
+async fn unavailable_cost_exact_out_keeps_raw_input_objective_and_original_grid() {
+    let f = data();
+    let s = source(&f);
+    for cost in ["0", "100"] {
+        let api = api_with_cost(&s, cost);
+        let (code, q) = call(&api, "POST", "/v1/quote-exact-out", request(&f), true).await;
+        assert_eq!(code, StatusCode::OK, "{q}");
+        assert_eq!(q["requiredSellAmount"], f["grid"]["best_required_input"]);
+        assert_eq!(q["consumedIn"], q["requiredSellAmount"]);
+        assert_eq!(q["grossBuyAmount"], f["grid"]["target_output"]);
+        assert_eq!(q["costs"]["proposalActivationCostBuyToken"], "0");
+        assert_eq!(q["costs"]["ignoredConfiguredActivationCostBuyToken"], cost);
+        assert_eq!(q["costs"]["configuredActivationCostApplied"], false);
+        assert_eq!(q["costs"]["chainFeeCompleteness"], "UNAVAILABLE");
+        assert_eq!(
+            q["quality"]["costRanking"]["objective"],
+            "MINIMUM_REQUIRED_SELL_AMOUNT"
+        );
+        assert_eq!(q["quality"]["costRanking"]["costAdjustmentApplied"], false);
+        assert_eq!(
+            q["quality"]["allocationSearch"]["exhaustiveWithinGrid"],
+            true
+        );
+        assert!(q["netSellAmountEstimate"].is_null());
+        assert_eq!(q["verification"]["level"], "INDICATIVE");
+    }
 }

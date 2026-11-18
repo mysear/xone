@@ -2178,3 +2178,16 @@ BINDINGS['13.evm-native-payer-cost'] = {
            'fee_funding_source_must_cover_maximum_even_with_low_spend_and_legacy_net_stays_unknown'],
  'evidence_refs': ['integration/artifacts/local/evm-native-payer-cost-check/report.json'],
 }
+
+BINDINGS['13.cost-unavailable-ranking'] = {
+ 'paths': ['dex-router/crates/quote-api/src/cost_fallback.rs',
+           'dex-router/crates/quote-api/src/lib.rs',
+           'dex-router/crates/quote-api/src/exact_out.rs',
+           'dex-router/crates/quote-api/tests/cost_fallback.rs',
+           'dex-router/crates/quote-api/tests/exact_out.rs',
+           'integration/tools/acceptance/validate_cost_unavailable_ranking.py'],
+ 'tests': ['unavailable_cost_exact_in_ignores_unvalued_penalty_and_matches_independent_grid',
+           'unavailable_cost_exact_out_keeps_raw_input_objective_and_original_grid',
+           'unavailable_cost_fallback_preserves_user_constraints_and_budget_exhaustion'],
+ 'evidence_refs': ['integration/artifacts/local/cost-unavailable-ranking-check/report.json'],
+}
