@@ -200,6 +200,7 @@ pub fn unsigned_observation(
     }
     Ok(PriceObservation {
         schema_version: 1,
+        publication_revision: 0,
         policy_hash: policy.identity()?,
         token: policy.token.clone(),
         token_atoms: d.token_atoms,

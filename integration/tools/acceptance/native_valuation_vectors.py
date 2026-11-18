@@ -26,12 +26,13 @@ def policy(chain, genesis, token):
                 threshold=2, max_age_ms=60000, max_validity_ms=60000)
 
 
-def sign(policy, anchor, numerator, denominator, observed=None, until=None):
+def sign(policy, anchor, numerator, denominator, observed=None, until=None, *, revision=0):
     timestamp=anchor['timestamp_ms']
     observation=dict(schema_version=1, policy_hash=digest(policy), anchor=anchor, token=policy['token'],
                      token_atoms=str(numerator), native_atoms=str(denominator),
                      observed_at_ms=timestamp if observed is None else observed,
                      valid_until_ms=timestamp+60000 if until is None else until)
+    if revision:observation['publication_revision']=revision
     message=('xone-native-token-price/1:'+digest(observation)).encode()
     return dict(observation=observation, signatures=[dict(key_id=str(i), signature=bytes(Keypair.from_seed(bytes([i])*32).sign_message(message)).hex()) for i in [1,2]])
 

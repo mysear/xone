@@ -71,6 +71,12 @@ impl From<ExactOutCached> for Selection {
     }
 }
 impl Selection {
+    pub(crate) fn response(&self) -> &Value {
+        match self {
+            Self::ExactIn(c) => &c.response,
+            Self::ExactOut(c) => &c.response,
+        }
+    }
     pub(crate) fn view(&self) -> &Arc<crate::QuoteView> {
         match self {
             Self::ExactIn(c) => &c.view,
@@ -104,7 +110,9 @@ impl Selection {
 }
 pub(crate) struct LocalSimulation {
     bundle: Arc<LocalSimulationBundle>,
-    valuation: Option<crate::transaction_economics::ValuationState>,
+    valuation: Option<Arc<crate::transaction_economics::ValuationState>>,
+    valuation_store: Option<Arc<crate::transaction_economics::ValuationStore>>,
+    prices_pinned: bool,
     // Retained immutable validation image; each child creates its own overlay.
     _image: Arc<StateImage>,
     pub bundle_sha256: String,
@@ -306,8 +314,14 @@ impl LocalSimulation {
         let worker_sha256 = executable_sha256(&worker_path)?;
         let valuation =
             crate::transaction_economics::ValuationState::load(config, &bundle.fixture)?;
+        let valuation_store = valuation
+            .map(crate::transaction_economics::ValuationStore::new)
+            .map(Arc::new);
+        let valuation = valuation_store.as_ref().map(|s| s.snapshot()).transpose()?;
         Ok(Some(Arc::new(Self {
             valuation,
+            valuation_store,
+            prices_pinned: false,
             bundle: Arc::new(bundle),
             _image: image,
             bundle_sha256,
@@ -346,6 +360,50 @@ impl LocalSimulation {
 
     pub(crate) fn has_op_source(&self) -> bool {
         self.bundle.op_attributes_calldata.is_some()
+    }
+
+    pub(crate) fn price_identity(&self) -> Option<(&str, u64)> {
+        self.valuation
+            .as_ref()
+            .map(|p| (p.book_hash(), p.revision()))
+    }
+    pub(crate) fn pin_prices(self: &Arc<Self>) -> Result<Arc<Self>> {
+        let Some(store) = &self.valuation_store else {
+            return Ok(self.clone());
+        };
+        Ok(Arc::new(Self {
+            bundle: self.bundle.clone(),
+            valuation: Some(store.snapshot()?),
+            valuation_store: self.valuation_store.clone(),
+            prices_pinned: true,
+            _image: self._image.clone(),
+            bundle_sha256: self.bundle_sha256.clone(),
+            worker_sha256: self.worker_sha256.clone(),
+            worker_path: self.worker_path.clone(),
+            budget: self.budget.clone(),
+            permits: self.permits.clone(),
+            #[cfg(test)]
+            test_launch: self.test_launch.clone(),
+        }))
+    }
+    pub(crate) fn check_current_prices(&self) -> Result<()> {
+        if let Some(store) = &self.valuation_store {
+            if self.price_identity().map(|p| p.0) != Some(store.snapshot()?.book_hash()) {
+                return Err(err("NATIVE_VALUATION_QUOTE_PRICE_CHANGED"));
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn reload_prices(
+        &self,
+        config: &ConfigSnapshot,
+        cancelled: &AtomicBool,
+        deadline: Instant,
+    ) -> Result<Value> {
+        self.valuation_store
+            .as_ref()
+            .ok_or_else(|| err("NATIVE_VALUATION_NOT_CONFIGURED"))?
+            .reload(config, &self.bundle.fixture, cancelled, deadline)
     }
 
     pub async fn build_op_template(
@@ -462,6 +520,27 @@ impl LocalSimulation {
         signed: Option<SignedOpRequest>,
         timeout_ms: u64,
     ) -> std::result::Result<WorkerRequest, Failure> {
+        if let Some(expected) =
+            cached.response()["quality"]["costRanking"]["priceBookHash"].as_str()
+        {
+            let current = self
+                .valuation_store
+                .as_ref()
+                .map(|s| s.snapshot())
+                .transpose()
+                .map_err(|e| Failure::new(&e.0, "transaction_economics"))?;
+            let actual = if self.prices_pinned {
+                self.valuation.as_ref()
+            } else {
+                current.as_ref()
+            };
+            if actual.map(|p| p.book_hash()) != Some(expected) {
+                return Err(Failure::new(
+                    "NATIVE_VALUATION_QUOTE_PRICE_CHANGED",
+                    "transaction_economics",
+                ));
+            }
+        }
         let allowed = &config.config.simulation.allowed_targets;
         let (bound, exact_out_bound) = match &cached {
             Selection::ExactIn(c) => (
@@ -589,6 +668,24 @@ impl LocalSimulation {
         prepared: Option<WorkerPreparation>,
         signed: Option<SignedOpRequest>,
     ) -> std::result::Result<Value, Failure> {
+        let state = if self.prices_pinned {
+            self
+        } else {
+            self.pin_prices()
+                .map_err(|e| Failure::new(&e.0, "transaction_economics"))?
+        };
+        state
+            .execute_pinned(config, cached, deadline, prepared, signed)
+            .await
+    }
+    async fn execute_pinned(
+        self: Arc<Self>,
+        config: Arc<ConfigSnapshot>,
+        cached: Selection,
+        deadline: Instant,
+        prepared: Option<WorkerPreparation>,
+        signed: Option<SignedOpRequest>,
+    ) -> std::result::Result<Value, Failure> {
         if self.bundle.op_attributes_calldata.is_some() != signed.is_some()
             || (signed.is_some() && prepared.is_some())
         {
@@ -707,6 +804,8 @@ impl LocalSimulation {
                         Failure::new("SIMULATION_WORKER_PROTOCOL", "transaction_economics")
                     })?;
             }
+            self.check_current_prices()
+                .map_err(|e| Failure::new(&e.0, "transaction_economics"))?;
             if let Some(prepared) = outcome.prepared {
                 response["preparedExecution"] = serde_json::to_value(prepared)
                     .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "preparation"))?;

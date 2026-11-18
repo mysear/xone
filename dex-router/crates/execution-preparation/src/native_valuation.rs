@@ -28,6 +28,9 @@ pub struct PriceAnchor {
 #[serde(deny_unknown_fields)]
 pub struct PriceObservation {
     pub schema_version: u32,
+    /// Signed process-local publication ordering. Zero retains legacy encoding.
+    #[serde(default, skip_serializing_if = "zero_revision")]
+    pub publication_revision: u64,
     pub policy_hash: String,
     pub anchor: PriceAnchor,
     pub token: String,
@@ -38,6 +41,9 @@ pub struct PriceObservation {
     pub valid_until_ms: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub market_feed: Option<crate::market_feed::MarketRead>,
+}
+fn zero_revision(value: &u64) -> bool {
+    *value == 0
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -135,6 +141,9 @@ impl SignedPrice {
     }
 }
 impl AuthorizedPrice {
+    pub fn publication_revision(&self) -> u64 {
+        self.observation.publication_revision
+    }
     pub fn validate_at(&self, anchor: &PriceAnchor, execution_timestamp_ms: u64) -> Result<()> {
         let o = &self.observation;
         if &o.anchor != anchor || execution_timestamp_ms < anchor.timestamp_ms {
@@ -179,6 +188,9 @@ impl AuthorizedPrice {
         if let Some(market) = &self.market_evidence {
             evidence["marketFeed"] = market.clone();
         }
+        if self.publication_revision() != 0 {
+            evidence["publicationRevision"] = self.publication_revision().into();
+        }
         evidence
     }
     pub fn token(&self) -> &str {
@@ -191,6 +203,14 @@ impl PriceBook {
             return Err(err("NATIVE_VALUATION_BOOK"));
         }
         let mut seen = BTreeSet::new();
+        let revision = self.prices[0].observation.publication_revision;
+        if self
+            .prices
+            .iter()
+            .any(|p| p.observation.publication_revision != revision)
+        {
+            return Err(err("NATIVE_VALUATION_BOOK_REVISION"));
+        }
         self.prices
             .iter()
             .map(|price| {

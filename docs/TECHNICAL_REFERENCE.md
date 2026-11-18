@@ -2321,3 +2321,18 @@ Karst的0x1e CLZ在instruction table的inspector包装之前注册，执行Gas 5
 公开费用`scope=SELECTED_LOCAL_CANDIDATE_TRANSACTION`、`selectedPlanHash`与`sourceEvidence`绑定同一计划/执行bundle/worker/view/snapshot。`quoteRankingApplied`描述本轮候选比较；内层`transactionEconomics.quoteRankingApplied`仍描述单笔核算自身边界。`tokenValuationStatus=CONFIGURED_ORACLE_AUTHORIZED_WITH_PER_SIDE_AVAILABILITY`只说明至少一侧有授权换算，各侧实际可用性仍以buyTokenFee/sellTokenFee为准。缺价允许披露已核验的局部原币费用。
 
 `completeQuoteCosts=false`，完整`totalNativeEstimate/netBuyAmountEstimate/netSellAmountEstimate`保持null，`deductedFromQuoteOutput=false`；activation配置仍不冒充交易费。局部费用披露不授予生产验证、完整净额或额外授权/wrap等操作费用资格。缓存与内部evidence保存同一响应，最终simulate保留同一binding/calldata/outcome。限定验收沿用全部68门禁，新增选中费用逐字段一致性和错配/缺证据单测；执行记录见进度文档阶段153。
+
+
+### 运行期授权价格发布与报价版本（阶段154）
+
+对应§13.1/15.5/21.3/26.3。`PriceObservation.publication_revision`为签名覆盖的u64发布版本，零默认省略以保持既有hash和签名；新book中所有观察必须同版。`xone-market-price`候选输入可指定该版本，输出包含版本的观察和待签署消息，仍不签名。不得仅改book外层或HTTP参数来伪造版本。
+
+操作方完成独立签署后，先以同目录临时文件/flush/fsync/原子rename替换配置中固定的`native_valuation.observations_file`，再向`POST /internal/native-valuation/reload`发送已认证的空JSON对象`{}`。服务必须配置非空认证token；请求不能指定价格、路径或策略。Unix采用非阻塞打开后核对普通文件句柄，目录/FIFO不进入读取；每次读取上限1MiB/128观察、签名quorum和原chain/genesis/源块/执行时间均重新校验，受现有仿真permit、总期限和取消控制约束；超时任务在发布前检查取消，不可迟到替换当前版本。日志只记录发布摘要/版本及有限资格。
+
+相同规范bookHash重载为幂等；有变化时要求正版本严格递增、固定anchor/执行时间及币种集合完全相同，拒绝同版改写/进程内回退、撤除币种、错误签名、混合版本、未来/过期价格和错源。币种集合变更须随配置/启动单独审核，不通过热刷新悄悄降低完整性。任何错误保留上一个完整不可变快照。
+
+每次报价捕获一个Arc价格快照，所有候选、选中费用披露和最终评分都使用同一bookHash/版本；requestHash和报价缓存身份包括该价格身份。`quality.costRanking.priceBookHash/publicationRevision`、`costs.sourceEvidence`及各候选transactionEconomics形成同源绑定。刷新后同请求会重新报价，旧quoteId的build/prepare/simulate不能套用新价格，返回`NATIVE_VALUATION_QUOTE_PRICE_CHANGED`；内部evidence保留原quote并以`price_current=false`说明其价格已变更。并发发布期间报价可按已固定的版本完成或明确失败，不混用候选价格。
+
+该机制仅支持当前进程、固定本地bank下的显式发布。`restartRollbackProtected=false`；跨重启耐久高水位、自动采集/外部签署发布、持续live bank/共识与生产VERIFIED仍未完成。价格时钟继续使用已执行块时间，不因重载续期；本地签署资格和来源边界不变。完整费用/net和全候选完整净评分继续不可用。
+
+限定回归入口为`python3 integration/tools/acceptance/validate_price_publications.py`。它在冻结前由`native_valuation_publications.py`重建/核对独立测试签名book，再执行原68项和4项发布门禁。生成的固定JSON与原始bank/报告沿用现有忽略目录策略，只提交生成器及验证源码；单独运行发布状态单测前可先运行该生成器。

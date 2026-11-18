@@ -62,6 +62,37 @@ fn independent_solders_signatures_and_42_python_integer_conversions_match() {
 }
 
 #[test]
+fn publication_revision_is_signed_uniform_and_legacy_encoding_is_preserved() {
+    let (policy, mut signed, _) = source();
+    let original = serde_json::to_value(&signed.observation).unwrap();
+    assert!(original.get("publication_revision").is_none());
+    let message = signing_message(&signed.observation).unwrap();
+    signed.observation.publication_revision = 1;
+    assert!(signed.authorize(&policy).is_err());
+    resign(&mut signed);
+    assert_eq!(signed.authorize(&policy).unwrap().publication_revision(), 1);
+    assert_ne!(message, signing_message(&signed.observation).unwrap());
+    let book = PriceBook {
+        schema_version: 1,
+        prices: vec![signed.clone()],
+    };
+    assert_eq!(
+        book.authorize(std::slice::from_ref(&policy)).unwrap().len(),
+        1
+    );
+    let legacy: SignedPrice =
+        serde_json::from_value(vectors()["cases"][3]["signed"].clone()).unwrap();
+    let mixed = PriceBook {
+        schema_version: 1,
+        prices: vec![signed, legacy],
+    };
+    assert_eq!(
+        mixed.authorize(&[policy]).unwrap_err().0,
+        "NATIVE_VALUATION_BOOK_REVISION"
+    );
+}
+
+#[test]
 fn authority_quorum_policy_rotation_unknown_signers_and_payload_substitutions_fail() {
     let (policy, signed, _) = source();
     let value = serde_json::to_value(&signed).unwrap();

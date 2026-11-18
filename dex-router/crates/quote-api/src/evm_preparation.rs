@@ -104,6 +104,7 @@ pub(super) async fn prepare(
         .cloned();
     let (view, context, capture, kind) = if let Some(cached) = exact_in {
         current(&api, &cached.view, &cached.plan.context).map_err(failure)?;
+        api.check_quote_prices(&cached.response).map_err(failure)?;
         let cfg = config(&api, &cached.plan.context.chain_key).map_err(failure)?;
         let bound = bind_v2_execution(
             &cached.plan,
@@ -125,6 +126,7 @@ pub(super) async fn prepare(
             .cloned()
             .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?;
         current(&api, &cached.view, &cached.plan.context).map_err(failure)?;
+        api.check_quote_prices(&cached.response).map_err(failure)?;
         let cfg = config(&api, &cached.plan.context.chain_key).map_err(failure)?;
         let bound = bind_v2_exact_out_execution(
             &cached.plan,
@@ -183,6 +185,7 @@ pub(super) async fn prepare(
             .get_mut(&id)
             .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?;
         current(&api, &cached.view, &cached.plan.context).map_err(failure)?;
+        api.check_quote_prices(&cached.response).map_err(failure)?;
         let old = std::mem::replace(&mut cached.evm_preparation, stored);
         cached.simulation_evidence = None;
         drop(cache);
@@ -193,6 +196,7 @@ pub(super) async fn prepare(
             .get_mut(&id)
             .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?;
         current(&api, &cached.view, &cached.plan.context).map_err(failure)?;
+        api.check_quote_prices(&cached.response).map_err(failure)?;
         let old = std::mem::replace(&mut cached.evm_preparation, stored);
         cached.simulation_evidence = None;
         drop(cache);
@@ -256,6 +260,7 @@ pub(super) async fn simulate(
         return Err(failure(err("QUOTE_EXPIRED")));
     }
     current(&api, cached.view(), cached.context()).map_err(failure)?;
+    api.check_quote_prices(cached.response()).map_err(failure)?;
     let prepared = cached
         .prepared()
         .filter(|p| p.hash == preparation_hash)
@@ -289,6 +294,7 @@ pub(super) async fn simulate(
         return Err(failure(err("SIMULATION_TIMEOUT")));
     }
     current(&api, cached.view(), cached.context()).map_err(failure)?;
+    api.check_quote_prices(cached.response()).map_err(failure)?;
     response["apiPreparationHash"] = prepared.hash.into();
     response["rpcPreparationHash"] = prepared.rpc_hash.into();
     match cached {

@@ -29,13 +29,13 @@ def go_configs(directory):
         artifacts={str(p.relative_to(directory)): digest(p) for p in directory.iterdir() if p.is_file()}), indent=2)+'\n')
 
 
-def main(*, output_base=None, extra_report=None, verification_scope=None):
+def main(*, output_base=None, extra_report=None, verification_scope=None, extra_checks=(), extra_required=None, extra_references=None, extra_artifacts=()):
     output = output_base or ROOT / 'integration/artifacts/local/approved-market-feed-check'
     directory = output / 'market-runs' / uuid.uuid4().hex
     directory.mkdir(parents=True, exist_ok=False)
     retained = ROOT / 'integration/artifacts/local/approved-market-feed-precheck-20261119'
     captures = [retained / 'explicit-publicnode']
-    references = {}
+    references = dict(extra_references or {})
     for source in captures:
         report = json.loads((source / 'report.json').read_bytes())
         require(report['passed'] is True and report['authorized'] is False, 'Retained public collector qualification required')
@@ -70,7 +70,7 @@ def main(*, output_base=None, extra_report=None, verification_scope=None):
     guards = ['-m', 'unittest', 'discover', '-s', 'integration/tools/acceptance/tests', '-p', 'test_market_feed_collector.py']
     env = ['env', 'XONE_MARKET_FEED_CONFIG_VECTORS=' + str(configs)]
     validate(output_base=output, extra_references=references,
-        extra_artifacts=[str((p/'report.json').relative_to(ROOT)) for p in [configs, replay]], extra_checks=[
+        extra_artifacts=list(extra_artifacts)+[str((p/'report.json').relative_to(ROOT)) for p in [configs, replay]], extra_checks=[
             ('market-go-format', [sys.executable, '-c', 'import subprocess,sys;r=subprocess.check_output(["gofmt","-l","chain-parser-go/internal/config/market_feed_test.go","chain-parser-go/internal/config/native_valuation.go"],text=True);print(r,end="");sys.exit(bool(r))']),
             ('market-collector-controls', [sys.executable] + guards),
             ('market-collector-controls-optimized', [sys.executable, '-OO'] + guards),
@@ -80,7 +80,7 @@ def main(*, output_base=None, extra_report=None, verification_scope=None):
             ('market-source-and-integers', ['env', 'XONE_MARKET_FEED_VECTORS=' + str(vectors)] + cargo + ['test'] + manifest + ['-p', 'xone-execution-preparation', '--test', 'market_feed', '--', '--include-ignored']),
             ('market-validator-build', cargo + ['build'] + manifest + ['-p', 'xone-execution-preparation', '--bin', 'xone-market-price']),
             ('market-validator-raw-replay', [sys.executable, 'integration/tools/acceptance/market_feed_replay.py', str(binary), str(vectors), str(replay)] + [str(p) for p in captures]),
-        ], extra_required={
+        ]+list(extra_checks), extra_required={**(extra_required or {}),
             'market-router-policy': ['approved_market_policy_is_optional_and_ethereum_specific', 'approved_market_policy_hashes_and_rejections_match_current_go'],
             'market-parser-policy': ['approved_market_policy_is_optional_and_ethereum_specific', 'approved_market_policy_hashes_and_rejections_match_current_go'],
             'market-source-and-integers': [

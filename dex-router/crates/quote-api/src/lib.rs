@@ -301,6 +301,10 @@ impl Api {
             .route("/internal/quotes/{id}/evidence", get(evidence))
             .route("/internal/chains/{chain}/status", get(chain_status))
             .route("/internal/config", get(config))
+            .route(
+                "/internal/native-valuation/reload",
+                post(reload_native_valuation),
+            )
             .layer(DefaultBodyLimit::max(self.config.config.api.max_body_bytes))
             .layer(self.cors_layer())
             .with_state(self.clone())
@@ -312,9 +316,20 @@ impl Api {
         }
         let view = self.replica.view(&request.chain_key)?;
         self.check_view(&view)?;
-        let request_hash = hash(
-            &json!({"request":request,"view_id":view.view_id,"policy":self.config.economic_hash,"engine":"xone-router/0.1"}),
-        )?;
+        let cost_backend = if self.config.config.simulation.candidate_cost_max_plans > 0 {
+            self.local_simulation
+                .as_ref()
+                .map(|b| b.pin_prices())
+                .transpose()?
+        } else {
+            None
+        };
+        let price_identity = cost_backend.as_ref().and_then(|b| b.price_identity());
+        let mut identity = json!({"request":request,"view_id":view.view_id,"policy":self.config.economic_hash,"engine":"xone-router/0.1"});
+        if let Some(price) = price_identity {
+            identity["candidate_price_book"] = json!(price);
+        }
+        let request_hash = hash(&identity)?;
         let shard = u64::from_str_radix(&request_hash[..16], 16)
             .map_err(|_| err("HASH_ENCODING"))? as usize
             % self.flights.len();
@@ -328,6 +343,9 @@ impl Api {
             cache.retain(|_, c| c.expires > now_ms());
             if let Some(c) = cache.values().find(|c| c.request_hash == request_hash) {
                 self.check_view(&c.view)?;
+                if let Some(backend) = &cost_backend {
+                    backend.check_current_prices()?;
+                }
                 self.observe_successful_quote(&c.view);
                 return Ok(c.response.clone());
             }
@@ -344,8 +362,16 @@ impl Api {
         let worker_view = view.clone();
         let req = request.clone();
         let deadline = started + timeout;
-        let mut cost_model = (self.config.config.simulation.candidate_cost_max_plans > 0)
-            .then(|| candidate_costs::Model::new(self, view.clone(), cancelled.clone(), deadline));
+        let mut cost_model =
+            (self.config.config.simulation.candidate_cost_max_plans > 0).then(|| {
+                candidate_costs::Model::new(
+                    self,
+                    cost_backend.clone(),
+                    view.clone(),
+                    cancelled.clone(),
+                    deadline,
+                )
+            });
         let task = tokio::task::spawn_blocking(move || {
             let _permit = permit;
             if cancelled.load(Ordering::Relaxed) {
@@ -505,6 +531,9 @@ impl Api {
             response["quality"]["costRanking"] = ranking;
             response["quality"]["optimalityClaim"] = "LOCAL_EXECUTION_FEE_OBJECTIVE_WITHIN_EVALUATED_ORDERED_GRID_OR_UNIFORM_RAW_FALLBACK".into();
         }
+        if let Some(backend) = &cost_backend {
+            backend.check_current_prices()?;
+        }
         let mut cache = self.cache.lock().map_err(|_| err("CACHE_LOCK"))?;
         self.check_view(&view)?;
         if expires <= now_ms() {
@@ -532,6 +561,56 @@ impl Api {
         self.logger.event("info","quote_completed",json!({"quote_id":quote_id,"chain_key":request.chain_key,"quote_view_id":view.view_id,"graph_version":view.graph_version,"canonical_epoch":view.reference.canonical_epoch,"online_generation":view.reference.online_generation,"economic_policy_hash":self.config.economic_hash,"verification":"INDICATIVE"}));
         self.observe_successful_quote(&view);
         Ok(response)
+    }
+    pub async fn reload_native_prices(&self) -> Result<Value> {
+        // Explicit mutation is unavailable on an anonymously configured server.
+        if self.config.token.is_empty() {
+            return Err(err("NATIVE_VALUATION_RELOAD_AUTH_REQUIRED"));
+        }
+        let backend = self
+            .local_simulation
+            .clone()
+            .ok_or_else(|| err("NATIVE_VALUATION_NOT_CONFIGURED"))?;
+        let permit = backend
+            .permits
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| err("NATIVE_VALUATION_RELOAD_BUSY"))?;
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let _cancel = CancelOnDrop(cancelled.clone());
+        let config = self.config.clone();
+        let deadline = Instant::now()
+            + Duration::from_millis(
+                config
+                    .config
+                    .api
+                    .quote_timeout_ms
+                    .min(config.config.simulation.timeout_ms),
+            );
+        let task = tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            backend.reload_prices(&config, &cancelled, deadline)
+        });
+        let result = tokio::time::timeout_at(deadline.into(), task)
+            .await
+            .map_err(|_| err("NATIVE_VALUATION_RELOAD_TIMEOUT"))?
+            .map_err(|_| err("NATIVE_VALUATION_RELOAD_FAILED"))??;
+        self.logger
+            .event("info", "native_valuation_publication", result.clone());
+        Ok(result)
+    }
+    fn check_quote_prices(&self, quote: &Value) -> Result<()> {
+        if let Some(expected) = quote["quality"]["costRanking"]["priceBookHash"].as_str() {
+            let backend = self
+                .local_simulation
+                .as_ref()
+                .ok_or_else(|| err("NATIVE_VALUATION_NOT_CONFIGURED"))?
+                .pin_prices()?;
+            if backend.price_identity().map(|p| p.0) != Some(expected) {
+                return Err(err("NATIVE_VALUATION_QUOTE_PRICE_CHANGED"));
+            }
+        }
+        Ok(())
     }
     pub async fn sync_sources(&self) {
         if self.config.config.journal.transport == "kafka" {
@@ -911,6 +990,8 @@ fn failure(e: xone_domain::Error) -> HttpError {
         | "QUOTE_EXPIRED"
         | "QUOTE_STATE_CHANGED"
         | "QUOTE_CLOCK_CHANGED"
+        | "NATIVE_VALUATION_QUOTE_PRICE_CHANGED"
+        | "NATIVE_VALUATION_REVISION_ROLLBACK_OR_CONFLICT"
         | "PREPARATION_PROGRAM_CHANGED" => StatusCode::CONFLICT,
         "INDEPENDENT_SIMULATION_UNAVAILABLE"
         | "EXECUTION_ADAPTER_UNSUPPORTED"
@@ -1013,6 +1094,8 @@ async fn build_transaction(
             return Err(failure(err("QUOTE_EXPIRED")));
         }
         api.check_view(selected.view()).map_err(failure)?;
+        api.check_quote_prices(selected.response())
+            .map_err(failure)?;
         let deadline = Instant::now()
             + Duration::from_millis(api.config.config.simulation.timeout_ms.min(60_000));
         let mut response = backend
@@ -1023,6 +1106,8 @@ async fn build_transaction(
             return Err(failure(err("QUOTE_EXPIRED")));
         }
         api.check_view(selected.view()).map_err(failure)?;
+        api.check_quote_prices(selected.response())
+            .map_err(failure)?;
         response["quoteId"] = id.clone().into();
         response["quoteViewId"] = selected.view().view_id.clone().into();
         let current_hash = match &selected {
@@ -1076,12 +1161,15 @@ async fn build_transaction(
         return Err(failure(err("QUOTE_EXPIRED")));
     }
     api.check_view(&cached.view).map_err(failure)?;
+    api.check_quote_prices(&cached.response).map_err(failure)?;
     xone_simulation::verify(&cached.plan).map_err(failure)?;
     Err(failure(err("EXECUTION_ADAPTER_UNSUPPORTED")))
 }
 fn simulation_failure(error: local_simulation::Failure) -> HttpError {
     let status = if error.code == "SIMULATION_BUSY" {
         StatusCode::TOO_MANY_REQUESTS
+    } else if error.code == "NATIVE_VALUATION_QUOTE_PRICE_CHANGED" {
+        StatusCode::CONFLICT
     } else {
         StatusCode::UNPROCESSABLE_ENTITY
     };
@@ -1200,6 +1288,7 @@ fn publish_simulation(
         return Err(failure(err("QUOTE_EXPIRED")));
     }
     api.check_view(&cached.view).map_err(failure)?;
+    api.check_quote_prices(&cached.response).map_err(failure)?;
     response["quoteId"] = id.into();
     response["quoteViewId"] = cached.view.view_id.clone().into();
     response["planHash"] = cached.plan.plan_hash.clone().into();
@@ -1246,6 +1335,7 @@ fn publish_exact_out_simulation(
         return Err(failure(err("QUOTE_EXPIRED")));
     }
     api.check_view(&cached.view).map_err(failure)?;
+    api.check_quote_prices(&cached.response).map_err(failure)?;
     response["quoteId"] = id.into();
     response["quoteViewId"] = cached.view.view_id.clone().into();
     response["planHash"] = cached.plan.plan_hash.clone().into();
@@ -1296,7 +1386,7 @@ async fn evidence(
         let cache = api.cache.lock().map_err(|_| failure(err("CACHE_LOCK")))?;
         if let Some(cached) = cache.get(&id) {
             return Ok(Json(
-                json!({"quote":cached.response,"execution_plan":cached.plan,"expired":cached.expires<=now_ms(),"snapshot_valid":cached.view.is_valid(),"simulation_evidence":cached.simulation_evidence}),
+                json!({"quote":cached.response,"execution_plan":cached.plan,"expired":cached.expires<=now_ms(),"snapshot_valid":cached.view.is_valid(),"price_current":api.check_quote_prices(&cached.response).is_ok(),"simulation_evidence":cached.simulation_evidence}),
             ));
         }
     }
@@ -1478,6 +1568,18 @@ async fn config(
     Ok(Json(
         json!({"release":api.config.release,"public_hash":api.config.public_hash,"economic_hash":api.config.economic_hash}),
     ))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReloadNativeValuation {}
+async fn reload_native_valuation(
+    State(api): State<Api>,
+    headers: HeaderMap,
+    Json(_request): Json<ReloadNativeValuation>,
+) -> std::result::Result<Json<Value>, HttpError> {
+    api.authorize(&headers).map_err(failure)?;
+    api.rate_limit().map_err(failure)?;
+    api.reload_native_prices().await.map(Json).map_err(failure)
 }
 async fn ready(State(api): State<Api>) -> impl IntoResponse {
     let ready = api.replica.chains().iter().any(|k| {

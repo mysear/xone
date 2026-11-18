@@ -14,6 +14,8 @@ struct Candidate {
     anchor: PriceAnchor,
     market_feed: MarketRead,
     valid_until_ms: u64,
+    #[serde(default)]
+    publication_revision: u64,
 }
 fn run() -> Result<()> {
     let mut bytes = Vec::new();
@@ -26,7 +28,8 @@ fn run() -> Result<()> {
     }
     let c: Candidate =
         serde_json::from_slice(&bytes).map_err(|_| err("NATIVE_VALUATION_MARKET_INPUT"))?;
-    let o = unsigned_observation(&c.policy, c.anchor, c.market_feed, c.valid_until_ms)?;
+    let mut o = unsigned_observation(&c.policy, c.anchor, c.market_feed, c.valid_until_ms)?;
+    o.publication_revision = c.publication_revision;
     println!(
         "{}",
         serde_json::json!({"observation":o,"signing_message_hex":hex::encode(signing_message(&o)?),

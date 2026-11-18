@@ -77,8 +77,21 @@ impl Api {
         }
         let view = self.replica.view(&request.chain_key)?;
         self.check_view(&view)?;
-        let request_hash = hash(&json!({"request": request, "view_id": view.view_id,
-            "policy": self.config.economic_hash, "engine": ENGINE}))?;
+        let cost_backend = if self.config.config.simulation.candidate_cost_max_plans > 0 {
+            self.local_simulation
+                .as_ref()
+                .map(|b| b.pin_prices())
+                .transpose()?
+        } else {
+            None
+        };
+        let price_identity = cost_backend.as_ref().and_then(|b| b.price_identity());
+        let mut identity = json!({"request": request, "view_id": view.view_id,
+            "policy": self.config.economic_hash, "engine": ENGINE});
+        if let Some(price) = price_identity {
+            identity["candidate_price_book"] = json!(price);
+        }
+        let request_hash = hash(&identity)?;
         let shard = u64::from_str_radix(&request_hash[..16], 16)
             .map_err(|_| err("HASH_ENCODING"))? as usize
             % self.flights.len();
@@ -92,6 +105,9 @@ impl Api {
             cache.retain(|_, c| c.expires > now_ms());
             if let Some(c) = cache.values().find(|c| c.request_hash == request_hash) {
                 self.check_view(&c.view)?;
+                if let Some(backend) = &cost_backend {
+                    backend.check_current_prices()?;
+                }
                 self.observe_successful_quote(&c.view);
                 return Ok(c.response.clone());
             }
@@ -108,8 +124,16 @@ impl Api {
         let worker_view = view.clone();
         let req = request.clone();
         let deadline = started + timeout;
-        let mut cost_model = (self.config.config.simulation.candidate_cost_max_plans > 0)
-            .then(|| candidate_costs::Model::new(self, view.clone(), cancelled.clone(), deadline));
+        let mut cost_model =
+            (self.config.config.simulation.candidate_cost_max_plans > 0).then(|| {
+                candidate_costs::Model::new(
+                    self,
+                    cost_backend.clone(),
+                    view.clone(),
+                    cancelled.clone(),
+                    deadline,
+                )
+            });
         let task = tokio::task::spawn_blocking(move || {
             let _permit = permit;
             let max_hops = req
@@ -313,6 +337,9 @@ impl Api {
             response["quality"]["optimalityClaim"] = "LOCAL_EXECUTION_FEE_OBJECTIVE_WITHIN_EVALUATED_ORDERED_GRID_OR_UNIFORM_RAW_FALLBACK".into();
         }
         {
+            if let Some(backend) = &cost_backend {
+                backend.check_current_prices()?;
+            }
             let mut cache = self.exact_out_cache.lock().map_err(|_| err("CACHE_LOCK"))?;
             self.check_view(&view)?;
             if expires <= now_ms() {
@@ -354,6 +381,7 @@ impl Api {
                 return Err(err("QUOTE_EXPIRED"));
             }
             self.check_view(&cached.view)?;
+            self.check_quote_prices(&cached.response)?;
             plan::verify(&cached.plan)?;
             return Ok(true);
         }
@@ -364,7 +392,7 @@ impl Api {
         let c = cache.get(id).ok_or_else(|| err("UNKNOWN_QUOTE"))?;
         Ok(
             json!({"quote": c.response, "execution_plan": c.plan, "expired": c.expires <= now_ms(),
-            "snapshot_valid": c.view.is_valid(), "simulation_evidence": c.simulation_evidence}),
+            "snapshot_valid": c.view.is_valid(), "price_current":self.check_quote_prices(&c.response).is_ok(), "simulation_evidence": c.simulation_evidence}),
         )
     }
 }

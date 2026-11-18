@@ -57,6 +57,7 @@ def main(*, output_base=None, extra_checks=(), extra_required=None, extra_report
             'authority_quorum_policy_rotation_unknown_signers_and_payload_substitutions_fail',
             'signed_prices_cannot_cross_source_blocks_chains_time_or_expiry',
             'transaction_net_amounts_bind_token_units_round_up_and_never_clamp_or_double_charge',
+            'publication_revision_is_signed_uniform_and_legacy_encoding_is_preserved',
         ],
     },extra_artifacts=list(extra_artifacts)+[str((p/'report.json').relative_to(ROOT)) for p in [configs,http,op]],extra_report=dict(extra_report or {},
         authenticated_atomic_price_cost_arithmetic=True,configured_oracle_quorum_supported=True,

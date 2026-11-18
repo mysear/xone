@@ -34,13 +34,14 @@ pub(crate) struct Model {
 impl Model {
     pub(crate) fn new(
         api: &crate::Api,
+        backend: Option<Arc<LocalSimulation>>,
         view: Arc<QuoteView>,
         cancelled: Arc<AtomicBool>,
         deadline: Instant,
     ) -> Self {
         Self {
             config: api.config.clone(),
-            backend: api.local_simulation.clone(),
+            backend,
             view,
             runtime: tokio::runtime::Handle::current(),
             cancelled,
@@ -163,7 +164,7 @@ impl Model {
         Ok(cost)
     }
     pub(crate) fn finish(self, ranking: &CostRanking, selected_hash: &str) -> Value {
-        json!({"version":"xone-local-candidate-execution-costs/1","scope":"LOCAL_EVM_TRANSACTION_EXECUTION_FEES_ONLY",
+        let mut value = json!({"version":"xone-local-candidate-execution-costs/1","scope":"LOCAL_EVM_TRANSACTION_EXECUTION_FEES_ONLY",
             "costAdjustmentApplied":ranking.cost_adjustment_applied,
             "objective":ranking.objective,"optimizer":ranking,
             "authority":"PROVIDED_LOCAL_STATE_AND_CONFIGURED_ORACLE_QUORUM",
@@ -172,7 +173,12 @@ impl Model {
             "maxSimulationPlans":self.config.config.simulation.candidate_cost_max_plans,
             "simulationAttempts":self.attempts,"simulationBudgetExhausted":self.unavailable.contains_key("MAX_SIMULATION_PLANS"),"unavailableReasons":self.unavailable,
             "selectedPlanHash":selected_hash,"selectedExecution":self.evidence.get(selected_hash),
-            "candidateExecutions":self.evidence})
+            "candidateExecutions":self.evidence});
+        if let Some((book, revision)) = self.backend.as_ref().and_then(|b| b.price_identity()) {
+            value["priceBookHash"] = book.into();
+            value["publicationRevision"] = revision.into();
+        }
+        value
     }
 }
 async fn await_execution(
@@ -223,6 +229,11 @@ pub(crate) fn disclose(
         .ok_or_else(bad)?;
     let exact_out = quote["kind"] == "EXACT_OUT";
     let cost = audited_cost(execution, binding, context, input, output, exact_out)?;
+    if ranking["priceBookHash"].is_string()
+        && ranking["priceBookHash"] != execution["costs"]["transactionEconomics"]["priceBookHash"]
+    {
+        return Err(bad());
+    }
     if ranking["costAdjustmentApplied"] == true {
         let cost = cost.ok_or_else(bad)?.to_string();
         if ranking["optimizer"]["selected_cost_token_units"].as_str() != Some(cost.as_str()) {
@@ -264,6 +275,10 @@ pub(crate) fn disclose(
         "planHash":plan_hash,"bindingHash":binding,"bundleHash":execution["bundleHash"],
         "workerHash":execution["workerHash"],"quoteViewId":quote["quoteViewId"],
         "snapshotRef":quote["snapshotRef"],"productionVerified":false});
+    if ranking["priceBookHash"].is_string() {
+        costs["sourceEvidence"]["priceBookHash"] = ranking["priceBookHash"].clone();
+        costs["sourceEvidence"]["publicationRevision"] = ranking["publicationRevision"].clone();
+    }
     quote["costs"] = costs;
     Ok(())
 }
@@ -551,6 +566,7 @@ mod tests {
             "total",
             "net",
             "deducted",
+            "price-book",
         ] {
             let (context, mut ranking, mut quote) = disclosure_record(false, "4");
             match mode {
@@ -580,6 +596,7 @@ mod tests {
                     ranking["selectedExecution"]["costs"]["totalNativeEstimate"] = "3".into()
                 }
                 "net" => ranking["selectedExecution"]["costs"]["netBuyAmountEstimate"] = "6".into(),
+                "price-book" => ranking["priceBookHash"] = "other-book".into(),
                 _ => ranking["selectedExecution"]["costs"]["deductedFromQuoteOutput"] = true.into(),
             }
             if mode != "map" {
