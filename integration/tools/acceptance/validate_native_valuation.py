@@ -20,8 +20,8 @@ def go_configs(directory):
     (directory/'report.json').write_text(json.dumps(dict(passed=True,configs=4,artifacts={str(p.relative_to(directory)):digest(p) for p in directory.iterdir() if p.is_file()}),indent=2)+'\n')
 
 
-def main():
-    output=ROOT/'integration/artifacts/local/native-valuation-check';directory=output/'original-runs'/uuid.uuid4().hex
+def main(*, output_base=None, extra_checks=(), extra_required=None, extra_report=None, verification_scope='CONFIGURED_ORACLE_QUORUM_SOURCE_BLOCK_TIME_BOUND_ATOMIC_CONVERSION_AND_EVALUATED_TRANSACTION_ECONOMICS_PLUS_FULL_KARST_HISTORICAL_REGRESSION_NOT_LIVE_MARKET_TRUSTED_BANK_ALL_CANDIDATE_NET_RANKING_OR_PRODUCTION'):
+    output=output_base or ROOT/'integration/artifacts/local/native-valuation-check';directory=output/'original-runs'/uuid.uuid4().hex
     v=prepare(directory);refs={}
     prior=ROOT/'integration/artifacts/local/karst-api-check/runs/ecb91103ff6b4430ab10292f747e93b2/report.json';old=json.loads(prior.read_bytes());require(old['passed'] is True,'Completed normal Karst qualification required')
     refs[str(prior.relative_to(ROOT))]=digest(prior)
@@ -49,7 +49,7 @@ def main():
         ('valuation-signed-karst-http',[sys.executable,'integration/tools/acceptance/native_valuation_op_http.py',str(binary),str(v['sources']),str(signer),str(v['binary']),str(op)]),
         ('valuation-common-lint',cargo+['clippy']+manifest+['-p','xone-domain','-p','xone-config','-p','xone-execution-preparation','--all-targets','--','-D','warnings']),
         ('valuation-parser-common-lint',cargo+['clippy']+parser_manifest+['-p','xone-domain','-p','xone-config','--all-targets','--','-D','warnings']),
-    ],extra_required={
+    ]+list(extra_checks),extra_required={**(extra_required or {}),
         'valuation-router-configs':tests,'valuation-parser-configs':tests,
         'valuation-authority-and-integers':[
             'independent_solders_signatures_and_42_python_integer_conversions_match',
@@ -57,12 +57,12 @@ def main():
             'signed_prices_cannot_cross_source_blocks_chains_time_or_expiry',
             'transaction_net_amounts_bind_token_units_round_up_and_never_clamp_or_double_charge',
         ],
-    },extra_artifacts=[str((p/'report.json').relative_to(ROOT)) for p in [configs,http,op]],extra_report=dict(
+    },extra_artifacts=[str((p/'report.json').relative_to(ROOT)) for p in [configs,http,op]],extra_report=dict(extra_report or {},
         authenticated_atomic_price_cost_arithmetic=True,configured_oracle_quorum_supported=True,
         price_reference_cases=42,priced_evm_http_executions=13,priced_signed_karst_http_executions=4,
         forged_oracle_startup_rejections=6,live_market_price_adapter_supported=False,
         all_candidate_net_cost_ranking_supported=False,oracle_signatures_attest_bank_consensus=False,
-    ),verification_scope='CONFIGURED_ORACLE_QUORUM_SOURCE_BLOCK_TIME_BOUND_ATOMIC_CONVERSION_AND_EVALUATED_TRANSACTION_ECONOMICS_PLUS_FULL_KARST_HISTORICAL_REGRESSION_NOT_LIVE_MARKET_TRUSTED_BANK_ALL_CANDIDATE_NET_RANKING_OR_PRODUCTION')
+    ),verification_scope=verification_scope)
 
 
 if __name__=='__main__':

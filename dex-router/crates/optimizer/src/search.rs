@@ -1,4 +1,5 @@
 use super::{evaluate_allocation_context, AllocatedRoute, Allocation, OptimizationExecution};
+use crate::cost_scoring::{CostOptimization, Scorer};
 use num_bigint::BigUint;
 use num_traits::Zero;
 use std::{
@@ -27,7 +28,7 @@ pub struct OptimizationResult {
     pub grid_exhaustive: bool,
 }
 
-struct Solver<'a> {
+struct Solver<'a, 's, 'e> {
     pools: &'a [Pool],
     paths: &'a [PathQuote],
     input: &'a Amount,
@@ -37,9 +38,10 @@ struct Solver<'a> {
     evaluations: usize,
     best: Option<Allocation>,
     exhausted: bool,
+    scorer: Option<&'s mut Scorer<'e, Allocation>>,
 }
 
-impl Solver<'_> {
+impl Solver<'_, '_, '_> {
     fn check_time(&self) -> Result<()> {
         if self.execution.budget.is_some_and(|(cancel, deadline)| {
             cancel.load(Ordering::Relaxed) || std::time::Instant::now() >= deadline
@@ -77,6 +79,12 @@ impl Solver<'_> {
         else {
             return Ok(None);
         };
+        if used == self.limits.parts {
+            if let Some(scorer) = &mut self.scorer {
+                scorer.consider(&allocation)?;
+                self.check_time()?;
+            }
+        }
         if used == self.limits.parts
             && self.best.as_ref().is_none_or(|best| {
                 allocation.net_buy_amount > best.net_buy_amount
@@ -334,6 +342,48 @@ pub fn optimize_with_limits<'a>(
     limits: OptimizationLimits,
     execution: OptimizationExecution<'a>,
 ) -> Result<OptimizationResult> {
+    optimize_inner(pools, paths, input, cost, limits, execution, None)
+}
+
+/// Score every complete allocation in the evaluated ordered grid. The service
+/// must supply costs in buy-token atoms and honor the same cancellation/deadline.
+/// An incomplete price/cost for any candidate selects the raw best of this same
+/// evaluated set. No additive DP shortcut is valid for arbitrary plan costs.
+pub fn optimize_with_costs(
+    pools: &[Pool],
+    paths: &[PathQuote],
+    input: &Amount,
+    limits: OptimizationLimits,
+    execution: OptimizationExecution<'_>,
+    evaluator: &mut dyn FnMut(&Allocation) -> Result<Option<Amount>>,
+) -> Result<CostOptimization<OptimizationResult>> {
+    let mut scorer = Scorer::new(evaluator);
+    let mut optimized = optimize_inner(
+        pools,
+        paths,
+        input,
+        &Amount::zero(),
+        limits,
+        execution,
+        Some(&mut scorer),
+    )?;
+    let (allocation, ranking) = scorer.finish(optimized.allocation);
+    optimized.allocation = allocation;
+    Ok(CostOptimization {
+        optimization: optimized,
+        ranking,
+    })
+}
+
+fn optimize_inner<'a>(
+    pools: &'a [Pool],
+    paths: &'a [PathQuote],
+    input: &'a Amount,
+    cost: &'a Amount,
+    limits: OptimizationLimits,
+    execution: OptimizationExecution<'a>,
+    scorer: Option<&mut Scorer<'_, Allocation>>,
+) -> Result<OptimizationResult> {
     if paths.is_empty() {
         return Err(err("NO_ROUTE"));
     }
@@ -356,11 +406,13 @@ pub fn optimize_with_limits<'a>(
         evaluations: 0,
         best: None,
         exhausted: false,
+        scorer,
     };
     let splits = limits.max_splits.min(paths.len()).min(limits.parts);
     let count = proposal_count(paths.len(), limits.parts, splits, limits.max_evaluations);
     solver.enumerate(&mut Vec::new(), limits.parts, 1)?;
-    let independent = splits == 1 || (!solver.exhausted && solver.independent_grid(splits)?);
+    let independent = splits == 1
+        || (solver.scorer.is_none() && !solver.exhausted && solver.independent_grid(splits)?);
     if !independent && count > limits.max_evaluations && splits >= 3 && !solver.exhausted {
         solver.seed_large_splits(splits)?;
     }

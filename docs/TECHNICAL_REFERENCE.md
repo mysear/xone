@@ -2278,3 +2278,12 @@ Karst的0x1e CLZ在instruction table的inspector包装之前注册，执行Gas 5
 `costs.transactionEconomics`分别提供`feeAdjustedBuyAmount`（实际输出减换算费用）和`feeAdjustedSellAmount`（实际输入加换算费用），并返回book/policy/observation hash、签名者、anchor、时间、bindingHash、付款人、recipient与不可用原因。缺价/过期/未来价格、溢出、输出不足保持null；失败执行返回`EXECUTION_NOT_SUCCESSFUL`。这只是单笔已执行交易网络费核算，额外授权/资金交易成本与报价候选排序另行实现；顶层报价net及完整总成本继续null。
 
 验收生成器`integration/tools/acceptance/native_valuation_vectors.py`使用公开固定测试key和合成比率，只证明配置签名授权及独立整数核算。正常API不携带这些私钥，也不接收请求者价格；当前未提供live market adapter、可信bank/共识或生产VERIFIED。阶段149最终验证状态以进度文档为准。
+
+
+### 逐完整候选费用评分（阶段150）
+
+设计§13.1/13.3/13.5的优化器组件入口为`optimize_with_costs`与`exact_out::optimize_with_costs`。回调收到经共享状态顺序重放的完整allocation，返回`Some(cost)`或`None`；成本分别使用buy/sell Token原子单位。回调所属服务负责实际执行费用和来源/时效/单位授权，并遵守已有取消/总期限；优化器不认证价格或bank，HTTP请求不能借此提供任意成本。
+
+每个完整可行候选都在次数/时间预算内评分；部分seed不计完整交易成本，任意方案成本入口关闭只适用于可加目标的独立池DP。任一完整候选缺成本时，返回相同已评估集合的毛额最优，`cost_adjustment_applied=false`；模型错误和uint256成本溢出直接失败。ExactIn比较输出减成本的有符号整数，负数不截零；ExactOut比较所需输入加成本的完整宽度整数。`ranking.signed_objective_token_units`表示该经济目标，`selected_cost_token_units`另列，allocation中的旧net字段不代表本入口的费用后目标。
+
+`grid_exhaustive`仅涉及传入候选、有序整数网格、max_splits和每候选最多一次；预算截断明确披露。结果不证明网格间/范围外最优，也不授予真实成本或生产资格。阶段150只补算法组件，正常报价在执行/成本模型接线前继续原毛额回退。

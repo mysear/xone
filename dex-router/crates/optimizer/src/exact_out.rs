@@ -1,5 +1,8 @@
 //! Ordered output-target allocation with exact integer conservation.
-use crate::{OptimizationLimits, MAX_SPLITS};
+use crate::{
+    cost_scoring::{CostOptimization, Scorer},
+    OptimizationExecution, OptimizationLimits, MAX_SPLITS,
+};
 use num_bigint::BigUint;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -131,7 +134,7 @@ pub fn evaluate_allocation(
         routes,
     })
 }
-struct Solver<'a> {
+struct Solver<'a, 's, 'e> {
     pools: &'a [Pool],
     paths: &'a [ExactOutPathQuote],
     output: &'a Amount,
@@ -143,8 +146,9 @@ struct Solver<'a> {
     best: Option<ExactOutAllocation>,
     exhausted: bool,
     over_budget: bool,
+    scorer: Option<&'s mut Scorer<'e, ExactOutAllocation>>,
 }
-impl Solver<'_> {
+impl Solver<'_, '_, '_> {
     fn check(&self) -> Result<()> {
         if self.control.is_some_and(|(cancel, deadline)| {
             cancel.load(Ordering::Relaxed) || Instant::now() >= deadline
@@ -169,6 +173,10 @@ impl Solver<'_> {
             self.funds,
         ) {
             Ok(candidate) => {
+                if let Some(scorer) = &mut self.scorer {
+                    scorer.consider(&candidate)?;
+                    self.check()?;
+                }
                 if self.best.as_ref().is_none_or(|old| {
                     candidate.required_input.0 < old.required_input.0
                         || (candidate.required_input == old.required_input
@@ -250,6 +258,62 @@ pub fn optimize<'a>(
     funds: Funds<'a>,
     control: Option<(&'a AtomicBool, Instant)>,
 ) -> Result<ExactOutOptimization> {
+    optimize_inner(
+        pools,
+        paths,
+        output,
+        max_input,
+        limits,
+        OptimizationExecution {
+            budget: control,
+            funds: Some(funds),
+        },
+        None,
+    )
+}
+
+/// Cost must be in sell-token atoms for the complete candidate. Unknown costs
+/// disable adjustment for the entire evaluated set; callback errors abort.
+pub fn optimize_with_costs(
+    pools: &[Pool],
+    paths: &[ExactOutPathQuote],
+    output: &Amount,
+    max_input: &Amount,
+    limits: OptimizationLimits,
+    execution: OptimizationExecution<'_>,
+    evaluator: &mut dyn FnMut(&ExactOutAllocation) -> Result<Option<Amount>>,
+) -> Result<CostOptimization<ExactOutOptimization>> {
+    let mut scorer = Scorer::new(evaluator);
+    let mut optimized = optimize_inner(
+        pools,
+        paths,
+        output,
+        max_input,
+        limits,
+        execution,
+        Some(&mut scorer),
+    )?;
+    let (allocation, ranking) = scorer.finish(optimized.allocation);
+    optimized.allocation = allocation;
+    Ok(CostOptimization {
+        optimization: optimized,
+        ranking,
+    })
+}
+
+fn optimize_inner<'a>(
+    pools: &'a [Pool],
+    paths: &'a [ExactOutPathQuote],
+    output: &'a Amount,
+    max_input: &'a Amount,
+    limits: OptimizationLimits,
+    execution: OptimizationExecution<'a>,
+    scorer: Option<&mut Scorer<'_, ExactOutAllocation>>,
+) -> Result<ExactOutOptimization> {
+    let funds = execution
+        .funds
+        .ok_or_else(|| err("EXACT_OUT_FUNDING_CONTEXT_REQUIRED"))?;
+    let control = execution.budget;
     if pools
         .first()
         .is_some_and(|p| p.chain_key.starts_with("solana:"))
@@ -303,6 +367,7 @@ pub fn optimize<'a>(
         best: None,
         exhausted: false,
         over_budget: false,
+        scorer,
     };
     let mut seeds = paths.iter().collect::<Vec<_>>();
     seeds.sort_by(|a, b| {

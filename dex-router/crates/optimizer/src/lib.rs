@@ -1,8 +1,11 @@
 use num_bigint::BigUint;
 use num_traits::Zero;
+pub mod cost_scoring;
 pub mod exact_out;
 mod search;
-pub use search::{optimize_with_limits, OptimizationLimits, OptimizationResult, MAX_SPLITS};
+pub use search::{
+    optimize_with_costs, optimize_with_limits, OptimizationLimits, OptimizationResult, MAX_SPLITS,
+};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, sync::atomic::AtomicBool, time::Instant};
 use xone_domain::{err, Amount, Pool, Result};
