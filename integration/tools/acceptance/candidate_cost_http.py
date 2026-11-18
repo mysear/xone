@@ -51,6 +51,18 @@ def run(binary, output, corpus, *, exact=False, mode='priced', limit=16, legacy=
             require(ranking['costAdjustmentApplied']==applied,'Incomplete coverage did not uniformly fall back')
             require(ranking['simulationBudgetExhausted']==(limit<2),'Simulation truncation not disclosed')
             if limit<2:require(q['quality']['budgetExhausted'] is True and ranking['unavailableReasons']=={'MAX_SIMULATION_PLANS':1},'Plan budget was hidden or changed')
+            selected=ranking['selectedExecution'];costs=q['costs']
+            if selected is None:
+                require(costs['gasUnits'] is None and costs['gasNative'] is None and costs['chainFeeCompleteness']=='UNAVAILABLE','Unexecuted selected plan borrowed candidate costs')
+            else:
+                require(costs['scope']=='SELECTED_LOCAL_CANDIDATE_TRANSACTION' and costs['selectedPlanHash']==q['planHash'] and costs['completeQuoteCosts'] is False,'Selected partial cost scope changed')
+                for field in ['gasUnits','gasNative','nativeKnownSubtotal','payerNetNativeDebit','transactionEconomics','feeBreakdown','bindingHash','authority','chainFeeCompleteness','missingComponents']:
+                    require(costs[field]==selected['costs'][field],'Selected quote cost detached: '+field)
+                source=costs['sourceEvidence']
+                require(source['planHash']==q['planHash'] and source['bindingHash']==selected['bindingHash'] and source['bundleHash']==selected['bundleHash'] and source['workerHash']==selected['workerHash'] and source['quoteViewId']==q['quoteViewId'] and source['snapshotRef']==q['snapshotRef'] and source['productionVerified'] is False,'Selected quote provenance detached')
+                require(costs['quoteRankingApplied']==applied and costs['totalNativeEstimate'] is None and costs['netBuyAmountEstimate'] is None and costs['netSellAmountEstimate'] is None and costs['deductedFromQuoteOutput'] is False,'Partial fee estimate promoted complete or deducted twice')
+                valued=any(isinstance(costs['transactionEconomics'].get(side+'TokenFee'),str) for side in ['buy','sell'])
+                require(costs['tokenValuationStatus']==('CONFIGURED_ORACLE_AUTHORIZED_WITH_PER_SIDE_AVAILABILITY' if valued else 'UNAVAILABLE'),'Per-side price availability changed')
             records=[];scored=[]
             for h,execution in ranking['candidateExecutions'].items():
                 require(execution['verification']['success'] is True,'Candidate execution mismatch')

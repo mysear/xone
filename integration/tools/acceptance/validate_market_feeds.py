@@ -29,8 +29,8 @@ def go_configs(directory):
         artifacts={str(p.relative_to(directory)): digest(p) for p in directory.iterdir() if p.is_file()}), indent=2)+'\n')
 
 
-def main():
-    output = ROOT / 'integration/artifacts/local/approved-market-feed-check'
+def main(*, output_base=None, extra_report=None, verification_scope=None):
+    output = output_base or ROOT / 'integration/artifacts/local/approved-market-feed-check'
     directory = output / 'market-runs' / uuid.uuid4().hex
     directory.mkdir(parents=True, exist_ok=False)
     retained = ROOT / 'integration/artifacts/local/approved-market-feed-precheck-20261119'
@@ -94,8 +94,8 @@ def main():
             market_public_capture_scenarios=1, market_synthetic_integer_cases=48,
             market_capture_test_keys_are_production_authorities=False,
             market_storage_proofs_supported=False, market_source_consensus_claimed=False,
-            continuous_live_market_book_refresh_supported=False),
-        verification_scope='APPROVED_ETHEREUM_CHAINLINK_USD_PAIR_FIXED_BLOCK_RAW_ABI_UPGRADE_TIME_PRECISION_AND_SIGNED_RATE_AUTHORIZATION_UNSIGNED_BOUNDED_CAPTURE_PLUS_ALL_NORMAL_CANDIDATE_AND_PRIOR_GATES_NOT_LIVE_REFRESH_TRUSTED_BANK_COMPLETE_QUOTE_COST_OR_PRODUCTION')
+            continuous_live_market_book_refresh_supported=False, **(extra_report or {})),
+        verification_scope=verification_scope or 'APPROVED_ETHEREUM_CHAINLINK_USD_PAIR_FIXED_BLOCK_RAW_ABI_UPGRADE_TIME_PRECISION_AND_SIGNED_RATE_AUTHORIZATION_UNSIGNED_BOUNDED_CAPTURE_PLUS_ALL_NORMAL_CANDIDATE_AND_PRIOR_GATES_NOT_LIVE_REFRESH_TRUSTED_BANK_COMPLETE_QUOTE_COST_OR_PRODUCTION')
 
 
 if __name__ == '__main__':

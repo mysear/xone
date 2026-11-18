@@ -494,6 +494,14 @@ impl Api {
             if ranking["simulationBudgetExhausted"] == true {
                 response["quality"]["budgetExhausted"] = true.into();
             }
+            candidate_costs::disclose(
+                &mut response,
+                &ranking,
+                &plan.context,
+                &plan.plan_hash,
+                &plan.allocation.sell_amount,
+                &plan.allocation.gross_buy_amount,
+            )?;
             response["quality"]["costRanking"] = ranking;
             response["quality"]["optimalityClaim"] = "LOCAL_EXECUTION_FEE_OBJECTIVE_WITHIN_EVALUATED_ORDERED_GRID_OR_UNIFORM_RAW_FALLBACK".into();
         }

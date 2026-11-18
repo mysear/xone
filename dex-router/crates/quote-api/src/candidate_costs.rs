@@ -190,6 +190,84 @@ async fn await_execution(
     }
 }
 
+/// Publish only the selected, successfully executed plan's partial costs. The
+/// map identity and parent-audited amounts are checked again at publication.
+pub(crate) fn disclose(
+    quote: &mut Value,
+    ranking: &Value,
+    context: &Context,
+    plan_hash: &str,
+    input: &Amount,
+    output: &Amount,
+) -> Result<()> {
+    let bad = || err("CANDIDATE_COST_DISCLOSURE_BINDING");
+    if ranking["selectedPlanHash"] != plan_hash || quote["planHash"] != plan_hash {
+        return Err(bad());
+    }
+    let execution = &ranking["selectedExecution"];
+    if execution != &ranking["candidateExecutions"][plan_hash] {
+        return Err(bad());
+    }
+    if execution.is_null() || execution["verification"]["success"] != true {
+        if ranking["costAdjustmentApplied"] == true {
+            return Err(bad());
+        }
+        return Ok(());
+    }
+    if execution["quoteKind"] != quote["kind"] {
+        return Err(bad());
+    }
+    let binding = execution["bindingHash"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(bad)?;
+    let exact_out = quote["kind"] == "EXACT_OUT";
+    let cost = audited_cost(execution, binding, context, input, output, exact_out)?;
+    if ranking["costAdjustmentApplied"] == true {
+        let cost = cost.ok_or_else(bad)?.to_string();
+        if ranking["optimizer"]["selected_cost_token_units"].as_str() != Some(cost.as_str()) {
+            return Err(bad());
+        }
+    }
+    let original = quote["costs"].clone();
+    let mut costs = execution["costs"].clone();
+    if !costs.is_object()
+        || costs["totalNativeEstimate"] != Value::Null
+        || costs["netBuyAmountEstimate"] != Value::Null
+        || costs["netSellAmountEstimate"] != Value::Null
+        || costs["deductedFromQuoteOutput"] != false
+    {
+        return Err(bad());
+    }
+    // Preserve the existing declaration that unvalued activation penalties do
+    // not become transaction fees or silently alter the gross output.
+    for field in [
+        "proposalActivationCostBuyToken",
+        "ignoredConfiguredActivationCostBuyToken",
+        "configuredActivationCostApplied",
+    ] {
+        costs[field] = original[field].clone();
+    }
+    costs["scope"] = "SELECTED_LOCAL_CANDIDATE_TRANSACTION".into();
+    costs["selectedPlanHash"] = plan_hash.into();
+    costs["completeQuoteCosts"] = false.into();
+    costs["quoteRankingApplied"] = ranking["costAdjustmentApplied"].clone();
+    costs["tokenValuationStatus"] = if costs["transactionEconomics"]["buyTokenFee"].is_string()
+        || costs["transactionEconomics"]["sellTokenFee"].is_string()
+    {
+        "CONFIGURED_ORACLE_AUTHORIZED_WITH_PER_SIDE_AVAILABILITY"
+    } else {
+        "UNAVAILABLE"
+    }
+    .into();
+    costs["sourceEvidence"] = json!({"kind":"SAME_SELECTED_PLAN_LOCAL_EXECUTION",
+        "planHash":plan_hash,"bindingHash":binding,"bundleHash":execution["bundleHash"],
+        "workerHash":execution["workerHash"],"quoteViewId":quote["quoteViewId"],
+        "snapshotRef":quote["snapshotRef"],"productionVerified":false});
+    quote["costs"] = costs;
+    Ok(())
+}
+
 fn audited_cost(
     response: &Value,
     binding: &str,
@@ -324,6 +402,202 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+    fn disclosure_record(exact: bool, fee: &str) -> (Context, Value, Value) {
+        let (context, mut execution) = record(fee);
+        execution["quoteKind"] = if exact { "EXACT_OUT" } else { "EXACT_IN" }.into();
+        execution["bundleHash"] = "bundle".into();
+        execution["workerHash"] = "worker".into();
+        let c = &mut execution["costs"];
+        c["scope"] = "DECLARED_LOCAL_EVM_TRANSACTION".into();
+        c["authority"] = "PROVIDED_LOCAL_STATE".into();
+        c["gasUnits"] = "42".into();
+        c["gasNative"] = "3".into();
+        c["nativeKnownSubtotal"] = "3".into();
+        c["totalNativeEstimate"] = Value::Null;
+        c["netBuyAmountEstimate"] = Value::Null;
+        c["netSellAmountEstimate"] = Value::Null;
+        c["deductedFromQuoteOutput"] = false.into();
+        c["feeBreakdown"] = json!([{"kind":"EVM_EXECUTION","amountNative":"3"}]);
+        let ranking = json!({"selectedPlanHash":"plan","selectedExecution":execution,
+            "candidateExecutions":{"plan":execution},"costAdjustmentApplied":true,
+            "optimizer":{"selected_cost_token_units":fee}});
+        let quote = json!({"kind":if exact {"EXACT_OUT"} else {"EXACT_IN"},"planHash":"plan",
+            "quoteViewId":"view","snapshotRef":{"block":"source"},
+            "costs":crate::cost_fallback::costs(&"7".parse().unwrap())});
+        (context, ranking, quote)
+    }
+    #[test]
+    fn selected_candidate_cost_disclosure_reuses_audited_fees_without_claiming_complete_net() {
+        for exact in [false, true] {
+            for fee in [
+                "4",
+                "20",
+                "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+            ] {
+                let (context, ranking, mut quote) = disclosure_record(exact, fee);
+                disclose(
+                    &mut quote,
+                    &ranking,
+                    &context,
+                    "plan",
+                    &"12".parse().unwrap(),
+                    &"10".parse().unwrap(),
+                )
+                .unwrap();
+                let costs = &quote["costs"];
+                for field in [
+                    "gasUnits",
+                    "gasNative",
+                    "nativeKnownSubtotal",
+                    "payerNetNativeDebit",
+                    "transactionEconomics",
+                    "feeBreakdown",
+                    "bindingHash",
+                ] {
+                    assert_eq!(
+                        costs[field], ranking["selectedExecution"]["costs"][field],
+                        "{field}"
+                    );
+                }
+                assert_eq!(costs["scope"], "SELECTED_LOCAL_CANDIDATE_TRANSACTION");
+                assert_eq!(costs["sourceEvidence"]["planHash"], "plan");
+                assert_eq!(costs["sourceEvidence"]["quoteViewId"], "view");
+                assert_eq!(costs["sourceEvidence"]["snapshotRef"], quote["snapshotRef"]);
+                assert_eq!(costs["completeQuoteCosts"], false);
+                assert_eq!(costs["sourceEvidence"]["productionVerified"], false);
+                assert_eq!(costs["ignoredConfiguredActivationCostBuyToken"], "7");
+                assert_eq!(costs["proposalActivationCostBuyToken"], "0");
+                assert_eq!(costs["configuredActivationCostApplied"], false);
+                assert!(costs["totalNativeEstimate"].is_null());
+                assert!(costs["netBuyAmountEstimate"].is_null());
+                assert!(costs["netSellAmountEstimate"].is_null());
+                assert_eq!(costs["deductedFromQuoteOutput"], false);
+            }
+        }
+    }
+    #[test]
+    fn selected_candidate_disclosure_does_not_borrow_other_plans_or_price_missing_fees() {
+        for exact in [false, true] {
+            let (context, mut ranking, mut quote) = disclosure_record(exact, "4");
+            let original = quote.clone();
+            ranking["candidateExecutions"]["other"] = ranking["selectedExecution"].clone();
+            ranking["candidateExecutions"]
+                .as_object_mut()
+                .unwrap()
+                .remove("plan");
+            ranking["selectedExecution"] = Value::Null;
+            ranking["costAdjustmentApplied"] = false.into();
+            disclose(
+                &mut quote,
+                &ranking,
+                &context,
+                "plan",
+                &"12".parse().unwrap(),
+                &"10".parse().unwrap(),
+            )
+            .unwrap();
+            assert_eq!(quote, original);
+            let (context, mut ranking, mut quote) = disclosure_record(exact, "4");
+            ranking["costAdjustmentApplied"] = false.into();
+            ranking["selectedExecution"]["verification"]["success"] = false.into();
+            ranking["candidateExecutions"]["plan"] = ranking["selectedExecution"].clone();
+            disclose(
+                &mut quote,
+                &ranking,
+                &context,
+                "plan",
+                &"12".parse().unwrap(),
+                &"10".parse().unwrap(),
+            )
+            .unwrap();
+            assert_eq!(quote, original);
+            let (context, mut ranking, mut quote) = disclosure_record(exact, "4");
+            ranking["costAdjustmentApplied"] = false.into();
+            ranking["selectedExecution"]["costs"]["transactionEconomics"]["buyTokenFee"] =
+                Value::Null;
+            ranking["selectedExecution"]["costs"]["transactionEconomics"]["sellTokenFee"] =
+                Value::Null;
+            ranking["candidateExecutions"]["plan"] = ranking["selectedExecution"].clone();
+            disclose(
+                &mut quote,
+                &ranking,
+                &context,
+                "plan",
+                &"12".parse().unwrap(),
+                &"10".parse().unwrap(),
+            )
+            .unwrap();
+            assert_eq!(quote["costs"]["gasNative"], "3");
+            assert_eq!(quote["costs"]["tokenValuationStatus"], "UNAVAILABLE");
+            assert_eq!(quote["costs"]["quoteRankingApplied"], false);
+        }
+    }
+    #[test]
+    fn selected_candidate_disclosure_rejects_cross_plan_bindings_amounts_and_scores() {
+        for mode in [
+            "selected-plan",
+            "quote-plan",
+            "map",
+            "binding",
+            "caller",
+            "recipient",
+            "input",
+            "output",
+            "kind",
+            "score",
+            "unknown-score",
+            "unknown-fee",
+            "total",
+            "net",
+            "deducted",
+        ] {
+            let (context, mut ranking, mut quote) = disclosure_record(false, "4");
+            match mode {
+                "selected-plan" => ranking["selectedPlanHash"] = "other".into(),
+                "quote-plan" => quote["planHash"] = "other".into(),
+                "map" => ranking["candidateExecutions"]["plan"] = Value::Null,
+                "binding" => ranking["selectedExecution"]["costs"]["bindingHash"] = "other".into(),
+                "caller" => ranking["selectedExecution"]["transaction"]["from"] = "other".into(),
+                "recipient" => {
+                    ranking["selectedExecution"]["costs"]["transactionEconomics"]["recipient"] =
+                        "other".into()
+                }
+                "input" => {
+                    ranking["selectedExecution"]["outcome"]["actual_input_consumed"] = "13".into()
+                }
+                "output" => {
+                    ranking["selectedExecution"]["outcome"]["actual_buy_amount"] = "11".into()
+                }
+                "kind" => ranking["selectedExecution"]["quoteKind"] = "EXACT_OUT".into(),
+                "score" => ranking["optimizer"]["selected_cost_token_units"] = "5".into(),
+                "unknown-score" => ranking["optimizer"]["selected_cost_token_units"] = Value::Null,
+                "unknown-fee" => {
+                    ranking["selectedExecution"]["costs"]["transactionEconomics"]["buyTokenFee"] =
+                        Value::Null
+                }
+                "total" => {
+                    ranking["selectedExecution"]["costs"]["totalNativeEstimate"] = "3".into()
+                }
+                "net" => ranking["selectedExecution"]["costs"]["netBuyAmountEstimate"] = "6".into(),
+                _ => ranking["selectedExecution"]["costs"]["deductedFromQuoteOutput"] = true.into(),
+            }
+            if mode != "map" {
+                ranking["candidateExecutions"]["plan"] = ranking["selectedExecution"].clone();
+            }
+            assert!(
+                disclose(
+                    &mut quote,
+                    &ranking,
+                    &context,
+                    "plan",
+                    &"12".parse().unwrap(),
+                    &"10".parse().unwrap()
+                )
+                .is_err(),
+                "{mode}"
+            );
+        }
     }
     #[tokio::test]
     async fn candidate_cost_bridge_cancels_owned_execution_and_preserves_errors() {

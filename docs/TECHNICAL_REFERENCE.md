@@ -2312,3 +2312,12 @@ Karst的0x1e CLZ在instruction table的inspector包装之前注册，执行Gas 5
 采集器保存原始响应、请求和摘要；只允许五种只读RPC、32次请求、每响应256KiB、总2MiB和60秒网络总期限。每次读取在拥有并回收的子进程内执行，缓慢分段响应不能无限延长总期限。禁止重定向及带用户信息/query/fragment的URL，失败诊断不输出端点或provider异常文本。签署方须独立审核同源块、部署/币种身份、上下界及观测，再以既有格式组装PriceBook；核心Router不持有生产私钥。
 
 该适配器的真实性边界是“配置签署方认证的固定块RPC返回”，没有独立storage proof、bank共识或来源独立性证明。公开采集中的固定测试公钥与宽测试上下界不属于生产批准配置，离线重放保留原捕获时间，只验证当时的feed，不代表当前可用价格。服务内book仍生命周期不可变；持续live刷新/轮换、可信bank和全部链/Token覆盖继续未完成，不能据此开放VERIFIED或完整报价净额。当前限定结果见进度文档阶段152。
+
+
+### 选中候选费用的正常报价披露（阶段153）
+
+对应设计§13.1/15.3/15.5。显式启用候选执行费用模型时，正常ExactIn/ExactOut的`costs`复用`quality.costRanking.selectedExecution.costs`：发布前核对选中planHash、候选证据映射、quoteKind、binding、caller/recipient、实际输入输出及父费用审计。已应用评分时，费用必须存在且与优化器选中费用相等；错配直接拒绝。选中计划无执行证据或执行失败且未应用评分时，保持原未知费用，不借用其他计划。
+
+公开费用`scope=SELECTED_LOCAL_CANDIDATE_TRANSACTION`、`selectedPlanHash`与`sourceEvidence`绑定同一计划/执行bundle/worker/view/snapshot。`quoteRankingApplied`描述本轮候选比较；内层`transactionEconomics.quoteRankingApplied`仍描述单笔核算自身边界。`tokenValuationStatus=CONFIGURED_ORACLE_AUTHORIZED_WITH_PER_SIDE_AVAILABILITY`只说明至少一侧有授权换算，各侧实际可用性仍以buyTokenFee/sellTokenFee为准。缺价允许披露已核验的局部原币费用。
+
+`completeQuoteCosts=false`，完整`totalNativeEstimate/netBuyAmountEstimate/netSellAmountEstimate`保持null，`deductedFromQuoteOutput=false`；activation配置仍不冒充交易费。局部费用披露不授予生产验证、完整净额或额外授权/wrap等操作费用资格。缓存与内部evidence保存同一响应，最终simulate保留同一binding/calldata/outcome。限定验收沿用全部68门禁，新增选中费用逐字段一致性和错配/缺证据单测；执行记录见进度文档阶段153。
