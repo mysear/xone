@@ -2208,3 +2208,10 @@ Go普通native来源及archive replay在同一header/body/receipt证明之后，
 ### OP费用回执源一致性核验（阶段142）
 
 `revm_backend::audit_op_fee_measurements`使用调用者保留的`OpExecutionRequest`和严格源image，按共享checked费用模型重算全部链费、最大资金、退款和payer自收credit/net；L1Block slot和费用账户均经过有界读取，要求报告before精确匹配源银行及唯一角色集合，after差额精确守恒。失败读遥测保留，取消/期限检查贯穿调用；返回读消耗必须计入父进程总预算。接口不执行VM，不能将费用一致性核验等同真实执行证明；当前正常OP API尚未接入，源银行/现行VM/完整报价净估值与生产资格不升级。实现和冻结结果见[阶段142](../DEVELOPMENT_PROGRESS.md#plan-2026-11-18-op-fee-measurements)。
+
+
+### 正常历史OP待签名交易和独立执行（阶段143）
+
+配置的本地`LocalSimulationBundle`可选`op_attributes_calldata`；只接受已明确准入的七历史规则和属性格式。正常build按缓存ExactIn/Out重新BOUND，返回完整`rpcTransaction`和nonce/Gas/Legacy或type2费用、H源/H+1环境及build hash；未签名前完整链费未知，ready=false且用途限定历史本地仿真。正常simulate新增可选`signedOpTransaction:{transactionHash,signedWire}`，属性来自固定bundle，其他调用者覆盖字段拒绝；源无OP时仍保持旧空请求及Shanghai模式。
+
+`worker_op::OpReceiptCommitment`在父进程保留重新认证的签名和BOUND/source/limits，重算worker receipt/source摘要与nonce，再调用阶段142有界费用核验。父进程读数从worker已消费后的剩余预算分配，`costs.totalUsage`公开合计；所有有效worker仍重新核验实际二进制SHA，取消、期限和permit持有到回收。OP费用按execution（base vault/priority）、L1 data、operator、最大资金/预付/退款及payer净扣分开；额外资金操作与可信Token估值仍未知，不提升当前OP VM、可信bank、报价净排序或生产VERIFIED。原Shanghai章节只适用于无OP配置的请求；本节是显式限定扩展，OP prepared路径仍关闭。冻结结果及范围见[阶段143](../DEVELOPMENT_PROGRESS.md#plan-2026-11-18-op-normal-api)。

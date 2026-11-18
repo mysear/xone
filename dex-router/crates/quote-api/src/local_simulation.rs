@@ -24,10 +24,18 @@ use xone_simulation::{
     evm_fixture::{NativeFeeMeasurements, SimulationBudget, TransactionContext},
     revm_backend::StateImage,
     worker::{
-        executable_sha256, LocalSimulationBundle, WorkerPreparation, WorkerRequest, WorkerResponse,
-        MAX_WORKER_INPUT_BYTES, MAX_WORKER_OUTPUT_BYTES, WORKER_PROTOCOL,
+        executable_sha256, LocalSimulationBundle, WorkerOpUser, WorkerPreparation, WorkerRequest,
+        WorkerResponse, MAX_WORKER_INPUT_BYTES, MAX_WORKER_OUTPUT_BYTES, WORKER_PROTOCOL,
     },
+    worker_op::OpReceiptCommitment,
 };
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub(crate) struct SignedOpRequest {
+    pub transaction_hash: String,
+    pub signed_wire: String,
+}
 
 const MAX_STDERR: usize = 64 * 1024;
 
@@ -110,6 +118,7 @@ pub(crate) struct LocalSimulation {
 // These small values are taken from the exact request serialized to child stdin.
 // Keeping them together also makes the reported fee context unambiguous.
 struct ExecutionCommitment {
+    op: Option<OpReceiptCommitment>,
     binding_hash: String,
     quote_kind: &'static str,
     expected_preparation: Option<(String, Option<String>)>,
@@ -127,6 +136,12 @@ struct PreparedExecution {
 }
 impl PreparedExecution {
     fn from_request(request: WorkerRequest) -> std::result::Result<Self, Failure> {
+        let op = request
+            .op_user
+            .as_ref()
+            .map(|_| OpReceiptCommitment::from_request(&request))
+            .transpose()
+            .map_err(|_| Failure::new("SIMULATION_WORKER_OP_BINDING", "op_authentication"))?;
         let mut output = LimitedWriter(Vec::new());
         serde_json::to_writer(&mut output, &request)
             .map_err(|_| Failure::new("SIMULATION_WORKER_INPUT_LIMIT", "serialize"))?;
@@ -179,6 +194,7 @@ impl PreparedExecution {
         Ok(Self {
             input: output.0,
             commitment: ExecutionCommitment {
+                op,
                 binding_hash,
                 transaction,
                 executor,
@@ -243,6 +259,12 @@ impl LocalSimulation {
         if bundle.schema_version != 1 {
             return Err(err("SIMULATION_STATE_SCHEMA"));
         }
+        if let Some(attributes) = &bundle.op_attributes_calldata {
+            xone_simulation::worker::historical_op_attributes(
+                &bundle.fixture.execution_environment,
+                attributes,
+            )?;
+        }
         let anchor = &bundle.fixture.state_anchor;
         if !config
             .config
@@ -294,13 +316,221 @@ impl LocalSimulation {
         })))
     }
 
+    pub(crate) fn has_op_source(&self) -> bool {
+        self.bundle.op_attributes_calldata.is_some()
+    }
+
+    pub async fn build_op_template(
+        self: Arc<Self>,
+        config: Arc<ConfigSnapshot>,
+        cached: Selection,
+        deadline: Instant,
+    ) -> std::result::Result<Value, Failure> {
+        if !self.has_op_source() {
+            return Err(Failure::new("EXECUTION_ADAPTER_UNSUPPORTED", "build"));
+        }
+        let permit = self
+            .permits
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Failure::new("SIMULATION_BUSY", "admission"))?;
+        let task = tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            if Instant::now() >= deadline {
+                return Err(Failure::new("SIMULATION_TIMEOUT", "build"));
+            }
+            let request = self.worker_request(
+                &config,
+                &cached,
+                None,
+                None,
+                config.config.simulation.timeout_ms.min(60_000),
+            )?;
+            let (transaction, binding) = match (&request.bound, &request.exact_out_bound) {
+                (Some(b), None) => (&b.transaction, &b.binding_hash),
+                (None, Some(b)) => (&b.transaction, &b.binding_hash),
+                _ => return Err(Failure::new("SIMULATION_WORKER_BINDING", "build")),
+            };
+            self.bundle
+                .fixture
+                .validate_historical_op_environment(cached.snapshot())
+                .map_err(|_| Failure::new("SIMULATION_ENVIRONMENT_MISMATCH", "build"))?;
+            let tx = &request.transaction_context;
+            let env = &request.fixture.execution_environment;
+            let caller = request
+                .fixture
+                .accounts
+                .iter()
+                .find(|a| a.address.eq_ignore_ascii_case(&transaction.from))
+                .filter(|a| a.exists)
+                .ok_or_else(|| Failure::new("SIMULATION_OBSERVATION_UNAVAILABLE", "build"))?;
+            let bytes = hex::decode(
+                transaction
+                    .data
+                    .strip_prefix("0x")
+                    .ok_or_else(|| Failure::new("SIMULATION_WORKER_BINDING", "build"))?,
+            )
+            .map_err(|_| Failure::new("SIMULATION_WORKER_BINDING", "build"))?;
+            let intrinsic = 21000u64
+                + bytes
+                    .iter()
+                    .map(|n| if *n == 0 { 4u64 } else { 16u64 })
+                    .sum::<u64>();
+            if tx.chain_id != env.chain_id
+                || tx.nonce != caller.nonce
+                || tx.gas_limit < intrinsic
+                || tx.gas_limit > self.budget.max_transaction_gas
+                || tx.gas_limit > env.gas_limit
+                || tx.gas_price < env.base_fee
+                || tx
+                    .max_priority_fee_per_gas
+                    .as_ref()
+                    .is_some_and(|tip| tip > &tx.gas_price)
+            {
+                return Err(Failure::new("SIMULATION_TRANSACTION_CONTEXT", "build"));
+            }
+            let mut rpc = json!({"from":transaction.from,"to":transaction.to,"data":transaction.data,
+                "value":format!("0x{:x}",transaction.value.0),"chainId":format!("0x{:x}",tx.chain_id),
+                "nonce":format!("0x{:x}",tx.nonce),"gas":format!("0x{:x}",tx.gas_limit)});
+            if let Some(tip) = &tx.max_priority_fee_per_gas {
+                rpc["type"] = "0x2".into();
+                rpc["maxFeePerGas"] = format!("0x{:x}", tx.gas_price.0).into();
+                rpc["maxPriorityFeePerGas"] = format!("0x{:x}", tip.0).into();
+                rpc["accessList"] = json!([]);
+            } else {
+                rpc["type"] = "0x0".into();
+                rpc["gasPrice"] = format!("0x{:x}", tx.gas_price.0).into();
+            }
+            let max_execution = Amount::checked(&tx.gas_price.0 * tx.gas_limit)
+                .map_err(|_| Failure::new("SIMULATION_TRANSACTION_CONTEXT", "build"))?;
+            if caller.balance < max_execution {
+                return Err(Failure::new("SIMULATION_TRANSACTION_CONTEXT", "build"));
+            }
+            if Instant::now() >= deadline {
+                return Err(Failure::new("SIMULATION_TIMEOUT", "build"));
+            }
+            Ok(
+                json!({"bindingHash":binding,"bundleHash":self.bundle_sha256,
+                "purpose":"LOCAL_HISTORICAL_OP_SIGNED_SIMULATION","authority":"PROVIDED_LOCAL_STATE",
+                "transaction":transaction,"transactionContext":tx,"rpcTransaction":rpc,
+                "sourceAnchor":self.bundle.fixture.state_anchor,"executionEnvironment":env,
+                "requiredSigners":[transaction.from],"requiresSignature":true,"signed":false,"submitted":false,
+                "ready":false,"blockers":["SIGNED_OP_CHAIN_COST_AND_FUNDING_VALIDATION_REQUIRED"],
+                "maximumExecutionReserveNative":max_execution,"completeChainFeeNative":Value::Null,
+                "chainFeeCompleteness":"AWAITING_SIGNED_ENVELOPE","verified":false}),
+            )
+        });
+        tokio::time::timeout_at(deadline.into(), task)
+            .await
+            .map_err(|_| Failure::new("SIMULATION_TIMEOUT", "build"))?
+            .map_err(|_| Failure::new("SIMULATION_PREPARE_FAILED", "build"))?
+    }
+
+    fn worker_request(
+        &self,
+        config: &ConfigSnapshot,
+        cached: &Selection,
+        prepared: Option<WorkerPreparation>,
+        signed: Option<SignedOpRequest>,
+        timeout_ms: u64,
+    ) -> std::result::Result<WorkerRequest, Failure> {
+        let allowed = &config.config.simulation.allowed_targets;
+        let (bound, exact_out_bound) = match &cached {
+            Selection::ExactIn(c) => (
+                Some(
+                    xone_execution_plan::bind_v2_execution(
+                        &c.plan,
+                        &c.view.pools,
+                        &self.bundle.executor,
+                        allowed,
+                    )
+                    .map_err(|e| Failure::new(&e.0, "binding"))?,
+                ),
+                None,
+            ),
+            Selection::ExactOut(c) => (
+                None,
+                Some(
+                    xone_execution_plan::bind_v2_exact_out_execution(
+                        &c.plan,
+                        &c.view.pools,
+                        &self.bundle.executor,
+                        allowed,
+                    )
+                    .map_err(|e| Failure::new(&e.0, "binding"))?,
+                ),
+            ),
+        };
+        let genesis = config
+            .config
+            .chains
+            .iter()
+            .find(|c| c.key == cached.context().chain_key)
+            .ok_or_else(|| Failure::new("SIMULATION_STATE_CHAIN_MISMATCH", "anchor"))?
+            .genesis_hash
+            .clone();
+        let anchor = &self.bundle.fixture.state_anchor;
+        let block = &cached.snapshot().block;
+        if anchor.chain_key != block.chain_key
+            || anchor.genesis_hash != genesis
+            || anchor.block_number != block.number_or_slot
+            || anchor.block_hash != block.hash
+            || anchor.parent_hash != block.parent_hash
+            || anchor.timestamp.checked_mul(1000) != Some(block.timestamp_ms)
+        {
+            return Err(Failure::new("SIMULATION_ANCHOR_MISMATCH", "anchor"));
+        }
+        let op_user = match (&self.bundle.op_attributes_calldata, signed) {
+            (Some(attributes), Some(signed)) if prepared.is_none() => Some(WorkerOpUser {
+                transaction_hash: signed.transaction_hash,
+                signed_wire: signed.signed_wire,
+                attributes_calldata: attributes.clone(),
+            }),
+            (_, None) if prepared.is_none() => None,
+            (None, None) => None,
+            _ => {
+                return Err(Failure::new(
+                    "SIMULATION_OP_SIGNATURE_REQUIRED_OR_UNSUPPORTED",
+                    "op_authentication",
+                ))
+            }
+        };
+        let transaction_context = if let Some(op) = &op_user {
+            let authenticated = op
+                .authenticated_context(&self.bundle.fixture, &cached.context().caller, &self.budget)
+                .map_err(|_| Failure::new("SIMULATION_WORKER_OP_BINDING", "op_authentication"))?;
+            xone_simulation::evm_fixture::op_context(&authenticated)
+                .map_err(|_| Failure::new("SIMULATION_WORKER_OP_BINDING", "op_authentication"))?
+        } else {
+            prepared
+                .as_ref()
+                .map(WorkerPreparation::transaction_context)
+                .unwrap_or_else(|| self.bundle.transaction_context.clone())
+        };
+        let request = WorkerRequest {
+            op_user,
+            protocol: WORKER_PROTOCOL.into(),
+            bound,
+            exact_out_bound,
+            pools: cached.view().pools.clone(),
+            allowed_targets: config.config.simulation.allowed_targets.clone(),
+            fixture: self.bundle.fixture.clone(),
+            transaction_context,
+            prepared,
+            budget: self.budget.clone(),
+            expected_genesis_hash: genesis,
+            timeout_ms,
+        };
+        Ok(request)
+    }
+
     pub async fn execute(
         self: Arc<Self>,
         config: Arc<ConfigSnapshot>,
         cached: impl Into<Selection>,
         deadline: Instant,
     ) -> std::result::Result<Value, Failure> {
-        self.execute_inner(config, cached.into(), deadline, None)
+        self.execute_inner(config, cached.into(), deadline, None, None)
             .await
     }
     pub async fn execute_prepared(
@@ -310,7 +540,17 @@ impl LocalSimulation {
         deadline: Instant,
         prepared: WorkerPreparation,
     ) -> std::result::Result<Value, Failure> {
-        self.execute_inner(config, cached, deadline, Some(prepared))
+        self.execute_inner(config, cached, deadline, Some(prepared), None)
+            .await
+    }
+    pub async fn execute_signed_op(
+        self: Arc<Self>,
+        config: Arc<ConfigSnapshot>,
+        cached: Selection,
+        deadline: Instant,
+        signed: SignedOpRequest,
+    ) -> std::result::Result<Value, Failure> {
+        self.execute_inner(config, cached, deadline, None, Some(signed))
             .await
     }
     async fn execute_inner(
@@ -319,7 +559,16 @@ impl LocalSimulation {
         cached: Selection,
         deadline: Instant,
         prepared: Option<WorkerPreparation>,
+        signed: Option<SignedOpRequest>,
     ) -> std::result::Result<Value, Failure> {
+        if self.bundle.op_attributes_calldata.is_some() != signed.is_some()
+            || (signed.is_some() && prepared.is_some())
+        {
+            return Err(Failure::new(
+                "SIMULATION_OP_SIGNATURE_REQUIRED_OR_UNSUPPORTED",
+                "op_authentication",
+            ));
+        }
         let permit = self
             .permits
             .clone()
@@ -336,75 +585,15 @@ impl LocalSimulation {
             let state = self.clone();
             let timeout_ms = config.config.simulation.timeout_ms.min(60_000);
             let prepared = tokio::task::spawn_blocking(move || {
+                let request =
+                    state.worker_request(&config, &cached, prepared, signed, timeout_ms)?;
+                let prepared = PreparedExecution::from_request(request)?;
                 let identity = executable_sha256(&state.worker_path)
                     .map_err(|_| Failure::new("SIMULATION_WORKER_IDENTITY", "identity"))?;
                 if identity != state.worker_sha256 {
                     return Err(Failure::new("SIMULATION_WORKER_IDENTITY", "identity"));
                 }
-                let allowed = &config.config.simulation.allowed_targets;
-                let (bound, exact_out_bound) = match &cached {
-                    Selection::ExactIn(c) => (
-                        Some(
-                            xone_execution_plan::bind_v2_execution(
-                                &c.plan,
-                                &c.view.pools,
-                                &state.bundle.executor,
-                                allowed,
-                            )
-                            .map_err(|e| Failure::new(&e.0, "binding"))?,
-                        ),
-                        None,
-                    ),
-                    Selection::ExactOut(c) => (
-                        None,
-                        Some(
-                            xone_execution_plan::bind_v2_exact_out_execution(
-                                &c.plan,
-                                &c.view.pools,
-                                &state.bundle.executor,
-                                allowed,
-                            )
-                            .map_err(|e| Failure::new(&e.0, "binding"))?,
-                        ),
-                    ),
-                };
-                let genesis = config
-                    .config
-                    .chains
-                    .iter()
-                    .find(|c| c.key == cached.context().chain_key)
-                    .ok_or_else(|| Failure::new("SIMULATION_STATE_CHAIN_MISMATCH", "anchor"))?
-                    .genesis_hash
-                    .clone();
-                let anchor = &state.bundle.fixture.state_anchor;
-                let block = &cached.snapshot().block;
-                if anchor.chain_key != block.chain_key
-                    || anchor.genesis_hash != genesis
-                    || anchor.block_number != block.number_or_slot
-                    || anchor.block_hash != block.hash
-                    || anchor.parent_hash != block.parent_hash
-                    || anchor.timestamp.checked_mul(1000) != Some(block.timestamp_ms)
-                {
-                    return Err(Failure::new("SIMULATION_ANCHOR_MISMATCH", "anchor"));
-                }
-                let request = WorkerRequest {
-                    op_user: None,
-                    protocol: WORKER_PROTOCOL.into(),
-                    bound,
-                    exact_out_bound,
-                    pools: cached.view().pools.clone(),
-                    allowed_targets: config.config.simulation.allowed_targets.clone(),
-                    fixture: state.bundle.fixture.clone(),
-                    transaction_context: prepared
-                        .as_ref()
-                        .map(WorkerPreparation::transaction_context)
-                        .unwrap_or_else(|| state.bundle.transaction_context.clone()),
-                    prepared,
-                    budget: state.budget.clone(),
-                    expected_genesis_hash: genesis,
-                    timeout_ms,
-                };
-                PreparedExecution::from_request(request)
+                Ok(prepared)
             });
             // The HTTP future has its own deadline; this owned job retains
             // admission while non-interruptible blocking preparation finishes.
@@ -445,15 +634,52 @@ impl LocalSimulation {
             {
                 return Err(Failure::new("SIMULATION_WORKER_PROTOCOL", "preparation"));
             }
-            let mut response = diagnostic_response(
-                outcome.outcome,
-                &commitment,
-                &self.bundle_sha256,
-                &self.worker_sha256,
-            )?;
+            let mut response = if commitment.op.is_some() {
+                let typed =
+                    serde_json::from_value::<xone_simulation::evm_fixture::SimulationOutcome>(
+                        outcome.outcome.clone(),
+                    )
+                    .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "op_receipt"))?;
+                let image = self._image.clone();
+                // Retain the owned commitment in this blocking task; a dropped HTTP
+                // future only signals cancellation and never abandons budget ownership.
+                let control = xone_simulation::revm_backend::ExecutionControl {
+                    cancellation: cancellation.clone(),
+                    deadline: Some(deadline),
+                    progress: None,
+                };
+                let audited = tokio::task::spawn_blocking(move || {
+                    let audit = commitment
+                        .op
+                        .as_ref()
+                        .unwrap()
+                        .audit(image, &typed, control)
+                        .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "op_fee_audit"))?;
+                    op_diagnostic_response(outcome.outcome, &commitment, audit)
+                })
+                .await
+                .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "op_fee_audit"))??;
+                let mut response = audited;
+                response["bundleHash"] = self.bundle_sha256.clone().into();
+                response["workerHash"] = self.worker_sha256.clone().into();
+                response
+            } else {
+                diagnostic_response(
+                    outcome.outcome,
+                    &commitment,
+                    &self.bundle_sha256,
+                    &self.worker_sha256,
+                )?
+            };
             if let Some(prepared) = outcome.prepared {
                 response["preparedExecution"] = serde_json::to_value(prepared)
                     .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "preparation"))?;
+            }
+            if cancellation.load(Ordering::Acquire) {
+                return Err(Failure::new("SIMULATION_CANCELLED", "response"));
+            }
+            if Instant::now() >= deadline {
+                return Err(Failure::new("SIMULATION_TIMEOUT", "response"));
             }
             Ok(response)
         });
@@ -466,6 +692,49 @@ impl LocalSimulation {
             }
         }
     }
+}
+
+fn op_diagnostic_response(
+    outcome: Value,
+    commitment: &ExecutionCommitment,
+    audit: xone_simulation::worker_op::OpReceiptAudit,
+) -> std::result::Result<Value, Failure> {
+    let fees = serde_json::to_value(&audit.fees.costs)
+        .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "op_fee_audit"))?;
+    let payer = &audit.fees.payer_cost;
+    let gas = outcome["execution"]["gas_used"]
+        .as_u64()
+        .ok_or_else(|| Failure::new("SIMULATION_WORKER_PROTOCOL", "op_receipt"))?;
+    let success = outcome["matches_plan"] == true && outcome["execution"]["status"] == "SUCCESS";
+    let costs = json!({"schemaVersion":1,"modelVersion":xone_execution_preparation::op_chain_cost::VERSION,
+            "chainKey":commitment.transaction.chain_key,"bindingHash":commitment.binding_hash,
+            "scope":"SIGNED_LOCAL_HISTORICAL_OP_TRANSACTION","authority":"PROVIDED_LOCAL_STATE",
+            "nativeUnit":"EVM_NATIVE_ATOMS","gasUnits":gas.to_string(),
+            "gasNative":fees["execution_fee"],"l1DataNative":fees["l1_data_fee"],"operatorNative":fees["operator_fee"],
+            "nativeKnownSubtotal":fees["gross_charge"],"nativeKnownSubtotalKind":"GROSS_CHAIN_TRANSACTION_CHARGE",
+            "payerNetNativeDebit":payer.net_native_debit,"feeCreditsReturnedToPayerNative":payer.fee_credits_returned_to_payer,
+            "maximumFundingNative":fees["maximum_funding"],"upfrontChargeNative":fees["upfront_charge"],
+            "executionGasRefundNative":fees["execution_gas_refund"],"operatorGasRefundNative":fees["operator_gas_refund"],
+            "feeBreakdown":[{"kind":"OP_EXECUTION","amountNative":fees["execution_fee"],"parts":{
+                "baseFeeToVaultNative":fees["base_fee_to_vault"],"priorityFeeNative":fees["priority_fee_to_beneficiary"]}},
+                {"kind":"OP_L1_DATA","amountNative":fees["l1_data_fee"]},{"kind":"OP_OPERATOR","amountNative":fees["operator_fee"]}],
+            "balanceReconciliation":{"status":"MATCHED","scope":"SIGNED_ZERO_VALUE_FEE_ONLY_TRANSACTION","source":"RETAINED_BUNDLE_FEE_ACCOUNTS"},
+            "maximumFundingAdmission":"SOURCE_BALANCE_COVERS_SIGNED_OP_MAXIMUM_FUNDING",
+            "parentFeeAuditReads":audit.fees.telemetry.reads.reads,"parentFeeAuditReadBytes":audit.fees.telemetry.reads.bytes,
+            "totalUsage":audit.total_usage,"chainFeeCompleteness":"SIGNED_LOCAL_HISTORICAL_OP_TRANSACTION",
+            "totalNativeEstimate":Value::Null,"approvalNative":Value::Null,"netBuyAmountEstimate":Value::Null,"netSellAmountEstimate":Value::Null,
+            "missingComponents":["ADDITIONAL_APPROVAL_OR_FUNDING_OPERATIONS","TRUSTED_TOKEN_PRICE_CONVERSION"],
+            "unavailableReason":"COMPLETE_QUOTE_ECONOMIC_COST_COVERAGE_UNAVAILABLE","deductedFromQuoteOutput":false});
+    Ok(
+        json!({"quoteKind":commitment.quote_kind,"bindingHash":commitment.binding_hash,
+        "transaction":commitment.transaction,"transactionContext":commitment.transaction_context,
+        "executionBaseFee":commitment.execution_base_fee,"executionCoinbase":commitment.execution_coinbase,
+        "executor":commitment.executor,"authority":"PROVIDED_LOCAL_STATE",
+        "verification":{"level":"LOCAL_SIGNED_HISTORICAL_OP_EXECUTED","success":success,"verified":false},"verified":false,
+        "outcome":outcome,"fees":{"evmGasUsed":gas,"gasPriceWei":fees["effective_gas_price"],
+            "evmFeeWei":fees["execution_fee"],"chainFeeCompleteness":"SIGNED_LOCAL_HISTORICAL_OP_TRANSACTION"},
+        "costs":costs}),
+    )
 }
 
 fn diagnostic_response(
@@ -950,6 +1219,7 @@ mod tests {
     }
     fn diagnostic_commitment(gas_price: &str) -> ExecutionCommitment {
         ExecutionCommitment {
+            op: None,
             binding_hash: "binding".into(),
             quote_kind: "EXACT_IN",
             expected_preparation: None,

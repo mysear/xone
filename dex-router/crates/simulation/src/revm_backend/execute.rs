@@ -102,7 +102,7 @@ impl OpFork {
             Self::Isthmus => "op-isthmus",
         }
     }
-    pub(super) fn at(chain: u64, time: u64) -> Option<Self> {
+    pub(crate) fn at(chain: u64, time: u64) -> Option<Self> {
         let start = match chain {
             10 => 1_686_068_903,
             8453 => 1_686_789_347,

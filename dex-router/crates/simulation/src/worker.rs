@@ -28,6 +28,8 @@ pub const MAX_WORKER_OUTPUT_BYTES: usize = 1024 * 1024;
 #[serde(deny_unknown_fields)]
 pub struct LocalSimulationBundle {
     pub schema_version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub op_attributes_calldata: Option<String>,
     pub fixture: FixtureState,
     pub executor: ExecutorIdentity,
     pub transaction_context: TransactionContext,
@@ -97,23 +99,67 @@ impl WorkerOpUser {
             budget.max_input_bytes,
         )
         .map_err(|_| invalid())?;
-        use crate::revm_backend::OpFork;
-        let fork = match fixture.execution_environment.fork.as_str() {
-            "op-regolith" => OpFork::Regolith,
-            "op-canyon" => OpFork::Canyon,
-            "op-ecotone" => OpFork::Ecotone,
-            "op-fjord" => OpFork::Fjord,
-            "op-granite" => OpFork::Granite,
-            "op-holocene" => OpFork::Holocene,
-            "op-isthmus" => OpFork::Isthmus,
-            _ => return Err(invalid()),
-        };
+        let fork = historical_op_fork(&fixture.execution_environment)?;
         Ok(evm_fixture::OpTransactionContext {
             fork,
             transaction,
             attributes_calldata: attributes,
         })
     }
+}
+/// Validate the complete configured source attributes before offering a signing template.
+pub fn historical_op_attributes(
+    env: &evm_fixture::ExecutionEnvironment,
+    encoded: &str,
+) -> Result<Vec<u8>> {
+    let bad = || err("SIMULATION_WORKER_OP_BINDING");
+    let fork = historical_op_fork(env)?;
+    let raw = encoded.strip_prefix("0x").ok_or_else(bad)?;
+    if raw.len() > 520
+        || raw.len() % 2 != 0
+        || !raw
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(bad());
+    }
+    let bytes = hex::decode(raw).map_err(|_| bad())?;
+    use crate::revm_backend::OpFork;
+    if matches!(fork, OpFork::Regolith | OpFork::Canyon) {
+        xone_execution_preparation::op_l1_cost::decode_parameters(
+            &format!("evm:{}", env.chain_id),
+            env.timestamp,
+            &bytes,
+        )?;
+    } else {
+        let (selector, size) = if fork == OpFork::Isthmus {
+            ([0x09, 0x89, 0x99, 0xbe], 176)
+        } else {
+            ([0x44, 0x0a, 0x5e, 0x20], 164)
+        };
+        if bytes.len() != size || bytes[..4] != selector {
+            return Err(bad());
+        }
+        xone_execution_preparation::op_packed_cost::decode_packed_attributes(&bytes)?;
+        if u64::from_be_bytes(bytes[20..28].try_into().unwrap()) > env.timestamp
+            || (bytes[68..100].iter().all(|b| *b == 0) && bytes[4..12].iter().all(|b| *b == 0))
+        {
+            return Err(bad());
+        }
+    }
+    Ok(bytes)
+}
+
+/// Exact pinned historical OP/Base interval, never an inferred current VM.
+pub fn historical_op_fork(
+    env: &evm_fixture::ExecutionEnvironment,
+) -> Result<crate::revm_backend::OpFork> {
+    let fork = crate::revm_backend::OpFork::at(env.chain_id, env.timestamp)
+        .ok_or_else(|| err("SIMULATION_WORKER_OP_BINDING"))?;
+    if fork.label() != env.fork {
+        return Err(err("SIMULATION_WORKER_OP_BINDING"));
+    }
+    Ok(fork)
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

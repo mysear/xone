@@ -87,8 +87,9 @@ async fn main() {
         rpc_task = Some(task);
     }
     let max_fee = original_tx.gas_price.clone();
-    let bundle = LocalSimulationBundle {
+    let mut bundle = LocalSimulationBundle {
         schema_version: 1,
+        op_attributes_calldata: None,
         executor: rpc.executor.clone(),
         fixture,
         transaction_context: TransactionContext {
@@ -102,6 +103,47 @@ async fn main() {
             ..original_tx
         },
     };
+    if let Ok(path) = std::env::var("XONE_OP_API_SOURCE") {
+        assert!(
+            prepared_http.is_none()
+                && !native_alias
+                && std::env::var("XONE_EVM_PATH_CASE").is_err()
+        );
+        let source: xone_simulation::worker::WorkerRequest =
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        let (ctx, snap, input, output, executor) = match (&source.bound, &source.exact_out_bound) {
+            (Some(b), None) => (
+                &b.plan.context,
+                &b.plan.snapshot,
+                &b.plan.allocation.sell_amount,
+                &b.plan.allocation.gross_buy_amount,
+                &b.executor,
+            ),
+            (None, Some(b)) => (
+                &b.plan.context,
+                &b.plan.snapshot,
+                &b.plan.allocation.required_input,
+                &b.plan.allocation.target_output,
+                &b.executor,
+            ),
+            _ => panic!("one BOUND mode required"),
+        };
+        context = ctx.clone();
+        reference = snap.clone();
+        sell_amount = input.clone();
+        buy_amount = output.clone();
+        pools = source.pools.clone();
+        rpc.chain_key = context.chain_key.clone();
+        rpc.genesis_hash = source.fixture.state_anchor.genesis_hash.clone();
+        rpc.executor = executor.clone();
+        bundle = LocalSimulationBundle {
+            schema_version: 1,
+            fixture: source.fixture,
+            executor: executor.clone(),
+            transaction_context: source.transaction_context,
+            op_attributes_calldata: Some(source.op_user.unwrap().attributes_calldata),
+        };
+    }
     std::fs::write(&bundle_path, serde_json::to_vec(&bundle).unwrap()).unwrap();
     let mut config = xone_config::load(
         concat!(env!("CARGO_MANIFEST_DIR"), "/../../config/config-test.yaml"),
@@ -109,7 +151,19 @@ async fn main() {
     )
     .unwrap();
     config.token = "dynamic-fee-http-local-test-20261117".into();
-    config.config.chains.retain(|c| c.key == rpc.chain_key);
+    if bundle.op_attributes_calldata.is_some() {
+        let mut chain = config
+            .config
+            .chains
+            .iter()
+            .find(|c| c.key.starts_with("evm:"))
+            .unwrap()
+            .clone();
+        chain.key = rpc.chain_key.clone();
+        config.config.chains = vec![chain];
+    } else {
+        config.config.chains.retain(|c| c.key == rpc.chain_key);
+    }
     config.config.chains[0].genesis_hash = rpc.genesis_hash;
     if prepared_http.is_some() {
         config.config.chains[0].rpc_urls = vec![rpc.url.clone()];

@@ -403,11 +403,29 @@ impl FixtureState {
             .map(Arc::new)
             .map_err(|e| failure(SimulationInvalidFixture, "image", e))
     }
+    /// Validate only the pinned historical OP/Base execution interval and H -> H+1 identity.
+    pub fn validate_historical_op_environment(
+        &self,
+        snapshot: &xone_domain::SnapshotRef,
+    ) -> Result<core::OpFork> {
+        let env = &self.execution_environment;
+        let fork = core::OpFork::at(env.chain_id, env.timestamp)
+            .filter(|fork| fork.label() == env.fork)
+            .ok_or_else(|| {
+                failure(
+                    SimulationEnvironmentMismatch,
+                    "op_environment",
+                    "unsupported historical fork",
+                )
+            })?;
+        self.validate_snapshot_environment(snapshot, fork.label())?;
+        Ok(fork)
+    }
     /// This wrapper supports historical H -> H+1 replay only, not an implicit mix of contexts.
     pub fn validate_environment(&self, bound: &BoundEvmExecution) -> Result<()> {
         self.validate_snapshot_environment(&bound.plan.snapshot, "shanghai")
     }
-    fn validate_snapshot_environment(
+    pub(crate) fn validate_snapshot_environment(
         &self,
         snapshot: &xone_domain::SnapshotRef,
         fork: &str,
@@ -1176,7 +1194,7 @@ pub struct OpTransactionContext {
     pub transaction: crate::op_transaction::AuthenticatedUser,
     pub attributes_calldata: Vec<u8>,
 }
-pub(crate) fn op_context(op: &OpTransactionContext) -> Result<TransactionContext> {
+pub fn op_context(op: &OpTransactionContext) -> Result<TransactionContext> {
     let e = op.transaction.environment();
     Ok(TransactionContext {
         nonce: e.nonce.unwrap(),

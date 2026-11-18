@@ -799,3 +799,107 @@ fn actual_signed_op_worker_rejects_envelope_context_state_and_mode_substitutions
         .unwrap()
         .contains_key("op_user"));
 }
+
+#[test]
+#[ignore = "requires retained historical OP attributes"]
+fn retained_op_worker_receipt_commitment_audits_modes_and_reserves_parent_reads() {
+    use xone_simulation::worker_op::OpReceiptCommitment;
+    let mut index = 0;
+    let mut n = 0;
+    matrix(|c| {
+        let selected = index % 64 < 4;
+        index += 1;
+        if !selected {
+            return;
+        }
+        let request = signed_worker_request(&c);
+        let outcome = run(&c, &request.budget).unwrap();
+        let image = c.fixture.to_image(&request.budget).unwrap();
+        let commitment = OpReceiptCommitment::from_request(&request).unwrap();
+        let audit = commitment
+            .audit(image.clone(), &outcome, Default::default())
+            .unwrap();
+        assert_eq!(
+            audit.total_usage.reads,
+            outcome.usage.reads + audit.fees.telemetry.reads.reads
+        );
+        assert_eq!(
+            audit.total_usage.read_bytes,
+            outcome.usage.read_bytes + audit.fees.telemetry.reads.bytes
+        );
+        assert_eq!(
+            serde_json::to_value(audit.fees.costs).unwrap(),
+            outcome.op_fees.as_ref().unwrap()["chain_cost"]
+        );
+        assert!(audit.total_usage.reads <= request.budget.max_reads);
+        for mode in 0..9 {
+            let mut changed = serde_json::to_value(&outcome).unwrap();
+            match mode {
+                0 => changed["op_fees"]["chain_cost"]["execution_fee"] = "0".into(),
+                1 => {
+                    let accounts = changed["op_fees"]["accounts"].as_object_mut().unwrap();
+                    let a = accounts.values_mut().next().unwrap();
+                    for f in ["before", "after"] {
+                        a[f] = (U256::from_str(a[f].as_str().unwrap()).unwrap() + U256::from(1))
+                            .to_string()
+                            .into();
+                    }
+                }
+                2 => changed["source_fixture_hash"] = "changed".into(),
+                3 => changed["execution"]["sender_nonce_after"] = 0.into(),
+                4 => changed["usage"]["reads"] = request.budget.max_reads.into(),
+                5 => changed["usage"]["read_bytes"] = request.budget.max_read_bytes.into(),
+                6 => changed["op_fees"] = Value::Null,
+                7 => {
+                    changed["usage"]["instructions"] = (request.budget.max_instructions + 1).into()
+                }
+                _ => changed["simulator_version"] = "provided-local-state/shanghai-v1".into(),
+            }
+            changed.as_object_mut().unwrap().remove("receipt_hash");
+            let bound = request
+                .bound
+                .as_ref()
+                .map(|b| serde_json::to_value(b).unwrap())
+                .unwrap_or_else(|| {
+                    serde_json::to_value(request.exact_out_bound.as_ref().unwrap()).unwrap()
+                });
+            let h = xone_domain::hash(
+                &json!({"bound":bound,"source_fixture_hash":changed["source_fixture_hash"],
+                "transaction_context":request.transaction_context,"limits":request.budget,
+                "simulator_version":changed["simulator_version"],"outcome":changed}),
+            )
+            .unwrap();
+            changed["receipt_hash"] = h.into();
+            let changed: SimulationOutcome = serde_json::from_value(changed).unwrap();
+            assert!(
+                commitment
+                    .audit(image.clone(), &changed, Default::default())
+                    .is_err(),
+                "{} mode {mode}",
+                c.id
+            );
+        }
+        n += 1;
+    });
+    assert_eq!(n, 28);
+}
+
+#[test]
+#[ignore = "exports retained sources for normal OP HTTP build and wallet signing"]
+fn export_original_op_bound_inputs_for_normal_op_api_sources() {
+    let mut rows = Vec::new();
+    let mut index = 0;
+    matrix(|c| {
+        let selected = index % 64 < 4;
+        index += 1;
+        if selected {
+            rows.push(json!({"id":c.id,"request":signed_worker_request(&c)}));
+        }
+    });
+    assert_eq!(rows.len(), 28);
+    std::fs::write(
+        std::env::var("XONE_OP_API_INPUTS").unwrap(),
+        serde_json::to_vec_pretty(&rows).unwrap(),
+    )
+    .unwrap();
+}

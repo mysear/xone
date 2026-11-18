@@ -4,6 +4,7 @@ pub mod prepared_evm;
 pub mod revm_backend;
 pub mod solana_sbf;
 pub mod worker;
+pub mod worker_op;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use xone_domain::{err, Amount, Result};

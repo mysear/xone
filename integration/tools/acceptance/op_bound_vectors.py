@@ -87,7 +87,7 @@ def write(output,execution_vectors):
         import platform
         triple=('aarch64' if platform.machine()=='arm64' else 'x86_64')+'_APPLE_DARWIN'
         env.setdefault('CARGO_TARGET_'+triple.upper()+'_RUNNER',str(ROOT/'integration/tools/ci/native-test-runner.py'))
-    result=subprocess.run(['cargo','+1.90.0','test','--locked','--manifest-path','dex-router/Cargo.toml','-p','xone-simulation','--test','op_bound','export_original_op_bound_inputs','--','--include-ignored'],cwd=ROOT,env=env,text=True,capture_output=True,timeout=180)
+    result=subprocess.run(['cargo','+1.90.0','test','--locked','--manifest-path','dex-router/Cargo.toml','-p','xone-simulation','--test','op_bound','export_original_op_bound_inputs','--','--include-ignored','--exact'],cwd=ROOT,env=env,text=True,capture_output=True,timeout=180)
     (output.parent/'export.log').write_text(result.stdout+result.stderr)
     require(result.returncode==0 and 'test export_original_op_bound_inputs ... ok' in result.stdout,'BOUND input export failed: '+result.stderr[-1000:])
     inputs=json.loads(inputs_path.read_bytes());module=output.parent/'runner';module.mkdir();shutil.copyfile(RUNNER,module/'main.go')

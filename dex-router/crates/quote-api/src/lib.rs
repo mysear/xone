@@ -920,6 +920,80 @@ async fn build_transaction(
 ) -> std::result::Result<Json<Value>, HttpError> {
     api.authorize(&headers).map_err(failure)?;
     api.rate_limit().map_err(failure)?;
+    if let Some(backend) = api.local_simulation.clone().filter(|b| b.has_op_source()) {
+        let selected = if api.exact_out_execution(&id).map_err(failure)? {
+            let cache = api
+                .exact_out_cache
+                .lock()
+                .map_err(|_| failure(err("CACHE_LOCK")))?;
+            local_simulation::Selection::ExactOut(
+                cache
+                    .get(&id)
+                    .cloned()
+                    .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?,
+            )
+        } else {
+            let cache = api.cache.lock().map_err(|_| failure(err("CACHE_LOCK")))?;
+            local_simulation::Selection::ExactIn(
+                cache
+                    .get(&id)
+                    .cloned()
+                    .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?,
+            )
+        };
+        if selected.expires() <= now_ms() {
+            return Err(failure(err("QUOTE_EXPIRED")));
+        }
+        api.check_view(selected.view()).map_err(failure)?;
+        let deadline = Instant::now()
+            + Duration::from_millis(api.config.config.simulation.timeout_ms.min(60_000));
+        let mut response = backend
+            .build_op_template(api.config.clone(), selected.clone(), deadline)
+            .await
+            .map_err(simulation_failure)?;
+        if selected.expires() <= now_ms() {
+            return Err(failure(err("QUOTE_EXPIRED")));
+        }
+        api.check_view(selected.view()).map_err(failure)?;
+        response["quoteId"] = id.clone().into();
+        response["quoteViewId"] = selected.view().view_id.clone().into();
+        let current_hash = match &selected {
+            local_simulation::Selection::ExactIn(c) => {
+                let cache = api.cache.lock().map_err(|_| failure(err("CACHE_LOCK")))?;
+                let current = cache
+                    .get(&id)
+                    .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?;
+                if current.expires <= now_ms() {
+                    return Err(failure(err("QUOTE_EXPIRED")));
+                }
+                api.check_view(&current.view).map_err(failure)?;
+                if current.plan.plan_hash != c.plan.plan_hash {
+                    return Err(failure(err("SNAPSHOT_REORGED")));
+                }
+                c.plan.plan_hash.clone()
+            }
+            local_simulation::Selection::ExactOut(c) => {
+                let cache = api
+                    .exact_out_cache
+                    .lock()
+                    .map_err(|_| failure(err("CACHE_LOCK")))?;
+                let current = cache
+                    .get(&id)
+                    .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?;
+                if current.expires <= now_ms() {
+                    return Err(failure(err("QUOTE_EXPIRED")));
+                }
+                api.check_view(&current.view).map_err(failure)?;
+                if current.plan.plan_hash != c.plan.plan_hash {
+                    return Err(failure(err("SNAPSHOT_REORGED")));
+                }
+                c.plan.plan_hash.clone()
+            }
+        };
+        response["planHash"] = current_hash.into();
+        response["buildHash"] = xone_domain::hash(&response).map_err(failure)?.into();
+        return Ok(Json(response));
+    }
     if api.exact_out_execution(&id).map_err(failure)? {
         return Err(failure(err("EXECUTION_ADAPTER_UNSUPPORTED")));
     }
@@ -950,7 +1024,10 @@ fn simulation_failure(error: local_simulation::Failure) -> HttpError {
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SimulationRequest {}
+struct SimulationRequest {
+    #[serde(default, rename = "signedOpTransaction")]
+    signed_op_transaction: Option<local_simulation::SignedOpRequest>,
+}
 async fn simulate_transaction(
     State(api): State<Api>,
     headers: HeaderMap,
@@ -974,15 +1051,14 @@ async fn simulate_transaction(
         ))
     })?
     .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?;
-    if !body.is_empty() {
-        let value: Value = serde_json::from_slice(&body)
-            .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?;
-        if !value.is_object() {
-            return Err(failure(err("INVALID_SIMULATION_REQUEST")));
+    let simulation_request = if body.is_empty() {
+        SimulationRequest {
+            signed_op_transaction: None,
         }
-        serde_json::from_value::<SimulationRequest>(value)
-            .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?;
-    }
+    } else {
+        serde_json::from_slice::<SimulationRequest>(&body)
+            .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?
+    };
     let is_exact_out = api.exact_out_execution(&id).map_err(failure)?;
     let backend = api
         .local_simulation
@@ -1015,10 +1091,16 @@ async fn simulate_transaction(
     api.metrics
         .simulation_started
         .fetch_add(1, Ordering::Relaxed);
-    let response = match backend
-        .execute(api.config.clone(), cached.clone(), deadline)
-        .await
-    {
+    let executed = if let Some(signed) = simulation_request.signed_op_transaction {
+        backend
+            .execute_signed_op(api.config.clone(), cached.clone(), deadline, signed)
+            .await
+    } else {
+        backend
+            .execute(api.config.clone(), cached.clone(), deadline)
+            .await
+    };
+    let response = match executed {
         Ok(response) => response,
         Err(error) => {
             if error.code == "SIMULATION_BUSY" {
