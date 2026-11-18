@@ -2142,3 +2142,17 @@ BINDINGS['12.14.public-v2-original-execution'] = {
            'current_go_public_v2_original_execution_and_full_after_state_match'],
  'evidence_refs': ['integration/artifacts/local/public-v2-original-execution-check/report.json'],
 }
+
+BINDINGS['13.evm-native-cost-components'] = {
+ 'paths': ['dex-router/crates/execution-preparation/src/evm_native_cost.rs',
+           'dex-router/crates/execution-preparation/tests/evm_native_cost.rs',
+           'dex-router/crates/quote-api/src/local_simulation.rs',
+           'integration/tools/acceptance/native_cost_vectors.py',
+           'integration/tools/acceptance/evm_native_cost_http.py',
+           'integration/tools/acceptance/validate_evm_native_cost.py'],
+ 'tests': ['native_cost_uses_effective_price_and_keeps_reserve_separate_from_charge',
+           'current_python_native_cost_vectors_match_all_components_and_rejections',
+           'native_cost_breakdown_discloses_unknown_components_without_double_counting_or_net_claim',
+           'native_cost_receipt_cannot_exceed_signed_gas_or_use_invalid_base_price'],
+ 'evidence_refs': ['integration/artifacts/local/evm-native-cost-model-check/report.json'],
+}

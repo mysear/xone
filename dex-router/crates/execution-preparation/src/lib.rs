@@ -1,6 +1,7 @@
 //! Dynamic Solana account resolution and unsigned preparation. No quote cache,
 //! HTTP authorization, wallet keys, signing, or transaction submission lives here.
 pub mod evm;
+pub mod evm_native_cost;
 pub mod evm_rpc;
 mod evm_rpc_json;
 use base64::{engine::general_purpose::STANDARD, Engine};

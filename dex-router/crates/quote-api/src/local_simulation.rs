@@ -454,46 +454,59 @@ fn diagnostic_response(
     let gas = outcome["execution"]["gas_used"]
         .as_u64()
         .ok_or_else(|| Failure::new("SIMULATION_WORKER_PROTOCOL", "receipt"))?;
-    let gas_amount: Amount = gas
-        .to_string()
-        .parse()
-        .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "receipt"))?;
-    let maximum = &commitment.transaction_context.gas_price;
-    let (gas_price, fee) =
-        if let Some(priority) = &commitment.transaction_context.max_priority_fee_per_gas {
-            let invalid = || Failure::new("SIMULATION_WORKER_PROTOCOL", "fees");
-            let native: NativeFeeMeasurements =
-                serde_json::from_value(outcome["native_fees"].clone()).map_err(|_| invalid())?;
-            let base = &commitment.execution_base_fee;
-            if priority > maximum || base > maximum {
-                return Err(invalid());
-            }
-            let headroom = &maximum.0 - &base.0;
-            let tip = priority.0.clone().min(headroom);
-            let price = Amount::checked(&base.0 + &tip).map_err(|_| invalid())?;
-            let fee = Amount::checked(&gas_amount.0 * &price.0).map_err(|_| invalid())?;
-            let burn = Amount::checked(&gas_amount.0 * &base.0).map_err(|_| invalid())?;
-            let paid_tip = Amount::checked(&gas_amount.0 * &tip).map_err(|_| invalid())?;
-            if native.effective_gas_price != price
-                || native.execution_fee != fee
-                || native.base_fee_burned != burn
-                || native.priority_fee_paid != paid_tip
-            {
-                return Err(invalid());
-            }
-            (price, fee)
-        } else {
-            let fee = Amount::checked(&gas_amount.0 * &maximum.0)
-                .map_err(|_| Failure::new("SIMULATION_FEE_OVERFLOW", "receipt"))?;
-            (maximum.clone(), fee)
-        };
+    let model = xone_execution_preparation::evm_native_cost::measured_native_cost(
+        gas,
+        commitment.transaction_context.gas_limit,
+        &commitment.execution_base_fee,
+        &commitment.transaction_context.gas_price,
+        commitment
+            .transaction_context
+            .max_priority_fee_per_gas
+            .as_ref(),
+    )
+    .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"))?;
+    if commitment
+        .transaction_context
+        .max_priority_fee_per_gas
+        .is_some()
+    {
+        let native: NativeFeeMeasurements = serde_json::from_value(outcome["native_fees"].clone())
+            .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"))?;
+        if native.effective_gas_price != model.effective_gas_price
+            || native.execution_fee != model.execution_fee
+            || native.base_fee_burned != model.base_fee_burned
+            || native.priority_fee_paid != model.priority_fee_paid
+        {
+            return Err(Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"));
+        }
+    } else if outcome.get("native_fees").is_some_and(|v| !v.is_null()) {
+        return Err(Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"));
+    }
+    let costs = json!({
+        "schemaVersion":1,"modelVersion":xone_execution_preparation::evm_native_cost::VERSION,
+        "chainKey":commitment.transaction.chain_key,"bindingHash":commitment.binding_hash,
+        "scope":"DECLARED_LOCAL_EVM_TRANSACTION","authority":"PROVIDED_LOCAL_STATE",
+        "gasUnits":gas.to_string(),"gasNative":model.execution_fee,
+        "gasPriceNativePerUnit":model.effective_gas_price,
+        "maxExecutionReserveNative":model.gas_limit_reserve,
+        "reserveHeadroomNative":Amount::checked(&model.gas_limit_reserve.0 - &model.execution_fee.0)
+            .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"))?,
+        "feeBreakdown":[{"kind":"EVM_EXECUTION","amountNative":model.execution_fee,
+            "parts":{"baseFeeBurnedNative":model.base_fee_burned,"priorityFeeNative":model.priority_fee_paid}}],
+        "nativeKnownSubtotal":model.execution_fee,"totalNativeEstimate":Value::Null,
+        "l1DataNative":Value::Null,"approvalNative":Value::Null,
+        "netBuyAmountEstimate":Value::Null,"netSellAmountEstimate":Value::Null,
+        "missingComponents":["CHAIN_SPECIFIC_DATA_OR_OTHER_NATIVE_FEES","ADDITIONAL_APPROVAL_OR_FUNDING_OPERATIONS","TRUSTED_TOKEN_PRICE_CONVERSION"],
+        "unavailableReason":"COMPLETE_CHAIN_COST_COVERAGE_UNAVAILABLE",
+        "deductedFromQuoteOutput":false,"chainFeeCompleteness":"LOCAL_EVM_ONLY"
+    });
     let success = outcome["matches_plan"] == true && outcome["execution"]["status"] == "SUCCESS";
     Ok(
         json!({"quoteKind":commitment.quote_kind,"bindingHash":commitment.binding_hash,"bundleHash":bundle_hash,"workerHash":worker_hash,
         "transaction":commitment.transaction,"transactionContext":commitment.transaction_context,"executionBaseFee":commitment.execution_base_fee,"executor":commitment.executor,
         "verification":{"level":"LOCAL_EVM_EXECUTED","success":success,"verified":false},"verified":false,
         "authority":"PROVIDED_LOCAL_STATE","outcome":outcome,
-        "fees":{"evmGasUsed":gas,"gasPriceWei":gas_price,"evmFeeWei":fee,"chainFeeCompleteness":"LOCAL_EVM_ONLY"}}),
+        "fees":{"evmGasUsed":gas,"gasPriceWei":model.effective_gas_price,"evmFeeWei":model.execution_fee,"chainFeeCompleteness":"LOCAL_EVM_ONLY"},"costs":costs}),
     )
 }
 
@@ -933,6 +946,53 @@ mod tests {
             value.as_object_mut().unwrap().remove("native_fees");
             assert!(diagnostic_response(value, &commitment, "bundle", "worker").is_err());
         }
+    }
+
+    #[test]
+    fn native_cost_breakdown_discloses_unknown_components_without_double_counting_or_net_claim() {
+        let commitment = diagnostic_commitment("2000000000");
+        let value =
+            diagnostic_response(outcome("SUCCESS", true), &commitment, "bundle", "worker").unwrap();
+        let costs = &value["costs"];
+        assert_eq!(
+            costs["modelVersion"],
+            xone_execution_preparation::evm_native_cost::VERSION
+        );
+        assert_eq!(costs["gasUnits"], "21000");
+        assert_eq!(costs["gasNative"], value["fees"]["evmFeeWei"]);
+        assert_eq!(costs["nativeKnownSubtotal"], costs["gasNative"]);
+        assert_eq!(costs["feeBreakdown"][0]["amountNative"], costs["gasNative"]);
+        assert_eq!(costs["maxExecutionReserveNative"], "2000000000000000");
+        assert_eq!(costs["reserveHeadroomNative"], "1958000000000000");
+        assert_eq!(costs["deductedFromQuoteOutput"], false);
+        assert_eq!(costs["chainFeeCompleteness"], "LOCAL_EVM_ONLY");
+        assert!(costs["l1DataNative"].is_null());
+        assert!(costs["approvalNative"].is_null());
+        assert!(costs["totalNativeEstimate"].is_null());
+        assert!(costs["netBuyAmountEstimate"].is_null());
+        assert!(costs["netSellAmountEstimate"].is_null());
+        assert_eq!(costs["missingComponents"].as_array().unwrap().len(), 3);
+        assert_eq!(costs["bindingHash"], commitment.binding_hash);
+        assert_eq!(costs["chainKey"], commitment.transaction.chain_key);
+        assert_eq!(value["verified"], false);
+    }
+
+    #[test]
+    fn native_cost_receipt_cannot_exceed_signed_gas_or_use_invalid_base_price() {
+        let mut commitment = diagnostic_commitment("2");
+        for gas in [0, 20999, commitment.transaction_context.gas_limit + 1] {
+            let mut receipt = outcome("SUCCESS", true);
+            receipt["execution"]["gas_used"] = gas.into();
+            assert!(diagnostic_response(receipt, &commitment, "bundle", "worker").is_err());
+        }
+        commitment.execution_base_fee = "3".parse().unwrap();
+        assert!(
+            diagnostic_response(outcome("SUCCESS", true), &commitment, "bundle", "worker").is_err()
+        );
+        commitment.execution_base_fee = "1".parse().unwrap();
+        let mut receipt = outcome("SUCCESS", true);
+        receipt["native_fees"] = json!({"execution_fee":"0"});
+        assert!(diagnostic_response(receipt, &commitment, "bundle", "worker").is_err());
     }
 
     async fn api_with_cached_quote() -> (crate::Api, String) {

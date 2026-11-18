@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
 BASE = ROOT / 'integration/artifacts/local/evm-dynamic-fees-check'
 
 
-def main(*, output_base=None, verification_scope='EVM_SHANGHAI_DYNAMIC_FEE_SIMULATION_PROVIDED_LOCAL_STATE', extra_required=(), extra_report=None, extra_checks=(), required_by_check=None, reference_inputs=None):
+def main(*, output_base=None, verification_scope='EVM_SHANGHAI_DYNAMIC_FEE_SIMULATION_PROVIDED_LOCAL_STATE', extra_required=(), extra_report=None, extra_checks=(), required_by_check=None, reference_inputs=None, artifact_reports=()):
     base = output_base or BASE
     out = base / 'runs' / uuid.uuid4().hex
     out.mkdir(parents=True, exist_ok=False)
@@ -115,6 +115,15 @@ def main(*, output_base=None, verification_scope='EVM_SHANGHAI_DYNAMIC_FEE_SIMUL
         for name, expected in report['reference_inputs'].items():
             if shared.sha_file(ROOT / name) != expected:
                 raise ValueError('Independent reference input changed: ' + name)
+        report['artifact_reports'] = {}
+        for name in artifact_reports:
+            relative = Path(name)
+            if relative.is_absolute() or '..' in relative.parts:
+                raise ValueError('Nonlocal artifact report')
+            artifact = ROOT / relative
+            if json.loads(artifact.read_bytes()).get('passed') is not True:
+                raise ValueError('Required actual artifact report did not pass: ' + name)
+            report['artifact_reports'][name] = shared.sha_file(artifact)
         report.update(passed=True, state='LOCAL_SCOPE_VERIFIED', original_router_dynamic_cases=16,
                       rust_test_executions=sum(c['rust_test_executions'] for c in report['checks']))
         report.update(extra_report or {})

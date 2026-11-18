@@ -271,7 +271,7 @@ fn prepare_bound(
     ] {
         Amount::checked(value.0.clone())?;
     }
-    let fee_reserve = Amount::checked(&fees.max_fee_per_gas.0 * fees.gas_limit)?;
+    let fee_reserve = crate::evm_native_cost::reserve(fees.gas_limit, &fees.max_fee_per_gas)?;
     if fee_reserve > fees.max_network_fee {
         return Err(err("PREPARATION_EVM_FEE_BUDGET"));
     }

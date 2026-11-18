@@ -1185,3 +1185,7 @@ current-v2-fixed-source-check:
 .PHONY: public-v2-original-execution-current-check
 public-v2-original-execution-current-check:
 	python3 tools/acceptance/validate_public_v2_original_execution.py
+
+.PHONY: evm-native-cost-current-check
+evm-native-cost-current-check:
+	python3 tools/acceptance/validate_evm_native_cost.py

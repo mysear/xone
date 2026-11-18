@@ -2073,3 +2073,11 @@ native会话现区分来源拒绝与真实配额耗尽：拒绝保存terminal标
 测试独立geth1.16.7执行固定本地合成EOA/原生币资金覆盖的原WETH deposit、transfer及原Pair.swap三call，实际DAI收款delta和全部Pair/raw后状态由执行观察生成。相同起点q+1必须返回原UniswapV2: K，防止低报也成交却误以为精度通过；Rust当轮独立quote_exact_in比较output及完整nextPool。账户/槽初值全部证明，未声明依赖/生命周期拒绝，每call2Mgas与总1Mopcode/64slot/4account为测试资源上限，不是费用模型。ctx逐opcode检查、未知账户/槽与取消资源反例通过后才可生成输出。
 
 该边界是原交易逻辑的本地call序列，EOA/原生币资金显式合成（不声称真实该EOA的nonce/code/balance），不能称为已签名原Router完整交易、真实用户余额、未来区块执行保证或完整链费。`make -C integration public-v2-original-execution-current-check`冻结当轮Go执行输出并由Rust直接独立读取/完整比较，回归固定原v2连续bank、actual原证明/完整状态、普通native服务、守卫/模块/vet/Clippy/构建；P0-3费用与P0-4可信完整交易执行仍独立推进。
+
+### EVM native cost内核与费用范围（阶段123）
+
+execution-preparation::evm_native_cost集中核算Legacy/EIP1559原生执行费及最大reserve：Legacy有效单价为声明gasPrice，EIP1559为baseFee+min(priority,maxFee-baseFee)。gasUsed必须处于21000..已绑定gasLimit、base/priority不超cap，全部结果checked uint256；准备阶段同一reserve核算不变，simulation API使用execution base而非准备source base，逐项核对原worker测量。最大reserve不当作实际fee，reserveHeadroom不当作Token退款。
+
+正常simulation响应保留原fees字段并增加costs版本/chainKey/binding、gasUnits字符串、gasNative、nativeKnownSubtotal、reserve/headroom和execution的burn/tip分量。burn/tip不再累计到execution小计；未知l1DataNative/approvalNative/totalNativeEstimate/net保持null，missingComponents列链特定data费/额外授权资金操作/可靠Token估值，deductedFromQuoteOutput=false。来源仍为PROVIDED_LOCAL_STATE/LOCAL_EVM_ONLY，不授予VERIFIED或FAST净排序资格。
+
+`make -C integration evm-native-cost-current-check`固定56份当轮独立Python整数向量，由Rust完整读取比较；实际HTTP原Router worker执行ExactIn/Out，核对native caller/coinbase delta、有效价、成本与quote/binding保留，回归原16银行H与H+1费用区分、准备/VM/协议拒绝和资源取消、严格Clippy/构建/源与输入hash。P0-3的完整链费源、L2、授权/资金操作和可靠估值仍需后续实现。
