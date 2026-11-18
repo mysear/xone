@@ -1177,3 +1177,7 @@ confirmation-policy-current-check:
 .PHONY: current-v2-public-source-check
 current-v2-public-source-check:
 	python3 tools/acceptance/validate_current_v2.py --live
+
+.PHONY: current-v2-fixed-source-check
+current-v2-fixed-source-check:
+	python3 tools/acceptance/validate_fixed_current_v2.py

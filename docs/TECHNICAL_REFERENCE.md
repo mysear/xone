@@ -2057,3 +2057,11 @@ source-evidence同时披露配置confirmation_tag及confirmation_policy=CONFIGUR
 离线阶段验证Go .raw的外层原Payload字节hash、内层Ref/owner ID、内容hash/长度和provider ID，按原provider分开封闭loopback服务；同请求JSON顺序变化保留原文件，语义冲突/未知请求/写方法拒绝。实际停一router由另一无KV完整副本继续报价，冷重启恢复；owner同KV重新资格化当前基线且writer/generation/seq递增，接管不冒充reorg。五类getter/proof/不可用/header变更拒绝owner启动及router报价，所有进程/服务在成功或异常后清理。
 
 native会话现区分来源拒绝与真实配额耗尽：拒绝保存terminal标志并撤销剩余额度，后续即使误填充counter仍拒绝；原始source错误返回而不叠加虚构预算错误。真实耗尽仍按原预算码返回。`--capture <本地live运行目录>`只做历史原字节回放，报告明确live_public_source_observed=false，不能替代--live资格。本轮仅一固定真实部署的当前state与INDICATIVE数学/恢复联验，不授予生产共识/独立交易执行收款、全市场、实际长停机、PG/Kafka或多区资格。
+
+### 真实V2固定公开bank离线恢复（阶段121）
+
+原始公开响应数据遵循仓库既有本地dataset政策。可跟踪metadata位于integration/tools/reference/current-v2-public/source-metadata.json，固定实际block26438995及32原raw/准确压缩hash。使用`python3 integration/tools/acceptance/restore_current_v2_fixture.py --bundle <准确responses.json.gz>`或--capture <原raw目录>恢复integration及Go自己的本地副本；脚本无网络、验证全部pin和嵌套source身份后才发布，不覆盖未知数据、不放宽hash。缺数据明确失败。
+
+解包只读取固定gzip JSON/base64成员，不解tar、不解释任意路径，压缩与解码各32MB上限、最多1024成员，原raw总128MB，原成员/Envelope/Owner/内层响应全校验；重复/链接/逃逸/变更hash/输出冲突拒绝。Go测试仅读自己fixture和普通RPC adapter；实际公开header/body/receipt/MPT/token view与原完整Pool精确匹配，坏header/proof拒绝。使用与normal live相同60秒总来源读取上限适配真实大块race回归，不修改产品资源配置；首次预检10秒超时已明确定位。
+
+`make -C integration current-v2-fixed-source-check`构建当前服务并只用固定公开源+封闭loopback运行正常owner/双router、无KV重建/owner升代与五故障控制；live_public_source_observed=false，不把历史捕获当当前实网。源码/所有本地固定输入及压缩包hash绑定到本轮report。固定输入不包含生产共识/原交易执行后余额或链费资格。

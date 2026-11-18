@@ -53,8 +53,8 @@ def replay_round(out,source,owner_binary,router_binary):
     return {'capture_inventory_sha256':shared.sha_file(target/'inventory.json'),'capture_files':len(inventory),'capture_bytes':sum(r['bytes'] for r in inventory),'offline_normal':normal,'owner_restart':resumed,'faults':{key:{'startup_failure_code':row['startup_failure_code'],'http_status':row['rejected_quote']['status'],'passed':row['passed']} for key,row in faults.items()},'original_capture_unchanged':True}
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--live',action='store_true');parser.add_argument('--capture',type=Path);args=parser.parse_args()
-    if args.live==bool(args.capture):parser.error('select exactly one of --live or --capture')
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--live',action='store_true');parser.add_argument('--capture',type=Path);parser.add_argument('--fixture',type=Path);args=parser.parse_args()
+    if sum([args.live,bool(args.capture),bool(args.fixture)])!=1:parser.error('select exactly one of --live, --capture or --fixture')
     out=BASE/'runs'/uuid.uuid4().hex;out.mkdir(parents=True)
     env=dict(os.environ,PATH=str(Path.home()/'.cargo/bin')+os.pathsep+os.environ['PATH'],CARGO_BUILD_JOBS='2',CARGO_TARGET_DIR=str(ROOT/'integration/.runtime/design-review-target'))
     if sys.platform=='darwin':env['CARGO_TARGET_'+('AARCH64' if platform.machine()=='arm64' else 'X86_64')+'_APPLE_DARWIN_RUNNER']=str(ROOT/'integration/tools/ci/native-test-runner.py')
@@ -100,6 +100,12 @@ def main():
             print('Running actual-public-current-state',flush=True)
             live=evidence.run_processes(out/'live',out/'owner-binary',router_binary,evidence.ENDPOINTS,live=True)
             report['live_public_source_observed']=True;report['live_report_sha256']=shared.sha_file(out/'live/report.json');source=out/'live'
+        elif args.fixture:
+            source=out/'fixture-input'
+            manifest=evidence.unpack_fixture(args.fixture.resolve(),source/'owner/state/raw-evidence/evm-1')
+            stored={'baseline':{'body':{'reference':{'block':manifest['block']},'pools':[manifest['expected_pool']]}},'source_mode':'FIXED_PUBLIC_CAPTURE_NOT_CURRENT_SOURCE','acquisition':manifest['acquisition']}
+            (source/'report.json').write_text(json.dumps(stored,indent=2)+'\n')
+            report['fixed_fixture_manifest_sha256']=shared.sha_file(args.fixture/'manifest.json')
         else:
             source=args.capture.resolve();evidence.require(source.is_relative_to((ROOT/'integration/artifacts/local').resolve()),'LOCAL_CAPTURE_SCOPE')
             report['historical_capture']=str(source.relative_to(ROOT));report['historical_capture_report_sha256']=shared.sha_file(source/'report.json')

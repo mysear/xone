@@ -2117,3 +2117,16 @@ BINDINGS['7.current-v2-public-source-replay'] = {
            'test_quote_oracle_checks_exact_reference_and_integer_input_minimum'],
  'evidence_refs': ['integration/artifacts/local/current-v2-check/report.json'],
 }
+
+BINDINGS['7.current-v2-pinned-offline-fixture'] = {
+ 'paths': ['chain-parser-go/internal/chain/evm/v2_public_fixture_test.go',
+           'integration/tools/acceptance/restore_current_v2_fixture.py',
+           'integration/tools/acceptance/current_v2_evidence.py',
+           'integration/tools/reference/current-v2-public/source-metadata.json',
+           'integration/tools/acceptance/validate_fixed_current_v2.py'],
+ 'tests': ['TestV2CompleteRealPublicFixtureNormalReadAuthenticatesBodyStateAndTokenBalances',
+           'TestV2CompleteRealPublicFixtureRejectsOriginalProofAndHeaderMutation',
+           'test_complete_original_capture_unpacks_and_nested_identity_matches',
+           'test_changed_blob_or_manifest_membership_never_publishes_partial_capture'],
+ 'evidence_refs': ['integration/artifacts/local/current-v2-fixed-check/report.json'],
+}

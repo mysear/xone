@@ -73,6 +73,8 @@ def test_inputs():
         Path('deployment-catalog/v3-pool-template/two-real-pools.json'),
         Path('deployment-catalog/verified-source-inputs/ethereum-uniswap-v3.json'),
         Path('ethereum-mainnet/uniswap-v2-26355865-evidence.json'),
+        Path('current-v2-public/manifest.json'),
+        Path('current-v2-public/responses.json.gz'),
     ]
     for entry in manifest['files']:
         relative = Path(entry['path'])

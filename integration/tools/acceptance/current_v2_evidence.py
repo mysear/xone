@@ -229,3 +229,34 @@ def run_processes(output,owner_binary,router_binary,endpoints,live=False,owner_s
         for stream in streams:stream.close()
         result['process_exit_codes']=[p.returncode for p in children];result['finished_ms']=int(time.time()*1000);(output/'report.json').write_text(json.dumps(result,indent=2)+'\n')
     return result
+
+def unpack_fixture(directory,destination):
+    """Materialize only authenticated regular records; never extract an archive."""
+    import gzip
+    directory=Path(directory);destination=Path(destination)
+    manifest_path=directory/'manifest.json';require(manifest_path.is_file() and not manifest_path.is_symlink() and manifest_path.stat().st_size<=1<<20,'FIXTURE_MANIFEST_BUDGET')
+    manifest=json.loads(manifest_path.read_bytes(),object_pairs_hook=pairs)
+    require(manifest['schema_version']==1 and manifest['bundle_file']=='responses.json.gz' and manifest['record_count']==len(manifest['records']) and 0<manifest['record_count']<=1024,'FIXTURE_SHAPE')
+    bundle=directory/manifest['bundle_file'];require(bundle.is_file() and not bundle.is_symlink() and bundle.stat().st_size<=32<<20,'FIXTURE_COMPRESSED_BUDGET')
+    compressed=bundle.read_bytes();require(len(compressed)==manifest['bundle_bytes'] and sha(compressed)==manifest['bundle_sha256'],'FIXTURE_COMPRESSED_HASH')
+    with gzip.GzipFile(fileobj=__import__('io').BytesIO(compressed)) as stream:decoded=stream.read((32<<20)+1)
+    require(len(decoded)<=32<<20 and len(decoded)==manifest['decoded_bytes'] and sha(decoded)==manifest['decoded_sha256'],'FIXTURE_DECODED_HASH_OR_BUDGET')
+    value=json.loads(decoded,object_pairs_hook=pairs);require(set(value)=={'schema_version','records'} and value['schema_version']==1 and len(value['records'])==manifest['record_count'],'FIXTURE_RECORDS')
+    declared={row['file']:row for row in manifest['records']};require(len(declared)==len(manifest['records']),'FIXTURE_DUPLICATE_MEMBER')
+    staged={}
+    for row in value['records']:
+        require(set(row)=={'name','data'} and re.fullmatch(r'[0-9a-f]{64}\.raw',row['name']) and row['name'] in declared and row['name'] not in staged,'FIXTURE_MEMBER_NAME')
+        raw=base64.b64decode(row['data'],validate=True);entry=declared[row['name']]
+        require(len(raw)<=32<<20 and len(raw)==entry['bytes'] and sha(raw)==entry['sha256'],'FIXTURE_MEMBER_HASH')
+        staged[row['name']]=raw
+    require(set(staged)==set(declared) and sum(map(len,staged.values()))==manifest['raw_bytes']<=MAX_CAPTURE_BYTES,'FIXTURE_MEMBERSHIP_OR_TOTAL')
+    # Validate every nested envelope before publishing even the first record.
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix='xone-fixture-validation-') as temporary:
+        candidate=Path(temporary)
+        for name,raw in staged.items():(candidate/name).write_bytes(raw)
+        capture_index(candidate)
+    require(not destination.exists() and not destination.is_symlink(),'FIXTURE_DESTINATION_EXISTS');destination.mkdir(parents=True)
+    for name,raw in staged.items():
+        with (destination/name).open('xb') as stream:stream.write(raw)
+    return manifest

@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|真实V2固定bank独立离线夹具（阶段121，P0-1）|§28.3/28.5/28.6/28.11/28.26；WP01、WP03、WP04、WP05、WP09、WP24|LOCAL_SCOPE_VERIFIED|将阶段120真实32原raw封装为有界gzip+元数据pin；按既有政策原数据留本地，跟踪恢复工具/hash；Go服务内同字节副本可独立正常读取/拒绝证明，双router/owner恢复离线回归|13门禁/83次Go/36次Rust、9守卫及固定actual bank/双router冷恢复/owner升代/五来源反例通过；不伪称本轮新实网资格|
 |真实当前V2 normal owner/router与来源拒绝（阶段120，P0-1）|§7/28.5/28.6/28.11/28.26；WP03、WP04、WP05、WP09、WP10、WP24|LOCAL_SCOPE_VERIFIED|固定真实DAI/WETH部署/原始RPC归档，普通Go owner到独立Rust router双方向ExactIn/Out；公开字节离线重放/双副本冷重建/owner重启与五来源反例；拒绝会话原因不冒充预算耗尽|13门禁/81次Go/36次Rust、实际公开源/32原raw与双方向4报价、离线重放/副本冷恢复/升代/五错误来源通过；HTTP开发日志及provider声明finalized，不授予生产VERIFIED/共识/实际执行余额差资格|
 |EVM当前头确认策略与披露（阶段119，P0-1）|§7.1/7.3/18/28.6/28.26/28.27；WP04、WP05、WP24、WP25|LOCAL_SCOPE_VERIFIED|Go/双Rust只接受latest/safe/finalized，拒绝数字历史高度/earliest/pending/未知/空；正常source-evidence披露配置策略但不声称共识|19门禁/81次Go/97次Rust，双编译器15配置、当前CLI/无状态写入与不支持safe无降级通过|
 |v2-complete native Token余额证明（阶段118，P0-1）|§7/11/12.14/28.6/28.7/28.12；WP03、WP04、WP05、WP10|LOCAL_SCOPE_VERIFIED|实际Token代码与MPT account绑定，Berlin稳定只读指令子集重放balanceOf；SLOAD未证明先停止，最多8slot/9pass/每pass100kGas，复用原native总预算|8门禁/77次Go race通过；原bank两余额/六证明、空root/五证明与受限指令/分支/资源反例通过；转账行为/代理与外部调用/可信共识/生产VERIFIED仍缺|
@@ -496,6 +497,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|7.current-v2-pinned-offline-fixture|WP01,WP03,WP04,WP05,WP09,WP24|LOCAL_SCOPE_VERIFIED|固定actual公开block/runtime/proof/receipt原字节与获取元数据；无网络恢复工具、同字节Go本地副本、封闭loopback及多进程回归|13门禁/83次Go/36次Rust固定bank离线验收通过；数据仍依赖明确外部bundle，缺失须失败，不临时下载或改预期|[验证记录](integration/artifacts/local/current-v2-fixed-check/report.json)|
 |7.current-v2-public-source-replay|WP03,WP04,WP05,WP09,WP10,WP24|LOCAL_SCOPE_VERIFIED|真实公共当前state→normal owner/router；封装及内层raw身份验证、来源分离只读重放、双方向独立整数oracle、无KV副本/owner升代重启与坏来源拒绝|13门禁/81次Go/36次Rust及实际公开源/离线多进程通过；其他版本/历史重组/实际交易后余额与生产资格仍缺|[验证记录](integration/artifacts/local/current-v2-check/report.json)|
 |7.evm-current-head-confirmation-policy|WP04,WP05,WP24,WP25|LOCAL_SCOPE_VERIFIED|EVM确认策略限制为当前provider标签，明确拒绝历史游标/pending/未知别名；配置哈希/前置拒绝/来源披露|19门禁、跨语言同轮15配置/hash/拒绝码、当前CLI和普通服务验证通过|[验证记录](integration/artifacts/local/confirmation-policy-check/report.json)|
 |7.v2-complete-native-token-balance-proof|WP03,WP04,WP05,WP10|LOCAL_SCOPE_VERIFIED|原Token代码与每个实际SLOAD的MPT承诺支持独立只读余额重放；无未证明默认零/任意布局假定，Gas/slot/pass及原session总预算有界|8门禁/77次Go race与241外部模块缓存校验通过；仅固定零caller view，不证明Token转账行为或共识|[验证记录](integration/artifacts/local/v2-native-balance-proof-check/report.json)|
@@ -658,6 +660,7 @@
 |118|[v2-complete native Token余额证明](#plan-2026-11-18-v2-native-balance-proof)|LOCAL_SCOPE_VERIFIED|8门禁/77次Go race；P0-1限定余额view证明通过；[验证记录](integration/artifacts/local/v2-native-balance-proof-check/report.json)|
 |119|[EVM当前头确认策略与披露](#plan-2026-11-18-evm-confirmation-policy)|LOCAL_SCOPE_VERIFIED|19门禁/81次Go/97次Rust；P0-1当前头策略通过；[验证记录](integration/artifacts/local/confirmation-policy-check/report.json)|
 |120|[真实当前V2 normal owner/router与来源拒绝](#plan-2026-11-18-current-v2-public-source)|LOCAL_SCOPE_VERIFIED|13门禁/81次Go/36次Rust；P0-1实际公开当前state与恢复通过；[验证记录](integration/artifacts/local/current-v2-check/report.json)|
+|121|[真实V2固定bank独立离线夹具](#plan-2026-11-18-current-v2-fixed-fixture)|LOCAL_SCOPE_VERIFIED|13门禁/83次Go/36次Rust；真实bank固定离线通过；[验证记录](integration/artifacts/local/current-v2-fixed-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3420,3 +3423,20 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 阶段120首次冻结`998504bf469a45a883f901e5b778cd0e`通过Go证明与普通native服务等门禁，但router API既有http_drop取消测试在8秒子进程启动前等待失败（35通过/1失败）。该测试会在启动前计算整个大型Rust测试镜像SHA；runner并发2仍会产生本机启动预算争用。保留FAILED记录，并将该门禁harness显式串行及写入report；产品工作进程/取消/回收逻辑和内部断言、单次deadline不修改。单独串行完整API回归确认后重新冻结全部门禁。
 
 阶段120最终限定验收：13门禁全部exit0，81次Go race及36次Rust API、6项Python证据守卫、17项进度检查、严格Clippy/vet/模块/构建通过；运行目录`9519d88ec46d43af87d1a8f8990e37b3`。实际公开Ethereum provider当前finalized块26438995（`0xf70886a3ca08bbf7297b0df0e0b8418420bd6ee39fb0db9b81b52cd638bbd1c9`）由normal owner验证并发布，history disabled且gap/0fact/0attempt明确；首qualified snapshot 23868ms、首INDICATIVE quote 23873ms（本轮单次墙钟观测，非SLO）。32份原raw共9250774bytes的封装/内容/owner/provider身份校验、原字节保留及双方向ExactIn/Out四独立整数oracle通过。离线双router均无KV，停一后健康副本继续、冷重建恢复；owner同KV重新HEAD_FIRST后writer/generation/seq从1升2，canonical epoch仍1。五来源变更均实际命中、owner退出且router503；原始错误不含虚构预算码，真实预算/取消和不可复用标志回归通过。源码/901固定输入前后一致，首轮router取消startup超时记录保留，正式API门禁显式串行，不改deadline/断言。仅HTTP开发日志、一个固定真实部署的当前state与INDICATIVE数学/恢复验收；共识/独立VM交易后余额/链费/全市场/PG-Kafka/长停机/多区仍缺。下一轮将已验证public raw变为可离线复现的固定夹具，干净环境不依赖本机临时目录；随后按P0数学/费用/独立执行推进。
+
+<a id="plan-2026-11-18-current-v2-fixed-fixture"></a>
+
+## 真实V2固定bank独立离线夹具（2026-11-18，阶段121，P0-1）
+
+设计§28.5要求离线重放不依赖实时RPC，§28.1要求固定块且各服务测试独立。本轮固定阶段120已验证的实际Ethereum块26438995、32份原始raw及准确runtime/proof/receipt/header；保留整个原Envelope字节而不是重写响应/期望。仓库既有.gitignore明确原始数据不进Git，因此不绕过规则：跟踪不可变source-metadata和恢复/验证工具，原gzip/测试数据在本地dataset目录，另拷到Go自己的fixtures。新机器需提供精确bundle或原capture，用显式命令离线恢复；缺数据保持明确失败，不宣称仅git clone即含全部测试数据。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F121.1|原始响应固定与恢复工具|WP01,WP03|LOCAL_SCOPE_VERIFIED|2.39MB压缩包绑定12.34MB解码长度/hash、32原始成员/9.25MB raw全清单、实际block/预期完整pool及acquisition原report/source/binary摘要；restore只接受原pin bundle/capture，无网络，不改变源metadata或静默刷新数据。|
+|F121.2|有界解包/成员hash与契约|WP03,WP04|LOCAL_SCOPE_VERIFIED|只读固定gzip，不extract tar；最大32MB解码、1024成员/128MB原raw，重复key/重复成员/逃逸/链接/冲突输出拒绝；全部验证后才发布成员。源metadata→integration fixture→Go本地副本逐byte契约，全部4新输入进入冻结。|
+|F121.3|Go独立真实bank正常路径|WP03,WP04,WP05|LOCAL_SCOPE_VERIFIED|Go仅读服务本地fixture，验证压缩/成员/Envelope/owner/provider/内层响应，然后两独立provider httptest重放普通ReadState；重复完整读取与原期望Pool完全一致，原header/证明节点篡改均实际拒绝。|
+|F121.4|离线normal进程恢复与冻结|WP01,WP03,WP09,WP24|LOCAL_SCOPE_VERIFIED|同一正式runner显式--fixture，live_public_source_observed=false，复用双方向ExactIn/Out oracle、两无KV router冷重建/owner升代、五来源故障；Go/普通服务/Rust API/Clippy/构建/守卫/模块/契约/进度与输入冻结通过。|
+
+原数据不进Git是既有仓库政策，不将数据藏到tools目录或force-add绕过。新机器离线命令：`python3 integration/tools/acceptance/restore_current_v2_fixture.py --bundle <准确responses.json.gz>`；同pin原capture也可--capture恢复。构建/证明本身只用当前仓库实现和服务本地数据，不依赖其他服务源码。原始Pin误差/缺数据必须失败，真实RPC不可用不能改写成本轮新实网通过。P0-1全来源矩阵/长期恢复与P0-2/3/4数学/链费/独立执行仍继续。
+
+阶段121最终限定验收：13门禁全部exit0，83次Go race、36次Rust API、9项Python守卫、17项进度、Clippy/vet/模块/当前构建及契约通过，运行目录`30bfb64076d4489e928b0f7002c8cc59`。实际固定块26438995的32原raw、2,387,964byte gzip/12,337,328byte解码及9,250,774byte原Envelope与全部嵌套hash保持；metadata/source/Go本地副本逐byte匹配。源码和905份固定输入前后相同（新增4份source/Go数据），两次独立Go normal读取与完整Pool相同，原proof/header篡改实际拒绝；双router无KV冷恢复/owner升代/四方向金额oracle和五来源控制均通过。live_public_source_observed=false，明确仅历史公开字节离线资格，不授予新实网/共识/交易后余额/费用资格。最初Go fixture预检使用10秒总读取时限导致真实大块witness校验超时，改为与normal live相同60秒后全部通过；未改产品预算/断言。可跟踪恢复工具/metadata已准备，原本地数据按既有gitignore保留而不force-add。下一轮推进选定V2的P0-2真实bank原执行差分；旧H补取额外proof已实际遇到historical state unavailable，保留失败响应，单独取得新当前bank后原WETH deposit/transfer与Pair.swap的本地原VM收款原型成功，尚未计作正式执行资格。

@@ -52,4 +52,31 @@ class CurrentV2Evidence(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'FALSE_VERIFIED_CLAIM'):m.check_quote(pool,{},request,{'status':200,'body':quote})
         with self.assertRaisesRegex(ValueError,'QUOTE_REFERENCE_CHANGED'):m.check_quote(pool,{'other':1},request,{'status':200,'body':quote})
 
+
+class FixedCurrentV2Fixture(unittest.TestCase):
+    def fixture(self):return m.ROOT/'integration/test/source/current-v2-public'
+    def test_complete_original_capture_unpacks_and_nested_identity_matches(self):
+        with tempfile.TemporaryDirectory() as root:
+            target=Path(root)/'capture';manifest=m.unpack_fixture(self.fixture(),target);records,inventory=m.capture_index(target)
+            self.assertEqual(manifest['record_count'],32);self.assertEqual(len(inventory),32);self.assertEqual(len(records),2);self.assertEqual(manifest['block']['number_or_slot'],26438995)
+            self.assertFalse(manifest['qualification']['consensus_verified']);self.assertFalse(manifest['qualification']['independent_execution_balance_delta_verified'])
+    def test_changed_blob_or_manifest_membership_never_publishes_partial_capture(self):
+        import shutil
+        for fault in ['compressed','member-name','decoded-limit']:
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as root:
+                source=Path(root)/'fixture';shutil.copytree(self.fixture(),source);target=Path(root)/'capture';path=source/'manifest.json';manifest=json.loads(path.read_bytes())
+                if fault=='compressed':
+                    blob=source/'responses.json.gz';raw=bytearray(blob.read_bytes());raw[-1]^=1;blob.write_bytes(raw)
+                elif fault=='member-name':manifest['records'][0]['file']='../escape.raw';path.write_text(json.dumps(manifest))
+                else:manifest['decoded_bytes']+=1;path.write_text(json.dumps(manifest))
+                with self.assertRaises(ValueError):m.unpack_fixture(source,target)
+                self.assertFalse(target.exists())
+    def test_existing_or_symlink_destination_and_bundle_are_rejected(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as root:
+            source=Path(root)/'fixture';shutil.copytree(self.fixture(),source);existing=Path(root)/'existing';existing.mkdir()
+            with self.assertRaisesRegex(ValueError,'FIXTURE_DESTINATION_EXISTS'):m.unpack_fixture(source,existing)
+            blob=source/'responses.json.gz';saved=source/'saved';blob.rename(saved);blob.symlink_to(saved)
+            with self.assertRaisesRegex(ValueError,'FIXTURE_COMPRESSED_BUDGET'):m.unpack_fixture(source,Path(root)/'target')
+
 if __name__=='__main__':unittest.main()
