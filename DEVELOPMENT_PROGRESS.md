@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|EVM最大资金准入与付款人净扣款（阶段125，P0-3）|§13.1/14/15.3/28.17；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|源余额必须覆盖bound gas最大reserve，保留gross fee并单列付款人净扣款/自付tip返回，Legacy净扣款未知|14门禁/146次Rust、56向量、四HTTP/冻结回归通过；完整链费/可靠估值及净排序仍缺|
 |EVM费用原生余额守恒与源绑定（阶段124，P0-3）|§13.1/14/15.3/28.17；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|EIP1559费用测量的before绑定原worker输入，付款人/coinbase分离或重合分别守恒；未知不默认零，Legacy标不可核验；native atomic单位与executionCoinbase披露|14门禁/144次Rust、56独立向量与四次actual HTTP/源绑定/分离-alias守恒通过；完整链费/估值/净排序仍缺|
 |EVM原生费用模型与覆盖披露（阶段123，P0-3）|§13.1/14/15.3/28.15/28.17；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|共享Legacy/EIP1559有效单价、burn/tip/最大reserve/实际费用checked uint256，准备与API复用；验证Gas不超已绑定上限，costs区分已知小计/未实现费用与换算，不伪造net|14门禁/142次Rust、56独立整数向量与实际HTTP两worker通过，16原bank H/H+1/准备/VM回归通过；完整链费与净收益排序仍缺|
 |真实V2原字节码收款与完整后状态差分（阶段122，P0-2）|§12.14/28.5/28.12/28.17；WP03、WP10、WP14、WP15|LOCAL_SCOPE_VERIFIED|新固定actual bank+MPT原WETH/DAI/Pair三call本地执行，测真实recipient delta/完整Pair后状态；多1输出原K拒绝；Go原VM结果与独立Rust数学全状态比较|14门禁/16次Go/16次Rust、原VM实际收款及q+1原K回退/完整后状态跨内核通过；合成native资金覆盖/非签名call序列，非完整链费/生产VERIFIED|
@@ -500,6 +501,7 @@
 |13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
+|13.evm-native-payer-cost|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|按原bank余额校验最大gas资金准入，费用gross与payer实际net分列，alias自付tip返回|14门禁/146次Rust、56向量/四HTTP通过；完整成本与净排序仍缺|[验证记录](integration/artifacts/local/evm-native-payer-cost-check/report.json)|
 |13.evm-native-fee-balance-audit|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|绝对before绑定原bank输入，fee与实际native debit/beneficiary credit守恒；caller=coinbase净扣burn不重复tip，未知数据/资金操作拒绝|14门禁/同state/修改/平移/alias及四次actual HTTP通过；生产资格与完整成本仍缺|[验证记录](integration/artifacts/local/evm-native-balance-audit-check/report.json)|
 |13.evm-native-cost-components|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|共享checked uint256原生执行费与最大reserve、Legacy/EIP1559有效单价，API回执Gas/价格/fee组件核对，scope/binding/未定项明确|14门禁/142次Rust/56独立向量/两实际HTTP执行通过；额外链费/授权资金操作/可靠价格/FAST路由净收益仍缺|[验证记录](integration/artifacts/local/evm-native-cost-model-check/report.json)|
 |12.14.public-v2-original-execution|WP03,WP10,WP14,WP15|LOCAL_SCOPE_VERIFIED|原始实际code+MPT状态、显式local native funding经原WETH deposit/transfer和Pair.swap，实际收款/完整after state、多1输出原K回退；Rust独立比较|14门禁/Go原VM与Rust全状态冻结差分通过；未签名call序列/非未来交易保证/非生产VERIFY；其余方向/费用/更多版本仍需扩展|[验证记录](integration/artifacts/local/public-v2-original-execution-check/report.json)|
@@ -670,6 +672,7 @@
 |122|[真实V2原字节码收款与完整后状态差分](#plan-2026-11-18-public-v2-original-execution)|LOCAL_SCOPE_VERIFIED|14门禁/16次Go/16次Rust；原VM actual收款/完整状态通过；[验证记录](integration/artifacts/local/public-v2-original-execution-check/report.json)|
 |123|[EVM原生费用模型与覆盖披露](#plan-2026-11-18-evm-native-cost-model)|LOCAL_SCOPE_VERIFIED|14门禁/142次Rust；P0-3原生费用与缺项披露通过；[验证记录](integration/artifacts/local/evm-native-cost-model-check/report.json)|
 |124|[EVM费用原生余额守恒与源绑定](#plan-2026-11-18-evm-native-balance-audit)|LOCAL_SCOPE_VERIFIED|14门禁/144次Rust；P0-3源绑定/alias守恒通过；[验证记录](integration/artifacts/local/evm-native-balance-audit-check/report.json)|
+|125|[EVM最大资金准入与付款人净扣款](#plan-2026-11-18-evm-native-payer-cost)|LOCAL_SCOPE_VERIFIED|14门禁/146次Rust，最大资金/净扣款与四HTTP通过；[验证记录](integration/artifacts/local/evm-native-payer-cost-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3506,3 +3509,19 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 该核验只认证指定本地执行上下文的原生费用守恒；不会因MATCHED开放生产VERIFIED或伪称完整链费。缺L2/data/额外授权资金/可靠价格时仍为LOCAL_EVM_ONLY/缺项null。HTTP alias模式仅验收helper显式counterfactualCoinbaseAlias=true，原source H不变，H+1环境为明确合成；不广播交易，不声称本轮新公链挖矿/验证人资格。
 
 阶段124最终限定验收：14门禁全部exit0，144次Rust、56份独立Python整数向量/3守卫、普通与优化各17进度检查、准备/仿真/API相关全目标严格Clippy及当前router/worker构建通过；运行目录`34880799bcb640ac9acabd26260acf73`。四次actual HTTP owned worker覆盖ExactIn/Out×分离/alias，原输入native before、实际payer debit/beneficiary credit、原base/tip/cap/fee、costs chain/binding/unit与source H/H+1核对通过。单字段或成对平移before/after、未声明原余额、native value流及零base/alias反例拒绝；Legacy未报告native余额明确UNAVAILABLE，不默认零；旧费用与16原bank/准备/取消回归保持。源码/911固定输入/当轮56向量与实际四HTTP报告摘要前后相同。该轮只关闭指定local执行上下文的原生费守恒缺口，不授予完整链费、可信Token估值、FAST净排序或生产VERIFIED。下一轮继续P0-3的最大预留资金准入与付款人净扣款/自付priority语义，避免将费用总账gross charge与实际账户净成本混为一项，再接范围化价格/成本来源。
+
+<a id="plan-2026-11-18-evm-native-payer-cost"></a>
+
+## EVM最大资金准入与付款人净扣款（2026-11-18，阶段125，P0-3）
+
+按设计§13.1/14/15.3继续补费用来源和资金约束：实际fee小于最大reserve不代表原资金可准入；付款人等于coinbase时自付tip返回也不能绕过交易开始前的最大资金要求。该范围仍限已绑定zero-value ERC20本地交易。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F125.1|最大资金准入|WP13,WP15|LOCAL_SCOPE_VERIFIED|checked原payer余额必须覆盖gasLimit×maxFee；低实际fee/alias零净扣款/Legacy均不绕过，缺before拒绝；最终冻结门禁通过。|
+|F125.2|付款人净费用|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|保留nativeKnownSubtotal为GROSS_EXECUTION_CHARGE，独立披露payerNetNativeDebit与priorityReturnedToPayerNative，要求net+returned=gross；Legacy无后余额不虚构net。|
+|F125.3|实际HTTP与冻结回归|WP01,WP03,WP15,WP16|LOCAL_SCOPE_VERIFIED|ExactIn/Out×分离/alias四owned worker核对原余额/最大准入/net守恒；独立56整数向量、原16bank、准备/VM/取消/严格Clippy和构建通过。|
+
+本轮已完成限定范围最终门禁；完整链费、额外资金/授权操作、可靠Token换算与FAST净排序继续列为P0-3剩余，不开放生产VERIFIED。后续接范围化成本来源及估值，不能用调用者猜测价格或route_activation_cost冒充可信成本。
+
+阶段125最终限定验收：14门禁全部exit0、146次Rust、56独立Python整数向量/3守卫、普通与优化各17进度检查、准备/仿真/API相关全目标严格Clippy及当前router/HTTP worker构建通过；运行目录`9f3c0023beb347d1a1220993c565dfe6`。四次actual HTTP原Router覆盖ExactIn/Out×分离/alias，原before覆盖bound最大reserve、实际net+自付tip返回=gross fee、Legacy净成本null及资金不足/零base-alias反例通过。源码、911固定输入、当轮独立向量及四HTTP报告摘要均冻结复核一致；不开放完整链费/可信估值/FAST净排序/生产VERIFIED。下一轮按设计§13.1修复无可信成本时配置route_activation_cost仍改变ExactIn排序的差距，采用明确的毛输出/最小原输入回退及约束披露，再接真实成本来源。

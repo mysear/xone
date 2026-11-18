@@ -98,3 +98,44 @@ pub fn reconcile_native_balances(
     }
     Ok(())
 }
+
+pub const PAYER_COST_VERSION: &str = "source-bound-native-payer/1";
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PayerCost {
+    pub gross_execution_charge: Amount,
+    pub priority_returned_to_payer: Amount,
+    pub net_native_debit: Amount,
+}
+
+/// A low final debit cannot bypass the original transaction's maximum funding
+/// admission, including when the payer earns its own priority fee.
+pub fn validate_maximum_funding(cost: &NativeCost, payer_before: &Amount) -> Result<()> {
+    Amount::checked(payer_before.0.clone())?;
+    if payer_before < &cost.gas_limit_reserve {
+        return Err(err("EVM_NATIVE_MAXIMUM_FUNDING"));
+    }
+    Ok(())
+}
+
+pub fn audited_payer_cost(
+    cost: &NativeCost,
+    balances: &NativeBalances,
+    same_account: bool,
+) -> Result<PayerCost> {
+    validate_maximum_funding(cost, &balances.payer_before)?;
+    reconcile_native_balances(cost, balances, same_account)?;
+    let returned = if same_account {
+        cost.priority_fee_paid.clone()
+    } else {
+        Amount::zero()
+    };
+    let net = Amount::checked(&balances.payer_before.0 - &balances.payer_after.0)?;
+    if &net.0 + &returned.0 != cost.execution_fee.0 {
+        return Err(err("EVM_NATIVE_BALANCE_MISMATCH"));
+    }
+    Ok(PayerCost {
+        gross_execution_charge: cost.execution_fee.clone(),
+        priority_returned_to_payer: returned,
+        net_native_debit: net,
+    })
+}

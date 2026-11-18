@@ -2089,3 +2089,9 @@ parent在序列化实际worker输入时保存caller与H+1 coinbase的原bank余�
 响应保留原费用语义，补executionCoinbase、costs.nativeUnit=EVM_NATIVE_ATOMS和balanceReconciliation（MATCHED或Legacy测量缺失UNAVAILABLE）。字段名MATCHED只表示指定local bank/上下文核验，不是生产VERIFIED；价格/额外费用缺项继续null。
 
 `make -C integration evm-native-balance-audit-current-check`在原费用门禁上，实际HTTP原Router ExactIn/Out各运行分离/alias两个情景，共四owned worker，核对真实native debit/credit。alias是显式合成H+1 coinbase环境（新环境标识，source H保持），原native数据/所有fee算术/准备/VM/取消/Clippy/构建和冻结输入完整回归，不广播任何交易。
+
+### EVM最大资金准入与付款人净扣款（阶段125）
+
+evm_native_cost::validate_maximum_funding要求原worker输入的payer native before覆盖已绑定gasLimit×maxFee；Legacy也必须满足该准入。执行gross charge保持原gasNative/nativeKnownSubtotal含义；audited_payer_cost复用原余额守恒，以实际before-after生成payerNetNativeDebit，alias将priorityFee单列priorityReturnedToPayerNative，要求net+returned=gross。零base/自付tip导致零net也不能跳过最大资金。
+
+costs明确nativeKnownSubtotalKind=GROSS_EXECUTION_CHARGE、payerCostModelVersion=source-bound-native-payer/1及maximumFundingAdmission。Legacy缺实际after时两个net字段保持null。make -C integration evm-native-payer-cost-current-check覆盖四actual HTTP worker及源/输入冻结回归。完整链费、可靠Token换算与净收益评分仍不具资格。

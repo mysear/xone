@@ -1193,3 +1193,7 @@ evm-native-cost-current-check:
 .PHONY: evm-native-balance-audit-current-check
 evm-native-balance-audit-current-check:
 	python3 tools/acceptance/validate_evm_native_balance_audit.py
+
+.PHONY: evm-native-payer-cost-current-check
+evm-native-payer-cost-current-check:
+	python3 tools/acceptance/validate_evm_native_payer_cost.py

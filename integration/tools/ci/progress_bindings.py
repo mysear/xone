@@ -2167,3 +2167,14 @@ BINDINGS['13.evm-native-fee-balance-audit'] = {
            'dynamic_fee_balance_reconciliation_rejects_changed_measurements_and_handles_alias'],
  'evidence_refs': ['integration/artifacts/local/evm-native-balance-audit-check/report.json'],
 }
+
+BINDINGS['13.evm-native-payer-cost'] = {
+ 'paths': ['dex-router/crates/execution-preparation/src/evm_native_cost.rs',
+           'dex-router/crates/execution-preparation/tests/evm_native_cost.rs',
+           'dex-router/crates/quote-api/src/local_simulation.rs',
+           'integration/tools/acceptance/evm_native_cost_http.py',
+           'integration/tools/acceptance/validate_evm_native_payer_cost.py'],
+ 'tests': ['payer_cost_requires_maximum_funding_even_if_the_actual_fee_or_alias_debit_is_smaller',
+           'fee_funding_source_must_cover_maximum_even_with_low_spend_and_legacy_net_stays_unknown'],
+ 'evidence_refs': ['integration/artifacts/local/evm-native-payer-cost-check/report.json'],
+}

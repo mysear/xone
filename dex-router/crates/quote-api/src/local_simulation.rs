@@ -487,6 +487,14 @@ fn diagnostic_response(
             .as_ref(),
     )
     .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"))?;
+    let before = commitment
+        .caller_native_before
+        .as_ref()
+        .ok_or_else(|| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_funding"))?;
+    xone_execution_preparation::evm_native_cost::validate_maximum_funding(&model, before)
+        .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_funding"))?;
+    let mut payer_net_debit = Value::Null;
+    let mut returned_priority = Value::Null;
     let mut balance_reconciliation =
         json!({"status":"UNAVAILABLE","reason":"LEGACY_NATIVE_BALANCES_NOT_REPORTED"});
     if commitment
@@ -523,7 +531,7 @@ fn diagnostic_response(
         }
         let same =
             account(&commitment.transaction.from)? == account(&commitment.execution_coinbase)?;
-        xone_execution_preparation::evm_native_cost::reconcile_native_balances(
+        let payer_cost = xone_execution_preparation::evm_native_cost::audited_payer_cost(
             &model,
             &xone_execution_preparation::evm_native_cost::NativeBalances {
                 payer_before: native.caller_before,
@@ -534,6 +542,10 @@ fn diagnostic_response(
             same,
         )
         .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_balances"))?;
+        payer_net_debit = serde_json::to_value(&payer_cost.net_native_debit)
+            .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_balances"))?;
+        returned_priority = serde_json::to_value(&payer_cost.priority_returned_to_payer)
+            .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_balances"))?;
         balance_reconciliation = json!({"status":"MATCHED","scope":"ZERO_VALUE_BOUND_ERC20_TRANSACTION",
             "caller":commitment.transaction.from,"coinbase":commitment.execution_coinbase,"sameAccount":same});
     } else if outcome.get("native_fees").is_some_and(|v| !v.is_null()) {
@@ -551,7 +563,11 @@ fn diagnostic_response(
             .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"))?,
         "feeBreakdown":[{"kind":"EVM_EXECUTION","amountNative":model.execution_fee,
             "parts":{"baseFeeBurnedNative":model.base_fee_burned,"priorityFeeNative":model.priority_fee_paid}}],
-        "nativeKnownSubtotal":model.execution_fee,"totalNativeEstimate":Value::Null,
+        "nativeKnownSubtotal":model.execution_fee,"nativeKnownSubtotalKind":"GROSS_EXECUTION_CHARGE",
+        "payerCostModelVersion":xone_execution_preparation::evm_native_cost::PAYER_COST_VERSION,
+        "payerNetNativeDebit":payer_net_debit,"priorityReturnedToPayerNative":returned_priority,
+        "maximumFundingAdmission":"SOURCE_BALANCE_COVERS_BOUND_GAS_RESERVE",
+        "totalNativeEstimate":Value::Null,
         "l1DataNative":Value::Null,"approvalNative":Value::Null,
         "netBuyAmountEstimate":Value::Null,"netSellAmountEstimate":Value::Null,
         "missingComponents":["CHAIN_SPECIFIC_DATA_OR_OTHER_NATIVE_FEES","ADDITIONAL_APPROVAL_OR_FUNDING_OPERATIONS","TRUSTED_TOKEN_PRICE_CONVERSION"],
@@ -933,7 +949,7 @@ mod tests {
             },
             execution_base_fee: "1".parse().unwrap(),
             execution_coinbase: "0x0000000000000000000000000000000000000033".into(),
-            caller_native_before: Some("1000000".parse().unwrap()),
+            caller_native_before: Some("1000000000000000000000000000000".parse().unwrap()),
             coinbase_native_before: Some(Amount::zero()),
             executor: ExecutorIdentity {
                 target: "0x0000000000000000000000000000000000000022".into(),
@@ -975,6 +991,8 @@ mod tests {
     fn dynamic_fee_api_reports_measured_effective_price_and_rejects_inconsistent_fees() {
         for (cap, tip, price) in [("10", "2", "3"), ("2", "2", "2"), ("1", "0", "1")] {
             let mut commitment = diagnostic_commitment(cap);
+            commitment.transaction_context.gas_limit = 100000;
+            commitment.caller_native_before = Some("1000000".parse().unwrap());
             commitment.transaction_context.max_priority_fee_per_gas = Some(tip.parse().unwrap());
             let mut value = outcome("SUCCESS", true);
             let price: u64 = price.parse().unwrap();
@@ -1062,6 +1080,7 @@ mod tests {
         for same in [false, true] {
             for base in ["0", "1"] {
                 let mut commitment = diagnostic_commitment("10");
+                commitment.transaction_context.gas_limit = 100000;
                 commitment.execution_base_fee = base.parse().unwrap();
                 commitment.transaction_context.max_priority_fee_per_gas =
                     Some("2".parse().unwrap());
@@ -1095,6 +1114,14 @@ mod tests {
                 );
                 assert_eq!(result["executionCoinbase"], commitment.execution_coinbase);
                 assert_eq!(result["costs"]["nativeUnit"], "EVM_NATIVE_ATOMS");
+                assert_eq!(
+                    result["costs"]["payerNetNativeDebit"],
+                    (before - payer_after).to_string()
+                );
+                assert_eq!(
+                    result["costs"]["priorityReturnedToPayerNative"],
+                    if same { tip.to_string() } else { "0".into() }
+                );
                 for field in [
                     "caller_before",
                     "caller_after",
@@ -1140,6 +1167,32 @@ mod tests {
                 assert!(diagnostic_response(value, &commitment, "bundle", "worker").is_err());
             }
         }
+    }
+
+    #[test]
+    fn fee_funding_source_must_cover_maximum_even_with_low_spend_and_legacy_net_stays_unknown() {
+        let mut commitment = diagnostic_commitment("10");
+        let mut value = outcome("SUCCESS", true);
+        // Legacy has no post native measurement, but before is still bound to
+        // the serialized worker input and must cover the maximum reserve.
+        commitment.caller_native_before = Some("9999999".parse().unwrap());
+        assert!(diagnostic_response(value.clone(), &commitment, "bundle", "worker").is_err());
+        commitment.caller_native_before = Some("10000000".parse().unwrap());
+        let legacy = diagnostic_response(value.clone(), &commitment, "bundle", "worker").unwrap();
+        assert!(legacy["costs"]["payerNetNativeDebit"].is_null());
+        assert_eq!(
+            legacy["costs"]["nativeKnownSubtotalKind"],
+            "GROSS_EXECUTION_CHARGE"
+        );
+        commitment.caller_native_before = None;
+        assert!(diagnostic_response(value.clone(), &commitment, "bundle", "worker").is_err());
+        commitment.transaction_context.max_priority_fee_per_gas = Some("2".parse().unwrap());
+        commitment.execution_base_fee = "0".parse().unwrap();
+        commitment.execution_coinbase = commitment.transaction.from.clone();
+        commitment.caller_native_before = Some(Amount::zero());
+        commitment.coinbase_native_before = Some(Amount::zero());
+        value["native_fees"] = json!({"caller_before":"0","caller_after":"0","coinbase_before":"0","coinbase_after":"0","effective_gas_price":"2","execution_fee":"42000","base_fee_burned":"0","priority_fee_paid":"42000"});
+        assert!(diagnostic_response(value, &commitment, "bundle", "worker").is_err());
     }
 
     async fn api_with_cached_quote() -> (crate::Api, String) {

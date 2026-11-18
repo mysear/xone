@@ -158,3 +158,71 @@ fn native_balance_conservation_handles_distinct_and_alias_beneficiary_without_do
         }
     }
 }
+
+#[test]
+fn payer_cost_requires_maximum_funding_even_if_the_actual_fee_or_alias_debit_is_smaller() {
+    use xone_execution_preparation::evm_native_cost::{
+        audited_payer_cost, reconcile_native_balances, NativeBalances,
+    };
+    let cost = measured_native_cost(
+        21_000,
+        100_000,
+        &amount("1"),
+        &amount("10"),
+        Some(&amount("2")),
+    )
+    .unwrap();
+    let before = amount("999999");
+    let insufficient = NativeBalances {
+        payer_before: before.clone(),
+        payer_after: Amount::checked(&before.0 - &cost.execution_fee.0).unwrap(),
+        beneficiary_before: amount("0"),
+        beneficiary_after: cost.priority_fee_paid.clone(),
+    };
+    reconcile_native_balances(&cost, &insufficient, false).unwrap();
+    assert!(audited_payer_cost(&cost, &insufficient, false).is_err());
+    for same in [false, true] {
+        let before = cost.gas_limit_reserve.clone();
+        let debit = if same {
+            &cost.base_fee_burned
+        } else {
+            &cost.execution_fee
+        };
+        let after = Amount::checked(&before.0 - &debit.0).unwrap();
+        let balances = NativeBalances {
+            payer_before: before.clone(),
+            payer_after: after.clone(),
+            beneficiary_before: if same { before } else { amount("0") },
+            beneficiary_after: if same {
+                after
+            } else {
+                cost.priority_fee_paid.clone()
+            },
+        };
+        let net = audited_payer_cost(&cost, &balances, same).unwrap();
+        assert_eq!(
+            &net.net_native_debit.0 + &net.priority_returned_to_payer.0,
+            net.gross_execution_charge.0
+        );
+        assert_eq!(net.net_native_debit, *debit);
+    }
+    let free = measured_native_cost(
+        21_000,
+        100_000,
+        &amount("0"),
+        &amount("10"),
+        Some(&amount("2")),
+    )
+    .unwrap();
+    let alias = NativeBalances {
+        payer_before: amount("0"),
+        payer_after: amount("0"),
+        beneficiary_before: amount("0"),
+        beneficiary_after: amount("0"),
+    };
+    reconcile_native_balances(&free, &alias, true).unwrap();
+    assert!(
+        audited_payer_cost(&free, &alias, true).is_err(),
+        "zero net debit does not remove the upfront funding rule"
+    );
+}
