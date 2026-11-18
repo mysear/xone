@@ -104,6 +104,7 @@ impl Selection {
 }
 pub(crate) struct LocalSimulation {
     bundle: Arc<LocalSimulationBundle>,
+    valuation: Option<crate::transaction_economics::ValuationState>,
     // Retained immutable validation image; each child creates its own overlay.
     _image: Arc<StateImage>,
     pub bundle_sha256: String,
@@ -303,7 +304,10 @@ impl LocalSimulation {
         let worker_path =
             std::env::current_exe().map_err(|_| err("SIMULATION_WORKER_IDENTITY_UNAVAILABLE"))?;
         let worker_sha256 = executable_sha256(&worker_path)?;
+        let valuation =
+            crate::transaction_economics::ValuationState::load(config, &bundle.fixture)?;
         Ok(Some(Arc::new(Self {
+            valuation,
             bundle: Arc::new(bundle),
             _image: image,
             bundle_sha256,
@@ -583,6 +587,7 @@ impl LocalSimulation {
             let cancellation = job_cancellation;
             let _permit = permit;
             let state = self.clone();
+            let economic_context = cached.context().clone();
             let timeout_ms = config.config.simulation.timeout_ms.min(60_000);
             let prepared = tokio::task::spawn_blocking(move || {
                 let request =
@@ -671,6 +676,13 @@ impl LocalSimulation {
                     &self.worker_sha256,
                 )?
             };
+            if let Some(valuation) = &self.valuation {
+                valuation
+                    .apply(&economic_context, &mut response)
+                    .map_err(|_| {
+                        Failure::new("SIMULATION_WORKER_PROTOCOL", "transaction_economics")
+                    })?;
+            }
             if let Some(prepared) = outcome.prepared {
                 response["preparedExecution"] = serde_json::to_value(prepared)
                     .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "preparation"))?;

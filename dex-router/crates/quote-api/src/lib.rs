@@ -8,6 +8,7 @@ mod native_economics;
 mod preparation;
 mod remote_checkpoint;
 mod solana_simulation;
+mod transaction_economics;
 mod transaction_lifecycle;
 pub use exact_out::ExactOutRequest;
 mod local_simulation;

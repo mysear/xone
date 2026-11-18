@@ -108,17 +108,18 @@ type Routing struct {
 	TTL            uint64        `json:"quote_ttl_ms"`
 }
 type Simulation struct {
-	Backend         string   `json:"backend"`
-	RPCURL          string   `json:"rpc_url"`
-	MaxGas          uint64   `json:"max_gas"`
-	MaxReads        uint64   `json:"max_state_reads"`
-	TimeoutMS       uint64   `json:"timeout_ms"`
-	AllowedTargets  []string `json:"allowed_targets"`
-	StateFile       string   `json:"state_file,omitempty"`
-	MaxStateBytes   uint64   `json:"max_state_bytes,omitempty"`
-	MaxInstructions uint64   `json:"max_instructions,omitempty"`
-	MaxMemoryBytes  uint64   `json:"max_memory_bytes,omitempty"`
-	Concurrency     uint64   `json:"concurrency,omitempty"`
+	NativeValuation *NativeValuationConfig `json:"native_valuation,omitempty"`
+	Backend         string                 `json:"backend"`
+	RPCURL          string                 `json:"rpc_url"`
+	MaxGas          uint64                 `json:"max_gas"`
+	MaxReads        uint64                 `json:"max_state_reads"`
+	TimeoutMS       uint64                 `json:"timeout_ms"`
+	AllowedTargets  []string               `json:"allowed_targets"`
+	StateFile       string                 `json:"state_file,omitempty"`
+	MaxStateBytes   uint64                 `json:"max_state_bytes,omitempty"`
+	MaxInstructions uint64                 `json:"max_instructions,omitempty"`
+	MaxMemoryBytes  uint64                 `json:"max_memory_bytes,omitempty"`
+	Concurrency     uint64                 `json:"concurrency,omitempty"`
 }
 type V3PoolConfig struct {
 	ExpectedImplementation           string `json:"expected_implementation,omitempty"`
@@ -556,6 +557,9 @@ func (c Config) Validate(expected string) error {
 		return invalid()
 	}
 	sim := c.Simulation
+	if sim.NativeValuation != nil && (expected != "dex-router" || sim.Backend != "revm-fixture" || !sim.NativeValuation.valid(c.Chains)) {
+		return invalid()
+	}
 	if sim.Backend == "revm-fixture" {
 		if expected != "dex-router" || sim.RPCURL != "" || sim.StateFile == "" || len(sim.StateFile) > 4096 || strings.ContainsRune(sim.StateFile, '\x00') || sim.MaxStateBytes < 1024 || sim.MaxStateBytes > 16777216 || sim.MaxInstructions == 0 || sim.MaxInstructions > 100000000 || sim.MaxMemoryBytes < 65536 || sim.MaxMemoryBytes > 67108864 || sim.Concurrency == 0 || sim.Concurrency > 8 || len(sim.AllowedTargets) == 0 || len(sim.AllowedTargets) > 64 {
 			return invalid()

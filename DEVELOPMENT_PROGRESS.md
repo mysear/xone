@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|配置预言机授权与已执行交易费用换算（阶段149，P0-3）|§13.1/14.2/14.4/15.3；WP02、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|服务端批准签名者、源块/币种/时效绑定、原子整数换算及父费用审计后单笔金额|51门禁/184次Rust/77次Go、独立42向量、13 EVM/4 Karst及36 OP/8旧HTTP通过；真实市价/全候选净评分继续|
 |Karst正常本地签名API与完整原Router（阶段148，P0-3/P0-4）|§14.2/14.4/28.17；WP03、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|有界OP Mainnet Karst普通Call、BOUND/父费用源审计及正常build/实际签名simulate|39门禁/176次Rust、四原Router完整后状态、401公开执行/父审计与36 OP/8旧HTTP通过|
 |Karst用户执行组件与完整原引擎（阶段147，P0-3/P0-4）|§14.2/14.4/28.17；WP03、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|CLZ/Gas cap及原完整OpEvm签名转换，正常Karst准入保持关闭|35门禁/173次Rust、468原场景/401执行/67拒绝及32 OP/8旧HTTP通过|
 |Karst预编译组件与固定现代原参考（阶段146，P0-3/P0-4）|§14.2/14.4/28.17；WP03、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|Osaka MODEXP/P256及Karst BN上限组件，完整VM准入保持关闭|30门禁/171次Rust、9452原组件、历史签名/32 OP/8旧HTTP通过|
@@ -727,6 +728,7 @@
 |146|[Karst预编译组件与固定现代原参考](#plan-2026-11-19-karst-precompiles)|LOCAL_SCOPE_VERIFIED|30门禁/171次Rust、9452原组件及32 OP/8旧HTTP；[验证记录](integration/artifacts/local/karst-precompiles-check/report.json)|
 |147|[Karst用户执行组件与完整原引擎](#plan-2026-11-19-karst-execution)|LOCAL_SCOPE_VERIFIED|35门禁/173次Rust、468原场景与历史API；[验证记录](integration/artifacts/local/karst-execution-check/report.json)|
 |148|[Karst正常本地签名API与完整原Router](#plan-2026-11-19-karst-api)|LOCAL_SCOPE_VERIFIED|39门禁/176次Rust、36正常OP/8旧HTTP与完整原Router通过；[验证记录](integration/artifacts/local/karst-api-check/report.json)|
+|149|[配置预言机授权与已执行交易费用换算](#plan-2026-11-19-native-valuation)|LOCAL_SCOPE_VERIFIED|51门禁/184次Rust/77次Go及61正常HTTP通过；[验证记录](integration/artifacts/local/native-valuation-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3393,7 +3395,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 |---|---|---|---|---|
 |P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
-|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；可信bank仍缺；通用可信估值、净评分及完整链费仍未完成|PARTIAL_LOCAL|
+|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；阶段149补服务端配置预言机签名授权、源块/币种/历史时效绑定和父源审计后的单笔原子单位换算/费后金额；可信bank、真实市场价格适配、全候选净评分及完整报价总费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
 |P1-1|G03限定交易；WP14,WP15,WP20|先补单池/简单路径的calldata、授权、wrap、recipient、期限/退款、签名发送和耐久回执|报价→准备→独立仿真→用户签名→一次发送→回执收付款一致；先复用已有Solana链路，EVM独立补齐|PARTIAL_LOCAL|
 |P1-2|G06现有模型；WP11,WP13,WP14,WP16|已准入ExactOut先贯通最大输入、实际消耗、退款/费用和独立执行|数学输入目标与执行一致，拒绝不能保证的路径；复杂跨家族/共享拆单留P3-1|PARTIAL_LOCAL|
@@ -4099,3 +4101,36 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 下一轮继续P0-3的可靠Token换算与费用后金额/净评分：已有原生费和实际签名回执不代表存在可靠市场估值；应将价格来源授权、具体链/块/币种、时间/过期、整数精度与费用完整性显式绑定，缺少可信覆盖继续原币披露和毛额回退。随后仍需完成全候选费用评分，不能将单笔已执行交易经济核算冒充完整报价优化。可信bank/区块派生/共识和其余既定优先级继续，原26完整工作包验收仍0、生产VERIFIED关闭；完成当前复核后commit/push实际GitHub origin再继续。
 
 独立复核：冻结源码905676054d9d57b614e0e491aa7091904bb71cb8a8bf794724d04961749bf584、911固定输入、46运行pins、13677参考操作数、9产物和39日志摘要一致；288份OP原JSON及8份旧simulation摘要再次匹配。最长OP HTTP为1.657561秒，所有总控/worker/原runner/harness均已退出。首轮CANCELLED与三次参考预演/失败证据保留，最终资格只对应第二次完整冻结。
+
+
+<a id="plan-2026-11-19-native-valuation"></a>
+
+## 配置预言机授权与已执行交易费用换算（2026-11-19，阶段149，P0-3）
+
+严格对应设计§13.1、§14.2/14.4、§15.3与WP02、WP13、WP15、WP16、WP18。服务端配置批准价格来源、公钥及至少两签阈值，价格必须绑定链/genesis/源块及parent/hash/时间、币种原子单位、policy hash和有效期；HTTP请求不能设置权威价格或签名公钥。签名仅证明配置批准的签名者，不证明市场价格真实、来源独立或bank共识。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F149.1|三服务配置互读及公开/经济身份绑定、服务端签名授权|WP02,WP13,WP16,WP18|LOCAL_SCOPE_VERIFIED|Go全配置包77项、两Rust四配置/hash互读、独立Solders签名42整数参考和授权/轮换/未知签名反例统一冻结通过。|
+|F149.2|源块/币种/历史时间绑定的完整宽度整数换算与费后金额|WP13,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|四内核测试和实际HTTP统一冻结通过：完整宽度乘法后一次向上舍入、输出不足/输入加费溢出null、零费用/角色重合不重复扣。|
+|F149.3|父源费用审计后的正常worker与实际签名Karst价格核算|WP13,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|51门禁含全部原39门禁、13 EVM/六启动拒绝/13客户端覆盖拒绝、四Karst实际签名/24错误请求及36 OP/8旧HTTP通过；生产资格不升级。|
+
+配置`simulation.native_valuation`默认缺省，旧身份hash不变；启用时仅接受dex-router的revm-fixture、配置中已有EVM链/genesis和canonical Token。每policy最多16不同公钥，阈值至少2，最多128 policy，age/validity各不超过一小时；book最多1MiB，未知字段、未知/重复/坏签名、重复币种和源块替换启动拒绝。配置、公钥轮换与时间策略进入公开和经济hash，两Rust公共实现同步，Go四配置与hash交叉读取。
+
+正常API在原worker实际执行及父进程独立核验原生费用后，使用payerNetNativeDebit（含OP执行/L1/operator费用及角色重合后的实际净扣）换算：ExactIn按实际输出减费用，ExactOut按实际输入加费用，分别提供两侧可用性。仅在`costs.transactionEconomics`披露本笔已执行交易；`quoteRankingApplied=false`、`additionalOperationsIncluded=false`，顶层报价net/完整总费仍null，旧毛额回退保持。失败执行不伪造成功费后收付。时间按源/执行块核验，明确不是当前wall-clock价格；缺价、未来/过期、换算溢出和输出不足保持可解释的不可用结果。
+
+验收采用固定公知测试key与合成比率，标签`PINNED_TEST_ORACLE_NOT_LIVE_MARKET`；独立Python整数与固定Solders Ed25519对照Rust ring。预检失败均保留：最初HTTP源准备错误读取不存在fixture层已改为state_anchor；首份Go导出遗漏旧API超时/并发必填项，Rust正确拒绝，补全生成器后互读通过；首轮stale HTTP未把mode传入生成器而得到fresh价格，修复工具传参后13实际执行/六启动拒绝通过，没有放宽产品断言。四Karst正常签名执行及严格Clippy预检通过，最终资格仅由同源码完整冻结授予。
+
+工具：[validate_native_valuation.py](integration/tools/acceptance/validate_native_valuation.py)、[native_valuation_vectors.py](integration/tools/acceptance/native_valuation_vectors.py)、[native_valuation_http.py](integration/tools/acceptance/native_valuation_http.py)、[native_valuation_op_http.py](integration/tools/acceptance/native_valuation_op_http.py)。本轮尚未实现live market adapter、全部候选净收益评分或额外授权/资金交易总成本；可信bank/区块派生/共识及其余既定优先级继续。原26完整工作包验收仍0、生产VERIFIED关闭，不把配置签名机制或单笔费用换算记作设计全部完成。每轮完整验证后commit/push实际GitHub origin；当前没有GitLab远端。
+
+阶段149补充预检：Parser专项测试误把其默认Solana首链当作EVM策略输入，产品正确返回NATIVE_VALUATION_POLICY，原FAILED日志保留。该测试改为加载既有Router EVM配置，与本轮共享配置互读的真实服务角色一致；不改产品链类型校验。另补实际输入uint256最大值加费用的独立边界断言，溢出保持null而不回绕。
+
+配置与签名消息、原子单位和历史时钟说明见[技术参考](docs/TECHNICAL_REFERENCE.md#配置预言机授权与交易费用换算阶段149)；正文中的公钥/地址为占位符，固定验收私钥仅存在测试生成器。
+
+阶段149首轮统一冻结44091d3f13134c2ca5ff5c69dc4e7a0c在contracts门禁失败，保留FAILED报告（格式通过，其余未执行）。原因是修正Parser测试时引入跨项目配置路径，违反仓库服务隔离契约。确认所有进程退出后改为从Parser自身fixture构造合法EVM链、owner和确认策略；未放宽契约检查或产品链类型校验。随后完整重跑。
+
+阶段149最终限定验收：完整第二轮运行`ac277e133c344c61bbabc80c95f06632`的51门禁全部exit0、184次Rust与77次Go通过。13带价格EVM实际worker覆盖Legacy/type2、分离/重合费用角色及ExactIn/Out，另含过期/未来/缺价/输出不足/换算溢出；13客户端价格覆盖和六伪造book启动拒绝通过。四带价格Karst正常build→实际签名→worker→父费用源审计与完整原引擎同wire一致，24错误请求拒绝。原36 OP签名HTTP/216拒绝/36未授权build及8旧Shanghai HTTP全部通过，共61笔正常HTTP执行；四完整原Router后状态、401公开Karst执行/401父费用源审计/67拒绝、9452现代组件及全部历史原参考保持通过。两workspace共享crate、仿真/API严格Clippy和正常router/harness重构建通过。首轮FAILED保留，最终通过仅对应第二轮冻结。
+
+下一轮保持P0-3、§13.1/13.3/13.5：先给现有ExactIn/ExactOut有界优化器加入逐完整候选费用评分入口，成本必须来自具体候选的核验/估计与授权单位换算，不能把毛额最优一笔的费用外推其他路径；覆盖不足时在相同已评估集合统一毛额回退，保留预算/取消/原子余数与共享池顺序。非加性的逐候选费用禁止套用原加性独立池DP。随后接正常报价的执行/成本模型与可靠真实价格来源，未绑定签名的OP候选不得伪造完整L1费；单笔transactionEconomics继续不冒充全候选净评分。原26完整工作包验收仍0，生产VERIFIED关闭；可信bank/共识及其余既定优先级继续。
+
+阶段149独立复核：冻结源码`c68237973c1450ffc4171e1937ff89fc930994ffdfd03fc4b93a9c3bf50b25e8`、913固定输入、46运行pins、13683参考输入、12产物与51日志摘要一致；484份嵌套原始文件摘要及8旧HTTP simulation重新核对，含36 OP/13带价格EVM/4带价格Karst的实际输入与输出。最长原OP HTTP为1.360416秒，15秒预算未放宽。[独立复核记录](integration/artifacts/local/native-valuation-check/runs/ac277e133c344c61bbabc80c95f06632/independent-audit.json)。

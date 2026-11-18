@@ -2248,3 +2248,33 @@ Karst的0x1e CLZ在instruction table的inspector包装之前注册，执行Gas 5
 本轮固定完整官方op-revm与REVM43.0.3，不改原handler；完整signed wire独立恢复、费用/nonce/code/storage转换和拒绝回滚在468明确本地场景对照。超宽来源basefee显式改为现代原BlockEnv的u64最大值，保留宽signed费用字段并记录转换，不宣称原超宽环境获现代资格。公开Karst schedule仍关闭，测试仅对同一私有内核绕过schedule，正常Karst API/可信bank/区块派生/共识资格未升级；最终结果见进度文档阶段147。
 
 阶段147统一冻结35门禁/173次Rust通过，468原场景（401产品执行/67拒绝）逐Gas/输出/费用账户/code/nonce/storage一致；257 CLZ结果、真实签名Gas临界值、指令预算和取消/期限守卫通过。9452预编译及32正常OP/8旧HTTP回归通过。公开Karst准入继续关闭，下一轮完成正常BOUND/worker/父审计/API后再扩大规则准入，源bank/共识和报价净估值仍须分别验证。
+
+### 配置预言机授权与交易费用换算（阶段149）
+
+对应设计§13.1/14.2/14.4/15.3。仅`dex-router`的`revm-fixture`可配置`simulation.native_valuation`：
+
+```json
+{
+  "observations_file": "prices/source-block.json",
+  "policies": [{
+    "source_id": "operator-approved-source",
+    "chain_key": "evm:10",
+    "genesis_hash": "<配置中同链的canonical 0x加64位小写hex>",
+    "token": "<canonical EVM Token地址>",
+    "signers": {"source-a": "<32字节公钥的小写hex>", "source-b": "<另一32字节公钥的小写hex>"},
+    "threshold": 2,
+    "max_age_ms": 60000,
+    "max_validity_ms": 60000
+  }]
+}
+```
+
+占位符必须替换为真实配置值。私钥不存入配置或请求；公钥、阈值和时间策略进入public/economic hash，轮换配置后旧policy签名失效。至少两把不同批准公钥不自动代表两个独立来源，可靠来源的选择由部署方负责。
+
+价格book采用`schema_version=1, prices=[{observation, signatures}]`，最多1MiB/128价格；每observation包含schema_version、policy_hash、anchor、token、token_atoms、native_atoms、observed_at_ms、valid_until_ms。anchor完整包含chain_key、genesis_hash、block_number、block_hash、parent_hash、timestamp_ms，必须与加载bank相同。签名消息为ASCII `xone-native-token-price/1:`拼接共享规范JSON `hash(observation)`的64位hex文本，Ed25519签名按`{key_id, signature}`编码。全部提供的签名均须有效，重复/未知key、未知字段和错误anchor拒绝启动；book在服务生命周期内不可变。
+
+比率表示`token_atoms / native_atoms`，直接作用于两币原子单位，不另乘decimals。费用为`ceil(payerNetNativeDebit * token_atoms / native_atoms)`，保留完整乘积后除法，仅最终结果限制uint256；该净扣来自worker执行后父进程的源余额和链费审计，不能把gross费用再次扣给自收tip的付款人。观察时间不得晚于源块，source/execution均检查age，execution等于valid_until即过期；使用历史块时钟，不冒充当前市价。
+
+`costs.transactionEconomics`分别提供`feeAdjustedBuyAmount`（实际输出减换算费用）和`feeAdjustedSellAmount`（实际输入加换算费用），并返回book/policy/observation hash、签名者、anchor、时间、bindingHash、付款人、recipient与不可用原因。缺价/过期/未来价格、溢出、输出不足保持null；失败执行返回`EXECUTION_NOT_SUCCESSFUL`。这只是单笔已执行交易网络费核算，额外授权/资金交易成本与报价候选排序另行实现；顶层报价net及完整总成本继续null。
+
+验收生成器`integration/tools/acceptance/native_valuation_vectors.py`使用公开固定测试key和合成比率，只证明配置签名授权及独立整数核算。正常API不携带这些私钥，也不接收请求者价格；当前未提供live market adapter、可信bank/共识或生产VERIFIED。阶段149最终验证状态以进度文档为准。

@@ -117,6 +117,8 @@ config_struct!(Routing {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Simulation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_valuation: Option<xone_domain::native_valuation::NativeValuationConfig>,
     pub backend: String,
     pub rpc_url: String,
     pub max_gas: u64,
@@ -891,6 +893,20 @@ impl Config {
                 return Err(fail());
             }
             if self.api.quote_timeout_ms == 0 || !(1..=256).contains(&self.api.quote_concurrency) {
+                return Err(fail());
+            }
+        }
+        if let Some(valuation) = &sim.native_valuation {
+            valuation.validate()?;
+            if expected != "dex-router"
+                || sim.backend != "revm-fixture"
+                || valuation.policies.iter().any(|p| {
+                    !self
+                        .chains
+                        .iter()
+                        .any(|c| c.key == p.chain_key && c.genesis_hash == p.genesis_hash)
+                })
+            {
                 return Err(fail());
             }
         }

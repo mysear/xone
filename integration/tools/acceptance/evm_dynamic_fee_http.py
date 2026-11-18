@@ -26,7 +26,7 @@ def sha(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None, native_alias=False, legacy=False):
+def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None, native_alias=False, legacy=False, valuation_config=None):
     require(not (legacy and prepared_mode is not None), 'Legacy harness covers diagnostic bound execution, not type-2 preparation')
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -43,6 +43,8 @@ def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None, 
             env.pop('XONE_EVM_PREPARED_HTTP', None)
             env.pop('XONE_EVM_COINBASE_ALIAS', None)
             env.pop('XONE_EVM_LEGACY_FEE', None)
+            env.pop('XONE_NATIVE_VALUATION_CONFIG', None)
+            if valuation_config is not None:env['XONE_NATIVE_VALUATION_CONFIG']=str(Path(valuation_config).resolve())
             if legacy:env['XONE_EVM_LEGACY_FEE']='1'
             if native_alias:env['XONE_EVM_COINBASE_ALIAS']='1'
             if prepared_mode is not None: env['XONE_EVM_PREPARED_HTTP']=prepared_mode
@@ -82,6 +84,10 @@ def run(binary, output, *, exact_out=False, path_case=None, prepared_mode=None, 
                 quote_id = quote['quoteId']
                 status, invalid = post(f'/v1/quotes/{quote_id}/simulate', {'gasPrice': '0'})
                 require(status >= 400, 'Simulation accepted a caller fee override')
+                if valuation_config is not None:
+                    status, invalid_price = post(f'/v1/quotes/{quote_id}/simulate', {'nativeTokenPrice':'0'})
+                    require(status >= 400 and 'outcome' not in invalid_price, 'Simulation accepted a caller price override')
+                    (output/'caller-price-rejection.json').write_text(json.dumps(invalid_price,indent=2)+'\n')
                 preparation = None
                 simulate_path = f'/v1/quotes/{quote_id}/simulate'
                 if prepared_mode is not None:

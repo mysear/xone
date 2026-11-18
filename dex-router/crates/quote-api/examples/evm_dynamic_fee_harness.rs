@@ -191,6 +191,10 @@ async fn main() {
     config.config.simulation.timeout_ms = 15000;
     config.config.simulation.max_gas = 15_000_000;
     config.config.simulation.concurrency = 1;
+    if let Ok(path) = std::env::var("XONE_NATIVE_VALUATION_CONFIG") {
+        config.config.simulation.native_valuation =
+            Some(serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap());
+    }
     config.config.api.quote_timeout_ms = 15000;
     config.config.routing.quote_ttl_ms = 60000;
     config.config.routing.max_splits = 1;

@@ -75,6 +75,7 @@ pub mod managed_v2_dependencies;
 pub mod managed_v2_schedule;
 pub mod managed_v2_state;
 pub mod multi_asset;
+pub mod native_valuation;
 pub mod orca;
 pub mod orca_adaptive_state;
 pub mod orca_math;

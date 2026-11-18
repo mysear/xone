@@ -55,13 +55,14 @@ def write(path, value):
     path.write_text(json.dumps(value, indent=2) + '\n')
 
 
-def run(binary, sources, runners, output, maximum_groups=None):
+def run(binary, sources, runners, output, maximum_groups=None, *, scoped_karst=False, valuation_configs=None):
     binary = Path(binary).resolve(strict=True)
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     sources = json.loads(Path(sources).read_bytes())
     forks={r['request']['fixture']['execution_environment']['fork'] for r in sources}
-    expected = 36 if 'op-karst' in forks else 32 if 'op-jovian' in forks else 28
+    if scoped_karst: require(forks=={'op-karst'} and maximum_groups is None, 'Scoped Karst source scope changed')
+    expected = 4 if scoped_karst else 36 if 'op-karst' in forks else 32 if 'op-jovian' in forks else 28
     require(len(sources) == expected and len({r['id'] for r in sources}) == expected, 'Normal API source matrix changed')
     groups = {}
     for source in sources:
@@ -82,6 +83,8 @@ def run(binary, sources, runners, output, maximum_groups=None):
             source_path = group / 'source.json'
             write(source_path, modes['in']['request'])
             env = {k: v for k, v in os.environ.items() if not k.startswith('XONE_EVM_') and k != 'XONE_OP_API_SOURCE'}
+            env.pop('XONE_NATIVE_VALUATION_CONFIG',None)
+            if valuation_configs is not None: env['XONE_NATIVE_VALUATION_CONFIG']=str(Path(valuation_configs[prefix]).resolve())
             env['XONE_OP_API_SOURCE'] = str(source_path)
             info_path = group / 'info.json'
             with (group / 'process.log').open('wb') as log:
