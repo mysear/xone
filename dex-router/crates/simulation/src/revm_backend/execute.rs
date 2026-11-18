@@ -16,6 +16,7 @@ pub struct ExecutionOutput {
 #[derive(Debug)]
 pub enum ExecutionFailure {
     UnsupportedFork(SpecId),
+    InvalidOpContext(&'static str),
     InvalidObservation,
     MissingNonce,
     MissingChainId,
@@ -34,6 +35,7 @@ impl ExecutionError {
     pub fn reason(&self) -> &'static str {
         match &self.failure {
             ExecutionFailure::UnsupportedFork(_) => "unsupported_fork",
+            ExecutionFailure::InvalidOpContext(_) => "op_execution_context",
             ExecutionFailure::InvalidObservation => "invalid_observation",
             ExecutionFailure::MissingNonce => "missing_nonce",
             ExecutionFailure::MissingChainId => "missing_chain_id",
@@ -64,7 +66,138 @@ pub fn execute(
     limits: ExecutionLimits,
     control: ExecutionControl,
 ) -> Result<ExecutionOutput, ExecutionError> {
-    execute_mode(image, request, limits, control, false)
+    execute_mode(image, request, limits, control, false, None)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OpFork {
+    Regolith,
+    Canyon,
+    Ecotone,
+    Fjord,
+    Granite,
+    Holocene,
+    Isthmus,
+}
+impl OpFork {
+    fn spec(self) -> SpecId {
+        match self {
+            Self::Regolith => SpecId::REGOLITH,
+            Self::Canyon => SpecId::CANYON,
+            Self::Ecotone => SpecId::ECOTONE,
+            Self::Fjord => SpecId::FJORD,
+            Self::Granite => SpecId::GRANITE,
+            Self::Holocene => SpecId::HOLOCENE,
+            Self::Isthmus => SpecId::ISTHMUS,
+        }
+    }
+    fn at(chain: u64, time: u64) -> Option<Self> {
+        let start = match chain {
+            10 => 1_686_068_903,
+            8453 => 1_686_789_347,
+            _ => return None,
+        };
+        // Pinned OP/Base schedule. Jovian and later need a separately verified
+        // runtime. Upgrade blocks are not inferred from an uninitialized bank.
+        if time < start || time >= 1_764_691_201 {
+            return None;
+        }
+        let mut result = Self::Regolith;
+        for (timestamp, fork) in [
+            (1_704_992_401, Self::Canyon),
+            (1_710_374_401, Self::Ecotone),
+            (1_720_627_201, Self::Fjord),
+            (1_726_070_401, Self::Granite),
+            (1_736_445_601, Self::Holocene),
+            (1_746_806_401, Self::Isthmus),
+        ] {
+            if time == timestamp {
+                return None;
+            }
+            if time > timestamp {
+                result = fork;
+            }
+        }
+        Some(result)
+    }
+}
+
+pub struct OpExecutionRequest {
+    pub fork: OpFork,
+    pub block: BlockEnv,
+    pub transaction: crate::op_transaction::AuthenticatedUser,
+    pub attributes_calldata: Vec<u8>,
+}
+
+#[derive(Debug)]
+pub struct OpExecutionOutput {
+    pub execution: ExecutionOutput,
+    pub costs: xone_execution_preparation::op_chain_cost::ChainCost,
+    pub payer_cost: xone_execution_preparation::op_chain_cost::PayerCost,
+}
+
+/// Historical regular-user OP execution over a strict provided state image.
+/// The source owner still authenticates the block, state and L1Block slots.
+/// A caller cannot swap VM transaction fields independently of the signed wire.
+pub fn execute_op_user(
+    image: Arc<StateImage>,
+    request: OpExecutionRequest,
+    limits: ExecutionLimits,
+    control: ExecutionControl,
+) -> Result<OpExecutionOutput, ExecutionError> {
+    let tx = request.transaction.into_environment();
+    let chain_id = tx.chain_id.unwrap();
+    let time = u64::try_from(request.block.timestamp).ok();
+    if time.and_then(|time| OpFork::at(chain_id, time)) != Some(request.fork)
+        || !tx.value.is_zero()
+        || !matches!(tx.transact_to, revm::primitives::TxKind::Call(_))
+    {
+        return Err(ExecutionError {
+            failure: ExecutionFailure::InvalidOpContext("unsupported chain/fork/time/native flow"),
+            telemetry: Telemetry::default(),
+        });
+    }
+    let fee_tx = tx.clone();
+    let beneficiary = request.block.coinbase;
+    let base_fee = request.block.basefee;
+    let execution = execute_mode(
+        image.clone(),
+        TransactionRequest {
+            fork: request.fork.spec(),
+            chain_id,
+            block: request.block,
+            tx,
+        },
+        limits,
+        control.clone(),
+        false,
+        Some((&request.attributes_calldata, request.fork)),
+    )?;
+    let (costs, payer_cost) = super::op_fees::audit(
+        &image,
+        &execution,
+        &fee_tx,
+        beneficiary,
+        base_fee,
+        time.unwrap(),
+        request.fork,
+        &request.attributes_calldata,
+    )
+    .map_err(|failure| ExecutionError {
+        failure,
+        telemetry: execution.telemetry,
+    })?;
+    super::StrictDB::new(image, limits.reads, control)
+        .check_control()
+        .map_err(|error| ExecutionError {
+            failure: ExecutionFailure::Evm(Box::new(EVMError::Database(error))),
+            telemetry: execution.telemetry,
+        })?;
+    Ok(OpExecutionOutput {
+        execution,
+        costs,
+        payer_cost,
+    })
 }
 
 /// Bounded zero-value observation call. Preserve the real caller balance,
@@ -76,7 +209,7 @@ pub(crate) fn observe(
     limits: ExecutionLimits,
     control: ExecutionControl,
 ) -> Result<ExecutionOutput, ExecutionError> {
-    execute_mode(image, request, limits, control, true)
+    execute_mode(image, request, limits, control, true, None)
 }
 fn execute_mode(
     image: Arc<StateImage>,
@@ -84,7 +217,9 @@ fn execute_mode(
     limits: ExecutionLimits,
     control: ExecutionControl,
     observation: bool,
+    op: Option<(&[u8], OpFork)>,
 ) -> Result<ExecutionOutput, ExecutionError> {
+    let optimism = op.is_some();
     let reject = |failure| ExecutionError {
         failure,
         telemetry: Telemetry::default(),
@@ -95,7 +230,12 @@ fn execute_mode(
     {
         return Err(reject(ExecutionFailure::InvalidObservation));
     }
-    if request.fork != SpecId::SHANGHAI {
+    if !optimism && request.tx.optimism != Default::default() {
+        return Err(reject(ExecutionFailure::InvalidOpContext(
+            "OP fields on Shanghai path",
+        )));
+    }
+    if !optimism && request.fork != SpecId::SHANGHAI {
         return Err(reject(ExecutionFailure::UnsupportedFork(request.fork)));
     }
     if request.tx.nonce.is_none() {
@@ -133,16 +273,35 @@ fn execute_mode(
     let mut db = super::StrictDB::new(image, limits.reads, control);
     db.check_control()
         .map_err(|error| reject(ExecutionFailure::Evm(Box::new(EVMError::Database(error)))))?;
-    let mut evm = revm::Evm::builder()
+    if let Some((attributes, fork)) = op {
+        super::op_fees::validate_bank(&mut db, attributes, fork, &request.tx, &request.block)
+            .map_err(|failure| ExecutionError {
+                failure,
+                telemetry: Telemetry {
+                    reads: db.usage(),
+                    ..Default::default()
+                },
+            })?;
+    }
+    let builder = revm::Evm::builder()
         .with_db(db)
         .with_external_context(inspector)
-        .with_spec_id(SpecId::SHANGHAI)
+        .with_spec_id(request.fork)
         .modify_cfg_env(|cfg| {
             cfg.chain_id = request.chain_id;
             cfg.memory_limit = limits.max_memory_bytes;
         })
         .with_block_env(request.block)
-        .with_tx_env(request.tx)
+        .with_tx_env(request.tx);
+    let builder = if optimism {
+        builder.optimism()
+    } else {
+        builder.with_handler_cfg(revm::primitives::HandlerCfg::new_with_optimism(
+            request.fork,
+            false,
+        ))
+    };
+    let mut evm = builder
         .append_handler_register(revm::inspector_handle_register)
         .build();
     if observation {

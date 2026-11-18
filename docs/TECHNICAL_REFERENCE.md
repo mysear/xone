@@ -2184,3 +2184,10 @@ Go普通native来源及archive replay在同一header/body/receipt证明之后，
 `execution-preparation::op_chain_cost`计算明确零value fee-only范围的execution/L1 data/operator总费，分开effective预付、fee cap最大资金及execution/operator退款；独立的源before/执行after按payer/coinbase/三vault的实际地址聚合，base fee入vault而非burn。ABI与显式版本不符、缺参数/账户、金额总和溢出、资金不足及不支持native value拒绝；源与签名认证由调用链负责，组件结果不自动获得可信来源资格。
 
 完整固定原op-geth源码经归档逐文件核验，在独立模块无改动执行`core.ApplyMessage`，真实本地signed Legacy/type1/type2、五费用规则、成功/退款/REVERT/HALT及五coinbase别名共320场景，955原状态转换核对费用账户、nonce、回滚和精确最大资金边界。初始wrapper曾因未完成storage初始化而误报过低Gas；独立REVM差分发现后取消验收，先Finalise(false)并硬查原始/当前storage相等，撤回基于失真参考的共享算术/API改动。原客户端本地bank不等同历史公链bank；修正初始状态后256个历史版本场景由独立REVM核对Gas/费用账户/nonce/目标storage一致，Jovian64个场景明确无REVM资格；该对照已加入本轮门禁，阶段138统一24门禁/151次Rust、320原Go场景955状态转换/256独立REVM与8正常HTTP回归通过，冻结源码/911固定输入/45运行pins/1419参考及五产物摘要一致，正常报价完整链费/净估值及生产资格继续未开放。
+
+
+### OP完整签名与严格历史VM（阶段139）
+
+`simulation::op_transaction::authenticate_user`认证完整EIP155 Legacy/type1/type2签名wire，校验chain/hash/恢复caller、规范RLP及整数/签名/访问列表预算，私有`AuthenticatedUser`仅提供只读环境。`revm_backend::execute_op_user`消费该对象，REVM实际执行字段和L1计费完整wire始终来自同笔交易；范围为OP/Base已固定Regolith到Isthmus七规则的零value普通Call。Jovian及之后、upgrade activation首块、deposit/blob/type4、原生本金/内部原生转移不具备本入口资格。
+
+执行前在同一StrictDB预算校验L1Block账户、实际storage和属性费用输入，checked最大资金；执行后独立共用完整费用组件核验实际Gas/费用账户/付款人净扣款，且在审计后再检查取消/期限。既有Shanghai路径显式mainnet handler并拒绝OP字段，现有HTTP/worker不自动改用OP。来源owner仍需认证block/state和全部依赖，库内签名恢复不提供历史bank/共识资格。本轮20门禁/160次Rust、448原signed场景/1337原状态转换、896产品执行/441资金拒绝、180归档公链签名认证与8正常Shanghai HTTP回归通过；最终限定结果见[阶段139](../DEVELOPMENT_PROGRESS.md#plan-2026-11-18-op-signed-execution)。
