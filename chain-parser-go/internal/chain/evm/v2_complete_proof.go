@@ -28,7 +28,7 @@ func (a *Adapter) verifyNativeV2CompleteState(ctx context.Context, reader *Adapt
 	defer func() {
 		if err != nil {
 			block.nativeSession.mu.Lock()
-			block.nativeSession.remaining = 0
+			block.nativeSession.reject()
 			block.nativeSession.mu.Unlock()
 		}
 	}()

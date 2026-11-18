@@ -14,6 +14,7 @@ type nativeReadSession struct {
 	ctx       context.Context
 	limits    ReceiptProofLimits
 	remaining int
+	rejected  bool
 }
 
 // NativeRuntimeLimits is shared by normal, factory and history readers. The
@@ -33,6 +34,9 @@ func NativeRuntimeLimits(chain config.Chain) (ReceiptProofLimits, error) {
 }
 func (s *nativeReadSession) available() (ReceiptProofLimits, error) {
 	l := s.limits
+	if s.rejected {
+		return l, errors.New("NATIVE_RUNTIME_SESSION_REJECTED")
+	}
 	l.MaxBytes = s.remaining
 	if l.MaxBytes <= 0 {
 		return l, errors.New("NATIVE_RUNTIME_PROOF_BUDGET")
@@ -40,11 +44,23 @@ func (s *nativeReadSession) available() (ReceiptProofLimits, error) {
 	return l, nil
 }
 func (s *nativeReadSession) consume(bytes int) error {
+	if s.rejected {
+		return errors.New("NATIVE_RUNTIME_SESSION_REJECTED")
+	}
 	if bytes < 0 || bytes > s.remaining {
 		return errors.New("NATIVE_RUNTIME_PROOF_BUDGET")
 	}
 	s.remaining -= bytes
 	return nil
+}
+
+// Caller holds mu. Releasing unknown remaining allowance after a rejected
+// proof makes the session terminal, without reporting a fabricated byte overrun.
+func (s *nativeReadSession) reject() {
+	if s.remaining > 0 {
+		s.rejected = true
+	}
+	s.remaining = 0
 }
 
 func (a *Adapter) nativeRuntimeBlock(ctx context.Context, tag string) (RawBlock, error) {
@@ -341,7 +357,7 @@ func (a *Adapter) ReadNativeContractAccountProof(ctx context.Context, block RawB
 	// constructor/retry costs must never be refunded into a reusable read scope.
 	defer func() {
 		if err != nil {
-			s.remaining = 0
+			s.reject()
 		}
 	}()
 	planCost := limits.MaxBytes - preflight.remaining

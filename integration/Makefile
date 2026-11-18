@@ -1173,3 +1173,7 @@ v2-native-balance-proof-current-check:
 .PHONY: confirmation-policy-current-check
 confirmation-policy-current-check:
 	python3 tools/acceptance/validate_confirmation_policy.py
+
+.PHONY: current-v2-public-source-check
+current-v2-public-source-check:
+	python3 tools/acceptance/validate_current_v2.py --live

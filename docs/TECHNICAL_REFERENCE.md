@@ -2049,3 +2049,11 @@ CALL/DELEGATECALL、外部账户、区块/费用/GAS、写入、PUSH0及不支�
 source-evidence同时披露配置confirmation_tag及confirmation_policy=CONFIGURED_PROVIDER_TAG，consensus_verified保持false。当前标签是provider声明语义，是否有能力提供由实际RPC探测/读取决定，不支持safe/finalized不能回退到latest或用URL数量形成新共识。该限制不改变Solana每profile finalized要求，也不宣称生产VERIFIED。
 
 `make -C integration confirmation-policy-current-check`验证同轮Go15份完整配置（3通过/12拒绝）经双Rust独立编译的hash/拒绝码、Go普通构造前无目录写入、HTTP策略披露与不支持safe无降级、当前实际二进制check-config，以及两Rust配置全测/严格Clippy、Go格式/vet/构建、契约/进度/模块与输入冻结。
+
+### 真实当前V2来源与公开字节重放（阶段120）
+
+`make -C integration current-v2-public-source-check`固定Ethereum DAI/WETH原Uniswap V2 Pair/Factory及两个公开HTTPS读取端点，构建当前Go owner和Rust router并实际启动普通进程，关闭history且保留明确gap。native header/body/receipt/Pair/Factory/Token view按原总预算运行，RPC原响应由normal raw archive耐久记录；normal HTTP开发日志消费后双方向ExactIn/Out与独立Python整数结果核对，费用/VERIFIED仍保持明确未实现语义。
+
+离线阶段验证Go .raw的外层原Payload字节hash、内层Ref/owner ID、内容hash/长度和provider ID，按原provider分开封闭loopback服务；同请求JSON顺序变化保留原文件，语义冲突/未知请求/写方法拒绝。实际停一router由另一无KV完整副本继续报价，冷重启恢复；owner同KV重新资格化当前基线且writer/generation/seq递增，接管不冒充reorg。五类getter/proof/不可用/header变更拒绝owner启动及router报价，所有进程/服务在成功或异常后清理。
+
+native会话现区分来源拒绝与真实配额耗尽：拒绝保存terminal标志并撤销剩余额度，后续即使误填充counter仍拒绝；原始source错误返回而不叠加虚构预算错误。真实耗尽仍按原预算码返回。`--capture <本地live运行目录>`只做历史原字节回放，报告明确live_public_source_observed=false，不能替代--live资格。本轮仅一固定真实部署的当前state与INDICATIVE数学/恢复联验，不授予生产共识/独立交易执行收款、全市场、实际长停机、PG/Kafka或多区资格。

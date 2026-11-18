@@ -2102,3 +2102,18 @@ BINDINGS['7.evm-current-head-confirmation-policy'] = {
            'current_go_evm_confirmation_policy_and_hashes_match'],
  'evidence_refs': ['integration/artifacts/local/confirmation-policy-check/report.json'],
 }
+
+BINDINGS['7.current-v2-public-source-replay'] = {
+ 'paths': ['chain-parser-go/internal/chain/evm/native_runtime.go',
+           'chain-parser-go/internal/chain/evm/native_runtime_budget.go',
+           'chain-parser-go/internal/chain/evm/native_rejection_test.go',
+           'integration/tools/acceptance/current_v2_evidence.py',
+           'integration/tools/acceptance/tests/test_current_v2_evidence.py',
+           'integration/tools/acceptance/validate_current_v2.py'],
+ 'tests': ['TestNativeSourceRejectionPreservesCauseWithoutInventingBudgetOverrun',
+           'TestNativeRejectedSessionCannotBeRevivedByRefillingItsAllowance',
+           'TestContractStorageSessionCancellationAndRecorderFailureStayTerminal',
+           'test_go_envelope_and_embedded_source_identity_are_verified',
+           'test_quote_oracle_checks_exact_reference_and_integer_input_minimum'],
+ 'evidence_refs': ['integration/artifacts/local/current-v2-check/report.json'],
+}

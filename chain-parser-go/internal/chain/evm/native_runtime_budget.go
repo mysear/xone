@@ -78,6 +78,9 @@ func (b *nativeStateBudgetBody) Read(buffer []byte) (int, error) {
 	}
 	b.session.mu.Lock()
 	defer b.session.mu.Unlock()
+	if b.session.rejected {
+		return 0, errors.New("NATIVE_RUNTIME_SESSION_REJECTED")
+	}
 	if b.session.remaining <= 0 {
 		return 0, errors.New("NATIVE_RUNTIME_PROOF_BUDGET")
 	}
@@ -92,6 +95,9 @@ func (b *nativeStateBudgetBody) Read(buffer []byte) (int, error) {
 func (s *nativeReadSession) stateReadError(err error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.rejected {
+		return err
+	}
 	if s.remaining <= 0 {
 		return errors.Join(errors.New("NATIVE_RUNTIME_PROOF_BUDGET"), err)
 	}

@@ -460,9 +460,9 @@ func TestContractStorageNormalSessionAliasBudgetAndContext(t *testing.T) {
 		t.Fatal("physical alias not deduplicated in normal RPC/session")
 	}
 	for _, slack := range []int{-1, 0, 1} {
-		block.nativeSession.mu.Lock()
-		block.nativeSession.remaining = result.ProofBytesUsed + slack
-		block.nativeSession.mu.Unlock()
+		// Each calibration has its own finite observation session. A rejected
+		// session cannot be resurrected by refilling only its byte counter.
+		block.nativeSession = &nativeReadSession{ctx: ctx, limits: block.nativeSession.limits, remaining: result.ProofBytesUsed + slack}
 		out, e := a.ReadNativeContractAccountProof(ctx, block, address, keys)
 		if slack < 0 {
 			if e == nil || block.nativeSession.remaining != 0 {
@@ -472,9 +472,7 @@ func TestContractStorageNormalSessionAliasBudgetAndContext(t *testing.T) {
 			t.Fatal("contract proof exact shared budget rejected", slack, e, block.nativeSession.remaining)
 		}
 	}
-	block.nativeSession.mu.Lock()
-	block.nativeSession.remaining = 16 << 20
-	block.nativeSession.mu.Unlock()
+	block.nativeSession = &nativeReadSession{ctx: ctx, limits: block.nativeSession.limits, remaining: 16 << 20}
 	calls := f.proofs.Load()
 	if _, e := a.ReadNativeContractAccountProof(context.Background(), block, address, keys); e == nil {
 		t.Fatal("detached responsibility context accepted")
