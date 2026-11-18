@@ -20,6 +20,7 @@ fn managed_bpt_fee_config_requires_full_identity_and_separate_native_fee_domain(
     cfg.service.name = "chain-parser-go".into();
     cfg.state.engine = "pebble".into();
     cfg.chains[0].key = "evm:31337".into();
+    cfg.chains[0].confirmation_tag = "latest".into();
     cfg.chains[0].owner_service = "chain-parser-go".into();
     cfg.chains[0].pools = vec![pool];
     assert!(

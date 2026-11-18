@@ -223,6 +223,7 @@ fn shared_evm_config() -> Config {
     c.service.name = "dex-router".into();
     c.state.engine = "memory".into();
     c.chains[0].key = "evm:1".into();
+    c.chains[0].confirmation_tag = "latest".into();
     c.chains[0].owner_service = "chain-parser-go".into();
     c.routing.max_hops = 1;
     c.routing.max_candidates = 1;

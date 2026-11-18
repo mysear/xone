@@ -12,6 +12,7 @@ fn meta_config_requires_pinned_clone_base_proof_and_dependency_isolation() {
     cfg.service.name = "chain-parser-go".into();
     cfg.state.engine = "pebble".into();
     cfg.chains[0].key = "evm:31337".into();
+    cfg.chains[0].confirmation_tag = "latest".into();
     cfg.chains[0].owner_service = "chain-parser-go".into();
     cfg.chains[0].pools = vec![pool];
     cfg.validate("chain-parser-go").unwrap();

@@ -74,6 +74,7 @@ fn optional_v3_factory_digest_is_validated_for_every_profile() {
         .unwrap()
         .config;
     cfg.chains[0].key = "evm:31337".into();
+    cfg.chains[0].confirmation_tag = "latest".into();
     cfg.service.name = "chain-parser-go".into();
     cfg.state.engine = "pebble".into();
     cfg.chains[0].owner_service = "chain-parser-go".into();
@@ -107,6 +108,7 @@ fn singleton_configuration_binds_manager_key_and_budget() {
     cfg.service.name = "chain-parser-go".into();
     cfg.state.engine = "pebble".into();
     cfg.chains[0].key = "evm:31337".into();
+    cfg.chains[0].confirmation_tag = "latest".into();
     cfg.chains[0].owner_service = "chain-parser-go".into();
     let file: serde_json::Value =
         serde_json::from_str(include_str!("../../../test/contracts/singleton-state.json")).unwrap();

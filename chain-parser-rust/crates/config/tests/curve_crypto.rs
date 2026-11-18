@@ -12,6 +12,7 @@ fn crypto_config_requires_original_lp_proof_and_versioned_shape() {
     cfg.service.name = "chain-parser-go".into();
     cfg.state.engine = "pebble".into();
     cfg.chains[0].key = "evm:31337".into();
+    cfg.chains[0].confirmation_tag = "latest".into();
     cfg.chains[0].owner_service = "chain-parser-go".into();
     cfg.chains[0].pools = vec![pool];
     cfg.validate("chain-parser-go").unwrap();
@@ -47,6 +48,7 @@ fn crypto_ramp_config_accepts_distinct_adapter_with_original_lp_proof() {
     cfg.service.name = "chain-parser-go".into();
     cfg.state.engine = "pebble".into();
     cfg.chains[0].key = "evm:31337".into();
+    cfg.chains[0].confirmation_tag = "latest".into();
     cfg.chains[0].owner_service = "chain-parser-go".into();
     cfg.chains[0].pools = vec![p];
     cfg.validate("chain-parser-go").unwrap();

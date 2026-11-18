@@ -12,6 +12,7 @@ fn configured() -> Config {
     c.service.name = "chain-parser-go".into();
     c.state.engine = "pebble".into();
     c.chains[0].key = "evm:31337".into();
+    c.chains[0].confirmation_tag = "latest".into();
     c.chains[0].owner_service = "chain-parser-go".into();
     c.chains[0].pools=vec![serde_json::from_value(serde_json::json!({"id":p["pool_id"],"protocol":p["protocol"],"token0":p["token0"],"token1":p["token1"],"fee_numerator":p["fee_numerator"],"fee_denominator":1000000,"program_id":"","accounts":[],"infinity_bin":{"manager":s["manager"],"expected_manager_code_sha256":s["manager_code_sha256"],"vault":s["vault"],"expected_vault_code_sha256":s["vault_code_sha256"],"pool_id":s["pool_id"],"bin_step":s["bin_step"],"lp_fee":s["lp_fee"],"expected_token0_code_sha256":s["token0_code_sha256"],"expected_token1_code_sha256":s["token1_code_sha256"],"token_policy":"standard","max_bins":64,"max_tree_words":64,"max_steps":64}})).unwrap()];
     c

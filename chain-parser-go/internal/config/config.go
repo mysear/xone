@@ -575,6 +575,11 @@ func (c Config) Validate(expected string) error {
 	}
 	seen := map[string]bool{}
 	for _, ch := range c.Chains {
+		// HEAD_FIRST selects a current provider head, never a historical height
+		// or pending/earliest alias disguised as a confirmation policy.
+		if strings.HasPrefix(ch.Key, "evm:") && ch.Confirmation != "latest" && ch.Confirmation != "safe" && ch.Confirmation != "finalized" {
+			return errors.New("CONFIG_CHAIN_CONFIRMATION")
+		}
 		if journalAnalytics && (ch.AnalysisIntervalMS == 0 || ch.AnalysisIntervalMS > 86400000) {
 			return invalid()
 		}

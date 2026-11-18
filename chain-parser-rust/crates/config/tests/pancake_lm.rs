@@ -6,6 +6,7 @@ fn lm_config_requires_complete_pinned_identity_and_finite_source_limits() {
     cfg.service.name = "chain-parser-go".into();
     cfg.state.engine = "pebble".into();
     cfg.chains[0].key = "evm:31337".into();
+    cfg.chains[0].confirmation_tag = "latest".into();
     cfg.chains[0].owner_service = "chain-parser-go".into();
     let f: serde_json::Value = serde_json::from_str(include_str!(
         "../../../test/contracts/pancake-lm-state.json"

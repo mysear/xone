@@ -12,6 +12,7 @@ fn ng_config_rejects_nonstandard_token_policy_proxy_and_unsupported_shape() {
     cfg.service.name = "chain-parser-go".into();
     cfg.state.engine = "pebble".into();
     cfg.chains[0].key = "evm:31337".into();
+    cfg.chains[0].confirmation_tag = "latest".into();
     cfg.chains[0].owner_service = "chain-parser-go".into();
     cfg.chains[0].pools = vec![p];
     cfg.validate("chain-parser-go").unwrap();

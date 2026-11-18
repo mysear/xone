@@ -2041,3 +2041,11 @@ checkpoint status及Prometheus增加自动尝试/失败/完成/空计划计数�
 CALL/DELEGATECALL、外部账户、区块/费用/GAS、写入、PUSH0及不支持指令均拒绝；read-only内核不带网络/外部状态读取，只有上层受同一总预算约束的proof请求。每opcode检查ctx，私有停止sentinel仅在本边界恢复，其他panic不吞掉；overlay/内存DB每pass关闭。该结果只证明view返回值，不升级税费/rebase/转账行为、共识或生产VERIFIED资格。
 
 `make -C integration v2-native-balance-proof-current-check`使用原runtime/storage真实MPT及明确合成header，验证正常六份Pair/Factory/Token证明请求、两余额与原bank一致、零值分支与空root、Getter/承诺/代码/缺proof/超8slot和不支持路径；回归全部v2/native/contract-storage及普通服务，检查现有geth锁定版本的三个新增传递依赖、契约、vet和构建。117报告是历史冻结范围，118报告记录当前源码的增强路径。
+
+### EVM当前头确认策略（阶段119）
+
+现有confirmation_tag对EVM只允许精确latest/safe/finalized。数字高度、earliest/pending、大小写或空白别名及空值在Go和双Rust编译器中均报CONFIG_CHAIN_CONFIRMATION，普通Go New在打开状态目录前同样校验。HEAD_FIRST的当前源策略不能混入固定历史游标；显式历史worker按其独立区间参数运行。
+
+source-evidence同时披露配置confirmation_tag及confirmation_policy=CONFIGURED_PROVIDER_TAG，consensus_verified保持false。当前标签是provider声明语义，是否有能力提供由实际RPC探测/读取决定，不支持safe/finalized不能回退到latest或用URL数量形成新共识。该限制不改变Solana每profile finalized要求，也不宣称生产VERIFIED。
+
+`make -C integration confirmation-policy-current-check`验证同轮Go15份完整配置（3通过/12拒绝）经双Rust独立编译的hash/拒绝码、Go普通构造前无目录写入、HTTP策略披露与不支持safe无降级、当前实际二进制check-config，以及两Rust配置全测/严格Clippy、Go格式/vet/构建、契约/进度/模块与输入冻结。

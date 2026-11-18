@@ -545,19 +545,19 @@ func (s *Service) Handler() http.Handler {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		profile := ""
+		profile, confirmation := "", ""
 		for _, chain := range s.cfg.Config.Chains {
 			if chain.Key == key {
-				profile = chain.BlockIntegrity
+				profile, confirmation = chain.BlockIntegrity, chain.Confirmation
 				break
 			}
 		}
 		tracker := s.rawSources[key]
 		if tracker == nil {
-			_ = json.NewEncoder(w).Encode(map[string]any{"enabled": false, "source_kind": "raw-json-rpc-response", "block_integrity_profile": profile, "consensus_verified": false, "r02_complete": false})
+			_ = json.NewEncoder(w).Encode(map[string]any{"enabled": false, "source_kind": "raw-json-rpc-response", "block_integrity_profile": profile, "confirmation_tag": confirmation, "confirmation_policy": "CONFIGURED_PROVIDER_TAG", "consensus_verified": false, "r02_complete": false})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"enabled": true, "source_kind": "raw-json-rpc-response", "limits": tracker.archive.Limits(), "block_integrity_profile": profile, "consensus_verified": false, "r02_complete": false})
+		_ = json.NewEncoder(w).Encode(map[string]any{"enabled": true, "source_kind": "raw-json-rpc-response", "limits": tracker.archive.Limits(), "block_integrity_profile": profile, "confirmation_tag": confirmation, "confirmation_policy": "CONFIGURED_PROVIDER_TAG", "consensus_verified": false, "r02_complete": false})
 	})
 
 	write := func(w http.ResponseWriter, status int, v any) {

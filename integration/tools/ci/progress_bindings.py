@@ -2086,3 +2086,19 @@ BINDINGS['7.v2-complete-native-token-balance-proof'] = {
            'TestV2CompleteNativeBalanceProofUsesSealedEmptyRootWithoutUnnecessarySlotIO'],
  'evidence_refs': ['integration/artifacts/local/v2-native-balance-proof-check/report.json'],
 }
+
+BINDINGS['7.evm-current-head-confirmation-policy'] = {
+ 'paths': ['chain-parser-go/internal/config/config.go',
+           'chain-parser-go/internal/config/confirmation_test.go',
+           'chain-parser-go/internal/service/confirmation_test.go',
+           'chain-parser-rust/crates/config/src/lib.rs',
+           'dex-router/crates/config/src/lib.rs',
+           'integration/tools/acceptance/validate_confirmation_policy.py'],
+ 'tests': ['TestEVMConfirmationPolicyRequiresCurrentHeadTagBeforeOpeningResources',
+           'TestEVMConfirmationPolicyExportsCurrentCrossCompilerInputsAndHashes',
+           'TestNormalParserRejectsHistoricalConfirmationBeforeCreatingState',
+           'TestNormalParserUnsupportedSafeTagDoesNotFallBackOrPublishReady',
+           'TestNormalSourceEvidenceDisclosesConfiguredHeadTagWithoutConsensusClaim',
+           'current_go_evm_confirmation_policy_and_hashes_match'],
+ 'evidence_refs': ['integration/artifacts/local/confirmation-policy-check/report.json'],
+}

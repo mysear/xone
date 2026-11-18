@@ -937,6 +937,11 @@ impl Config {
         }
         let mut seen = std::collections::BTreeSet::new();
         for c in &self.chains {
+            if c.key.starts_with("evm:")
+                && !matches!(c.confirmation_tag.as_str(), "latest" | "safe" | "finalized")
+            {
+                return Err(err("CONFIG_CHAIN_CONFIRMATION"));
+            }
             if expected == "chain-parser-go"
                 && self.service.role == "analytics"
                 && ["journal", "journal-continuous"].contains(&self.service.mode.as_str())

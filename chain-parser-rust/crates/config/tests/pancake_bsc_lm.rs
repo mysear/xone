@@ -8,6 +8,7 @@ fn bsc4_config_requires_three_separate_pinned_predecessors() {
     cfg.service.name = role.into();
     cfg.state.engine = "pebble".into();
     cfg.chains[0].key = "evm:31337".into();
+    cfg.chains[0].confirmation_tag = "latest".into();
     cfg.chains[0].owner_service = role.into();
     let f: serde_json::Value = serde_json::from_str(include_str!(
         "../../../test/contracts/pancake-bsc4-state.json"
