@@ -1205,3 +1205,7 @@ cost-unavailable-ranking-current-check:
 .PHONY: solana-native-cost-current-check
 solana-native-cost-current-check:
 	python3 tools/acceptance/validate_solana_native_cost.py
+
+.PHONY: solana-fee-preflight-current-check
+solana-fee-preflight-current-check:
+	python3 tools/acceptance/validate_solana_fee_preflight.py

@@ -13,6 +13,7 @@ pub struct Bank {
     pub data: Arc<Value>,
     pub mode: Arc<Mutex<String>>,
     pub calls: Arc<Mutex<Vec<String>>>,
+    pub requests: Arc<Mutex<Vec<Value>>>,
     pub transactions: Arc<Mutex<BTreeMap<String, Value>>>,
 }
 impl Bank {
@@ -30,6 +31,7 @@ impl Bank {
             ),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            requests: Default::default(),
             transactions: Default::default(),
         }
     }
@@ -62,6 +64,7 @@ impl Bank {
             data: Arc::new(data),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            requests: Default::default(),
             transactions: Default::default(),
         }
     }
@@ -78,6 +81,7 @@ impl Bank {
             data: Arc::new(fixture["cases"][index].clone()),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            requests: Default::default(),
             transactions: Default::default(),
         }
     }
@@ -94,6 +98,7 @@ impl Bank {
             data: Arc::new(f["cases"][index].clone()),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            requests: Default::default(),
             transactions: Default::default(),
         }
     }
@@ -110,6 +115,7 @@ impl Bank {
             data: Arc::new(f["cases"][index].clone()),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            requests: Default::default(),
             transactions: Default::default(),
         }
     }
@@ -135,6 +141,7 @@ impl Bank {
             data: Arc::new(data),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            requests: Default::default(),
             transactions: Default::default(),
         }
     }
@@ -160,6 +167,7 @@ impl Bank {
             data: Arc::new(data),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            requests: Default::default(),
             transactions: Default::default(),
         }
     }
@@ -185,6 +193,7 @@ impl Bank {
             data: Arc::new(data),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            requests: Default::default(),
             transactions: Default::default(),
         }
     }
@@ -210,6 +219,7 @@ impl Bank {
             data: Arc::new(data),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            requests: Default::default(),
             transactions: Default::default(),
         }
     }
@@ -230,6 +240,7 @@ impl Bank {
             data: Arc::new(data),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            requests: Default::default(),
             transactions: Default::default(),
         }
     }
@@ -250,6 +261,7 @@ impl Bank {
             data: Arc::new(data),
             mode: Arc::new(Mutex::new("ready".into())),
             calls: Default::default(),
+            requests: Default::default(),
             transactions: Default::default(),
         }
     }
@@ -370,6 +382,7 @@ impl Bank {
 async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
     let method = q["method"].as_str().unwrap();
     b.calls.lock().unwrap().push(method.into());
+    b.requests.lock().unwrap().push(q.clone());
     let mode = b.mode.lock().unwrap().clone();
     let d = &b.data;
     let mut slot = d["pool"]["meteora"]["slot"]
@@ -391,9 +404,12 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
             1000
         }),
         "isBlockhashValid" => {
-            json!({"context":{"slot":slot},"value":mode!="expire_after_send"||b.transactions.lock().unwrap().is_empty()})
+            json!({"context":{"slot":if mode.starts_with("preflight_") || mode=="simulation_mismatch" {slot+1}else{slot}},"value":mode!="expire_after_send"||b.transactions.lock().unwrap().is_empty()})
         }
         "sendTransaction" => {
+            if mode == "preflight_advancing" {
+                assert_eq!(q["params"][1]["minContextSlot"], slot + 4);
+            }
             let encoded = q["params"][0].as_str().unwrap();
             let wire = STANDARD.decode(encoded).unwrap();
             let signature = bs58::encode(&wire[1..65]).into_string();
@@ -468,7 +484,18 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                 "{}",
                 String::from_utf8_lossy(&output.stderr)
             );
-            serde_json::from_slice(&output.stdout).unwrap()
+            let mut response: Value = serde_json::from_slice(&output.stdout).unwrap();
+            if mode == "preflight_advancing" {
+                assert_eq!(q["params"][1]["minContextSlot"], slot + 3);
+                response["context"]["slot"] = (slot + 4).into();
+            }
+            if mode == "simulation_mismatch" {
+                response["context"]["slot"] = (slot + 1).into();
+            }
+            if mode == "preflight_simulation_stale" {
+                response["context"]["slot"] = (slot - 1).into();
+            }
+            response
         }
         "getMinimumBalanceForRentExemption" => {
             let size = q["params"][0].as_u64().unwrap();
@@ -578,13 +605,43 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                     a
                 })
                 .collect::<Vec<_>>();
-            json!({"context":{"slot":slot},"value":values})
+            let observed = if mode == "preflight_advancing" {
+                assert_eq!(q["params"][1]["minContextSlot"], slot + 2);
+                slot + 3
+            } else if mode == "preflight_account_stale" {
+                slot - 1
+            } else if mode == "preflight_simulation_stale" || mode == "simulation_mismatch" {
+                slot + 1
+            } else {
+                slot
+            };
+            json!({"context":{"slot":observed},"value":values})
         }
         "getLatestBlockhash" => {
             json!({"context":{"slot":slot},"value":{"blockhash":d["blockhash"],"lastValidBlockHeight":999999999}})
         }
         "getFeeForMessage" => {
-            json!({"context":{"slot":if mode=="fee_context_ahead"{slot+1}else{slot}},"value":if mode=="expired_blockhash"{Value::Null}else{json!(5000)}})
+            if mode == "preflight_advancing" {
+                assert_eq!(q["params"][1]["minContextSlot"], slot + 1);
+            }
+            let observed = match mode.as_str() {
+                "fee_context_ahead" => slot + 1,
+                "preflight_advancing" => slot + 2,
+                "preflight_account_stale"
+                | "preflight_simulation_stale"
+                | "preflight_fee_changed"
+                | "simulation_mismatch" => slot + 1,
+                "preflight_fee_stale" => slot - 1,
+                _ => slot,
+            };
+            let mut response = json!({"context":{"slot":observed},"value":if mode=="expired_blockhash"{Value::Null}else if mode=="preflight_fee_changed"{json!(5001)}else{json!(5000)}});
+            if mode == "preflight_fee_missing" {
+                response.as_object_mut().unwrap().remove("context");
+            }
+            if mode == "preflight_fee_string" {
+                response["context"]["slot"] = observed.to_string().into();
+            }
+            response
         }
         _ => Value::Null,
     };

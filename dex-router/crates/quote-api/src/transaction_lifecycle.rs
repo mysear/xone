@@ -143,12 +143,45 @@ pub(crate) async fn verify_wallet(
         json!({"signature":info.signature,"transactionSha256":info.transaction_sha256,"messageSha256":info.message_sha256,"preparationHash":preparation,"evidenceHash":request.evidence_hash,"signed":true,"submitted":false}),
     ))
 }
+struct Preflight {
+    minimum_send_slot: u64,
+    witness: Value,
+}
+fn minimum_preflight_slot(prepared: &Value) -> Result<u64> {
+    let observed = prepared["observedSlot"]
+        .as_u64()
+        .ok_or_else(|| err("TRANSACTION_RPC_INVALID"))?;
+    if prepared.get("costs").is_none() {
+        return Ok(observed);
+    }
+    let cost = &prepared["costs"];
+    if cost["modelVersion"] != "xone-solana-native-cost/1"
+        || cost["status"] != "MESSAGE_BOUND_RPC_ESTIMATE"
+        || cost["feeMinimumContextSlot"] != observed
+        || cost["accountObservedSlot"] != observed
+        || cost["networkFeeNative"] != prepared["feeLamports"]
+    {
+        return Err(err("TRANSACTION_FEE_CONTEXT_INVALID"));
+    }
+    let fee = cost["feeObservedSlot"]
+        .as_u64()
+        .filter(|n| *n >= observed)
+        .ok_or_else(|| err("TRANSACTION_FEE_CONTEXT_INVALID"))?;
+    Ok(fee)
+}
 async fn preflight(
     api: &Api,
     p: &solana_simulation::Prepared,
     raw: &[u8],
     expected_genesis: &str,
-) -> Result<()> {
+) -> Result<Preflight> {
+    let message = raw
+        .get(65..)
+        .ok_or_else(|| err("SIGNED_TRANSACTION_INVALID"))?;
+    if STANDARD.encode(message) != p.result["messageBase64"] {
+        return Err(err("SIGNED_TRANSACTION_INVALID"));
+    }
+    let message_sha256 = format!("{:x}", Sha256::digest(message));
     let chain = &p.context.chain_key;
     genesis(api, chain, expected_genesis).await?;
     let last = p.result["lastValidBlockHeight"]
@@ -169,9 +202,7 @@ async fn preflight(
     let blockhash = p.result["recentBlockhash"]
         .as_str()
         .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
-    let slot = p.result["observedSlot"]
-        .as_u64()
-        .ok_or_else(|| err("TRANSACTION_RPC_INVALID"))?;
+    let slot = minimum_preflight_slot(&p.result)?;
     let valid = rpc(
         api,
         chain,
@@ -192,6 +223,13 @@ async fn preflight(
     let cost = fee["value"]
         .as_u64()
         .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
+    let fee_slot = fee["context"]["slot"]
+        .as_u64()
+        .filter(|n| *n >= slot)
+        .ok_or_else(|| err("PREPARATION_STALE_RPC"))?;
+    if p.result["feeLamports"].as_str() != Some(cost.to_string().as_str()) {
+        return Err(err("PREPARATION_FEE_CHANGED"));
+    }
     let addresses = json!([
         p.result["sourceTokenAccount"],
         p.result["destinationTokenAccount"],
@@ -201,23 +239,21 @@ async fn preflight(
         api,
         chain,
         "getMultipleAccounts",
-        json!([addresses,{"encoding":"base64","commitment":"confirmed","minContextSlot":slot}]),
+        json!([addresses,{"encoding":"base64","commitment":"confirmed","minContextSlot":fee_slot}]),
     )
     .await?;
     let observed = before["context"]["slot"]
         .as_u64()
-        .filter(|n| *n >= slot)
+        .filter(|n| *n >= fee_slot)
         .ok_or_else(|| err("PREPARATION_STALE_RPC"))?;
     let simulation=rpc(api,chain,"simulateTransaction",json!([STANDARD.encode(raw),{"encoding":"base64","commitment":"confirmed","minContextSlot":observed,"sigVerify":true,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":addresses}}])).await?;
     if simulation["value"].get("err") != Some(&Value::Null) {
         return Err(err("PREPARATION_SIMULATION_FAILED"));
     }
-    if simulation["context"]["slot"]
+    let simulated_slot = simulation["context"]["slot"]
         .as_u64()
-        .is_none_or(|n| n < observed)
-    {
-        return Err(err("PREPARATION_STALE_RPC"));
-    }
+        .filter(|n| *n >= observed)
+        .ok_or_else(|| err("PREPARATION_STALE_RPC"))?;
     let before = before["value"]
         .as_array()
         .ok_or_else(|| err("TRANSACTION_RPC_INVALID"))?;
@@ -227,8 +263,15 @@ async fn preflight(
     xone_execution_preparation::verify_simulated_settlement(
         &p.context, &p.result, before, after, cost,
     )?;
-    Ok(())
+    Ok(Preflight {
+        minimum_send_slot: simulated_slot,
+        witness: json!({"modelVersion":"xone-solana-fee-preflight/1","sourceAuthority":"SUBMISSION_RPC_OBSERVATION","sameBankClaimed":false,"historicalBankVerified":false,"independentProductionVerification":false,
+            "feeMessageSha256":message_sha256,"transactionSha256":format!("{:x}",Sha256::digest(raw)),"preparationHash":p.result["preparationHash"],"chainKey":chain,"genesisHash":expected_genesis,"feeCommitment":"confirmed","feeResultHashEncoding":"CANONICAL_DECODED_RESULT_SHA256","networkFeeNative":cost.to_string(),"nativeUnit":"LAMPORTS",
+            "preparationMinimumContextSlot":slot,"feeObservedSlot":fee_slot,"accountObservedSlot":observed,"simulationObservedSlot":simulated_slot,
+            "minimumSendContextSlot":simulated_slot,"observedAtMs":now_ms(),"feeResultHash":hash(&fee)?}),
+    })
 }
+
 pub(crate) async fn submit(
     State(api): State<Api>,
     headers: HeaderMap,
@@ -280,7 +323,7 @@ pub(crate) async fn submit(
         .iter()
         .find(|c| c.key == p.context.chain_key)
         .ok_or_else(|| failure(err("UNKNOWN_CHAIN")))?;
-    preflight(&api, &p, &raw, &chain.genesis_hash)
+    let preflight = preflight(&api, &p, &raw, &chain.genesis_hash)
         .await
         .map_err(failure)?;
     solana_simulation::current(&api, &p).map_err(failure)?;
@@ -295,6 +338,7 @@ pub(crate) async fn submit(
         quote_id: id,
         preparation: p.result,
         evidence_hash: request.evidence_hash,
+        fee_preflight: Some(preflight.witness),
         state: TransactionState::Submitting,
         created_at_ms: now,
         updated_at_ms: now,
@@ -314,7 +358,7 @@ pub(crate) async fn submit(
     }
     // A durable SUBMITTING intent precedes this call. An uncertain result is
     // reconciled by signature; never automatically send it again.
-    let response=rpc(&api,&receipt.context.chain_key,"sendTransaction",json!([STANDARD.encode(raw),{"encoding":"base64","skipPreflight":false,"preflightCommitment":"confirmed","maxRetries":0,"minContextSlot":receipt.preparation["observedSlot"]}])).await;
+    let response=rpc(&api,&receipt.context.chain_key,"sendTransaction",json!([STANDARD.encode(raw),{"encoding":"base64","skipPreflight":false,"preflightCommitment":"confirmed","maxRetries":0,"minContextSlot":preflight.minimum_send_slot}])).await;
     receipt.updated_at_ms = now_ms();
     match response {
         Ok(value) if value.as_str() == Some(receipt.signature.as_str()) => {
@@ -791,5 +835,35 @@ mod funding_tests {
         m["postBalances"][0] = json!(0);
         m["postTokenBalances"] = json!([{"accountIndex":0}]);
         assert!(closed_temporary(&m, 0).is_err());
+    }
+}
+
+#[cfg(test)]
+mod fee_context_tests {
+    use super::*;
+    #[test]
+    fn preflight_floor_accepts_legacy_and_uses_newer_bound_fee_context() {
+        assert_eq!(
+            minimum_preflight_slot(&json!({"observedSlot":40})).unwrap(),
+            40
+        );
+        let prepared = json!({"observedSlot":40,"feeLamports":"5000","costs":{"modelVersion":"xone-solana-native-cost/1","status":"MESSAGE_BOUND_RPC_ESTIMATE","accountObservedSlot":40,"feeMinimumContextSlot":40,"feeObservedSlot":42,"networkFeeNative":"5000"}});
+        assert_eq!(minimum_preflight_slot(&prepared).unwrap(), 42);
+        for (key, value) in [
+            ("modelVersion", json!("unknown")),
+            ("status", json!("UNAVAILABLE")),
+            ("accountObservedSlot", json!(39)),
+            ("feeMinimumContextSlot", json!(41)),
+            ("feeObservedSlot", json!(39)),
+            ("feeObservedSlot", json!("42")),
+            ("feeObservedSlot", Value::Null),
+            ("networkFeeNative", json!("5001")),
+        ] {
+            let mut bad = prepared.clone();
+            bad["costs"][key] = value;
+            assert!(minimum_preflight_slot(&bad).is_err(), "{key}");
+        }
+        assert!(minimum_preflight_slot(&json!({"observedSlot":"40"})).is_err());
+        assert!(minimum_preflight_slot(&json!({"observedSlot":40,"costs":null})).is_err());
     }
 }

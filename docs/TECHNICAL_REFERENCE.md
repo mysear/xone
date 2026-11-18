@@ -2109,3 +2109,11 @@ Solana普通准备器的共享Capture增加单次getFeeForMessage观察，保存
 网络费用小计只含RPC实际返回的message fee，租金押金、预期可退/留存租金、swap/wrap本金单列。总资金=fee+rent+principal，checked u64且原payer余额覆盖；预期退款不能抵消交易开始前的资金要求。costs含chain/genesis、plan/view、message/fee-response/account-snapshot摘要及blockhash/有效高度；加入后重新seal preparationHash，正常API及独立SBF/签名流程保持完整绑定。sourceAuthority为PREPARATION_RPC_OBSERVATION，chainFeeCompleteness为PREPARED_MESSAGE_RPC_ESTIMATE；总估值与net仍null，不升级历史银行/生产资格。make -C integration solana-native-cost-current-check验证正式20个HTTP/SBF场景和资金/捕获/钱包回归。
 
 阶段127冻结验证完成：20个正式HTTP准备/原SBF与独立Python审计、资金/捕获/钱包回归、准备/API严格Clippy及正常构建通过。单次费用观察与账户slot可以不同；该费用来源仍为RPC估计，不授予历史bank、完整费用、净排序或生产VERIFIED资格。
+
+### Solana签名提交前费用上下文（阶段128）
+
+preflight先继承准备账户及fee的最新slot，当前getFeeForMessage须返回有效context且fee金额不变，账户读取/sigVerify=true仿真/sendTransaction的minContextSlot依次前进。回执feePreflight记录原签名message及transaction摘要、准备/链/fee Result投影和各slot，仅声明RPC观测，非同bank或生产资格。
+
+新增可选feePreflight对旧schemaVersion=1日志省略序列化，旧entry/identity hash保持精确；新字段进入日志和不可变identity。并发重复reserve以已保存的凭证为准，允许同一签名的观察时间变化但不改写首次intent；后续update变更/删除凭证仍拒绝。make -C integration solana-fee-preflight-current-check冻结原SOL/WSOL钱包、实际签名一次发送与旧日志兼容验证。
+
+阶段128冻结验收完成：实际八种签名生命周期、六种费用/slot守卫、并发一次发送、重启凭证不变与旧v1精确日志兼容通过；Pump/Raydium原SOL/WSOL资金钱包回归和严格构建通过。仍为提交RPC观察约束，通用net估值、净收益路由与可信bank/链规则资格继续未完成。

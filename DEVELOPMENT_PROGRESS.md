@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Solana提交前费用上下文与耐久凭证（阶段128，P0-3）|§13.1/14/15.3；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|预检继承准备fee slot，费用→账户→签名仿真→发送slot连续；绑定原消息/fee Result凭证耐久保存，旧v1兼容/重试幂等|11门禁/46次Rust，实际八种钱包生命周期、并发一次发送与原SOL/WSOL资金钱包通过|
 |Solana准备消息费用来源与原生资金分类（阶段127，P0-3）|§13.1/14/15.3/28.17；WP13、WP14、WP15、WP16|LOCAL_SCOPE_VERIFIED|准备RPC费用绑定具体message/unsigned wire及同请求账户快照，校验总资金与付款人余额；网络费/租金/预期退款/本金分列，不同slot明确披露|14门禁/29次Rust、20实际HTTP/SBF及独立审计通过；完整净估值仍未完成|
 |无可信成本时的路由排序回退（阶段126，P0-3）|§13.1/13.3/13.5/15.3；WP13、WP16、WP18|LOCAL_SCOPE_VERIFIED|ExactIn取消未经估值的固定激活费用，按毛输出/已有约束排序；ExactOut最小原输入；两模式明确费用未知及回退目标|16门禁/176次Rust、独立网格/三池/预算及四实际HTTP通过|
 |EVM最大资金准入与付款人净扣款（阶段125，P0-3）|§13.1/14/15.3/28.17；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|源余额必须覆盖bound gas最大reserve，保留gross fee并单列付款人净扣款/自付tip返回，Legacy净扣款未知|14门禁/146次Rust、56向量、四HTTP/冻结回归通过；完整链费/可靠估值及净排序仍缺|
@@ -504,6 +505,7 @@
 |13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
 |14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
 |13.solana-message-native-cost|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|绑定getFeeForMessage原消息/slot/fee和账户snapshot，资金checked u64，网络费单独小计；租金与swap/wrap本金不当fee|14门禁/29次Rust、20实际HTTP与原SBF及独立审计通过；来源/固定输入/runtime冻结一致|[验证记录](integration/artifacts/local/solana-native-cost-check/report.json)|
+|13.solana-signed-fee-context|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|提交前费用源context与账户/仿真/发送min slot连续；不可变费用凭证与原v1回执兼容、幂等重试|11门禁/46次Rust，slot/费用拒绝、耐久/旧v1及实际钱包回归通过|[验证记录](integration/artifacts/local/solana-fee-preflight-check/report.json)|
 |13.cost-unavailable-ranking|WP13,WP16,WP18|LOCAL_SCOPE_VERIFIED|无可信成本及估值时不以route_activation_cost改变报价排序，明确raw目标、费用缺失/未扣及原搜索约束|16门禁/176次Rust、三池与原ExactOut grid/约束预算/四HTTP通过|[验证记录](integration/artifacts/local/cost-unavailable-ranking-check/report.json)|
 |13.evm-native-payer-cost|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|按原bank余额校验最大gas资金准入，费用gross与payer实际net分列，alias自付tip返回|14门禁/146次Rust、56向量/四HTTP通过；完整成本与净排序仍缺|[验证记录](integration/artifacts/local/evm-native-payer-cost-check/report.json)|
 |13.evm-native-fee-balance-audit|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|绝对before绑定原bank输入，fee与实际native debit/beneficiary credit守恒；caller=coinbase净扣burn不重复tip，未知数据/资金操作拒绝|14门禁/同state/修改/平移/alias及四次actual HTTP通过；生产资格与完整成本仍缺|[验证记录](integration/artifacts/local/evm-native-balance-audit-check/report.json)|
@@ -679,6 +681,7 @@
 |125|[EVM最大资金准入与付款人净扣款](#plan-2026-11-18-evm-native-payer-cost)|LOCAL_SCOPE_VERIFIED|14门禁/146次Rust，最大资金/净扣款与四HTTP通过；[验证记录](integration/artifacts/local/evm-native-payer-cost-check/report.json)|
 |126|[无可信成本时的路由排序回退](#plan-2026-11-18-cost-unavailable-ranking)|LOCAL_SCOPE_VERIFIED|16门禁/176次Rust与四HTTP通过；[验证记录](integration/artifacts/local/cost-unavailable-ranking-check/report.json)|
 |127|[Solana准备消息费用来源与原生资金分类](#plan-2026-11-18-solana-native-cost)|LOCAL_SCOPE_VERIFIED|14门禁/20 HTTP与SBF、独立审计及原资金/捕获/钱包回归通过；[验证记录](integration/artifacts/local/solana-native-cost-check/report.json)|
+|128|[Solana提交前费用上下文与耐久凭证](#plan-2026-11-18-solana-fee-preflight)|LOCAL_SCOPE_VERIFIED|11门禁/46次Rust，实际签名/资金/旧回执和冻结输入一致；[验证记录](integration/artifacts/local/solana-fee-preflight-check/report.json)|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3345,7 +3348,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 |---|---|---|---|---|
 |P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
-|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–127补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类；可信估值、净评分及完整链费仍未完成|PARTIAL_LOCAL|
+|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–128补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文及耐久凭证；可信估值、净评分及完整链费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
 |P1-1|G03限定交易；WP14,WP15,WP20|先补单池/简单路径的calldata、授权、wrap、recipient、期限/退款、签名发送和耐久回执|报价→准备→独立仿真→用户签名→一次发送→回执收付款一致；先复用已有Solana链路，EVM独立补齐|PARTIAL_LOCAL|
 |P1-2|G06现有模型；WP11,WP13,WP14,WP16|已准入ExactOut先贯通最大输入、实际消耗、退款/费用和独立执行|数学输入目标与执行一致，拒绝不能保证的路径；复杂跨家族/共享拆单留P3-1|PARTIAL_LOCAL|
@@ -3564,3 +3567,23 @@ costs.nativeKnownSubtotal仅含RPC估计的message network fee；nativeFundingRe
 
 
 阶段127最终限定验收：14门禁全部exit0，29次Rust、20个当轮HTTP准备与独立原SBF执行/整数审计、普通及优化各3项证据守卫和17项进度检查通过；准备/API全目标严格Clippy与正常router/frontend harness构建通过，运行目录`96f8695a3d0d429d886a976ba59e2d56`。源码/911固定输入/45 pinned运行输入前后一致。10家族及9个额外Raydium资金情景、费用slot领先账户场景全部绑定原wire和message；feeResponseHash是canonical解码RPC Result投影摘要，未保留的原始HTTP envelope不在该摘要声明内。网络fee与资金预留、可退/留存押金、本金分离并重新seal准备hash；UNAVAILABLE/net null及生产资格边界保持。原总控进程在会话恢复时已消失，9个已通过门禁的日志摘要/冻结输入保留并核对；资金cargo在确认仍存活后由macOS NOTE_EXITSTATUS监测到正常exit0，再续跑其余门禁，恢复信息写入同一report，未凭RUNNING文件或测试尾行假定成功。完整P0-3与原26工作包均未宣称完成；下一轮补签名提交前fee context、账户/仿真/发送slot连续约束及耐久费用凭证。
+
+<a id="plan-2026-11-18-solana-fee-preflight"></a>
+
+## Solana提交前费用上下文与耐久凭证（2026-11-18，阶段128，P0-3）
+
+设计§13.1/14要求提交前费用/消息保持一致。本轮修复preflight漏验fee RPC context、忽略准备时更新fee slot、发送仍使用旧账户slot的问题。预检起点为准备账户/费用slot最大值，当前费用响应必须有有效且不低于起点的整数slot；金额改变立即拒绝。账户读取以当前fee slot为minContextSlot，签名仿真以账户slot为最低点，sendTransaction沿用最后已核验的仿真slot。minContextSlot只是RPC时序约束，不证明同bank/fork/共识。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F128.1|签名费用与slot连续约束|WP13,WP14,WP15|LOCAL_SCOPE_VERIFIED|继承准备fee slot；当前费用context缺失/字符串/陈旧、费用变化、账户/仿真回退都应在发送意图前拒绝，实际前进slot逐段及意图前拒绝已验证。|
+|F128.2|耐久费用凭证与幂等兼容|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|凭证绑定实际签名message/transaction摘要、准备/链身份、fee Result投影/确认级别及各slot；仅新增字段时进入v1哈希，旧记录字节兼容；更新不准替换凭证，同交易重复预检返回首次耐久凭证。|
+|F128.3|签名/SBF/资金回归与冻结构建|WP01,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|旧v1手造日志读取/更新、新凭证重启与篡改拒绝、八种签名生命周期和并发一次发送、Pump/Raydium资金钱包/原SOL交易通过；11门禁全部通过。|
+
+费用凭证sourceAuthority=SUBMISSION_RPC_OBSERVATION，sameBankClaimed/historicalBankVerified/independentProductionVerification均false。费用Result摘要为canonical解码投影；预检观察不冒称原始HTTP归档或共识银行。完整估值/净评分/全部链规则和生产VERIFIED仍未完成。
+
+阶段128首轮冻结`89f687a2576f4622ae6ffaa2ffe18948`保留FAILED报告：42项API库测试通过（另5项原有忽略）；实际钱包已通过准备fee领先、六种费用/slot拒绝与并发一次发送，随后重启查询触发新测试桩对getSignatureStatuses错误复用账户RPC参数断言。修正只针对该测试桩分支，产品时序校验、原deadline/断言不放宽；完整冻结回归待重跑。
+
+阶段128第二轮冻结`2a0489e893394fb5b6c5b82b54bba134`保留FAILED报告：两个既有EVM取消测试在8秒内未出现owned PID；单项独立复现失败，macOS采样定位启动前spawn_blocking仍在executable_sha256中对大型Rust debug镜像做software SHA-256。取消探针实际启动/bin/sh，现仅将两测试的worker_path/hash绑定为该实际小型可执行文件，保留每次完整身份校验、8秒启动/取消/reap门槛；真实Rust worker/协议/身份路径不改，非跳过哈希或提高deadline。将完整重跑本轮门禁。
+
+阶段128最终限定验收：11门禁全部exit0，46次Rust（API库42项实际执行、5项原有忽略；实际钱包生命周期1项内部八种场景，WSOL资金钱包2项及原SOL签名回执1项）、普通/优化各17进度检查、准备/API全目标严格Clippy和正常router/frontend harness构建通过。运行目录`a63ef262b6334a50858e5ca3154dabff`；源码/911固定输入/45 pinned运行输入前后一致。准备fee slot领先账户1，预检fee/账户/signed simulation随后分别前进至+2/+3/+4，实际send使用+4；六种陈旧/缺失/错误类型/费用改变及后续账户/仿真回退均不写发送intent。同一签名并发双提交仅一次send，重复与重启保留首次完整费用凭证；独立手造旧v1日志正常读取/更新，新凭证篡改或删除update拒绝。保留测试桩分支错误及两项EVM取消探针启动前hash超时FAILED报告；独立复现/采样后，仅修正测试RPC分支及取消探针实际小型/bin/sh的完整身份校验，原8秒启动/取消/reap断言与真实Rust worker/产品时效/金额守卫均保留。凭证哈希绑定实际signed message、transaction及canonical fee Result投影，RPC观测不声称同bank/历史来源/生产VERIFIED。完整P0-3净估值、通用费用后排序与其余设计功能继续；下一轮补限定原生SOL/明确解包WSOL的lamport同单位估值，经济净额与租金资本流分别核验。

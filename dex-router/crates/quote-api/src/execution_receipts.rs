@@ -43,6 +43,8 @@ pub struct Receipt {
     pub quote_id: String,
     pub preparation: Value,
     pub evidence_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fee_preflight: Option<Value>,
     pub state: State,
     pub created_at_ms: u64,
     pub updated_at_ms: u64,
@@ -53,12 +55,15 @@ pub struct Receipt {
 }
 impl Receipt {
     fn identity(&self) -> Result<String> {
-        hash(
-            &json!({"schemaVersion":self.schema_version,"signature":self.signature,"transactionSha256":self.transaction_sha256,"signedTransaction":self.signed_transaction,"context":self.context,"genesisHash":self.genesis_hash,"quoteId":self.quote_id,"preparation":self.preparation,"evidenceHash":self.evidence_hash,"createdAtMs":self.created_at_ms}),
-        )
+        let mut identity = json!({"schemaVersion":self.schema_version,"signature":self.signature,"transactionSha256":self.transaction_sha256,"signedTransaction":self.signed_transaction,"context":self.context,"genesisHash":self.genesis_hash,"quoteId":self.quote_id,"preparation":self.preparation,"evidenceHash":self.evidence_hash,"createdAtMs":self.created_at_ms});
+        // Absent on old v1 journals: keep their identity and entry hashes exact.
+        if let Some(witness) = &self.fee_preflight {
+            identity["feePreflight"] = witness.clone();
+        }
+        hash(&identity)
     }
     pub fn public(&self) -> Value {
-        json!({"signature":self.signature,"transactionSha256":self.transaction_sha256,"chainKey":self.context.chain_key,"caller":self.context.caller,"recipient":self.context.recipient,"sellToken":self.context.sell_token,"buyToken":self.context.buy_token,"quoteId":self.quote_id,"preparationHash":self.preparation["preparationHash"],"evidenceHash":self.evidence_hash,"state":self.state,"createdAtMs":self.created_at_ms,"updatedAtMs":self.updated_at_ms,"confirmationStatus":self.confirmation_status,"slot":self.slot,"settlement":self.settlement,"error":self.error,"signed":true,"sendAttempted":true,"productionReady":false})
+        json!({"signature":self.signature,"transactionSha256":self.transaction_sha256,"chainKey":self.context.chain_key,"caller":self.context.caller,"recipient":self.context.recipient,"sellToken":self.context.sell_token,"buyToken":self.context.buy_token,"quoteId":self.quote_id,"preparationHash":self.preparation["preparationHash"],"evidenceHash":self.evidence_hash,"feePreflight":self.fee_preflight,"state":self.state,"createdAtMs":self.created_at_ms,"updatedAtMs":self.updated_at_ms,"confirmationStatus":self.confirmation_status,"slot":self.slot,"settlement":self.settlement,"error":self.error,"signed":true,"sendAttempted":true,"productionReady":false})
     }
 }
 #[derive(Serialize, Deserialize)]
@@ -216,6 +221,9 @@ impl Journal {
         if let Some(existing) = self.records.get(&receipt.signature) {
             let mut incoming = receipt.clone();
             incoming.created_at_ms = existing.created_at_ms;
+            // Concurrent repeat preflights can observe newer slots/timestamps.
+            // Keep the original durable intent's witness for the same transaction.
+            incoming.fee_preflight = existing.fee_preflight.clone();
             if existing.identity()? != incoming.identity()? {
                 return Err(err("RECEIPT_TRANSACTION_MISMATCH"));
             }
@@ -293,6 +301,7 @@ mod tests {
             quote_id: "quote".into(),
             preparation: json!({"preparationHash":"p"}),
             evidence_hash: "e".into(),
+            fee_preflight: None,
             state: State::Submitting,
             created_at_ms: 1,
             updated_at_ms: 1,
@@ -342,5 +351,72 @@ mod tests {
         raw[20] ^= 1;
         std::fs::write(&path, raw).unwrap();
         assert!(Journal::open(&path, 2).is_err());
+    }
+    #[test]
+    fn fee_preflight_is_immutable_durable_and_old_v1_journals_remain_readable() {
+        let dir = tempfile::tempdir().unwrap();
+        let legacy_path = dir.path().join("legacy");
+        let old = receipt();
+        let wire = serde_json::to_value(&old).unwrap();
+        assert!(wire.get("feePreflight").is_none());
+        let legacy_identity = hash(&json!({"schemaVersion":old.schema_version,"signature":old.signature,"transactionSha256":old.transaction_sha256,"signedTransaction":old.signed_transaction,"context":old.context,"genesisHash":old.genesis_hash,"quoteId":old.quote_id,"preparation":old.preparation,"evidenceHash":old.evidence_hash,"createdAtMs":old.created_at_ms})).unwrap();
+        assert_eq!(old.identity().unwrap(), legacy_identity);
+        let previous = "0".repeat(64);
+        // Construct the original v1 record independently, with no new field.
+        let digest = hash(&json!([1, previous, wire])).unwrap();
+        std::fs::write(
+            &legacy_path,
+            format!(
+                "{}\n",
+                json!({"sequence":1,"previousHash":previous,"receipt":wire,"entryHash":digest})
+            ),
+        )
+        .unwrap();
+        let mut journal = Journal::open(&legacy_path, 2).unwrap();
+        let mut loaded = journal.get(&old.signature).unwrap();
+        assert!(loaded.fee_preflight.is_none());
+        loaded.state = State::Submitted;
+        journal.update(loaded).unwrap();
+        drop(journal);
+        assert_eq!(
+            Journal::open(&legacy_path, 2)
+                .unwrap()
+                .get(&old.signature)
+                .unwrap()
+                .state,
+            State::Submitted
+        );
+
+        let path = dir.path().join("new");
+        let mut value = old;
+        value.fee_preflight =
+            Some(json!({"minimumSendContextSlot":42,"feeMessageSha256":"message"}));
+        let mut journal = Journal::open(&path, 2).unwrap();
+        journal.reserve(value.clone()).unwrap();
+        let mut repeated = value.clone();
+        repeated.fee_preflight.as_mut().unwrap()["minimumSendContextSlot"] = 43.into();
+        let (existing, reserved) = journal.reserve(repeated.clone()).unwrap();
+        assert!(!reserved);
+        assert_eq!(existing.fee_preflight, value.fee_preflight);
+        repeated.evidence_hash = "changed".into();
+        assert!(journal.reserve(repeated).is_err());
+        let mut changed = value.clone();
+        changed.fee_preflight.as_mut().unwrap()["minimumSendContextSlot"] = 41.into();
+        assert!(journal.update(changed).is_err());
+        let mut removed = value.clone();
+        removed.fee_preflight = None;
+        assert!(journal.update(removed).is_err());
+        value.state = State::Submitted;
+        journal.update(value.clone()).unwrap();
+        drop(journal);
+        let restored = Journal::open(&path, 2)
+            .unwrap()
+            .get(&value.signature)
+            .unwrap();
+        assert_eq!(restored.fee_preflight, value.fee_preflight);
+        assert_eq!(
+            restored.public()["feePreflight"],
+            value.fee_preflight.unwrap()
+        );
     }
 }

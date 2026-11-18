@@ -2204,3 +2204,15 @@ BINDINGS['13.solana-message-native-cost'] = {
            'solana_native_cost_actual_http_binds_message_fee_funding_and_original_sbf'],
  'evidence_refs': ['integration/artifacts/local/solana-native-cost-check/report.json'],
 }
+
+BINDINGS['13.solana-signed-fee-context'] = {
+ 'paths': ['dex-router/crates/quote-api/src/transaction_lifecycle.rs',
+           'dex-router/crates/quote-api/src/execution_receipts.rs',
+           'dex-router/crates/quote-api/src/local_simulation.rs',
+           'dex-router/crates/quote-api/tests/transaction_lifecycle.rs',
+           'integration/tools/acceptance/validate_solana_fee_preflight.py'],
+ 'tests': ['preflight_floor_accepts_legacy_and_uses_newer_bound_fee_context',
+           'fee_preflight_is_immutable_durable_and_old_v1_journals_remain_readable',
+           'wallet_submission_requires_signature_evidence_confirmation_and_durable_reconciliation'],
+ 'evidence_refs': ['integration/artifacts/local/solana-fee-preflight-check/report.json'],
+}

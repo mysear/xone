@@ -69,8 +69,12 @@ async fn wallet_submission_requires_signature_evidence_confirmation_and_durable_
         let (status, q) = call(&api, "/v1/quote-exact-out", bank.request()).await;
         assert_eq!(status, StatusCode::OK, "{mode}: {q}");
         let id = q["quoteId"].as_str().unwrap();
+        if mode == "ready" {
+            *bank.mode.lock().unwrap() = "fee_context_ahead".into();
+        }
         let(status,p)=call(&api,&format!("/v1/quotes/{id}/prepare"),json!({"sourceTokenAccount":bank.data["sourceTokenAccount"],"createDestinationAta":true})).await;
         assert_eq!(status, StatusCode::OK, "{mode}: {p}");
+        *bank.mode.lock().unwrap() = "ready".into();
         let prep = p["preparationHash"].as_str().unwrap();
         let prefix = format!("/v1/quotes/{id}/preparations/{prep}");
         let mut disabled = config.clone();
@@ -121,6 +125,25 @@ async fn wallet_submission_requires_signature_evidence_confirmation_and_durable_
         assert_eq!(e["signature"], signed["signature"]);
         assert_eq!(e["submitted"], false);
         if mode == "ready" {
+            let original_slot = p["observedSlot"].as_u64().unwrap();
+            assert_eq!(p["costs"]["feeObservedSlot"], original_slot + 1);
+            for (fault, expected) in [
+                ("preflight_fee_stale", "PREPARATION_STALE_RPC"),
+                ("preflight_fee_missing", "PREPARATION_STALE_RPC"),
+                ("preflight_fee_string", "PREPARATION_STALE_RPC"),
+                ("preflight_fee_changed", "PREPARATION_FEE_CHANGED"),
+                ("preflight_account_stale", "PREPARATION_STALE_RPC"),
+                ("preflight_simulation_stale", "PREPARATION_STALE_RPC"),
+            ] {
+                // Allow the newer preparation fee floor through the blockhash check.
+                *bank.mode.lock().unwrap() = fault.into();
+                let (status, e) = call(&api, &format!("{prefix}/submit"), request.clone()).await;
+                assert_ne!(status, StatusCode::OK, "{fault}: {e}");
+                assert_eq!(e["error"], expected, "{fault}: {e}");
+                assert!(bank.transactions.lock().unwrap().is_empty());
+                let journal_path = directory.path().join("receipts.ndjson");
+                assert_eq!(std::fs::metadata(journal_path).unwrap().len(), 0, "{fault}");
+            }
             *bank.mode.lock().unwrap() = "simulation_mismatch".into();
             let (status, e) = call(&api, &format!("{prefix}/submit"), request.clone()).await;
             assert_ne!(status, StatusCode::OK);
@@ -145,10 +168,72 @@ async fn wallet_submission_requires_signature_evidence_confirmation_and_durable_
             assert_ne!(status, StatusCode::OK);
             assert_eq!(e["error"], "INDEPENDENT_SIMULATION_REQUIRED");
         }
-        *bank.mode.lock().unwrap() = mode.into();
-        let (status, receipt) = call(&api, &format!("{prefix}/submit"), request.clone()).await;
+        *bank.mode.lock().unwrap() = if mode == "ready" {
+            "preflight_advancing"
+        } else {
+            mode
+        }
+        .into();
+        let (status, receipt) = if mode == "ready" {
+            let path = format!("{prefix}/submit");
+            let (first, second) = tokio::join!(
+                call(&api, &path, request.clone()),
+                call(&api, &path, request.clone())
+            );
+            assert_eq!(first.0, StatusCode::OK, "{}", first.1);
+            assert_eq!(second.0, StatusCode::OK, "{}", second.1);
+            assert_eq!(first.1["feePreflight"], second.1["feePreflight"]);
+            if first.1["state"] == "SUBMITTED" {
+                first
+            } else {
+                second
+            }
+        } else {
+            call(&api, &format!("{prefix}/submit"), request.clone()).await
+        };
         assert_eq!(status, StatusCode::OK, "{mode}: {receipt}");
         assert_eq!(receipt["signature"], signed["signature"]);
+        let fee_witness = receipt["feePreflight"].clone();
+        assert_eq!(fee_witness["sourceAuthority"], "SUBMISSION_RPC_OBSERVATION");
+        assert_eq!(fee_witness["sameBankClaimed"], false);
+        assert_eq!(fee_witness["networkFeeNative"], "5000");
+        assert_eq!(
+            fee_witness["feeMessageSha256"],
+            json!(format!(
+                "{:x}",
+                <sha2::Sha256 as sha2::Digest>::digest(
+                    &STANDARD
+                        .decode(request["signedTransaction"].as_str().unwrap())
+                        .unwrap()[65..]
+                )
+            ))
+        );
+        assert_eq!(
+            fee_witness["transactionSha256"],
+            json!(format!(
+                "{:x}",
+                <sha2::Sha256 as sha2::Digest>::digest(
+                    STANDARD
+                        .decode(request["signedTransaction"].as_str().unwrap())
+                        .unwrap()
+                )
+            ))
+        );
+        assert_eq!(fee_witness["preparationHash"], prep);
+        if mode == "ready" {
+            let slot = p["observedSlot"].as_u64().unwrap();
+            assert_eq!(fee_witness["preparationMinimumContextSlot"], slot + 1);
+            assert_eq!(fee_witness["feeObservedSlot"], slot + 2);
+            assert_eq!(fee_witness["accountObservedSlot"], slot + 3);
+            assert_eq!(fee_witness["simulationObservedSlot"], slot + 4);
+            assert_eq!(fee_witness["minimumSendContextSlot"], slot + 4);
+            let trace = bank.requests.lock().unwrap().clone();
+            let sent = trace
+                .iter()
+                .find(|q| q["method"] == "sendTransaction")
+                .unwrap();
+            assert_eq!(sent["params"][1]["minContextSlot"], slot + 4);
+        }
         assert_eq!(
             receipt["state"],
             if mode == "send_uncertain" {
@@ -159,6 +244,7 @@ async fn wallet_submission_requires_signature_evidence_confirmation_and_durable_
         );
         let (status, duplicate) = call(&api, &format!("{prefix}/submit"), request).await;
         assert_eq!(status, StatusCode::OK, "{duplicate}");
+        assert_eq!(duplicate["feePreflight"], fee_witness);
         assert_eq!(
             bank.calls
                 .lock()
@@ -176,6 +262,7 @@ async fn wallet_submission_requires_signature_evidence_confirmation_and_durable_
         let path = format!("/v1/transactions/{}", signed["signature"].as_str().unwrap());
         let (status, receipt) = call(&api, &path, Value::Null).await;
         assert_eq!(status, StatusCode::OK, "{mode}: {receipt}");
+        assert_eq!(receipt["feePreflight"], fee_witness);
         let expected = match mode {
             "submit_pending" => "PROCESSED",
             "send_fail" => "FAILED",

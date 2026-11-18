@@ -828,6 +828,18 @@ mod tests {
             NEXT.fetch_add(1, Ordering::Relaxed)
         ))
     }
+    fn use_owned_cancellation_worker(api: &mut crate::Api, pid: PathBuf) {
+        let worker = Arc::get_mut(api.local_simulation.as_mut().unwrap()).unwrap();
+        // The cancellation probe actually launches this tiny executable. Keep
+        // its real identity guard, rather than timing a debug Rust image hash
+        // before the owned child exists. Real Rust worker checks stay separate.
+        worker.worker_path = PathBuf::from("/bin/sh");
+        worker.worker_sha256 = executable_sha256(&worker.worker_path).unwrap();
+        worker.test_launch = Some(TestLaunch {
+            mode: "http-cancellation".into(),
+            pid_file: Some(pid),
+        });
+    }
     fn assert_reaped(path: &std::path::Path) {
         if let Ok(pid) = std::fs::read_to_string(path) {
             assert!(
@@ -1368,12 +1380,7 @@ mod tests {
         use tower::ServiceExt;
         let (mut api, id) = api_with_cached_quote().await;
         let pid = pid_path();
-        Arc::get_mut(api.local_simulation.as_mut().unwrap())
-            .unwrap()
-            .test_launch = Some(TestLaunch {
-            mode: "http-cancellation".into(),
-            pid_file: Some(pid.clone()),
-        });
+        use_owned_cancellation_worker(&mut api, pid.clone());
         let handler = api.handler();
         let request = || {
             Request::builder()
@@ -1598,12 +1605,7 @@ mod tests {
         use tower::ServiceExt;
         let (mut api, id) = api_with_exact_out_quote().await;
         let pid = pid_path();
-        Arc::get_mut(api.local_simulation.as_mut().unwrap())
-            .unwrap()
-            .test_launch = Some(TestLaunch {
-            mode: "http-cancellation".into(),
-            pid_file: Some(pid.clone()),
-        });
+        use_owned_cancellation_worker(&mut api, pid.clone());
         let request = axum::http::Request::builder()
             .method("POST")
             .uri(format!("/v1/quotes/{id}/simulate"))
