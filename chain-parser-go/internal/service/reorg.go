@@ -22,6 +22,9 @@ type forkReader interface {
 // recoverFork publishes a revocation barrier before doing bounded rollback and
 // replacement reads. Intermediate branch states never become Current/Bootstrap.
 func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.Snapshot, a forkReader) error {
+	if ch.BeaconFinality != nil {
+		return errors.New("BEACON_FINALITY_PARENT_CONFLICT")
+	}
 	if err := s.revokeRuntimeSources(ctx, ch, []string{old.Reference.Block.Hash}); err != nil {
 		return err
 	}

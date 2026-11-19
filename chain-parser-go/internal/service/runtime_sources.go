@@ -510,7 +510,25 @@ func (s *Service) runtimeScopeGate(ctx context.Context, selection *RuntimeScopeS
 			capabilityAnchor = runtimeAnchor(view.Ref)
 		}
 	}
+	var requireBeacon bool
+	if s.cfg != nil {
+		for _, ch := range s.cfg.Config.Chains {
+			if ch.Key == target.Reference.Block.ChainKey {
+				requireBeacon = ch.BeaconFinality != nil
+				break
+			}
+		}
+	}
+	view, _ := ctx.Value(beaconOwnerKey{}).(*beaconOwnerView)
 	return func() error {
+		if requireBeacon {
+			if view == nil {
+				return errors.New("BEACON_OWNER_PROOF_REQUIRED")
+			}
+			if err := view.check(target.Reference.Block); err != nil {
+				return err
+			}
+		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}

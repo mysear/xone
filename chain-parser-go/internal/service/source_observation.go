@@ -40,7 +40,15 @@ func (s *Service) observeChainHeader(ctx context.Context, chain config.Chain) er
 			return err
 		}
 		var err error
-		head, err = readHeaderWithLease(source, adapter, s.sessions[chain.Key], chain.Confirmation)
+		tag := chain.Confirmation
+		view, _ := ctx.Value(beaconOwnerKey{}).(*beaconOwnerView)
+		if view != nil {
+			tag = view.proof.BlockTag()
+		}
+		head, err = readHeaderWithLease(source, adapter, s.sessions[chain.Key], tag)
+		if err == nil && view != nil {
+			err = view.check(head)
+		}
 		if err != nil {
 			return err
 		}

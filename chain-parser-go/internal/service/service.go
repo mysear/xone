@@ -88,6 +88,13 @@ func NewWithSource(cfg *config.Snapshot, source SnapshotSource) (*Service, error
 	if cfg.Config.Service.Role != "online" {
 		return nil, errors.New("ANALYTICS_REQUIRES_JOB_ENTRY")
 	}
+	if source != nil {
+		for _, ch := range cfg.Config.Chains {
+			if ch.BeaconFinality != nil {
+				return nil, errors.New("BEACON_NORMAL_SOURCE_REQUIRED")
+			}
+		}
+	}
 	checkpointContext, checkpointStop := context.WithCancel(context.Background())
 	s := &Service{checkpointContext: checkpointContext, checkpointStop: checkpointStop, checkpointGate: make(chan struct{}, 1), constructedAt: time.Now(), scopeTimings: map[string]*scopeRestoreStats{}, recoveries: map[string]*bootstrap.EmbeddedScopeStore{}, cfg: cfg, source: source, stores: map[string]*reducer.Store{}, adapters: map[string]*evm.Adapter{}, log: observability.New(os.Stdout, "chain-parser-go", cfg.Config.Service.Role, cfg.Release, cfg.PublicHash, cfg.Config.Logging)}
 	s.rawSources = map[string]*rawRecorder{}
@@ -201,6 +208,14 @@ func (s *Service) reanchorScope(ctx context.Context, chain config.Chain, fork bo
 		return err
 	}
 	chain = selected
+	ctx, beaconView, err := s.beaconContext(ctx, chain)
+	if err != nil {
+		return err
+	}
+	anchorTag := chain.Confirmation
+	if beaconView != nil {
+		anchorTag = beaconView.proof.BlockTag()
+	}
 	if len(chain.Pools) == 0 && s.source == nil {
 		// D0 is a chain observation. It cannot publish qualified pool state,
 		// allocate an online generation, or fabricate a recovery ScopeJob.
@@ -255,9 +270,14 @@ func (s *Service) reanchorScope(ctx context.Context, chain config.Chain, fork bo
 		if e := a.Client.VerifyEVM(ctx, chain.Key, chain.Genesis); e != nil {
 			return e
 		}
-		block, pools, e := a.ReadState(ctx, chain.Confirmation, false)
+		block, pools, e := a.ReadState(ctx, anchorTag, false)
 		if e != nil {
 			return e
+		}
+		if beaconView != nil {
+			if err := beaconView.check(block); err != nil {
+				return err
+			}
 		}
 		unresolved := store.ReorgPending()
 		if w := s.sessions[chain.Key]; w != nil {
@@ -444,9 +464,22 @@ func (s *Service) syncChain(ctx context.Context, ch config.Chain) error {
 	if !ready {
 		return s.reanchor(ctx, ch, false)
 	}
-	head, e := s.readObservedHeader(ctx, ch, a, ch.Confirmation)
+	ctx, beaconView, e := s.beaconContext(ctx, ch)
 	if e != nil {
 		return e
+	}
+	tag := ch.Confirmation
+	if beaconView != nil {
+		tag = beaconView.proof.BlockTag()
+	}
+	head, e := s.readObservedHeader(ctx, ch, a, tag)
+	if e != nil {
+		return e
+	}
+	if beaconView != nil {
+		if err := beaconView.check(head); err != nil {
+			return err
+		}
 	}
 	// Live updates obey the same clock admission as HEAD_FIRST recovery.
 	candidate := current
@@ -462,6 +495,14 @@ func (s *Service) syncChain(ctx context.Context, ch config.Chain) error {
 		}
 		store.Suspend()
 		return s.reanchor(ctx, ch, false)
+	}
+	if beaconView != nil {
+		tailCtx, cancel := context.WithTimeout(ctx, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
+		err := beaconView.admitTail(tailCtx, head, current.Reference.Block, func(c context.Context, t string) (domain.BlockRef, error) { return s.readObservedHeader(c, ch, a, t) })
+		cancel()
+		if err != nil {
+			return err
+		}
 	}
 	a, selection, err := s.runtimeScopeAdapter(ctx, ch, current)
 	if err != nil {
@@ -545,19 +586,22 @@ func (s *Service) Handler() http.Handler {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		profile, confirmation := "", ""
+		profile, confirmation, policy := "", "", "CONFIGURED_PROVIDER_TAG"
 		for _, chain := range s.cfg.Config.Chains {
 			if chain.Key == key {
 				profile, confirmation = chain.BlockIntegrity, chain.Confirmation
+				if chain.BeaconFinality != nil {
+					policy = "PINNED_BEACON_FINALITY"
+				}
 				break
 			}
 		}
 		tracker := s.rawSources[key]
 		if tracker == nil {
-			_ = json.NewEncoder(w).Encode(map[string]any{"enabled": false, "source_kind": "raw-json-rpc-response", "block_integrity_profile": profile, "confirmation_tag": confirmation, "confirmation_policy": "CONFIGURED_PROVIDER_TAG", "consensus_verified": false, "r02_complete": false})
+			_ = json.NewEncoder(w).Encode(map[string]any{"enabled": false, "source_kind": "raw-json-rpc-response", "block_integrity_profile": profile, "confirmation_tag": confirmation, "confirmation_policy": policy, "consensus_verified": false, "r02_complete": false})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"enabled": true, "source_kind": "raw-json-rpc-response", "limits": tracker.archive.Limits(), "block_integrity_profile": profile, "confirmation_tag": confirmation, "confirmation_policy": "CONFIGURED_PROVIDER_TAG", "consensus_verified": false, "r02_complete": false})
+		_ = json.NewEncoder(w).Encode(map[string]any{"enabled": true, "source_kind": "raw-json-rpc-response", "limits": tracker.archive.Limits(), "block_integrity_profile": profile, "confirmation_tag": confirmation, "confirmation_policy": policy, "consensus_verified": false, "r02_complete": false})
 	})
 
 	write := func(w http.ResponseWriter, status int, v any) {

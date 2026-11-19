@@ -266,6 +266,7 @@ type WebsocketConfig struct {
 	MaxBackoffMS       uint64 `json:"max_backoff_ms"`
 }
 type Chain struct {
+	BeaconFinality     *BeaconFinalityConfig `json:"beacon_finality,omitempty"`
 	NativeProof        *NativeProofConfig    `json:"native_proof,omitempty"`
 	ReceiptsMode       string                `json:"receipts_mode,omitempty"`
 	ProviderProbe      *ProviderProbeConfig  `json:"provider_probe,omitempty"`
@@ -605,6 +606,9 @@ func (c Config) Validate(expected string) error {
 		}
 		if ch.ReceiptsMode != "" && (expected != "chain-parser-go" || ch.ReceiptsMode != "per-tx" && ch.ReceiptsMode != "bulk-auto") {
 			return invalid()
+		}
+		if ch.BeaconFinality != nil && !ch.BeaconFinality.valid(ch, expected) {
+			return errors.New("CONFIG_BEACON_FINALITY")
 		}
 		if ch.NativeProof != nil && ch.BlockIntegrity != "known-evm-native-commitments-v2" {
 			return invalid()

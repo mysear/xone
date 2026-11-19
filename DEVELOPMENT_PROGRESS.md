@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|普通 Go owner 以信标最终性约束主网快照（阶段191，P0-1）|§7.1–7.3、§7.9、§28.26，WP04、WP05、WP07、WP24|LOCAL_SCOPE_VERIFIED|启动及追块以配置的信标根核对执行区块，发布时复核区块哈希和证明时效|主网 DAI/WETH 快照、撤权及同块恢复通过|
 |从最终性证据选取 Ethereum 执行块（阶段190，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|采集工具核验签名后读取精确高度，在账户证明请求前核对块哈希|主网块 26448285 的在线采集报告与离线重放逐字节相同|
 |Ethereum 主网同步委员会交接（阶段189，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|从较早的显式信标根依次验证各委员会签名和下一委员会根|实际连续两次交接至周期 1915，10 个交接场景通过|
 |Ethereum 主网同步委员会最终性验证（阶段188，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|从指定检查点验证同周期聚合签名、最终化分支、执行载荷及部署证据|主网块 26448094 实测 508 名签署者，13 个 CLI 场景通过|
@@ -799,6 +800,7 @@
 |188|[同周期同步委员会最终性验证](#beacon-committee-finality)|LOCAL_SCOPE_VERIFIED|主网 finality_update 与执行层部署证明通过离线核对|
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
+|191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
 |175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
 |174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
@@ -4802,3 +4804,13 @@ Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet
 普通 CLI 从周期 1913 的指定根，经两次交接和 510 名参与者的最终性签名，选定主网块 26448285，完成 151 笔交易及原 Pair 的部署证明验证。采集报告与离线重放逐字节相同。较早块 26448094 的 RPC 采集尝试返回 -32000，本轮改用新取得的已签名更新。错链和冲突高度在首次 RPC 前失败，同高异块在第三次 RPC 后失败。53 项 Go race 测试、23 项历史 CLI 场景和 vet 通过。[采集报告](integration/artifacts/local/beacon-capture-190/live.json) · [离线报告](integration/artifacts/local/beacon-capture-190/offline.json)
 
 阶段189提交 `c1870c8` 的完整来源、EVM 与服务包 race 回归已结束，三个包分别通过 48、2914 和 230 项测试（含子测试）。[完整回归记录](integration/artifacts/local/beacon-transition-189/owner-evm-regression.jsonl)
+
+<a id="beacon-owner-admission"></a>
+
+## 普通 owner 的信标最终性校验（2026-11-19，阶段191，P0-1）
+
+按 §7.1–7.3、§7.9 和 §28.26，Go owner 的 Ethereum 主网 native profile 可配置检查点根、证明文件和检查点年龄上限。每次同步读取一份完整证明，验证签名、委员会和最终化载荷，按载荷高度读取执行层。发布时用同一份证明检查快照哈希与时效。短缺口在提交前从已验证的头向后检查父块。后退或同高冲突进入现有撤权路径。
+
+主网 DAI/WETH 池在块 26448349 首次发布。替换证明后基线接口返回 503，恢复原证明后同块重新发布，日志序号从 1 增至 3。首次测试脚本使用了错误的 HTTP 高度字段，修正为 `number_or_slot` 后重新运行了完整场景。验收使用公开信标来源提供的检查点。生产运维的独立可信根来源和轮换流程仍待验收。[普通进程验收记录](integration/artifacts/local/beacon-owner-191/live-2/report.json)
+
+本轮配置、来源证明和 owner 服务的完整 Go race 回归分别通过 309、58 和 230 项（含子测试），三个包的 `go vet` 通过。[回归记录](integration/artifacts/local/beacon-owner-191/go.jsonl)
