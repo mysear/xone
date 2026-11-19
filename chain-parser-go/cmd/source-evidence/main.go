@@ -65,7 +65,7 @@ func run() error {
 	finality := flag.String("beacon-finality", "", "optional same-period light_client/finality_update response")
 	updates := flag.String("beacon-updates", "", "ordered same-fork light_client/updates response for committee transitions")
 	flag.Parse()
-	if *updates != "" && *finality == "" || *finality != "" && *bootstrap == "" || (*beaconRoot == "") != (*bootstrap == "") || *bootstrap != "" && *verify == "" {
+	if *updates != "" && *finality == "" || *finality != "" && *bootstrap == "" || (*beaconRoot == "") != (*bootstrap == "") || *bootstrap != "" && *verify == "" && *finality == "" {
 		return errors.New("EVIDENCE_BEACON_ARGUMENTS")
 	}
 
@@ -125,6 +125,28 @@ func run() error {
 			return errors.New("EVIDENCE_HTTPS_RPC_REQUIRED")
 		}
 	}
+	var proof *provenance.VerifiedExecutionFinality
+	if *finality != "" {
+		bootstrapData, err := readBeaconInput(*bootstrap, provenance.MaxBootstrapBytes)
+		if err != nil {
+			return err
+		}
+		finalityData, err := readBeaconInput(*finality, provenance.MaxBootstrapBytes)
+		if err != nil {
+			return err
+		}
+		var transitionData []byte
+		if *updates != "" {
+			transitionData, err = readBeaconInput(*updates, provenance.MaxBeaconUpdatesBytes)
+			if err != nil {
+				return err
+			}
+		}
+		proof, err = provenance.VerifyExecutionFinality(*beaconRoot, bootstrapData, finalityData, transitionData)
+		if err != nil {
+			return err
+		}
+	}
 	httpClient := &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("EVIDENCE_REDIRECT") }}
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
@@ -176,7 +198,7 @@ func run() error {
 			keys[address] = strings.Split(*storageSlots, ",")
 		}
 	}
-	evidence, report, err := provenance.Capture(ctx, provenance.CaptureRequest{Primary: *primary, Witness: *witness, ChainID: *chain, BlockTag: *block, Addresses: strings.Split(*addresses, ","), StorageKeys: keys}, caller)
+	evidence, report, err := provenance.Capture(ctx, provenance.CaptureRequest{Finality: proof, Primary: *primary, Witness: *witness, ChainID: *chain, BlockTag: *block, Addresses: strings.Split(*addresses, ","), StorageKeys: keys}, caller)
 	if err != nil {
 		return err
 	}

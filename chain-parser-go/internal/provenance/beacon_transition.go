@@ -21,29 +21,37 @@ type CommitteeTransition struct {
 // VerifyWithBeaconUpdates accepts a bounded sequence in the standard beacon
 // API updates response format. Each signature uses the previously proven keys.
 func VerifyWithBeaconUpdates(e Evidence, root string, bootstrap, finality, updates []byte) (Report, error) {
+	chain, err := parseCommitteeUpdates(updates)
+	if err != nil {
+		return Report{}, err
+	}
+	return verifyBeaconFinality(e, root, bootstrap, finality, chain)
+}
+
+func parseCommitteeUpdates(updates []byte) ([]committeeUpdate, error) {
 	if len(updates) > MaxBeaconUpdatesBytes || !json.Valid(updates) {
-		return Report{}, invalid("BEACON_UPDATES_ENCODING")
+		return nil, invalid("BEACON_UPDATES_ENCODING")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(updates))
 	if token, err := decoder.Token(); err != nil || token != json.Delim('[') {
-		return Report{}, invalid("BEACON_UPDATES_ENCODING")
+		return nil, invalid("BEACON_UPDATES_ENCODING")
 	}
 	var chain []committeeUpdate
 	for decoder.More() {
 		if len(chain) == maxCommitteeTransitions {
-			return Report{}, invalid("BEACON_UPDATES_LIMIT")
+			return nil, invalid("BEACON_UPDATES_LIMIT")
 		}
 		var raw json.RawMessage
 		var update committeeUpdate
 		if decoder.Decode(&raw) != nil || len(raw) > MaxBootstrapBytes || json.Unmarshal(raw, &update) != nil {
-			return Report{}, invalid("BEACON_UPDATES_ENCODING")
+			return nil, invalid("BEACON_UPDATES_ENCODING")
 		}
 		chain = append(chain, update)
 	}
 	if len(chain) == 0 {
-		return Report{}, invalid("BEACON_UPDATES_EMPTY")
+		return nil, invalid("BEACON_UPDATES_EMPTY")
 	}
-	return verifyBeaconFinality(e, root, bootstrap, finality, chain)
+	return chain, nil
 }
 
 func verifyTransition(pin *BeaconBinding, period uint64, committee *beacon.SerializedSyncCommittee, update committeeUpdate) (CommitteeTransition, error) {

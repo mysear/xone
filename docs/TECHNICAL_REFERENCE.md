@@ -1283,6 +1283,8 @@ go build -trimpath -o bin/source-evidence ./cmd/source-evidence
 
 跨委员会周期时可同时使用 `--beacon-updates <标准 light_client/updates 响应文件>`。从检查点所在周期起顺序提供每期的一项更新，直至最终性签名所在周期。当前实现支持同一分叉内最多 16 次交接，并在 `beacon_committee_transitions` 披露每步证明的下一委员会根。
 
+捕获模式使用相同的信标证明参数。`source-evidence --rpc … --witness-rpc … --addresses … --out … --beacon-root … --beacon-bootstrap … --beacon-finality …` 验证签名，再以最终化载荷中的确切高度读取两个执行层来源。在 `--block` 使用默认 `finalized` 或同一高度，跨期时追加 `--beacon-updates`。采集报告和 observations 侧文件记录所绑定的证明结果。
+
 Go正常EVM适配器可配置`chains[].block_integrity: "ethereum-header-transactions-v1"`，仅允许`evm:1`。`Adapter.Block`通过标准`eth_getBlockByNumber(tag,true)`一次读取完整头及交易，重算头hash、交易hash/chain ID/位置和transactionsRoot；交易数据与保守对象开销共用已有块预算，整个操作受已有RPC期限约束，失败进入原正常服务撤销/耐久DLQ流程。它与后续receiptsRoot校验分别生效；承诺核对的锚点仍来自RPC，响应metadata显式`consensus_verified:false`。该profile不能用于其他链，也不能替代共识/独立故障域证明。
 
 公开目标配置生成器为7条EVM目标默认选择 `known-evm-native-commitments-v2`，并填写显式的 `native_proof` 限界：

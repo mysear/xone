@@ -57,6 +57,49 @@ func TestCaptureBindsBothHeadersAndPinsEveryStateRead(t *testing.T) {
 	if err != nil || !r.Passed || got.ExpectedBlockHash != e.ExpectedBlockHash || len(calls) != 7 {
 		t.Fatalf("%+v %v %v", r, err, calls)
 	}
+	t.Run("verified-finality-selects-exact-height", func(t *testing.T) {
+		proof := &VerifiedExecutionFinality{checkpoint: &BeaconBinding{}, finality: FinalityBinding{ExecutionNumber: h.Number.Uint64(), ExecutionHash: h.Hash()}}
+		req := CaptureRequest{Primary: "primary", Witness: "witness", ChainID: "1", BlockTag: "finalized", Finality: proof, Addresses: []string{e.Deployments[0].Address}}
+		checked := func(ctx context.Context, source, method string, params, out any) error {
+			if method == "eth_getBlockByNumber" && params.([]any)[0] != "0x2a" {
+				t.Fatal("unbound height", params)
+			}
+			return call(ctx, source, method, params, out)
+		}
+		for _, change := range []string{"none", "height", "chain", "hash"} {
+			t.Run(change, func(t *testing.T) {
+				candidate := req
+				binding := *proof
+				candidate.Finality = &binding
+				switch change {
+				case "height":
+					candidate.BlockTag = "0x2b"
+				case "chain":
+					candidate.ChainID = "2"
+				case "hash":
+					binding.finality.ExecutionHash[0] ^= 1
+				}
+				before := len(calls)
+				_, report, err := Capture(context.Background(), candidate, checked)
+				if change == "none" {
+					if err != nil || !report.Passed || report.BeaconFinality == nil || report.BeaconFinality.ExecutionHash != h.Hash() {
+						t.Fatal(report, err)
+					}
+					return
+				}
+				wantCalls := 0
+				reason := "PROVENANCE_CAPTURE_FINALITY_SCOPE"
+				if change == "hash" {
+					wantCalls = 3
+					reason = "PROVENANCE_BEACON_FINALIZED_EXECUTION_HASH"
+				}
+				if err == nil || err.Error() != reason || len(calls)-before != wantCalls || report.Passed {
+					t.Fatalf("calls %v error %v", calls[before:], err)
+				}
+			})
+		}
+	})
+
 	for name, hook := range map[string]func(string, string, any, any) error{
 		"wrong-chain": func(source, method string, params, out any) error {
 			if source == "witness" && method == "eth_chainId" {

@@ -11,6 +11,7 @@ import (
 )
 
 type CaptureRequest struct {
+	Finality    *VerifiedExecutionFinality
 	Primary     string
 	Witness     string
 	ChainID     string
@@ -27,6 +28,12 @@ func Capture(ctx context.Context, request CaptureRequest, call Caller) (Evidence
 	var report Report
 	if request.Primary == "" || request.Witness == "" || request.Primary == request.Witness || len(request.Addresses) == 0 || len(request.Addresses) > 64 {
 		return evidence, report, invalid("CAPTURE_SCOPE")
+	}
+	if proof := request.Finality; proof != nil {
+		if proof.checkpoint == nil || request.ChainID != "1" || request.BlockTag != "finalized" && request.BlockTag != proof.BlockTag() {
+			return evidence, report, invalid("CAPTURE_FINALITY_SCOPE")
+		}
+		request.BlockTag = proof.BlockTag()
 	}
 	if request.BlockTag != "finalized" && request.BlockTag != "safe" {
 		if _, err := quantity(request.BlockTag); err != nil {
@@ -73,6 +80,9 @@ func Capture(ctx context.Context, request CaptureRequest, call Caller) (Evidence
 	}
 	if request.BlockTag != "finalized" && request.BlockTag != "safe" && "0x"+header.Number.Text(16) != request.BlockTag {
 		return evidence, report, invalid("CAPTURE_BLOCK_NUMBER")
+	}
+	if proof := request.Finality; proof != nil && (header.Hash() != proof.finality.ExecutionHash || header.Number.Uint64() != proof.finality.ExecutionNumber) {
+		return evidence, report, invalid("BEACON_FINALIZED_EXECUTION_HASH")
 	}
 	var fields struct {
 		Hash         string            `json:"hash"`
@@ -144,5 +154,10 @@ func Capture(ctx context.Context, request CaptureRequest, call Caller) (Evidence
 		return Evidence{}, report, err
 	}
 	report, err := Verify(evidence)
+	if request.Finality != nil && err == nil {
+		if err := request.Finality.bind(&report); err != nil {
+			return Evidence{}, Report{}, err
+		}
+	}
 	return evidence, report, err
 }
