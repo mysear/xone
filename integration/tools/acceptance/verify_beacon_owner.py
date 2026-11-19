@@ -6,10 +6,11 @@ import subprocess
 import time
 from pathlib import Path
 
+from beacon_owner_archive import LIMITS, audit_archive
 from current_v2_evidence import ENDPOINTS, GENESIS, POOL, config_for, free_port, http, stop
 
 
-def verify_advancement(owner, token, child, start, execution, max_tail):
+def verify_advancement(owner, token, child, start, execution, max_tail, on_commit=None):
     cursor = start
     target = int(execution['block_number'])
     gap = target - start['block']['number_or_slot']
@@ -30,6 +31,8 @@ def verify_advancement(owner, token, child, start, execution, max_tail):
                     or any(ref[k] != start[k] for k in ('online_generation', 'canonical_epoch', 'writer_epoch', 'scope_hash'))):
                 raise ValueError('OWNER_JOURNAL_DISCONTINUITY')
             records.append({'reference': ref, 'record_id': record['record_id'], 'kind': record['kind']})
+            if on_commit:
+                on_commit(records[-1])
             cursor = ref
         if len(records) == gap:
             baseline = http(owner + '/internal/chains/evm:1/baseline', token)
@@ -66,14 +69,25 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
                                             max_lookahead=32, max_window_blocks=16),
                           beacon_finality=dict(checkpoint_root=root, proof_file=str(path),
                                                max_checkpoint_age_ms=7*86400000))]
-    if next_proof or refresh_endpoint:
+    advancing = bool(next_proof or refresh_endpoint)
+    if advancing:
+        cfg['journal']['raw_evidence'] = LIMITS
         cfg['chains'][0]['rpc_retry'] = dict(max_attempts=3, base_backoff_ms=150, max_backoff_ms=1500)
     cfg['history']['enabled'] = False
     cfg['startup']['max_baseline_age_ms'] = 3600000
     cfg['journal'].update(transport='http-development', source_urls=[owner], poll_interval_ms=2000,
                           request_timeout_ms=60000, max_payload_bytes=16<<20)
     config = output/'owner-config.json'
+    config.touch(mode=0o600, exist_ok=False)
     config.write_text(json.dumps(cfg))
+    progress = {'passed': False, 'commits': []}
+    def checkpoint():
+        tmp = output / 'report.tmp'
+        tmp.write_text(json.dumps(progress, indent=2))
+        tmp.replace(output / 'report.json')
+    def on_commit(record):
+        progress['commits'].append(record)
+        checkpoint()
     with (output/'owner.log').open('w') as stream:
         child = subprocess.Popen([binary, '--config', config], stdout=stream, stderr=subprocess.STDOUT,
                                  start_new_session=True)
@@ -89,7 +103,9 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
             first = baseline(200)['reference']
             if first['block']['hash'] != execution['block_hash'] or first['block']['number_or_slot'] != int(execution['block_number']):
                 raise ValueError('OWNER_FINALIZED_BLOCK')
-            if next_proof or refresh_endpoint:
+            if advancing:
+                progress['first'] = first
+                checkpoint()
                 if next_proof:
                     following = json.loads(next_proof.read_bytes())
                     install(following)
@@ -104,18 +120,36 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
                     else:
                         raise ValueError('OWNER_NEXT_FINALITY_TIMEOUT')
                     following = json.loads(path.read_bytes())
-                commits = verify_advancement(owner, token, child, first,
-                    following['finality']['data']['finalized_header']['execution'], cfg['startup']['max_tail_blocks'])
-                return {'passed': True, 'first': first, 'commits': commits}
-            install({})
-            baseline(503)
-            install(proof)
-            recovered = baseline(200)['reference']
-            if recovered['block']!=first['block'] or recovered['journal_seq']<=first['journal_seq']:
-                raise ValueError('OWNER_RECOVERY')
-            return {'passed':True, 'first':first,'revoked_status':503,'recovered':recovered}
+                target = following['finality']['data']['finalized_header']['execution']
+                progress['target'] = {k: target[k] for k in ('block_hash', 'block_number')}
+                checkpoint()
+                verify_advancement(owner, token, child, first, target, cfg['startup']['max_tail_blocks'], on_commit)
+                progress['journal_verified'] = True
+            else:
+                install({})
+                baseline(503)
+                install(proof)
+                recovered = baseline(200)['reference']
+                if recovered['block']!=first['block'] or recovered['journal_seq']<=first['journal_seq']:
+                    raise ValueError('OWNER_RECOVERY')
+                return {'passed':True, 'first':first,'revoked_status':503,'recovered':recovered}
+        except (ValueError, OSError, subprocess.SubprocessError) as exc:
+            progress['failure'] = str(exc)
+            checkpoint()
+            raise
         finally:
             stop(child)
+            if advancing:
+                blocks = [progress['first']['block']] if 'first' in progress else []
+                blocks.extend(record['reference']['block'] for record in progress['commits'])
+                archive_dir = output / 'owner/state/raw-evidence/evm-1'
+                progress['archive'] = audit_archive(archive_dir, blocks)
+                checkpoint()
+    if progress['archive']['coverage_gaps']:
+        raise ValueError('OWNER_ARCHIVE_COVERAGE')
+    progress['passed'] = True
+    checkpoint()
+    return progress
 
 
 if __name__=='__main__':

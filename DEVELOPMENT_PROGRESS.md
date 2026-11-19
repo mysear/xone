@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|相邻最终化头的原始响应归档（阶段200，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|PARTIAL_LOCAL|逐块保存已提交引用，核对双来源区块体、同块账户证明和派生记录|26449944 起连续提交 18/32 个增量，26449964 读取遇 HTTP 429|
 |V2 池账户证明共用已验证状态根（阶段199，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|同一池的 Pair、Factory 和两种 Token 使用同一份已验证执行锚点，每个账户和存储键单独校验|主网 26449753 起连续发布 8 个块，完整窗口待验收|
 |普通 Go owner 的 RPC 读取重试（阶段198，P0-1）|§7.1，WP03、WP04|LOCAL_SCOPE_VERIFIED|按链配置重试次数与退避时间，在线和独立历史读取使用各自的客户端|HTTP 408 恢复、429 次数上限、400 终止及缺省行为通过|
 |原生区块交易编码复用（阶段197，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|用一次生成的签名交易原文验证交易根并交付证据|块 26449307 核对 407 笔交易，最终复核后节省 14,514,696 字节预算|
@@ -809,6 +810,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|200|[跨头发布归档](#beacon-owner-archive)|PARTIAL_LOCAL|583 条原始及派生记录通过封装核验，已发布 19 个高度的覆盖检查通过|
 |199|[V2 池账户证明批次](#v2-verified-account-batch)|LOCAL_SCOPE_VERIFIED|账户重复读取、独立证明校验和失败会话回归通过|
 |198|[普通读取的 RPC 重试](#owner-rpc-retry)|LOCAL_SCOPE_VERIFIED|启动配置及见证子客户端的重试行为通过|
 |197|[原生交易原文与验证预算](#native-body-encoding-budget)|LOCAL_SCOPE_VERIFIED|主网对照及精确字节预算边界通过|
@@ -4904,3 +4906,13 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 上一轮首个增量 26449659 的独立复查中，两端点返回同一区块哈希。dRPC 对账户证明返回历史状态不可用，PublicNode 返回该块超过证明窗口，错误码分别为 `-32000`、`4444`。新鲜主网窗口以 26449753 为基线，目标为 26449785。owner 连续发布至 26449761，共 8 个增量，随后源请求返回 `RPC_ERROR_-32000` 并撤权。完整连续发布待具有对应历史状态的输入复验。
 
 [来源复查](integration/artifacts/local/beacon-account-199/historical-availability.json) · [批次回归](integration/artifacts/local/beacon-account-199/batch.log) · [池验证回归](integration/artifacts/local/beacon-account-199/tests.jsonl) · [主网运行日志](integration/artifacts/local/beacon-account-199/live/owner.log)
+
+<a id="beacon-owner-archive"></a>
+
+## 跨最终化头发布的归档核验（2026-11-19，阶段200，P0-1）
+
+连续发布验收启用已有的普通 owner 双块并行读取和有序提交通道。每次验收归档限制为 4 GiB、10,000 条、单条负载 128 MiB。报告逐条保存已核对的连续提交和签名目标。归档审计验证文件 ID、封装与内容哈希，将节点响应按端点核对，将派生块与提交引用核对。每个已发布高度检查两端点的区块体及同哈希下 Pair、Factory、两种 Token 的证明响应。MPT 与签名仍由普通 owner 验证。
+
+主网起始块 26449944，签名目标 26449976，最后连续提交 26449962。583 条记录共 108,580,577 字节，18 条派生块与发布引用相符。owner 在并行读取高度 26449964 时报告 `RPC_HTTP_429`，验收观察到日志中断。dRPC 原始响应对 `eth_getCode`、`eth_chainId`、`eth_getBlockByNumber` 报告公共端点限流（码 15）。已发布 19 个高度的归档覆盖检查全部通过，32 块发布仍待完整验收。5 项信标验收工具测试、11 项来源证据测试和 Go 服务相关 race 回归通过。
+
+[主网报告](integration/artifacts/local/beacon-archive-200/live/report.json) · [普通 owner 日志](integration/artifacts/local/beacon-archive-200/live/owner.log)

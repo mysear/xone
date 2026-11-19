@@ -40,9 +40,12 @@ def pairs(items):
         require(key not in value,'DUPLICATE_JSON_KEY');value[key]=item
     return value
 
-def sealed_record(path):
+def sealed_payload(path, file_budget):
     path=Path(path);require(not path.is_symlink() and path.is_file(),'REGULAR_CAPTURE_REQUIRED')
-    raw=path.read_bytes();require(len(raw)<=32<<20,'CAPTURE_FILE_BUDGET')
+    require(path.stat().st_size <= file_budget, 'CAPTURE_FILE_BUDGET')
+    with path.open('rb') as stream:
+        raw = stream.read(file_budget + 1)
+    require(len(raw) <= file_budget, 'CAPTURE_FILE_BUDGET')
     value=json.loads(raw,object_pairs_hook=pairs);require(set(value)=={'Digest','Payload'},'CAPTURE_ENVELOPE')
     text=raw.decode();match=re.search(r'"Payload"\s*:',text);require(match,'CAPTURE_PAYLOAD')
     start=match.end()
@@ -51,16 +54,30 @@ def sealed_record(path):
     require(sha(text[start:end].encode())==value['Digest'],'CAPTURE_ENVELOPE_HASH')
     payload=value['Payload'];require(set(payload)=={'Ref','Data','CapturedAt'},'CAPTURE_PAYLOAD_FIELDS')
     ref=payload['Ref'];owner=ref['Owner'];require(set(ref)=={'ID','Digest','Owner','Bytes'} and set(owner)=={'Chain','Height','Hash','ProviderID'},'CAPTURE_OWNER_FIELDS')
-    require(owner['Chain']=='evm:1' and owner['Height']==0 and re.fullmatch(r'rpc-[0-9a-f]{24}',owner['ProviderID']),'CAPTURE_OWNER')
+    require(owner['Chain'] == 'evm:1', 'CAPTURE_OWNER')
     data=base64.b64decode(payload['Data'],validate=True)
-    require(len(data)==ref['Bytes'] and sha(data)==ref['Digest'] and owner['Hash']==ref['Digest'],'CAPTURE_DATA_HASH')
+    require(len(data)==ref['Bytes'] and sha(data)==ref['Digest'],'CAPTURE_DATA_HASH')
     owner_bytes=json.dumps({k:owner[k] for k in ['Chain','Height','Hash','ProviderID']},separators=(',',':')).encode()
     require(ref['ID']==sha(owner_bytes) and path.name==ref['ID']+'.raw','CAPTURE_ID')
+    identity = {'file':path.name,'sha256':sha(raw),'data_sha256':ref['Digest'],'bytes':len(raw),'provider_id':owner['ProviderID']}
+    return owner, data, identity
+
+
+def rpc_observation(owner, data, identity, methods):
+    require(owner['Height'] == 0 and owner['Hash'] == identity['data_sha256']
+            and re.fullmatch(r'rpc-[0-9a-f]{24}', owner['ProviderID']), 'CAPTURE_OWNER')
     observation=json.loads(data,object_pairs_hook=pairs)
-    require(set(observation)=={'source_kind','method','params','response'} and observation['source_kind']=='raw-json-rpc-response' and observation['method'] in METHODS,'CAPTURE_METHOD')
-    body=base64.b64decode(observation['response'],validate=True);response=json.loads(body,object_pairs_hook=pairs)
+    require(set(observation)=={'source_kind','method','params','response'} and observation['source_kind']=='raw-json-rpc-response' and observation['method'] in methods,'CAPTURE_METHOD')
+    body=base64.b64decode(observation['response'],validate=True)
+    return observation['method'], observation['params'], body
+
+
+def sealed_record(path):
+    owner, data, identity = sealed_payload(path, 32 << 20)
+    method, params, body = rpc_observation(owner, data, identity, METHODS)
+    response=json.loads(body,object_pairs_hook=pairs)
     require(response.get('jsonrpc')=='2.0' and response.get('id')==1 and 'result' in response and 'error' not in response,'CAPTURE_SUCCESS_REQUIRED')
-    return owner['ProviderID'],observation['method'],observation['params'],body,{'file':path.name,'sha256':sha(raw),'data_sha256':ref['Digest'],'bytes':len(raw),'provider_id':owner['ProviderID']}
+    return owner['ProviderID'],method,params,body,identity
 
 class RecordedRPC:
     def __init__(self,records,fault=None):
