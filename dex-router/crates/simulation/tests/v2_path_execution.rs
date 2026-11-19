@@ -264,6 +264,55 @@ fn replay_approval_policy(bank_key: &str, reset: bool) {
     }
 }
 
+#[test]
+#[ignore = "requires a mined deposit and swap from the wrapped-input bank"]
+fn weth_shortfall_and_network_fees_match_mined_account_deltas() {
+    let report: Value =
+        serde_json::from_slice(&std::fs::read(std::env::var("XONE_WRAP_REPORT").unwrap()).unwrap())
+            .unwrap();
+    let binding = &report["binding"];
+    let bank = &report["executionBank"]["wrapReplay"];
+    let sequences = bank["sequences"].as_array().unwrap();
+    assert_eq!(sequences.len(), 2);
+    let caller = Address::from_str(binding["caller"].as_str().unwrap()).unwrap();
+    for (seq, case_index) in sequences.iter().zip([0, 2]) {
+        let case = &binding["cases"][case_index];
+        let runs = seq["runs"].as_array().unwrap();
+        assert_eq!(runs.len(), 2);
+        assert_eq!(seq["caseIndex"], case_index);
+        let fixture:FixtureState = serde_json::from_value(serde_json::json!({"schema_version":1,"state_anchor":bank["state_anchor"],"accounts":bank["accounts"],"block_hashes":[],"execution_environment":runs[0]["execution_environment"]})).unwrap();
+        let mut image = fixture.to_image(&budget()).unwrap();
+        let amount = |v: &Value| U256::from_str(v.as_str().unwrap()).unwrap();
+        let principal = amount(&case["input"]) - amount(&seq["openingTokens"]);
+        assert_eq!(principal, amount(&seq["principal"]));
+        assert_eq!(runs[0]["data"], "0xd0e30db0");
+        assert_eq!(runs[0]["to"], case["legs"][0]["tokens"][0]);
+        assert_eq!(amount(&runs[0]["value"]), principal);
+        assert_eq!(runs[1]["to"], binding["executor"]["target"]);
+        assert_eq!(runs[1]["data"], case["data"]);
+        assert_eq!(runs[1]["value"], "0");
+        let before = image.data().accounts[&caller].as_ref().unwrap();
+        let (opening, nonce) = (before.balance, before.nonce);
+        let mut fees = U256::ZERO;
+        let mut parent = fixture.state_anchor.block_hash;
+        for (offset, r) in runs.iter().enumerate() {
+            let env: ExecutionEnvironment =
+                serde_json::from_value(r["execution_environment"].clone()).unwrap();
+            assert_eq!(env.parent_hash, parent);
+            parent = env.block_hash.clone();
+            assert_eq!(r["transaction_context"]["nonce"], nonce + offset as u64);
+            assert_eq!(r["from"], binding["caller"]);
+            let c = serde_json::json!({"id":case_index,"transaction":r,"transaction_context":r["transaction_context"],"expected":{"gas_used":r["gasUsed"],"post_accounts":r["post_accounts"]}});
+            image = Arc::new(replay_on_image(&c, true, Some(&r["logs"]), &env, image));
+            fees += amount(&r["gasUsed"]) * amount(&r["effectiveGasPrice"]);
+            assert_eq!(
+                opening - image.data().accounts[&caller].as_ref().unwrap().balance,
+                principal + fees
+            );
+        }
+    }
+}
+
 fn compare_mined(c: &Value, success: bool, logs: Option<&Value>) {
     let f = fixture(c);
     replay_on_image(
@@ -303,6 +352,10 @@ fn replay_on_image(
                 transact_to: TxKind::Call(
                     Address::from_str(c["transaction"]["to"].as_str().unwrap()).unwrap(),
                 ),
+                value: c["transaction"]["value"]
+                    .as_str()
+                    .map(|v| U256::from_str(v).unwrap())
+                    .unwrap_or(U256::ZERO),
                 data: Bytes::from(
                     hex::decode(&c["transaction"]["data"].as_str().unwrap()[2..]).unwrap(),
                 ),

@@ -41,6 +41,12 @@ def main(*, router=False):
         split_receipt = directory/'ordered-split.json'
         extra.append(('durable-price-go-config', [sys.executable,__file__,'--go-configs',str(configs)]))
         extra.append(('ordered-v2-atomic-split', ['node', 'integration/tools/ci/ordered-v2-split-replay.cjs', str(split_receipt),'--bank']))
+        wrap_receipt = directory / 'ordered-wrap.json'
+        extra.append(('ordered-v2-wrap-bank', ['node', 'integration/tools/ci/ordered-v2-split-replay.cjs', str(wrap_receipt), '--wrap-bank']))
+        wrap_test = 'weth_shortfall_and_network_fees_match_mined_account_deltas'
+        extra.append(('ordered-v2-wrap-replay', ['env', 'XONE_WRAP_REPORT='+str(wrap_receipt)] + cargo + ['test'] + manifest + [
+            '-p', 'xone-simulation', '--test', 'v2_path_execution', wrap_test, '--', '--include-ignored', '--exact']))
+        required['ordered-v2-wrap-replay'] = [wrap_test]
         bank_env=['env','XONE_ORDERED_V2_REPORT='+str(split_receipt),'XONE_SPLIT_WORKER='+str(target/'debug/examples/evm_dynamic_fee_harness')]
         extra.append(('ordered-v2-split-binding',bank_env+cargo+['test']+manifest+['-p','xone-execution-plan','--test','ordered_v2','--','--include-ignored']))
         extra.append(('ordered-v2-split-poststate',bank_env+cargo+['test']+manifest+['-p','xone-simulation','--test','v2_path_execution','eight_ordered_split_receipts_match_all_logs_and_declared_poststate','--','--include-ignored','--exact']))
@@ -69,7 +75,7 @@ def main(*, router=False):
         test='transaction_economics::publication_tests::durable_publication_revokes_old_readers_while_committing_and_after_lost_ack'
         extra.append(('durable-price-lost-ack',cargo+['test']+manifest+['-p','xone-quote-api','--lib',test,'--','--exact']))
         required['durable-price-lost-ack']=[test]
-        artifacts = [str(p.relative_to(ROOT)) for p in [configs/'report.json', http/'report.json', split_receipt, split_http/'report.json']]
+        artifacts = [str(p.relative_to(ROOT)) for p in [configs/'report.json', http/'report.json', split_receipt, wrap_receipt, split_http/'report.json']]
     validate(output_base=output, durable_router_output=http, extra_checks=[
         ('price-journal-state', cargo+['test']+manifest+['-p', 'xone-quote-api', '--lib', 'price_publication::tests']),
         ('price-journal-cli-build', cargo+['build']+manifest+['-p', 'xone-quote-api', '--bin', 'xone-price-publication']),

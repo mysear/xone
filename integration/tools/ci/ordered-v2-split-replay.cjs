@@ -17,7 +17,7 @@ function original(name) {
   assert.equal(hash(bytes), pins.find(p => p.path === file).sha256);
   return JSON.parse(bytes);
 }
-async function replay(transport, captureBank) {
+async function replay(transport, captureBank, wrapped) {
   assert.equal(solc.version(), '0.8.26+commit.8a97fa7a.Emscripten.clang');
   const build = JSON.parse(solc.compile(JSON.stringify({language:'Solidity', sources:{'OrderedV2Split.sol':{content:src}},
     settings:{optimizer:{enabled:true,runs:200},viaIR:true,evmVersion:'shanghai',outputSelection:{'*':{'*':['abi','evm.bytecode.object']}}}})));
@@ -34,7 +34,11 @@ async function replay(transport, captureBank) {
   const unit = ethers.utils.parseEther, max = ethers.constants.MaxUint256;
   const mined = async tx => (await tx).wait();
   const tokens = [], pairs = [];
-  for (let i=0; i<4; i++) tokens.push(await deploy(token, unit('10000000')));
+  if (wrapped) {
+    await mined(weth.deposit({value: unit('20500')}));
+    tokens.push(weth);
+  }
+  for (let i=tokens.length; i<4; i++) tokens.push(await deploy(token, unit('10000000')));
   for (const [i,j] of [[0,1],[1,2],[0,2],[2,3]]) {
     await mined(factory.createPair(tokens[i].address,tokens[j].address));
     const p = new ethers.Contract(await factory.getPair(tokens[i].address,tokens[j].address),pair.abi,signer);
@@ -109,7 +113,9 @@ async function replay(transport, captureBank) {
       sharedPool: pairs[3].address,staleSecond:String(staleSecond),orderedSecond:String(orderedSecond)});
     await restore();
   }
-  if (bank) {
+  if (wrapped) {
+    bank.result.wrapReplay = await captureWrap();
+  } else if (bank) {
     const fees = {gasLimit:3000000,maxFeePerGas:2000000000,maxPriorityFeePerGas:100000000};
     // Both allowance policies start from the same pre-swap pool state.
     const baseSnapshot = await provider.send('evm_snapshot', []);
@@ -149,6 +155,35 @@ async function replay(transport, captureBank) {
     assert.equal(await provider.send('evm_revert', [baseSnapshot]), true);
     bank.result.resetApprovalReplay = await approvalReplay(1);
   }
+  async function captureWrap() {
+    // Leave a positive residual. Wrap only the shortfall to the bound swap input.
+    const openingTokens = ethers.BigNumber.from(1);
+    await mined(weth.transfer(recipient, (await weth.balanceOf(caller)).sub(openingTokens)));
+    const anchor = await provider.getBlock('latest');
+    const captured = await splitBank(provider, anchor, {caller,recipient,batch,router,factory,weth,tokens,pairs});
+    const snapshot = await provider.send('evm_snapshot', []);
+    const fees = {gasLimit: 3000000, maxFeePerGas: 2000000000, maxPriorityFeePerGas: 100000000};
+    captured.result.sequences = [];
+    for (const caseIndex of [0, 2]) {
+      const c = binding.cases[caseIndex];
+      const required = ethers.BigNumber.from(c.input);
+      assert.equal(String(await weth.balanceOf(caller)), String(openingTokens));
+      const principal = required.sub(openingTokens);
+      const before = await provider.getBalance(caller);
+      const deposit = await mined(weth.deposit({...fees, value: principal}));
+      await captured.record(deposit);
+      assert.equal(String(await weth.balanceOf(caller)), c.input);
+      const swap = await mined(batch.execute(c.exactOut, recipient, c.budget, c.output, deadline,
+        c.legs.map(l => [l.amount,l.tokens]), fees));
+      await captured.record(swap, await provider.getBlock(deposit.blockHash));
+      const fee = receipt => receipt.gasUsed.mul(receipt.effectiveGasPrice);
+      assert.equal(String(await weth.balanceOf(caller)), '0');
+      assert.equal(String(before.sub(await provider.getBalance(caller))), String(principal.add(fee(deposit)).add(fee(swap))));
+      captured.result.sequences.push({caseIndex, principal: String(principal), openingTokens: String(openingTokens), runs: captured.result.runs.splice(0)});
+      if (caseIndex === 0) assert.equal(await provider.send('evm_revert', [snapshot]), true);
+    }
+    return captured.result;
+  }
   return {authority:'LOCAL_ORIGINAL_ROUTER_DIFFERENTIAL',bankHash:base.hash,sourceSha256:hash(src),compiler:solc.version(),
     runtimeSha256:hash(Buffer.from((await provider.getCode(batch.address)).slice(2),'hex')),priorApprovalGas:String(approval.gasUsed),
     normalQuoteConnected:false,completeNetCost:false,cases,binding,executionBank:bank?.result};
@@ -163,10 +198,12 @@ async function splitBank(provider,base,{caller,recipient,batch,router,factory,we
   for (const p of pairs) for(let i=0;i<=12;i++) slots.get(addr(p)).add(word(i));
   for (const t of tokens) {
     const rows=slots.get(addr(t));
-    for(const owner of slots.keys()) rows.add(mapping(owner,1));
+    const isWrapped = addr(t) === addr(weth);
+    const balanceSlot = isWrapped ? 3 : 1, allowanceSlot = isWrapped ? 4 : 2;
+    for(const owner of slots.keys()) rows.add(mapping(owner,balanceSlot));
     // Direct and batch candidates execute against the same pre-transaction bank.
-    rows.add(mapping(router,mapping(caller,2)));
-    rows.add(mapping(batch,mapping(caller,2))); rows.add(mapping(router,mapping(batch,2)));
+    rows.add(mapping(router,mapping(caller,allowanceSlot)));
+    rows.add(mapping(batch,mapping(caller,allowanceSlot))); rows.add(mapping(router,mapping(batch,allowanceSlot)));
   }
   for(const t of tokens) for(const u of tokens) if(t!==u) slots.get(addr(factory)).add(mapping(u,mapping(t,2)));
   async function accounts(n) {
@@ -193,11 +230,12 @@ async function splitBank(provider,base,{caller,recipient,batch,router,factory,we
   return {result,record};
 }
 async function main() {
-  const transport=ganache.provider({logging:{quiet:true},wallet:{deterministic:true},chain:{hardfork:'shanghai',time:new Date('2026-11-17Z')},miner:{timestampIncrement:1}});
+  const wrapped = process.argv[3] === '--wrap-bank';
+  const transport=ganache.provider({logging:{quiet:true},wallet:wrapped ? {deterministic:true,defaultBalance:100000} : {deterministic:true},chain:{hardfork:'shanghai',time:new Date('2026-11-17Z')},miner:{timestampIncrement:1}});
   try {
-    const captureBank=process.argv[3]==='--bank';
-    const report=await replay(transport,captureBank);
-    assert.equal(hash(JSON.stringify(report.binding)),'544d55501ed280378a67b9ab45b77a4cef8e0cd1bafeee2ba48f1ffbd60732be','Mined binding corpus changed');
+    const captureBank=wrapped || process.argv[3]==='--bank';
+    const report=await replay(transport,captureBank,wrapped);
+    if (!wrapped) assert.equal(hash(JSON.stringify(report.binding)),'544d55501ed280378a67b9ab45b77a4cef8e0cd1bafeee2ba48f1ffbd60732be','Mined binding corpus changed');
     report.passed = true;
     if (process.argv[2]) fs.writeFileSync(process.argv[2],JSON.stringify(report,null,2)+'\n',{flag:'wx'});
     console.log(JSON.stringify(process.argv[2]?{...report,binding:undefined,executionBank:undefined}:report));
