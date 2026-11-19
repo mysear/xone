@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -8,12 +9,14 @@ import (
 	"time"
 	"xone/chain-parser-go/internal/app"
 	"xone/chain-parser-go/internal/config"
+	"xone/chain-parser-go/internal/provenance"
 )
 
 func run() error {
 	flags := flag.NewFlagSet("chain-parser-go", flag.ContinueOnError)
 	path := flags.String("config", "", "environment configuration file")
 	check := flags.Bool("check-config", false, "validate configuration and exit")
+	refresh := flags.String("refresh-beacon-proof", "", "verify and publish an owner proof from this HTTPS beacon API, then exit")
 	if e := flags.Parse(os.Args[1:]); e != nil {
 		return fmt.Errorf("INVALID_CLI")
 	}
@@ -23,6 +26,23 @@ func run() error {
 	cfg, e := config.Load(*path, "chain-parser-go")
 	if e != nil {
 		return e
+	}
+	if *refresh != "" {
+		if *check {
+			return fmt.Errorf("INVALID_CLI")
+		}
+		for _, chain := range cfg.Config.Chains {
+			if b := chain.BeaconFinality; b != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				result, err := provenance.RefreshBeaconProof(ctx, *refresh, b.CheckpointRoot, cfg.Resolve(b.ProofFile), b.MaxCheckpointAgeMS, cfg.Config.Startup.MaxAge)
+				if err != nil {
+					return err
+				}
+				return json.NewEncoder(os.Stdout).Encode(result)
+			}
+		}
+		return fmt.Errorf("CONFIG_BEACON_FINALITY_REQUIRED")
 	}
 	if *check {
 		fmt.Printf("{\"service\":\"chain-parser-go\",\"valid\":true,\"public_hash\":\"%s\",\"economic_hash\":\"%s\"}\n", cfg.PublicHash, cfg.EconomicHash)

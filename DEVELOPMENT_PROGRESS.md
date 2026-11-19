@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|普通 owner 的信标证明刷新（阶段192，P0-1）|§7.1、§7.3、§28.26，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|按配置的根采集并验证标准信标响应，持锁替换 owner 的证明文件|两次正常 CLI 刷新及回退、竞争、过期、取消控制通过|
 |普通 Go owner 以信标最终性约束主网快照（阶段191，P0-1）|§7.1–7.3、§7.9、§28.26，WP04、WP05、WP07、WP24|LOCAL_SCOPE_VERIFIED|启动及追块以配置的信标根核对执行区块，发布时复核区块哈希和证明时效|主网 DAI/WETH 快照、撤权及同块恢复通过|
 |从最终性证据选取 Ethereum 执行块（阶段190，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|采集工具核验签名后读取精确高度，在账户证明请求前核对块哈希|主网块 26448285 的在线采集报告与离线重放逐字节相同|
 |Ethereum 主网同步委员会交接（阶段189，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|从较早的显式信标根依次验证各委员会签名和下一委员会根|实际连续两次交接至周期 1915，10 个交接场景通过|
@@ -801,6 +802,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|192|[信标证明刷新](#beacon-owner-refresh)|LOCAL_SCOPE_VERIFIED|主网更新命令及旧证明保留回归通过|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
 |175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
 |174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
@@ -4814,3 +4816,11 @@ Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet
 主网 DAI/WETH 池在块 26448349 首次发布。替换证明后基线接口返回 503，恢复原证明后同块重新发布，日志序号从 1 增至 3。首次测试脚本使用了错误的 HTTP 高度字段，修正为 `number_or_slot` 后重新运行了完整场景。验收使用公开信标来源提供的检查点。生产运维的独立可信根来源和轮换流程仍待验收。[普通进程验收记录](integration/artifacts/local/beacon-owner-191/live-2/report.json)
 
 本轮配置、来源证明和 owner 服务的完整 Go race 回归分别通过 309、58 和 230 项（含子测试），三个包的 `go vet` 通过。[回归记录](integration/artifacts/local/beacon-owner-191/go.jsonl)
+
+<a id="beacon-owner-refresh"></a>
+
+## 普通 owner 的信标证明刷新（2026-11-19，阶段192，P0-1）
+
+Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS 信标 API>` 从发布配置取得可信根、目标文件与时效预算，读取 bootstrap、finality_update 及所需周期的 updates。验证签名、最终化分支与时效后，持文件锁复核已安装证明，拒绝高度或 slot 后退及同高冲突。写入使用同目录临时文件、文件同步、重命名和目录同步。
+
+实际主网块 26448381 的证明先后两次通过 CLI 刷新。从两份保留的历史更新重放正常推进、同块重复、回退、无效数据、并发竞争、过期及取消。五个失败场景均逐字节核对了原文件。Go 证据包 64 项 race 测试及 vet 通过。[主网刷新报告](integration/artifacts/local/beacon-refresh-192/refresh.json) · [回归记录](integration/artifacts/local/beacon-refresh-192/go.jsonl)
