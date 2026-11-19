@@ -79,6 +79,18 @@ type Service struct {
 	lastError         atomic.Uint64
 }
 
+func newChainRPC(chain config.Chain, timeout time.Duration, maxBytes int) (*rpc.Client, error) {
+	client := rpc.New(append([]string(nil), chain.RPCURLs...), timeout, maxBytes)
+	if retry := chain.RPCRetry; retry != nil {
+		err := client.SetPolicy(rpc.Policy{MaxAttempts: retry.MaxAttempts, BaseBackoff: time.Duration(retry.BaseBackoffMS) * time.Millisecond, MaxBackoff: time.Duration(retry.MaxBackoffMS) * time.Millisecond})
+		if err != nil {
+			client.HTTP.CloseIdleConnections()
+			return nil, err
+		}
+	}
+	return client, nil
+}
+
 func New(cfg *config.Snapshot) (*Service, error) { return NewWithSource(cfg, nil) }
 
 func NewWithSource(cfg *config.Snapshot, source SnapshotSource) (*Service, error) {
@@ -114,7 +126,12 @@ func NewWithSource(cfg *config.Snapshot, source SnapshotSource) (*Service, error
 		}
 		s.stores[chain.Key] = store
 		if source == nil {
-			s.adapters[chain.Key] = &evm.Adapter{Client: rpc.New(chain.RPCURLs, time.Duration(cfg.Config.Journal.TimeoutMS)*time.Millisecond, cfg.Config.Journal.MaxBytes), Chain: chain}
+			client, err := newChainRPC(chain, time.Duration(cfg.Config.Journal.TimeoutMS)*time.Millisecond, cfg.Config.Journal.MaxBytes)
+			if err != nil {
+				s.Close()
+				return nil, err
+			}
+			s.adapters[chain.Key] = &evm.Adapter{Client: client, Chain: chain}
 			if raw := cfg.Config.Journal.RawEvidence; raw != nil {
 				archive, err := ingest.OpenArchive(filepath.Join(cfg.Resolve(cfg.Config.State.Path), "raw-evidence", strings.ReplaceAll(chain.Key, ":", "-")), ingest.ArchiveLimits{MaxBytes: raw.MaxBytes, MaxRecords: raw.MaxRecords, MaxRecordBytes: raw.MaxRecordBytes})
 				if err != nil {

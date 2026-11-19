@@ -66,6 +66,8 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
                                             max_lookahead=32, max_window_blocks=16),
                           beacon_finality=dict(checkpoint_root=root, proof_file=str(path),
                                                max_checkpoint_age_ms=7*86400000))]
+    if next_proof or refresh_endpoint:
+        cfg['chains'][0]['rpc_retry'] = dict(max_attempts=3, base_backoff_ms=150, max_backoff_ms=1500)
     cfg['history']['enabled'] = False
     cfg['startup']['max_baseline_age_ms'] = 3600000
     cfg['journal'].update(transport='http-development', source_urls=[owner], poll_interval_ms=2000,

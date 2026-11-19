@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|普通 Go owner 的 RPC 读取重试（阶段198，P0-1）|§7.1，WP03、WP04|LOCAL_SCOPE_VERIFIED|按链配置重试次数与退避时间，在线和独立历史读取使用各自的客户端|HTTP 408 恢复、429 次数上限、400 终止及缺省行为通过|
 |原生区块交易编码复用（阶段197，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|用一次生成的签名交易原文验证交易根并交付证据|块 26449307 核对 407 笔交易，最终复核后节省 14,514,696 字节预算|
 |原生回执见证错误定位（阶段196，P0-1）|§7.3、§22，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|追块失败日志记录见证节点序号、块高、阶段及错误分类|26448990 双节点复读通过，新基线 26449307 达到证明预算上限|
 |Ethereum 主网见证节点的交易体复用（阶段195，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|每个见证节点在回执校验时使用本节点刚验证的交易体，完成后重新读取区块|块 26448796 复测节省 6,066,035 字节预算，连续发布仍待验收|
@@ -807,6 +808,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|198|[普通读取的 RPC 重试](#owner-rpc-retry)|LOCAL_SCOPE_VERIFIED|启动配置及见证子客户端的重试行为通过|
 |197|[原生交易原文与验证预算](#native-body-encoding-budget)|LOCAL_SCOPE_VERIFIED|主网对照及精确字节预算边界通过|
 |196|[回执见证错误定位](#beacon-witness-diagnostics)|LOCAL_SCOPE_VERIFIED|回执缺失及五类原因通过回归，保留业务错误码|
 |195|[主网回执见证预算](#beacon-witness-budget)|LOCAL_SCOPE_VERIFIED|双节点调用次数、缺失回执及主网预算复测|
@@ -4880,3 +4882,13 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 同一旧块的 owner 状态读取返回 `RPC_ERROR_-32000`。用新鲜证明启动时，从 26449402 连续发布至 26449404，目标为 26449434。后续源请求返回 HTTP 408，owner 撤权。该窗口的连续发布验收仍为 `PARTIAL_LOCAL`。下一步把现有 RPC 有界重试策略接入普通在线配置并复验瞬时超时。
 
 [改动前](integration/artifacts/local/beacon-body-197/before.log) · [改动后](integration/artifacts/local/beacon-body-197/after.log) · [预算回归](integration/artifacts/local/beacon-body-197/regression-fixed.jsonl) · [普通 owner 日志](integration/artifacts/local/beacon-body-197/live-2/owner.log)
+
+<a id="owner-rpc-retry"></a>
+
+## 普通读取的 RPC 重试（2026-11-19，阶段198，P0-1）
+
+普通 Go owner 和历史读取可从 `chains[].rpc_retry` 加载总尝试次数和带抖动的退避区间。每个已绑定见证节点的读取继承配置。主网验收使用 3 次总尝试，基础退避 150 毫秒，上限 1500 毫秒。正常服务构造后的测试验证了单节点 HTTP 408 后成功、429 用尽次数、400 立即终止和缺省单节点行为。配置、RPC 和服务包共 21 项定向 race 回归及 vet 通过。
+
+主网 owner 以 26449658 为基线。证明刷新至 26449722 后发生 `RPC_ERROR_-32000`，owner 撤权，对该区间的连续发布验收仍为 `PARTIAL_LOCAL`。
+
+[回归结果](integration/artifacts/local/beacon-retry-198/go.jsonl) · [owner 日志](integration/artifacts/local/beacon-retry-198/live/owner.log)

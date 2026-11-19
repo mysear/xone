@@ -18,7 +18,6 @@ import (
 	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/ingest"
 	"xone/chain-parser-go/internal/reducer"
-	"xone/chain-parser-go/internal/rpc"
 )
 
 // NewChainHistoryRuntime creates the normal public RPC runner. Call once per
@@ -106,7 +105,10 @@ func (s *Service) newChainHistoryRuntime(key string, scheduler *HistoryScheduler
 	if maxBytes <= 0 || maxBytes > 4<<20 {
 		maxBytes = 4 << 20
 	}
-	client := rpc.New(append([]string(nil), chain.RPCURLs...), timeout, maxBytes)
+	client, e := newChainRPC(chain, timeout, maxBytes)
+	if e != nil {
+		return nil, e
+	}
 	limits := ingest.ArchiveLimits{MaxBytes: 64 << 20, MaxRecords: 4096, MaxRecordBytes: 16 << 20, ReservedBytes: 4 << 20, ReservedRecords: 64}
 	if raw := s.cfg.Config.Journal.RawEvidence; raw != nil {
 		if raw.MaxBytes < limits.MaxBytes {

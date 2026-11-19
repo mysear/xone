@@ -265,7 +265,14 @@ type WebsocketConfig struct {
 	ReconnectBackoffMS uint64 `json:"reconnect_backoff_ms"`
 	MaxBackoffMS       uint64 `json:"max_backoff_ms"`
 }
+type RPCRetryConfig struct {
+	MaxAttempts   int    `json:"max_attempts"`
+	BaseBackoffMS uint64 `json:"base_backoff_ms"`
+	MaxBackoffMS  uint64 `json:"max_backoff_ms"`
+}
+
 type Chain struct {
+	RPCRetry           *RPCRetryConfig       `json:"rpc_retry,omitempty"`
 	BeaconFinality     *BeaconFinalityConfig `json:"beacon_finality,omitempty"`
 	NativeProof        *NativeProofConfig    `json:"native_proof,omitempty"`
 	ReceiptsMode       string                `json:"receipts_mode,omitempty"`
@@ -606,6 +613,11 @@ func (c Config) Validate(expected string) error {
 		}
 		if ch.ReceiptsMode != "" && (expected != "chain-parser-go" || ch.ReceiptsMode != "per-tx" && ch.ReceiptsMode != "bulk-auto") {
 			return invalid()
+		}
+		if retry := ch.RPCRetry; retry != nil {
+			if expected != "chain-parser-go" || len(ch.RPCURLs) == 0 || retry.MaxAttempts < 1 || retry.MaxAttempts > 16 || retry.BaseBackoffMS == 0 || retry.BaseBackoffMS > retry.MaxBackoffMS || retry.MaxBackoffMS > 60000 || retry.MaxBackoffMS >= c.Journal.TimeoutMS {
+				return errors.New("CONFIG_RPC_RETRY")
+			}
 		}
 		if ch.BeaconFinality != nil && !ch.BeaconFinality.valid(ch, expected) {
 			return errors.New("CONFIG_BEACON_FINALITY")
