@@ -79,6 +79,8 @@ def main(*, output_base=None, extra_report=None, verification_scope=None, extra_
             ('market-parser-policy', env + cargo + ['test'] + parser_manifest + ['-p', 'xone-config', '--test', 'market_feed', '--', '--include-ignored']),
             ('market-source-and-integers', ['env', 'XONE_MARKET_FEED_VECTORS=' + str(vectors)] + cargo + ['test'] + manifest + ['-p', 'xone-execution-preparation', '--test', 'market_feed', '--', '--include-ignored']),
             ('market-validator-build', cargo + ['build'] + manifest + ['-p', 'xone-execution-preparation', '--bin', 'xone-market-price']),
+            ('market-complete-signing-request', ['env', 'XONE_MARKET_VALIDATOR=' + str(binary), sys.executable,
+                'integration/tools/acceptance/tests/test_market_book_capture.py', '-v']),
             ('market-validator-raw-replay', [sys.executable, 'integration/tools/acceptance/market_feed_replay.py', str(binary), str(vectors), str(replay)] + [str(p) for p in captures]),
         ]+list(extra_checks), extra_required={**(extra_required or {}),
             'market-router-policy': ['approved_market_policy_is_optional_and_ethereum_specific', 'approved_market_policy_hashes_and_rejections_match_current_go'],

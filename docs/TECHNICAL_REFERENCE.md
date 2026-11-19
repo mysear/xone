@@ -2356,3 +2356,9 @@ Unix文件以0600创建，非阻塞且不跟随最终符号链接打开，核对
 正常授权刷新仍是 `POST /internal/native-valuation/reload`，请求体 `{}`。服务读取已配置的价格文件，以当前固定 bank 校验锚点、策略、签名及有效期。进入持久提交后，价格快照暂时不可读取；磁盘操作不持有快照锁。只有日志写入并同步确认后才切换价格；成功响应带 `restartRollbackProtected=true`、`journalSequence`、`journalEntryHash`、`fsyncConfirmed=true`。该保证只适用于已配置的本地耐久模式，不适用于默认模式、不可信卷或整卷历史回滚。价格簿不改变交易执行的生产资格。
 
 提交中或写盘状态不确定时，依赖估值的报价可能返回 HTTP 503 `NATIVE_VALUATION_DURABLE_UNAVAILABLE`；耐久刷新等待超时为 `NATIVE_VALUATION_DURABLE_ACK_UNCERTAIN`，不能由此推断磁盘版本。文件替换或提交异常不允许继续发布旧价。关闭服务释放锁，用离线 `check` 与已有签名簿核对实际耐久记录，修复配置的价格文件后重启；不要删除日志并重新初始化以绕过旧版本拒绝。无需估值的服务路径不因此获得更高信任等级。验收入口：`python3 integration/tools/acceptance/validate_price_publication_journal.py --router`。
+
+### 整簿采集与独立签署输入（阶段157）
+
+`python3 integration/tools/market/capture_chainlink_book.py --config <native-valuation.json> --rpc-url <https-endpoint> --validator <xone-market-price> --publication-revision <正整数> --output <新目录>`。配置文件是含 `policies` 的估值配置对象，不是整个部署清单。采集覆盖配置中的全部币种，当前仅支持 Ethereum 主网的已批准双 feed。默认用提供方的 `finalized` 返回值选择第一个块；也可以用 `--block-hash` 指定。所有后续币种都按同一哈希读取，仍逐次检查 canonical header。这不是独立共识证明。
+
+签署方只消费完整的 `signing-request.json`，不要消费中间文件。每条记录保留源报告摘要、带版本的 observation 和待签名消息，签署前需独立校验配置、源数据、时间与版本。交接时检查最早有效期；过期后需要重新采集，不能延长 `source_read_at_ms`。输出不是 Router 可接受的已签名价格簿，工具不会分配耐久版本、持有私钥、自动发布、更改运行中配置或提交交易。

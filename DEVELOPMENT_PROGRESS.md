@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|整簿同块采集与待签署输入（阶段157，P0-3）|§15.5/21.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|全部批准币种固定同一块、签名消息覆盖同一版本，仅完整且未过期的请求可交接|4 项整簿回放及 6 项原采集器测试通过；持续调度和独立签署发布仍缺|
 |正常Router耐久价格发布与重启（阶段156，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|显式 journal 的启动核对、持久发布、确认丢失与重启恢复|80 项门禁通过，239 次 Rust、82 次 Go；默认模式仍无跨重启保证|
 |耐久价格发布journal与离线初始化（阶段155，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|签名book授权后记录发布高水位|75门禁、235次Rust/80次Go；离线重启回退拒绝，正常Router尚未接入|
 |授权价格book版本刷新与报价快照（阶段154，P0-3）|§13.1/15.5/21.3/26.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|固定配置来源/签名版本与原子发布|72门禁、229次Rust/80次Go通过；单报价价格快照/旧报价拒绝/进程内防回退；重启耐久性未完成|
@@ -743,6 +744,7 @@
 |154|[授权价格book版本刷新与报价快照](#plan-2026-11-19-price-book-refresh)|LOCAL_SCOPE_VERIFIED|72门禁、229次Rust/80次Go通过；显式认证刷新/签名版本/快照缓存/旧报价失效及全部历史来源回归通过|
 |155|[耐久价格发布journal与离线初始化](#plan-2026-11-19-price-publication-journal)|LOCAL_SCOPE_VERIFIED|[冻结报告](integration/artifacts/local/price-publication-journal-check/runs/5255594d26fa40fcb3e700601e15eb15/report.json)：75门禁、6项日志测试、34个离线CLI案例；正常接线接续|
 |156|[正常Router耐久价格发布与重启](#plan-2026-11-19-durable-price-router)|LOCAL_SCOPE_VERIFIED|[冻结报告](integration/artifacts/local/durable-price-router-check/runs/4ab92751086041e49f974d0a2d599007/report.json)：原 75 项与新增 5 项全过，覆盖双配置摘要、确认丢失及多进程 HTTP|
+|157|[整簿同块采集与独立签署输入](#market-book-signing-request)|LOCAL_SCOPE_VERIFIED|本地只读 RPC 与实际 Rust 验证器定向通过；不代表持续 live、签名授权或生产验收|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -4349,3 +4351,18 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 下一项仍为 P0-3：持续采集批准来源，保留原始块、采集时间与有效期，组装待独立授权的完整价格簿；验证过期、不同块或签名不足的输入不能发布。随后补拆单完整执行、授权等辅助交易费用与全候选净额。以上不等于可信 bank 或生产资格；原 26 个工作包完整验收仍为 0。
 
 交付状态：本轮在本地分支提交。当前唯一配置的推送目标是 GitHub `origin`，不是要求的 GitLab；缺少 GitLab 项目克隆地址，本轮未向其他托管平台推送。
+
+<a id="market-book-signing-request"></a>
+
+## 整簿同块采集与独立签署输入（2026-11-19，阶段157，P0-3）
+
+针对 §15.5 的同一快照及来源有效期要求、§21.3 的可靠计价来源要求，本轮把单币种采集接成一个可独立核验的完整请求。验证范围仅限配置批准的 Ethereum 双 feed，使用本地模拟 RPC 与实际 `xone-market-price`，没有进行本轮实时公网或生产权限验证。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F157.1|完整配置、统一锚点与签名版本|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|两币种 34 次只读 RPC，仅一次选择 finalized 块。独立复算两份策略摘要及带版本签名消息。|
+|F157.2|失败隔离与交接有效期|WP15,WP16|LOCAL_SCOPE_VERIFIED|第二币种换块、ABI 错误、最早有效期到达、时钟回退均无完整请求；重复币种、其他链和非法版本在 RPC 前拒绝。|
+
+定向验收：`python3 -B integration/tools/acceptance/tests/test_market_book_capture.py -v`（4 项）；原采集器测试 6 项通过。已将新套件接在市场验证器构建之后；本轮没有重跑阶段156全量冻结，不复用其通过数。测试前确认无活动进程和打开句柄，清理上一轮遗留的一份临时 Rust checkpoint 测试目录。
+
+下一项：把独立签署回执与当前请求、策略、有效期及耐久版本核对后组装可发布价格簿，验证缺签/错签/过期不能发布；再接有界持续采集及真实 bank 推进。拆单执行、辅助交易费用、完整净额和其他既定优先级未关闭。阶段156本地提交 `d1703d9`；截至本轮仍未配置 GitLab，不能将本地提交记为已推送。

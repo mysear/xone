@@ -147,7 +147,8 @@ def rpc_read_worker():
     print(json.dumps(result))
 
 
-def collect(policy_path, rpc_url, validator, output, block_hash=None, allow_loopback=False):
+def collect(policy_path, rpc_url, validator, output, block_hash=None, allow_loopback=False,
+            *, publication_revision=None):
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     result = dict(passed=False, authorized=False, production_ready=False,
@@ -155,6 +156,9 @@ def collect(policy_path, rpc_url, validator, output, block_hash=None, allow_loop
                   consensus_verified=False, source_independence_attested=False)
     rpc = None
     try:
+        if publication_revision is not None:
+            require(type(publication_revision) is int and 0 < publication_revision < 2**64,
+                    'MARKET_PUBLICATION_REVISION')
         raw = Path(policy_path).read_bytes()
         require(len(raw) <= 65536, 'MARKET_POLICY_BYTES')
         p = load(raw)
@@ -208,6 +212,8 @@ def collect(policy_path, rpc_url, validator, output, block_hash=None, allow_loop
                          block_number=quantity(h['number']), block_hash=h['hash'],
                          parent_hash=h['parentHash'], timestamp_ms=at), market_feed=r,
                          valid_until_ms=expiry)
+        if publication_revision is not None:
+            candidate['publication_revision'] = publication_revision
         write(output / 'candidate.json', candidate)
         run = subprocess.run([str(Path(validator).resolve())], input=json.dumps(candidate).encode(),
                              capture_output=True, timeout=10)
@@ -240,8 +246,10 @@ def main():
     for name in ['policy', 'rpc-url', 'validator', 'output']:
         parser.add_argument('--' + name, required=True)
     parser.add_argument('--block-hash')
+    parser.add_argument('--publication-revision', type=int)
     args = parser.parse_args()
-    result = collect(args.policy, args.rpc_url, args.validator, args.output, args.block_hash)
+    result = collect(args.policy, args.rpc_url, args.validator, args.output, args.block_hash,
+                     publication_revision=args.publication_revision)
     print(json.dumps({k: result[k] for k in ['passed', 'authorized', 'provider_id', 'anchor']}))
 
 
