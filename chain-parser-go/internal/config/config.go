@@ -558,7 +558,7 @@ func (c Config) Validate(expected string) error {
 		return invalid()
 	}
 	sim := c.Simulation
-	if sim.CandidateCostMaxPlans > 0 && (expected != "dex-router" || sim.Backend != "revm-fixture" || sim.NativeValuation == nil || sim.CandidateCostMaxPlans > 16 || c.Routing.MaxSplits != 1) {
+	if sim.CandidateCostMaxPlans > 0 && (expected != "dex-router" || sim.Backend != "revm-fixture" || sim.NativeValuation == nil || sim.CandidateCostMaxPlans > 16 || c.Routing.MaxSplits > 2) {
 		return invalid()
 	}
 	if sim.NativeValuation != nil && (expected != "dex-router" || sim.Backend != "revm-fixture" || !sim.NativeValuation.valid(c.Chains)) {

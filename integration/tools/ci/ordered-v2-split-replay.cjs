@@ -124,6 +124,8 @@ async function splitBank(provider,base,{caller,recipient,batch,router,factory,we
   for (const t of tokens) {
     const rows=slots.get(addr(t));
     for(const owner of slots.keys()) rows.add(mapping(owner,1));
+    // Direct and batch candidates execute against the same pre-transaction bank.
+    rows.add(mapping(router,mapping(caller,2)));
     rows.add(mapping(batch,mapping(caller,2))); rows.add(mapping(router,mapping(batch,2)));
   }
   for(const t of tokens) for(const u of tokens) if(t!==u) slots.get(addr(factory)).add(mapping(u,mapping(t,2)));

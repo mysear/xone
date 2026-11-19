@@ -102,8 +102,8 @@ func TestOracleAuthoritiesArePartOfPublicAndEconomicIdentity(t *testing.T) {
 	}
 }
 
-func TestCandidateExecutionCostsRequireOptInBoundedSingleRouteConfiguration(t *testing.T) {
-	for _, mode := range []string{"valid", "limit", "backend", "valuation", "splits"} {
+func TestCandidateExecutionCostsRequireOptInBoundedConfiguration(t *testing.T) {
+	for _, mode := range []string{"valid", "two-routes", "limit", "backend", "valuation", "splits"} {
 		c := oracleConfig(t)
 		c.Routing.MaxSplits = 1
 		c.Simulation.CandidateCostMaxPlans = 16
@@ -114,10 +114,12 @@ func TestCandidateExecutionCostsRequireOptInBoundedSingleRouteConfiguration(t *t
 			c.Simulation.Backend = "disabled"
 		case "valuation":
 			c.Simulation.NativeValuation = nil
-		case "splits":
+		case "two-routes":
 			c.Routing.MaxSplits = 2
+		case "splits":
+			c.Routing.MaxSplits = 3
 		}
-		if (c.Validate("dex-router") == nil) != (mode == "valid") {
+		if (c.Validate("dex-router") == nil) != (mode == "valid" || mode == "two-routes") {
 			t.Fatal("candidate cost configuration", mode)
 		}
 	}

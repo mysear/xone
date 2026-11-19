@@ -19,13 +19,17 @@ use tokio::{
 };
 use xone_config::ConfigSnapshot;
 use xone_domain::{err, hash, Amount, Result};
-use xone_execution_plan::{ExecutorIdentity, Transaction};
+use xone_execution_plan::{
+    ordered_v2::{self, SplitPlan},
+    ExecutorIdentity, Transaction,
+};
 use xone_simulation::{
     evm_fixture::{NativeFeeMeasurements, SimulationBudget, TransactionContext},
     revm_backend::StateImage,
     worker::{
         executable_sha256, LocalSimulationBundle, WorkerOpUser, WorkerPreparation, WorkerRequest,
-        WorkerResponse, MAX_WORKER_INPUT_BYTES, MAX_WORKER_OUTPUT_BYTES, WORKER_PROTOCOL,
+        WorkerResponse, WorkerSplit, MAX_WORKER_INPUT_BYTES, MAX_WORKER_OUTPUT_BYTES,
+        WORKER_PROTOCOL,
     },
     worker_op::OpReceiptCommitment,
 };
@@ -138,6 +142,8 @@ struct ExecutionCommitment {
     caller_native_before: Option<Amount>,
     coinbase_native_before: Option<Amount>,
     executor: ExecutorIdentity,
+    split_receipt: Option<Value>,
+    split_executor: Option<ordered_v2::SplitExecutor>,
 }
 struct PreparedExecution {
     input: Vec<u8>,
@@ -178,10 +184,33 @@ impl PreparedExecution {
         } else {
             None
         };
+        let split_receipt = if let Some(s) = &request.split {
+            Some(
+                json!({"bound":s.bound,"source_fixture_hash":hash(&request.fixture)
+                .map_err(|_| Failure::new("SIMULATION_WORKER_BINDING", "fixture"))?,
+                "transaction_context":request.transaction_context,"limits":request.budget,
+                "simulator_version":xone_simulation::evm_fixture::SIMULATOR_VERSION}),
+            )
+        } else {
+            None
+        };
+        let split_executor = request.split.as_ref().map(|s| s.expected_executor.clone());
         let (binding_hash, transaction, executor, quote_kind) =
-            match (request.bound, request.exact_out_bound) {
-                (Some(b), None) => (b.binding_hash, b.transaction, b.executor, "EXACT_IN"),
-                (None, Some(b)) => (b.binding_hash, b.transaction, b.executor, "EXACT_OUT"),
+            match (request.bound, request.exact_out_bound, request.split) {
+                (Some(b), None, None) => (b.binding_hash, b.transaction, b.executor, "EXACT_IN"),
+                (None, Some(b), None) => (b.binding_hash, b.transaction, b.executor, "EXACT_OUT"),
+                (None, None, Some(s)) if request.prepared.is_none() && op.is_none() => {
+                    let kind = match s.bound.plan {
+                        SplitPlan::ExactIn(_) => "EXACT_IN",
+                        SplitPlan::ExactOut(_) => "EXACT_OUT",
+                    };
+                    (
+                        s.bound.binding_hash,
+                        s.bound.transaction,
+                        s.expected_executor.router,
+                        kind,
+                    )
+                }
                 _ => return Err(Failure::new("SIMULATION_WORKER_BINDING", "prepare")),
             };
         let balance = |owner: &str| {
@@ -207,6 +236,8 @@ impl PreparedExecution {
                 binding_hash,
                 transaction,
                 executor,
+                split_receipt,
+                split_executor,
                 quote_kind,
                 expected_preparation,
                 transaction_context: request.transaction_context,
@@ -286,6 +317,30 @@ impl LocalSimulation {
         if !sim.allowed_targets.contains(&bundle.executor.target) {
             return Err(err("EXECUTION_TARGET_NOT_ALLOWED"));
         }
+        if let Some(split) = &bundle.split_executor {
+            if bundle.op_attributes_calldata.is_some()
+                || hash(&split.router)? != hash(&bundle.executor)?
+                || !sim.allowed_targets.contains(&split.target)
+            {
+                return Err(err("SIMULATION_SPLIT_EXECUTOR_MISMATCH"));
+            }
+            let account = bundle
+                .fixture
+                .accounts
+                .iter()
+                .find(|a| a.exists && a.address == split.target)
+                .ok_or_else(|| err("SIMULATION_SPLIT_EXECUTOR_MISMATCH"))?;
+            use sha2::{Digest, Sha256};
+            let code = account
+                .code
+                .strip_prefix("0x")
+                .and_then(|s| hex::decode(s).ok())
+                .filter(|b| !b.is_empty())
+                .ok_or_else(|| err("SIMULATION_SPLIT_EXECUTOR_MISMATCH"))?;
+            if hex::encode(Sha256::digest(code)) != split.code_sha256 {
+                return Err(err("SIMULATION_SPLIT_EXECUTOR_MISMATCH"));
+            }
+        }
         let budget = SimulationBudget {
             max_fixture_json_bytes: sim.max_state_bytes as usize,
             max_accounts: 2048,
@@ -332,12 +387,36 @@ impl LocalSimulation {
         })))
     }
 
+    fn split_binding(&self, cached: &Selection, allowed: &[String]) -> Result<Option<WorkerSplit>> {
+        let plan = match cached {
+            Selection::ExactIn(c) if c.plan.allocation.routes.len() > 1 => {
+                SplitPlan::ExactIn(c.plan.clone())
+            }
+            Selection::ExactOut(c) if c.plan.allocation.routes.len() > 1 => {
+                SplitPlan::ExactOut(c.plan.clone())
+            }
+            _ => return Ok(None),
+        };
+        let expected = self
+            .bundle
+            .split_executor
+            .as_ref()
+            .ok_or_else(|| err("EXECUTION_ADAPTER_UNSUPPORTED"))?;
+        let bound = ordered_v2::bind(&plan, &cached.view().pools, expected, allowed)?;
+        Ok(Some(WorkerSplit {
+            bound,
+            expected_executor: expected.clone(),
+        }))
+    }
     pub(crate) fn candidate_binding(
         &self,
         config: &ConfigSnapshot,
         cached: &Selection,
     ) -> Result<String> {
         let allowed = &config.config.simulation.allowed_targets;
+        if let Some(split) = self.split_binding(cached, allowed)? {
+            return Ok(split.bound.binding_hash);
+        }
         match cached {
             Selection::ExactIn(c) => Ok(xone_execution_plan::bind_v2_execution(
                 &c.plan,
@@ -541,31 +620,41 @@ impl LocalSimulation {
             }
         }
         let allowed = &config.config.simulation.allowed_targets;
-        let (bound, exact_out_bound) = match &cached {
-            Selection::ExactIn(c) => (
-                Some(
-                    xone_execution_plan::bind_v2_execution(
-                        &c.plan,
-                        &c.view.pools,
-                        &self.bundle.executor,
-                        allowed,
-                    )
-                    .map_err(|e| Failure::new(&e.0, "binding"))?,
+        let split = self
+            .split_binding(cached, allowed)
+            .map_err(|e| Failure::new(&e.0, "binding"))?;
+        let (bound, exact_out_bound) = if split.is_some() {
+            if prepared.is_some() || signed.is_some() || self.has_op_source() {
+                return Err(Failure::new("EXECUTION_ADAPTER_UNSUPPORTED", "binding"));
+            }
+            (None, None)
+        } else {
+            match &cached {
+                Selection::ExactIn(c) => (
+                    Some(
+                        xone_execution_plan::bind_v2_execution(
+                            &c.plan,
+                            &c.view.pools,
+                            &self.bundle.executor,
+                            allowed,
+                        )
+                        .map_err(|e| Failure::new(&e.0, "binding"))?,
+                    ),
+                    None,
                 ),
-                None,
-            ),
-            Selection::ExactOut(c) => (
-                None,
-                Some(
-                    xone_execution_plan::bind_v2_exact_out_execution(
-                        &c.plan,
-                        &c.view.pools,
-                        &self.bundle.executor,
-                        allowed,
-                    )
-                    .map_err(|e| Failure::new(&e.0, "binding"))?,
+                Selection::ExactOut(c) => (
+                    None,
+                    Some(
+                        xone_execution_plan::bind_v2_exact_out_execution(
+                            &c.plan,
+                            &c.view.pools,
+                            &self.bundle.executor,
+                            allowed,
+                        )
+                        .map_err(|e| Failure::new(&e.0, "binding"))?,
+                    ),
                 ),
-            ),
+            }
         };
         let genesis = config
             .config
@@ -615,7 +704,7 @@ impl LocalSimulation {
         };
         let request = WorkerRequest {
             op_user,
-            split: None,
+            split,
             protocol: WORKER_PROTOCOL.into(),
             bound,
             exact_out_bound,
@@ -886,6 +975,21 @@ fn diagnostic_response(
             "op_execution_not_enabled",
         ));
     }
+    if let Some(template) = &commitment.split_receipt {
+        let bad = || Failure::new("SIMULATION_WORKER_BINDING", "split_receipt");
+        let mut input = template.clone();
+        input["outcome"] = outcome.clone();
+        let receipt = input["outcome"]
+            .as_object_mut()
+            .and_then(|v| v.remove("receipt_hash"))
+            .ok_or_else(bad)?;
+        if outcome["source_fixture_hash"] != template["source_fixture_hash"]
+            || outcome["simulator_version"] != template["simulator_version"]
+            || receipt != hash(&input).map_err(|_| bad())?
+        {
+            return Err(bad());
+        }
+    }
     let gas = outcome["execution"]["gas_used"]
         .as_u64()
         .ok_or_else(|| Failure::new("SIMULATION_WORKER_PROTOCOL", "receipt"))?;
@@ -987,13 +1091,15 @@ fn diagnostic_response(
         "deductedFromQuoteOutput":false,"chainFeeCompleteness":"LOCAL_EVM_ONLY"
     });
     let success = outcome["matches_plan"] == true && outcome["execution"]["status"] == "SUCCESS";
-    Ok(
-        json!({"quoteKind":commitment.quote_kind,"bindingHash":commitment.binding_hash,"bundleHash":bundle_hash,"workerHash":worker_hash,
+    let mut result = json!({"quoteKind":commitment.quote_kind,"bindingHash":commitment.binding_hash,"bundleHash":bundle_hash,"workerHash":worker_hash,
         "transaction":commitment.transaction,"transactionContext":commitment.transaction_context,"executionBaseFee":commitment.execution_base_fee,"executionCoinbase":commitment.execution_coinbase,"executor":commitment.executor,
         "verification":{"level":"LOCAL_EVM_EXECUTED","success":success,"verified":false},"verified":false,
         "authority":"PROVIDED_LOCAL_STATE","outcome":outcome,
-        "fees":{"evmGasUsed":gas,"gasPriceWei":model.effective_gas_price,"evmFeeWei":model.execution_fee,"chainFeeCompleteness":"LOCAL_EVM_ONLY"},"costs":costs}),
-    )
+        "fees":{"evmGasUsed":gas,"gasPriceWei":model.effective_gas_price,"evmFeeWei":model.execution_fee,"chainFeeCompleteness":"LOCAL_EVM_ONLY"},"costs":costs});
+    if let Some(executor) = &commitment.split_executor {
+        result["splitExecutor"] = json!(executor);
+    }
+    Ok(result)
 }
 
 struct LimitedWriter(Vec<u8>);
@@ -1376,6 +1482,8 @@ mod tests {
             execution_coinbase: "0x0000000000000000000000000000000000000033".into(),
             caller_native_before: Some("1000000000000000000000000000000".parse().unwrap()),
             coinbase_native_before: Some(Amount::zero()),
+            split_receipt: None,
+            split_executor: None,
             executor: ExecutorIdentity {
                 target: "0x0000000000000000000000000000000000000022".into(),
                 code_sha256: "ab".repeat(32),
@@ -1384,6 +1492,27 @@ mod tests {
                 adapter_version: "uniswap-v2-router02/1.1.0-beta.0".into(),
             },
         }
+    }
+    #[test]
+    fn split_receipt_rejects_other_bank_mode_and_modified_fees() {
+        let mut commitment = diagnostic_commitment("2");
+        let mut result = outcome("SUCCESS", true);
+        let template = json!({"bound":{"kind":"EXACT_IN"}, "source_fixture_hash":"fixture", "simulator_version":"test-only"});
+        let mut hashed = template.clone();
+        result.as_object_mut().unwrap().remove("receipt_hash");
+        hashed["outcome"] = result.clone();
+        result["receipt_hash"] = json!(hash(&hashed).unwrap());
+        commitment.split_receipt = Some(template.clone());
+        assert!(diagnostic_response(result.clone(), &commitment, "bundle", "worker").is_ok());
+        for field in ["source_fixture_hash", "bound", "simulator_version"] {
+            let mut different = template.clone();
+            different[field] = json!("other");
+            commitment.split_receipt = Some(different);
+            assert!(diagnostic_response(result.clone(), &commitment, "bundle", "worker").is_err());
+        }
+        commitment.split_receipt = Some(template);
+        result["execution"]["gas_used"] = json!(21001);
+        assert!(diagnostic_response(result, &commitment, "bundle", "worker").is_err());
     }
     #[test]
     fn normal_shanghai_worker_rejects_unbound_op_fee_receipts() {

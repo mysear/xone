@@ -903,7 +903,7 @@ impl Config {
                 || sim.backend != "revm-fixture"
                 || sim.native_valuation.is_none()
                 || sim.candidate_cost_max_plans > 16
-                || r.max_splits != 1)
+                || r.max_splits > 2)
         {
             return Err(fail());
         }

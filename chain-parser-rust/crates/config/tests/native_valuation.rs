@@ -114,10 +114,10 @@ fn current_go_oracle_authority_config_and_public_economic_hashes_match() {
 }
 
 #[test]
-fn candidate_execution_cost_config_is_opt_in_bounded_and_single_route_only() {
+fn candidate_execution_cost_config_is_opt_in_and_bounded() {
     let mut v = priced();
     assert!(v["simulation"].get("candidate_cost_max_plans").is_none());
-    v["routing"]["max_splits"] = 1.into();
+    v["routing"]["max_splits"] = 2.into();
     v["simulation"]["candidate_cost_max_plans"] = 16.into();
     serde_json::from_value::<Config>(v.clone())
         .unwrap()
@@ -134,7 +134,7 @@ fn candidate_execution_cost_config_is_opt_in_bounded_and_single_route_only() {
                     .unwrap()
                     .remove("native_valuation");
             }
-            _ => bad["routing"]["max_splits"] = 2.into(),
+            _ => bad["routing"]["max_splits"] = 3.into(),
         }
         assert!(
             serde_json::from_value::<Config>(bad)

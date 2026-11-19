@@ -57,6 +57,43 @@ async fn main() {
         reference.scope_hash = xone_domain::scope_hash(&pools).unwrap();
         reference.adapter_set_hash = hash(&vec![xone_domain::v2_swap::ADAPTER]).unwrap();
     }
+    let mut split_executor = None;
+    if let Ok(path) = std::env::var("XONE_SPLIT_BANK") {
+        let report: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        let binding = &report["binding"];
+        let bank = &report["executionBank"];
+        let run = &bank["runs"][0];
+        let ex: xone_execution_plan::ordered_v2::SplitExecutor =
+            serde_json::from_value(binding["executor"].clone()).unwrap();
+        rpc.executor = ex.router.clone();
+        split_executor = Some(ex);
+        reference.block = serde_json::from_value(binding["block"].clone()).unwrap();
+        pools = serde_json::from_value(binding["pools"].clone()).unwrap();
+        reference.scope_hash = xone_domain::scope_hash(&pools).unwrap();
+        reference.adapter_set_hash = hash(&vec![xone_domain::v2_swap::ADAPTER]).unwrap();
+        context.chain_key = reference.block.chain_key.clone();
+        rpc.chain_key = context.chain_key.clone();
+        rpc.genesis_hash = bank["state_anchor"]["genesis_hash"]
+            .as_str()
+            .unwrap()
+            .into();
+        context.caller = binding["caller"].as_str().unwrap().into();
+        context.recipient = binding["recipient"].as_str().unwrap().into();
+        let path = binding["cases"][0]["legs"][0]["tokens"].as_array().unwrap();
+        context.sell_token = path[0].as_str().unwrap().into();
+        context.buy_token = path.last().unwrap().as_str().unwrap().into();
+        sell_amount = binding["cases"][0]["input"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        buy_amount = binding["cases"][2]["output"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        original = json!({"state_anchor":bank["state_anchor"],"accounts":bank["accounts"],"execution_environment":run["execution_environment"],"transaction_context":run["transaction_context"]});
+    }
     let mut fixture: FixtureState = serde_json::from_value(json!({
         "schema_version":1,"state_anchor":original["state_anchor"],
         "execution_environment":original["execution_environment"],"accounts":original["accounts"],"block_hashes":[]
@@ -89,15 +126,17 @@ async fn main() {
         rpc_task = Some(task);
     }
     let max_fee = original_tx.gas_price.clone();
+    let use_split_bank = split_executor.is_some();
     let mut bundle = LocalSimulationBundle {
+        split_executor,
         schema_version: 1,
         op_attributes_calldata: None,
         executor: rpc.executor.clone(),
         fixture,
         transaction_context: TransactionContext {
-            max_priority_fee_per_gas: if std::env::var("XONE_EVM_LEGACY_FEE").ok().as_deref()
-                == Some("1")
-            {
+            max_priority_fee_per_gas: if use_split_bank {
+                original_tx.max_priority_fee_per_gas.clone()
+            } else if std::env::var("XONE_EVM_LEGACY_FEE").ok().as_deref() == Some("1") {
                 None
             } else {
                 Some("1".parse().unwrap())
@@ -139,12 +178,16 @@ async fn main() {
         rpc.genesis_hash = source.fixture.state_anchor.genesis_hash.clone();
         rpc.executor = executor.clone();
         bundle = LocalSimulationBundle {
+            split_executor: None,
             schema_version: 1,
             fixture: source.fixture,
             executor: executor.clone(),
             transaction_context: source.transaction_context,
             op_attributes_calldata: Some(source.op_user.unwrap().attributes_calldata),
         };
+    }
+    if std::env::var_os("XONE_SPLIT_NO_EXECUTOR").is_some() {
+        bundle.split_executor = None;
     }
     std::fs::write(&bundle_path, serde_json::to_vec(&bundle).unwrap()).unwrap();
     let mut config = xone_config::load(
@@ -153,7 +196,7 @@ async fn main() {
     )
     .unwrap();
     config.token = "dynamic-fee-http-local-test-20261117".into();
-    if bundle.op_attributes_calldata.is_some() {
+    if bundle.op_attributes_calldata.is_some() || use_split_bank {
         let mut chain = config
             .config
             .chains
@@ -203,6 +246,18 @@ async fn main() {
     config.config.api.quote_timeout_ms = 15000;
     config.config.routing.quote_ttl_ms = 60000;
     config.config.routing.max_splits = 1;
+    if let Some(split) = &bundle.split_executor {
+        config
+            .config
+            .simulation
+            .allowed_targets
+            .push(split.target.clone());
+    }
+    if use_split_bank {
+        config.config.routing.max_splits = 2;
+        config.config.routing.split_parts = 2;
+        config.config.api.quote_timeout_ms = 60000;
+    }
     let request = json!({"chainKey":context.chain_key,"kind":"EXACT_IN",
         "sellToken":context.sell_token,"buyToken":context.buy_token,
         "sellAmount":sell_amount,"caller":context.caller,
@@ -231,7 +286,10 @@ async fn main() {
         "executionCoinbase":bundle.fixture.execution_environment.coinbase,
         "counterfactualCoinbaseAlias":native_alias,
         "bundleHash":hash(&bundle).unwrap(),"unsigned":true,"submitted":false});
-    std::fs::write(info_path, serde_json::to_vec_pretty(&info).unwrap()).unwrap();
+    // Readers use the presence of info_path as the startup signal.
+    let mut ready = tempfile::NamedTempFile::new_in(info_path.parent().unwrap()).unwrap();
+    serde_json::to_writer_pretty(ready.as_file_mut(), &info).unwrap();
+    ready.persist(info_path).unwrap();
     axum::serve(listener, api.handler())
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;

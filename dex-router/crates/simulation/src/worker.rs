@@ -27,6 +27,8 @@ pub const MAX_WORKER_OUTPUT_BYTES: usize = 1024 * 1024;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LocalSimulationBundle {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub split_executor: Option<xone_execution_plan::ordered_v2::SplitExecutor>,
     pub schema_version: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub op_attributes_calldata: Option<String>,
