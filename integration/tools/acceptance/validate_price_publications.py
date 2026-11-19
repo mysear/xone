@@ -12,7 +12,7 @@ from validate_market_feeds import main
 
 
 def validate(*, output_base=None, extra_checks=(), extra_required=None, extra_references=None,
-             extra_artifacts=(), extra_report=None, verification_scope=None):
+             extra_artifacts=(), extra_report=None, verification_scope=None, durable_router_output=None):
     output = output_base or ROOT/'integration/artifacts/local/price-publication-check'
     directory = output/'publication-runs'/uuid.uuid4().hex
     directory.mkdir(parents=True, exist_ok=False)
@@ -33,6 +33,11 @@ def validate(*, output_base=None, extra_checks=(), extra_required=None, extra_re
     binary = target/'debug/examples/evm_dynamic_fee_harness'
     cli = target/'debug/xone-market-price'
     http, cli_output = directory/'http', directory/'cli'
+    durable_checks = []
+    if durable_router_output is not None:
+        durable_checks.append(('durable-price-router-http', [sys.executable,
+            'integration/tools/acceptance/durable_price_router_http.py', str(binary),
+            str(target/'debug/xone-price-publication'), str(corpus), str(durable_router_output)]))
     main(output_base=output, extra_references=refs,
         extra_artifacts=list(extra_artifacts)+[str((p/'report.json').relative_to(ROOT)) for p in [http,cli_output]],
         extra_checks=[
@@ -40,7 +45,7 @@ def validate(*, output_base=None, extra_checks=(), extra_required=None, extra_re
             ('price-publication-state', ['cargo', '+1.90.0', 'test', '--locked', '--manifest-path', 'dex-router/Cargo.toml', '-p', 'xone-quote-api', '--lib', 'transaction_economics::publication_tests']),
             ('price-publication-cli', [sys.executable, 'integration/tools/acceptance/native_valuation_publications.py', '--cli', str(cli), str(cli_output)]),
             ('price-publication-http', [sys.executable, 'integration/tools/acceptance/price_publication_http.py', str(binary), str(corpus), str(http)]),
-        ]+list(extra_checks), extra_required={**(extra_required or {}), 'price-publication-state':[
+        ]+list(extra_checks)+durable_checks, extra_required={**(extra_required or {}), 'price-publication-state':[
             'transaction_economics::publication_tests::signed_publications_are_atomic_monotonic_and_preserve_old_snapshot_arithmetic',
             'transaction_economics::publication_tests::publication_cancellation_deadline_and_concurrent_readers_keep_one_complete_book',
         ]}, extra_report=dict(selected_candidate_quote_cost_disclosure_supported=True,
@@ -48,7 +53,7 @@ def validate(*, output_base=None, extra_checks=(), extra_required=None, extra_re
             process_local_signed_price_book_publication_supported=True,
             quote_price_book_snapshot_and_cache_identity_bound=True,
             price_publication_revision_is_signed=True,
-            price_publication_restart_rollback_protected=False, **(extra_report or {})),
+            **{'price_publication_restart_rollback_protected':False, **(extra_report or {})}),
         verification_scope=verification_scope or 'SIGNED_PROCESS_LOCAL_ATOMIC_BOOK_PUBLICATION_SINGLE_QUOTE_PINNED_CANDIDATES_CACHE_AND_OLD_QUOTE_EXECUTION_BINDING_PLUS_ALL_PRIOR_SOURCE_VM_GATES_NOT_DURABLE_RESTART_ROLLBACK_CONTINUOUS_LIVE_BANK_COMPLETE_NET_OR_PRODUCTION')
 
 

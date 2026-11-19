@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|正常Router耐久价格发布与重启（阶段156，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|显式 journal 的启动核对、持久发布、确认丢失与重启恢复|80 项门禁通过，239 次 Rust、82 次 Go；默认模式仍无跨重启保证|
 |耐久价格发布journal与离线初始化（阶段155，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|签名book授权后记录发布高水位|75门禁、235次Rust/80次Go；离线重启回退拒绝，正常Router尚未接入|
 |授权价格book版本刷新与报价快照（阶段154，P0-3）|§13.1/15.5/21.3/26.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|固定配置来源/签名版本与原子发布|72门禁、229次Rust/80次Go通过；单报价价格快照/旧报价拒绝/进程内防回退；重启耐久性未完成|
 |选中候选费用的正常报价同源披露（阶段153，P0-3）|§13.1/15.3/15.5；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|复用选中计划的实际执行/父费用审计/授权换算|68门禁、226次Rust/80次Go通过；16费用披露与4未签名OP未知报价、完整净额/总费不外推|
@@ -736,11 +737,12 @@
 |148|[Karst正常本地签名API与完整原Router](#plan-2026-11-19-karst-api)|LOCAL_SCOPE_VERIFIED|39门禁/176次Rust、36正常OP/8旧HTTP与完整原Router通过；[验证记录](integration/artifacts/local/karst-api-check/report.json)|
 |149|[配置预言机授权与已执行交易费用换算](#plan-2026-11-19-native-valuation)|LOCAL_SCOPE_VERIFIED|51门禁/184次Rust/77次Go及61正常HTTP通过；[验证记录](integration/artifacts/local/native-valuation-check/report.json)|
 |150|[逐完整候选费用评分内核](#plan-2026-11-19-candidate-costs)|LOCAL_SCOPE_VERIFIED|54门禁/208次Rust/77次Go、22优化器/2 API回退与61 HTTP通过；[验证记录](integration/artifacts/local/candidate-cost-check/report.json)|
-|155|[耐久价格发布journal与离线初始化](#plan-2026-11-19-price-publication-journal)|LOCAL_SCOPE_VERIFIED|[冻结报告](integration/artifacts/local/price-publication-journal-check/runs/5255594d26fa40fcb3e700601e15eb15/report.json)：75门禁、6项日志测试、34个离线CLI案例；正常接线接续|
-|154|[授权价格book版本刷新与报价快照](#plan-2026-11-19-price-book-refresh)|LOCAL_SCOPE_VERIFIED|72门禁、229次Rust/80次Go通过；显式认证刷新/签名版本/快照缓存/旧报价失效及全部历史来源回归通过|
-|153|[选中候选费用的正常报价同源披露](#plan-2026-11-19-selected-candidate-cost-disclosure)|LOCAL_SCOPE_VERIFIED|68门禁、226次Rust/80次Go通过；正常报价同源费用披露、未知回退及完整来源/历史回归通过|
-|152|[批准Chainlink feed的真实来源适配](#plan-2026-11-19-approved-chainlink-feeds)|LOCAL_SCOPE_VERIFIED|68门禁/223次Rust/80次Go、8有效/14无效配置、48独立向量/148换算与公开原响应重放通过；[验证记录](integration/artifacts/local/approved-market-feed-check/report.json)|
 |151|[正常报价本地逐候选执行费用接线](#plan-2026-11-19-normal-candidate-costs)|LOCAL_SCOPE_VERIFIED|59门禁/215次Rust/78次Go、16报价/30原候选重放及4 OP回退，旧61 HTTP通过；[验证记录](integration/artifacts/local/normal-candidate-cost-check/report.json)|
+|152|[批准Chainlink feed的真实来源适配](#plan-2026-11-19-approved-chainlink-feeds)|LOCAL_SCOPE_VERIFIED|68门禁/223次Rust/80次Go、8有效/14无效配置、48独立向量/148换算与公开原响应重放通过；[验证记录](integration/artifacts/local/approved-market-feed-check/report.json)|
+|153|[选中候选费用的正常报价同源披露](#plan-2026-11-19-selected-candidate-cost-disclosure)|LOCAL_SCOPE_VERIFIED|68门禁、226次Rust/80次Go通过；正常报价同源费用披露、未知回退及完整来源/历史回归通过|
+|154|[授权价格book版本刷新与报价快照](#plan-2026-11-19-price-book-refresh)|LOCAL_SCOPE_VERIFIED|72门禁、229次Rust/80次Go通过；显式认证刷新/签名版本/快照缓存/旧报价失效及全部历史来源回归通过|
+|155|[耐久价格发布journal与离线初始化](#plan-2026-11-19-price-publication-journal)|LOCAL_SCOPE_VERIFIED|[冻结报告](integration/artifacts/local/price-publication-journal-check/runs/5255594d26fa40fcb3e700601e15eb15/report.json)：75门禁、6项日志测试、34个离线CLI案例；正常接线接续|
+|156|[正常Router耐久价格发布与重启](#plan-2026-11-19-durable-price-router)|LOCAL_SCOPE_VERIFIED|[冻结报告](integration/artifacts/local/durable-price-router-check/runs/4ab92751086041e49f974d0a2d599007/report.json)：原 75 项与新增 5 项全过，覆盖双配置摘要、确认丢失及多进程 HTTP|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -3407,7 +3409,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 |---|---|---|---|---|
 |P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
-|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；阶段149补服务端配置预言机签名授权、源块/币种/历史时效绑定和父源审计后的单笔原子单位换算/费后金额；阶段150完成逐完整候选费用评分组件及有符号目标/完整覆盖检查/统一毛额回退，阶段151接通显式启用的单路线V2正常报价、逐候选实际worker/父费用核验/授权换算和固定计划deadline；阶段152补批准Ethereum Chainlink USD双feed固定部署/原ABI/时效和签名来源绑定、全宽约分/换算与有界采集/待签署CLI；阶段153补选中候选费用的正常报价同源披露；阶段154补进程内授权价格book签名版本/原子刷新、单报价价格快照/缓存及旧报价执行绑定；重启耐久高水位、其他执行/成本模型、可信bank、持续live价格刷新/授权发布及其他链来源、完整全候选净评分及报价总费仍未完成|PARTIAL_LOCAL|
+|P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；阶段149补服务端配置预言机签名授权、源块/币种/历史时效绑定和父源审计后的单笔原子单位换算/费后金额；阶段150完成逐完整候选费用评分组件及有符号目标/完整覆盖检查/统一毛额回退，阶段151接通显式启用的单路线V2正常报价、逐候选实际worker/父费用核验/授权换算和固定计划deadline；阶段152补批准Ethereum Chainlink USD双feed固定部署/原ABI/时效和签名来源绑定、全宽约分/换算与有界采集/待签署CLI；阶段153补选中候选费用的正常报价同源披露；阶段154补进程内授权价格book签名版本/原子刷新、单报价价格快照/缓存及旧报价执行绑定；阶段155–156补离线初始化与显式启用的正常Router重启耐久高水位；默认模式仍无跨重启保证。其他执行/成本模型、可信bank、持续live价格刷新/授权发布及其他链来源、完整全候选净评分及报价总费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
 |P1-1|G03限定交易；WP14,WP15,WP20|先补单池/简单路径的calldata、授权、wrap、recipient、期限/退款、签名发送和耐久回执|报价→准备→独立仿真→用户签名→一次发送→回执收付款一致；先复用已有Solana链路，EVM独立补齐|PARTIAL_LOCAL|
 |P1-2|G06现有模型；WP11,WP13,WP14,WP16|已准入ExactOut先贯通最大输入、实际消耗、退款/费用和独立执行|数学输入目标与执行一致，拒绝不能保证的路径；复杂跨家族/共享拆单留P3-1|PARTIAL_LOCAL|
@@ -4325,3 +4327,25 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 阶段155最终限定验收：运行`5255594d26fa40fcb3e700601e15eb15`的75门禁全部exit 0，235次Rust及80次Go通过。源码摘要`1496572e58364a0aee0886adaf0695b895f1e77b7766521946be6f5648d8dee1`。独立复核915个固定输入、46个运行pins、13859个参考输入、19份报告、75份日志、1017份原始产物及三条日志的策略/授权book/前摘要链；CLI SHA-256 `4c5927d7876a46c6af63ad29a52a1a2dfa543f3748d619e18c0c72284b907e15`。34个CLI案例中9个成功回执与落盘记录一致，25个拒绝核对错误码。16个普通候选报价/30次原Router重放、4个未签名OP未知费用及进程内发布回归保留。总工作包完整验收仍为0，生产VERIFIED保持关闭。
 
 下一轮按P0-3：在Go及两个Rust配置副本中加入显式、默认省略的journal路径；正常Router启动仅打开已有日志并核对授权book与耐久高水位一致。正常reload先验证、后同步落盘、最后发布价格快照；提交期间或写入结果未知时不得服务旧价格。验证启动缺文件/旧book/锁冲突、运行期刷新、重启恢复、旧报价及已有进程内模式。其后继续真实市场采集/授权、拆单执行与完整费用等已列优先级，阶段155不授予普通API跨重启保证。
+
+<a id="plan-2026-11-19-durable-price-router"></a>
+
+## 正常Router耐久价格发布与重启（2026-11-19，阶段156，P0-3）
+
+阶段155已推送至GitHub origin `293201935dfd5f7bd2d1d37257da1d6a99952c3c`；未配置GitLab远端。本轮对应§15.5/21.3/26.3，仅在显式启用持久日志的正常本地bank服务提供跨重启保护，未改变默认回退或生产VERIFIED。测试前核实无打开句柄，清理旧HTTP harness暂存副本及三份旧worker临时状态，释放约99 MiB；保留阶段155的报告、冻结输入及共享依赖。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F156.1|跨语言配置与启动高水位|WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|Go 导出默认/显式配置，两份 Rust 分别核对公开和经济摘要；非法路径拒绝。只打开预初始化日志，重启不自动推进。|
+|F156.2|持久提交期间撤销价格快照|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|文件同步不持快照锁；提交期间拒绝取价。确认丢失后内存未恢复旧价，重开读回已提交版本 2。|
+|F156.3|正常HTTP、重启与原门禁|WP13,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|4 次成功报价、5 个启动拒绝、3 份发布回执，旧报价 409、日志替换后 503、恢复原日志后重新报价。原 75 项门禁也全部通过。|
+
+限定工具：`python3 integration/tools/acceptance/validate_price_publication_journal.py --router`。实际回放调用正常Api及其worker，不向公网提交交易。报价为本地固定bank的INDICATIVE结果；持续live来源/签署、可信bank、拆单执行、完整费用与净排序均不能因本轮通过而关闭。
+
+首次全量运行 `6c9f5b21afea49c49d2c2e188a408c60` 失败，报告保留。旧配置门禁运行整个 `native_valuation` 测试目标，提前选中了依赖尚未导出的 `XONE_PRICE_JOURNAL_CONFIGS` 的新增用例。已将两份 Rust 的新增用例隔离到 `durable_price_journal` 测试目标，在 Go 导出之后运行；保留原断言和旧门禁。
+
+最终运行 `4ab92751086041e49f974d0a2d599007`：80 项门禁全部通过，239 次 Rust、82 次 Go；源码 SHA-256 `d2cca58ec04921d2a9613588a7d6500db1c40bf9fd72b190d0fd57958835cf78`。[独立复核](integration/artifacts/local/durable-price-router-check/runs/4ab92751086041e49f974d0a2d599007/independent-audit.json)核对了 21 份报告、80 份日志、1055 份原始产物，以及报价版本和费用来源、发布回执和前一条记录的摘要。默认进程内模式的回执仍为 `restartRollbackProtected=false`。
+
+下一项仍为 P0-3：持续采集批准来源，保留原始块、采集时间与有效期，组装待独立授权的完整价格簿；验证过期、不同块或签名不足的输入不能发布。随后补拆单完整执行、授权等辅助交易费用与全候选净额。以上不等于可信 bank 或生产资格；原 26 个工作包完整验收仍为 0。
+
+交付状态：本轮在本地分支提交。当前唯一配置的推送目标是 GitHub `origin`，不是要求的 GitLab；缺少 GitLab 项目克隆地址，本轮未向其他托管平台推送。

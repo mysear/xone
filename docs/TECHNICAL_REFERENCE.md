@@ -2348,3 +2348,11 @@ Unix文件以0600创建，非阻塞且不跟随最终符号链接打开，核对
 写入或同步失败返回`PRICE_PUBLICATION_JOURNAL_COMMIT_UNCERTAIN`并关闭该writer。内存高水位不推进，但磁盘可能已有完整新记录；必须关闭后重开，以实际完整日志恢复，不能承诺错误或超时代表确定未提交。路径替换和外部改长同样拒绝继续使用。该保证依赖本地持久卷不被整体回滚，不是恶意文件系统防回退或共识；进程直接退出回归也不等同真实掉电/跨区灾备。
 
 限定冻结入口`python3 integration/tools/acceptance/validate_price_publication_journal.py`保留阶段154全部72门禁，增加6项组件测试、离线工具构建及独立CLI/文件回放。`price_publication_journal_replay.py`逐条独立重算策略/book/记录摘要与hash链，保留原始输入、输出、错误和各阶段日志字节，检查重启回退、幂等、半尾/损坏、独占writer、路径类型与容量边界。正式验收冻结期间不修改非Markdown源码。
+
+### Router 使用耐久价格日志（阶段156）
+
+在 `simulation.native_valuation` 中显式设置 `publication_journal`，例如 `"publication_journal":"state/prices.journal"`。路径按配置目录解析。省略时维持阶段154的进程内行为；启用后该路径进入配置摘要。首次部署先用阶段155的 `initialize` 在持久卷上写入正版本、有效签名的价格簿，再启动 Router。Router 只打开已有日志并在进程生命周期持有独占锁；价格文件必须与盘上最后确认的版本和内容相同。配置文件更新到更高版本但未发布，也不能在启动时自动推进。
+
+正常授权刷新仍是 `POST /internal/native-valuation/reload`，请求体 `{}`。服务读取已配置的价格文件，以当前固定 bank 校验锚点、策略、签名及有效期。进入持久提交后，价格快照暂时不可读取；磁盘操作不持有快照锁。只有日志写入并同步确认后才切换价格；成功响应带 `restartRollbackProtected=true`、`journalSequence`、`journalEntryHash`、`fsyncConfirmed=true`。该保证只适用于已配置的本地耐久模式，不适用于默认模式、不可信卷或整卷历史回滚。价格簿不改变交易执行的生产资格。
+
+提交中或写盘状态不确定时，依赖估值的报价可能返回 HTTP 503 `NATIVE_VALUATION_DURABLE_UNAVAILABLE`；耐久刷新等待超时为 `NATIVE_VALUATION_DURABLE_ACK_UNCERTAIN`，不能由此推断磁盘版本。文件替换或提交异常不允许继续发布旧价。关闭服务释放锁，用离线 `check` 与已有签名簿核对实际耐久记录，修复配置的价格文件后重启；不要删除日志并重新初始化以绕过旧版本拒绝。无需估值的服务路径不因此获得更高信任等级。验收入口：`python3 integration/tools/acceptance/validate_price_publication_journal.py --router`。

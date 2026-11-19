@@ -1,5 +1,6 @@
 //! A server-configured price book is independent of worker output and HTTP
 //! request bodies. Apply it only after the parent has audited native fees.
+use crate::price_publication::{AuthorizedPublication, Journal};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeSet,
@@ -20,6 +21,7 @@ use xone_simulation::evm_fixture::FixtureState;
 
 const MAX_PRICE_BYTES: u64 = 1024 * 1024;
 pub(crate) struct ValuationState {
+    publication: Option<AuthorizedPublication>,
     prices: Vec<AuthorizedPrice>,
     anchor: PriceAnchor,
     execution_timestamp_ms: u64,
@@ -28,21 +30,49 @@ pub(crate) struct ValuationState {
 }
 
 pub(crate) struct ValuationStore {
-    current: Mutex<Arc<ValuationState>>,
+    // None revokes price admission while a durable commit is in flight or uncertain.
+    current: Mutex<Option<Arc<ValuationState>>>,
+    journal: Option<Mutex<Journal>>,
     reload: Mutex<()>,
 }
 impl ValuationStore {
-    pub(crate) fn new(state: ValuationState) -> Self {
+    fn new(state: ValuationState, journal: Option<Journal>) -> Self {
         Self {
-            current: Mutex::new(Arc::new(state)),
+            current: Mutex::new(Some(Arc::new(state))),
+            journal: journal.map(Mutex::new),
             reload: Mutex::new(()),
         }
+    }
+    pub(crate) fn load(config: &ConfigSnapshot, fixture: &FixtureState) -> Result<Option<Self>> {
+        let Some(state) = ValuationState::load(config, fixture)? else {
+            return Ok(None);
+        };
+        let policy = config
+            .config
+            .simulation
+            .native_valuation
+            .as_ref()
+            .ok_or_else(|| err("NATIVE_VALUATION_NOT_CONFIGURED"))?;
+        let journal = if let Some(path) = &policy.publication_journal {
+            let journal = Journal::open(&config.resolve(path), policy)?;
+            journal.check(
+                state
+                    .publication
+                    .as_ref()
+                    .ok_or_else(|| err("NATIVE_VALUATION_PUBLICATION_REQUIRED"))?,
+            )?;
+            Some(journal)
+        } else {
+            None
+        };
+        Ok(Some(Self::new(state, journal)))
     }
     pub(crate) fn snapshot(&self) -> Result<Arc<ValuationState>> {
         self.current
             .lock()
-            .map(|state| state.clone())
-            .map_err(|_| err("NATIVE_VALUATION_LOCK"))
+            .map_err(|_| err("NATIVE_VALUATION_LOCK"))?
+            .clone()
+            .ok_or_else(|| err("NATIVE_VALUATION_DURABLE_UNAVAILABLE"))
     }
     pub(crate) fn reload(
         &self,
@@ -65,10 +95,13 @@ impl ValuationStore {
         cancelled: &AtomicBool,
         deadline: Instant,
     ) -> Result<Value> {
-        let mut current = self
+        let mut slot = self
             .current
             .lock()
             .map_err(|_| err("NATIVE_VALUATION_LOCK"))?;
+        let current = slot
+            .as_ref()
+            .ok_or_else(|| err("NATIVE_VALUATION_DURABLE_UNAVAILABLE"))?;
         let changed = current.book_hash != next.book_hash;
         if changed {
             if next.revision == 0 || next.revision <= current.revision {
@@ -86,25 +119,60 @@ impl ValuationStore {
                     .map(|p| p.token().to_owned())
                     .collect::<BTreeSet<_>>()
             };
-            if tokens(&next) != tokens(&current) {
+            if tokens(&next) != tokens(current) {
                 return Err(err("NATIVE_VALUATION_PUBLICATION_TOKEN_SET"));
             }
             for price in &next.prices {
                 price.validate_at(&next.anchor, next.execution_timestamp_ms)?;
             }
         }
-        // A timed-out handler must not publish later from its owned blocking task.
+        // Cancellation before commit has no persistent effect. Once a durable
+        // write starts, recovery may observe it even without an acknowledgement.
         if cancelled.load(Ordering::Acquire) || Instant::now() >= deadline {
             return Err(err("NATIVE_VALUATION_RELOAD_CANCELLED"));
         }
-        if changed {
-            *current = next;
+        if let Some(journal) = &self.journal {
+            let publication = next
+                .publication
+                .as_ref()
+                .ok_or_else(|| err("NATIVE_VALUATION_PUBLICATION_REQUIRED"))?;
+            let old = slot.take();
+            drop(slot);
+            let receipt = match journal
+                .lock()
+                .map_err(|_| err("NATIVE_VALUATION_DURABLE_UNAVAILABLE"))?
+                .advance(publication)
+            {
+                Ok(receipt) => receipt,
+                // Capacity is checked before writing; other journal failures require restart/recovery.
+                Err(e) if e.0 == "PRICE_PUBLICATION_JOURNAL_LIMIT" => {
+                    *self
+                        .current
+                        .lock()
+                        .map_err(|_| err("NATIVE_VALUATION_LOCK"))? = old;
+                    return Err(e);
+                }
+                Err(e) => return Err(e),
+            };
+            if cancelled.load(Ordering::Acquire) || Instant::now() >= deadline {
+                return Err(err("NATIVE_VALUATION_DURABLE_ACK_UNCERTAIN"));
+            }
+            let response = json!({"changed":receipt.changed,"priceBookHash":next.book_hash,"publicationRevision":next.revision,
+                "scope":"LOCAL_DURABLE_FIXED_BANK_AUTHORIZED_PRICE_PUBLICATION","restartRollbackProtected":true,
+                "journalSequence":receipt.sequence,"journalEntryHash":receipt.entry_hash,"fsyncConfirmed":receipt.fsync_confirmed,"productionVerified":false});
+            *self
+                .current
+                .lock()
+                .map_err(|_| err("NATIVE_VALUATION_LOCK"))? = Some(next);
+            return Ok(response);
         }
-        Ok(
-            json!({"changed":changed,"priceBookHash":current.book_hash,"publicationRevision":current.revision,
+        let response = json!({"changed":changed,"priceBookHash":next.book_hash,"publicationRevision":next.revision,
             "scope":"PROCESS_LOCAL_FIXED_BANK_AUTHORIZED_PRICE_PUBLICATION",
-            "restartRollbackProtected":false,"productionVerified":false}),
-        )
+            "restartRollbackProtected":false,"productionVerified":false});
+        if changed {
+            *slot = Some(next);
+        }
+        Ok(response)
     }
 }
 impl ValuationState {
@@ -170,9 +238,20 @@ impl ValuationState {
         if execution_timestamp_ms < anchor.timestamp_ms {
             return Err(err("NATIVE_VALUATION_TIME"));
         }
-        let prices = book.authorize(&policy.policies)?;
+        let (publication, prices) = if policy.publication_journal.is_some() {
+            let (p, prices) = AuthorizedPublication::authorize_with_prices(
+                policy,
+                &book,
+                &anchor,
+                execution_timestamp_ms,
+            )?;
+            (Some(p), prices)
+        } else {
+            (None, book.authorize(&policy.policies)?)
+        };
         let revision = prices[0].publication_revision();
         Ok(Some(Self {
+            publication,
             prices,
             anchor,
             execution_timestamp_ms,
@@ -244,6 +323,7 @@ mod publication_tests {
         let prices = book.authorize(&policies)?;
         let anchor: PriceAnchor = serde_json::from_value(v["anchor"].clone()).unwrap();
         Ok(ValuationState {
+            publication: None,
             revision: prices[0].publication_revision(),
             book_hash: hash(&book)?,
             execution_timestamp_ms: anchor.timestamp_ms,
@@ -260,8 +340,70 @@ mod publication_tests {
     }
 
     #[test]
+    fn durable_publication_revokes_old_readers_while_committing_and_after_lost_ack() {
+        let v: Value = serde_json::from_str(include_str!(
+            "../../../test/contracts/native-valuation-publications.json"
+        ))
+        .unwrap();
+        let policy =
+            serde_json::from_value(json!({"observations_file":"prices","policies":v["policies"]}))
+                .unwrap();
+        let publication = |name: &str| {
+            let mut s = state(name).unwrap();
+            let book: PriceBook = serde_json::from_value(v["books"][name].clone()).unwrap();
+            s.publication = Some(
+                AuthorizedPublication::authorize(
+                    &policy,
+                    &book,
+                    &s.anchor,
+                    s.execution_timestamp_ms,
+                )
+                .unwrap(),
+            );
+            s
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("prices.journal");
+        let one = publication("1");
+        let journal =
+            Journal::initialize(&path, &policy, one.publication.as_ref().unwrap()).unwrap();
+        let store = ValuationStore::new(one, Some(journal));
+        let next = Arc::new(publication("2"));
+        let cancelled = AtomicBool::new(false);
+        let deadline = Instant::now() + std::time::Duration::from_secs(10);
+        std::thread::scope(|scope| {
+            let hold = store.journal.as_ref().unwrap().lock().unwrap();
+            let writer = scope.spawn(|| store.publish(next.clone(), &cancelled, deadline));
+            while store.snapshot().is_ok() {
+                assert!(Instant::now() < deadline, "commit did not revoke admission");
+                std::thread::yield_now();
+            }
+            cancelled.store(true, Ordering::Release);
+            drop(hold);
+            assert_eq!(
+                writer.join().unwrap().unwrap_err().0,
+                "NATIVE_VALUATION_DURABLE_ACK_UNCERTAIN"
+            );
+        });
+        assert!(store.snapshot().is_err());
+        assert!(publish(&store, "1").is_err());
+        drop(store);
+        let journal = Journal::open(&path, &policy).unwrap();
+        assert!(journal
+            .check(publication("1").publication.as_ref().unwrap())
+            .is_err());
+        assert_eq!(
+            journal
+                .check(next.publication.as_ref().unwrap())
+                .unwrap()
+                .sequence,
+            2
+        );
+    }
+
+    #[test]
     fn signed_publications_are_atomic_monotonic_and_preserve_old_snapshot_arithmetic() {
-        let store = ValuationStore::new(state("0").unwrap());
+        let store = ValuationStore::new(state("0").unwrap(), None);
         let old = store.snapshot().unwrap();
         let settlement = |price: &ValuationState| {
             price.prices[0]
@@ -294,7 +436,7 @@ mod publication_tests {
 
     #[test]
     fn publication_cancellation_deadline_and_concurrent_readers_keep_one_complete_book() {
-        let store = Arc::new(ValuationStore::new(state("1").unwrap()));
+        let store = Arc::new(ValuationStore::new(state("1").unwrap(), None));
         let before = store.snapshot().unwrap();
         for (cancelled, deadline) in [
             (true, Instant::now() + std::time::Duration::from_secs(1)),

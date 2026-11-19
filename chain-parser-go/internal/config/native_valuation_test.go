@@ -122,3 +122,52 @@ func TestCandidateExecutionCostsRequireOptInBoundedSingleRouteConfiguration(t *t
 		}
 	}
 }
+
+func TestDurablePriceJournalConfiguration(t *testing.T) {
+	dir := os.Getenv("XONE_PRICE_JOURNAL_CONFIGS")
+	if dir == "" {
+		dir = t.TempDir()
+	}
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	c := oracleConfig(t)
+	var rows []map[string]string
+	for _, name := range []string{"default", "durable"} {
+		if name == "durable" {
+			path := "state/prices.journal"
+			c.Simulation.NativeValuation.PublicationJournal = &path
+		}
+		file := filepath.Join(dir, name+".json")
+		data, err := json.Marshal(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(file, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		s, err := Load(file, "dex-router")
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows = append(rows, map[string]string{"name": name, "public_hash": s.PublicHash, "economic_hash": s.EconomicHash})
+	}
+	for _, k := range []string{"public_hash", "economic_hash"} {
+		if rows[0][k] == rows[1][k] {
+			t.Fatal("journal omitted from", k)
+		}
+	}
+	for _, path := range []string{"", "bad\x00path", strings.Repeat("p", 4097), c.Simulation.NativeValuation.ObservationsFile} {
+		c.Simulation.NativeValuation.PublicationJournal = &path
+		if c.Validate("dex-router") == nil {
+			t.Fatal("invalid journal path accepted")
+		}
+	}
+	b, err := json.Marshal(rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(dir, "hashes.json"), b, 0600); err != nil {
+		t.Fatal(err)
+	}
+}

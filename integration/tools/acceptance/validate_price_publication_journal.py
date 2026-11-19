@@ -1,15 +1,28 @@
 #!/usr/bin/env python3
 """Freeze offline durable publication journal plus all prior normal API gates."""
 import os
+import json
 from pathlib import Path
+import subprocess
 import sys
 import uuid
-from karst_api_vectors import ROOT
+from karst_api_vectors import ROOT, digest, require
 from validate_price_publications import validate
 
 
-def main():
-    output = ROOT/'integration/artifacts/local/price-publication-journal-check'
+def go_configs(directory):
+    directory = Path(directory).resolve(); directory.mkdir(parents=True, exist_ok=False)
+    r = subprocess.run(['go','test','-count=1','-v','./internal/config','-run','^TestDurablePriceJournalConfiguration$'],
+        cwd=ROOT/'chain-parser-go', env=dict(os.environ, XONE_PRICE_JOURNAL_CONFIGS=str(directory)), capture_output=True, text=True, timeout=180)
+    log = r.stdout+r.stderr; (directory/'go.log').write_text(log); print(log,end='')
+    require(r.returncode==0 and '--- PASS: TestDurablePriceJournalConfiguration ' in log, 'Go journal configuration test did not pass')
+    rows=json.loads((directory/'hashes.json').read_bytes())
+    require([r['name'] for r in rows]==['default','durable'], 'Go journal export incomplete')
+    (directory/'report.json').write_text(json.dumps(dict(passed=True,artifacts={p.name:digest(p) for p in directory.iterdir() if p.is_file()}),indent=2)+'\n')
+
+
+def main(*, router=False):
+    output = ROOT/'integration/artifacts/local'/('durable-price-router-check' if router else 'price-publication-journal-check')
     replay = output/'journal-runs'/uuid.uuid4().hex
     target = Path(os.environ.get('CARGO_TARGET_DIR', str(ROOT/'integration/.runtime/design-review-target')))
     cargo = ['cargo', '+1.90.0']
@@ -20,17 +33,40 @@ def main():
              'uncertain_writes_close_the_writer_and_recovery_observes_actual_file_state',
              'journal_replacement_nonregular_handles_and_capacity_are_rejected',
              'committed_high_water_survives_process_exit_without_drop']
-    validate(output_base=output, extra_checks=[
+    extra, required, artifacts = [], {}, []
+    http = None
+    if router:
+        directory = output/'router-runs'/uuid.uuid4().hex
+        configs, http = directory/'configs', directory/'http'
+        extra.append(('durable-price-go-config', [sys.executable,__file__,'--go-configs',str(configs)]))
+        for workspace, label in [('dex-router','router'),('chain-parser-rust','parser')]:
+            gate = 'durable-price-'+label+'-config'
+            test = 'durable_journal_config_matches_go_hashes_and_rejects_invalid_paths'
+            extra.append((gate,['env','XONE_PRICE_JOURNAL_CONFIGS='+str(configs)]+cargo+['test','--locked',
+                '--manifest-path',workspace+'/Cargo.toml','-p','xone-config','--test','durable_price_journal',test,'--','--include-ignored','--exact']))
+            required[gate]=[test]
+        test='transaction_economics::publication_tests::durable_publication_revokes_old_readers_while_committing_and_after_lost_ack'
+        extra.append(('durable-price-lost-ack',cargo+['test']+manifest+['-p','xone-quote-api','--lib',test,'--','--exact']))
+        required['durable-price-lost-ack']=[test]
+        artifacts = [str((p/'report.json').relative_to(ROOT)) for p in [configs,http]]
+    validate(output_base=output, durable_router_output=http, extra_checks=[
         ('price-journal-state', cargo+['test']+manifest+['-p', 'xone-quote-api', '--lib', 'price_publication::tests']),
         ('price-journal-cli-build', cargo+['build']+manifest+['-p', 'xone-quote-api', '--bin', 'xone-price-publication']),
         ('price-journal-independent-replay', [sys.executable, 'integration/tools/acceptance/price_publication_journal_replay.py',
              str(target/'debug/xone-price-publication'), str(replay)]),
-    ], extra_required={'price-journal-state':['price_publication::tests::'+name for name in tests]},
-        extra_artifacts=[str((replay/'report.json').relative_to(ROOT))],
+    ]+extra, extra_required={**required,'price-journal-state':['price_publication::tests::'+name for name in tests]},
+        extra_artifacts=[str((replay/'report.json').relative_to(ROOT))]+artifacts,
         extra_report=dict(offline_authorized_price_publication_journal_supported=True,
                           offline_journal_hash_chain_and_exclusive_fsync_recovery_supported=True,
-                          normal_router_durable_price_publication_connected=False),
-        verification_scope='OFFLINE_AUTHORIZED_DURABLE_PRICE_PUBLICATION_HIGH_WATER_HASH_CHAIN_EXCLUSIVE_WRITER_FSYNC_RECOVERY_AND_ALL_PRIOR_NORMAL_API_SOURCE_VM_GATES_NOT_NORMAL_ROUTER_DURABLE_CONNECTION_LIVE_MARKET_TRUSTED_BANK_COMPLETE_NET_OR_PRODUCTION')
+                          normal_router_durable_price_publication_connected=router,
+                          price_publication_restart_rollback_protected=router,
+                          price_publication_restart_protection_requires_explicit_local_journal=True),
+        verification_scope=('OPT_IN_NORMAL_ROUTER_LOCAL_DURABLE_PRICE_PUBLICATION_STARTUP_RESTART_AND_LOST_ACK_PLUS_ALL_PRIOR_GATES_NOT_LIVE_MARKET_TRUSTED_BANK_COMPLETE_NET_OR_PRODUCTION' if router else
+        'OFFLINE_AUTHORIZED_DURABLE_PRICE_PUBLICATION_HIGH_WATER_HASH_CHAIN_EXCLUSIVE_WRITER_FSYNC_RECOVERY_AND_ALL_PRIOR_NORMAL_API_SOURCE_VM_GATES_NOT_NORMAL_ROUTER_DURABLE_CONNECTION_LIVE_MARKET_TRUSTED_BANK_COMPLETE_NET_OR_PRODUCTION'))
 
 
-if __name__ == '__main__': main()
+if __name__ == '__main__':
+    if sys.argv[1:2]==['--go-configs'] and len(sys.argv)==3: go_configs(sys.argv[2])
+    elif sys.argv[1:]==['--router']: main(router=True)
+    elif not sys.argv[1:]: main()
+    else: raise SystemExit('expected --router or --go-configs DIRECTORY')

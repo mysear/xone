@@ -312,11 +312,9 @@ impl LocalSimulation {
         let worker_path =
             std::env::current_exe().map_err(|_| err("SIMULATION_WORKER_IDENTITY_UNAVAILABLE"))?;
         let worker_sha256 = executable_sha256(&worker_path)?;
-        let valuation =
-            crate::transaction_economics::ValuationState::load(config, &bundle.fixture)?;
-        let valuation_store = valuation
-            .map(crate::transaction_economics::ValuationStore::new)
-            .map(Arc::new);
+        let valuation_store =
+            crate::transaction_economics::ValuationStore::load(config, &bundle.fixture)?
+                .map(Arc::new);
         let valuation = valuation_store.as_ref().map(|s| s.snapshot()).transpose()?;
         Ok(Some(Arc::new(Self {
             valuation,

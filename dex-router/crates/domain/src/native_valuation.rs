@@ -130,6 +130,8 @@ impl PricePolicy {
 #[serde(deny_unknown_fields)]
 pub struct NativeValuationConfig {
     pub observations_file: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub publication_journal: Option<String>,
     pub policies: Vec<PricePolicy>,
 }
 impl NativeValuationConfig {
@@ -137,6 +139,12 @@ impl NativeValuationConfig {
         if self.observations_file.is_empty()
             || self.observations_file.len() > 4096
             || self.observations_file.contains('\0')
+            || self.publication_journal.as_ref().is_some_and(|path| {
+                path.is_empty()
+                    || path.len() > 4096
+                    || path.contains('\0')
+                    || path == &self.observations_file
+            })
             || self.policies.is_empty()
             || self.policies.len() > 128
         {

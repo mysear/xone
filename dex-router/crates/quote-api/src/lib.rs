@@ -594,7 +594,20 @@ impl Api {
         });
         let result = tokio::time::timeout_at(deadline.into(), task)
             .await
-            .map_err(|_| err("NATIVE_VALUATION_RELOAD_TIMEOUT"))?
+            .map_err(|_| {
+                if self
+                    .config
+                    .config
+                    .simulation
+                    .native_valuation
+                    .as_ref()
+                    .is_some_and(|v| v.publication_journal.is_some())
+                {
+                    err("NATIVE_VALUATION_DURABLE_ACK_UNCERTAIN")
+                } else {
+                    err("NATIVE_VALUATION_RELOAD_TIMEOUT")
+                }
+            })?
             .map_err(|_| err("NATIVE_VALUATION_RELOAD_FAILED"))??;
         self.logger
             .event("info", "native_valuation_publication", result.clone());
@@ -985,7 +998,12 @@ fn failure(e: xone_domain::Error) -> HttpError {
     let status = match e.0.as_str() {
         "UNAUTHORIZED" => StatusCode::UNAUTHORIZED,
         "RATE_LIMITED" => StatusCode::TOO_MANY_REQUESTS,
-        "CHAIN_NOT_READY" | "STATE_TOO_OLD" => StatusCode::SERVICE_UNAVAILABLE,
+        "CHAIN_NOT_READY"
+        | "STATE_TOO_OLD"
+        | "NATIVE_VALUATION_DURABLE_UNAVAILABLE"
+        | "NATIVE_VALUATION_DURABLE_ACK_UNCERTAIN"
+        | "PRICE_PUBLICATION_JOURNAL_COMMIT_UNCERTAIN"
+        | "PRICE_PUBLICATION_JOURNAL_REPLACED" => StatusCode::SERVICE_UNAVAILABLE,
         "BUDGET_EXHAUSTED" => StatusCode::GATEWAY_TIMEOUT,
         "SNAPSHOT_REORGED"
         | "QUOTE_EXPIRED"
@@ -1171,6 +1189,8 @@ fn simulation_failure(error: local_simulation::Failure) -> HttpError {
         StatusCode::TOO_MANY_REQUESTS
     } else if error.code == "NATIVE_VALUATION_QUOTE_PRICE_CHANGED" {
         StatusCode::CONFLICT
+    } else if error.code == "NATIVE_VALUATION_DURABLE_UNAVAILABLE" {
+        StatusCode::SERVICE_UNAVAILABLE
     } else {
         StatusCode::UNPROCESSABLE_ENTITY
     };

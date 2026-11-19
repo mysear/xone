@@ -14,7 +14,7 @@ use xone_domain::{
     native_valuation::{block_hash, canonical_hex, NativeValuationConfig},
     Result,
 };
-use xone_execution_preparation::native_valuation::{PriceAnchor, PriceBook};
+use xone_execution_preparation::native_valuation::{AuthorizedPrice, PriceAnchor, PriceBook};
 
 const MAX_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_LINE: usize = 16 * 1024;
@@ -41,6 +41,14 @@ impl AuthorizedPublication {
         anchor: &PriceAnchor,
         at_ms: u64,
     ) -> Result<Self> {
+        Self::authorize_with_prices(policy, book, anchor, at_ms).map(|(publication, _)| publication)
+    }
+    pub(crate) fn authorize_with_prices(
+        policy: &NativeValuationConfig,
+        book: &PriceBook,
+        anchor: &PriceAnchor,
+        at_ms: u64,
+    ) -> Result<(Self, Vec<AuthorizedPrice>)> {
         policy.validate()?;
         let bytes = serde_json::to_vec(book).map_err(|_| err("PRICE_PUBLICATION_BOOK"))?;
         if bytes.len() > 1024 * 1024 || book.prices.iter().any(|p| &p.observation.anchor != anchor)
@@ -70,7 +78,7 @@ impl AuthorizedPublication {
             tokens,
         };
         Binding::new(policy)?.validate(&water)?;
-        Ok(Self(water))
+        Ok((Self(water), prices))
     }
     pub fn high_water(&self) -> &HighWater {
         &self.0

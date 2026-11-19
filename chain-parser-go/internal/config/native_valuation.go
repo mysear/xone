@@ -63,8 +63,9 @@ func (v ChainlinkUSDPairPolicy) valid(chain, genesis string) bool {
 }
 
 type NativeValuationConfig struct {
-	ObservationsFile string              `json:"observations_file"`
-	Policies         []NativePricePolicy `json:"policies"`
+	ObservationsFile   string              `json:"observations_file"`
+	PublicationJournal *string             `json:"publication_journal,omitempty"`
+	Policies           []NativePricePolicy `json:"policies"`
 }
 
 func canonicalPriceHex(s string, n int) bool {
@@ -90,6 +91,9 @@ func priceName(s string) bool {
 	return true
 }
 func (v NativeValuationConfig) valid(chains []Chain) bool {
+	if path := v.PublicationJournal; path != nil && (*path == "" || len(*path) > 4096 || strings.ContainsRune(*path, '\x00') || *path == v.ObservationsFile) {
+		return false
+	}
 	if v.ObservationsFile == "" || len(v.ObservationsFile) > 4096 || strings.ContainsRune(v.ObservationsFile, '\x00') || len(v.Policies) == 0 || len(v.Policies) > 128 {
 		return false
 	}
