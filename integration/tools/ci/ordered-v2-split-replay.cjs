@@ -109,6 +109,31 @@ async function replay(transport, captureBank) {
       sharedPool: pairs[3].address,staleSecond:String(staleSecond),orderedSecond:String(orderedSecond)});
     await restore();
   }
+  if (bank) {
+    const fees = {gasLimit:3000000,maxFeePerGas:2000000000,maxPriorityFeePerGas:100000000};
+    // Start each sequence with no caller allowance. Capture independent miner receipts
+    // and a common initial bank. REVM must carry the approval state into the swap.
+    await mined(sell.approve(batch.address,0,fees));
+    const anchor = await provider.getBlock('latest');
+    const sequential = await splitBank(provider,anchor,{caller,recipient,batch,router,factory,weth,tokens,pairs});
+    const start = await provider.send('evm_snapshot',[]);
+    sequential.result.sequences = [];
+    for (const index of [0,2]) {
+      const c = binding.cases[index];
+      const input = ethers.BigNumber.from(c.input);
+      assert.equal(String(await sell.allowance(caller,batch.address)), '0');
+      const approve = await mined(sell.approve(batch.address,input,fees));
+      await sequential.record(approve);
+      assert.equal(String(await sell.allowance(caller,batch.address)), c.input);
+      const legs = c.legs.map(l => [l.amount,l.tokens]);
+      const swap = await mined(batch.execute(c.exactOut,recipient,c.budget,c.output,deadline,legs,fees));
+      await sequential.record(swap, await provider.getBlock(approve.blockHash));
+      assert.equal(String(await sell.allowance(caller,batch.address)), '0');
+      sequential.result.sequences.push({caseIndex:index,runs:sequential.result.runs.splice(0)});
+      if (index === 0) assert.equal(await provider.send('evm_revert',[start]),true);
+    }
+    bank.result.approvalReplay = sequential.result;
+  }
   return {authority:'LOCAL_ORIGINAL_ROUTER_DIFFERENTIAL',bankHash:base.hash,sourceSha256:hash(src),compiler:solc.version(),
     runtimeSha256:hash(Buffer.from((await provider.getCode(batch.address)).slice(2),'hex')),priorApprovalGas:String(approval.gasUsed),
     normalQuoteConnected:false,completeNetCost:false,cases,binding,executionBank:bank?.result};
@@ -139,9 +164,9 @@ async function splitBank(provider,base,{caller,recipient,batch,router,factory,we
   }
   const genesis=await provider.getBlock(0);
   const result={state_anchor:{chain_key:'evm:1337',block_number:base.number,block_hash:base.hash,parent_hash:base.parentHash,timestamp:base.timestamp,genesis_hash:genesis.hash,base_fee_per_gas:String(base.baseFeePerGas)},accounts:await accounts(base.number),runs:[]};
-  async function record(receipt) {
+  async function record(receipt,parent=base) {
     const h=await provider.send('eth_getBlockByHash',[receipt.blockHash,false]);
-    assert.equal(h.parentHash,base.hash); assert.equal(Number(h.number),base.number+1);
+    assert.equal(h.parentHash,parent.hash); assert.equal(Number(h.number),parent.number+1);
     assert.deepEqual(h.transactions,[receipt.transactionHash]);
     const tx=await provider.getTransaction(receipt.transactionHash);
     const post=await accounts(Number(h.number));

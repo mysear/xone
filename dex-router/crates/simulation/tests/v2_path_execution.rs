@@ -1,7 +1,10 @@
 //! Independent mined original-Router path transactions and complete declared banks.
 use revm::primitives::{Address, BlockEnv, Bytes, SpecId, TxEnv, TxKind, B256, U256};
 use serde_json::Value;
-use std::{str::FromStr, sync::OnceLock};
+use std::{
+    str::FromStr,
+    sync::{Arc, OnceLock},
+};
 use xone_domain::{hash, scope_hash, v2_swap, Amount, BlockRef, Pool, SnapshotRef};
 use xone_execution_plan::{BoundEvmExactOutExecution, Context, ExecutorIdentity};
 use xone_execution_preparation::evm::{prepare_exact_out, FeeContext, FundingObservation};
@@ -190,11 +193,78 @@ fn eight_ordered_split_receipts_match_all_logs_and_declared_poststate() {
     }
 }
 
+#[test]
+#[ignore = "requires mined caller approval followed by ordered split swap"]
+fn approval_and_swap_use_consecutive_state_nonce_and_actual_fees() {
+    let report: Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("XONE_ORDERED_V2_REPORT").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let bank = &report["executionBank"]["approvalReplay"];
+    let sequences = bank["sequences"].as_array().unwrap();
+    assert_eq!(sequences.len(), 2);
+    for (seq, expected_index) in sequences.iter().zip([0, 2]) {
+        assert_eq!(seq["caseIndex"], expected_index);
+        let runs = seq["runs"].as_array().unwrap();
+        assert_eq!(runs.len(), 2);
+        let fixture: FixtureState = serde_json::from_value(serde_json::json!({"schema_version":1,"state_anchor":bank["state_anchor"],"accounts":bank["accounts"],"block_hashes":[],"execution_environment":runs[0]["execution_environment"]})).unwrap();
+        let mut image = fixture.to_image(&budget()).unwrap();
+        let caller = Address::from_str(report["binding"]["caller"].as_str().unwrap()).unwrap();
+        let before = image.data().accounts[&caller].as_ref().unwrap().balance;
+        let nonce = image.data().accounts[&caller].as_ref().unwrap().nonce;
+        let mut parent = fixture.state_anchor.block_hash;
+        let mut fees = U256::ZERO;
+        let binding = &report["binding"];
+        let case = &binding["cases"][expected_index];
+        let token = &case["legs"][0]["tokens"][0];
+        let spender = binding["executor"]["target"].as_str().unwrap();
+        let amount = U256::from_str(case["input"].as_str().unwrap()).unwrap();
+        assert_eq!(runs[0]["to"], *token);
+        assert_eq!(
+            runs[0]["data"],
+            format!("0x095ea7b3{:0>64}{amount:064x}", &spender[2..])
+        );
+        assert_eq!(runs[1]["to"], spender);
+        assert_eq!(runs[1]["data"], case["data"]);
+        for (offset, r) in runs.iter().enumerate() {
+            let env: ExecutionEnvironment =
+                serde_json::from_value(r["execution_environment"].clone()).unwrap();
+            assert_eq!(env.parent_hash, parent);
+            parent = env.block_hash.clone();
+            assert_eq!(r["transaction_context"]["nonce"], nonce + offset as u64);
+            assert_eq!(r["from"], binding["caller"]);
+            assert_eq!(r["value"], "0");
+            let c = serde_json::json!({"id":expected_index,"transaction_context":r["transaction_context"],"transaction":r,"expected":{"gas_used":r["gasUsed"],"post_accounts":r["post_accounts"]}});
+            image = Arc::new(replay_on_image(&c, true, Some(&r["logs"]), &env, image));
+            let price = U256::from_str(r["effectiveGasPrice"].as_str().unwrap()).unwrap();
+            fees += price * U256::from_str(r["gasUsed"].as_str().unwrap()).unwrap();
+            assert_eq!(
+                before - image.data().accounts[&caller].as_ref().unwrap().balance,
+                fees
+            );
+        }
+    }
+}
+
 fn compare_mined(c: &Value, success: bool, logs: Option<&Value>) {
     let f = fixture(c);
-    let env = &f.execution_environment;
+    replay_on_image(
+        c,
+        success,
+        logs,
+        &f.execution_environment,
+        f.to_image(&budget()).unwrap(),
+    );
+}
+
+fn replay_on_image(
+    c: &Value,
+    success: bool,
+    logs: Option<&Value>,
+    env: &ExecutionEnvironment,
+    image: Arc<core::StateImage>,
+) -> core::StateImage {
     let tx: TransactionContext = serde_json::from_value(c["transaction_context"].clone()).unwrap();
-    let image = f.to_image(&budget()).unwrap();
     let original = image.as_ref().clone();
     let result = core::execute(
         image.clone(),
@@ -289,6 +359,7 @@ fn compare_mined(c: &Value, success: bool, logs: Option<&Value>) {
         }
     }
     assert_eq!(image.as_ref(), &original);
+    post
 }
 #[test]
 fn exact_out_six_original_simple_paths_and_preparations_match_mined_transactions() {

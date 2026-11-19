@@ -44,6 +44,9 @@ def main(*, router=False):
         bank_env=['env','XONE_ORDERED_V2_REPORT='+str(split_receipt),'XONE_SPLIT_WORKER='+str(target/'debug/examples/evm_dynamic_fee_harness')]
         extra.append(('ordered-v2-split-binding',bank_env+cargo+['test']+manifest+['-p','xone-execution-plan','--test','ordered_v2','--','--include-ignored']))
         extra.append(('ordered-v2-split-poststate',bank_env+cargo+['test']+manifest+['-p','xone-simulation','--test','v2_path_execution','eight_ordered_split_receipts_match_all_logs_and_declared_poststate','--','--include-ignored','--exact']))
+        approval_test = 'approval_and_swap_use_consecutive_state_nonce_and_actual_fees'
+        extra.append(('ordered-v2-approval-sequence', bank_env+cargo+['test']+manifest+['-p','xone-simulation','--test','v2_path_execution',approval_test,'--','--include-ignored','--exact']))
+        required['ordered-v2-approval-sequence'] = [approval_test]
         split_http = directory/'ordered-split-http'
         extra.append(('ordered-v2-split-http', [sys.executable, 'integration/tools/acceptance/ordered_split_http.py',
             str(target/'debug/examples/evm_dynamic_fee_harness'), str(split_receipt), str(split_http)]))

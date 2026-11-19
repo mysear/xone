@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|连续授权与兑换回放（阶段168，P0-3）|§13.1、§14.2、§14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|从零授权开始推进两笔交易的状态和 nonce|两种报价方向均通过，正常报价待接入|
 |调用者授权费用判定（阶段167，P0-3）|§13.1、§14.1、§15；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|按付款人、代币、执行目标及报价输入核对 ERC20 授权|两种报价方向与 RPC 准备均已验证，授权不足时待顺序计费|
 |共享池拆单报价费用（阶段166，P0-3）|§13.5/14.2/14.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|正常报价比较两条单路线和两种有序拆单，披露选中计划费用|固定 Shanghai 状态的 8 个 HTTP 场景通过，辅助交易费用待补|
 |V2 拆单独立仿真（阶段165，P0-3）|§13.5/14.2/14.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|真实 worker 重建并执行整笔计划、核对批量合约与 Router02 及完整池状态|4 笔成功、4 笔回滚的原始状态回放及 3 项 worker 拒绝通过，父进程费用接线继续|
@@ -762,6 +763,7 @@
 |162|[按 Router 区块锚点采集与复核](#market-router-bank-anchor)|LOCAL_SCOPE_VERIFIED|显式哈希选块、跨字段不一致拒绝及签后变化不发布|
 |163|[共享池 V2 整笔拆单执行](#ordered-v2-split)|LOCAL_SCOPE_VERIFIED|ExactIn/ExactOut 两种腿序的实际整笔 Gas、余额、储备与回滚|
 |164|[按完整拆单计划生成批量交易](#ordered-v2-binding)|LOCAL_SCOPE_VERIFIED|逐字节对照实际成交调用；拒绝沿用旧腿序金额或其他绑定|
+|168|[连续授权与兑换回放](#approval-sequence)|LOCAL_SCOPE_VERIFIED|从原始本地出块回执核对两笔费用、日志、账户与存储|
 |167|[调用者授权费用判定](#caller-approval-cost)|LOCAL_SCOPE_VERIFIED|授权充足、授权不足和证据未知三种结果|
 |166|[共享池拆单正常报价](#ordered-v2-quote)|LOCAL_SCOPE_VERIFIED|父进程回执绑定、候选费用排序及统一毛额回退|
 |165|[共享池拆单独立仿真](#ordered-v2-worker)|LOCAL_SCOPE_VERIFIED|显式费用上限、原始回执及完整已采集状态对照、worker 核验|
@@ -4534,3 +4536,18 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F167.2|准备接口披露授权缺口|WP15,WP16|LOCAL_SCOPE_VERIFIED|4 项接口测试通过，覆盖授权不足、资金不足、重组、ExactOut 所需输入及准备摘要。|
 
 [正常 HTTP 8 个场景](integration/artifacts/local/ordered-approval-167/http/report.json)与父进程定向单测通过。测试前确认上一轮隔离编译目录已经清理，核对并移除了重复的出块夹具。下一项是用连续状态核对新增授权交易及随后兑换的实际费用，随后处理补充资金和全候选净额。
+
+<a id="approval-sequence"></a>
+
+## 连续授权与兑换回放（2026-11-19，阶段168，P0-3）
+
+按 §13.1 和 §14.2，从同一零授权区块分别执行 ExactIn 和 ExactOut。调用者先授权该拆单所需的准确额度，再在直接子块执行兑换。REVM 从初始账户和存储执行第一笔，将得到的状态交给第二笔。每笔均与原合约的出块记录核对 calldata、nonce、事件、Gas、付款人原币余额、账户和已采集的存储。
+
+|任务|报价方向|授权 Gas|兑换 Gas|付款人两笔原币支出合计（wei）|
+|---|---|---:|---:|---:|
+|F168.1|ExactIn|46074|476599|65968458803684|
+|F168.2|ExactOut|46110|497444|68597279195014|
+
+7 项 V2 路径执行测试全部通过，其中包括新增的两笔连续状态回放和原有的 8 笔拆单成功及回滚比对。[本地出块记录](integration/artifacts/local/ordered-approval-168/bank.json)
+
+下一项是将已验证的顺序执行引入受限 worker，绑定授权额度、执行目标、费用上限、两笔 nonce 和环境来源，再由报价服务按候选核对总费用。补充资金交易、可信动态 bank 和其他优先项继续开放。
