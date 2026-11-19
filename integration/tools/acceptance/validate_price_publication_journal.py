@@ -38,7 +38,9 @@ def main(*, router=False):
     if router:
         directory = output/'router-runs'/uuid.uuid4().hex
         configs, http = directory/'configs', directory/'http'
+        split_receipt = directory/'ordered-split.json'
         extra.append(('durable-price-go-config', [sys.executable,__file__,'--go-configs',str(configs)]))
+        extra.append(('ordered-v2-atomic-split', ['node', 'integration/tools/ci/ordered-v2-split-replay.cjs', str(split_receipt)]))
         for workspace, label in [('dex-router','router'),('chain-parser-rust','parser')]:
             gate = 'durable-price-'+label+'-config'
             test = 'durable_journal_config_matches_go_hashes_and_rejects_invalid_paths'
@@ -48,7 +50,7 @@ def main(*, router=False):
         test='transaction_economics::publication_tests::durable_publication_revokes_old_readers_while_committing_and_after_lost_ack'
         extra.append(('durable-price-lost-ack',cargo+['test']+manifest+['-p','xone-quote-api','--lib',test,'--','--exact']))
         required['durable-price-lost-ack']=[test]
-        artifacts = [str((p/'report.json').relative_to(ROOT)) for p in [configs,http]]
+        artifacts = [str(p.relative_to(ROOT)) for p in [configs/'report.json', http/'report.json', split_receipt]]
     validate(output_base=output, durable_router_output=http, extra_checks=[
         ('price-journal-state', cargo+['test']+manifest+['-p', 'xone-quote-api', '--lib', 'price_publication::tests']),
         ('price-journal-cli-build', cargo+['build']+manifest+['-p', 'xone-quote-api', '--bin', 'xone-price-publication']),
