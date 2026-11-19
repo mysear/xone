@@ -6,12 +6,12 @@ use crate::{
 };
 use crate::{
     exact_out::{self, ExactOutPlan},
-    ExecutorIdentity, Transaction,
+    Context, ExecutorIdentity, Transaction,
 };
 use serde::{Deserialize, Serialize};
-use xone_domain::{err, hash, v2_swap, Amount, Pool, Result, Snapshot};
+use xone_domain::{err, hash, v2_swap, Amount, Pool, Result, Snapshot, SnapshotRef};
 use xone_optimizer::exact_out::{evaluate_allocation, ExactOutProposal};
-use xone_routing::Funds;
+use xone_routing::{Edge, Funds};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -58,34 +58,7 @@ pub fn bind_v2_exact_out_execution(
     }
     code_hash(&executor.code_sha256)?;
     code_hash(&executor.factory_code_sha256)?;
-    for h in [&plan.snapshot.block.hash, &plan.snapshot.block.parent_hash] {
-        code_hash(
-            h.strip_prefix("0x")
-                .ok_or_else(|| err("PREPARATION_EVM_SOURCE_HASH"))?,
-        )?;
-    }
-    if plan.context.deadline_ms <= plan.snapshot.block.timestamp_ms {
-        return Err(err("INVALID_EXECUTION_DEADLINE"));
-    }
-    Snapshot {
-        reference: plan.snapshot.clone(),
-        pools: pools.to_vec(),
-        source: "BOUND_EXACT_OUT".into(),
-        history_gaps: Vec::new(),
-    }
-    .validate(
-        &plan.snapshot.owner_service,
-        plan.snapshot.owner_assignment_version,
-    )?;
-    let adapters = pools
-        .iter()
-        .map(|p| &p.adapter_version)
-        .collect::<std::collections::BTreeSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    if hash(&adapters)? != plan.snapshot.adapter_set_hash {
-        return Err(err("ADAPTER_SET_HASH_MISMATCH"));
-    }
+    validate_v2_scope(&plan.snapshot, pools, &plan.context)?;
     let route = &plan.allocation.routes[0];
     if route.edges.is_empty()
         || route.edges.len() > 8
@@ -97,8 +70,60 @@ pub fn bind_v2_exact_out_execution(
     {
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
     }
+    let touched = validate_complete_path(
+        &plan.context,
+        &plan.snapshot,
+        &route.edges,
+        &route.tokens,
+        pools,
+        executor,
+    )?;
+    bind_replayed(plan, pools, executor, touched)
+}
+
+pub(super) fn validate_v2_scope(
+    snapshot: &SnapshotRef,
+    pools: &[Pool],
+    context: &Context,
+) -> Result<()> {
+    for h in [&snapshot.block.hash, &snapshot.block.parent_hash] {
+        code_hash(
+            h.strip_prefix("0x")
+                .ok_or_else(|| err("PREPARATION_EVM_SOURCE_HASH"))?,
+        )?;
+    }
+    if context.deadline_ms <= snapshot.block.timestamp_ms {
+        return Err(err("INVALID_EXECUTION_DEADLINE"));
+    }
+    Snapshot {
+        reference: snapshot.clone(),
+        pools: pools.to_vec(),
+        source: "BOUND_V2".into(),
+        history_gaps: Vec::new(),
+    }
+    .validate(&snapshot.owner_service, snapshot.owner_assignment_version)?;
+    let adapters = pools
+        .iter()
+        .map(|p| &p.adapter_version)
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    if hash(&adapters)? != snapshot.adapter_set_hash {
+        return Err(err("ADAPTER_SET_HASH_MISMATCH"));
+    }
+    Ok(())
+}
+
+pub(super) fn validate_complete_path(
+    context: &Context,
+    snapshot: &SnapshotRef,
+    edges: &[Edge],
+    tokens: &[String],
+    pools: &[Pool],
+    executor: &ExecutorIdentity,
+) -> Result<Vec<String>> {
     let mut touched = Vec::new();
-    for (i, edge) in route.edges.iter().enumerate() {
+    for (i, edge) in edges.iter().enumerate() {
         let pool = pools
             .iter()
             .find(|p| p.pool_id == edge.pool_id)
@@ -127,9 +152,9 @@ pub fn bind_v2_exact_out_execution(
         {
             return Err(err("EXECUTION_FACTORY_CODE_MISMATCH"));
         }
-        if state.bank_block_number != plan.snapshot.block.number_or_slot
-            || state.bank_block_hash != plan.snapshot.block.hash
-            || state.bank_unix_timestamp.checked_mul(1000) != Some(plan.snapshot.block.timestamp_ms)
+        if state.bank_block_number != snapshot.block.number_or_slot
+            || state.bank_block_hash != snapshot.block.hash
+            || state.bank_unix_timestamp.checked_mul(1000) != Some(snapshot.block.timestamp_ms)
         {
             return Err(err("PREPARATION_EVM_POOL_SOURCE"));
         }
@@ -138,8 +163,8 @@ pub fn bind_v2_exact_out_execution(
         } else {
             (&pool.token1, &pool.token0)
         };
-        if &route.tokens[i] != from
-            || &route.tokens[i + 1] != to
+        if tokens.get(i) != Some(from)
+            || tokens.get(i + 1) != Some(to)
             || &edge.to != to
             || edge.from_token.as_ref().is_some_and(|value| value != from)
         {
@@ -148,12 +173,22 @@ pub fn bind_v2_exact_out_execution(
         address(&pool.pool_id)?;
         if [from, to, &pool.pool_id, &executor.target, &executor.factory]
             .iter()
-            .any(|a| **a == plan.context.caller || **a == plan.context.recipient)
+            .any(|a| **a == context.caller || **a == context.recipient)
         {
             return Err(err("EXECUTION_FUNDS_CONTEXT"));
         }
         touched.push(pool.pool_id.clone());
     }
+    Ok(touched)
+}
+
+fn bind_replayed(
+    plan: &ExactOutPlan,
+    pools: &[Pool],
+    executor: &ExecutorIdentity,
+    touched: Vec<String>,
+) -> Result<BoundEvmExactOutExecution> {
+    let route = &plan.allocation.routes[0];
     let proposal = ExactOutProposal {
         edges: route.edges.clone(),
         amount_out: route.amount_out.clone(),

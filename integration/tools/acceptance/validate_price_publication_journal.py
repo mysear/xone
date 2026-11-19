@@ -41,6 +41,9 @@ def main(*, router=False):
         split_receipt = directory/'ordered-split.json'
         extra.append(('durable-price-go-config', [sys.executable,__file__,'--go-configs',str(configs)]))
         extra.append(('ordered-v2-atomic-split', ['node', 'integration/tools/ci/ordered-v2-split-replay.cjs', str(split_receipt)]))
+        extra.append(('ordered-v2-split-binding',['env','XONE_ORDERED_V2_REPORT='+str(split_receipt)]+cargo+['test']+manifest+['-p','xone-execution-plan','--test','ordered_v2']))
+        required['ordered-v2-split-binding']=['split_plans_match_mined_calldata_balances_and_pool_order',
+            'split_rejects_recommitted_stale_leg_order_and_wrong_amounts','split_rebuild_rejects_substitution_and_missing_source']
         for workspace, label in [('dex-router','router'),('chain-parser-rust','parser')]:
             gate = 'durable-price-'+label+'-config'
             test = 'durable_journal_config_matches_go_hashes_and_rejects_invalid_paths'
