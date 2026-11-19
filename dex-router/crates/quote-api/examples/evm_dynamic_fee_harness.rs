@@ -58,11 +58,36 @@ async fn main() {
         reference.adapter_set_hash = hash(&vec![xone_domain::v2_swap::ADAPTER]).unwrap();
     }
     let mut split_executor = None;
+    let mut approval_replay = None;
     if let Ok(path) = std::env::var("XONE_SPLIT_BANK") {
         let report: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-        let binding = &report["binding"];
-        let bank = &report["executionBank"];
-        let run = &bank["runs"][0];
+        let mut binding = report["binding"].clone();
+        let mut bank = &report["executionBank"];
+        let mut run = &bank["runs"][0];
+        if std::env::var_os("XONE_SPLIT_APPROVAL_REPLAY").is_some() {
+            use sha2::{Digest, Sha256};
+            bank = &bank["approvalReplay"];
+            let anchor = &bank["state_anchor"];
+            binding["block"] = json!({"chain_key":anchor["chain_key"],"number_or_slot":anchor["block_number"],"hash":anchor["block_hash"],"parent_hash":anchor["parent_hash"],"timestamp_ms":anchor["timestamp"].as_u64().unwrap()*1000});
+            for pool in binding["pools"].as_array_mut().unwrap() {
+                let swap = &mut pool["v2"]["swap"];
+                swap["bank_block_hash"] = anchor["block_hash"].clone();
+                swap["bank_block_number"] = anchor["block_number"].clone();
+                swap["bank_unix_timestamp"] = anchor["timestamp"].clone();
+            }
+            let runs = &bank["sequences"][0]["runs"];
+            run = &runs[0];
+            let token = &run["to"];
+            let code = bank["accounts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["address"] == *token)
+                .unwrap()["code"]
+                .as_str()
+                .unwrap();
+            approval_replay = Some(serde_json::from_value(json!({"token":token,"caller":binding["caller"],"sequence":{"token_code_sha256":hex::encode(Sha256::digest(hex::decode(&code[2..]).unwrap())),"approval_context":run["transaction_context"],"swap_environment":runs[1]["execution_environment"]},"swap_context":runs[1]["transaction_context"]})).unwrap());
+        }
         let ex: xone_execution_plan::ordered_v2::SplitExecutor =
             serde_json::from_value(binding["executor"].clone()).unwrap();
         rpc.executor = ex.router.clone();
@@ -128,6 +153,7 @@ async fn main() {
     let max_fee = original_tx.gas_price.clone();
     let use_split_bank = split_executor.is_some();
     let mut bundle = LocalSimulationBundle {
+        approval_replay,
         split_executor,
         schema_version: 1,
         op_attributes_calldata: None,
@@ -178,6 +204,7 @@ async fn main() {
         rpc.genesis_hash = source.fixture.state_anchor.genesis_hash.clone();
         rpc.executor = executor.clone();
         bundle = LocalSimulationBundle {
+            approval_replay: None,
             split_executor: None,
             schema_version: 1,
             fixture: source.fixture,

@@ -150,6 +150,8 @@ pub(super) fn execute(
         execution_fee: fees.execution_fee,
         payer_before: balances.payer_before,
         payer_after: balances.payer_after,
+        beneficiary_before: balances.beneficiary_before,
+        beneficiary_after: balances.beneficiary_after,
         post_state_digest: delta_hash(&applied.state)?,
     };
     Ok((after, receipt))

@@ -1,3 +1,4 @@
+mod approval_sequence;
 mod cache_gc;
 mod candidate_costs;
 mod cost_fallback;

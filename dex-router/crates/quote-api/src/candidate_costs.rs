@@ -174,6 +174,14 @@ impl Model {
             "simulationAttempts":self.attempts,"simulationBudgetExhausted":self.unavailable.contains_key("MAX_SIMULATION_PLANS"),"unavailableReasons":self.unavailable,
             "selectedPlanHash":selected_hash,"selectedExecution":self.evidence.get(selected_hash),
             "candidateExecutions":self.evidence});
+        if self
+            .evidence
+            .values()
+            .any(|e| e["costs"]["scope"] == "DECLARED_LOCAL_APPROVAL_AND_SWAP")
+        {
+            value["scope"] = "LOCAL_EVM_PLAN_NETWORK_FEES".into();
+            value["additionalOperationsIncluded"] = true.into();
+        }
         if let Some((book, revision)) = self.backend.as_ref().and_then(|b| b.price_identity()) {
             value["priceBookHash"] = book.into();
             value["publicationRevision"] = revision.into();
@@ -259,7 +267,12 @@ pub(crate) fn disclose(
     ] {
         costs[field] = original[field].clone();
     }
-    costs["scope"] = "SELECTED_LOCAL_CANDIDATE_TRANSACTION".into();
+    costs["scope"] = if costs["scope"] == "DECLARED_LOCAL_APPROVAL_AND_SWAP" {
+        "SELECTED_LOCAL_APPROVAL_AND_SWAP"
+    } else {
+        "SELECTED_LOCAL_CANDIDATE_TRANSACTION"
+    }
+    .into();
     costs["selectedPlanHash"] = plan_hash.into();
     costs["completeQuoteCosts"] = false.into();
     costs["quoteRankingApplied"] = ranking["costAdjustmentApplied"].clone();

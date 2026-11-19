@@ -1384,6 +1384,8 @@ pub struct ApprovalReceipt {
     pub execution_fee: Amount,
     pub payer_before: Amount,
     pub payer_after: Amount,
+    pub beneficiary_before: Amount,
+    pub beneficiary_after: Amount,
     pub post_state_digest: String,
 }
 

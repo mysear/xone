@@ -371,7 +371,22 @@ impl ValuationState {
         let input = number(&response["outcome"]["actual_input_consumed"])?;
         let output = number(&response["outcome"]["actual_buy_amount"])?;
         let debit = number(&response["costs"]["payerNetNativeDebit"])?;
-        let price = |token: &str| self.prices.iter().find(|p| p.token() == token);
+        let sequence = response["costs"]["scope"] == "DECLARED_LOCAL_APPROVAL_AND_SWAP";
+        let settlement_ms = if sequence {
+            response["costs"]["settlementTimestampMs"]
+                .as_u64()
+                .filter(|at| *at > self.execution_timestamp_ms)
+                .ok_or_else(|| err("NATIVE_VALUATION_TIME"))?
+        } else {
+            self.execution_timestamp_ms
+        };
+        let price = |token: &str| {
+            self.prices.iter().find(|p| p.token() == token).filter(|p| {
+                !sequence
+                    || p.validate_at(&self.anchor, self.execution_timestamp_ms)
+                        .is_ok()
+            })
+        };
         let mut economics = evaluated_amounts(
             Settlement {
                 input: &input,
@@ -380,11 +395,15 @@ impl ValuationState {
                 sell_token: &context.sell_token,
                 buy_token: &context.buy_token,
                 anchor: &self.anchor,
-                at_ms: self.execution_timestamp_ms,
+                at_ms: settlement_ms,
             },
             price(&context.sell_token),
             price(&context.buy_token),
         )?;
+        if sequence {
+            economics["scope"] = "EVALUATED_APPROVAL_AND_SWAP_NETWORK_FEES".into();
+            economics["additionalOperationsIncluded"] = true.into();
+        }
         economics["priceBookHash"] = self.book_hash.clone().into();
         if self.revision != 0 {
             economics["publicationRevision"] = self.revision.into();

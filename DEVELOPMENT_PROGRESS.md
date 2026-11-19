@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|正常报价计入调用者授权费（阶段170，P0-3）|§13.1、§14.2–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|零授权拆单按相邻区块依次执行授权和兑换，报价服务复核两笔费用后比较候选|两种方向的成交、兑换时价格过期及原有回归共 12 个 HTTP 场景|
 |两笔交易的 worker 核验（阶段169，P0-3）|§13.1、§14.1–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|按同一计划生成准确额度的授权交易，向后传递状态并核对两笔费用|ExactIn 和 ExactOut 均通过独立出块对照|
 |连续授权与兑换回放（阶段168，P0-3）|§13.1、§14.2、§14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|从零授权开始推进两笔交易的状态和 nonce|两种报价方向均通过，正常报价待接入|
 |调用者授权费用判定（阶段167，P0-3）|§13.1、§14.1、§15；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|按付款人、代币、执行目标及报价输入核对 ERC20 授权|两种报价方向与 RPC 准备均已验证，授权不足时待顺序计费|
@@ -764,6 +765,7 @@
 |162|[按 Router 区块锚点采集与复核](#market-router-bank-anchor)|LOCAL_SCOPE_VERIFIED|显式哈希选块、跨字段不一致拒绝及签后变化不发布|
 |163|[共享池 V2 整笔拆单执行](#ordered-v2-split)|LOCAL_SCOPE_VERIFIED|ExactIn/ExactOut 两种腿序的实际整笔 Gas、余额、储备与回滚|
 |164|[按完整拆单计划生成批量交易](#ordered-v2-binding)|LOCAL_SCOPE_VERIFIED|逐字节对照实际成交调用；拒绝沿用旧腿序金额或其他绑定|
+|170|[正常报价计入调用者授权费](#approval-quote)|LOCAL_SCOPE_VERIFIED|按候选复核两笔交易的费用及价格有效期|
 |169|[两笔交易的 worker 核验](#approval-worker)|LOCAL_SCOPE_VERIFIED|重建授权交易、逐笔核对状态和费用|
 |168|[连续授权与兑换回放](#approval-sequence)|LOCAL_SCOPE_VERIFIED|从原始本地出块回执核对两笔费用、日志、账户与存储|
 |167|[调用者授权费用判定](#caller-approval-cost)|LOCAL_SCOPE_VERIFIED|授权充足、授权不足和证据未知三种结果|
@@ -4570,3 +4572,16 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 阶段168的冻结提交 `af504ab` 完成了 88 项命令检查，全部通过。最终汇总读取出块器报告时发现缺少 `passed` 字段，因此本次综合验收结果为失败。[综合报告](integration/artifacts/local/durable-price-router-check/runs/58da093613bd4ce88c227843eaf53521/report.json)
 
 出块器现于所有回放断言及冻结绑定摘要校验通过后写入成功标记。定向重新出块的完整 JSON 除新增标记外与原始输入逐项相同。[修正后出块报告](integration/artifacts/local/ordered-approval-168/verified-bank.json)
+
+<a id="approval-quote"></a>
+
+## 正常报价计入调用者授权费（2026-11-19，阶段170，P0-3）
+
+§13.1 的原币成本与 §14 的有序计划在 ExactIn 和 ExactOut 的正常报价入口接通。服务端配置指定付款人、卖币、拆单执行器、代币代码摘要和两笔交易环境。父进程从计划重建授权目标和额度，校验逐笔 Gas、付款人及区块受益人的余额，并按付款人实际净支出折算费用。直接路线仍按首个区块估价。拆单的 `gasNative` 指兑换费，`approvalNative` 指授权费，两笔合计记录在 `nativeKnownSubtotal`。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F170.1|在同一报价的候选中比较直接兑换及先授权后拆单|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|两种方向按各候选实测 Gas 和签名价格独立核算，两笔费用仅归入对应计划。|
+|F170.2|按各候选成交区块检查签名价格有效期|WP13,WP16|LOCAL_SCOPE_VERIFIED|价格在授权后、兑换时到期，两种方向均回退为毛额排序。|
+
+12 个本地 HTTP 场景覆盖有价、预算不足、价格过期、缺执行器、顺序授权和兑换时到期。后续 P0-3 优先处理非零不足授权的替换策略、补充资金交易及其费用，再验收完整候选净额。完整工作包验收仍为 0/26。[HTTP 验证报告](integration/artifacts/local/approval-quote-170/report.json)

@@ -143,6 +143,7 @@ struct ExecutionCommitment {
     coinbase_native_before: Option<Amount>,
     executor: ExecutorIdentity,
     approval: Option<crate::evm_approval::Requirement>,
+    approval_sequence: Option<crate::approval_sequence::Commitment>,
     split_receipt: Option<Value>,
     split_executor: Option<ordered_v2::SplitExecutor>,
 }
@@ -185,9 +186,23 @@ impl PreparedExecution {
         } else {
             None
         };
+        let approval_sequence = crate::approval_sequence::Commitment::new(&request)
+            .map_err(|e| Failure::new(&e.0, "approval_binding"))?;
+        let swap_env = request
+            .split
+            .as_ref()
+            .and_then(|s| s.approval_sequence.as_ref())
+            .map(|s| &s.swap_environment)
+            .unwrap_or(&request.fixture.execution_environment)
+            .clone();
         let split_receipt = if let Some(s) = &request.split {
+            let bound = if let Some(seq) = &s.approval_sequence {
+                json!(["ordered-approval-sequence/1", s.bound, seq])
+            } else {
+                json!(s.bound)
+            };
             Some(
-                json!({"bound":s.bound,"source_fixture_hash":hash(&request.fixture)
+                json!({"bound":bound,"source_fixture_hash":hash(&request.fixture)
                 .map_err(|_| Failure::new("SIMULATION_WORKER_BINDING", "fixture"))?,
                 "transaction_context":request.transaction_context,"limits":request.budget,
                 "simulator_version":xone_simulation::evm_fixture::SIMULATOR_VERSION}),
@@ -264,13 +279,14 @@ impl PreparedExecution {
                 transaction,
                 executor,
                 approval,
+                approval_sequence,
                 split_receipt,
                 split_executor,
                 quote_kind,
                 expected_preparation,
                 transaction_context: request.transaction_context,
-                execution_base_fee: request.fixture.execution_environment.base_fee,
-                execution_coinbase: request.fixture.execution_environment.coinbase,
+                execution_base_fee: swap_env.base_fee,
+                execution_coinbase: swap_env.coinbase,
                 caller_native_before,
                 coinbase_native_before,
             },
@@ -369,6 +385,7 @@ impl LocalSimulation {
                 return Err(err("SIMULATION_SPLIT_EXECUTOR_MISMATCH"));
             }
         }
+        crate::approval_sequence::validate_bundle(&bundle, sim.max_gas)?;
         let budget = SimulationBudget {
             max_fixture_json_bytes: sim.max_state_bytes as usize,
             max_accounts: 2048,
@@ -432,7 +449,15 @@ impl LocalSimulation {
             .ok_or_else(|| err("EXECUTION_ADAPTER_UNSUPPORTED"))?;
         let bound = ordered_v2::bind(&plan, &cached.view().pools, expected, allowed)?;
         Ok(Some(WorkerSplit {
-            approval_sequence: None,
+            approval_sequence: self
+                .bundle
+                .approval_replay
+                .as_ref()
+                .filter(|model| {
+                    model.caller == cached.context().caller
+                        && model.token == cached.context().sell_token
+                })
+                .map(|model| model.sequence.clone()),
             bound,
             expected_executor: expected.clone(),
         }))
@@ -725,6 +750,21 @@ impl LocalSimulation {
                 .map_err(|_| Failure::new("SIMULATION_WORKER_OP_BINDING", "op_authentication"))?;
             xone_simulation::evm_fixture::op_context(&authenticated)
                 .map_err(|_| Failure::new("SIMULATION_WORKER_OP_BINDING", "op_authentication"))?
+        } else if split
+            .as_ref()
+            .is_some_and(|s| s.approval_sequence.is_some())
+        {
+            self.bundle
+                .approval_replay
+                .as_ref()
+                .ok_or_else(|| {
+                    Failure::new(
+                        "SIMULATION_APPROVAL_SEQUENCE_BINDING",
+                        "transaction_context",
+                    )
+                })?
+                .swap_context
+                .clone()
         } else {
             prepared
                 .as_ref()
@@ -998,7 +1038,7 @@ fn diagnostic_response(
 ) -> std::result::Result<Value, Failure> {
     // This normal worker contract still binds an unsigned Shanghai plan. A
     // signed OP receipt needs its own authenticated envelope/attribute source.
-    if !outcome["approval"].is_null() {
+    if commitment.approval_sequence.is_some() == outcome["approval"].is_null() {
         return Err(Failure::new(
             "SIMULATION_WORKER_BINDING",
             "unexpected_approval",
@@ -1039,9 +1079,21 @@ fn diagnostic_response(
             .as_ref(),
     )
     .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"))?;
-    let before = commitment
-        .caller_native_before
+    let approval = if let Some(seq) = &commitment.approval_sequence {
+        let bad = || Failure::new("SIMULATION_APPROVAL_SEQUENCE_RECEIPT", "approval_fees");
+        let receipt: xone_simulation::evm_fixture::ApprovalReceipt =
+            serde_json::from_value(outcome["approval"].clone()).map_err(|_| bad())?;
+        let swap: NativeFeeMeasurements =
+            serde_json::from_value(outcome["native_fees"].clone()).map_err(|_| bad())?;
+        let (model, payer) = seq.audit(&receipt, &swap).map_err(|_| bad())?;
+        Some((receipt, model, payer, swap.coinbase_before))
+    } else {
+        None
+    };
+    let before = approval
         .as_ref()
+        .map(|(a, _, _, _)| &a.payer_after)
+        .or(commitment.caller_native_before.as_ref())
         .ok_or_else(|| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_funding"))?;
     xone_execution_preparation::evm_native_cost::validate_maximum_funding(&model, before)
         .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_funding"))?;
@@ -1057,8 +1109,12 @@ fn diagnostic_response(
     {
         let native: NativeFeeMeasurements = serde_json::from_value(outcome["native_fees"].clone())
             .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"))?;
-        if commitment.caller_native_before.as_ref() != Some(&native.caller_before)
-            || commitment.coinbase_native_before.as_ref() != Some(&native.coinbase_before)
+        if before != &native.caller_before
+            || approval
+                .as_ref()
+                .map(|(_, _, _, c)| c)
+                .or(commitment.coinbase_native_before.as_ref())
+                != Some(&native.coinbase_before)
             || native.effective_gas_price != model.effective_gas_price
             || native.execution_fee != model.execution_fee
             || native.base_fee_burned != model.base_fee_burned
@@ -1146,6 +1202,35 @@ fn diagnostic_response(
         );
         costs["approvalNative"] = evidence["additionalApprovalNative"].clone();
         costs["callerApproval"] = evidence;
+    }
+    if let Some((receipt, extra, payer, _)) = approval {
+        let bad = || Failure::new("SIMULATION_APPROVAL_SEQUENCE_RECEIPT", "approval_fees");
+        let sum = |v: &Value, n: &Amount| -> std::result::Result<Value, Failure> {
+            let first: Amount = serde_json::from_value(v.clone()).map_err(|_| bad())?;
+            Ok(json!(Amount::checked(first.0 + &n.0).map_err(|_| bad())?))
+        };
+        if costs["callerApproval"]["observedAllowance"] != "0" {
+            return Err(bad());
+        }
+        costs["approvalNative"] = json!(extra.execution_fee);
+        costs["callerApproval"]["additionalApprovalNative"] = json!(extra.execution_fee);
+        costs["callerApproval"]["postApprovalStatus"] = json!("EXECUTED_IN_LOCAL_SEQUENCE");
+        costs["nativeKnownSubtotal"] = sum(&costs["nativeKnownSubtotal"], &extra.execution_fee)?;
+        costs["payerNetNativeDebit"] = sum(&costs["payerNetNativeDebit"], &payer.net_native_debit)?;
+        costs["priorityReturnedToPayerNative"] = sum(
+            &costs["priorityReturnedToPayerNative"],
+            &payer.priority_returned_to_payer,
+        )?;
+        costs["feeBreakdown"].as_array_mut().ok_or_else(bad)?.insert(0,json!({"kind":"CALLER_APPROVAL","amountNative":extra.execution_fee,"parts":{"baseFeeBurnedNative":extra.base_fee_burned,"priorityFeeNative":extra.priority_fee_paid},"gasUnits":receipt.gas_used.to_string(),"effectiveGasPrice":extra.effective_gas_price,"maxExecutionReserveNative":extra.gas_limit_reserve,"blockHash":receipt.block_hash}));
+        let sequence = commitment.approval_sequence.as_ref().ok_or_else(bad)?;
+        costs["settlementTimestampMs"] = json!(sequence.settlement_ms());
+        costs["gasNativeScope"] = json!("SWAP_TRANSACTION");
+        costs["scope"] = json!("DECLARED_LOCAL_APPROVAL_AND_SWAP");
+        costs["missingComponents"] = json!([
+            "CHAIN_SPECIFIC_DATA_OR_OTHER_NATIVE_FEES",
+            "ADDITIONAL_FUNDING_OPERATIONS",
+            "TRUSTED_TOKEN_PRICE_CONVERSION"
+        ]);
     }
     let success = outcome["matches_plan"] == true && outcome["execution"]["status"] == "SUCCESS";
     let mut result = json!({"quoteKind":commitment.quote_kind,"bindingHash":commitment.binding_hash,"bundleHash":bundle_hash,"workerHash":worker_hash,
@@ -1540,6 +1625,7 @@ mod tests {
             caller_native_before: Some("1000000000000000000000000000000".parse().unwrap()),
             coinbase_native_before: Some(Amount::zero()),
             approval: None,
+            approval_sequence: None,
             split_receipt: None,
             split_executor: None,
             executor: ExecutorIdentity {

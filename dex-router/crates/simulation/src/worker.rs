@@ -26,7 +26,17 @@ pub const MAX_WORKER_INPUT_BYTES: usize = 32 * 1024 * 1024;
 pub const MAX_WORKER_OUTPUT_BYTES: usize = 1024 * 1024;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct LocalApprovalReplay {
+    pub caller: String,
+    pub token: String,
+    pub sequence: evm_fixture::ApprovalSequence,
+    pub swap_context: TransactionContext,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LocalSimulationBundle {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_replay: Option<LocalApprovalReplay>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub split_executor: Option<xone_execution_plan::ordered_v2::SplitExecutor>,
     pub schema_version: u32,
