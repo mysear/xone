@@ -57,17 +57,18 @@ type DeploymentReport struct {
 	StorageSlots     int    `json:"storage_slots"`
 }
 type Report struct {
-	BeaconFinality        *FinalityBinding   `json:"beacon_finality,omitempty"`
-	BeaconCheckpoint      *BeaconBinding     `json:"beacon_checkpoint,omitempty"`
-	Passed                bool               `json:"passed"`
-	ChainID               string             `json:"chain_id"`
-	BlockHash             string             `json:"block_hash"`
-	BlockNumber           uint64             `json:"block_number"`
-	Transactions          int                `json:"transactions"`
-	Deployments           []DeploymentReport `json:"deployments"`
-	ConsensusVerified     bool               `json:"consensus_verified"`
-	SourceRebuildVerified bool               `json:"source_rebuild_verified"`
-	Authority             string             `json:"authority"`
+	CommitteeTransitions  []CommitteeTransition `json:"beacon_committee_transitions,omitempty"`
+	BeaconFinality        *FinalityBinding      `json:"beacon_finality,omitempty"`
+	BeaconCheckpoint      *BeaconBinding        `json:"beacon_checkpoint,omitempty"`
+	Passed                bool                  `json:"passed"`
+	ChainID               string                `json:"chain_id"`
+	BlockHash             string                `json:"block_hash"`
+	BlockNumber           uint64                `json:"block_number"`
+	Transactions          int                   `json:"transactions"`
+	Deployments           []DeploymentReport    `json:"deployments"`
+	ConsensusVerified     bool                  `json:"consensus_verified"`
+	SourceRebuildVerified bool                  `json:"source_rebuild_verified"`
+	Authority             string                `json:"authority"`
 }
 
 func invalid(reason string) error { return errors.New("PROVENANCE_" + reason) }

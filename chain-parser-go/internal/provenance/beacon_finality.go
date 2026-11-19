@@ -25,6 +25,10 @@ type FinalityBinding struct {
 // committee proven under an externally pinned checkpoint. This offline report
 // does not assign freshness or trust to the checkpoint supplied by the caller.
 func VerifyWithBeaconFinality(e Evidence, root string, bootstrap, raw []byte) (Report, error) {
+	return verifyBeaconFinality(e, root, bootstrap, raw, nil)
+}
+
+func verifyBeaconFinality(e Evidence, root string, bootstrap, raw []byte, transitions []committeeUpdate) (Report, error) {
 	if e.ChainID != "1" {
 		return Report{}, invalid("BEACON_MAINNET_REQUIRED")
 	}
@@ -32,16 +36,18 @@ func VerifyWithBeaconFinality(e Evidence, root string, bootstrap, raw []byte) (R
 	if err != nil {
 		return Report{}, err
 	}
-	var update struct {
-		Version string `json:"version"`
-		Data    struct {
-			Attested      lightHeader           `json:"attested_header"`
-			Finalized     lightHeader           `json:"finalized_header"`
-			Branch        merkle.Values         `json:"finality_branch"`
-			Signature     *beacon.SyncAggregate `json:"sync_aggregate"`
-			SignatureSlot uint64                `json:"signature_slot,string"`
-		} `json:"data"`
+	period := beacon.SyncPeriod(pin.Slot)
+	var history []CommitteeTransition
+	for _, next := range transitions {
+		step, err := verifyTransition(pin, period, committee, next)
+		if err != nil {
+			return Report{}, err
+		}
+		history = append(history, step)
+		committee = next.Data.NextCommittee
+		period++
 	}
+	var update committeeUpdate
 	if len(raw) > MaxBootstrapBytes || json.Unmarshal(raw, &update) != nil {
 		return Report{}, invalid("BEACON_UPDATE_ENCODING")
 	}
@@ -50,7 +56,7 @@ func VerifyWithBeaconFinality(e Evidence, root string, bootstrap, raw []byte) (R
 		return Report{}, invalid("BEACON_UPDATE_FIELDS")
 	}
 	attested, finalized := u.Attested.Beacon, u.Finalized.Beacon
-	if finalized.Slot < pin.Slot || finalized.Slot > attested.Slot || attested.Slot >= u.SignatureSlot || beacon.SyncPeriod(u.SignatureSlot) != beacon.SyncPeriod(pin.Slot) {
+	if finalized.Slot < pin.Slot || finalized.Slot > attested.Slot || attested.Slot >= u.SignatureSlot || beacon.SyncPeriod(u.SignatureSlot) != period || len(history) > 0 && beacon.SyncPeriod(finalized.Slot) != period {
 		return Report{}, invalid("BEACON_UPDATE_SLOTS")
 	}
 	// Same-fork, same-period updates only. A transition needs its own proof.
@@ -74,26 +80,47 @@ func VerifyWithBeaconFinality(e Evidence, root string, bootstrap, raw []byte) (R
 	if err := merkle.VerifyProof(attested.StateRoot, params.StateIndexFinalBlock(update.Version), u.Branch, merkle.Value(finalizedRoot)); err != nil {
 		return Report{}, invalid("BEACON_FINALITY_BRANCH")
 	}
-	count := u.Signature.SignerCount()
-	if count*3 < params.SyncCommitteeSize*2 {
-		return Report{}, invalid("BEACON_UPDATE_PARTICIPATION")
-	}
-	config := *params.MainnetLightConfig
-	config.Forks = slices.Clone(config.Forks)
-	config.AddFork("FULU", 411392, []byte{6, 0, 0, 0})
-	signingRoot, err := config.Forks.SigningRoot((u.SignatureSlot-1)/params.EpochLength, attested.Hash())
-	if err != nil {
-		return Report{}, invalid("BEACON_SIGNING_DOMAIN")
-	}
-	keys, err := committee.Deserialize()
-	if err != nil || !keys.VerifySignature(signingRoot, u.Signature) {
-		return Report{}, invalid("BEACON_UPDATE_SIGNATURE")
+	if err := verifyCommitteeSignature(committee, attested, u.SignatureSlot, u.Signature); err != nil {
+		return Report{}, err
 	}
 	report, err := Verify(e)
 	if err != nil {
 		return Report{}, err
 	}
 	report.BeaconCheckpoint = pin
-	report.BeaconFinality = &FinalityBinding{FinalizedRoot: finalizedRoot, FinalizedSlot: finalized.Slot, AttestedRoot: attested.Hash(), AttestedSlot: attested.Slot, SignatureSlot: u.SignatureSlot, Signers: count, ExecutionHash: payload.BlockHash()}
+	report.CommitteeTransitions = history
+	report.BeaconFinality = &FinalityBinding{FinalizedRoot: finalizedRoot, FinalizedSlot: finalized.Slot, AttestedRoot: attested.Hash(), AttestedSlot: attested.Slot, SignatureSlot: u.SignatureSlot, Signers: u.Signature.SignerCount(), ExecutionHash: payload.BlockHash()}
 	return report, nil
+}
+
+type committeeUpdate struct {
+	Version string `json:"version"`
+	Data    struct {
+		Attested      lightHeader                     `json:"attested_header"`
+		Finalized     lightHeader                     `json:"finalized_header"`
+		Branch        merkle.Values                   `json:"finality_branch"`
+		Signature     *beacon.SyncAggregate           `json:"sync_aggregate"`
+		NextCommittee *beacon.SerializedSyncCommittee `json:"next_sync_committee"`
+		NextBranch    merkle.Values                   `json:"next_sync_committee_branch"`
+		SignatureSlot uint64                          `json:"signature_slot,string"`
+	} `json:"data"`
+}
+
+func verifyCommitteeSignature(committee *beacon.SerializedSyncCommittee, attested *beacon.Header, signatureSlot uint64, signature *beacon.SyncAggregate) error {
+	count := signature.SignerCount()
+	if count*3 < params.SyncCommitteeSize*2 {
+		return invalid("BEACON_UPDATE_PARTICIPATION")
+	}
+	config := *params.MainnetLightConfig
+	config.Forks = slices.Clone(config.Forks)
+	config.AddFork("FULU", 411392, []byte{6, 0, 0, 0})
+	signingRoot, err := config.Forks.SigningRoot((signatureSlot-1)/params.EpochLength, attested.Hash())
+	if err != nil {
+		return invalid("BEACON_SIGNING_DOMAIN")
+	}
+	keys, err := committee.Deserialize()
+	if err != nil || !keys.VerifySignature(signingRoot, signature) {
+		return invalid("BEACON_UPDATE_SIGNATURE")
+	}
+	return nil
 }

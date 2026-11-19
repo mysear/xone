@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Ethereum 主网同步委员会交接（阶段189，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|从较早的显式信标根依次验证各委员会签名和下一委员会根|实际连续两次交接至周期 1915，10 个交接场景通过|
 |Ethereum 主网同步委员会最终性验证（阶段188，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|从指定检查点验证同周期聚合签名、最终化分支、执行载荷及部署证据|主网块 26448094 实测 508 名签署者，13 个 CLI 场景通过|
 |Ethereum 主网信标检查点与执行区块绑定（阶段187，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|离线部署证据对照显式信标根验证执行载荷与当前同步委员会|历史主网块 26355865 和 11 项拒绝控制通过，独立最终性待验证|
 |Ethereum 主网离线交易正文复核（阶段186，P0-1）|§7.3、§28.5、§28.7，WP03、WP05|LOCAL_SCOPE_VERIFIED|按位置核对区块交易与签名原文，复核所声明的发送人|两份固定主网部署证据经普通 CLI 通过|
@@ -795,6 +796,7 @@
 |186|[Ethereum 主网离线交易正文复核](#ethereum-offline-transaction-body)|LOCAL_SCOPE_VERIFIED|两个主网区块共 349 笔交易经部署证据 CLI 回放通过|
 |187|[信标检查点与执行区块](#beacon-checkpoint-execution)|LOCAL_SCOPE_VERIFIED|标准 bootstrap 和既有部署证据经同一 CLI 验证|
 |188|[同周期同步委员会最终性验证](#beacon-committee-finality)|LOCAL_SCOPE_VERIFIED|主网 finality_update 与执行层部署证明通过离线核对|
+|189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
 |175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
 |174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
@@ -4780,3 +4782,11 @@ Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet
 按设计 §7.1、§7.3、§28.5，`source-evidence --verify` 支持读取标准 `finality_update`。工具从显式信标根验证当前委员会，核对签名 slot、主网分叉域、参与位图与三分之二门槛，验证 BLS 聚合签名。再从 attested header 的状态根核对最终化分支，将 finalized header 的执行载荷与部署证据核对。报告单列检查点、最终化 slot、签名 slot 与人数。当前支持同一分叉和委员会周期，跨期交接、运维可信根配置及在线 owner 接入仍开放。
 
 本轮采集的 Fulu slot 15687904 对应块 26448094，100 笔交易。508 名签署者的聚合签名和 Pair 账户证明通过。主查节点首次返回 RPC 错误 4444，交换已配置的两个只读来源后取得同一最终化块的完整证据。13 个最终性 CLI 场景、阶段187的 12 个场景、48 项 Go race 测试与 `go vet` 通过。[最终性回放与输入摘要](integration/artifacts/local/beacon-finality-188/report.json) · [部署验证报告](integration/artifacts/local/beacon-finality-188/verified.json)
+
+<a id="beacon-committee-transitions"></a>
+
+## 同步委员会跨期交接（2026-11-19，阶段189，P0-1）
+
+按 §7.1、§7.3、§28.5，离线部署验证支持标准 `light_client/updates` 响应中的连续交接。每项验证所在周期、同分叉的最终化和 attested 载荷、最终化分支、下一委员会分支及当前委员会超多数签名，然后以已证明的下一委员会校验下一项。输入上限为 16 个周期和 2 MiB。报告按序记录委员会根及签名人数。
+
+实际 Fulu 周期 1913 和 1914 的连续交接后，周期 1915 的签名和最终化执行块 26448094 均通过。10 项交接回放覆盖跳过、重复、提前结束、委员会或分支替换、签名与门槛。原同周期 13 项回归、Go 证据包 48 项 race 测试与 vet 通过。跨分叉、可信检查点的发布与更新、在线 owner 验证和重组撤权仍待完成。[交接验收](integration/artifacts/local/beacon-transition-189/report.json)

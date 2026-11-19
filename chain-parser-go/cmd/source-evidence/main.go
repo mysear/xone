@@ -63,8 +63,9 @@ func run() error {
 	beaconRoot := flag.String("beacon-root", "", "externally pinned Ethereum mainnet beacon block root for offline verification")
 	bootstrap := flag.String("beacon-bootstrap", "", "light_client/bootstrap response for the pinned root")
 	finality := flag.String("beacon-finality", "", "optional same-period light_client/finality_update response")
+	updates := flag.String("beacon-updates", "", "ordered same-fork light_client/updates response for committee transitions")
 	flag.Parse()
-	if *finality != "" && *bootstrap == "" || (*beaconRoot == "") != (*bootstrap == "") || *bootstrap != "" && *verify == "" {
+	if *updates != "" && *finality == "" || *finality != "" && *bootstrap == "" || (*beaconRoot == "") != (*bootstrap == "") || *bootstrap != "" && *verify == "" {
 		return errors.New("EVIDENCE_BEACON_ARGUMENTS")
 	}
 
@@ -86,18 +87,26 @@ func run() error {
 		}
 		var report provenance.Report
 		if *bootstrap != "" {
-			raw, readErr := readBeaconInput(*bootstrap)
+			raw, readErr := readBeaconInput(*bootstrap, provenance.MaxBootstrapBytes)
 			if readErr != nil {
 				return readErr
 			}
 			if *finality == "" {
 				report, err = provenance.VerifyWithBeaconCheckpoint(evidence, *beaconRoot, raw)
 			} else {
-				update, readErr := readBeaconInput(*finality)
+				update, readErr := readBeaconInput(*finality, provenance.MaxBootstrapBytes)
 				if readErr != nil {
 					return readErr
 				}
-				report, err = provenance.VerifyWithBeaconFinality(evidence, *beaconRoot, raw, update)
+				if *updates != "" {
+					chain, readErr := readBeaconInput(*updates, provenance.MaxBeaconUpdatesBytes)
+					if readErr != nil {
+						return readErr
+					}
+					report, err = provenance.VerifyWithBeaconUpdates(evidence, *beaconRoot, raw, update, chain)
+				} else {
+					report, err = provenance.VerifyWithBeaconFinality(evidence, *beaconRoot, raw, update)
+				}
 			}
 		} else {
 			report, err = provenance.Verify(evidence)
@@ -185,14 +194,14 @@ func run() error {
 	return json.NewEncoder(os.Stdout).Encode(report)
 }
 
-func readBeaconInput(path string) ([]byte, error) {
+func readBeaconInput(path string, limit int) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, errors.New("EVIDENCE_BEACON_INPUT")
 	}
 	defer f.Close()
-	raw, err := io.ReadAll(io.LimitReader(f, provenance.MaxBootstrapBytes+1))
-	if err != nil || len(raw) > provenance.MaxBootstrapBytes {
+	raw, err := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	if err != nil || len(raw) > limit {
 		return nil, errors.New("EVIDENCE_BEACON_INPUT_LIMIT")
 	}
 	return raw, nil
