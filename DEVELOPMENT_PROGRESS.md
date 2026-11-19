@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|正常报价计入清零费用（阶段174，P0-3）|§13.1、§14.1–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|按绑定计划和起始账户余额复核三笔支出，将合计用于候选排序|16 个 HTTP 场景通过，覆盖两种方向及成交时价格到期|
 |拆单 worker 执行三笔交易（阶段173，P0-3）|§13.1、§14.1–14.4；WP13、WP15|LOCAL_SCOPE_VERIFIED|依据初始额度重建清零、授权与兑换，逐笔向后传递状态|两种方向均与独立出块费用相符，报价端三笔费用核对待接入|
 |拆单授权替换计划（阶段172，P0-3）|§13.1、§14.1–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|显式策略生成清零和准确额度授权，按当前 allowance 裁剪操作|两种报价方向、三种额度及错误执行目标均有绑定测试，顺序 worker 接线待完成|
 |非零不足授权的三笔交易回放（阶段171，P0-3）|§13.1、§14.2–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|按清零、精确授权、兑换顺序对照两种报价方向的独立区块|8 项 V2 路径测试通过，三笔序列待接入 worker 和正常报价|
@@ -768,6 +769,7 @@
 |162|[按 Router 区块锚点采集与复核](#market-router-bank-anchor)|LOCAL_SCOPE_VERIFIED|显式哈希选块、跨字段不一致拒绝及签后变化不发布|
 |163|[共享池 V2 整笔拆单执行](#ordered-v2-split)|LOCAL_SCOPE_VERIFIED|ExactIn/ExactOut 两种腿序的实际整笔 Gas、余额、储备与回滚|
 |164|[按完整拆单计划生成批量交易](#ordered-v2-binding)|LOCAL_SCOPE_VERIFIED|逐字节对照实际成交调用；拒绝沿用旧腿序金额或其他绑定|
+|174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
 |173|[拆单 worker 执行三笔交易](#reset-approval-worker)|LOCAL_SCOPE_VERIFIED|逐笔核对额度、状态与费用|
 |172|[拆单授权替换计划](#reset-approval-plan)|LOCAL_SCOPE_VERIFIED|从绑定计划生成按序执行的授权操作|
 |171|[非零不足授权的三笔交易回放](#reset-approval-replay)|LOCAL_SCOPE_VERIFIED|核对清零、精确授权与兑换的完整状态和费用|
@@ -4626,3 +4628,11 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 worker 在同一仿真预算内，按三个连续区块执行清零、准确额度授权和拆单兑换，将每一笔的结果状态交给下一笔。每次授权后重新读取 allowance，回执记录付款人和受益人的余额与费用。两种方向都与独立出块记录逐笔比对。缺少清零环境、错误 nonce 和不匹配的父区块均触发拒绝。
 
 8 项执行计划和 worker 回归通过。下一项是正常报价端独立核验三个区块的付款连续性，并以合计费用进行候选比较。[三笔序列原始区块](integration/artifacts/local/approval-reset-171/bank.json)
+
+<a id="reset-approval-quote"></a>
+
+## 正常报价计入清零费用（2026-11-19，阶段174，P0-3）
+
+对明确配置的非零不足授权模型，报价服务从同一份初始区块状态读取付款人和各区块受益人的余额，按顺序核对三笔交易的目标、额度、nonce、费用和余额。返回的费用明细列出清零、授权和兑换，`approvalNative` 合计前两笔，候选排序使用三笔付款人净支出。若价格在兑换区块到期，整组候选使用毛额排序。
+
+16 个正常 HTTP 场景通过。报价库单元测试 68 项通过，5 项按环境要求跳过。报价与仿真库通过 Clippy 严格检查。P0-3 下一项为资金操作的来源、金额与费用核算。完整工作包验收仍为 0/26。[HTTP 报告](integration/artifacts/local/reset-quote-174/report.json)

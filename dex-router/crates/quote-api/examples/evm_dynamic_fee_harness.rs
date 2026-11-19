@@ -66,7 +66,12 @@ async fn main() {
         let mut run = &bank["runs"][0];
         if std::env::var_os("XONE_SPLIT_APPROVAL_REPLAY").is_some() {
             use sha2::{Digest, Sha256};
-            bank = &bank["approvalReplay"];
+            let reset = std::env::var("XONE_SPLIT_APPROVAL_REPLAY").as_deref() == Ok("reset");
+            bank = &bank[if reset {
+                "resetApprovalReplay"
+            } else {
+                "approvalReplay"
+            }];
             let anchor = &bank["state_anchor"];
             binding["block"] = json!({"chain_key":anchor["chain_key"],"number_or_slot":anchor["block_number"],"hash":anchor["block_hash"],"parent_hash":anchor["parent_hash"],"timestamp_ms":anchor["timestamp"].as_u64().unwrap()*1000});
             for pool in binding["pools"].as_array_mut().unwrap() {
@@ -86,7 +91,13 @@ async fn main() {
                 .unwrap()["code"]
                 .as_str()
                 .unwrap();
-            approval_replay = Some(serde_json::from_value(json!({"token":token,"caller":binding["caller"],"sequence":{"token_code_sha256":hex::encode(Sha256::digest(hex::decode(&code[2..]).unwrap())),"approval_context":run["transaction_context"],"swap_environment":runs[1]["execution_environment"]},"swap_context":runs[1]["transaction_context"]})).unwrap());
+            let exact = &runs[usize::from(reset)];
+            let swap = &runs[usize::from(reset) + 1];
+            let mut sequence = json!({"token_code_sha256":hex::encode(Sha256::digest(hex::decode(&code[2..]).unwrap())),"approval_context":exact["transaction_context"],"swap_environment":swap["execution_environment"]});
+            if reset {
+                sequence["reset"] = json!({"context":run["transaction_context"],"approval_environment":exact["execution_environment"]});
+            }
+            approval_replay = Some(serde_json::from_value(json!({"token":token,"caller":binding["caller"],"sequence":sequence,"swap_context":swap["transaction_context"]})).unwrap());
         }
         let ex: xone_execution_plan::ordered_v2::SplitExecutor =
             serde_json::from_value(binding["executor"].clone()).unwrap();

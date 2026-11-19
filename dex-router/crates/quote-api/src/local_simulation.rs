@@ -1038,7 +1038,11 @@ fn diagnostic_response(
 ) -> std::result::Result<Value, Failure> {
     // This normal worker contract still binds an unsigned Shanghai plan. A
     // signed OP receipt needs its own authenticated envelope/attribute source.
-    if !outcome["allowance_reset"].is_null()
+    if commitment
+        .approval_sequence
+        .as_ref()
+        .is_some_and(|s| s.requires_reset())
+        == outcome["allowance_reset"].is_null()
         || commitment.approval_sequence.is_some() == outcome["approval"].is_null()
     {
         return Err(Failure::new(
@@ -1087,14 +1091,25 @@ fn diagnostic_response(
             serde_json::from_value(outcome["approval"].clone()).map_err(|_| bad())?;
         let swap: NativeFeeMeasurements =
             serde_json::from_value(outcome["native_fees"].clone()).map_err(|_| bad())?;
-        let (model, payer) = seq.audit(&receipt, &swap).map_err(|_| bad())?;
-        Some((receipt, model, payer, swap.coinbase_before))
+        let mut receipts = Vec::new();
+        if seq.requires_reset() {
+            receipts.push(
+                serde_json::from_value(outcome["allowance_reset"].clone()).map_err(|_| bad())?,
+            );
+        }
+        receipts.push(receipt);
+        let audited = seq.audit(&receipts, &swap).map_err(|_| bad())?;
+        Some((
+            receipts.into_iter().zip(audited).collect::<Vec<_>>(),
+            swap.caller_before,
+            swap.coinbase_before,
+        ))
     } else {
         None
     };
     let before = approval
         .as_ref()
-        .map(|(a, _, _, _)| &a.payer_after)
+        .map(|(_, caller, _)| caller)
         .or(commitment.caller_native_before.as_ref())
         .ok_or_else(|| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_funding"))?;
     xone_execution_preparation::evm_native_cost::validate_maximum_funding(&model, before)
@@ -1114,7 +1129,7 @@ fn diagnostic_response(
         if before != &native.caller_before
             || approval
                 .as_ref()
-                .map(|(_, _, _, c)| c)
+                .map(|(_, _, c)| c)
                 .or(commitment.coinbase_native_before.as_ref())
                 != Some(&native.coinbase_before)
             || native.effective_gas_price != model.effective_gas_price
@@ -1205,26 +1220,38 @@ fn diagnostic_response(
         costs["approvalNative"] = evidence["additionalApprovalNative"].clone();
         costs["callerApproval"] = evidence;
     }
-    if let Some((receipt, extra, payer, _)) = approval {
+    if let Some((receipts, _, _)) = approval {
         let bad = || Failure::new("SIMULATION_APPROVAL_SEQUENCE_RECEIPT", "approval_fees");
         let sum = |v: &Value, n: &Amount| -> std::result::Result<Value, Failure> {
             let first: Amount = serde_json::from_value(v.clone()).map_err(|_| bad())?;
             Ok(json!(Amount::checked(first.0 + &n.0).map_err(|_| bad())?))
         };
-        if costs["callerApproval"]["observedAllowance"] != "0" {
+        let sequence = commitment.approval_sequence.as_ref().ok_or_else(bad)?;
+        if costs["callerApproval"]["status"] != "APPROVAL_REQUIRED"
+            || (costs["callerApproval"]["observedAllowance"] == "0") == sequence.requires_reset()
+        {
             return Err(bad());
         }
-        costs["approvalNative"] = json!(extra.execution_fee);
-        costs["callerApproval"]["additionalApprovalNative"] = json!(extra.execution_fee);
+        costs["approvalNative"] = json!(Amount::zero());
+        for (index, (receipt, (extra, payer))) in receipts.into_iter().enumerate() {
+            costs["approvalNative"] = sum(&costs["approvalNative"], &extra.execution_fee)?;
+            costs["nativeKnownSubtotal"] =
+                sum(&costs["nativeKnownSubtotal"], &extra.execution_fee)?;
+            costs["payerNetNativeDebit"] =
+                sum(&costs["payerNetNativeDebit"], &payer.net_native_debit)?;
+            costs["priorityReturnedToPayerNative"] = sum(
+                &costs["priorityReturnedToPayerNative"],
+                &payer.priority_returned_to_payer,
+            )?;
+            let kind = if index == 0 && sequence.requires_reset() {
+                "CALLER_ALLOWANCE_RESET"
+            } else {
+                "CALLER_APPROVAL"
+            };
+            costs["feeBreakdown"].as_array_mut().ok_or_else(bad)?.insert(index,json!({"kind":kind,"amountNative":extra.execution_fee,"parts":{"baseFeeBurnedNative":extra.base_fee_burned,"priorityFeeNative":extra.priority_fee_paid},"gasUnits":receipt.gas_used.to_string(),"effectiveGasPrice":extra.effective_gas_price,"maxExecutionReserveNative":extra.gas_limit_reserve,"blockHash":receipt.block_hash}));
+        }
+        costs["callerApproval"]["additionalApprovalNative"] = costs["approvalNative"].clone();
         costs["callerApproval"]["postApprovalStatus"] = json!("EXECUTED_IN_LOCAL_SEQUENCE");
-        costs["nativeKnownSubtotal"] = sum(&costs["nativeKnownSubtotal"], &extra.execution_fee)?;
-        costs["payerNetNativeDebit"] = sum(&costs["payerNetNativeDebit"], &payer.net_native_debit)?;
-        costs["priorityReturnedToPayerNative"] = sum(
-            &costs["priorityReturnedToPayerNative"],
-            &payer.priority_returned_to_payer,
-        )?;
-        costs["feeBreakdown"].as_array_mut().ok_or_else(bad)?.insert(0,json!({"kind":"CALLER_APPROVAL","amountNative":extra.execution_fee,"parts":{"baseFeeBurnedNative":extra.base_fee_burned,"priorityFeeNative":extra.priority_fee_paid},"gasUnits":receipt.gas_used.to_string(),"effectiveGasPrice":extra.effective_gas_price,"maxExecutionReserveNative":extra.gas_limit_reserve,"blockHash":receipt.block_hash}));
-        let sequence = commitment.approval_sequence.as_ref().ok_or_else(bad)?;
         costs["settlementTimestampMs"] = json!(sequence.settlement_ms());
         costs["gasNativeScope"] = json!("SWAP_TRANSACTION");
         costs["scope"] = json!("DECLARED_LOCAL_APPROVAL_AND_SWAP");
