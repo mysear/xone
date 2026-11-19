@@ -80,3 +80,42 @@ func TestNativeWitnessReprovesCurrentSAEInsteadOfOwnHeader(t *testing.T) {
 		t.Fatal("witness final check ignored orphaned settling header")
 	}
 }
+
+func TestEthereumWitnessReusesOnlyItsOwnBody(t *testing.T) {
+	header, err := json.Marshal(newV2ProofBank(t, "").header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var block RawBlock
+	if err := json.Unmarshal(header, &block); err != nil {
+		t.Fatal(err)
+	}
+	genesis, err := knownBodyGenesis("evm:1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture := func() *normalNativeFixture {
+		return &normalNativeFixture{chain: config.Chain{Key: "evm:1", Genesis: genesis, BlockIntegrity: ChainNativeCommitmentsV2}, target: block, full: map[string]json.RawMessage{block.Number: header}, receipts: map[string][]Receipt{block.Hash: {}}}
+	}
+	left, right := fixture(), fixture()
+	leftURL, rightURL := left.serve(t).URL, right.serve(t).URL
+	ctx := context.Background()
+	a := Adapter{Client: rpc.New([]string{leftURL}, 10*time.Second, 16<<20), Chain: left.chain}
+	limits := nativeProofTestLimits()
+	expected, err := a.ReadNativeReceiptCoverage(ctx, left.target, "bulk-auto", limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Client = rpc.New([]string{leftURL, rightURL}, 10*time.Second, 16<<20)
+	before := left.fullReads.Load()
+	if err = a.VerifyNativeReceiptWitnesses(ctx, expected, "bulk-auto", limits); err != nil {
+		t.Fatal(err)
+	}
+	if left.fullReads.Load()-before != 2 || right.fullReads.Load() != 2 {
+		t.Fatalf("expected one body and one recheck per witness: %d, %d", left.fullReads.Load()-before, right.fullReads.Load())
+	}
+	right.receipts[right.target.Hash] = nil
+	if err = a.VerifyNativeReceiptWitnesses(ctx, expected, "bulk-auto", limits); err == nil {
+		t.Fatal("accepted missing witness receipts")
+	}
+}

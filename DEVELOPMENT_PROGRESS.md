@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Ethereum 主网见证节点的交易体复用（阶段195，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|每个见证节点在回执校验时使用本节点刚验证的交易体，完成后重新读取区块|块 26448796 复测节省 6,066,035 字节预算，连续发布仍待验收|
 |相邻最终化头连续发布验收（阶段194，P0-1）|§7.3、§9，WP03、WP04|PARTIAL_LOCAL|普通 owner 运行期间通过 CLI 更新证明并逐条核对发布日志|主网 26448795 → 26448827 在首个增量前撤权，须定位证明预算消耗|
 |主网短尾祖先块校验（阶段193，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|反向按高度读取并重算执行头，正向发布复核中间块哈希|主网头回放和发布门禁通过，跨最终化头的连续发布待实测|
 |普通 owner 的信标证明刷新（阶段192，P0-1）|§7.1、§7.3、§28.26，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|按配置的根采集并验证标准信标响应，持锁替换 owner 的证明文件|两次正常 CLI 刷新及回退、竞争、过期、取消控制通过|
@@ -804,6 +805,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|195|[主网回执见证预算](#beacon-witness-budget)|LOCAL_SCOPE_VERIFIED|双节点调用次数、缺失回执及主网预算复测|
 |194|[主网连续发布验收](#beacon-owner-advance)|PARTIAL_LOCAL|首次实测定位到回执证明预算，保留失败记录|
 |193|[主网短尾祖先块校验](#beacon-owner-ancestry)|LOCAL_SCOPE_VERIFIED|精确高度、父哈希及发布门禁回归通过|
 |192|[信标证明刷新](#beacon-owner-refresh)|LOCAL_SCOPE_VERIFIED|主网更新命令及旧证明保留回归通过|
@@ -4844,3 +4846,13 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 `verify_beacon_owner.py` 新增 `--refresh-endpoint`，从首个已验证快照开始，调用正常 CLI 刷新证明，核对每条 `BLOCK_COMMIT` 的高度、父哈希、日志序号、代际、作用域和终点基线。`--next-proof` 可安装另一份签名证明重放。验证器通过连续发布、父哈希冲突、代际变化、重新建立基线和终点基线冲突测试。
 
 旧主网起点 26448349 的公开状态请求失败。改用新鲜证明后，owner 在 26448795 发布 DAI/WETH 基线，CLI 获取最终化块 26448827。日志在首个连续增量前记录 `RECEIPT_PROOF_BUDGET` 并撤权，验收器报 `OWNER_JOURNAL_DISCONTINUITY`。单独读取块 26448796 的交易体使用 5,232,897 字节预算，核对回执和见证后剩余 14,811,711 字节。下一步减少已验证交易体的重复解码与获取，再运行同一发布验收。阶段193的 service 包 231 项 race 用例复跑通过。EVM 全包首跑在 10 分钟总时限终止，定向回归已通过。[运行日志](integration/artifacts/local/beacon-advance-194/run-2/owner.log) · [预算诊断](integration/artifacts/local/beacon-advance-194/budget.log) · [service 包复跑](integration/artifacts/local/beacon-ancestor-193/service-retry.jsonl)
+
+<a id="beacon-witness-budget"></a>
+
+## 主网回执见证预算（2026-11-19，阶段195，P0-1）
+
+每个 Ethereum 主网见证节点先提供完整交易体，回执读取使用本节点刚取得的原始交易重算交易根。完成回执验证后再向该节点读取完整区块核对锚点。两个节点分别回读两次完整交易体，任一节点缺失回执即拒绝。相关 41 项 race 测试和 `go vet` 通过。
+
+在同一 64 MiB 配置下，对块 26448796 完成回执见证后可用预算由 14,811,711 升至 20,877,746 字节，对块 26448827 则由 33,123,702 升至 37,321,993 字节。普通 owner 从新鲜基线 26448987 向 26449019 推进，依序发布 26448988 和 26448989。随后日志记录 `RECEIPT_WITNESS_INVALID` 并撤权，完整的 32 块短尾验收仍为 `PARTIAL_LOCAL`。下一轮优先在块 26448990 区分来源读取、字节预算与回执内容校验的错误原因，再复验整个区间。
+
+[主网读取预算](integration/artifacts/local/beacon-witness-195/budget.log) · [定向回归](integration/artifacts/local/beacon-witness-195/regression.log) · [owner 运行日志](integration/artifacts/local/beacon-witness-195/live-2/owner.log)

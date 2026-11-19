@@ -71,7 +71,14 @@ func (a *Adapter) verifyNativeReceiptWitnessesBudget(ctx context.Context, expect
 			return errors.New("NATIVE_WITNESS_BUDGET")
 		}
 		current.MaxBytes = *remaining
-		observed, err := witness.ReadNativeReceiptCoverage(ctx, body.Block, mode, current)
+		// Ethereum receipts commit to the body we just fetched from this witness.
+		// Reprove its raw transactions locally and reread the canonical block after
+		// receipts. Never substitute the primary provider's body here.
+		var cached *ChainBlockBodyProof
+		if a.Chain.Key == "evm:1" {
+			cached = &body
+		}
+		observed, err := witness.readNativeReceiptCoverageCached(ctx, body.Block, mode, current, cached)
 		if err != nil {
 			return errors.New("RECEIPT_WITNESS_INVALID")
 		}
