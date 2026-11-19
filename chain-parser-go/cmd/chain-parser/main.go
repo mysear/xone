@@ -12,11 +12,22 @@ import (
 	"xone/chain-parser-go/internal/provenance"
 )
 
+func beaconRelease(cfg *config.Snapshot) (provenance.BeaconRelease, error) {
+	for _, chain := range cfg.Config.Chains {
+		if b := chain.BeaconFinality; b != nil {
+			return provenance.BeaconRelease{Root: b.CheckpointRoot, ProofFile: cfg.Resolve(b.ProofFile), CheckpointAgeMS: b.MaxCheckpointAgeMS, FinalizedAgeMS: cfg.Config.Startup.MaxAge}, nil
+		}
+	}
+	return provenance.BeaconRelease{}, fmt.Errorf("CONFIG_BEACON_FINALITY_REQUIRED")
+}
+
 func run() error {
 	flags := flag.NewFlagSet("chain-parser-go", flag.ContinueOnError)
 	path := flags.String("config", "", "environment configuration file")
 	check := flags.Bool("check-config", false, "validate configuration and exit")
 	refresh := flags.String("refresh-beacon-proof", "", "verify and publish an owner proof from this HTTPS beacon API, then exit")
+	rotate := flags.String("prepare-beacon-rotation", "", "prepare a new proof file for this successor owner configuration")
+	bootstrap := flags.String("beacon-bootstrap", "", "bootstrap response for the successor checkpoint root")
 	if e := flags.Parse(os.Args[1:]); e != nil {
 		return fmt.Errorf("INVALID_CLI")
 	}
@@ -26,6 +37,30 @@ func run() error {
 	cfg, e := config.Load(*path, "chain-parser-go")
 	if e != nil {
 		return e
+	}
+	if (*rotate == "") != (*bootstrap == "") || *rotate != "" && (*check || *refresh != "") {
+		return fmt.Errorf("INVALID_CLI")
+	}
+	if *rotate != "" {
+		successor, err := config.Load(*rotate, "chain-parser-go")
+		if err != nil {
+			return err
+		}
+		old, err := beaconRelease(cfg)
+		if err != nil {
+			return err
+		}
+		next, err := beaconRelease(successor)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		result, err := provenance.PrepareBeaconRotation(ctx, old, next, *bootstrap)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(result)
 	}
 	if *refresh != "" {
 		if *check {

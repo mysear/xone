@@ -65,6 +65,7 @@ test/source/**
 # Compact immutable inputs used by the offline Go fork-handover regression.
 !test/source/beacon-fork-handover/deneb-bootstrap.json.gz
 !test/source/beacon-fork-handover/electra-fulu.json.gz
+!test/source/beacon-fork-handover/fulu-rotation-bootstrap.json.gz
 test/source/**/sources/
 test/source/**/official-inputs/
 test/source/**/historical-tool-snapshots/

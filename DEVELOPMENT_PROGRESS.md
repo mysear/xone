@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|主网信标检查点轮换（阶段205，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通 CLI 从旧配置验证后继根，为新配置原子发布证明|主网块 26450712 的新旧最终化结果一致，独立初始根和生产切换待验收|
 |主网同步委员会跨 Electra/Fulu 交接（阶段204，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|根据参与签名的区块时隙选择状态证明索引，逐头核验执行载荷与签名|历史执行块 23942645 及下一委员会分支通过。Deneb 检查点样本在委员会验证时拒绝|
 |从主网归档重算已发布的池状态与兑换事实（阶段203，P0-1）|§7.3、§9、§17，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|从签名头反向验证祖先，复用普通 Go 解码器逐块重算并比较派生负载哈希|两个窗口合计 26 个高度，24 个已发布增量逐字节哈希相符|
 |从现有 owner 配置选取主网归档节点（阶段202，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|验收与归档检查使用同一对配置端点，报告用来源 ID 标识自定义端点|已复查 256 条归档，新端点的 32 块实测待提供配置|
@@ -814,6 +815,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|205|[信标检查点轮换](#beacon-checkpoint-rotation)|LOCAL_SCOPE_VERIFIED|配置根、时效、锁、取消和已有目标回归通过，实际主网证明轮换通过|
 |204|[跨分叉委员会交接](#beacon-fork-handover)|LOCAL_SCOPE_VERIFIED|周期 1606 交接至 1607，错误版本、缺少交接、下一委员会分支篡改和历史检查点矛盾均拒绝|
 |203|[已发布窗口重放](#owner-window-replay)|LOCAL_SCOPE_VERIFIED|从两个主网窗口的原始节点响应重建，核对每个已发布增量的池与兑换事实|
 |202|[归档节点配置](#beacon-owner-execution-config)|LOCAL_SCOPE_VERIFIED|公共节点配置重读归档、来源不匹配、错误链和自定义来源脱敏检查通过|
@@ -4962,3 +4964,13 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 主网块 23942645 的哈希为 `0x4417a28d346e978a8e77128d3596a355c20d87ca18ebd126276933895cace473`。错误的更新版本、缺少委员会交接和下一委员会分支篡改均被拒绝。另一个历史 Deneb 样本通过了检查点根与执行载荷校验，在当前委员会的 Merkle 分支校验时拒绝。Deneb 至 Electra 的完整正例仍需能通过该校验的起始证据。来源验证包 66 项 race 回归（含子测试）及 vet 通过。
 
 [固定输入说明](integration/test/source/beacon-fork-handover/README.md) · [专项测试](chain-parser-go/internal/provenance/beacon_fork_handover_test.go) · [包回归](integration/artifacts/local/beacon-fork-204/go.log)
+
+<a id="beacon-checkpoint-rotation"></a>
+
+## 主网信标检查点轮换（2026-11-20，阶段205，P0-1）
+
+普通 Go CLI 使用 `--config <旧配置> --prepare-beacon-rotation <后继配置> --beacon-bootstrap <后继根的bootstrap响应>` 准备新版本的证明。工具持有旧版本的刷新锁，从旧配置指定的可信根验证最新签名，并要求后继配置指定的根恰为该签名确认的最终化信标块。随后用后继委员会重新验证同一最终性证明，复核两份配置的时效限制，向新路径独占发布。下一次启动可直接读取该证明。历史输入随仓库提供。
+
+执行块 26450712、信标时隙 15690528 的实测包含 511 名签署者。旧版本从原检查点经两轮交接验证，新版本从最终化根直接验证。CLI 输出的最终化结果逐字节相同。75 项 race 回归及 vet 通过，覆盖配置根错误、bootstrap 不匹配、各自时效到期、取消、刷新锁竞争及目标文件已存在。首个生产可信根的独立获取、部署版本实际切换和跨区恢复仍待验收。
+
+[主网轮换结果](integration/artifacts/local/beacon-rotation-205/rotation.json) · [固定输入回归](chain-parser-go/internal/provenance/beacon_rotation_test.go)

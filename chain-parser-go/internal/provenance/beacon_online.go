@@ -17,8 +17,7 @@ type OnlineBeaconProof struct {
 	Updates   json.RawMessage `json:"updates,omitempty"`
 }
 
-func ReadOnlineBeaconProof(path, root string) (*VerifiedExecutionFinality, error) {
-	const limit = MaxBeaconUpdatesBytes + 2*MaxBootstrapBytes + 1024
+func readBeaconFile(path string, limit int64) ([]byte, error) {
 	info, err := os.Lstat(path)
 	if err != nil || !info.Mode().IsRegular() || info.Size() > limit {
 		return nil, invalid("BEACON_ONLINE_FILE")
@@ -33,14 +32,30 @@ func ReadOnlineBeaconProof(path, root string) (*VerifiedExecutionFinality, error
 		return nil, invalid("BEACON_ONLINE_FILE")
 	}
 	data, err := io.ReadAll(io.LimitReader(f, limit+1))
-	if err != nil || len(data) > limit {
+	if err != nil || int64(len(data)) > limit {
 		return nil, invalid("BEACON_ONLINE_FILE")
 	}
+	return data, nil
+}
+
+func readBeaconObservation(path string) (OnlineBeaconProof, error) {
 	var proof OnlineBeaconProof
+	data, err := readBeaconFile(path, MaxBeaconUpdatesBytes+2*MaxBootstrapBytes+1024)
+	if err != nil {
+		return proof, err
+	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&proof) != nil || decoder.Decode(new(any)) != io.EOF {
-		return nil, invalid("BEACON_ONLINE_ENCODING")
+		return proof, invalid("BEACON_ONLINE_ENCODING")
+	}
+	return proof, nil
+}
+
+func ReadOnlineBeaconProof(path, root string) (*VerifiedExecutionFinality, error) {
+	proof, err := readBeaconObservation(path)
+	if err != nil {
+		return nil, err
 	}
 	return VerifyExecutionFinality(root, proof.Bootstrap, proof.Finality, proof.Updates)
 }
