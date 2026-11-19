@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|WETH 短缺额的计划绑定和 worker 执行（阶段177，P0-3）|§13.1、§14.1–14.4，WP13、WP15|LOCAL_SCOPE_VERIFIED|按实际卖币余额生成包装交易，验证 Router02 配置和 WETH9 代码，向兑换传递包装后状态|9 项绑定及 worker 回归通过|
 |包装本金与兑换费用回放（阶段176，P0-3）|§13.1、§14.1–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|从一个最小单位 WETH 起步，按实际输入缺口包装原币并兑换|两种方向各两笔出块交易与 REVM 的状态、日志和费用相符|
 |付款人起始原币需求（阶段175，P0-3）|§13.1、§14.1–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|报价披露单笔或有序多笔执行所需的起始余额、来源余额与实测净支出|16 个 HTTP 场景与原币费用边界测试通过|
 |正常报价计入清零费用（阶段174，P0-3）|§13.1、§14.1–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|按绑定计划和起始账户余额复核三笔支出，将合计用于候选排序|16 个 HTTP 场景通过，覆盖两种方向及成交时价格到期|
@@ -771,6 +772,7 @@
 |162|[按 Router 区块锚点采集与复核](#market-router-bank-anchor)|LOCAL_SCOPE_VERIFIED|显式哈希选块、跨字段不一致拒绝及签后变化不发布|
 |163|[共享池 V2 整笔拆单执行](#ordered-v2-split)|LOCAL_SCOPE_VERIFIED|ExactIn/ExactOut 两种腿序的实际整笔 Gas、余额、储备与回滚|
 |164|[按完整拆单计划生成批量交易](#ordered-v2-binding)|LOCAL_SCOPE_VERIFIED|逐字节对照实际成交调用；拒绝沿用旧腿序金额或其他绑定|
+|177|[WETH 包装计划和 worker 执行](#wrapped-input-worker)|LOCAL_SCOPE_VERIFIED|绑定包装本金和两笔交易环境|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
 |175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
 |174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
@@ -4656,3 +4658,11 @@ worker 在同一仿真预算内，按三个连续区块执行清零、准确额�
 出块器部署固定版本的 WETH9、Router02 和拆单合约，把调用者已有的 WETH 保留为一个最小单位。ExactIn 和 ExactOut 均按成交所需数量补足差额，先执行 `deposit()`，再从上一步的状态执行拆单。核对付款人原币余额减少额等于包装本金与两笔网络费之和，并逐笔对照 Gas、日志、nonce、代码及全部采集的账户和存储槽。
 
 9 项 V2 路径执行测试通过。下一项为包装交易的计划绑定、准入资金核算、worker 核验及正常报价接线。[独立出块记录](integration/artifacts/local/weth-wrap-176/bank.json)
+
+<a id="wrapped-input-worker"></a>
+
+## WETH 包装计划和 worker 执行（2026-11-19，阶段177，P0-3）
+
+worker 核对 Router02 的 WETH 地址和包装合约运行代码摘要，再读取付款人的 WETH 余额。执行计划依据 ExactIn 卖出量或 ExactOut 实际所需输入计算包装本金。worker 核对 WETH 余额增量、合约收到的原币、付款人支出与区块受益人的收入，再执行兑换。
+
+9 项绑定和 worker 测试通过。两种方向生成的包装交易和两笔 Gas 与独立出块记录相符，错误包装地址、nonce 和父区块均被拒绝。正常报价端的费用核验与排序是下一项。[本地区块记录](integration/artifacts/local/weth-wrap-176/bank.json)

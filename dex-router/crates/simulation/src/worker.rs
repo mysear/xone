@@ -199,6 +199,8 @@ pub struct WorkerRequest {
 #[serde(deny_unknown_fields)]
 pub struct WorkerSplit {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wrap_sequence: Option<evm_fixture::WrapSequence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_sequence: Option<evm_fixture::ApprovalSequence>,
     pub bound: xone_execution_plan::ordered_v2::BoundSplit,
     pub expected_executor: xone_execution_plan::ordered_v2::SplitExecutor,
@@ -292,6 +294,7 @@ pub fn run_stdio() -> Result<()> {
             &split.bound,
             &split.expected_executor,
             split.approval_sequence.as_ref(),
+            split.wrap_sequence.as_ref(),
             &request.pools,
             &request.allowed_targets,
             &request.fixture,

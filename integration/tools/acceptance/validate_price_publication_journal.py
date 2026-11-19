@@ -47,7 +47,7 @@ def main(*, router=False):
         extra.append(('ordered-v2-wrap-replay', ['env', 'XONE_WRAP_REPORT='+str(wrap_receipt)] + cargo + ['test'] + manifest + [
             '-p', 'xone-simulation', '--test', 'v2_path_execution', wrap_test, '--', '--include-ignored', '--exact']))
         required['ordered-v2-wrap-replay'] = [wrap_test]
-        bank_env=['env','XONE_ORDERED_V2_REPORT='+str(split_receipt),'XONE_SPLIT_WORKER='+str(target/'debug/examples/evm_dynamic_fee_harness')]
+        bank_env=['env','XONE_WRAP_REPORT='+str(wrap_receipt),'XONE_ORDERED_V2_REPORT='+str(split_receipt),'XONE_SPLIT_WORKER='+str(target/'debug/examples/evm_dynamic_fee_harness')]
         extra.append(('ordered-v2-split-binding',bank_env+cargo+['test']+manifest+['-p','xone-execution-plan','--test','ordered_v2','--','--include-ignored']))
         extra.append(('ordered-v2-split-poststate',bank_env+cargo+['test']+manifest+['-p','xone-simulation','--test','v2_path_execution','eight_ordered_split_receipts_match_all_logs_and_declared_poststate','--','--include-ignored','--exact']))
         approval_test = 'approval_and_swap_use_consecutive_state_nonce_and_actual_fees'
@@ -65,7 +65,7 @@ def main(*, router=False):
             'split_rejects_recommitted_stale_leg_order_and_wrong_amounts','split_rebuild_rejects_substitution_and_missing_source',
             'split_worker_replays_four_mined_plans_and_rejects_inconsistent_sources',
             'exact_approval_calldata_matches_both_mined_sequences','reset_approval_policy_matches_both_mined_sequences',
-            'worker_audits_sequential_approval_and_swap_fees','worker_carries_reset_approval_and_swap_state_and_fees']
+            'worker_audits_sequential_approval_and_swap_fees','worker_carries_reset_approval_and_swap_state_and_fees','wrap_worker_derives_principal_and_carries_balances_into_swap']
         for workspace, label in [('dex-router','router'),('chain-parser-rust','parser')]:
             gate = 'durable-price-'+label+'-config'
             test = 'durable_journal_config_matches_go_hashes_and_rejects_invalid_paths'

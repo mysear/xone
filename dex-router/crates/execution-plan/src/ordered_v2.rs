@@ -321,6 +321,41 @@ pub fn caller_approvals(
     }
 }
 
+/// Runtime of WETH9 in the pinned Router02 periphery reference artifact.
+pub const WETH9_CODE_SHA256: &str =
+    "cfbbcde6216d96d738807622bbcf9903033ddafba4cbcba85bf62536209f0086";
+
+/// Deposit only the caller's missing wrapped principal for the bound swap.
+/// The caller must independently verify the wrapper code and Router02.WETH().
+pub fn caller_wrap(
+    bound: &BoundSplit,
+    pools: &[Pool],
+    executor: &SplitExecutor,
+    allowed: &[String],
+    wrapped: &str,
+    balance: &Amount,
+) -> Result<Option<Transaction>> {
+    validate(bound, pools, executor, allowed)?;
+    let (context, input) = match &bound.plan {
+        SplitPlan::ExactIn(p) => (&p.context, &p.allocation.sell_amount),
+        SplitPlan::ExactOut(p) => (&p.context, &p.allocation.required_input),
+    };
+    if context.sell_token != wrapped {
+        return Err(err("EXECUTION_WRAPPED_INPUT_MISMATCH"));
+    }
+    balance.to_be_bytes()?;
+    if balance >= input {
+        return Ok(None);
+    }
+    Ok(Some(Transaction {
+        chain_key: context.chain_key.clone(),
+        from: context.caller.clone(),
+        to: wrapped.into(),
+        data: "0xd0e30db0".into(),
+        value: Amount::checked(&input.0 - &balance.0)?,
+    }))
+}
+
 fn small(n: usize) -> [u8; 32] {
     let mut w = [0; 32];
     w[24..].copy_from_slice(&(n as u64).to_be_bytes());

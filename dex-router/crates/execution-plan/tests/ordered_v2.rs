@@ -537,6 +537,67 @@ fn check_worker_approval(bank_key: &str, reset: bool) {
     }
 }
 
+#[test]
+#[ignore = "requires a mined WETH9 shortfall and a built worker"]
+fn wrap_worker_derives_principal_and_carries_balances_into_swap() {
+    use serde_json::json;
+    let report: Value =
+        serde_json::from_slice(&std::fs::read(std::env::var("XONE_WRAP_REPORT").unwrap()).unwrap())
+            .unwrap();
+    let bank = &report["executionBank"]["wrapReplay"];
+    let anchor = &bank["state_anchor"];
+    let mut source = report["binding"].clone();
+    set_bank_anchor(&mut source, anchor);
+    let worker = std::env::var("XONE_SPLIT_WORKER").unwrap();
+    for seq in bank["sequences"].as_array().unwrap() {
+        let (plan, pools, ex, c) =
+            fixture_from_bank(&source, seq["caseIndex"].as_u64().unwrap() as usize);
+        let allowed = [ex.target.clone(), ex.router.target.clone()];
+        let b = bind(&plan, &pools, &ex, &allowed).unwrap();
+        let deposit = &seq["runs"][0];
+        let swap = &seq["runs"][1];
+        let request = json!({"protocol":"xone-local-evm-worker/1","split":{"bound":b,"expected_executor":ex,"wrap_sequence":{"wrapper":deposit["to"],"deposit_context":deposit["transaction_context"],"swap_environment":swap["execution_environment"]}},"pools":pools,"allowed_targets":allowed,"expected_genesis_hash":anchor["genesis_hash"],"fixture":{"schema_version":1,"state_anchor":anchor,"accounts":bank["accounts"],"block_hashes":[],"execution_environment":deposit["execution_environment"]},"transaction_context":swap["transaction_context"],"timeout_ms":15000,"budget":{"max_fixture_json_bytes":16000000,"max_accounts":256,"max_storage_slots":65536,"max_code_bytes":8000000,"max_image_bytes":16000000,"max_reads":32000,"max_read_bytes":32000000,"max_instructions":4000000,"max_input_bytes":131072,"max_total_input_bytes":1000000,"max_transaction_gas":15000000,"probe_gas_limit":200000,"max_total_gas":15000000,"max_memory_bytes":64000000,"max_output_bytes":1000000}});
+        let reply = invoke(&worker, &request);
+        let out = &reply["outcome"];
+        assert_eq!(out["matches_plan"], true, "{}", reply["error"]);
+        let receipt = &out["wrap"];
+        for field in ["from", "to", "value", "data"] {
+            assert_eq!(receipt["transaction"][field], deposit[field]);
+        }
+        assert_eq!(receipt["token_before"], seq["openingTokens"]);
+        assert_eq!(receipt["token_after"], c["input"]);
+        assert_eq!(receipt["payer_after"], out["native_fees"]["caller_before"]);
+        assert_eq!(
+            receipt["beneficiary_after"],
+            out["native_fees"]["coinbase_before"]
+        );
+        assert_eq!(
+            receipt["gas_used"].as_u64().unwrap().to_string(),
+            deposit["gasUsed"]
+        );
+        assert_eq!(
+            out["execution"]["gas_used"].as_u64().unwrap().to_string(),
+            swap["gasUsed"]
+        );
+        assert_eq!(out["actual_buy_amount"], c["output"]);
+        for (key, value) in [
+            ("/split/wrap_sequence/wrapper", ex.target.clone().into()),
+            (
+                "/transaction_context/nonce",
+                deposit["transaction_context"]["nonce"].clone(),
+            ),
+            (
+                "/split/wrap_sequence/swap_environment/parent_hash",
+                anchor["block_hash"].clone(),
+            ),
+        ] {
+            let mut wrong = request.clone();
+            *wrong.pointer_mut(key).unwrap() = value;
+            assert!(!invoke(&worker, &wrong)["error"].is_null(), "{key}");
+        }
+    }
+}
+
 fn set_bank_anchor(source: &mut Value, anchor: &Value) {
     use serde_json::json;
     source["block"] = json!({"chain_key":anchor["chain_key"],"number_or_slot":anchor["block_number"],"hash":anchor["block_hash"],"parent_hash":anchor["parent_hash"],"timestamp_ms":anchor["timestamp"].as_u64().unwrap()*1000});

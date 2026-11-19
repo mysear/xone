@@ -1,6 +1,7 @@
 //! Historical replay of PROVIDED_LOCAL_STATE, never a canonicality or VERIFIED claim.
 //! Source H and execution H+1 are distinct. Probes discard their state; only swap effects commit.
 mod approval;
+mod wrap;
 use crate::revm_backend as core;
 use revm::primitives::{
     keccak256, AccountInfo, Address, BlockEnv, Bytes, ExecutionResult, SpecId, TxEnv, TxKind, B256,
@@ -14,6 +15,7 @@ use std::{
     sync::{atomic::Ordering, Arc},
     time::Instant,
 };
+pub use wrap::{WrapReceipt, WrapSequence};
 use xone_domain::{Amount, Pool};
 use xone_execution_plan::ordered_v2::{self, BoundSplit, SplitExecutor, SplitPlan};
 use xone_execution_plan::{
@@ -546,6 +548,8 @@ pub struct SimulationOutcome {
     pub approval: Option<ApprovalReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allowance_reset: Option<ApprovalReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wrap: Option<WrapReceipt>,
     #[serde(
         serialize_with = "serialize_false",
         deserialize_with = "deserialize_false"
@@ -1356,6 +1360,7 @@ pub fn simulate_bound_split(
     bound: &BoundSplit,
     expected: &SplitExecutor,
     sequence: Option<&ApprovalSequence>,
+    wrap: Option<&WrapSequence>,
     pools: &[Pool],
     allowed: &[String],
     fixture: &FixtureState,
@@ -1364,7 +1369,7 @@ pub fn simulate_bound_split(
     control: core::ExecutionControl,
 ) -> Result<SimulationOutcome> {
     simulate_execution(
-        BoundSource::Split(bound, expected, sequence),
+        BoundSource::Split(bound, expected, sequence, wrap),
         pools,
         allowed,
         fixture,
@@ -1417,6 +1422,7 @@ enum BoundSource<'a> {
         &'a BoundSplit,
         &'a SplitExecutor,
         Option<&'a ApprovalSequence>,
+        Option<&'a WrapSequence>,
     ),
 }
 impl Serialize for BoundSource<'_> {
@@ -1427,8 +1433,11 @@ impl Serialize for BoundSource<'_> {
         match self {
             Self::ExactIn(b) => b.serialize(serializer),
             Self::ExactOut(b) => b.serialize(serializer),
-            Self::Split(b, _, None) => b.serialize(serializer),
-            Self::Split(b, _, Some(seq)) => {
+            Self::Split(b, _, None, None) => b.serialize(serializer),
+            Self::Split(b, _, _, Some(wrap)) => {
+                ("ordered-wrap-sequence/1", b, wrap).serialize(serializer)
+            }
+            Self::Split(b, _, Some(seq), None) => {
                 ("ordered-approval-sequence/1", b, seq).serialize(serializer)
             }
         }
@@ -1458,7 +1467,7 @@ impl BoundSource<'_> {
                 executor: &b.executor,
                 touched_pool_ids: b.touched_pool_ids.iter().collect(),
             },
-            Self::Split(b, e, _) => {
+            Self::Split(b, e, _, _) => {
                 let (context, snapshot) = match &b.plan {
                     SplitPlan::ExactIn(p) => (&p.context, &p.snapshot),
                     SplitPlan::ExactOut(p) => (&p.context, &p.snapshot),
@@ -1483,7 +1492,7 @@ impl BoundSource<'_> {
         match self {
             Self::ExactIn(b) => validate_bound_execution(b, pools, allowed),
             Self::ExactOut(b) => validate_bound_exact_out_execution(b, pools, allowed),
-            Self::Split(b, e, _) => ordered_v2::validate(b, pools, e, allowed),
+            Self::Split(b, e, _, _) => ordered_v2::validate(b, pools, e, allowed),
         }
     }
 }
@@ -1540,11 +1549,21 @@ fn simulate_execution(
         .as_ref()
         .map(amount)
         .transpose()?;
-    let sequence = match source {
-        BoundSource::Split(_, _, seq) => seq,
-        _ => None,
+    let (sequence, wrapping) = match source {
+        BoundSource::Split(_, _, Some(_), Some(_)) => {
+            return Err(failure(
+                SimulationBindingMismatch,
+                "split_sequence",
+                "overlapping sequence contexts",
+            ))
+        }
+        BoundSource::Split(_, _, seq, wrap) => (seq, wrap),
+        _ => (None, None),
     };
-    let swap_env = sequence.map_or(&fixture.execution_environment, |seq| &seq.swap_environment);
+    let swap_env = sequence
+        .map(|s| &s.swap_environment)
+        .or_else(|| wrapping.map(|s| &s.swap_environment))
+        .unwrap_or(&fixture.execution_environment);
     let base_fee = amount(&swap_env.base_fee)?;
     if max_fee < base_fee || priority_fee.is_some_and(|tip| tip > max_fee) {
         return Err(failure(
@@ -1680,9 +1699,13 @@ fn simulate_execution(
         op_fees: None,
         caller_address: caller,
     };
+    let mut wrapped = None;
     let mut approval = None;
     let mut allowance_reset = None;
-    if let BoundSource::Split(split, e, seq) = source {
+    if let BoundSource::Split(split, e, seq, wrap) = source {
+        if let Some(wrap) = wrap {
+            runner.tx = &wrap.deposit_context;
+        }
         code_check(&image, &e.target, &e.code_sha256)?;
         runner.expect_address(image.clone(), &e.target, "router()", &[], &e.router.target)?;
         let initial_allowance = runner.probe(
@@ -1695,6 +1718,23 @@ fn simulate_execution(
             "split_caller_allowance_before",
             32,
         )?;
+        if let Some(wrap) = wrap {
+            let (after, receipt) = wrap::execute(
+                &mut runner,
+                image,
+                split,
+                e,
+                pools,
+                allowlist,
+                fixture,
+                tx,
+                wrap,
+            )?;
+            image = after;
+            wrapped = Some(receipt);
+            runner.env = swap_env;
+            runner.tx = tx;
+        }
         if let Some(seq) = seq {
             let (after, reset, receipt) = approval::execute(
                 &mut runner,
@@ -1874,7 +1914,7 @@ fn simulate_execution(
     let amounts = match source {
         BoundSource::ExactIn(b) => Amounts::In(&b.plan),
         BoundSource::ExactOut(b) => Amounts::Out(&b.plan),
-        BoundSource::Split(b, _, _) => match &b.plan {
+        BoundSource::Split(b, _, _, _) => match &b.plan {
             SplitPlan::ExactIn(p) => Amounts::In(p),
             SplitPlan::ExactOut(p) => Amounts::Out(p),
         },
@@ -1945,6 +1985,7 @@ fn simulate_execution(
         SIMULATOR_VERSION
     };
     let mut outcome = SimulationOutcome {
+        wrap: wrapped,
         allowance_reset,
         approval,
         verified: false,
