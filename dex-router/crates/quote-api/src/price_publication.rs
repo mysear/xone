@@ -305,13 +305,16 @@ impl Journal {
     pub fn high_water(&self) -> &HighWater {
         self.head.as_ref().expect("initialized journal")
     }
-    pub fn check(&self, publication: &AuthorizedPublication) -> Result<DurableReceipt> {
+    pub fn would_advance(&self, publication: &AuthorizedPublication) -> Result<bool> {
         if !self.healthy {
             return Err(err("PRICE_PUBLICATION_JOURNAL_COMMIT_UNCERTAIN"));
         }
         check_path(&self.path, &self.file, self.bytes)?;
         self.binding.validate(&publication.0)?;
-        if transition(self.high_water(), &publication.0)? {
+        transition(self.high_water(), &publication.0)
+    }
+    pub fn check(&self, publication: &AuthorizedPublication) -> Result<DurableReceipt> {
+        if self.would_advance(publication)? {
             return Err(err("PRICE_PUBLICATION_JOURNAL_ADVANCE_REQUIRED"));
         }
         Ok(self.receipt(false))

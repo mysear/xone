@@ -21,7 +21,7 @@ fn run() -> Result<()> {
     let mode = args[0]
         .to_str()
         .ok_or_else(|| err("PRICE_PUBLICATION_CLI_ARGUMENTS"))?;
-    if !["initialize", "advance", "check"].contains(&mode) {
+    if !["initialize", "advance", "check", "preview"].contains(&mode) {
         return Err(err("PRICE_PUBLICATION_CLI_ARGUMENTS"));
     }
     let mut bytes = Vec::new();
@@ -46,6 +46,17 @@ fn run() -> Result<()> {
     } else {
         Journal::open(&path, &input.policy)?
     };
+    if mode == "preview" {
+        if !journal.would_advance(&publication)? {
+            return Err(err("PRICE_PUBLICATION_ALREADY_CURRENT"));
+        }
+        println!(
+            "{}",
+            serde_json::json!({"wouldAdvance":true,"published":false,
+            "bookHash":publication.high_water().book_hash(),"revision":publication.high_water().revision()})
+        );
+        return Ok(());
+    }
     let receipt = if mode == "advance" {
         journal.advance(&publication)?
     } else {

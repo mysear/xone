@@ -81,9 +81,9 @@ class MarketBookTests(unittest.TestCase):
                 return read[name + '_return']
         raise AssertionError('unexpected RPC request')
 
-    def run_book(self, policies=None, revision=7, end=None, label='result'):
+    def run_book(self, policies=None, revision=7, end=None, label='result', **config_fields):
         config = self.root / 'config.json'
-        config.write_text(json.dumps(dict(policies=[self.p, self.p2] if policies is None else policies)))
+        config.write_text(json.dumps(dict(policies=[self.p, self.p2] if policies is None else policies, **config_fields)))
         with patch('time.time', return_value=(self.at + 1000) / 1000), \
              patch('time.time_ns', return_value=(end if end is not None else self.at + 2000) * 1_000_000):
             return book.capture_book(config, self.url, self.binary, self.root / label,

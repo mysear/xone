@@ -52,6 +52,9 @@ def main(*, router=False):
     validate(output_base=output, durable_router_output=http, extra_checks=[
         ('price-journal-state', cargo+['test']+manifest+['-p', 'xone-quote-api', '--lib', 'price_publication::tests']),
         ('price-journal-cli-build', cargo+['build']+manifest+['-p', 'xone-quote-api', '--bin', 'xone-price-publication']),
+        ('market-book-offline-assembly', ['env', 'XONE_PUBLICATION_CLI='+str(target/'debug/xone-price-publication'),
+            'XONE_MARKET_VALIDATOR='+str(target/'debug/xone-market-price'), sys.executable,
+            'integration/tools/acceptance/tests/test_market_book_assembly.py', '-v']),
         ('price-journal-independent-replay', [sys.executable, 'integration/tools/acceptance/price_publication_journal_replay.py',
              str(target/'debug/xone-price-publication'), str(replay)]),
     ]+extra, extra_required={**required,'price-journal-state':['price_publication::tests::'+name for name in tests]},

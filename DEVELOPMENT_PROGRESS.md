@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|独立签署回执与候选簿组装（阶段158，P0-3）|§15.5/21.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|复算采集消息、Router 原签名阈值校验、离线耐久版本预检|双币种签署回放与拒绝路径；非在线持续发布|
 |整簿同块采集与待签署输入（阶段157，P0-3）|§15.5/21.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|全部批准币种固定同一块、签名消息覆盖同一版本，仅完整且未过期的请求可交接|4 项整簿回放及 6 项原采集器测试通过；持续调度和独立签署发布仍缺|
 |正常Router耐久价格发布与重启（阶段156，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|显式 journal 的启动核对、持久发布、确认丢失与重启恢复|80 项门禁通过，239 次 Rust、82 次 Go；默认模式仍无跨重启保证|
 |耐久价格发布journal与离线初始化（阶段155，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|签名book授权后记录发布高水位|75门禁、235次Rust/80次Go；离线重启回退拒绝，正常Router尚未接入|
@@ -745,6 +746,7 @@
 |155|[耐久价格发布journal与离线初始化](#plan-2026-11-19-price-publication-journal)|LOCAL_SCOPE_VERIFIED|[冻结报告](integration/artifacts/local/price-publication-journal-check/runs/5255594d26fa40fcb3e700601e15eb15/report.json)：75门禁、6项日志测试、34个离线CLI案例；正常接线接续|
 |156|[正常Router耐久价格发布与重启](#plan-2026-11-19-durable-price-router)|LOCAL_SCOPE_VERIFIED|[冻结报告](integration/artifacts/local/durable-price-router-check/runs/4ab92751086041e49f974d0a2d599007/report.json)：原 75 项与新增 5 项全过，覆盖双配置摘要、确认丢失及多进程 HTTP|
 |157|[整簿同块采集与独立签署输入](#market-book-signing-request)|LOCAL_SCOPE_VERIFIED|本地只读 RPC 与实际 Rust 验证器定向通过；不代表持续 live、签名授权或生产验收|
+|158|[独立签署回执与离线候选簿](#market-book-offline-assembly)|LOCAL_SCOPE_VERIFIED|双币种端到端回放、6 项日志组件测试；预检不等于已发布|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -4366,3 +4368,16 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 定向验收：`python3 -B integration/tools/acceptance/tests/test_market_book_capture.py -v`（4 项）；原采集器测试 6 项通过。已将新套件接在市场验证器构建之后；本轮没有重跑阶段156全量冻结，不复用其通过数。测试前确认无活动进程和打开句柄，清理上一轮遗留的一份临时 Rust checkpoint 测试目录。
 
 下一项：把独立签署回执与当前请求、策略、有效期及耐久版本核对后组装可发布价格簿，验证缺签/错签/过期不能发布；再接有界持续采集及真实 bank 推进。拆单执行、辅助交易费用、完整净额和其他既定优先级未关闭。阶段156本地提交 `d1703d9`；截至本轮仍未配置 GitLab，不能将本地提交记为已推送。
+
+<a id="market-book-offline-assembly"></a>
+
+## 独立签署回执与离线候选簿（2026-11-19，阶段158，P0-3）
+
+交付目标已改为 GitHub，阶段156 `d1703d9` 和阶段157 `b65e648` 已分别推送至 `origin` 同一分支。上两轮的 GitLab 阻塞是历史状态，不再阻碍本轮。测试前检查了活动进程与系统临时目录，未发现可清理的上轮 xone 临时运行目录；保留共享构建缓存及验收证据。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F158.1|逐币种重算消息并组装独立签署回执|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|两币种各两名测试签署者，乱序回执生成确定的候选簿；缺签、跨币种错签、重复签署者、错批次与过期均无输出。|
+|F158.2|耐久日志离线预检，不改在线价格文件|WP15,WP16|LOCAL_SCOPE_VERIFIED|实际 CLI 预检有效簿后日志字节不变。输出不覆盖；显式 advance 后才推进，重复版本不再可提交。原 6 项日志组件回归通过。|
+
+定向回放入口：`python3 -B integration/tools/acceptance/tests/test_market_book_assembly.py -v`，使用回环 RPC、测试签名和实际 Rust 二进制。已加入综合验收入口；不把其他阶段的全量统计或生产授权计入本轮。下一项是运行中 Router 的预检、发布及结果回读，避免离线工具争用在线日志。其后继续有界持续采集、真实 bank 推进、拆单执行、辅助交易费用和完整净额；整体设计未完成。

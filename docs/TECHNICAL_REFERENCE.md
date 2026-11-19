@@ -2362,3 +2362,9 @@ Unix文件以0600创建，非阻塞且不跟随最终符号链接打开，核对
 `python3 integration/tools/market/capture_chainlink_book.py --config <native-valuation.json> --rpc-url <https-endpoint> --validator <xone-market-price> --publication-revision <正整数> --output <新目录>`。配置文件是含 `policies` 的估值配置对象，不是整个部署清单。采集覆盖配置中的全部币种，当前仅支持 Ethereum 主网的已批准双 feed。默认用提供方的 `finalized` 返回值选择第一个块；也可以用 `--block-hash` 指定。所有后续币种都按同一哈希读取，仍逐次检查 canonical header。这不是独立共识证明。
 
 签署方只消费完整的 `signing-request.json`，不要消费中间文件。每条记录保留源报告摘要、带版本的 observation 和待签名消息，签署前需独立校验配置、源数据、时间与版本。交接时检查最早有效期；过期后需要重新采集，不能延长 `source_read_at_ms`。输出不是 Router 可接受的已签名价格簿，工具不会分配耐久版本、持有私钥、自动发布、更改运行中配置或提交交易。
+
+### 离线组装已签名候选簿（阶段158）
+
+`python3 integration/tools/market/assemble_chainlink_book.py --config <估值配置> --request <采集目录>/signing-request.json --receipts <回执文件> --validator <xone-market-price> --publication-cli <xone-price-publication> --output <新候选文件>`。回执格式为 `{"schema_version":1,"request_sha256":"<原请求文件字节的 SHA-256>","signatures":[{"token":"<币种>","key_id":"<配置中的签署者>","signature":"<Ed25519 签名 hex>"}]}`。签署的是每条 observation 对应的 `signing_message_hex` 所表示的字节；请求文件摘要用于匹配交接批次，不是签名内容，也不证明各来源独立。
+
+工具从采集目录复算签名消息，按配置覆盖全部币种，再通过与 Router 相同的授权逻辑验证阈值和价格时效。`xone-price-publication preview JOURNAL` 在现有日志上检查版本可推进性，不追加记录；它使用离线排他锁，打开日志时可以按既有规则修复不完整尾记录。运行中的 Router 已持锁时不能使用此离线流程。成功输出是一个新的候选文件，不覆盖在线价格文件。预检不预留版本，正式发布仍须重新校验当时的时效、锚点与高水位。
