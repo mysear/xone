@@ -1277,6 +1277,8 @@ go build -trimpath -o bin/source-evidence ./cmd/source-evidence
 ./bin/source-evidence --verify ../integration/test/source/ethereum-mainnet/uniswap-v2-26355865-evidence.json
 ```
 
+离线证据可同时指定 `--beacon-root <主网信标块根>` 和 `--beacon-bootstrap <标准 light_client/bootstrap 响应文件>`。根由调用方提供，文件上限为 128 KiB。工具重算信标头及载荷头的 SSZ 根，核对载荷和当前委员会的证明，并将执行哈希与既有部署证据绑定。结果位于 `beacon_checkpoint`。当前证据覆盖检查点处的执行区块，根的来源及最终性由外部提供。阶段187实际回放 Fulu 历史区块，固定根及重放命令参数见 `integration/tools/acceptance/verify_beacon_checkpoint.py`。
+
 Go正常EVM适配器可配置`chains[].block_integrity: "ethereum-header-transactions-v1"`，仅允许`evm:1`。`Adapter.Block`通过标准`eth_getBlockByNumber(tag,true)`一次读取完整头及交易，重算头hash、交易hash/chain ID/位置和transactionsRoot；交易数据与保守对象开销共用已有块预算，整个操作受已有RPC期限约束，失败进入原正常服务撤销/耐久DLQ流程。它与后续receiptsRoot校验分别生效；承诺核对的锚点仍来自RPC，响应metadata显式`consensus_verified:false`。该profile不能用于其他链，也不能替代共识/独立故障域证明。
 
 公开目标配置生成器为7条EVM目标默认选择 `known-evm-native-commitments-v2`，并填写显式的 `native_proof` 限界：

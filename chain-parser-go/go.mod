@@ -79,4 +79,11 @@ require (
 	xone/common/protoc/golang v0.0.0
 )
 
+require (
+	github.com/kilic/bls12-381 v0.1.0 // indirect
+	github.com/protolambda/bls12-381-util v0.1.0 // indirect
+	github.com/protolambda/zrnt v0.34.1 // indirect
+	github.com/protolambda/ztyp v0.2.2 // indirect
+)
+
 replace xone/common/protoc/golang => ../common/protoc/golang

@@ -57,6 +57,7 @@ type DeploymentReport struct {
 	StorageSlots     int    `json:"storage_slots"`
 }
 type Report struct {
+	BeaconCheckpoint      *BeaconBinding     `json:"beacon_checkpoint,omitempty"`
 	Passed                bool               `json:"passed"`
 	ChainID               string             `json:"chain_id"`
 	BlockHash             string             `json:"block_hash"`

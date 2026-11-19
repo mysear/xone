@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Ethereum 主网信标检查点与执行区块绑定（阶段187，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|离线部署证据对照显式信标根验证执行载荷与当前同步委员会|历史主网块 26355865 和 11 项拒绝控制通过，独立最终性待验证|
 |Ethereum 主网离线交易正文复核（阶段186，P0-1）|§7.3、§28.5、§28.7，WP03、WP05|LOCAL_SCOPE_VERIFIED|按位置核对区块交易与签名原文，复核所声明的发送人|两份固定主网部署证据经普通 CLI 通过|
 |Ethereum 主网提款列表完整性（阶段185，P0-1）|§7.3、§28.7，WP03、WP05|LOCAL_SCOPE_VERIFIED|在线读取与离线回放校验 Shanghai 提款根、顺序及必填字段|主网块 26355865 和分叉边界通过，独立共识锚点待接入|
 |报价页展示选中路线的资金需求（阶段184，P0-3）|§13.1、§15.3，WP13、WP16|LOCAL_SCOPE_VERIFIED|展示实测付款人网络费、包装本金、最低起始余额及排序依据|24 项前端测试与实际浏览器两种报价方向通过|
@@ -791,6 +792,7 @@
 |184|[报价页的资金需求](#quote-funding-ui)|LOCAL_SCOPE_VERIFIED|以 wei 展示选中路线的付款人资金需求|
 |185|[Ethereum 主网提款列表完整性](#ethereum-withdrawals-integrity)|LOCAL_SCOPE_VERIFIED|同一份历史主网数据经 RPC 读取及离线回放通过|
 |186|[Ethereum 主网离线交易正文复核](#ethereum-offline-transaction-body)|LOCAL_SCOPE_VERIFIED|两个主网区块共 349 笔交易经部署证据 CLI 回放通过|
+|187|[信标检查点与执行区块](#beacon-checkpoint-execution)|LOCAL_SCOPE_VERIFIED|标准 bootstrap 和既有部署证据经同一 CLI 验证|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
 |175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
 |174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
@@ -4760,3 +4762,11 @@ WETH 包装报价从固定版本 WETH9 的源存储读取 `allowance[caller][spe
 按 §7.3 和 §28.5，离线证据中的区块交易列表现在与已由交易根验证的原始签名交易逐笔核对。完整对象须符合签名交易内容、交易编号、块号、块哈希及位置。含 `from` 的记录还从签名按当时的主网规则恢复发送人。哈希列表按相同顺序核对。历史仅保存区块头和原始交易的证据继续核对交易根。
 
 Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet` 通过。普通 `source-evidence -verify` 回放块 26355865 的 101 笔及块 26360354 的 248 笔交易成功。额外输入 `prestate-evidence.json` 含两个空代码账户，部署证据 CLI 以 `PROVENANCE_DEPLOYMENT_CODE_HASH` 拒绝。P0-1 的独立共识锚点、重组撤权与跨链恢复仍在跟踪。GitLab 项目克隆地址待提供。[专项测试、回放与拒绝记录](integration/artifacts/local/mainnet-transaction-body-186/)
+
+<a id="beacon-checkpoint-execution"></a>
+
+## 信标检查点与执行区块（2026-11-19，阶段187，P0-1）
+
+设计 §7.1、§7.3、§28.5 要求核对来源并披露确认依据。`source-evidence --verify` 新增配对参数 `--beacon-root` 和 `--beacon-bootstrap`。工具重算 beacon header 根，核对执行载荷及同步委员会的两条 SSZ 分支，随后核对执行块哈希并运行原部署证明验证。报告保留显式检查点、slot、fork、委员会根与执行哈希。当前历史根取自公开主网信标 API，其信任来源和新鲜度仍待独立验证，`consensus_verified` 保持 false。
+
+实际 Fulu slot 15595392 对应主网块 26355865，101 笔交易与部署证据通过。12 个 CLI 场景覆盖正常响应、替换根、错误证据、分叉、时间、字段、载荷及委员会分支。Go 证据包 48 项 race 测试和 `go vet` 通过。仓库的模块校验器通过 242 个外部模块校验，并识别本地 protobuf 模块。直接调用 `go mod verify` 对该本地模块报告缺少 ziphash。[历史回放与拒绝记录](integration/artifacts/local/beacon-checkpoint-187/report.json) · [检查点绑定报告](integration/artifacts/local/beacon-checkpoint-187/verified.json)

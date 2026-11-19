@@ -60,7 +60,13 @@ func run() error {
 	storageSlots := flag.String("storage-slots", "", "comma-separated canonical 32-byte hex storage keys for every deployment")
 	output := flag.String("out", "", "new output file for captured evidence")
 	verify := flag.String("verify", "", "offline evidence file")
+	beaconRoot := flag.String("beacon-root", "", "externally pinned Ethereum mainnet beacon block root for offline verification")
+	bootstrap := flag.String("beacon-bootstrap", "", "light_client/bootstrap response for the pinned root")
 	flag.Parse()
+	if (*beaconRoot == "") != (*bootstrap == "") || *bootstrap != "" && *verify == "" {
+		return errors.New("EVIDENCE_BEACON_ARGUMENTS")
+	}
+
 	if *verify != "" {
 		f, err := os.Open(*verify)
 		if err != nil {
@@ -77,7 +83,21 @@ func run() error {
 		if decoder.Decode(&evidence) != nil {
 			return errors.New("EVIDENCE_JSON")
 		}
-		report, err := provenance.Verify(evidence)
+		var report provenance.Report
+		if *bootstrap != "" {
+			input, openErr := os.Open(*bootstrap)
+			if openErr != nil {
+				return errors.New("EVIDENCE_BEACON_INPUT")
+			}
+			defer input.Close()
+			raw, readErr := io.ReadAll(io.LimitReader(input, provenance.MaxBootstrapBytes+1))
+			if readErr != nil || len(raw) > provenance.MaxBootstrapBytes {
+				return errors.New("EVIDENCE_BEACON_INPUT_LIMIT")
+			}
+			report, err = provenance.VerifyWithBeaconCheckpoint(evidence, *beaconRoot, raw)
+		} else {
+			report, err = provenance.Verify(evidence)
+		}
 		if err != nil {
 			return err
 		}
