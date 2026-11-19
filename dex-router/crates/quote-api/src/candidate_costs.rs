@@ -174,11 +174,12 @@ impl Model {
             "simulationAttempts":self.attempts,"simulationBudgetExhausted":self.unavailable.contains_key("MAX_SIMULATION_PLANS"),"unavailableReasons":self.unavailable,
             "selectedPlanHash":selected_hash,"selectedExecution":self.evidence.get(selected_hash),
             "candidateExecutions":self.evidence});
-        if self
-            .evidence
-            .values()
-            .any(|e| e["costs"]["scope"] == "DECLARED_LOCAL_APPROVAL_AND_SWAP")
-        {
+        if self.evidence.values().any(|e| {
+            matches!(
+                e["costs"]["scope"].as_str(),
+                Some("DECLARED_LOCAL_APPROVAL_AND_SWAP" | "DECLARED_LOCAL_WRAP_AND_SWAP")
+            )
+        }) {
             value["scope"] = "LOCAL_EVM_PLAN_NETWORK_FEES".into();
             value["additionalOperationsIncluded"] = true.into();
         }
@@ -267,7 +268,9 @@ pub(crate) fn disclose(
     ] {
         costs[field] = original[field].clone();
     }
-    costs["scope"] = if costs["scope"] == "DECLARED_LOCAL_APPROVAL_AND_SWAP" {
+    costs["scope"] = if costs["scope"] == "DECLARED_LOCAL_WRAP_AND_SWAP" {
+        "SELECTED_LOCAL_WRAP_AND_SWAP"
+    } else if costs["scope"] == "DECLARED_LOCAL_APPROVAL_AND_SWAP" {
         "SELECTED_LOCAL_APPROVAL_AND_SWAP"
     } else {
         "SELECTED_LOCAL_CANDIDATE_TRANSACTION"

@@ -371,7 +371,8 @@ impl ValuationState {
         let input = number(&response["outcome"]["actual_input_consumed"])?;
         let output = number(&response["outcome"]["actual_buy_amount"])?;
         let debit = number(&response["costs"]["payerNetNativeDebit"])?;
-        let sequence = response["costs"]["scope"] == "DECLARED_LOCAL_APPROVAL_AND_SWAP";
+        let wrapping = response["costs"]["scope"] == "DECLARED_LOCAL_WRAP_AND_SWAP";
+        let sequence = wrapping || response["costs"]["scope"] == "DECLARED_LOCAL_APPROVAL_AND_SWAP";
         let settlement_ms = if sequence {
             response["costs"]["settlementTimestampMs"]
                 .as_u64()
@@ -401,7 +402,12 @@ impl ValuationState {
             price(&context.buy_token),
         )?;
         if sequence {
-            economics["scope"] = "EVALUATED_APPROVAL_AND_SWAP_NETWORK_FEES".into();
+            economics["scope"] = if wrapping {
+                "EVALUATED_WRAP_AND_SWAP_NETWORK_FEES"
+            } else {
+                "EVALUATED_APPROVAL_AND_SWAP_NETWORK_FEES"
+            }
+            .into();
             economics["additionalOperationsIncluded"] = true.into();
         }
         economics["priceBookHash"] = self.book_hash.clone().into();

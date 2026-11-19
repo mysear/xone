@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|正常报价核算 WETH 本金与网络费（阶段178，P0-3）|§13.1、§14.2–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|单路线和拆单均从源区块复核持币余额，以两笔网络费比较候选|ExactIn、ExactOut 及兑换时价格到期共 4 个新增 HTTP 场景通过|
 |WETH 短缺额的计划绑定和 worker 执行（阶段177，P0-3）|§13.1、§14.1–14.4，WP13、WP15|LOCAL_SCOPE_VERIFIED|按实际卖币余额生成包装交易，验证 Router02 配置和 WETH9 代码，向兑换传递包装后状态|9 项绑定及 worker 回归通过|
 |包装本金与兑换费用回放（阶段176，P0-3）|§13.1、§14.1–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|从一个最小单位 WETH 起步，按实际输入缺口包装原币并兑换|两种方向各两笔出块交易与 REVM 的状态、日志和费用相符|
 |付款人起始原币需求（阶段175，P0-3）|§13.1、§14.1–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|报价披露单笔或有序多笔执行所需的起始余额、来源余额与实测净支出|16 个 HTTP 场景与原币费用边界测试通过|
@@ -773,6 +774,7 @@
 |163|[共享池 V2 整笔拆单执行](#ordered-v2-split)|LOCAL_SCOPE_VERIFIED|ExactIn/ExactOut 两种腿序的实际整笔 Gas、余额、储备与回滚|
 |164|[按完整拆单计划生成批量交易](#ordered-v2-binding)|LOCAL_SCOPE_VERIFIED|逐字节对照实际成交调用；拒绝沿用旧腿序金额或其他绑定|
 |177|[WETH 包装计划和 worker 执行](#wrapped-input-worker)|LOCAL_SCOPE_VERIFIED|绑定包装本金和两笔交易环境|
+|178|[正常报价中的 WETH 本金与费用](#wrapped-quote-funding)|LOCAL_SCOPE_VERIFIED|按候选核对最低原币余额和两笔网络费|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
 |175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
 |174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
@@ -4666,3 +4668,13 @@ worker 在同一仿真预算内，按三个连续区块执行清零、准确额�
 worker 核对 Router02 的 WETH 地址和包装合约运行代码摘要，再读取付款人的 WETH 余额。执行计划依据 ExactIn 卖出量或 ExactOut 实际所需输入计算包装本金。worker 核对 WETH 余额增量、合约收到的原币、付款人支出与区块受益人的收入，再执行兑换。
 
 9 项绑定和 worker 测试通过。两种方向生成的包装交易和两笔 Gas 与独立出块记录相符，错误包装地址、nonce 和父区块均被拒绝。正常报价端的费用核验与排序是下一项。[本地区块记录](integration/artifacts/local/weth-wrap-176/bank.json)
+
+<a id="wrapped-quote-funding"></a>
+
+## 正常报价中的 WETH 本金与费用（2026-11-19，阶段178，P0-3）
+
+依据 §13.1、§14.2–14.3，正常 ExactIn 和 ExactOut 报价现在对单路线与拆单执行同一套资金核算。报价服务从源区块 WETH9 存储读取付款人的已有余额，按计划实际输入补足差额。服务分别核对包装本金、两笔交易的网络费、付款人及区块受益人的原币余额。最低起始余额包含包装本金与执行两笔交易所需的峰值预留。排序只折算付款人的网络费，价格须覆盖包装与兑换两个区块。
+
+新增 4 个本地 HTTP 场景，分别核对两种报价方向在有效价格和到期价格下的 4 个候选。有效价格下按折算费用选择最优候选，到期时采用毛额。既有 16 个 HTTP 场景全部通过。报价库测试 68 项通过、5 项按环境忽略，Clippy 严格检查通过。剩余 P0-3 范围包括包装与授权都不足时的组合操作，以及不同链费上下文的完整候选净额。工作包总体验收仍为 0/26。[包装报价验收报告](integration/artifacts/local/wrapped-quote-178/report.json)
+
+阶段175提交 `fcf7cb3` 的综合验收另有 89 项检查通过。[阶段175综合报告](integration/artifacts/local/durable-price-router-check/runs/05fdf1fcf60b45379dc3924503c606a2/report.json)

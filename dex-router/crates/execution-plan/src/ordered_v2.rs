@@ -340,9 +340,19 @@ pub fn caller_wrap(
         SplitPlan::ExactIn(p) => (&p.context, &p.allocation.sell_amount),
         SplitPlan::ExactOut(p) => (&p.context, &p.allocation.required_input),
     };
+    wrapped_input_transaction(context, input, wrapped, balance)
+}
+
+pub fn wrapped_input_transaction(
+    context: &Context,
+    input: &Amount,
+    wrapped: &str,
+    balance: &Amount,
+) -> Result<Option<Transaction>> {
     if context.sell_token != wrapped {
         return Err(err("EXECUTION_WRAPPED_INPUT_MISMATCH"));
     }
+    input.to_be_bytes()?;
     balance.to_be_bytes()?;
     if balance >= input {
         return Ok(None);

@@ -59,6 +59,7 @@ async fn main() {
     }
     let mut split_executor = None;
     let mut approval_replay = None;
+    let mut wrap_replay = None;
     if let Ok(path) = std::env::var("XONE_SPLIT_BANK") {
         let report: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
         let mut binding = report["binding"].clone();
@@ -67,7 +68,10 @@ async fn main() {
         if std::env::var_os("XONE_SPLIT_APPROVAL_REPLAY").is_some() {
             use sha2::{Digest, Sha256};
             let reset = std::env::var("XONE_SPLIT_APPROVAL_REPLAY").as_deref() == Ok("reset");
-            bank = &bank[if reset {
+            let wrapping = std::env::var("XONE_SPLIT_APPROVAL_REPLAY").as_deref() == Ok("wrap");
+            bank = &bank[if wrapping {
+                "wrapReplay"
+            } else if reset {
                 "resetApprovalReplay"
             } else {
                 "approvalReplay"
@@ -93,11 +97,15 @@ async fn main() {
                 .unwrap();
             let exact = &runs[usize::from(reset)];
             let swap = &runs[usize::from(reset) + 1];
-            let mut sequence = json!({"token_code_sha256":hex::encode(Sha256::digest(hex::decode(&code[2..]).unwrap())),"approval_context":exact["transaction_context"],"swap_environment":swap["execution_environment"]});
-            if reset {
-                sequence["reset"] = json!({"context":run["transaction_context"],"approval_environment":exact["execution_environment"]});
+            if wrapping {
+                wrap_replay=Some(serde_json::from_value(json!({"caller":binding["caller"],"sequence":{"wrapper":token,"deposit_context":run["transaction_context"],"swap_environment":swap["execution_environment"]},"swap_context":swap["transaction_context"]})).unwrap());
+            } else {
+                let mut sequence = json!({"token_code_sha256":hex::encode(Sha256::digest(hex::decode(&code[2..]).unwrap())),"approval_context":exact["transaction_context"],"swap_environment":swap["execution_environment"]});
+                if reset {
+                    sequence["reset"] = json!({"context":run["transaction_context"],"approval_environment":exact["execution_environment"]});
+                }
+                approval_replay = Some(serde_json::from_value(json!({"token":token,"caller":binding["caller"],"sequence":sequence,"swap_context":swap["transaction_context"]})).unwrap());
             }
-            approval_replay = Some(serde_json::from_value(json!({"token":token,"caller":binding["caller"],"sequence":sequence,"swap_context":swap["transaction_context"]})).unwrap());
         }
         let ex: xone_execution_plan::ordered_v2::SplitExecutor =
             serde_json::from_value(binding["executor"].clone()).unwrap();
@@ -164,6 +172,7 @@ async fn main() {
     let max_fee = original_tx.gas_price.clone();
     let use_split_bank = split_executor.is_some();
     let mut bundle = LocalSimulationBundle {
+        wrap_replay,
         approval_replay,
         split_executor,
         schema_version: 1,
@@ -215,6 +224,7 @@ async fn main() {
         rpc.genesis_hash = source.fixture.state_anchor.genesis_hash.clone();
         rpc.executor = executor.clone();
         bundle = LocalSimulationBundle {
+            wrap_replay: None,
             approval_replay: None,
             split_executor: None,
             schema_version: 1,

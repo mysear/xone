@@ -15,8 +15,9 @@ def scenario(binary, bank_path, report, directory, mode):
     binding = report['binding']
     tokens = binding['cases'][0]['legs'][0]['tokens']
     reset = mode.startswith('reset-approval')
-    sequential = reset or mode in ('approval', 'approval-expired')
-    bank = report['executionBank']['resetApprovalReplay' if reset else 'approvalReplay'] if sequential else report['executionBank']
+    wrapping = mode.startswith('wrap')
+    sequential = wrapping or reset or mode in ('approval', 'approval-expired')
+    bank = report['executionBank']['wrapReplay' if wrapping else 'resetApprovalReplay' if reset else 'approvalReplay'] if sequential else report['executionBank']
     source = dict(state_anchor=bank['state_anchor'],
                   token_in=tokens[0], token_out=tokens[-1])
     config, book, policy = prepare(directory / 'prices', 'stale' if mode == 'stale' else 'priced', source)
@@ -24,8 +25,8 @@ def scenario(binary, bank_path, report, directory, mode):
     env.update(XONE_SPLIT_BANK=str(bank_path), XONE_NATIVE_VALUATION_CONFIG=str(config),
                XONE_CANDIDATE_COST_MAX_PLANS='1' if mode == 'budget' else '16')
     if sequential:
-        env['XONE_SPLIT_APPROVAL_REPLAY'] = 'reset' if reset else '1'
-    if mode in ('approval-expired', 'reset-approval-expired'):
+        env['XONE_SPLIT_APPROVAL_REPLAY'] = 'wrap' if wrapping else 'reset' if reset else '1'
+    if mode.endswith('-expired'):
         from native_valuation_vectors import sign
         until = bank['sequences'][0]['runs'][-1]['execution_environment']['timestamp'] * 1000
         for index, entry in enumerate(book['prices']):
@@ -53,7 +54,7 @@ def scenario(binary, bank_path, report, directory, mode):
                 ranking = q['quality']['costRanking']
                 rows = ranking['candidateExecutions']
                 require(len(q['routes']) == 2 and len({r.get('path', r)['edges'][-1]['pool_id'] for r in q['routes']}) == 1, 'expected shared final pool')
-                require(ranking['optimizer']['evaluated_candidates'] == 4 and ranking['costAdjustmentApplied'] == (mode in ('priced', 'approval', 'reset-approval')), 'partial pricing influenced ranking')
+                require(ranking['optimizer']['evaluated_candidates'] == 4 and ranking['costAdjustmentApplied'] == (mode in ('priced', 'approval', 'reset-approval', 'wrap')), 'partial pricing influenced ranking')
                 require(ranking['completeQuoteCostRanking'] is False and q['verification']['level'] == 'INDICATIVE', 'unsupported verification scope')
                 selected = rows.get(q['planHash'])
                 require(selected == ranking['selectedExecution'], 'selected evidence mismatch')
@@ -65,6 +66,9 @@ def scenario(binary, bank_path, report, directory, mode):
                     require(ranking['unavailableReasons'].get('EXECUTION_ADAPTER_UNSUPPORTED') == 2 and selected is None, 'missing split executor coverage')
                 if mode == 'budget':
                     require(ranking['simulationBudgetExhausted'] and len(rows) == 1, 'candidate budget ignored')
+                if wrapping:
+                    audit_wrap(rows, bank, mode, exact, q, selected)
+                    continue
                 if sequential:
                     audit_approval(rows, bank, mode, exact, q, selected)
                     continue
@@ -93,6 +97,42 @@ def scenario(binary, bank_path, report, directory, mode):
         finally:
             process.terminate()
             process.wait(timeout=10)
+
+
+def audit_wrap(rows, bank, mode, exact, quote, selected):
+    require(len(rows) == 4 and sum('splitExecutor' in r for r in rows.values()) == 2, 'wrap candidate coverage')
+    deposit, swap = bank['sequences'][0]['runs']
+    scores = {}
+    for plan, row in rows.items():
+        costs, out = row['costs'], row['outcome']
+        wrap, native = out['wrap'], out['native_fees']
+        principal = int(out['actual_input_consumed']) - 1
+        require(wrap['token_before'] == '1' and wrap['token_after'] == out['balances']['caller_sell_before'] == out['actual_input_consumed'], 'wrapped token continuity')
+        require(int(wrap['transaction']['value']) == principal and wrap['transaction']['to'] == deposit['to'] and wrap['transaction']['data'] == deposit['data'], 'deposit transaction')
+        charges, reserves = [], []
+        for run, gas in ((deposit, wrap['gas_used']), (swap, out['execution']['gas_used'])):
+            tx, env = run['transaction_context'], run['execution_environment']
+            charges.append(gas * min(int(tx['gas_price']), int(env['base_fee']) + int(tx['max_priority_fee_per_gas'])))
+            reserves.append(int(tx['gas_price']) * tx['gas_limit'])
+        fees = sum(charges)
+        require(wrap['gas_used'] == int(deposit['gasUsed']) and int(costs['wrapNative']) == charges[0] and int(costs['gasNative']) == charges[1], 'operation fees')
+        require(wrap['payer_after'] == native['caller_before'] and int(wrap['payer_before']) - int(native['caller_after']) == principal + fees, 'payer continuity')
+        funding = costs['nativeFunding']
+        require(int(funding['wrappedPrincipalNative']) == principal and int(funding['totalNetDebitNative']) == principal + fees, 'funding includes principal')
+        require(int(funding['minimumOpeningBalanceNative']) == principal + max(reserves[0], charges[0] + reserves[1]), 'opening balance')
+        require(int(costs['payerNetNativeDebit']) == int(costs['nativeKnownSubtotal']) == fees, 'fee-only ranking input')
+        economics = costs['transactionEconomics']
+        require(economics['additionalOperationsIncluded'] and economics['valuationTimestampMs'] == swap['execution_environment']['timestamp'] * 1000, 'settlement time')
+        side = 'sell' if exact else 'buy'
+        if mode.endswith('-expired'):
+            require(economics[side + 'UnavailableReason'] == 'NATIVE_VALUATION_TIME', 'expired price used')
+        else:
+            fee = (fees + 2) // 3 if exact else (fees * 3 + 1) // 2
+            require(int(economics[side + 'TokenFee']) == fee, 'principal counted as fee')
+            scores[plan] = int(out['actual_input_consumed']) + fee if exact else int(out['actual_buy_amount']) - fee
+    if scores:
+        require(scores[quote['planHash']] == (min if exact else max)(scores.values()), 'wrap fee ranking')
+    require(selected is not None and quote['costs']['scope'] == 'SELECTED_LOCAL_WRAP_AND_SWAP' and quote['costs']['nativeFunding'] == selected['costs']['nativeFunding'], 'selected funding disclosure')
 
 
 def audit_approval(rows, bank, mode, exact, quote, selected):
@@ -148,8 +188,9 @@ def audit_approval(rows, bank, mode, exact, quote, selected):
 
 
 if __name__ == '__main__':
-    binary, bank, output = map(lambda arg: Path(arg).resolve(), sys.argv[1:])
+    wrapping = sys.argv[1:2] == ['--wrap']
+    binary, bank, output = map(lambda arg: Path(arg).resolve(), sys.argv[2:] if wrapping else sys.argv[1:])
     report = json.loads(bank.read_bytes())
-    for mode in ['priced', 'budget', 'stale', 'missing-executor', 'approval', 'approval-expired', 'reset-approval', 'reset-approval-expired']:
+    for mode in (['wrap', 'wrap-expired'] if wrapping else ['priced', 'budget', 'stale', 'missing-executor', 'approval', 'approval-expired', 'reset-approval', 'reset-approval-expired']):
         scenario(binary, bank, report, output / mode, mode)
-    (output / 'report.json').write_text(json.dumps(dict(passed=True, scenarios=16)) + '\n')
+    (output / 'report.json').write_text(json.dumps(dict(passed=True, scenarios=4 if wrapping else 16)) + '\n')

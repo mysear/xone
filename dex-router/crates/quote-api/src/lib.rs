@@ -14,6 +14,7 @@ mod remote_checkpoint;
 mod solana_simulation;
 mod transaction_economics;
 mod transaction_lifecycle;
+mod wrapped_funding;
 pub use exact_out::ExactOutRequest;
 mod local_simulation;
 mod recovery_metrics;

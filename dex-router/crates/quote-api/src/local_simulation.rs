@@ -113,6 +113,7 @@ impl Selection {
     }
 }
 pub(crate) struct LocalSimulation {
+    wrap_source: Option<Arc<crate::wrapped_funding::Source>>,
     bundle: Arc<LocalSimulationBundle>,
     valuation: Option<Arc<crate::transaction_economics::ValuationState>>,
     valuation_store: Option<Arc<crate::transaction_economics::ValuationStore>>,
@@ -131,6 +132,7 @@ pub(crate) struct LocalSimulation {
 // These small values are taken from the exact request serialized to child stdin.
 // Keeping them together also makes the reported fee context unambiguous.
 struct ExecutionCommitment {
+    wrap: Option<crate::wrapped_funding::Commitment>,
     op: Option<OpReceiptCommitment>,
     binding_hash: String,
     quote_kind: &'static str,
@@ -152,7 +154,14 @@ struct PreparedExecution {
     commitment: ExecutionCommitment,
 }
 impl PreparedExecution {
+    #[cfg(test)]
     fn from_request(request: WorkerRequest) -> std::result::Result<Self, Failure> {
+        Self::from_source(request, None)
+    }
+    fn from_source(
+        request: WorkerRequest,
+        source: Option<&crate::wrapped_funding::Source>,
+    ) -> std::result::Result<Self, Failure> {
         let op = request
             .op_user
             .as_ref()
@@ -188,24 +197,44 @@ impl PreparedExecution {
         };
         let approval_sequence = crate::approval_sequence::Commitment::new(&request)
             .map_err(|e| Failure::new(&e.0, "approval_binding"))?;
-        let swap_env = request
-            .split
+        let wrap_seq = request
+            .direct_wrap
             .as_ref()
-            .and_then(|s| s.approval_sequence.as_ref())
+            .or_else(|| request.split.as_ref()?.wrap_sequence.as_ref());
+        let wrap = crate::wrapped_funding::bind(source, &request, wrap_seq)
+            .map_err(|e| Failure::new(&e.0, "wrap_binding"))?;
+        let swap_env = wrap_seq
             .map(|s| &s.swap_environment)
+            .or_else(|| {
+                request
+                    .split
+                    .as_ref()?
+                    .approval_sequence
+                    .as_ref()
+                    .map(|s| &s.swap_environment)
+            })
             .unwrap_or(&request.fixture.execution_environment)
             .clone();
-        let split_receipt = if let Some(s) = &request.split {
-            let bound = if let Some(seq) = &s.approval_sequence {
+        let template_bound = if let Some(s) = &request.split {
+            Some(if let Some(seq) = wrap_seq {
+                json!(["ordered-wrap-sequence/1", s.bound, seq])
+            } else if let Some(seq) = &s.approval_sequence {
                 json!(["ordered-approval-sequence/1", s.bound, seq])
             } else {
                 json!(s.bound)
-            };
+            })
+        } else {
+            wrap_seq.map(|seq| {
+                if let Some(b) = &request.bound {
+                    json!(["ordered-wrap-sequence/1", b, seq])
+                } else {
+                    json!(["ordered-wrap-sequence/1", request.exact_out_bound, seq])
+                }
+            })
+        };
+        let split_receipt = if let Some(bound) = template_bound {
             Some(
-                json!({"bound":bound,"source_fixture_hash":hash(&request.fixture)
-                .map_err(|_| Failure::new("SIMULATION_WORKER_BINDING", "fixture"))?,
-                "transaction_context":request.transaction_context,"limits":request.budget,
-                "simulator_version":xone_simulation::evm_fixture::SIMULATOR_VERSION}),
+                json!({"bound":bound,"source_fixture_hash":hash(&request.fixture).map_err(|_| Failure::new("SIMULATION_WORKER_BINDING","fixture"))?,"transaction_context":request.transaction_context,"limits":request.budget,"simulator_version":xone_simulation::evm_fixture::SIMULATOR_VERSION}),
             )
         } else {
             None
@@ -280,6 +309,7 @@ impl PreparedExecution {
                 executor,
                 approval,
                 approval_sequence,
+                wrap,
                 split_receipt,
                 split_executor,
                 quote_kind,
@@ -420,6 +450,7 @@ impl LocalSimulation {
             valuation,
             valuation_store,
             prices_pinned: false,
+            wrap_source: crate::wrapped_funding::Source::load(&bundle, sim.max_gas)?.map(Arc::new),
             bundle: Arc::new(bundle),
             _image: image,
             bundle_sha256,
@@ -432,6 +463,15 @@ impl LocalSimulation {
         })))
     }
 
+    fn wrap_model(&self, cached: &Selection) -> Option<&xone_simulation::worker::LocalWrapReplay> {
+        let input = match cached {
+            Selection::ExactIn(c) => &c.plan.allocation.sell_amount,
+            Selection::ExactOut(c) => &c.plan.allocation.required_input,
+        };
+        self.wrap_source
+            .as_deref()?
+            .for_plan(cached.context(), input)
+    }
     fn split_binding(&self, cached: &Selection, allowed: &[String]) -> Result<Option<WorkerSplit>> {
         let plan = match cached {
             Selection::ExactIn(c) if c.plan.allocation.routes.len() > 1 => {
@@ -449,7 +489,7 @@ impl LocalSimulation {
             .ok_or_else(|| err("EXECUTION_ADAPTER_UNSUPPORTED"))?;
         let bound = ordered_v2::bind(&plan, &cached.view().pools, expected, allowed)?;
         Ok(Some(WorkerSplit {
-            wrap_sequence: None,
+            wrap_sequence: self.wrap_model(cached).map(|m| m.sequence.clone()),
             approval_sequence: self
                 .bundle
                 .approval_replay
@@ -504,6 +544,7 @@ impl LocalSimulation {
             return Ok(self.clone());
         };
         Ok(Arc::new(Self {
+            wrap_source: self.wrap_source.clone(),
             bundle: self.bundle.clone(),
             valuation: Some(store.snapshot()?),
             valuation_store: self.valuation_store.clone(),
@@ -745,7 +786,16 @@ impl LocalSimulation {
                 ))
             }
         };
-        let transaction_context = if let Some(op) = &op_user {
+        let wrap_model = self.wrap_model(cached);
+        let direct_wrap = wrap_model
+            .filter(|_| split.is_none())
+            .map(|m| m.sequence.clone());
+        let transaction_context = if let Some(m) = wrap_model {
+            if op_user.is_some() || prepared.is_some() {
+                return Err(Failure::new("SIMULATION_WRAP_SOURCE", "binding"));
+            }
+            m.swap_context.clone()
+        } else if let Some(op) = &op_user {
             let authenticated = op
                 .authenticated_context(&self.bundle.fixture, &cached.context().caller, &self.budget)
                 .map_err(|_| Failure::new("SIMULATION_WORKER_OP_BINDING", "op_authentication"))?;
@@ -773,6 +823,7 @@ impl LocalSimulation {
                 .unwrap_or_else(|| self.bundle.transaction_context.clone())
         };
         let request = WorkerRequest {
+            direct_wrap,
             op_user,
             split,
             protocol: WORKER_PROTOCOL.into(),
@@ -872,7 +923,8 @@ impl LocalSimulation {
             let prepared = tokio::task::spawn_blocking(move || {
                 let request =
                     state.worker_request(&config, &cached, prepared, signed, timeout_ms)?;
-                let prepared = PreparedExecution::from_request(request)?;
+                let prepared =
+                    PreparedExecution::from_source(request, state.wrap_source.as_deref())?;
                 let identity = executable_sha256(&state.worker_path)
                     .map_err(|_| Failure::new("SIMULATION_WORKER_IDENTITY", "identity"))?;
                 if identity != state.worker_sha256 {
@@ -1037,7 +1089,7 @@ fn diagnostic_response(
     bundle_hash: &str,
     worker_hash: &str,
 ) -> std::result::Result<Value, Failure> {
-    if !outcome["wrap"].is_null() {
+    if commitment.wrap.is_some() == outcome["wrap"].is_null() {
         return Err(Failure::new("SIMULATION_WORKER_BINDING", "unexpected_wrap"));
     }
     // This normal worker contract still binds an unsigned Shanghai plan. A
@@ -1111,9 +1163,26 @@ fn diagnostic_response(
     } else {
         None
     };
+    let wrapped = if let Some(binding) = &commitment.wrap {
+        let bad = || Failure::new("SIMULATION_WRAP_RECEIPT", "wrap_fees");
+        let receipt: xone_simulation::evm_fixture::WrapReceipt =
+            serde_json::from_value(outcome["wrap"].clone()).map_err(|_| bad())?;
+        let swap: NativeFeeMeasurements =
+            serde_json::from_value(outcome["native_fees"].clone()).map_err(|_| bad())?;
+        if outcome["balances"]["caller_sell_before"] != json!(receipt.token_after)
+            || (outcome["matches_plan"] == true
+                && outcome["actual_input_consumed"] != json!(receipt.token_after))
+        {
+            return Err(bad());
+        }
+        Some((binding, receipt, swap))
+    } else {
+        None
+    };
     let before = approval
         .as_ref()
         .map(|(_, caller, _)| caller)
+        .or_else(|| wrapped.as_ref().map(|(_, r, _)| &r.payer_after))
         .or(commitment.caller_native_before.as_ref())
         .ok_or_else(|| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_funding"))?;
     xone_execution_preparation::evm_native_cost::validate_maximum_funding(&model, before)
@@ -1134,6 +1203,7 @@ fn diagnostic_response(
             || approval
                 .as_ref()
                 .map(|(_, _, c)| c)
+                .or_else(|| wrapped.as_ref().map(|(_, _, s)| &s.coinbase_before))
                 .or(commitment.coinbase_native_before.as_ref())
                 != Some(&native.coinbase_before)
             || native.effective_gas_price != model.effective_gas_price
@@ -1203,7 +1273,7 @@ fn diagnostic_response(
         "deductedFromQuoteOutput":false,"chainFeeCompleteness":"LOCAL_EVM_ONLY"
     });
     if let Some(requirement) = &commitment.approval {
-        let allowance = if commitment.split_receipt.is_some() {
+        let allowance = if commitment.split_executor.is_some() {
             Some(
                 requirement
                     .split_allowance(&outcome)
@@ -1224,7 +1294,7 @@ fn diagnostic_response(
         costs["approvalNative"] = evidence["additionalApprovalNative"].clone();
         costs["callerApproval"] = evidence;
     }
-    if !payer_net_debit.is_null() {
+    if wrapped.is_none() && !payer_net_debit.is_null() {
         let bad = || Failure::new("SIMULATION_WORKER_PROTOCOL", "sequence_funding");
         let swap_debit: Amount =
             serde_json::from_value(payer_net_debit.clone()).map_err(|_| bad())?;
@@ -1284,6 +1354,11 @@ fn diagnostic_response(
             "ADDITIONAL_FUNDING_OPERATIONS",
             "TRUSTED_TOKEN_PRICE_CONVERSION"
         ]);
+    }
+    if let Some((binding, receipt, swap)) = wrapped {
+        binding
+            .audit(&receipt, &swap, &model, &mut costs)
+            .map_err(|e| Failure::new(&e.0, "wrap_fees"))?;
     }
     let success = outcome["matches_plan"] == true && outcome["execution"]["status"] == "SUCCESS";
     let mut result = json!({"quoteKind":commitment.quote_kind,"bindingHash":commitment.binding_hash,"bundleHash":bundle_hash,"workerHash":worker_hash,
@@ -1679,6 +1754,7 @@ mod tests {
             coinbase_native_before: Some(Amount::zero()),
             approval: None,
             approval_sequence: None,
+            wrap: None,
             split_receipt: None,
             split_executor: None,
             executor: ExecutorIdentity {
@@ -2146,6 +2222,7 @@ mod tests {
         )
         .unwrap();
         let request = WorkerRequest {
+            direct_wrap: None,
             op_user: None,
             split: None,
             protocol: WORKER_PROTOCOL.into(),
@@ -2368,6 +2445,7 @@ mod tests {
         )
         .unwrap();
         let request = WorkerRequest {
+            direct_wrap: None,
             op_user: None,
             split: None,
             protocol: WORKER_PROTOCOL.into(),

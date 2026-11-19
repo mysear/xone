@@ -34,7 +34,16 @@ pub struct LocalApprovalReplay {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct LocalWrapReplay {
+    pub caller: String,
+    pub sequence: evm_fixture::WrapSequence,
+    pub swap_context: TransactionContext,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LocalSimulationBundle {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wrap_replay: Option<LocalWrapReplay>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_replay: Option<LocalApprovalReplay>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -176,6 +185,8 @@ pub fn historical_op_fork(
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WorkerRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_wrap: Option<evm_fixture::WrapSequence>,
     pub protocol: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub split: Option<WorkerSplit>,
@@ -282,7 +293,12 @@ pub fn run_stdio() -> Result<()> {
     } else {
         None
     };
-    let result = if let Some(split) = &request.split {
+    let result = if let Some(wrap) = &request.direct_wrap {
+        if request.prepared.is_some() || request.split.is_some() || op_context.is_some() {
+            return Err(err("SIMULATION_WORKER_BINDING"));
+        }
+        evm_fixture::simulate_wrapped_direct(&request, wrap, control).map(Completed::Plain)
+    } else if let Some(split) = &request.split {
         if request.bound.is_some()
             || request.exact_out_bound.is_some()
             || request.prepared.is_some()

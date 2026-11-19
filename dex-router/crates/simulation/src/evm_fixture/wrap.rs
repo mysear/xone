@@ -32,10 +32,9 @@ pub struct WrapReceipt {
 pub(super) fn execute(
     runner: &mut Runner<'_>,
     image: Arc<core::StateImage>,
-    split: &BoundSplit,
-    executor: &SplitExecutor,
-    pools: &[Pool],
-    allowed: &[String],
+    context: &Context,
+    input: &Amount,
+    executor: &ExecutorIdentity,
     fixture: &FixtureState,
     swap_tx: &TransactionContext,
     seq: &WrapSequence,
@@ -75,21 +74,13 @@ pub(super) fn execute(
         return Err(bad());
     }
     code_check(&image, &seq.wrapper, ordered_v2::WETH9_CODE_SHA256)?;
-    runner.expect_address(
-        image.clone(),
-        &executor.router.target,
-        "WETH()",
-        &[],
-        &seq.wrapper,
-    )?;
-    let sender = &split.transaction.from;
+    runner.expect_address(image.clone(), &executor.target, "WETH()", &[], &seq.wrapper)?;
+    let sender = &context.caller;
     let token_before =
         runner.balance(image.clone(), &seq.wrapper, sender, "wrap_balance_before")?;
-    let deposit = ordered_v2::caller_wrap(
-        split,
-        pools,
-        executor,
-        allowed,
+    let deposit = ordered_v2::wrapped_input_transaction(
+        context,
+        input,
         &seq.wrapper,
         &as_amount(token_before)?,
     )

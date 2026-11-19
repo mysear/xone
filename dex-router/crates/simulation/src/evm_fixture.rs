@@ -1226,7 +1226,7 @@ pub fn simulate_bound_op_user(
     control: core::ExecutionControl,
 ) -> Result<SimulationOutcome> {
     simulate_execution(
-        BoundSource::ExactIn(bound),
+        BoundSource::ExactIn(bound, None),
         pools,
         allowlist,
         fixture,
@@ -1248,7 +1248,7 @@ pub fn simulate_bound_op_user_exact_out(
     control: core::ExecutionControl,
 ) -> Result<SimulationOutcome> {
     simulate_execution(
-        BoundSource::ExactOut(bound),
+        BoundSource::ExactOut(bound, None),
         pools,
         allowlist,
         fixture,
@@ -1297,7 +1297,7 @@ pub(crate) fn simulate_bound_with_funding(
     funding: Option<&xone_execution_preparation::evm::FundingObservation>,
 ) -> Result<SimulationOutcome> {
     simulate_execution(
-        BoundSource::ExactIn(bound),
+        BoundSource::ExactIn(bound, None),
         pools,
         allowlist,
         fixture,
@@ -1343,7 +1343,7 @@ pub(crate) fn simulate_bound_exact_out_with_funding(
     funding: Option<&xone_execution_preparation::evm::FundingObservation>,
 ) -> Result<SimulationOutcome> {
     simulate_execution(
-        BoundSource::ExactOut(bound),
+        BoundSource::ExactOut(bound, None),
         pools,
         allowlist,
         fixture,
@@ -1351,6 +1351,35 @@ pub(crate) fn simulate_bound_exact_out_with_funding(
         budget,
         control,
         funding,
+        None,
+    )
+}
+
+pub(crate) fn simulate_wrapped_direct(
+    request: &crate::worker::WorkerRequest,
+    wrap: &WrapSequence,
+    control: core::ExecutionControl,
+) -> Result<SimulationOutcome> {
+    let source = match (&request.bound, &request.exact_out_bound) {
+        (Some(b), None) => BoundSource::ExactIn(b, Some(wrap)),
+        (None, Some(b)) => BoundSource::ExactOut(b, Some(wrap)),
+        _ => {
+            return Err(failure(
+                SimulationBindingMismatch,
+                "wrap_source",
+                "one bound swap required",
+            ))
+        }
+    };
+    simulate_execution(
+        source,
+        &request.pools,
+        &request.allowed_targets,
+        &request.fixture,
+        &request.transaction_context,
+        &request.budget,
+        control,
+        None,
         None,
     )
 }
@@ -1416,8 +1445,8 @@ pub struct ApprovalSequence {
 }
 #[derive(Clone, Copy)]
 enum BoundSource<'a> {
-    ExactIn(&'a BoundEvmExecution),
-    ExactOut(&'a BoundEvmExactOutExecution),
+    ExactIn(&'a BoundEvmExecution, Option<&'a WrapSequence>),
+    ExactOut(&'a BoundEvmExactOutExecution, Option<&'a WrapSequence>),
     Split(
         &'a BoundSplit,
         &'a SplitExecutor,
@@ -1431,8 +1460,10 @@ impl Serialize for BoundSource<'_> {
         serializer: S,
     ) -> std::result::Result<S::Ok, S::Error> {
         match self {
-            Self::ExactIn(b) => b.serialize(serializer),
-            Self::ExactOut(b) => b.serialize(serializer),
+            Self::ExactIn(b, None) => b.serialize(serializer),
+            Self::ExactIn(b, Some(w)) => ("ordered-wrap-sequence/1", b, w).serialize(serializer),
+            Self::ExactOut(b, None) => b.serialize(serializer),
+            Self::ExactOut(b, Some(w)) => ("ordered-wrap-sequence/1", b, w).serialize(serializer),
             Self::Split(b, _, None, None) => b.serialize(serializer),
             Self::Split(b, _, _, Some(wrap)) => {
                 ("ordered-wrap-sequence/1", b, wrap).serialize(serializer)
@@ -1453,14 +1484,14 @@ struct BoundView<'a> {
 impl BoundSource<'_> {
     fn view(&self) -> BoundView<'_> {
         match self {
-            Self::ExactIn(b) => BoundView {
+            Self::ExactIn(b, _) => BoundView {
                 context: &b.plan.context,
                 snapshot: &b.plan.snapshot,
                 transaction: &b.transaction,
                 executor: &b.executor,
                 touched_pool_ids: b.touched_pool_ids.iter().collect(),
             },
-            Self::ExactOut(b) => BoundView {
+            Self::ExactOut(b, _) => BoundView {
                 context: &b.plan.context,
                 snapshot: &b.plan.snapshot,
                 transaction: &b.transaction,
@@ -1490,8 +1521,8 @@ impl BoundSource<'_> {
     }
     fn validate(&self, pools: &[Pool], allowed: &[String]) -> xone_domain::Result<()> {
         match self {
-            Self::ExactIn(b) => validate_bound_execution(b, pools, allowed),
-            Self::ExactOut(b) => validate_bound_exact_out_execution(b, pools, allowed),
+            Self::ExactIn(b, _) => validate_bound_execution(b, pools, allowed),
+            Self::ExactOut(b, _) => validate_bound_exact_out_execution(b, pools, allowed),
             Self::Split(b, e, _, _) => ordered_v2::validate(b, pools, e, allowed),
         }
     }
@@ -1558,7 +1589,7 @@ fn simulate_execution(
             ))
         }
         BoundSource::Split(_, _, seq, wrap) => (seq, wrap),
-        _ => (None, None),
+        BoundSource::ExactIn(_, wrap) | BoundSource::ExactOut(_, wrap) => (None, wrap),
     };
     let swap_env = sequence
         .map(|s| &s.swap_environment)
@@ -1718,23 +1749,6 @@ fn simulate_execution(
             "split_caller_allowance_before",
             32,
         )?;
-        if let Some(wrap) = wrap {
-            let (after, receipt) = wrap::execute(
-                &mut runner,
-                image,
-                split,
-                e,
-                pools,
-                allowlist,
-                fixture,
-                tx,
-                wrap,
-            )?;
-            image = after;
-            wrapped = Some(receipt);
-            runner.env = swap_env;
-            runner.tx = tx;
-        }
         if let Some(seq) = seq {
             let (after, reset, receipt) = approval::execute(
                 &mut runner,
@@ -1755,6 +1769,31 @@ fn simulate_execution(
             runner.env = swap_env;
             runner.tx = tx;
         }
+    }
+    if let Some(wrap) = wrapping {
+        runner.tx = &wrap.deposit_context;
+        let input = match source {
+            BoundSource::ExactIn(b, _) => &b.plan.allocation.sell_amount,
+            BoundSource::ExactOut(b, _) => &b.plan.allocation.required_input,
+            BoundSource::Split(b, _, _, _) => match &b.plan {
+                SplitPlan::ExactIn(p) => &p.allocation.sell_amount,
+                SplitPlan::ExactOut(p) => &p.allocation.required_input,
+            },
+        };
+        let (after, receipt) = wrap::execute(
+            &mut runner,
+            image,
+            context,
+            input,
+            bound.executor,
+            fixture,
+            tx,
+            wrap,
+        )?;
+        image = after;
+        wrapped = Some(receipt);
+        runner.env = swap_env;
+        runner.tx = tx;
     }
     for pool in &touched_pools {
         runner.preflight(image.clone(), bound.executor, pool)?;
@@ -1912,8 +1951,8 @@ fn simulate_execution(
         Out(&'a xone_execution_plan::exact_out::ExactOutPlan),
     }
     let amounts = match source {
-        BoundSource::ExactIn(b) => Amounts::In(&b.plan),
-        BoundSource::ExactOut(b) => Amounts::Out(&b.plan),
+        BoundSource::ExactIn(b, _) => Amounts::In(&b.plan),
+        BoundSource::ExactOut(b, _) => Amounts::Out(&b.plan),
         BoundSource::Split(b, _, _, _) => match &b.plan {
             SplitPlan::ExactIn(p) => Amounts::In(p),
             SplitPlan::ExactOut(p) => Amounts::Out(p),

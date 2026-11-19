@@ -60,6 +60,9 @@ def main(*, router=False):
         split_http = directory/'ordered-split-http'
         extra.append(('ordered-v2-split-http', [sys.executable, 'integration/tools/acceptance/ordered_split_http.py',
             str(target/'debug/examples/evm_dynamic_fee_harness'), str(split_receipt), str(split_http)]))
+        wrap_http = directory/'ordered-wrap-http'
+        extra.append(('ordered-v2-wrap-http', [sys.executable, 'integration/tools/acceptance/ordered_split_http.py', '--wrap',
+            str(target/'debug/examples/evm_dynamic_fee_harness'), str(wrap_receipt), str(wrap_http)]))
         required['ordered-v2-split-poststate']=['eight_ordered_split_receipts_match_all_logs_and_declared_poststate']
         required['ordered-v2-split-binding']=['split_plans_match_mined_calldata_balances_and_pool_order',
             'split_rejects_recommitted_stale_leg_order_and_wrong_amounts','split_rebuild_rejects_substitution_and_missing_source',
@@ -75,7 +78,7 @@ def main(*, router=False):
         test='transaction_economics::publication_tests::durable_publication_revokes_old_readers_while_committing_and_after_lost_ack'
         extra.append(('durable-price-lost-ack',cargo+['test']+manifest+['-p','xone-quote-api','--lib',test,'--','--exact']))
         required['durable-price-lost-ack']=[test]
-        artifacts = [str(p.relative_to(ROOT)) for p in [configs/'report.json', http/'report.json', split_receipt, wrap_receipt, split_http/'report.json']]
+        artifacts = [str(p.relative_to(ROOT)) for p in [configs/'report.json', http/'report.json', split_receipt, wrap_receipt, split_http/'report.json', wrap_http/'report.json']]
     validate(output_base=output, durable_router_output=http, extra_checks=[
         ('price-journal-state', cargo+['test']+manifest+['-p', 'xone-quote-api', '--lib', 'price_publication::tests']),
         ('price-journal-cli-build', cargo+['build']+manifest+['-p', 'xone-quote-api', '--bin', 'xone-price-publication']),
