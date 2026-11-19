@@ -264,6 +264,33 @@ pub fn caller_approval(
     allowed: &[String],
     allowance: &Amount,
 ) -> Result<Option<Transaction>> {
+    let operations = caller_approvals(
+        bound,
+        pools,
+        executor,
+        allowed,
+        allowance,
+        ApprovalPolicy::ExactOnly,
+    )?;
+    Ok(operations.into_iter().next())
+}
+
+/// Resetting an existing allowance requires explicit policy selection. Each
+/// returned transaction needs its own ordered execution and fee evidence.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ApprovalPolicy {
+    ExactOnly,
+    ResetThenExact,
+}
+
+pub fn caller_approvals(
+    bound: &BoundSplit,
+    pools: &[Pool],
+    executor: &SplitExecutor,
+    allowed: &[String],
+    allowance: &Amount,
+    policy: ApprovalPolicy,
+) -> Result<Vec<Transaction>> {
     validate(bound, pools, executor, allowed)?;
     Amount::checked(allowance.0.clone())?;
     let (context, required) = match &bound.plan {
@@ -271,21 +298,27 @@ pub fn caller_approval(
         SplitPlan::ExactOut(p) => (&p.context, &p.allocation.required_input),
     };
     if allowance >= required {
-        return Ok(None);
+        return Ok(Vec::new());
     }
-    if allowance != &Amount::zero() {
-        return Err(err("EXECUTION_APPROVAL_REPLACEMENT_POLICY_REQUIRED"));
+    let approval = |amount: &Amount| -> Result<Transaction> {
+        let mut data = vec![0x09, 0x5e, 0xa7, 0xb3];
+        data.extend(addr_word(&bound.transaction.to)?);
+        data.extend(amount.to_be_bytes()?);
+        Ok(Transaction {
+            chain_key: context.chain_key.clone(),
+            from: context.caller.clone(),
+            to: context.sell_token.clone(),
+            data: format!("0x{}", hex::encode(data)),
+            value: Amount::zero(),
+        })
+    };
+    if allowance == &Amount::zero() {
+        return Ok(vec![approval(required)?]);
     }
-    let mut data = vec![0x09, 0x5e, 0xa7, 0xb3];
-    data.extend(addr_word(&bound.transaction.to)?);
-    data.extend(required.to_be_bytes()?);
-    Ok(Some(Transaction {
-        chain_key: context.chain_key.clone(),
-        from: context.caller.clone(),
-        to: context.sell_token.clone(),
-        data: format!("0x{}", hex::encode(data)),
-        value: Amount::zero(),
-    }))
+    match policy {
+        ApprovalPolicy::ExactOnly => Err(err("EXECUTION_APPROVAL_REPLACEMENT_POLICY_REQUIRED")),
+        ApprovalPolicy::ResetThenExact => Ok(vec![approval(&Amount::zero())?, approval(required)?]),
+    }
 }
 
 fn small(n: usize) -> [u8; 32] {

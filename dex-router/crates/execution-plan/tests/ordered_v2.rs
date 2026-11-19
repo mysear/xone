@@ -344,6 +344,73 @@ fn exact_approval_calldata_matches_both_mined_sequences() {
     }
 }
 
+#[test]
+#[ignore = "requires mined reset-then-exact sequences"]
+fn reset_approval_policy_matches_both_mined_sequences() {
+    let report: Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("XONE_ORDERED_V2_REPORT").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let bank = &report["executionBank"]["resetApprovalReplay"];
+    let mut source = report["binding"].clone();
+    set_bank_anchor(&mut source, &bank["state_anchor"]);
+    for seq in bank["sequences"].as_array().unwrap() {
+        let (plan, pools, ex, case) =
+            fixture_from_bank(&source, seq["caseIndex"].as_u64().unwrap() as usize);
+        let allowed = [ex.target.clone(), ex.router.target.clone()];
+        let mut bound = bind(&plan, &pools, &ex, &allowed).unwrap();
+        let one: Amount = "1".parse().unwrap();
+        let required: Amount = serde_json::from_value(case["input"].clone()).unwrap();
+        let ops = caller_approvals(
+            &bound,
+            &pools,
+            &ex,
+            &allowed,
+            &one,
+            ApprovalPolicy::ResetThenExact,
+        )
+        .unwrap();
+        assert_eq!(ops.len(), 2);
+        for (operation, mined) in ops.iter().zip(seq["runs"].as_array().unwrap()) {
+            assert_eq!(operation.from, mined["from"]);
+            assert_eq!(operation.to, mined["to"]);
+            assert_eq!(operation.data, mined["data"]);
+            assert_eq!(operation.value.to_string(), mined["value"]);
+        }
+        assert!(caller_approvals(
+            &bound,
+            &pools,
+            &ex,
+            &allowed,
+            &required,
+            ApprovalPolicy::ResetThenExact
+        )
+        .unwrap()
+        .is_empty());
+        let from_zero = caller_approvals(
+            &bound,
+            &pools,
+            &ex,
+            &allowed,
+            &Amount::zero(),
+            ApprovalPolicy::ResetThenExact,
+        )
+        .unwrap();
+        assert_eq!(hash(&from_zero).unwrap(), hash(&ops[1..].to_vec()).unwrap());
+        assert!(caller_approval(&bound, &pools, &ex, &allowed, &one).is_err());
+        bound.transaction.to = ex.router.target.clone();
+        assert!(caller_approvals(
+            &bound,
+            &pools,
+            &ex,
+            &allowed,
+            &one,
+            ApprovalPolicy::ResetThenExact
+        )
+        .is_err());
+    }
+}
+
 fn invoke(worker: &str, request: &Value) -> Value {
     use std::io::Write;
     use std::process::Stdio;
@@ -376,14 +443,7 @@ fn worker_audits_sequential_approval_and_swap_fees() {
     let bank = &report["executionBank"]["approvalReplay"];
     let anchor = &bank["state_anchor"];
     let mut source = report["binding"].clone();
-    source["block"] = json!({"chain_key":anchor["chain_key"],"number_or_slot":anchor["block_number"],"hash":anchor["block_hash"],"parent_hash":anchor["parent_hash"],"timestamp_ms":anchor["timestamp"].as_u64().unwrap()*1000});
-    // Only the caller's allowance changed between the two harvested snapshots.
-    for pool in source["pools"].as_array_mut().unwrap() {
-        let state = &mut pool["v2"]["swap"];
-        state["bank_block_number"] = anchor["block_number"].clone();
-        state["bank_block_hash"] = anchor["block_hash"].clone();
-        state["bank_unix_timestamp"] = anchor["timestamp"].clone();
-    }
+    set_bank_anchor(&mut source, anchor);
     let worker = std::env::var("XONE_SPLIT_WORKER").unwrap();
     for seq in bank["sequences"].as_array().unwrap() {
         let i = seq["caseIndex"].as_u64().unwrap() as usize;
@@ -441,5 +501,17 @@ fn worker_audits_sequential_approval_and_swap_fees() {
                 assert!(!invoke(&worker, &changed)["error"].is_null(), "{pointer}");
             }
         }
+    }
+}
+
+fn set_bank_anchor(source: &mut Value, anchor: &Value) {
+    use serde_json::json;
+    source["block"] = json!({"chain_key":anchor["chain_key"],"number_or_slot":anchor["block_number"],"hash":anchor["block_hash"],"parent_hash":anchor["parent_hash"],"timestamp_ms":anchor["timestamp"].as_u64().unwrap()*1000});
+    // Only the caller's allowance changed between the two harvested snapshots.
+    for pool in source["pools"].as_array_mut().unwrap() {
+        let state = &mut pool["v2"]["swap"];
+        state["bank_block_number"] = anchor["block_number"].clone();
+        state["bank_block_hash"] = anchor["block_hash"].clone();
+        state["bank_unix_timestamp"] = anchor["timestamp"].clone();
     }
 }

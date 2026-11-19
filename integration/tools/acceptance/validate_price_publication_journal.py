@@ -58,7 +58,8 @@ def main(*, router=False):
         required['ordered-v2-split-binding']=['split_plans_match_mined_calldata_balances_and_pool_order',
             'split_rejects_recommitted_stale_leg_order_and_wrong_amounts','split_rebuild_rejects_substitution_and_missing_source',
             'split_worker_replays_four_mined_plans_and_rejects_inconsistent_sources',
-            'exact_approval_calldata_matches_both_mined_sequences','worker_audits_sequential_approval_and_swap_fees']
+            'exact_approval_calldata_matches_both_mined_sequences','reset_approval_policy_matches_both_mined_sequences',
+            'worker_audits_sequential_approval_and_swap_fees']
         for workspace, label in [('dex-router','router'),('chain-parser-rust','parser')]:
             gate = 'durable-price-'+label+'-config'
             test = 'durable_journal_config_matches_go_hashes_and_rejects_invalid_paths'

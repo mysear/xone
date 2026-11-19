@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|拆单授权替换计划（阶段172，P0-3）|§13.1、§14.1–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|显式策略生成清零和准确额度授权，按当前 allowance 裁剪操作|两种报价方向、三种额度及错误执行目标均有绑定测试，顺序 worker 接线待完成|
 |非零不足授权的三笔交易回放（阶段171，P0-3）|§13.1、§14.2–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|按清零、精确授权、兑换顺序对照两种报价方向的独立区块|8 项 V2 路径测试通过，三笔序列待接入 worker 和正常报价|
 |正常报价计入调用者授权费（阶段170，P0-3）|§13.1、§14.2–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|零授权拆单按相邻区块依次执行授权和兑换，报价服务复核两笔费用后比较候选|两种方向的成交、兑换时价格过期及原有回归共 12 个 HTTP 场景|
 |两笔交易的 worker 核验（阶段169，P0-3）|§13.1、§14.1–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|按同一计划生成准确额度的授权交易，向后传递状态并核对两笔费用|ExactIn 和 ExactOut 均通过独立出块对照|
@@ -766,6 +767,7 @@
 |162|[按 Router 区块锚点采集与复核](#market-router-bank-anchor)|LOCAL_SCOPE_VERIFIED|显式哈希选块、跨字段不一致拒绝及签后变化不发布|
 |163|[共享池 V2 整笔拆单执行](#ordered-v2-split)|LOCAL_SCOPE_VERIFIED|ExactIn/ExactOut 两种腿序的实际整笔 Gas、余额、储备与回滚|
 |164|[按完整拆单计划生成批量交易](#ordered-v2-binding)|LOCAL_SCOPE_VERIFIED|逐字节对照实际成交调用；拒绝沿用旧腿序金额或其他绑定|
+|172|[拆单授权替换计划](#reset-approval-plan)|LOCAL_SCOPE_VERIFIED|从绑定计划生成按序执行的授权操作|
 |171|[非零不足授权的三笔交易回放](#reset-approval-replay)|LOCAL_SCOPE_VERIFIED|核对清零、精确授权与兑换的完整状态和费用|
 |170|[正常报价计入调用者授权费](#approval-quote)|LOCAL_SCOPE_VERIFIED|按候选复核两笔交易的费用及价格有效期|
 |169|[两笔交易的 worker 核验](#approval-worker)|LOCAL_SCOPE_VERIFIED|重建授权交易、逐笔核对状态和费用|
@@ -4600,3 +4602,17 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F171.2|对照独立出块逐笔执行、累计核算付款人支出|WP15|LOCAL_SCOPE_VERIFIED|V2 路径执行套件 8 项全部通过。|
 
 下一项是将三笔序列接入执行计划、受限 worker 及报价排序。阶段170 的报价库回归为 68 项通过、5 项按测试环境要求跳过。[三笔序列出块报告](integration/artifacts/local/approval-reset-171/bank.json)
+
+<a id="reset-approval-plan"></a>
+
+## 拆单授权替换计划（2026-11-19，阶段172，P0-3）
+
+执行计划按 §13.1、§14.1–14.3 读取已绑定的付款人、代币、spender 和所需输入。在选择 `ResetThenExact` 时，非零不足额度生成清零及精确授权两笔操作，零授权生成一笔，足额授权生成零笔。原有单笔执行入口继续使用 `ExactOnly`。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F172.1|按明确策略构建有序授权计划|WP13,WP15|LOCAL_SCOPE_VERIFIED|两种方向的授权数据、付款方、目标和交易原币金额均与出块记录逐笔相符。篡改执行目标会被拒绝。|
+
+绑定和独立 worker 回归共 7 项通过。下一项是为清零、授权、兑换绑定三个交易环境及 nonce，并让报价服务核对三笔费用。[原始本地区块](integration/artifacts/local/approval-reset-171/bank.json)
+
+冻结提交 `48e2489` 的综合回归已通过，覆盖 88 项命令检查、248 次 Rust 测试。阶段170–172 的验证结果分别记录在各阶段条目中。[冻结提交验收报告](integration/artifacts/local/durable-price-router-check/runs/a2ecb98ae8f74422b94a0e59e102abd4/report.json)
