@@ -12,7 +12,25 @@ use xone_simulation::{
     worker::{LocalSimulationBundle, LocalWrapReplay},
 };
 
+fn mapping_slot(address: &str, root: [u8; 32]) -> Result<[u8; 32]> {
+    xone_domain::protocols::validate_address(address)?;
+    let bad = || err("SIMULATION_WRAP_SOURCE");
+    let key: [u8; 20] = hex::decode(address.strip_prefix("0x").ok_or_else(bad)?)
+        .map_err(|_| bad())?
+        .try_into()
+        .map_err(|_| bad())?;
+    let mut mapping = [0; 64];
+    mapping[12..32].copy_from_slice(&key);
+    mapping[32..].copy_from_slice(&root);
+    let mut hasher = Keccak::v256();
+    hasher.update(&mapping);
+    let mut slot = [0; 32];
+    hasher.finalize(&mut slot);
+    Ok(slot)
+}
+
 pub(super) struct Source {
+    allowances: std::collections::BTreeMap<String, Amount>,
     combined: Option<LocalWrapReplay>,
     model: LocalWrapReplay,
     opening_tokens: Amount,
@@ -83,28 +101,33 @@ impl Source {
         if !wrapper.exists || hex::encode(Sha256::digest(code)) != ordered_v2::WETH9_CODE_SHA256 {
             return Err(bad());
         }
-        xone_domain::protocols::validate_address(caller)?;
-        let mut mapping = [0_u8; 64];
-        let owner: [u8; 20] = hex::decode(caller.strip_prefix("0x").ok_or_else(bad)?)
-            .map_err(|_| bad())?
-            .try_into()
-            .map_err(|_| bad())?;
-        mapping[12..32].copy_from_slice(&owner);
-        mapping[63] = 3;
-        let mut hasher = Keccak::v256();
-        hasher.update(&mapping);
-        let mut key = [0; 32];
-        hasher.finalize(&mut key);
-        let slot = format!("0x{}", hex::encode(key));
-        let stored = &wrapper
-            .storage
-            .iter()
-            .find(|s| s.slot == slot)
-            .ok_or_else(bad)?
-            .value;
-        let opening_tokens = Amount::from_be_bytes(
-            &hex::decode(stored.strip_prefix("0x").ok_or_else(bad)?).map_err(|_| bad())?,
-        )?;
+        // WETH9 stores balanceOf at slot 3 and allowance[owner][spender] at slot 4.
+        let read_slot = |key: [u8; 32]| -> Result<Amount> {
+            let slot = format!("0x{}", hex::encode(key));
+            let stored = wrapper
+                .storage
+                .iter()
+                .find(|s| s.slot == slot)
+                .ok_or_else(bad)?;
+            let bytes =
+                hex::decode(stored.value.strip_prefix("0x").ok_or_else(bad)?).map_err(|_| bad())?;
+            Amount::from_be_bytes(&bytes)
+        };
+        let mut balance_root = [0; 32];
+        balance_root[31] = 3;
+        let opening_tokens = read_slot(mapping_slot(caller, balance_root)?)?;
+        let mut allowance_root = [0; 32];
+        allowance_root[31] = 4;
+        let owner_slot = mapping_slot(caller, allowance_root)?;
+        let mut allowances = std::collections::BTreeMap::new();
+        for spender in std::iter::once(&bundle.executor.target)
+            .chain(bundle.split_executor.iter().map(|e| &e.target))
+        {
+            allowances.insert(
+                spender.clone(),
+                read_slot(mapping_slot(spender, owner_slot)?)?,
+            );
+        }
         let combined = if let Some(approval) = &bundle.approval_replay {
             let approval_start = approval
                 .sequence
@@ -127,6 +150,7 @@ impl Source {
         };
         Ok(Some(Self {
             combined,
+            allowances,
             model: model.clone(),
             opening_tokens,
             caller: account(caller)?.balance.clone(),
@@ -151,6 +175,7 @@ impl Source {
         ctx: &Context,
         input: &Amount,
         model: &LocalWrapReplay,
+        spender: &str,
     ) -> Result<Commitment> {
         let expected = ordered_v2::wrapped_input_transaction(
             ctx,
@@ -160,6 +185,11 @@ impl Source {
         )?
         .ok_or_else(|| err("SIMULATION_WRAP_SOURCE"))?;
         Ok(Commitment {
+            allowance: self
+                .allowances
+                .get(spender)
+                .ok_or_else(|| err("SIMULATION_WRAP_SOURCE"))?
+                .clone(),
             expected,
             input: input.clone(),
             opening_tokens: self.opening_tokens.clone(),
@@ -174,6 +204,7 @@ impl Source {
 }
 
 pub(super) struct Commitment {
+    pub allowance: Amount,
     expected: Transaction,
     input: Amount,
     opening_tokens: Amount,
@@ -333,7 +364,13 @@ pub(super) fn bind(
                 && hash(w)? == hash(&m.sequence)?
                 && hash(&req.transaction_context)? == hash(&m.swap_context)? =>
         {
-            s.commitment(ctx, input, m).map(Some)
+            let spender = match (&req.bound, &req.exact_out_bound, &req.split) {
+                (Some(b), None, None) => &b.transaction.to,
+                (None, Some(b), None) => &b.transaction.to,
+                (None, None, Some(b)) => &b.bound.transaction.to,
+                _ => return Err(bad()),
+            };
+            s.commitment(ctx, input, m, spender).map(Some)
         }
         _ => Err(bad()),
     }

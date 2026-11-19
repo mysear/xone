@@ -1779,6 +1779,21 @@ fn simulate_execution(
         runner.env = wrap.first_approval_environment.as_ref().unwrap_or(swap_env);
         runner.tx = next_tx;
     }
+    if wrapping.is_some() && !matches!(source, BoundSource::Split(..)) {
+        runner.probe(
+            image.clone(),
+            &context.sell_token,
+            calldata(
+                "allowance(address,address)",
+                &[
+                    address_word(&context.caller)?,
+                    address_word(&bound.transaction.to)?,
+                ],
+            ),
+            "direct_caller_allowance_before",
+            32,
+        )?;
+    }
     if let BoundSource::Split(split, e, seq, _) = source {
         code_check(&image, &e.target, &e.code_sha256)?;
         runner.expect_address(image.clone(), &e.target, "router()", &[], &e.router.target)?;

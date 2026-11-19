@@ -22,13 +22,13 @@ impl Requirement {
             "additionalApprovalNative":if status == "SUFFICIENT" {Some("0")} else {None}})
     }
 
-    pub fn split_allowance(&self, outcome: &Value) -> Result<Amount> {
+    pub fn observed_allowance(&self, outcome: &Value, phase: &str) -> Result<Amount> {
         let bad = || err("SIMULATION_APPROVAL_OBSERVATION");
         let mut rows = outcome["observations"]
             .as_array()
             .ok_or_else(bad)?
             .iter()
-            .filter(|o| o["phase"] == "split_caller_allowance_before");
+            .filter(|o| o["phase"] == phase);
         let row = rows.next().ok_or_else(bad)?;
         let word = |address: &str| -> Result<String> {
             xone_domain::protocols::validate_address(address)?;
@@ -61,7 +61,12 @@ mod tests {
         };
         let row = json!({"phase":"split_caller_allowance_before", "target":r.token,
             "calldata":format!("0xdd62ed3e{:064x}{:064x}",2,3),"output":format!("0x{:064x}",11)});
-        let allowance = r.split_allowance(&json!({"observations":[row]})).unwrap();
+        let allowance = r
+            .observed_allowance(
+                &json!({"observations":[row]}),
+                "split_caller_allowance_before",
+            )
+            .unwrap();
         let sufficient = r.disclose(Some(&allowance), "a", "PROVIDED_LOCAL_STATE");
         assert_eq!(sufficient["additionalApprovalNative"], "0");
         let low = r.disclose(Some(&"10".parse().unwrap()), "a", "PROVIDED_LOCAL_STATE");
@@ -82,7 +87,12 @@ mod tests {
                 json!([other])
             },
         ] {
-            assert!(r.split_allowance(&json!({"observations":changed})).is_err());
+            assert!(r
+                .observed_allowance(
+                    &json!({"observations":changed}),
+                    "split_caller_allowance_before"
+                )
+                .is_err());
         }
     }
 }

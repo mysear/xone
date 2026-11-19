@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|WETH 报价按实际 spender 复核授权（阶段182，P0-3）|§13.1、§14.2，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|从源区块分别读取 Router02 和拆单执行器额度，核对独立执行观测|12 个包装报价 HTTP 场景通过|
 |正常报价核算包装、授权与兑换（阶段181，P0-3）|§13.1、§14.2–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|从源余额复核整组费用、包装本金及最低起始资金|两种报价方向的 12 个包装 HTTP 场景通过|
 |包装与授权组合执行（阶段180，P0-3）|§13.1、§14.2–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|拆单 worker 核对完整区块顺序并从包装后状态执行授权、兑换|两种报价方向的三笔和四笔交易与独立出块相符|
 |WETH 余额及授权同时不足时的独立回放（阶段179，P0-3）|§13.1、§14.2–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|按余额缺口包装，依实际额度执行授权及兑换|两种方向、三种额度的 6 组序列经独立出块与 REVM 对照|
@@ -781,6 +782,7 @@
 |179|[包装与授权组合回放](#wrapped-approval-replay)|LOCAL_SCOPE_VERIFIED|核对组合交易的中间状态及本金和网络费|
 |180|[包装与授权的 worker 核验](#wrapped-approval-worker)|LOCAL_SCOPE_VERIFIED|逐笔绑定本金、额度与费率环境|
 |181|[组合资金操作的报价核算](#combined-funding-quote)|LOCAL_SCOPE_VERIFIED|整组网络费参与候选比较|
+|182|[按支出合约核对 WETH 授权](#weth-spender-allowance)|LOCAL_SCOPE_VERIFIED|验证单路线和拆单各自的源额度|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
 |175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
 |174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
@@ -4708,3 +4710,11 @@ worker 核对 Router02 的 WETH 地址和包装合约运行代码摘要，再读
 在固定 Shanghai 状态上，ExactIn 与 ExactOut 均可在正常报价时比较四个候选。单路线使用已有 Router 授权，拆单按其额度执行包装、可选清零、精确授权和兑换。服务从源区块核对包装本金，再将实际付款人、包装合约和受益人的余额传给后续费用校验。报价披露每步网络费，以及本金加上执行各步所需的最高资金预留。
 
 12 个包装 HTTP 场景通过，涵盖额度充足、零授权、非零不足及成交区块价格到期。四个候选逐一核对资金需求与成交时估值，价格到期时验证统一毛额回退。报价库 68 项通过、5 项按环境忽略，Clippy 严格检查通过。后续仍需依据正常单路线的实际授权余额选择资金操作，并补齐不同链的费用范围。[组合报价验收报告](integration/artifacts/local/combined-funding-181/report.json)
+
+<a id="weth-spender-allowance"></a>
+
+## 按支出合约核对 WETH 授权（2026-11-19，阶段182，P0-3）
+
+WETH 包装报价从固定版本 WETH9 的源存储读取 `allowance[caller][spender]`。单路线核对 Router02，拆单核对批量执行合约。报价进程将其与 worker 实际调用 `allowance` 的结果核对，按当前候选所需输入披露授权是否充足及额外授权费。
+
+12 个 HTTP 场景逐个核对两种方向的四个候选。报价库 68 项测试通过、5 项按环境忽略，Clippy 严格检查通过。下一项为单路线额度不足时执行精确授权及可选清零。[验收报告](integration/artifacts/local/spender-allowance-182/report.json)

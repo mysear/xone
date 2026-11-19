@@ -1289,15 +1289,26 @@ fn diagnostic_response(
         "deductedFromQuoteOutput":false,"chainFeeCompleteness":"LOCAL_EVM_ONLY"
     });
     if let Some(requirement) = &commitment.approval {
-        let allowance = if commitment.split_executor.is_some() {
-            Some(
-                requirement
-                    .split_allowance(&outcome)
-                    .map_err(|e| Failure::new(&e.0, "split_allowance"))?,
-            )
+        let phase = if commitment.split_executor.is_some() {
+            Some("split_caller_allowance_before")
         } else {
-            None
+            commitment
+                .wrap
+                .as_ref()
+                .map(|_| "direct_caller_allowance_before")
         };
+        let allowance = phase
+            .map(|p| requirement.observed_allowance(&outcome, p))
+            .transpose()
+            .map_err(|e| Failure::new(&e.0, "caller_allowance"))?;
+        if let Some(w) = &commitment.wrap {
+            if allowance.as_ref() != Some(&w.allowance) {
+                return Err(Failure::new(
+                    "SIMULATION_APPROVAL_OBSERVATION",
+                    "source_allowance",
+                ));
+            }
+        }
         let evidence = requirement.disclose(
             allowance.as_ref(),
             &commitment.binding_hash,

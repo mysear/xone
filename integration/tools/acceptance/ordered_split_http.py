@@ -109,6 +109,13 @@ def audit_wrap(rows, bank, mode, exact, quote, selected):
     for plan, row in rows.items():
         costs, out = row['costs'], row['outcome']
         wrap, native = out['wrap'], out['native_fees']
+        approval = costs['callerApproval']
+        expected_allowance = 2**256 - 1
+        if 'splitExecutor' in row and mode.startswith(('wrap-reset', 'wrap-approval')):
+            expected_allowance = int(mode.startswith('wrap-reset'))
+        require(approval['spender'] == row['transaction']['to'] and int(approval['observedAllowance']) == expected_allowance, 'source spender allowance')
+        if expected_allowance >= int(out['actual_input_consumed']):
+            require(approval['status'] == 'SUFFICIENT' and costs['approvalNative'] == '0', 'existing allowance fee')
         principal = int(out['actual_input_consumed']) - 1
         require(wrap['token_before'] == '1' and wrap['token_after'] == out['balances']['caller_sell_before'] == out['actual_input_consumed'], 'wrapped token continuity')
         require(int(wrap['transaction']['value']) == principal and wrap['transaction']['to'] == deposit['to'] and wrap['transaction']['data'] == deposit['data'], 'deposit transaction')
