@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|WETH 余额及授权同时不足时的独立回放（阶段179，P0-3）|§13.1、§14.2–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|按余额缺口包装，依实际额度执行授权及兑换|两种方向、三种额度的 6 组序列经独立出块与 REVM 对照|
 |正常报价核算 WETH 本金与网络费（阶段178，P0-3）|§13.1、§14.2–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|单路线和拆单均从源区块复核持币余额，以两笔网络费比较候选|ExactIn、ExactOut 及兑换时价格到期共 4 个新增 HTTP 场景通过|
 |WETH 短缺额的计划绑定和 worker 执行（阶段177，P0-3）|§13.1、§14.1–14.4，WP13、WP15|LOCAL_SCOPE_VERIFIED|按实际卖币余额生成包装交易，验证 Router02 配置和 WETH9 代码，向兑换传递包装后状态|9 项绑定及 worker 回归通过|
 |包装本金与兑换费用回放（阶段176，P0-3）|§13.1、§14.1–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|从一个最小单位 WETH 起步，按实际输入缺口包装原币并兑换|两种方向各两笔出块交易与 REVM 的状态、日志和费用相符|
@@ -775,6 +776,7 @@
 |164|[按完整拆单计划生成批量交易](#ordered-v2-binding)|LOCAL_SCOPE_VERIFIED|逐字节对照实际成交调用；拒绝沿用旧腿序金额或其他绑定|
 |177|[WETH 包装计划和 worker 执行](#wrapped-input-worker)|LOCAL_SCOPE_VERIFIED|绑定包装本金和两笔交易环境|
 |178|[正常报价中的 WETH 本金与费用](#wrapped-quote-funding)|LOCAL_SCOPE_VERIFIED|按候选核对最低原币余额和两笔网络费|
+|179|[包装与授权组合回放](#wrapped-approval-replay)|LOCAL_SCOPE_VERIFIED|核对组合交易的中间状态及本金和网络费|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
 |175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
 |174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
@@ -4678,3 +4680,11 @@ worker 核对 Router02 的 WETH 地址和包装合约运行代码摘要，再读
 新增 4 个本地 HTTP 场景，分别核对两种报价方向在有效价格和到期价格下的 4 个候选。有效价格下按折算费用选择最优候选，到期时采用毛额。既有 16 个 HTTP 场景全部通过。报价库测试 68 项通过、5 项按环境忽略，Clippy 严格检查通过。剩余 P0-3 范围包括包装与授权都不足时的组合操作，以及不同链费上下文的完整候选净额。工作包总体验收仍为 0/26。[包装报价验收报告](integration/artifacts/local/wrapped-quote-178/report.json)
 
 阶段175提交 `fcf7cb3` 的综合验收另有 89 项检查通过。[阶段175综合报告](integration/artifacts/local/durable-price-router-check/runs/05fdf1fcf60b45379dc3924503c606a2/report.json)
+
+<a id="wrapped-approval-replay"></a>
+
+## 包装与授权组合回放（2026-11-19，阶段179，P0-3）
+
+付款人初始持有一个最小单位 WETH。按 §13.1、§14.2–14.3，在授权充足、零授权和非零不足授权三种源状态下分别执行 ExactIn 和 ExactOut。包装按成交所需输入补足差额，零授权时增加精确授权，非零不足时先清零再精确授权。REVM 连续执行同一序列，逐笔对照 Gas、日志及全部采集账户和存储槽。每步付款人累计原币支出等于一次包装本金与截至该步的网络费之和。
+
+9 项 V2 路径测试通过。其中 6 组包装序列覆盖 18 笔交易。下一项为 worker 和正常报价端的组合操作绑定及候选费用核算。[本地独立出块记录](integration/artifacts/local/wrap-approval-179/bank.json)

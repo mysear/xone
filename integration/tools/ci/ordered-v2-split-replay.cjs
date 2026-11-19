@@ -114,7 +114,11 @@ async function replay(transport, captureBank, wrapped) {
     await restore();
   }
   if (wrapped) {
-    bank.result.wrapReplay = await captureWrap();
+    for (const [name, allowance] of [['wrapReplay', null], ['wrapApprovalReplay', 0], ['wrapResetApprovalReplay', 1]]) {
+      const snapshot = await provider.send('evm_snapshot', []);
+      bank.result[name] = await captureWrap(allowance);
+      assert.equal(await provider.send('evm_revert', [snapshot]), true);
+    }
   } else if (bank) {
     const fees = {gasLimit:3000000,maxFeePerGas:2000000000,maxPriorityFeePerGas:100000000};
     // Both allowance policies start from the same pre-swap pool state.
@@ -155,10 +159,11 @@ async function replay(transport, captureBank, wrapped) {
     assert.equal(await provider.send('evm_revert', [baseSnapshot]), true);
     bank.result.resetApprovalReplay = await approvalReplay(1);
   }
-  async function captureWrap() {
+  async function captureWrap(initialAllowance) {
     // Leave a positive residual. Wrap only the shortfall to the bound swap input.
     const openingTokens = ethers.BigNumber.from(1);
     await mined(weth.transfer(recipient, (await weth.balanceOf(caller)).sub(openingTokens)));
+    if (initialAllowance !== null) await mined(weth.approve(batch.address, initialAllowance));
     const anchor = await provider.getBlock('latest');
     const captured = await splitBank(provider, anchor, {caller,recipient,batch,router,factory,weth,tokens,pairs});
     const snapshot = await provider.send('evm_snapshot', []);
@@ -170,15 +175,31 @@ async function replay(transport, captureBank, wrapped) {
       assert.equal(String(await weth.balanceOf(caller)), String(openingTokens));
       const principal = required.sub(openingTokens);
       const before = await provider.getBalance(caller);
-      const deposit = await mined(weth.deposit({...fees, value: principal}));
-      await captured.record(deposit);
+      let parent = anchor;
+      let totalFee = ethers.BigNumber.from(0);
+      async function record(tx) {
+        const receipt = await mined(tx);
+        assert.equal(receipt.status, 1);
+        await captured.record(receipt, parent);
+        parent = await provider.getBlock(receipt.blockHash);
+        totalFee = totalFee.add(receipt.gasUsed.mul(receipt.effectiveGasPrice));
+      }
+      await record(weth.deposit({...fees, value: principal}));
       assert.equal(String(await weth.balanceOf(caller)), c.input);
-      const swap = await mined(batch.execute(c.exactOut, recipient, c.budget, c.output, deadline,
+      if (initialAllowance !== null) {
+        assert.equal(String(await weth.allowance(caller, batch.address)), String(initialAllowance));
+        if (initialAllowance > 0) {
+          await record(weth.approve(batch.address, 0, fees));
+          assert.equal(String(await weth.allowance(caller, batch.address)), '0');
+        }
+        await record(weth.approve(batch.address, required, fees));
+        assert.equal(String(await weth.allowance(caller, batch.address)), c.input);
+      }
+      await record(batch.execute(c.exactOut, recipient, c.budget, c.output, deadline,
         c.legs.map(l => [l.amount,l.tokens]), fees));
-      await captured.record(swap, await provider.getBlock(deposit.blockHash));
-      const fee = receipt => receipt.gasUsed.mul(receipt.effectiveGasPrice);
+      if (initialAllowance !== null) assert.equal(String(await weth.allowance(caller, batch.address)), '0');
       assert.equal(String(await weth.balanceOf(caller)), '0');
-      assert.equal(String(before.sub(await provider.getBalance(caller))), String(principal.add(fee(deposit)).add(fee(swap))));
+      assert.equal(String(before.sub(await provider.getBalance(caller))), String(principal.add(totalFee)));
       captured.result.sequences.push({caseIndex, principal: String(principal), openingTokens: String(openingTokens), runs: captured.result.runs.splice(0)});
       if (caseIndex === 0) assert.equal(await provider.send('evm_revert', [snapshot]), true);
     }
