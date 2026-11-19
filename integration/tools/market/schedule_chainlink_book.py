@@ -5,12 +5,13 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 import time
 
 from assemble_chainlink_book import assemble, read
-from capture_chainlink import digest, file_digest, load, require
+from capture_chainlink import GENESIS, digest, file_digest, load, require
 from capture_chainlink_book import capture_book
 from publish_chainlink_book import head, local_client, publish, reconcile, sync_dir
 
@@ -26,6 +27,17 @@ def checkpoint(root, state):
             sync_dir(root)
         finally:
             path.unlink(missing_ok=True)
+
+
+def bank_anchor(base, block_hash):
+    anchor = base.get('bankAnchor')
+    require(isinstance(anchor, dict) and base.get('bankConsensusAttested') is False and
+            anchor.get('chain_key') == 'evm:1' and anchor.get('genesis_hash') == GENESIS and
+            all(type(anchor.get(k)) is int and 0 < anchor[k] < 2**64 for k in ('timestamp_ms', 'block_number')) and
+            all(isinstance(anchor.get(k), str) and re.fullmatch('0x[0-9a-f]{64}', anchor[k])
+                for k in ('block_hash', 'parent_hash')), 'MARKET_SCHEDULE_BANK_ANCHOR')
+    require(block_hash is None or block_hash == anchor['block_hash'], 'MARKET_SCHEDULE_BLOCK_CONFLICT')
+    return anchor
 
 
 def step(root, config, rpc_url, validator, publication_cli, router_origin, call, block_hash=None):
@@ -47,6 +59,7 @@ def step(root, config, rpc_url, validator, publication_cli, router_origin, call,
         phase = state['phase']
         if phase in ('NEW', 'CONFIRMED', 'EXPIRED', 'CAPTURING', 'SUPERSEDED'):
             base = head(call)
+            anchor = bank_anchor(base, block_hash)
             revision = max(state['revision'], base['publicationRevision']) + 1
             require(revision < 2**64, 'MARKET_SCHEDULE_REVISION_LIMIT')
             state = dict(schema_version=1, binding=binding, phase='CAPTURING', revision=revision,
@@ -55,7 +68,7 @@ def step(root, config, rpc_url, validator, publication_cli, router_origin, call,
             directory = root / f'round-{revision}'
             directory.mkdir()
             sync_dir(root)
-            capture_book(config, rpc_url, validator, directory/'capture', revision, block_hash)
+            capture_book(config, rpc_url, validator, directory/'capture', revision, anchor['block_hash'], expected_anchor=anchor)
             request = directory/'capture/signing-request.json'
             state.update(phase='WAITING', request_hash=digest(read(request, 2 << 20)))
         elif phase == 'WAITING':
@@ -64,11 +77,14 @@ def step(root, config, rpc_url, validator, publication_cli, router_origin, call,
             raw = read(request, 2 << 20)
             require(digest(raw) == state['request_hash'], 'MARKET_SCHEDULE_REQUEST_CHANGED')
             bundle = load(raw)
-            if time.time_ns() // 1_000_000 >= bundle['valid_until_ms']:
+            if not state['base'].get('bankAnchor') or bundle['anchor'] != state['base']['bankAnchor']:
+                # A pre-anchor WAITING checkpoint cannot be upgraded using fresh authority.
+                state['phase'] = 'SUPERSEDED'
+            elif time.time_ns() // 1_000_000 >= bundle['valid_until_ms']:
                 state['phase'] = 'EXPIRED'
             elif not (directory/'receipts.json').exists():
                 return state
-            elif head(call)['journalEntryHash'] != state['base']['journalEntryHash']:
+            elif (current := head(call))['journalEntryHash'] != state['base']['journalEntryHash'] or bank_anchor(current, block_hash) != bundle['anchor']:
                 state['phase'] = 'SUPERSEDED'
             else:
                 # An assembly interrupted before PUBLISHING has no authority to install anything.

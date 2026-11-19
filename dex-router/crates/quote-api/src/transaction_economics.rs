@@ -135,6 +135,7 @@ impl ValuationStore {
             if matches!(command, PublicationCommand::Status {}) {
                 return Ok(
                     json!({"priceBookHash": head.book_hash, "publicationRevision":head.revision,
+                    "bankAnchor":head.anchor, "bankConsensusAttested":false,
                     "journalEntryHash":receipt.entry_hash, "journalSequence":receipt.sequence,
                     "fsyncConfirmed":receipt.fsync_confirmed, "productionVerified":false}),
                 );
@@ -169,6 +170,7 @@ impl ValuationStore {
             if matches!(command, PublicationCommand::Preview {}) {
                 return Ok(
                     json!({"wouldAdvance":advance,"published":false,"baseEntryHash":receipt.entry_hash,
+                    "bankAnchor":next.anchor, "bankConsensusAttested":false,
                     "candidateBookHash":next.book_hash,"candidateRevision":next.revision,"productionVerified":false}),
                 );
             }

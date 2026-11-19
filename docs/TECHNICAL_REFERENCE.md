@@ -2401,4 +2401,10 @@ python3 integration/tools/market/schedule_chainlink_book.py \
   --publication-cli "$PUBLICATION_CLI" --router-origin http://127.0.0.1:8080 --steps 12 --interval-seconds 5
 ```
 
-每次调用运行 1 至 100 步，默认一步；步间等待不含每步实际执行耗时。`WAITING` 时将 `round-N/capture/signing-request.json` 交给独立签署方，由其原子写入该轮 `round-N/receipts.json`。成功后才开始下一版。过期、外部已推进基准，或上次采集中断，都不复用旧请求。已记录 `PUBLISHING` 的轮次重启后只会核对日志头；若无法确认，保留目录并按阶段160处理，不删除状态文件重新运行。RPC、Router、配置文件或工具二进制指纹变化时拒绝复用该目录。`--block-hash` 可显式固定采集块；未指定时使用提供方的 finalized 标签，不证明 Router 当前 bank 或来源共识。需要操作方配备兼容 bank 和外部签署方，本工具不提供二者。
+每次调用运行 1 至 100 步，默认一步；步间等待不含每步实际执行耗时。`WAITING` 时将 `round-N/capture/signing-request.json` 交给独立签署方，由其原子写入该轮 `round-N/receipts.json`。过期、外部已推进基准，或上次采集中断，都不复用旧请求。已记录 `PUBLISHING` 的轮次重启后只会核对日志头；若无法确认，保留目录并按阶段160处理，不删除状态文件重新运行。RPC、Router、配置文件或工具二进制指纹变化时拒绝复用该目录。
+
+### 调度器选块（阶段162）
+
+调度器从已认证 Router 的 `status.bankAnchor` 获取执行环境所用的链、创世哈希、块高、块哈希、父哈希和时间戳。每个币种均按该哈希采集并复核完整锚点；不一致则不生成可交接的签署请求。`--block-hash` 是可选断言，指定其他块会在读取市场 RPC 前报 `MARKET_SCHEDULE_BLOCK_CONFLICT`。只有独立运行的采集器仍可以不指定哈希而使用 `finalized`。
+
+旧 Router 若不提供锚点，调度拒绝采集。旧 `WAITING` 状态若没有锚点则作废、下一步重新采集。收到回执后再次核对 `status`，安装候选前和提交前分别检查当前锚点与 `preview.bankAnchor`，仍按阶段160复核墙钟有效期。`bankConsensusAttested=false` 表示锚点只证明与已加载的固定 bank 一致，不授予区块共识或实时推进资格。

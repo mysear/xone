@@ -9,8 +9,10 @@ import time
 from capture_chainlink import GENESIS, collect, digest, file_digest, load, require, write
 
 
-def capture_book(config, rpc_url, validator, output, revision, block_hash=None, *, allow_loopback=False):
+def capture_book(config, rpc_url, validator, output, revision, block_hash=None, *, allow_loopback=False, expected_anchor=None):
     require(type(revision) is int and 0 < revision < 2**64, 'MARKET_PUBLICATION_REVISION')
+    if expected_anchor is not None:
+        require(block_hash == expected_anchor['block_hash'], 'MARKET_BOOK_BANK_ANCHOR')
     with Path(config).open('rb') as stream:
         raw = stream.read((1 << 20) + 1)
     require(len(raw) <= 1 << 20, 'MARKET_CONFIG_BYTES')
@@ -40,6 +42,7 @@ def capture_book(config, rpc_url, validator, output, revision, block_hash=None, 
         if anchor is None:
             anchor = report['anchor']
             block_hash = anchor['block_hash']
+        require(expected_anchor is None or anchor == expected_anchor, 'MARKET_BOOK_BANK_ANCHOR')
         require(o['anchor'] == report['anchor'] == anchor, 'MARKET_BOOK_MIXED_BLOCK')
         last_read = max(last_read, o['market_feed']['source_read_at_ms'])
         # max_age is inclusive; valid_until is exclusive in Router admission.

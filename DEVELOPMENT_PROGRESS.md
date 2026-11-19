@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|价格采集按 Router 区块选取（阶段162，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|状态返回已校验 bank 锚点，采集和发布前复核|调度 5 项、独立采集 4 项、真实 HTTP 回归通过；不证明共识|
 |有界价格轮次调度（阶段161，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|同块采集、外部回执交接、已签候选发布与持久恢复|过期重新采集、丢确认只读回查；当前 bank 对齐和生产签署方未验收|
 |本机价格发布操作工具（阶段160，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|候选安装、一次条件提交和结果回读|真实本机 Router 及断连情形定向回放；持续签署与调度未完成|
 |持锁 Router 在线价格发布（阶段159，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|在线预检、双摘要条件发布、重启后已生效价格回读|实际 HTTP 回放通过，持续采集调度和可信 bank 未完成|
@@ -753,6 +754,7 @@
 |159|[在线条件发布与结果回读](#market-book-online-publication)|LOCAL_SCOPE_VERIFIED|显式日志模式，预检无写入，拒绝调包与过期条件；保持固定 bank 限定|
 |160|[本机候选安装与结果核对](#market-book-operator)|LOCAL_SCOPE_VERIFIED|提交未送达与已提交但回执丢失分别核验，无自动重发、无自动回滚|
 |161|[有界价格轮次调度](#market-round-scheduler)|LOCAL_SCOPE_VERIFIED|三项调度回放及原有真实 Router HTTP 回归通过，未验证生产 live 部署|
+|162|[按 Router 区块锚点采集与复核](#market-router-bank-anchor)|LOCAL_SCOPE_VERIFIED|显式哈希选块、跨字段不一致拒绝及签后变化不发布|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -4432,3 +4434,18 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 `python3 -B integration/tools/acceptance/tests/test_market_book_schedule.py -v` 三项通过，已接入综合验收。调度测试使用固定时钟、测试签署者和由真实日志 CLI 支持的测试 Router 接口；另行运行的[真实 Router HTTP 回归](integration/artifacts/local/round-schedule-161-operator-1795061864/report.json)保留 4 次报价、5 个启动拒绝和操作工具断连回读。本轮未重跑 82 项全量回归，不宣称生产签署或可信共识已就绪。
 
 下一项 P0-3：让采集以 Router 已确认的 bank 身份选块，并在发布前复核锚点和来源有效期，避免 finalized 采集落在另一块；可信 bank 推进另行验证。随后继续拆单执行、辅助交易费和完整净额，整体设计未完成。
+
+<a id="market-router-bank-anchor"></a>
+
+## 按 Router 区块锚点采集与复核（2026-11-19，阶段162，P0-3）
+
+阶段161 `ea6505d` 已推送 GitHub。测试前检查了系统临时目录及活动进程，未发现遗留 xone 临时运行目录；共享构建和历史验收证据保留。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F162.1|按服务端完整锚点选块|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|对两币种均调用按哈希取块，不查询 finalized；显式块冲突、旧服务缺少锚点在 RPC 前拒绝；同块哈希但父哈希不同不产出请求。|
+|F162.2|签后重验与持久状态回读|WP15,WP16|LOCAL_SCOPE_VERIFIED|等待期间发生锚点变化则旧请求作废，不安装文件或发布。真实 Router 状态、预检、重启后的锚点均与固定 bank 一致。|
+
+定向测试：5 项调度测试、4 项原独立采集测试、Rust 格式检查及[真实 Router HTTP 回归](integration/artifacts/local/bank-anchor-162-1795062290/report.json)通过。HTTP 回归保留 4 次报价、5 个启动拒绝及断连确认流程。本轮未重跑全量门禁；仅补齐固定 bank 的选块一致性，不证明动态 bank 推进、来源共识、生产签署或完整工作包通过。
+
+下一项 P0-3 按 §13 的候选成本覆盖要求，核对拆单候选的执行绑定、顺序状态与费用覆盖，从可执行的完整计划验证入手；无法核验全部腿及辅助交易时保留原币披露和毛额回退。可信 bank 推进和其他既定优先级继续。

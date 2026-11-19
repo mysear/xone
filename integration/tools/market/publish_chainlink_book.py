@@ -61,7 +61,8 @@ def head(call):
 def reconcile(intent, call):
     actual = head(call)
     base = intent['base']
-    require(actual['priceBookHash'] == intent['candidateBookHash'] and
+    require(('bankAnchor' not in base or actual.get('bankAnchor') == base['bankAnchor']) and
+            actual['priceBookHash'] == intent['candidateBookHash'] and
             actual['publicationRevision'] == intent['candidateRevision'] and
             actual['journalSequence'] == base['journalSequence'] + 1 and
             actual['journalEntryHash'] != base['journalEntryHash'], 'MARKET_PUBLISH_OUTCOME_UNKNOWN')
@@ -99,6 +100,7 @@ def publish(config, candidate, expected, cli, recovery_dir, call, *, expected_ba
     try:
         fcntl.flock(parent_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         base = head(call)
+        require(all(o['anchor'] == base.get('bankAnchor') for o in observations), 'MARKET_PUBLISH_BANK_ANCHOR')
         if expected_base is not None:
             require(base['journalEntryHash'] == expected_base, 'MARKET_PUBLISH_BASE_CHANGED')
         meta = active.lstat()
@@ -136,7 +138,8 @@ def publish(config, candidate, expected, cli, recovery_dir, call, *, expected_ba
             Path(tmp.name).unlink(missing_ok=True)
         pre = call('preview')
         require(pre['wouldAdvance'] is True and pre['published'] is False and pre['candidateRevision'] == revision
-                and pre['candidateBookHash'] == expected and pre['baseEntryHash'] == base['journalEntryHash'],
+                and pre.get('bankAnchor') == base['bankAnchor'] and pre['candidateBookHash'] == expected and
+                pre['baseEntryHash'] == base['journalEntryHash'],
                 'MARKET_PUBLISH_PREVIEW_CHANGED')
         fresh()
         try:

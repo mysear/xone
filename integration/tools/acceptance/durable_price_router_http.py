@@ -103,6 +103,7 @@ def main(binary, cli, corpus, output):
             if changed:
                 before=journal.read_bytes()
                 preview=call(info,'preview-two',publication,{'operation':'preview'})
+                require(preview['bankAnchor']==anchor and preview['bankConsensusAttested'] is False,'Preview bank authority mismatch')
                 require(preview['wouldAdvance'] and not preview['published'] and preview['candidateBookHash']==digest(books[2]) and preview['baseEntryHash']==disk(1),'Incorrect preview')
                 apply=dict(operation='apply', **{k:preview[k] for k in ['baseEntryHash','candidateBookHash']})
                 install(3)
@@ -110,6 +111,7 @@ def main(binary, cli, corpus, output):
                 install(2)
                 require(call(info,'base-conflict',publication,dict(apply,baseEntryHash='0'*64),409)['error']=='NATIVE_VALUATION_PUBLICATION_PRECONDITION','Changed base accepted')
                 status=call(info,'before-apply',publication,{'operation':'status'})
+                require(status['bankAnchor']==anchor and status['bankConsensusAttested'] is False,'Active bank authority mismatch')
                 require(status['priceBookHash']==digest(books[1]) and status['journalEntryHash']==disk(1) and journal.read_bytes()==before,'Preview changed current state')
                 v=call(info,label,publication,apply)
                 require(call(info,'stale-apply',publication,apply,409)['error']=='NATIVE_VALUATION_PUBLICATION_PRECONDITION','Stale apply accepted')
@@ -125,6 +127,7 @@ def main(binary, cli, corpus, output):
     install(2)
     with service('restarted') as info:
         status=call(info,'after-restart',publication,{'operation':'status'})
+        require(status['bankAnchor']==anchor and status['bankConsensusAttested'] is False,'Recovered bank authority mismatch')
         require(status['priceBookHash']==digest(books[2]) and status['journalEntryHash']==disk(2) and status['publicationRevision']==2,'Status did not recover committed head')
         quote(info,'restart-quote',2)
         journal.rename(out/'saved.journal'); journal.write_bytes(b'{}\n'); install(3)
