@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
+	"xone/chain-parser-go/internal/rpc"
 )
 
 // VerifyNativeReceiptWitnesses independently reacquires native header/body,
@@ -55,7 +57,7 @@ func (a *Adapter) verifyNativeReceiptWitnessesBudget(ctx context.Context, expect
 	if err != nil {
 		return err
 	}
-	for _, provider := range providers {
+	for i, provider := range providers {
 		if err = ctx.Err(); err != nil {
 			return err
 		}
@@ -64,7 +66,7 @@ func (a *Adapter) verifyNativeReceiptWitnessesBudget(ctx context.Context, expect
 		witness := Adapter{Client: provider, Chain: a.Chain}
 		body, err := witness.ReadNativeBlockProof(ctx, expected.Block.Number, current)
 		if err != nil {
-			return errors.New("RECEIPT_WITNESS_UNAVAILABLE")
+			return witnessFailure("RECEIPT_WITNESS_UNAVAILABLE", "body", i, expected.Block.Number, err)
 		}
 		*remaining -= body.ProofBytesUsed
 		if *remaining <= 0 {
@@ -80,7 +82,7 @@ func (a *Adapter) verifyNativeReceiptWitnessesBudget(ctx context.Context, expect
 		}
 		observed, err := witness.readNativeReceiptCoverageCached(ctx, body.Block, mode, current, cached)
 		if err != nil {
-			return errors.New("RECEIPT_WITNESS_INVALID")
+			return witnessFailure("RECEIPT_WITNESS_INVALID", "receipts", i, expected.Block.Number, err)
 		}
 		// A witness may retain uncommitted system observations omitted by the
 		// primary. Canonical digest agreement cannot qualify affected business
@@ -109,7 +111,7 @@ func (a *Adapter) verifyNativeReceiptWitnessesBudget(ctx context.Context, expect
 		current.MaxBytes = *remaining
 		after, err := witness.ReadNativeBlockProof(ctx, expected.Block.Number, current)
 		if err != nil {
-			return errors.New("RECEIPT_WITNESS_UNAVAILABLE")
+			return witnessFailure("RECEIPT_WITNESS_UNAVAILABLE", "body_recheck", i, expected.Block.Number, err)
 		}
 		*remaining -= after.ProofBytesUsed
 		if *remaining < 0 {
@@ -121,7 +123,7 @@ func (a *Adapter) verifyNativeReceiptWitnessesBudget(ctx context.Context, expect
 		current.MaxBytes = *remaining
 		used, err := witness.recheckNativeSettling(ctx, observed, current)
 		if err != nil {
-			return errors.New("RECEIPT_WITNESS_UNAVAILABLE")
+			return witnessFailure("RECEIPT_WITNESS_UNAVAILABLE", "settlement_recheck", i, expected.Block.Number, err)
 		}
 		if used > *remaining {
 			return errors.New("NATIVE_WITNESS_BUDGET")
@@ -135,4 +137,25 @@ func sameNativeStateAnchor(a, b *ExecutionStateAnchor) bool {
 		return a == nil && b == nil
 	}
 	return *a == *b
+}
+
+// NativeWitnessError preserves the established public error code. The owner
+// logs only bounded classifications and the ordinal among healthy witnesses.
+// Provider URLs and response bodies never enter the diagnostic fields.
+type NativeWitnessError struct {
+	code         string
+	Phase        string
+	WitnessIndex int
+	HeightTag    string
+	Class        rpc.ErrorClass
+}
+
+func (e *NativeWitnessError) Error() string { return e.code }
+func witnessFailure(code, phase string, index int, height string, cause error) *NativeWitnessError {
+	class := rpc.Classify(cause)
+	switch cause.Error() {
+	case "RECEIPT_PROOF_BUDGET", "RECEIPT_PROOF_TRANSACTION_BUDGET", "NATIVE_WITNESS_BUDGET", "NATIVE_RUNTIME_PROOF_BUDGET":
+		class = rpc.BudgetExceeded
+	}
+	return &NativeWitnessError{code: code, Phase: phase, WitnessIndex: index, HeightTag: height, Class: class}
 }

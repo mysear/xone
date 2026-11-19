@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|原生回执见证错误定位（阶段196，P0-1）|§7.3、§22，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|追块失败日志记录见证节点序号、块高、阶段及错误分类|26448990 双节点复读通过，新基线 26449307 达到证明预算上限|
 |Ethereum 主网见证节点的交易体复用（阶段195，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|每个见证节点在回执校验时使用本节点刚验证的交易体，完成后重新读取区块|块 26448796 复测节省 6,066,035 字节预算，连续发布仍待验收|
 |相邻最终化头连续发布验收（阶段194，P0-1）|§7.3、§9，WP03、WP04|PARTIAL_LOCAL|普通 owner 运行期间通过 CLI 更新证明并逐条核对发布日志|主网 26448795 → 26448827 在首个增量前撤权，须定位证明预算消耗|
 |主网短尾祖先块校验（阶段193，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|反向按高度读取并重算执行头，正向发布复核中间块哈希|主网头回放和发布门禁通过，跨最终化头的连续发布待实测|
@@ -805,6 +806,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|196|[回执见证错误定位](#beacon-witness-diagnostics)|LOCAL_SCOPE_VERIFIED|回执缺失及五类原因通过回归，保留业务错误码|
 |195|[主网回执见证预算](#beacon-witness-budget)|LOCAL_SCOPE_VERIFIED|双节点调用次数、缺失回执及主网预算复测|
 |194|[主网连续发布验收](#beacon-owner-advance)|PARTIAL_LOCAL|首次实测定位到回执证明预算，保留失败记录|
 |193|[主网短尾祖先块校验](#beacon-owner-ancestry)|LOCAL_SCOPE_VERIFIED|精确高度、父哈希及发布门禁回归通过|
@@ -4856,3 +4858,13 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 在同一 64 MiB 配置下，对块 26448796 完成回执见证后可用预算由 14,811,711 升至 20,877,746 字节，对块 26448827 则由 33,123,702 升至 37,321,993 字节。普通 owner 从新鲜基线 26448987 向 26449019 推进，依序发布 26448988 和 26448989。随后日志记录 `RECEIPT_WITNESS_INVALID` 并撤权，完整的 32 块短尾验收仍为 `PARTIAL_LOCAL`。下一轮优先在块 26448990 区分来源读取、字节预算与回执内容校验的错误原因，再复验整个区间。
 
 [主网读取预算](integration/artifacts/local/beacon-witness-195/budget.log) · [定向回归](integration/artifacts/local/beacon-witness-195/regression.log) · [owner 运行日志](integration/artifacts/local/beacon-witness-195/live-2/owner.log)
+
+<a id="beacon-witness-diagnostics"></a>
+
+## 原生回执见证错误定位（2026-11-19，阶段196，P0-1）
+
+普通 owner 的 `chain_sync_failed` 日志可定位见证交易体读取、回执核验、最终交易体回读及结算复核的失败，记录健康见证集合中的序号、块高和原因分类。双节点测试覆盖第二个见证缺失回执，并检查预算、限流、截止时间、取消和无效内容的分类。相关包通过 vet。
+
+块 26448990 的双节点回读核验了 275 笔交易及回执。回执核验后剩余 34,625,608 字节，该次复测成功。此前线上失败的具体原因尚待观测。新鲜签名块 26449307 的 owner 启动返回 `RECEIPT_PROOF_BUDGET`，可用此块度量各步骤消耗。阶段195的 EVM 全包延长测试期限后通过，共 2,923 项通过、21 项跳过。完整短尾验收和可信检查点发布仍为待办。
+
+[块 26448990 回读](integration/artifacts/local/beacon-witness-196/diagnostic.log) · [错误分类回归](integration/artifacts/local/beacon-witness-196/controls.log) · [启动记录](integration/artifacts/local/beacon-witness-196/live/owner.log) · [EVM 全包结果](integration/artifacts/local/beacon-witness-195/full.jsonl)

@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -115,7 +116,27 @@ func TestEthereumWitnessReusesOnlyItsOwnBody(t *testing.T) {
 		t.Fatalf("expected one body and one recheck per witness: %d, %d", left.fullReads.Load()-before, right.fullReads.Load())
 	}
 	right.receipts[right.target.Hash] = nil
-	if err = a.VerifyNativeReceiptWitnesses(ctx, expected, "bulk-auto", limits); err == nil {
-		t.Fatal("accepted missing witness receipts")
+	err = a.VerifyNativeReceiptWitnesses(ctx, expected, "bulk-auto", limits)
+	var detail *NativeWitnessError
+	if !errors.As(err, &detail) || detail.Error() != "RECEIPT_WITNESS_INVALID" || detail.Phase != "receipts" || detail.WitnessIndex != 1 || detail.HeightTag != block.Number || detail.Class != rpc.InvalidResponse && detail.Class != rpc.Unavailable {
+		t.Fatalf("unexpected missing-receipts diagnostic: %#v", err)
+	}
+}
+
+func TestNativeWitnessFailureClassification(t *testing.T) {
+	for _, tc := range []struct {
+		err   error
+		class rpc.ErrorClass
+	}{
+		{errors.New("RECEIPT_PROOF_BUDGET"), rpc.BudgetExceeded},
+		{errors.New("RPC_HTTP_429"), rpc.RateLimited},
+		{context.DeadlineExceeded, rpc.Deadline},
+		{context.Canceled, rpc.Canceled},
+		{errors.New("RECEIPTS_ROOT_MISMATCH"), rpc.InvalidResponse},
+	} {
+		got := witnessFailure("RECEIPT_WITNESS_INVALID", "receipts", 1, "0x01", tc.err)
+		if got.Class != tc.class || got.Error() != "RECEIPT_WITNESS_INVALID" {
+			t.Fatalf("%v: %#v", tc.err, got)
+		}
 	}
 }

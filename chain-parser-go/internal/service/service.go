@@ -452,7 +452,13 @@ func (s *Service) Tick(ctx context.Context) {
 				w.close()
 				delete(s.sessions, chain.Key)
 			}
-			s.log.Event("error", "chain_sync_failed", map[string]any{"chain_key": chain.Key, "error_code": e.Error()})
+			fields := map[string]any{"chain_key": chain.Key, "error_code": e.Error()}
+			var witness *evm.NativeWitnessError
+			if errors.As(e, &witness) {
+				fields["witness_phase"], fields["witness_index"] = witness.Phase, witness.WitnessIndex
+				fields["block_tag"], fields["witness_error_class"] = witness.HeightTag, witness.Class
+			}
+			s.log.Event("error", "chain_sync_failed", fields)
 		} else if e := s.tickRuntimeSources(ctx, chain); e != nil {
 			s.log.Event("warn", "catalog_qualification_pending", map[string]any{"chain_key": chain.Key, "error_code": e.Error()})
 		}
