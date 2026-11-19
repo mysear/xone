@@ -7,6 +7,7 @@ mod execution_receipts;
 mod failure_fees;
 mod native_economics;
 mod preparation;
+pub mod price_publication;
 mod remote_checkpoint;
 mod solana_simulation;
 mod transaction_economics;

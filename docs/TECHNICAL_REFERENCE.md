@@ -2336,3 +2336,15 @@ Karst的0x1e CLZ在instruction table的inspector包装之前注册，执行Gas 5
 该机制仅支持当前进程、固定本地bank下的显式发布。`restartRollbackProtected=false`；跨重启耐久高水位、自动采集/外部签署发布、持续live bank/共识与生产VERIFIED仍未完成。价格时钟继续使用已执行块时间，不因重载续期；本地签署资格和来源边界不变。完整费用/net和全候选完整净评分继续不可用。
 
 限定回归入口为`python3 integration/tools/acceptance/validate_price_publications.py`。它在冻结前由`native_valuation_publications.py`重建/核对独立测试签名book，再执行原68项和4项发布门禁。生成的固定JSON与原始bank/报告沿用现有忽略目录策略，只提交生成器及验证源码；单独运行发布状态单测前可先运行该生成器。
+
+### 耐久价格高水位与离线工具（阶段155）
+
+对应§15.5/21.3/26.3。`xone-quote-api::price_publication`只接受经过配置策略、原签名quorum、同源anchor和执行时间核验的`AuthorizedPublication`。发布版本必须为正数；journal绑定策略hash、链/genesis及初始币种集合。相同完整状态可幂等确认，后续变化必须严格提高签名覆盖的版本。它不重新解释市场来源或授予bank资格。
+
+`xone-price-publication initialize|advance|check JOURNAL_PATH`从stdin读取`{policy,book,anchor,execution_timestamp_ms}`，其中policy为已有NativeValuationConfig。initialize使用create-new，不覆盖已有路径；advance/check要求文件已存在，不自动重新bootstrap。check只允许与耐久高水位完全一致的book，更高版本须显式advance。工具不采集RPC、不签名、不提交交易，输出`normalRouterConnected=false`和`productionVerified=false`。正常Router尚未接入此组件，仍沿用阶段154进程内发布。
+
+Unix文件以0600创建，非阻塞且不跟随最终符号链接打开，核对普通文件、dev/ino及长度并持有独占文件锁。最大16MiB、单条16KiB，JSONL记录包含序号、前摘要、高水位及带`xone-price-publication-journal/1`域的canonical hash。写入及文件fsync成功、路径仍一致后才确认；初始化及恢复还同步父目录。已有有效记录后的无换行半尾可截断恢复，空/半bootstrap、完整损坏、错误hash链/策略/序号均拒绝。恢复先重新同步实际观察到的完整记录，再确认耐久性。
+
+写入或同步失败返回`PRICE_PUBLICATION_JOURNAL_COMMIT_UNCERTAIN`并关闭该writer。内存高水位不推进，但磁盘可能已有完整新记录；必须关闭后重开，以实际完整日志恢复，不能承诺错误或超时代表确定未提交。路径替换和外部改长同样拒绝继续使用。该保证依赖本地持久卷不被整体回滚，不是恶意文件系统防回退或共识；进程直接退出回归也不等同真实掉电/跨区灾备。
+
+限定冻结入口`python3 integration/tools/acceptance/validate_price_publication_journal.py`保留阶段154全部72门禁，增加6项组件测试、离线工具构建及独立CLI/文件回放。`price_publication_journal_replay.py`逐条独立重算策略/book/记录摘要与hash链，保留原始输入、输出、错误和各阶段日志字节，检查重启回退、幂等、半尾/损坏、独占writer、路径类型与容量边界。正式验收冻结期间不修改非Markdown源码。

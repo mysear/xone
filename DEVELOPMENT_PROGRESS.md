@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|耐久价格发布journal与离线初始化（阶段155，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|签名book授权后记录发布高水位|75门禁、235次Rust/80次Go；离线重启回退拒绝，正常Router尚未接入|
 |授权价格book版本刷新与报价快照（阶段154，P0-3）|§13.1/15.5/21.3/26.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|固定配置来源/签名版本与原子发布|72门禁、229次Rust/80次Go通过；单报价价格快照/旧报价拒绝/进程内防回退；重启耐久性未完成|
 |选中候选费用的正常报价同源披露（阶段153，P0-3）|§13.1/15.3/15.5；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|复用选中计划的实际执行/父费用审计/授权换算|68门禁、226次Rust/80次Go通过；16费用披露与4未签名OP未知报价、完整净额/总费不外推|
 |批准Chainlink feed的真实来源适配（阶段152，P0-3）|§13.1/14.2/15.3/21.2–21.3；WP02、WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|批准部署/原ABI与签名绑定、宽整数换算、有界只读采集/待签署CLI|68门禁/223次Rust/80次Go、48向量/148换算、49 CLI/17原RPC重放通过；持续live刷新/可信bank/完整净额继续|
@@ -735,6 +736,7 @@
 |148|[Karst正常本地签名API与完整原Router](#plan-2026-11-19-karst-api)|LOCAL_SCOPE_VERIFIED|39门禁/176次Rust、36正常OP/8旧HTTP与完整原Router通过；[验证记录](integration/artifacts/local/karst-api-check/report.json)|
 |149|[配置预言机授权与已执行交易费用换算](#plan-2026-11-19-native-valuation)|LOCAL_SCOPE_VERIFIED|51门禁/184次Rust/77次Go及61正常HTTP通过；[验证记录](integration/artifacts/local/native-valuation-check/report.json)|
 |150|[逐完整候选费用评分内核](#plan-2026-11-19-candidate-costs)|LOCAL_SCOPE_VERIFIED|54门禁/208次Rust/77次Go、22优化器/2 API回退与61 HTTP通过；[验证记录](integration/artifacts/local/candidate-cost-check/report.json)|
+|155|[耐久价格发布journal与离线初始化](#plan-2026-11-19-price-publication-journal)|LOCAL_SCOPE_VERIFIED|[冻结报告](integration/artifacts/local/price-publication-journal-check/runs/5255594d26fa40fcb3e700601e15eb15/report.json)：75门禁、6项日志测试、34个离线CLI案例；正常接线接续|
 |154|[授权价格book版本刷新与报价快照](#plan-2026-11-19-price-book-refresh)|LOCAL_SCOPE_VERIFIED|72门禁、229次Rust/80次Go通过；显式认证刷新/签名版本/快照缓存/旧报价失效及全部历史来源回归通过|
 |153|[选中候选费用的正常报价同源披露](#plan-2026-11-19-selected-candidate-cost-disclosure)|LOCAL_SCOPE_VERIFIED|68门禁、226次Rust/80次Go通过；正常报价同源费用披露、未知回退及完整来源/历史回归通过|
 |152|[批准Chainlink feed的真实来源适配](#plan-2026-11-19-approved-chainlink-feeds)|LOCAL_SCOPE_VERIFIED|68门禁/223次Rust/80次Go、8有效/14无效配置、48独立向量/148换算与公开原响应重放通过；[验证记录](integration/artifacts/local/approved-market-feed-check/report.json)|
@@ -4300,3 +4302,26 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 新增市场CLI6案例覆盖零/正/u64最大发布版本及负数/超宽/字符串拒绝，签名消息由独立Python摘要核对，未签名观察不获得授权，原公开捕获时间不改且不进行新公共RPC。原68门禁完整保留，包括16候选正常报价/30原执行、4未签名OP回退、原61正常HTTP、48合成/1真实公开捕获、49CLI/17原RPC、全部现代/历史原引擎与严格Clippy/正常构建。源码`2b4d870c1325cf0018907ec3aad06d2945943163d8da4d6a7fb02703a63c4141`，独立复核通过：915固定输入、46运行pins、13859参考输入、18产物与72日志一致，902原始文件和8旧HTTP simulation再次核对；12发布观察的签名独立验证、6报价/12原重放、14拒绝/4并发及6 CLI消息一致。最长普通候选报价4.465740秒、原OP HTTP 1.937883秒，15秒预算未改。当前市场CLI摘要`3cffe3ffc271f25b8c4fff030ec3ebdea96f9604fab5147819d26cb8df9f619b`。[独立复核](integration/artifacts/local/price-publication-check/runs/1efadba05545403b8a65d6c3e6a14f5f/independent-audit.json)。
 
 本轮只完成当前进程、固定本地bank下的显式授权发布，`price_publication_restart_rollback_protected=false`和`continuous_live_market_book_refresh_supported=false`；完整费用/net、可信bank/共识与生产VERIFIED保持关闭，原26完整工作包验收仍0。下一轮继续P0-3和§15.5/21.3/26.3，补显式配置的耐久发布journal与重启防回退：固定策略/链身份、已有签名book和记录hash链、独占文件锁、写入fsync先于确认、尾部半记录恢复/完整损坏拒绝、丢journal不自动重新初始化，覆盖旧book重启、并发writer、崩溃/IO故障与恢复；持久化提交超时必须区分未知结果并关闭旧价格使用，不能承诺无法实现的“超时必无持久效果”。持续自动市场采集/独立签署/真实bank推进及其余优先级分别继续。通过最终文档检查后commit/push实际GitHub origin，GitLab目标仍未配置。
+
+
+<a id="plan-2026-11-19-price-publication-journal"></a>
+
+## 耐久价格发布journal与离线初始化（2026-11-19，阶段155，P0-3）
+
+阶段154已提交并推送`22b850952ce591f7c88abd69f7ea50adc2b0c9ba`，远端HEAD一致、工作区干净。按§15.5/21.3/26.3继续补跨重启的发布高水位。本轮先实现Router所属的耐久journal组件及显式离线初始化/校验/推进工具；下一轮再以默认省略的跨语言配置接入正常刷新/启动，使普通路径也具备该保证。组件通过不能提前改为normalRouterConnected=true。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F155.1|签名book准入及耐久高水位格式|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|正发布版本、同源锚点/配置quorum、实际时间、固定策略/币种集合、序号与hash链；三条记录逐项独立复算。|
+|F155.2|独占journal、fsync确认与恢复|WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|显式create-new初始化，缺文件不自动重建；排他锁、半尾恢复、完整损坏拒绝、提交不确定关闭writer及进程退出重开通过。|
+|F155.3|离线CLI与独立文件/崩溃/原路径回归|WP13,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|34个CLI案例（9成功、25拒绝）、6项组件测试与原72门禁通过；不签名不发送交易。|
+
+耐久性以本地持久卷不整体回滚为前提，不提供恶意文件系统回滚/独立共识证明；真实丢盘/跨区灾备与生产资格仍按既定上线门槛验收。必须区分fsync前后未知提交结果，不将超时或IO错误解释成确定未发生。正常API目前仍使用阶段154进程内模式，只有完成后续显式配置与接线后才可声明其具备跨重启防回退。
+
+恢复开发后先核对清理边界：旧Rust构建目录已不存在；确认没有运行中的测试或打开的句柄后，移除五个遗留的同字节测试二进制暂存副本（约108 MiB）。保留冻结报告、签名输入、原始数据与固定运行依赖；原参考清单中缺失的ethers和ganache两个package.json从仓库锁文件恢复，SHA-256均与阶段154一致。后续各轮测试前先检查遗留进程及可重建临时文件，不清理仍在用的构建目录或作为验证依据的文件。
+
+阶段155预检：此前6项Rust测试与34项离线CLI案例通过。复核发现首次初始化成功写入后CLI借用check回执，导致changed错误地为false；已修正并加强独立回放，以实际文件末条核对响应的序号、entry_hash、高水位与操作是否写入。恢复截断前复核文件身份及原始长度，初始化同步父目录后再复核路径。以上修正须以当前源码重测，不引用先前的通过作为冻结结果。
+
+阶段155最终限定验收：运行`5255594d26fa40fcb3e700601e15eb15`的75门禁全部exit 0，235次Rust及80次Go通过。源码摘要`1496572e58364a0aee0886adaf0695b895f1e77b7766521946be6f5648d8dee1`。独立复核915个固定输入、46个运行pins、13859个参考输入、19份报告、75份日志、1017份原始产物及三条日志的策略/授权book/前摘要链；CLI SHA-256 `4c5927d7876a46c6af63ad29a52a1a2dfa543f3748d619e18c0c72284b907e15`。34个CLI案例中9个成功回执与落盘记录一致，25个拒绝核对错误码。16个普通候选报价/30次原Router重放、4个未签名OP未知费用及进程内发布回归保留。总工作包完整验收仍为0，生产VERIFIED保持关闭。
+
+下一轮按P0-3：在Go及两个Rust配置副本中加入显式、默认省略的journal路径；正常Router启动仅打开已有日志并核对授权book与耐久高水位一致。正常reload先验证、后同步落盘、最后发布价格快照；提交期间或写入结果未知时不得服务旧价格。验证启动缺文件/旧book/锁冲突、运行期刷新、重启恢复、旧报价及已有进程内模式。其后继续真实市场采集/授权、拆单执行与完整费用等已列优先级，阶段155不授予普通API跨重启保证。
