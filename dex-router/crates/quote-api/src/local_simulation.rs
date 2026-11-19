@@ -615,6 +615,7 @@ impl LocalSimulation {
         };
         let request = WorkerRequest {
             op_user,
+            split: None,
             protocol: WORKER_PROTOCOL.into(),
             bound,
             exact_out_bound,
@@ -1820,6 +1821,7 @@ mod tests {
         .unwrap();
         let request = WorkerRequest {
             op_user: None,
+            split: None,
             protocol: WORKER_PROTOCOL.into(),
             bound: Some(bound),
             exact_out_bound: None,
@@ -2041,6 +2043,7 @@ mod tests {
         .unwrap();
         let request = WorkerRequest {
             op_user: None,
+            split: None,
             protocol: WORKER_PROTOCOL.into(),
             bound: None,
             exact_out_bound: Some(bound),

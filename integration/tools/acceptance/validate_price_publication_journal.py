@@ -40,10 +40,14 @@ def main(*, router=False):
         configs, http = directory/'configs', directory/'http'
         split_receipt = directory/'ordered-split.json'
         extra.append(('durable-price-go-config', [sys.executable,__file__,'--go-configs',str(configs)]))
-        extra.append(('ordered-v2-atomic-split', ['node', 'integration/tools/ci/ordered-v2-split-replay.cjs', str(split_receipt)]))
-        extra.append(('ordered-v2-split-binding',['env','XONE_ORDERED_V2_REPORT='+str(split_receipt)]+cargo+['test']+manifest+['-p','xone-execution-plan','--test','ordered_v2']))
+        extra.append(('ordered-v2-atomic-split', ['node', 'integration/tools/ci/ordered-v2-split-replay.cjs', str(split_receipt),'--bank']))
+        bank_env=['env','XONE_ORDERED_V2_REPORT='+str(split_receipt),'XONE_SPLIT_WORKER='+str(target/'debug/examples/evm_dynamic_fee_harness')]
+        extra.append(('ordered-v2-split-binding',bank_env+cargo+['test']+manifest+['-p','xone-execution-plan','--test','ordered_v2','--','--include-ignored']))
+        extra.append(('ordered-v2-split-poststate',bank_env+cargo+['test']+manifest+['-p','xone-simulation','--test','v2_path_execution','eight_ordered_split_receipts_match_all_logs_and_declared_poststate','--','--include-ignored','--exact']))
+        required['ordered-v2-split-poststate']=['eight_ordered_split_receipts_match_all_logs_and_declared_poststate']
         required['ordered-v2-split-binding']=['split_plans_match_mined_calldata_balances_and_pool_order',
-            'split_rejects_recommitted_stale_leg_order_and_wrong_amounts','split_rebuild_rejects_substitution_and_missing_source']
+            'split_rejects_recommitted_stale_leg_order_and_wrong_amounts','split_rebuild_rejects_substitution_and_missing_source',
+            'split_worker_replays_four_mined_plans_and_rejects_inconsistent_sources']
         for workspace, label in [('dex-router','router'),('chain-parser-rust','parser')]:
             gate = 'durable-price-'+label+'-config'
             test = 'durable_journal_config_matches_go_hashes_and_rejects_invalid_paths'

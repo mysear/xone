@@ -629,6 +629,7 @@ fn signed_worker_request(c: &Case) -> xone_simulation::worker::WorkerRequest {
     let e = c.op.transaction.environment();
     WorkerRequest {
         protocol: WORKER_PROTOCOL.into(),
+        split: None,
         bound: if c.exact.is_some() {
             None
         } else {

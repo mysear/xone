@@ -166,93 +166,129 @@ fn funding(c: &Value, b: &BoundEvmExactOutExecution) -> FundingObservation {
 fn original_twelve_path_receipts_match_all_native_accounts_and_declared_storage() {
     let mut count = 0;
     for c in corpus()["cases"].as_array().unwrap() {
-        let f = fixture(c);
-        let env = &f.execution_environment;
-        let tx: TransactionContext =
-            serde_json::from_value(c["transaction_context"].clone()).unwrap();
-        let image = f.to_image(&budget()).unwrap();
-        let original = image.as_ref().clone();
-        let result = core::execute(
-            image.clone(),
-            core::TransactionRequest {
-                fork: SpecId::SHANGHAI,
-                chain_id: env.chain_id,
-                block: BlockEnv {
-                    number: U256::from(env.block_number),
-                    timestamp: U256::from(env.timestamp),
-                    coinbase: Address::from_str(&env.coinbase).unwrap(),
-                    gas_limit: U256::from(env.gas_limit),
-                    basefee: U256::from_str(&env.base_fee.to_string()).unwrap(),
-                    prevrandao: Some(B256::from_str(&env.prevrandao).unwrap()),
-                    ..Default::default()
-                },
-                tx: TxEnv {
-                    caller: Address::from_str(c["transaction"]["from"].as_str().unwrap()).unwrap(),
-                    transact_to: TxKind::Call(
-                        Address::from_str(c["transaction"]["to"].as_str().unwrap()).unwrap(),
-                    ),
-                    data: Bytes::from(
-                        hex::decode(&c["transaction"]["data"].as_str().unwrap()[2..]).unwrap(),
-                    ),
-                    nonce: Some(tx.nonce),
-                    chain_id: Some(tx.chain_id),
-                    gas_limit: tx.gas_limit,
-                    gas_price: U256::from_str(&tx.gas_price.to_string()).unwrap(),
-                    ..Default::default()
-                },
-            },
-            core::ExecutionLimits {
-                reads: core::BoundReadLimits {
-                    max_reads: 32000,
-                    max_bytes: 32 * 1024 * 1024,
-                },
-                max_gas_limit: 15_000_000,
-                max_instructions: 4_000_000,
-                max_input_bytes: 128 * 1024,
-                max_memory_bytes: 64 * 1024 * 1024,
-            },
-            Default::default(),
-        )
-        .unwrap();
-        assert!(result.result_and_state.result.is_success(), "{}", c["id"]);
-        assert_eq!(
-            result.result_and_state.result.gas_used().to_string(),
-            c["expected"]["gas_used"]
-        );
-        let post = image.apply(&result.result_and_state.state).unwrap();
-        for account in
-            serde_json::from_value::<Vec<FixtureAccount>>(c["expected"]["post_accounts"].clone())
-                .unwrap()
-        {
-            let addr = Address::from_str(&account.address).unwrap();
-            let actual = post.data().accounts[&addr].as_ref().unwrap();
-            assert_eq!(
-                actual.balance,
-                U256::from_str(&account.balance.to_string()).unwrap(),
-                "{} {} balance",
-                c["id"],
-                account.address
-            );
-            assert_eq!(actual.nonce, account.nonce);
-            assert_eq!(
-                actual.code_hash,
-                revm::primitives::keccak256(hex::decode(&account.code[2..]).unwrap())
-            );
-            for storage in account.storage {
-                assert_eq!(
-                    post.data().storage[&(addr, U256::from_str(&storage.slot).unwrap())],
-                    U256::from_str(&storage.value).unwrap(),
-                    "{} {} {}",
-                    c["id"],
-                    account.address,
-                    storage.slot
-                );
-            }
-        }
-        assert_eq!(image.as_ref(), &original);
+        compare_mined(c, true, None);
         count += 1;
     }
     assert_eq!(count, 12);
+}
+
+#[test]
+#[ignore = "requires current original ordered split H/H+1 banks"]
+fn eight_ordered_split_receipts_match_all_logs_and_declared_poststate() {
+    let report: Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("XONE_ORDERED_V2_REPORT").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let bank = &report["executionBank"];
+    let runs = bank["runs"].as_array().unwrap();
+    assert_eq!(runs.len(), 8);
+    for (i, r) in runs.iter().enumerate() {
+        let success = i % 2 == 0;
+        assert_eq!(r["status"], u64::from(success));
+        let c = serde_json::json!({"id":i,"fixture":{"schema_version":1,"state_anchor":bank["state_anchor"],"accounts":bank["accounts"],"block_hashes":[],"execution_environment":r["execution_environment"]},"transaction_context":r["transaction_context"],"transaction":r,"expected":{"gas_used":r["gasUsed"],"post_accounts":r["post_accounts"]}});
+        compare_mined(&c, success, Some(&r["logs"]));
+    }
+}
+
+fn compare_mined(c: &Value, success: bool, logs: Option<&Value>) {
+    let f = fixture(c);
+    let env = &f.execution_environment;
+    let tx: TransactionContext = serde_json::from_value(c["transaction_context"].clone()).unwrap();
+    let image = f.to_image(&budget()).unwrap();
+    let original = image.as_ref().clone();
+    let result = core::execute(
+        image.clone(),
+        core::TransactionRequest {
+            fork: SpecId::SHANGHAI,
+            chain_id: env.chain_id,
+            block: BlockEnv {
+                number: U256::from(env.block_number),
+                timestamp: U256::from(env.timestamp),
+                coinbase: Address::from_str(&env.coinbase).unwrap(),
+                gas_limit: U256::from(env.gas_limit),
+                basefee: U256::from_str(&env.base_fee.to_string()).unwrap(),
+                prevrandao: Some(B256::from_str(&env.prevrandao).unwrap()),
+                ..Default::default()
+            },
+            tx: TxEnv {
+                caller: Address::from_str(c["transaction"]["from"].as_str().unwrap()).unwrap(),
+                transact_to: TxKind::Call(
+                    Address::from_str(c["transaction"]["to"].as_str().unwrap()).unwrap(),
+                ),
+                data: Bytes::from(
+                    hex::decode(&c["transaction"]["data"].as_str().unwrap()[2..]).unwrap(),
+                ),
+                nonce: Some(tx.nonce),
+                chain_id: Some(tx.chain_id),
+                gas_limit: tx.gas_limit,
+                gas_price: U256::from_str(&tx.gas_price.to_string()).unwrap(),
+                gas_priority_fee: tx
+                    .max_priority_fee_per_gas
+                    .as_ref()
+                    .map(|p| U256::from_str(&p.to_string()).unwrap()),
+                ..Default::default()
+            },
+        },
+        core::ExecutionLimits {
+            reads: core::BoundReadLimits {
+                max_reads: 32000,
+                max_bytes: 32 * 1024 * 1024,
+            },
+            max_gas_limit: 15_000_000,
+            max_instructions: 4_000_000,
+            max_input_bytes: 128 * 1024,
+            max_memory_bytes: 64 * 1024 * 1024,
+        },
+        Default::default(),
+    )
+    .unwrap();
+    let execution = &result.result_and_state.result;
+    assert_eq!(execution.is_success(), success, "{:?}", execution);
+    if !success {
+        assert!(matches!(
+            execution,
+            revm::primitives::ExecutionResult::Revert { .. }
+        ));
+    }
+    if let Some(logs) = logs {
+        let actual:Vec<_>=execution.logs().iter().map(|log|serde_json::json!({"address":format!("{:#x}",log.address),"topics":log.data.topics().iter().map(|t|format!("{:#x}",t)).collect::<Vec<_>>(),"data":format!("0x{}",hex::encode(&log.data.data))})).collect();
+        assert_eq!(serde_json::json!(actual), *logs);
+    }
+    assert_eq!(
+        result.result_and_state.result.gas_used().to_string(),
+        c["expected"]["gas_used"]
+    );
+    let post = image.apply(&result.result_and_state.state).unwrap();
+    for account in
+        serde_json::from_value::<Vec<FixtureAccount>>(c["expected"]["post_accounts"].clone())
+            .unwrap()
+    {
+        let addr = Address::from_str(&account.address).unwrap();
+        let actual = post.data().accounts[&addr].as_ref().unwrap();
+        assert_eq!(
+            actual.balance,
+            U256::from_str(&account.balance.to_string()).unwrap(),
+            "{} {} balance",
+            c["id"],
+            account.address
+        );
+        assert_eq!(actual.nonce, account.nonce);
+        assert_eq!(
+            actual.code_hash,
+            revm::primitives::keccak256(hex::decode(&account.code[2..]).unwrap())
+        );
+        for storage in account.storage {
+            assert_eq!(
+                post.data().storage[&(addr, U256::from_str(&storage.slot).unwrap())],
+                U256::from_str(&storage.value).unwrap(),
+                "{} {} {}",
+                c["id"],
+                account.address,
+                storage.slot
+            );
+        }
+    }
+    assert_eq!(image.as_ref(), &original);
 }
 #[test]
 fn exact_out_six_original_simple_paths_and_preparations_match_mined_transactions() {

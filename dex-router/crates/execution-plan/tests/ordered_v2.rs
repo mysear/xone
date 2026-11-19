@@ -220,3 +220,99 @@ fn split_rebuild_rejects_substitution_and_missing_source() {
         assert!(bind(&p, &pools, &e, &allowed).is_err());
     }
 }
+
+#[test]
+#[ignore = "requires original split bank and built stdio worker"]
+fn split_worker_replays_four_mined_plans_and_rejects_inconsistent_sources() {
+    use serde_json::json;
+    use std::io::Write;
+    use std::process::Stdio;
+    let report: Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("XONE_ORDERED_V2_REPORT").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let bank = &report["executionBank"];
+    let worker = std::env::var("XONE_SPLIT_WORKER").unwrap();
+    let invoke = |request: &Value| {
+        let mut child = Command::new(&worker)
+            .arg("--evm-simulation-worker")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(&serde_json::to_vec(request).unwrap())
+            .unwrap();
+        let out = child.wait_with_output().unwrap();
+        assert!(out.status.success());
+        serde_json::from_slice::<Value>(&out.stdout).unwrap()
+    };
+    for i in 0..4 {
+        let (p, pools, e, c) = fixture(i);
+        let allowed = [e.target.clone(), e.router.target.clone()];
+        let b = bind(&p, &pools, &e, &allowed).unwrap();
+        let r = &bank["runs"][2 * i];
+        let request = json!({"protocol":"xone-local-evm-worker/1","split":{"bound":b,"expected_executor":e},"pools":pools,"allowed_targets":allowed,
+            "fixture":{"schema_version":1,"state_anchor":bank["state_anchor"],"execution_environment":r["execution_environment"],"accounts":bank["accounts"],"block_hashes":[]},
+            "expected_genesis_hash":bank["state_anchor"]["genesis_hash"],"transaction_context":r["transaction_context"],"timeout_ms":15000,
+            "budget":{"max_fixture_json_bytes":16000000,"max_accounts":256,"max_storage_slots":65536,"max_code_bytes":8000000,"max_image_bytes":16000000,"max_reads":32000,"max_read_bytes":32000000,"max_instructions":4000000,"max_input_bytes":131072,"max_total_input_bytes":1000000,"max_transaction_gas":15000000,"probe_gas_limit":200000,"max_total_gas":15000000,"max_memory_bytes":64000000,"max_output_bytes":1000000}});
+        let response = invoke(&request);
+        assert!(response["error"].is_null(), "{}", response["error"]);
+        let outcome = &response["outcome"];
+        assert_eq!(outcome["matches_plan"], true);
+        assert_eq!(outcome["verified"], false);
+        assert_eq!(outcome["actual_input_consumed"], c["input"]);
+        assert_eq!(outcome["actual_buy_amount"], c["output"]);
+        assert_eq!(outcome["execution"]["gas_used"].to_string(), r["gasUsed"]);
+        assert_eq!(
+            outcome["native_fees"]["effective_gas_price"],
+            r["effectiveGasPrice"]
+        );
+        assert_eq!(
+            outcome["native_fees"]["execution_fee"],
+            report["cases"][i]["nativeExecutionFee"]
+        );
+        if i == 0 {
+            for phase in ["code", "router()", "split_caller_allowance_before"] {
+                let mut bad = request.clone();
+                let accounts = bad["fixture"]["accounts"].as_array_mut().unwrap();
+                if phase == "split_caller_allowance_before" {
+                    let sell = c["legs"][0]["tokens"][0].as_str().unwrap();
+                    // Only the caller->batch allowance has MaxUint256 among the two captured allowance slots.
+                    accounts.iter_mut().find(|a| a["address"] == sell).unwrap()["storage"]
+                        .as_array_mut()
+                        .unwrap()
+                        .retain(|s| s["value"] != format!("0x{}", "ff".repeat(32)));
+                } else {
+                    let account = accounts
+                        .iter_mut()
+                        .find(|a| a["address"] == e.target)
+                        .unwrap();
+                    let code = account["code"]
+                        .as_str()
+                        .unwrap()
+                        .replace(&e.router.target[2..], &e.router.factory[2..]);
+                    assert_ne!(account["code"], code);
+                    account["code"] = json!(code);
+                    if phase == "router()" {
+                        use sha2::{Digest, Sha256};
+                        let mut changed = e.clone();
+                        changed.code_sha256 =
+                            hex::encode(Sha256::digest(hex::decode(&code[2..]).unwrap()));
+                        bad["split"] = json!({"bound":bind(&p,&pools,&changed,&allowed).unwrap(),"expected_executor":changed});
+                    }
+                }
+                let rejected = invoke(&bad);
+                assert!(rejected["outcome"].is_null());
+                if phase == "code" {
+                    assert_eq!(rejected["error"]["code"], "SIMULATION_CODE_MISMATCH");
+                } else {
+                    assert_eq!(rejected["error"]["phase"], phase, "{}", rejected["error"]);
+                }
+            }
+        }
+    }
+}

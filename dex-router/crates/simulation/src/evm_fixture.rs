@@ -14,6 +14,7 @@ use std::{
     time::Instant,
 };
 use xone_domain::{Amount, Pool};
+use xone_execution_plan::ordered_v2::{self, BoundSplit, SplitExecutor, SplitPlan};
 use xone_execution_plan::{
     validate_bound_exact_out_execution, validate_bound_execution, BoundEvmExactOutExecution,
     BoundEvmExecution, Context, ExecutorIdentity, Transaction,
@@ -1345,10 +1346,35 @@ pub(crate) fn simulate_bound_exact_out_with_funding(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn simulate_bound_split(
+    bound: &BoundSplit,
+    expected: &SplitExecutor,
+    pools: &[Pool],
+    allowed: &[String],
+    fixture: &FixtureState,
+    tx: &TransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+) -> Result<SimulationOutcome> {
+    simulate_execution(
+        BoundSource::Split(bound, expected),
+        pools,
+        allowed,
+        fixture,
+        tx,
+        budget,
+        control,
+        None,
+        None,
+    )
+}
+
 #[derive(Clone, Copy)]
 enum BoundSource<'a> {
     ExactIn(&'a BoundEvmExecution),
     ExactOut(&'a BoundEvmExactOutExecution),
+    Split(&'a BoundSplit, &'a SplitExecutor),
 }
 impl Serialize for BoundSource<'_> {
     fn serialize<S: serde::Serializer>(
@@ -1358,6 +1384,7 @@ impl Serialize for BoundSource<'_> {
         match self {
             Self::ExactIn(b) => b.serialize(serializer),
             Self::ExactOut(b) => b.serialize(serializer),
+            Self::Split(b, _) => b.serialize(serializer),
         }
     }
 }
@@ -1366,7 +1393,7 @@ struct BoundView<'a> {
     snapshot: &'a xone_domain::SnapshotRef,
     transaction: &'a Transaction,
     executor: &'a ExecutorIdentity,
-    touched_pool_ids: &'a [String],
+    touched_pool_ids: Vec<&'a String>,
 }
 impl BoundSource<'_> {
     fn view(&self) -> BoundView<'_> {
@@ -1376,21 +1403,41 @@ impl BoundSource<'_> {
                 snapshot: &b.plan.snapshot,
                 transaction: &b.transaction,
                 executor: &b.executor,
-                touched_pool_ids: &b.touched_pool_ids,
+                touched_pool_ids: b.touched_pool_ids.iter().collect(),
             },
             Self::ExactOut(b) => BoundView {
                 context: &b.plan.context,
                 snapshot: &b.plan.snapshot,
                 transaction: &b.transaction,
                 executor: &b.executor,
-                touched_pool_ids: &b.touched_pool_ids,
+                touched_pool_ids: b.touched_pool_ids.iter().collect(),
             },
+            Self::Split(b, e) => {
+                let (context, snapshot) = match &b.plan {
+                    SplitPlan::ExactIn(p) => (&p.context, &p.snapshot),
+                    SplitPlan::ExactOut(p) => (&p.context, &p.snapshot),
+                };
+                let mut seen = BTreeSet::new();
+                BoundView {
+                    context,
+                    snapshot,
+                    transaction: &b.transaction,
+                    executor: &e.router,
+                    touched_pool_ids: b
+                        .leg_pools
+                        .iter()
+                        .flatten()
+                        .filter(|id| seen.insert(*id))
+                        .collect(),
+                }
+            }
         }
     }
     fn validate(&self, pools: &[Pool], allowed: &[String]) -> xone_domain::Result<()> {
         match self {
             Self::ExactIn(b) => validate_bound_execution(b, pools, allowed),
             Self::ExactOut(b) => validate_bound_exact_out_execution(b, pools, allowed),
+            Self::Split(b, e) => ordered_v2::validate(b, pools, e, allowed),
         }
     }
 }
@@ -1494,7 +1541,7 @@ fn simulate_execution(
     let image = fixture.to_image(budget)?;
     let touched_pools = bound
         .touched_pool_ids
-        .iter()
+        .into_iter()
         .map(|id| {
             pools
                 .iter()
@@ -1580,6 +1627,20 @@ fn simulate_execution(
         op_fees: None,
         caller_address: caller,
     };
+    if let BoundSource::Split(_, e) = source {
+        code_check(&image, &e.target, &e.code_sha256)?;
+        runner.expect_address(image.clone(), &e.target, "router()", &[], &e.router.target)?;
+        runner.probe(
+            image.clone(),
+            &context.sell_token,
+            calldata(
+                "allowance(address,address)",
+                &[address_word(&context.caller)?, address_word(&e.target)?],
+            ),
+            "split_caller_allowance_before",
+            32,
+        )?;
+    }
     for pool in &touched_pools {
         runner.preflight(image.clone(), bound.executor, pool)?;
     }
@@ -1731,16 +1792,28 @@ fn simulate_execution(
                 "caller missing",
             )
         })?;
-    let (matches_plan, unused_input_budget) = match source {
-        BoundSource::ExactIn(b) => (
+    enum Amounts<'a> {
+        In(&'a xone_execution_plan::Plan),
+        Out(&'a xone_execution_plan::exact_out::ExactOutPlan),
+    }
+    let amounts = match source {
+        BoundSource::ExactIn(b) => Amounts::In(&b.plan),
+        BoundSource::ExactOut(b) => Amounts::Out(&b.plan),
+        BoundSource::Split(b, _) => match &b.plan {
+            SplitPlan::ExactIn(p) => Amounts::In(p),
+            SplitPlan::ExactOut(p) => Amounts::Out(p),
+        },
+    };
+    let (matches_plan, unused_input_budget) = match amounts {
+        Amounts::In(p) => (
             status == EvmStatus::Success
-                && spent == amount(&b.plan.allocation.sell_amount)?
-                && bought == amount(&b.plan.allocation.gross_buy_amount)?
-                && bought >= amount(&b.plan.min_buy_amount)?,
+                && spent == amount(&p.allocation.sell_amount)?
+                && bought == amount(&p.allocation.gross_buy_amount)?
+                && bought >= amount(&p.min_buy_amount)?,
             None,
         ),
-        BoundSource::ExactOut(b) => {
-            let maximum = amount(&b.plan.max_sell_amount)?;
+        Amounts::Out(p) => {
+            let maximum = amount(&p.max_sell_amount)?;
             let unused = maximum.checked_sub(spent).ok_or_else(|| {
                 runner.error(
                     SimulationBalanceDirection,
@@ -1750,8 +1823,8 @@ fn simulate_execution(
             })?;
             (
                 status == EvmStatus::Success
-                    && spent == amount(&b.plan.allocation.required_input)?
-                    && bought == amount(&b.plan.allocation.target_output)?,
+                    && spent == amount(&p.allocation.required_input)?
+                    && bought == amount(&p.allocation.target_output)?,
                 Some(as_amount(unused)?),
             )
         }

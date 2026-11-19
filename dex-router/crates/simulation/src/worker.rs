@@ -166,6 +166,8 @@ pub fn historical_op_fork(
 pub struct WorkerRequest {
     pub protocol: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub split: Option<WorkerSplit>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bound: Option<BoundEvmExecution>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exact_out_bound: Option<BoundEvmExactOutExecution>,
@@ -180,6 +182,12 @@ pub struct WorkerRequest {
     pub budget: SimulationBudget,
     pub expected_genesis_hash: String,
     pub timeout_ms: u64,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkerSplit {
+    pub bound: xone_execution_plan::ordered_v2::BoundSplit,
+    pub expected_executor: xone_execution_plan::ordered_v2::SplitExecutor,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -258,34 +266,17 @@ pub fn run_stdio() -> Result<()> {
     } else {
         None
     };
-    let result = match (
-        &request.bound,
-        &request.exact_out_bound,
-        &request.prepared,
-        &op_context,
-    ) {
-        (Some(bound), None, None, Some(op)) => evm_fixture::simulate_bound_op_user(
-            bound,
-            &request.pools,
-            &request.allowed_targets,
-            &request.fixture,
-            op,
-            &request.budget,
-            control,
-        )
-        .map(Completed::Plain),
-        (None, Some(bound), None, Some(op)) => evm_fixture::simulate_bound_op_user_exact_out(
-            bound,
-            &request.pools,
-            &request.allowed_targets,
-            &request.fixture,
-            op,
-            &request.budget,
-            control,
-        )
-        .map(Completed::Plain),
-        (Some(bound), None, None, None) => evm_fixture::simulate_bound(
-            bound,
+    let result = if let Some(split) = &request.split {
+        if request.bound.is_some()
+            || request.exact_out_bound.is_some()
+            || request.prepared.is_some()
+            || op_context.is_some()
+        {
+            return Err(err("SIMULATION_WORKER_BINDING"));
+        }
+        evm_fixture::simulate_bound_split(
+            &split.bound,
+            &split.expected_executor,
             &request.pools,
             &request.allowed_targets,
             &request.fixture,
@@ -293,64 +284,103 @@ pub fn run_stdio() -> Result<()> {
             &request.budget,
             control,
         )
-        .map(Completed::Plain),
-        (None, Some(bound), None, None) => evm_fixture::simulate_bound_exact_out(
-            bound,
-            &request.pools,
-            &request.allowed_targets,
-            &request.fixture,
-            &request.transaction_context,
-            &request.budget,
-            control,
-        )
-        .map(Completed::Plain),
-        (Some(bound), None, Some(prepared), None) => {
-            if xone_domain::hash(&request.transaction_context)?
-                != xone_domain::hash(&prepared.transaction_context())?
-            {
-                return Err(err("SIMULATION_WORKER_BINDING"));
-            }
-            let component: Preparation = serde_json::from_value(prepared.component.clone())
-                .map_err(|_| err("SIMULATION_WORKER_BINDING"))?;
-            simulate_prepared(
-                PreparedExecution {
-                    bound,
-                    pools: &request.pools,
-                    allowed_targets: &request.allowed_targets,
-                    funding: &prepared.funding,
-                    fees: &prepared.fees,
-                    preparation: &component,
-                },
+        .map(Completed::Plain)
+    } else {
+        match (
+            &request.bound,
+            &request.exact_out_bound,
+            &request.prepared,
+            &op_context,
+        ) {
+            (Some(bound), None, None, Some(op)) => evm_fixture::simulate_bound_op_user(
+                bound,
+                &request.pools,
+                &request.allowed_targets,
                 &request.fixture,
+                op,
                 &request.budget,
                 control,
             )
-            .map(Completed::Prepared)
-        }
-        (None, Some(bound), Some(prepared), None) => {
-            if xone_domain::hash(&request.transaction_context)?
-                != xone_domain::hash(&prepared.transaction_context())?
-            {
-                return Err(err("SIMULATION_WORKER_BINDING"));
-            }
-            let component: ExactOutPreparation = serde_json::from_value(prepared.component.clone())
-                .map_err(|_| err("SIMULATION_WORKER_BINDING"))?;
-            simulate_prepared_exact_out(
-                PreparedExactOutExecution {
-                    bound,
-                    pools: &request.pools,
-                    allowed_targets: &request.allowed_targets,
-                    funding: &prepared.funding,
-                    fees: &prepared.fees,
-                    preparation: &component,
-                },
+            .map(Completed::Plain),
+            (None, Some(bound), None, Some(op)) => evm_fixture::simulate_bound_op_user_exact_out(
+                bound,
+                &request.pools,
+                &request.allowed_targets,
                 &request.fixture,
+                op,
                 &request.budget,
                 control,
             )
-            .map(Completed::Prepared)
+            .map(Completed::Plain),
+            (Some(bound), None, None, None) => evm_fixture::simulate_bound(
+                bound,
+                &request.pools,
+                &request.allowed_targets,
+                &request.fixture,
+                &request.transaction_context,
+                &request.budget,
+                control,
+            )
+            .map(Completed::Plain),
+            (None, Some(bound), None, None) => evm_fixture::simulate_bound_exact_out(
+                bound,
+                &request.pools,
+                &request.allowed_targets,
+                &request.fixture,
+                &request.transaction_context,
+                &request.budget,
+                control,
+            )
+            .map(Completed::Plain),
+            (Some(bound), None, Some(prepared), None) => {
+                if xone_domain::hash(&request.transaction_context)?
+                    != xone_domain::hash(&prepared.transaction_context())?
+                {
+                    return Err(err("SIMULATION_WORKER_BINDING"));
+                }
+                let component: Preparation = serde_json::from_value(prepared.component.clone())
+                    .map_err(|_| err("SIMULATION_WORKER_BINDING"))?;
+                simulate_prepared(
+                    PreparedExecution {
+                        bound,
+                        pools: &request.pools,
+                        allowed_targets: &request.allowed_targets,
+                        funding: &prepared.funding,
+                        fees: &prepared.fees,
+                        preparation: &component,
+                    },
+                    &request.fixture,
+                    &request.budget,
+                    control,
+                )
+                .map(Completed::Prepared)
+            }
+            (None, Some(bound), Some(prepared), None) => {
+                if xone_domain::hash(&request.transaction_context)?
+                    != xone_domain::hash(&prepared.transaction_context())?
+                {
+                    return Err(err("SIMULATION_WORKER_BINDING"));
+                }
+                let component: ExactOutPreparation =
+                    serde_json::from_value(prepared.component.clone())
+                        .map_err(|_| err("SIMULATION_WORKER_BINDING"))?;
+                simulate_prepared_exact_out(
+                    PreparedExactOutExecution {
+                        bound,
+                        pools: &request.pools,
+                        allowed_targets: &request.allowed_targets,
+                        funding: &prepared.funding,
+                        fees: &prepared.fees,
+                        preparation: &component,
+                    },
+                    &request.fixture,
+                    &request.budget,
+                    control,
+                )
+                .map(Completed::Prepared)
+            }
+            _ => return Err(err("SIMULATION_WORKER_BINDING")),
         }
-        _ => return Err(err("SIMULATION_WORKER_BINDING")),
     };
     let (outcome, prepared, error) = match result {
         Ok(Completed::Plain(value)) => (Some(value), None, None),
