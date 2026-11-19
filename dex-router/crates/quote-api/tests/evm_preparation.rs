@@ -42,6 +42,12 @@ async fn explicit_evm_preparation_binds_quote_view_and_downloadable_wire() {
     task.abort();
     assert_eq!(status, StatusCode::OK, "{p}");
     assert_eq!(p["ready"], true);
+    assert_eq!(p["callerApproval"]["status"], "SUFFICIENT");
+    assert_eq!(p["callerApproval"]["additionalApprovalNative"], "0");
+    assert_eq!(
+        p["callerApproval"]["bindingHash"],
+        p["component"]["binding_hash"]
+    );
     assert_eq!(p["quoteId"], q["quoteId"]);
     assert_eq!(p["quoteViewId"], q["quoteViewId"]);
     assert_eq!(p["snapshotRef"], q["snapshotRef"]);
@@ -134,6 +140,11 @@ async fn evm_rpc_rejection_and_funding_blockers_preserve_api_semantics() {
         if matches!(mode, "funding" | "allowance") {
             assert_eq!(status, StatusCode::OK, "{p}");
             assert_eq!(p["ready"], false);
+            if mode == "allowance" {
+                assert_eq!(p["callerApproval"]["status"], "APPROVAL_REQUIRED");
+                assert_eq!(p["callerApproval"]["observedAllowance"], "0");
+                assert!(p["callerApproval"]["additionalApprovalNative"].is_null());
+            }
             assert!(p["unsignedTransaction"].is_null());
             assert!(p["transaction"].is_null());
         } else {
@@ -167,6 +178,10 @@ async fn exact_output_preparation_uses_its_own_target_and_maximum_input() {
     task.abort();
     assert_eq!(status, StatusCode::OK, "{p}");
     assert_eq!(p["quoteKind"], "EXACT_OUT");
+    assert_eq!(
+        p["callerApproval"]["requiredInput"],
+        quote["requiredSellAmount"]
+    );
     let _: xone_execution_preparation::evm::ExactOutPreparation =
         serde_json::from_value(p["component"].clone()).unwrap();
     let mut component = p["component"].clone();

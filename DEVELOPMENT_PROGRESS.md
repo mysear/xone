@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|调用者授权费用判定（阶段167，P0-3）|§13.1、§14.1、§15；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|按付款人、代币、执行目标及报价输入核对 ERC20 授权|两种报价方向与 RPC 准备均已验证，授权不足时待顺序计费|
 |共享池拆单报价费用（阶段166，P0-3）|§13.5/14.2/14.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|正常报价比较两条单路线和两种有序拆单，披露选中计划费用|固定 Shanghai 状态的 8 个 HTTP 场景通过，辅助交易费用待补|
 |V2 拆单独立仿真（阶段165，P0-3）|§13.5/14.2/14.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|真实 worker 重建并执行整笔计划、核对批量合约与 Router02 及完整池状态|4 笔成功、4 笔回滚的原始状态回放及 3 项 worker 拒绝通过，父进程费用接线继续|
 |V2 拆单计划绑定（阶段164，P0-3）|§13.5/14.1/14.2；WP13、WP15|LOCAL_SCOPE_VERIFIED|按同一快照重算完整计划、生成单笔交易并重建核对|4 笔实际本地成交的 calldata 一致；待接 worker、父费用核验及正常报价|
@@ -761,6 +762,7 @@
 |162|[按 Router 区块锚点采集与复核](#market-router-bank-anchor)|LOCAL_SCOPE_VERIFIED|显式哈希选块、跨字段不一致拒绝及签后变化不发布|
 |163|[共享池 V2 整笔拆单执行](#ordered-v2-split)|LOCAL_SCOPE_VERIFIED|ExactIn/ExactOut 两种腿序的实际整笔 Gas、余额、储备与回滚|
 |164|[按完整拆单计划生成批量交易](#ordered-v2-binding)|LOCAL_SCOPE_VERIFIED|逐字节对照实际成交调用；拒绝沿用旧腿序金额或其他绑定|
+|167|[调用者授权费用判定](#caller-approval-cost)|LOCAL_SCOPE_VERIFIED|授权充足、授权不足和证据未知三种结果|
 |166|[共享池拆单正常报价](#ordered-v2-quote)|LOCAL_SCOPE_VERIFIED|父进程回执绑定、候选费用排序及统一毛额回退|
 |165|[共享池拆单独立仿真](#ordered-v2-worker)|LOCAL_SCOPE_VERIFIED|显式费用上限、原始回执及完整已采集状态对照、worker 核验|
 
@@ -4519,3 +4521,16 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 同一出块夹具增加调用者对 Router02 的授权槽，使单路线和批量合约均能读取实际授权。两套 Rust 配置测试、Go 配置测试、父进程回执替换测试及 [正常 HTTP 的 8 个场景](integration/artifacts/local/ordered-split-166/http/report.json)通过。[阶段165冻结验收](integration/artifacts/local/durable-price-router-check/runs/7f9298b6d4774e92a0a6058d0b85912c/report.json)在已运行的 82 个门禁中通过 81 个，签名 OP 的 HTTP 测试读到了尚未写完的启动文件。本轮改为同目录原子发布启动文件，使用原始输入重跑[签名 OP 的 HTTP 门禁](integration/artifacts/local/ordered-split-166/op/report.json)，全部 36 个执行场景通过。进度文档在普通和优化 Python 下各通过 17 项检查。本轮未重新运行整套综合验收。
 
 下一项 P0-3 按 §13 处理额外授权和资金交易。先区分已具备授权、需要授权、证据不足三种情况，再按同一区块顺序验证每笔交易的费用和付款余额。可信动态 bank、生产验证及其余工作包仍开放。当前仓库的已配置远端为 GitHub，GitLab 交付需要项目地址。
+
+<a id="caller-approval-cost"></a>
+
+## 调用者授权费用判定（2026-11-19，阶段167，P0-3）
+
+§13.1、§14.1 和 §15 要求报价披露授权成本。父进程复核拆单回执中的 `allowance(owner,spender)` 调用，核对卖出代币、付款人、实际批量执行器以及 32 字节返回值。足额授权的候选披露 `approvalNative="0"`。缺少读数的候选披露 `UNKNOWN` 并保留空费用。ExactOut 按同一状态的报价所需输入判断。RPC 准备接口返回读取来源、实际授权额和所需额度，授权不足时继续阻止生成兑换交易。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F167.1|按候选执行目标判定额外授权费用|WP13,WP15|LOCAL_SCOPE_VERIFIED|两种报价方向各核对所有已计价候选。错误 spender、重复读数、缺少读数和返回长度异常均拒绝。|
+|F167.2|准备接口披露授权缺口|WP15,WP16|LOCAL_SCOPE_VERIFIED|4 项接口测试通过，覆盖授权不足、资金不足、重组、ExactOut 所需输入及准备摘要。|
+
+[正常 HTTP 8 个场景](integration/artifacts/local/ordered-approval-167/http/report.json)与父进程定向单测通过。测试前确认上一轮隔离编译目录已经清理，核对并移除了重复的出块夹具。下一项是用连续状态核对新增授权交易及随后兑换的实际费用，随后处理补充资金和全候选净额。

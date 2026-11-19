@@ -1,6 +1,7 @@
 mod cache_gc;
 mod candidate_costs;
 mod cost_fallback;
+mod evm_approval;
 mod evm_preparation;
 mod exact_out;
 mod execution_receipts;

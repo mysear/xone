@@ -153,6 +153,20 @@ pub(super) async fn prepare(
         "requiredSigners":component["required_signers"],"component":capture.result["component"],"rpcPreparation":capture.result,
         "rpcObservations":capture.observations,"signed":false,"submitted":false,
         "independentExecutionVerified":false,"chainFeesComplete":false,"productionReady":false});
+    let requirement = crate::evm_approval::Requirement {
+        token: context.sell_token.clone(),
+        owner: context.caller.clone(),
+        spender: capture.funding.spender.clone(),
+        input: serde_json::from_value(component["required_input"].clone())
+            .map_err(|_| failure(err("PREPARATION_EVM_OBSERVATION_BINDING")))?,
+    };
+    result["callerApproval"] = requirement.disclose(
+        Some(&capture.funding.allowance),
+        component["binding_hash"]
+            .as_str()
+            .ok_or_else(|| failure(err("PREPARATION_EVM_OBSERVATION_BINDING")))?,
+        "CONFIGURED_RPC_OBSERVATION",
+    );
     result["preparationHash"] = hash(&result).map_err(failure)?.into();
     current(&api, &view, &context).map_err(failure)?;
     let stored = if result["ready"] == true {

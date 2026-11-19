@@ -142,6 +142,7 @@ struct ExecutionCommitment {
     caller_native_before: Option<Amount>,
     coinbase_native_before: Option<Amount>,
     executor: ExecutorIdentity,
+    approval: Option<crate::evm_approval::Requirement>,
     split_receipt: Option<Value>,
     split_executor: Option<ordered_v2::SplitExecutor>,
 }
@@ -194,6 +195,32 @@ impl PreparedExecution {
         } else {
             None
         };
+        let approval = match (&request.bound, &request.exact_out_bound, &request.split) {
+            (Some(b), None, None) => Some((
+                &b.plan.context,
+                &b.plan.allocation.sell_amount,
+                &b.transaction.to,
+            )),
+            (None, Some(b), None) => Some((
+                &b.plan.context,
+                &b.plan.allocation.required_input,
+                &b.transaction.to,
+            )),
+            (None, None, Some(s)) => {
+                let (ctx, input) = match &s.bound.plan {
+                    SplitPlan::ExactIn(p) => (&p.context, &p.allocation.sell_amount),
+                    SplitPlan::ExactOut(p) => (&p.context, &p.allocation.required_input),
+                };
+                Some((ctx, input, &s.bound.transaction.to))
+            }
+            _ => None,
+        }
+        .map(|(ctx, input, to)| crate::evm_approval::Requirement {
+            token: ctx.sell_token.clone(),
+            owner: ctx.caller.clone(),
+            spender: to.clone(),
+            input: input.clone(),
+        });
         let split_executor = request.split.as_ref().map(|s| s.expected_executor.clone());
         let (binding_hash, transaction, executor, quote_kind) =
             match (request.bound, request.exact_out_bound, request.split) {
@@ -236,6 +263,7 @@ impl PreparedExecution {
                 binding_hash,
                 transaction,
                 executor,
+                approval,
                 split_receipt,
                 split_executor,
                 quote_kind,
@@ -1067,7 +1095,7 @@ fn diagnostic_response(
         balance_reconciliation = json!({"status":"MATCHED","scope":"ZERO_VALUE_BOUND_ERC20_TRANSACTION",
             "caller":commitment.transaction.from,"coinbase":commitment.execution_coinbase,"sameAccount":same});
     }
-    let costs = json!({
+    let mut costs = json!({
         "schemaVersion":1,"modelVersion":xone_execution_preparation::evm_native_cost::VERSION,
         "chainKey":commitment.transaction.chain_key,"bindingHash":commitment.binding_hash,
         "scope":"DECLARED_LOCAL_EVM_TRANSACTION","authority":"PROVIDED_LOCAL_STATE",
@@ -1090,6 +1118,28 @@ fn diagnostic_response(
         "unavailableReason":"COMPLETE_CHAIN_COST_COVERAGE_UNAVAILABLE",
         "deductedFromQuoteOutput":false,"chainFeeCompleteness":"LOCAL_EVM_ONLY"
     });
+    if let Some(requirement) = &commitment.approval {
+        let allowance = if commitment.split_receipt.is_some() {
+            Some(
+                requirement
+                    .split_allowance(&outcome)
+                    .map_err(|e| Failure::new(&e.0, "split_allowance"))?,
+            )
+        } else {
+            None
+        };
+        let evidence = requirement.disclose(
+            allowance.as_ref(),
+            &commitment.binding_hash,
+            if allowance.is_some() {
+                "PROVIDED_LOCAL_STATE"
+            } else {
+                "UNAVAILABLE"
+            },
+        );
+        costs["approvalNative"] = evidence["additionalApprovalNative"].clone();
+        costs["callerApproval"] = evidence;
+    }
     let success = outcome["matches_plan"] == true && outcome["execution"]["status"] == "SUCCESS";
     let mut result = json!({"quoteKind":commitment.quote_kind,"bindingHash":commitment.binding_hash,"bundleHash":bundle_hash,"workerHash":worker_hash,
         "transaction":commitment.transaction,"transactionContext":commitment.transaction_context,"executionBaseFee":commitment.execution_base_fee,"executionCoinbase":commitment.execution_coinbase,"executor":commitment.executor,
@@ -1482,6 +1532,7 @@ mod tests {
             execution_coinbase: "0x0000000000000000000000000000000000000033".into(),
             caller_native_before: Some("1000000000000000000000000000000".parse().unwrap()),
             coinbase_native_before: Some(Amount::zero()),
+            approval: None,
             split_receipt: None,
             split_executor: None,
             executor: ExecutorIdentity {

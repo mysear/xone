@@ -64,6 +64,15 @@ def scenario(binary, bank_path, report, directory, mode):
                     require(costs['balanceReconciliation']['status'] == 'MATCHED' and economics['actualInput'] == outcome['actual_input_consumed'] and economics['actualOutput'] == outcome['actual_buy_amount'], 'missing measured amounts')
                     target = row.get('splitExecutor', row['executor'])['target']
                     require(target == row['transaction']['to'] and row['transactionContext'] == report['executionBank']['runs'][0]['transaction_context'], 'transaction identity')
+                    approval = costs['callerApproval']
+                    require(approval['bindingHash'] == row['bindingHash'] and approval['spender'] == target and
+                            approval['owner'] == row['transaction']['from'] and approval['token'] == tokens[0] and
+                            approval['requiredInput'] == outcome['actual_input_consumed'], 'allowance identity')
+                    if 'splitExecutor' in row:
+                        require(approval['status'] == 'SUFFICIENT' and int(approval['observedAllowance']) >= int(approval['requiredInput'])
+                                and costs['approvalNative'] == '0', 'batch caller allowance not reconciled')
+                    else:
+                        require(approval['status'] == 'UNKNOWN' and costs['approvalNative'] is None, 'absent direct probe priced')
                     scores[plan] = int(economics['feeAdjustedSellAmount' if exact else 'feeAdjustedBuyAmount'])
                 require(scores[q['planHash']] == (min if exact else max)(scores.values()), 'wrong fee-adjusted winner')
         finally:
