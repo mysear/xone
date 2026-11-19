@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|主网短尾祖先块校验（阶段193，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|反向按高度读取并重算执行头，正向发布复核中间块哈希|主网头回放和发布门禁通过，跨最终化头的连续发布待实测|
 |普通 owner 的信标证明刷新（阶段192，P0-1）|§7.1、§7.3、§28.26，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|按配置的根采集并验证标准信标响应，持锁替换 owner 的证明文件|两次正常 CLI 刷新及回退、竞争、过期、取消控制通过|
 |普通 Go owner 以信标最终性约束主网快照（阶段191，P0-1）|§7.1–7.3、§7.9、§28.26，WP04、WP05、WP07、WP24|LOCAL_SCOPE_VERIFIED|启动及追块以配置的信标根核对执行区块，发布时复核区块哈希和证明时效|主网 DAI/WETH 快照、撤权及同块恢复通过|
 |从最终性证据选取 Ethereum 执行块（阶段190，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|采集工具核验签名后读取精确高度，在账户证明请求前核对块哈希|主网块 26448285 的在线采集报告与离线重放逐字节相同|
@@ -802,6 +803,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|193|[主网短尾祖先块校验](#beacon-owner-ancestry)|LOCAL_SCOPE_VERIFIED|精确高度、父哈希及发布门禁回归通过|
 |192|[信标证明刷新](#beacon-owner-refresh)|LOCAL_SCOPE_VERIFIED|主网更新命令及旧证明保留回归通过|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
 |175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
@@ -4824,3 +4826,11 @@ Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet
 Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS 信标 API>` 从发布配置取得可信根、目标文件与时效预算，读取 bootstrap、finality_update 及所需周期的 updates。验证签名、最终化分支与时效后，持文件锁复核已安装证明，拒绝高度或 slot 后退及同高冲突。写入使用同目录临时文件、文件同步、重命名和目录同步。
 
 实际主网块 26448381 的证明先后两次通过 CLI 刷新。从两份保留的历史更新重放正常推进、同块重复、回退、无效数据、并发竞争、过期及取消。五个失败场景均逐字节核对了原文件。Go 证据包 64 项 race 测试及 vet 通过。[主网刷新报告](integration/artifacts/local/beacon-refresh-192/refresh.json) · [回归记录](integration/artifacts/local/beacon-refresh-192/go.jsonl)
+
+<a id="beacon-owner-ancestry"></a>
+
+## 主网短尾祖先块校验（2026-11-19，阶段193，P0-1）
+
+普通 Go owner 从签名最终化头反向核对短尾时，按精确高度请求 `eth_getBlockByNumber(height, false)`，重算执行头哈希并沿父哈希连接已有游标。该路径沿用整段追块时限、租约截止时间和来源观测。正向读取仍验证完整区块、回执和池状态，发布时逐高度核对反向确认的哈希。
+
+使用主网块 26355865 回放正常响应、父哈希篡改、错误高度、浮动标签、非规范数量、取消和未配置证明七种情况。服务回归使用已验证的信标证明和构造的中间链节，通过正常发布门禁检验接受与拒绝。相关包通过 `go vet`。服务包首跑的 V3 模板重启用例超时，该用例和本轮用例在 `-count=1 -race` 独立复跑通过。后续优先实测同一 owner 在相邻最终化头之间逐块发布。[定向回归](integration/artifacts/local/beacon-ancestor-193/focused.log) · [全包首跑](integration/artifacts/local/beacon-ancestor-193/tests.jsonl)

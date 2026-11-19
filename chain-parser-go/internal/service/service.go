@@ -498,7 +498,10 @@ func (s *Service) syncChain(ctx context.Context, ch config.Chain) error {
 	}
 	if beaconView != nil {
 		tailCtx, cancel := context.WithTimeout(ctx, time.Duration(s.cfg.Config.Journal.TimeoutMS)*time.Millisecond)
-		err := beaconView.admitTail(tailCtx, head, current.Reference.Block, func(c context.Context, t string) (domain.BlockRef, error) { return s.readObservedHeader(c, ch, a, t) })
+		reader := evm.BeaconAncestorReader{Adapter: a}
+		err := beaconView.admitTail(tailCtx, head, current.Reference.Block, func(c context.Context, t string) (domain.BlockRef, error) {
+			return s.readObservedHeader(c, ch, reader, t)
+		})
 		cancel()
 		if err != nil {
 			return err
