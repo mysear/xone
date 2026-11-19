@@ -68,7 +68,7 @@ def reconcile(intent, call):
     return actual
 
 
-def publish(config, candidate, expected, cli, recovery_dir, call):
+def publish(config, candidate, expected, cli, recovery_dir, call, *, expected_base=None):
     config, candidate, recovery_dir = map(Path, (config, candidate, recovery_dir))
     policy = load(read(config))
     active = config.parent / policy['observations_file']
@@ -99,6 +99,8 @@ def publish(config, candidate, expected, cli, recovery_dir, call):
     try:
         fcntl.flock(parent_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         base = head(call)
+        if expected_base is not None:
+            require(base['journalEntryHash'] == expected_base, 'MARKET_PUBLISH_BASE_CHANGED')
         meta = active.lstat()
         require(stat.S_ISREG(meta.st_mode) and meta.st_uid == os.geteuid(), 'MARKET_PUBLISH_FILE_OWNER')
         previous = read(active)

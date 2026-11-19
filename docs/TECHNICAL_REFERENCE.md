@@ -2391,3 +2391,14 @@ python3 integration/tools/market/publish_chainlink_book.py publish \
 工具验证签名、当前有效期和币种覆盖，核对现有文件与 Router 已生效的簿一致。它先在新建的恢复目录同步保存 `previous.json` 和 `intent.json`，再用同目录临时文件、原子替换和目录同步安装候选。目录上的 `flock` 只协调遵守同一约定的操作方；不得同时手工修改配置、价格文件或目录。支持 POSIX 本地文件系统和当前用户拥有的普通文件，保留 UID、GID 和普通权限位；不保证复制 ACL 或扩展属性。
 
 只有预检核对通过才发一次条件 `apply`，随后用 `status` 核对生效版本、摘要及日志序号。断连时不回滚、不重发。如果工具或网络中断，可用 `python3 integration/tools/market/publish_chainlink_book.py reconcile --intent "$NEW_RECOVERY_DIR/intent.json" --router-origin http://127.0.0.1:8080` 再做只读核对。`MARKET_PUBLISH_OUTCOME_UNKNOWN` 表示此刻无法凭日志头确认该目标，包括已有后续版本的情况，并不证明该版本从未提交。不要直接用 `previous.json` 覆盖当前文件；先核对实际耐久日志。该工具不提供持续调度或外部签署服务。
+### 有界价格轮次调度（阶段161）
+
+使用受信任、专用的持久目录 `--root`，与价格文件目录分开。Router 令牌仍来自 `XONE_ROUTER_TOKEN`。例如：
+
+```sh
+python3 integration/tools/market/schedule_chainlink_book.py \
+  --root "$STATE" --config "$CONFIG" --rpc-url "$RPC" --validator "$MARKET_VALIDATOR" \
+  --publication-cli "$PUBLICATION_CLI" --router-origin http://127.0.0.1:8080 --steps 12 --interval-seconds 5
+```
+
+每次调用运行 1 至 100 步，默认一步；步间等待不含每步实际执行耗时。`WAITING` 时将 `round-N/capture/signing-request.json` 交给独立签署方，由其原子写入该轮 `round-N/receipts.json`。成功后才开始下一版。过期、外部已推进基准，或上次采集中断，都不复用旧请求。已记录 `PUBLISHING` 的轮次重启后只会核对日志头；若无法确认，保留目录并按阶段160处理，不删除状态文件重新运行。RPC、Router、配置文件或工具二进制指纹变化时拒绝复用该目录。`--block-hash` 可显式固定采集块；未指定时使用提供方的 finalized 标签，不证明 Router 当前 bank 或来源共识。需要操作方配备兼容 bank 和外部签署方，本工具不提供二者。

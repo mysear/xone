@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|有界价格轮次调度（阶段161，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|同块采集、外部回执交接、已签候选发布与持久恢复|过期重新采集、丢确认只读回查；当前 bank 对齐和生产签署方未验收|
 |本机价格发布操作工具（阶段160，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|候选安装、一次条件提交和结果回读|真实本机 Router 及断连情形定向回放；持续签署与调度未完成|
 |持锁 Router 在线价格发布（阶段159，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|在线预检、双摘要条件发布、重启后已生效价格回读|实际 HTTP 回放通过，持续采集调度和可信 bank 未完成|
 |独立签署回执与候选簿组装（阶段158，P0-3）|§15.5/21.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|复算采集消息、Router 原签名阈值校验、离线耐久版本预检|双币种签署回放与拒绝路径；非在线持续发布|
@@ -751,6 +752,7 @@
 |158|[独立签署回执与离线候选簿](#market-book-offline-assembly)|LOCAL_SCOPE_VERIFIED|双币种端到端回放、6 项日志组件测试；预检不等于已发布|
 |159|[在线条件发布与结果回读](#market-book-online-publication)|LOCAL_SCOPE_VERIFIED|显式日志模式，预检无写入，拒绝调包与过期条件；保持固定 bank 限定|
 |160|[本机候选安装与结果核对](#market-book-operator)|LOCAL_SCOPE_VERIFIED|提交未送达与已提交但回执丢失分别核验，无自动重发、无自动回滚|
+|161|[有界价格轮次调度](#market-round-scheduler)|LOCAL_SCOPE_VERIFIED|三项调度回放及原有真实 Router HTTP 回归通过，未验证生产 live 部署|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -4415,3 +4417,18 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 [定向 HTTP 报告](integration/artifacts/local/online-price-operator-160-final-1795061399/report.json)及[操作顺序记录](integration/artifacts/local/online-price-operator-160-final-1795061399/operator-run/results.json)：保留 4 次正常报价和 5 个启动拒绝，工具分支独立日志依次为 1、2、3、4。回放使用实际 Router、实际 Rust 验证器、固定测试时间，在传输边界注入未送达与丢回执；不等于真实断电或生产环境认证。阶段158组装测试亦通过，本轮未重跑前轮 82 项全量验收。
 
 下一项 P0-3：将同块采集、等待外部阈值签署、组装和本机发布接入有界的轮次调度；过期重新采集，未决发布先核对，不自动生成签署权。可信 bank 推进、拆单执行、辅助交易费与完整净额仍未完成。
+
+<a id="market-round-scheduler"></a>
+
+## 有界价格轮次调度（2026-11-19，阶段161，P0-3）
+
+阶段160 `5124dd4` 已推送 GitHub。按 §15.5/21.3/26.3 绑定每轮来源配置、请求字节、正版本和 Router 日志基准，先持久记录发布意图再移交操作工具。测试前检查活动进程和系统临时目录，没有遗留 xone 临时运行目录；保留历史证据与共享编译缓存。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F161.1|分步采集、等待签名和过期换版|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|两币种通过回环 RPC 实际采集；等待不发交易，过期换更高版本，旧回执不能授权新请求。|
+|F161.2|未决发布防重放与受限恢复|WP15,WP16|LOCAL_SCOPE_VERIFIED|用实际 Rust CLI 推进日志后注入中断，恢复仅查询一次状态即确认；请求未送达时连续两次恢复仅查询状态、不启动新轮次。|
+
+`python3 -B integration/tools/acceptance/tests/test_market_book_schedule.py -v` 三项通过，已接入综合验收。调度测试使用固定时钟、测试签署者和由真实日志 CLI 支持的测试 Router 接口；另行运行的[真实 Router HTTP 回归](integration/artifacts/local/round-schedule-161-operator-1795061864/report.json)保留 4 次报价、5 个启动拒绝和操作工具断连回读。本轮未重跑 82 项全量回归，不宣称生产签署或可信共识已就绪。
+
+下一项 P0-3：让采集以 Router 已确认的 bank 身份选块，并在发布前复核锚点和来源有效期，避免 finalized 采集落在另一块；可信 bank 推进另行验证。随后继续拆单执行、辅助交易费和完整净额，整体设计未完成。
