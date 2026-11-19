@@ -254,6 +254,40 @@ pub fn validate(
     Ok(())
 }
 
+/// Create a zero-value approval for exactly the quoted input at this bank.
+/// The swap spends from the caller through the batch executor (not Router02).
+/// Nonzero insufficient allowances need a token-specific replacement policy.
+pub fn caller_approval(
+    bound: &BoundSplit,
+    pools: &[Pool],
+    executor: &SplitExecutor,
+    allowed: &[String],
+    allowance: &Amount,
+) -> Result<Option<Transaction>> {
+    validate(bound, pools, executor, allowed)?;
+    Amount::checked(allowance.0.clone())?;
+    let (context, required) = match &bound.plan {
+        SplitPlan::ExactIn(p) => (&p.context, &p.allocation.sell_amount),
+        SplitPlan::ExactOut(p) => (&p.context, &p.allocation.required_input),
+    };
+    if allowance >= required {
+        return Ok(None);
+    }
+    if allowance != &Amount::zero() {
+        return Err(err("EXECUTION_APPROVAL_REPLACEMENT_POLICY_REQUIRED"));
+    }
+    let mut data = vec![0x09, 0x5e, 0xa7, 0xb3];
+    data.extend(addr_word(&bound.transaction.to)?);
+    data.extend(required.to_be_bytes()?);
+    Ok(Some(Transaction {
+        chain_key: context.chain_key.clone(),
+        from: context.caller.clone(),
+        to: context.sell_token.clone(),
+        data: format!("0x{}", hex::encode(data)),
+        value: Amount::zero(),
+    }))
+}
+
 fn small(n: usize) -> [u8; 32] {
     let mut w = [0; 32];
     w[24..].copy_from_slice(&(n as u64).to_be_bytes());

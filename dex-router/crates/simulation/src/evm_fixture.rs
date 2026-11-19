@@ -1,5 +1,6 @@
 //! Historical replay of PROVIDED_LOCAL_STATE, never a canonicality or VERIFIED claim.
 //! Source H and execution H+1 are distinct. Probes discard their state; only swap effects commit.
+mod approval;
 use crate::revm_backend as core;
 use revm::primitives::{
     keccak256, AccountInfo, Address, BlockEnv, Bytes, ExecutionResult, SpecId, TxEnv, TxKind, B256,
@@ -541,6 +542,8 @@ pub struct NativeFeeMeasurements {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SimulationOutcome {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval: Option<ApprovalReceipt>,
     #[serde(
         serialize_with = "serialize_false",
         deserialize_with = "deserialize_false"
@@ -1350,6 +1353,7 @@ pub(crate) fn simulate_bound_exact_out_with_funding(
 pub fn simulate_bound_split(
     bound: &BoundSplit,
     expected: &SplitExecutor,
+    sequence: Option<&ApprovalSequence>,
     pools: &[Pool],
     allowed: &[String],
     fixture: &FixtureState,
@@ -1358,7 +1362,7 @@ pub fn simulate_bound_split(
     control: core::ExecutionControl,
 ) -> Result<SimulationOutcome> {
     simulate_execution(
-        BoundSource::Split(bound, expected),
+        BoundSource::Split(bound, expected, sequence),
         pools,
         allowed,
         fixture,
@@ -1370,11 +1374,37 @@ pub fn simulate_bound_split(
     )
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApprovalReceipt {
+    pub transaction: Transaction,
+    pub nonce: u64,
+    pub block_hash: String,
+    pub gas_used: u64,
+    pub execution_fee: Amount,
+    pub payer_before: Amount,
+    pub payer_after: Amount,
+    pub post_state_digest: String,
+}
+
+/// Explicit local environments for an approval in H+1 and a swap in H+2.
+/// Transaction targets, payloads and the approval amount are derived from the bound plan.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApprovalSequence {
+    pub token_code_sha256: String,
+    pub approval_context: TransactionContext,
+    pub swap_environment: ExecutionEnvironment,
+}
 #[derive(Clone, Copy)]
 enum BoundSource<'a> {
     ExactIn(&'a BoundEvmExecution),
     ExactOut(&'a BoundEvmExactOutExecution),
-    Split(&'a BoundSplit, &'a SplitExecutor),
+    Split(
+        &'a BoundSplit,
+        &'a SplitExecutor,
+        Option<&'a ApprovalSequence>,
+    ),
 }
 impl Serialize for BoundSource<'_> {
     fn serialize<S: serde::Serializer>(
@@ -1384,7 +1414,10 @@ impl Serialize for BoundSource<'_> {
         match self {
             Self::ExactIn(b) => b.serialize(serializer),
             Self::ExactOut(b) => b.serialize(serializer),
-            Self::Split(b, _) => b.serialize(serializer),
+            Self::Split(b, _, None) => b.serialize(serializer),
+            Self::Split(b, _, Some(seq)) => {
+                ("ordered-approval-sequence/1", b, seq).serialize(serializer)
+            }
         }
     }
 }
@@ -1412,7 +1445,7 @@ impl BoundSource<'_> {
                 executor: &b.executor,
                 touched_pool_ids: b.touched_pool_ids.iter().collect(),
             },
-            Self::Split(b, e) => {
+            Self::Split(b, e, _) => {
                 let (context, snapshot) = match &b.plan {
                     SplitPlan::ExactIn(p) => (&p.context, &p.snapshot),
                     SplitPlan::ExactOut(p) => (&p.context, &p.snapshot),
@@ -1437,7 +1470,7 @@ impl BoundSource<'_> {
         match self {
             Self::ExactIn(b) => validate_bound_execution(b, pools, allowed),
             Self::ExactOut(b) => validate_bound_exact_out_execution(b, pools, allowed),
-            Self::Split(b, e) => ordered_v2::validate(b, pools, e, allowed),
+            Self::Split(b, e, _) => ordered_v2::validate(b, pools, e, allowed),
         }
     }
 }
@@ -1494,7 +1527,12 @@ fn simulate_execution(
         .as_ref()
         .map(amount)
         .transpose()?;
-    let base_fee = amount(&fixture.execution_environment.base_fee)?;
+    let sequence = match source {
+        BoundSource::Split(_, _, seq) => seq,
+        _ => None,
+    };
+    let swap_env = sequence.map_or(&fixture.execution_environment, |seq| &seq.swap_environment);
+    let base_fee = amount(&swap_env.base_fee)?;
     if max_fee < base_fee || priority_fee.is_some_and(|tip| tip > max_fee) {
         return Err(failure(
             SimulationTransactionContext,
@@ -1538,7 +1576,7 @@ fn simulate_execution(
     } else {
         0
     };
-    let image = fixture.to_image(budget)?;
+    let mut image = fixture.to_image(budget)?;
     let touched_pools = bound
         .touched_pool_ids
         .into_iter()
@@ -1616,7 +1654,7 @@ fn simulate_execution(
     let mut runner = Runner {
         budget,
         env: &fixture.execution_environment,
-        tx,
+        tx: sequence.map_or(tx, |s| &s.approval_context),
         control,
         usage: BudgetUsage {
             input_bytes: op_input,
@@ -1627,10 +1665,11 @@ fn simulate_execution(
         op_fees: None,
         caller_address: caller,
     };
-    if let BoundSource::Split(_, e) = source {
+    let mut approval = None;
+    if let BoundSource::Split(split, e, seq) = source {
         code_check(&image, &e.target, &e.code_sha256)?;
         runner.expect_address(image.clone(), &e.target, "router()", &[], &e.router.target)?;
-        runner.probe(
+        let initial_allowance = runner.probe(
             image.clone(),
             &context.sell_token,
             calldata(
@@ -1640,6 +1679,25 @@ fn simulate_execution(
             "split_caller_allowance_before",
             32,
         )?;
+        if let Some(seq) = seq {
+            let (after, receipt) = approval::execute(
+                &mut runner,
+                image,
+                split,
+                context,
+                pools,
+                e,
+                allowlist,
+                &initial_allowance,
+                fixture,
+                tx,
+                seq,
+            )?;
+            image = after;
+            approval = Some(receipt);
+            runner.env = swap_env;
+            runner.tx = tx;
+        }
     }
     for pool in &touched_pools {
         runner.preflight(image.clone(), bound.executor, pool)?;
@@ -1799,7 +1857,7 @@ fn simulate_execution(
     let amounts = match source {
         BoundSource::ExactIn(b) => Amounts::In(&b.plan),
         BoundSource::ExactOut(b) => Amounts::Out(&b.plan),
-        BoundSource::Split(b, _) => match &b.plan {
+        BoundSource::Split(b, _, _) => match &b.plan {
             SplitPlan::ExactIn(p) => Amounts::In(p),
             SplitPlan::ExactOut(p) => Amounts::Out(p),
         },
@@ -1832,7 +1890,7 @@ fn simulate_execution(
     let native_fees = if op.is_some() {
         None
     } else {
-        let coinbase = address(&fixture.execution_environment.coinbase)?;
+        let coinbase = address(&swap_env.coinbase)?;
         let native_balance = |state: &core::StateImage, owner: Address| -> Result<U256> {
             match state.data().accounts.get(&owner) {
                 Some(Some(info)) => Ok(info.balance),
@@ -1870,6 +1928,7 @@ fn simulate_execution(
         SIMULATOR_VERSION
     };
     let mut outcome = SimulationOutcome {
+        approval,
         verified: false,
         authority: DataAuthority::ProvidedLocalState,
         plan_validation: "BOUND_REVALIDATED".into(),

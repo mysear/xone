@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|两笔交易的 worker 核验（阶段169，P0-3）|§13.1、§14.1–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|按同一计划生成准确额度的授权交易，向后传递状态并核对两笔费用|ExactIn 和 ExactOut 均通过独立出块对照|
 |连续授权与兑换回放（阶段168，P0-3）|§13.1、§14.2、§14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|从零授权开始推进两笔交易的状态和 nonce|两种报价方向均通过，正常报价待接入|
 |调用者授权费用判定（阶段167，P0-3）|§13.1、§14.1、§15；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|按付款人、代币、执行目标及报价输入核对 ERC20 授权|两种报价方向与 RPC 准备均已验证，授权不足时待顺序计费|
 |共享池拆单报价费用（阶段166，P0-3）|§13.5/14.2/14.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|正常报价比较两条单路线和两种有序拆单，披露选中计划费用|固定 Shanghai 状态的 8 个 HTTP 场景通过，辅助交易费用待补|
@@ -763,6 +764,7 @@
 |162|[按 Router 区块锚点采集与复核](#market-router-bank-anchor)|LOCAL_SCOPE_VERIFIED|显式哈希选块、跨字段不一致拒绝及签后变化不发布|
 |163|[共享池 V2 整笔拆单执行](#ordered-v2-split)|LOCAL_SCOPE_VERIFIED|ExactIn/ExactOut 两种腿序的实际整笔 Gas、余额、储备与回滚|
 |164|[按完整拆单计划生成批量交易](#ordered-v2-binding)|LOCAL_SCOPE_VERIFIED|逐字节对照实际成交调用；拒绝沿用旧腿序金额或其他绑定|
+|169|[两笔交易的 worker 核验](#approval-worker)|LOCAL_SCOPE_VERIFIED|重建授权交易、逐笔核对状态和费用|
 |168|[连续授权与兑换回放](#approval-sequence)|LOCAL_SCOPE_VERIFIED|从原始本地出块回执核对两笔费用、日志、账户与存储|
 |167|[调用者授权费用判定](#caller-approval-cost)|LOCAL_SCOPE_VERIFIED|授权充足、授权不足和证据未知三种结果|
 |166|[共享池拆单正常报价](#ordered-v2-quote)|LOCAL_SCOPE_VERIFIED|父进程回执绑定、候选费用排序及统一毛额回退|
@@ -4551,3 +4553,16 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 7 项 V2 路径执行测试全部通过，其中包括新增的两笔连续状态回放和原有的 8 笔拆单成功及回滚比对。[本地出块记录](integration/artifacts/local/ordered-approval-168/bank.json)
 
 下一项是将已验证的顺序执行引入受限 worker，绑定授权额度、执行目标、费用上限、两笔 nonce 和环境来源，再由报价服务按候选核对总费用。补充资金交易、可信动态 bank 和其他优先项继续开放。
+
+<a id="approval-worker"></a>
+
+## 两笔交易的 worker 核验（2026-11-19，阶段169，P0-3）
+
+§13.1 和 §14 要求把授权操作纳入有序计划。worker 从零授权开始，对照完整计划验证代币、实际 spender、精确额度和同一付款人。第一笔执行成功后，worker 复核代币返回值、更新后的 allowance 和原币费用，并将状态交给第二笔兑换。两笔使用连续 nonce 和相邻区块环境，探针及交易共享 Gas、指令、读取及输入预算。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F169.1|从完整拆单计划重建调用者授权|WP13,WP15|LOCAL_SCOPE_VERIFIED|两种方向生成的 calldata 与出块交易相同。已有足额授权时省略额外交易，非零但不足的授权需要代币替换策略。|
+|F169.2|子进程逐笔执行并核对费用|WP15|LOCAL_SCOPE_VERIFIED|两笔费用、实际输入输出、授权后余额与下一笔起始余额相符。错误代码摘要、父区块和 nonce 均拒绝。|
+
+6 项绑定和独立 worker 测试通过，使用[两种方向的原始本地区块记录](integration/artifacts/local/ordered-approval-168/bank.json)。报价父进程接收授权序列的费用、完整净额、补充资金交易和可信动态 bank 仍待完成。下一步在父进程核对两笔付款、区块、费用与授权来源，并将合计应用到相应候选。

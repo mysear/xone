@@ -432,6 +432,7 @@ impl LocalSimulation {
             .ok_or_else(|| err("EXECUTION_ADAPTER_UNSUPPORTED"))?;
         let bound = ordered_v2::bind(&plan, &cached.view().pools, expected, allowed)?;
         Ok(Some(WorkerSplit {
+            approval_sequence: None,
             bound,
             expected_executor: expected.clone(),
         }))
@@ -997,6 +998,12 @@ fn diagnostic_response(
 ) -> std::result::Result<Value, Failure> {
     // This normal worker contract still binds an unsigned Shanghai plan. A
     // signed OP receipt needs its own authenticated envelope/attribute source.
+    if !outcome["approval"].is_null() {
+        return Err(Failure::new(
+            "SIMULATION_WORKER_BINDING",
+            "unexpected_approval",
+        ));
+    }
     if outcome.get("op_fees").is_some_and(|v| !v.is_null()) {
         return Err(Failure::new(
             "SIMULATION_WORKER_PROTOCOL",
