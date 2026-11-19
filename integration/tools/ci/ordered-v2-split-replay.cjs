@@ -183,6 +183,7 @@ async function main() {
     const captureBank=process.argv[3]==='--bank';
     const report=await replay(transport,captureBank);
     assert.equal(hash(JSON.stringify(report.binding)),'544d55501ed280378a67b9ab45b77a4cef8e0cd1bafeee2ba48f1ffbd60732be','Mined binding corpus changed');
+    report.passed = true;
     if (process.argv[2]) fs.writeFileSync(process.argv[2],JSON.stringify(report,null,2)+'\n',{flag:'wx'});
     console.log(JSON.stringify(process.argv[2]?{...report,binding:undefined,executionBank:undefined}:report));
   } finally { await transport.disconnect(); }

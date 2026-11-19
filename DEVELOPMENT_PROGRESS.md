@@ -4566,3 +4566,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F169.2|子进程逐笔执行并核对费用|WP15|LOCAL_SCOPE_VERIFIED|两笔费用、实际输入输出、授权后余额与下一笔起始余额相符。错误代码摘要、父区块和 nonce 均拒绝。|
 
 6 项绑定和独立 worker 测试通过，使用[两种方向的原始本地区块记录](integration/artifacts/local/ordered-approval-168/bank.json)。报价父进程接收授权序列的费用、完整净额、补充资金交易和可信动态 bank 仍待完成。下一步在父进程核对两笔付款、区块、费用与授权来源，并将合计应用到相应候选。
+
+阶段168的冻结提交 `af504ab` 完成了 88 项命令检查，全部通过。最终汇总读取出块器报告时发现缺少 `passed` 字段，因此本次综合验收结果为失败。[综合报告](integration/artifacts/local/durable-price-router-check/runs/58da093613bd4ce88c227843eaf53521/report.json)
+
+出块器现于所有回放断言及冻结绑定摘要校验通过后写入成功标记。定向重新出块的完整 JSON 除新增标记外与原始输入逐项相同。[修正后出块报告](integration/artifacts/local/ordered-approval-168/verified-bank.json)
