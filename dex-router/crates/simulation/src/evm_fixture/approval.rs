@@ -19,7 +19,7 @@ pub(super) fn execute<'a>(
     ApprovalReceipt,
 )> {
     use ordered_v2::ApprovalPolicy;
-    let first = &fixture.execution_environment;
+    let first = runner.env;
     let approval_env = seq
         .reset
         .as_ref()

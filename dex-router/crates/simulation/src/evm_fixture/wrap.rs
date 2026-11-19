@@ -8,6 +8,9 @@ use xone_execution_preparation::evm_native_cost::{
 pub struct WrapSequence {
     pub wrapper: String,
     pub deposit_context: TransactionContext,
+    /// The first allowance operation when funding also requires caller approval.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_approval_environment: Option<ExecutionEnvironment>,
     pub swap_environment: ExecutionEnvironment,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -36,11 +39,14 @@ pub(super) fn execute(
     input: &Amount,
     executor: &ExecutorIdentity,
     fixture: &FixtureState,
-    swap_tx: &TransactionContext,
+    next_tx: &TransactionContext,
     seq: &WrapSequence,
 ) -> Result<(Arc<core::StateImage>, WrapReceipt)> {
     let env = &fixture.execution_environment;
-    let next = &seq.swap_environment;
+    let next = seq
+        .first_approval_environment
+        .as_ref()
+        .unwrap_or(&seq.swap_environment);
     let tx = &seq.deposit_context;
     let bad = || {
         runner.error(
@@ -52,17 +58,17 @@ pub(super) fn execute(
     if next.fork != "shanghai"
         || next.chain_id != env.chain_id
         || tx.chain_id != env.chain_id
-        || swap_tx.chain_id != env.chain_id
+        || next_tx.chain_id != env.chain_id
         || env.block_number.checked_add(1) != Some(next.block_number)
         || next.parent_hash != env.block_hash
         || next.block_hash == env.block_hash
         || next.block_hash == fixture.state_anchor.block_hash
         || next.timestamp <= env.timestamp
-        || tx.nonce.checked_add(1) != Some(swap_tx.nonce)
+        || tx.nonce.checked_add(1) != Some(next_tx.nonce)
         || tx.gas_limit > env.gas_limit.min(runner.budget.max_transaction_gas)
-        || swap_tx.gas_limit > next.gas_limit
+        || next_tx.gas_limit > next.gas_limit
         || tx.max_priority_fee_per_gas.is_none()
-        || swap_tx.max_priority_fee_per_gas.is_none()
+        || next_tx.max_priority_fee_per_gas.is_none()
     {
         return Err(bad());
     }

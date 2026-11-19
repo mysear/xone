@@ -1465,7 +1465,10 @@ impl Serialize for BoundSource<'_> {
             Self::ExactOut(b, None) => b.serialize(serializer),
             Self::ExactOut(b, Some(w)) => ("ordered-wrap-sequence/1", b, w).serialize(serializer),
             Self::Split(b, _, None, None) => b.serialize(serializer),
-            Self::Split(b, _, _, Some(wrap)) => {
+            Self::Split(b, _, Some(seq), Some(wrap)) => {
+                ("ordered-wrap-approval-sequence/1", b, wrap, seq).serialize(serializer)
+            }
+            Self::Split(b, _, None, Some(wrap)) => {
                 ("ordered-wrap-sequence/1", b, wrap).serialize(serializer)
             }
             Self::Split(b, _, Some(seq), None) => {
@@ -1581,16 +1584,31 @@ fn simulate_execution(
         .map(amount)
         .transpose()?;
     let (sequence, wrapping) = match source {
-        BoundSource::Split(_, _, Some(_), Some(_)) => {
-            return Err(failure(
-                SimulationBindingMismatch,
-                "split_sequence",
-                "overlapping sequence contexts",
-            ))
-        }
         BoundSource::Split(_, _, seq, wrap) => (seq, wrap),
         BoundSource::ExactIn(_, wrap) | BoundSource::ExactOut(_, wrap) => (None, wrap),
     };
+    if let Some(wrap) = wrapping {
+        let valid = match (sequence, &wrap.first_approval_environment) {
+            (None, None) => true,
+            (Some(seq), Some(first)) => {
+                let mut blocks = BTreeSet::from([&fixture.state_anchor.block_hash]);
+                canonical_hash(&seq.swap_environment)? == canonical_hash(&wrap.swap_environment)?
+                    && [&fixture.execution_environment, first]
+                        .into_iter()
+                        .chain(seq.reset.iter().map(|r| &r.approval_environment))
+                        .chain(std::iter::once(&seq.swap_environment))
+                        .all(|b| blocks.insert(&b.block_hash))
+            }
+            _ => false,
+        };
+        if !valid {
+            return Err(failure(
+                SimulationBindingMismatch,
+                "funding_sequence",
+                "inconsistent deposit and allowance schedule",
+            ));
+        }
+    }
     let swap_env = sequence
         .map(|s| &s.swap_environment)
         .or_else(|| wrapping.map(|s| &s.swap_environment))
@@ -1733,10 +1751,35 @@ fn simulate_execution(
     let mut wrapped = None;
     let mut approval = None;
     let mut allowance_reset = None;
-    if let BoundSource::Split(split, e, seq, wrap) = source {
-        if let Some(wrap) = wrap {
-            runner.tx = &wrap.deposit_context;
-        }
+    if let Some(wrap) = wrapping {
+        runner.tx = &wrap.deposit_context;
+        let input = match source {
+            BoundSource::ExactIn(b, _) => &b.plan.allocation.sell_amount,
+            BoundSource::ExactOut(b, _) => &b.plan.allocation.required_input,
+            BoundSource::Split(b, _, _, _) => match &b.plan {
+                SplitPlan::ExactIn(p) => &p.allocation.sell_amount,
+                SplitPlan::ExactOut(p) => &p.allocation.required_input,
+            },
+        };
+        let next_tx = sequence.map_or(tx, |s| {
+            s.reset.as_ref().map_or(&s.approval_context, |r| &r.context)
+        });
+        let (after, receipt) = wrap::execute(
+            &mut runner,
+            image,
+            context,
+            input,
+            bound.executor,
+            fixture,
+            next_tx,
+            wrap,
+        )?;
+        image = after;
+        wrapped = Some(receipt);
+        runner.env = wrap.first_approval_environment.as_ref().unwrap_or(swap_env);
+        runner.tx = next_tx;
+    }
+    if let BoundSource::Split(split, e, seq, _) = source {
         code_check(&image, &e.target, &e.code_sha256)?;
         runner.expect_address(image.clone(), &e.target, "router()", &[], &e.router.target)?;
         let initial_allowance = runner.probe(
@@ -1769,31 +1812,6 @@ fn simulate_execution(
             runner.env = swap_env;
             runner.tx = tx;
         }
-    }
-    if let Some(wrap) = wrapping {
-        runner.tx = &wrap.deposit_context;
-        let input = match source {
-            BoundSource::ExactIn(b, _) => &b.plan.allocation.sell_amount,
-            BoundSource::ExactOut(b, _) => &b.plan.allocation.required_input,
-            BoundSource::Split(b, _, _, _) => match &b.plan {
-                SplitPlan::ExactIn(p) => &p.allocation.sell_amount,
-                SplitPlan::ExactOut(p) => &p.allocation.required_input,
-            },
-        };
-        let (after, receipt) = wrap::execute(
-            &mut runner,
-            image,
-            context,
-            input,
-            bound.executor,
-            fixture,
-            tx,
-            wrap,
-        )?;
-        image = after;
-        wrapped = Some(receipt);
-        runner.env = swap_env;
-        runner.tx = tx;
     }
     for pool in &touched_pools {
         runner.preflight(image.clone(), bound.executor, pool)?;

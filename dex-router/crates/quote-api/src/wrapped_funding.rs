@@ -35,7 +35,8 @@ impl Source {
         let caller = &model.caller;
         let deposit = &model.sequence.deposit_context;
         let swap = &model.swap_context;
-        if bundle.approval_replay.is_some()
+        if model.sequence.first_approval_environment.is_some()
+            || bundle.approval_replay.is_some()
             || bundle.op_attributes_calldata.is_some()
             || caller == token
             || first.fork != "shanghai"

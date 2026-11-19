@@ -434,20 +434,30 @@ fn invoke(worker: &str, request: &Value) -> Value {
 #[test]
 #[ignore = "requires mined approval sequences and a built stdio worker"]
 fn worker_audits_sequential_approval_and_swap_fees() {
-    check_worker_approval("approvalReplay", false);
+    check_worker_approval("approvalReplay", false, false);
+    check_worker_approval("wrapApprovalReplay", false, true);
 }
 
 #[test]
 #[ignore = "requires a mined nonzero allowance and built stdio worker"]
 fn worker_carries_reset_approval_and_swap_state_and_fees() {
-    check_worker_approval("resetApprovalReplay", true);
+    check_worker_approval("resetApprovalReplay", true, false);
+    check_worker_approval("wrapResetApprovalReplay", true, true);
 }
 
-fn check_worker_approval(bank_key: &str, reset: bool) {
+fn check_worker_approval(bank_key: &str, reset: bool, wrapped: bool) {
     use serde_json::json;
     use sha2::{Digest, Sha256};
     let report: Value = serde_json::from_slice(
-        &std::fs::read(std::env::var("XONE_ORDERED_V2_REPORT").unwrap()).unwrap(),
+        &std::fs::read(
+            std::env::var(if wrapped {
+                "XONE_WRAP_REPORT"
+            } else {
+                "XONE_ORDERED_V2_REPORT"
+            })
+            .unwrap(),
+        )
+        .unwrap(),
     )
     .unwrap();
     let bank = &report["executionBank"][bank_key];
@@ -460,9 +470,9 @@ fn check_worker_approval(bank_key: &str, reset: bool) {
         let (plan, pools, ex, c) = fixture_from_bank(&source, i);
         let allowed = [ex.target.clone(), ex.router.target.clone()];
         let b = bind(&plan, &pools, &ex, &allowed).unwrap();
-        let first = &seq["runs"][0];
-        let a = &seq["runs"][usize::from(reset)];
-        let swap = &seq["runs"][usize::from(reset) + 1];
+        let first = &seq["runs"][usize::from(wrapped)];
+        let a = &seq["runs"][usize::from(wrapped) + usize::from(reset)];
+        let swap = &seq["runs"][usize::from(wrapped) + usize::from(reset) + 1];
         let code = bank["accounts"]
             .as_array()
             .unwrap()
@@ -474,6 +484,14 @@ fn check_worker_approval(bank_key: &str, reset: bool) {
         let mut request = json!({"protocol":"xone-local-evm-worker/1","split":{"bound":b,"expected_executor":ex,"approval_sequence":{"token_code_sha256":hex::encode(Sha256::digest(hex::decode(&code[2..]).unwrap())),"approval_context":a["transaction_context"],"swap_environment":swap["execution_environment"]}},"pools":pools,"allowed_targets":allowed,"expected_genesis_hash":anchor["genesis_hash"],"fixture":{"schema_version":1,"state_anchor":anchor,"accounts":bank["accounts"],"block_hashes":[],"execution_environment":first["execution_environment"]},"transaction_context":swap["transaction_context"],"timeout_ms":15000,"budget":{"max_fixture_json_bytes":16000000,"max_accounts":256,"max_storage_slots":65536,"max_code_bytes":8000000,"max_image_bytes":16000000,"max_reads":32000,"max_read_bytes":32000000,"max_instructions":4000000,"max_input_bytes":131072,"max_total_input_bytes":1000000,"max_transaction_gas":15000000,"probe_gas_limit":200000,"max_total_gas":15000000,"max_memory_bytes":64000000,"max_output_bytes":1000000}});
         if reset {
             request["split"]["approval_sequence"]["reset"] = json!({"context":first["transaction_context"],"approval_environment":a["execution_environment"]});
+        }
+        let deposit = &seq["runs"][0];
+        if wrapped {
+            request["fixture"]["execution_environment"] = deposit["execution_environment"].clone();
+            request["split"]["wrap_sequence"] = json!({"wrapper":deposit["to"],"deposit_context":deposit["transaction_context"],"first_approval_environment":first["execution_environment"],"swap_environment":swap["execution_environment"]});
+            let mut wrong = request.clone();
+            wrong["split"]["wrap_sequence"]["first_approval_environment"] = Value::Null;
+            assert!(!invoke(&worker, &wrong)["error"].is_null());
         }
         let reply = invoke(&worker, &request);
         let out = &reply["outcome"];
@@ -488,6 +506,13 @@ fn check_worker_approval(bank_key: &str, reset: bool) {
                     .parse::<u128>()
                     .unwrap()
         };
+        if wrapped {
+            let next = &out[if reset { "allowance_reset" } else { "approval" }];
+            assert_eq!(out["wrap"]["transaction"]["value"], seq["principal"]);
+            assert_eq!(out["wrap"]["execution_fee"], fee(deposit).to_string());
+            assert_eq!(out["wrap"]["payer_after"], next["payer_before"]);
+            assert_eq!(out["wrap"]["beneficiary_after"], next["beneficiary_before"]);
+        }
         if reset {
             let receipt = &out["allowance_reset"];
             assert_eq!(receipt["transaction"]["data"], first["data"]);
