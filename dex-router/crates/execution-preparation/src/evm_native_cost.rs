@@ -139,3 +139,20 @@ pub fn audited_payer_cost(
         net_native_debit: net,
     })
 }
+
+/// Minimum opening balance when one payer executes sequential zero-value calls.
+/// The unused gas reserve from each call is available for the next call.
+pub fn sequence_funding<'a>(
+    operations: impl IntoIterator<Item = (&'a Amount, &'a Amount)>,
+) -> Result<(Amount, Amount)> {
+    let mut minimum = Amount::zero();
+    let mut spent = Amount::zero();
+    for (reserve, debit) in operations {
+        if debit > reserve {
+            return Err(err("EVM_NATIVE_COST_CONTEXT"));
+        }
+        minimum = minimum.max(Amount::checked(&spent.0 + &reserve.0)?);
+        spent = Amount::checked(&spent.0 + &debit.0)?;
+    }
+    Ok((minimum, spent))
+}

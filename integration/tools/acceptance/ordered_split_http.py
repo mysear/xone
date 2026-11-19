@@ -124,6 +124,16 @@ def audit_approval(rows, bank, mode, exact, quote, selected):
             require(receipt['payer_after'] == out['native_fees']['caller_before'] and receipt['beneficiary_after'] == out['native_fees']['coinbase_before'], 'sequence continuity')
             require(int(receipt['transaction']['data'][-64:], 16) == int(out['actual_input_consumed']), 'approval amount')
         require(int(costs['nativeKnownSubtotal']) == int(costs['payerNetNativeDebit']) == swap_fee + approval_fee, 'combined fee')
+        prefix = peak = 0
+        schedule = runs if split else [first]
+        receipts = ([out['allowance_reset']] if split and len(runs) == 3 else []) + ([out['approval']] if split else [])
+        for run, charge in zip(schedule, [int(r['execution_fee']) for r in receipts] + [swap_fee], strict=True):
+            tx = run['transaction_context']
+            peak = max(peak, prefix + int(tx['gas_limit']) * int(tx['gas_price']))
+            prefix += charge
+        funding = costs['nativeFunding']
+        require(int(funding['minimumOpeningBalanceNative']) == peak and int(funding['totalNetDebitNative']) == prefix, 'sequence funding peak')
+        require(funding['bindingHash'] == row['bindingHash'] and int(funding['sourceBalanceNative']) >= peak and funding['additionalNativeRequired'] == '0', 'opening balance evidence')
         require(economics['valuationTimestampMs'] == swap['execution_environment']['timestamp'] * 1000, 'settlement time')
         side = 'sell' if exact else 'buy'
         if mode.endswith('-expired') and split:

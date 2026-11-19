@@ -1220,6 +1220,26 @@ fn diagnostic_response(
         costs["approvalNative"] = evidence["additionalApprovalNative"].clone();
         costs["callerApproval"] = evidence;
     }
+    if !payer_net_debit.is_null() {
+        let bad = || Failure::new("SIMULATION_WORKER_PROTOCOL", "sequence_funding");
+        let swap_debit: Amount =
+            serde_json::from_value(payer_net_debit.clone()).map_err(|_| bad())?;
+        let operations = approval
+            .iter()
+            .flat_map(|(receipts, _, _)| receipts.iter())
+            .map(|(_, (fee, payer))| (&fee.gas_limit_reserve, &payer.net_native_debit))
+            .chain(std::iter::once((&model.gas_limit_reserve, &swap_debit)));
+        let (minimum, spent) =
+            xone_execution_preparation::evm_native_cost::sequence_funding(operations)
+                .map_err(|_| bad())?;
+        let opening = commitment.caller_native_before.as_ref().ok_or_else(bad)?;
+        if opening < &minimum {
+            return Err(bad());
+        }
+        costs["nativeFunding"] = json!({"scope":"DECLARED_ZERO_VALUE_EVM_OPERATIONS", "payer":commitment.transaction.from,
+            "bindingHash":commitment.binding_hash, "sourceBalanceNative":opening, "minimumOpeningBalanceNative":minimum,
+            "totalNetDebitNative":spent, "additionalNativeRequired":"0"});
+    }
     if let Some((receipts, _, _)) = approval {
         let bad = || Failure::new("SIMULATION_APPROVAL_SEQUENCE_RECEIPT", "approval_fees");
         let sum = |v: &Value, n: &Amount| -> std::result::Result<Value, Failure> {

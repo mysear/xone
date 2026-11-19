@@ -226,3 +226,23 @@ fn payer_cost_requires_maximum_funding_even_if_the_actual_fee_or_alias_debit_is_
         "zero net debit does not remove the upfront funding rule"
     );
 }
+
+#[test]
+fn sequence_reserves_follow_payer_debits_and_preserve_full_width() {
+    use xone_execution_preparation::evm_native_cost::sequence_funding;
+    let compute = |rows: &[(&str, &str)]| {
+        let amounts: Vec<_> = rows.iter().map(|(r, d)| (amount(r), amount(d))).collect();
+        sequence_funding(amounts.iter().map(|(r, d)| (r, d)))
+    };
+    assert_eq!(
+        compute(&[("100", "8"), ("20", "4"), ("30", "7")]).unwrap(),
+        (amount("100"), amount("19"))
+    );
+    assert_eq!(
+        compute(&[("100", "0"), ("100", "2"), ("100", "1")]).unwrap(),
+        (amount("102"), amount("3"))
+    );
+    assert!(compute(&[("1", "2")]).is_err());
+    let maximum = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+    assert!(compute(&[("1", "1"), (maximum, "0")]).is_err());
+}

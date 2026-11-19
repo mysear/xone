@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|付款人起始原币需求（阶段175，P0-3）|§13.1、§14.1–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|报价披露单笔或有序多笔执行所需的起始余额、来源余额与实测净支出|16 个 HTTP 场景与原币费用边界测试通过|
 |正常报价计入清零费用（阶段174，P0-3）|§13.1、§14.1–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|按绑定计划和起始账户余额复核三笔支出，将合计用于候选排序|16 个 HTTP 场景通过，覆盖两种方向及成交时价格到期|
 |拆单 worker 执行三笔交易（阶段173，P0-3）|§13.1、§14.1–14.4；WP13、WP15|LOCAL_SCOPE_VERIFIED|依据初始额度重建清零、授权与兑换，逐笔向后传递状态|两种方向均与独立出块费用相符，报价端三笔费用核对待接入|
 |拆单授权替换计划（阶段172，P0-3）|§13.1、§14.1–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|显式策略生成清零和准确额度授权，按当前 allowance 裁剪操作|两种报价方向、三种额度及错误执行目标均有绑定测试，顺序 worker 接线待完成|
@@ -769,6 +770,7 @@
 |162|[按 Router 区块锚点采集与复核](#market-router-bank-anchor)|LOCAL_SCOPE_VERIFIED|显式哈希选块、跨字段不一致拒绝及签后变化不发布|
 |163|[共享池 V2 整笔拆单执行](#ordered-v2-split)|LOCAL_SCOPE_VERIFIED|ExactIn/ExactOut 两种腿序的实际整笔 Gas、余额、储备与回滚|
 |164|[按完整拆单计划生成批量交易](#ordered-v2-binding)|LOCAL_SCOPE_VERIFIED|逐字节对照实际成交调用；拒绝沿用旧腿序金额或其他绑定|
+|175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
 |174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
 |173|[拆单 worker 执行三笔交易](#reset-approval-worker)|LOCAL_SCOPE_VERIFIED|逐笔核对额度、状态与费用|
 |172|[拆单授权替换计划](#reset-approval-plan)|LOCAL_SCOPE_VERIFIED|从绑定计划生成按序执行的授权操作|
@@ -4636,3 +4638,11 @@ worker 在同一仿真预算内，按三个连续区块执行清零、准确额�
 对明确配置的非零不足授权模型，报价服务从同一份初始区块状态读取付款人和各区块受益人的余额，按顺序核对三笔交易的目标、额度、nonce、费用和余额。返回的费用明细列出清零、授权和兑换，`approvalNative` 合计前两笔，候选排序使用三笔付款人净支出。若价格在兑换区块到期，整组候选使用毛额排序。
 
 16 个正常 HTTP 场景通过。报价库单元测试 68 项通过，5 项按环境要求跳过。报价与仿真库通过 Clippy 严格检查。P0-3 下一项为资金操作的来源、金额与费用核算。完整工作包验收仍为 0/26。[HTTP 报告](integration/artifacts/local/reset-quote-174/report.json)
+
+<a id="sequence-native-funding"></a>
+
+## 付款人起始原币需求（2026-11-19，阶段175，P0-3）
+
+在本地 Shanghai 成交候选中，服务端按执行顺序取“已发生的付款人净扣款加当前 Gas 预留额”的最大值，得到指定零原币转账交易序列的最低起始余额。该值与付款人的初始账户余额核对。`nativeFunding` 同时披露计划绑定、余额来源金额和最终净扣款。对有完整原币余额证据的单笔兑换、授权后兑换和清零后授权兑换均适用。
+
+16 个 HTTP 场景通过。原币费用定向测试 5 项通过，1 项需要单独参考输入。报价本地仿真定向测试 22 项通过，1 项为可选探针。后续资金操作仍需验证原币转账或包装的本金及费用。[HTTP 验证报告](integration/artifacts/local/sequence-funding-175/report.json)
