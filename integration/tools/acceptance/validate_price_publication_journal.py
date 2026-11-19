@@ -47,6 +47,10 @@ def main(*, router=False):
         approval_test = 'approval_and_swap_use_consecutive_state_nonce_and_actual_fees'
         extra.append(('ordered-v2-approval-sequence', bank_env+cargo+['test']+manifest+['-p','xone-simulation','--test','v2_path_execution',approval_test,'--','--include-ignored','--exact']))
         required['ordered-v2-approval-sequence'] = [approval_test]
+        reset_test = 'reset_then_approve_and_swap_match_three_mined_state_transitions'
+        extra.append(('ordered-v2-reset-approval', bank_env + cargo + ['test'] + manifest + [
+            '-p', 'xone-simulation', '--test', 'v2_path_execution', reset_test, '--', '--include-ignored', '--exact']))
+        required['ordered-v2-reset-approval'] = [reset_test]
         split_http = directory/'ordered-split-http'
         extra.append(('ordered-v2-split-http', [sys.executable, 'integration/tools/acceptance/ordered_split_http.py',
             str(target/'debug/examples/evm_dynamic_fee_harness'), str(split_receipt), str(split_http)]))

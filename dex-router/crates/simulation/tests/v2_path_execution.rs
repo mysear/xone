@@ -196,17 +196,28 @@ fn eight_ordered_split_receipts_match_all_logs_and_declared_poststate() {
 #[test]
 #[ignore = "requires mined caller approval followed by ordered split swap"]
 fn approval_and_swap_use_consecutive_state_nonce_and_actual_fees() {
+    replay_approval_policy("approvalReplay", false);
+}
+
+#[test]
+#[ignore = "requires an independently mined reset, exact approval and swap"]
+fn reset_then_approve_and_swap_match_three_mined_state_transitions() {
+    replay_approval_policy("resetApprovalReplay", true);
+}
+
+fn replay_approval_policy(bank_key: &str, reset: bool) {
     let report: Value = serde_json::from_slice(
         &std::fs::read(std::env::var("XONE_ORDERED_V2_REPORT").unwrap()).unwrap(),
     )
     .unwrap();
-    let bank = &report["executionBank"]["approvalReplay"];
+    let bank = &report["executionBank"][bank_key];
     let sequences = bank["sequences"].as_array().unwrap();
     assert_eq!(sequences.len(), 2);
     for (seq, expected_index) in sequences.iter().zip([0, 2]) {
         assert_eq!(seq["caseIndex"], expected_index);
         let runs = seq["runs"].as_array().unwrap();
-        assert_eq!(runs.len(), 2);
+        let approve = usize::from(reset);
+        assert_eq!(runs.len(), approve + 2);
         let fixture: FixtureState = serde_json::from_value(serde_json::json!({"schema_version":1,"state_anchor":bank["state_anchor"],"accounts":bank["accounts"],"block_hashes":[],"execution_environment":runs[0]["execution_environment"]})).unwrap();
         let mut image = fixture.to_image(&budget()).unwrap();
         let caller = Address::from_str(report["binding"]["caller"].as_str().unwrap()).unwrap();
@@ -219,13 +230,20 @@ fn approval_and_swap_use_consecutive_state_nonce_and_actual_fees() {
         let token = &case["legs"][0]["tokens"][0];
         let spender = binding["executor"]["target"].as_str().unwrap();
         let amount = U256::from_str(case["input"].as_str().unwrap()).unwrap();
-        assert_eq!(runs[0]["to"], *token);
+        if reset {
+            assert_eq!(runs[0]["to"], *token);
+            assert_eq!(
+                runs[0]["data"],
+                format!("0x095ea7b3{:0>64}{:064x}", &spender[2..], 0)
+            );
+        }
+        assert_eq!(runs[approve]["to"], *token);
         assert_eq!(
-            runs[0]["data"],
+            runs[approve]["data"],
             format!("0x095ea7b3{:0>64}{amount:064x}", &spender[2..])
         );
-        assert_eq!(runs[1]["to"], spender);
-        assert_eq!(runs[1]["data"], case["data"]);
+        assert_eq!(runs[approve + 1]["to"], spender);
+        assert_eq!(runs[approve + 1]["data"], case["data"]);
         for (offset, r) in runs.iter().enumerate() {
             let env: ExecutionEnvironment =
                 serde_json::from_value(r["execution_environment"].clone()).unwrap();

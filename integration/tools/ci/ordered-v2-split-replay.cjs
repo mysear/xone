@@ -111,28 +111,43 @@ async function replay(transport, captureBank) {
   }
   if (bank) {
     const fees = {gasLimit:3000000,maxFeePerGas:2000000000,maxPriorityFeePerGas:100000000};
-    // Start each sequence with no caller allowance. Capture independent miner receipts
-    // and a common initial bank. REVM must carry the approval state into the swap.
-    await mined(sell.approve(batch.address,0,fees));
-    const anchor = await provider.getBlock('latest');
-    const sequential = await splitBank(provider,anchor,{caller,recipient,batch,router,factory,weth,tokens,pairs});
-    const start = await provider.send('evm_snapshot',[]);
-    sequential.result.sequences = [];
-    for (const index of [0,2]) {
-      const c = binding.cases[index];
-      const input = ethers.BigNumber.from(c.input);
-      assert.equal(String(await sell.allowance(caller,batch.address)), '0');
-      const approve = await mined(sell.approve(batch.address,input,fees));
-      await sequential.record(approve);
-      assert.equal(String(await sell.allowance(caller,batch.address)), c.input);
-      const legs = c.legs.map(l => [l.amount,l.tokens]);
-      const swap = await mined(batch.execute(c.exactOut,recipient,c.budget,c.output,deadline,legs,fees));
-      await sequential.record(swap, await provider.getBlock(approve.blockHash));
-      assert.equal(String(await sell.allowance(caller,batch.address)), '0');
-      sequential.result.sequences.push({caseIndex:index,runs:sequential.result.runs.splice(0)});
-      if (index === 0) assert.equal(await provider.send('evm_revert',[start]),true);
+    // Both allowance policies start from the same pre-swap pool state.
+    const baseSnapshot = await provider.send('evm_snapshot', []);
+    async function approvalReplay(initialAllowance) {
+      await mined(sell.approve(batch.address, initialAllowance, fees));
+      const anchor = await provider.getBlock('latest');
+      const sequential = await splitBank(provider, anchor, {caller, recipient, batch, router, factory, weth, tokens, pairs});
+      const start = await provider.send('evm_snapshot', []);
+      sequential.result.sequences = [];
+      for (const index of [0, 2]) {
+        const c = binding.cases[index];
+        const input = ethers.BigNumber.from(c.input);
+        assert.equal(String(await sell.allowance(caller, batch.address)), String(initialAllowance));
+        let parent = anchor;
+        async function record(tx) {
+          const receipt = await mined(tx);
+          assert.equal(receipt.status, 1);
+          await sequential.record(receipt, parent);
+          parent = await provider.getBlock(receipt.blockHash);
+        }
+        if (initialAllowance > 0) {
+          assert.ok(input.gt(initialAllowance));
+          await record(sell.approve(batch.address, 0, fees));
+          assert.equal(String(await sell.allowance(caller, batch.address)), '0');
+        }
+        await record(sell.approve(batch.address, input, fees));
+        assert.equal(String(await sell.allowance(caller, batch.address)), c.input);
+        const legs = c.legs.map(l => [l.amount, l.tokens]);
+        await record(batch.execute(c.exactOut, recipient, c.budget, c.output, deadline, legs, fees));
+        assert.equal(String(await sell.allowance(caller, batch.address)), '0');
+        sequential.result.sequences.push({caseIndex: index, runs: sequential.result.runs.splice(0)});
+        if (index === 0) assert.equal(await provider.send('evm_revert', [start]), true);
+      }
+      return sequential.result;
     }
-    bank.result.approvalReplay = sequential.result;
+    bank.result.approvalReplay = await approvalReplay(0);
+    assert.equal(await provider.send('evm_revert', [baseSnapshot]), true);
+    bank.result.resetApprovalReplay = await approvalReplay(1);
   }
   return {authority:'LOCAL_ORIGINAL_ROUTER_DIFFERENTIAL',bankHash:base.hash,sourceSha256:hash(src),compiler:solc.version(),
     runtimeSha256:hash(Buffer.from((await provider.getCode(batch.address)).slice(2),'hex')),priorApprovalGas:String(approval.gasUsed),

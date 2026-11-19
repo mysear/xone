@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|非零不足授权的三笔交易回放（阶段171，P0-3）|§13.1、§14.2–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|按清零、精确授权、兑换顺序对照两种报价方向的独立区块|8 项 V2 路径测试通过，三笔序列待接入 worker 和正常报价|
 |正常报价计入调用者授权费（阶段170，P0-3）|§13.1、§14.2–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|零授权拆单按相邻区块依次执行授权和兑换，报价服务复核两笔费用后比较候选|两种方向的成交、兑换时价格过期及原有回归共 12 个 HTTP 场景|
 |两笔交易的 worker 核验（阶段169，P0-3）|§13.1、§14.1–14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|按同一计划生成准确额度的授权交易，向后传递状态并核对两笔费用|ExactIn 和 ExactOut 均通过独立出块对照|
 |连续授权与兑换回放（阶段168，P0-3）|§13.1、§14.2、§14.3，WP13、WP15|LOCAL_SCOPE_VERIFIED|从零授权开始推进两笔交易的状态和 nonce|两种报价方向均通过，正常报价待接入|
@@ -765,6 +766,7 @@
 |162|[按 Router 区块锚点采集与复核](#market-router-bank-anchor)|LOCAL_SCOPE_VERIFIED|显式哈希选块、跨字段不一致拒绝及签后变化不发布|
 |163|[共享池 V2 整笔拆单执行](#ordered-v2-split)|LOCAL_SCOPE_VERIFIED|ExactIn/ExactOut 两种腿序的实际整笔 Gas、余额、储备与回滚|
 |164|[按完整拆单计划生成批量交易](#ordered-v2-binding)|LOCAL_SCOPE_VERIFIED|逐字节对照实际成交调用；拒绝沿用旧腿序金额或其他绑定|
+|171|[非零不足授权的三笔交易回放](#reset-approval-replay)|LOCAL_SCOPE_VERIFIED|核对清零、精确授权与兑换的完整状态和费用|
 |170|[正常报价计入调用者授权费](#approval-quote)|LOCAL_SCOPE_VERIFIED|按候选复核两笔交易的费用及价格有效期|
 |169|[两笔交易的 worker 核验](#approval-worker)|LOCAL_SCOPE_VERIFIED|重建授权交易、逐笔核对状态和费用|
 |168|[连续授权与兑换回放](#approval-sequence)|LOCAL_SCOPE_VERIFIED|从原始本地出块回执核对两笔费用、日志、账户与存储|
@@ -4585,3 +4587,16 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F170.2|按各候选成交区块检查签名价格有效期|WP13,WP16|LOCAL_SCOPE_VERIFIED|价格在授权后、兑换时到期，两种方向均回退为毛额排序。|
 
 12 个本地 HTTP 场景覆盖有价、预算不足、价格过期、缺执行器、顺序授权和兑换时到期。后续 P0-3 优先处理非零不足授权的替换策略、补充资金交易及其费用，再验收完整候选净额。完整工作包验收仍为 0/26。[HTTP 验证报告](integration/artifacts/local/approval-quote-170/report.json)
+
+<a id="reset-approval-replay"></a>
+
+## 非零不足授权的三笔交易回放（2026-11-19，阶段171，P0-3）
+
+为验证 §13.1 费用模型与 §14 有序执行，出块器在独立分支给调用者保留一个最小单位的 allowance。ExactIn 和 ExactOut 分别执行清零、准确额度授权和兑换。每一步保存区块、交易、日志与账户状态，REVM 从上一笔执行得到的状态继续运行。回放逐笔核对 nonce、Gas、日志、原币余额和采集的存储槽。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F171.1|采集非零不足授权时的三笔连续交易|WP13,WP15|LOCAL_SCOPE_VERIFIED|两个方向各有三个连续区块。原两笔序列及此前报告字段逐项相同。|
+|F171.2|对照独立出块逐笔执行、累计核算付款人支出|WP15|LOCAL_SCOPE_VERIFIED|V2 路径执行套件 8 项全部通过。|
+
+下一项是将三笔序列接入执行计划、受限 worker 及报价排序。阶段170 的报价库回归为 68 项通过、5 项按测试环境要求跳过。[三笔序列出块报告](integration/artifacts/local/approval-reset-171/bank.json)
