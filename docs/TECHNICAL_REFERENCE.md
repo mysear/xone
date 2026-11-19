@@ -2376,3 +2376,18 @@ Router 持有日志锁时，用 `assemble_chainlink_book.py --online-candidate` 
 1. `{"operation":"preview"}`：从该路径读取并验证签名、固定 bank 和耐久高水位，返回 `candidateBookHash`、`candidateRevision`、`baseEntryHash`、`wouldAdvance`。核对摘要等于组装结果；此时旧快照仍生效。
 2. `{"operation":"apply","baseEntryHash":"…","candidateBookHash":"…"}`：使用相同摘要条件发布。当前已签名文件或日志高水位与预检不符返回 409 `NATIVE_VALUATION_PUBLICATION_PRECONDITION`。不要在冲突时直接接受另一个摘要，应重新核验候选。
 3. `{"operation":"status"}`：不读待发布文件，核对服务中快照与当前日志，返回有效簿摘要、版本、日志序号和记录摘要。发布结果不明确时优先回读；服务已关闭价格读取时按阶段156恢复，不盲目重试。旧 `reload {}` 仍是非条件的兼容入口。若进程在文件安装后、正式发布前重启，文件与日志不一致会拒绝启动，需恢复最后确认的签名文件。
+
+### 本机价格发布操作工具（阶段160）
+
+在 Router 所在主机的受信任目录运行，令牌从环境变量 `XONE_ROUTER_TOKEN` 读取。`--expected-book-hash` 使用阶段159候选组装结果的 `bookHash`（不是文件字节摘要）。示例：
+
+```sh
+python3 integration/tools/market/publish_chainlink_book.py publish \
+  --config "$CONFIG" --candidate "$BOOK" --expected-book-hash "$BOOK_HASH" \
+  --publication-cli "$PUBLICATION_CLI" --recovery-dir "$NEW_RECOVERY_DIR" \
+  --router-origin http://127.0.0.1:8080
+```
+
+工具验证签名、当前有效期和币种覆盖，核对现有文件与 Router 已生效的簿一致。它先在新建的恢复目录同步保存 `previous.json` 和 `intent.json`，再用同目录临时文件、原子替换和目录同步安装候选。目录上的 `flock` 只协调遵守同一约定的操作方；不得同时手工修改配置、价格文件或目录。支持 POSIX 本地文件系统和当前用户拥有的普通文件，保留 UID、GID 和普通权限位；不保证复制 ACL 或扩展属性。
+
+只有预检核对通过才发一次条件 `apply`，随后用 `status` 核对生效版本、摘要及日志序号。断连时不回滚、不重发。如果工具或网络中断，可用 `python3 integration/tools/market/publish_chainlink_book.py reconcile --intent "$NEW_RECOVERY_DIR/intent.json" --router-origin http://127.0.0.1:8080` 再做只读核对。`MARKET_PUBLISH_OUTCOME_UNKNOWN` 表示此刻无法凭日志头确认该目标，包括已有后续版本的情况，并不证明该版本从未提交。不要直接用 `previous.json` 覆盖当前文件；先核对实际耐久日志。该工具不提供持续调度或外部签署服务。

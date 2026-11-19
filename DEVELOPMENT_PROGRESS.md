@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|本机价格发布操作工具（阶段160，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|候选安装、一次条件提交和结果回读|真实本机 Router 及断连情形定向回放；持续签署与调度未完成|
 |持锁 Router 在线价格发布（阶段159，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|在线预检、双摘要条件发布、重启后已生效价格回读|实际 HTTP 回放通过，持续采集调度和可信 bank 未完成|
 |独立签署回执与候选簿组装（阶段158，P0-3）|§15.5/21.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|复算采集消息、Router 原签名阈值校验、离线耐久版本预检|双币种签署回放与拒绝路径；非在线持续发布|
 |整簿同块采集与待签署输入（阶段157，P0-3）|§15.5/21.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|全部批准币种固定同一块、签名消息覆盖同一版本，仅完整且未过期的请求可交接|4 项整簿回放及 6 项原采集器测试通过；持续调度和独立签署发布仍缺|
@@ -749,6 +750,7 @@
 |157|[整簿同块采集与独立签署输入](#market-book-signing-request)|LOCAL_SCOPE_VERIFIED|本地只读 RPC 与实际 Rust 验证器定向通过；不代表持续 live、签名授权或生产验收|
 |158|[独立签署回执与离线候选簿](#market-book-offline-assembly)|LOCAL_SCOPE_VERIFIED|双币种端到端回放、6 项日志组件测试；预检不等于已发布|
 |159|[在线条件发布与结果回读](#market-book-online-publication)|LOCAL_SCOPE_VERIFIED|显式日志模式，预检无写入，拒绝调包与过期条件；保持固定 bank 限定|
+|160|[本机候选安装与结果核对](#market-book-operator)|LOCAL_SCOPE_VERIFIED|提交未送达与已提交但回执丢失分别核验，无自动重发、无自动回滚|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -4398,3 +4400,18 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 [定向 HTTP 结果](integration/artifacts/local/online-price-control-159-1795059640/report.json)保留原 4 次报价和 5 个启动拒绝。该范围仅是固定本地 bank、显式耐久模式的在线发布。安装候选文件、收集独立回执和服务调度仍需编排；持续采集、可信 bank 推进、拆单、辅助交易费用、完整净额及其他优先级保持未完成。
 
 [本轮完整回归](integration/artifacts/local/durable-price-router-check/runs/c7390d09c36d4869af00c102a12af6ce/report.json)：82 项检查全部退出 0，239 次 Rust、82 次 Go 测试执行。逐项复核 82 份日志及 21 份产物报告摘要，源码摘要 `bd0e15d88270cfee3f9a9a9c49fa1e11154982595e94e4c4efeb3d391452d801`。下一项 P0-3：将已核验候选的原子安装、双摘要发布和结果不确定时的状态回读接入操作工具；不会因网络超时盲目覆盖旧文件或重发。
+
+<a id="market-book-operator"></a>
+
+## 本机候选安装与结果核对（2026-11-19，阶段160，P0-3）
+
+阶段159 `2d5f2dc` 已推送 GitHub。本轮在同一配置、显式耐久日志和固定 bank 的前提下，把批准候选的安装、条件提交、状态回读接入本机操作命令。测试前核对系统临时目录及测试进程，无遗留 xone 临时运行目录；保留共享 Rust 构建缓存和冻结证据。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F160.1|验证候选、留存旧文件并原子安装|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|核对候选摘要、签名、时效、配置币种及已生效的旧簿；失败回放中旧文件备份字节一致、已安装但未解决的候选不被覆盖。|
+|F160.2|只提交一次并支持进程外只读核对|WP15,WP16|LOCAL_SCOPE_VERIFIED|请求未送达返回结果未知；提交后丢失回执能通过当前日志头确认；相同版本不重发。独立 CLI 能回读，日志后续推进则拒绝冒认旧结果。|
+
+[定向 HTTP 报告](integration/artifacts/local/online-price-operator-160-final-1795061399/report.json)及[操作顺序记录](integration/artifacts/local/online-price-operator-160-final-1795061399/operator-run/results.json)：保留 4 次正常报价和 5 个启动拒绝，工具分支独立日志依次为 1、2、3、4。回放使用实际 Router、实际 Rust 验证器、固定测试时间，在传输边界注入未送达与丢回执；不等于真实断电或生产环境认证。阶段158组装测试亦通过，本轮未重跑前轮 82 项全量验收。
+
+下一项 P0-3：将同块采集、等待外部阈值签署、组装和本机发布接入有界的轮次调度；过期重新采集，未决发布先核对，不自动生成签署权。可信 bank 推进、拆单执行、辅助交易费与完整净额仍未完成。

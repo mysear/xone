@@ -14,6 +14,7 @@ import urllib.request
 from evm_dynamic_fee_http import ROOT, require, sha
 from native_valuation_http import prepare
 from native_valuation_vectors import digest, sign
+from online_price_operator_replay import replay as operator_replay
 
 
 def main(binary, cli, corpus, output):
@@ -32,7 +33,7 @@ def main(binary, cli, corpus, output):
                XONE_CANDIDATE_COST_CORPUS=str(corpus), XONE_EVM_PATH_CASE=case['id'])
     for key in ['XONE_OP_API_SOURCE','XONE_EVM_PREPARED_HTTP','XONE_EVM_COINBASE_ALIAS','XONE_EVM_LEGACY_FEE']:
         env.pop(key, None)
-    books = {i:dict(schema_version=1, prices=[sign(p, anchor, i*10000000, 1, revision=i) for p in policy['policies']]) for i in [1,2,3]}
+    books = {i:dict(schema_version=1, prices=[sign(p, anchor, i*10000000, 1, revision=i) for p in policy['policies']]) for i in [1,2,3,4]}
     def install(i):
         tmp = path.with_suffix('.tmp'); tmp.write_text(json.dumps(books[i])); tmp.replace(path)
     def disk(i):
@@ -132,8 +133,16 @@ def main(binary, cli, corpus, output):
     install(2); rejected('corrupt','PRICE_PUBLICATION_JOURNAL_CORRUPT')
     journal.rename(out/'corrupt.journal'); (out/'saved.journal').rename(journal); disk(2)
     with service('recovered') as info: quote(info,'recovered-quote',2)
+    operator_journal = out/'operator.journal'
+    operator_journal.write_bytes(journal.read_bytes())
+    operator_config = out/'operator-config.json'
+    operator_config.write_text(json.dumps(dict(policy, publication_journal=str(operator_journal))))
+    env['XONE_NATIVE_VALUATION_CONFIG'] = str(operator_config)
+    with service('operator') as info:
+        operator_replay(info, operator_config, cli, out/'operator-run', path, operator_journal, books, anchor['timestamp_ms'])
     report=dict(passed=True,startup_rejections=rejects,normal_http_quotes=4,durable_revisions=[1,2],
                 online_candidate_and_base_preconditions_verified=True,
+                operator_apply_once_and_readback_verified=True,
                 production_ready=False,publicTransactionsSubmitted=False,harness_sha256=sha(binary),cli_sha256=sha(cli),
                 artifacts={str(p.relative_to(out)):sha(p) for p in sorted(out.rglob('*')) if p.is_file()})
     (out/'report.json').write_text(json.dumps(report,indent=2)+'\n')
