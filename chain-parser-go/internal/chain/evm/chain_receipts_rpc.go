@@ -611,15 +611,11 @@ func (a *Adapter) ReadNativeSettledBlockProof(ctx context.Context, tag string, l
 
 // readNativeContractAccountProof uses physical keys on eth_getProof. The MPT
 // verifier remains physical; contract interpretation is applied only afterwards.
-func (a *Adapter) readNativeContractAccountProof(ctx context.Context, coverage VerifiedReceiptCoverage, address string, plan contractStoragePlan, limits ReceiptProofLimits) (out VerifiedContractAccountCommitment, used int, err error) {
+func (a *Adapter) readNativeContractAccountProof(ctx context.Context, anchor ExecutionStateAnchor, address string, plan contractStoragePlan, limits ReceiptProofLimits) (out VerifiedContractAccountCommitment, used int, err error) {
 	if err = limits.validate(); err != nil {
 		return out, 0, err
 	}
-	anchor, err := coverage.TargetStateAnchor()
-	if err != nil {
-		return out, 0, err
-	}
-	encoding, err := contractStorageEncoding(ContractStorageSource{ChainKey: a.Chain.Key, GenesisHash: a.Chain.Genesis}, *anchor)
+	encoding, err := contractStorageEncoding(ContractStorageSource{ChainKey: a.Chain.Key, GenesisHash: a.Chain.Genesis}, anchor)
 	if err != nil {
 		return out, 0, err
 	}
@@ -639,7 +635,7 @@ func (a *Adapter) readNativeContractAccountProof(ctx context.Context, coverage V
 	if err != nil {
 		return out, 0, err
 	}
-	account, err := VerifyExecutionAccountProof(r.ctx, *anchor, raw, r.budget.remaining)
+	account, err := VerifyExecutionAccountProof(r.ctx, anchor, raw, r.budget.remaining)
 	if err != nil {
 		return out, 0, err
 	}

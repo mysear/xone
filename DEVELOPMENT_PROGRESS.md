@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|V2 池账户证明共用已验证状态根（阶段199，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|同一池的 Pair、Factory 和两种 Token 使用同一份已验证执行锚点，每个账户和存储键单独校验|主网 26449753 起连续发布 8 个块，完整窗口待验收|
 |普通 Go owner 的 RPC 读取重试（阶段198，P0-1）|§7.1，WP03、WP04|LOCAL_SCOPE_VERIFIED|按链配置重试次数与退避时间，在线和独立历史读取使用各自的客户端|HTTP 408 恢复、429 次数上限、400 终止及缺省行为通过|
 |原生区块交易编码复用（阶段197，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|用一次生成的签名交易原文验证交易根并交付证据|块 26449307 核对 407 笔交易，最终复核后节省 14,514,696 字节预算|
 |原生回执见证错误定位（阶段196，P0-1）|§7.3、§22，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|追块失败日志记录见证节点序号、块高、阶段及错误分类|26448990 双节点复读通过，新基线 26449307 达到证明预算上限|
@@ -808,6 +809,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|199|[V2 池账户证明批次](#v2-verified-account-batch)|LOCAL_SCOPE_VERIFIED|账户重复读取、独立证明校验和失败会话回归通过|
 |198|[普通读取的 RPC 重试](#owner-rpc-retry)|LOCAL_SCOPE_VERIFIED|启动配置及见证子客户端的重试行为通过|
 |197|[原生交易原文与验证预算](#native-body-encoding-budget)|LOCAL_SCOPE_VERIFIED|主网对照及精确字节预算边界通过|
 |196|[回执见证错误定位](#beacon-witness-diagnostics)|LOCAL_SCOPE_VERIFIED|回执缺失及五类原因通过回归，保留业务错误码|
@@ -4892,3 +4894,13 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 主网 owner 以 26449658 为基线。证明刷新至 26449722 后发生 `RPC_ERROR_-32000`，owner 撤权，对该区间的连续发布验收仍为 `PARTIAL_LOCAL`。
 
 [回归结果](integration/artifacts/local/beacon-retry-198/go.jsonl) · [owner 日志](integration/artifacts/local/beacon-retry-198/live/owner.log)
+
+<a id="v2-verified-account-batch"></a>
+
+## V2 池账户证明共用执行锚点（2026-11-19，阶段199，P0-1）
+
+同一池的首次账户读取重新验证该区块的回执证据与业务范围，复制执行状态根。该池内后续账户和存储键的证明共享执行锚点与总预算。每次 `eth_getProof` 仍逐项核对地址、存储路径和 Merkle 根。单独调用的账户读取各自验证回执证据。批次测试检查了两次独立证明读取、第二次读取的预算下降、篡改证据时独立调用拒绝及已拒绝会话的后续处理。39 项 race 回归及 vet 通过。
+
+上一轮首个增量 26449659 的独立复查中，两端点返回同一区块哈希。dRPC 对账户证明返回历史状态不可用，PublicNode 返回该块超过证明窗口，错误码分别为 `-32000`、`4444`。新鲜主网窗口以 26449753 为基线，目标为 26449785。owner 连续发布至 26449761，共 8 个增量，随后源请求返回 `RPC_ERROR_-32000` 并撤权。完整连续发布待具有对应历史状态的输入复验。
+
+[来源复查](integration/artifacts/local/beacon-account-199/historical-availability.json) · [批次回归](integration/artifacts/local/beacon-account-199/batch.log) · [池验证回归](integration/artifacts/local/beacon-account-199/tests.jsonl) · [主网运行日志](integration/artifacts/local/beacon-account-199/live/owner.log)

@@ -341,3 +341,40 @@ func TestV2CompleteNativeStateProofFailureExhaustsSharedSessionAndHonorsCancella
 		})
 	}
 }
+
+func TestV2AccountBatchProvesEveryAccountAtOneVerifiedAnchor(t *testing.T) {
+	f := newV2ProofBank(t, "")
+	a := f.adapter(t, "")
+	ctx := context.Background()
+	block, err := a.Block(ctx, fmt.Sprintf("0x%x", f.bank.StateAnchor.Number))
+	if err != nil {
+		t.Fatal(err)
+	}
+	block, _, err = a.ReadQualifiedReceipts(ctx, block, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch := accountProofBatch{adapter: a, block: block, ctx: ctx}
+	address := f.bank.Pool.PoolID
+	keys := []string{"0x8"}
+	before := f.proofReads.Load()
+	first, err := batch.read(address, keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := batch.read(address, keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Account.StorageRoot != second.Account.StorageRoot || first.ProofBytesUsed <= second.ProofBytesUsed || f.proofReads.Load() != before+2 {
+		t.Fatalf("unexpected proof reuse: %d/%d, reads %d", first.ProofBytesUsed, second.ProofBytesUsed, f.proofReads.Load()-before)
+	}
+	// A standalone request must verify its own evidence even after a successful batch.
+	block.NativeCoverage.Evidence.NativeSemanticsID = "invalid"
+	if _, err = a.ReadNativeContractAccountProof(ctx, block, address, keys); err == nil {
+		t.Fatal("standalone read reused the batch anchor")
+	}
+	if _, err = batch.read(address, keys); err == nil || f.proofReads.Load() != before+2 {
+		t.Fatal("rejected session admitted a cached read", err)
+	}
+}

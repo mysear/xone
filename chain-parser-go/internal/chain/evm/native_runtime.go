@@ -327,7 +327,23 @@ func (a *Adapter) recheckNativeSettling(ctx context.Context, coverage VerifiedRe
 // ReadNativeContractAccountProof consumes a normal native block's shared read
 // session. The exact receipt/state authority is reverified before a logical
 // contract key may be mapped to the physical eth_getProof request.
-func (a *Adapter) ReadNativeContractAccountProof(ctx context.Context, block RawBlock, address string, logicalKeys []string) (out VerifiedContractAccountCommitment, err error) {
+func (a *Adapter) ReadNativeContractAccountProof(ctx context.Context, block RawBlock, address string, logicalKeys []string) (VerifiedContractAccountCommitment, error) {
+	batch := accountProofBatch{adapter: a, block: block, ctx: ctx}
+	return batch.read(address, logicalKeys)
+}
+
+// A batch is private to one synchronous pool read. The first account verifies
+// the receipt evidence and scope. Later accounts prove new MPT paths against
+// the copied execution anchor and consume the same block session budget.
+type accountProofBatch struct {
+	adapter *Adapter
+	block   RawBlock
+	ctx     context.Context
+	anchor  *ExecutionStateAnchor
+}
+
+func (batch *accountProofBatch) read(address string, logicalKeys []string) (out VerifiedContractAccountCommitment, err error) {
+	a, block, ctx := batch.adapter, batch.block, batch.ctx
 	if err = ctx.Err(); err != nil {
 		return out, err
 	}
@@ -343,10 +359,14 @@ func (a *Adapter) ReadNativeContractAccountProof(ctx context.Context, block RawB
 	}
 	// Validate untrusted request shape/encoding before any proof IO.
 	preflight := receiptProofBudget{remaining: limits.MaxBytes}
-	if block.NativeCoverage.StateAnchor == nil {
+	anchor := batch.anchor
+	if anchor == nil {
+		anchor = block.NativeCoverage.StateAnchor
+	}
+	if anchor == nil {
 		return out, errors.New("EXECUTION_STATE_TARGET_NOT_DIRECTLY_SETTLED")
 	}
-	plan, err := planContractStorage(ctx, ContractStorageSource{ChainKey: a.Chain.Key, GenesisHash: a.Chain.Genesis}, *block.NativeCoverage.StateAnchor, logicalKeys, &preflight)
+	plan, err := planContractStorage(ctx, ContractStorageSource{ChainKey: a.Chain.Key, GenesisHash: a.Chain.Genesis}, *anchor, logicalKeys, &preflight)
 	if err != nil {
 		return out, err
 	}
@@ -368,27 +388,35 @@ func (a *Adapter) ReadNativeContractAccountProof(ctx context.Context, block RawB
 	if err != nil {
 		return out, err
 	}
-	coverage, err := VerifyNativeReceiptEvidence(ctx, a.Chain.Key, block, *block.NativeCoverage.Evidence, limits)
-	if err != nil {
-		return out, err
-	}
-	if err = s.consume(coverage.ProofBytesUsed); err != nil {
-		return out, err
-	}
-	if err = VerifyNativeBusinessCoverage(a.Chain, coverage); err != nil {
-		return out, err
+	coverageCost := 0
+	if batch.anchor == nil {
+		coverage, err := VerifyNativeReceiptEvidence(ctx, a.Chain.Key, block, *block.NativeCoverage.Evidence, limits)
+		if err != nil {
+			return out, err
+		}
+		if err = s.consume(coverage.ProofBytesUsed); err != nil {
+			return out, err
+		}
+		if err = VerifyNativeBusinessCoverage(a.Chain, coverage); err != nil {
+			return out, err
+		}
+		batch.anchor, err = coverage.TargetStateAnchor()
+		if err != nil {
+			return out, err
+		}
+		coverageCost = coverage.ProofBytesUsed
 	}
 	limits, err = s.available()
 	if err != nil {
 		return out, err
 	}
-	account, used, err := a.readNativeContractAccountProof(ctx, coverage, address, plan, limits)
+	account, used, err := a.readNativeContractAccountProof(ctx, *batch.anchor, address, plan, limits)
 	if err != nil {
 		return out, err
 	}
 	if err = s.consume(used); err != nil {
 		return out, err
 	}
-	account.ProofBytesUsed += planCost + coverage.ProofBytesUsed
+	account.ProofBytesUsed += planCost + coverageCost
 	return account, nil
 }

@@ -47,6 +47,7 @@ func (a *Adapter) verifyNativeV2CompleteState(ctx context.Context, reader *Adapt
 	if swap.BankUnixTimestamp != timestamp || swap.BankBlockNumber != number || swap.BankBlockHash != block.Hash || pool.ChainKey != a.Chain.Key {
 		return errors.New("V2_COMPLETE_STATE_PROOF_ANCHOR")
 	}
+	batch := accountProofBatch{adapter: a, block: block, ctx: ctx}
 	packed := new(big.Int).Set(pool.Reserve1.Big())
 	packed.Lsh(packed, 112).Or(packed, pool.Reserve0.Big())
 	packed.Or(packed, new(big.Int).Lsh(new(big.Int).SetUint64(uint64(swap.BlockTimestampLast)), 224))
@@ -56,18 +57,18 @@ func (a *Adapter) verifyNativeV2CompleteState(ctx context.Context, reader *Adapt
 		"0x7": new(big.Int).SetBytes(common.FromHex(pool.Token1)),
 		"0x8": packed, "0x9": swap.Price0CumulativeLast.Big(), "0xa": swap.Price1CumulativeLast.Big(), "0xc": big.NewInt(1),
 	}
-	if err = a.verifyV2CompleteAccount(ctx, reader, block, pool.PoolID, domain.V2CompletePairCodeSHA256, []string{"0x5", "0x6", "0x7", "0x8", "0x9", "0xa", "0xc"}, expected); err != nil {
+	if err = batch.verifyV2CompleteAccount(reader, pool.PoolID, domain.V2CompletePairCodeSHA256, []string{"0x5", "0x6", "0x7", "0x8", "0x9", "0xa", "0xc"}, expected); err != nil {
 		return err
 	}
 	keys := []string{v2CompletePairMapping(pool.Token0, pool.Token1), v2CompletePairMapping(pool.Token1, pool.Token0)}
 	pair := new(big.Int).SetBytes(common.FromHex(pool.PoolID))
-	if err = a.verifyV2CompleteAccount(ctx, reader, block, pool.V2.Factory, domain.V2CompleteFactoryCodeSHA256, keys, map[string]*big.Int{keys[0]: pair, keys[1]: pair}); err != nil {
+	if err = batch.verifyV2CompleteAccount(reader, pool.V2.Factory, domain.V2CompleteFactoryCodeSHA256, keys, map[string]*big.Int{keys[0]: pair, keys[1]: pair}); err != nil {
 		return err
 	}
-	if err = a.verifyNativeV2Balance(ctx, reader, block, pool.Token0, pool.PoolID, swap.RawBalance0); err != nil {
+	if err = batch.verifyNativeV2Balance(reader, pool.Token0, pool.PoolID, swap.RawBalance0); err != nil {
 		return err
 	}
-	return a.verifyNativeV2Balance(ctx, reader, block, pool.Token1, pool.PoolID, swap.RawBalance1)
+	return batch.verifyNativeV2Balance(reader, pool.Token1, pool.PoolID, swap.RawBalance1)
 }
 
 func v2CompletePairMapping(first, second string) string {
@@ -76,8 +77,9 @@ func v2CompletePairMapping(first, second string) string {
 	return crypto.Keccak256Hash(common.LeftPadBytes(common.FromHex(second), 32), outer).Hex()
 }
 
-func (a *Adapter) verifyV2CompleteAccount(ctx context.Context, reader *Adapter, block RawBlock, address, codeSHA string, keys []string, expected map[string]*big.Int) error {
-	proof, err := a.ReadNativeContractAccountProof(ctx, block, address, keys)
+func (batch *accountProofBatch) verifyV2CompleteAccount(reader *Adapter, address, codeSHA string, keys []string, expected map[string]*big.Int) error {
+	ctx, block := batch.ctx, batch.block
+	proof, err := batch.read(address, keys)
 	if err != nil {
 		return err
 	}

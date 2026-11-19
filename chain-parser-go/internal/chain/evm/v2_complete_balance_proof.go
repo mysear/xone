@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"context"
 	"errors"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,8 +11,9 @@ import (
 // Authenticate the actual code and each reached SLOAD instead of assuming a
 // universal ERC20 storage layout. This only proves this zero-caller view; token
 // transfer behavior, consensus authority and production execution remain separate.
-func (a *Adapter) verifyNativeV2Balance(ctx context.Context, reader *Adapter, block RawBlock, token, owner string, expected domain.Amount) error {
-	account, err := a.ReadNativeContractAccountProof(ctx, block, token, nil)
+func (batch *accountProofBatch) verifyNativeV2Balance(reader *Adapter, token, owner string, expected domain.Amount) error {
+	ctx, block := batch.ctx, batch.block
+	account, err := batch.read(token, nil)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (a *Adapter) verifyNativeV2Balance(ctx context.Context, reader *Adapter, bl
 		// A sealed empty storage root proves zero without a separate key request.
 		value, e := account.StorageValue(missing.Hex())
 		if e != nil {
-			proof, e := a.ReadNativeContractAccountProof(ctx, block, token, []string{missing.Hex()})
+			proof, e := batch.read(token, []string{missing.Hex()})
 			if e != nil {
 				return e
 			}
