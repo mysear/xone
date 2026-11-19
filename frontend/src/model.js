@@ -147,3 +147,36 @@ export function failedFeeText(receipt) {
   if(!valid)return ' · 失败交易网络费不可用：费用证据与当前失败回执不一致';
   return ` · RPC回执失败交易网络费 ${f.networkFeeNative} lamports（${receipt.state==='FAILED'?'已最终确认':'待最终确认'}） · 付款人SOL净变动 ${f.payerLamportDelta} lamports · 已报告余额回滚一致 · 留存租金押金 0 lamports · 失败收付不计为成交净额`;
 }
+
+// Amounts stay in native atoms throughout. Only the selected local execution has
+// an opening balance requirement. Another candidate's balance is irrelevant.
+export function quoteFundingRows(quote) {
+  const costs = quote.costs;
+  const funding = costs?.nativeFunding;
+  if (!funding) return [];
+  const ranking = quote.quality?.costRanking;
+  const execution = ranking?.selectedExecution;
+  const inconsistent = [['资金估算', '所选路线的费用证据不一致']];
+  const binding = costs.bindingHash;
+  if (!execution || !/^[0-9a-f]{64}$/.test(binding) || !quote.planHash ||
+      quote.planHash !== ranking.selectedPlanHash || quote.planHash !== costs.selectedPlanHash ||
+      execution.bindingHash !== binding || funding.bindingHash !== binding ||
+      execution.verification?.success !== true || execution.authority !== 'PROVIDED_LOCAL_STATE' ||
+      costs.chainKey !== quote.chainKey || costs.nativeUnit !== 'EVM_NATIVE_ATOMS' ||
+      costs.chainFeeCompleteness !== 'LOCAL_EVM_ONLY' || execution.transaction?.from !== funding.payer) return inconsistent;
+
+  const isAmount = value => typeof value === 'string' && /^(0|[1-9][0-9]{0,77})$/.test(value) && BigInt(value) < (1n << 256n);
+  const principal = funding.wrappedPrincipalNative ?? '0';
+  const fees = costs.payerNetNativeDebit;
+  if (![principal, fees, funding.totalNetDebitNative, funding.minimumOpeningBalanceNative, funding.sourceBalanceNative].every(isAmount) ||
+      BigInt(principal) + BigInt(fees) !== BigInt(funding.totalNetDebitNative) ||
+      BigInt(funding.minimumOpeningBalanceNative) < BigInt(funding.totalNetDebitNative) ||
+      BigInt(funding.sourceBalanceNative) < BigInt(funding.minimumOpeningBalanceNative)) return inconsistent;
+
+  const rows = [['付款人网络费（本地仿真）', `${fees} wei`]];
+  if (funding.wrappedPrincipalNative !== undefined) rows.push(['包装本金', `${principal} wei`]);
+  rows.push(['执行所需最低起始余额', `${funding.minimumOpeningBalanceNative} wei`],
+    ['付款人预计原币支出', `${funding.totalNetDebitNative} wei`],
+    ['报价排序依据', ranking.costAdjustmentApplied ? '计入已折算的网络费' : '按毛额比较']);
+  return rows;
+}

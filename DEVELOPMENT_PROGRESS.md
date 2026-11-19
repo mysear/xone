@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|报价页展示选中路线的资金需求（阶段184，P0-3）|§13.1、§15.3，WP13、WP16|LOCAL_SCOPE_VERIFIED|展示实测付款人网络费、包装本金、最低起始余额及排序依据|24 项前端测试与实际浏览器两种报价方向通过|
 |单路线包装和授权费用（阶段183，P0-3）|§13.1、§14.2–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|按支出合约的源额度选择精确授权或清零后授权|20 个 HTTP 场景覆盖两种报价方向及价格到期|
 |WETH 报价按实际 spender 复核授权（阶段182，P0-3）|§13.1、§14.2，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|从源区块分别读取 Router02 和拆单执行器额度，核对独立执行观测|12 个包装报价 HTTP 场景通过|
 |正常报价核算包装、授权与兑换（阶段181，P0-3）|§13.1、§14.2–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|从源余额复核整组费用、包装本金及最低起始资金|两种报价方向的 12 个包装 HTTP 场景通过|
@@ -785,6 +786,7 @@
 |181|[组合资金操作的报价核算](#combined-funding-quote)|LOCAL_SCOPE_VERIFIED|整组网络费参与候选比较|
 |182|[按支出合约核对 WETH 授权](#weth-spender-allowance)|LOCAL_SCOPE_VERIFIED|验证单路线和拆单各自的源额度|
 |183|[单路线包装与授权费用](#router-wrap-approval)|LOCAL_SCOPE_VERIFIED|将 Router02 的授权和包装费计入候选排序|
+|184|[报价页的资金需求](#quote-funding-ui)|LOCAL_SCOPE_VERIFIED|以 wei 展示选中路线的付款人资金需求|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
 |175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
 |174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
@@ -4728,3 +4730,11 @@ WETH 包装报价从固定版本 WETH9 的源存储读取 `allowance[caller][spe
 在固定 Shanghai 区块，报价服务根据 Router02 与批量执行器各自的 WETH9 额度，为每个候选选择资金操作。额度为零时授权实际所需输入，额度非零且不足时按配置先清零，再精确授权。单路线和拆单各自绑定 spender，父进程核对每笔收支、预留资金和成交时价格。
 
 新增 Router02 额度不足的本地独立出块记录。20 个正常报价 HTTP 场景全部通过，覆盖 ExactIn、ExactOut、不同 spender 的额度差异和价格到期。报价库 68 项通过、5 项按环境忽略，Clippy 严格检查通过。[独立出块记录](integration/artifacts/local/router-approval-183/bank.json) · [HTTP 验收报告](integration/artifacts/local/router-approval-183/http/report.json)
+
+<a id="quote-funding-ui"></a>
+
+## 报价页的资金需求（2026-11-19，阶段184，P0-3）
+
+报价页按选中计划和执行回执的绑定摘要核对资金信息。ExactIn 和 ExactOut 均以 wei 展示付款人网络费、包装本金、预计原币支出和最低起始余额，并标明本次排序是否使用已折算的网络费。金额以整数原子单位校验。
+
+24 项前端测试通过。另用 20 个正常报价响应核对展示值，并在 Chromium 中通过实际 Router 请求核对两种报价方向的页面金额。[浏览器验收报告](integration/artifacts/local/quote-funding-ui-184/run-nkFhvg/report.json)
