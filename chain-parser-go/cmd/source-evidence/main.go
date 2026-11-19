@@ -63,7 +63,7 @@ func run() error {
 	beaconRoot := flag.String("beacon-root", "", "externally pinned Ethereum mainnet beacon block root for offline verification")
 	bootstrap := flag.String("beacon-bootstrap", "", "light_client/bootstrap response for the pinned root")
 	finality := flag.String("beacon-finality", "", "optional same-period light_client/finality_update response")
-	updates := flag.String("beacon-updates", "", "ordered same-fork light_client/updates response for committee transitions")
+	updates := flag.String("beacon-updates", "", "ordered light_client/updates response for committee transitions")
 	flag.Parse()
 	if *updates != "" && *finality == "" || *finality != "" && *bootstrap == "" || (*beaconRoot == "") != (*bootstrap == "") || *bootstrap != "" && *verify == "" && *finality == "" {
 		return errors.New("EVIDENCE_BEACON_ARGUMENTS")

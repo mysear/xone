@@ -112,14 +112,14 @@ func verifyExecutionFinality(root string, bootstrap, raw []byte, transitions []c
 	if finalized.Slot < pin.Slot || finalized.Slot > attested.Slot || attested.Slot >= u.SignatureSlot || beacon.SyncPeriod(u.SignatureSlot) != period || len(history) > 0 && beacon.SyncPeriod(finalized.Slot) != period {
 		return nil, invalid("BEACON_UPDATE_SLOTS")
 	}
-	// Same-fork, same-period updates only. A transition needs its own proof.
-	if update.Version != pin.Fork || mainnetHeaderFork(u.SignatureSlot) != pin.Fork {
+	// The state branch belongs to the attested fork, even if the trusted checkpoint predates it.
+	if !update.matchesForkSchedule() {
 		return nil, invalid("BEACON_UPDATE_FORK")
 	}
 	if _, err := u.Attested.verifiedExecution(update.Version); err != nil {
 		return nil, err
 	}
-	payload, err := u.Finalized.verifiedExecution(update.Version)
+	payload, err := u.Finalized.verifiedExecution(mainnetHeaderFork(finalized.Slot))
 	if err != nil {
 		return nil, err
 	}
@@ -158,6 +158,13 @@ type committeeUpdate struct {
 		NextBranch    merkle.Values                   `json:"next_sync_committee_branch"`
 		SignatureSlot uint64                          `json:"signature_slot,string"`
 	} `json:"data"`
+}
+
+// The API version selects the attested state's proof indices. Each header's
+// execution payload is verified using its own slot. BLS uses signatureSlot-1.
+func (u *committeeUpdate) matchesForkSchedule() bool {
+	fork := mainnetHeaderFork(u.Data.Attested.Beacon.Slot)
+	return fork != "" && u.Version == fork && mainnetHeaderFork(u.Data.SignatureSlot) != ""
 }
 
 func verifyCommitteeSignature(committee *beacon.SerializedSyncCommittee, attested *beacon.Header, signatureSlot uint64, signature *beacon.SyncAggregate) error {

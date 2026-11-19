@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|主网同步委员会跨 Electra/Fulu 交接（阶段204，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|根据参与签名的区块时隙选择状态证明索引，逐头核验执行载荷与签名|历史执行块 23942645 及下一委员会分支通过。Deneb 检查点样本在委员会验证时拒绝|
 |从主网归档重算已发布的池状态与兑换事实（阶段203，P0-1）|§7.3、§9、§17，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|从签名头反向验证祖先，复用普通 Go 解码器逐块重算并比较派生负载哈希|两个窗口合计 26 个高度，24 个已发布增量逐字节哈希相符|
 |从现有 owner 配置选取主网归档节点（阶段202，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|验收与归档检查使用同一对配置端点，报告用来源 ID 标识自定义端点|已复查 256 条归档，新端点的 32 块实测待提供配置|
 |池账户证明按端点复用链身份（阶段201，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|同一池读取期间，已验证节点共用链 ID 和创世块身份，每个账户仍按执行块哈希取证|主网连续发布 6 个增量，下一高度的 Pair 历史证明不可用|
@@ -813,6 +814,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|204|[跨分叉委员会交接](#beacon-fork-handover)|LOCAL_SCOPE_VERIFIED|周期 1606 交接至 1607，错误版本、缺少交接、下一委员会分支篡改和历史检查点矛盾均拒绝|
 |203|[已发布窗口重放](#owner-window-replay)|LOCAL_SCOPE_VERIFIED|从两个主网窗口的原始节点响应重建，核对每个已发布增量的池与兑换事实|
 |202|[归档节点配置](#beacon-owner-execution-config)|LOCAL_SCOPE_VERIFIED|公共节点配置重读归档、来源不匹配、错误链和自定义来源脱敏检查通过|
 |201|[池证明的节点身份](#pool-proof-endpoint)|LOCAL_SCOPE_VERIFIED|同源重复请求、换源错误身份和剩余预算通过专项 race 测试|
@@ -4950,3 +4952,13 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 26449944–26449962 和 26450264–26450270 两段合计 26 个高度通过，其中 24 个增量的派生哈希全部相符。两个窗口分别执行 1,022 次与 398 次本地 RPC 读取。原归档分别有 3 条限流响应、2 条历史状态错误。完整 32 块在线发布仍依赖可提供相应证明的主网节点。两项新增回归涵盖响应歧义、未记录请求、派生内容篡改和代际改变，Go 工具构建与 vet 通过。
 
 [18 个增量重算报告](integration/artifacts/local/beacon-replay-203/window-200.json) · [6 个增量重算报告](integration/artifacts/local/beacon-replay-203/window-201.json)
+
+<a id="beacon-fork-handover"></a>
+
+## 同步委员会跨分叉交接（2026-11-20，阶段204，P0-1）
+
+从 Electra 的显式主网检查点验证周期 1606 获取的下一委员会，再验证该委员会对 Fulu 执行块 23942645 的最终性签名。验证器按 attested header 的时隙选择状态证明索引，按各执行载荷所属时隙校验头部分支，签名域沿用签名时隙前一时隙的分叉版本。Fulu 更新提供的下一委员会分支也经实际数据核对。两份固定输入随仓库提供，回归可离线运行。
+
+主网块 23942645 的哈希为 `0x4417a28d346e978a8e77128d3596a355c20d87ca18ebd126276933895cace473`。错误的更新版本、缺少委员会交接和下一委员会分支篡改均被拒绝。另一个历史 Deneb 样本通过了检查点根与执行载荷校验，在当前委员会的 Merkle 分支校验时拒绝。Deneb 至 Electra 的完整正例仍需能通过该校验的起始证据。来源验证包 66 项 race 回归（含子测试）及 vet 通过。
+
+[固定输入说明](integration/test/source/beacon-fork-handover/README.md) · [专项测试](chain-parser-go/internal/provenance/beacon_fork_handover_test.go) · [包回归](integration/artifacts/local/beacon-fork-204/go.log)

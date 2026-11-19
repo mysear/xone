@@ -60,7 +60,7 @@ func verifyTransition(pin *BeaconBinding, period uint64, committee *beacon.Seria
 	if attested == nil || finalized == nil || u.NextCommittee == nil || u.Signature == nil {
 		return CommitteeTransition{}, invalid("BEACON_TRANSITION_FIELDS")
 	}
-	if update.Version != pin.Fork || mainnetHeaderFork(u.SignatureSlot) != pin.Fork {
+	if !update.matchesForkSchedule() {
 		return CommitteeTransition{}, invalid("BEACON_TRANSITION_FORK")
 	}
 	if finalized.Slot < pin.Slot || finalized.Slot > attested.Slot || attested.Slot >= u.SignatureSlot || beacon.SyncPeriod(finalized.Slot) != period || beacon.SyncPeriod(u.SignatureSlot) != period {
@@ -72,7 +72,7 @@ func verifyTransition(pin *BeaconBinding, period uint64, committee *beacon.Seria
 	if _, err := u.Attested.verifiedExecution(update.Version); err != nil {
 		return CommitteeTransition{}, err
 	}
-	if _, err := u.Finalized.verifiedExecution(update.Version); err != nil {
+	if _, err := u.Finalized.verifiedExecution(mainnetHeaderFork(finalized.Slot)); err != nil {
 		return CommitteeTransition{}, err
 	}
 	nextRoot := u.NextCommittee.Root()
