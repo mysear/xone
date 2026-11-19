@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|原生区块交易编码复用（阶段197，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|用一次生成的签名交易原文验证交易根并交付证据|块 26449307 核对 407 笔交易，最终复核后节省 14,514,696 字节预算|
 |原生回执见证错误定位（阶段196，P0-1）|§7.3、§22，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|追块失败日志记录见证节点序号、块高、阶段及错误分类|26448990 双节点复读通过，新基线 26449307 达到证明预算上限|
 |Ethereum 主网见证节点的交易体复用（阶段195，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|每个见证节点在回执校验时使用本节点刚验证的交易体，完成后重新读取区块|块 26448796 复测节省 6,066,035 字节预算，连续发布仍待验收|
 |相邻最终化头连续发布验收（阶段194，P0-1）|§7.3、§9，WP03、WP04|PARTIAL_LOCAL|普通 owner 运行期间通过 CLI 更新证明并逐条核对发布日志|主网 26448795 → 26448827 在首个增量前撤权，须定位证明预算消耗|
@@ -806,6 +807,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|197|[原生交易原文与验证预算](#native-body-encoding-budget)|LOCAL_SCOPE_VERIFIED|主网对照及精确字节预算边界通过|
 |196|[回执见证错误定位](#beacon-witness-diagnostics)|LOCAL_SCOPE_VERIFIED|回执缺失及五类原因通过回归，保留业务错误码|
 |195|[主网回执见证预算](#beacon-witness-budget)|LOCAL_SCOPE_VERIFIED|双节点调用次数、缺失回执及主网预算复测|
 |194|[主网连续发布验收](#beacon-owner-advance)|PARTIAL_LOCAL|首次实测定位到回执证明预算，保留失败记录|
@@ -4868,3 +4870,13 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 块 26448990 的双节点回读核验了 275 笔交易及回执。回执核验后剩余 34,625,608 字节，该次复测成功。此前线上失败的具体原因尚待观测。新鲜签名块 26449307 的 owner 启动返回 `RECEIPT_PROOF_BUDGET`，可用此块度量各步骤消耗。阶段195的 EVM 全包延长测试期限后通过，共 2,923 项通过、21 项跳过。完整短尾验收和可信检查点发布仍为待办。
 
 [块 26448990 回读](integration/artifacts/local/beacon-witness-196/diagnostic.log) · [错误分类回归](integration/artifacts/local/beacon-witness-196/controls.log) · [启动记录](integration/artifacts/local/beacon-witness-196/live/owner.log) · [EVM 全包结果](integration/artifacts/local/beacon-witness-195/full.jsonl)
+
+<a id="native-body-encoding-budget"></a>
+
+## 原生交易原文与验证预算（2026-11-19，阶段197，P0-1）
+
+取得完整原生区块后，解析器保留已检查位置和类型的签名交易原文，按交易顺序验证哈希及交易根，并把同一份原文交给后续回执核验。主网块 26449307 共 407 笔交易，配置预算为 64 MiB。区块交易体预算由 6,652,717 降至 4,233,601 字节。回执和最终锚点复核后，剩余预算由 5,838,429 增至 20,353,125 字节。Arbitrum 固定输入的精确开销降至 72,791 字节，少给一字节时拒绝发布。56 项 race 回归及 vet 通过。
+
+同一旧块的 owner 状态读取返回 `RPC_ERROR_-32000`。用新鲜证明启动时，从 26449402 连续发布至 26449404，目标为 26449434。后续源请求返回 HTTP 408，owner 撤权。该窗口的连续发布验收仍为 `PARTIAL_LOCAL`。下一步把现有 RPC 有界重试策略接入普通在线配置并复验瞬时超时。
+
+[改动前](integration/artifacts/local/beacon-body-197/before.log) · [改动后](integration/artifacts/local/beacon-body-197/after.log) · [预算回归](integration/artifacts/local/beacon-body-197/regression-fixed.jsonl) · [普通 owner 日志](integration/artifacts/local/beacon-body-197/live-2/owner.log)

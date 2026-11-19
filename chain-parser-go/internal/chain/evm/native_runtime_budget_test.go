@@ -227,7 +227,8 @@ func TestNativeNormalExactFinalBudgetBoundary(t *testing.T) {
 		want  bool
 		left  int
 	}{
-		{"short-one", 90318, false, 0}, {"exact", 90319, true, 0}, {"extra-one", 90320, true, 1},
+		// Body acquisition and the final recheck each retain one signed encoding.
+		{"short-one", 72790, false, 0}, {"exact", 72791, true, 0}, {"extra-one", 72792, true, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newNormalNativeFixture(t, "arbitrum")

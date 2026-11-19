@@ -167,7 +167,7 @@ func (r *nativeProofReader) fullBlockTag(tag string) (ChainHeaderCommitment, Exe
 	}
 	return proof, ExecutionReceiptBlock{Header: header, TransactionsJSON: txs}, nil
 }
-func (r *nativeProofReader) prepareBody(header ChainHeaderCommitment, block *ExecutionReceiptBlock) error {
+func (r *nativeProofReader) prepareBody(header ChainHeaderCommitment, block *ExecutionReceiptBlock, retainEncoded bool) error {
 	// Full JSON is an explicit authority choice for V2. Only enumerated layouts
 	// are reconstructed; another native type must supply real raw bytes.
 	raws := make([]string, len(block.TransactionsJSON))
@@ -196,7 +196,7 @@ func (r *nativeProofReader) prepareBody(header ChainHeaderCommitment, block *Exe
 			return err
 		}
 	}
-	if needsRaw {
+	if needsRaw || retainEncoded {
 		block.RawTransactions = raws
 		block.TransactionsJSON = nil
 	}
@@ -313,7 +313,7 @@ func (a *Adapter) readNativeReceiptCoverageCached(ctx context.Context, target Ra
 		coverage.ProofBytesUsed += r.limits.MaxBytes - r.budget.remaining
 		return coverage, err
 	}
-	if err = r.prepareBody(header, &body); err != nil {
+	if err = r.prepareBody(header, &body, false); err != nil {
 		return empty, err
 	}
 	if r.chainKey == "evm:43114" && header.SettledHeight != nil {
@@ -404,7 +404,7 @@ func (r *nativeProofReader) saeCoverage(target RawBlock, targetHeader ChainHeade
 			if known, ok := decoded[n]; ok && known.Block.Hash != header.Block.Hash {
 				return empty, errors.New("SAE_WINDOW_REORG")
 			}
-			if err = r.prepareBody(header, &block); err != nil {
+			if err = r.prepareBody(header, &block, false); err != nil {
 				return empty, err
 			}
 			headers[n] = block.Header
@@ -480,25 +480,12 @@ func (r *nativeProofReader) proveBody(header ChainHeaderCommitment, body Executi
 	}
 	canonicalHeader := header
 	canonicalHeader.Block = canonical
-	if err = r.prepareBody(canonicalHeader, &body); err != nil {
+	if err = r.prepareBody(canonicalHeader, &body, true); err != nil {
 		return empty, err
 	}
-	if err = verifyExecutionBody(r.ctx, r.chainKey, canonicalHeader, body, &r.budget); err != nil {
+	// Check the exact signed encodings that will be returned as evidence.
+	if err = verifyRawBodyCommitment(r.ctx, r.chainKey, canonicalHeader, body.RawTransactions, &r.budget); err != nil {
 		return empty, err
-	}
-	raws := body.RawTransactions
-	if len(raws) == 0 {
-		raws = make([]string, 0, len(body.TransactionsJSON))
-		for i, raw := range body.TransactionsJSON {
-			payload, err := encodeChainTransactionJSON(r.chainKey, canonical, uint64(i), raw)
-			if err != nil {
-				return empty, err
-			}
-			if err = r.budget.charge(2*len(payload) + 128); err != nil {
-				return empty, err
-			}
-			raws = append(raws, "0x"+hex.EncodeToString(payload))
-		}
 	}
 	sem, err := ResolveNativeSemantics(r.chainKey, header)
 	if err != nil {
@@ -511,7 +498,7 @@ func (r *nativeProofReader) proveBody(header ChainHeaderCommitment, body Executi
 	if r.chainKey == "evm:137" && height < 80084800 {
 		scope = "canonical-header-transactions/system-observations-isolated"
 	}
-	return ChainBlockBodyProof{Block: header.Block, CanonicalBlock: canonical, Header: body.Header, HeaderCommitment: header, RawTransactions: raws, UncommittedSystemTransactionIDs: system, BodyCoverageScope: scope, NativeSemantics: &sem, ProofBytesUsed: r.limits.MaxBytes - r.budget.remaining, TransactionEncodingAuthority: "standard-signed-json+enumerated-native-rlp/native-raw-if-required"}, nil
+	return ChainBlockBodyProof{Block: header.Block, CanonicalBlock: canonical, Header: body.Header, HeaderCommitment: header, RawTransactions: body.RawTransactions, UncommittedSystemTransactionIDs: system, BodyCoverageScope: scope, NativeSemantics: &sem, ProofBytesUsed: r.limits.MaxBytes - r.budget.remaining, TransactionEncodingAuthority: "standard-signed-json+enumerated-native-rlp/native-raw-if-required"}, nil
 }
 
 // ReadNativeAccountProof reads explicit physical EIP-1186 storage keys.
