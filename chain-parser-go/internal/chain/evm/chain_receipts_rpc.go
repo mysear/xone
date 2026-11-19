@@ -25,6 +25,17 @@ type nativeProofReader struct {
 }
 
 func newNativeProofReader(ctx context.Context, a *Adapter, limits ReceiptProofLimits) (*nativeProofReader, error) {
+	return newNativeProofReaderForEndpoint(ctx, a, limits, nil)
+}
+
+// The account batch owns this identity for the duration of a single pool read.
+// ProviderClients rechecks quarantine and binds each new reader to one URL.
+// Every response is still charged to the current proof budget.
+type proofEndpointIdentity struct {
+	url, chainKey, genesis string
+}
+
+func newNativeProofReaderForEndpoint(ctx context.Context, a *Adapter, limits ReceiptProofLimits, verified *proofEndpointIdentity) (*nativeProofReader, error) {
 	if err := limits.validate(); err != nil {
 		return nil, err
 	}
@@ -58,6 +69,10 @@ func newNativeProofReader(ctx context.Context, a *Adapter, limits ReceiptProofLi
 	}
 	httpClient.Transport = nativeBudgetTransport{base: transport, budget: &r.budget}
 	r.client.HTTP = &httpClient
+	selected := proofEndpointIdentity{url: r.client.URLs[0], chainKey: r.chainKey, genesis: genesis}
+	if verified != nil && *verified == selected {
+		return r, nil
+	}
 	identity, err := r.call("eth_chainId", []any{})
 	if err != nil {
 		cancel()
@@ -79,6 +94,9 @@ func newNativeProofReader(ctx context.Context, a *Adapter, limits ReceiptProofLi
 	if json.Unmarshal(origin, &hash) != nil || !strings.EqualFold(hash.Hash, genesis) {
 		cancel()
 		return nil, errors.New("BLOCK_BODY_FINGERPRINT")
+	}
+	if verified != nil {
+		*verified = selected
 	}
 	return r, nil
 }
@@ -611,7 +629,7 @@ func (a *Adapter) ReadNativeSettledBlockProof(ctx context.Context, tag string, l
 
 // readNativeContractAccountProof uses physical keys on eth_getProof. The MPT
 // verifier remains physical; contract interpretation is applied only afterwards.
-func (a *Adapter) readNativeContractAccountProof(ctx context.Context, anchor ExecutionStateAnchor, address string, plan contractStoragePlan, limits ReceiptProofLimits) (out VerifiedContractAccountCommitment, used int, err error) {
+func (a *Adapter) readNativeContractAccountProof(ctx context.Context, anchor ExecutionStateAnchor, address string, plan contractStoragePlan, limits ReceiptProofLimits, endpoint *proofEndpointIdentity) (out VerifiedContractAccountCommitment, used int, err error) {
 	if err = limits.validate(); err != nil {
 		return out, 0, err
 	}
@@ -625,7 +643,7 @@ func (a *Adapter) readNativeContractAccountProof(ctx context.Context, anchor Exe
 	if !receiptHex(address, 20) {
 		return out, 0, errors.New("STATE_PROOF_REQUEST_INVALID")
 	}
-	r, err := newNativeProofReader(ctx, a, limits)
+	r, err := newNativeProofReaderForEndpoint(ctx, a, limits, endpoint)
 	if err != nil {
 		return out, 0, err
 	}

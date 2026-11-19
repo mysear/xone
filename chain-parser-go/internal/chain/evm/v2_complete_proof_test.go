@@ -28,11 +28,13 @@ import (
 )
 
 type v2ProofBank struct {
-	bank       completeV2Case
-	header     map[string]any
-	state      *trie.Trie
-	storage    map[string]*trie.Trie
-	proofReads atomic.Int64
+	bank         completeV2Case
+	header       map[string]any
+	state        *trie.Trie
+	storage      map[string]*trie.Trie
+	proofReads   atomic.Int64
+	chainIDReads atomic.Int64
+	genesisReads atomic.Int64
 }
 
 func v2TrieNodes(t *testing.T, tree *trie.Trie, key []byte) []string {
@@ -206,11 +208,13 @@ func (f *v2ProofBank) adapter(t *testing.T, fault string) *Adapter {
 		}
 		switch q.Method {
 		case "eth_chainId":
+			f.chainIDReads.Add(1)
 			respond("0x1")
 		case "eth_getBlockByNumber":
 			var tag string
 			json.Unmarshal(q.Params[0], &tag)
 			if tag == "0x0" {
+				f.genesisReads.Add(1)
 				g, _ := knownBodyGenesis("evm:1")
 				respond(map[string]any{"hash": g})
 			} else {
@@ -358,6 +362,7 @@ func TestV2AccountBatchProvesEveryAccountAtOneVerifiedAnchor(t *testing.T) {
 	address := f.bank.Pool.PoolID
 	keys := []string{"0x8"}
 	before := f.proofReads.Load()
+	ids, origins := f.chainIDReads.Load(), f.genesisReads.Load()
 	first, err := batch.read(address, keys)
 	if err != nil {
 		t.Fatal(err)
@@ -369,6 +374,9 @@ func TestV2AccountBatchProvesEveryAccountAtOneVerifiedAnchor(t *testing.T) {
 	if first.Account.StorageRoot != second.Account.StorageRoot || first.ProofBytesUsed <= second.ProofBytesUsed || f.proofReads.Load() != before+2 {
 		t.Fatalf("unexpected proof reuse: %d/%d, reads %d", first.ProofBytesUsed, second.ProofBytesUsed, f.proofReads.Load()-before)
 	}
+	if f.chainIDReads.Load() != ids+1 || f.genesisReads.Load() != origins+1 {
+		t.Fatal("same endpoint identity was not checked exactly once")
+	}
 	// A standalone request must verify its own evidence even after a successful batch.
 	block.NativeCoverage.Evidence.NativeSemanticsID = "invalid"
 	if _, err = a.ReadNativeContractAccountProof(ctx, block, address, keys); err == nil {
@@ -376,5 +384,48 @@ func TestV2AccountBatchProvesEveryAccountAtOneVerifiedAnchor(t *testing.T) {
 	}
 	if _, err = batch.read(address, keys); err == nil || f.proofReads.Load() != before+2 {
 		t.Fatal("rejected session admitted a cached read", err)
+	}
+}
+
+func TestV2BatchEndpointChangeRequiresFreshIdentity(t *testing.T) {
+	bank := newV2ProofBank(t, "")
+	a := bank.adapter(t, "")
+	limits := nativeProofTestLimits()
+	var endpoint proofEndpointIdentity
+	reader, err := newNativeProofReaderForEndpoint(context.Background(), a, limits, &endpoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader.cancel()
+	original := endpoint
+	for _, wrong := range []string{"chain", "genesis"} {
+		t.Run(wrong, func(t *testing.T) {
+			other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var request struct{ Method string }
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					t.Error(err)
+					return
+				}
+				var result any
+				switch request.Method {
+				case "eth_chainId":
+					result = "0x1"
+					if wrong == "chain" {
+						result = "0x2"
+					}
+				case "eth_getBlockByNumber":
+					result = map[string]string{"hash": "0x00"}
+				default:
+					t.Errorf("unexpected request %s", request.Method)
+				}
+				json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": 1, "result": result})
+			}))
+			t.Cleanup(other.Close)
+			a.Client = rpc.New([]string{other.URL}, time.Second, 1<<20)
+			reader, err := newNativeProofReaderForEndpoint(context.Background(), a, limits, &endpoint)
+			if reader != nil || err == nil || err.Error() != "BLOCK_BODY_FINGERPRINT" || endpoint != original {
+				t.Fatal("new endpoint inherited identity", err)
+			}
+		})
 	}
 }

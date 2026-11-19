@@ -1,6 +1,6 @@
 # Xone 开发进度与完成情况
 
-更新：2026-11-19。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
+更新：2026-11-20。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|池账户证明按端点复用链身份（阶段201，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|同一池读取期间，已验证节点共用链 ID 和创世块身份，每个账户仍按执行块哈希取证|主网连续发布 6 个增量，下一高度的 Pair 历史证明不可用|
 |相邻最终化头的原始响应归档（阶段200，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|PARTIAL_LOCAL|逐块保存已提交引用，核对双来源区块体、同块账户证明和派生记录|26449944 起连续提交 18/32 个增量，26449964 读取遇 HTTP 429|
 |V2 池账户证明共用已验证状态根（阶段199，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|同一池的 Pair、Factory 和两种 Token 使用同一份已验证执行锚点，每个账户和存储键单独校验|主网 26449753 起连续发布 8 个块，完整窗口待验收|
 |普通 Go owner 的 RPC 读取重试（阶段198，P0-1）|§7.1，WP03、WP04|LOCAL_SCOPE_VERIFIED|按链配置重试次数与退避时间，在线和独立历史读取使用各自的客户端|HTTP 408 恢复、429 次数上限、400 终止及缺省行为通过|
@@ -810,6 +811,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|201|[池证明的节点身份](#pool-proof-endpoint)|LOCAL_SCOPE_VERIFIED|同源重复请求、换源错误身份和剩余预算通过专项 race 测试|
 |200|[跨头发布归档](#beacon-owner-archive)|PARTIAL_LOCAL|583 条原始及派生记录通过封装核验，已发布 19 个高度的覆盖检查通过|
 |199|[V2 池账户证明批次](#v2-verified-account-batch)|LOCAL_SCOPE_VERIFIED|账户重复读取、独立证明校验和失败会话回归通过|
 |198|[普通读取的 RPC 重试](#owner-rpc-retry)|LOCAL_SCOPE_VERIFIED|启动配置及见证子客户端的重试行为通过|
@@ -4916,3 +4918,13 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 主网起始块 26449944，签名目标 26449976，最后连续提交 26449962。583 条记录共 108,580,577 字节，18 条派生块与发布引用相符。owner 在并行读取高度 26449964 时报告 `RPC_HTTP_429`，验收观察到日志中断。dRPC 原始响应对 `eth_getCode`、`eth_chainId`、`eth_getBlockByNumber` 报告公共端点限流（码 15）。已发布 19 个高度的归档覆盖检查全部通过，32 块发布仍待完整验收。5 项信标验收工具测试、11 项来源证据测试和 Go 服务相关 race 回归通过。
 
 [主网报告](integration/artifacts/local/beacon-archive-200/live/report.json) · [普通 owner 日志](integration/artifacts/local/beacon-archive-200/live/owner.log)
+
+<a id="pool-proof-endpoint"></a>
+
+## 池证明读取期间的节点身份（2026-11-20，阶段201，P0-1）
+
+DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。同一池的同步读取首次核验节点的链 ID 与创世块，随后使用相同端点时复用该身份。每次读取仍选取健康节点、绑定单个端点并消耗当前区块的剩余预算。切换节点时重新核验链 ID 和创世块。独立账户读取和新池批次各自建立身份。两次连续的独立 MPT 查询在测试中各成功一次，合计请求一次链 ID 和一次创世块。23 项专项 race 测试（含子测试）与 EVM、RPC 的 vet 通过。
+
+主网基线 26450264，目标 26450296，连续发布至 26450270。256 条归档共 45,063,808 字节，已发布 7 个高度的覆盖检查通过。26450271 的并行读取报告 `RPC_ERROR_-32000`。dRPC 对该窗口内两个哈希的 Pair 存储证明返回历史状态不可用。PublicNode 对完全相同的两次 `eth_getProof` 请求均返回错误码 4444，指明超过证明窗口。完整跨头发布仍需要能提供这些历史状态证明的节点。
+
+[专项回归](integration/artifacts/local/beacon-endpoint-201/focused.log) · [主网报告](integration/artifacts/local/beacon-endpoint-201/live/report.json) · [第二端点复查](integration/artifacts/local/beacon-endpoint-201/secondary-proof-check.json)

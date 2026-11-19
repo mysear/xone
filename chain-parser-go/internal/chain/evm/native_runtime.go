@@ -336,10 +336,11 @@ func (a *Adapter) ReadNativeContractAccountProof(ctx context.Context, block RawB
 // the receipt evidence and scope. Later accounts prove new MPT paths against
 // the copied execution anchor and consume the same block session budget.
 type accountProofBatch struct {
-	adapter *Adapter
-	block   RawBlock
-	ctx     context.Context
-	anchor  *ExecutionStateAnchor
+	adapter  *Adapter
+	block    RawBlock
+	ctx      context.Context
+	anchor   *ExecutionStateAnchor
+	endpoint proofEndpointIdentity
 }
 
 func (batch *accountProofBatch) read(address string, logicalKeys []string) (out VerifiedContractAccountCommitment, err error) {
@@ -410,7 +411,7 @@ func (batch *accountProofBatch) read(address string, logicalKeys []string) (out 
 	if err != nil {
 		return out, err
 	}
-	account, used, err := a.readNativeContractAccountProof(ctx, *batch.anchor, address, plan, limits)
+	account, used, err := a.readNativeContractAccountProof(ctx, *batch.anchor, address, plan, limits, &batch.endpoint)
 	if err != nil {
 		return out, err
 	}
