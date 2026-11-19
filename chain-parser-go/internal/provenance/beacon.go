@@ -89,9 +89,26 @@ func VerifyWithBeaconCheckpoint(e Evidence, rootText string, raw []byte) (Report
 	if e.ChainID != "1" {
 		return Report{}, invalid("BEACON_MAINNET_REQUIRED")
 	}
+	binding, _, err := verifyCheckpoint(rootText, raw)
+	if err != nil {
+		return Report{}, err
+	}
+	if !strings.EqualFold(binding.ExecutionHash.Hex(), e.ExpectedBlockHash) {
+		return Report{}, invalid("BEACON_EXECUTION_HASH")
+	}
+
+	report, err := Verify(e)
+	if err != nil {
+		return Report{}, err
+	}
+	report.BeaconCheckpoint = binding
+	return report, nil
+}
+
+func verifyCheckpoint(rootText string, raw []byte) (*BeaconBinding, *beacon.SerializedSyncCommittee, error) {
 	var root common.Hash
 	if root.UnmarshalText([]byte(rootText)) != nil || root == (common.Hash{}) {
-		return Report{}, invalid("BEACON_CHECKPOINT_ROOT")
+		return nil, nil, invalid("BEACON_CHECKPOINT_ROOT")
 	}
 	var response struct {
 		Version string `json:"version"`
@@ -102,31 +119,24 @@ func VerifyWithBeaconCheckpoint(e Evidence, rootText string, raw []byte) (Report
 		} `json:"data"`
 	}
 	if len(raw) > MaxBootstrapBytes || json.Unmarshal(raw, &response) != nil {
-		return Report{}, invalid("BEACON_BOOTSTRAP_ENCODING")
+		return nil, nil, invalid("BEACON_BOOTSTRAP_ENCODING")
 	}
 	h := response.Data.Header
 	if h.Beacon == nil || h.Beacon.Hash() != root {
-		return Report{}, invalid("BEACON_CHECKPOINT_MISMATCH")
+		return nil, nil, invalid("BEACON_CHECKPOINT_MISMATCH")
 	}
 	payload, err := h.verifiedExecution(response.Version)
 	if err != nil {
-		return Report{}, err
+		return nil, nil, err
 	}
-	if !strings.EqualFold(payload.BlockHash().Hex(), e.ExpectedBlockHash) {
-		return Report{}, invalid("BEACON_EXECUTION_HASH")
-	}
+
 	committee := response.Data.Committee
 	if committee == nil {
-		return Report{}, invalid("BEACON_COMMITTEE_MISSING")
+		return nil, nil, invalid("BEACON_COMMITTEE_MISSING")
 	}
 	bootstrap := beacon.BootstrapData{Version: response.Version, Header: *h.Beacon, Committee: committee, CommitteeRoot: committee.Root(), CommitteeBranch: response.Data.Branch}
 	if err := bootstrap.Validate(); err != nil {
-		return Report{}, invalid("BEACON_COMMITTEE_BRANCH")
+		return nil, nil, invalid("BEACON_COMMITTEE_BRANCH")
 	}
-	report, err := Verify(e)
-	if err != nil {
-		return Report{}, err
-	}
-	report.BeaconCheckpoint = &BeaconBinding{Root: root, Slot: h.Beacon.Slot, Fork: response.Version, CommitteeRoot: bootstrap.CommitteeRoot, ExecutionHash: payload.BlockHash()}
-	return report, nil
+	return &BeaconBinding{Root: root, Slot: h.Beacon.Slot, Fork: response.Version, CommitteeRoot: bootstrap.CommitteeRoot, ExecutionHash: payload.BlockHash()}, committee, nil
 }
