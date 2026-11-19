@@ -177,7 +177,11 @@ impl Model {
         if self.evidence.values().any(|e| {
             matches!(
                 e["costs"]["scope"].as_str(),
-                Some("DECLARED_LOCAL_APPROVAL_AND_SWAP" | "DECLARED_LOCAL_WRAP_AND_SWAP")
+                Some(
+                    "DECLARED_LOCAL_APPROVAL_AND_SWAP"
+                        | "DECLARED_LOCAL_WRAP_AND_SWAP"
+                        | "DECLARED_LOCAL_WRAP_APPROVAL_AND_SWAP"
+                )
             )
         }) {
             value["scope"] = "LOCAL_EVM_PLAN_NETWORK_FEES".into();
@@ -268,7 +272,9 @@ pub(crate) fn disclose(
     ] {
         costs[field] = original[field].clone();
     }
-    costs["scope"] = if costs["scope"] == "DECLARED_LOCAL_WRAP_AND_SWAP" {
+    costs["scope"] = if costs["scope"] == "DECLARED_LOCAL_WRAP_APPROVAL_AND_SWAP" {
+        "SELECTED_LOCAL_WRAP_APPROVAL_AND_SWAP"
+    } else if costs["scope"] == "DECLARED_LOCAL_WRAP_AND_SWAP" {
         "SELECTED_LOCAL_WRAP_AND_SWAP"
     } else if costs["scope"] == "DECLARED_LOCAL_APPROVAL_AND_SWAP" {
         "SELECTED_LOCAL_APPROVAL_AND_SWAP"

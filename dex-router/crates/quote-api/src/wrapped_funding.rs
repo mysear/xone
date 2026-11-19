@@ -5,7 +5,7 @@ use tiny_keccak::{Hasher, Keccak};
 use xone_domain::{err, hash, Amount, Result};
 use xone_execution_plan::{ordered_v2, Context, Transaction};
 use xone_execution_preparation::evm_native_cost::{
-    audited_payer_cost, measured_native_cost, sequence_funding, NativeBalances, NativeCost,
+    audited_payer_cost, measured_native_cost, sequence_funding, NativeBalances,
 };
 use xone_simulation::{
     evm_fixture::{NativeFeeMeasurements, WrapReceipt},
@@ -13,6 +13,7 @@ use xone_simulation::{
 };
 
 pub(super) struct Source {
+    combined: Option<LocalWrapReplay>,
     model: LocalWrapReplay,
     opening_tokens: Amount,
     caller: Amount,
@@ -36,7 +37,6 @@ impl Source {
         let deposit = &model.sequence.deposit_context;
         let swap = &model.swap_context;
         if model.sequence.first_approval_environment.is_some()
-            || bundle.approval_replay.is_some()
             || bundle.op_attributes_calldata.is_some()
             || caller == token
             || first.fork != "shanghai"
@@ -105,7 +105,28 @@ impl Source {
         let opening_tokens = Amount::from_be_bytes(
             &hex::decode(stored.strip_prefix("0x").ok_or_else(bad)?).map_err(|_| bad())?,
         )?;
+        let combined = if let Some(approval) = &bundle.approval_replay {
+            let approval_start = approval
+                .sequence
+                .reset
+                .as_ref()
+                .map_or(&approval.sequence.approval_context, |r| &r.context);
+            if approval.caller != *caller
+                || approval.token != *token
+                || hash(approval_start)? != hash(&model.swap_context)?
+            {
+                return Err(bad());
+            }
+            let mut combined = model.clone();
+            combined.sequence.first_approval_environment = Some(next.clone());
+            combined.sequence.swap_environment = approval.sequence.swap_environment.clone();
+            combined.swap_context = approval.swap_context.clone();
+            Some(combined)
+        } else {
+            None
+        };
         Ok(Some(Self {
+            combined,
             model: model.clone(),
             opening_tokens,
             caller: account(caller)?.balance.clone(),
@@ -115,13 +136,22 @@ impl Source {
             first: first.clone(),
         }))
     }
-    pub fn for_plan(&self, ctx: &Context, input: &Amount) -> Option<&LocalWrapReplay> {
+    pub fn for_plan(&self, ctx: &Context, input: &Amount, split: bool) -> Option<&LocalWrapReplay> {
         (self.model.caller == ctx.caller
             && self.model.sequence.wrapper == ctx.sell_token
             && input > &self.opening_tokens)
-            .then_some(&self.model)
+            .then_some(if split {
+                self.combined.as_ref().unwrap_or(&self.model)
+            } else {
+                &self.model
+            })
     }
-    pub fn commitment(&self, ctx: &Context, input: &Amount) -> Result<Commitment> {
+    pub fn commitment(
+        &self,
+        ctx: &Context,
+        input: &Amount,
+        model: &LocalWrapReplay,
+    ) -> Result<Commitment> {
         let expected = ordered_v2::wrapped_input_transaction(
             ctx,
             input,
@@ -137,7 +167,7 @@ impl Source {
             wrapper: self.wrapper.clone(),
             beneficiary: self.beneficiary.clone(),
             swap_beneficiary: self.swap_beneficiary.clone(),
-            model: self.model.clone(),
+            model: model.clone(),
             first: self.first.clone(),
         })
     }
@@ -155,11 +185,18 @@ pub(super) struct Commitment {
     first: xone_simulation::evm_fixture::ExecutionEnvironment,
 }
 impl Commitment {
+    pub fn changed_accounts<'a>(&'a self, r: &'a WrapReceipt) -> [(&'a str, &'a Amount); 3] {
+        [
+            (&self.expected.from, &r.payer_after),
+            (&self.expected.to, &r.wrapper_after),
+            (&self.first.coinbase, &r.beneficiary_after),
+        ]
+    }
     pub fn audit(
         &self,
         receipt: &WrapReceipt,
         swap: &NativeFeeMeasurements,
-        swap_fee: &NativeCost,
+        remaining_reserve: &Amount,
         costs: &mut Value,
     ) -> Result<()> {
         let bad = || err("SIMULATION_WRAP_RECEIPT");
@@ -223,9 +260,11 @@ impl Commitment {
         } else {
             &self.swap_beneficiary
         };
+        let combined = self.model.sequence.first_approval_environment.is_some();
         if receipt.wrapper_after != wrapper_after
-            || swap.caller_before != receipt.payer_after
-            || &swap.coinbase_before != swap_beneficiary
+            || (!combined
+                && (swap.caller_before != receipt.payer_after
+                    || &swap.coinbase_before != swap_beneficiary))
         {
             return Err(bad());
         }
@@ -236,21 +275,28 @@ impl Commitment {
                 .map_err(|_| bad())?;
         let (reserves, spent) = sequence_funding([
             (&fees.gas_limit_reserve, &payer.net_native_debit),
-            (&swap_fee.gas_limit_reserve, &swap_debit),
+            (remaining_reserve, &swap_debit),
         ])?;
         let opening = add(principal, &reserves)?;
         if self.caller < opening {
             return Err(bad());
         }
-        costs["nativeKnownSubtotal"] = json!(add(&fees.execution_fee, &swap_fee.execution_fee)?);
+        let remaining_fee: Amount =
+            serde_json::from_value(costs["nativeKnownSubtotal"].clone()).map_err(|_| bad())?;
+        costs["nativeKnownSubtotal"] = json!(add(&fees.execution_fee, &remaining_fee)?);
         costs["payerNetNativeDebit"] = json!(spent);
         costs["priorityReturnedToPayerNative"] =
             json!(add(&swap_tip, &payer.priority_returned_to_payer)?);
-        costs["scope"] = "DECLARED_LOCAL_WRAP_AND_SWAP".into();
+        costs["scope"] = if combined {
+            "DECLARED_LOCAL_WRAP_APPROVAL_AND_SWAP"
+        } else {
+            "DECLARED_LOCAL_WRAP_AND_SWAP"
+        }
+        .into();
         costs["settlementTimestampMs"] = json!(next.timestamp * 1000);
         costs["gasNativeScope"] = "SWAP_TRANSACTION".into();
         costs["wrapNative"] = json!(fees.execution_fee);
-        costs["nativeFunding"] = json!({"scope":"DECLARED_WRAP_AND_SWAP","bindingHash":costs["bindingHash"],"payer":caller,"sourceBalanceNative":self.caller,"minimumOpeningBalanceNative":opening,"totalNetDebitNative":add(principal,&spent)?,"wrappedPrincipalNative":principal,"networkFeeDebitNative":spent,"additionalNativeRequired":"0"});
+        costs["nativeFunding"] = json!({"scope":if combined {"DECLARED_WRAP_APPROVAL_AND_SWAP"}else{"DECLARED_WRAP_AND_SWAP"},"bindingHash":costs["bindingHash"],"payer":caller,"sourceBalanceNative":self.caller,"minimumOpeningBalanceNative":opening,"totalNetDebitNative":add(principal,&spent)?,"wrappedPrincipalNative":principal,"networkFeeDebitNative":spent,"additionalNativeRequired":"0"});
         costs["feeBreakdown"].as_array_mut().ok_or_else(bad)?.insert(0,json!({"kind":"WRAP_EXECUTION","amountNative":fees.execution_fee,"gasUnits":receipt.gas_used.to_string(),"blockHash":receipt.block_hash,"effectiveGasPrice":fees.effective_gas_price,"parts":{"baseFeeBurnedNative":fees.base_fee_burned,"priorityFeeNative":fees.priority_fee_paid}}));
         Ok(())
     }
@@ -272,7 +318,7 @@ pub(super) fn bind(
         _ => return Err(bad()),
     };
     match (
-        source.and_then(|s| s.for_plan(ctx, input).map(|m| (s, m))),
+        source.and_then(|s| s.for_plan(ctx, input, req.split.is_some()).map(|m| (s, m))),
         seq,
     ) {
         (None, None) => Ok(None),
@@ -282,11 +328,12 @@ pub(super) fn bind(
                 && req
                     .split
                     .as_ref()
-                    .is_none_or(|s| s.approval_sequence.is_none())
+                    .is_some_and(|s| s.approval_sequence.is_some())
+                    == m.sequence.first_approval_environment.is_some()
                 && hash(w)? == hash(&m.sequence)?
                 && hash(&req.transaction_context)? == hash(&m.swap_context)? =>
         {
-            s.commitment(ctx, input).map(Some)
+            s.commitment(ctx, input, m).map(Some)
         }
         _ => Err(bad()),
     }

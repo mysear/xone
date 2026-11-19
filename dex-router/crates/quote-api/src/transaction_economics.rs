@@ -372,7 +372,10 @@ impl ValuationState {
         let output = number(&response["outcome"]["actual_buy_amount"])?;
         let debit = number(&response["costs"]["payerNetNativeDebit"])?;
         let wrapping = response["costs"]["scope"] == "DECLARED_LOCAL_WRAP_AND_SWAP";
-        let sequence = wrapping || response["costs"]["scope"] == "DECLARED_LOCAL_APPROVAL_AND_SWAP";
+        let combined = response["costs"]["scope"] == "DECLARED_LOCAL_WRAP_APPROVAL_AND_SWAP";
+        let sequence = combined
+            || wrapping
+            || response["costs"]["scope"] == "DECLARED_LOCAL_APPROVAL_AND_SWAP";
         let settlement_ms = if sequence {
             response["costs"]["settlementTimestampMs"]
                 .as_u64()
@@ -402,7 +405,9 @@ impl ValuationState {
             price(&context.buy_token),
         )?;
         if sequence {
-            economics["scope"] = if wrapping {
+            economics["scope"] = if combined {
+                "EVALUATED_WRAP_APPROVAL_AND_SWAP_NETWORK_FEES"
+            } else if wrapping {
                 "EVALUATED_WRAP_AND_SWAP_NETWORK_FEES"
             } else {
                 "EVALUATED_APPROVAL_AND_SWAP_NETWORK_FEES"

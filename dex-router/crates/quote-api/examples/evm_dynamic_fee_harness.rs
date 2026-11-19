@@ -67,14 +67,16 @@ async fn main() {
         let mut run = &bank["runs"][0];
         if std::env::var_os("XONE_SPLIT_APPROVAL_REPLAY").is_some() {
             use sha2::{Digest, Sha256};
-            let reset = std::env::var("XONE_SPLIT_APPROVAL_REPLAY").as_deref() == Ok("reset");
-            let wrapping = std::env::var("XONE_SPLIT_APPROVAL_REPLAY").as_deref() == Ok("wrap");
-            bank = &bank[if wrapping {
-                "wrapReplay"
-            } else if reset {
-                "resetApprovalReplay"
-            } else {
-                "approvalReplay"
+            let mode = std::env::var("XONE_SPLIT_APPROVAL_REPLAY").unwrap();
+            let reset = matches!(mode.as_str(), "reset" | "wrap-reset");
+            let wrapping = mode.starts_with("wrap");
+            let combined = wrapping && mode != "wrap";
+            bank = &bank[match mode.as_str() {
+                "wrap-reset" => "wrapResetApprovalReplay",
+                "wrap-approval" => "wrapApprovalReplay",
+                "wrap" => "wrapReplay",
+                "reset" => "resetApprovalReplay",
+                _ => "approvalReplay",
             }];
             let anchor = &bank["state_anchor"];
             binding["block"] = json!({"chain_key":anchor["chain_key"],"number_or_slot":anchor["block_number"],"hash":anchor["block_hash"],"parent_hash":anchor["parent_hash"],"timestamp_ms":anchor["timestamp"].as_u64().unwrap()*1000});
@@ -95,14 +97,17 @@ async fn main() {
                 .unwrap()["code"]
                 .as_str()
                 .unwrap();
-            let exact = &runs[usize::from(reset)];
-            let swap = &runs[usize::from(reset) + 1];
+            let first_approval = &runs[usize::from(combined)];
+            let exact = &runs[usize::from(combined) + usize::from(reset)];
+            let swap = &runs[usize::from(combined) + usize::from(reset) + 1];
             if wrapping {
+                let swap = &runs[1];
                 wrap_replay=Some(serde_json::from_value(json!({"caller":binding["caller"],"sequence":{"wrapper":token,"deposit_context":run["transaction_context"],"swap_environment":swap["execution_environment"]},"swap_context":swap["transaction_context"]})).unwrap());
-            } else {
+            }
+            if !wrapping || combined {
                 let mut sequence = json!({"token_code_sha256":hex::encode(Sha256::digest(hex::decode(&code[2..]).unwrap())),"approval_context":exact["transaction_context"],"swap_environment":swap["execution_environment"]});
                 if reset {
-                    sequence["reset"] = json!({"context":run["transaction_context"],"approval_environment":exact["execution_environment"]});
+                    sequence["reset"] = json!({"context":first_approval["transaction_context"],"approval_environment":exact["execution_environment"]});
                 }
                 approval_replay = Some(serde_json::from_value(json!({"token":token,"caller":binding["caller"],"sequence":sequence,"swap_context":swap["transaction_context"]})).unwrap());
             }

@@ -25,9 +25,10 @@ fn schedule<'a>(
     swap: &'a TransactionContext,
     caller: &str,
     gas_cap: u64,
+    after_deposit: Option<(&'a TransactionContext, &'a ExecutionEnvironment)>,
 ) -> Result<Vec<(&'a TransactionContext, &'a ExecutionEnvironment)>> {
     let bad = || err("SIMULATION_APPROVAL_SEQUENCE_BINDING");
-    let first = &fixture.execution_environment;
+    let first = after_deposit.map_or(&fixture.execution_environment, |(_, e)| e);
     let exact_env = seq
         .reset
         .as_ref()
@@ -51,7 +52,8 @@ fn schedule<'a>(
         .find(|a| a.exists && a.address == caller)
         .ok_or_else(bad)?
         .nonce;
-    for &(tx, env) in &schedule {
+    let deposit = after_deposit.map(|(tx, _)| (tx, &fixture.execution_environment));
+    for (tx, env) in deposit.into_iter().chain(schedule.iter().copied()) {
         if env.fork != "shanghai"
             || env.chain_id != first.chain_id
             || tx.chain_id != env.chain_id
@@ -105,6 +107,10 @@ pub(super) fn validate_bundle(bundle: &LocalSimulationBundle, gas_cap: u64) -> R
         &model.swap_context,
         &model.caller,
         gas_cap,
+        bundle
+            .wrap_replay
+            .as_ref()
+            .map(|w| (&w.sequence.deposit_context, &w.sequence.swap_environment)),
     )?;
     Ok(())
 }
@@ -139,6 +145,11 @@ impl Commitment {
             &request.transaction_context,
             &exact.from,
             request.budget.max_transaction_gas,
+            split.wrap_sequence.as_ref().and_then(|w| {
+                w.first_approval_environment
+                    .as_ref()
+                    .map(|e| (&w.deposit_context, e))
+            }),
         )?;
         let mut balances = BTreeMap::new();
         for addr in std::iter::once(&exact.from).chain(schedule.iter().map(|(_, e)| &e.coinbase)) {
@@ -179,6 +190,7 @@ impl Commitment {
     pub fn audit(
         &self,
         receipts: &[ApprovalReceipt],
+        post_deposit: Option<[(&str, &Amount); 3]>,
         swap: &NativeFeeMeasurements,
     ) -> Result<Vec<(NativeCost, PayerCost)>> {
         let bad = || err("SIMULATION_APPROVAL_SEQUENCE_RECEIPT");
@@ -186,6 +198,13 @@ impl Commitment {
             return Err(bad());
         }
         let mut balances = self.balances.clone();
+        if let Some(changes) = post_deposit {
+            balances.extend(
+                changes
+                    .into_iter()
+                    .map(|(address, balance)| (address.to_owned(), balance.clone())),
+            );
+        }
         let mut costs = Vec::new();
         for (receipt, (expected, tx, env)) in receipts.iter().zip(&self.steps) {
             let model = measured_native_cost(

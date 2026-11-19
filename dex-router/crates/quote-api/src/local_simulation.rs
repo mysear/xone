@@ -216,13 +216,17 @@ impl PreparedExecution {
             .unwrap_or(&request.fixture.execution_environment)
             .clone();
         let template_bound = if let Some(s) = &request.split {
-            Some(if let Some(seq) = wrap_seq {
-                json!(["ordered-wrap-sequence/1", s.bound, seq])
-            } else if let Some(seq) = &s.approval_sequence {
-                json!(["ordered-approval-sequence/1", s.bound, seq])
-            } else {
-                json!(s.bound)
-            })
+            Some(
+                if let (Some(wrap), Some(seq)) = (wrap_seq, &s.approval_sequence) {
+                    json!(["ordered-wrap-approval-sequence/1", s.bound, wrap, seq])
+                } else if let Some(seq) = wrap_seq {
+                    json!(["ordered-wrap-sequence/1", s.bound, seq])
+                } else if let Some(seq) = &s.approval_sequence {
+                    json!(["ordered-approval-sequence/1", s.bound, seq])
+                } else {
+                    json!(s.bound)
+                },
+            )
         } else {
             wrap_seq.map(|seq| {
                 if let Some(b) = &request.bound {
@@ -463,14 +467,18 @@ impl LocalSimulation {
         })))
     }
 
-    fn wrap_model(&self, cached: &Selection) -> Option<&xone_simulation::worker::LocalWrapReplay> {
+    fn wrap_model(
+        &self,
+        cached: &Selection,
+        split: bool,
+    ) -> Option<&xone_simulation::worker::LocalWrapReplay> {
         let input = match cached {
             Selection::ExactIn(c) => &c.plan.allocation.sell_amount,
             Selection::ExactOut(c) => &c.plan.allocation.required_input,
         };
         self.wrap_source
             .as_deref()?
-            .for_plan(cached.context(), input)
+            .for_plan(cached.context(), input, split)
     }
     fn split_binding(&self, cached: &Selection, allowed: &[String]) -> Result<Option<WorkerSplit>> {
         let plan = match cached {
@@ -489,7 +497,7 @@ impl LocalSimulation {
             .ok_or_else(|| err("EXECUTION_ADAPTER_UNSUPPORTED"))?;
         let bound = ordered_v2::bind(&plan, &cached.view().pools, expected, allowed)?;
         Ok(Some(WorkerSplit {
-            wrap_sequence: self.wrap_model(cached).map(|m| m.sequence.clone()),
+            wrap_sequence: self.wrap_model(cached, true).map(|m| m.sequence.clone()),
             approval_sequence: self
                 .bundle
                 .approval_replay
@@ -786,7 +794,7 @@ impl LocalSimulation {
                 ))
             }
         };
-        let wrap_model = self.wrap_model(cached);
+        let wrap_model = self.wrap_model(cached, split.is_some());
         let direct_wrap = wrap_model
             .filter(|_| split.is_none())
             .map(|m| m.sequence.clone());
@@ -1141,28 +1149,6 @@ fn diagnostic_response(
             .as_ref(),
     )
     .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "fees"))?;
-    let approval = if let Some(seq) = &commitment.approval_sequence {
-        let bad = || Failure::new("SIMULATION_APPROVAL_SEQUENCE_RECEIPT", "approval_fees");
-        let receipt: xone_simulation::evm_fixture::ApprovalReceipt =
-            serde_json::from_value(outcome["approval"].clone()).map_err(|_| bad())?;
-        let swap: NativeFeeMeasurements =
-            serde_json::from_value(outcome["native_fees"].clone()).map_err(|_| bad())?;
-        let mut receipts = Vec::new();
-        if seq.requires_reset() {
-            receipts.push(
-                serde_json::from_value(outcome["allowance_reset"].clone()).map_err(|_| bad())?,
-            );
-        }
-        receipts.push(receipt);
-        let audited = seq.audit(&receipts, &swap).map_err(|_| bad())?;
-        Some((
-            receipts.into_iter().zip(audited).collect::<Vec<_>>(),
-            swap.caller_before,
-            swap.coinbase_before,
-        ))
-    } else {
-        None
-    };
     let wrapped = if let Some(binding) = &commitment.wrap {
         let bad = || Failure::new("SIMULATION_WRAP_RECEIPT", "wrap_fees");
         let receipt: xone_simulation::evm_fixture::WrapReceipt =
@@ -1176,6 +1162,36 @@ fn diagnostic_response(
             return Err(bad());
         }
         Some((binding, receipt, swap))
+    } else {
+        None
+    };
+    let approval = if let Some(seq) = &commitment.approval_sequence {
+        let bad = || Failure::new("SIMULATION_APPROVAL_SEQUENCE_RECEIPT", "approval_fees");
+        let receipt: xone_simulation::evm_fixture::ApprovalReceipt =
+            serde_json::from_value(outcome["approval"].clone()).map_err(|_| bad())?;
+        let swap: NativeFeeMeasurements =
+            serde_json::from_value(outcome["native_fees"].clone()).map_err(|_| bad())?;
+        let mut receipts = Vec::new();
+        if seq.requires_reset() {
+            receipts.push(
+                serde_json::from_value(outcome["allowance_reset"].clone()).map_err(|_| bad())?,
+            );
+        }
+        receipts.push(receipt);
+        let audited = seq
+            .audit(
+                &receipts,
+                wrapped
+                    .as_ref()
+                    .map(|(binding, r, _)| binding.changed_accounts(r)),
+                &swap,
+            )
+            .map_err(|_| bad())?;
+        Some((
+            receipts.into_iter().zip(audited).collect::<Vec<_>>(),
+            swap.caller_before,
+            swap.coinbase_before,
+        ))
     } else {
         None
     };
@@ -1294,7 +1310,8 @@ fn diagnostic_response(
         costs["approvalNative"] = evidence["additionalApprovalNative"].clone();
         costs["callerApproval"] = evidence;
     }
-    if wrapped.is_none() && !payer_net_debit.is_null() {
+    let mut remaining_reserve = model.gas_limit_reserve.clone();
+    if !payer_net_debit.is_null() {
         let bad = || Failure::new("SIMULATION_WORKER_PROTOCOL", "sequence_funding");
         let swap_debit: Amount =
             serde_json::from_value(payer_net_debit.clone()).map_err(|_| bad())?;
@@ -1306,7 +1323,12 @@ fn diagnostic_response(
         let (minimum, spent) =
             xone_execution_preparation::evm_native_cost::sequence_funding(operations)
                 .map_err(|_| bad())?;
-        let opening = commitment.caller_native_before.as_ref().ok_or_else(bad)?;
+        remaining_reserve = minimum.clone();
+        let opening = wrapped
+            .as_ref()
+            .map(|(_, r, _)| &r.payer_after)
+            .or(commitment.caller_native_before.as_ref())
+            .ok_or_else(bad)?;
         if opening < &minimum {
             return Err(bad());
         }
@@ -1357,7 +1379,7 @@ fn diagnostic_response(
     }
     if let Some((binding, receipt, swap)) = wrapped {
         binding
-            .audit(&receipt, &swap, &model, &mut costs)
+            .audit(&receipt, &swap, &remaining_reserve, &mut costs)
             .map_err(|e| Failure::new(&e.0, "wrap_fees"))?;
     }
     let success = outcome["matches_plan"] == true && outcome["execution"]["status"] == "SUCCESS";
