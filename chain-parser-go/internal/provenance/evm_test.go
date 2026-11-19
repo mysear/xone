@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 
@@ -132,5 +133,70 @@ func TestProofInputBudgetsAndCanonicalHexFailClosed(t *testing.T) {
 	e.Deployments[0].Proof.Nonce = "0x03"
 	if _, err := Verify(e); err == nil {
 		t.Fatal("noncanonical quantity accepted")
+	}
+}
+
+func TestRetainedMainnetTransactionRepresentations(t *testing.T) {
+	raw, err := os.ReadFile("../../test/fixtures/source/testdata/ethereum-mainnet/uniswap-v2-26355865-evidence.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence Evidence
+	var block map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(evidence.Block, &block); err != nil {
+		t.Fatal(err)
+	}
+	original := block["transactions"]
+	for _, change := range []string{"full", "hashes", "null", "truncated", "extra", "reordered", "wrong-hash", "wrong-index", "wrong-block", "different-value", "wrong-sender", "null-sender"} {
+		t.Run(change, func(t *testing.T) {
+			var rows []map[string]json.RawMessage
+			if err := json.Unmarshal(original, &rows); err != nil {
+				t.Fatal(err)
+			}
+			var list any = rows
+			switch change {
+			case "hashes", "wrong-hash":
+				hashes := make([]json.RawMessage, len(rows))
+				for i, row := range rows {
+					hashes[i] = row["hash"]
+				}
+				if change == "wrong-hash" {
+					hashes[0] = hashes[1]
+				}
+				list = hashes
+			case "null":
+				list = nil
+			case "truncated":
+				list = rows[:len(rows)-1]
+			case "extra":
+				list = append(rows, rows[0])
+			case "reordered":
+				rows[0], rows[1] = rows[1], rows[0]
+			case "wrong-index":
+				rows[0]["transactionIndex"] = json.RawMessage(`"0x1"`)
+			case "wrong-block":
+				delete(rows[0], "blockHash")
+			case "different-value":
+				rows[0]["value"] = json.RawMessage(`"0x12345"`)
+			case "wrong-sender":
+				rows[0]["from"] = json.RawMessage(`"0x0000000000000000000000000000000000000000"`)
+			case "null-sender":
+				rows[0]["from"] = json.RawMessage(`null`)
+			}
+			block["transactions"], _ = json.Marshal(list)
+			candidate := evidence
+			candidate.Block, _ = json.Marshal(block)
+			_, err := Verify(candidate)
+			if change == "full" || change == "hashes" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.HasPrefix(err.Error(), "PROVENANCE_BLOCK_TRANSACTION_") {
+				t.Fatalf("unexpected error %v", err)
+			}
+		})
 	}
 }

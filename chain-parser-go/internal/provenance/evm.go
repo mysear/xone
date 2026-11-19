@@ -141,10 +141,11 @@ func Verify(e Evidence) (Report, error) {
 	if !strings.EqualFold(h.Hash().Hex(), e.ExpectedBlockHash) {
 		return zero, invalid("HEADER_HASH")
 	}
+	var body struct {
+		Withdrawals  json.RawMessage `json:"withdrawals"`
+		Transactions json.RawMessage `json:"transactions"`
+	}
 	if e.ChainID == "1" {
-		var body struct {
-			Withdrawals json.RawMessage `json:"withdrawals"`
-		}
 		if json.Unmarshal(e.Block, &body) != nil {
 			return zero, invalid("BODY")
 		}
@@ -177,6 +178,11 @@ func Verify(e Evidence) (Report, error) {
 	}
 	if types.DeriveSha(txs, trie.NewStackTrie(nil)) != h.TxHash {
 		return zero, invalid("TRANSACTIONS_ROOT")
+	}
+	if e.ChainID == "1" {
+		if err := verifyMainnetTransactionRows(&h, body.Transactions, txs); err != nil {
+			return zero, err
+		}
 	}
 	report := Report{Passed: true, ChainID: e.ChainID, BlockHash: h.Hash().Hex(), BlockNumber: h.Number.Uint64(), Transactions: len(txs), Deployments: []DeploymentReport{}, Authority: "commitments-checked-against-explicit-header-hash; anchor trust and source rebuild remain external"}
 	addresses := map[common.Address]bool{}

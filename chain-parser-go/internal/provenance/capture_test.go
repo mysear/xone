@@ -18,7 +18,13 @@ func TestCaptureBindsBothHeadersAndPinsEveryStateRead(t *testing.T) {
 	txJSON, _ := json.Marshal(&tx)
 	var body map[string]any
 	_ = json.Unmarshal(e.Block, &body)
-	body["transactions"] = []json.RawMessage{txJSON}
+	var mined map[string]json.RawMessage
+	if err := json.Unmarshal(txJSON, &mined); err != nil {
+		t.Fatal(err)
+	}
+	mined["blockHash"], _ = json.Marshal(e.ExpectedBlockHash)
+	mined["blockNumber"], mined["transactionIndex"] = json.RawMessage(`"0x2a"`), json.RawMessage(`"0x0"`)
+	body["transactions"] = []map[string]json.RawMessage{mined}
 	block, _ := json.Marshal(body)
 	var calls []string
 	call := func(ctx context.Context, source, method string, params any, out any) error {
