@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|普通 owner 在持久化存储上切换信标根（阶段206，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|旧配置发布基线后停机，新配置从同一存储启动并发布同块新基线|主网块 26451448 的池状态一致，代际、写入者版本及日志序号均从 1 递增至 2|
 |主网信标检查点轮换（阶段205，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通 CLI 从旧配置验证后继根，为新配置原子发布证明|主网块 26450712 的新旧最终化结果一致，独立初始根和生产切换待验收|
 |主网同步委员会跨 Electra/Fulu 交接（阶段204，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|根据参与签名的区块时隙选择状态证明索引，逐头核验执行载荷与签名|历史执行块 23942645 及下一委员会分支通过。Deneb 检查点样本在委员会验证时拒绝|
 |从主网归档重算已发布的池状态与兑换事实（阶段203，P0-1）|§7.3、§9、§17，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|从签名头反向验证祖先，复用普通 Go 解码器逐块重算并比较派生负载哈希|两个窗口合计 26 个高度，24 个已发布增量逐字节哈希相符|
@@ -815,6 +816,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|206|[后继配置重启](#beacon-rotation-switch)|LOCAL_SCOPE_VERIFIED|普通 owner 两次运行和基线记录复核通过|
 |205|[信标检查点轮换](#beacon-checkpoint-rotation)|LOCAL_SCOPE_VERIFIED|配置根、时效、锁、取消和已有目标回归通过，实际主网证明轮换通过|
 |204|[跨分叉委员会交接](#beacon-fork-handover)|LOCAL_SCOPE_VERIFIED|周期 1606 交接至 1607，错误版本、缺少交接、下一委员会分支篡改和历史检查点矛盾均拒绝|
 |203|[已发布窗口重放](#owner-window-replay)|LOCAL_SCOPE_VERIFIED|从两个主网窗口的原始节点响应重建，核对每个已发布增量的池与兑换事实|
@@ -4974,3 +4976,13 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 执行块 26450712、信标时隙 15690528 的实测包含 511 名签署者。旧版本从原检查点经两轮交接验证，新版本从最终化根直接验证。CLI 输出的最终化结果逐字节相同。75 项 race 回归及 vet 通过，覆盖配置根错误、bootstrap 不匹配、各自时效到期、取消、刷新锁竞争及目标文件已存在。首个生产可信根的独立获取、部署版本实际切换和跨区恢复仍待验收。
 
 [主网轮换结果](integration/artifacts/local/beacon-rotation-205/rotation.json) · [固定输入回归](chain-parser-go/internal/provenance/beacon_rotation_test.go)
+
+<a id="beacon-rotation-switch"></a>
+
+## 普通 owner 使用后继检查点启动（2026-11-20，阶段206，P0-1）
+
+`verify_beacon_rotation.py <普通owner二进制> <验收配置模板> <新输出目录> <信标API>` 使用独立的本地状态目录刷新旧证明，获取已签名最终化根的 bootstrap 并生成后继配置。旧 owner 发布基线后退出，新 owner 使用同一存储和后继证明启动。验收读取新一代的 `ONLINE_BASELINE_COMMIT`，核对链、区块、代际、写入者版本、日志序号以及全部池状态。
+
+两次主网读取均返回区块 26451448 的 DAI/WETH 池状态。签署者 511 名，代际、写入者版本和日志序号均从 1 递增至 2。7 项信标工具回归通过。独立初始根的运维供应和生产多节点切换仍待验收。
+
+[主网切换报告](integration/artifacts/local/beacon-switch-206/report.json) · [运行工具](integration/tools/acceptance/verify_beacon_rotation.py)
