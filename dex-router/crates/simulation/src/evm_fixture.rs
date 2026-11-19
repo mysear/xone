@@ -544,6 +544,8 @@ pub struct NativeFeeMeasurements {
 pub struct SimulationOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval: Option<ApprovalReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowance_reset: Option<ApprovalReceipt>,
     #[serde(
         serialize_with = "serialize_false",
         deserialize_with = "deserialize_false"
@@ -1389,11 +1391,20 @@ pub struct ApprovalReceipt {
     pub post_state_digest: String,
 }
 
-/// Explicit local environments for an approval in H+1 and a swap in H+2.
+/// Reset executes in the fixture's first child. Exact approval uses the next block.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AllowanceReset {
+    pub context: TransactionContext,
+    pub approval_environment: ExecutionEnvironment,
+}
+/// Exact approval, optionally preceded by a reset, followed by the swap.
 /// Transaction targets, payloads and the approval amount are derived from the bound plan.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ApprovalSequence {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset: Option<AllowanceReset>,
     pub token_code_sha256: String,
     pub approval_context: TransactionContext,
     pub swap_environment: ExecutionEnvironment,
@@ -1656,7 +1667,9 @@ fn simulate_execution(
     let mut runner = Runner {
         budget,
         env: &fixture.execution_environment,
-        tx: sequence.map_or(tx, |s| &s.approval_context),
+        tx: sequence.map_or(tx, |s| {
+            s.reset.as_ref().map_or(&s.approval_context, |r| &r.context)
+        }),
         control,
         usage: BudgetUsage {
             input_bytes: op_input,
@@ -1668,6 +1681,7 @@ fn simulate_execution(
         caller_address: caller,
     };
     let mut approval = None;
+    let mut allowance_reset = None;
     if let BoundSource::Split(split, e, seq) = source {
         code_check(&image, &e.target, &e.code_sha256)?;
         runner.expect_address(image.clone(), &e.target, "router()", &[], &e.router.target)?;
@@ -1682,7 +1696,7 @@ fn simulate_execution(
             32,
         )?;
         if let Some(seq) = seq {
-            let (after, receipt) = approval::execute(
+            let (after, reset, receipt) = approval::execute(
                 &mut runner,
                 image,
                 split,
@@ -1697,6 +1711,7 @@ fn simulate_execution(
             )?;
             image = after;
             approval = Some(receipt);
+            allowance_reset = reset;
             runner.env = swap_env;
             runner.tx = tx;
         }
@@ -1930,6 +1945,7 @@ fn simulate_execution(
         SIMULATOR_VERSION
     };
     let mut outcome = SimulationOutcome {
+        allowance_reset,
         approval,
         verified: false,
         authority: DataAuthority::ProvidedLocalState,

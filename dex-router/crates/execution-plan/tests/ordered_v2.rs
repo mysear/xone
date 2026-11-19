@@ -434,13 +434,23 @@ fn invoke(worker: &str, request: &Value) -> Value {
 #[test]
 #[ignore = "requires mined approval sequences and a built stdio worker"]
 fn worker_audits_sequential_approval_and_swap_fees() {
+    check_worker_approval("approvalReplay", false);
+}
+
+#[test]
+#[ignore = "requires a mined nonzero allowance and built stdio worker"]
+fn worker_carries_reset_approval_and_swap_state_and_fees() {
+    check_worker_approval("resetApprovalReplay", true);
+}
+
+fn check_worker_approval(bank_key: &str, reset: bool) {
     use serde_json::json;
     use sha2::{Digest, Sha256};
     let report: Value = serde_json::from_slice(
         &std::fs::read(std::env::var("XONE_ORDERED_V2_REPORT").unwrap()).unwrap(),
     )
     .unwrap();
-    let bank = &report["executionBank"]["approvalReplay"];
+    let bank = &report["executionBank"][bank_key];
     let anchor = &bank["state_anchor"];
     let mut source = report["binding"].clone();
     set_bank_anchor(&mut source, anchor);
@@ -450,8 +460,9 @@ fn worker_audits_sequential_approval_and_swap_fees() {
         let (plan, pools, ex, c) = fixture_from_bank(&source, i);
         let allowed = [ex.target.clone(), ex.router.target.clone()];
         let b = bind(&plan, &pools, &ex, &allowed).unwrap();
-        let a = &seq["runs"][0];
-        let swap = &seq["runs"][1];
+        let first = &seq["runs"][0];
+        let a = &seq["runs"][usize::from(reset)];
+        let swap = &seq["runs"][usize::from(reset) + 1];
         let code = bank["accounts"]
             .as_array()
             .unwrap()
@@ -460,7 +471,10 @@ fn worker_audits_sequential_approval_and_swap_fees() {
             .unwrap()["code"]
             .as_str()
             .unwrap();
-        let request = json!({"protocol":"xone-local-evm-worker/1","split":{"bound":b,"expected_executor":ex,"approval_sequence":{"token_code_sha256":hex::encode(Sha256::digest(hex::decode(&code[2..]).unwrap())),"approval_context":a["transaction_context"],"swap_environment":swap["execution_environment"]}},"pools":pools,"allowed_targets":allowed,"expected_genesis_hash":anchor["genesis_hash"],"fixture":{"schema_version":1,"state_anchor":anchor,"accounts":bank["accounts"],"block_hashes":[],"execution_environment":a["execution_environment"]},"transaction_context":swap["transaction_context"],"timeout_ms":15000,"budget":{"max_fixture_json_bytes":16000000,"max_accounts":256,"max_storage_slots":65536,"max_code_bytes":8000000,"max_image_bytes":16000000,"max_reads":32000,"max_read_bytes":32000000,"max_instructions":4000000,"max_input_bytes":131072,"max_total_input_bytes":1000000,"max_transaction_gas":15000000,"probe_gas_limit":200000,"max_total_gas":15000000,"max_memory_bytes":64000000,"max_output_bytes":1000000}});
+        let mut request = json!({"protocol":"xone-local-evm-worker/1","split":{"bound":b,"expected_executor":ex,"approval_sequence":{"token_code_sha256":hex::encode(Sha256::digest(hex::decode(&code[2..]).unwrap())),"approval_context":a["transaction_context"],"swap_environment":swap["execution_environment"]}},"pools":pools,"allowed_targets":allowed,"expected_genesis_hash":anchor["genesis_hash"],"fixture":{"schema_version":1,"state_anchor":anchor,"accounts":bank["accounts"],"block_hashes":[],"execution_environment":first["execution_environment"]},"transaction_context":swap["transaction_context"],"timeout_ms":15000,"budget":{"max_fixture_json_bytes":16000000,"max_accounts":256,"max_storage_slots":65536,"max_code_bytes":8000000,"max_image_bytes":16000000,"max_reads":32000,"max_read_bytes":32000000,"max_instructions":4000000,"max_input_bytes":131072,"max_total_input_bytes":1000000,"max_transaction_gas":15000000,"probe_gas_limit":200000,"max_total_gas":15000000,"max_memory_bytes":64000000,"max_output_bytes":1000000}});
+        if reset {
+            request["split"]["approval_sequence"]["reset"] = json!({"context":first["transaction_context"],"approval_environment":a["execution_environment"]});
+        }
         let reply = invoke(&worker, &request);
         let out = &reply["outcome"];
         assert_eq!(out["matches_plan"], true, "{}", reply["error"]);
@@ -474,6 +488,25 @@ fn worker_audits_sequential_approval_and_swap_fees() {
                     .parse::<u128>()
                     .unwrap()
         };
+        if reset {
+            let receipt = &out["allowance_reset"];
+            assert_eq!(receipt["transaction"]["data"], first["data"]);
+            assert_eq!(receipt["execution_fee"], fee(first).to_string());
+            assert_eq!(receipt["payer_after"], out["approval"]["payer_before"]);
+            assert_eq!(
+                receipt["beneficiary_after"],
+                out["approval"]["beneficiary_before"]
+            );
+            let mut missing = request.clone();
+            missing["split"]["approval_sequence"]["reset"] = Value::Null;
+            assert!(!invoke(&worker, &missing)["error"].is_null());
+            let mut wrong = request.clone();
+            wrong["split"]["approval_sequence"]["reset"]["context"]["nonce"] =
+                a["transaction_context"]["nonce"].clone();
+            assert!(!invoke(&worker, &wrong)["error"].is_null());
+        } else {
+            assert!(out["allowance_reset"].is_null());
+        }
         assert_eq!(out["approval"]["execution_fee"], fee(a).to_string());
         assert_eq!(
             out["approval"]["payer_after"],

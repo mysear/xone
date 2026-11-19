@@ -43,7 +43,8 @@ pub(super) fn validate_bundle(
     };
     let token = account(&model.token)?;
     let code = hex::decode(token.code.strip_prefix("0x").ok_or_else(bad)?).map_err(|_| bad())?;
-    if bundle.split_executor.is_none()
+    if model.sequence.reset.is_some()
+        || bundle.split_executor.is_none()
         || bundle.op_attributes_calldata.is_some()
         || first.fork != "shanghai"
         || second.fork != first.fork

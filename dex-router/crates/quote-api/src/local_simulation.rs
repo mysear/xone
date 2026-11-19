@@ -1038,7 +1038,9 @@ fn diagnostic_response(
 ) -> std::result::Result<Value, Failure> {
     // This normal worker contract still binds an unsigned Shanghai plan. A
     // signed OP receipt needs its own authenticated envelope/attribute source.
-    if commitment.approval_sequence.is_some() == outcome["approval"].is_null() {
+    if !outcome["allowance_reset"].is_null()
+        || commitment.approval_sequence.is_some() == outcome["approval"].is_null()
+    {
         return Err(Failure::new(
             "SIMULATION_WORKER_BINDING",
             "unexpected_approval",

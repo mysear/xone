@@ -59,7 +59,7 @@ def main(*, router=False):
             'split_rejects_recommitted_stale_leg_order_and_wrong_amounts','split_rebuild_rejects_substitution_and_missing_source',
             'split_worker_replays_four_mined_plans_and_rejects_inconsistent_sources',
             'exact_approval_calldata_matches_both_mined_sequences','reset_approval_policy_matches_both_mined_sequences',
-            'worker_audits_sequential_approval_and_swap_fees']
+            'worker_audits_sequential_approval_and_swap_fees','worker_carries_reset_approval_and_swap_state_and_fees']
         for workspace, label in [('dex-router','router'),('chain-parser-rust','parser')]:
             gate = 'durable-price-'+label+'-config'
             test = 'durable_journal_config_matches_go_hashes_and_rejects_invalid_paths'
