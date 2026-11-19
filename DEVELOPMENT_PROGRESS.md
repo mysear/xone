@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|相邻最终化头连续发布验收（阶段194，P0-1）|§7.3、§9，WP03、WP04|PARTIAL_LOCAL|普通 owner 运行期间通过 CLI 更新证明并逐条核对发布日志|主网 26448795 → 26448827 在首个增量前撤权，须定位证明预算消耗|
 |主网短尾祖先块校验（阶段193，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|反向按高度读取并重算执行头，正向发布复核中间块哈希|主网头回放和发布门禁通过，跨最终化头的连续发布待实测|
 |普通 owner 的信标证明刷新（阶段192，P0-1）|§7.1、§7.3、§28.26，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|按配置的根采集并验证标准信标响应，持锁替换 owner 的证明文件|两次正常 CLI 刷新及回退、竞争、过期、取消控制通过|
 |普通 Go owner 以信标最终性约束主网快照（阶段191，P0-1）|§7.1–7.3、§7.9、§28.26，WP04、WP05、WP07、WP24|LOCAL_SCOPE_VERIFIED|启动及追块以配置的信标根核对执行区块，发布时复核区块哈希和证明时效|主网 DAI/WETH 快照、撤权及同块恢复通过|
@@ -803,6 +804,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|194|[主网连续发布验收](#beacon-owner-advance)|PARTIAL_LOCAL|首次实测定位到回执证明预算，保留失败记录|
 |193|[主网短尾祖先块校验](#beacon-owner-ancestry)|LOCAL_SCOPE_VERIFIED|精确高度、父哈希及发布门禁回归通过|
 |192|[信标证明刷新](#beacon-owner-refresh)|LOCAL_SCOPE_VERIFIED|主网更新命令及旧证明保留回归通过|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
@@ -4834,3 +4836,11 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 普通 Go owner 从签名最终化头反向核对短尾时，按精确高度请求 `eth_getBlockByNumber(height, false)`，重算执行头哈希并沿父哈希连接已有游标。该路径沿用整段追块时限、租约截止时间和来源观测。正向读取仍验证完整区块、回执和池状态，发布时逐高度核对反向确认的哈希。
 
 使用主网块 26355865 回放正常响应、父哈希篡改、错误高度、浮动标签、非规范数量、取消和未配置证明七种情况。服务回归使用已验证的信标证明和构造的中间链节，通过正常发布门禁检验接受与拒绝。相关包通过 `go vet`。服务包首跑的 V3 模板重启用例超时，该用例和本轮用例在 `-count=1 -race` 独立复跑通过。后续优先实测同一 owner 在相邻最终化头之间逐块发布。[定向回归](integration/artifacts/local/beacon-ancestor-193/focused.log) · [全包首跑](integration/artifacts/local/beacon-ancestor-193/tests.jsonl)
+
+<a id="beacon-owner-advance"></a>
+
+## 相邻最终化头连续发布验收（2026-11-19，阶段194，P0-1）
+
+`verify_beacon_owner.py` 新增 `--refresh-endpoint`，从首个已验证快照开始，调用正常 CLI 刷新证明，核对每条 `BLOCK_COMMIT` 的高度、父哈希、日志序号、代际、作用域和终点基线。`--next-proof` 可安装另一份签名证明重放。验证器通过连续发布、父哈希冲突、代际变化、重新建立基线和终点基线冲突测试。
+
+旧主网起点 26448349 的公开状态请求失败。改用新鲜证明后，owner 在 26448795 发布 DAI/WETH 基线，CLI 获取最终化块 26448827。日志在首个连续增量前记录 `RECEIPT_PROOF_BUDGET` 并撤权，验收器报 `OWNER_JOURNAL_DISCONTINUITY`。单独读取块 26448796 的交易体使用 5,232,897 字节预算，核对回执和见证后剩余 14,811,711 字节。下一步减少已验证交易体的重复解码与获取，再运行同一发布验收。阶段193的 service 包 231 项 race 用例复跑通过。EVM 全包首跑在 10 分钟总时限终止，定向回归已通过。[运行日志](integration/artifacts/local/beacon-advance-194/run-2/owner.log) · [预算诊断](integration/artifacts/local/beacon-advance-194/budget.log) · [service 包复跑](integration/artifacts/local/beacon-ancestor-193/service-retry.jsonl)
