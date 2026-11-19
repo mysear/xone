@@ -18,7 +18,7 @@ def scenario(binary, bank_path, report, directory, mode):
     wrapping = mode.startswith('wrap')
     sequential = wrapping or reset or mode in ('approval', 'approval-expired')
     policy_mode = mode.removesuffix('-expired')
-    replay_key = {'wrap': 'wrapReplay', 'wrap-approval': 'wrapApprovalReplay', 'wrap-reset': 'wrapResetApprovalReplay', 'reset-approval': 'resetApprovalReplay', 'approval': 'approvalReplay'}
+    replay_key = {'wrap-router-reset': 'wrapRouterResetReplay', 'wrap-router-approval': 'wrapRouterApprovalReplay', 'wrap': 'wrapReplay', 'wrap-approval': 'wrapApprovalReplay', 'wrap-reset': 'wrapResetApprovalReplay', 'reset-approval': 'resetApprovalReplay', 'approval': 'approvalReplay'}
     bank = report['executionBank'][replay_key[policy_mode]] if sequential else report['executionBank']
     source = dict(state_anchor=bank['state_anchor'],
                   token_in=tokens[0], token_out=tokens[-1])
@@ -56,7 +56,7 @@ def scenario(binary, bank_path, report, directory, mode):
                 ranking = q['quality']['costRanking']
                 rows = ranking['candidateExecutions']
                 require(len(q['routes']) == 2 and len({r.get('path', r)['edges'][-1]['pool_id'] for r in q['routes']}) == 1, 'expected shared final pool')
-                require(ranking['optimizer']['evaluated_candidates'] == 4 and ranking['costAdjustmentApplied'] == (mode in ('priced', 'approval', 'reset-approval', 'wrap', 'wrap-approval', 'wrap-reset')), 'partial pricing influenced ranking')
+                require(ranking['optimizer']['evaluated_candidates'] == 4 and ranking['costAdjustmentApplied'] == (mode in ('priced', 'approval', 'reset-approval', 'wrap', 'wrap-approval', 'wrap-reset', 'wrap-router-reset', 'wrap-router-approval')), 'partial pricing influenced ranking')
                 require(ranking['completeQuoteCostRanking'] is False and q['verification']['level'] == 'INDICATIVE', 'unsupported verification scope')
                 selected = rows.get(q['planHash'])
                 require(selected == ranking['selectedExecution'], 'selected evidence mismatch')
@@ -113,6 +113,8 @@ def audit_wrap(rows, bank, mode, exact, quote, selected):
         expected_allowance = 2**256 - 1
         if 'splitExecutor' in row and mode.startswith(('wrap-reset', 'wrap-approval')):
             expected_allowance = int(mode.startswith('wrap-reset'))
+        if 'splitExecutor' not in row and mode.startswith('wrap-router-'):
+            expected_allowance = int(mode.startswith('wrap-router-reset'))
         require(approval['spender'] == row['transaction']['to'] and int(approval['observedAllowance']) == expected_allowance, 'source spender allowance')
         if expected_allowance >= int(out['actual_input_consumed']):
             require(approval['status'] == 'SUFFICIENT' and costs['approvalNative'] == '0', 'existing allowance fee')
@@ -120,7 +122,7 @@ def audit_wrap(rows, bank, mode, exact, quote, selected):
         require(wrap['token_before'] == '1' and wrap['token_after'] == out['balances']['caller_sell_before'] == out['actual_input_consumed'], 'wrapped token continuity')
         require(int(wrap['transaction']['value']) == principal and wrap['transaction']['to'] == deposit['to'] and wrap['transaction']['data'] == deposit['data'], 'deposit transaction')
         charges, reserves = [], []
-        schedule = runs if 'splitExecutor' in row else runs[:2]
+        schedule = runs if expected_allowance < int(out['actual_input_consumed']) else runs[:2]
         swap = schedule[-1]
         receipts = [wrap] + [out[key] for key in ('allowance_reset', 'approval') if out.get(key)]
         for run, gas in zip(schedule, [r['gas_used'] for r in receipts] + [out['execution']['gas_used']], strict=True):
@@ -208,6 +210,6 @@ if __name__ == '__main__':
     wrapping = sys.argv[1:2] == ['--wrap']
     binary, bank, output = map(lambda arg: Path(arg).resolve(), sys.argv[2:] if wrapping else sys.argv[1:])
     report = json.loads(bank.read_bytes())
-    for mode in (['wrap', 'wrap-expired', 'wrap-approval', 'wrap-approval-expired', 'wrap-reset', 'wrap-reset-expired'] if wrapping else ['priced', 'budget', 'stale', 'missing-executor', 'approval', 'approval-expired', 'reset-approval', 'reset-approval-expired']):
+    for mode in (['wrap', 'wrap-expired', 'wrap-approval', 'wrap-approval-expired', 'wrap-reset', 'wrap-reset-expired','wrap-router-approval','wrap-router-approval-expired','wrap-router-reset','wrap-router-reset-expired'] if wrapping else ['priced', 'budget', 'stale', 'missing-executor', 'approval', 'approval-expired', 'reset-approval', 'reset-approval-expired']):
         scenario(binary, bank, report, output / mode, mode)
-    (output / 'report.json').write_text(json.dumps(dict(passed=True, scenarios=12 if wrapping else 16)) + '\n')
+    (output / 'report.json').write_text(json.dumps(dict(passed=True, scenarios=20 if wrapping else 16)) + '\n')

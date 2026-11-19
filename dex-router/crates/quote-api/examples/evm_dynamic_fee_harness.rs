@@ -68,10 +68,12 @@ async fn main() {
         if std::env::var_os("XONE_SPLIT_APPROVAL_REPLAY").is_some() {
             use sha2::{Digest, Sha256};
             let mode = std::env::var("XONE_SPLIT_APPROVAL_REPLAY").unwrap();
-            let reset = matches!(mode.as_str(), "reset" | "wrap-reset");
+            let reset = matches!(mode.as_str(), "reset" | "wrap-reset" | "wrap-router-reset");
             let wrapping = mode.starts_with("wrap");
             let combined = wrapping && mode != "wrap";
             bank = &bank[match mode.as_str() {
+                "wrap-router-reset" => "wrapRouterResetReplay",
+                "wrap-router-approval" => "wrapRouterApprovalReplay",
                 "wrap-reset" => "wrapResetApprovalReplay",
                 "wrap-approval" => "wrapApprovalReplay",
                 "wrap" => "wrapReplay",

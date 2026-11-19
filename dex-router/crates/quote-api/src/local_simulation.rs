@@ -496,14 +496,16 @@ impl LocalSimulation {
             .as_ref()
             .ok_or_else(|| err("EXECUTION_ADAPTER_UNSUPPORTED"))?;
         let bound = ordered_v2::bind(&plan, &cached.view().pools, expected, allowed)?;
+        let wrap = self.wrap_model(cached, true);
         Ok(Some(WorkerSplit {
-            wrap_sequence: self.wrap_model(cached, true).map(|m| m.sequence.clone()),
+            wrap_sequence: wrap.map(|m| m.sequence.clone()),
             approval_sequence: self
                 .bundle
                 .approval_replay
                 .as_ref()
                 .filter(|model| {
-                    model.caller == cached.context().caller
+                    wrap.is_none_or(|w| w.sequence.first_approval_environment.is_some())
+                        && model.caller == cached.context().caller
                         && model.token == cached.context().sell_token
                 })
                 .map(|model| model.sequence.clone()),

@@ -1584,8 +1584,17 @@ fn simulate_execution(
         .map(amount)
         .transpose()?;
     let (sequence, wrapping) = match source {
+        BoundSource::Split(_, _, _, Some(w)) if w.router_approval.is_some() => {
+            return Err(failure(
+                SimulationBindingMismatch,
+                "approval_spender",
+                "router approval supplied for batch executor",
+            ))
+        }
         BoundSource::Split(_, _, seq, wrap) => (seq, wrap),
-        BoundSource::ExactIn(_, wrap) | BoundSource::ExactOut(_, wrap) => (None, wrap),
+        BoundSource::ExactIn(_, wrap) | BoundSource::ExactOut(_, wrap) => {
+            (wrap.and_then(|w| w.router_approval.as_ref()), wrap)
+        }
     };
     if let Some(wrap) = wrapping {
         let valid = match (sequence, &wrap.first_approval_environment) {
@@ -1751,16 +1760,16 @@ fn simulate_execution(
     let mut wrapped = None;
     let mut approval = None;
     let mut allowance_reset = None;
+    let input = match source {
+        BoundSource::ExactIn(b, _) => &b.plan.allocation.sell_amount,
+        BoundSource::ExactOut(b, _) => &b.plan.allocation.required_input,
+        BoundSource::Split(b, _, _, _) => match &b.plan {
+            SplitPlan::ExactIn(p) => &p.allocation.sell_amount,
+            SplitPlan::ExactOut(p) => &p.allocation.required_input,
+        },
+    };
     if let Some(wrap) = wrapping {
         runner.tx = &wrap.deposit_context;
-        let input = match source {
-            BoundSource::ExactIn(b, _) => &b.plan.allocation.sell_amount,
-            BoundSource::ExactOut(b, _) => &b.plan.allocation.required_input,
-            BoundSource::Split(b, _, _, _) => match &b.plan {
-                SplitPlan::ExactIn(p) => &p.allocation.sell_amount,
-                SplitPlan::ExactOut(p) => &p.allocation.required_input,
-            },
-        };
         let next_tx = sequence.map_or(tx, |s| {
             s.reset.as_ref().map_or(&s.approval_context, |r| &r.context)
         });
@@ -1779,51 +1788,42 @@ fn simulate_execution(
         runner.env = wrap.first_approval_environment.as_ref().unwrap_or(swap_env);
         runner.tx = next_tx;
     }
-    if wrapping.is_some() && !matches!(source, BoundSource::Split(..)) {
-        runner.probe(
+    let allowance_phase = match source {
+        BoundSource::Split(_, e, _, _) => {
+            code_check(&image, &e.target, &e.code_sha256)?;
+            runner.expect_address(image.clone(), &e.target, "router()", &[], &e.router.target)?;
+            Some("split_caller_allowance_before")
+        }
+        _ if wrapping.is_some() => Some("direct_caller_allowance_before"),
+        _ => None,
+    };
+    if let Some(phase) = allowance_phase {
+        let spender = &bound.transaction.to;
+        let allowance = runner.probe(
             image.clone(),
             &context.sell_token,
             calldata(
                 "allowance(address,address)",
-                &[
-                    address_word(&context.caller)?,
-                    address_word(&bound.transaction.to)?,
-                ],
+                &[address_word(&context.caller)?, address_word(spender)?],
             ),
-            "direct_caller_allowance_before",
+            phase,
             32,
         )?;
-    }
-    if let BoundSource::Split(split, e, seq, _) = source {
-        code_check(&image, &e.target, &e.code_sha256)?;
-        runner.expect_address(image.clone(), &e.target, "router()", &[], &e.router.target)?;
-        let initial_allowance = runner.probe(
-            image.clone(),
-            &context.sell_token,
-            calldata(
-                "allowance(address,address)",
-                &[address_word(&context.caller)?, address_word(&e.target)?],
-            ),
-            "split_caller_allowance_before",
-            32,
-        )?;
-        if let Some(seq) = seq {
+        if let Some(seq) = sequence {
             let (after, reset, receipt) = approval::execute(
                 &mut runner,
                 image,
-                split,
                 context,
-                pools,
-                e,
-                allowlist,
-                &initial_allowance,
+                input,
+                spender,
+                &allowance,
                 fixture,
                 tx,
                 seq,
             )?;
             image = after;
-            approval = Some(receipt);
             allowance_reset = reset;
+            approval = Some(receipt);
             runner.env = swap_env;
             runner.tx = tx;
         }

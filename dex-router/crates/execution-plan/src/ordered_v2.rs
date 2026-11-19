@@ -292,17 +292,29 @@ pub fn caller_approvals(
     policy: ApprovalPolicy,
 ) -> Result<Vec<Transaction>> {
     validate(bound, pools, executor, allowed)?;
-    Amount::checked(allowance.0.clone())?;
     let (context, required) = match &bound.plan {
         SplitPlan::ExactIn(p) => (&p.context, &p.allocation.sell_amount),
         SplitPlan::ExactOut(p) => (&p.context, &p.allocation.required_input),
     };
+    input_approvals(context, required, &bound.transaction.to, allowance, policy)
+}
+
+/// Encode caller approvals for the spender of an already validated swap transaction.
+pub fn input_approvals(
+    context: &Context,
+    required: &Amount,
+    spender: &str,
+    allowance: &Amount,
+    policy: ApprovalPolicy,
+) -> Result<Vec<Transaction>> {
+    required.to_be_bytes()?;
+    allowance.to_be_bytes()?;
     if allowance >= required {
         return Ok(Vec::new());
     }
     let approval = |amount: &Amount| -> Result<Transaction> {
         let mut data = vec![0x09, 0x5e, 0xa7, 0xb3];
-        data.extend(addr_word(&bound.transaction.to)?);
+        data.extend(addr_word(spender)?);
         data.extend(amount.to_be_bytes()?);
         Ok(Transaction {
             chain_key: context.chain_key.clone(),

@@ -32,6 +32,9 @@ fn mapping_slot(address: &str, root: [u8; 32]) -> Result<[u8; 32]> {
 pub(super) struct Source {
     allowances: std::collections::BTreeMap<String, Amount>,
     combined: Option<LocalWrapReplay>,
+    direct_combined: Option<LocalWrapReplay>,
+    router: String,
+    batch: Option<String>,
     model: LocalWrapReplay,
     opening_tokens: Amount,
     caller: Amount,
@@ -54,7 +57,8 @@ impl Source {
         let caller = &model.caller;
         let deposit = &model.sequence.deposit_context;
         let swap = &model.swap_context;
-        if model.sequence.first_approval_environment.is_some()
+        if model.sequence.router_approval.is_some()
+            || model.sequence.first_approval_environment.is_some()
             || bundle.op_attributes_calldata.is_some()
             || caller == token
             || first.fork != "shanghai"
@@ -148,7 +152,18 @@ impl Source {
         } else {
             None
         };
+        let direct_combined =
+            combined
+                .clone()
+                .zip(bundle.approval_replay.as_ref())
+                .map(|(mut m, a)| {
+                    m.sequence.router_approval = Some(a.sequence.clone());
+                    m
+                });
         Ok(Some(Self {
+            router: bundle.executor.target.clone(),
+            batch: bundle.split_executor.as_ref().map(|e| e.target.clone()),
+            direct_combined,
             combined,
             allowances,
             model: model.clone(),
@@ -161,14 +176,22 @@ impl Source {
         }))
     }
     pub fn for_plan(&self, ctx: &Context, input: &Amount, split: bool) -> Option<&LocalWrapReplay> {
-        (self.model.caller == ctx.caller
-            && self.model.sequence.wrapper == ctx.sell_token
-            && input > &self.opening_tokens)
-            .then_some(if split {
-                self.combined.as_ref().unwrap_or(&self.model)
-            } else {
-                &self.model
-            })
+        if self.model.caller != ctx.caller
+            || self.model.sequence.wrapper != ctx.sell_token
+            || input <= &self.opening_tokens
+        {
+            return None;
+        }
+        let (spender, combined) = if split {
+            (self.batch.as_ref()?, &self.combined)
+        } else {
+            (&self.router, &self.direct_combined)
+        };
+        Some(if input > self.allowances.get(spender)? {
+            combined.as_ref().unwrap_or(&self.model)
+        } else {
+            &self.model
+        })
     }
     pub fn commitment(
         &self,
@@ -356,10 +379,11 @@ pub(super) fn bind(
         (Some((s, m)), Some(w))
             if req.op_user.is_none()
                 && req.prepared.is_none()
-                && req
+                && (req
                     .split
                     .as_ref()
                     .is_some_and(|s| s.approval_sequence.is_some())
+                    || w.router_approval.is_some())
                     == m.sequence.first_approval_environment.is_some()
                 && hash(w)? == hash(&m.sequence)?
                 && hash(&req.transaction_context)? == hash(&m.swap_context)? =>

@@ -11,6 +11,8 @@ pub struct WrapSequence {
     /// The first allowance operation when funding also requires caller approval.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_approval_environment: Option<ExecutionEnvironment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub router_approval: Option<ApprovalSequence>,
     pub swap_environment: ExecutionEnvironment,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -4,11 +4,9 @@ use super::*;
 pub(super) fn execute<'a>(
     runner: &mut Runner<'a>,
     mut image: Arc<core::StateImage>,
-    split: &BoundSplit,
     context: &Context,
-    pools: &[Pool],
-    executor: &SplitExecutor,
-    allowlist: &[String],
+    required: &Amount,
+    spender: &str,
     initial_allowance: &[u8],
     fixture: &'a FixtureState,
     tx: &TransactionContext,
@@ -73,7 +71,7 @@ pub(super) fn execute<'a>(
         ApprovalPolicy::ExactOnly
     };
     let mut operations =
-        ordered_v2::caller_approvals(split, pools, executor, allowlist, &allowance, policy)
+        ordered_v2::input_approvals(context, required, spender, &allowance, policy)
             .map_err(|e| runner.error(SimulationBindingMismatch, "approval_transaction", e))?
             .into_iter();
     if operations.len() != 1 + usize::from(seq.reset.is_some()) {
@@ -85,13 +83,13 @@ pub(super) fn execute<'a>(
     }
     let mut reset_receipt = None;
     if seq.reset.is_some() {
-        let (after, receipt) = apply(runner, image, context, executor, operations.next().unwrap())?;
+        let (after, receipt) = apply(runner, image, context, spender, operations.next().unwrap())?;
         image = after;
         reset_receipt = Some(receipt);
     }
     runner.env = approval_env;
     runner.tx = &seq.approval_context;
-    let (after, receipt) = apply(runner, image, context, executor, operations.next().unwrap())?;
+    let (after, receipt) = apply(runner, image, context, spender, operations.next().unwrap())?;
     Ok((after, reset_receipt, receipt))
 }
 
@@ -99,7 +97,7 @@ fn apply(
     runner: &mut Runner<'_>,
     image: Arc<core::StateImage>,
     context: &Context,
-    executor: &SplitExecutor,
+    spender: &str,
     approval_tx: Transaction,
 ) -> Result<(Arc<core::StateImage>, ApprovalReceipt)> {
     let a = runner.tx;
@@ -181,10 +179,7 @@ fn apply(
         &context.sell_token,
         calldata(
             "allowance(address,address)",
-            &[
-                address_word(&context.caller)?,
-                address_word(&executor.target)?,
-            ],
+            &[address_word(&context.caller)?, address_word(spender)?],
         ),
         "split_caller_allowance_after_approval",
         32,

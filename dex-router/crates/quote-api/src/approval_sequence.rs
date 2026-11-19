@@ -123,29 +123,72 @@ impl Commitment {
         self.steps.len() == 2
     }
     pub fn new(request: &WorkerRequest) -> Result<Option<Self>> {
-        let Some((split, seq)) = request
-            .split
+        let bad = || err("SIMULATION_APPROVAL_SEQUENCE_BINDING");
+        let (exact, seq, wrap) = if let Some(split) = &request.split {
+            let Some(seq) = &split.approval_sequence else {
+                return Ok(None);
+            };
+            let exact = ordered_v2::caller_approval(
+                &split.bound,
+                &request.pools,
+                &split.expected_executor,
+                &request.allowed_targets,
+                &Amount::zero(),
+            )?
+            .ok_or_else(bad)?;
+            (exact, seq, split.wrap_sequence.as_ref())
+        } else if let Some((w, seq)) = request
+            .direct_wrap
             .as_ref()
-            .and_then(|s| Some((s, s.approval_sequence.as_ref()?)))
-        else {
+            .and_then(|w| Some((w, w.router_approval.as_ref()?)))
+        {
+            let (ctx, input, spender) = match (&request.bound, &request.exact_out_bound) {
+                (Some(b), None) => {
+                    xone_execution_plan::validate_bound_execution(
+                        b,
+                        &request.pools,
+                        &request.allowed_targets,
+                    )?;
+                    (
+                        &b.plan.context,
+                        &b.plan.allocation.sell_amount,
+                        &b.transaction.to,
+                    )
+                }
+                (None, Some(b)) => {
+                    xone_execution_plan::validate_bound_exact_out_execution(
+                        b,
+                        &request.pools,
+                        &request.allowed_targets,
+                    )?;
+                    (
+                        &b.plan.context,
+                        &b.plan.allocation.required_input,
+                        &b.transaction.to,
+                    )
+                }
+                _ => return Err(bad()),
+            };
+            let exact = ordered_v2::input_approvals(
+                ctx,
+                input,
+                spender,
+                &Amount::zero(),
+                ordered_v2::ApprovalPolicy::ExactOnly,
+            )?
+            .pop()
+            .ok_or_else(bad)?;
+            (exact, seq, Some(w))
+        } else {
             return Ok(None);
         };
-        let bad = || err("SIMULATION_APPROVAL_SEQUENCE_BINDING");
-        let exact = ordered_v2::caller_approval(
-            &split.bound,
-            &request.pools,
-            &split.expected_executor,
-            &request.allowed_targets,
-            &Amount::zero(),
-        )?
-        .ok_or_else(bad)?;
         let schedule = schedule(
             &request.fixture,
             seq,
             &request.transaction_context,
             &exact.from,
             request.budget.max_transaction_gas,
-            split.wrap_sequence.as_ref().and_then(|w| {
+            wrap.and_then(|w| {
                 w.first_approval_environment
                     .as_ref()
                     .map(|e| (&w.deposit_context, e))

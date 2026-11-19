@@ -114,9 +114,9 @@ async function replay(transport, captureBank, wrapped) {
     await restore();
   }
   if (wrapped) {
-    for (const [name, allowance] of [['wrapReplay', null], ['wrapApprovalReplay', 0], ['wrapResetApprovalReplay', 1]]) {
+    for (const [name, allowance, direct] of [['wrapReplay', null], ['wrapApprovalReplay', 0], ['wrapResetApprovalReplay', 1], ['wrapRouterApprovalReplay', 0, true], ['wrapRouterResetReplay', 1, true]]) {
       const snapshot = await provider.send('evm_snapshot', []);
-      bank.result[name] = await captureWrap(allowance);
+      bank.result[name] = await captureWrap(allowance, direct);
       assert.equal(await provider.send('evm_revert', [snapshot]), true);
     }
   } else if (bank) {
@@ -159,11 +159,12 @@ async function replay(transport, captureBank, wrapped) {
     assert.equal(await provider.send('evm_revert', [baseSnapshot]), true);
     bank.result.resetApprovalReplay = await approvalReplay(1);
   }
-  async function captureWrap(initialAllowance) {
+  async function captureWrap(initialAllowance, direct = false) {
+    const spender = direct ? router.address : batch.address;
     // Leave a positive residual. Wrap only the shortfall to the bound swap input.
     const openingTokens = ethers.BigNumber.from(1);
     await mined(weth.transfer(recipient, (await weth.balanceOf(caller)).sub(openingTokens)));
-    if (initialAllowance !== null) await mined(weth.approve(batch.address, initialAllowance));
+    if (initialAllowance !== null) await mined(weth.approve(spender, initialAllowance));
     const anchor = await provider.getBlock('latest');
     const captured = await splitBank(provider, anchor, {caller,recipient,batch,router,factory,weth,tokens,pairs});
     const snapshot = await provider.send('evm_snapshot', []);
@@ -171,7 +172,10 @@ async function replay(transport, captureBank, wrapped) {
     captured.result.sequences = [];
     for (const caseIndex of [0, 2]) {
       const c = binding.cases[caseIndex];
-      const required = ethers.BigNumber.from(c.input);
+      const route = c.legs[0].tokens;
+      const required = direct && c.exactOut ? (await router.getAmountsIn(c.output, route))[0] : ethers.BigNumber.from(c.input);
+      const output = direct && !c.exactOut ? (await router.getAmountsOut(required, route)).at(-1) : ethers.BigNumber.from(c.output);
+      const buyBefore = await buy.balanceOf(recipient);
       assert.equal(String(await weth.balanceOf(caller)), String(openingTokens));
       const principal = required.sub(openingTokens);
       const before = await provider.getBalance(caller);
@@ -185,22 +189,26 @@ async function replay(transport, captureBank, wrapped) {
         totalFee = totalFee.add(receipt.gasUsed.mul(receipt.effectiveGasPrice));
       }
       await record(weth.deposit({...fees, value: principal}));
-      assert.equal(String(await weth.balanceOf(caller)), c.input);
+      assert.equal(String(await weth.balanceOf(caller)), String(required));
       if (initialAllowance !== null) {
-        assert.equal(String(await weth.allowance(caller, batch.address)), String(initialAllowance));
+        assert.equal(String(await weth.allowance(caller, spender)), String(initialAllowance));
         if (initialAllowance > 0) {
-          await record(weth.approve(batch.address, 0, fees));
-          assert.equal(String(await weth.allowance(caller, batch.address)), '0');
+          await record(weth.approve(spender, 0, fees));
+          assert.equal(String(await weth.allowance(caller, spender)), '0');
         }
-        await record(weth.approve(batch.address, required, fees));
-        assert.equal(String(await weth.allowance(caller, batch.address)), c.input);
+        await record(weth.approve(spender, required, fees));
+        assert.equal(String(await weth.allowance(caller, spender)), String(required));
       }
-      await record(batch.execute(c.exactOut, recipient, c.budget, c.output, deadline,
+      if (direct) {
+        await record(c.exactOut ? router.swapTokensForExactTokens(output, required.add(123), route, recipient, deadline, fees)
+          : router.swapExactTokensForTokens(required, output, route, recipient, deadline, fees));
+      } else await record(batch.execute(c.exactOut, recipient, c.budget, c.output, deadline,
         c.legs.map(l => [l.amount,l.tokens]), fees));
-      if (initialAllowance !== null) assert.equal(String(await weth.allowance(caller, batch.address)), '0');
+      if (initialAllowance !== null) assert.equal(String(await weth.allowance(caller, spender)), '0');
       assert.equal(String(await weth.balanceOf(caller)), '0');
       assert.equal(String(before.sub(await provider.getBalance(caller))), String(principal.add(totalFee)));
-      captured.result.sequences.push({caseIndex, principal: String(principal), openingTokens: String(openingTokens), runs: captured.result.runs.splice(0)});
+      assert.equal(String((await buy.balanceOf(recipient)).sub(buyBefore)), String(output));
+      captured.result.sequences.push({caseIndex, ...(direct ? {routerInput:String(required), routerOutput:String(output)} : {}), principal: String(principal), openingTokens: String(openingTokens), runs: captured.result.runs.splice(0)});
       if (caseIndex === 0) assert.equal(await provider.send('evm_revert', [snapshot]), true);
     }
     return captured.result;
