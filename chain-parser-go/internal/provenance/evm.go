@@ -141,6 +141,17 @@ func Verify(e Evidence) (Report, error) {
 	if !strings.EqualFold(h.Hash().Hex(), e.ExpectedBlockHash) {
 		return zero, invalid("HEADER_HASH")
 	}
+	if e.ChainID == "1" {
+		var body struct {
+			Withdrawals json.RawMessage `json:"withdrawals"`
+		}
+		if json.Unmarshal(e.Block, &body) != nil {
+			return zero, invalid("BODY")
+		}
+		if err := VerifyMainnetWithdrawals(&h, body.Withdrawals); err != nil {
+			return zero, fmt.Errorf("PROVENANCE_%w", err)
+		}
+	}
 	if e.RawTransactions == nil || len(e.RawTransactions) > 100000 {
 		return zero, invalid("TRANSACTIONS_MISSING_OR_LIMIT")
 	}

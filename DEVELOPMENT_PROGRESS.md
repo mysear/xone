@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Ethereum 主网提款列表完整性（阶段185，P0-1）|§7.3、§28.7，WP03、WP05|LOCAL_SCOPE_VERIFIED|在线读取与离线回放校验 Shanghai 提款根、顺序及必填字段|主网块 26355865 和分叉边界通过，独立共识锚点待接入|
 |报价页展示选中路线的资金需求（阶段184，P0-3）|§13.1、§15.3，WP13、WP16|LOCAL_SCOPE_VERIFIED|展示实测付款人网络费、包装本金、最低起始余额及排序依据|24 项前端测试与实际浏览器两种报价方向通过|
 |单路线包装和授权费用（阶段183，P0-3）|§13.1、§14.2–14.3，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|按支出合约的源额度选择精确授权或清零后授权|20 个 HTTP 场景覆盖两种报价方向及价格到期|
 |WETH 报价按实际 spender 复核授权（阶段182，P0-3）|§13.1、§14.2，WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|从源区块分别读取 Router02 和拆单执行器额度，核对独立执行观测|12 个包装报价 HTTP 场景通过|
@@ -787,6 +788,7 @@
 |182|[按支出合约核对 WETH 授权](#weth-spender-allowance)|LOCAL_SCOPE_VERIFIED|验证单路线和拆单各自的源额度|
 |183|[单路线包装与授权费用](#router-wrap-approval)|LOCAL_SCOPE_VERIFIED|将 Router02 的授权和包装费计入候选排序|
 |184|[报价页的资金需求](#quote-funding-ui)|LOCAL_SCOPE_VERIFIED|以 wei 展示选中路线的付款人资金需求|
+|185|[Ethereum 主网提款列表完整性](#ethereum-withdrawals-integrity)|LOCAL_SCOPE_VERIFIED|同一份历史主网数据经 RPC 读取及离线回放通过|
 |176|[包装本金与兑换费用回放](#wrapped-input-replay)|LOCAL_SCOPE_VERIFIED|对照包装本金、两笔费用及全部采集状态|
 |175|[付款人起始原币需求](#sequence-native-funding)|LOCAL_SCOPE_VERIFIED|按执行顺序计算最大预留资金需求|
 |174|[正常报价计入清零费用](#reset-approval-quote)|LOCAL_SCOPE_VERIFIED|分别核算清零、准确授权与兑换费用|
@@ -4738,3 +4740,13 @@ WETH 包装报价从固定版本 WETH9 的源存储读取 `allowance[caller][spe
 报价页按选中计划和执行回执的绑定摘要核对资金信息。ExactIn 和 ExactOut 均以 wei 展示付款人网络费、包装本金、预计原币支出和最低起始余额，并标明本次排序是否使用已折算的网络费。金额以整数原子单位校验。
 
 24 项前端测试通过。另用 20 个正常报价响应核对展示值，并在 Chromium 中通过实际 Router 请求核对两种报价方向的页面金额。[浏览器验收报告](integration/artifacts/local/quote-funding-ui-184/run-nkFhvg/report.json)
+
+<a id="ethereum-withdrawals-integrity"></a>
+
+## Ethereum 主网提款列表完整性（2026-11-19，阶段185，P0-1）
+
+复核设计 §7.3、§28.5、§28.7 时，发现普通 Ethereum 完整区块读取和离线证据验证都接受只修改提款列表的响应。两条路径现按主网 Shanghai 激活条件检查列表与根的存在性，从每项完整字段按原顺序重建提款树，校验区块头中的根。空列表与遗漏列表分别处理。读取使用既有完整区块响应。生产来源资格仍需独立可信的共识锚点。
+
+固定主网块 26355865 含 101 笔交易及 16 条提款。Go `-race -count=1` 专项通过 52 项（含子测试），覆盖实际 RPC 读取、列表遗漏、对调、空条目、分叉边界、缺少取值为零的字段及 17 条输入。`source-evidence -verify` 对仓库中的原始证据回放成功，相关 Go 包 `go vet` 通过。[专项测试记录](integration/artifacts/local/ethereum-body-185/test.jsonl) · [离线回放报告](integration/artifacts/local/ethereum-body-185/replay.json)
+
+阶段183综合验收已结束，92 个门禁通过，Rust 测试执行 253 次，Go 测试执行 82 次，最终状态为 `LOCAL_SCOPE_VERIFIED`。该报告对应提交 `cf1eee9`。阶段184前端验收见上一节。[阶段183最终报告](integration/artifacts/local/durable-price-router-check/runs/e8c1d92b128e4f0598750fbeb0481b90/report.json)

@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
+	"xone/chain-parser-go/internal/provenance"
 )
 
 // This policy verifies Ethereum execution commitments against the RPC header.
@@ -35,6 +37,7 @@ func (a *Adapter) ethereumBlock(ctx context.Context, tag string) (RawBlock, erro
 		ParentHash   string            `json:"parentHash"`
 		Timestamp    string            `json:"timestamp"`
 		ReceiptsRoot string            `json:"receiptsRoot"`
+		Withdrawals  json.RawMessage   `json:"withdrawals"`
 		Transactions []json.RawMessage `json:"transactions"`
 	}
 	if json.Unmarshal(raw, &header) != nil || header.Number == nil || !header.Number.IsUint64() || json.Unmarshal(raw, &body) != nil {
@@ -53,6 +56,9 @@ func (a *Adapter) ethereumBlock(ctx context.Context, tag string) (RawBlock, erro
 	}
 	if strings.HasPrefix(tag, "0x") && tag != block.Number {
 		return block, errors.New("BLOCK_INTEGRITY_HEIGHT")
+	}
+	if err := provenance.VerifyMainnetWithdrawals(&header, body.Withdrawals); err != nil {
+		return block, fmt.Errorf("BLOCK_INTEGRITY_%w", err)
 	}
 	if body.Transactions == nil {
 		return block, errors.New("BLOCK_TRANSACTIONS_MISSING")

@@ -56,13 +56,26 @@ func TestOnlineEthereumBlockVerifiesRetainedRealHeaderAndTransactionRoot(t *test
 	good, _ := json.Marshal(fields)
 	var number string
 	_ = json.Unmarshal(fields["number"], &number)
-	for _, change := range []string{"none", "header", "drop-transaction", "raw-body", "unsupported-chain", "unknown-profile", "response-budget", "cancelled", "transaction-position", "transaction-chain", "duplicate-transaction", "wrong-height", "no-full-body"} {
+	for _, change := range []string{"none", "header", "drop-transaction", "raw-body", "unsupported-chain", "unknown-profile", "response-budget", "cancelled", "transaction-position", "transaction-chain", "duplicate-transaction", "wrong-height", "no-full-body", "missing-withdrawals", "reordered-withdrawals", "null-withdrawal"} {
 		t.Run(change, func(t *testing.T) {
 			var changed map[string]json.RawMessage
 			_ = json.Unmarshal(good, &changed)
 			switch change {
 			case "header":
 				changed["timestamp"] = json.RawMessage(`"0x1"`)
+			case "missing-withdrawals":
+				delete(changed, "withdrawals")
+			case "reordered-withdrawals", "null-withdrawal":
+				var list []json.RawMessage
+				if err := json.Unmarshal(changed["withdrawals"], &list); err != nil || len(list) < 2 {
+					t.Fatalf("withdrawal fixture: %v", err)
+				}
+				if change == "null-withdrawal" {
+					list[0] = json.RawMessage(`null`)
+				} else {
+					list[0], list[1] = list[1], list[0]
+				}
+				changed["withdrawals"], _ = json.Marshal(list)
 			case "drop-transaction":
 				changed["transactions"], _ = json.Marshal(fullTransactions[:len(hashes)-1])
 			}
