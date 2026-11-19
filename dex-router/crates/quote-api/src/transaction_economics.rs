@@ -20,6 +20,28 @@ use xone_execution_preparation::native_valuation::{
 use xone_simulation::evm_fixture::FixtureState;
 
 const MAX_PRICE_BYTES: u64 = 1024 * 1024;
+#[derive(serde::Deserialize)]
+#[serde(
+    tag = "operation",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub(crate) enum PublicationCommand {
+    #[serde(skip)]
+    Reload,
+    Status {},
+    Preview {},
+    Apply {
+        base_entry_hash: String,
+        candidate_book_hash: String,
+    },
+}
+impl PublicationCommand {
+    pub(crate) fn mutates(&self) -> bool {
+        matches!(self, Self::Reload | Self::Apply { .. })
+    }
+}
 pub(crate) struct ValuationState {
     publication: Option<AuthorizedPublication>,
     prices: Vec<AuthorizedPrice>,
@@ -78,6 +100,7 @@ impl ValuationStore {
         &self,
         config: &ConfigSnapshot,
         fixture: &FixtureState,
+        command: PublicationCommand,
         cancelled: &AtomicBool,
         deadline: Instant,
     ) -> Result<Value> {
@@ -85,6 +108,72 @@ impl ValuationStore {
             .reload
             .try_lock()
             .map_err(|_| err("NATIVE_VALUATION_RELOAD_BUSY"))?;
+        if !matches!(command, PublicationCommand::Reload) {
+            let lock = self
+                .journal
+                .as_ref()
+                .ok_or_else(|| err("NATIVE_VALUATION_JOURNAL_REQUIRED"))?;
+            let head = self.snapshot()?;
+            let journal = lock
+                .lock()
+                .map_err(|_| err("NATIVE_VALUATION_DURABLE_UNAVAILABLE"))?;
+            let checked = journal.check(
+                head.publication
+                    .as_ref()
+                    .ok_or_else(|| err("NATIVE_VALUATION_PUBLICATION_REQUIRED"))?,
+            );
+            let receipt = match checked {
+                Ok(r) => r,
+                Err(e) => {
+                    *self
+                        .current
+                        .lock()
+                        .map_err(|_| err("NATIVE_VALUATION_LOCK"))? = None;
+                    return Err(e);
+                }
+            };
+            if matches!(command, PublicationCommand::Status {}) {
+                return Ok(
+                    json!({"priceBookHash": head.book_hash, "publicationRevision":head.revision,
+                    "journalEntryHash":receipt.entry_hash, "journalSequence":receipt.sequence,
+                    "fsyncConfirmed":receipt.fsync_confirmed, "productionVerified":false}),
+                );
+            }
+            let next = ValuationState::load(config, fixture)?
+                .ok_or_else(|| err("NATIVE_VALUATION_NOT_CONFIGURED"))?;
+            if let PublicationCommand::Apply {
+                base_entry_hash,
+                candidate_book_hash,
+            } = &command
+            {
+                if *base_entry_hash != receipt.entry_hash || *candidate_book_hash != next.book_hash
+                {
+                    return Err(err("NATIVE_VALUATION_PUBLICATION_PRECONDITION"));
+                }
+            }
+            let candidate = next
+                .publication
+                .as_ref()
+                .ok_or_else(|| err("NATIVE_VALUATION_PUBLICATION_REQUIRED"))?;
+            let advance = match journal.would_advance(candidate) {
+                Err(e) if e.0 == "PRICE_PUBLICATION_JOURNAL_REPLACED" => {
+                    *self
+                        .current
+                        .lock()
+                        .map_err(|_| err("NATIVE_VALUATION_LOCK"))? = None;
+                    return Err(e);
+                }
+                other => other?,
+            };
+            drop(journal);
+            if matches!(command, PublicationCommand::Preview {}) {
+                return Ok(
+                    json!({"wouldAdvance":advance,"published":false,"baseEntryHash":receipt.entry_hash,
+                    "candidateBookHash":next.book_hash,"candidateRevision":next.revision,"productionVerified":false}),
+                );
+            }
+            return self.publish(Arc::new(next), cancelled, deadline);
+        }
         let state = ValuationState::load(config, fixture)?
             .ok_or_else(|| err("NATIVE_VALUATION_NOT_CONFIGURED"))?;
         self.publish(Arc::new(state), cancelled, deadline)

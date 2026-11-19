@@ -93,10 +93,27 @@ def main(binary, cli, corpus, output):
     r=subprocess.run([str(cli),'initialize',str(journal)],input=json.dumps(payload).encode(),capture_output=True,timeout=10,check=True)
     (out/'bootstrap.json').write_bytes(r.stdout); disk(1)
     route='/internal/native-valuation/reload'
+    publication='/internal/native-valuation/publication'
     with service('first') as info:
         old=quote(info,'first-quote',1); rejected('concurrent-writer','PRICE_PUBLICATION_JOURNAL_IN_USE')
+        require(call(dict(info,token='invalid'),'unauthenticated',publication,{'operation':'status'},401)['error']=='UNAUTHORIZED','Unauthenticated publication status')
         for label,rev,changed in [('unchanged',1,False),('advance',2,True),('idempotent',2,False)]:
-            install(rev); v=call(info,label,route,{})
+            install(rev)
+            if changed:
+                before=journal.read_bytes()
+                preview=call(info,'preview-two',publication,{'operation':'preview'})
+                require(preview['wouldAdvance'] and not preview['published'] and preview['candidateBookHash']==digest(books[2]) and preview['baseEntryHash']==disk(1),'Incorrect preview')
+                apply=dict(operation='apply', **{k:preview[k] for k in ['baseEntryHash','candidateBookHash']})
+                install(3)
+                require(call(info,'candidate-conflict',publication,apply,409)['error']=='NATIVE_VALUATION_PUBLICATION_PRECONDITION','Changed candidate accepted')
+                install(2)
+                require(call(info,'base-conflict',publication,dict(apply,baseEntryHash='0'*64),409)['error']=='NATIVE_VALUATION_PUBLICATION_PRECONDITION','Changed base accepted')
+                status=call(info,'before-apply',publication,{'operation':'status'})
+                require(status['priceBookHash']==digest(books[1]) and status['journalEntryHash']==disk(1) and journal.read_bytes()==before,'Preview changed current state')
+                v=call(info,label,publication,apply)
+                require(call(info,'stale-apply',publication,apply,409)['error']=='NATIVE_VALUATION_PUBLICATION_PRECONDITION','Stale apply accepted')
+            else:
+                v=call(info,label,route,{})
             require(v['changed'] is changed and v['journalEntryHash']==disk(rev) and v['journalSequence']==rev and
                     v['restartRollbackProtected'] is True and v['fsyncConfirmed'] is True and v['productionVerified'] is False,'Wrong publish receipt')
         v=call(info,'old-build','/v1/quotes/'+old+'/build',{},409)
@@ -106,6 +123,8 @@ def main(binary, cli, corpus, output):
     install(3); rejected('unpublished','PRICE_PUBLICATION_JOURNAL_ADVANCE_REQUIRED')
     install(2)
     with service('restarted') as info:
+        status=call(info,'after-restart',publication,{'operation':'status'})
+        require(status['priceBookHash']==digest(books[2]) and status['journalEntryHash']==disk(2) and status['publicationRevision']==2,'Status did not recover committed head')
         quote(info,'restart-quote',2)
         journal.rename(out/'saved.journal'); journal.write_bytes(b'{}\n'); install(3)
         require(call(info,'replaced',route,{},503)['error']=='PRICE_PUBLICATION_JOURNAL_REPLACED','Replaced writer not rejected')
@@ -114,6 +133,7 @@ def main(binary, cli, corpus, output):
     journal.rename(out/'corrupt.journal'); (out/'saved.journal').rename(journal); disk(2)
     with service('recovered') as info: quote(info,'recovered-quote',2)
     report=dict(passed=True,startup_rejections=rejects,normal_http_quotes=4,durable_revisions=[1,2],
+                online_candidate_and_base_preconditions_verified=True,
                 production_ready=False,publicTransactionsSubmitted=False,harness_sha256=sha(binary),cli_sha256=sha(cli),
                 artifacts={str(p.relative_to(out)):sha(p) for p in sorted(out.rglob('*')) if p.is_file()})
     (out/'report.json').write_text(json.dumps(report,indent=2)+'\n')

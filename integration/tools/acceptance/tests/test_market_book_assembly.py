@@ -32,11 +32,11 @@ class AssemblyTests(unittest.TestCase):
         response = dict(schema_version=1, request_sha256=assembly.digest(request.read_bytes()),
                         signatures=list(reversed(signatures)))
 
-        def attempt(data, out='candidate-book.json', at=now):
+        def attempt(data, out='candidate-book.json', at=now, **options):
             receipts = root/'receipts.json'
             receipts.write_text(json.dumps(data))
             with patch('time.time_ns', return_value=at * 1_000_000):
-                return assembly.assemble(config, request, receipts, fixture.binary, cli, root/out)
+                return assembly.assemble(config, request, receipts, fixture.binary, cli, root/out, **options)
 
         invalid = copy.deepcopy(signatures)
         invalid[0]['signature'] = signatures[-1]['signature']
@@ -57,6 +57,12 @@ class AssemblyTests(unittest.TestCase):
         self.assertEqual(candidate, dict(schema_version=1, prices=prices))
         self.assertEqual(preview, dict(published=False, wouldAdvance=True, revision=7, bookHash=digest(candidate)))
         self.assertEqual(journal.read_bytes(), original)
+        journal.rename(root/'saved.journal')
+        verified = attempt(response, 'online-candidate', online_candidate=True)
+        self.assertEqual(verified, dict(published=False, journalChecked=False, revision=7, bookHash=digest(candidate)))
+        self.assertEqual((root/'online-candidate').read_bytes(), (root/'candidate-book.json').read_bytes())
+        self.assertFalse(journal.exists())
+        (root/'saved.journal').rename(journal)
         with self.assertRaises(FileExistsError):
             attempt(response)
         self.assertTrue(operate('advance', candidate['prices'])['receipt']['changed'])

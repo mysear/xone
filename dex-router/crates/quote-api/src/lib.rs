@@ -306,6 +306,10 @@ impl Api {
                 "/internal/native-valuation/reload",
                 post(reload_native_valuation),
             )
+            .route(
+                "/internal/native-valuation/publication",
+                post(native_publication),
+            )
             .layer(DefaultBodyLimit::max(self.config.config.api.max_body_bytes))
             .layer(self.cors_layer())
             .with_state(self.clone())
@@ -564,6 +568,13 @@ impl Api {
         Ok(response)
     }
     pub async fn reload_native_prices(&self) -> Result<Value> {
+        self.native_publication(transaction_economics::PublicationCommand::Reload)
+            .await
+    }
+    async fn native_publication(
+        &self,
+        command: transaction_economics::PublicationCommand,
+    ) -> Result<Value> {
         // Explicit mutation is unavailable on an anonymously configured server.
         if self.config.token.is_empty() {
             return Err(err("NATIVE_VALUATION_RELOAD_AUTH_REQUIRED"));
@@ -588,20 +599,22 @@ impl Api {
                     .quote_timeout_ms
                     .min(config.config.simulation.timeout_ms),
             );
+        let mutates = command.mutates();
         let task = tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            backend.reload_prices(&config, &cancelled, deadline)
+            backend.reload_prices(&config, command, &cancelled, deadline)
         });
         let result = tokio::time::timeout_at(deadline.into(), task)
             .await
             .map_err(|_| {
-                if self
-                    .config
-                    .config
-                    .simulation
-                    .native_valuation
-                    .as_ref()
-                    .is_some_and(|v| v.publication_journal.is_some())
+                if mutates
+                    && self
+                        .config
+                        .config
+                        .simulation
+                        .native_valuation
+                        .as_ref()
+                        .is_some_and(|v| v.publication_journal.is_some())
                 {
                     err("NATIVE_VALUATION_DURABLE_ACK_UNCERTAIN")
                 } else {
@@ -997,6 +1010,7 @@ type HttpError = (StatusCode, Json<Value>);
 fn failure(e: xone_domain::Error) -> HttpError {
     let status = match e.0.as_str() {
         "UNAUTHORIZED" => StatusCode::UNAUTHORIZED,
+        "NATIVE_VALUATION_PUBLICATION_PRECONDITION" => StatusCode::CONFLICT,
         "RATE_LIMITED" => StatusCode::TOO_MANY_REQUESTS,
         "CHAIN_NOT_READY"
         | "STATE_TOO_OLD"
@@ -1593,6 +1607,18 @@ async fn config(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ReloadNativeValuation {}
+async fn native_publication(
+    State(api): State<Api>,
+    headers: HeaderMap,
+    Json(command): Json<transaction_economics::PublicationCommand>,
+) -> std::result::Result<Json<Value>, HttpError> {
+    api.authorize(&headers).map_err(failure)?;
+    api.rate_limit().map_err(failure)?;
+    api.native_publication(command)
+        .await
+        .map(Json)
+        .map_err(failure)
+}
 async fn reload_native_valuation(
     State(api): State<Api>,
     headers: HeaderMap,

@@ -2368,3 +2368,11 @@ Unix文件以0600创建，非阻塞且不跟随最终符号链接打开，核对
 `python3 integration/tools/market/assemble_chainlink_book.py --config <估值配置> --request <采集目录>/signing-request.json --receipts <回执文件> --validator <xone-market-price> --publication-cli <xone-price-publication> --output <新候选文件>`。回执格式为 `{"schema_version":1,"request_sha256":"<原请求文件字节的 SHA-256>","signatures":[{"token":"<币种>","key_id":"<配置中的签署者>","signature":"<Ed25519 签名 hex>"}]}`。签署的是每条 observation 对应的 `signing_message_hex` 所表示的字节；请求文件摘要用于匹配交接批次，不是签名内容，也不证明各来源独立。
 
 工具从采集目录复算签名消息，按配置覆盖全部币种，再通过与 Router 相同的授权逻辑验证阈值和价格时效。`xone-price-publication preview JOURNAL` 在现有日志上检查版本可推进性，不追加记录；它使用离线排他锁，打开日志时可以按既有规则修复不完整尾记录。运行中的 Router 已持锁时不能使用此离线流程。成功输出是一个新的候选文件，不覆盖在线价格文件。预检不预留版本，正式发布仍须重新校验当时的时效、锚点与高水位。
+
+### 在线预检、条件发布与回读（阶段159）
+
+Router 持有日志锁时，用 `assemble_chainlink_book.py --online-candidate` 生成候选文件。它验证签署和时效，但返回 `journalChecked=false`，不能据此声称已发布。操作方先将候选文件原子替换到配置的 observations 路径，再带服务端令牌请求 `POST /internal/native-valuation/publication`。请求不接受价格、地址或文件路径。
+
+1. `{"operation":"preview"}`：从该路径读取并验证签名、固定 bank 和耐久高水位，返回 `candidateBookHash`、`candidateRevision`、`baseEntryHash`、`wouldAdvance`。核对摘要等于组装结果；此时旧快照仍生效。
+2. `{"operation":"apply","baseEntryHash":"…","candidateBookHash":"…"}`：使用相同摘要条件发布。当前已签名文件或日志高水位与预检不符返回 409 `NATIVE_VALUATION_PUBLICATION_PRECONDITION`。不要在冲突时直接接受另一个摘要，应重新核验候选。
+3. `{"operation":"status"}`：不读待发布文件，核对服务中快照与当前日志，返回有效簿摘要、版本、日志序号和记录摘要。发布结果不明确时优先回读；服务已关闭价格读取时按阶段156恢复，不盲目重试。旧 `reload {}` 仍是非条件的兼容入口。若进程在文件安装后、正式发布前重启，文件与日志不一致会拒绝启动，需恢复最后确认的签名文件。

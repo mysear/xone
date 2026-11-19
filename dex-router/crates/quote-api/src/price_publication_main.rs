@@ -15,13 +15,15 @@ struct Input {
 }
 fn run() -> Result<()> {
     let args = std::env::args_os().skip(1).collect::<Vec<_>>();
-    if args.len() != 2 {
+    if args.is_empty() {
         return Err(err("PRICE_PUBLICATION_CLI_ARGUMENTS"));
     }
     let mode = args[0]
         .to_str()
         .ok_or_else(|| err("PRICE_PUBLICATION_CLI_ARGUMENTS"))?;
-    if !["initialize", "advance", "check", "preview"].contains(&mode) {
+    if !(mode == "verify" && args.len() == 1
+        || args.len() == 2 && ["initialize", "advance", "check", "preview"].contains(&mode))
+    {
         return Err(err("PRICE_PUBLICATION_CLI_ARGUMENTS"));
     }
     let mut bytes = Vec::new();
@@ -40,6 +42,14 @@ fn run() -> Result<()> {
         &input.anchor,
         input.execution_timestamp_ms,
     )?;
+    if mode == "verify" {
+        println!(
+            "{}",
+            serde_json::json!({"published":false,"journalChecked":false,
+            "bookHash":publication.high_water().book_hash(),"revision":publication.high_water().revision()})
+        );
+        return Ok(());
+    }
     let path = PathBuf::from(&args[1]);
     let mut journal = if mode == "initialize" {
         Journal::initialize(&path, &input.policy, &publication)?

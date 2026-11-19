@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|持锁 Router 在线价格发布（阶段159，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|在线预检、双摘要条件发布、重启后已生效价格回读|实际 HTTP 回放通过，持续采集调度和可信 bank 未完成|
 |独立签署回执与候选簿组装（阶段158，P0-3）|§15.5/21.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|复算采集消息、Router 原签名阈值校验、离线耐久版本预检|双币种签署回放与拒绝路径；非在线持续发布|
 |整簿同块采集与待签署输入（阶段157，P0-3）|§15.5/21.3；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|全部批准币种固定同一块、签名消息覆盖同一版本，仅完整且未过期的请求可交接|4 项整簿回放及 6 项原采集器测试通过；持续调度和独立签署发布仍缺|
 |正常Router耐久价格发布与重启（阶段156，P0-3）|§15.5/21.3/26.3；WP13、WP15、WP16、WP18|LOCAL_SCOPE_VERIFIED|显式 journal 的启动核对、持久发布、确认丢失与重启恢复|80 项门禁通过，239 次 Rust、82 次 Go；默认模式仍无跨重启保证|
@@ -747,6 +748,7 @@
 |156|[正常Router耐久价格发布与重启](#plan-2026-11-19-durable-price-router)|LOCAL_SCOPE_VERIFIED|[冻结报告](integration/artifacts/local/durable-price-router-check/runs/4ab92751086041e49f974d0a2d599007/report.json)：原 75 项与新增 5 项全过，覆盖双配置摘要、确认丢失及多进程 HTTP|
 |157|[整簿同块采集与独立签署输入](#market-book-signing-request)|LOCAL_SCOPE_VERIFIED|本地只读 RPC 与实际 Rust 验证器定向通过；不代表持续 live、签名授权或生产验收|
 |158|[独立签署回执与离线候选簿](#market-book-offline-assembly)|LOCAL_SCOPE_VERIFIED|双币种端到端回放、6 项日志组件测试；预检不等于已发布|
+|159|[在线条件发布与结果回读](#market-book-online-publication)|LOCAL_SCOPE_VERIFIED|显式日志模式，预检无写入，拒绝调包与过期条件；保持固定 bank 限定|
 
 <a id="plan-2026-10-27-raydium-clmm-static"></a>
 
@@ -4381,3 +4383,18 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F158.2|耐久日志离线预检，不改在线价格文件|WP15,WP16|LOCAL_SCOPE_VERIFIED|实际 CLI 预检有效簿后日志字节不变。输出不覆盖；显式 advance 后才推进，重复版本不再可提交。原 6 项日志组件回归通过。|
 
 定向回放入口：`python3 -B integration/tools/acceptance/tests/test_market_book_assembly.py -v`，使用回环 RPC、测试签名和实际 Rust 二进制。已加入综合验收入口；不把其他阶段的全量统计或生产授权计入本轮。下一项是运行中 Router 的预检、发布及结果回读，避免离线工具争用在线日志。其后继续有界持续采集、真实 bank 推进、拆单执行、辅助交易费用和完整净额；整体设计未完成。
+
+<a id="market-book-online-publication"></a>
+
+## 在线条件发布与结果回读（2026-11-19，阶段159，P0-3）
+
+阶段158 `9546761` 已推送 GitHub。按 §15.5/21.3/26.3，本轮用持锁 Router 核对待发布快照。测试前检查系统临时目录和活动进程，未发现遗留 xone 临时运行目录；共享构建缓存和历史报告保留。
+
+|任务|内容|工作包|状态|验证|
+|---|---|---|---|---|
+|F159.1|不打开日志的签署候选生成|WP13,WP15|LOCAL_SCOPE_VERIFIED|日志文件不在原处时仍能核验并生成相同候选，明确不声称已核对版本或已发布。|
+|F159.2|在线预检、双摘要条件与结果回读|WP15,WP16|LOCAL_SCOPE_VERIFIED|实际 HTTP 未认证 401，候选变化、错误高水位与过期回执重放均 409；预检不改日志，状态回读与重启确认一致。|
+
+[定向 HTTP 结果](integration/artifacts/local/online-price-control-159-1795059640/report.json)保留原 4 次报价和 5 个启动拒绝。该范围仅是固定本地 bank、显式耐久模式的在线发布。安装候选文件、收集独立回执和服务调度仍需编排；持续采集、可信 bank 推进、拆单、辅助交易费用、完整净额及其他优先级保持未完成。
+
+[本轮完整回归](integration/artifacts/local/durable-price-router-check/runs/c7390d09c36d4869af00c102a12af6ce/report.json)：82 项检查全部退出 0，239 次 Rust、82 次 Go 测试执行。逐项复核 82 份日志及 21 份产物报告摘要，源码摘要 `bd0e15d88270cfee3f9a9a9c49fa1e11154982595e94e4c4efeb3d391452d801`。下一项 P0-3：将已核验候选的原子安装、双摘要发布和结果不确定时的状态回读接入操作工具；不会因网络超时盲目覆盖旧文件或重发。

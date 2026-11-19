@@ -27,7 +27,7 @@ def run(args, value):
     return load(r.stdout)
 
 
-def assemble(config, request, receipts, validator, publication_cli, output):
+def assemble(config, request, receipts, validator, publication_cli, output, *, online_candidate=False):
     raw_config, raw_request = read(config), read(request, 2 << 20)
     policy, bundle, responses = load(raw_config), load(raw_request), load(read(receipts))
     revision, anchor = bundle['publication_revision'], bundle['anchor']
@@ -77,9 +77,11 @@ def assemble(config, request, receipts, validator, publication_cli, output):
     require(destination.resolve() not in {journal.resolve(), (base / policy['observations_file']).resolve()},
             'MARKET_ASSEMBLY_ACTIVE_PATH')
     book = dict(schema_version=1, prices=prices)
-    preview = run([publication_cli, 'preview', journal], dict(policy=policy, anchor=anchor, book=book,
+    command = [publication_cli, 'verify'] if online_candidate else [publication_cli, 'preview', journal]
+    preview = run(command, dict(policy=policy, anchor=anchor, book=book,
                                                              execution_timestamp_ms=check_time()))
-    require(preview['revision'] == revision and preview['wouldAdvance'] is True and preview['published'] is False,
+    require(preview['revision'] == revision and preview['published'] is False and
+            (preview.get('journalChecked') is False if online_candidate else preview.get('wouldAdvance') is True),
             'MARKET_ASSEMBLY_PREVIEW')
     with tempfile.NamedTemporaryFile(dir=destination.parent) as tmp:
         tmp.write(json.dumps(book, separators=(',', ':')).encode())
@@ -94,6 +96,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ['config', 'request', 'receipts', 'validator', 'publication-cli', 'output']:
         parser.add_argument('--' + name, required=True, type=Path)
+    parser.add_argument('--online-candidate', action='store_true', help='Verify signatures without opening the journal; Router must preview and apply')
     try:
         print(json.dumps(assemble(**vars(parser.parse_args()))))
     except Exception as error:

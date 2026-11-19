@@ -395,13 +395,14 @@ impl LocalSimulation {
     pub(crate) fn reload_prices(
         &self,
         config: &ConfigSnapshot,
+        command: crate::transaction_economics::PublicationCommand,
         cancelled: &AtomicBool,
         deadline: Instant,
     ) -> Result<Value> {
         self.valuation_store
             .as_ref()
             .ok_or_else(|| err("NATIVE_VALUATION_NOT_CONFIGURED"))?
-            .reload(config, &self.bundle.fixture, cancelled, deadline)
+            .reload(config, &self.bundle.fixture, command, cancelled, deadline)
     }
 
     pub async fn build_op_template(
