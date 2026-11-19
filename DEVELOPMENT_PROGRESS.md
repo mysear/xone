@@ -4500,3 +4500,5 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 [本地回放报告](integration/artifacts/local/ordered-v2-bank-165-caps.json)。路径仿真 6 项、拆单绑定与 worker 4 项通过。测试前检查了系统临时目录及活动进程，共享构建缓存和往期证据保留。工作包仍为部分完成。本轮验收范围为固定本地 Shanghai bank。
 
 下一项 P0-3 是在报价服务载入独立配置的批量合约身份，将同一计划的结果交给父进程费用核验，再对正常报价覆盖多候选竞争与统一回退。
+
+阶段165 结构回归修正：综合验收在仓库契约检查处发现 Router 根目录的 `contracts` 为保留路径。执行源码移至 [Router EVM 目录](dex-router/evm/OrderedV2Split.sol)。修正后 3 个服务的契约检查通过（328 份契约、12 份基础夹具、171 份公开来源夹具），并重跑 [4 笔成功与 4 笔回滚](integration/artifacts/local/ordered-v2-source-layout-165.json)。源码 SHA-256 与阶段163一致。

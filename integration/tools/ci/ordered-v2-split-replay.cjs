@@ -9,7 +9,7 @@ const { ethers } = require(deps('ethers'));
 const ganache = require(deps('ganache'));
 const solc = require(path.join(root, 'integration/.runtime/singleton-reference/node_modules/solc'));
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
-const src = fs.readFileSync(path.join(root, 'dex-router/contracts/OrderedV2Split.sol'), 'utf8');
+const src = fs.readFileSync(path.join(root, 'dex-router/evm/OrderedV2Split.sol'), 'utf8');
 const ref = path.join(root, 'integration/tools/reference/evm-execution');
 const pins = JSON.parse(fs.readFileSync(path.join(ref, 'source-pins.json'))).packages.flatMap(p => p.files);
 function original(name) {
