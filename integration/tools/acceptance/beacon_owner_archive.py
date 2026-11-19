@@ -10,8 +10,10 @@ ACCOUNTS = {POOL['id'], POOL['v2']['expected_factory'], POOL['token0'], POOL['to
 PROVIDERS = {provider_id(url): url for url in ENDPOINTS}
 
 
-def audit_archive(directory, blocks):
+def audit_archive(directory, blocks, endpoints=ENDPOINTS):
     """Check archive integrity and coverage. The running owner verifies MPT and consensus."""
+    providers = {provider_id(url): PROVIDERS.get(provider_id(url), provider_id(url)) for url in endpoints}
+    require(len(providers) == 2, 'CAPTURE_PROVIDER_COUNT')
     methods = defaultdict(Counter)
     headers = defaultdict(set)
     proofs = defaultdict(set)
@@ -30,19 +32,24 @@ def audit_archive(directory, blocks):
                     and block['number_or_slot'] == owner['Height'], 'STAGED_BLOCK_IDENTITY')
             derived[block['hash']] = block
             continue
-        require(source in PROVIDERS, 'CAPTURE_PROVIDER')
+        require(source in providers, 'CAPTURE_PROVIDER')
         method, params, body = rpc_observation(owner, data, identity, METHODS | {'eth_getRawTransactionByHash'})
         methods[source][method] += 1
         try:
             response = json.loads(body, object_pairs_hook=pairs)
         except (UnicodeDecodeError, json.JSONDecodeError):
             response = None
-        error = {'provider': PROVIDERS[source], 'method': method, 'params': params, 'file': path.name}
+        error = {'provider': providers[source], 'method': method, 'params': params, 'file': path.name}
         if not isinstance(response, dict) or response.get('jsonrpc') != '2.0' or response.get('id') != 1:
             errors.append(dict(error, reason='RPC_ENVELOPE_UNAVAILABLE'))
             continue
         if 'error' in response or 'result' not in response:
-            errors.append(dict(error, rpc_error=response.get('error')))
+            rpc_error = response.get('error')
+            if source not in PROVIDERS:
+                # Operator endpoints may echo credentials in their free-form diagnostics.
+                code = rpc_error.get('code') if isinstance(rpc_error, dict) else None
+                rpc_error = {'code': code if type(code) is int else None}
+            errors.append(dict(error, rpc_error=rpc_error))
             continue
         result = response['result']
         if method == 'eth_getBlockByNumber' and isinstance(result, dict) and params[1] is True:
@@ -55,7 +62,7 @@ def audit_archive(directory, blocks):
     for index, block in enumerate(blocks):
         key = block['hash']
         missing = sorted(ACCOUNTS - proofs[key])
-        witnesses = sorted(PROVIDERS.keys() - headers[(block['number_or_slot'], key)])
+        witnesses = sorted(providers.keys() - headers[(block['number_or_slot'], key)])
         staged_missing = index > 0 and derived.get(key) != block
         if missing or witnesses or staged_missing:
             gaps.append(dict(height=block['number_or_slot'], missing_accounts=missing,

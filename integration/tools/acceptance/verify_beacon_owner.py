@@ -5,9 +5,36 @@ import secrets
 import subprocess
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from beacon_owner_archive import LIMITS, audit_archive
-from current_v2_evidence import ENDPOINTS, GENESIS, POOL, config_for, free_port, http, stop
+from current_v2_evidence import ENDPOINTS, GENESIS, POOL, config_for, free_port, http, pairs, provider_id, stop
+
+
+def execution_endpoints(config_path):
+    if config_path is None:
+        return ENDPOINTS
+    with config_path.open('rb') as stream:
+        raw = stream.read((1 << 20) + 1)
+    if len(raw) > 1 << 20:
+        raise ValueError('EXECUTION_CONFIG_SIZE')
+    chains = json.loads(raw, object_pairs_hook=pairs)['chains']
+    mainnet = [chain for chain in chains if chain['key'] == 'evm:1']
+    if len(mainnet) != 1 or mainnet[0].get('genesis_hash') != GENESIS:
+        raise ValueError('EXECUTION_CONFIG_CHAIN')
+    urls = mainnet[0].get('rpc_urls')
+    if not isinstance(urls, list) or len(urls) != 2:
+        raise ValueError('EXECUTION_CONFIG_WITNESSES')
+    for url in urls:
+        if not isinstance(url, str) or not url or any(c.isspace() for c in url):
+            raise ValueError('EXECUTION_CONFIG_URL')
+        parsed = urlsplit(url)
+        if (parsed.scheme != 'https' or not parsed.hostname or parsed.username is not None
+                or parsed.password is not None or parsed.fragment):
+            raise ValueError('EXECUTION_CONFIG_URL')
+    if len(set(urls)) != 2:
+        raise ValueError('EXECUTION_CONFIG_WITNESSES')
+    return tuple(urls)
 
 
 def verify_advancement(owner, token, child, start, execution, max_tail, on_commit=None):
@@ -46,8 +73,9 @@ def verify_advancement(owner, token, child, start, execution, max_tail, on_commi
     raise ValueError('OWNER_ADVANCE_TIMEOUT')
 
 
-def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None, refresh_endpoint=None):
-    output.mkdir(exist_ok=False, parents=True)
+def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None, refresh_endpoint=None, execution_config=None):
+    endpoints = execution_endpoints(execution_config)
+    output.mkdir(mode=0o700, exist_ok=False, parents=True)
     proof = {'bootstrap': json.loads(bootstrap.read_bytes()), 'finality': json.loads(finality.read_bytes())}
     if updates:
         proof['updates'] = json.loads(updates.read_bytes())
@@ -62,7 +90,7 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
     owner = 'http://127.0.0.1:' + str(port)
     cfg = config_for('chain-parser-go', output/'owner', token, port)
     cfg['chains'] = [dict(key='evm:1', owner_service='chain-parser-go', assignment_version=1,
-                          genesis_hash=GENESIS, rpc_urls=list(ENDPOINTS), pools=[POOL],
+                          genesis_hash=GENESIS, rpc_urls=list(endpoints), pools=[POOL],
                           confirmation_tag='finalized', auto_reorg_window=128,
                           block_integrity='known-evm-native-commitments-v2', receipts_mode='bulk-auto',
                           native_proof=dict(max_bytes=64<<20, max_headers=64, max_transactions=4096,
@@ -80,7 +108,7 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
     config = output/'owner-config.json'
     config.touch(mode=0o600, exist_ok=False)
     config.write_text(json.dumps(cfg))
-    progress = {'passed': False, 'commits': []}
+    progress = {'passed': False, 'commits': [], 'provider_ids': [provider_id(url) for url in endpoints]}
     def checkpoint():
         tmp = output / 'report.tmp'
         tmp.write_text(json.dumps(progress, indent=2))
@@ -143,7 +171,7 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
                 blocks = [progress['first']['block']] if 'first' in progress else []
                 blocks.extend(record['reference']['block'] for record in progress['commits'])
                 archive_dir = output / 'owner/state/raw-evidence/evm-1'
-                progress['archive'] = audit_archive(archive_dir, blocks)
+                progress['archive'] = audit_archive(archive_dir, blocks, endpoints)
                 checkpoint()
     if progress['archive']['coverage_gaps']:
         raise ValueError('OWNER_ARCHIVE_COVERAGE')
@@ -158,9 +186,11 @@ if __name__=='__main__':
         parser.add_argument(key,type=Path)
     parser.add_argument('root')
     parser.add_argument('--updates',type=Path)
+    parser.add_argument('--execution-config', type=Path,
+                        help='read the two execution RPC URLs from the evm:1 chain of an owner JSON config')
     advance = parser.add_mutually_exclusive_group()
     advance.add_argument('--next-proof', type=Path, help='exercise continuous publication to a later signed head')
     advance.add_argument('--refresh-endpoint', help='refresh the installed proof until the finalized head advances')
     args=parser.parse_args()
-    result=exercise(args.binary.resolve(), args.output.resolve(),args.bootstrap,args.updates,args.finality,args.root,args.next_proof,args.refresh_endpoint)
+    result=exercise(args.binary.resolve(), args.output.resolve(),args.bootstrap,args.updates,args.finality,args.root,args.next_proof,args.refresh_endpoint,args.execution_config)
     (args.output/'report.json').write_text(json.dumps(result,indent=2))

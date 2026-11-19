@@ -62,3 +62,25 @@ class BeaconOwnerArchive(unittest.TestCase):
         self.record('derived-state-from-recorded-rpc', dict(block=dict(self.block, number_or_slot=8)), self.block)
         with self.assertRaisesRegex(ValueError, 'STAGED_BLOCK_IDENTITY'):
             audit_archive(self.root, [self.block])
+
+    def test_operator_config_binds_expected_sources_and_redacts_rpc_diagnostics(self):
+        from verify_beacon_owner import GENESIS, execution_endpoints
+        urls = ['https://one.example/private-key', 'https://two.example/other-key']
+        config = self.root / 'config.json'
+        def install(addresses, genesis):
+            config.write_text(json.dumps({'chains': [dict(key='evm:1', genesis_hash=genesis, rpc_urls=addresses)]}))
+        install(urls, GENESIS)
+        self.assertEqual(execution_endpoints(config), tuple(urls))
+        from current_v2_evidence import provider_id
+        self.rpc(provider_id(urls[0]), 'eth_getProof', [], error=dict(code=15, message=urls[0]))
+        report = audit_archive(self.root, [], urls)
+        self.assertNotIn('private-key', json.dumps(report))
+        self.assertEqual(report['rpc_errors'][0]['rpc_error'], {'code': 15})
+        self.assertEqual(report['rpc_errors'][0]['provider'], provider_id(urls[0]))
+        with self.assertRaisesRegex(ValueError, 'CAPTURE_PROVIDER'):
+            audit_archive(self.root, [])
+        for addresses, genesis, reason in ((urls, '', 'CHAIN'), ([urls[0]] * 2, GENESIS, 'WITNESSES'),
+                                          (['http://one.example', urls[1]], GENESIS, 'URL')):
+            install(addresses, genesis)
+            with self.assertRaisesRegex(ValueError, reason):
+                execution_endpoints(config)

@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|从现有 owner 配置选取主网归档节点（阶段202，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|验收与归档检查使用同一对配置端点，报告用来源 ID 标识自定义端点|已复查 256 条归档，新端点的 32 块实测待提供配置|
 |池账户证明按端点复用链身份（阶段201，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|同一池读取期间，已验证节点共用链 ID 和创世块身份，每个账户仍按执行块哈希取证|主网连续发布 6 个增量，下一高度的 Pair 历史证明不可用|
 |相邻最终化头的原始响应归档（阶段200，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|PARTIAL_LOCAL|逐块保存已提交引用，核对双来源区块体、同块账户证明和派生记录|26449944 起连续提交 18/32 个增量，26449964 读取遇 HTTP 429|
 |V2 池账户证明共用已验证状态根（阶段199，P0-1）|§7.3、§9、§19，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|同一池的 Pair、Factory 和两种 Token 使用同一份已验证执行锚点，每个账户和存储键单独校验|主网 26449753 起连续发布 8 个块，完整窗口待验收|
@@ -811,6 +812,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|202|[归档节点配置](#beacon-owner-execution-config)|LOCAL_SCOPE_VERIFIED|公共节点配置重读归档、来源不匹配、错误链和自定义来源脱敏检查通过|
 |201|[池证明的节点身份](#pool-proof-endpoint)|LOCAL_SCOPE_VERIFIED|同源重复请求、换源错误身份和剩余预算通过专项 race 测试|
 |200|[跨头发布归档](#beacon-owner-archive)|PARTIAL_LOCAL|583 条原始及派生记录通过封装核验，已发布 19 个高度的覆盖检查通过|
 |199|[V2 池账户证明批次](#v2-verified-account-batch)|LOCAL_SCOPE_VERIFIED|账户重复读取、独立证明校验和失败会话回归通过|
@@ -4928,3 +4930,11 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 主网基线 26450264，目标 26450296，连续发布至 26450270。256 条归档共 45,063,808 字节，已发布 7 个高度的覆盖检查通过。26450271 的并行读取报告 `RPC_ERROR_-32000`。dRPC 对该窗口内两个哈希的 Pair 存储证明返回历史状态不可用。PublicNode 对完全相同的两次 `eth_getProof` 请求均返回错误码 4444，指明超过证明窗口。完整跨头发布仍需要能提供这些历史状态证明的节点。
 
 [专项回归](integration/artifacts/local/beacon-endpoint-201/focused.log) · [主网报告](integration/artifacts/local/beacon-endpoint-201/live/report.json) · [第二端点复查](integration/artifacts/local/beacon-endpoint-201/secondary-proof-check.json)
+
+<a id="beacon-owner-execution-config"></a>
+
+## 连续发布验收的归档节点配置（2026-11-20，阶段202，P0-1）
+
+使用 `verify_beacon_owner.py --execution-config <owner配置文件>` 可从现有 JSON 配置读取 `evm:1` 的两个执行节点。工具核对主网创世哈希和两个不同的 HTTPS 地址，再沿用签名检查点、原生区块验证、逐块发布和停止后的归档核对流程。可将归档节点列在 `rpc_urls` 首位以承担账户证明读取。结果目录权限为 0700，生成的 owner 配置为 0600。公开报告中自定义节点使用来源 ID，错误只取数字码，完整响应保存在本地归档。
+
+6 项工具测试通过。以阶段 201 的 owner 配置核对其 256 条归档与 7 个发布高度，结果与当次的归档报告一致。尚需实际可用的主网归档节点配置完成 32 块连续发布。GitLab 交付仍需项目克隆地址，当前仓库唯一远端为此前授权的 GitHub origin。
