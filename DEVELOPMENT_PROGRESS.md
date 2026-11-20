@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 固定派生属性（[阶段238](#op-fixed-payload-attributes)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|核对属性存款的固定 gas 上限和 SequencerFeeVault 收款地址，218 块缓存重放一致|完整执行见证、真实跨提交通道和其余链来源仍待验收|
 |OP 执行载荷属性（[阶段237](#op-origin-payload-attributes)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|由签名 L1 来源核对 L2 的 prevRandao 和父信标块根，跨批次边界复验通过|执行见证来源、真实跨提交通道及完整执行后状态待验收|
 |OP 属性存款的 L1 blob 基础费用（[阶段236](#op-origin-blob-fee)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|按签名 L1 祖先头重算 blob 基础费用，218 个高度离线复验通过|主网跨提交通道、执行后状态及其他链与协议来源仍待验收|
 |OP 批次交界的 L1 来源连续性（[阶段235](#op-origin-boundaries)，P0-1）|§7.2、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通发布命令重放五个 span，核验四个边界的 epoch 和序号|真实跨提交通道及执行后状态待验收|
@@ -5350,3 +5351,17 @@ OP 块 144644465 的存款与以太坊块 23942644 均给出 48265514 wei。修�
 两个已配置 OP 来源对 159778224 的 `debug_executionWitness` 均返回 -32601。`debug_traceBlockByNumber` 分别返回 -32601 和 HTTP 429。对父高度的账户证明请求分别返回 HTTP 403 和 -32603。以这两个来源重算该块完整执行后状态仍缺少见证。测试前清理闲置构建产物 57386664 字节。
 
 [边界复验](integration/artifacts/local/op-execution-witness-237/owner-second/report.json) · [见证探测](integration/artifacts/local/op-execution-witness-237/probes.json) · [替代来源探测](integration/artifacts/local/op-execution-witness-237/alternative-probes.json)
+
+<a id="op-fixed-payload-attributes"></a>
+
+## OP 属性存款 gas 与区块收款地址的固定派生规则（2026-11-20，阶段238，P0-1）
+
+上一轮停止于阶段237，代码与 GitHub origin 已同步。本轮对照固定 Optimism 源码 `60360273aada79572fe2212497de578ad2fa249b` 的 `L1InfoDeposit` 和 `PreparePayloadAttributes`，发现首笔属性存款接受任意 gas 上限、L2 头接受任意收款地址。现在普通 owner、归档 CLI、批次核验和连续发布共用的来源路径要求属性存款 gas 为 1000000、区块收款地址为 SequencerFeeVault `0x4200000000000000000000000000000000000011`。gas 规则也覆盖共用解析器的 Base packed 费用输入。
+
+反例修改主网样本中的属性存款 gas，再重算交易哈希、交易根和区块哈希；另修改收款地址并重算区块哈希。它们均通过一般头部与交易体承诺核验，随后由 OP 派生规则分别以 `OP_PACKED_ATTRIBUTES_GAS`、`OP_ORIGIN_FEE_RECIPIENT` 拒绝。覆盖 gas 为零、相差一、旧 system gas 及 uint64 上限。原始两份签名来源样本保持通过。四个升级点的八份原始区块归档也通过 packed 来源及升级测试的 race 复验。
+
+普通 owner 使用阶段229的同源缓存，跨四个 span 从 159778006 发布至 159778223。基线及全部 217 条增量与阶段233逐条一致，四个来源均无上游读取或 RPC 错误。Go 全包测试、vet、OP 专项 race 通过。初次本地 RPC 测试因沙箱禁止监听端口退出，取得运行权限后重新通过。历史验收仍使用 HTTP 开发日志、Pebble 和 24 小时时效预算，不增加生产或完整执行资格。
+
+下一项修复自动采集遇到废弃通道后的恢复。完整执行后状态仍缺少阶段237所探测节点的见证，跨多笔 L1 提交的真实通道仍需采集；这些外部证据限制不关闭其他可推进项。GitLab 地址仍未提供，每轮推送既有 GitHub origin。
+
+[窗口记录](integration/artifacts/local/op-fixed-attributes-238/window.json)

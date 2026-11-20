@@ -1,0 +1,40 @@
+{
+  "last": 159778223,
+  "count": 217,
+  "spans": 4,
+  "cache_only": true,
+  "max_age_ms": 86400000,
+  "endpoint_reads": [
+    {
+      "upstream": 0,
+      "cached": 8106,
+      "errors": []
+    },
+    {
+      "upstream": 0,
+      "cached": 2184,
+      "errors": []
+    },
+    {
+      "upstream": 0,
+      "cached": 2616,
+      "errors": []
+    },
+    {
+      "upstream": 0,
+      "cached": 8541,
+      "errors": []
+    }
+  ],
+  "first": 159778006,
+  "baseline_matches_stage233": true,
+  "all_commits_match_stage233": true,
+  "commits_sha256_canonical_json": "55aa2640205e30aefbcae93964697d002f3259ad0e749b83389eab47e8166b8b",
+  "validation": {
+    "go_test_all": "passed",
+    "go_vet_all": "passed",
+    "op_targeted_race": "passed",
+    "four_original_upgrade_boundaries_race": "passed"
+  },
+  "scope": "fixed OP Mainnet payload recipient and Regolith attributes-deposit gas; not full execution derivation"
+}

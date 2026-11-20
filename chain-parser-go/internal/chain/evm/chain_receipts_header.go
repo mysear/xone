@@ -29,6 +29,7 @@ type NitroHeaderInfo struct {
 type ChainHeaderCommitment struct {
 	randomness          string
 	parentBeaconRoot    string
+	opFeeRecipient      common.Address // From the locally hash-verified OP header only.
 	ethExcessBlobGas    *uint64
 	ethBaseFeeWei       string           // From the locally hash-verified Ethereum header.
 	opMessagePasserRoot string           // Derived only from the hash-verified OP header after Isthmus.
@@ -124,6 +125,7 @@ func VerifyChainHeaderJSON(ctx context.Context, chainKey string, raw json.RawMes
 		out.ethExcessBlobGas = header.ExcessBlobGas
 	}
 	if chainKey == "evm:10" {
+		out.opFeeRecipient = header.Coinbase
 		if err := verifyOPMainnetWithdrawalFields(&header, fields["withdrawals"]); err != nil {
 			return out, err
 		}
@@ -144,6 +146,16 @@ func VerifyChainHeaderJSON(ctx context.Context, chainKey string, raw json.RawMes
 	out.ReceiptsRoot = header.ReceiptHash.Hex()
 	out.LogsBloom = "0x" + common.Bytes2Hex(header.Bloom[:])
 	return out, nil
+}
+
+// OP Mainnet's derivation attributes always direct sequencer fees to the
+// SequencerFeeVault predeploy. A self-consistent L2 header hash alone does not
+// authenticate this fixed payload attribute.
+func verifyOPPayloadAttributes(header ChainHeaderCommitment) error {
+	if header.opFeeRecipient != common.HexToAddress("0x4200000000000000000000000000000000000011") {
+		return errors.New("OP_ORIGIN_FEE_RECIPIENT")
+	}
+	return nil
 }
 
 func headerQuantity(raw json.RawMessage, required bool) (*big.Int, error) {

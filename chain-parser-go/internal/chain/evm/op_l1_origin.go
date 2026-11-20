@@ -31,6 +31,11 @@ func parseOPOrigin(first []byte, timestamp uint64) (opDepositWire, OPL1Origin, e
 	if err != nil || deposit.From != common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001") || common.BytesToAddress(deposit.To) != common.HexToAddress("0x4200000000000000000000000000000000000015") || deposit.Mint.Sign() != 0 || deposit.Value.Sign() != 0 || deposit.System {
 		return opDepositWire{}, OPL1Origin{}, errors.New("OP_PACKED_ATTRIBUTES_DEPOSIT_IDENTITY")
 	}
+	// Both admitted chains use Regolith's fixed gas allowance throughout the
+	// supported Bedrock and packed-attributes intervals.
+	if deposit.Gas != 1_000_000 {
+		return opDepositWire{}, OPL1Origin{}, errors.New("OP_PACKED_ATTRIBUTES_GAS")
+	}
 	format, _, _, _ := opPackedRules(timestamp)
 	if timestamp < opEcotoneTime {
 		format = "Bedrock"
@@ -74,6 +79,9 @@ func parseOPOrigin(first []byte, timestamp uint64) (opDepositWire, OPL1Origin, e
 // Include payload attributes from the locally verified L2 header as well as
 // the L1-info deposit. The signed origin is checked by verifyOriginRange.
 func opBlockOrigin(body *ChainBlockBodyProof, timestamp uint64) (OPL1Origin, error) {
+	if err := verifyOPPayloadAttributes(body.HeaderCommitment); err != nil {
+		return OPL1Origin{}, err
+	}
 	if len(body.RawTransactions) == 0 {
 		return OPL1Origin{}, errors.New("OP_ORIGIN_ATTRIBUTES_REQUIRED")
 	}
