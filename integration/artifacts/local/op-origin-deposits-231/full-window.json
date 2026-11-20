@@ -1,0 +1,91 @@
+{
+  "owner_revision": "17e95de03feaadb5d04e7937a7bd87dbcef15b05",
+  "start": {
+    "block": {
+      "chain_key": "evm:10",
+      "number_or_slot": 159778006,
+      "hash": "0x5afd2ca2f3091e979f58b919ea59f2ee1819040b4134d91b0320d97d55ac8a98",
+      "parent_hash": "0x73914b0641b05ef2ea5ae095b15e39180209d91a0916c96a4c31702047c13a7c",
+      "timestamp_ms": 1795154789000
+    },
+    "canonical_epoch": 1,
+    "journal_seq": 1,
+    "schema_version": 1,
+    "adapter_set_hash": "6654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad",
+    "online_generation": 1,
+    "scope_hash": "cdd1aa409906aca43368d7dacc00777b3e447d8c5d24dc8e90263a187b4d11ed",
+    "writer_epoch": 1,
+    "owner_service": "chain-parser-go",
+    "owner_assignment_version": 1
+  },
+  "end": {
+    "reference": {
+      "block": {
+        "chain_key": "evm:10",
+        "number_or_slot": 159778223,
+        "hash": "0x60f6e6f84ed73434f79f09573a2abed6ec9d217758ba3e052b399168b211ce2e",
+        "parent_hash": "0x7d87b361e67a29f2f67bf6647b87db8f8dd28f6df73aceaa5acffeb621b7aa3d",
+        "timestamp_ms": 1795155223000
+      },
+      "canonical_epoch": 1,
+      "journal_seq": 218,
+      "schema_version": 1,
+      "adapter_set_hash": "6654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad",
+      "online_generation": 1,
+      "scope_hash": "cdd1aa409906aca43368d7dacc00777b3e447d8c5d24dc8e90263a187b4d11ed",
+      "writer_epoch": 1,
+      "owner_service": "chain-parser-go",
+      "owner_assignment_version": 1
+    },
+    "payload_hash": "313c8ee09acde9bfc32bbfa967b8d58eff97306187151d430088a262563de6cd"
+  },
+  "spans": 4,
+  "count": 217,
+  "max_age_ms": 86400000,
+  "commits_sha256_canonical_json": "55aa2640205e30aefbcae93964697d002f3259ad0e749b83389eab47e8166b8b",
+  "stage_233_journal_matches": true,
+  "acquisition": [
+    {
+      "upstream": 0,
+      "cached": 8106,
+      "errors": []
+    },
+    {
+      "upstream": 0,
+      "cached": 2184,
+      "errors": []
+    },
+    {
+      "upstream": 0,
+      "cached": 2616,
+      "errors": []
+    },
+    {
+      "upstream": 13,
+      "cached": 8528,
+      "errors": []
+    }
+  ],
+  "offline": [
+    {
+      "upstream": 0,
+      "cached": 8106,
+      "errors": []
+    },
+    {
+      "upstream": 0,
+      "cached": 2184,
+      "errors": []
+    },
+    {
+      "upstream": 0,
+      "cached": 2616,
+      "errors": []
+    },
+    {
+      "upstream": 0,
+      "cached": 8529,
+      "errors": []
+    }
+  ]
+}

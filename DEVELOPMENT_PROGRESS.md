@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|含存款核验的 OP owner 长窗口（[阶段234](#op-owner-full-deposits)，P0-1）|§7.1、§7.3、§7.4，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|补读 L1 回执后跨四个 span 发布 217 条增量，与阶段233和独立离线重放逐条一致|主网跨多笔提交通道、L2 执行派生及各链来源与恢复验收仍待完成|
 |OP 普通 owner 连续 218 块验收（[阶段233](#op-owner-full-218)，P0-1）|§7.1、§7.3、§7.4、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|4 个 span、1 条基线、217 条连续增量，两次运行逐条一致|含用户存款核验的新 owner 长窗口、跨提交通道和执行派生待验收|
 |普通 OP owner 核验用户存款（[阶段232](#op-owner-portal)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|owner 在 159778224 自动取得 L1 完整回执并核验用户存款，跨批次 4 条增量纯缓存复验通过|主网跨提交通道、完整执行派生和其他链的来源资格待验收|
 |OP 用户存款来源（[阶段231](#op-portal-deposits)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|由 4 个以太坊块的完整回执重建 4 笔 OP 用户存款，核对编码和位置|普通 owner 自动读取回执、完整执行派生及其他协议覆盖待验收|
@@ -5308,3 +5309,11 @@ OP 块 144644465 的存款与以太坊块 23942644 均给出 48265514 wei。修�
 历史窗口使用开发 HTTP 日志、Pebble 和 24 小时年龄预算。阶段232的新 owner 已通过含实际用户存款的边界窗口，完整长窗口单独跟踪。P0-1 仍需跨多笔 L1 提交的真实通道、L2 执行后状态及其他链的来源和恢复验收。GitLab 远端待提供。
 
 [脱敏的逐块记录与四个来源的读数](integration/artifacts/local/op-owner-window-229/verified.json.gz)
+
+<a id="op-owner-full-deposits"></a>
+
+## 带 Portal 存款核验的 owner 完成 218 块复验（2026-11-20，阶段234，P0-1）
+
+用阶段232的普通 owner 重跑 OP 块 159778006 至 159778223。沿用阶段233的来源缓存，本次只有 L1 代理发生上游读取，共 13 次，四个代理的 RPC 错误均为零。区间包含阶段231已逐笔重建的三笔用户存款。再次启动独立 owner，在纯缓存模式下完成四个 span。与采集及阶段233的结果比较，基线、217 条提交引用和载荷哈希全部一致。
+
+[本次来源读数和校验值](integration/artifacts/local/op-origin-deposits-231/full-window.json) · [逐块记录](integration/artifacts/local/op-owner-window-229/verified.json.gz)
