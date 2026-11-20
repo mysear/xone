@@ -89,3 +89,76 @@ func TestOPMainnetBlock159769967(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestOPUSDCDelegatedBalance159770518(t *testing.T) {
+	f, err := os.Open("../../../../integration/test/source/op-mainnet-withdrawals/usdc-159770518.json.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	z, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer z.Close()
+	var sample struct {
+		Header          json.RawMessage
+		Proofs          []json.RawMessage
+		Codes           map[string]string
+		Owner, Expected string
+	}
+	if err = json.NewDecoder(z).Decode(&sample); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	header, err := VerifyChainHeaderJSON(ctx, "evm:10", sample.Header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if header.Block.Hash != "0x537edb4c73a257687c2ebde3f740eef497dc34484c5bbdf33362cec0a73a3f17" {
+		t.Fatal(header.Block.Hash)
+	}
+	anchor := ExecutionStateAnchor{BlockHash: header.Block.Hash, SettlingHash: header.Block.Hash, StateRoot: header.StateRoot, AccountEncodingID: "ethereum-account-rlp/v1", Authority: "native-post-execution-header-state-root", Height: 159770518, SettlingHeight: 159770518}
+	slots := map[common.Hash]common.Hash{}
+	var delegate *committedViewDelegate
+	for _, raw := range sample.Proofs {
+		account, err := VerifyExecutionAccountProof(ctx, anchor, raw, 1<<20)
+		if err != nil {
+			t.Fatal(err)
+		}
+		code := common.FromHex(sample.Codes[account.Address])
+		if len(code) == 0 || crypto.Keccak256Hash(code).Hex() != account.CodeHash {
+			t.Fatal(account.Address)
+		}
+		if account.Address == opUSDCAddress {
+			for key, value := range account.StorageValues {
+				slots[common.HexToHash(key)] = common.HexToHash(value)
+			}
+		} else {
+			delegate = &committedViewDelegate{common.HexToAddress(account.Address), code}
+		}
+	}
+	proxy := common.HexToAddress(opUSDCAddress)
+	code := common.FromHex(sample.Codes[opUSDCAddress])
+	input := append(common.FromHex("0x70a08231"), common.LeftPadBytes(common.FromHex(sample.Owner), 32)...)
+	if delegate == nil {
+		t.Fatal("missing verified implementation")
+	}
+	output, missing, err := executeCommittedViewWithDelegate(ctx, code, proxy, input, slots, delegate)
+	if err != nil || missing != nil || common.BytesToHash(output).Big().String() != sample.Expected || sample.Expected != "250054139" {
+		t.Fatal(output, missing, err)
+	}
+	for slot := range slots {
+		saved := slots[slot]
+		delete(slots, slot)
+		out, missing, err := executeCommittedViewWithDelegate(ctx, code, proxy, input, slots, delegate)
+		if err == nil || out != nil || missing == nil || *missing != slot {
+			t.Fatal("unproved proxy storage was used", slot, err)
+		}
+		slots[slot] = saved
+	}
+	delegate.address = common.HexToAddress("0x1234")
+	if _, _, err = executeCommittedViewWithDelegate(ctx, code, proxy, input, slots, delegate); err == nil {
+		t.Fatal("wrong delegate admitted")
+	}
+}

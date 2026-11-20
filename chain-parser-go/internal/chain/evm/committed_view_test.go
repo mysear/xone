@@ -75,3 +75,27 @@ func TestCommittedViewBoundsInputsAndPreservesCancellation(t *testing.T) {
 		t.Fatal("input limit")
 	}
 }
+
+// This proxy ignores the child status and returns a word even after a revert.
+func TestCommittedViewRequiresSuccessfulSingleDelegate(t *testing.T) {
+	const call = "60006000600060006143215af4"
+	const finish = "5060206000f3"
+	for _, tc := range []struct {
+		name, proxy, child string
+		valid              bool
+	}{
+		{"success", call + finish, "60206000f3", true},
+		{"caught revert", call + finish, "60006000fd", false},
+		{"second call", call + "50" + call + finish, "60206000f3", false},
+		{"nested call", call + finish, call + finish, false},
+		{"skipped call", "60206000f3", "60206000f3", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := &committedViewDelegate{common.HexToAddress("0x4321"), common.FromHex(tc.child)}
+			out, missing, err := executeCommittedViewWithDelegate(context.Background(), common.FromHex(tc.proxy), common.HexToAddress("0x1234"), viewInput(), nil, d)
+			if missing != nil || (err == nil) != tc.valid || (len(out) == 32) != tc.valid {
+				t.Fatal(out, missing, err)
+			}
+		})
+	}
+}

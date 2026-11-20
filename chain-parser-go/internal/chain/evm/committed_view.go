@@ -34,6 +34,15 @@ func committedViewOpcode(op byte) bool {
 // affect branching or be accepted. The caller proves the requested slot and
 // restarts with a fresh overlay. Only our private sentinel is recovered.
 func executeCommittedView(ctx context.Context, code []byte, address common.Address, input []byte, slots map[common.Hash]common.Hash) (output []byte, missing *common.Hash, err error) {
+	return executeCommittedViewWithDelegate(ctx, code, address, input, slots, nil)
+}
+
+type committedViewDelegate struct {
+	address common.Address
+	code    []byte
+}
+
+func executeCommittedViewWithDelegate(ctx context.Context, code []byte, address common.Address, input []byte, slots map[common.Hash]common.Hash, delegate *committedViewDelegate) (output []byte, missing *common.Hash, err error) {
 	if e := ctx.Err(); e != nil {
 		return nil, nil, e
 	}
@@ -60,11 +69,34 @@ func executeCommittedView(ctx context.Context, code []byte, address common.Addre
 	for key, value := range slots {
 		overlay.SetState(address, key, value)
 	}
+	if delegate != nil {
+		overlay.SetCode(delegate.address, delegate.code, tracing.CodeChangeUnspecified)
+	}
+	delegated := false
+	delegateSucceeded := false
 	hooks := &tracing.Hooks{OnOpcode: func(pc uint64, op byte, gas, cost uint64, scope tracing.OpContext, data []byte, depth int, fault error) {
 		if e := ctx.Err(); e != nil {
 			panic(committedViewStop{e})
 		}
-		if !committedViewOpcode(op) {
+		if fault != nil {
+			panic(committedViewStop{errors.New("STATE_VIEW_EXECUTION_FAILED")})
+		}
+		permitted := committedViewOpcode(op)
+		if delegate != nil && depth == 1 {
+			switch vm.OpCode(op) {
+			case vm.GAS:
+				permitted = pc+1 < uint64(len(code)) && code[pc+1] == byte(vm.DELEGATECALL)
+			case vm.DELEGATECALL:
+				stack := scope.StackData()
+				permitted = !delegated && len(stack) >= 6 && stack[len(stack)-2].Bytes32() == common.BytesToHash(delegate.address.Bytes())
+				if permitted {
+					delegated = true
+				}
+			case vm.RETURNDATACOPY, vm.RETURNDATASIZE:
+				permitted = true
+			}
+		}
+		if !permitted || scope.Address() != address || depth > 2 {
 			panic(committedViewStop{errors.New("STATE_VIEW_OPCODE_UNSUPPORTED")})
 		}
 		if op == byte(vm.SLOAD) {
@@ -76,6 +108,12 @@ func executeCommittedView(ctx context.Context, code []byte, address common.Addre
 			}
 		}
 	}}
+	if delegate != nil {
+		// A proxy can catch a reverted delegate call and still return 32 bytes.
+		hooks.OnExit = func(depth int, _ []byte, _ uint64, err error, reverted bool) {
+			delegateSucceeded = depth == 1 && err == nil && !reverted
+		}
+	}
 	// Berlin's stable arithmetic/memory/SLOAD semantics are sufficient for this
 	// subset. PUSH0 and all environment-dependent instructions are excluded.
 	evm := vm.NewEVM(vm.BlockContext{BlockNumber: big.NewInt(12244000), Time: 1618481223, Difficulty: new(big.Int)}, overlay, params.MainnetChainConfig, vm.Config{Tracer: hooks})
@@ -88,6 +126,9 @@ func executeCommittedView(ctx context.Context, code []byte, address common.Addre
 	}
 	if err != nil {
 		return nil, nil, errors.New("STATE_VIEW_EXECUTION_FAILED")
+	}
+	if delegate != nil && (!delegated || !delegateSucceeded) {
+		return nil, nil, errors.New("STATE_VIEW_DELEGATE_REQUIRED")
 	}
 	if len(output) != 32 {
 		return nil, nil, errors.New("STATE_VIEW_RETURN_SIZE")

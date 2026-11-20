@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP Mainnet USDC 代理余额（[阶段210](#op-usdc-delegate)，P0-1）|§7.1、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|普通 Go owner 发布块 159770518 的 USDC/WETH 基线，离线重算 USDC 余额|下一步从执行状态根验证 Isthmus 消息传递合约的存储根，覆盖在线读取和归档重放|
 |普通 owner 在持久化存储上切换信标根（阶段206，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|旧配置发布基线后停机，新配置从同一存储启动并发布同块新基线|主网块 26451448 的池状态一致，代际、写入者版本及日志序号均从 1 递增至 2|
 |主网信标检查点轮换（阶段205，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通 CLI 从旧配置验证后继根，为新配置原子发布证明|主网块 26450712 的新旧最终化结果一致，独立初始根和生产切换待验收|
 |主网同步委员会跨 Electra/Fulu 交接（阶段204，P0-1）|§7.1、§7.3、§28.5，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|根据参与签名的区块时隙选择状态证明索引，逐头核验执行载荷与签名|历史执行块 23942645 及下一委员会分支通过。Deneb 检查点样本在委员会验证时拒绝|
@@ -5019,3 +5020,17 @@ Ethereum 主网块 26452499 的归档包含 dRPC 和 PublicNode 的区块体及�
 普通 owner 起初在批量回执方法收到 HTTP 403。改用 PublicNode 与 Tenderly 读取区块体和回执后，OP 主网公共节点对 Factory 的历史账户证明返回 `-32603`。改用 Tenderly 读取账户证明后，普通 owner 在 Token 余额验证报告 `STATE_VIEW_OPCODE_UNSUPPORTED`，启动未发布基线。下一项是从该次响应定位具体 Token、执行路径及所需账户证明。L2 共识来源、消息传递合约存储根的 MPT 核验以及完整池状态仍待验收。
 
 [固定主网输入及复验说明](integration/test/source/op-mainnet-withdrawals/README.md) · [两来源 owner 日志](integration/artifacts/local/optimism-v2-209/witness.log) · [使用 Tenderly 证明的 owner 日志](integration/artifacts/local/optimism-v2-209/tenderly/owner.log) · [Go 全包回归](integration/artifacts/local/optimism-v2-209/go-final.log)
+
+<a id="op-usdc-delegate"></a>
+
+## OP Mainnet 固定部署的 USDC 代理余额（2026-11-20，阶段210，P0-1）
+
+普通 Go owner 在块 159770518 核对代理运行时代码、实现地址槽、实现账户及运行时代码，再用代理账户已证明的存储值执行 `balanceOf`。只允许代理向该实现成功委托一次，最多读取 8 个不同的存储槽，单次执行 gas 上限为 100000。固定部署升级后须重新核验代码才可使用。
+
+同块的旧 owner 返回 `STATE_VIEW_OPCODE_UNSUPPORTED`。新 owner 发布的 Pair 余额为 250054139 个 USDC 最小单位和 144299348285428149 wei WETH。固定输入支持离线重算 USDC 余额。逐个移除已读槽、换错目标、嵌套或重复委托，以及子调用回滚后代理仍返回一个字的用例均已覆盖。
+
+`go test -count=1 ./...`、`go vet ./...` 以及只读执行器和 OP 固定输入的专项 race 测试均通过。
+
+P0-1 下一项是从执行头状态根核验 `L2ToL1MessagePasser` 账户证明，并在普通读取与归档重放中比对 Isthmus `withdrawalsRoot`。OP 的 L1 派生与最终性、重组撤权和恢复仍待验收。GitLab 推送等待项目克隆地址，当前 `origin` 指向 GitHub。
+
+[固定输入与复验命令](integration/test/source/op-mainnet-withdrawals/README.md) · [普通 owner 基线](integration/artifacts/local/optimism-v2-209/delegate/baseline.json) · [Go 验证日志](integration/artifacts/local/op-usdc-210/)
