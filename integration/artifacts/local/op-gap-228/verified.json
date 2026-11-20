@@ -1,0 +1,187 @@
+[
+  {
+    "submissions": [
+      {
+        "sender_authority": "op-mainnet-system-config-storage",
+        "l1_number": 26454423,
+        "l1_hash": "0xcb065aea978b997a8bd27343550b039b738a4c45587d59d1cd16ca3a2a16acad",
+        "tx_hash": "0xfa6d00497889f71325ed17e7ebfe48f96100a4ff722b8b70fe631936776b2db2",
+        "sender": "0x6887246668a3b87F54DeB3b94Ba47a6f63F32985",
+        "transaction_index": 113,
+        "first_blob_index": 1,
+        "versioned_hashes": [
+          "0x013b4e3105b2db99e86f2356ddc2550706fae44f57cd3a40f7a01845c75480a4",
+          "0x015e4e729c7407f89af03f5287bc9181472124a0fb64bf5a510d2c386fb39085",
+          "0x0110195bed40087942a2e83ee64da769b6a60c3a917713ceac2272fd639c669a",
+          "0x01c1df643a18b6823df26c1a23ae4318aca0fa10bf0acbca6c41c7846815eb99",
+          "0x01200f0e6961333dba3e767dd18bfe9904f79585c9fc2fc1200d2496dc3467c8"
+        ]
+      }
+    ],
+    "channel": {
+      "span": {
+        "verified_l1_origins": 17,
+        "first_l2_number": 159778006,
+        "last_l2_number": 159778103,
+        "last_l2_hash": "0x54ab2b788ff0df07f8eb8da92e8e345ecf707a3bf396426f8fbf69afae00c0ee",
+        "user_transactions": 3346
+      },
+      "channel_id": "f8f006331cc2ded4bed127c64c5c634e",
+      "frames": 5,
+      "compression": "brotli",
+      "compressed_bytes": 586173,
+      "decoded_bytes": 2235009,
+      "decoded_sha256": "fe3f5bd116f6bdaff9dd981ea8648f5181299f865feb2d5e34ce96af5f66210d",
+      "singular_batches": 0,
+      "span_batches": 1
+    }
+  },
+  {
+    "submissions": [
+      {
+        "sender_authority": "op-mainnet-system-config-storage",
+        "l1_number": 26454434,
+        "l1_hash": "0x6a67356a7b6de294599758ea7ba4e5bbbd02ee98387182b5a2f6f9d95cde5b7c",
+        "tx_hash": "0x230aca42701d0460dde0884798a325fbece09d8abfbc94a56ff03f10b1f4b2f7",
+        "sender": "0x6887246668a3b87F54DeB3b94Ba47a6f63F32985",
+        "transaction_index": 247,
+        "first_blob_index": 5,
+        "versioned_hashes": [
+          "0x01f3df1d53122355e0468f514d615d51d95920afdf47de7b2a9f66c44ee25fa3",
+          "0x01b1ac8e7c5cb25f038fed1cf10eed4824e6c873b8e97f0dea264cb1e2bc82f2",
+          "0x014d85766ce77eb7082137c9cb67ae7c274c4324331bfa31f2606ef6e16e77d1",
+          "0x01969198de746397ecd36054a4d4e063bcec07513380b5b281cd5c35ad7729de",
+          "0x012cf9654406bb3c106db83bb9b3940b3bf99d37c3b8cce6db90b3d432126adf"
+        ]
+      }
+    ],
+    "channel": {
+      "span": {
+        "verified_l1_origins": 13,
+        "first_l2_number": 159778104,
+        "last_l2_number": 159778170,
+        "last_l2_hash": "0x8be356b7e0973de7550d5a2aa9434c330e10023f45f18fef1be46a8e463213d9",
+        "user_transactions": 2699
+      },
+      "channel_id": "ea63b899b9f3e01a257ac9564131fb6c",
+      "frames": 5,
+      "compression": "brotli",
+      "compressed_bytes": 630305,
+      "decoded_bytes": 1910426,
+      "decoded_sha256": "0ba2e5a214cb99e4bbdb3110e5bb970a4aee8c9f6aa4305bf9ff49a5ef2539ac",
+      "singular_batches": 0,
+      "span_batches": 1
+    }
+  },
+  {
+    "submissions": [
+      {
+        "sender_authority": "op-mainnet-system-config-storage",
+        "l1_number": 26454440,
+        "l1_hash": "0xd41d52ac8419755ebadd4910142f26d2cd36cd7307a5a4e4c2871fa45bf1eb28",
+        "tx_hash": "0x01f722f0ce8cfe4afe533a5828d41e4c1a9a98ee6eef334275d72015b7adc0b4",
+        "sender": "0x6887246668a3b87F54DeB3b94Ba47a6f63F32985",
+        "transaction_index": 74,
+        "first_blob_index": 4,
+        "versioned_hashes": [
+          "0x010a6836f2d263434016b4b4b9a2ebbe9cadba307f484785ec419dab6905dc6f",
+          "0x01d0fca591ff18dd4bb409a9145b6f61c5b3e104636a6cda21ad239b7f8959a0",
+          "0x01d557456a6f13ee72dcc6ab86fc499957fe632329f066db72a75356d22755ba",
+          "0x01856e380421a8111b01ec8320a83b58d6d8b2bafbf448faac603efaa6fb69ce",
+          "0x012e9920e41c67451d672f780ebb6a257fe01ff6f249f8e8ad2d2617e5395b15"
+        ]
+      }
+    ],
+    "channel": {
+      "span": {
+        "verified_l1_origins": 5,
+        "first_l2_number": 159778171,
+        "last_l2_number": 159778199,
+        "last_l2_hash": "0xb93a1754ce31786c63c6c6e9a145ccebaff3baa2d100d52bb01bf7b3d9eaacf5",
+        "user_transactions": 1159
+      },
+      "channel_id": "0888e30d049b2350badec8682d38a7ea",
+      "frames": 5,
+      "compression": "brotli",
+      "compressed_bytes": 649011,
+      "decoded_bytes": 1338089,
+      "decoded_sha256": "102582ea2fadd31987044d942c65e257c2a8028f5143329a67785234373b3312",
+      "singular_batches": 0,
+      "span_batches": 1
+    }
+  },
+  {
+    "submissions": [
+      {
+        "sender_authority": "op-mainnet-system-config-storage",
+        "l1_number": 26454444,
+        "l1_hash": "0x0ae7df5a462dad6beacc21e914c5dd8ace4eae25a234d86b70e8a966a1a88272",
+        "tx_hash": "0xe525772c437e348157d3f8bc4aa254189259e0a7a387382ec755af264391cbe5",
+        "sender": "0x6887246668a3b87F54DeB3b94Ba47a6f63F32985",
+        "transaction_index": 219,
+        "first_blob_index": 9,
+        "versioned_hashes": [
+          "0x0108b37ac380979f9abb5be26e01cf81dec8a654b4dde85ad552ca9d3696594f",
+          "0x01306e6028da4b165bc275d073dc97156b48d642cedb3e7ff299b2c5c35ce97b",
+          "0x0171f5ced81a05f631e519e3aeffaef6effc5479a5faa068a673074382281c75",
+          "0x012a9efb3c220943b247eec533520cec69e0f45c393afa897fcd1ff6638267b6",
+          "0x01749e31239ea5fd1dcd2e8305d825c723153a89614c43311bd67f662e81c533"
+        ]
+      }
+    ],
+    "channel": {
+      "span": {
+        "verified_l1_origins": 4,
+        "first_l2_number": 159778200,
+        "last_l2_number": 159778223,
+        "last_l2_hash": "0x60f6e6f84ed73434f79f09573a2abed6ec9d217758ba3e052b399168b211ce2e",
+        "user_transactions": 936
+      },
+      "channel_id": "103737d68eb8a6d48358b2cb383fae7a",
+      "frames": 5,
+      "compression": "brotli",
+      "compressed_bytes": 592972,
+      "decoded_bytes": 1199971,
+      "decoded_sha256": "a88f94ab189cc7ebc28dc2e518356c450c1b462971d0ef8edc2ba390a89815c3",
+      "singular_batches": 0,
+      "span_batches": 1
+    }
+  },
+  {
+    "submissions": [
+      {
+        "sender_authority": "op-mainnet-system-config-storage",
+        "l1_number": 26454447,
+        "l1_hash": "0x7448ed256cda127b7616e75899459d22a9fb618b9700f2fb838204e6e0b7af8f",
+        "tx_hash": "0x5faadf059eb8083519c9becf163448e7fd9675669d3ce75a24856ecf4cab1c01",
+        "sender": "0x6887246668a3b87F54DeB3b94Ba47a6f63F32985",
+        "transaction_index": 52,
+        "first_blob_index": 3,
+        "versioned_hashes": [
+          "0x01db074c8beb4307bb49a07f2e6dbbab4cb6fc8d8055e43c30c488fa589ff106",
+          "0x01885624b352b6b5e91627df351db36d69e3241458b5bb3ea9dc091b4040a95e",
+          "0x01a18f86c293ab5a7ce46849de4c3dae5aa9b6bd16e208b65dafe4907bdbaaf9",
+          "0x0147738735c750bf986886dec261a687ef14a5af90a644cf158b55d57911188f",
+          "0x0183197a2fb2bb62040f48cca5690fd8b88b8f1f25e79e429d4e82217fdc301d"
+        ]
+      }
+    ],
+    "channel": {
+      "span": {
+        "verified_l1_origins": 5,
+        "first_l2_number": 159778224,
+        "last_l2_number": 159778249,
+        "last_l2_hash": "0xeff111acae34fe4309c710ce286ba277ffab77dfbe45d0cccef228ddee5b1bae",
+        "user_transactions": 1046
+      },
+      "channel_id": "d2835f23af5c835d78318e1d77037824",
+      "frames": 5,
+      "compression": "brotli",
+      "compressed_bytes": 624930,
+      "decoded_bytes": 1298269,
+      "decoded_sha256": "52e7b8b95e708e52270951fdcecf51578b3c3f009694af050edcb10bd55ef448",
+      "singular_batches": 0,
+      "span_batches": 1
+    }
+  }
+]

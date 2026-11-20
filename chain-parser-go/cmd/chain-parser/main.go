@@ -36,6 +36,7 @@ func run() error {
 	rotate := flags.String("prepare-beacon-rotation", "", "prepare a new proof file for this successor owner configuration")
 	bootstrap := flags.String("beacon-bootstrap", "", "bootstrap response for the successor checkpoint root")
 	span := flags.String("refresh-op-span", "", "read authenticated L1 submission evidence and publish the corresponding OP span observation")
+	scanFrom := flags.String("op-scan-from", "", "with --refresh-latest-op-span, scan forward from inclusive L1 height:transaction-index")
 	latestSpan := flags.String("refresh-latest-op-span", "", "collect the latest finalized OP blob submission using this beacon API and refresh the owner observation")
 	if e := flags.Parse(os.Args[1:]); e != nil {
 		return fmt.Errorf("INVALID_CLI")
@@ -47,13 +48,22 @@ func run() error {
 	if e != nil {
 		return e
 	}
+	if *scanFrom != "" && *latestSpan == "" {
+		return fmt.Errorf("INVALID_CLI")
+	}
 	if *latestSpan != "" {
 		if *check || *span != "" || *refresh != "" || *rotate != "" || *bootstrap != "" {
 			return fmt.Errorf("INVALID_CLI")
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		report, err := evm.RefreshLatestOPSpan(ctx, cfg, *latestSpan)
+		var report *evm.OPChannelSubmissionsReport
+		var err error
+		if *scanFrom != "" {
+			report, err = evm.RefreshForwardOPSpan(ctx, cfg, *latestSpan, *scanFrom)
+		} else {
+			report, err = evm.RefreshLatestOPSpan(ctx, cfg, *latestSpan)
+		}
 		if err != nil {
 			return err
 		}

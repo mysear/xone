@@ -25,15 +25,16 @@ type OPBatchEvidence struct {
 }
 
 type OPBatchReport struct {
-	inclusionTime   uint64
-	SenderAuthority string           `json:"sender_authority,omitempty"`
-	Channel         *OPChannelReport `json:"channel,omitempty"`
-	L1Number        uint64           `json:"l1_number"`
-	L1Hash          string           `json:"l1_hash"`
-	TxHash          string           `json:"tx_hash"`
-	Sender          string           `json:"sender"`
-	FirstBlobIndex  int              `json:"first_blob_index"`
-	VersionedHashes []common.Hash    `json:"versioned_hashes"`
+	inclusionTime    uint64
+	SenderAuthority  string           `json:"sender_authority,omitempty"`
+	Channel          *OPChannelReport `json:"channel,omitempty"`
+	L1Number         uint64           `json:"l1_number"`
+	L1Hash           string           `json:"l1_hash"`
+	TxHash           string           `json:"tx_hash"`
+	Sender           string           `json:"sender"`
+	TransactionIndex int              `json:"transaction_index"`
+	FirstBlobIndex   int              `json:"first_blob_index"`
+	VersionedHashes  []common.Hash    `json:"versioned_hashes"`
 }
 
 // VerifyOPBatchBlobs authenticates an inbox submission in the signed L1 head.
@@ -168,7 +169,7 @@ func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFi
 				return empty, err
 			}
 		}
-		return OPBatchReport{inclusionTime: timestamp, SenderAuthority: authority, Channel: decoded, L1Number: height, L1Hash: hash, TxHash: e.TxHash, Sender: sender.Hex(), FirstBlobIndex: first, VersionedHashes: hashes}, nil
+		return OPBatchReport{inclusionTime: timestamp, SenderAuthority: authority, Channel: decoded, L1Number: height, L1Hash: hash, TxHash: e.TxHash, Sender: sender.Hex(), TransactionIndex: i, FirstBlobIndex: first, VersionedHashes: hashes}, nil
 	}
 	return empty, errors.New("OP_BATCH_TRANSACTION_MISSING")
 }

@@ -48,7 +48,9 @@ func TestCollectOPSubmissionChecksEveryHeight(t *testing.T) {
 				var result json.RawMessage
 				switch req.Method {
 				case "eth_getBlockByNumber":
-					if first == "0x193a76f" || tc.name == "wrong parent" {
+					if first == "0x193a76f" && string(req.Params[1]) == "false" {
+						result = evidence.Descendants[0]
+					} else if first == "0x193a76f" || tc.name == "wrong parent" {
 						result = head
 					} else {
 						result = evidence.Block
@@ -70,13 +72,14 @@ func TestCollectOPSubmissionChecksEveryHeight(t *testing.T) {
 			client := rpc.New([]string{server.URL}, 5*time.Second, 8<<20)
 			defer client.HTTP.CloseIdleConnections()
 			calls := 0
-			items, err := collectOPSubmission(context.Background(), proof, client, client, tc.window, tc.budget, func(_ context.Context, slot uint64) ([]*kzg4844.Blob, error) {
+			blobsAt := func(_ context.Context, slot uint64) ([]*kzg4844.Blob, error) {
 				calls++
 				if slot != 15693695 {
 					t.Fatal(slot)
 				}
 				return evidence.Blobs, nil
-			})
+			}
+			items, err := collectOPSubmission(context.Background(), proof, client, client, tc.window, tc.budget, blobsAt)
 			if tc.want != "" {
 				if err == nil || err.Error() != tc.want || items != nil || calls != 0 {
 					t.Fatal(err, calls)
@@ -86,6 +89,39 @@ func TestCollectOPSubmissionChecksEveryHeight(t *testing.T) {
 			if err != nil || len(items) != 1 || items[0].Evidence.TxHash != evidence.TxHash || len(items[0].Evidence.Descendants) != 1 || calls != 1 {
 				t.Fatal(err, calls)
 			}
+			for _, scan := range []struct {
+				cursor opScanCursor
+				want   string
+			}{
+				{opScanCursor{26453870, 0}, ""},
+				{opScanCursor{26453870, 1 << 32}, "OP_BATCH_SCAN_CURSOR"},
+				{opScanCursor{26453871, 0}, "OP_BATCH_SEARCH_EXHAUSTED"},
+				{opScanCursor{26453869, 0}, "OP_BATCH_SEARCH_WINDOW"},
+			} {
+				got, err := collectOPForward(context.Background(), proof, client, client, tc.window, tc.budget, scan.cursor, blobsAt)
+				if scan.want != "" {
+					if err == nil || err.Error() != scan.want || got != nil {
+						t.Fatal(scan, err)
+					}
+					continue
+				}
+				if err != nil || len(got) != 1 || got[0].Evidence.TxHash != evidence.TxHash {
+					t.Fatal(scan, err)
+				}
+				var source struct{ Transactions []struct{ Hash string } }
+				if err = json.Unmarshal(evidence.Block, &source); err != nil {
+					t.Fatal(err)
+				}
+				for index, tx := range source.Transactions {
+					if tx.Hash == evidence.TxHash {
+						_, err = collectOPForward(context.Background(), proof, client, client, tc.window, tc.budget, opScanCursor{26453870, uint64(index) + 1}, blobsAt)
+						if err == nil || err.Error() != "OP_BATCH_SEARCH_EXHAUSTED" {
+							t.Fatal("resubmitted previous transaction", err)
+						}
+					}
+				}
+			}
+
 		})
 	}
 }

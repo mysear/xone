@@ -83,3 +83,17 @@ python3 integration/tools/acceptance/replay_op_span_owner.py \
 ```
 
 The test checks startup rejection with an empty observation. After a successful start, it withdraws the observation, checks the revocation journal and HTTP endpoints, then restores the original observation and checks the newly published generation. For confirmation reads that request transaction hashes, the replay projects each endpoint's own recorded full block into the hash-only response.
+
+### Follow submissions in L1 order
+
+For a bounded gap, use a release with a fresh signed head covering the window. Start at the first unprocessed transaction and invoke the command once per channel.
+
+```sh
+chain-parser --config "$release" --refresh-latest-op-span "$beacon_api" \
+  --op-scan-from 26454408:0 > report.json
+next=$(jq -r '.submissions[-1] | "\(.l1_number):\(.transaction_index+1)"' report.json)
+chain-parser --config "$release" --refresh-latest-op-span "$beacon_api" \
+  --op-scan-from "$next"
+```
+
+The decimal transaction index is inclusive. The start must be within the configured header window (at most 129 heights). The collector checks bodies in transaction order, gathers frames and intervening blocks, and stops at the first closed channel. An incomplete channel or an unsupported authorized submission leaves the previous observation available. When a previous file exists, the next verified span must extend its last height and full block hash. Keep the report cursor with its observation. Use a separate observation path when replaying an older window.

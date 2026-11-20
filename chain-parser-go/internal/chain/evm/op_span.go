@@ -17,6 +17,7 @@ import (
 // The report identifies the observed L2 bodies whose sequencer inputs match the span.
 // Execution outputs and the contents of deposits require separate derivation.
 type OPSpanReport struct {
+	firstParent       string
 	blockHashes       []string
 	origins           []OPL1Origin
 	VerifiedL1Origins int `json:"verified_l1_origins,omitempty"`
@@ -134,6 +135,7 @@ func verifyOPSpan(ctx context.Context, batch []byte, blocks []json.RawMessage) (
 		}
 		if i == 0 {
 			report.FirstBlock = h
+			report.firstParent = b.ParentHash
 			relative = t - opBedrockTime
 			parent = common.FromHex(b.ParentHash)[:20]
 		} else {

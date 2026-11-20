@@ -18,14 +18,23 @@ import (
 // RefreshOwnerOPSpan uses the owner's release, freshness limits and endpoint
 // identities. The file lock serializes writers and rename publishes one span.
 func RefreshOwnerOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions []OPChannelSubmission) (*OPChannelSubmissionsReport, error) {
-	return refreshOPSpan(ctx, snapshot, submissions, "")
+	return refreshOPSpan(ctx, snapshot, submissions, "", nil)
 }
 
 func RefreshLatestOPSpan(ctx context.Context, snapshot *config.Snapshot, beaconAPI string) (*OPChannelSubmissionsReport, error) {
-	return refreshOPSpan(ctx, snapshot, nil, beaconAPI)
+	return refreshOPSpan(ctx, snapshot, nil, beaconAPI, nil)
 }
 
-func refreshOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions []OPChannelSubmission, beaconAPI string) (*OPChannelSubmissionsReport, error) {
+// RefreshForwardOPSpan installs the first complete channel at an inclusive L1 cursor.
+func RefreshForwardOPSpan(ctx context.Context, snapshot *config.Snapshot, beaconAPI, start string) (*OPChannelSubmissionsReport, error) {
+	cursor, err := parseOPScanCursor(start)
+	if err != nil {
+		return nil, err
+	}
+	return refreshOPSpan(ctx, snapshot, nil, beaconAPI, &cursor)
+}
+
+func refreshOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions []OPChannelSubmission, beaconAPI string, cursor *opScanCursor) (*OPChannelSubmissionsReport, error) {
 	for _, chain := range snapshot.Config.Chains {
 		policy := chain.OPOrigin
 		if policy == nil || policy.BatchProofFile == "" {
@@ -69,7 +78,12 @@ func refreshOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions [
 					return nil, err
 				}
 			}
-			submissions, err = collectOPSubmission(ctx, proof, l1, state, min(129, chain.NativeProof.MaxHeaders), chain.NativeProof.MaxBytes, blobsAt)
+			window := min(129, chain.NativeProof.MaxHeaders)
+			if cursor != nil {
+				submissions, err = collectOPForward(ctx, proof, l1, state, window, chain.NativeProof.MaxBytes, *cursor, blobsAt)
+			} else {
+				submissions, err = collectOPSubmission(ctx, proof, l1, state, window, chain.NativeProof.MaxBytes, blobsAt)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -109,7 +123,7 @@ func refreshOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions [
 			}
 			return nil
 		}
-		if err = installOPSpan(proofFile, opObservationPath(proofFile, policy.BatchProofFile), data, span, gate); err != nil {
+		if err = installOPSpan(proofFile, opObservationPath(proofFile, policy.BatchProofFile), data, span, gate, cursor != nil); err != nil {
 			return nil, err
 		}
 		return report, nil
@@ -117,7 +131,7 @@ func refreshOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions [
 	return nil, errors.New("CONFIG_OP_SPAN_REQUIRED")
 }
 
-func installOPSpan(proofFile, path string, data []byte, next *OPSpanReport, gate func() error) error {
+func installOPSpan(proofFile, path string, data []byte, next *OPSpanReport, gate func() error, contiguous bool) error {
 	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return err
@@ -135,6 +149,9 @@ func installOPSpan(proofFile, path string, data []byte, next *OPSpanReport, gate
 		h, err := canonicalIndex(watermark.Number)
 		if err != nil {
 			return err
+		}
+		if contiguous && (next.FirstBlock == 0 || h != next.FirstBlock-1 || watermark.Hash != next.firstParent) {
+			return errors.New("OP_SPAN_REFRESH_DISCONTINUITY")
 		}
 		if h > next.LastBlock || (h >= next.FirstBlock && watermark.Hash != next.blockHashes[h-next.FirstBlock]) {
 			return errors.New("OP_SPAN_REFRESH_CONFLICT")
