@@ -14,7 +14,7 @@ import (
 
 func readOriginFixture(t *testing.T, name string, target any) {
 	t.Helper()
-	f, err := os.Open("../../../../integration/test/source/" + name)
+	f, err := os.Open("../../../test/fixtures/source/testdata/" + name)
 	if err != nil {
 		t.Fatal(err)
 	}

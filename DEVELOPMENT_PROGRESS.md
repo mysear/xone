@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Go 测试独立性与必要文件收敛（[阶段240](#go-standalone-fixtures)，P0-1）|§25、§28.3、§28.5，WP01、WP03|LOCAL_SCOPE_VERIFIED|移除5处兄弟项目路径，显式保留20份必要gzip，契约191份公开来源逐字节通过；再清理10.81GiB重复构建环境|CI/供应链、完整工作包验收和其余设计缺项继续推进|
 |OP 自动扫描的废弃通道恢复（[阶段239](#op-forward-channel-recovery)，P0-1）|§7.1、§7.2、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|Holocene 交易边界恢复、授权证明累计计费和旧证据清理，五个真实通道重放一致|恢复布局为原始 blob 的合成提交边界；真实跨提交正例、混合通道交易和完整执行仍待验收|
 |OP 固定派生属性（[阶段238](#op-fixed-payload-attributes)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|核对属性存款的固定 gas 上限和 SequencerFeeVault 收款地址，218 块缓存重放一致|完整执行见证、真实跨提交通道和其余链来源仍待验收|
 |OP 执行载荷属性（[阶段237](#op-origin-payload-attributes)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|由签名 L1 来源核对 L2 的 prevRandao 和父信标块根，跨批次边界复验通过|执行见证来源、真实跨提交通道及完整执行后状态待验收|
@@ -272,7 +273,7 @@
 
 |工作包|功能|方案|状态|已完成范围|待完成范围|
 |---|---|---|---|---|---|
-|WP01|仓库、构建与质量基线|§28.3|PARTIAL_LOCAL|三项目独立构建、固定Go/Rust工具链、锁文件、Make验证入口、公共契约副本检查；独立性补查：服务测试不读取兄弟项目源码/配置，Go测试本地完整路由设置，集成层逐字节校验共享副本并禁止跨项目测试路径|当前 contracts 检查因 Go 测试跨项目读取而失败；镜像/SBOM/许可证及secret扫描、真正的CI平台执行尚未验收|
+|WP01|仓库、构建与质量基线|§28.3|PARTIAL_LOCAL|三项目独立构建、固定Go/Rust工具链、锁文件、Make验证入口、公共契约副本检查；独立性补查：服务测试不读取兄弟项目源码/配置，Go测试本地完整路由设置，集成层逐字节校验共享副本并禁止跨项目测试路径|阶段240修复Go测试跨项目读取，当前contracts检查通过；镜像/SBOM/许可证及secret扫描、真正的CI平台执行尚未验收|
 |WP02|链身份、金额和快照契约|§28.4|PARTIAL_LOCAL|Kafka实际record和owner bootstrap已接入Protobuf；uint256恰好32字节大端、块hash原始32字节；RaydiumCLMM dynamic_fee九字段及独立protofield63、signedindex/宽度/PDA/clone、旧profile隔离与独立protoc已验证；本批限定范围整体验收通过；本批新增独立CurveCryptoState field12与原LP账本/定价/来源的跨语言严格契约；本批新增Orca adaptive独立profile及field51完整Oracle/保留字段契约与严格跨语言校验；本批新增独立InfinityBin field30完整tree/share/manager账本与field29树外active锁定dust、跨语言wire/config/clone和来源约束；新增独立Orca adaptive-rewards复用完整Oracle/reward/tick wire，4007byte独立protoc与旧profile隔离通过；新增adaptive-dynamic独立版本、完整mixed layout/bitmap/reward/Oracle与4013byte独立wire，旧fixed-only隔离通过|网络指纹/所有链地址规范化、schema演进破坏检测和更多事实族仍需扩展|
 |WP03|历史fixture与独立回放框架|§28.5|PARTIAL_LOCAL|固定合成基线、V2反例、大整数、重复重放、Python独立顺序计算对照；416固定原Pool.swap/CLPool.swap EVM样本、8组原库连续序列与1115主源码hash；动态费原DynamicFeeInfo/SwapState/swap_internal独立native：348案例12连续序列24步、8时间不变/6预算准入探针、2原始bank完整Pool；旧480/968/364/464语料保护，本批限定范围整体验收通过；正常Solana RPC原始响应证据WAL、独立耐久head/损坏封闭与重启新会话验证通过；标准receipt type0–4/legacy post-state的12组EthereumJS独立根向量（含128/130/257索引边界）验证通过；新增固定原Vyper NG完整交换/EMA、独立protobuf及正常服务回归；Managed非零BPT费用原回调参考357案例/30序列120步及常规EVM大小限制失败证据，明确无服务准入；MetaUSD实际clone/initialize/add_liquidity及32直接交换、8原探针、完整Token/raw/admin与正常服务回归；本批新增Crypto原池及原V4 LP的60案例、Orca费率197案例与14连续交易、Infinity原BinPool跨Bin326案例；本批新增固定原program pack+swap/update后的20bank、16成交/4拒绝，26类普通/优化模式故障拒绝；ProgramData为明确合成身份；本批原manager/Vault正常部署getter与5bank/4连续跨Bin交换、原burn16场景48交易（9回退）及原manager降低初始化上限证据通过；新增固定原Orca初始化奖励adaptive参考20bank/16成交4拒绝、12乘法溢出/4global回绕/35outside更新、34普通优化篡改拒绝；新增原dynamic枚举/实际加载器20bank及44篡改反例、100成功2失败×7动态布局内核结果对照|已有公开历史receipt/交易及原源码/原VM样本；仍缺目标版本全矩阵的真实多块分叉/事件顺序篡改、来源许可及独立收款差分的统一验收，不能将局部样本外推全部协议|
 |WP04|RPC Provider与链能力|§28.6|PARTIAL_LOCAL|EVM chainId+genesis握手、错链隔离、总超时、逐provider有界尝试、响应体上限；Solana genesis校验；RaydiumCLMM动态profile复用同槽15..19账户finalized整批、ProgramData/Token/Clock及读后block验证，实际2bank样本通过；本批限定范围整体验收通过；同一提供方finalized context有界分片、逐片Clock/首末锚点、总响应预算和整批切源已局部验证；本批新增Crypto原模板/immutable及原LP minter、完整定价/raw/LP状态的同blockHash读取；本批新增Orca adaptive独立fee-tier PDA、254-byte Oracle及Pool/ticks同finalized bank读取和重锚；本批固定hash读取Bin原模板/immutableVault/key/pause/token/app依赖与完整root/L1/L2/所有bin/share，预算和getNext双向校验通过；新增adaptive-rewards同finalized bank/Clock完整账户RPC与重锚失败拒绝，旧版本隔离通过；新增完整dynamic/mixed账户同finalized bank读取和重锚、148/10004精确compact边界与畸形拒绝；normal服务已接方法级provider探测、负对照、共享限流预算、WS唤醒/有界重连与HTTP补扫，参见R01–R04逐项复核|公开provider历史正负覆盖、持续限流/重连、可信头与真实独立故障域矩阵仍待完整验收；不能把URL数量当独立来源|
@@ -5434,3 +5435,15 @@ OP 块 144644465 的存款与以太坊块 23942644 均给出 48265514 wei。修�
 后续可本地推进项包括对照固定 op-geth 共识代码补齐 OP 原生头的固定字段规则。完整执行重算仍需要阶段237来源未提供的见证；真实跨提交通道、其他链与协议来源、恢复和完整设计验收继续保留。推送目标仍为 GitHub origin，GitLab 克隆地址待提供。
 
 [验证记录](integration/artifacts/local/op-forward-recovery-239/verification.json) · [采集与复验说明](integration/test/source/op-mainnet-batches/README.md)
+
+<a id="go-standalone-fixtures"></a>
+
+## 修复独立Go回归与进一步保留必要文件（2026-11-21，阶段240，P0-1）
+
+阶段239后的全范围审计发现5处Go测试读取兄弟integration目录。本轮将信标分叉/轮换及OP区块、批次、存款、提款核验所需的20份压缩原始样本放入Go自己的 `test/fixtures/source/testdata`，保持原始gzip字节不变。两个读取helper改为模块内路径，提款/消息传递测试共用已存在的读取helper；契约检查显式登记这20项并逐字节比较副本，不放宽跨项目依赖规则，也不复制无关的运行目录。原始与服务副本内容相同，Git可复用blob；约6.2MiB的工作区副本属于独立测试所需文件。
+
+最初全包检查补出信标轮换还需 `fulu-rotation-bootstrap.json.gz`，纳入20份集合后Go全包测试、OP专项race和vet通过。`contracts.py` 现在通过：328份contract、12份普通fixture、191份公开来源文件。阶段审计时的“契约失败”保留为历史事实，此项已由本轮修复；不能将这一个门禁通过等同于WP01全包或生产验收完成。
+
+进一步清理49处冗余工具链下载包、下载分片、sysroot/vendor副本和编译中间目录，共11608911872字节，约10.81GiB。两处正式参考程序在原位置保留且SHA256不变，正常Solders 0.29.0/LiteSVM初始化在清理前后均通过。源码、固定程序、必要bank、编译器及来源清单保留；显式离线源码重编译若需要已清理的工具链缓存，须按固定版本重新准备。没有生成新的测试报告/二进制留在项目中。
+
+后续每轮执行：先选最前的可推进设计缺项，实现正常入口及必要反例，运行所需门禁，更新本文件、commit/push，然后清理本轮临时目录、构建中间物和测试结果；保留实际运行及必要回归输入。范围完整验收仍为0/26，完整功能目标继续有效，不因局部通过而停止。

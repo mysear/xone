@@ -10,7 +10,7 @@ import (
 
 func readForkCapture(t *testing.T, file string, target any) {
 	t.Helper()
-	f, err := os.Open(filepath.Join("../../../integration/test/source/beacon-fork-handover", file))
+	f, err := os.Open(filepath.Join("../../test/fixtures/source/testdata/beacon-fork-handover", file))
 	if err != nil {
 		t.Fatal(err)
 	}

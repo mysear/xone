@@ -1,41 +1,24 @@
 package evm
 
 import (
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"xone/chain-parser-go/internal/config"
 )
 
 func TestOPMessagePasserArchiveAccountRead(t *testing.T) {
-	read := func(name string, value any) {
-		t.Helper()
-		f, err := os.Open("../../../../integration/test/source/op-mainnet-withdrawals/" + name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer f.Close()
-		z, err := gzip.NewReader(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer z.Close()
-		if err = json.NewDecoder(z).Decode(value); err != nil {
-			t.Fatal(err)
-		}
-	}
+
 	var sample struct {
 		Block, Pair json.RawMessage
 		Receipts    []Receipt
 	}
-	read("block-159769967.json.gz", &sample)
+	readOriginFixture(t, "op-mainnet-withdrawals/block-159769967.json.gz", &sample)
 	var passer json.RawMessage
-	read("passer-159769967.json.gz", &passer)
+	readOriginFixture(t, "op-mainnet-withdrawals/passer-159769967.json.gz", &passer)
 	ctx := context.WithValue(context.Background(), nativeDutyKey{}, "passer")
 	body, err := VerifyChainBlockJSON(ctx, "evm:10", sample.Block, 16<<20)
 	if err != nil {

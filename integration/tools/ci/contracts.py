@@ -85,6 +85,28 @@ source_files = {
     Path('deployment-catalog/verified-source-inputs/ethereum-uniswap-v3.json'),
     Path('ethereum-mainnet/uniswap-v2-26355865-evidence.json'),
 }
+source_files.update(Path(name) for name in [
+    'beacon-fork-handover/deneb-bootstrap.json.gz',
+    'beacon-fork-handover/electra-fulu.json.gz',
+    'beacon-fork-handover/fulu-rotation-bootstrap.json.gz',
+    'op-mainnet-batches/authority-26453870.json.gz',
+    'op-mainnet-batches/batch-26453043.json.gz',
+    'op-mainnet-batches/batch-26453870.json.gz',
+    'op-mainnet-batches/beacon-26453043.json.gz',
+    'op-mainnet-batches/beacon-26453871.json.gz',
+    'op-mainnet-batches/beacon-26454447.json.gz',
+    'op-mainnet-batches/interval-26453040-26453042.json.gz',
+    'op-mainnet-batches/l2-159769779-159769799.json.gz',
+    'op-mainnet-batches/l2-159774755-159774778.json.gz',
+    'op-mainnet-batches/origins-26453043-26453032.json.gz',
+    'op-mainnet-batches/origins-26453871-26453857.json.gz',
+    'op-mainnet-batches/portal-origin-26454436.json.gz',
+    'op-mainnet-batches/search-head-26453871.json.gz',
+    'op-mainnet-withdrawals/block-159769967.json.gz',
+    'op-mainnet-withdrawals/origin-144644465.json.gz',
+    'op-mainnet-withdrawals/passer-159769967.json.gz',
+    'op-mainnet-withdrawals/usdc-159770518.json.gz',
+])
 manifest_paths = [entry['path'] for entry in manifest['files']]
 if len(manifest_paths) != len(set(manifest_paths)):
     raise SystemExit('Duplicate retained public source fixture')

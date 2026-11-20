@@ -1,12 +1,10 @@
 package evm
 
 import (
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -38,24 +36,12 @@ func TestOPMainnetWithdrawalForks(t *testing.T) {
 }
 
 func TestOPMainnetBlock159769967(t *testing.T) {
-	f, err := os.Open("../../../../integration/test/source/op-mainnet-withdrawals/block-159769967.json.gz")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	z, err := gzip.NewReader(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer z.Close()
 	var data struct {
 		Block, Pair json.RawMessage
 		Receipts    []Receipt
 		Code        string
 	}
-	if err = json.NewDecoder(z).Decode(&data); err != nil {
-		t.Fatal(err)
-	}
+	readOriginFixture(t, "op-mainnet-withdrawals/block-159769967.json.gz", &data)
 	ctx := context.Background()
 	body, err := VerifyChainBlockJSON(ctx, "evm:10", data.Block, 64<<20)
 	if err != nil {
@@ -91,25 +77,13 @@ func TestOPMainnetBlock159769967(t *testing.T) {
 }
 
 func TestOPUSDCDelegatedBalance159770518(t *testing.T) {
-	f, err := os.Open("../../../../integration/test/source/op-mainnet-withdrawals/usdc-159770518.json.gz")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	z, err := gzip.NewReader(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer z.Close()
 	var sample struct {
 		Header          json.RawMessage
 		Proofs          []json.RawMessage
 		Codes           map[string]string
 		Owner, Expected string
 	}
-	if err = json.NewDecoder(z).Decode(&sample); err != nil {
-		t.Fatal(err)
-	}
+	readOriginFixture(t, "op-mainnet-withdrawals/usdc-159770518.json.gz", &sample)
 	ctx := context.Background()
 	header, err := VerifyChainHeaderJSON(ctx, "evm:10", sample.Header)
 	if err != nil {
