@@ -13,7 +13,9 @@ PROVIDERS = {provider_id(url): url for url in ENDPOINTS}
 def audit_archive(directory, blocks, endpoints=ENDPOINTS):
     """Check archive integrity and coverage. The running owner verifies MPT and consensus."""
     providers = {provider_id(url): PROVIDERS.get(provider_id(url), provider_id(url)) for url in endpoints}
-    require(len(providers) == 2, 'CAPTURE_PROVIDER_COUNT')
+    body_sources = {provider_id(url) for url in endpoints[:2]}
+    require(len(body_sources) == 2 and len(endpoints) in (2, 3), 'CAPTURE_PROVIDER_COUNT')
+    proof_sources = {provider_id(endpoints[2])} if len(endpoints) == 3 else body_sources
     methods = defaultdict(Counter)
     headers = defaultdict(set)
     proofs = defaultdict(set)
@@ -54,7 +56,7 @@ def audit_archive(directory, blocks, endpoints=ENDPOINTS):
         result = response['result']
         if method == 'eth_getBlockByNumber' and isinstance(result, dict) and params[1] is True:
             headers[(int(result['number'], 16), result['hash'])].add(source)
-        if method == 'eth_getProof' and isinstance(result, dict) and isinstance(params[-1], dict):
+        if source in proof_sources and method == 'eth_getProof' and isinstance(result, dict) and isinstance(params[-1], dict):
             if (params[-1].get('requireCanonical') is True and result.get('accountProof')
                     and result.get('address', '').lower() == params[0].lower()):
                 proofs[params[-1]['blockHash']].add(params[0].lower())
@@ -62,7 +64,7 @@ def audit_archive(directory, blocks, endpoints=ENDPOINTS):
     for index, block in enumerate(blocks):
         key = block['hash']
         missing = sorted(ACCOUNTS - proofs[key])
-        witnesses = sorted(providers.keys() - headers[(block['number_or_slot'], key)])
+        witnesses = sorted(body_sources - headers[(block['number_or_slot'], key)])
         staged_missing = index > 0 and derived.get(key) != block
         if missing or witnesses or staged_missing:
             gaps.append(dict(height=block['number_or_slot'], missing_accounts=missing,

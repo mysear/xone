@@ -25,7 +25,7 @@ type nativeProofReader struct {
 }
 
 func newNativeProofReader(ctx context.Context, a *Adapter, limits ReceiptProofLimits) (*nativeProofReader, error) {
-	return newNativeProofReaderForEndpoint(ctx, a, limits, nil)
+	return openNativeProofReader(ctx, a, limits, "", nil)
 }
 
 // The account batch owns this identity for the duration of a single pool read.
@@ -36,6 +36,10 @@ type proofEndpointIdentity struct {
 }
 
 func newNativeProofReaderForEndpoint(ctx context.Context, a *Adapter, limits ReceiptProofLimits, verified *proofEndpointIdentity) (*nativeProofReader, error) {
+	return openNativeProofReader(ctx, a, limits, a.Chain.ProofRPCURL, verified)
+}
+
+func openNativeProofReader(ctx context.Context, a *Adapter, limits ReceiptProofLimits, proofURL string, verified *proofEndpointIdentity) (*nativeProofReader, error) {
 	if err := limits.validate(); err != nil {
 		return nil, err
 	}
@@ -56,7 +60,12 @@ func newNativeProofReaderForEndpoint(ctx context.Context, a *Adapter, limits Rec
 		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, a.Client.HTTP.Timeout)
-	_, providers := a.Client.ProviderClients()
+	var providers []*rpc.Client
+	if proofURL == "" {
+		_, providers = a.Client.ProviderClients()
+	} else {
+		providers = a.Client.ProofProvider(proofURL)
+	}
 	if len(providers) == 0 {
 		cancel()
 		return nil, errors.New("NO_HEALTHY_PROVIDER")
@@ -548,7 +557,7 @@ func (a *Adapter) ReadNativeAccountProof(ctx context.Context, coverage VerifiedR
 		selected[normalized] = true
 		slots = append(slots, normalized)
 	}
-	r, err := newNativeProofReader(ctx, a, limits)
+	r, err := newNativeProofReaderForEndpoint(ctx, a, limits, nil)
 	if err != nil {
 		return empty, err
 	}

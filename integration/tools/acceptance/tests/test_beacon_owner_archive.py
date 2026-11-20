@@ -84,3 +84,21 @@ class BeaconOwnerArchive(unittest.TestCase):
             install(addresses, genesis)
             with self.assertRaisesRegex(ValueError, reason):
                 execution_endpoints(config)
+
+    def test_dedicated_proofs_cannot_replace_body_witness_or_come_from_it(self):
+        from current_v2_evidence import ENDPOINTS, provider_id
+        urls = (*ENDPOINTS, 'https://proof.example')
+        proof = provider_id(urls[2])
+        for source in (self.sources[0], proof):
+            self.rpc(source, 'eth_getBlockByNumber', ['0x7', True], result=dict(number='0x7', hash=self.block['hash']))
+        for account in ACCOUNTS:
+            self.rpc(self.sources[0], 'eth_getProof', [account, [], dict(blockHash=self.block['hash'], requireCanonical=True)],
+                     result=dict(address=account, accountProof=['0xc0']))
+        gap, = audit_archive(self.root, [self.block], urls)['coverage_gaps']
+        self.assertEqual(gap['missing_accounts'], sorted(ACCOUNTS))
+        self.assertEqual(gap['missing_body_providers'], [self.sources[1]])
+        for account in ACCOUNTS:
+            self.rpc(proof, 'eth_getProof', [account, [], dict(blockHash=self.block['hash'], requireCanonical=True)],
+                     result=dict(address=account, accountProof=['0xc0']))
+        self.rpc(self.sources[1], 'eth_getBlockByNumber', ['0x7', True], result=dict(number='0x7', hash=self.block['hash']))
+        self.assertEqual(audit_archive(self.root, [self.block], urls)['coverage_gaps'], [])

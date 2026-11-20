@@ -294,7 +294,7 @@ func validateHistoryScope(scope, base config.Chain) error {
 	}
 	a, _ := json.Marshal(scope.RPCURLs)
 	b, _ := json.Marshal(base.RPCURLs)
-	if string(a) != string(b) {
+	if string(a) != string(b) || scope.ProofRPCURL != base.ProofRPCURL {
 		return errors.New("HISTORY_SCOPE_TRANSPORT_CHANGED")
 	}
 	return nil

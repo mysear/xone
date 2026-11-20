@@ -39,7 +39,11 @@ func replay(ctx context.Context, cfg *config.Snapshot, base, last uint64) (*wind
 	if chain.Key != "evm:1" || policy == nil || len(chain.RPCURLs) != 2 || chain.RPCURLs[0] == chain.RPCURLs[1] {
 		return nil, errors.New("REPLAY_MAINNET_PROFILE")
 	}
-	for _, raw := range chain.RPCURLs {
+	urls := append([]string(nil), chain.RPCURLs...)
+	if chain.ProofRPCURL != "" {
+		urls = append(urls, chain.ProofRPCURL)
+	}
+	for _, raw := range urls {
 		u, err := url.Parse(raw)
 		if err != nil || u.Scheme != "http" || u.Hostname() != "127.0.0.1" || u.Port() == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
 			return nil, errors.New("REPLAY_LOOPBACK_REQUIRED")

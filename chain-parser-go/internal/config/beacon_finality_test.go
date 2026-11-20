@@ -45,3 +45,30 @@ func TestOwnerBeaconPolicy(t *testing.T) {
 		})
 	}
 }
+
+func TestAccountProofRPCConfiguration(t *testing.T) {
+	cfg, err := Load("../../config/config-test.yaml", "chain-parser-go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	chain := &cfg.Config.Chains[0]
+	chain.Key = "evm:1"
+	chain.ProofRPCURL = "https://proof.example/rpc"
+	if err = cfg.Config.Validate("chain-parser-go"); err == nil {
+		t.Fatal("non-native profile accepted proof route")
+	}
+	chain.BlockIntegrity = "known-evm-native-commitments-v2"
+	chain.NativeProof = &NativeProofConfig{MaxBytes: 1 << 20, MaxHeaders: 16, MaxWindowBlocks: 8, MaxTransactions: 256, MaxLookahead: 16}
+	for _, raw := range []string{"https://proof.example/rpc", "http://127.0.0.1:2345", ""} {
+		chain.ProofRPCURL = raw
+		if err = cfg.Config.Validate("chain-parser-go"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, raw := range []string{"file:///proof", "/rpc", "https://user:pass@source.example", "https://source.example/#fragment", "https://source.example/a b"} {
+		chain.ProofRPCURL = raw
+		if err = cfg.Config.Validate("chain-parser-go"); err == nil || err.Error() != "CONFIG_PROOF_RPC_URL" {
+			t.Fatal(err)
+		}
+	}
+}

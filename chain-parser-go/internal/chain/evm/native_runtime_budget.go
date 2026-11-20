@@ -31,7 +31,7 @@ func (a *Adapter) nativeStateReader(ctx context.Context, block RawBlock) (*Adapt
 	}
 	httpClient := &http.Client{Transport: nativeStateBudgetTransport{base: transport, session: session}, Timeout: base.Timeout, CheckRedirect: base.CheckRedirect, Jar: base.Jar}
 	copy := a.CopyWithChain(a.Chain)
-	copy.Client = a.Client.CopyWithHTTP(httpClient)
+	copy.Client = a.Client.CopyWithHTTP(httpClient, a.Chain.ProofRPCURL)
 	copy.Client.MaxBytes = min(a.Client.MaxBytes, limits.MaxBytes)
 	return copy, nil
 }

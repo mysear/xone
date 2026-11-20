@@ -272,6 +272,7 @@ type RPCRetryConfig struct {
 }
 
 type Chain struct {
+	ProofRPCURL        string                `json:"proof_rpc_url,omitempty"`
 	RPCRetry           *RPCRetryConfig       `json:"rpc_retry,omitempty"`
 	BeaconFinality     *BeaconFinalityConfig `json:"beacon_finality,omitempty"`
 	NativeProof        *NativeProofConfig    `json:"native_proof,omitempty"`
@@ -613,6 +614,12 @@ func (c Config) Validate(expected string) error {
 		}
 		if ch.ReceiptsMode != "" && (expected != "chain-parser-go" || ch.ReceiptsMode != "per-tx" && ch.ReceiptsMode != "bulk-auto") {
 			return invalid()
+		}
+		if ch.ProofRPCURL != "" {
+			u, err := url.Parse(ch.ProofRPCURL)
+			if expected != "chain-parser-go" || ch.BlockIntegrity != "known-evm-native-commitments-v2" || len(ch.RPCURLs) == 0 || err != nil || u.Hostname() == "" || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Fragment != "" || strings.IndexFunc(ch.ProofRPCURL, unicode.IsSpace) >= 0 {
+				return errors.New("CONFIG_PROOF_RPC_URL")
+			}
 		}
 		if retry := ch.RPCRetry; retry != nil {
 			if expected != "chain-parser-go" || len(ch.RPCURLs) == 0 || retry.MaxAttempts < 1 || retry.MaxAttempts > 16 || retry.BaseBackoffMS == 0 || retry.BaseBackoffMS > retry.MaxBackoffMS || retry.MaxBackoffMS > 60000 || retry.MaxBackoffMS >= c.Journal.TimeoutMS {

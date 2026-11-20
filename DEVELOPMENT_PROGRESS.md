@@ -816,6 +816,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|207|[按方法选取账户证明来源](#account-proof-rpc-routing)|LOCAL_SCOPE_VERIFIED|普通 owner 主网基线和三来源归档核对，错误链、创世块和损坏证明回归通过|
 |206|[后继配置重启](#beacon-rotation-switch)|LOCAL_SCOPE_VERIFIED|普通 owner 两次运行和基线记录复核通过|
 |205|[信标检查点轮换](#beacon-checkpoint-rotation)|LOCAL_SCOPE_VERIFIED|配置根、时效、锁、取消和已有目标回归通过，实际主网证明轮换通过|
 |204|[跨分叉委员会交接](#beacon-fork-handover)|LOCAL_SCOPE_VERIFIED|周期 1606 交接至 1607，错误版本、缺少交接、下一委员会分支篡改和历史检查点矛盾均拒绝|
@@ -4986,3 +4987,13 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 两次主网读取均返回区块 26451448 的 DAI/WETH 池状态。签署者 511 名，代际、写入者版本和日志序号均从 1 递增至 2。7 项信标工具回归通过。独立初始根的运维供应和生产多节点切换仍待验收。
 
 [主网切换报告](integration/artifacts/local/beacon-switch-206/report.json) · [运行工具](integration/tools/acceptance/verify_beacon_rotation.py)
+
+<a id="account-proof-rpc-routing"></a>
+
+## 普通 owner 的账户证明来源（2026-11-20，阶段207，P0-1）
+
+按设计 §7.1，在 Go 链配置中设置 `proof_rpc_url`，可让专用节点承担 `eth_getProof`。该节点先报告链 ID 和创世块。每个账户及存储证明依然按请求的规范块哈希和执行状态根验证。节点沿用当前读取的超时、字节上限、重试和响应归档。省略配置时，普通 owner 沿用现有节点。离线回放为各来源创建对应的本地服务，两个区块体见证仍单独核对。
+
+Ethereum 主网块 26452499 的归档包含 dRPC 和 PublicNode 的区块体及回执，以及 Alchemy 的 6 个账户证明响应。普通 owner 核验 Pair、Factory、DAI 和 WETH 后发布基线，归档审计缺口为 0。用 Alchemy 承担整块读取时，`eth_getBlockReceipts` 返回 HTTP 401。错误链 ID、错误创世块、损坏的 MPT 节点及错误来源的归档回归均通过。Go 全包测试、`go vet ./...`、证明路由和配置/RPC 专项 race 测试通过。完整 32 块窗口和重放单独验收。当前已授权推送目标为 GitHub `origin`，GitLab 项目地址待提供。
+
+[主网基线归档审计](integration/artifacts/local/beacon-proof-routing-207/first-audit.json) · [整块读取失败报告](integration/artifacts/local/beacon-archive-providers-207/live/report.json) · [Go 全包回归](integration/artifacts/local/beacon-proof-routing-207/go-all.log)

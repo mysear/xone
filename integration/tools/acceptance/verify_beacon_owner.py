@@ -25,6 +25,9 @@ def execution_endpoints(config_path):
     urls = mainnet[0].get('rpc_urls')
     if not isinstance(urls, list) or len(urls) != 2:
         raise ValueError('EXECUTION_CONFIG_WITNESSES')
+    proof = mainnet[0].get('proof_rpc_url', '')
+    if proof != '':
+        urls = [*urls, proof]
     for url in urls:
         if not isinstance(url, str) or not url or any(c.isspace() for c in url):
             raise ValueError('EXECUTION_CONFIG_URL')
@@ -32,7 +35,7 @@ def execution_endpoints(config_path):
         if (parsed.scheme != 'https' or not parsed.hostname or parsed.username is not None
                 or parsed.password is not None or parsed.fragment):
             raise ValueError('EXECUTION_CONFIG_URL')
-    if len(set(urls)) != 2:
+    if len(set(urls[:2])) != 2:
         raise ValueError('EXECUTION_CONFIG_WITNESSES')
     return tuple(urls)
 
@@ -90,13 +93,15 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
     owner = 'http://127.0.0.1:' + str(port)
     cfg = config_for('chain-parser-go', output/'owner', token, port)
     cfg['chains'] = [dict(key='evm:1', owner_service='chain-parser-go', assignment_version=1,
-                          genesis_hash=GENESIS, rpc_urls=list(endpoints), pools=[POOL],
+                          genesis_hash=GENESIS, rpc_urls=list(endpoints[:2]), pools=[POOL],
                           confirmation_tag='finalized', auto_reorg_window=128,
                           block_integrity='known-evm-native-commitments-v2', receipts_mode='bulk-auto',
                           native_proof=dict(max_bytes=64<<20, max_headers=64, max_transactions=4096,
                                             max_lookahead=32, max_window_blocks=16),
                           beacon_finality=dict(checkpoint_root=root, proof_file=str(path),
                                                max_checkpoint_age_ms=7*86400000))]
+    if len(endpoints) == 3:
+        cfg['chains'][0]['proof_rpc_url'] = endpoints[2]
     advancing = bool(next_proof or refresh_endpoint)
     if advancing:
         cfg['journal']['raw_evidence'] = LIMITS
@@ -187,7 +192,7 @@ if __name__=='__main__':
     parser.add_argument('root')
     parser.add_argument('--updates',type=Path)
     parser.add_argument('--execution-config', type=Path,
-                        help='read the two execution RPC URLs from the evm:1 chain of an owner JSON config')
+                        help='read the two body witnesses and optional proof RPC URL from the evm:1 chain of an owner JSON config')
     advance = parser.add_mutually_exclusive_group()
     advance.add_argument('--next-proof', type=Path, help='exercise continuous publication to a later signed head')
     advance.add_argument('--refresh-endpoint', help='refresh the installed proof until the finalized head advances')

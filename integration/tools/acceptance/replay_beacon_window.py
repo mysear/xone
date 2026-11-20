@@ -104,12 +104,15 @@ def replay(binary, directory, trusted_root):
     sources, staged = read_window(directory / 'owner/state/raw-evidence/evm-1', endpoints)
     with ExitStack() as stack:
         local = []
-        for url in endpoints:
+        for url in dict.fromkeys(endpoints):
             rpc = sources[provider_id(url)]
             local.append(rpc)
             stack.callback(rpc.close)
         chain = cfg['chains'][0]
-        chain['rpc_urls'] = [rpc.start() for rpc in local]
+        loopback = {rpc.source: rpc.start() for rpc in local}
+        chain['rpc_urls'] = [loopback[provider_id(url)] for url in endpoints[:2]]
+        if len(endpoints) == 3:
+            chain['proof_rpc_url'] = loopback[provider_id(endpoints[2])]
         chain['beacon_finality'].update(checkpoint_root=trusted_root, proof_file=str((directory / 'proof.json').resolve()))
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / 'replay.json'

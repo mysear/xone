@@ -323,15 +323,25 @@ func (c *Client) ConfirmEVMBlock(ctx context.Context, number uint64, hash, paren
 // of healthy, endpoint-bound clients. A child cannot fail over to another URL.
 // Distinct URLs are not a claim of independent provider ownership.
 func (c *Client) ProviderClients() (int, []*Client) {
+	return c.providerClients(c.URLs)
+}
+
+// ProofProvider binds a method-specific endpoint without adding a body witness.
+func (c *Client) ProofProvider(url string) []*Client {
+	_, clients := c.providerClients([]string{url})
+	return clients
+}
+
+func (c *Client) providerClients(urls []string) (int, []*Client) {
 	recorder := c.recorderState()
-	for _, url := range c.URLs {
+	for _, url := range urls {
 		c.state(url)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	seen := map[string]bool{}
 	var providers []*Client
-	for _, url := range c.URLs {
+	for _, url := range urls {
 		if seen[url] {
 			continue
 		}

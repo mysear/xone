@@ -4,10 +4,15 @@ import "net/http"
 
 // CopyWithHTTP retains source identity/gating, policy and live recorder while
 // giving one bounded read an independently wrapped transport.
-func (c *Client) CopyWithHTTP(client *http.Client) *Client {
+func (c *Client) CopyWithHTTP(client *http.Client, auxiliary ...string) *Client {
 	recorder := c.recorderState()
 	for _, url := range c.URLs {
 		c.state(url)
+	}
+	for _, url := range auxiliary {
+		if url != "" {
+			c.state(url)
+		}
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()

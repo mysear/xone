@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -209,6 +210,10 @@ func (f *v2ProofBank) adapter(t *testing.T, fault string) *Adapter {
 		switch q.Method {
 		case "eth_chainId":
 			f.chainIDReads.Add(1)
+			if fault == "wrong-chain" {
+				respond("0x2")
+				return
+			}
 			respond("0x1")
 		case "eth_getBlockByNumber":
 			var tag string
@@ -216,6 +221,9 @@ func (f *v2ProofBank) adapter(t *testing.T, fault string) *Adapter {
 			if tag == "0x0" {
 				f.genesisReads.Add(1)
 				g, _ := knownBodyGenesis("evm:1")
+				if fault == "wrong-genesis" {
+					g = "0x00"
+				}
 				respond(map[string]any{"hash": g})
 			} else {
 				respond(f.header)
@@ -425,6 +433,39 @@ func TestV2BatchEndpointChangeRequiresFreshIdentity(t *testing.T) {
 			reader, err := newNativeProofReaderForEndpoint(context.Background(), a, limits, &endpoint)
 			if reader != nil || err == nil || err.Error() != "BLOCK_BODY_FINGERPRINT" || endpoint != original {
 				t.Fatal("new endpoint inherited identity", err)
+			}
+		})
+	}
+}
+
+func TestDedicatedAccountProofSource(t *testing.T) {
+	for _, fault := range []string{"", "bad-node", "wrong-chain", "wrong-genesis"} {
+		t.Run("proof/"+fault, func(t *testing.T) {
+			bank := newV2ProofBank(t, "")
+			a := bank.adapter(t, "")
+			a.Chain.ProofRPCURL = bank.adapter(t, fault).Client.URLs[0]
+			digest := sha256.Sum256([]byte(a.Chain.ProofRPCURL))
+			proofID := fmt.Sprintf("rpc-%x", digest[:12])
+			methods := map[string]int{}
+			a.Client.SetRecorder(func(_ context.Context, source, method string, params json.RawMessage, _ []byte) error {
+				if method == "eth_getProof" && source != proofID {
+					return fmt.Errorf("proof recorded on body witness")
+				}
+				if source == proofID {
+					if method != "eth_chainId" && method != "eth_getProof" && !(method == "eth_getBlockByNumber" && string(params) == `["0x0",false]`) {
+						return fmt.Errorf("unexpected proof provider method %s", method)
+					}
+					methods[method]++
+				}
+				return nil
+			})
+			_, pools, err := a.ReadState(context.Background(), fmt.Sprintf("0x%x", bank.bank.StateAnchor.Number), true)
+			if fault == "" {
+				if err != nil || len(pools) != 1 || methods["eth_getProof"] != 6 || methods["eth_chainId"] != 1 || methods["eth_getBlockByNumber"] != 1 {
+					t.Fatal(err, methods)
+				}
+			} else if err == nil || len(pools) != 0 || (fault != "bad-node" && (methods["eth_getProof"] != 0 || !strings.Contains(err.Error(), "BLOCK_BODY_FINGERPRINT"))) || (fault == "bad-node" && methods["eth_getProof"] != 1) {
+				t.Fatal(fault, err, methods)
 			}
 		})
 	}
