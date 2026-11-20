@@ -7,10 +7,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"io"
 	"os"
 
+	"github.com/ethereum/go-ethereum/common"
 	"xone/chain-parser-go/internal/chain/evm"
 	"xone/chain-parser-go/internal/provenance"
 )
@@ -22,7 +22,11 @@ func run() error {
 	input := flag.String("evidence", "", "Ethereum block, OP inbox transaction hash and block-ordered blobs JSON")
 	channel := flag.Bool("channel", false, "also verify a complete channel within this transaction")
 	span := flag.String("span-blocks", "", "ordered OP Mainnet full block array to match to the complete span")
+	origins := flag.String("origin-headers", "", "descending Ethereum headers from the finalized submission block through the first span origin")
 	flag.Parse()
+	if *origins != "" && *span == "" {
+		return errors.New("OP_SPAN_BLOCKS_REQUIRED")
+	}
 	if !common.IsHexAddress(*sender) {
 		return errors.New("OP_BATCH_SENDER")
 	}
@@ -43,7 +47,15 @@ func run() error {
 		if err = readJSON(*span, &blocks); err != nil {
 			return err
 		}
-		report, err = evm.VerifyOPBatchSpan(ctx, proof, address, evidence, blocks)
+		if *origins == "" {
+			report, err = evm.VerifyOPBatchSpan(ctx, proof, address, evidence, blocks)
+		} else {
+			var headers []json.RawMessage
+			if err = readJSON(*origins, &headers); err != nil {
+				return err
+			}
+			report, err = evm.VerifyOPBatchSpanOrigins(ctx, proof, address, evidence, blocks, headers)
+		}
 	case *channel:
 		report, err = evm.VerifyOPBatchChannel(ctx, proof, address, evidence)
 	default:

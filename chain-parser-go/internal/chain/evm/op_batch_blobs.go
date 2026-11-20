@@ -49,6 +49,36 @@ func VerifyOPBatchSpan(ctx context.Context, finality *provenance.VerifiedExecuti
 	return verifyOPBatch(ctx, finality, sender, e, true, blocks)
 }
 
+// VerifyOPBatchSpanOrigins additionally binds every epoch referenced by the
+// matched span to the finalized Ethereum block containing the batch.
+func VerifyOPBatchSpanOrigins(ctx context.Context, finality *provenance.VerifiedExecutionFinality, sender common.Address, evidence OPBatchEvidence, blocks, headers []json.RawMessage) (OPBatchReport, error) {
+	if len(headers) == 0 || len(headers) > 129 {
+		return OPBatchReport{}, errors.New("OP_ORIGIN_ANCESTRY_WINDOW")
+	}
+	remaining := 32 << 20
+	for _, raw := range headers {
+		if len(raw) > remaining {
+			return OPBatchReport{}, errors.New("OP_ORIGIN_BYTE_LIMIT")
+		}
+		remaining -= len(raw)
+	}
+	report, err := VerifyOPBatchSpan(ctx, finality, sender, evidence, blocks)
+	if err != nil {
+		return OPBatchReport{}, err
+	}
+	origins := report.Channel.Span.origins
+	first := origins[0].Number
+	if first > report.L1Number || report.L1Number-first != uint64(len(headers)-1) {
+		return OPBatchReport{}, errors.New("OP_ORIGIN_ANCESTRY_WINDOW")
+	}
+	err = verifyOriginRange(ctx, report.L1Number, report.L1Hash, origins, func(height uint64) (json.RawMessage, error) { return headers[report.L1Number-height], nil })
+	if err != nil {
+		return OPBatchReport{}, err
+	}
+	report.Channel.Span.VerifiedL1Origins = len(origins)
+	return report, nil
+}
+
 func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFinality, expectedSender common.Address, e OPBatchEvidence, channel bool, blocks []json.RawMessage) (OPBatchReport, error) {
 	var empty OPBatchReport
 	if finality == nil || expectedSender == (common.Address{}) || !receiptHex(e.TxHash, 32) {

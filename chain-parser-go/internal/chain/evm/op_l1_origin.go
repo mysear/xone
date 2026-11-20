@@ -120,7 +120,18 @@ func VerifyOPOrigin(ctx context.Context, proof *provenance.VerifiedExecutionFina
 }
 
 func verifyOriginAncestry(ctx context.Context, head uint64, hash string, origin OPL1Origin, read func(uint64) (json.RawMessage, error)) error {
-	if origin.Number > head || head-origin.Number > 128 {
+	return verifyOriginRange(ctx, head, hash, []OPL1Origin{origin}, read)
+}
+
+// origins lists distinct referenced epochs in ascending order. Walk each L1
+// header once, checking every referenced hash and timestamp along the way.
+func verifyOriginRange(ctx context.Context, head uint64, hash string, origins []OPL1Origin, read func(uint64) (json.RawMessage, error)) error {
+	if len(origins) == 0 {
+		return errors.New("OP_ORIGIN_ANCESTRY_WINDOW")
+	}
+	first := origins[0].Number
+	last := len(origins) - 1
+	if first > head || head-first > 128 || origins[last].Number > head {
 		return errors.New("OP_ORIGIN_ANCESTRY_WINDOW")
 	}
 	expected := hash
@@ -137,12 +148,19 @@ func verifyOriginAncestry(ctx context.Context, head uint64, hash string, origin 
 		if err != nil || height != h || header.Block.Hash != expected {
 			return errors.New("OP_ORIGIN_ANCESTRY_LINK")
 		}
-		if height == origin.Number {
+		if height == origins[last].Number {
+			origin := origins[last]
 			time, err := canonicalIndex(header.Block.Timestamp)
 			if err != nil || time != origin.Timestamp || expected != origin.Hash {
 				return errors.New("OP_ORIGIN_L1_MISMATCH")
 			}
-			return ctx.Err()
+			if last == 0 {
+				return ctx.Err()
+			}
+			last--
+		}
+		if height == first {
+			return errors.New("OP_ORIGIN_ANCESTRY_LINK")
 		}
 		expected = header.Block.ParentHash
 	}

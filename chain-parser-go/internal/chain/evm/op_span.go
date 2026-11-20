@@ -17,6 +17,9 @@ import (
 // The report identifies the observed L2 bodies whose sequencer inputs match the span.
 // Execution outputs and the contents of deposits require separate derivation.
 type OPSpanReport struct {
+	origins           []OPL1Origin
+	VerifiedL1Origins int `json:"verified_l1_origins,omitempty"`
+
 	FirstBlock       uint64 `json:"first_l2_number"`
 	LastBlock        uint64 `json:"last_l2_number"`
 	LastHash         string `json:"last_l2_hash"`
@@ -146,6 +149,9 @@ func verifyOPSpan(ctx context.Context, batch []byte, blocks []json.RawMessage) (
 			} else if origin.Number <= prev.Number || origin.Number-prev.Number != 1 || origin.Sequence != 0 || origin.Timestamp <= prev.Timestamp || origin.Hash == prev.Hash {
 				return nil, errors.New("OP_SPAN_ORIGIN_TRANSITION")
 			}
+		}
+		if i == 0 || origin.Number != prev.Number {
+			report.origins = append(report.origins, origin)
 		}
 		if origin.Sequence == 0 {
 			originBits.SetBit(&originBits, i, 1)

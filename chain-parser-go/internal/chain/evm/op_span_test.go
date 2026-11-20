@@ -64,3 +64,31 @@ func TestOPSpanMainnetBlockContents(t *testing.T) {
 		})
 	}
 }
+
+// The first and last epochs can both match while an intermediate deposit names
+// the wrong hash. A single authenticated traversal must check all four epochs.
+func TestOPSpanOriginRange(t *testing.T) {
+	var headers []json.RawMessage
+	readOriginFixture(t, "op-mainnet-batches/origins-26453043-26453032.json.gz", &headers)
+	var origins []OPL1Origin
+	for i := len(headers) - 1; i >= 8; i-- {
+		var h RawBlock
+		if err := json.Unmarshal(headers[i], &h); err != nil {
+			t.Fatal(err)
+		}
+		n, _ := canonicalIndex(h.Number)
+		ts, _ := canonicalIndex(h.Timestamp)
+		origins = append(origins, OPL1Origin{Number: n, Hash: h.Hash, Timestamp: ts})
+	}
+	ctx := context.Background()
+	const head = 26453043
+	const hash = "0x52fd70e5648c3caee20f1a2b51566ebaca6c5caba35880f668c3fa8cb9bc5239"
+	read := func(h uint64) (json.RawMessage, error) { return headers[head-h], nil }
+	if err := verifyOriginRange(ctx, head, hash, origins, read); err != nil {
+		t.Fatal(err)
+	}
+	origins[1].Hash = origins[0].Hash
+	if err := verifyOriginRange(ctx, head, hash, origins, read); err == nil || err.Error() != "OP_ORIGIN_L1_MISMATCH" {
+		t.Fatal(err)
+	}
+}
