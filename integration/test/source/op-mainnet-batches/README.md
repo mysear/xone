@@ -70,3 +70,16 @@ With `op_l1_origin.batch_proof_file` and a fresh beacon proof configured, run `c
 ### Discover the latest finalized OP submission
 
 An OP-only owner release can use `chain-parser --config "$release" --refresh-beacon-proof "$beacon_api"` to update its signed Ethereum observation. Run `chain-parser --config "$release" --refresh-latest-op-span "$beacon_api"` to walk backwards from that execution head. The command checks each full Ethereum body, looks for the newest authorized OP inbox blob transaction, obtains both SystemConfig account proofs, and fetches the block-ordered blobs for its beacon slot. Set `op_l1_origin.l1_proof_rpc_url` if a separate Ethereum endpoint supplies `eth_getProof`. The span refresh verifies the commitments, L2 transactions and L1 origins before publishing the owner file. This discovery mode handles complete channels in one submission. Use the submission array for a channel spanning multiple transactions.
+
+### Replay withdrawal and recovery at an unchanged OP head
+
+Build `chain-parser` and run the following against the stage 222 capture while its configured clock limits admit the archived block and beacon proof. The replay uses loopback RPC, a temporary copy of the channel observation and a fresh state directory.
+
+```sh
+capture=integration/artifacts/local/op-owner-run-222
+python3 integration/tools/acceptance/replay_op_span_owner.py \
+  --binary "$scratch/chain-parser" --config "$capture/owner-config.json" \
+  --archive "$capture/complete-state/raw-evidence/evm-10" --baseline "$capture/baseline.json"
+```
+
+The test checks startup rejection with an empty observation. After a successful start, it withdraws the observation, checks the revocation journal and HTTP endpoints, then restores the original observation and checks the newly published generation. For confirmation reads that request transaction hashes, the replay projects each endpoint's own recorded full block into the hash-only response.

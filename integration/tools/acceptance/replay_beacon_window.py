@@ -55,8 +55,8 @@ class ArchiveRPC(RecordedRPC):
         return body
 
 
-def read_window(directory, endpoints, expected_chain='evm:1'):
-    sources = {provider_id(url): ArchiveRPC(provider_id(url), expected_chain) for url in endpoints}
+def read_window(directory, endpoints, expected_chain='evm:1', rpc_type=ArchiveRPC):
+    sources = {provider_id(url): rpc_type(provider_id(url), expected_chain) for url in endpoints}
     staged = {}
     total = 0
     for count, path in enumerate(directory.glob('*.raw'), start=1):

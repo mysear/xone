@@ -9,14 +9,22 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"xone/chain-parser-go/internal/config"
+	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/provenance"
 )
 
 // readState has already verified the block body and receipts. The sealed beacon
 // proof stays with this read through the final canonical block recheck.
 func (a *Adapter) verifyOnlineOPOrigin(ctx context.Context, b RawBlock, now func() time.Time) (func() error, error) {
+	if b.NativeCoverage == nil {
+		return nil, errors.New("OP_ORIGIN_NATIVE_BODY_REQUIRED")
+	}
+	return a.verifyOPBodyOrigin(ctx, b, now)
+}
+
+func (a *Adapter) verifyOPBodyOrigin(ctx context.Context, b RawBlock, now func() time.Time) (func() error, error) {
 	p := a.Chain.OPOrigin
-	if p == nil || a.Chain.Key != "evm:10" || b.NativeBodyProof == nil || b.nativeSession == nil || b.NativeCoverage == nil || len(b.NativeBodyProof.RawTransactions) == 0 {
+	if p == nil || a.Chain.Key != "evm:10" || b.NativeBodyProof == nil || b.nativeSession == nil || len(b.NativeBodyProof.RawTransactions) == 0 {
 		return nil, errors.New("OP_ORIGIN_NATIVE_BODY_REQUIRED")
 	}
 	timestamp, err := canonicalIndex(b.Timestamp)
@@ -90,4 +98,32 @@ func (a *Adapter) verifyOnlineOPOrigin(ctx context.Context, b RawBlock, now func
 		return nil, err
 	}
 	return fresh, nil
+}
+
+// OPCurrentHeaderReader rechecks the L1 evidence for the published block on
+// idle polls. A changed head goes through the normal state or fork reader.
+type OPCurrentHeaderReader struct {
+	Adapter *Adapter
+	Current domain.BlockRef
+}
+
+func (r OPCurrentHeaderReader) Header(ctx context.Context, tag string) (domain.BlockRef, error) {
+	a := r.Adapter
+	ctx, cancel := context.WithTimeout(ctx, a.Client.HTTP.Timeout)
+	defer cancel()
+	b, err := a.Block(ctx, tag)
+	if err != nil {
+		return domain.BlockRef{}, err
+	}
+	ref, err := blockReference(a.Chain.Key, b)
+	if err != nil || ref.Number != r.Current.Number || ref.Hash != r.Current.Hash {
+		return ref, err
+	}
+	// The block hash already commits the state and receipts validated at
+	// publication. Only the replaceable L1 evidence needs renewal here.
+	fresh, err := a.verifyOPBodyOrigin(ctx, b, time.Now)
+	if err != nil {
+		return domain.BlockRef{}, err
+	}
+	return ref, fresh()
 }

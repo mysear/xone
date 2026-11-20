@@ -1,0 +1,25 @@
+{
+  "block": {
+    "chain_key": "evm:10",
+    "number_or_slot": 159774767,
+    "hash": "0xb38188bba3176fdf97c4f64ecd6c4f362db814608f78c39c89b07d34e5a6b289",
+    "parent_hash": "0x6faa0583b83b190e90a15f376e834e88ce6223f46b7a3fc2cb322655268f3a21",
+    "timestamp_ms": 1795148311000
+  },
+  "pools": 1,
+  "empty_span_rejected": true,
+  "rpc_reads": 222,
+  "hash_only_reads_projected_from_archived_bodies": 4,
+  "canonical_epoch": 1,
+  "recovered_generation": 2,
+  "journal": [
+    {
+      "kind": "ONLINE_SCOPE_REVOKED",
+      "seq": 2
+    },
+    {
+      "kind": "ONLINE_BASELINE_COMMIT",
+      "seq": 3
+    }
+  ]
+}

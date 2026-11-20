@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 同高轮询重新核验批次（[阶段226](#op-owner-idle-recovery)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|在同一 owner 进程撤销 OP 块 159774767 的基线，恢复证明后重新发布|相邻签名周期连续刷新、跨提交发现及 L2 执行派生待验收|
 |重组时撤销旧基线（[阶段225](#owner-fork-revocation)，P0-1）|§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|发现队列损坏时仍发布撤权记录。替代状态不可读期间 baseline 返回 503|已用两个本地 RPC 端点验证恢复。OP 专用批次证明轮换与恢复待验收|
 |OP 最新批次自动采集（[阶段224](#op-owner-live-collection)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从当前签名头自动取得提交交易、发送者证明和 blob，核验 70 个 OP 块|连续刷新、跨提交发现、执行派生与重组恢复待验收|
 |OP owner 批次证明更新（[阶段223](#op-owner-span-refresh)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从已核验的提交确定 L2 范围，自动读取 24 个块并原子发布批次文件|L1 提交与授权证明的持续获取、执行派生及重组恢复待验收|
@@ -5211,3 +5212,16 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 `go test ./...`、重组路径的 `go test -race` 和 `go vet ./...` 均通过。
 
 下一项仍属 P0-1，使用 OP 批次文件和归档重放验证证明缺失、重新取得证明及连续更新。跨提交自动发现与真实主网正例、L2 执行派生以及其余链和协议的来源资格仍待验收。GitLab 交付等待该项目的克隆地址，当前仓库只配置了 GitHub `origin`。
+
+
+<a id="op-owner-idle-recovery"></a>
+
+## OP 同高轮询的证明撤权与恢复（2026-11-20，阶段226，P0-1）
+
+重放阶段222的主网归档时，旧 owner 发布 OP 块 159774767 后，即使把批次证明原子替换为空，30 秒内基线仍然可读。此前普通 `Tick` 看到同高同哈希就返回。现在这条路径复用本轮已核验的 OP 区块体，在读取预算和超时内重新检查 L1 签名与时效、批次成员及 L1 来源。
+
+同一进程在下一次轮询返回 `OP_SPAN_BLOCKS_REQUIRED`，基线和 bootstrap 均返回 503。换回原证明后重新发布同块同池基线，代际从 1 升至 2，规范链版本为 1。journal 依次记录序号 2 的 `ONLINE_SCOPE_REVOKED` 和序号 3 的 `ONLINE_BASELINE_COMMIT`。四个按高度只取哈希的确认响应由各自来源归档的完整块投影得到。两次独立重放均通过，Go 全包测试、OP 与重组专项 race 和 vet 通过。
+
+后续优先验证相邻签名周期内的连续刷新，再完成跨提交发现、主网跨提交正例和 L2 执行派生。GitHub 已配置为授权远端，GitLab 交付仍需项目克隆地址。
+
+[重放工具](integration/tools/acceptance/replay_op_span_owner.py) · [重放报告](integration/artifacts/local/op-owner-recovery-226/report.json)

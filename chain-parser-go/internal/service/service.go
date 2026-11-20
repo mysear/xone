@@ -504,7 +504,13 @@ func (s *Service) syncChain(ctx context.Context, ch config.Chain) error {
 	if beaconView != nil {
 		tag = beaconView.proof.BlockTag()
 	}
-	head, e := s.readObservedHeader(ctx, ch, a, tag)
+	var reader interface {
+		Header(context.Context, string) (domain.BlockRef, error)
+	} = a
+	if ch.OPOrigin != nil {
+		reader = evm.OPCurrentHeaderReader{Adapter: a, Current: current.Reference.Block}
+	}
+	head, e := s.readObservedHeader(ctx, ch, reader, tag)
 	if e != nil {
 		return e
 	}
