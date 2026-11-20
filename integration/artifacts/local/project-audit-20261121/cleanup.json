@@ -1,0 +1,705 @@
+{
+  "date": "2026-11-21",
+  "scope": "current workspace only; untracked generated caches, own idle executables and metadata",
+  "source_commit": "02252b47a3182f830c4942cd7c20a2459e560b89",
+  "removed_paths": [
+    {
+      "path": "integration/artifacts/local/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/artifacts/local/r03-agave-validation/native-validation/target",
+      "kind": "rust-build-cache"
+    },
+    {
+      "path": "integration/artifacts/local/r01-sbf-linux/build-stage/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/artifacts/local/r01-sbf-linux/build-stage/python/pycdlib/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/artifacts/local/phase68-draft/integration/tools/acceptance/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/artifacts/local/r01-solana-rebuild/python/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/artifacts/local/r01-solana-rebuild/python/solders/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/artifacts/local/r01-solana-rebuild/python/solders/token/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/artifacts/local/r01-solana-rebuild/python/solders/message/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/artifacts/local/r01-solana-rebuild/python/solders/rpc/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/artifacts/local/r01-solana-rebuild/python/jsonalias/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/ci/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/ci/tests/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/acceptance/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/acceptance/tests/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/market/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/packaging/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/PublicKey/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/Util/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/Signature/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/Hash/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/IO/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/SelfTest/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/SelfTest/PublicKey/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/SelfTest/Util/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/SelfTest/Signature/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/SelfTest/Hash/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/SelfTest/IO/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/SelfTest/Cipher/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/SelfTest/Protocol/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/SelfTest/Math/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/SelfTest/Random/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/Cipher/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/Protocol/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/Math/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/Crypto/Random/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/ir/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/semantics/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/semantics/types/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/semantics/analysis/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/cli/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/builtins/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/builtins/interfaces/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/codegen/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/codegen/function_definitions/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/ast/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/evm/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/vyper/compiler/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/importlib_metadata/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/importlib_metadata/compat/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/importlib_metadata/_compat/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/wheel/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/wheel/cli/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/wheel/vendored/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/wheel/vendored/packaging/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/zipp/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/zipp/compat/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/cbor2/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/network/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/utils/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/models/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/cli/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/operations/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/operations/install/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/operations/build/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/req/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/resolution/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/resolution/legacy/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/resolution/resolvelib/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/vcs/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/locations/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/index/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/commands/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/metadata/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/metadata/importlib/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_internal/distributions/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/packaging/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/truststore/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/msgpack/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/pygments/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/pygments/filters/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/pygments/lexers/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/pygments/formatters/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/pygments/styles/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/distlib/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/distro/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/cachecontrol/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/cachecontrol/caches/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/idna/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/requests/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/tomli/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/certifi/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/pyproject_hooks/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/pyproject_hooks/_in_process/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/rich/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/urllib3/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/urllib3/util/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/urllib3/contrib/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/urllib3/contrib/_securetransport/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/urllib3/packages/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/urllib3/packages/backports/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/pkg_resources/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/resolvelib/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/resolvelib/compat/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/pip/_vendor/platformdirs/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10-py313/lib/python3.13/site-packages/asttokens/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/packaging/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/Crypto/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/Crypto/Util/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/Crypto/Hash/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/ir/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/semantics/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/semantics/types/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/semantics/analysis/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/cli/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/builtins/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/builtins/interfaces/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/codegen/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/codegen/function_definitions/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/ast/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/evm/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/vyper/compiler/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/cbor2/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/tools/reference/curve-models/.runtime/vyper-0.3.10/lib/python3.9/site-packages/asttokens/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/.runtime/design-review-target",
+      "kind": "rust-build-cache"
+    },
+    {
+      "path": "integration/.runtime/breaker-final/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/.runtime/bpt-final/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/.runtime/design-review/round130/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/.runtime/design-review/round128/__pycache__",
+      "kind": "python-cache"
+    },
+    {
+      "path": "integration/.runtime/design-review/op-karst-reference/target",
+      "kind": "rust-build-cache"
+    },
+    {
+      "path": "integration/artifacts/local/public-v2-original-execution-check/runs/fa5846888a8641eba36e9699adc2ccf3/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/op-l1-source-inputs-check/source-runs/cade83e3914c437f830fbae54599bf83/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/checkpoint-worker-check/runs/1c2824b26c74477cb0494f0d92997742/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/op-packed-source-inputs-check/source-runs/d4588d295c6d49869c34e31c8a007ed6/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/public-bootstrap-check/runs/72a3131d77f94d2aac61a29e7ac8de78/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/beacon-transition-189/source-evidence",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/op-fixed-attributes-238/owner",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/beacon-finality-188/source-evidence",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/op-execution-witness-237/owner",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/analytics-worker-check/runs/f08d324113e5402c9c396380afc41bd7/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/beacon-capture-190/source-evidence",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/confirmation-policy-check/runs/abacdaa483194a4d94eac27915902410/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/checkpoint-reclaim-check/runs/506ae68c898f48a0aa5caad6671e9618/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/checkpoint-replay-check/runs/339d7dd3e96645ccbdf9e023e18bd2a5/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/checkpoint-recovery-check/runs/415776755cbd4fb19c54c20cd77097eb/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/checkpoint-recovery-check/runs/66d5d98f9afb4b99b9d50a7ba1a53ce8/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/op-forward-recovery-239/chain-parser",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/checkpoint-auto-reclaim-check/runs/cf397b7f996c48a1b7924c9c461b7eea/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/checkpoint-auto-reclaim-check/runs/16b33d8cacdb4fd699a2546f029521b8/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/beacon-checkpoint-187/source-evidence",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/remote-checkpoint-check/runs/7548bc48538a4691b01045ee2983d014/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/v2-native-state-proof-check/runs/c9b96344b2a14534a3452931d5ad467c/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/checkpoint-fairness-check/runs/6e4d86b185e4491aaca5a62f9355f840/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/artifacts/local/v2-native-balance-proof-check/runs/aaa23bc8ff8643ee8e3223012bbc2671/chain-parser-go",
+      "kind": "idle-project-executable"
+    },
+    {
+      "path": "integration/tools/reference/evm-execution/packages/periphery/contracts/.DS_Store",
+      "kind": "system-metadata-or-temp"
+    },
+    {
+      "path": "integration/compose/.runtime/chain-parser-rust/config/.DS_Store",
+      "kind": "system-metadata-or-temp"
+    },
+    {
+      "path": "integration/compose/.runtime/chain-parser-go/config/.DS_Store",
+      "kind": "system-metadata-or-temp"
+    },
+    {
+      "path": "chain-parser-rust/test/fixtures/.DS_Store",
+      "kind": "system-metadata-or-temp"
+    },
+    {
+      "path": "dex-router/test/fixtures/.DS_Store",
+      "kind": "system-metadata-or-temp"
+    },
+    {
+      "path": "chain-parser-go/test/fixtures/.DS_Store",
+      "kind": "system-metadata-or-temp"
+    }
+  ],
+  "skipped_paths": [],
+  "removed_count": 169,
+  "removed_by_kind": {
+    "idle-project-executable": 24,
+    "python-cache": 136,
+    "rust-build-cache": 3,
+    "system-metadata-or-temp": 6
+  },
+  "allocated_bytes_removed": 17581318144,
+  "free_bytes_before": 215722852352,
+  "free_bytes_after": 232938795008,
+  "all_tracked_file_contents_unchanged_by_cleanup": true,
+  "tracked_file_count_verified": 2617,
+  "preserved": [
+    "tracked files",
+    "source code and lockfiles",
+    "historical reports and logs",
+    "original RPC/stream/raw evidence",
+    "test fixtures and fixed upstream source",
+    "local infrastructure data and recovery state"
+  ],
+  "free_bytes_increase": 17215942656
+}

@@ -1,0 +1,27 @@
+[
+  {
+    "path": "chain-parser-go/internal/provenance/beacon_fork_handover_test.go",
+    "line": 13,
+    "foreign_prefix": "../../../integration/"
+  },
+  {
+    "path": "chain-parser-go/internal/chain/evm/op_withdrawals_test.go",
+    "line": 41,
+    "foreign_prefix": "../../../../integration/"
+  },
+  {
+    "path": "chain-parser-go/internal/chain/evm/op_withdrawals_test.go",
+    "line": 94,
+    "foreign_prefix": "../../../../integration/"
+  },
+  {
+    "path": "chain-parser-go/internal/chain/evm/op_l1_origin_test.go",
+    "line": 17,
+    "foreign_prefix": "../../../../integration/"
+  },
+  {
+    "path": "chain-parser-go/internal/chain/evm/op_message_passer_test.go",
+    "line": 18,
+    "foreign_prefix": "../../../../integration/"
+  }
+]

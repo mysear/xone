@@ -1,6 +1,6 @@
 # Xone 开发进度与完成情况
 
-更新：2026-11-20。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
+更新：2026-11-21。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
@@ -8,7 +8,53 @@
 
 优先级：区块解析和精确兑换量计算优先，分析功能低优先级。三服务各自独立，公共协议位于common。
 
-导航：[剩余功能执行顺序](#remaining-execution-order-2026-11-18) · [最新差距复核](#design-gap-review-2026-11-18) · [本轮开发](#active-work) · [工作包](#work-packages) · [协议覆盖](#protocol-coverage) · [逐项功能](#design-traceability) · [已验证批次](#batch-history) · [剩余功能及优先级](#remaining-priorities)
+导航：[2026-11-21 全范围完成度复核](#full-design-audit-2026-11-21) · [剩余功能执行顺序](#remaining-execution-order-2026-11-18) · [最新差距复核](#design-gap-review-2026-11-18) · [本轮开发](#active-work) · [工作包](#work-packages) · [协议覆盖](#protocol-coverage) · [逐项功能](#design-traceability) · [已验证批次](#batch-history) · [剩余功能及优先级](#remaining-priorities)
+
+
+<a id="full-design-audit-2026-11-21"></a>
+
+## 全设计功能完成度与临时文件清理复核（2026-11-21）
+
+**结论：没有全部完成。** 本次基于提交 `02252b4`，重新检查设计 §1–29、§28 的全部26个工作包、现有协议版本矩阵、正常入口源码和验收门禁。完整设计验收为 **0/26**：24个工作包为 `PARTIAL_LOCAL`，WP18、WP22 为 `NOT_STARTED`。这不是“没有实现功能”：三服务、许多协议数学、限定独立执行、快照/日志/重组恢复均已有可用实现；完整验收同时要求未覆盖功能、真实来源、故障域和上线证据，不可将局部通过外推全包完成。
+
+本次是源码和交付证据审查，不重新执行全部历史数学/链上/生产压测，也不开发下表缺项。WP18的 `NOT_STARTED` 专指真实第二/第三链完整交付及其验收；七条 EVM 链已有原生承诺规则，不能把该状态解释为没有这些链的代码。WP22已有本地优化器，其未启动范围是外部来源/多求解器竞争等高级交付。
+
+|工作包|本次结论|已具备的基础|仍缺功能或验收 / 当前源码依据|
+|---|---|---|---|
+|WP01|部分完成，当前门禁失败|三服务独立构建、工具链、Make、Dockerfile、公共契约|没有落地的 CI/供应链扫描链路；`contracts.py` 实测因 [Go测试](chain-parser-go/internal/provenance/beacon_fork_handover_test.go) 读取 `../../../integration/` 拒绝，见 [契约检查](integration/tools/ci/contracts.py)|
+|WP02|部分完成|金额/链身份/快照类型、Protobuf、副本一致性|全链规范化和跨发布 schema 兼容性尚缺；[生成检查](common/protoc/check.py)只比较当前生成结果|
+|WP03|部分完成|大量原始合约/程序、历史主网来源及独立重放|全版本真实分叉、完整bank、独立收付款与恢复的统一矩阵不足；[原始来源](integration/test/source)、[现有验收](integration/tools/acceptance)|
+|WP04|部分完成|provider身份、预算、重试、原生承诺、以太坊信标签名来源|独立故障域和其他链最终性未闭合；[最终性配置](chain-parser-go/internal/config/beacon_finality.go)分别限定 evm:1 和 evm:10|
+|WP05|部分完成|完整交易/回执、MPT、归档后解码、串行提交和OP批次/存款核验|OP完整执行后状态、真实跨提交通道、Solana可信bank、更多事实/版本；[OP span](chain-parser-go/internal/chain/evm/op_span.go)、[Solana流权威边界](chain-parser-rust/crates/solana-ingest/src/stream.rs)|
+|WP06|部分完成|Kafka事务、read_committed、固定分区及不确定结果处理|生产TLS/SASL/ACL、ISR/迁移故障、完整控制事件集；[帧事件](chain-parser-go/internal/journal/frame.go)、[生产连接校验](chain-parser-go/internal/config/config.go)|
+|WP07|部分完成|PG server-clock租约、writer fencing、整体重组和撤权|通用独立BLOCK_REVERT等记录、真实多链fork/PG切换/区域演练；[重组](chain-parser-go/internal/reducer/reorg.go)、[副本事件处理](dex-router/crates/state-replica/src/lib.rs)|
+|WP08|部分完成|manifest/校验/不可变上传、Go维护回收、有界checkpoint恢复|Rust仅只读retention计划、单对象大小限制、独立恢复目录/分片；[Rust只读计划](chain-parser-rust/crates/solana-ingest/src/service_checkpoint.rs)、[单文件恢复](dex-router/crates/kafka-transport/src/checkpoint.rs)|
+|WP09|部分完成|不可变视图、完整屏障、图结构部分共享|Pool/顶层索引完整增量COW、慢请求持有旧版本的总内存预算；[QuoteView和Replica](dex-router/crates/state-replica/src/lib.rs)|
+|WP10|部分完成|V2完整交换/余额/储备和限定标准Token执行|税费/rebase/上下文Token行为、全来源与执行模式验收；[Token准入](dex-router/crates/domain/src/lib.rs)、[V2绑定](dex-router/crates/execution-plan/src/bound_v2.rs)|
+|WP11|部分完成|V3/Curve/Balancer/V4等独立profile与数学差分|版本/ExactOut/执行能力不等价；任意hook、完整Vault/BPT义务、未覆盖组合；[能力目录](dex-router/crates/protocol-math/src/capabilities.rs)、[ExactOut准入](dex-router/crates/protocol-math/src/exact_out.rs)|
+|WP12|部分完成|金额/拆分探针排序、有界候选、图的局部更新|beam/多标签、严格上界、小图oracle和大图容量；[候选搜索](dex-router/crates/routing/src/lib.rs)|
+|WP13|部分完成|最多8路整数网格、独立池DP、共享物理池顺序重算、金额守恒|通用共享DAG、完整可信费用净评分、网格外gap；[优化搜索](dex-router/crates/optimizer/src/search.rs)、[费用评分](dex-router/crates/optimizer/src/cost_scoring.rs)|
+|WP14|部分完成|V2单路线至8跳准备、部分本地split executor、Solana单池钱包闭环|其他协议/多池/共享DAG执行器、完整EVM钱包签名发送回执；[EVM准备](dex-router/crates/quote-api/src/evm_preparation.rs)、[Solana准备](dex-router/crates/quote-api/src/preparation.rs)|
+|WP15|部分完成|严格缺状态拒绝的REVM/SBF、取消/期限/子进程预算、限定真实余额差|可信当前完整bank、全链规则/全协议/复杂计划仿真；[通用verify明确不可用](dex-router/crates/simulation/src/lib.rs)、[本地EVM后端](dex-router/crates/quote-api/src/local_simulation.rs)|
+|WP16|部分完成|ExactIn/Out、认证、期限、缓存、single-flight、版本/新鲜度检查|VERIFIED被主动拒绝、全局单token额度不等于租户隔离、statePolicy/allowSources及完整API未齐；[API入口](dex-router/crates/quote-api/src/lib.rs)、[ExactOut](dex-router/crates/quote-api/src/exact_out.rs)|
+|WP17|部分完成|health/startup/链状态、SIGTERM、日志指标和开发compose|真实多AZ/PG/Kafka故障、灰度、监控/OTel与批准SLO；[开发compose](integration/compose/compose.yaml)、[单机基础设施](integration/tools/acceptance/infrastructure.py)|
+|WP18|完整交付未启动/未验收|七链原生承诺规则、多链配置与部分公开链样本|第二/第三真实链全闭环及费用/版本/恢复/上线验收；一链启动失败仍可中止全部启动，依据 [Go启动](chain-parser-go/internal/service/service.go)、[Rust启动](chain-parser-rust/crates/solana-ingest/src/service.rs) 的源码推断，尚未新增运行复现|
+|WP19|部分完成|Go analytics有限Job/只读连续worker、cursor/幂等/失败checkpoint|专属DLQ/raw重放、多插件配额、ClickHouse；Rust analytics显式未启用；[Go worker](chain-parser-go/internal/analysis/worker.go)、[Rust角色](chain-parser-rust/crates/solana-ingest/src/service.rs)|
+|WP20|部分完成|Solana tonic/流WAL/账户屏障、多种AMM数学和限定SBF/钱包链路|真实同源连续流/fork/完整bank、程序版本与扩展交叉、多池原子交易、生产CU/锁/负载；[流来源](chain-parser-rust/crates/solana-ingest/src/stream.rs)、[SBF披露](dex-router/crates/simulation/src/solana_sbf.rs)|
+|WP21|部分完成|本地candles/1、精确OHLC、撤销重算、revision/水位/原子checkpoint|HEAD_PROVISIONAL不等于正式发布；ClickHouse/shadow/发布指针/查询API、迟到与decoder升级；[K线日志](chain-parser-go/internal/analysis/journal.go)、[本地持久化](chain-parser-go/internal/analysis/job.go)|
+|WP22|外部来源竞争未启动|本地有限范围启发式、网格/共享状态/可选费用评分|RFQ/聚合器、多独立solver、有效期/调用者约束、通用上界与收益分布；[搜索边界](dex-router/crates/optimizer/src/search.rs)、[报价披露](dex-router/crates/quote-api/src/lib.rs)|
+|WP23|部分完成|本地重启/接管/无KV恢复及阻断门禁|生产shadow/逐租户放量、区域灾备/切回、真实RPO/RTO/回滚；[生产门禁](integration/tools/acceptance/gate.py)、[生产评审](integration/tools/acceptance/report.py)|
+|WP24|部分完成|HEAD_FIRST、当前基线/有限尾窗、历史故障不阻塞当前链|1h/1d/30d真实停机、范围扩展与资源全矩阵、链级启动隔离、首个VERIFIED报价；[历史隔离](chain-parser-go/internal/service/history_lifecycle.go)、[恢复目录](dex-router/crates/quote-api/src/remote_checkpoint.rs)|
+|WP25|部分完成|严格版本化文件、ConfigProvider、策略hash与secret文件权限|生产Kafka TLS/SASL当前配置不支持；secret修订/轮换、完整schema兼容与配置中心物化；[Go配置](chain-parser-go/internal/config/config.go)、[Rust配置](chain-parser-rust/crates/config/src/lib.rs)|
+|WP26|部分完成|Go/Rust结构化JSON、脱敏、有界队列、drop计数与部分事务审计|SDK故障映射、轮转/spool/集中采集/OTel、全控制审计和生产运行手册；[现有日志手册](integration/runbooks/log-investigation.md)|
+
+**检查结果与边界：** 本轮 `test_progress_document.py` 的17项通过，`test_design_delivery_audit.py` 的6项通过；`integration/tools/ci/contracts.py` 失败，失败发生在清理前，不能称当前统一门禁全部通过。为避免制造新的构建缓存，本轮没有执行会重建大型 target 的完整设计交付 runner，也没有重新跑全部历史Go/Rust测试。上一轮阶段238–239的测试和主网归档结果保留为历史证据，不能自动视为本轮全设计验收。源码观察是“实现缺项”，真实bank/来源能力及部署/故障域不足是“证据或环境缺项”，二者分别保留，不能统称为外部阻塞。
+
+**清理记录：** 删除169个未跟踪且无打开文件的路径：3个Rust构建缓存目录、136个Python缓存目录、24个闲置的本项目测试可执行文件和6个`.DS_Store`。按占用块统计释放17581318144字节（约16.37GiB）；清理前后2617个Git跟踪文件逐字节哈希一致。保留源码、锁文件、测试fixtures、固定上游源码、全部原始RPC/流归档、验收报告/日志、基础设施数据与恢复状态。清理不处理项目以外的全局缓存。
+
+另按同一契约规则完整扫描，发现4个测试文件中的5处跨项目路径，而不是只有首个失败文件：[路径清单](integration/artifacts/local/project-audit-20261121/cross-project-paths.json)。本轮修正文档中“最多两路”这一过时摘要，实际当前优化器上限为8路；现有62个登记协议profile仍须分别看ExactIn/ExactOut/准备/仿真和来源资格，不能当作62个全功能上线版本。
+
+[清理完整清单](integration/artifacts/local/project-audit-20261121/cleanup.json) · [本次完成度核查记录](integration/artifacts/local/project-audit-20261121/completeness.json)
 
 <a id="active-work"></a>
 
@@ -220,7 +266,7 @@
 
 |工作包|功能|方案|状态|已完成范围|待完成范围|
 |---|---|---|---|---|---|
-|WP01|仓库、构建与质量基线|§28.3|PARTIAL_LOCAL|三项目独立构建、固定Go/Rust工具链、锁文件、Make验证入口、公共契约副本检查；独立性补查：服务测试不读取兄弟项目源码/配置，Go测试本地完整路由设置，集成层逐字节校验共享副本并禁止跨项目测试路径|镜像/SBOM/许可证及secret扫描、真正的CI平台执行尚未验收|
+|WP01|仓库、构建与质量基线|§28.3|PARTIAL_LOCAL|三项目独立构建、固定Go/Rust工具链、锁文件、Make验证入口、公共契约副本检查；独立性补查：服务测试不读取兄弟项目源码/配置，Go测试本地完整路由设置，集成层逐字节校验共享副本并禁止跨项目测试路径|当前 contracts 检查因 Go 测试跨项目读取而失败；镜像/SBOM/许可证及secret扫描、真正的CI平台执行尚未验收|
 |WP02|链身份、金额和快照契约|§28.4|PARTIAL_LOCAL|Kafka实际record和owner bootstrap已接入Protobuf；uint256恰好32字节大端、块hash原始32字节；RaydiumCLMM dynamic_fee九字段及独立protofield63、signedindex/宽度/PDA/clone、旧profile隔离与独立protoc已验证；本批限定范围整体验收通过；本批新增独立CurveCryptoState field12与原LP账本/定价/来源的跨语言严格契约；本批新增Orca adaptive独立profile及field51完整Oracle/保留字段契约与严格跨语言校验；本批新增独立InfinityBin field30完整tree/share/manager账本与field29树外active锁定dust、跨语言wire/config/clone和来源约束；新增独立Orca adaptive-rewards复用完整Oracle/reward/tick wire，4007byte独立protoc与旧profile隔离通过；新增adaptive-dynamic独立版本、完整mixed layout/bitmap/reward/Oracle与4013byte独立wire，旧fixed-only隔离通过|网络指纹/所有链地址规范化、schema演进破坏检测和更多事实族仍需扩展|
 |WP03|历史fixture与独立回放框架|§28.5|PARTIAL_LOCAL|固定合成基线、V2反例、大整数、重复重放、Python独立顺序计算对照；416固定原Pool.swap/CLPool.swap EVM样本、8组原库连续序列与1115主源码hash；动态费原DynamicFeeInfo/SwapState/swap_internal独立native：348案例12连续序列24步、8时间不变/6预算准入探针、2原始bank完整Pool；旧480/968/364/464语料保护，本批限定范围整体验收通过；正常Solana RPC原始响应证据WAL、独立耐久head/损坏封闭与重启新会话验证通过；标准receipt type0–4/legacy post-state的12组EthereumJS独立根向量（含128/130/257索引边界）验证通过；新增固定原Vyper NG完整交换/EMA、独立protobuf及正常服务回归；Managed非零BPT费用原回调参考357案例/30序列120步及常规EVM大小限制失败证据，明确无服务准入；MetaUSD实际clone/initialize/add_liquidity及32直接交换、8原探针、完整Token/raw/admin与正常服务回归；本批新增Crypto原池及原V4 LP的60案例、Orca费率197案例与14连续交易、Infinity原BinPool跨Bin326案例；本批新增固定原program pack+swap/update后的20bank、16成交/4拒绝，26类普通/优化模式故障拒绝；ProgramData为明确合成身份；本批原manager/Vault正常部署getter与5bank/4连续跨Bin交换、原burn16场景48交易（9回退）及原manager降低初始化上限证据通过；新增固定原Orca初始化奖励adaptive参考20bank/16成交4拒绝、12乘法溢出/4global回绕/35outside更新、34普通优化篡改拒绝；新增原dynamic枚举/实际加载器20bank及44篡改反例、100成功2失败×7动态布局内核结果对照|已有公开历史receipt/交易及原源码/原VM样本；仍缺目标版本全矩阵的真实多块分叉/事件顺序篡改、来源许可及独立收款差分的统一验收，不能将局部样本外推全部协议|
 |WP04|RPC Provider与链能力|§28.6|PARTIAL_LOCAL|EVM chainId+genesis握手、错链隔离、总超时、逐provider有界尝试、响应体上限；Solana genesis校验；RaydiumCLMM动态profile复用同槽15..19账户finalized整批、ProgramData/Token/Clock及读后block验证，实际2bank样本通过；本批限定范围整体验收通过；同一提供方finalized context有界分片、逐片Clock/首末锚点、总响应预算和整批切源已局部验证；本批新增Crypto原模板/immutable及原LP minter、完整定价/raw/LP状态的同blockHash读取；本批新增Orca adaptive独立fee-tier PDA、254-byte Oracle及Pool/ticks同finalized bank读取和重锚；本批固定hash读取Bin原模板/immutableVault/key/pause/token/app依赖与完整root/L1/L2/所有bin/share，预算和getNext双向校验通过；新增adaptive-rewards同finalized bank/Clock完整账户RPC与重锚失败拒绝，旧版本隔离通过；新增完整dynamic/mixed账户同finalized bank读取和重锚、148/10004精确compact边界与畸形拒绝；normal服务已接方法级provider探测、负对照、共享限流预算、WS唤醒/有界重连与HTTP补扫，参见R01–R04逐项复核|公开provider历史正负覆盖、持续限流/重连、可信头与真实独立故障域矩阵仍待完整验收；不能把URL数量当独立来源|
@@ -232,10 +278,10 @@
 |WP10|精确V2与基础Token行为|§28.12|PARTIAL_LOCAL|单一V2精确整数内核、先乘后除、方向/费率/大整数、consumed/refund；未知token行为失败；Raydium ceil输入组合费/creator拆分及输出creator费、protocol/fund floor、LP保留费与raw/净储备后状态，u64/u128checked；1604原代码差分；新增独立完整V2版本的raw/储备/累计价/锁及原VM差分完成限定验收|真实链参考合约/独立执行余额差分、税费/rebase等特殊Token未实现或验收|
 |WP11|V3、Stable及V4能力|§28.13|PARTIAL_LOCAL|标准Uniswap V3有界证明范围内的独立整数exact-in、逐word手续费舍入、跨tick净流动性、零流动性空段、int256/uint160/uint128边界及乘法溢出fallback；264项固定官方SDK差分（含最低初始化价）与双副本解析报价场景通过；RaydiumCLMM动态profile原spacing分段/时间filterdecay/ceilfee/cap/zeroL/index/逐步费用与完整后Pool，348原native案例及连续状态通过；本批限定范围整体验收通过；Balancer V2双币不可变50/50独立Weighted模型，固定区块及765原onSwap案例/45组180步完整余额与17项双副本进程检查通过；新增不可变双币任意合法归一化权重static版本，原整数LogExpMath/powUp、5355案例/315组1260步/240pow与18项双副本检查通过；五族联合增量已补多币物理状态、限定Managed/Composable、Plain3/4正常读取路由及Meta/NG/Crypto原数学子集、Solana静态奖励和V4/Infinity高级CL/单Bin内核，按各自边界完成本地测试；标准type0 NG2–8币已补齐固定源码模板/immutable读取、完整raw/admin/oracle后状态与原exchange差分及双副本连续报价；非零Managed协议/管理费BPT铸币、完整供应/收款余额与powDown数学已原回调验证，旧源码超限仅参考使用；MetaUSD标准meta/3CRV直接兑换已补齐独立clone版本、base VP只读依赖、完整状态/wire、正常RPC解析/双副本报价及共享池重算；本批新增Crypto完整调价/admin mint/gulp与完整后状态、Orca自适应费率管理器和Infinity跨Bin内核；Infinity静态零hook完整树在线接入已由后续Bin批次完成限定验收；本批Orca完整adaptive内核已接普通报价，完整Oracle/fee/ticks/raw后状态和全额/正输出约束、双副本及来源故障恢复已通过本地验收；本批静态零hook标准ERC20 Bin普通分派、真实tree遍历与树外active、完整储备/fee/app账本及全额正输出通过，完整Vault结算待补；新增Orca adaptive初始化奖励checked乘法溢出归零、wrapping global/outside及普通报价完整后状态与原native差分通过；新增三连续完整dynamic/fixed混合数组的adaptive奖励内核/普通分派及完整原后状态差分|其他Curve变体/Meta underlying/Lending/外部rate与特殊Token，Managed/Composable剩余BPT与rate-cache/V3组合、未知Slipstream模块/LM升级，V4/Infinity回调/管理器完整结算及Bin高级组合仍缺；新增v2-complete已局部补全Swap/raw后状态，旧v2 profile不自动升级；全版本真实部署/执行验收仍缺|
 |WP12|金额感知候选图|§28.14|PARTIAL_LOCAL|方向性多重图、物理池ID、金额计算排序、跳数/展开/候选/期限预算、范围内启发式语义；V3与V2混合图、按配置拆单粒度保留仅部分分配可完整消费的路径；RaydiumCLMM动态profile进入已有金额感知图，报价使用动态完整状态；专项回归通过，本批限定范围整体验收通过；阶段85补物理池增量边索引和Arc邻接边共享，128连续变更/256池局部更新及副本/路由/分配/API回归通过|完整银行与顶层索引规模化/压力验证、beam多标签、严格上界、全量小图oracle与跨跳shift反例仍需补充|
-|WP13|拆单、共享池与整数守恒|§28.15|PARTIAL_LOCAL|单路径/最多两路有界枚举、两种执行顺序、共享池状态模拟、余数逐跳重算、输入守恒、启用成本提案；共享V3物理池顺序更新sqrt/tick/liquidity，最终path/route输入输出都重算；RaydiumCLMM动态共享池连续消费完整volatility/reference/fee后状态，原序列及分配输入守恒通过；本批限定范围整体验收通过；本批新增Crypto共享池拆单连续重算价格/raw/LP账本验证；本批新增四组Orca adaptive两步共享allocation与原序列后状态匹配，后一步复用Oracle/fee/ticks/raw；本批共享manager/currency依赖冲突拒绝及每步app/protocol fees传播，4步跨物理池原序列和实际拆分计划21步原EVM重放通过；新增四组adaptive-rewards共享allocation复用完整奖励/Oracle/tick，实际选中计划36步原native连续重放通过；新增dynamic四组共享allocation和39个实际选中计划原生步骤验证|通用DAG合并/联合求解、税费、实际Gas/L1费换算与系统oracle gap测量尚未完成|
+|WP13|拆单、共享池与整数守恒|§28.15|PARTIAL_LOCAL|最多8路的有界有序整数网格、独立池子集DP及大范围seed搜索、共享池状态模拟、余数逐跳重算、输入守恒、启用成本提案；共享V3物理池顺序更新sqrt/tick/liquidity，最终path/route输入输出都重算；RaydiumCLMM动态共享池连续消费完整volatility/reference/fee后状态，原序列及分配输入守恒通过；本批限定范围整体验收通过；本批新增Crypto共享池拆单连续重算价格/raw/LP账本验证；本批新增四组Orca adaptive两步共享allocation与原序列后状态匹配，后一步复用Oracle/fee/ticks/raw；本批共享manager/currency依赖冲突拒绝及每步app/protocol fees传播，4步跨物理池原序列和实际拆分计划21步原EVM重放通过；新增四组adaptive-rewards共享allocation复用完整奖励/Oracle/tick，实际选中计划36步原native连续重放通过；新增dynamic四组共享allocation和39个实际选中计划原生步骤验证|通用DAG合并/联合求解、税费、实际Gas/L1费换算与系统oracle gap测量尚未完成|
 |WP14|执行计划与calldata|§28.16|PARTIAL_LOCAL|caller/recipient/滑点/截止/快照/策略进入plan hash、单路径V2 ABI构造、目标白名单拒绝；Edge绑定protocol，V3/其他协议路径不能误编码为V2 router calldata；新增singleton profile只生成指示性计划，明确拒绝套V2 calldata，专属执行器/settlement未实现；T32新增标准V2单hop完整BOUND信封/执行器身份/精确calldata与本地独立执行绑定，限定本地验收通过；截至阶段84已完成21/61限定执行准备，Meteora/Pump/Raydium/Orca经典SPL单池的显式ATA/WSOL、unsigned wire、独立SBF和钱包回执按各批范围验证|限定Solana单池准备/签名/广播/回执和v2-complete EVM准备已实现；其余协议执行适配、通用多hop/拆单DAG、资金授权/完整费用/ExactOut退款组合、受审计执行器及EVM钱包交易闭环仍需完成；生产VERIFIED保持关闭|
 |WP15|独立交易仿真|§28.17|PARTIAL_LOCAL|验证接口明确拒绝无后端的VERIFIED；固定blockHash eth_call仅标RPC_CALL_CHECKED；新增Shanghai单hop V2的严格REVM本地状态DB、独立真实余额差、执行预算与可终止子进程接口，原合约全状态差分、双副本故障恢复、全量及双审通过限定本地验收；阶段58–84限定Solana原SBF/Token-CPI、实际wire/收款差和钱包回执按独立批次验证|可信历史bank、生产独立验证、多链hardfork/L2费用、未覆盖协议/多池/拆单仿真与规模化容量仍缺，VERIFIED保持关闭|
-|WP16|报价API、认证、配额及质量语义|§28.18|PARTIAL_LOCAL|FAST指示性ExactIn、字符串金额、鉴权、单凭据配额、并发/期限、single-flight、证据、缓存版本、旧quote build拒绝；新增认证simulate API、缓存前后新鲜度复核、实际余额/费用/worker证据；限定本地验收通过|多租户独立额度、任意仿真隔离、成本完整性、VERIFIED可执行闭环与完整业务成功率SLO待完成|
+|WP16|报价API、认证、配额及质量语义|§28.18|PARTIAL_LOCAL|FAST指示性ExactIn、字符串金额、鉴权、单凭据配额、并发/期限、single-flight、证据、缓存版本、旧quote build拒绝；新增认证simulate API、缓存前后新鲜度复核、实际余额/费用/worker证据；限定本地验收通过|多租户独立额度、statePolicy/allowSources 请求契约、任意仿真隔离、成本完整性、VERIFIED可执行闭环与完整业务成功率SLO待完成|
 |WP17|多副本、高可用、监控与发布|§28.19|PARTIAL_LOCAL|进程health/startup/按链状态、SIGTERM、日志/报价低基数指标、三个独立Dockerfile及本地compose|多区主备、PG/Kafka故障/磁盘满/节点或区丢失演练、OTel、灰度/发布控制与生产readiness待完成|
 |WP18|第二与第三条EVM链|§28.20|NOT_STARTED|chain_key隔离、两个解析源独立范围；配置可描述多条EVM链；多DEX版本以chainKey+code/factory+adapter配置域区分，协议覆盖矩阵单列每版本解析/数学/执行|第二/第三条真实EVM链部署、硬分叉/Gas差异、真实协议/版本目录与升级审计未验收；合成同链不算真实多链上线|
 |WP19|分析事件与worker基础|§28.21|PARTIAL_LOCAL|现有Go解析二进制analytics角色已接只读Kafka有限Job及显式常驻journal-continuous模式；持久cursor、topic身份、事实去重、毒消息暂停及失败状态checkpoint已实现；不占用在线KV/PG|持续调度/取消/故障停止与实际重启已验；持久DLQ/raw回放、ClickHouse重试/发布、跨插件隔离配额与故障验收待完成|
@@ -244,7 +290,7 @@
 |WP22|高级优化与外部来源竞争|§28.24|NOT_STARTED|保留HEURISTIC_WITHIN_SCOPE，不声称全局最优|RFQ/聚合器、多个求解器、有效期/调用者约束、可证明上界及收益分布尚未开发|
 |WP23|迁移、灾备与生产放量|§28.25|PARTIAL_LOCAL|本地重启/无KV路由恢复演练入口与报告；明确发布阻断项|真实生产shadow迁移、区域灾备、RPO/RTO、adapter灰度回退及逐租户放量未实施|
 |WP24|HEAD_FIRST启动与历史解耦（前置工作）|§28.26|PARTIAL_LOCAL|HEAD_FIRST不以旧KV/cursor/history gap置ready；owner分配代际、PG/Kafka下界恢复、当前完整checkpoint加有界尾窗；未确认分叉持久暂停、可信源确认后HEAD_FIRST恢复；临时源故障恢复不误增canonical epoch；正常Solana RPC原始响应证据WAL、独立耐久head/损坏封闭与重启新会话验证通过；16池134账户当前bootstrap与空内存路由副本/解析器重启恢复通过；不依赖历史补洞，不假定普通RPC提供严格版本化bank；认证EnsurePoolScope及Go32→33池扩容、Rust subset/actor bridge、WAL/manifest owner原子发布已接并有本地验证|1小时/1天/30天真实停机、流WAL溢出/范围扩容/历史隔离的完整公开来源资格、资源配额和首个VERIFIED报价时间仍未完成|
-|WP25|配置文件体系与配置中心扩展口（P0前置）|§28.27|PARTIAL_LOCAL|三服务严格单文件配置校验、配置/策略hash与secret权限；新增Kafka/PG配置与有界时长校验；raydium-clmm-dynamic profile与mandatoryextension账户范围准入、原动态参数只从链状态读取，旧profile动态污染拒绝；本批限定范围整体验收通过；本批新增MultiAssetState field12 CurveCryptoState及独立protoc/克隆/来源bank验证；本批新增OrcaWhirlpoolState.adaptive field51，保留reserved32–49，独立protoc与16/16/128保留数据往返验证；本批新增InfinityBin完整状态/可选树外active，原PoolState保留字段不变，独立protoc及旧模型兼容回归通过；新增adaptive-rewards独立版本准入、完整reward/Oracle wire及旧profile拒绝边界和两阶段审查通过；新增adaptive-dynamic独立版本准入与旧fixed-only隔离，跨语言4013byte wire与两阶段审查通过|生产TLS/secret修订id、完整公共配置schema/兼容矩阵/坏输入语料及配置中心bundle物化仍待完善|
+|WP25|配置文件体系与配置中心扩展口（P0前置）|§28.27|PARTIAL_LOCAL|三服务严格单文件配置校验、配置/策略hash与secret权限；新增Kafka/PG配置与有界时长校验；raydium-clmm-dynamic profile与mandatoryextension账户范围准入、原动态参数只从链状态读取，旧profile动态污染拒绝；本批限定范围整体验收通过；本批新增MultiAssetState field12 CurveCryptoState及独立protoc/克隆/来源bank验证；本批新增OrcaWhirlpoolState.adaptive field51，保留reserved32–49，独立protoc与16/16/128保留数据往返验证；本批新增InfinityBin完整状态/可选树外active，原PoolState保留字段不变，独立protoc及旧模型兼容回归通过；新增adaptive-rewards独立版本准入、完整reward/Oracle wire及旧profile拒绝边界和两阶段审查通过；新增adaptive-dynamic独立版本准入与旧fixed-only隔离，跨语言4013byte wire与两阶段审查通过|生产 Kafka TLS/SASL 当前未实现；secret修订id、完整公共配置schema/兼容矩阵/坏输入语料及配置中心bundle物化仍待完善|
 |WP26|统一结构化日志与故障排查（P0骨架、持续完善）|§28.28|PARTIAL_LOCAL|双语言JSON/脱敏/有界队列与drop指标；PG租约和baseline激活事务持久审计；启动失败JSON化、Pebble日志适配、正常服务日志检查拒绝非JSON行|Rdkafka等全部SDK故障日志映射、轮转/spool/集中采集、全控制事件审计、采样/聚合/OTel与性能/故障演练仍待完善|
 
 <a id="protocol-coverage"></a>

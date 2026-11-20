@@ -1,0 +1,330 @@
+{
+  "date": "2026-11-21",
+  "source_commit": "02252b47a3182f830c4942cd7c20a2459e560b89",
+  "method": "read-only source and design evidence review across all 26 work packages; no new full protocol/runtime/production acceptance run",
+  "all_requested_features_complete": false,
+  "production_ready": false,
+  "full_accepted_work_packages": 0,
+  "work_package_count": 26,
+  "work_package_status_counts": {
+    "PARTIAL_LOCAL": 24,
+    "NOT_STARTED": 2
+  },
+  "registered_protocol_profiles": 62,
+  "work_package_findings": [
+    {
+      "id": "WP01",
+      "conclusion": "部分完成，当前门禁失败",
+      "implemented_foundations": "三服务独立构建、工具链、Make、Dockerfile、公共契约",
+      "remaining": "没有落地的 CI/供应链扫描链路；`contracts.py` 实测因 [Go测试](chain-parser-go/internal/provenance/beacon_fork_handover_test.go) 读取 `../../../integration/` 拒绝，见 [契约检查](integration/tools/ci/contracts.py)",
+      "source_references": [
+        "chain-parser-go/internal/provenance/beacon_fork_handover_test.go",
+        "integration/tools/ci/contracts.py"
+      ]
+    },
+    {
+      "id": "WP02",
+      "conclusion": "部分完成",
+      "implemented_foundations": "金额/链身份/快照类型、Protobuf、副本一致性",
+      "remaining": "全链规范化和跨发布 schema 兼容性尚缺；[生成检查](common/protoc/check.py)只比较当前生成结果",
+      "source_references": [
+        "common/protoc/check.py"
+      ]
+    },
+    {
+      "id": "WP03",
+      "conclusion": "部分完成",
+      "implemented_foundations": "大量原始合约/程序、历史主网来源及独立重放",
+      "remaining": "全版本真实分叉、完整bank、独立收付款与恢复的统一矩阵不足；[原始来源](integration/test/source)、[现有验收](integration/tools/acceptance)",
+      "source_references": [
+        "integration/test/source",
+        "integration/tools/acceptance"
+      ]
+    },
+    {
+      "id": "WP04",
+      "conclusion": "部分完成",
+      "implemented_foundations": "provider身份、预算、重试、原生承诺、以太坊信标签名来源",
+      "remaining": "独立故障域和其他链最终性未闭合；[最终性配置](chain-parser-go/internal/config/beacon_finality.go)分别限定 evm:1 和 evm:10",
+      "source_references": [
+        "chain-parser-go/internal/config/beacon_finality.go"
+      ]
+    },
+    {
+      "id": "WP05",
+      "conclusion": "部分完成",
+      "implemented_foundations": "完整交易/回执、MPT、归档后解码、串行提交和OP批次/存款核验",
+      "remaining": "OP完整执行后状态、真实跨提交通道、Solana可信bank、更多事实/版本；[OP span](chain-parser-go/internal/chain/evm/op_span.go)、[Solana流权威边界](chain-parser-rust/crates/solana-ingest/src/stream.rs)",
+      "source_references": [
+        "chain-parser-go/internal/chain/evm/op_span.go",
+        "chain-parser-rust/crates/solana-ingest/src/stream.rs"
+      ]
+    },
+    {
+      "id": "WP06",
+      "conclusion": "部分完成",
+      "implemented_foundations": "Kafka事务、read_committed、固定分区及不确定结果处理",
+      "remaining": "生产TLS/SASL/ACL、ISR/迁移故障、完整控制事件集；[帧事件](chain-parser-go/internal/journal/frame.go)、[生产连接校验](chain-parser-go/internal/config/config.go)",
+      "source_references": [
+        "chain-parser-go/internal/journal/frame.go",
+        "chain-parser-go/internal/config/config.go"
+      ]
+    },
+    {
+      "id": "WP07",
+      "conclusion": "部分完成",
+      "implemented_foundations": "PG server-clock租约、writer fencing、整体重组和撤权",
+      "remaining": "通用独立BLOCK_REVERT等记录、真实多链fork/PG切换/区域演练；[重组](chain-parser-go/internal/reducer/reorg.go)、[副本事件处理](dex-router/crates/state-replica/src/lib.rs)",
+      "source_references": [
+        "chain-parser-go/internal/reducer/reorg.go",
+        "dex-router/crates/state-replica/src/lib.rs"
+      ]
+    },
+    {
+      "id": "WP08",
+      "conclusion": "部分完成",
+      "implemented_foundations": "manifest/校验/不可变上传、Go维护回收、有界checkpoint恢复",
+      "remaining": "Rust仅只读retention计划、单对象大小限制、独立恢复目录/分片；[Rust只读计划](chain-parser-rust/crates/solana-ingest/src/service_checkpoint.rs)、[单文件恢复](dex-router/crates/kafka-transport/src/checkpoint.rs)",
+      "source_references": [
+        "chain-parser-rust/crates/solana-ingest/src/service_checkpoint.rs",
+        "dex-router/crates/kafka-transport/src/checkpoint.rs"
+      ]
+    },
+    {
+      "id": "WP09",
+      "conclusion": "部分完成",
+      "implemented_foundations": "不可变视图、完整屏障、图结构部分共享",
+      "remaining": "Pool/顶层索引完整增量COW、慢请求持有旧版本的总内存预算；[QuoteView和Replica](dex-router/crates/state-replica/src/lib.rs)",
+      "source_references": [
+        "dex-router/crates/state-replica/src/lib.rs"
+      ]
+    },
+    {
+      "id": "WP10",
+      "conclusion": "部分完成",
+      "implemented_foundations": "V2完整交换/余额/储备和限定标准Token执行",
+      "remaining": "税费/rebase/上下文Token行为、全来源与执行模式验收；[Token准入](dex-router/crates/domain/src/lib.rs)、[V2绑定](dex-router/crates/execution-plan/src/bound_v2.rs)",
+      "source_references": [
+        "dex-router/crates/domain/src/lib.rs",
+        "dex-router/crates/execution-plan/src/bound_v2.rs"
+      ]
+    },
+    {
+      "id": "WP11",
+      "conclusion": "部分完成",
+      "implemented_foundations": "V3/Curve/Balancer/V4等独立profile与数学差分",
+      "remaining": "版本/ExactOut/执行能力不等价；任意hook、完整Vault/BPT义务、未覆盖组合；[能力目录](dex-router/crates/protocol-math/src/capabilities.rs)、[ExactOut准入](dex-router/crates/protocol-math/src/exact_out.rs)",
+      "source_references": [
+        "dex-router/crates/protocol-math/src/capabilities.rs",
+        "dex-router/crates/protocol-math/src/exact_out.rs"
+      ]
+    },
+    {
+      "id": "WP12",
+      "conclusion": "部分完成",
+      "implemented_foundations": "金额/拆分探针排序、有界候选、图的局部更新",
+      "remaining": "beam/多标签、严格上界、小图oracle和大图容量；[候选搜索](dex-router/crates/routing/src/lib.rs)",
+      "source_references": [
+        "dex-router/crates/routing/src/lib.rs"
+      ]
+    },
+    {
+      "id": "WP13",
+      "conclusion": "部分完成",
+      "implemented_foundations": "最多8路整数网格、独立池DP、共享物理池顺序重算、金额守恒",
+      "remaining": "通用共享DAG、完整可信费用净评分、网格外gap；[优化搜索](dex-router/crates/optimizer/src/search.rs)、[费用评分](dex-router/crates/optimizer/src/cost_scoring.rs)",
+      "source_references": [
+        "dex-router/crates/optimizer/src/search.rs",
+        "dex-router/crates/optimizer/src/cost_scoring.rs"
+      ]
+    },
+    {
+      "id": "WP14",
+      "conclusion": "部分完成",
+      "implemented_foundations": "V2单路线至8跳准备、部分本地split executor、Solana单池钱包闭环",
+      "remaining": "其他协议/多池/共享DAG执行器、完整EVM钱包签名发送回执；[EVM准备](dex-router/crates/quote-api/src/evm_preparation.rs)、[Solana准备](dex-router/crates/quote-api/src/preparation.rs)",
+      "source_references": [
+        "dex-router/crates/quote-api/src/evm_preparation.rs",
+        "dex-router/crates/quote-api/src/preparation.rs"
+      ]
+    },
+    {
+      "id": "WP15",
+      "conclusion": "部分完成",
+      "implemented_foundations": "严格缺状态拒绝的REVM/SBF、取消/期限/子进程预算、限定真实余额差",
+      "remaining": "可信当前完整bank、全链规则/全协议/复杂计划仿真；[通用verify明确不可用](dex-router/crates/simulation/src/lib.rs)、[本地EVM后端](dex-router/crates/quote-api/src/local_simulation.rs)",
+      "source_references": [
+        "dex-router/crates/simulation/src/lib.rs",
+        "dex-router/crates/quote-api/src/local_simulation.rs"
+      ]
+    },
+    {
+      "id": "WP16",
+      "conclusion": "部分完成",
+      "implemented_foundations": "ExactIn/Out、认证、期限、缓存、single-flight、版本/新鲜度检查",
+      "remaining": "VERIFIED被主动拒绝、全局单token额度不等于租户隔离、statePolicy/allowSources及完整API未齐；[API入口](dex-router/crates/quote-api/src/lib.rs)、[ExactOut](dex-router/crates/quote-api/src/exact_out.rs)",
+      "source_references": [
+        "dex-router/crates/quote-api/src/lib.rs",
+        "dex-router/crates/quote-api/src/exact_out.rs"
+      ]
+    },
+    {
+      "id": "WP17",
+      "conclusion": "部分完成",
+      "implemented_foundations": "health/startup/链状态、SIGTERM、日志指标和开发compose",
+      "remaining": "真实多AZ/PG/Kafka故障、灰度、监控/OTel与批准SLO；[开发compose](integration/compose/compose.yaml)、[单机基础设施](integration/tools/acceptance/infrastructure.py)",
+      "source_references": [
+        "integration/compose/compose.yaml",
+        "integration/tools/acceptance/infrastructure.py"
+      ]
+    },
+    {
+      "id": "WP18",
+      "conclusion": "完整交付未启动/未验收",
+      "implemented_foundations": "七链原生承诺规则、多链配置与部分公开链样本",
+      "remaining": "第二/第三真实链全闭环及费用/版本/恢复/上线验收；一链启动失败仍可中止全部启动，依据 [Go启动](chain-parser-go/internal/service/service.go)、[Rust启动](chain-parser-rust/crates/solana-ingest/src/service.rs) 的源码推断，尚未新增运行复现",
+      "source_references": [
+        "chain-parser-go/internal/service/service.go",
+        "chain-parser-rust/crates/solana-ingest/src/service.rs"
+      ]
+    },
+    {
+      "id": "WP19",
+      "conclusion": "部分完成",
+      "implemented_foundations": "Go analytics有限Job/只读连续worker、cursor/幂等/失败checkpoint",
+      "remaining": "专属DLQ/raw重放、多插件配额、ClickHouse；Rust analytics显式未启用；[Go worker](chain-parser-go/internal/analysis/worker.go)、[Rust角色](chain-parser-rust/crates/solana-ingest/src/service.rs)",
+      "source_references": [
+        "chain-parser-go/internal/analysis/worker.go",
+        "chain-parser-rust/crates/solana-ingest/src/service.rs"
+      ]
+    },
+    {
+      "id": "WP20",
+      "conclusion": "部分完成",
+      "implemented_foundations": "Solana tonic/流WAL/账户屏障、多种AMM数学和限定SBF/钱包链路",
+      "remaining": "真实同源连续流/fork/完整bank、程序版本与扩展交叉、多池原子交易、生产CU/锁/负载；[流来源](chain-parser-rust/crates/solana-ingest/src/stream.rs)、[SBF披露](dex-router/crates/simulation/src/solana_sbf.rs)",
+      "source_references": [
+        "chain-parser-rust/crates/solana-ingest/src/stream.rs",
+        "dex-router/crates/simulation/src/solana_sbf.rs"
+      ]
+    },
+    {
+      "id": "WP21",
+      "conclusion": "部分完成",
+      "implemented_foundations": "本地candles/1、精确OHLC、撤销重算、revision/水位/原子checkpoint",
+      "remaining": "HEAD_PROVISIONAL不等于正式发布；ClickHouse/shadow/发布指针/查询API、迟到与decoder升级；[K线日志](chain-parser-go/internal/analysis/journal.go)、[本地持久化](chain-parser-go/internal/analysis/job.go)",
+      "source_references": [
+        "chain-parser-go/internal/analysis/journal.go",
+        "chain-parser-go/internal/analysis/job.go"
+      ]
+    },
+    {
+      "id": "WP22",
+      "conclusion": "外部来源竞争未启动",
+      "implemented_foundations": "本地有限范围启发式、网格/共享状态/可选费用评分",
+      "remaining": "RFQ/聚合器、多独立solver、有效期/调用者约束、通用上界与收益分布；[搜索边界](dex-router/crates/optimizer/src/search.rs)、[报价披露](dex-router/crates/quote-api/src/lib.rs)",
+      "source_references": [
+        "dex-router/crates/optimizer/src/search.rs",
+        "dex-router/crates/quote-api/src/lib.rs"
+      ]
+    },
+    {
+      "id": "WP23",
+      "conclusion": "部分完成",
+      "implemented_foundations": "本地重启/接管/无KV恢复及阻断门禁",
+      "remaining": "生产shadow/逐租户放量、区域灾备/切回、真实RPO/RTO/回滚；[生产门禁](integration/tools/acceptance/gate.py)、[生产评审](integration/tools/acceptance/report.py)",
+      "source_references": [
+        "integration/tools/acceptance/gate.py",
+        "integration/tools/acceptance/report.py"
+      ]
+    },
+    {
+      "id": "WP24",
+      "conclusion": "部分完成",
+      "implemented_foundations": "HEAD_FIRST、当前基线/有限尾窗、历史故障不阻塞当前链",
+      "remaining": "1h/1d/30d真实停机、范围扩展与资源全矩阵、链级启动隔离、首个VERIFIED报价；[历史隔离](chain-parser-go/internal/service/history_lifecycle.go)、[恢复目录](dex-router/crates/quote-api/src/remote_checkpoint.rs)",
+      "source_references": [
+        "chain-parser-go/internal/service/history_lifecycle.go",
+        "dex-router/crates/quote-api/src/remote_checkpoint.rs"
+      ]
+    },
+    {
+      "id": "WP25",
+      "conclusion": "部分完成",
+      "implemented_foundations": "严格版本化文件、ConfigProvider、策略hash与secret文件权限",
+      "remaining": "生产Kafka TLS/SASL当前配置不支持；secret修订/轮换、完整schema兼容与配置中心物化；[Go配置](chain-parser-go/internal/config/config.go)、[Rust配置](chain-parser-rust/crates/config/src/lib.rs)",
+      "source_references": [
+        "chain-parser-go/internal/config/config.go",
+        "chain-parser-rust/crates/config/src/lib.rs"
+      ]
+    },
+    {
+      "id": "WP26",
+      "conclusion": "部分完成",
+      "implemented_foundations": "Go/Rust结构化JSON、脱敏、有界队列、drop计数与部分事务审计",
+      "remaining": "SDK故障映射、轮转/spool/集中采集/OTel、全控制审计和生产运行手册；[现有日志手册](integration/runbooks/log-investigation.md)",
+      "source_references": [
+        "integration/runbooks/log-investigation.md"
+      ]
+    }
+  ],
+  "production_configuration_facts": {
+    "chain-parser-go": {
+      "sha256": "bda41a306c3210282b7d4ad7cef3162566df1bf0a91a8f6bac784e8ef2454e74",
+      "chains": 1,
+      "missing_rpc_chains": 1,
+      "kafka_broker_count": 0,
+      "kafka_security_protocol": "PLAINTEXT",
+      "configured_evm_preparation_chains": 0
+    },
+    "chain-parser-rust": {
+      "sha256": "dd91679613c32b16845f5628e6c8715b06c98771a205f20cb9360cdb243d6a69",
+      "chains": 1,
+      "missing_rpc_chains": 1,
+      "kafka_broker_count": 0,
+      "kafka_security_protocol": "PLAINTEXT",
+      "configured_evm_preparation_chains": 0
+    },
+    "dex-router": {
+      "sha256": "3fbb5e8f99e97ed6b16e44a11ef44d371048390dc8dc69af3ec679c1bc5c6166",
+      "chains": 2,
+      "missing_rpc_chains": 2,
+      "kafka_broker_count": 0,
+      "kafka_security_protocol": "PLAINTEXT",
+      "configured_evm_preparation_chains": 0
+    }
+  },
+  "validation": [
+    {
+      "command": "python3 -m unittest discover -s integration/tools/ci/tests -p test_progress_document.py",
+      "result": "passed",
+      "tests": 17
+    },
+    {
+      "command": "python3 -m unittest discover -s integration/tools/acceptance/tests -p test_design_delivery_audit.py",
+      "result": "passed",
+      "tests": 6
+    },
+    {
+      "command": "python3 integration/tools/ci/contracts.py",
+      "result": "failed before cleanup",
+      "first_failure": "chain-parser-go/internal/provenance/beacon_fork_handover_test.go:13 reads ../../../integration/",
+      "matching_references": 5,
+      "affected_files": 4
+    }
+  ],
+  "cleanup_report": "cleanup.json",
+  "implementation_source_modified": false,
+  "documentation_summary_corrections": [
+    "optimizer max_splits is 8, not 2",
+    "statePolicy/allowSources and tenant isolation still missing",
+    "production Kafka TLS/SASL configuration currently unsupported",
+    "current cross-project source/test contract gate fails"
+  ],
+  "remaining_types": [
+    "unimplemented local features",
+    "partial implementations awaiting complete version/mode coverage",
+    "real source/bank/provider evidence gaps",
+    "production infrastructure, approved workload/SLO and independent fault-domain acceptance gaps"
+  ]
+}
