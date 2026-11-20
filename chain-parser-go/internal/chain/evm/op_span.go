@@ -143,6 +143,9 @@ func verifyOPSpan(ctx context.Context, batch []byte, blocks []json.RawMessage) (
 				return nil, errors.New("OP_SPAN_BLOCK_LINK")
 			}
 			if origin.Number == prev.Number {
+				if origin.BaseFeeWei != prev.BaseFeeWei {
+					return nil, errors.New("OP_SPAN_ORIGIN_BASE_FEE")
+				}
 				if origin.Hash != prev.Hash || origin.Timestamp != prev.Timestamp || origin.Sequence == 0 || origin.Sequence-1 != prev.Sequence {
 					return nil, errors.New("OP_SPAN_ORIGIN_SEQUENCE")
 				}

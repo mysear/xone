@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 首笔存款的 L1 基础费用（[阶段230](#op-origin-base-fee)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通 owner 按签名 L1 祖先区块头核对每个引用 epoch 的基础费用|其余存款输入、L2 执行派生、真实跨提交通道及多链覆盖待验收|
 |OP 普通 owner 跨批次连续发布（[阶段229](#op-owner-window)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|跨两个 span 连续发布 4 条增量，同源离线复验逐条一致|218 块长窗口、主网跨提交通道及执行派生待验收|
 |OP 批次按 L1 顺序补读（[阶段228](#op-forward-window)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|四笔 L1 提交覆盖阶段227的 218 个 OP 块，重跑报告一致|普通 owner 逐块消费、真实跨提交通道及执行派生待验收|
 |OP 批次连续刷新（[阶段227](#op-refresh-consecutive)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|发布批次时锁定已复核的信标文件，两次相邻最终化周期刷新通过|两个 OP span 之间有 218 块待覆盖|
@@ -5264,3 +5265,13 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 218 块长窗口与严格离线复验另行记录。P0-1 后续需取得同一通道跨多笔 L1 提交的主网样本，核验 L2 执行派生，并完成其余链和协议的来源与恢复验收。原工作包完整验收 0/26。GitLab 推送等待项目克隆地址。
 
 [窗口复验说明](integration/test/source/op-mainnet-batches/README.md) · [归档边界复验](integration/artifacts/local/op-owner-window-229/offline-boundary/report.json) · [撤权与恢复](integration/artifacts/local/op-owner-window-229/withdrawal.json)
+
+<a id="op-origin-base-fee"></a>
+
+## 从签名 L1 祖先区块头核对 OP 存款基础费用（2026-11-20，阶段230，P0-1）
+
+此前首笔 L1 属性存款的来源检查只与祖先链核对高度、哈希和时间。现在从 Bedrock ABI 或激活后的紧凑格式读取完整的 256 位 L1 基础费用。每个 epoch 的声明值须与同一已核验以太坊头的 `baseFeePerGas` 一致。同一 span 内引用同一 epoch 的所有块须保持该值一致。在线轮询、普通读取和批次 CLI 共用核验路径。
+
+OP 块 144644465 的存款与以太坊块 23942644 均给出 48265514 wei。修改中间 epoch 的费用会得到 `OP_ORIGIN_L1_BASE_FEE_MISMATCH`。阶段229的跨批次边界在新二进制下用纯缓存重放，基线和四条增量与前轮逐条相同。Go 全包测试、专项 race 和 vet 通过。其余存款、blob 费参数、L2 执行后状态和主网跨提交样本仍待验证。
+
+[纯缓存 owner 报告](integration/artifacts/local/op-owner-window-229/basefee-boundary/report.json)

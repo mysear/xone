@@ -6,16 +6,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"xone/chain-parser-go/internal/provenance"
 )
 
 type OPL1Origin struct {
-	Number    uint64 `json:"number"`
-	Hash      string `json:"hash"`
-	Timestamp uint64 `json:"timestamp"`
-	Sequence  uint64 `json:"sequence"`
+	BaseFeeWei string `json:"base_fee_wei"`
+	Number     uint64 `json:"number"`
+	Hash       string `json:"hash"`
+	Timestamp  uint64 `json:"timestamp"`
+	Sequence   uint64 `json:"sequence"`
 }
 
 func parseOPOrigin(first []byte, timestamp uint64) (opDepositWire, OPL1Origin, error) {
@@ -37,7 +39,9 @@ func parseOPOrigin(first []byte, timestamp uint64) (opDepositWire, OPL1Origin, e
 	}
 	var number, sequence, l1Time uint64
 	l1Hash := common.BytesToHash(data[100:132])
+	baseFee := data[36:68]
 	if format == "Bedrock" {
+		baseFee = data[68:100]
 		if number, err = opAttributeUint64(data[4:36]); err != nil {
 			return opDepositWire{}, OPL1Origin{}, err
 		}
@@ -56,7 +60,7 @@ func parseOPOrigin(first []byte, timestamp uint64) (opDepositWire, OPL1Origin, e
 	if l1Time > timestamp || deposit.SourceHash != opL1InfoSourceHash(l1Hash, sequence) {
 		return opDepositWire{}, OPL1Origin{}, errors.New("OP_PACKED_ATTRIBUTES_SOURCE_IDENTITY")
 	}
-	return deposit, OPL1Origin{Number: number, Hash: l1Hash.Hex(), Timestamp: l1Time, Sequence: sequence}, nil
+	return deposit, OPL1Origin{BaseFeeWei: new(big.Int).SetBytes(baseFee).String(), Number: number, Hash: l1Hash.Hex(), Timestamp: l1Time, Sequence: sequence}, nil
 }
 
 // OPOriginEvidence carries the OP execution block and L1 headers in descending
@@ -153,6 +157,9 @@ func verifyOriginRange(ctx context.Context, head uint64, hash string, origins []
 			time, err := canonicalIndex(header.Block.Timestamp)
 			if err != nil || time != origin.Timestamp || expected != origin.Hash {
 				return errors.New("OP_ORIGIN_L1_MISMATCH")
+			}
+			if header.ethBaseFeeWei == "" || header.ethBaseFeeWei != origin.BaseFeeWei {
+				return errors.New("OP_ORIGIN_L1_BASE_FEE_MISMATCH")
 			}
 			if last == 0 {
 				return ctx.Err()
