@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-21",
+  "authorization": "User explicitly allowed test-result related cleanup",
+  "scope": [
+    "untracked integration/artifacts/local run/results/log/RPC capture outputs",
+    "idle per-run loopback-only PG/Kafka test infrastructure data"
+  ],
+  "removed_path_count": 6678,
+  "selected_allocated_bytes": 52625006592,
+  "free_bytes_before": 232926912512,
+  "free_bytes_after": 285852139520,
+  "skipped_paths": [],
+  "removed_by_kind": {
+    "test-run-directory": 378,
+    "test-result-or-log": 6300
+  },
+  "removed_path_list_sha256": "709710202bbaa2b4eb40b28f5533fd10ddaf16f32a097770a154bbb5c0e9068e",
+  "all_tracked_contents_unchanged_by_cleanup": true,
+  "tracked_files_verified": 2620,
+  "preserved_runtime_and_unit_input_roots": [
+    "integration/artifacts/local/orca-adaptive-execution-api-preflight",
+    "integration/artifacts/local/orca-execution-preflight4",
+    "integration/artifacts/local/native-cost-reference",
+    "integration/artifacts/local/raydium-funding-original-preflight",
+    "integration/artifacts/local/r03-agave-validation",
+    "integration/artifacts/local/r01-solana-process-bounded-window-v4",
+    "integration/artifacts/local/r01-sbf-linux",
+    "integration/artifacts/local/rayclmm-advanced-api-preflight",
+    "integration/artifacts/local/r01-public-sbf-runtime",
+    "integration/artifacts/local/r01-solana-process-token-upgrade-v2",
+    "integration/artifacts/local/local-sbf-runtime",
+    "integration/artifacts/local/op-l1-cost-reference",
+    "integration/artifacts/local/r01-public-compilers",
+    "integration/artifacts/local/r01-solana-rebuild"
+  ],
+  "preserved_other_inputs_and_source_files": 447,
+  "historical_report_links_may_now_reference_removed_outputs": true,
+  "historical_acceptance_replay_requires_regenerating_cleaned_run_outputs": true,
+  "free_bytes_increase": 52925227008,
+  "historical_output_link_annotations": 398,
+  "annotated_documents": [
+    "DEVELOPMENT_PROGRESS.md"
+  ],
+  "historical_reference_parser_preserves_source_test_bindings": true,
+  "post_cleanup_checks": {
+    "progress_document_tests": 17,
+    "delivery_audit_control_tests": 6,
+    "broken_live_documentation_links": 0,
+    "git_diff_check": "passed"
+  }
+}

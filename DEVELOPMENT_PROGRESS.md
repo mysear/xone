@@ -56,6 +56,12 @@
 
 [清理完整清单](integration/artifacts/local/project-audit-20261121/cleanup.json) · [本次完成度核查记录](integration/artifacts/local/project-audit-20261121/completeness.json)
 
+用户随后明确授权清理测试结果，本轮追加删除6678个未跟踪输出路径（378个测试运行/状态目录和6300个结果或日志文件），包括已停用的测试专用PG/Kafka数据、历史报告、临时owner状态和RPC录制。追加清理按占用块计52625006592字节（约49.01GiB）；两步累计70206324736字节（约65.38GiB）。第二步清理前后2620个跟踪文件内容一致，正式回归夹具、仍被正常测试引用的输入、参考源码及Solana/SBF运行时保留。历史阶段记录保持原文，其中未跟踪旧报告/录制的本地链接可能因本次授权清理而失效；重放这些旧验收需要重建前置输出，不能据此声称旧记录已在清理后重新复验。已提交的小型审计记录保留。
+
+[测试结果清理范围与统计](integration/artifacts/local/project-audit-20261121/test-results-cleanup.json)
+
+清理后将398个已失效的报告链接改为“已清理”的历史路径说明；进度读取器同时识别该说明，仍按原source/test/evidence绑定校验，不虚构已删除报告。重新运行17项进度检查及6项审计控制均通过，有效本地文档链接缺失为0。五处跨项目测试路径的原有契约失败继续保留；本次仅调整文档维护工具，没有修改三服务业务实现。
+
 <a id="active-work"></a>
 
 ## 本轮开发
@@ -226,7 +232,7 @@
 |Balancer标准Stable2 ExactOut（阶段75）|§12/13/14/15/23；WP12、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|独立目标求解、费用/缩放与现金，复用固定块状态/路由/计划/API；模型/12|720原数学场景、45序列180步、3网格及3同池顺序分配；20检查/48次Rust/4项Chrome通过；见[阶段75](#plan-2026-11-15-stable-exact-out)，执行模板仍未完成|
 |Balancer不可变Weighted ExactOut（阶段74）|§12/13/14/15/23；WP12、WP14、WP15、WP16、WP25|LOCAL_SCOPE_VERIFIED|三类Weighted独立GIVEN_OUT内核、全资产状态/显式token边、最小输入分配、API及能力版本/11|304原回调场景、48连续步、2组网格/2组同池顺序分配；最终17检查、33次Rust、12项Chrome通过，见[阶段74](#plan-2026-11-14-weighted-exact-out)；执行模板及其他协议仍未完成|
 |链/DEX解析、路由与兑换量计算收尾|§3/7/8/12/13；[计算收尾计划](#plan-2026-11-08-quote-completion)|IN_PROGRESS|新增最多8路拆单、独立池网格动态规划、共享状态有界搜索、浅池候选与预算报告；Velodrome V2独立版本和216原数学/8序列24步已实现|阶段46–48补齐旧LM、Slipstream及LFJ独立ExactOut注明范围；阶段49–53补齐限定DLMM MM/OnlyY/奖励/订单/Token2022/bitmap、Pump独立ExactOut及PumpSwap/毕业迁移；阶段57–59完成卖出目标及前端账户准备/包装，阶段60已补临时WSOL解包/余款退款，阶段61补限定Token2022收款ATA/withheld联验；策略交叉、其他协议组合/净链费用和第二批链仍有缺口，不宣称全链/全DEX完成|
-|R01–R04真实来源、持续采集与范围恢复|§7/8/18/27.3/28；[11项计划](#plan-2026-11-06-r01-r04)|IN_PROGRESS|三服务当前全check及167 Rust定向/174 EVM race、普通23检查/8恢复通过；13 EVM+3 SBF源码精确重建，新Polygon/Arbitrum原VM及normal收款一致|动态目录、同KV恢复、实际PG/Kafka与normal流已接并验；全目录可信历史bank/来源独立性/生产资格仍待闭合，参见[当前核对报告](integration/artifacts/local/r01-r04-current-final-audit.json)|
+|R01–R04真实来源、持续采集与范围恢复|§7/8/18/27.3/28；[11项计划](#plan-2026-11-06-r01-r04)|IN_PROGRESS|三服务当前全check及167 Rust定向/174 EVM race、普通23检查/8恢复通过；13 EVM+3 SBF源码精确重建，新Polygon/Arbitrum原VM及normal收款一致|动态目录、同KV恢复、实际PG/Kafka与normal流已接并验；全目录可信历史bank/来源独立性/生产资格仍待闭合，参见当前核对报告（`integration/artifacts/local/r01-r04-current-final-audit.json`，已清理）|
 |EVM在线头时间准入与撤销|§7.3/9/23；WP05、WP09、WP25|LOCAL_SCOPE_VERIFIED|在线head与提交前统一新鲜度检查，未来/过期头拒绝、旧引用保留及Tick撤销定向/全量通过|真实进程未来head故障撤销/恢复通过；独立可信头、完整provider矩阵及共识仍未完成|
 |旧CLMM验收优化模式拒绝校验|§23/28；WP25|LOCAL_SCOPE_VERIFIED|旧dynamic/seed验收78处显式拒绝保留条件/消息/异常；24项普通/优化定向回归和子进程防回归通过|212项辅助回归普通/优化均通过，独立审查关闭；仅修复验收可靠性，不重新宣称旧协议完整验收|
 |Managed V2实际发布版与非零AUM|§7.3/11.3/12.2/12.9/12.11/12.14；WP02–05、WP11–14、WP25|IN_PROGRESS|T34.11和T34.12注明有限范围已验；独立BPT状态/wire、固定H解析、精确转换/Funds路由/实际API、97计划100原交易和完整后状态通过最后同freeze|已启用breaker CB1–CB5有限GIVEN_IN已通过同freeze最终验收；随后rate/mixed及其他会计/参数组合；可信链/ExactOut/公开执行/生产仍未完成，原26完整WP仍0|
@@ -553,23 +559,23 @@
 |14.v2-complete-independent-execution|WP10,WP11,WP14,WP15,WP25|LOCAL_SCOPE_VERIFIED|新版本精确BOUND及独立raw/时间戳/累计价/计量slot12核对、真实overlay后观察已定向通过；24原VM交易273账户/1525槽一致|普通API/隔离进程与双审已通过；可信链和公开VERIFIED/build仍未完成|[限定验收](integration/artifacts/local/v2-complete-acceptance.json)|
 |12.14.v2-complete-original-bank|WP03,WP10,WP11,WP13,WP25|LOCAL_SCOPE_VERIFIED|原发布合约公开操作的24case/4序列10步、84交易/79原trace已生成，普通/优化精确再生与49篡改拒绝定向通过|完整源码/五binary/全闭包/双审及进程gate通过；真实部署/历史仍缺|[限定验收](integration/artifacts/local/v2-complete-acceptance.json)|
 
-|11.3.managed-v2-published-state|WP02,WP04,WP05,WP11,WP25|PARTIAL_LOCAL|实际发布版独立状态/profile/config、sourceH、JSON/wire/clone与uint32原storage边界已接入；四副本独立C++ 2895字节通过|派生execution_context与canonical隔离、实际Vault钱包余额完整保留正在补齐；最终冻结与双审未完成|[wire初验](integration/artifacts/local/managed-v2-aum-wire-check.log)|
-|7.3.managed-v2-fixed-bank|WP03,WP04,WP05,WP11|PARTIAL_LOCAL|固定blockHash/原runtime及links/immutables、真实Factory/Provider/Vault/collector getter与完整供应量/AUM核对；48原snapshot/81投影对照已接入|更多真实链版本/来源证明、实际余额完整保留及最终冻结未完成|[原bank精确再生](integration/artifacts/local/managed-v2-aum-reference-check.log)|
-|12.14.managed-v2-original-replay|WP03,WP11,WP13,WP25|PARTIAL_LOCAL|正常EIP170原部署27case/292交易/2285对象，原swap与非零AUM/协议分成/零重复/uint32回退；81类原篡改普通与优化模式拒绝通过|普通服务只覆盖当前日期双币样本；其他未来clock状态仍为本地parser/math参考，不能放宽未来头准入|[普通保护](integration/artifacts/local/managed-v2-aum-guards.log)<br>[优化保护](integration/artifacts/local/managed-v2-aum-guards-optimized.log)|
+|11.3.managed-v2-published-state|WP02,WP04,WP05,WP11,WP25|PARTIAL_LOCAL|实际发布版独立状态/profile/config、sourceH、JSON/wire/clone与uint32原storage边界已接入；四副本独立C++ 2895字节通过|派生execution_context与canonical隔离、实际Vault钱包余额完整保留正在补齐；最终冻结与双审未完成|wire初验（`integration/artifacts/local/managed-v2-aum-wire-check.log`，已清理）|
+|7.3.managed-v2-fixed-bank|WP03,WP04,WP05,WP11|PARTIAL_LOCAL|固定blockHash/原runtime及links/immutables、真实Factory/Provider/Vault/collector getter与完整供应量/AUM核对；48原snapshot/81投影对照已接入|更多真实链版本/来源证明、实际余额完整保留及最终冻结未完成|原bank精确再生（`integration/artifacts/local/managed-v2-aum-reference-check.log`，已清理）|
+|12.14.managed-v2-original-replay|WP03,WP11,WP13,WP25|PARTIAL_LOCAL|正常EIP170原部署27case/292交易/2285对象，原swap与非零AUM/协议分成/零重复/uint32回退；81类原篡改普通与优化模式拒绝通过|普通服务只覆盖当前日期双币样本；其他未来clock状态仍为本地parser/math参考，不能放宽未来头准入|普通保护（`integration/artifacts/local/managed-v2-aum-guards.log`，已清理）<br>优化保护（`integration/artifacts/local/managed-v2-aum-guards-optimized.log`，已清理）|
 |12.9.managed-v2-derived-context|WP02,WP11,WP12,WP13|IN_PROGRESS|固定H共享池连续重算通过；独立SPEC发现未来time同clock下一步拒绝及高度回卷后完整context丢失|显式派生执行高度/时间、sourceH不变、canonical/wire拒绝派生状态正在红绿补齐；不能据旧通过宣称完整连续重算|[本批任务](#plan-2026-11-03-managed-v2-aum)|
 |23.managed-v2-normal-service|WP02,WP03,WP05,WP11,WP12,WP13,WP25|IN_PROGRESS|正常RPC/PG/Kafka双router首轮6原来源状态/4原swap金额/10来源故障撤销恢复/重启与VERIFIED-build拒绝共15检查通过，live C++ wire一致|后续源码变更使首轮为历史记录；完整钱包和派生上下文收口后需最终冻结全量/独立双审，原生选中计划VM重放未完成|[首轮服务记录](integration/artifacts/local/managed-v2-aum-three-service-smoke.json)|
-|12.11.managed-v2-distinct-pause|WP02,WP03,WP04,WP05,WP11,WP13,WP25|IN_PROGRESS|原实际Vault暂停交易后Pool公开AUM collection仍成功，证实单一OR标志不符合原合约；按Pool/Vault各自有效flag和窗口独立建模，新增公开状态版本3|原暂停三case、固定块解析/数学完整后状态与正常服务边界正在补齐，最终同源全检和独立双审尚未完成|[原执行发现](integration/artifacts/local/managed-v2-aum-vault-pause-native-probe.log)|
+|12.11.managed-v2-distinct-pause|WP02,WP03,WP04,WP05,WP11,WP13,WP25|IN_PROGRESS|原实际Vault暂停交易后Pool公开AUM collection仍成功，证实单一OR标志不符合原合约；按Pool/Vault各自有效flag和窗口独立建模，新增公开状态版本3|原暂停三case、固定块解析/数学完整后状态与正常服务边界正在补齐，最终同源全检和独立双审尚未完成|原执行发现（`integration/artifacts/local/managed-v2-aum-vault-pause-native-probe.log`，已清理）|
 
 |7.3.managed-v2-current-catalog|WP02,WP03,WP04,WP05,WP11,WP25|LOCAL_SCOPE_VERIFIED|[新范围最终同源验收](integration/artifacts/local/managed-v2-multi-acceptance.json)；真实2026-01-01/01-31的2/3/5/50币四池共同H目录、73代码身份/9800原getter、原4swap/4非零AUM，Go40完整Pool与Rust8原后状态通过；普通双副本10bank/14计划通过|新冻结全检/质量/完整门禁已通过；本地参考不提供真实链trust|[原目录](integration/test/contracts/managed-v2-aum-catalog.json)<br>[四池进程](integration/artifacts/local/managed-v2-catalog-three-service-smoke.json)|
-|11.3.managed-v2-shared-vault-facts|WP02,WP03,WP05,WP11|LOCAL_SCOPE_VERIFIED|[新范围最终同源验收](integration/artifacts/local/managed-v2-multi-acceptance.json)；同sourceH角色/代码/参数/Provider外部费率事实、全局钱包与known注册cash合计/重复冲突校验，Go及两Rust公共domain统一；knownunsupported与事实冲突区别，完整银行保全|新范围独立质量与完整冻结验收已通过；未知Vault注册不冒称全目录覆盖|[共享原银行](integration/test/contracts/managed-v2-shared-vault.json)<br>[红绿回归](integration/artifacts/local/managed-v2-shared-role-cash-go.log)|
-|12.9.managed-v2-shared-wallet-transition|WP02,WP03,WP11,WP12,WP13|LOCAL_SCOPE_VERIFIED|[新范围最终同源验收](integration/artifacts/local/managed-v2-multi-acceptance.json)；原4次A/B/A/B交易两Pool完整后状态、共享global钱包传播/registered账本保留、Somectx与sourceH、整path失败原子回滚、capacity探测与整数optimizer回归通过|普通BPT/join/exit/rate/mixed能力和通用collection传播仍未实现；生产性能另验|[路由原生回归](integration/artifacts/local/managed-v2-shared-funded-scope-regressions.log)|
-|13.managed-v2-executable-scope|WP02,WP09,WP11,WP12,WP13,WP16|LOCAL_SCOPE_VERIFIED|[新范围最终同源验收](integration/artifacts/local/managed-v2-multi-acceptance.json)；Graph/API显式排除不支持的相关Vault组并保留完整来源ScopeHash，无关V2及weighted-only可报价；Snapshot/Replica/HTTP13回归通过|新范围全量/独立质量门禁已通过；不将scope限制改写为原设计功能删除|[范围回归](integration/artifacts/local/managed-v2-shared-funded-scope-regressions.log)|
+|11.3.managed-v2-shared-vault-facts|WP02,WP03,WP05,WP11|LOCAL_SCOPE_VERIFIED|[新范围最终同源验收](integration/artifacts/local/managed-v2-multi-acceptance.json)；同sourceH角色/代码/参数/Provider外部费率事实、全局钱包与known注册cash合计/重复冲突校验，Go及两Rust公共domain统一；knownunsupported与事实冲突区别，完整银行保全|新范围独立质量与完整冻结验收已通过；未知Vault注册不冒称全目录覆盖|[共享原银行](integration/test/contracts/managed-v2-shared-vault.json)<br>红绿回归（`integration/artifacts/local/managed-v2-shared-role-cash-go.log`，已清理）|
+|12.9.managed-v2-shared-wallet-transition|WP02,WP03,WP11,WP12,WP13|LOCAL_SCOPE_VERIFIED|[新范围最终同源验收](integration/artifacts/local/managed-v2-multi-acceptance.json)；原4次A/B/A/B交易两Pool完整后状态、共享global钱包传播/registered账本保留、Somectx与sourceH、整path失败原子回滚、capacity探测与整数optimizer回归通过|普通BPT/join/exit/rate/mixed能力和通用collection传播仍未实现；生产性能另验|路由原生回归（`integration/artifacts/local/managed-v2-shared-funded-scope-regressions.log`，已清理）|
+|13.managed-v2-executable-scope|WP02,WP09,WP11,WP12,WP13,WP16|LOCAL_SCOPE_VERIFIED|[新范围最终同源验收](integration/artifacts/local/managed-v2-multi-acceptance.json)；Graph/API显式排除不支持的相关Vault组并保留完整来源ScopeHash，无关V2及weighted-only可报价；Snapshot/Replica/HTTP13回归通过|新范围全量/独立质量门禁已通过；不将scope限制改写为原设计功能删除|范围回归（`integration/artifacts/local/managed-v2-shared-funded-scope-regressions.log`，已清理）|
 |12.14.managed-v2-real-selected-split|WP03,WP11,WP12,WP13,WP14,WP25|LOCAL_SCOPE_VERIFIED|[新范围最终同源验收](integration/artifacts/local/managed-v2-multi-acceptance.json)；原signed history恢复source后按真实API路线逐步原Vault.swap，两个actor真实选择2物理池、输入5e21/收款7874328412914279650444，与报价一致；7source/16实际计划/4故障恢复进程通过|新冻结全检/质量/完整门禁已通过；仍无trusted live chain/public executor/VERIFIED-build|[共享真实进程](integration/artifacts/local/managed-v2-shared-three-service-smoke.json)|
 
-|11.3.managed-v2-scheduled-state|WP02,WP11,WP25|LOCAL_SCOPE_VERIFIED|独立scheduled profile及field40、纯整数raw decoder与canonical/derived隔离；独立C++四副本wire通过，ONE±2原getter保持未归一化|M1–M4多物理池原组合、更多token/能力矩阵及完整工作包验收未完成|[field40 wire](integration/artifacts/local/managed-v2-scheduled-wire-check.log)|
-|7.3.managed-v2-scheduled-source|WP03,WP04,WP05,WP11,WP25|LOCAL_SCOPE_VERIFIED|234原VM状态固定H完整RPC/双Rust域/完整field40 wire及8来源/4构造ID联合篡改拒绝；来源代码/全部immutable/Factory/WETH/必需getter/身份唯一已审查修复|真实链trust、多物理池活动schedule原source及原设计完整验收仍缺|[当前原来源与构造拒绝回归](integration/artifacts/local/managed-v2-scheduled-parser-test.log)|
-|12.9.managed-v2-scheduled-transition|WP11,WP12,WP13|LOCAL_SCOPE_VERIFIED|234时钟视图/41检查点、53原swap实际收款及全部后状态、2非零AUM collection后状态精确匹配；未来共享Vault clock定向通过|M1–M4多物理池原VM组合及完整能力共享DAG仍未完成|[当前原数学与完整后状态](integration/artifacts/local/managed-v2-scheduled-math-test.log)|
-|12.14.managed-v2-scheduled-original|WP03,WP11,WP13,WP25|LOCAL_SCOPE_VERIFIED|原53swap/234state/41checkpoint的四独立副本与单物理池55来源/127实际API、53不同原签名交易VM全部真实余额/后观察匹配；干净目录仅注册输入精确再生通过|多物理池活动schedule原source/组合执行/拆单及原26工作包全验收仍未完成|[当前干净目录原VM再生](integration/artifacts/local/managed-v2-scheduled-reference-check.log)|
+|11.3.managed-v2-scheduled-state|WP02,WP11,WP25|LOCAL_SCOPE_VERIFIED|独立scheduled profile及field40、纯整数raw decoder与canonical/derived隔离；独立C++四副本wire通过，ONE±2原getter保持未归一化|M1–M4多物理池原组合、更多token/能力矩阵及完整工作包验收未完成|field40 wire（`integration/artifacts/local/managed-v2-scheduled-wire-check.log`，已清理）|
+|7.3.managed-v2-scheduled-source|WP03,WP04,WP05,WP11,WP25|LOCAL_SCOPE_VERIFIED|234原VM状态固定H完整RPC/双Rust域/完整field40 wire及8来源/4构造ID联合篡改拒绝；来源代码/全部immutable/Factory/WETH/必需getter/身份唯一已审查修复|真实链trust、多物理池活动schedule原source及原设计完整验收仍缺|当前原来源与构造拒绝回归（`integration/artifacts/local/managed-v2-scheduled-parser-test.log`，已清理）|
+|12.9.managed-v2-scheduled-transition|WP11,WP12,WP13|LOCAL_SCOPE_VERIFIED|234时钟视图/41检查点、53原swap实际收款及全部后状态、2非零AUM collection后状态精确匹配；未来共享Vault clock定向通过|M1–M4多物理池原VM组合及完整能力共享DAG仍未完成|当前原数学与完整后状态（`integration/artifacts/local/managed-v2-scheduled-math-test.log`，已清理）|
+|12.14.managed-v2-scheduled-original|WP03,WP11,WP13,WP25|LOCAL_SCOPE_VERIFIED|原53swap/234state/41checkpoint的四独立副本与单物理池55来源/127实际API、53不同原签名交易VM全部真实余额/后观察匹配；干净目录仅注册输入精确再生通过|多物理池活动schedule原source/组合执行/拆单及原26工作包全验收仍未完成|当前干净目录原VM再生（`integration/artifacts/local/managed-v2-scheduled-reference-check.log`，已清理）|
 
 |7.3.managed-v2-scheduled-shared-source|WP02,WP03,WP04,WP05,WP09,WP11,WP25|LOCAL_SCOPE_VERIFIED|两真实三币池mixed/active共同H原观察、72bank/144Pool固定块Go与双Rust域/完整wire已定向通过；来源四类审查问题已修复关闭|更多token/能力/一般参数及真实链trust、完整设计验收仍缺|[当前双物理池限定验证](integration/artifacts/local/managed-v2-scheduled-shared-local-validation.json)|
 |12.9.managed-v2-scheduled-shared-original-transitions|WP11,WP12,WP13|LOCAL_SCOPE_VERIFIED|原48swap/4collection双方完整后状态、12连续序列和12 clock-only双方独立view/AUM差分通过|全部能力/参数组合、完整共享DAG与原26WP验收未完成|[当前双物理池限定验证](integration/artifacts/local/managed-v2-scheduled-shared-local-validation.json)|
@@ -643,67 +649,67 @@
 |12.orca-exact-out|WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Orca五类模型的精确输出数学、原始manager完整后状态、路由/网格与API/前端报价联验|仅固定cc683ec9经典SPL及三数组范围；执行准备/unsigned/SBF/钱包模板仍未实现，不以native数学参考替代交易验证|[验证记录](integration/artifacts/local/core-orca-exact-out-validation-20261114.json)|
 |12.rayclmm-exact-out|WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Raydium CLMM六模型输出目标、选费/动态/奖励/Bitmap/Seed状态、路由与API/前端开发联验|固定6d7a0f82经典SPL；协议Token选费不含Token2022转账扩展；六模型执行模板仍待补齐|[验证记录](integration/artifacts/local/core-rayclmm-exact-out-validation-20261114.json)|
 |12.standard-v3-exact-out|WP03,WP05,WP09,WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|基础Uniswap/Pancake无LM V3目标输出、真实原Pool回调付款、简单路径/网格及API/前端开发联验|基础模型为定价状态投影；只接明确静态classic ERC20，无unsigned/钱包模板；Slipstream和LM上下文另列|[验证记录](integration/artifacts/local/core-v3-exact-out-validation-20261114.json)|
-|12.weighted-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|三类不可变Weighted独立GIVEN_OUT内核、物理余额向量和非首token路由、最小输入分配、API/前端|仅单池路线及配置网格；原回调facade无ERC20转账/完整Vault；Managed/Composable及执行模板继续未完成|[验证记录](integration/artifacts/local/weighted-exact-out-check/report.json)|
-|12.stable-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Balancer标准Stable2输出目标内核、单池有序路由和最小输入网格、HTTP/前端|原始StableMath包装参考；完整Vault/实际资金转账、Composable/BPT/rate及执行模板仍未实现|[验证记录](integration/artifacts/local/stable-exact-out-check/report.json)|
-|12.singleton-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|静态零hook V4/Infinity CL原生正数目标、逐word数学与物理状态、容量网格/同池分配、API/前端联验|仅核心定价投影；Manager/Vault/Token资金结算、advanced/hook/native与执行模板仍未完成|[验证记录](integration/artifacts/local/singleton-exact-out-check/report.json)|
-|12.infinity-bin-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|静态完整树原始BinPool正数目标、burn尘埃与物理投影、网格/顺序分配、API/前端|App/protocol账本为明示投影，完整Manager/Vault/Token结算、动态/hook/执行模板仍未完成|[验证记录](integration/artifacts/local/infinity-bin-exact-out-check/report.json)|
-|12.managed-snapshot-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|零BPT费用Managed快照实际压缩权重和费率、任意币对输出目标/顺序分配/API/前端|原ManagedPool+测试Vault facade，无完整Vault/资金执行；非零管理/协议swap费用及其他Managed版本另列|[验证记录](integration/artifacts/local/managed-snapshot-exact-out-check/report.json)|
-|12.composable-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|普通token输出目标、任意BPT位置映射/完整物理向量、BPT图/数学/计划/API拒绝和顺序/网格分配|原StableMath费用/缩放包装，不证明完整ComposablePool/Vault/资金执行；BPT兑换/供应/费账/缓存与执行模板另列|[验证记录](integration/artifacts/local/composable-exact-out-check/report.json)|
-|14.raydium-funding|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|Raydium经典SPL显式ATA、WSOL补足/临时退款/解包，原子前后账户捕获、独立SBF、钱包/回执；10场景20原交易/21检查/26次Rust/155项Chrome通过|仅本固定CP-Swap标准经典SPL；Token2022/其他版本/生产与历史bank资格不升级|[验证记录](integration/artifacts/local/raydium-funding-check/report.json)|
-|14.orca-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|静态/奖励经典SPL原swap、完整Pool/tick与WSOL捐赠验证、32银行/32API和重启回执、64原交易；25检查/88次Rust/236项Chrome通过|adaptive/Token2022/其他版本和完整链流/生产与历史bank资格不升级|[验证记录](integration/artifacts/local/orca-execution-check/report.json)|
-|14.orca-adaptive-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|三个自适应经典SPL执行、完整254字节Oracle/写权限和资金/模拟；54API/54回执/108原交易及28检查/95次Rust/357项Chrome通过|其他程序版本/Token2022、多池和生产与历史bank资格不升级|[验证记录](integration/artifacts/local/orca-adaptive-execution-check/report.json)|
-|14.rayclmm-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|静态/奖励/Token-fee经典SPL单池准备、完整Pool/Observation/数组、资金/独立SBF与钱包回执；56API/56回执/112实际wire原交易及31门禁/135次Rust/486项Chrome通过|bitmap/custom-seed/dynamic和Token2022资产、跨池/生产与历史bank资格仍待独立验收|[验证记录](integration/artifacts/local/rayclmm-execution-check/report.json)|
-|14.rayclmm-advanced-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|三个高级经典SPL模型完整扩展/seed/动态费准备、同捕获SBF、162API/162回执/324原交易及33门禁/306Rust/667Chrome冻结通过|其他扩展/Token2022、多池、真实历史bank与生产资格仍未完成|[验证记录](integration/artifacts/local/rayclmm-advanced-execution-check/report.json)|
+|12.weighted-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|三类不可变Weighted独立GIVEN_OUT内核、物理余额向量和非首token路由、最小输入分配、API/前端|仅单池路线及配置网格；原回调facade无ERC20转账/完整Vault；Managed/Composable及执行模板继续未完成|验证记录（`integration/artifacts/local/weighted-exact-out-check/report.json`，已清理）|
+|12.stable-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|Balancer标准Stable2输出目标内核、单池有序路由和最小输入网格、HTTP/前端|原始StableMath包装参考；完整Vault/实际资金转账、Composable/BPT/rate及执行模板仍未实现|验证记录（`integration/artifacts/local/stable-exact-out-check/report.json`，已清理）|
+|12.singleton-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|静态零hook V4/Infinity CL原生正数目标、逐word数学与物理状态、容量网格/同池分配、API/前端联验|仅核心定价投影；Manager/Vault/Token资金结算、advanced/hook/native与执行模板仍未完成|验证记录（`integration/artifacts/local/singleton-exact-out-check/report.json`，已清理）|
+|12.infinity-bin-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|静态完整树原始BinPool正数目标、burn尘埃与物理投影、网格/顺序分配、API/前端|App/protocol账本为明示投影，完整Manager/Vault/Token结算、动态/hook/执行模板仍未完成|验证记录（`integration/artifacts/local/infinity-bin-exact-out-check/report.json`，已清理）|
+|12.managed-snapshot-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|零BPT费用Managed快照实际压缩权重和费率、任意币对输出目标/顺序分配/API/前端|原ManagedPool+测试Vault facade，无完整Vault/资金执行；非零管理/协议swap费用及其他Managed版本另列|验证记录（`integration/artifacts/local/managed-snapshot-exact-out-check/report.json`，已清理）|
+|12.composable-exact-out|WP12,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|普通token输出目标、任意BPT位置映射/完整物理向量、BPT图/数学/计划/API拒绝和顺序/网格分配|原StableMath费用/缩放包装，不证明完整ComposablePool/Vault/资金执行；BPT兑换/供应/费账/缓存与执行模板另列|验证记录（`integration/artifacts/local/composable-exact-out-check/report.json`，已清理）|
+|14.raydium-funding|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|Raydium经典SPL显式ATA、WSOL补足/临时退款/解包，原子前后账户捕获、独立SBF、钱包/回执；10场景20原交易/21检查/26次Rust/155项Chrome通过|仅本固定CP-Swap标准经典SPL；Token2022/其他版本/生产与历史bank资格不升级|验证记录（`integration/artifacts/local/raydium-funding-check/report.json`，已清理）|
+|14.orca-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|静态/奖励经典SPL原swap、完整Pool/tick与WSOL捐赠验证、32银行/32API和重启回执、64原交易；25检查/88次Rust/236项Chrome通过|adaptive/Token2022/其他版本和完整链流/生产与历史bank资格不升级|验证记录（`integration/artifacts/local/orca-execution-check/report.json`，已清理）|
+|14.orca-adaptive-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|三个自适应经典SPL执行、完整254字节Oracle/写权限和资金/模拟；54API/54回执/108原交易及28检查/95次Rust/357项Chrome通过|其他程序版本/Token2022、多池和生产与历史bank资格不升级|验证记录（`integration/artifacts/local/orca-adaptive-execution-check/report.json`，已清理）|
+|14.rayclmm-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|静态/奖励/Token-fee经典SPL单池准备、完整Pool/Observation/数组、资金/独立SBF与钱包回执；56API/56回执/112实际wire原交易及31门禁/135次Rust/486项Chrome通过|bitmap/custom-seed/dynamic和Token2022资产、跨池/生产与历史bank资格仍待独立验收|验证记录（`integration/artifacts/local/rayclmm-execution-check/report.json`，已清理）|
+|14.rayclmm-advanced-execution|WP05,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|三个高级经典SPL模型完整扩展/seed/动态费准备、同捕获SBF、162API/162回执/324原交易及33门禁/306Rust/667Chrome冻结通过|其他扩展/Token2022、多池、真实历史bank与生产资格仍未完成|验证记录（`integration/artifacts/local/rayclmm-advanced-execution-check/report.json`，已清理）|
 |14.wallet-lifecycle|WP05,WP09,WP14,WP15,WP16,WP25|PARTIAL_LOCAL|已有unsigned/独立SBF模板接Wallet Standard、显式发送与实际收付回执/恢复|默认关闭，按链启用；本批仅受控Solana模板，不等于全链全协议生产资格/完整多租户或多区执行验收|[验证记录](integration/artifacts/local/core-wallet-lifecycle-validation-20261113.json)|
-|13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
-|13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
-|14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
-|13.solana-message-native-cost|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|绑定getFeeForMessage原消息/slot/fee和账户snapshot，资金checked u64，网络费单独小计；租金与swap/wrap本金不当fee|14门禁/29次Rust、20实际HTTP与原SBF及独立审计通过；来源/固定输入/runtime冻结一致|[验证记录](integration/artifacts/local/solana-native-cost-check/report.json)|
-|13.solana-signed-fee-context|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|提交前费用源context与账户/仿真/发送min slot连续；不可变费用凭证与原v1回执兼容、幂等重试|11门禁/46次Rust，slot/费用拒绝、耐久/旧v1及实际钱包回归通过|[验证记录](integration/artifacts/local/solana-fee-preflight-check/report.json)|
-|13.solana-native-economics|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|已执行准备交易的native/显式WSOL结算同单位估值；经济净额与押金/原生现金分列，未知币值不伪造net|16门禁/50次Rust、11正常SBF/回执与独立签名/wire/原余额审计通过|[验证记录](integration/artifacts/local/solana-native-economics-check/report.json)|
-|15.native-economics-view|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|已执行交易的原生同单位净额/费用/押金展示；普通币/负净额/旧回执兼容且不伪造FAST净排名|8门禁/16浏览器检查，五类回执实际可见、整数/身份及截图复核通过|[验证记录](integration/artifacts/local/native-economics-view-check/report.json)|
-|15.solana-failure-fees|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|失败签名交易原wire/slot/err与实际fee、原生币/Token回滚绑定并耐久保存|13门禁/3真实本地失败及独立余额审计通过；可信bank与完整费用估值仍缺|[验证记录](integration/artifacts/local/solana-failure-fee-check/report.json)|
-|15.failed-fee-view|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|失败费用与未核验/矛盾/旧回执独立展示；保留成功成交净额|9门禁/四实际场景/13浏览器检查及实际可见截图复核通过|[验证记录](integration/artifacts/local/failed-fee-view-check/report.json)|
-|15.evm-legacy-native-fees|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|Legacy原生费测量与付款人净扣款，旧缺测量保留未知|14门禁/16原bank/8次HTTP和56独立向量通过；完整链费与价格换算仍缺|[验证记录](integration/artifacts/local/evm-legacy-native-fee-check/report.json)|
-|13.cost-unavailable-ranking|WP13,WP16,WP18|LOCAL_SCOPE_VERIFIED|无可信成本及估值时不以route_activation_cost改变报价排序，明确raw目标、费用缺失/未扣及原搜索约束|16门禁/176次Rust、三池与原ExactOut grid/约束预算/四HTTP通过|[验证记录](integration/artifacts/local/cost-unavailable-ranking-check/report.json)|
-|13.evm-native-payer-cost|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|按原bank余额校验最大gas资金准入，费用gross与payer实际net分列，alias自付tip返回|14门禁/146次Rust、56向量/四HTTP通过；完整成本与净排序仍缺|[验证记录](integration/artifacts/local/evm-native-payer-cost-check/report.json)|
-|13.evm-native-fee-balance-audit|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|绝对before绑定原bank输入，fee与实际native debit/beneficiary credit守恒；caller=coinbase净扣burn不重复tip，未知数据/资金操作拒绝|14门禁/同state/修改/平移/alias及四次actual HTTP通过；生产资格与完整成本仍缺|[验证记录](integration/artifacts/local/evm-native-balance-audit-check/report.json)|
-|13.evm-native-cost-components|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|共享checked uint256原生执行费与最大reserve、Legacy/EIP1559有效单价，API回执Gas/价格/fee组件核对，scope/binding/未定项明确|14门禁/142次Rust/56独立向量/两实际HTTP执行通过；额外链费/授权资金操作/可靠价格/FAST路由净收益仍缺|[验证记录](integration/artifacts/local/evm-native-cost-model-check/report.json)|
-|12.14.public-v2-original-execution|WP03,WP10,WP14,WP15|LOCAL_SCOPE_VERIFIED|原始实际code+MPT状态、显式local native funding经原WETH deposit/transfer和Pair.swap，实际收款/完整after state、多1输出原K回退；Rust独立比较|14门禁/Go原VM与Rust全状态冻结差分通过；未签名call序列/非未来交易保证/非生产VERIFY；其余方向/费用/更多版本仍需扩展|[验证记录](integration/artifacts/local/public-v2-original-execution-check/report.json)|
-|7.current-v2-pinned-offline-fixture|WP01,WP03,WP04,WP05,WP09,WP24|LOCAL_SCOPE_VERIFIED|固定actual公开block/runtime/proof/receipt原字节与获取元数据；无网络恢复工具、同字节Go本地副本、封闭loopback及多进程回归|13门禁/83次Go/36次Rust固定bank离线验收通过；数据仍依赖明确外部bundle，缺失须失败，不临时下载或改预期|[验证记录](integration/artifacts/local/current-v2-fixed-check/report.json)|
-|7.current-v2-public-source-replay|WP03,WP04,WP05,WP09,WP10,WP24|LOCAL_SCOPE_VERIFIED|真实公共当前state→normal owner/router；封装及内层raw身份验证、来源分离只读重放、双方向独立整数oracle、无KV副本/owner升代重启与坏来源拒绝|13门禁/81次Go/36次Rust及实际公开源/离线多进程通过；其他版本/历史重组/实际交易后余额与生产资格仍缺|[验证记录](integration/artifacts/local/current-v2-check/report.json)|
-|7.evm-current-head-confirmation-policy|WP04,WP05,WP24,WP25|LOCAL_SCOPE_VERIFIED|EVM确认策略限制为当前provider标签，明确拒绝历史游标/pending/未知别名；配置哈希/前置拒绝/来源披露|19门禁、跨语言同轮15配置/hash/拒绝码、当前CLI和普通服务验证通过|[验证记录](integration/artifacts/local/confirmation-policy-check/report.json)|
-|7.v2-complete-native-token-balance-proof|WP03,WP04,WP05,WP10|LOCAL_SCOPE_VERIFIED|原Token代码与每个实际SLOAD的MPT承诺支持独立只读余额重放；无未证明默认零/任意布局假定，Gas/slot/pass及原session总预算有界|8门禁/77次Go race与241外部模块缓存校验通过；仅固定零caller view，不证明Token转账行为或共识|[验证记录](integration/artifacts/local/v2-native-balance-proof-check/report.json)|
-|7.v2-complete-native-state-proof|WP03,WP04,WP05,WP10|LOCAL_SCOPE_VERIFIED|原Pair/Factory runtime的SHA与MPT account Keccak双绑定，读取同native session证明逻辑slot并核对getter；失败耗尽session|8门禁/488次Go race、正常同block证明及16类拒绝通过；不授予Token余额/共识资格|[验证记录](integration/artifacts/local/v2-native-state-proof-check/report.json)|
-|9.automatic-checkpoint-reclamation|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go显式auto_reclaim/周期/配额条件，来源守卫/单发布通道/总deadline，pending优先且不在同轮重新选择；无eligible不写控制journal|27门禁通过；Rust执行、全盘和远端容量及独立故障域仍缺|[验证记录](integration/artifacts/local/checkpoint-auto-reclaim-check/report.json)|
-|9.explicit-checkpoint-reclamation|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go显式manual回收、当前/候选/最近备份保护、原远端字节核验、有限自校验journal/隔离/恢复与幂等、正常HTTP；原预览仍只读|27门禁Go显式执行范围通过；Go自动维护由阶段116补齐，Rust执行/真实独立故障域仍缺|[验证记录](integration/artifacts/local/checkpoint-reclaim-check/report.json)|
-|9.rust-bounded-retention-plan|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Rust同等当前/全部候选/最近备份/年龄保护，完整对象/cert/owner绑定和预算，独立读取Go同一实际目录全JSON/planId一致|Go显式执行/中断恢复已由阶段115接入，Go自动维护由阶段116补齐；Rust执行和真实独立故障域仍缺|[验证记录](integration/artifacts/local/rust-retention-plan-check/report.json)|
-|9.bounded-checkpoint-retention-plan|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|显式Go local_retention策略，完整对象/同store回读证书/所有候选保护、有界只读计划与planId/目录摘要；错误/取消不改文件|Go显式执行/中断恢复已由阶段115接入，Go自动维护由阶段116补齐；Rust执行和真实独立故障域仍缺|[验证记录](integration/artifacts/local/checkpoint-retention-plan-check/report.json)|
-|9.public-checkpoint-local-budgets|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|两owner显式local_budget，串行gate内有界扫描/待写规划，重复对象不重复计费，超限旧对象保留；Go周期不重复旧JSON|26门禁当前范围通过；配额是显式单writer逻辑文件准入，非磁盘块预留，自动保留/远端容量后续|[验证记录](integration/artifacts/local/checkpoint-budget-check/report.json)|
-|9.rust-owner-recovery-catalogue|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Rust recovery目录绑定已上传旧对象与当前头，v2允许同owner/writer/canonical/scope/schema/adapter下完整baseline升代，router私有追平再发布|26门禁当前范围通过；writer/重组/范围改变转当前源，真实保留和独立故障域仍缺|[验证记录](integration/artifacts/local/rust-owner-recovery-check/report.json)|
-|9.rust-periodic-checkpoint-publisher|WP01,WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Rust周期one-chain轮转/共享gate/stop watch与正常serve取消；配置允许两online parser、禁止router/analytics，Go/Rust规范默认值/hash|周期/共享摘要本轮通过；旧对象目录已在阶段111补齐，跨writer/实际保留回收/真实故障域仍缺|[验证记录](integration/artifacts/local/rust-periodic-checkpoint-check/report.json)|
-|9.rust-owner-remote-checkpoints|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|正常Rust POST远端条件发布与完成cert、GET当前目录、独立凭据范围/来源切代/关闭中断与半上传/伪成功拒绝|远端本轮通过；周期/旧对象目录已在阶段110–111接入，实际保留回收/独立故障域仍缺|[验证记录](integration/artifacts/local/rust-remote-checkpoint-check/report.json)|
-|9.rust-owner-public-checkpoints|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Rust owner公共Protobuf checkpoint本地发布，硬链接不可替换/半发布续传/守卫与可取消共享gate，当前Rust原字节向量由Go解码|本地格式本轮通过；远端/周期/目录已在阶段109–111接入，实际保留回收/生产存储资格仍缺|[验证记录](integration/artifacts/local/rust-checkpoint-publication-check/report.json)|
-|9.bounded-checkpoint-tail-replay|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|已完成上传候选只作提示，owner当前头+游标资格；Rust同代连续BLOCK_COMMIT私有重放，精确完整边界/最终ref与目录复核|19门禁当前范围通过；跨代/reorg转当前源、canonical公告/离线peer与真实保留/故障域仍缺|[验证记录](integration/artifacts/local/checkpoint-replay-check/report.json)|
-|9.fair-checkpoint-chain-scheduling|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|单链持续失败不再使其他链饿死，正常服务双链持续发布/代际更新/故障恢复和旧生命周期回归|7门禁当前限定范围通过；旧快照追平、Rust发布和canonical公告继续|[验证记录](integration/artifacts/local/checkpoint-fairness-check/report.json)|
-|9.periodic-checkpoint-publisher|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go online-only publish_interval_ms，串行完成后等待，错误重试、代际更新、取消/关闭等待与值无关指标|Go周期本轮通过；Rust周期/多链隔离已在阶段106–110接入，实际保留回收/跨writer恢复仍缺|[验证记录](integration/artifacts/local/checkpoint-worker-check/report.json)|
-|9.current-remote-checkpoint-recovery|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|当前owner只资格化同状态/cursor已上传对象，Rust固定凭据范围下载并二次核对目录，正常Kafka恢复接线|当前对象恢复本轮通过；周期/旧对象尾窗已在阶段105–111补齐，canonical离线目录/真实故障域仍缺|[验证记录](integration/artifacts/local/checkpoint-recovery-check/report.json)|
-|9.remote-checkpoint-objects|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go正常入口可上传独立HTTP对象API，半上传可续传、冲突不覆盖，受限下载验证pin及状态/cursor|条件对象API本轮通过；正常router恢复已在阶段104–111接入，canonical离线目录/真实独立故障域仍缺|[验证记录](integration/artifacts/local/remote-checkpoint-check/report.json)|
-|9.public-bootstrap-checkpoints|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|公开OwnerBootstrap和固定摘要manifest，游标无损十进制字符串，Go写入及双Rust校验|公开本地格式本轮通过；远端/正常恢复已在阶段103–111接入，离线目录/真实独立故障域仍缺|[验证记录](integration/artifacts/local/public-bootstrap-check/report.json)|
-|16.analytics-continuous-worker|WP19,WP21|LOCAL_SCOPE_VERIFIED|现有Go服务内显式常驻只读分析模式，串行有界周期、耐久重启和异常停止|统一门禁通过；大规模事实保留/ClickHouse/shadow及查询继续|[验证记录](integration/artifacts/local/analytics-worker-check/report.json)|
-|15.evm-prepared-frontend|WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|EVM双模式原准备界面和浏览器wire摘要/状态/金额核对|统一门禁通过；当前银行捕获/其他链规则与钱包功能继续|[验证记录](integration/artifacts/local/evm-prepared-frontend-check/report.json)|
-|15.evm-prepared-api|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|缓存原RPC准备、双模式同银行worker、原hash/unsigned/receipt重算及32MiB载荷预算|统一门禁通过；界面、实时完整RPC银行/真实链规则和钱包继续|[验证记录](integration/artifacts/local/evm-prepared-api-check/report.json)|
-|14.evm-source-fees|WP15|LOCAL_SCOPE_VERIFIED|显式源H base fee与H+1执行base fee独立校验和承诺|统一门禁通过；来源仍为显式提供银行，真实RPC状态捕获/chain费用继续|[验证记录](integration/artifacts/local/evm-source-fees-check/report.json)|
-|14.evm-input-paths|WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|ExactIn多池完整计划重算和原wire/VM，双模式正常HTTP与界面准备条件|统一门禁通过；同池重用/共享DAG/RPC完整银行与钱包仍待补|[验证记录](integration/artifacts/local/evm-input-path-check/report.json)|
-|14.evm-path-execution|WP14,WP15|LOCAL_SCOPE_VERIFIED|原Router简单路径ExactOut逐池检查与完整声明前后银行|统一门禁通过；ExactIn路径绑定/当前RPC与链规则仍待补|[验证记录](integration/artifacts/local/evm-path-execution-check/report.json)|
-|15.evm-exact-out-api|WP15,WP16|LOCAL_SCOPE_VERIFIED|普通ExactOut HTTP、真实worker、独立缓存证据及费用/未用预算|统一门禁通过；多池/可信RPC银行与钱包继续|[验证记录](integration/artifacts/local/evm-exact-out-api-check/report.json)|
-|14.evm-prepared-exact-out|WP14,WP15|LOCAL_SCOPE_VERIFIED|ExactOut双层准备承诺、同银行资金和实际原Router目标执行|统一验证通过；普通HTTP准备执行与多池VM后续继续|[验证记录](integration/artifacts/local/evm-prepared-exact-out-check/report.json)|
-|28.delivery-boundary-audit|WP01,WP23,WP24|LOCAL_SCOPE_VERIFIED|三服务生产配置与当前CLI、开发拓扑和26工作包审计；不复制凭据，不把开发测试升格|当前源码审计通过；所有本地实现差距保留，不将未实现功能改记为外部阻塞|[审计记录](integration/artifacts/local/design-delivery-audit/report.json)|
-|15.evm-dynamic-fee-api|WP15,WP16|LOCAL_SCOPE_VERIFIED|API校验REVM实际有效价/费用分解，保留原上限，实际HTTP子进程验证|统一门禁通过；仍是给定Shanghai银行，非当前链/完整费用/生产资格|[验证记录](integration/artifacts/local/evm-dynamic-fee-api-check/report.json)|
-|14.evm-exact-out-execution|WP14,WP15|LOCAL_SCOPE_VERIFIED|原Router02单池ExactOut的独立REVM输入消耗/收款、未用预算、revert费用|统一门禁通过；多池路径和正式准备API集成/当前状态与链规则仍待补|[验证记录](integration/artifacts/local/evm-exact-out-execution-check/report.json)|
-|14.evm-prepared-execution|WP14,WP15|LOCAL_SCOPE_VERIFIED|完整准备组件重算、原wire摘要、同银行资金与独立VM绑定，getter有效gas price对齐|统一验证通过；限定显式给定状态ExactIn，真实RPC状态DB/ExactOut VM/当前链规则/普通API执行仍待补|[验证记录](integration/artifacts/local/evm-prepared-execution-check/report.json)|
-|14.evm-dynamic-fees|WP15|LOCAL_SCOPE_VERIFIED|独立Shanghai仿真的cap/tip、真实native pre/post与费用承诺|统一门禁通过；当前源/其他hardfork/L2数据费仍待完成|[验证记录](integration/artifacts/local/evm-dynamic-fees-check/report.json)|
-|14.evm-rpc-preparation|WP04,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|固定hash方法负对照、代码/完整V2字段、资金/授权/nonce及严格JSON/预算；认证QuoteView API和EVM费用/下载，统一门禁通过|本批是受控RPC观察接线资格，账户资金故障为受控观察；非共识、状态根证明、完整当前费用或独立执行，静态协议能力和生产未升级|[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
+|13.incremental-graph|WP09,WP12|LOCAL_SCOPE_VERIFIED|物理池索引、共享邻接边和副本增量发布；增删/多资产/准入/顺序、128变更/256池共享及路由/分配/API回归通过|基线重锚与闲时回收由[阶段86](#plan-2026-11-17-baseline-cache-reclamation)补齐；顶层索引/完整银行处理仍遍历；池状态COW、beam/联合DAG、收益界和生产容量仍待完成|验证记录（`integration/artifacts/local/incremental-graph-check/report.json`，已清理）|
+|13.baseline-cache-reclamation|WP09,WP12,WP16|LOCAL_SCOPE_VERIFIED|基线/owner恢复/scope扩容图复用、过期/撤权缓存清理、锁外析构和后台任务关停；23副本/7缓存与HTTP/11API回归通过，钱包8场景全部通过|完整Pool状态/顶层索引COW、活跃慢请求内存预算、长期压力及生产容量仍待补|验证记录（`integration/artifacts/local/cache-reclamation-check/report.json`，已清理）|
+|14.evm-preparation-component|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|完整目标/Router02绑定、给定观察下资金费用校验、无损数量、nonce耗尽和基础gas下界；19组件/31计划/2能力/10API及95独立对照通过|组件本身仅使用调用方观察；RPC捕获和显式API已由阶段88接通，当前链规则/L2费用、独立VM与钱包仍待补，执行能力仍21/61|验证记录（`integration/artifacts/local/evm-preparation-component-check/report.json`，已清理）|
+|13.solana-message-native-cost|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|绑定getFeeForMessage原消息/slot/fee和账户snapshot，资金checked u64，网络费单独小计；租金与swap/wrap本金不当fee|14门禁/29次Rust、20实际HTTP与原SBF及独立审计通过；来源/固定输入/runtime冻结一致|验证记录（`integration/artifacts/local/solana-native-cost-check/report.json`，已清理）|
+|13.solana-signed-fee-context|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|提交前费用源context与账户/仿真/发送min slot连续；不可变费用凭证与原v1回执兼容、幂等重试|11门禁/46次Rust，slot/费用拒绝、耐久/旧v1及实际钱包回归通过|验证记录（`integration/artifacts/local/solana-fee-preflight-check/report.json`，已清理）|
+|13.solana-native-economics|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|已执行准备交易的native/显式WSOL结算同单位估值；经济净额与押金/原生现金分列，未知币值不伪造net|16门禁/50次Rust、11正常SBF/回执与独立签名/wire/原余额审计通过|验证记录（`integration/artifacts/local/solana-native-economics-check/report.json`，已清理）|
+|15.native-economics-view|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|已执行交易的原生同单位净额/费用/押金展示；普通币/负净额/旧回执兼容且不伪造FAST净排名|8门禁/16浏览器检查，五类回执实际可见、整数/身份及截图复核通过|验证记录（`integration/artifacts/local/native-economics-view-check/report.json`，已清理）|
+|15.solana-failure-fees|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|失败签名交易原wire/slot/err与实际fee、原生币/Token回滚绑定并耐久保存|13门禁/3真实本地失败及独立余额审计通过；可信bank与完整费用估值仍缺|验证记录（`integration/artifacts/local/solana-failure-fee-check/report.json`，已清理）|
+|15.failed-fee-view|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|失败费用与未核验/矛盾/旧回执独立展示；保留成功成交净额|9门禁/四实际场景/13浏览器检查及实际可见截图复核通过|验证记录（`integration/artifacts/local/failed-fee-view-check/report.json`，已清理）|
+|15.evm-legacy-native-fees|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|Legacy原生费测量与付款人净扣款，旧缺测量保留未知|14门禁/16原bank/8次HTTP和56独立向量通过；完整链费与价格换算仍缺|验证记录（`integration/artifacts/local/evm-legacy-native-fee-check/report.json`，已清理）|
+|13.cost-unavailable-ranking|WP13,WP16,WP18|LOCAL_SCOPE_VERIFIED|无可信成本及估值时不以route_activation_cost改变报价排序，明确raw目标、费用缺失/未扣及原搜索约束|16门禁/176次Rust、三池与原ExactOut grid/约束预算/四HTTP通过|验证记录（`integration/artifacts/local/cost-unavailable-ranking-check/report.json`，已清理）|
+|13.evm-native-payer-cost|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|按原bank余额校验最大gas资金准入，费用gross与payer实际net分列，alias自付tip返回|14门禁/146次Rust、56向量/四HTTP通过；完整成本与净排序仍缺|验证记录（`integration/artifacts/local/evm-native-payer-cost-check/report.json`，已清理）|
+|13.evm-native-fee-balance-audit|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|绝对before绑定原bank输入，fee与实际native debit/beneficiary credit守恒；caller=coinbase净扣burn不重复tip，未知数据/资金操作拒绝|14门禁/同state/修改/平移/alias及四次actual HTTP通过；生产资格与完整成本仍缺|验证记录（`integration/artifacts/local/evm-native-balance-audit-check/report.json`，已清理）|
+|13.evm-native-cost-components|WP13,WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|共享checked uint256原生执行费与最大reserve、Legacy/EIP1559有效单价，API回执Gas/价格/fee组件核对，scope/binding/未定项明确|14门禁/142次Rust/56独立向量/两实际HTTP执行通过；额外链费/授权资金操作/可靠价格/FAST路由净收益仍缺|验证记录（`integration/artifacts/local/evm-native-cost-model-check/report.json`，已清理）|
+|12.14.public-v2-original-execution|WP03,WP10,WP14,WP15|LOCAL_SCOPE_VERIFIED|原始实际code+MPT状态、显式local native funding经原WETH deposit/transfer和Pair.swap，实际收款/完整after state、多1输出原K回退；Rust独立比较|14门禁/Go原VM与Rust全状态冻结差分通过；未签名call序列/非未来交易保证/非生产VERIFY；其余方向/费用/更多版本仍需扩展|验证记录（`integration/artifacts/local/public-v2-original-execution-check/report.json`，已清理）|
+|7.current-v2-pinned-offline-fixture|WP01,WP03,WP04,WP05,WP09,WP24|LOCAL_SCOPE_VERIFIED|固定actual公开block/runtime/proof/receipt原字节与获取元数据；无网络恢复工具、同字节Go本地副本、封闭loopback及多进程回归|13门禁/83次Go/36次Rust固定bank离线验收通过；数据仍依赖明确外部bundle，缺失须失败，不临时下载或改预期|验证记录（`integration/artifacts/local/current-v2-fixed-check/report.json`，已清理）|
+|7.current-v2-public-source-replay|WP03,WP04,WP05,WP09,WP10,WP24|LOCAL_SCOPE_VERIFIED|真实公共当前state→normal owner/router；封装及内层raw身份验证、来源分离只读重放、双方向独立整数oracle、无KV副本/owner升代重启与坏来源拒绝|13门禁/81次Go/36次Rust及实际公开源/离线多进程通过；其他版本/历史重组/实际交易后余额与生产资格仍缺|验证记录（`integration/artifacts/local/current-v2-check/report.json`，已清理）|
+|7.evm-current-head-confirmation-policy|WP04,WP05,WP24,WP25|LOCAL_SCOPE_VERIFIED|EVM确认策略限制为当前provider标签，明确拒绝历史游标/pending/未知别名；配置哈希/前置拒绝/来源披露|19门禁、跨语言同轮15配置/hash/拒绝码、当前CLI和普通服务验证通过|验证记录（`integration/artifacts/local/confirmation-policy-check/report.json`，已清理）|
+|7.v2-complete-native-token-balance-proof|WP03,WP04,WP05,WP10|LOCAL_SCOPE_VERIFIED|原Token代码与每个实际SLOAD的MPT承诺支持独立只读余额重放；无未证明默认零/任意布局假定，Gas/slot/pass及原session总预算有界|8门禁/77次Go race与241外部模块缓存校验通过；仅固定零caller view，不证明Token转账行为或共识|验证记录（`integration/artifacts/local/v2-native-balance-proof-check/report.json`，已清理）|
+|7.v2-complete-native-state-proof|WP03,WP04,WP05,WP10|LOCAL_SCOPE_VERIFIED|原Pair/Factory runtime的SHA与MPT account Keccak双绑定，读取同native session证明逻辑slot并核对getter；失败耗尽session|8门禁/488次Go race、正常同block证明及16类拒绝通过；不授予Token余额/共识资格|验证记录（`integration/artifacts/local/v2-native-state-proof-check/report.json`，已清理）|
+|9.automatic-checkpoint-reclamation|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go显式auto_reclaim/周期/配额条件，来源守卫/单发布通道/总deadline，pending优先且不在同轮重新选择；无eligible不写控制journal|27门禁通过；Rust执行、全盘和远端容量及独立故障域仍缺|验证记录（`integration/artifacts/local/checkpoint-auto-reclaim-check/report.json`，已清理）|
+|9.explicit-checkpoint-reclamation|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go显式manual回收、当前/候选/最近备份保护、原远端字节核验、有限自校验journal/隔离/恢复与幂等、正常HTTP；原预览仍只读|27门禁Go显式执行范围通过；Go自动维护由阶段116补齐，Rust执行/真实独立故障域仍缺|验证记录（`integration/artifacts/local/checkpoint-reclaim-check/report.json`，已清理）|
+|9.rust-bounded-retention-plan|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Rust同等当前/全部候选/最近备份/年龄保护，完整对象/cert/owner绑定和预算，独立读取Go同一实际目录全JSON/planId一致|Go显式执行/中断恢复已由阶段115接入，Go自动维护由阶段116补齐；Rust执行和真实独立故障域仍缺|验证记录（`integration/artifacts/local/rust-retention-plan-check/report.json`，已清理）|
+|9.bounded-checkpoint-retention-plan|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|显式Go local_retention策略，完整对象/同store回读证书/所有候选保护、有界只读计划与planId/目录摘要；错误/取消不改文件|Go显式执行/中断恢复已由阶段115接入，Go自动维护由阶段116补齐；Rust执行和真实独立故障域仍缺|验证记录（`integration/artifacts/local/checkpoint-retention-plan-check/report.json`，已清理）|
+|9.public-checkpoint-local-budgets|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|两owner显式local_budget，串行gate内有界扫描/待写规划，重复对象不重复计费，超限旧对象保留；Go周期不重复旧JSON|26门禁当前范围通过；配额是显式单writer逻辑文件准入，非磁盘块预留，自动保留/远端容量后续|验证记录（`integration/artifacts/local/checkpoint-budget-check/report.json`，已清理）|
+|9.rust-owner-recovery-catalogue|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Rust recovery目录绑定已上传旧对象与当前头，v2允许同owner/writer/canonical/scope/schema/adapter下完整baseline升代，router私有追平再发布|26门禁当前范围通过；writer/重组/范围改变转当前源，真实保留和独立故障域仍缺|验证记录（`integration/artifacts/local/rust-owner-recovery-check/report.json`，已清理）|
+|9.rust-periodic-checkpoint-publisher|WP01,WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Rust周期one-chain轮转/共享gate/stop watch与正常serve取消；配置允许两online parser、禁止router/analytics，Go/Rust规范默认值/hash|周期/共享摘要本轮通过；旧对象目录已在阶段111补齐，跨writer/实际保留回收/真实故障域仍缺|验证记录（`integration/artifacts/local/rust-periodic-checkpoint-check/report.json`，已清理）|
+|9.rust-owner-remote-checkpoints|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|正常Rust POST远端条件发布与完成cert、GET当前目录、独立凭据范围/来源切代/关闭中断与半上传/伪成功拒绝|远端本轮通过；周期/旧对象目录已在阶段110–111接入，实际保留回收/独立故障域仍缺|验证记录（`integration/artifacts/local/rust-remote-checkpoint-check/report.json`，已清理）|
+|9.rust-owner-public-checkpoints|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Rust owner公共Protobuf checkpoint本地发布，硬链接不可替换/半发布续传/守卫与可取消共享gate，当前Rust原字节向量由Go解码|本地格式本轮通过；远端/周期/目录已在阶段109–111接入，实际保留回收/生产存储资格仍缺|验证记录（`integration/artifacts/local/rust-checkpoint-publication-check/report.json`，已清理）|
+|9.bounded-checkpoint-tail-replay|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|已完成上传候选只作提示，owner当前头+游标资格；Rust同代连续BLOCK_COMMIT私有重放，精确完整边界/最终ref与目录复核|19门禁当前范围通过；跨代/reorg转当前源、canonical公告/离线peer与真实保留/故障域仍缺|验证记录（`integration/artifacts/local/checkpoint-replay-check/report.json`，已清理）|
+|9.fair-checkpoint-chain-scheduling|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|单链持续失败不再使其他链饿死，正常服务双链持续发布/代际更新/故障恢复和旧生命周期回归|7门禁当前限定范围通过；旧快照追平、Rust发布和canonical公告继续|验证记录（`integration/artifacts/local/checkpoint-fairness-check/report.json`，已清理）|
+|9.periodic-checkpoint-publisher|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go online-only publish_interval_ms，串行完成后等待，错误重试、代际更新、取消/关闭等待与值无关指标|Go周期本轮通过；Rust周期/多链隔离已在阶段106–110接入，实际保留回收/跨writer恢复仍缺|验证记录（`integration/artifacts/local/checkpoint-worker-check/report.json`，已清理）|
+|9.current-remote-checkpoint-recovery|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|当前owner只资格化同状态/cursor已上传对象，Rust固定凭据范围下载并二次核对目录，正常Kafka恢复接线|当前对象恢复本轮通过；周期/旧对象尾窗已在阶段105–111补齐，canonical离线目录/真实故障域仍缺|验证记录（`integration/artifacts/local/checkpoint-recovery-check/report.json`，已清理）|
+|9.remote-checkpoint-objects|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|Go正常入口可上传独立HTTP对象API，半上传可续传、冲突不覆盖，受限下载验证pin及状态/cursor|条件对象API本轮通过；正常router恢复已在阶段104–111接入，canonical离线目录/真实独立故障域仍缺|验证记录（`integration/artifacts/local/remote-checkpoint-check/report.json`，已清理）|
+|9.public-bootstrap-checkpoints|WP08,WP09,WP24|LOCAL_SCOPE_VERIFIED|公开OwnerBootstrap和固定摘要manifest，游标无损十进制字符串，Go写入及双Rust校验|公开本地格式本轮通过；远端/正常恢复已在阶段103–111接入，离线目录/真实独立故障域仍缺|验证记录（`integration/artifacts/local/public-bootstrap-check/report.json`，已清理）|
+|16.analytics-continuous-worker|WP19,WP21|LOCAL_SCOPE_VERIFIED|现有Go服务内显式常驻只读分析模式，串行有界周期、耐久重启和异常停止|统一门禁通过；大规模事实保留/ClickHouse/shadow及查询继续|验证记录（`integration/artifacts/local/analytics-worker-check/report.json`，已清理）|
+|15.evm-prepared-frontend|WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|EVM双模式原准备界面和浏览器wire摘要/状态/金额核对|统一门禁通过；当前银行捕获/其他链规则与钱包功能继续|验证记录（`integration/artifacts/local/evm-prepared-frontend-check/report.json`，已清理）|
+|15.evm-prepared-api|WP14,WP15,WP16|LOCAL_SCOPE_VERIFIED|缓存原RPC准备、双模式同银行worker、原hash/unsigned/receipt重算及32MiB载荷预算|统一门禁通过；界面、实时完整RPC银行/真实链规则和钱包继续|验证记录（`integration/artifacts/local/evm-prepared-api-check/report.json`，已清理）|
+|14.evm-source-fees|WP15|LOCAL_SCOPE_VERIFIED|显式源H base fee与H+1执行base fee独立校验和承诺|统一门禁通过；来源仍为显式提供银行，真实RPC状态捕获/chain费用继续|验证记录（`integration/artifacts/local/evm-source-fees-check/report.json`，已清理）|
+|14.evm-input-paths|WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|ExactIn多池完整计划重算和原wire/VM，双模式正常HTTP与界面准备条件|统一门禁通过；同池重用/共享DAG/RPC完整银行与钱包仍待补|验证记录（`integration/artifacts/local/evm-input-path-check/report.json`，已清理）|
+|14.evm-path-execution|WP14,WP15|LOCAL_SCOPE_VERIFIED|原Router简单路径ExactOut逐池检查与完整声明前后银行|统一门禁通过；ExactIn路径绑定/当前RPC与链规则仍待补|验证记录（`integration/artifacts/local/evm-path-execution-check/report.json`，已清理）|
+|15.evm-exact-out-api|WP15,WP16|LOCAL_SCOPE_VERIFIED|普通ExactOut HTTP、真实worker、独立缓存证据及费用/未用预算|统一门禁通过；多池/可信RPC银行与钱包继续|验证记录（`integration/artifacts/local/evm-exact-out-api-check/report.json`，已清理）|
+|14.evm-prepared-exact-out|WP14,WP15|LOCAL_SCOPE_VERIFIED|ExactOut双层准备承诺、同银行资金和实际原Router目标执行|统一验证通过；普通HTTP准备执行与多池VM后续继续|验证记录（`integration/artifacts/local/evm-prepared-exact-out-check/report.json`，已清理）|
+|28.delivery-boundary-audit|WP01,WP23,WP24|LOCAL_SCOPE_VERIFIED|三服务生产配置与当前CLI、开发拓扑和26工作包审计；不复制凭据，不把开发测试升格|当前源码审计通过；所有本地实现差距保留，不将未实现功能改记为外部阻塞|审计记录（`integration/artifacts/local/design-delivery-audit/report.json`，已清理）|
+|15.evm-dynamic-fee-api|WP15,WP16|LOCAL_SCOPE_VERIFIED|API校验REVM实际有效价/费用分解，保留原上限，实际HTTP子进程验证|统一门禁通过；仍是给定Shanghai银行，非当前链/完整费用/生产资格|验证记录（`integration/artifacts/local/evm-dynamic-fee-api-check/report.json`，已清理）|
+|14.evm-exact-out-execution|WP14,WP15|LOCAL_SCOPE_VERIFIED|原Router02单池ExactOut的独立REVM输入消耗/收款、未用预算、revert费用|统一门禁通过；多池路径和正式准备API集成/当前状态与链规则仍待补|验证记录（`integration/artifacts/local/evm-exact-out-execution-check/report.json`，已清理）|
+|14.evm-prepared-execution|WP14,WP15|LOCAL_SCOPE_VERIFIED|完整准备组件重算、原wire摘要、同银行资金与独立VM绑定，getter有效gas price对齐|统一验证通过；限定显式给定状态ExactIn，真实RPC状态DB/ExactOut VM/当前链规则/普通API执行仍待补|验证记录（`integration/artifacts/local/evm-prepared-execution-check/report.json`，已清理）|
+|14.evm-dynamic-fees|WP15|LOCAL_SCOPE_VERIFIED|独立Shanghai仿真的cap/tip、真实native pre/post与费用承诺|统一门禁通过；当前源/其他hardfork/L2数据费仍待完成|验证记录（`integration/artifacts/local/evm-dynamic-fees-check/report.json`，已清理）|
+|14.evm-rpc-preparation|WP04,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|固定hash方法负对照、代码/完整V2字段、资金/授权/nonce及严格JSON/预算；认证QuoteView API和EVM费用/下载，统一门禁通过|本批是受控RPC观察接线资格，账户资金故障为受控观察；非共识、状态根证明、完整当前费用或独立执行，静态协议能力和生产未升级|验证记录（`integration/artifacts/local/evm-rpc-preparation-check/report.json`，已清理）|
 
 <a id="batch-history"></a>
 
@@ -715,13 +721,13 @@
 |---|---|---|---|
 |1|Kafka/PG提交协议与租约隔离|LOCAL_SCOPE_VERIFIED|[kafka-three-service-smoke.json](integration/artifacts/local/kafka-three-service-smoke.json)|
 |2|EVM重组撤销、回滚与原子发布|LOCAL_SCOPE_VERIFIED|[reorg-http-smoke.json](integration/artifacts/local/reorg-http-smoke.json)|
-|3|V2成交事实与分析重组更正|LOCAL_SCOPE_VERIFIED|[analytics-journal-7.json](integration/artifacts/local/analytics-journal-7.json)|
+|3|V2成交事实与分析重组更正|LOCAL_SCOPE_VERIFIED|analytics-journal-7.json（`integration/artifacts/local/analytics-journal-7.json`，已清理）|
 |4|Uniswap V3固定块解析与有界精确输入报价|LOCAL_SCOPE_VERIFIED|[v3-sdk-golden-generation.json](integration/artifacts/local/v3-sdk-golden-generation.json)|
 |5|Pancake V1/V2/V3与Sushi V2版本适配|LOCAL_SCOPE_VERIFIED|[v3-differential.json](integration/artifacts/local/v3-differential.json)|
 |6|Curve/Balancer/Aerodrome限定稳定池解析与计算|LOCAL_SCOPE_VERIFIED|[stable-three-service-smoke.json](integration/artifacts/local/stable-three-service-smoke.json)|
-|7|V4/Infinity CL静态无hook解析与计算|LOCAL_SCOPE_VERIFIED|[singleton-progress-consistency.json](integration/artifacts/local/singleton-progress-consistency.json)|
-|8|Raydium CP-Swap creator布局解析与计算|LOCAL_SCOPE_VERIFIED|[raydium-progress-consistency.json](integration/artifacts/local/raydium-progress-consistency.json)|
-|9|Orca静态费、固定/动态tick数组与Q64计算|LOCAL_SCOPE_VERIFIED|[orca-progress-consistency.json](integration/artifacts/local/orca-progress-consistency.json)|
+|7|V4/Infinity CL静态无hook解析与计算|LOCAL_SCOPE_VERIFIED|singleton-progress-consistency.json（`integration/artifacts/local/singleton-progress-consistency.json`，已清理）|
+|8|Raydium CP-Swap creator布局解析与计算|LOCAL_SCOPE_VERIFIED|raydium-progress-consistency.json（`integration/artifacts/local/raydium-progress-consistency.json`，已清理）|
+|9|Orca静态费、固定/动态tick数组与Q64计算|LOCAL_SCOPE_VERIFIED|orca-progress-consistency.json（`integration/artifacts/local/orca-progress-consistency.json`，已清理）|
 |10|[Raydium CLMM静态输入费与基础bitmap](#plan-2026-10-27-raydium-clmm-static)|LOCAL_SCOPE_VERIFIED|[rayclmm-progress-consistency.json](integration/artifacts/local/rayclmm-progress-consistency.json)|
 |11|[Raydium CLMM按Token0/Token1收费](#plan-2026-10-28-raydium-clmm-token-fee)|LOCAL_SCOPE_VERIFIED|[rayclmm-token-fee-progress-consistency.json](integration/artifacts/local/rayclmm-token-fee-progress-consistency.json)|
 |12|[Raydium CLMM扩展bitmap解析与计算](#plan-2026-10-28-raydium-clmm-bitmap)|LOCAL_SCOPE_VERIFIED|[rayclmm-bitmap-progress-consistency.json](integration/artifacts/local/rayclmm-bitmap-progress-consistency.json)|
@@ -747,9 +753,9 @@
 |32|[独立EVM交易执行与真实余额证据](#plan-2026-11-03-independent-evm)|LOCAL_SCOPE_VERIFIED|[本批限定验收](integration/artifacts/local/evm-execution-acceptance.json)|
 |33|[V2完整Swap状态与未同步余额](#plan-2026-11-03-v2-complete-swap)|LOCAL_SCOPE_VERIFIED|[本批限定验收](integration/artifacts/local/v2-complete-acceptance.json)|
 |34|[Managed V2实际发布版与非零AUM](#plan-2026-11-03-managed-v2-aum)|IN_PROGRESS|待本批验证|
-|35|[Managed V2 BPT有限GIVEN_IN路由与服务](#plan-2026-11-06-managed-v2-bpt-finite)|LOCAL_SCOPE_VERIFIED|[最后同源有限验收](integration/artifacts/local/managed-v2-bpt-local-acceptance.json)|
+|35|[Managed V2 BPT有限GIVEN_IN路由与服务](#plan-2026-11-06-managed-v2-bpt-finite)|LOCAL_SCOPE_VERIFIED|最后同源有限验收（`integration/artifacts/local/managed-v2-bpt-local-acceptance.json`，已清理）|
 |36|[Managed V2已启用circuit breaker](#plan-2026-11-06-managed-v2-breaker)|LOCAL_SCOPE_VERIFIED|[限定最终验收](integration/artifacts/local/managed-v2-breaker-local-acceptance.json)；5任务/6功能映射与同freeze完整串行闭合|
-|37|[R01–R04真实来源、持续采集与范围恢复](#plan-2026-11-06-r01-r04)|IN_PROGRESS|逐任务核对与实现中；[环境探针](integration/artifacts/local/r01-r04-environment-probe.json)|
+|37|[R01–R04真实来源、持续采集与范围恢复](#plan-2026-11-06-r01-r04)|IN_PROGRESS|逐任务核对与实现中；环境探针（`integration/artifacts/local/r01-r04-environment-probe.json`，已清理）|
 |38|[链与DEX解析、路由与兑换量计算收尾](#plan-2026-11-08-quote-completion)|IN_PROGRESS|C01/C02/C03及LFJ有限范围已通过[阶段冻结](integration/artifacts/local/core-quote-q1-local-463896a2b08e.json)；R07等计算缺口继续开发，整体请求未全部完成|
 |39|[Slipstream调用方与Oracle费用上下文](#plan-2026-11-08-slipstream-context)|LOCAL_SCOPE_VERIFIED|三服务全check和5项正常进程范围同源冻结通过；13实际API原交换及8负控已通过；Polygon/Arbitrum修复验收输出目录后复验通过，未宣称整体剩余计算完成|
 |40|[Pancake V3 LM主目录接入](#plan-2026-11-09-pancake-lm)|LOCAL_SCOPE_VERIFIED|独立field33/完整解析与账本/共享路由、80原完整swap/12序列步、13实际API原swap/9负控、六进程及同源分阶段检查通过；[最终报告](integration/artifacts/local/core-lm-local-q1-20261109.json)|
@@ -786,89 +792,89 @@
 |71|[Orca五模型精确输出](#plan-2026-11-14-orca-exact-out)|LOCAL_SCOPE_VERIFIED|600原manager场景/600服务流程、8序列、3组网格、101次Rust/91项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-orca-exact-out-validation-20261114.json)|
 |72|[Raydium CLMM六模型精确输出](#plan-2026-11-14-rayclmm-exact-out)|LOCAL_SCOPE_VERIFIED|1266原生场景/服务流程、280单步、6序列/12网格、304次Rust/109项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-rayclmm-exact-out-validation-20261114.json)|
 |73|[标准V3精确输出与回调路由](#plan-2026-11-14-standard-v3-exact-out)|LOCAL_SCOPE_VERIFIED|96实际原Pool场景/80预算控制、连续状态、4两跳/2网格及45次Rust/115项Chrome同源码联验通过；[验证记录](integration/artifacts/local/core-v3-exact-out-validation-20261114.json)|
-|74|[Balancer不可变Weighted精确输出](#plan-2026-11-14-weighted-exact-out)|LOCAL_SCOPE_VERIFIED|304原GIVEN_OUT回调场景、48连续步、2组双池网格/2组同池顺序分配、33次Rust和12项Chrome；17项统一检查通过；[验证记录](integration/artifacts/local/weighted-exact-out-check/report.json)|
-|75|[Balancer标准Stable2精确输出](#plan-2026-11-15-stable-exact-out)|LOCAL_SCOPE_VERIFIED|720原数学场景/180步、3网格/3同池顺序分配、48次Rust/4项Chrome和20项统一检查通过；[验证记录](integration/artifacts/local/stable-exact-out-check/report.json)|
-|76|[零hook Singleton CL精确输出](#plan-2026-11-15-singleton-exact-out)|LOCAL_SCOPE_VERIFIED|644原始场景/24连续步、4容量网格、51次Rust/8项Chrome和20项统一检查通过；[验证记录](integration/artifacts/local/singleton-exact-out-check/report.json)|
-|77|[静态Infinity Bin精确输出](#plan-2026-11-15-infinity-bin-exact-out)|LOCAL_SCOPE_VERIFIED|264原场景/48burn、78连续/有序步、2网格、72次Rust/4项Chrome和20项统一检查通过；[验证记录](integration/artifacts/local/infinity-bin-exact-out-check/report.json)|
-|78|[Managed Snapshot精确输出](#plan-2026-11-15-managed-snapshot-exact-out)|LOCAL_SCOPE_VERIFIED|180目标/9实际状态、36连续/9有序步、3网格及3关闭swap，41次Rust/4项Chrome和20检查通过；[验证记录](integration/artifacts/local/managed-snapshot-exact-out-check/report.json)|
-|79|[Composable普通币对精确输出](#plan-2026-11-15-composable-exact-out)|LOCAL_SCOPE_VERIFIED|288原目标/216连续步、BPT首中末位置、3顺序/3网格、52次Rust/6项Chrome及20检查通过；[验证记录](integration/artifacts/local/composable-exact-out-check/report.json)|
-|80|[Raydium ATA与WSOL资金准备](#plan-2026-11-15-raydium-funding)|LOCAL_SCOPE_VERIFIED|10场景/20原交易、21检查/26次Rust/155项真实Chrome（40新增资金）通过；[验证记录](integration/artifacts/local/raydium-funding-check/report.json)|
-|81|[Orca经典SPL执行链路](#plan-2026-11-15-orca-execution)|LOCAL_SCOPE_VERIFIED|32场景API/独立SBF和重启回执、64原始交易、25检查/88次Rust/236项真实Chrome（81新增）通过；[验证记录](integration/artifacts/local/orca-execution-check/report.json)|
-|82|[Orca自适应SPL执行链路](#plan-2026-11-15-orca-adaptive-execution)|LOCAL_SCOPE_VERIFIED|54场景API/独立SBF和重启回执、108实际wire原交易、28检查/95次Rust/357项Chrome（121新增）通过；[验证记录](integration/artifacts/local/orca-adaptive-execution-check/report.json)|
-|83|[Raydium CLMM经典SPL执行](#plan-2026-11-16-rayclmm-execution)|LOCAL_SCOPE_VERIFIED|56场景API/同捕获SBF和重启回执、112原交易，31门禁/135次Rust/486项Chrome（129新增）通过；[验证记录](integration/artifacts/local/rayclmm-execution-check/report.json)|
-|84|[Raydium CLMM高级经典SPL执行](#plan-2026-11-16-rayclmm-advanced-execution)|LOCAL_SCOPE_VERIFIED|三个模型/三收费模式162API/162回执/324原交易，33门禁/306Rust/667Chrome同源码冻结通过；[验证记录](integration/artifacts/local/rayclmm-advanced-execution-check/report.json)|
-|85|[候选图增量索引与COW](#plan-2026-11-16-incremental-graph)|LOCAL_SCOPE_VERIFIED|8项门禁/249次Rust测试通过，源码和341份测试输入同批绑定；[验证记录](integration/artifacts/local/incremental-graph-check/report.json)|
-|86|[基线图复用与闲时缓存回收](#plan-2026-11-17-baseline-cache-reclamation)|LOCAL_SCOPE_VERIFIED|8项门禁/41次Rust测试，899份固定测试输入与46份运行时输入同批绑定；[验证记录](integration/artifacts/local/cache-reclamation-check/report.json)|
-|87|[EVM计划绑定与准备组件](#plan-2026-11-17-evm-preparation-component)|LOCAL_SCOPE_VERIFIED|13项门禁/62次Rust/95份独立ABI-RLP签名对照，899份固定输入/185份参考依赖绑定；[验证记录](integration/artifacts/local/evm-preparation-component-check/report.json)|
-|88|[EVM固定块RPC准备与API](#plan-2026-11-17-evm-rpc-preparation)|LOCAL_SCOPE_VERIFIED|15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定；[验证记录](integration/artifacts/local/evm-rpc-preparation-check/report.json)|
-|89|[EVM独立仿真动态费用](#plan-2026-11-17-evm-dynamic-fees)|LOCAL_SCOPE_VERIFIED|8门禁/117次Rust、16原Router对照、899固定输入；[验证记录](integration/artifacts/local/evm-dynamic-fees-check/report.json)|
-|90|[EVM准备组件与同银行独立执行](#plan-2026-11-17-evm-prepared-execution)|LOCAL_SCOPE_VERIFIED|8门禁/121次Rust、16原银行/25重算篡改/10控制、899固定输入；[验证记录](integration/artifacts/local/evm-prepared-execution-check/report.json)|
-|91|[EVM实际HTTP/worker动态费用](#plan-2026-11-17-evm-dynamic-fee-api)|LOCAL_SCOPE_VERIFIED|10门禁/122次Rust、实际HTTP/worker、899固定输入；[验证记录](integration/artifacts/local/evm-dynamic-fee-api-check/report.json)|
-|92|[EVM原Router单池ExactOut独立执行](#plan-2026-11-17-evm-exact-out-execution)|LOCAL_SCOPE_VERIFIED|8门禁/126次Rust、16原银行/3revert/有效多池拒绝、899固定输入；[验证记录](integration/artifacts/local/evm-exact-out-execution-check/report.json)|
-|93|[完整交付范围与外部验收边界审计](#plan-2026-11-17-design-delivery-audit)|LOCAL_SCOPE_VERIFIED|5检查/12控制、当前CLI正负对照/3份开发拓扑，确认外部验收输入缺失；[审计记录](integration/artifacts/local/design-delivery-audit/report.json)|
-|94|[EVM ExactOut准备与独立执行](#plan-2026-11-17-evm-prepared-exact-out)|LOCAL_SCOPE_VERIFIED|8门禁/129次Rust、16银行/16篡改/4控制；[验证记录](integration/artifacts/local/evm-prepared-exact-out-check/report.json)|
-|95|[EVM ExactOut正常HTTP独立模拟](#plan-2026-11-17-evm-exact-out-api)|LOCAL_SCOPE_VERIFIED|12门禁/151次Rust、实际双模式HTTP/worker及证据生命周期；[验证记录](integration/artifacts/local/evm-exact-out-api-check/report.json)|
-|96|[EVM多池ExactOut原交易执行](#plan-2026-11-17-evm-path-execution)|LOCAL_SCOPE_VERIFIED|11门禁/135次Rust、12原交易完整银行/6目标路径、901固定/97参考输入；[验证记录](integration/artifacts/local/evm-path-execution-check/report.json)|
-|97|[EVM ExactIn多池与双模式正常HTTP](#plan-2026-11-17-evm-input-paths)|LOCAL_SCOPE_VERIFIED|17门禁/168次Rust、6原输入路径/9变形及双模式3hop HTTP；[验证记录](integration/artifacts/local/evm-input-path-check/report.json)|
-|98|[EVM来源块与执行块费用上下文](#plan-2026-11-17-evm-source-fees)|LOCAL_SCOPE_VERIFIED|8门禁/134次Rust、16原H/H+1银行与双模式准备；[验证记录](integration/artifacts/local/evm-source-fees-check/report.json)|
-|99|[EVM缓存RPC准备到独立worker](#plan-2026-11-17-evm-prepared-api)|LOCAL_SCOPE_VERIFIED|15门禁/167次Rust、双模式真实HTTP/原准备wire/错误资金；[验证记录](integration/artifacts/local/evm-prepared-api-check/report.json)|
-|100|[EVM原准备独立执行界面](#plan-2026-11-17-evm-prepared-frontend)|LOCAL_SCOPE_VERIFIED|16门禁/168次Rust、13Node/18Chrome、wire摘要及移动布局；[验证记录](integration/artifacts/local/evm-prepared-frontend-check/report.json)|
-|101|[显式常驻分析worker](#plan-2026-11-17-analytics-worker)|LOCAL_SCOPE_VERIFIED|13门禁/97次Go/81次Rust、实际Go服务/独立Kafka连续消费与重启；[验证记录](integration/artifacts/local/analytics-worker-check/report.json)|
-|102|[公开Protobuf checkpoint](#plan-2026-11-17-public-bootstrap-checkpoints)|LOCAL_SCOPE_VERIFIED|13门禁/74次Go/42次Rust、3组原字节互通；[验证记录](integration/artifacts/local/public-bootstrap-check/report.json)|
-|103|[远端checkpoint对象读写](#plan-2026-11-17-remote-checkpoint-objects)|LOCAL_SCOPE_VERIFIED|13门禁/142次Go/125次Rust；[验证记录](integration/artifacts/local/remote-checkpoint-check/report.json)|
-|104|[当前远端checkpoint冷恢复](#plan-2026-11-17-current-remote-checkpoint-recovery)|LOCAL_SCOPE_VERIFIED|18门禁/143次Go/162次Rust、实际Kafka冷恢复/HTTP报价；[验证记录](integration/artifacts/local/checkpoint-recovery-check/report.json)|
-|105|[周期checkpoint发布](#plan-2026-11-18-checkpoint-worker)|LOCAL_SCOPE_VERIFIED|18门禁/148次Go/164次Rust；[验证记录](integration/artifacts/local/checkpoint-worker-check/report.json)|
-|106|[多链checkpoint公平调度](#plan-2026-11-18-checkpoint-fairness)|LOCAL_SCOPE_VERIFIED|7门禁/149次Go race、双链持续失败/更新/恢复；[验证记录](integration/artifacts/local/checkpoint-fairness-check/report.json)|
-|107|[旧checkpoint有限尾窗追平](#plan-2026-11-18-checkpoint-tail-replay)|LOCAL_SCOPE_VERIFIED|19门禁/152次Go/166次Rust、实际Kafka有限尾窗；[验证记录](integration/artifacts/local/checkpoint-replay-check/report.json)|
-|108|[Rust owner公开checkpoint](#plan-2026-11-18-rust-owner-checkpoints)|LOCAL_SCOPE_VERIFIED|15门禁/20次Go/60次Rust、正常HTTP与双向原wire；[验证记录](integration/artifacts/local/rust-checkpoint-publication-check/report.json)|
-|109|[Rust owner远端checkpoint](#plan-2026-11-18-rust-remote-checkpoints)|LOCAL_SCOPE_VERIFIED|16门禁/21次Go/66次Rust、正常双HTTP/Go解码；[验证记录](integration/artifacts/local/rust-remote-checkpoint-check/report.json)|
-|110|[Rust周期checkpoint与配置摘要](#plan-2026-11-18-rust-periodic-checkpoints)|LOCAL_SCOPE_VERIFIED|21门禁/92次Go/194次Rust、双链周期与共享hash；[验证记录](integration/artifacts/local/rust-periodic-checkpoint-check/report.json)|
-|111|[Rust恢复目录与独立router追平](#plan-2026-11-18-rust-owner-recovery)|LOCAL_SCOPE_VERIFIED|26门禁/93次Go/204次Rust、跨正常owner/router实际Kafka；[验证记录](integration/artifacts/local/rust-owner-recovery-check/report.json)|
-|112|[公开checkpoint本地容量门禁](#plan-2026-11-18-checkpoint-local-budgets)|LOCAL_SCOPE_VERIFIED|26门禁/97次Go/217次Rust、容量/实际Kafka回归；[验证记录](integration/artifacts/local/checkpoint-budget-check/report.json)|
-|113|[有界checkpoint只读保留计划](#plan-2026-11-18-checkpoint-retention-plan)|LOCAL_SCOPE_VERIFIED|26门禁/103次Go/221次Rust、只读计划及实际Kafka回归；[验证记录](integration/artifacts/local/checkpoint-retention-plan-check/report.json)|
-|114|[Rust只读保留计划与整计划互通](#plan-2026-11-18-rust-retention-plan)|LOCAL_SCOPE_VERIFIED|26门禁/104次Go/227次Rust、全计划同目录互通；[验证记录](integration/artifacts/local/rust-retention-plan-check/report.json)|
-|115|[显式Go checkpoint回收与中断恢复](#plan-2026-11-18-checkpoint-reclaim)|LOCAL_SCOPE_VERIFIED|27门禁/117次Go/231次Rust、真实进程中断/正常HTTP；[验证记录](integration/artifacts/local/checkpoint-reclaim-check/report.json)|
-|116|[Go周期checkpoint自动配额维护](#plan-2026-11-18-checkpoint-auto-reclaim)|LOCAL_SCOPE_VERIFIED|27门禁/127次Go/233次Rust、正常周期与实际Kafka；收尾差距已记录，本轮后停止；[验证记录](integration/artifacts/local/checkpoint-auto-reclaim-check/report.json)|
-|117|[v2-complete native Pair/Factory状态承诺](#plan-2026-11-18-v2-native-state-proof)|LOCAL_SCOPE_VERIFIED|8门禁/488次Go race；P0-1限定Pair/Factory状态证明通过；[验证记录](integration/artifacts/local/v2-native-state-proof-check/report.json)|
-|118|[v2-complete native Token余额证明](#plan-2026-11-18-v2-native-balance-proof)|LOCAL_SCOPE_VERIFIED|8门禁/77次Go race；P0-1限定余额view证明通过；[验证记录](integration/artifacts/local/v2-native-balance-proof-check/report.json)|
-|119|[EVM当前头确认策略与披露](#plan-2026-11-18-evm-confirmation-policy)|LOCAL_SCOPE_VERIFIED|19门禁/81次Go/97次Rust；P0-1当前头策略通过；[验证记录](integration/artifacts/local/confirmation-policy-check/report.json)|
-|120|[真实当前V2 normal owner/router与来源拒绝](#plan-2026-11-18-current-v2-public-source)|LOCAL_SCOPE_VERIFIED|13门禁/81次Go/36次Rust；P0-1实际公开当前state与恢复通过；[验证记录](integration/artifacts/local/current-v2-check/report.json)|
-|121|[真实V2固定bank独立离线夹具](#plan-2026-11-18-current-v2-fixed-fixture)|LOCAL_SCOPE_VERIFIED|13门禁/83次Go/36次Rust；真实bank固定离线通过；[验证记录](integration/artifacts/local/current-v2-fixed-check/report.json)|
-|122|[真实V2原字节码收款与完整后状态差分](#plan-2026-11-18-public-v2-original-execution)|LOCAL_SCOPE_VERIFIED|14门禁/16次Go/16次Rust；原VM actual收款/完整状态通过；[验证记录](integration/artifacts/local/public-v2-original-execution-check/report.json)|
-|123|[EVM原生费用模型与覆盖披露](#plan-2026-11-18-evm-native-cost-model)|LOCAL_SCOPE_VERIFIED|14门禁/142次Rust；P0-3原生费用与缺项披露通过；[验证记录](integration/artifacts/local/evm-native-cost-model-check/report.json)|
-|124|[EVM费用原生余额守恒与源绑定](#plan-2026-11-18-evm-native-balance-audit)|LOCAL_SCOPE_VERIFIED|14门禁/144次Rust；P0-3源绑定/alias守恒通过；[验证记录](integration/artifacts/local/evm-native-balance-audit-check/report.json)|
-|125|[EVM最大资金准入与付款人净扣款](#plan-2026-11-18-evm-native-payer-cost)|LOCAL_SCOPE_VERIFIED|14门禁/146次Rust，最大资金/净扣款与四HTTP通过；[验证记录](integration/artifacts/local/evm-native-payer-cost-check/report.json)|
-|126|[无可信成本时的路由排序回退](#plan-2026-11-18-cost-unavailable-ranking)|LOCAL_SCOPE_VERIFIED|16门禁/176次Rust与四HTTP通过；[验证记录](integration/artifacts/local/cost-unavailable-ranking-check/report.json)|
-|127|[Solana准备消息费用来源与原生资金分类](#plan-2026-11-18-solana-native-cost)|LOCAL_SCOPE_VERIFIED|14门禁/20 HTTP与SBF、独立审计及原资金/捕获/钱包回归通过；[验证记录](integration/artifacts/local/solana-native-cost-check/report.json)|
-|128|[Solana提交前费用上下文与耐久凭证](#plan-2026-11-18-solana-fee-preflight)|LOCAL_SCOPE_VERIFIED|11门禁/46次Rust，实际签名/资金/旧回执和冻结输入一致；[验证记录](integration/artifacts/local/solana-fee-preflight-check/report.json)|
-|129|[Solana原生同单位费用后净额](#plan-2026-11-18-solana-native-economics)|LOCAL_SCOPE_VERIFIED|16门禁/50次Rust，11场景SBF/实际签名回执与20准备家族冻结回归通过；[验证记录](integration/artifacts/local/solana-native-economics-check/report.json)|
-|130|[Solana费用后经济净额前端闭环](#plan-2026-11-18-native-economics-view)|LOCAL_SCOPE_VERIFIED|签名区/回执区分离；8门禁/16浏览器检查及实际可见截图复核通过；[验证记录](integration/artifacts/local/native-economics-view-check/report.json)|
-|131|[Solana失败签名费用与回滚核验](#plan-2026-11-18-solana-failure-fees)|LOCAL_SCOPE_VERIFIED|13门禁/3原程序失败/18故障/30独立审计篡改、成功交易回归通过；[验证记录](integration/artifacts/local/solana-failure-fee-check/report.json)|
-|132|[失败交易费用前端闭环](#plan-2026-11-18-failed-fee-view)|LOCAL_SCOPE_VERIFIED|9门禁/22前端单测/13实际浏览器检查及截图复核通过；[验证记录](integration/artifacts/local/failed-fee-view-check/report.json)|
-|133|[EVM Legacy原生费用来源与净扣款](#plan-2026-11-18-evm-legacy-native-fees)|LOCAL_SCOPE_VERIFIED|14门禁/148次Rust、8次HTTP和56独立整数向量通过；[验证记录](integration/artifacts/local/evm-legacy-native-fee-check/report.json)|
-|134|[OP Regolith历史L1数据费内核](#plan-2026-11-18-op-regolith-data-fee)|LOCAL_SCOPE_VERIFIED|16门禁/147次Rust、三笔原签名交易/72算术向量与8次正常worker回归通过；[验证记录](integration/artifacts/local/op-l1-data-cost-check/report.json)|
-|135|[OP Regolith同body费用输入来源与重放](#plan-2026-11-18-op-l1-source-inputs)|LOCAL_SCOPE_VERIFIED|18门禁/148次Rust/209次Go及三原signed跨语言核算通过；[验证记录](integration/artifacts/local/op-l1-source-inputs-check/report.json)|
-|136|[OP packed费用与FastLZ独立核算](#plan-2026-11-18-op-packed-cost)|LOCAL_SCOPE_VERIFIED|18门禁/150次Rust/6次Go及605原参考通过；[验证记录](integration/artifacts/local/op-packed-cost-check/report.json)|
-|137|[OP现代费用版本来源与升级首块重放](#plan-2026-11-18-op-packed-source-inputs)|LOCAL_SCOPE_VERIFIED|19门禁/153次Rust/214次Go，真实升级来源/归档重放及原参考跨语言通过；[验证记录](integration/artifacts/local/op-packed-source-inputs-check/report.json)|
-|138|[OP完整费用账户与原状态转换核验](#plan-2026-11-18-op-chain-cost)|LOCAL_SCOPE_VERIFIED|24门禁/151次Rust，320原Go场景955状态转换、256独立REVM与8原HTTP通过；[验证记录](integration/artifacts/local/op-chain-cost-check/report.json)|
-|139|[OP签名交易绑定与严格历史执行](#plan-2026-11-18-op-signed-execution)|LOCAL_SCOPE_VERIFIED|20门禁/160次Rust、448原场景1337转换/180归档签名及8原HTTP通过；[验证记录](integration/artifacts/local/op-execution-check/report.json)|
-|140|[OP签名BOUND完整Router执行与费用](#plan-2026-11-18-op-bound-router)|LOCAL_SCOPE_VERIFIED|18门禁/157次Rust、448原Router/896产品执行与完整声明状态/费用、8原HTTP通过；[验证记录](integration/artifacts/local/op-bound-check/report.json)|
-|141|[OP签名受限worker协议与实际子进程](#plan-2026-11-18-op-signed-worker)|LOCAL_SCOPE_VERIFIED|19门禁/159次Rust、56实际OP子进程/17拒绝与8正常Shanghai HTTP通过；[验证记录](integration/artifacts/local/op-worker-check/report.json)|
-|142|[OP费用回执的独立源核验](#plan-2026-11-18-op-fee-measurements)|LOCAL_SCOPE_VERIFIED|17门禁/160次Rust，896源费用核验与8正常HTTP通过；[验证记录](integration/artifacts/local/op-fee-measurements-check/report.json)|
-|143|[正常历史OP构建与签名模拟](#plan-2026-11-18-op-normal-api)|LOCAL_SCOPE_VERIFIED|19门禁/161次Rust、28正常OP HTTP/168拒绝及8旧Shanghai HTTP；[验证记录](integration/artifacts/local/op-api-check/report.json)|
-|144|[OP预编译加密后端与Isthmus限制](#plan-2026-11-18-op-precompiles)|LOCAL_SCOPE_VERIFIED|24门禁/165次Rust、3558原输入/110签名转换、28 OP及8旧HTTP；[验证记录](integration/artifacts/local/op-precompiles-check/report.json)|
-|145|[OP Mainnet历史Jovian用户执行](#plan-2026-11-18-op-jovian)|LOCAL_SCOPE_VERIFIED|25门禁/168次Rust、64原场景、7056输入/160签名转换、32 OP及8旧HTTP；[验证记录](integration/artifacts/local/op-jovian-check/report.json)|
-|146|[Karst预编译组件与固定现代原参考](#plan-2026-11-19-karst-precompiles)|LOCAL_SCOPE_VERIFIED|30门禁/171次Rust、9452原组件及32 OP/8旧HTTP；[验证记录](integration/artifacts/local/karst-precompiles-check/report.json)|
-|147|[Karst用户执行组件与完整原引擎](#plan-2026-11-19-karst-execution)|LOCAL_SCOPE_VERIFIED|35门禁/173次Rust、468原场景与历史API；[验证记录](integration/artifacts/local/karst-execution-check/report.json)|
-|148|[Karst正常本地签名API与完整原Router](#plan-2026-11-19-karst-api)|LOCAL_SCOPE_VERIFIED|39门禁/176次Rust、36正常OP/8旧HTTP与完整原Router通过；[验证记录](integration/artifacts/local/karst-api-check/report.json)|
-|149|[配置预言机授权与已执行交易费用换算](#plan-2026-11-19-native-valuation)|LOCAL_SCOPE_VERIFIED|51门禁/184次Rust/77次Go及61正常HTTP通过；[验证记录](integration/artifacts/local/native-valuation-check/report.json)|
-|150|[逐完整候选费用评分内核](#plan-2026-11-19-candidate-costs)|LOCAL_SCOPE_VERIFIED|54门禁/208次Rust/77次Go、22优化器/2 API回退与61 HTTP通过；[验证记录](integration/artifacts/local/candidate-cost-check/report.json)|
-|151|[正常报价本地逐候选执行费用接线](#plan-2026-11-19-normal-candidate-costs)|LOCAL_SCOPE_VERIFIED|59门禁/215次Rust/78次Go、16报价/30原候选重放及4 OP回退，旧61 HTTP通过；[验证记录](integration/artifacts/local/normal-candidate-cost-check/report.json)|
-|152|[批准Chainlink feed的真实来源适配](#plan-2026-11-19-approved-chainlink-feeds)|LOCAL_SCOPE_VERIFIED|68门禁/223次Rust/80次Go、8有效/14无效配置、48独立向量/148换算与公开原响应重放通过；[验证记录](integration/artifacts/local/approved-market-feed-check/report.json)|
+|74|[Balancer不可变Weighted精确输出](#plan-2026-11-14-weighted-exact-out)|LOCAL_SCOPE_VERIFIED|304原GIVEN_OUT回调场景、48连续步、2组双池网格/2组同池顺序分配、33次Rust和12项Chrome；17项统一检查通过；验证记录（`integration/artifacts/local/weighted-exact-out-check/report.json`，已清理）|
+|75|[Balancer标准Stable2精确输出](#plan-2026-11-15-stable-exact-out)|LOCAL_SCOPE_VERIFIED|720原数学场景/180步、3网格/3同池顺序分配、48次Rust/4项Chrome和20项统一检查通过；验证记录（`integration/artifacts/local/stable-exact-out-check/report.json`，已清理）|
+|76|[零hook Singleton CL精确输出](#plan-2026-11-15-singleton-exact-out)|LOCAL_SCOPE_VERIFIED|644原始场景/24连续步、4容量网格、51次Rust/8项Chrome和20项统一检查通过；验证记录（`integration/artifacts/local/singleton-exact-out-check/report.json`，已清理）|
+|77|[静态Infinity Bin精确输出](#plan-2026-11-15-infinity-bin-exact-out)|LOCAL_SCOPE_VERIFIED|264原场景/48burn、78连续/有序步、2网格、72次Rust/4项Chrome和20项统一检查通过；验证记录（`integration/artifacts/local/infinity-bin-exact-out-check/report.json`，已清理）|
+|78|[Managed Snapshot精确输出](#plan-2026-11-15-managed-snapshot-exact-out)|LOCAL_SCOPE_VERIFIED|180目标/9实际状态、36连续/9有序步、3网格及3关闭swap，41次Rust/4项Chrome和20检查通过；验证记录（`integration/artifacts/local/managed-snapshot-exact-out-check/report.json`，已清理）|
+|79|[Composable普通币对精确输出](#plan-2026-11-15-composable-exact-out)|LOCAL_SCOPE_VERIFIED|288原目标/216连续步、BPT首中末位置、3顺序/3网格、52次Rust/6项Chrome及20检查通过；验证记录（`integration/artifacts/local/composable-exact-out-check/report.json`，已清理）|
+|80|[Raydium ATA与WSOL资金准备](#plan-2026-11-15-raydium-funding)|LOCAL_SCOPE_VERIFIED|10场景/20原交易、21检查/26次Rust/155项真实Chrome（40新增资金）通过；验证记录（`integration/artifacts/local/raydium-funding-check/report.json`，已清理）|
+|81|[Orca经典SPL执行链路](#plan-2026-11-15-orca-execution)|LOCAL_SCOPE_VERIFIED|32场景API/独立SBF和重启回执、64原始交易、25检查/88次Rust/236项真实Chrome（81新增）通过；验证记录（`integration/artifacts/local/orca-execution-check/report.json`，已清理）|
+|82|[Orca自适应SPL执行链路](#plan-2026-11-15-orca-adaptive-execution)|LOCAL_SCOPE_VERIFIED|54场景API/独立SBF和重启回执、108实际wire原交易、28检查/95次Rust/357项Chrome（121新增）通过；验证记录（`integration/artifacts/local/orca-adaptive-execution-check/report.json`，已清理）|
+|83|[Raydium CLMM经典SPL执行](#plan-2026-11-16-rayclmm-execution)|LOCAL_SCOPE_VERIFIED|56场景API/同捕获SBF和重启回执、112原交易，31门禁/135次Rust/486项Chrome（129新增）通过；验证记录（`integration/artifacts/local/rayclmm-execution-check/report.json`，已清理）|
+|84|[Raydium CLMM高级经典SPL执行](#plan-2026-11-16-rayclmm-advanced-execution)|LOCAL_SCOPE_VERIFIED|三个模型/三收费模式162API/162回执/324原交易，33门禁/306Rust/667Chrome同源码冻结通过；验证记录（`integration/artifacts/local/rayclmm-advanced-execution-check/report.json`，已清理）|
+|85|[候选图增量索引与COW](#plan-2026-11-16-incremental-graph)|LOCAL_SCOPE_VERIFIED|8项门禁/249次Rust测试通过，源码和341份测试输入同批绑定；验证记录（`integration/artifacts/local/incremental-graph-check/report.json`，已清理）|
+|86|[基线图复用与闲时缓存回收](#plan-2026-11-17-baseline-cache-reclamation)|LOCAL_SCOPE_VERIFIED|8项门禁/41次Rust测试，899份固定测试输入与46份运行时输入同批绑定；验证记录（`integration/artifacts/local/cache-reclamation-check/report.json`，已清理）|
+|87|[EVM计划绑定与准备组件](#plan-2026-11-17-evm-preparation-component)|LOCAL_SCOPE_VERIFIED|13项门禁/62次Rust/95份独立ABI-RLP签名对照，899份固定输入/185份参考依赖绑定；验证记录（`integration/artifacts/local/evm-preparation-component-check/report.json`，已清理）|
+|88|[EVM固定块RPC准备与API](#plan-2026-11-17-evm-rpc-preparation)|LOCAL_SCOPE_VERIFIED|15项门禁/51次Rust/12项Node/9项Chrome，899固定输入/46运行时输入同批绑定；验证记录（`integration/artifacts/local/evm-rpc-preparation-check/report.json`，已清理）|
+|89|[EVM独立仿真动态费用](#plan-2026-11-17-evm-dynamic-fees)|LOCAL_SCOPE_VERIFIED|8门禁/117次Rust、16原Router对照、899固定输入；验证记录（`integration/artifacts/local/evm-dynamic-fees-check/report.json`，已清理）|
+|90|[EVM准备组件与同银行独立执行](#plan-2026-11-17-evm-prepared-execution)|LOCAL_SCOPE_VERIFIED|8门禁/121次Rust、16原银行/25重算篡改/10控制、899固定输入；验证记录（`integration/artifacts/local/evm-prepared-execution-check/report.json`，已清理）|
+|91|[EVM实际HTTP/worker动态费用](#plan-2026-11-17-evm-dynamic-fee-api)|LOCAL_SCOPE_VERIFIED|10门禁/122次Rust、实际HTTP/worker、899固定输入；验证记录（`integration/artifacts/local/evm-dynamic-fee-api-check/report.json`，已清理）|
+|92|[EVM原Router单池ExactOut独立执行](#plan-2026-11-17-evm-exact-out-execution)|LOCAL_SCOPE_VERIFIED|8门禁/126次Rust、16原银行/3revert/有效多池拒绝、899固定输入；验证记录（`integration/artifacts/local/evm-exact-out-execution-check/report.json`，已清理）|
+|93|[完整交付范围与外部验收边界审计](#plan-2026-11-17-design-delivery-audit)|LOCAL_SCOPE_VERIFIED|5检查/12控制、当前CLI正负对照/3份开发拓扑，确认外部验收输入缺失；审计记录（`integration/artifacts/local/design-delivery-audit/report.json`，已清理）|
+|94|[EVM ExactOut准备与独立执行](#plan-2026-11-17-evm-prepared-exact-out)|LOCAL_SCOPE_VERIFIED|8门禁/129次Rust、16银行/16篡改/4控制；验证记录（`integration/artifacts/local/evm-prepared-exact-out-check/report.json`，已清理）|
+|95|[EVM ExactOut正常HTTP独立模拟](#plan-2026-11-17-evm-exact-out-api)|LOCAL_SCOPE_VERIFIED|12门禁/151次Rust、实际双模式HTTP/worker及证据生命周期；验证记录（`integration/artifacts/local/evm-exact-out-api-check/report.json`，已清理）|
+|96|[EVM多池ExactOut原交易执行](#plan-2026-11-17-evm-path-execution)|LOCAL_SCOPE_VERIFIED|11门禁/135次Rust、12原交易完整银行/6目标路径、901固定/97参考输入；验证记录（`integration/artifacts/local/evm-path-execution-check/report.json`，已清理）|
+|97|[EVM ExactIn多池与双模式正常HTTP](#plan-2026-11-17-evm-input-paths)|LOCAL_SCOPE_VERIFIED|17门禁/168次Rust、6原输入路径/9变形及双模式3hop HTTP；验证记录（`integration/artifacts/local/evm-input-path-check/report.json`，已清理）|
+|98|[EVM来源块与执行块费用上下文](#plan-2026-11-17-evm-source-fees)|LOCAL_SCOPE_VERIFIED|8门禁/134次Rust、16原H/H+1银行与双模式准备；验证记录（`integration/artifacts/local/evm-source-fees-check/report.json`，已清理）|
+|99|[EVM缓存RPC准备到独立worker](#plan-2026-11-17-evm-prepared-api)|LOCAL_SCOPE_VERIFIED|15门禁/167次Rust、双模式真实HTTP/原准备wire/错误资金；验证记录（`integration/artifacts/local/evm-prepared-api-check/report.json`，已清理）|
+|100|[EVM原准备独立执行界面](#plan-2026-11-17-evm-prepared-frontend)|LOCAL_SCOPE_VERIFIED|16门禁/168次Rust、13Node/18Chrome、wire摘要及移动布局；验证记录（`integration/artifacts/local/evm-prepared-frontend-check/report.json`，已清理）|
+|101|[显式常驻分析worker](#plan-2026-11-17-analytics-worker)|LOCAL_SCOPE_VERIFIED|13门禁/97次Go/81次Rust、实际Go服务/独立Kafka连续消费与重启；验证记录（`integration/artifacts/local/analytics-worker-check/report.json`，已清理）|
+|102|[公开Protobuf checkpoint](#plan-2026-11-17-public-bootstrap-checkpoints)|LOCAL_SCOPE_VERIFIED|13门禁/74次Go/42次Rust、3组原字节互通；验证记录（`integration/artifacts/local/public-bootstrap-check/report.json`，已清理）|
+|103|[远端checkpoint对象读写](#plan-2026-11-17-remote-checkpoint-objects)|LOCAL_SCOPE_VERIFIED|13门禁/142次Go/125次Rust；验证记录（`integration/artifacts/local/remote-checkpoint-check/report.json`，已清理）|
+|104|[当前远端checkpoint冷恢复](#plan-2026-11-17-current-remote-checkpoint-recovery)|LOCAL_SCOPE_VERIFIED|18门禁/143次Go/162次Rust、实际Kafka冷恢复/HTTP报价；验证记录（`integration/artifacts/local/checkpoint-recovery-check/report.json`，已清理）|
+|105|[周期checkpoint发布](#plan-2026-11-18-checkpoint-worker)|LOCAL_SCOPE_VERIFIED|18门禁/148次Go/164次Rust；验证记录（`integration/artifacts/local/checkpoint-worker-check/report.json`，已清理）|
+|106|[多链checkpoint公平调度](#plan-2026-11-18-checkpoint-fairness)|LOCAL_SCOPE_VERIFIED|7门禁/149次Go race、双链持续失败/更新/恢复；验证记录（`integration/artifacts/local/checkpoint-fairness-check/report.json`，已清理）|
+|107|[旧checkpoint有限尾窗追平](#plan-2026-11-18-checkpoint-tail-replay)|LOCAL_SCOPE_VERIFIED|19门禁/152次Go/166次Rust、实际Kafka有限尾窗；验证记录（`integration/artifacts/local/checkpoint-replay-check/report.json`，已清理）|
+|108|[Rust owner公开checkpoint](#plan-2026-11-18-rust-owner-checkpoints)|LOCAL_SCOPE_VERIFIED|15门禁/20次Go/60次Rust、正常HTTP与双向原wire；验证记录（`integration/artifacts/local/rust-checkpoint-publication-check/report.json`，已清理）|
+|109|[Rust owner远端checkpoint](#plan-2026-11-18-rust-remote-checkpoints)|LOCAL_SCOPE_VERIFIED|16门禁/21次Go/66次Rust、正常双HTTP/Go解码；验证记录（`integration/artifacts/local/rust-remote-checkpoint-check/report.json`，已清理）|
+|110|[Rust周期checkpoint与配置摘要](#plan-2026-11-18-rust-periodic-checkpoints)|LOCAL_SCOPE_VERIFIED|21门禁/92次Go/194次Rust、双链周期与共享hash；验证记录（`integration/artifacts/local/rust-periodic-checkpoint-check/report.json`，已清理）|
+|111|[Rust恢复目录与独立router追平](#plan-2026-11-18-rust-owner-recovery)|LOCAL_SCOPE_VERIFIED|26门禁/93次Go/204次Rust、跨正常owner/router实际Kafka；验证记录（`integration/artifacts/local/rust-owner-recovery-check/report.json`，已清理）|
+|112|[公开checkpoint本地容量门禁](#plan-2026-11-18-checkpoint-local-budgets)|LOCAL_SCOPE_VERIFIED|26门禁/97次Go/217次Rust、容量/实际Kafka回归；验证记录（`integration/artifacts/local/checkpoint-budget-check/report.json`，已清理）|
+|113|[有界checkpoint只读保留计划](#plan-2026-11-18-checkpoint-retention-plan)|LOCAL_SCOPE_VERIFIED|26门禁/103次Go/221次Rust、只读计划及实际Kafka回归；验证记录（`integration/artifacts/local/checkpoint-retention-plan-check/report.json`，已清理）|
+|114|[Rust只读保留计划与整计划互通](#plan-2026-11-18-rust-retention-plan)|LOCAL_SCOPE_VERIFIED|26门禁/104次Go/227次Rust、全计划同目录互通；验证记录（`integration/artifacts/local/rust-retention-plan-check/report.json`，已清理）|
+|115|[显式Go checkpoint回收与中断恢复](#plan-2026-11-18-checkpoint-reclaim)|LOCAL_SCOPE_VERIFIED|27门禁/117次Go/231次Rust、真实进程中断/正常HTTP；验证记录（`integration/artifacts/local/checkpoint-reclaim-check/report.json`，已清理）|
+|116|[Go周期checkpoint自动配额维护](#plan-2026-11-18-checkpoint-auto-reclaim)|LOCAL_SCOPE_VERIFIED|27门禁/127次Go/233次Rust、正常周期与实际Kafka；收尾差距已记录，本轮后停止；验证记录（`integration/artifacts/local/checkpoint-auto-reclaim-check/report.json`，已清理）|
+|117|[v2-complete native Pair/Factory状态承诺](#plan-2026-11-18-v2-native-state-proof)|LOCAL_SCOPE_VERIFIED|8门禁/488次Go race；P0-1限定Pair/Factory状态证明通过；验证记录（`integration/artifacts/local/v2-native-state-proof-check/report.json`，已清理）|
+|118|[v2-complete native Token余额证明](#plan-2026-11-18-v2-native-balance-proof)|LOCAL_SCOPE_VERIFIED|8门禁/77次Go race；P0-1限定余额view证明通过；验证记录（`integration/artifacts/local/v2-native-balance-proof-check/report.json`，已清理）|
+|119|[EVM当前头确认策略与披露](#plan-2026-11-18-evm-confirmation-policy)|LOCAL_SCOPE_VERIFIED|19门禁/81次Go/97次Rust；P0-1当前头策略通过；验证记录（`integration/artifacts/local/confirmation-policy-check/report.json`，已清理）|
+|120|[真实当前V2 normal owner/router与来源拒绝](#plan-2026-11-18-current-v2-public-source)|LOCAL_SCOPE_VERIFIED|13门禁/81次Go/36次Rust；P0-1实际公开当前state与恢复通过；验证记录（`integration/artifacts/local/current-v2-check/report.json`，已清理）|
+|121|[真实V2固定bank独立离线夹具](#plan-2026-11-18-current-v2-fixed-fixture)|LOCAL_SCOPE_VERIFIED|13门禁/83次Go/36次Rust；真实bank固定离线通过；验证记录（`integration/artifacts/local/current-v2-fixed-check/report.json`，已清理）|
+|122|[真实V2原字节码收款与完整后状态差分](#plan-2026-11-18-public-v2-original-execution)|LOCAL_SCOPE_VERIFIED|14门禁/16次Go/16次Rust；原VM actual收款/完整状态通过；验证记录（`integration/artifacts/local/public-v2-original-execution-check/report.json`，已清理）|
+|123|[EVM原生费用模型与覆盖披露](#plan-2026-11-18-evm-native-cost-model)|LOCAL_SCOPE_VERIFIED|14门禁/142次Rust；P0-3原生费用与缺项披露通过；验证记录（`integration/artifacts/local/evm-native-cost-model-check/report.json`，已清理）|
+|124|[EVM费用原生余额守恒与源绑定](#plan-2026-11-18-evm-native-balance-audit)|LOCAL_SCOPE_VERIFIED|14门禁/144次Rust；P0-3源绑定/alias守恒通过；验证记录（`integration/artifacts/local/evm-native-balance-audit-check/report.json`，已清理）|
+|125|[EVM最大资金准入与付款人净扣款](#plan-2026-11-18-evm-native-payer-cost)|LOCAL_SCOPE_VERIFIED|14门禁/146次Rust，最大资金/净扣款与四HTTP通过；验证记录（`integration/artifacts/local/evm-native-payer-cost-check/report.json`，已清理）|
+|126|[无可信成本时的路由排序回退](#plan-2026-11-18-cost-unavailable-ranking)|LOCAL_SCOPE_VERIFIED|16门禁/176次Rust与四HTTP通过；验证记录（`integration/artifacts/local/cost-unavailable-ranking-check/report.json`，已清理）|
+|127|[Solana准备消息费用来源与原生资金分类](#plan-2026-11-18-solana-native-cost)|LOCAL_SCOPE_VERIFIED|14门禁/20 HTTP与SBF、独立审计及原资金/捕获/钱包回归通过；验证记录（`integration/artifacts/local/solana-native-cost-check/report.json`，已清理）|
+|128|[Solana提交前费用上下文与耐久凭证](#plan-2026-11-18-solana-fee-preflight)|LOCAL_SCOPE_VERIFIED|11门禁/46次Rust，实际签名/资金/旧回执和冻结输入一致；验证记录（`integration/artifacts/local/solana-fee-preflight-check/report.json`，已清理）|
+|129|[Solana原生同单位费用后净额](#plan-2026-11-18-solana-native-economics)|LOCAL_SCOPE_VERIFIED|16门禁/50次Rust，11场景SBF/实际签名回执与20准备家族冻结回归通过；验证记录（`integration/artifacts/local/solana-native-economics-check/report.json`，已清理）|
+|130|[Solana费用后经济净额前端闭环](#plan-2026-11-18-native-economics-view)|LOCAL_SCOPE_VERIFIED|签名区/回执区分离；8门禁/16浏览器检查及实际可见截图复核通过；验证记录（`integration/artifacts/local/native-economics-view-check/report.json`，已清理）|
+|131|[Solana失败签名费用与回滚核验](#plan-2026-11-18-solana-failure-fees)|LOCAL_SCOPE_VERIFIED|13门禁/3原程序失败/18故障/30独立审计篡改、成功交易回归通过；验证记录（`integration/artifacts/local/solana-failure-fee-check/report.json`，已清理）|
+|132|[失败交易费用前端闭环](#plan-2026-11-18-failed-fee-view)|LOCAL_SCOPE_VERIFIED|9门禁/22前端单测/13实际浏览器检查及截图复核通过；验证记录（`integration/artifacts/local/failed-fee-view-check/report.json`，已清理）|
+|133|[EVM Legacy原生费用来源与净扣款](#plan-2026-11-18-evm-legacy-native-fees)|LOCAL_SCOPE_VERIFIED|14门禁/148次Rust、8次HTTP和56独立整数向量通过；验证记录（`integration/artifacts/local/evm-legacy-native-fee-check/report.json`，已清理）|
+|134|[OP Regolith历史L1数据费内核](#plan-2026-11-18-op-regolith-data-fee)|LOCAL_SCOPE_VERIFIED|16门禁/147次Rust、三笔原签名交易/72算术向量与8次正常worker回归通过；验证记录（`integration/artifacts/local/op-l1-data-cost-check/report.json`，已清理）|
+|135|[OP Regolith同body费用输入来源与重放](#plan-2026-11-18-op-l1-source-inputs)|LOCAL_SCOPE_VERIFIED|18门禁/148次Rust/209次Go及三原signed跨语言核算通过；验证记录（`integration/artifacts/local/op-l1-source-inputs-check/report.json`，已清理）|
+|136|[OP packed费用与FastLZ独立核算](#plan-2026-11-18-op-packed-cost)|LOCAL_SCOPE_VERIFIED|18门禁/150次Rust/6次Go及605原参考通过；验证记录（`integration/artifacts/local/op-packed-cost-check/report.json`，已清理）|
+|137|[OP现代费用版本来源与升级首块重放](#plan-2026-11-18-op-packed-source-inputs)|LOCAL_SCOPE_VERIFIED|19门禁/153次Rust/214次Go，真实升级来源/归档重放及原参考跨语言通过；验证记录（`integration/artifacts/local/op-packed-source-inputs-check/report.json`，已清理）|
+|138|[OP完整费用账户与原状态转换核验](#plan-2026-11-18-op-chain-cost)|LOCAL_SCOPE_VERIFIED|24门禁/151次Rust，320原Go场景955状态转换、256独立REVM与8原HTTP通过；验证记录（`integration/artifacts/local/op-chain-cost-check/report.json`，已清理）|
+|139|[OP签名交易绑定与严格历史执行](#plan-2026-11-18-op-signed-execution)|LOCAL_SCOPE_VERIFIED|20门禁/160次Rust、448原场景1337转换/180归档签名及8原HTTP通过；验证记录（`integration/artifacts/local/op-execution-check/report.json`，已清理）|
+|140|[OP签名BOUND完整Router执行与费用](#plan-2026-11-18-op-bound-router)|LOCAL_SCOPE_VERIFIED|18门禁/157次Rust、448原Router/896产品执行与完整声明状态/费用、8原HTTP通过；验证记录（`integration/artifacts/local/op-bound-check/report.json`，已清理）|
+|141|[OP签名受限worker协议与实际子进程](#plan-2026-11-18-op-signed-worker)|LOCAL_SCOPE_VERIFIED|19门禁/159次Rust、56实际OP子进程/17拒绝与8正常Shanghai HTTP通过；验证记录（`integration/artifacts/local/op-worker-check/report.json`，已清理）|
+|142|[OP费用回执的独立源核验](#plan-2026-11-18-op-fee-measurements)|LOCAL_SCOPE_VERIFIED|17门禁/160次Rust，896源费用核验与8正常HTTP通过；验证记录（`integration/artifacts/local/op-fee-measurements-check/report.json`，已清理）|
+|143|[正常历史OP构建与签名模拟](#plan-2026-11-18-op-normal-api)|LOCAL_SCOPE_VERIFIED|19门禁/161次Rust、28正常OP HTTP/168拒绝及8旧Shanghai HTTP；验证记录（`integration/artifacts/local/op-api-check/report.json`，已清理）|
+|144|[OP预编译加密后端与Isthmus限制](#plan-2026-11-18-op-precompiles)|LOCAL_SCOPE_VERIFIED|24门禁/165次Rust、3558原输入/110签名转换、28 OP及8旧HTTP；验证记录（`integration/artifacts/local/op-precompiles-check/report.json`，已清理）|
+|145|[OP Mainnet历史Jovian用户执行](#plan-2026-11-18-op-jovian)|LOCAL_SCOPE_VERIFIED|25门禁/168次Rust、64原场景、7056输入/160签名转换、32 OP及8旧HTTP；验证记录（`integration/artifacts/local/op-jovian-check/report.json`，已清理）|
+|146|[Karst预编译组件与固定现代原参考](#plan-2026-11-19-karst-precompiles)|LOCAL_SCOPE_VERIFIED|30门禁/171次Rust、9452原组件及32 OP/8旧HTTP；验证记录（`integration/artifacts/local/karst-precompiles-check/report.json`，已清理）|
+|147|[Karst用户执行组件与完整原引擎](#plan-2026-11-19-karst-execution)|LOCAL_SCOPE_VERIFIED|35门禁/173次Rust、468原场景与历史API；验证记录（`integration/artifacts/local/karst-execution-check/report.json`，已清理）|
+|148|[Karst正常本地签名API与完整原Router](#plan-2026-11-19-karst-api)|LOCAL_SCOPE_VERIFIED|39门禁/176次Rust、36正常OP/8旧HTTP与完整原Router通过；验证记录（`integration/artifacts/local/karst-api-check/report.json`，已清理）|
+|149|[配置预言机授权与已执行交易费用换算](#plan-2026-11-19-native-valuation)|LOCAL_SCOPE_VERIFIED|51门禁/184次Rust/77次Go及61正常HTTP通过；验证记录（`integration/artifacts/local/native-valuation-check/report.json`，已清理）|
+|150|[逐完整候选费用评分内核](#plan-2026-11-19-candidate-costs)|LOCAL_SCOPE_VERIFIED|54门禁/208次Rust/77次Go、22优化器/2 API回退与61 HTTP通过；验证记录（`integration/artifacts/local/candidate-cost-check/report.json`，已清理）|
+|151|[正常报价本地逐候选执行费用接线](#plan-2026-11-19-normal-candidate-costs)|LOCAL_SCOPE_VERIFIED|59门禁/215次Rust/78次Go、16报价/30原候选重放及4 OP回退，旧61 HTTP通过；验证记录（`integration/artifacts/local/normal-candidate-cost-check/report.json`，已清理）|
+|152|[批准Chainlink feed的真实来源适配](#plan-2026-11-19-approved-chainlink-feeds)|LOCAL_SCOPE_VERIFIED|68门禁/223次Rust/80次Go、8有效/14无效配置、48独立向量/148换算与公开原响应重放通过；验证记录（`integration/artifacts/local/approved-market-feed-check/report.json`，已清理）|
 |153|[选中候选费用的正常报价同源披露](#plan-2026-11-19-selected-candidate-cost-disclosure)|LOCAL_SCOPE_VERIFIED|68门禁、226次Rust/80次Go通过；正常报价同源费用披露、未知回退及完整来源/历史回归通过|
 |154|[授权价格book版本刷新与报价快照](#plan-2026-11-19-price-book-refresh)|LOCAL_SCOPE_VERIFIED|72门禁、229次Rust/80次Go通过；显式认证刷新/签名版本/快照缓存/旧报价失效及全部历史来源回归通过|
-|155|[耐久价格发布journal与离线初始化](#plan-2026-11-19-price-publication-journal)|LOCAL_SCOPE_VERIFIED|[冻结报告](integration/artifacts/local/price-publication-journal-check/runs/5255594d26fa40fcb3e700601e15eb15/report.json)：75门禁、6项日志测试、34个离线CLI案例；正常接线接续|
-|156|[正常Router耐久价格发布与重启](#plan-2026-11-19-durable-price-router)|LOCAL_SCOPE_VERIFIED|[冻结报告](integration/artifacts/local/durable-price-router-check/runs/4ab92751086041e49f974d0a2d599007/report.json)：原 75 项与新增 5 项全过，覆盖双配置摘要、确认丢失及多进程 HTTP|
+|155|[耐久价格发布journal与离线初始化](#plan-2026-11-19-price-publication-journal)|LOCAL_SCOPE_VERIFIED|冻结报告（`integration/artifacts/local/price-publication-journal-check/runs/5255594d26fa40fcb3e700601e15eb15/report.json`，已清理）：75门禁、6项日志测试、34个离线CLI案例；正常接线接续|
+|156|[正常Router耐久价格发布与重启](#plan-2026-11-19-durable-price-router)|LOCAL_SCOPE_VERIFIED|冻结报告（`integration/artifacts/local/durable-price-router-check/runs/4ab92751086041e49f974d0a2d599007/report.json`，已清理）：原 75 项与新增 5 项全过，覆盖双配置摘要、确认丢失及多进程 HTTP|
 |157|[整簿同块采集与独立签署输入](#market-book-signing-request)|LOCAL_SCOPE_VERIFIED|本地只读 RPC 与实际 Rust 验证器定向通过；不代表持续 live、签名授权或生产验收|
 |158|[独立签署回执与离线候选簿](#market-book-offline-assembly)|LOCAL_SCOPE_VERIFIED|双币种端到端回放、6 项日志组件测试；预检不等于已发布|
 |159|[在线条件发布与结果回读](#market-book-online-publication)|LOCAL_SCOPE_VERIFIED|显式日志模式，预检无写入，拒绝调包与过期条件；保持固定 bank 限定|
@@ -930,7 +936,7 @@
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
 |Task1|锁定源码和准入|WP03,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-golden-generation.json](integration/artifacts/local/rayclmm-golden-generation.json)<br>[raydium-clmm-static-quotes.md](docs/TECHNICAL_REFERENCE.md#raydium-clmm-static-quotes)|
-|Task2|独立state/config/wire|WP02,WP25|LOCAL_SCOPE_VERIFIED|[rayclmm-differential.json](integration/artifacts/local/rayclmm-differential.json)<br>[rayclmm-wire-generation.log](integration/artifacts/local/rayclmm-wire-generation.log)|
+|Task2|独立state/config/wire|WP02,WP25|LOCAL_SCOPE_VERIFIED|[rayclmm-differential.json](integration/artifacts/local/rayclmm-differential.json)<br>rayclmm-wire-generation.log（`integration/artifacts/local/rayclmm-wire-generation.log`，已清理）|
 |Task3|实际Rust账户解析|WP04,WP05,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-differential.json](integration/artifacts/local/rayclmm-differential.json)<br>[rayclmm-three-service-smoke.json](integration/artifacts/local/rayclmm-three-service-smoke.json)|
 |Task4|专属数学与原program参考|WP03,WP11,WP12,WP13,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-golden-generation.json](integration/artifacts/local/rayclmm-golden-generation.json)<br>[rayclmm-differential.json](integration/artifacts/local/rayclmm-differential.json)|
 |Task5|集成/审查/回归/进度|WP01,WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|LOCAL_SCOPE_VERIFIED|[rayclmm-review.json](integration/artifacts/local/rayclmm-review.json)<br>[verification.json](integration/artifacts/local/verification.json)<br>[rayclmm-final-source.json](integration/artifacts/local/rayclmm-final-source.json)<br>[rayclmm-progress-consistency.json](integration/artifacts/local/rayclmm-progress-consistency.json)|
@@ -954,8 +960,8 @@
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
 |Task1|固定原source与索引语义|WP03,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-bitmap-golden-generation.json](integration/artifacts/local/rayclmm-bitmap-golden-generation.json)<br>[rayclmm-bitmap-differential.json](integration/artifacts/local/rayclmm-bitmap-differential.json)|
-|Task2|跨语言状态/config/wire先红后绿|WP02,WP25|LOCAL_SCOPE_VERIFIED|[rayclmm-bitmap-golden-generation.json](integration/artifacts/local/rayclmm-bitmap-golden-generation.json)<br>[rayclmm-bitmap-differential.json](integration/artifacts/local/rayclmm-bitmap-differential.json)<br>[rayclmm-bitmap-wire.log](integration/artifacts/local/rayclmm-bitmap-wire.log)|
-|Task3|真实账户与RPC先红后绿|WP04,WP05,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-bitmap-golden-generation.json](integration/artifacts/local/rayclmm-bitmap-golden-generation.json)<br>[rayclmm-bitmap-differential.json](integration/artifacts/local/rayclmm-bitmap-differential.json)<br>[rayclmm-bitmap-parser-main.log](integration/artifacts/local/rayclmm-bitmap-parser-main.log)|
+|Task2|跨语言状态/config/wire先红后绿|WP02,WP25|LOCAL_SCOPE_VERIFIED|[rayclmm-bitmap-golden-generation.json](integration/artifacts/local/rayclmm-bitmap-golden-generation.json)<br>[rayclmm-bitmap-differential.json](integration/artifacts/local/rayclmm-bitmap-differential.json)<br>rayclmm-bitmap-wire.log（`integration/artifacts/local/rayclmm-bitmap-wire.log`，已清理）|
+|Task3|真实账户与RPC先红后绿|WP04,WP05,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-bitmap-golden-generation.json](integration/artifacts/local/rayclmm-bitmap-golden-generation.json)<br>[rayclmm-bitmap-differential.json](integration/artifacts/local/rayclmm-bitmap-differential.json)<br>rayclmm-bitmap-parser-main.log（`integration/artifacts/local/rayclmm-bitmap-parser-main.log`，已清理）|
 |Task4|跨bitmap数学与原program参考先红后绿|WP03,WP11,WP12,WP13,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-bitmap-golden-generation.json](integration/artifacts/local/rayclmm-bitmap-golden-generation.json)<br>[rayclmm-bitmap-differential.json](integration/artifacts/local/rayclmm-bitmap-differential.json)|
 |Task5|集成/审查/完整回归/逐项进度|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|LOCAL_SCOPE_VERIFIED|[rayclmm-bitmap-golden-generation.json](integration/artifacts/local/rayclmm-bitmap-golden-generation.json)<br>[rayclmm-bitmap-differential.json](integration/artifacts/local/rayclmm-bitmap-differential.json)<br>[rayclmm-bitmap-three-service-smoke.json](integration/artifacts/local/rayclmm-bitmap-three-service-smoke.json)<br>[rayclmm-bitmap-review.json](integration/artifacts/local/rayclmm-bitmap-review.json)<br>[rayclmm-bitmap-final-source.json](integration/artifacts/local/rayclmm-bitmap-final-source.json)<br>[rayclmm-bitmap-progress-consistency.json](integration/artifacts/local/rayclmm-bitmap-progress-consistency.json)|
 
@@ -966,8 +972,8 @@
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
 |Task1|固定原seed语义|WP03,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-seed-native-source.json](integration/artifacts/local/rayclmm-seed-native-source.json)<br>[raydium-clmm-custom-seed-quotes.md](docs/TECHNICAL_REFERENCE.md#raydium-clmm-custom-seed-quotes)|
-|Task2|跨语言state/wire/config先红后绿|WP02,WP25|LOCAL_SCOPE_VERIFIED|[rayclmm-seed-go-green.log](integration/artifacts/local/rayclmm-seed-go-green.log)<br>[rayclmm-seed-wire.log](integration/artifacts/local/rayclmm-seed-wire.log)<br>[rayclmm-seed-differential.json](integration/artifacts/local/rayclmm-seed-differential.json)|
-|Task3|实际账户/RPC先红后绿|WP04,WP05,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-seed-parser-main.log](integration/artifacts/local/rayclmm-seed-parser-main.log)<br>[rayclmm-seed-three-service-smoke.json](integration/artifacts/local/rayclmm-seed-three-service-smoke.json)|
+|Task2|跨语言state/wire/config先红后绿|WP02,WP25|LOCAL_SCOPE_VERIFIED|rayclmm-seed-go-green.log（`integration/artifacts/local/rayclmm-seed-go-green.log`，已清理）<br>rayclmm-seed-wire.log（`integration/artifacts/local/rayclmm-seed-wire.log`，已清理）<br>[rayclmm-seed-differential.json](integration/artifacts/local/rayclmm-seed-differential.json)|
+|Task3|实际账户/RPC先红后绿|WP04,WP05,WP20|LOCAL_SCOPE_VERIFIED|rayclmm-seed-parser-main.log（`integration/artifacts/local/rayclmm-seed-parser-main.log`，已清理）<br>[rayclmm-seed-three-service-smoke.json](integration/artifacts/local/rayclmm-seed-three-service-smoke.json)|
 |Task4|原native金额与共享池|WP03,WP11,WP12,WP13,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-seed-native-source.json](integration/artifacts/local/rayclmm-seed-native-source.json)<br>[rayclmm-seed-differential.json](integration/artifacts/local/rayclmm-seed-differential.json)|
 |Task5|进程/审查/完整回归/逐项进度|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|LOCAL_SCOPE_VERIFIED|[rayclmm-seed-three-service-smoke.json](integration/artifacts/local/rayclmm-seed-three-service-smoke.json)<br>[rayclmm-seed-review.json](integration/artifacts/local/rayclmm-seed-review.json)<br>[rayclmm-seed-final-source.json](integration/artifacts/local/rayclmm-seed-final-source.json)<br>[rayclmm-seed-progress-consistency.json](integration/artifacts/local/rayclmm-seed-progress-consistency.json)|
 
@@ -978,10 +984,10 @@
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
 |Task1|固定原动态费语义|WP03,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-dynamic-native-source.json](integration/artifacts/local/rayclmm-dynamic-native-source.json)<br>[raydium-clmm-dynamic-quotes.md](docs/TECHNICAL_REFERENCE.md#raydium-clmm-dynamic-quotes)|
-|Task2|跨语言state/wire/config先红后绿|WP02,WP25|LOCAL_SCOPE_VERIFIED|[rayclmm-dynamic-go-green.log](integration/artifacts/local/rayclmm-dynamic-go-green.log)<br>[rayclmm-dynamic-wire.log](integration/artifacts/local/rayclmm-dynamic-wire.log)<br>[rayclmm-dynamic-differential.json](integration/artifacts/local/rayclmm-dynamic-differential.json)|
-|Task3|实际账户/RPC先红后绿|WP04,WP05,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-dynamic-parser-main.log](integration/artifacts/local/rayclmm-dynamic-parser-main.log)<br>[rayclmm-dynamic-three-service-smoke.json](integration/artifacts/local/rayclmm-dynamic-three-service-smoke.json)|
+|Task2|跨语言state/wire/config先红后绿|WP02,WP25|LOCAL_SCOPE_VERIFIED|rayclmm-dynamic-go-green.log（`integration/artifacts/local/rayclmm-dynamic-go-green.log`，已清理）<br>rayclmm-dynamic-wire.log（`integration/artifacts/local/rayclmm-dynamic-wire.log`，已清理）<br>[rayclmm-dynamic-differential.json](integration/artifacts/local/rayclmm-dynamic-differential.json)|
+|Task3|实际账户/RPC先红后绿|WP04,WP05,WP20|LOCAL_SCOPE_VERIFIED|rayclmm-dynamic-parser-main.log（`integration/artifacts/local/rayclmm-dynamic-parser-main.log`，已清理）<br>[rayclmm-dynamic-three-service-smoke.json](integration/artifacts/local/rayclmm-dynamic-three-service-smoke.json)|
 |Task4|独立动态数学与原program参考先红后绿|WP03,WP11,WP12,WP13,WP20|LOCAL_SCOPE_VERIFIED|[rayclmm-dynamic-native-source.json](integration/artifacts/local/rayclmm-dynamic-native-source.json)<br>[rayclmm-dynamic-differential.json](integration/artifacts/local/rayclmm-dynamic-differential.json)|
-|Task5|进程/审查/完整回归/逐项进度|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|LOCAL_SCOPE_VERIFIED|[rayclmm-dynamic-three-service-smoke.json](integration/artifacts/local/rayclmm-dynamic-three-service-smoke.json)<br>[rayclmm-dynamic-review.json](integration/artifacts/local/rayclmm-dynamic-review.json)<br>[rayclmm-dynamic-clock-red.log](integration/artifacts/local/rayclmm-dynamic-clock-red.log)<br>[rayclmm-dynamic-clock-green.log](integration/artifacts/local/rayclmm-dynamic-clock-green.log)<br>[rayclmm-dynamic-resume-green.log](integration/artifacts/local/rayclmm-dynamic-resume-green.log)<br>[full-local-acceptance-resume.json](integration/artifacts/local/full-local-acceptance-resume.json)<br>[raydium-lease-recovery-audit.json](integration/artifacts/local/raydium-lease-recovery-audit.json)<br>[rayclmm-dynamic-final-source.json](integration/artifacts/local/rayclmm-dynamic-final-source.json)<br>[rayclmm-dynamic-progress-consistency.json](integration/artifacts/local/rayclmm-dynamic-progress-consistency.json)|
+|Task5|进程/审查/完整回归/逐项进度|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP20,WP25|LOCAL_SCOPE_VERIFIED|[rayclmm-dynamic-three-service-smoke.json](integration/artifacts/local/rayclmm-dynamic-three-service-smoke.json)<br>[rayclmm-dynamic-review.json](integration/artifacts/local/rayclmm-dynamic-review.json)<br>rayclmm-dynamic-clock-red.log（`integration/artifacts/local/rayclmm-dynamic-clock-red.log`，已清理）<br>rayclmm-dynamic-clock-green.log（`integration/artifacts/local/rayclmm-dynamic-clock-green.log`，已清理）<br>rayclmm-dynamic-resume-green.log（`integration/artifacts/local/rayclmm-dynamic-resume-green.log`，已清理）<br>[full-local-acceptance-resume.json](integration/artifacts/local/full-local-acceptance-resume.json)<br>[raydium-lease-recovery-audit.json](integration/artifacts/local/raydium-lease-recovery-audit.json)<br>[rayclmm-dynamic-final-source.json](integration/artifacts/local/rayclmm-dynamic-final-source.json)<br>[rayclmm-dynamic-progress-consistency.json](integration/artifacts/local/rayclmm-dynamic-progress-consistency.json)|
 
 <a id="plan-2026-10-30-balancer-weighted2-equal"></a>
 
@@ -991,8 +997,8 @@
 |---|---|---|---|---|
 |Task1|固定原源码、构造器/onSwap与Vault余额参考；限定无managed资金、标准非BPT代币|WP03,WP11|LOCAL_SCOPE_VERIFIED|[源码清单](integration/tools/reference/weighted-model/source-metadata.json)<br>[原合约参考](integration/artifacts/local/weighted-golden-generation.json)|
 |Task2|独立WeightedState/Config、版本准入和protobuf field27；三服务契约|WP02,WP25|LOCAL_SCOPE_VERIFIED|[三服务及公共协议完整检查](integration/artifacts/local/verification.json)|
-|Task3|固定blockHash读取pool/Vault/weights/scales/decimals/tokeninfo；保留receipt根和读后锚定|WP04,WP05,WP20|LOCAL_SCOPE_VERIFIED|[解析与撤销回归](integration/artifacts/local/weighted-review-green.log)<br>[双副本进程](integration/artifacts/local/weighted-three-service-smoke.json)|
-|Task4|原始扣费/缩放/舍入/净输入30%上限/uint256中间值与uint112后余额；共享池连续兑换|WP11,WP12,WP13|LOCAL_SCOPE_VERIFIED|[765案例及45组180步差分](integration/artifacts/local/weighted-math-differential.log)<br>[分配重算测试](integration/artifacts/local/weighted-routing-tests.log)|
+|Task3|固定blockHash读取pool/Vault/weights/scales/decimals/tokeninfo；保留receipt根和读后锚定|WP04,WP05,WP20|LOCAL_SCOPE_VERIFIED|解析与撤销回归（`integration/artifacts/local/weighted-review-green.log`，已清理）<br>[双副本进程](integration/artifacts/local/weighted-three-service-smoke.json)|
+|Task4|原始扣费/缩放/舍入/净输入30%上限/uint256中间值与uint112后余额；共享池连续兑换|WP11,WP12,WP13|LOCAL_SCOPE_VERIFIED|765案例及45组180步差分（`integration/artifacts/local/weighted-math-differential.log`，已清理）<br>分配重算测试（`integration/artifacts/local/weighted-routing-tests.log`，已清理）|
 |Task5|PG/Kafka双副本、完整scope/重组/撤销恢复、独立审查、三服务检查与统一进度|WP01,WP03,WP09,WP14,WP16,WP25|LOCAL_SCOPE_VERIFIED|[17项进程检查](integration/artifacts/local/weighted-three-service-smoke.json)<br>[审查关闭](integration/artifacts/local/weighted-review.json)<br>[本批验收](integration/artifacts/local/weighted-acceptance.json)|
 
 边界：仅指定源码域的双币不可变50/50模型，固定runtime/代币code哈希与`standard-no-bpt`为配置方准入声明；尚无真实部署/immutable编译产物映射或特殊代币行为证明。原合约参考执行构造器与onSwap及余额打包，Vault facade不执行完整Vault/真实ERC20转账。其他权重、Managed/Composable/BPT/RateProvider/V3、Weighted成交事实分析、独立执行/真实收款及VERIFIED均未实现。本批只推进R06有限模型，不改变原26工作包完整验收为0。
@@ -1006,9 +1012,9 @@
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
 |Task1|固定同版本原WeightedPool/LogExpMath/FixedPoint参考；新独立版本与旧50/50边界|WP03,WP11|LOCAL_SCOPE_VERIFIED|[固定40原文件](integration/tools/reference/weighted-model/source-metadata.json)<br>[原构造器/onSwap及pow执行参考](integration/artifacts/local/weighted-static-golden-generation.json)|
-|Task2|独立static profile与现有Weighted字段复用；最小权重、归一化总和及Go/Rust/wire一致准入|WP02,WP25|LOCAL_SCOPE_VERIFIED|[三服务及公共协议完整检查](integration/artifacts/local/verification.json)<br>[规范adapter-set身份回归](integration/artifacts/local/weighted-static-adapter-hash-green.log)|
-|Task3|同blockHash双币权重解析；保留Vault/token/cash/manager/receipt及重锚定屏障|WP04,WP05,WP20|LOCAL_SCOPE_VERIFIED|[双profile固定块准入](integration/artifacts/local/weighted-static-go-contract-parser.log)<br>[六池双副本进程](integration/artifacts/local/weighted-static-three-service-smoke.json)|
-|Task4|整数LogExpMath和powUp误差界、权重比向下舍入、完整raw后余额与原onSwap连续差分|WP11,WP12,WP13|LOCAL_SCOPE_VERIFIED|[5355案例及315组1260步差分](integration/artifacts/local/weighted-static-differential.log)<br>[240组原pow向量](integration/artifacts/local/weighted-static-power-differential.log)|
+|Task2|独立static profile与现有Weighted字段复用；最小权重、归一化总和及Go/Rust/wire一致准入|WP02,WP25|LOCAL_SCOPE_VERIFIED|[三服务及公共协议完整检查](integration/artifacts/local/verification.json)<br>规范adapter-set身份回归（`integration/artifacts/local/weighted-static-adapter-hash-green.log`，已清理）|
+|Task3|同blockHash双币权重解析；保留Vault/token/cash/manager/receipt及重锚定屏障|WP04,WP05,WP20|LOCAL_SCOPE_VERIFIED|双profile固定块准入（`integration/artifacts/local/weighted-static-go-contract-parser.log`，已清理）<br>[六池双副本进程](integration/artifacts/local/weighted-static-three-service-smoke.json)|
+|Task4|整数LogExpMath和powUp误差界、权重比向下舍入、完整raw后余额与原onSwap连续差分|WP11,WP12,WP13|LOCAL_SCOPE_VERIFIED|5355案例及315组1260步差分（`integration/artifacts/local/weighted-static-differential.log`，已清理）<br>240组原pow向量（`integration/artifacts/local/weighted-static-power-differential.log`，已清理）|
 |Task5|当前PG/Kafka双副本集成、旧模型回归、两阶段审查及失败封闭证据和统一进度|WP01,WP03,WP09,WP14,WP16,WP25|LOCAL_SCOPE_VERIFIED|[18项进程检查](integration/artifacts/local/weighted-static-three-service-smoke.json)<br>[两阶段审查](integration/artifacts/local/weighted-static-review.json)<br>[当前源码验收](integration/artifacts/local/weighted-static-acceptance.json)|
 
 范围：同一具体不可变双币WeightedPool源码域，两个权重各至少1%，归一化总和为1e18；新版本`balancer-v2-weighted2-static`，旧equal版本保持仅50/50。复用原有独立Weighted状态类型，不混用Stable/V2公式。多币、Managed/Composable/BPT/RateProvider/V3、真实部署/Token行为和执行验证继续单列未完成；进度只在本文件更新。
@@ -1170,7 +1176,7 @@ SPEC审查发现的两项P2已修复并独立复验：1. burn后active不在树�
 |T29.2|§7.3：同EIP1898锚读取原initial/future packed A/gamma与时间；Go解析/config定向回归及双副本完整状态比对通过|WP04,WP05,WP09|LOCAL_SCOPE_VERIFIED|[本批验收](integration/artifacts/local/curve-crypto-ramp-acceptance.json)|
 |T29.3|§12.2/12.9/12.11：普通分派、28原交换完整后状态、22序列内及4次管理调用间连续状态、28bank共享allocation定向通过|WP11,WP12,WP13|LOCAL_SCOPE_VERIFIED|[本批验收](integration/artifacts/local/curve-crypto-ramp-acceptance.json)|
 |T29.4|§12.14：固定原公开ramp/stop及交换、独立protoc、双副本/撤销恢复/重启；保留合成RPC证据边界|WP03,WP09,WP11,WP14,WP16,WP25|LOCAL_SCOPE_VERIFIED|[本批验收](integration/artifacts/local/curve-crypto-ramp-acceptance.json)|
-|T29.5|§23/28：在线clock与优化模式拒绝校验修复、三服务/common检查、SPEC后质量审查、逐项台账同步|WP01,WP25|LOCAL_SCOPE_VERIFIED|[全量检查](integration/artifacts/local/verification.json)<br>[实际进程](integration/artifacts/local/curve-crypto-ramp-three-service-smoke.json)<br>[独立审查](integration/artifacts/local/curve-crypto-ramp-review.json)<br>[本批验收](integration/artifacts/local/curve-crypto-ramp-acceptance.json)<br>[逐项一致性](integration/artifacts/local/curve-crypto-ramp-progress-consistency.json)|
+|T29.5|§23/28：在线clock与优化模式拒绝校验修复、三服务/common检查、SPEC后质量审查、逐项台账同步|WP01,WP25|LOCAL_SCOPE_VERIFIED|[全量检查](integration/artifacts/local/verification.json)<br>[实际进程](integration/artifacts/local/curve-crypto-ramp-three-service-smoke.json)<br>[独立审查](integration/artifacts/local/curve-crypto-ramp-review.json)<br>[本批验收](integration/artifacts/local/curve-crypto-ramp-acceptance.json)<br>逐项一致性（`integration/artifacts/local/curve-crypto-ramp-progress-consistency.json`，已清理）|
 
 验证结论：三服务/common完整检查、5个实际二进制、177份契约副本与8份fixture一致性通过；212项辅助测试及33项CI/文档测试普通/优化模式通过。原公开ramp/stop参考28交换、6序列、22次序列内及4次管理调用间状态传递、8管理调用通过；普通Go RPC/PG/Kafka与双router完成56报价、完整live protobuf、11类来源故障撤销/更高generation恢复、无关Solana保活、router重启及VERIFIED/build拒绝。共享allocation在28个bank连续复用完整ramp与价格/raw/LP状态；只有首笔金额具备该同一时钟的独立原交易对照，后续同钟重复交换验证路由/分配复用，不扩大为原交易执行证明。
 
@@ -1192,7 +1198,7 @@ SPEC审查发现的两项P2已修复并独立复验：1. burn后active不在树�
 |T30.2|§7.3/8.12：20原pack bank正常RPC、完整Oracle/reward/tick来源与重锚失败拒绝定向通过|WP04,WP05,WP09,WP20|LOCAL_SCOPE_VERIFIED|[本批验收](integration/artifacts/local/orca-adaptive-rewards-acceptance.json)|
 |T30.3|§12.2/12.5/12.9：20bank内核与普通分派完整后状态、四组共享allocation两连续原交易通过定向验证|WP03,WP11,WP12,WP13,WP20|LOCAL_SCOPE_VERIFIED|[本批验收](integration/artifacts/local/orca-adaptive-rewards-acceptance.json)|
 |T30.4|§12.14：原程序20bank/16成交4拒绝、奖励/Oracle/tick完整后状态、34普通/优化篡改拒绝已通过定向验证|WP03,WP11,WP25|LOCAL_SCOPE_VERIFIED|[本批验收](integration/artifacts/local/orca-adaptive-rewards-acceptance.json)|
-|T30.5|§23/28：三服务/common全量、真实进程/撤销恢复/重启、SPEC后独立质量审查与逐项进度|WP01,WP09,WP14,WP16,WP20,WP25|LOCAL_SCOPE_VERIFIED|[全量验证](integration/artifacts/local/verification.json)<br>[实际进程](integration/artifacts/local/orca-adaptive-rewards-three-service-smoke.json)<br>[独立审查](integration/artifacts/local/orca-adaptive-rewards-review.json)<br>[本批验收](integration/artifacts/local/orca-adaptive-rewards-acceptance.json)<br>[逐项一致性](integration/artifacts/local/orca-adaptive-rewards-progress-consistency.json)|
+|T30.5|§23/28：三服务/common全量、真实进程/撤销恢复/重启、SPEC后独立质量审查与逐项进度|WP01,WP09,WP14,WP16,WP20,WP25|LOCAL_SCOPE_VERIFIED|[全量验证](integration/artifacts/local/verification.json)<br>[实际进程](integration/artifacts/local/orca-adaptive-rewards-three-service-smoke.json)<br>[独立审查](integration/artifacts/local/orca-adaptive-rewards-review.json)<br>[本批验收](integration/artifacts/local/orca-adaptive-rewards-acceptance.json)<br>逐项一致性（`integration/artifacts/local/orca-adaptive-rewards-progress-consistency.json`，已清理）|
 
 验证结论：三服务/common完整检查、5个实际二进制、184份契约副本与8份fixture一致性通过；219项辅助测试与33项CI/文档测试在普通及优化模式均通过。固定原程序pack/manager/postupdate参考20bank（16成功/4原拒绝），覆盖12次emission乘法溢出、4次global growth回绕、35次reward outside更新、重复时间与filter/decay窗口。34个篡改反例（普通/优化各17）及旧成功收据失效检查通过；独立protoc完整4007byte wire与旧profile隔离验证通过。
 
@@ -1236,7 +1242,7 @@ SPEC及独立质量审查关闭，无未解决P1/P2；审查与进程共同绑�
 |T32.2|§14.2/14.4：REVM19.7.0严格数据库、实际执行/overlay与gas/读/输入/指令/取消/时间/内存限制已接入，38项引擎/观察定向通过；同二进制stdin/stdout worker及硬超时回收已实现|WP15,WP25|LOCAL_SCOPE_VERIFIED|[严格执行与双审验收](integration/artifacts/local/evm-execution-acceptance.json)|
 |T32.3|§14.2/14.3/12.14：原V2 Factory/Pair/Router02及原ERC20实际10交易（6成功4回退）、110账户/494显式storage、50篡改检查；独立REVM原交易全后状态及真实余额/gas差分已通过|WP03,WP14,WP15|LOCAL_SCOPE_VERIFIED|[原合约全声明后状态与篡改验收](integration/artifacts/local/evm-execution-acceptance.json)|
 |T32.4|§14.3/14.4/15：正常服务接入有界独立仿真、缓存锁释放/新鲜度复核、实际交易/状态/费用完整性证据与21项API测试已定向通过|WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|[7次隔离执行及故障恢复](integration/artifacts/local/evm-execution-three-service-smoke.json)|
-|T32.5|§23/28：三服务回归、实际进程与故障/隔离、两阶段独立审查与逐项进度|WP01,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|[全量](integration/artifacts/local/verification.json)、[两阶段审查](integration/artifacts/local/evm-execution-review.json)、[逐项一致性](integration/artifacts/local/evm-execution-progress-consistency.json)|
+|T32.5|§23/28：三服务回归、实际进程与故障/隔离、两阶段独立审查与逐项进度|WP01,WP14,WP15,WP16,WP25|LOCAL_SCOPE_VERIFIED|[全量](integration/artifacts/local/verification.json)、[两阶段审查](integration/artifacts/local/evm-execution-review.json)、逐项一致性（`integration/artifacts/local/evm-execution-progress-consistency.json`，已清理）|
 
 独立审查修复：只读余额观察不应额外要求caller预付探针gas；已复现交换成功扣费后余额不足探针预付额，以及gas耗尽后原生余额为零的失败路径，专用有界只读路径已修复且保留真实caller/GASPRICE/余额/nonce、不扣观察费用；新增3核心与2原字节码余额边界回归、23包装测试及Clippy定向通过，SPEC/质量审查及最终限定验收均通过；真实swap仍使用完整普通交易校验。
 
@@ -1262,7 +1268,7 @@ SPEC及独立质量审查关闭，无未解决P1/P2；审查与进程共同绑�
 |T33.2|Go固定blockHash读取实际Pair/Factory身份、getPair、raw token余额、reserve时间戳、累计价格及锁slot；每次依赖读取同锚点，未知/错码/缺失/宽度/冲突拒绝；涉及chain/evm/v2与adapter|WP03,WP04,WP05,WP10,WP11|LOCAL_SCOPE_VERIFIED|[完整源bank/故障验收](integration/artifacts/local/v2-complete-acceptance.json)|
 |T33.3|Rust公共分派及完整Swap后状态：先以捐赠/双向/时钟wrap/容量/K反例红灯，再实现单次与显式执行时钟、两侧输入、uint256/uint112、累计价wrap和共享allocation连续重算；旧模型结果保持|WP10,WP11,WP12,WP13|LOCAL_SCOPE_VERIFIED|[原数学与共享状态验收](integration/artifacts/local/v2-complete-acceptance.json)|
 |T33.4|原发布Factory/Pair/Router/Token正常部署及公开操作生成独立bank：双向、输入/输出/双币捐赠、sync/skim、连续交换与时钟边界，记录实际前后账户/slots/getters/交易；普通/优化再生与篡改拒绝；服务测试各用本地fixture|WP03,WP10,WP11,WP13,WP25|LOCAL_SCOPE_VERIFIED|[原参考精确再生及49篡改拒绝](integration/artifacts/local/v2-complete-acceptance.json)|
-|T33.5|完整状态绑定到既有独立执行及正常API：不混用来源/时钟，核对实际raw/时间戳/累计价/锁；双副本、来源故障撤销恢复、重启、共享计划原生重放；全量回归、SPEC后质量审查、逐项进度一致性|WP05,WP10,WP11,WP13,WP14,WP15,WP25|LOCAL_SCOPE_VERIFIED|[全量](integration/artifacts/local/verification.json)、[真实进程](integration/artifacts/local/v2-complete-three-service-smoke.json)、[双审](integration/artifacts/local/v2-complete-review.json)、[逐项一致性](integration/artifacts/local/v2-complete-progress-consistency.json)|
+|T33.5|完整状态绑定到既有独立执行及正常API：不混用来源/时钟，核对实际raw/时间戳/累计价/锁；双副本、来源故障撤销恢复、重启、共享计划原生重放；全量回归、SPEC后质量审查、逐项进度一致性|WP05,WP10,WP11,WP13,WP14,WP15,WP25|LOCAL_SCOPE_VERIFIED|[全量](integration/artifacts/local/verification.json)、[真实进程](integration/artifacts/local/v2-complete-three-service-smoke.json)、[双审](integration/artifacts/local/v2-complete-review.json)、逐项一致性（`integration/artifacts/local/v2-complete-progress-consistency.json`，已清理）|
 
 实施顺序：公共模型/wire为主线前置；原bank生成与Go固定块解析可独立开发，使用同一已声明schema。定向采用`go test ./internal/domain ./internal/config ./internal/chain/evm`及`cargo +1.90.0 test --locked -p xone-domain -p xone-config -p xone-protocol-math -p xone-optimizer -p xone-execution-plan -p xone-simulation`，再运行三服务/common完整check、契约/边界和实际进程。每项先观察对应失败，再实现并验证；最终限定完成必须绑定当前源码、五二进制、全部参考/工具输入与独立双审。
 
@@ -1293,7 +1299,7 @@ SPEC及独立质量审查关闭，无未解决P1/P2；审查与进程共同绑�
 |T34.9|不同Managed物理池共享同Vault/underlying的全局钱包overlay：跨池金额路径及拆单按实际执行顺序同步Vault实际余额、暂停依赖和账户别名，保留各自registered cash/managed与BPT供应；原多池实际交易完整后状态及普通服务验证|WP02,WP03,WP11,WP12,WP13,WP14|LOCAL_SCOPE_VERIFIED|跨物理Managed池共享Vault钱包传播/known注册cash合计/同H角色与Provider事实/重复冲突、Scope隔离与整path原子提交均已验证；31路由、11domain与13 optimizer/Replica/HTTP回归通过。资金版原raw `1f917c9951269028d24f927e1d415229f200019881bd05991e8a84f0b49c79e2`/2720562字节四副本精确再生；实际7来源银行/16原VM验证API计划/4来源故障与重启通过，两actor各实际2物理池拆单输入5e21、原VM收款7874328412914279650444。106普通/优化辅助、22门禁篡改回归与三服务/common全检/双审/14阶段最终同源门禁通过。[限定最终验收](integration/artifacts/local/managed-v2-multi-acceptance.json)；mixed/BPT/collection完整面/性能/真实链等余项不删除|
 |T34.10|Recovery状态来源与有效AUM费率：按原getManagementAumFeeParams在recovery中返回0、normal时校验配置常规费率；原enable/普通swap/零collection/disable真实状态、完整后状态、普通服务进入/退出及审查闭环|WP02,WP03,WP04,WP05,WP11,WP13,WP25|LOCAL_SCOPE_VERIFIED|原独立7case分支实际enable/swap/零collection/disable成功并精确再生；recovery getter有效0、normal配置费恢复1%、零mint仍更新时间已完整差分；三domain拒绝recovery非零费/零费非零pending；15源bank服务路径含5recovery来源、2次recovery正向及退出恢复，质量P2独立复核关闭；[最终同源限定验收](integration/artifacts/local/managed-v2-multi-acceptance.json)通过，control只标原来源观察|
 |T34.11|Managed活动权重/费率schedule后续能力：独立原始packed状态/字段布局（固定20230411为直接64-bit权重和62-bit费率，无有损压缩）、整数渐变与完整后状态/共享clock；独立版本/wire/固定块解析/原执行及普通服务逐项验证|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP25|LOCAL_SCOPE_VERIFIED|当前限定范围已完成：2/3币单池及两个三币物理池scheduled/static、scheduled/scheduled的原固定H、精确状态、连续/clock、实际API拆单/原VM和实际大额全后状态，在同一冻结全检/双阶段独立审查通过。仅该标准underlying有限版本范围，不包含BPT/rates/breaker/全部2–50参数与可信链/生产。此前开发与原型记录（历史）：当前单物理池限定闭环已完成：field40/原固定块234状态、53原swap及2 collection全后状态、55进程来源/127 API报价、15故障恢复/3重启、53不同原签名交易VM重放与干净目录精确再生；三服务/common和223向量/8fixture同源通过，全部已报独立审查问题关闭。仍须按M1–M4完成跨物理池活动schedule原source/执行/拆单组合，T34.11保持IN_PROGRESS。 此前原型与开发记录（历史）：独立tmp原合约参考已生成17真实swap/4管理交易/64状态/21边界检查点并精确再生，6类篡改拒绝，已归档prototypes/2026-11-04-managed-v2-scheduled；仅未集成原型，当前aum-3继续拒活动schedule，独立Rust整数原型已72测试通过，原17swap/1462 getter后状态/21checkpoint及固定packed未来查询精确一致（naive原10失败已红绿修正），归档prototypes/2026-11-04-managed-v2-scheduled-math；仍未集成，真实VM仅双币，三币原VM参考已验证ONE±1权重合计仍真实swap成功：10checkpoint/28原swap/69原状态、13篡改拒绝及byteexact再生通过，归档prototypes/2026-11-04-managed-v2-three-schedule；需新版本按原selected-weight语义实现，不能用静态sum==ONE硬拒或归一化；新tmp-v2已155测试/45原swap/31checkpoint/2442 getter后状态精确一致并归档prototypes/2026-11-04-managed-v2-scheduled-math-v2，但其constructor仍错误限制computed start endpoint sumONE，活动重排可能合法带ONE±1，原manager重排已补真实VM证明：2合法computed-start ONE±1重排、8后续成功swap与2个非法caller-end合计负控回退，byteexact/14篡改拒绝通过，且后续出现ONE±2，归档prototypes/2026-11-04-managed-v2-reschedule；需依原字段来源扩展数学constructor，不能改用简单tolerance；仍未正式支持，正式模型/解析/服务均未完成|
-|T34.12|实际20230411发布版BPT join/exit swap路由与完整供给/钱包/控制语义：先固化原执行，再独立版本/状态/精确计算/逻辑BPT边/真实API执行逐项接入|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP14,WP25|LOCAL_SCOPE_VERIFIED|[最终有限同源验收](integration/artifacts/local/managed-v2-bpt-local-acceptance.json)：独立BPT状态/wire、固定H解析、原精确转换、Funds图/分配/HTTP与四场景进程已通过；141source/250API/30拒绝/24fault/4重启，97计划100原交易及逐步完整Pool，实际worker7模拟、24 helper双模式、全检/双审均同freeze。仅标准3underlying/两物理池有限GIVEN_IN范围；enabled breaker/rates/mixed/其他custody/ExactOut/真实链与公开执行不计完成|
+|T34.12|实际20230411发布版BPT join/exit swap路由与完整供给/钱包/控制语义：先固化原执行，再独立版本/状态/精确计算/逻辑BPT边/真实API执行逐项接入|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP14,WP25|LOCAL_SCOPE_VERIFIED|最终有限同源验收（`integration/artifacts/local/managed-v2-bpt-local-acceptance.json`，已清理）：独立BPT状态/wire、固定H解析、原精确转换、Funds图/分配/HTTP与四场景进程已通过；141source/250API/30拒绝/24fault/4重启，97计划100原交易及逐步完整Pool，实际worker7模拟、24 helper双模式、全检/双审均同freeze。仅标准3underlying/两物理池有限GIVEN_IN范围；enabled breaker/rates/mixed/其他custody/ExactOut/真实链与公开执行不计完成|
 
 
 
@@ -1327,7 +1333,7 @@ T34.11.6 M4首轮与新增强制闭包（2026-11-05）：首轮真实Go/PG/Kafka
 
 后续R06/BPT路由原源码核对（2026-11-05，仅未集成观察，不表示能力完成）：固定原 `ManagedPool._onSwapMinimal` 的BPT方向首先收AUM，再以actualSupply进行join/exit；BPT join按request.from校验LP allowlist，exit不校验，但两向均要求swap和joinExit开关。隔离原VM实验已真实执行underlying→BPT及BPT→underlying：一单位18币得到1492466352598528379 BPT，随后输入746233176299264189 BPT得到823277个6位币最小单位；join的totalSupply仅因AUM增加69890970086662706，而Vault注册BPT cash按实际输出减少，exit按实际BPT输入增加。该事实来自原Wallet/receipt/rawbank（`integration/artifacts/local/managed-v2-bpt-native-probe.json`），当前生产profile仍不开放BPT路由。后续必须独立profile/capability、真实weighted join/exit舍入/边界、BPT supply/注册与全局钱包/allowlist上下文完整建模，不能复用旧e281ff40超EIP170的swap-share铸费语义，也不能把当前观察当正式验收。
 
-T34.11.6 M1–M4当前有限范围最终闭环（2026-11-05）：源码冻结 `cb1ea485d9daae8d088d66b8e153963db0597d4ac75ab4d39d53fcb5519a509e`；四原bank仍22,999,112字节/c1a4094d...e79eb5，四独立Pool投影2,912,236字节/7667c768...9eef72。三服务/common所有make check和debug builds、229契约向量/8fixture及服务权限边界八命令均0，源码/五binary与进程输入一致。M1 source四类已报问题独立复审关闭；流程/原VM及新增实际报告mapper/强制Rust调用亦独立限定通过。最终72共同来源/CPP、52实际两路API、12故障撤销恢复/2重启、12独立plan/24新签名swap原ERC20钱包/事件与全部观察通过；52报价明确quote_links关联，不冒称52个fresh VM；每mode一ownedVM，每个不同plan snapshot/revert后完整source恢复。实际大额24步双方完整Pool/SourceH/execCtx本地连续模型已由M4强制运行normally-ignored Rust test1 passed；Python实际报告映射测试额外显式1 passed。普通/优化23辅助项各22通过+1依赖真实报告的默认跳过，该路径已由上述实际执行覆盖。仅434登记文件的干净目录原VM重新生成四份原bank逐字节一致且mtime未改。有限证据汇总见 [当前多池验证记录](integration/artifacts/local/managed-v2-scheduled-shared-local-validation.json)，[冻结构建验证](integration/artifacts/local/managed-v2-scheduled-shared-final-verification.json)，[实际进程与原执行](integration/artifacts/local/managed-v2-scheduled-shared-three-service-smoke.json)。T34.11仅升级LOCAL_SCOPE_VERIFIED（注明版本、2/3币及两三币物理池标准underlying范围）；全部2–50参数、BPT/rate/mixed/breaker组合、生产原子执行、真实链与原26完整WP仍未完成，public VERIFIED/build维持关闭。
+T34.11.6 M1–M4当前有限范围最终闭环（2026-11-05）：源码冻结 `cb1ea485d9daae8d088d66b8e153963db0597d4ac75ab4d39d53fcb5519a509e`；四原bank仍22,999,112字节/c1a4094d...e79eb5，四独立Pool投影2,912,236字节/7667c768...9eef72。三服务/common所有make check和debug builds、229契约向量/8fixture及服务权限边界八命令均0，源码/五binary与进程输入一致。M1 source四类已报问题独立复审关闭；流程/原VM及新增实际报告mapper/强制Rust调用亦独立限定通过。最终72共同来源/CPP、52实际两路API、12故障撤销恢复/2重启、12独立plan/24新签名swap原ERC20钱包/事件与全部观察通过；52报价明确quote_links关联，不冒称52个fresh VM；每mode一ownedVM，每个不同plan snapshot/revert后完整source恢复。实际大额24步双方完整Pool/SourceH/execCtx本地连续模型已由M4强制运行normally-ignored Rust test1 passed；Python实际报告映射测试额外显式1 passed。普通/优化23辅助项各22通过+1依赖真实报告的默认跳过，该路径已由上述实际执行覆盖。仅434登记文件的干净目录原VM重新生成四份原bank逐字节一致且mtime未改。有限证据汇总见 [当前多池验证记录](integration/artifacts/local/managed-v2-scheduled-shared-local-validation.json)，冻结构建验证（`integration/artifacts/local/managed-v2-scheduled-shared-final-verification.json`，已清理），[实际进程与原执行](integration/artifacts/local/managed-v2-scheduled-shared-three-service-smoke.json)。T34.11仅升级LOCAL_SCOPE_VERIFIED（注明版本、2/3币及两三币物理池标准underlying范围）；全部2–50参数、BPT/rate/mixed/breaker组合、生产原子执行、真实链与原26完整WP仍未完成，public VERIFIED/build维持关闭。
 
 T34.11.6跨物理池原执行子计划（与下方原步骤6一一对应；M1–M4已按以下有限2池/3币范围通过本地验证，不是完整设计验收）：
 
@@ -1336,7 +1342,7 @@ T34.11.6跨物理池原执行子计划（与下方原步骤6一一对应；M1–
 - M3：原A/B/A/B及显式collection的共享钱包、各池注册资金/BPT和未来clock全后状态差分；正常API实际选择两条路线/整数拆单后，由原VM按返回顺序执行并核对真实余额，禁止用本地数学生成期望。
 - M4：source→PG/Kafka→双router、多池来源故障撤销恢复与重启，重新完整check/普通和优化helpers/独立SPEC与quality，再按新冻结升级该限定范围。该计划不开放BPT/rates/breaker、可信链或public VERIFIED/build，不将已有单池通过称为跨池完成。
 
-T34.11单物理池当前限定范围最终闭环（2026-11-05）：最新冻结源码 `24e16da70c82d50c83b81ee654b392402cba3bb7f5498cd3797f96aabc69a550`；原bank `d7b6b...4501e` / 四Pool投影 `a67c9e...aa81` 与五binary、完整check、38 helper普通/优化、实际进程/原VM和独立审查在同一冻结一致。原始证据汇总见 [当前本地验证记录](integration/artifacts/local/managed-v2-scheduled-local-validation.json)，完整构建报告已另存为 [该范围构建验证](integration/artifacts/local/managed-v2-scheduled-final-verification.json)，实际127报价/53不同原签名交易真实余额及完整原观察见 [进程与原VM报告](integration/artifacts/local/managed-v2-scheduled-three-service-smoke.json)。普通与优化helper各38项，其中37通过、1项干净复制VM按默认开关跳过；该项随后以 `XONE_SCHEDULED_FULL_CHECK=1` 单独实际执行163.5秒通过，确认只复制登记依赖即可精确重放四份原bank且不改输入mtime。各独立审查的全部已报问题已关闭。四条逐项功能仅升级为注明的LOCAL_SCOPE_VERIFIED，T34.11整体继续IN_PROGRESS：原步骤6中的M1–M4跨物理池活动schedule原组合仍缺；BPT/rates/mixed/breaker、可信链和public VERIFIED/build等原设计余项不变，原26完整WP验收仍为0。
+T34.11单物理池当前限定范围最终闭环（2026-11-05）：最新冻结源码 `24e16da70c82d50c83b81ee654b392402cba3bb7f5498cd3797f96aabc69a550`；原bank `d7b6b...4501e` / 四Pool投影 `a67c9e...aa81` 与五binary、完整check、38 helper普通/优化、实际进程/原VM和独立审查在同一冻结一致。原始证据汇总见 当前本地验证记录（`integration/artifacts/local/managed-v2-scheduled-local-validation.json`，已清理），完整构建报告已另存为 该范围构建验证（`integration/artifacts/local/managed-v2-scheduled-final-verification.json`，已清理），实际127报价/53不同原签名交易真实余额及完整原观察见 [进程与原VM报告](integration/artifacts/local/managed-v2-scheduled-three-service-smoke.json)。普通与优化helper各38项，其中37通过、1项干净复制VM按默认开关跳过；该项随后以 `XONE_SCHEDULED_FULL_CHECK=1` 单独实际执行163.5秒通过，确认只复制登记依赖即可精确重放四份原bank且不改输入mtime。各独立审查的全部已报问题已关闭。四条逐项功能仅升级为注明的LOCAL_SCOPE_VERIFIED，T34.11整体继续IN_PROGRESS：原步骤6中的M1–M4跨物理池活动schedule原组合仍缺；BPT/rates/mixed/breaker、可信链和public VERIFIED/build等原设计余项不变，原26完整WP验收仍为0。
 
 T34.12 BPT执行计划（依R06及§11.3/12.2/12.9–12.14；2026-11-05继续执行，未完成项保持开放）：
 
@@ -1394,15 +1400,15 @@ T34.12最后生命周期测试隔离与严格计时阶段（2026-11-05，进行�
 
 严格first-poison monotonic25秒版进程当前settled14src40API6fault/恢复/重启通过（84–696ms），scheduled83src/首fault128ms已通过，control/limits和实际进程选中计划原VM/整个after仍待完成。源代码后续修改必使该进程最终绑定判历史，不能提前提升状态；最后必须统一冻结再跑。原设计55协议、26WP/192条对应关系持续保留，完整WP仍0。
 
-T34.12新原闭包阶段收口（2026-11-05，未最终验收）：raw `4cbf03...892f8`的byteexact原VM与独立C++wire均通过；四投影当前SHA256 `84307dc10b1a0232c324f9289502a161528e74098df250651832fb2d7d2fdbe4`，来源/槽10正常与合成Recovery边界完整Go差分及race全check通过。最后同一23项BPT helper清单普通286.502秒、优化219.950秒通过。源码审查全部已报告P1/P2（包括strict deadline与slot10）均关闭；生命周期测试小进程替换质量审查通过，无生产预算/语义更改，实际worker冷启动/协议覆盖另由已启动的原evm_execution_smoke执行，不以小进程单测冒称。strict四场景进程现settled14src40API6fault/重启、scheduled83src158API6fault/重启通过，controls正在开始；最后supervisor测试注释/source变化使本轮最终绑定仍只能历史，待统一最终冻结再跑。已将20份完成的红绿日志保全为 [阶段红绿证据](integration/artifacts/local/managed-v2-bpt-red-green-evidence.json)，不当最终同源验收。
+T34.12新原闭包阶段收口（2026-11-05，未最终验收）：raw `4cbf03...892f8`的byteexact原VM与独立C++wire均通过；四投影当前SHA256 `84307dc10b1a0232c324f9289502a161528e74098df250651832fb2d7d2fdbe4`，来源/槽10正常与合成Recovery边界完整Go差分及race全check通过。最后同一23项BPT helper清单普通286.502秒、优化219.950秒通过。源码审查全部已报告P1/P2（包括strict deadline与slot10）均关闭；生命周期测试小进程替换质量审查通过，无生产预算/语义更改，实际worker冷启动/协议覆盖另由已启动的原evm_execution_smoke执行，不以小进程单测冒称。strict四场景进程现settled14src40API6fault/重启、scheduled83src158API6fault/重启通过，controls正在开始；最后supervisor测试注释/source变化使本轮最终绑定仍只能历史，待统一最终冻结再跑。已将20份完成的红绿日志保全为 阶段红绿证据（`integration/artifacts/local/managed-v2-bpt-red-green-evidence.json`，已清理），不当最终同源验收。
 
-T34.12实际worker与四场景进程阶段证据（2026-11-05，未最终验收）：实际 `evm_execution_smoke` 已12checks/7隔离模拟/2来源fault与显式reload/restart通过，真实worker binary/协议/执行结果覆盖明确，runtime与inputs均匹配当前 `managed-v2-bpt-freeze.json`，不以tiny生命周期单测代替；原公开VERIFIED/build继续关闭。strict BPT四场景已经settled14/40、scheduled83/158、controls25/22（12拒绝）、limits19/30（18拒绝）来源/实际API；总141支持bank/250成功报价/30明确拒绝、24来源fault/4router重启完成，正在全实际选中计划原VM重放。由于本轮startup source fingerprint早于最后supervisor测试与注释，已核实其runtime不匹配当前freeze，即使amount/native通过也只能历史FAILED；inputs一致不补救source不一致。最终canonical verify在当前freeze独立运行，早期已失配的canonical拥有进程组已停止并记录 [取消原因](integration/artifacts/local/managed-v2-bpt-superseded-verification.json)，不让旧进程覆盖最终报告。新视角只读质量审查正在进行；最后同冻结BPT全流程仍需fresh run。
+T34.12实际worker与四场景进程阶段证据（2026-11-05，未最终验收）：实际 `evm_execution_smoke` 已12checks/7隔离模拟/2来源fault与显式reload/restart通过，真实worker binary/协议/执行结果覆盖明确，runtime与inputs均匹配当前 `managed-v2-bpt-freeze.json`，不以tiny生命周期单测代替；原公开VERIFIED/build继续关闭。strict BPT四场景已经settled14/40、scheduled83/158、controls25/22（12拒绝）、limits19/30（18拒绝）来源/实际API；总141支持bank/250成功报价/30明确拒绝、24来源fault/4router重启完成，正在全实际选中计划原VM重放。由于本轮startup source fingerprint早于最后supervisor测试与注释，已核实其runtime不匹配当前freeze，即使amount/native通过也只能历史FAILED；inputs一致不补救source不一致。最终canonical verify在当前freeze独立运行，早期已失配的canonical拥有进程组已停止并记录 取消原因（`integration/artifacts/local/managed-v2-bpt-superseded-verification.json`，已清理），不让旧进程覆盖最终报告。新视角只读质量审查正在进行；最后同冻结BPT全流程仍需fresh run。
 
 T34.12最终质量负例P2补强（2026-11-05，进行中）：新视角质量审查复现smoke原 `code!=200` 会将500内部错误错记业务拒绝。已补 `validate_rejected_case`：响应只能含error，零输入仅400/INVALID_REQUEST；非零原revert/零output仅404/NO_ROUTE或400/NO_EXECUTABLE_ALLOCATION；500/503/504/429/无关INVALID_REQUEST或quoteId均拒绝。正式回归先红后普通6项1.048秒、优化6项1.094秒通过，历史30实际负例审计确为20*NO_ROUTE/6*NO_EXECUTABLE/4*zero INVALID_REQUEST，无500实际伪阳性。最后BPT清单因新增该回归变为24项，已重新启动普通/优化同清单；该改动使当下进程输入绑定仍不可最终接受，待质量复核关闭后固定24项freeze再跑。原production/source fingerprint未因这个tool-only修复改变，canonical全检可继续；inputs绑定必须重新核验，不能绕过。
 
-T34.12最终24项与真实worker复验（2026-11-05，进行中）：最后同一24项helper普通174.623秒、优化296.916秒通过，来源/routing/spec及质量已报问题均关闭。固定24输入后BPT四场景已完成全部141source/250API/30拒绝/24故障/4重启，当前正在100实际选中原签名交易后大报告重校验及完整Pool差分，启动runtime/inputs与freeze相同。canonical全检已Go/Rustparser通过、router workspace测试和doc tests通过，contract-test/最终build仍运行。实际worker复验在最后router重启后模拟返回SIMULATION_TIMEOUT，诊断30秒预算内失败且未发布成功，报告已保留 [失败现场](integration/artifacts/local/managed-v2-bpt-worker-final-input24-timeout-history.json)；不以旧pass替代、不提高预算，待当前重计算结束后在同一binary/输入串行复验。最后目标保持T34.12与原全部设计功能，尚未验收。
+T34.12最终24项与真实worker复验（2026-11-05，进行中）：最后同一24项helper普通174.623秒、优化296.916秒通过，来源/routing/spec及质量已报问题均关闭。固定24输入后BPT四场景已完成全部141source/250API/30拒绝/24故障/4重启，当前正在100实际选中原签名交易后大报告重校验及完整Pool差分，启动runtime/inputs与freeze相同。canonical全检已Go/Rustparser通过、router workspace测试和doc tests通过，contract-test/最终build仍运行。实际worker复验在最后router重启后模拟返回SIMULATION_TIMEOUT，诊断30秒预算内失败且未发布成功，报告已保留 失败现场（`integration/artifacts/local/managed-v2-bpt-worker-final-input24-timeout-history.json`，已清理）；不以旧pass替代、不提高预算，待当前重计算结束后在同一binary/输入串行复验。最后目标保持T34.12与原全部设计功能，尚未验收。
 
-T34.12最终串行验证恢复：前次执行句柄已消失且ps确认无验证进程，磁盘仍为未完成的RUNNING，不视为活跃或成功。已重新核对当前source、五binary和13,013项输入与最后freeze逐项完全一致，将中断验证保全并明确标记INTERRUPTED。当前由持久脚本按verify→原reference/wire→同24项普通/优化helpers→实际worker→BPT四场景顺序运行，阶段命令/退出码与日志保存在 [串行验证](integration/artifacts/local/managed-v2-bpt-final-serial-run.json)，避免大额原VM和worker冷启动并发；每阶段前后仍比原freeze，不放宽预算或恢复旧失败报告。当前串行verification的Go/Rust parser完整check均已通过，router完整check进行中；之后还需原reference/wire、同24项helpers、实际worker和BPT四场景在本次freeze重新通过。T34.12继续IN_PROGRESS，原26完整WP仍0。
+T34.12最终串行验证恢复：前次执行句柄已消失且ps确认无验证进程，磁盘仍为未完成的RUNNING，不视为活跃或成功。已重新核对当前source、五binary和13,013项输入与最后freeze逐项完全一致，将中断验证保全并明确标记INTERRUPTED。当前由持久脚本按verify→原reference/wire→同24项普通/优化helpers→实际worker→BPT四场景顺序运行，阶段命令/退出码与日志保存在 串行验证（`integration/artifacts/local/managed-v2-bpt-final-serial-run.json`，已清理），避免大额原VM和worker冷启动并发；每阶段前后仍比原freeze，不放宽预算或恢复旧失败报告。当前串行verification的Go/Rust parser完整check均已通过，router完整check进行中；之后还需原reference/wire、同24项helpers、实际worker和BPT四场景在本次freeze重新通过。T34.12继续IN_PROGRESS，原26完整WP仍0。
 
 T34.12之后的R06执行次序已确定（均未开始，不改变设计基线）：先补原发布版已启用circuit breaker，再处理rate/mixed及剩余会计组合。breaker必须作为独立版本显式建模每token原slot12完整256-bit word、getter边界与当前weight依赖，原压缩/解压/缓存命中和cache外重算的pow方向、完整join/exit对所有币种价格检查逐项差分；当前BPT旧profile继续拒绝启用breaker。依次固化原controls小额成功/大额回退及schedule/双物理池序列→common/Go/两Rust状态与wire→固定H parser→精确math/完整postPool→实际API和来源fault/恢复/重启，并保留错误拒绝的整path原子性。下一项在本批最终冻结结果明确前只做方案核对，不混入运行中的源码闭包。
 
@@ -1431,9 +1437,9 @@ T34.12最后串行24项及实际worker通过：当前freeze完整canonical验证
 
 本轮续作核对：三个原bank副本均为7905624字节、SHA256 `1ee7ec5dd981994af6dd42eb75717cf83a5b209857883fa2923885ce7181fb66`；精确再生记录见 `integration/artifacts/local/managed-v2-aum-reference-check.log`。新增getter不改变27案例/292交易的历史经济投影。部分原bank因长时间/uint32边界时间推进，时间晚于当前本地日期；正常服务必须继续按未来头拒绝，不能为测试放开时间准入。服务验收需明确可服务样本和边界拒绝范围。
 
-本轮当前已实现单物理池范围历史最终验收通过（2026-11-04；后续T34.8/T34.9代码变动后不作为新范围通过证据，完整源码/报告已归档[历史闭包](integration/artifacts/local/accepted/2026-11-04-managed-v2-single-pool/MANIFEST.json)）：[同源验收报告](integration/artifacts/local/managed-v2-aum-acceptance.json)绑定三服务/common完整check、五个二进制、208份契约/8份fixture、当前全部原输入、独立SPEC与quality无遗留审查。原27case/292tx/2285对象、旧原稿完整两编译job的精确临时再生、81篡改普通/优化拒绝；独立39字段C++3023字节四副本/15自测；普通/优化各49辅助回归均通过。实际source→PG/Kafka→双router的15原来源状态、8正向报价、6暂停状态拒绝但保持ready、5Recovery有效零费率来源及退出恢复常规费、10来源故障撤销/新generation恢复、无关Solana报价及重启、VERIFIED/build拒绝，共18检查通过。选中4份API单跳计划由独立原Vault在新VM中重放前28真实签名交易，核对真实扣款/收款余额、完整getter/账户、原header/receipt。控制enable/disable只计真实原来源观察，不冒称已实现控制数学内核；独立执行仍是本地参考，不是可信链/生产执行器。
+本轮当前已实现单物理池范围历史最终验收通过（2026-11-04；后续T34.8/T34.9代码变动后不作为新范围通过证据，完整源码/报告已归档历史闭包（`integration/artifacts/local/accepted/2026-11-04-managed-v2-single-pool/MANIFEST.json`，已清理））：[同源验收报告](integration/artifacts/local/managed-v2-aum-acceptance.json)绑定三服务/common完整check、五个二进制、208份契约/8份fixture、当前全部原输入、独立SPEC与quality无遗留审查。原27case/292tx/2285对象、旧原稿完整两编译job的精确临时再生、81篡改普通/优化拒绝；独立39字段C++3023字节四副本/15自测；普通/优化各49辅助回归均通过。实际source→PG/Kafka→双router的15原来源状态、8正向报价、6暂停状态拒绝但保持ready、5Recovery有效零费率来源及退出恢复常规费、10来源故障撤销/新generation恢复、无关Solana报价及重启、VERIFIED/build拒绝，共18检查通过。选中4份API单跳计划由独立原Vault在新VM中重放前28真实签名交易，核对真实扣款/收款余额、完整getter/账户、原header/receipt。控制enable/disable只计真实原来源观察，不冒称已实现控制数学内核；独立执行仍是本地参考，不是可信链/生产执行器。
 
-T34.8/T34.9新范围最终同源验收通过（2026-11-04，Asia/Shanghai）：[最终报告](integration/artifacts/local/managed-v2-multi-acceptance.json)14阶段全部PASSED，绑定当前源码/五二进制/全部参考输入、独立SPEC与quality及真实进程原VM证据；106辅助回归普通/优化全部通过。四池10银行/14计划/4故障与共享两池7银行/16计划/4故障通过，两个actor各2物理池拆单及实际收款7874328412914279650444一致；逐来源parser必读RPC/代码身份覆盖、API edge token与实际步骤绑定亦校验。原51/214等更早计数以各自历史快照为准；新接受闭包已保全到[历史验收](integration/artifacts/local/accepted/2026-11-04-managed-v2-catalog-shared/MANIFEST.json)。
+T34.8/T34.9新范围最终同源验收通过（2026-11-04，Asia/Shanghai）：[最终报告](integration/artifacts/local/managed-v2-multi-acceptance.json)14阶段全部PASSED，绑定当前源码/五二进制/全部参考输入、独立SPEC与quality及真实进程原VM证据；106辅助回归普通/优化全部通过。四池10银行/14计划/4故障与共享两池7银行/16计划/4故障通过，两个actor各2物理池拆单及实际收款7874328412914279650444一致；逐来源parser必读RPC/代码身份覆盖、API edge token与实际步骤绑定亦校验。原51/214等更早计数以各自历史快照为准；新接受闭包已保全到历史验收（`integration/artifacts/local/accepted/2026-11-04-managed-v2-catalog-shared/MANIFEST.json`，已清理）。
 
 T34仍未全部完成，T34.8/T34.9仅按上述范围记LOCAL_SCOPE_VERIFIED。T34.11活动权重/费用已按上述标准underlying、2/3币及两个三币物理池有限范围记LOCAL_SCOPE_VERIFIED，BPT路由/启用breaker/混合会计与rates/通用collection传播、其他Managed版本、可信链/生产要求均保留，不因新局部验收减少原设计。T33及更早报告自后续源码/输入变更起为历史验收；原26工作包完整验收仍为0，总体目标仍为全部设计功能完成。
 
@@ -1445,13 +1451,13 @@ T34仍未全部完成，T34.8/T34.9仅按上述范围记LOCAL_SCOPE_VERIFIED。T
 
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
-|B1|固定原版本与完整执行来源：145bank/116尝试，金额来自真实原钱包/事件；constructor/runtime/immutable、raw9/10/11/13及原signed history资格|WP03,WP11,WP25|LOCAL_SCOPE_VERIFIED|[最终有限验收](integration/artifacts/local/managed-v2-bpt-local-acceptance.json)|
-|B2|独立BPT profile/common41/Go与两Rust、required/unknown/wire/clone，286 Pool原固定H差分及slot10 recovery有效费率、来源错误整批拒绝|WP02,WP04,WP05,WP11,WP25|LOCAL_SCOPE_VERIFIED|[最终有限验收](integration/artifacts/local/managed-v2-bpt-local-acceptance.json)|
-|B3|原单币整数join/exit、先AUM后转预铸BPT，供应/注册/全局钱包/别名/sourceH与derived隔离、完整后Pool|WP11,WP13,WP25|LOCAL_SCOPE_VERIFIED|[最终有限验收](integration/artifacts/local/managed-v2-bpt-local-acceptance.json)|
-|B4|唯一物理池逻辑BPT边，sender/recipient贯穿search/optimizer/HTTP；连续/拆单整数重算、known跨V2钱包修复与失败整path原子性|WP11,WP12,WP13,WP14|LOCAL_SCOPE_VERIFIED|[最终有限验收](integration/artifacts/local/managed-v2-bpt-local-acceptance.json)|
-|B5|source→PG/Kafka→双router/141bankCPP、250报价/30业务拒绝、24fault/4重启；97实际计划100原交易与逐步完整after；同freeze全检/24双模式helper/真实worker及两阶段独立审查|WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP14,WP16,WP25|LOCAL_SCOPE_VERIFIED|[最终有限验收](integration/artifacts/local/managed-v2-bpt-local-acceptance.json)|
+|B1|固定原版本与完整执行来源：145bank/116尝试，金额来自真实原钱包/事件；constructor/runtime/immutable、raw9/10/11/13及原signed history资格|WP03,WP11,WP25|LOCAL_SCOPE_VERIFIED|最终有限验收（`integration/artifacts/local/managed-v2-bpt-local-acceptance.json`，已清理）|
+|B2|独立BPT profile/common41/Go与两Rust、required/unknown/wire/clone，286 Pool原固定H差分及slot10 recovery有效费率、来源错误整批拒绝|WP02,WP04,WP05,WP11,WP25|LOCAL_SCOPE_VERIFIED|最终有限验收（`integration/artifacts/local/managed-v2-bpt-local-acceptance.json`，已清理）|
+|B3|原单币整数join/exit、先AUM后转预铸BPT，供应/注册/全局钱包/别名/sourceH与derived隔离、完整后Pool|WP11,WP13,WP25|LOCAL_SCOPE_VERIFIED|最终有限验收（`integration/artifacts/local/managed-v2-bpt-local-acceptance.json`，已清理）|
+|B4|唯一物理池逻辑BPT边，sender/recipient贯穿search/optimizer/HTTP；连续/拆单整数重算、known跨V2钱包修复与失败整path原子性|WP11,WP12,WP13,WP14|LOCAL_SCOPE_VERIFIED|最终有限验收（`integration/artifacts/local/managed-v2-bpt-local-acceptance.json`，已清理）|
+|B5|source→PG/Kafka→双router/141bankCPP、250报价/30业务拒绝、24fault/4重启；97实际计划100原交易与逐步完整after；同freeze全检/24双模式helper/真实worker及两阶段独立审查|WP03,WP04,WP05,WP09,WP11,WP12,WP13,WP14,WP16,WP25|LOCAL_SCOPE_VERIFIED|最终有限验收（`integration/artifacts/local/managed-v2-bpt-local-acceptance.json`，已清理）|
 
-最后闭合结果：串行五阶段命令全部exit0，canonical8完整命令/source_unchanged/five binary通过；原参考与C++wire byteexact、同24项普通215.075秒/优化198.819秒、真实worker12checks/7隔离模拟/2sourcefault/重载重启，随后BPT四场景全部通过。实际250输入逐项link承诺对应97原VM计划100交易（含一项两路四步），原after重验及每步双方完整Pool差分通过；最后独立核对source/binary/input/日志摘要/审查源均一致。原参考SHA256 `4cbf03d19a773ba374d8df87e4e3231798f042f576addeb5532300af0bb892f8`，四投影 `84307dc10b1a0232c324f9289502a161528e74098df250651832fb2d7d2fdbe4`；[串行原记录](integration/artifacts/local/managed-v2-bpt-final-serial-run.json)、[独立审查](integration/artifacts/local/managed-v2-bpt-review.json)、[红绿记录](integration/artifacts/local/managed-v2-bpt-red-green-evidence.json)。
+最后闭合结果：串行五阶段命令全部exit0，canonical8完整命令/source_unchanged/five binary通过；原参考与C++wire byteexact、同24项普通215.075秒/优化198.819秒、真实worker12checks/7隔离模拟/2sourcefault/重载重启，随后BPT四场景全部通过。实际250输入逐项link承诺对应97原VM计划100交易（含一项两路四步），原after重验及每步双方完整Pool差分通过；最后独立核对source/binary/input/日志摘要/审查源均一致。原参考SHA256 `4cbf03d19a773ba374d8df87e4e3231798f042f576addeb5532300af0bb892f8`，四投影 `84307dc10b1a0232c324f9289502a161528e74098df250651832fb2d7d2fdbe4`；串行原记录（`integration/artifacts/local/managed-v2-bpt-final-serial-run.json`，已清理）、独立审查（`integration/artifacts/local/managed-v2-bpt-review.json`，已清理）、红绿记录（`integration/artifacts/local/managed-v2-bpt-red-green-evidence.json`，已清理）。
 
 旧运行的source/input变更失败、中断及worker预算拒绝保持原失败/历史身份，没有改写为通过。当前仅上述有限GIVEN_IN版本范围LOCAL_SCOPE_VERIFIED；enabled breaker、rate/mixed、其他custody与自收付完整会计、一般2–50参数、ExactOut、真实链/完整证明/Gas/public原子执行及生产运维继续按原R01–R21完成。跨V2资金修复有单位/完整本地路径回归，不能外推跨协议原交易完整验收。生产VERIFIED/build保持关闭，原26完整WP验收仍0，整体目标继续。
 
@@ -1523,7 +1529,7 @@ CI分组两P2定向复审已关闭，实际race枚举15pkg/95test/8组完整唯�
 
 本轮接续核对（2026-11-06）：剩余R01–R21及CB1–CB5逐项保留；上次最终serial报告停留RUNNING，对应进程已不存在，已保全`managed-v2-breaker-final-serial-run-interrupted-20261106.json`，按中断而非通过处理。继续沿原R06/CB计划，在已登记freeze核对源码/五二进制/完整输入后重新串行canonical全检→原参考/wire→同24helpers普通/优化→实际worker→cached/dynamic/boundaries/shared统一服务与原选中计划重放；最终状态以本轮退出码、报告及完整Pool差分为准，不据开发阶段结果升级CB或原工作包。
 
-本轮方案对应检查：进度解析15项回归普通/优化双模式均通过；26个工作包/198条设计功能/56个协议条目及当前CB1–CB5五任务已逐项读取，breaker六条设计映射的源码路径和实际测试定义均存在，无失配。结构检查保存在[方案对应报告](integration/artifacts/local/managed-v2-breaker-progress-consistency.json)，只证明文档/源码/测试映射，不替代功能验收。本轮Go和Rust parser完整check均已通过（含随后独立contract-test）；dex-router全检中，统一流水线尚未结束。
+本轮方案对应检查：进度解析15项回归普通/优化双模式均通过；26个工作包/198条设计功能/56个协议条目及当前CB1–CB5五任务已逐项读取，breaker六条设计映射的源码路径和实际测试定义均存在，无失配。结构检查保存在方案对应报告（`integration/artifacts/local/managed-v2-breaker-progress-consistency.json`，已清理），只证明文档/源码/测试映射，不替代功能验收。本轮Go和Rust parser完整check均已通过（含随后独立contract-test）；dex-router全检中，统一流水线尚未结束。
 
 CB5本轮独立验收复核发现并补修：串行成功记录未绑定当前freeze/完整inputs与精确command；空SPEC/已审文件/同reviewer可能误过；audit失败或中断可能保留旧成功；失败报告计数可能显示verified。验收守卫反例已实际先红（含18个误接受失败），正式新增可复用final/acceptance入口、逐阶段日志及输出摘要/时间关联、完整独立审查清单及启动即撤销旧成功；9项验收/执行器测试普通和优化均通过。进度读取修复及其反例另行推进，最后须新输入freeze/双审/全门禁重新闭合；旧freeze与24helpers门槛不沿用，当前新增后breaker helpers为33项。当前核心canonical全检继续保留实际结果，随后旧串行输入检查应拒绝本次工具改动，不把旧freeze补写为新freeze通过。
 
@@ -1553,7 +1559,7 @@ CB5结构绑定补修完成：精确5任务/6设计ID/逐项WP与paths/tests规�
 
 最终限定验收完成（2026-11-06）：正式五阶段与最终audit均exit0，结果为`LOCAL_SCOPE_VERIFIED`。同source4f757e…、五二进制、13,045输入/结构摘要及35已审文件保持一致：300来源bank/600Pool、516成功API/30预期拒绝、24来源故障恢复/4重启；230实际API计划233原交易（包含实际两路四步容量拆单），每步双方完整Pool与原VM差分通过；7真实worker仿真、三服务/common全检、247契约/8fixture、fresh原参考/wire、44 breaker和17 progress普通/优化全部通过。CB1–CB5与六条设计功能及批次36一一更新为限定验收完成；协议整体解析/数学仍PARTIAL_LOCAL、执行NOT_IMPLEMENTED，原26完整WP验收仍0，生产/公开VERIFIED与build保持关闭。剩余R01–R21及rate/mixed/其他会计/ExactOut等要求继续保留，见[限定最终验收](integration/artifacts/local/managed-v2-breaker-local-acceptance.json)。
 
-文档回填后最终复验：17项progress普通/优化与20项门禁回归通过，结构摘要仍与freeze及acceptance一致；精确5任务/6设计映射、全部绑定路径/实际测试定义、26工作包/56协议条目、21剩余事项覆盖全部工作包均校验通过。[最终进度一致性报告](integration/artifacts/local/managed-v2-breaker-progress-consistency.json) passed，正式acceptance重新audit仍LOCAL_SCOPE_VERIFIED，git diff --check通过。回填中附加单项报告链接曾被既定evidence规则拦截，已仅修正文档为保留单项原绑定、批次统一引用最终报告，未改冻结工具或放宽校验。
+文档回填后最终复验：17项progress普通/优化与20项门禁回归通过，结构摘要仍与freeze及acceptance一致；精确5任务/6设计映射、全部绑定路径/实际测试定义、26工作包/56协议条目、21剩余事项覆盖全部工作包均校验通过。最终进度一致性报告（`integration/artifacts/local/managed-v2-breaker-progress-consistency.json`，已清理） passed，正式acceptance重新audit仍LOCAL_SCOPE_VERIFIED，git diff --check通过。回填中附加单项报告链接曾被既定evidence规则拦截，已仅修正文档为保留单项原绑定、批次统一引用最终报告，未改冻结工具或放宽校验。
 
 实现约束：slot12依次为lower16、upper16、reference weight64、stored BPT price96、cached lower32、cached upper32；百分比16位字段以左移48解压。初次set时cached ratio来自未压缩的输入bound，cache miss来自压缩后还原bound，因此不能用重新计算的ratio硬校验合法原cache值；同weight用原缓存，不同weight按原方向重新pow，0边界独立关闭。管理输入BPT price=actualSupply×weight/raw balance，原_set先downscale，getter再upscale，6/8 decimals不可按18位币照搬。BPT join/exit改变供应，对未兑换token也须检查双边；所有成功/回退仍保留唯一物理Pool和source H。剩余rate/mixed/其他custody/self-funding/ExactOut/真实链/公开执行与生产完整要求不因本批删除。
 
@@ -1579,7 +1585,7 @@ CB5结构绑定补修完成：精确5任务/6设计ID/逐项WP与paths/tests规�
 
 实施顺序：先补可信证据与可独立验证的采集/恢复基础；EVM采集、Solana流屏障和scope恢复模块按不重叠文件并行实现，主线程负责真实来源与集成。每项先失败测试、最小实现、定向回归，再正常服务和故障/重启、原始来源与源码冻结。外部来源缺少时继续可完成代码，明确记录缺口而不降低门槛。
 
-环境首查（2026-11-06）：Go/Rust prod示例均为loopback，未含Yellowstone配置。只读公共探针中Solana mainnet genesis返回预期值，两个EVM公共探针HTTP失败；只证明可达性，不证明信任/独立故障域。原始结果见[环境探针](integration/artifacts/local/r01-r04-environment-probe.json)。
+环境首查（2026-11-06）：Go/Rust prod示例均为loopback，未含Yellowstone配置。只读公共探针中Solana mainnet genesis返回预期值，两个EVM公共探针HTTP失败；只证明可达性，不证明信任/独立故障域。原始结果见环境探针（`integration/artifacts/local/r01-r04-environment-probe.json`，已清理）。
 
 2026-11-07最终本地验证归档：source SHA `2b61bad02eee97e5c414686e1b3e813d1c53fc1abc53fb34dce38efc3823463f`下Go与Rust解析器最终完整check均exit0，基础Go5包race/Rust115项0skip、Python2+4+17普通/优化通过；公共proto、247契约/8fixture、服务边界和单一真实部署源码重建复验通过。normal进程23检查passed，原始845 raw/6 DLQ留证；运行前后core source一致。全部R01–R04共11任务/11设计映射仍IN_PROGRESS，报告local_checks_passed=true但passed/all_requested_features_complete/production_ready均false，工程与真实输入缺口按上表保留，不宣称四项全部完成。
 
@@ -1641,11 +1647,11 @@ R01.2/R03.2真实输入兼容补修：实际三份public RPC快照走正常Parse
 
 当前core source `5f99ed92d5a4976483a9bc105135e2a60a7e9929bf8985d9a699659d7e797c36`下，Go完整check通过，含全包race和全部174个EVM用例的15个完整分片；普通进程EVM13项、Solana RPC/WAL10项通过，留存845 raw/6 DLQ。真实本机PG/Kafka的Go恢复4场景和Rust正常流owner发布/撤销/重启/Fence及4恢复场景也通过；间隔为1小时/1天/30天等效高度或slot差及空owner KV，明确不宣称真实停机30天。Rust与Router完整check亦均exit0；Rust累计848次测试执行0 ignored，Router累计985次执行、5个原有其他协议专属进程门禁未在unit中运行（统计含contract目标重复）。R01–R04基础回归exit0，167项Rust定向测试0 ignored；新增getter闭包17项普通/优化也通过，未以这些结果替代真实来源资格验收。
 
-R01源码重建取得新结果：任务隔离Linux虚拟机、官方Linux v1.52工具链与实际SBPF target下，CPMM源码`3d69122790e97cd6aff24e8ba95940793773f58c`重建的749848字节与部署payload逐字节一致，余43976字节全零；CLMM源码`6d7a0f82d2f293c553c69aaf943377367c6c4cc6`重建的1498416字节也逐字节一致，余201744字节全零。原失败候选保留。Orca源码`cc683ec92acb5e7606caa3d8e514d9383e9c7c11`通过Linux v1.44原版rustc1.79/Cargo1.79/SBPF构建，1495896字节与部署payload逐字节一致，余8989819字节全零。仅在隔离vendor视图中为三个未参与编译的time依赖manifest添加edition2024解析opt-in，原程序、锁、Rust代码及ELF未修改。三项共55/83/404个源码/manifest/lock输入均与公开原归档核对无差异，[三份精确重建与退出/填充校验](integration/artifacts/local/r01-three-native-sbf-exact-builds.json)已汇总，任务自建Linux VM已正常关机。[来源与构建绑定](integration/test/source/deployment-catalog/native-sbf-v5/cpmm-exact.json)及[CLMM实际字节比较](integration/artifacts/local/r01-solana-rebuild/clmm-native-vz-sbpf-comparison.json)各自限定所证明的版本，不自动赋予历史bank/生产资格。
+R01源码重建取得新结果：任务隔离Linux虚拟机、官方Linux v1.52工具链与实际SBPF target下，CPMM源码`3d69122790e97cd6aff24e8ba95940793773f58c`重建的749848字节与部署payload逐字节一致，余43976字节全零；CLMM源码`6d7a0f82d2f293c553c69aaf943377367c6c4cc6`重建的1498416字节也逐字节一致，余201744字节全零。原失败候选保留。Orca源码`cc683ec92acb5e7606caa3d8e514d9383e9c7c11`通过Linux v1.44原版rustc1.79/Cargo1.79/SBPF构建，1495896字节与部署payload逐字节一致，余8989819字节全零。仅在隔离vendor视图中为三个未参与编译的time依赖manifest添加edition2024解析opt-in，原程序、锁、Rust代码及ELF未修改。三项共55/83/404个源码/manifest/lock输入均与公开原归档核对无差异，三份精确重建与退出/填充校验（`integration/artifacts/local/r01-three-native-sbf-exact-builds.json`，已清理）已汇总，任务自建Linux VM已正常关机。[来源与构建绑定](integration/test/source/deployment-catalog/native-sbf-v5/cpmm-exact.json)及[CLMM实际字节比较](integration/artifacts/local/r01-solana-rebuild/clmm-native-vz-sbpf-comparison.json)各自限定所证明的版本，不自动赋予历史bank/生产资格。
 
-R01 getter依赖采集新增负tick取整、最多1027个storage key、同chain/genesis/H/hash/runtime/stateRoot和原VM/MPT闭包门禁；完整留存证明先实际重跑原VM闭包后可0网络复验，不强求重新访问旧H，17项普通/优化测试已通过并接基础入口。Polygon新H96900773补齐531个key并通过140个原VM getter；正常Parser→Router的gross与原程序实际Token收款增量均为9原始单位，[有限差分报告](integration/artifacts/local/r01-public-polygon-refresh-04-normal-retry1/bound-report.json)保留原头时间，未提升为费用后净输出或生产执行。旧H缺失和首次有界观察器到期均原样保留。Arbitrum新H522090937的18账户/1055 storage proof已核对；发现1129个派生cache记录被误算为450次公网请求的预算计数问题，现已分离真实尝试计数并补43项普通/优化回归；新H522108799的18账户/1058 storage proof与原VM全部1114个状态读均通过，1027个getter key/264个getter可0网络重验，正常收款增量224255逐整数一致，见[Arbitrum有限差分](integration/artifacts/local/r01-public-arbitrum-refresh-07-normal/bound-report.json)。旧H失败、1024 key限制和历史窗口拒绝均保留。
+R01 getter依赖采集新增负tick取整、最多1027个storage key、同chain/genesis/H/hash/runtime/stateRoot和原VM/MPT闭包门禁；完整留存证明先实际重跑原VM闭包后可0网络复验，不强求重新访问旧H，17项普通/优化测试已通过并接基础入口。Polygon新H96900773补齐531个key并通过140个原VM getter；正常Parser→Router的gross与原程序实际Token收款增量均为9原始单位，有限差分报告（`integration/artifacts/local/r01-public-polygon-refresh-04-normal-retry1/bound-report.json`，已清理）保留原头时间，未提升为费用后净输出或生产执行。旧H缺失和首次有界观察器到期均原样保留。Arbitrum新H522090937的18账户/1055 storage proof已核对；发现1129个派生cache记录被误算为450次公网请求的预算计数问题，现已分离真实尝试计数并补43项普通/优化回归；新H522108799的18账户/1058 storage proof与原VM全部1114个状态读均通过，1027个getter key/264个getter可0网络重验，正常收款增量224255逐整数一致，见Arbitrum有限差分（`integration/artifacts/local/r01-public-arbitrum-refresh-07-normal/bound-report.json`，已清理）。旧H失败、1024 key限制和历史窗口拒绝均保留。
 
-R01清单核验改用64KiB分块摘要，显式64MiB单原件/512MiB总量预算；37项普通/优化测试通过，原32MiB JSON解释上限不变，旧41MB verbose trace仍只作为不透明留存。原设计文件、旧冻结来源和所有11个任务范围保留；当前仍不能宣称R01–R04全部完成。[当前最终核对报告](integration/artifacts/local/r01-r04-current-final-audit.json)记录全部实际命令退出/日志摘要、同core源码、16项部署目录与源码重放、两个新固定H数量差分及剩余资格边界：`local_checks_passed=true`，`all_requested_features_complete=false`、`production_ready=false`。本轮13 EVM源码重放与3 SBF实际重建均通过；原2258份冻结EVM输入和原设计文件保持不变。
+R01清单核验改用64KiB分块摘要，显式64MiB单原件/512MiB总量预算；37项普通/优化测试通过，原32MiB JSON解释上限不变，旧41MB verbose trace仍只作为不透明留存。原设计文件、旧冻结来源和所有11个任务范围保留；当前仍不能宣称R01–R04全部完成。当前最终核对报告（`integration/artifacts/local/r01-r04-current-final-audit.json`，已清理）记录全部实际命令退出/日志摘要、同core源码、16项部署目录与源码重放、两个新固定H数量差分及剩余资格边界：`local_checks_passed=true`，`all_requested_features_complete=false`、`production_ready=false`。本轮13 EVM源码重放与3 SBF实际重建均通过；原2258份冻结EVM输入和原设计文件保持不变。
 
 <a id="r01-r04-gap-audit-2026-11-07"></a>
 
@@ -1673,12 +1679,12 @@ R01清单核验改用64KiB分块摘要，显式64MiB单原件/512MiB总量预算
 
 本轮定向审查发现并修复4项配置问题，均先补反例再修复并经复核关闭：首次生成缺genesis pin可能混用同ID网络；合法大响应预算生成非法raw配额；同链已有RPC被公共默认覆盖；慢速响应可突破单次socket timeout。当前8链均有完整pin和留存来源文件，state/default topic含完整genesis，已有同链topic/RPC保留，32MiB等无法满足raw上限的组合写前拒绝，身份读取由owned worker总期限约束。所有修复仍只覆盖各自功能范围，R01–R04没有因此标记完成。
 
-本轮最终验证：core source SHA `bfb314782b68c7062bdec555597404cd3144a1277dd098143a31692347ec31f8`；Go完整check exit0（全部包race、EVM96项完整8分片、fmt/vet/contract/build）。配置15、对应关系/缺口6、进度17项普通及优化均通过。8链配置从摘要固定的真实genesis记录离线生成，实际Go/Rust正常loader全部exit0；此项不证明运行期健康/协议准入。普通PG/Kafka进程EVM13项、Solana当前RPC/WAL10项通过，留存845 raw/7 DLQ，运行前后core SHA一致；它不包含真实Yellowstone。单Ethereum真实留存H26355865的101交易在线Adapter核对及篡改/位置/预算/取消反例通过，正常服务错误撤销/上一完整提交保留/DLQ通过。Rust源码本轮未改，未把配置加载或上一freeze的Rust全检冒充本轮全检。原设计文件SHA保持不变，所有11任务仍IN_PROGRESS。完整范围与逐项缺口见[本轮核对及验证报告](integration/artifacts/local/r01-r04-followup-audit-report.json)。
+本轮最终验证：core source SHA `bfb314782b68c7062bdec555597404cd3144a1277dd098143a31692347ec31f8`；Go完整check exit0（全部包race、EVM96项完整8分片、fmt/vet/contract/build）。配置15、对应关系/缺口6、进度17项普通及优化均通过。8链配置从摘要固定的真实genesis记录离线生成，实际Go/Rust正常loader全部exit0；此项不证明运行期健康/协议准入。普通PG/Kafka进程EVM13项、Solana当前RPC/WAL10项通过，留存845 raw/7 DLQ，运行前后core SHA一致；它不包含真实Yellowstone。单Ethereum真实留存H26355865的101交易在线Adapter核对及篡改/位置/预算/取消反例通过，正常服务错误撤销/上一完整提交保留/DLQ通过。Rust源码本轮未改，未把配置加载或上一freeze的Rust全检冒充本轮全检。原设计文件SHA保持不变，所有11任务仍IN_PROGRESS。完整范围与逐项缺口见本轮核对及验证报告（`integration/artifacts/local/r01-r04-followup-audit-report.json`，已清理）。
 
 当前核心功能**没有要求用户提供的私有信息**。开发自行核对的是公开来源的链身份、协议版本、最终性、历史/回放/账户完成能力、限流及故障域；能探测的自动探测，不能证明的如实保留缺口。吞吐/留存由默认预算和压测推进。只有以后用户明确选择其已有的受认证托管端点时，才涉及该可选端点的连接配置；这不是公有数据解析/报价的功能前提。当前动态目录、流发布和恢复事务等缺口仍由开发完成，不能转化为索要用户供应商账号、API Key或私有资料的理由。
 
 
-所有R01–R04任务继续IN_PROGRESS；[开发与验证报告](integration/artifacts/local/r01-r04-development-report.json)保持all_requested_features_complete=false。本地验收报告只陈述其有限范围，不构成四项全部交付。
+所有R01–R04任务继续IN_PROGRESS；开发与验证报告（`integration/artifacts/local/r01-r04-development-report.json`，已清理）保持all_requested_features_complete=false。本地验收报告只陈述其有限范围，不构成四项全部交付。
 
 
 2026-11-07进程验证进展：真实本机PG/Kafka+normal Go/Rust/双router测试中，EVM13项检查通过，raw显式配额下845条原记录与6条DLQ已保留至独立artifact目录并逐文件SHA留证，包含错误receipt撤销/恢复/重启。Source为受控RPC，header-trust仍非独立共识；Solana正常RPC→WAL进程恢复仍在运行。这些进程检查不当作真实Yellowstone供应方或全版本生产验收，目标仍未关闭。
@@ -1735,7 +1741,7 @@ R06后续版本核对：已只读取得官方balancer-deployments固定b55dc2b8a
 
 本轮按用户要求先补R06中的Curve Crypto，再补R05的Solana高级能力与R08的V4/Infinity扩展，逐个实际版本推进完整状态、解析、精确计算和进程验证。R01真实历史/部署基准、R02数据证据闭环及R03/R04真实流/恢复同步保留为验收依赖，R10独立仿真可并行。R09新增家族排在已有家族补齐之后；R20/R21保持低优先级。任何面向生产的放量都必须满足R16–R19，不能因其排列靠后跳过。
 
-历史核对修正（2026-10-29）：WP19已有只读Kafka分析Job和持久cursor/失败checkpoint；WP08已有Rust owner bootstrap与router无KV恢复，缺的是对象存储/公共manifest/长期恢复；Raydium CLMM动态费、扩展bitmap和非零seed已局部完成，不再列为整体未开发。历史核对证据见[代码与剩余范围审计](integration/artifacts/local/remaining-features-audit.json)；2026-11-01的NG增量、源码与构建绑定见[NG限定范围验收](integration/artifacts/local/curve-ng-acceptance.json)。
+历史核对修正（2026-10-29）：WP19已有只读Kafka分析Job和持久cursor/失败checkpoint；WP08已有Rust owner bootstrap与router无KV恢复，缺的是对象存储/公共manifest/长期恢复；Raydium CLMM动态费、扩展bitmap和非零seed已局部完成，不再列为整体未开发。历史核对证据见代码与剩余范围审计（`integration/artifacts/local/remaining-features-audit.json`，已清理）；2026-11-01的NG增量、源码与构建绑定见[NG限定范围验收](integration/artifacts/local/curve-ng-acceptance.json)。
 
 <a id="plan-2026-11-08-quote-completion"></a>
 
@@ -1757,7 +1763,7 @@ R06后续版本核对：已只读取得官方balancer-deployments固定b55dc2b8a
 参考和测试：`integration/tools/reference/velodrome-v2`保存原始GPL源码、提交/摘要和独立Solidity包装器；`make -C integration velodrome-v2-reference-refresh`重建原数学，`velodrome-v2-differential-test`回归Go解析与Router数学，`velodrome-v2-quote-test`运行受控RPC→normal Go→真实本机PG/Kafka→双Router。该服务用例的Solana保活为既有fixture-parser-rust，仅验证链隔离，不冒称新增主网流证据。
 
 
-本批LFJ增量：固定26份上游v2.1.0源码、OpenZeppelin IERC20接口及官方Solidity0.8.10摘要，检查原storageLayout后执行原LBPair.swap/实际本地Token转账。96案例包含48成功/48拒绝；独立field31模型已接入Go正常固定块getter/storage/code读取、共享契约与Router，保留动态费、协议费、全部有界bins/份额和Oracle样本。4份C++编码覆盖显式零bank观察，缺失与null不冒充零。19实际API报价已原样关联38次原运行时代码交换，真实收款增量和全部声明后状态匹配；10个篡改反例均拒绝。早期草稿和失败JS整数检查记录保留；最终比较器采用BigInt无损整数并验证10^18与10^18+1不可混同。该原计划重放是固定时钟、受控银行和标准Token资金注入的本地Q1证据，不代表真实Avalanche历史/共识或生产执行。第一批8链16目录的现有模型与限制见[计算覆盖核对](integration/artifacts/local/core-quote-functional-coverage.json)；原目录与来源资格不改写。
+本批LFJ增量：固定26份上游v2.1.0源码、OpenZeppelin IERC20接口及官方Solidity0.8.10摘要，检查原storageLayout后执行原LBPair.swap/实际本地Token转账。96案例包含48成功/48拒绝；独立field31模型已接入Go正常固定块getter/storage/code读取、共享契约与Router，保留动态费、协议费、全部有界bins/份额和Oracle样本。4份C++编码覆盖显式零bank观察，缺失与null不冒充零。19实际API报价已原样关联38次原运行时代码交换，真实收款增量和全部声明后状态匹配；10个篡改反例均拒绝。早期草稿和失败JS整数检查记录保留；最终比较器采用BigInt无损整数并验证10^18与10^18+1不可混同。该原计划重放是固定时钟、受控银行和标准Token资金注入的本地Q1证据，不代表真实Avalanche历史/共识或生产执行。第一批8链16目录的现有模型与限制见计算覆盖核对（`integration/artifacts/local/core-quote-functional-coverage.json`，已清理）；原目录与来源资格不改写。
 
 
 LFJ当前有限联验冻结：`da935d675c6c89bedb2e068a9cecca1f51ce6877a8ec27dc7dffe7e9eb53fe0f`。normal source共有952次固定锚点读取、25次receipt读取，公开quote始终INDICATIVE/net费用未知；不支持内部池地址自资助、未同步Token余额和未知Token行为。完整三服务回归将在本批余项完成后的最终源码上统一重跑，中途被后续LFJ实现替代的旧全检明确记为SUPERSEDED，不冒充当前最终通过。
@@ -1787,7 +1793,7 @@ R07继续推进：固定Slipstream Pool原运行时代码与保留真实Base imp
 阶段39结束时只开放注明上下文与标准Token的有限ExactIn计算；Pancake V3 LM、其他Solana/Curve/Balancer/Singleton高级组合、需要净收益时的链费用和第二批链等仍须继续开发。`all_requested_features_complete=false`与生产资格关闭保持，不能把阶段39接入或最终全检通过等同全部请求已完成。
 
 
-以下为2026-11-08隔离开发历史，已由阶段40主目录进度续接。阶段39期间的后续R07实现已在隔离副本`/tmp/xone-pancake-lm-next-20261108`推进：固定Pancake提交`986847948755cba528324d41be19480731c36c2a`，100个有效原银行中80完整成交/全后状态匹配、20部分成交拒绝，另4个有意不一致银行的原回滚与解析拒绝保留；4序列12步通过。新增独立field33、Go完整固定块解析及代码/immutable模板、两Rust域和严格wire/JSON、路由/共享状态及钱包Alias拒绝；100正常银行解析和9坏来源反例、4 C++wire通过。隔离目录13实际API/13原swap的真实收款和全部声明后状态一致，9个实际计划/原程序负控拒绝；当前格式和全检版源码`201705bc08c2fa6baffaec6c93c73a91c03057d25066cbc8369cf9e6533c6c6e`正在三服务全check，先前进程报告注明为格式前`d19767996acf9029d33195a0c3deb8034dd2d0351c6f595aea40e67905ca334d`，不冒充当前版复验。[隔离状态](integration/artifacts/local/core-pancake-lm-staging-state.json)。截至2026-11-08记录：主目录仍保持阶段39冻结的`374ce438e77db25642fe7bac24d52b597328fc16ebbf1556e6878786dcaff012`；Go和Rust解析器全check已观察退出码0，Rust864次执行且0忽略；Router全check和最终同源进程刷新继续运行。须待阶段39完整冻结后按基线逐文件合入LM增量，并以最新源码/二进制重验；此时不将主目录LM接入或整体请求标记完成。
+以下为2026-11-08隔离开发历史，已由阶段40主目录进度续接。阶段39期间的后续R07实现已在隔离副本`/tmp/xone-pancake-lm-next-20261108`推进：固定Pancake提交`986847948755cba528324d41be19480731c36c2a`，100个有效原银行中80完整成交/全后状态匹配、20部分成交拒绝，另4个有意不一致银行的原回滚与解析拒绝保留；4序列12步通过。新增独立field33、Go完整固定块解析及代码/immutable模板、两Rust域和严格wire/JSON、路由/共享状态及钱包Alias拒绝；100正常银行解析和9坏来源反例、4 C++wire通过。隔离目录13实际API/13原swap的真实收款和全部声明后状态一致，9个实际计划/原程序负控拒绝；当前格式和全检版源码`201705bc08c2fa6baffaec6c93c73a91c03057d25066cbc8369cf9e6533c6c6e`正在三服务全check，先前进程报告注明为格式前`d19767996acf9029d33195a0c3deb8034dd2d0351c6f595aea40e67905ca334d`，不冒充当前版复验。隔离状态（`integration/artifacts/local/core-pancake-lm-staging-state.json`，已清理）。截至2026-11-08记录：主目录仍保持阶段39冻结的`374ce438e77db25642fe7bac24d52b597328fc16ebbf1556e6878786dcaff012`；Go和Rust解析器全check已观察退出码0，Rust864次执行且0忽略；Router全check和最终同源进程刷新继续运行。须待阶段39完整冻结后按基线逐文件合入LM增量，并以最新源码/二进制重验；此时不将主目录LM接入或整体请求标记完成。
 
 
 <a id="plan-2026-11-09-pancake-lm"></a>
@@ -1804,12 +1810,12 @@ R07继续推进：固定Slipstream Pool原运行时代码与保留真实Base imp
 |S40.4|正常Go→实际本机PG/Kafka→双Router、实际API计划原运行时代码重放|WP03,WP04,WP05,WP11,WP12,WP13,WP18,WP25|LOCAL_SCOPE_VERIFIED|主目录最新二进制13实际API/13原swap收款与全部声明后状态一致，9负控、异常来源撤销/恢复与Router重启通过；[最终报告](integration/artifacts/local/core-lm-local-q1-20261109.json)|
 |S40.5|主目录三服务全check、公共契约、原参考/工具/二进制同源绑定与进度回填|WP02,WP03,WP04,WP05,WP11,WP12,WP13,WP18,WP25|LOCAL_SCOPE_VERIFIED|同源Go全check退出0；Router全check退出0/1048执行/5既有忽略；Rust677工作区+197契约分阶段通过/构建退出0，原退出2保留；267契约、60 CI与6辅助测试通过；[最终报告](integration/artifacts/local/core-lm-local-q1-20261109.json)|
 
-前置阶段39已收尾：[阶段39最终报告](integration/artifacts/local/core-stage39-final-20261109.json)验证三服务全check源码一致，复用前先核对五二进制及每个旧日志/报告摘要，再补跑Polygon与Arbitrum实际正常服务回归；5项进程范围全部通过。原错误输出目录被`OWNED_NORMAL_OUTPUT`拒绝，已修复为合法`r01-public-`前缀，5项辅助测试包含目录所有权、二进制改变与日志篡改拒绝；保留旧失败报告。
+前置阶段39已收尾：阶段39最终报告（`integration/artifacts/local/core-stage39-final-20261109.json`，已清理）验证三服务全check源码一致，复用前先核对五二进制及每个旧日志/报告摘要，再补跑Polygon与Arbitrum实际正常服务回归；5项进程范围全部通过。原错误输出目录被`OWNED_NORMAL_OUTPUT`拒绝，已修复为合法`r01-public-`前缀，5项辅助测试包含目录所有权、二进制改变与日志篡改拒绝；保留旧失败报告。
 
 本批仍限注明代码版本、标准ERC20及完整消费的ExactIn。原程序来源为受控原合约银行与合成固定时钟封套；真实BSC候选已观察到后续LM代际/惰性迁移，不能套用本版本。特殊Token、ExactOut、可信历史/独立来源、链费用后的最优净收益、第二批链及其他协议扩展仍按原剩余清单继续。`all_requested_features_complete=false`、`production_ready=false`和VERIFIED关闭保持。
 
 
-阶段40复核补修：发现新LM/Slipstream专用分派跳过原通用输出代币校验，手工构造错误`Edge.to`可被误认为成交。已用LM反例实际复现：旧代码返回`999000749`而未拒绝；保留[修复前失败日志](integration/artifacts/local/core-lm-output-direction-red-20261109.log)。现将所有双币内核的方向/输出校验前移到协议分派之前，新增两协议、双方向、同输入币/第三币输出的拒绝与状态不变反例。此前尚未完成的Rust全检和等待中的进程刷新已显式中断保留，不作为当前验收通过；按修复后源码重新检查和冻结。
+阶段40复核补修：发现新LM/Slipstream专用分派跳过原通用输出代币校验，手工构造错误`Edge.to`可被误认为成交。已用LM反例实际复现：旧代码返回`999000749`而未拒绝；保留修复前失败日志（`integration/artifacts/local/core-lm-output-direction-red-20261109.log`，已清理）。现将所有双币内核的方向/输出校验前移到协议分派之前，新增两协议、双方向、同输入币/第三币输出的拒绝与状态不变反例。此前尚未完成的Rust全检和等待中的进程刷新已显式中断保留，不作为当前验收通过；按修复后源码重新检查和冻结。
 
 
 构建缓存补修：修复版Rust解析器工作区677次执行全部通过后，独立contract目标命中了field33生成前的旧protobuf缓存而编译失败；源码与全工作区使用的wire均含field33，内容摘要未变。原因是隔离合入采用`copy2`保留了较旧mtime，Cargo窄目标将旧编译物误判为新鲜。合入工具已改为保留字节/权限但使用新mtime，并新增旧时间戳回归；本次仅刷新生成Rust文件mtime，补跑`make -C chain-parser-rust contract-test build`，不隐去原全check退出2或冒称原命令整体退出0。
@@ -1817,7 +1823,7 @@ R07继续推进：固定Slipstream Pool原运行时代码与保留真实Base imp
 
 阶段40最终结果：源码`31295d87bb32ae676223c3bb134c5c50a4bfa4b3fe9b153c817a0ac53b85752d`前后一致，五个服务二进制及LM计划投影器/回放脚本按摘要绑定。Go全`make check`退出0；Router全`make check`退出0，1048次执行通过、5个既有专用API/VM入口忽略（本批LM回放独立执行）；Rust解析器原`make check`在677次工作区执行通过后因旧mtime的窄目标wire缓存退出2，修复后`contract-test build`退出0、197次契约执行通过，原失败与分阶段凭证均保留，不记作原全命令退出0。
 
-[最终有限业务报告](integration/artifacts/local/core-lm-local-q1-20261109.json)与[六进程同源回归](integration/artifacts/local/core-lm-final-process-20261109.json)均通过。Slipstream、Velodrome、LFJ、Pancake LM以及Polygon/Arbitrum正常来源回归全部通过。新LM实际normal Go/本机PG与Kafka/双Router产生13条API计划，原Pool/LM/MasterChef执行13次swap的真实Token收款及完整声明后状态一致；9类模型/原程序篡改被拒绝，代码来源经当轮重新编译核验。双副本、固定块读取、坏来源撤销、恢复和重启均已覆盖。原80完整swap、20部分成交拒绝、4不一致银行拒绝、12序列步、4独立C++wire和两协议方向反例已通过。267公共契约副本/10基线fixture/164公开来源fixture保持一致；文档/CI及辅助普通/优化检查随后按最终报告再复验。
+[最终有限业务报告](integration/artifacts/local/core-lm-local-q1-20261109.json)与六进程同源回归（`integration/artifacts/local/core-lm-final-process-20261109.json`，已清理）均通过。Slipstream、Velodrome、LFJ、Pancake LM以及Polygon/Arbitrum正常来源回归全部通过。新LM实际normal Go/本机PG与Kafka/双Router产生13条API计划，原Pool/LM/MasterChef执行13次swap的真实Token收款及完整声明后状态一致；9类模型/原程序篡改被拒绝，代码来源经当轮重新编译核验。双副本、固定块读取、坏来源撤销、恢复和重启均已覆盖。原80完整swap、20部分成交拒绝、4不一致银行拒绝、12序列步、4独立C++wire和两协议方向反例已通过。267公共契约副本/10基线fixture/164公开来源fixture保持一致；文档/CI及辅助普通/优化检查随后按最终报告再复验。
 
 方向一致性：解析仍归各自owner服务，计算归dex-router；金额使用原子整数和原协议舍入；候选/拆单保持同快照、同物理池顺序状态及实际最终输入输出，不宣称有限候选/网格结果为全市场最优。当前只完成这批固定版本的有限业务功能；原R01–R21剩余清单、26工作包完整验收仍0、`all_requested_features_complete=false`与`production_ready=false`保持。下一步按原优先级补实际BSC后续LM代际/迁移、现有协议高级组合和净链费用模型，再推进未接入模型与第二批链。
 
@@ -1902,9 +1908,9 @@ R07继续推进：固定Slipstream Pool原运行时代码与保留真实Base imp
 
 当前固定原UniswapV2完整状态/标准Token的独立ExactOut报价业务层、正常服务实际计划原执行与同源有限验收已完成；原EXACT_IN入口继续明确拒绝EXACT_OUT。原程序基准使用已固定的93份发布artifact/源码/许可证与标准Token、本地签名交易，未修改AMM字节码。max输入是预算上限，不等于已转入执行器的资金；必须区分unusedInputBudget与实际退款。完整来源、费用后目标及其他协议能力仍待各自验收。
 
-阶段44首轮限定验收：源码`c2af56fe500d02e69cd9936931724c201daa24aae2208a4eb17326d0ac062ae8`在[首轮14项验证流水线](integration/artifacts/local/core-exact-out-initial-validation-20261109.json)、最终构建与正常进程回放之间前后一致。82次Rust测试执行（10次新ExactOut、72次既有数学/路径/拆单/计划/API回归）、Router完整workspace全部target Clippy -D warnings和格式检查退出0；原始来源反例4项普通/优化共8次通过；进度17项普通/优化共34次及三服务契约复制检查通过。原93份发布artifact/源码/许可证未修改；90原交易/162 Pair转换、2无效目标和39有序网格/38可行已核对。网格原最小输入`440077088837282106916853`与正常HTTP三路结果一致。
+阶段44首轮限定验收：源码`c2af56fe500d02e69cd9936931724c201daa24aae2208a4eb17326d0ac062ae8`在首轮14项验证流水线（`integration/artifacts/local/core-exact-out-initial-validation-20261109.json`，已清理）、最终构建与正常进程回放之间前后一致。82次Rust测试执行（10次新ExactOut、72次既有数学/路径/拆单/计划/API回归）、Router完整workspace全部target Clippy -D warnings和格式检查退出0；原始来源反例4项普通/优化共8次通过；进度17项普通/优化共34次及三服务契约复制检查通过。原93份发布artifact/源码/许可证未修改；90原交易/162 Pair转换、2无效目标和39有序网格/38可行已核对。网格原最小输入`440077088837282106916853`与正常HTTP三路结果一致。
 
-当前normal Go/实际本机PG与Kafka/双Router的45实际API计划直接执行为61笔原Router02交易，真实发送方扣款、接收方精确到账、每步及最终全部声明Pair后状态一致；5类模型/公开响应篡改与2类原程序重放篡改共7负控通过，故障撤销/恢复及重启保持另一链可用。[首轮限定验收](integration/artifacts/local/core-exact-out-initial-local-q1-20261109.json)保留不可覆盖进程凭证、API原输入/模型投影/原执行记录与摘要。原getter补采前正常接入失败、测试配置超界、数组比较顺序问题和无效负控值均已保留；早期被中断的预检不计作最终lint通过。
+当前normal Go/实际本机PG与Kafka/双Router的45实际API计划直接执行为61笔原Router02交易，真实发送方扣款、接收方精确到账、每步及最终全部声明Pair后状态一致；5类模型/公开响应篡改与2类原程序重放篡改共7负控通过，故障撤销/恢复及重启保持另一链可用。首轮限定验收（`integration/artifacts/local/core-exact-out-initial-local-q1-20261109.json`，已清理）保留不可覆盖进程凭证、API原输入/模型投影/原执行记录与摘要。原getter补采前正常接入失败、测试配置超界、数组比较顺序问题和无效负控值均已保留；早期被中断的预检不计作最终lint通过。
 
 执行边界：旧EXACT_IN请求/计划保持；独立`/v1/quote-exact-out`仅允许固定原`uniswap-v2-complete`，反向原floor+1后按选择的目标正向完整结算。单路径同Factory、简单Token/唯一物理池，多路共享池按顺序重算；返回所需输入、用户预算、滑点上限及unusedInputBudget，原Router只拉取实际金额，因此refund为0。只声明给定候选/有限有序网格内的原始输入最小值；链费用后的net输入为空，公共build/模拟仍按能力拒绝，多路原程序验证为独立本地交易。
 
@@ -2052,7 +2058,7 @@ Oracle扩容参考进一步使用正确的未初始化零记录，解析器同�
 
 阶段49正常服务当前结果：源码51fe374be5d29fb07454ac87f61a61814f7d2a6eee2dbbea8591b0bf3276a7ed的Rust正常RPC/独立PG-Kafka/双Router已产生71条冻结API计划，原SBF新银行执行71次，实际付款/收款和pair/arrays/Oracle/vault声明后状态一致；9类来源故障撤销及新代恢复、Router检查点与tail重启通过。完整原SBF逐笔前后银行已保存于进程报告指向的original_capture，未只保留摘要。该时点全目标编译/旧家族回归与统一凭证尚在运行；最终结果见后。
 
-阶段49最终结果：源码`51fe374be5d29fb07454ac87f61a61814f7d2a6eee2dbbea8591b0bf3276a7ed`在全部26项统一检查、最终构建与正常进程运行前后保持一致。[当前限定验收](integration/artifacts/local/core-meteora-mm-validation-20261110.json)状态为LOCAL_SCOPE_VERIFIED，绑定不可覆盖的[同源进程凭证](integration/artifacts/local/core-meteora-mm-process-51fe374be5d29fb07454ac87f61a61814f7d2a6eee2dbbea8591b0bf3276a7ed-4624f5a16e047699d3a44405801a58724ed5bcb9e6b1a9078f64580940f6dfb5.json)。108次Rust执行通过，包含解析器新增及既有54次、Meteora数学/路由/共享优化/API 9次及45次LFJ/V2/V3/候选/拆单/API回归。两个Rust工作区的workspace/all-targets编译检查退出0；Parser所改domain/config/ingest库及新测试、Router workspace库/二进制/示例及本批新测试的Clippy -D warnings退出0。未宣称对全部未修改测试目标重复全目标Clippy。Go domain测试/额外vet、公共代码再生核对、281契约数据复制/10 fixture/164公开来源文件，以及17项进度测试普通/优化34次通过。
+阶段49最终结果：源码`51fe374be5d29fb07454ac87f61a61814f7d2a6eee2dbbea8591b0bf3276a7ed`在全部26项统一检查、最终构建与正常进程运行前后保持一致。[当前限定验收](integration/artifacts/local/core-meteora-mm-validation-20261110.json)状态为LOCAL_SCOPE_VERIFIED，绑定不可覆盖的同源进程凭证（`integration/artifacts/local/core-meteora-mm-process-51fe374be5d29fb07454ac87f61a61814f7d2a6eee2dbbea8591b0bf3276a7ed-4624f5a16e047699d3a44405801a58724ed5bcb9e6b1a9078f64580940f6dfb5.json`，已清理）。108次Rust执行通过，包含解析器新增及既有54次、Meteora数学/路由/共享优化/API 9次及45次LFJ/V2/V3/候选/拆单/API回归。两个Rust工作区的workspace/all-targets编译检查退出0；Parser所改domain/config/ingest库及新测试、Router workspace库/二进制/示例及本批新测试的Clippy -D warnings退出0。未宣称对全部未修改测试目标重复全目标Clippy。Go domain测试/额外vet、公共代码再生核对、281契约数据复制/10 fixture/164公开来源文件，以及17项进度测试普通/优化34次通过。
 
 原参考主矩阵70个初始case（35完整/35拒绝）及20连续后续完整swap；补充25边界case（23完整/2拒绝），合计95初始case、78完整swap步骤与37拒绝。13组来源篡改在普通/优化模式拒绝通过，零费率/费用封顶/波动率封顶与0/1/119/120/121秒Oracle环形/增长/回绕边界均有原SBF依据。旧错误Oracle边界探测、缓存价格反例、扩容不一致输入与中断前统一凭证保留，没有当作最终通过结果复用。
 
@@ -2146,7 +2152,7 @@ Pump程序与费用程序来自公开finalized RPC的原ProgramData字节与单�
 - PumpSwap独立`pump-amm-classic-wsol` / `pump-amm/6a7ad34596d8-classic-wsol-1`，固定公开取得的原代码`6a7ad34596d83b4c435b32f458a56e718e9f82eb4ad38e4316616d15d24d8ff7`和既有Fee代码；复用字段36的程序/费用/完整账户载体，但profile、adapter、program/PDA、287-byte Pool/949-byte Global/12账户及19依赖闭包均单独严格验证。classic X/backedWSOL Y、canonical迁移PDA、v1 sell/buy_exact_quote_in ExactIn和buy ExactOut。27初始案例18成功，22成功步骤含连续账本；v2累积费桶、mayhem/cashback/holder/custom creator fee/非WSOL和池间联合费用账本仍拒绝。
 - 新`pump-bonding-sol-migration`版本区别迁移专用token库存与真实可交易储备；完整状态验证包括虚拟/真实偏移、complete标志、迁移后虚拟储备清零及零vault。旧profile仍保持原无额外库存银行准入。真实原migrate已执行Pump→PumpSwap→Token/Token2022/System/ATA CPI，原生费用、boost、LP创建均由原程序处理；再次执行为无状态变化的成功。3类后续swap直接使用该次创建的真实Pool及两vault，逐字节交接检查通过。canonical目标解析只返回身份，报价必须等待源银行实际具备目标全部依赖；没有自动发现/EnsurePoolScope或公开迁移交易构建的验收声明，没有SOL↔WSOL隐式边。
 
-原始复验与篡改检查：[参考复验](integration/artifacts/local/solana-expanded-reference-reexecution-20261111.log)、[参考控制](integration/artifacts/local/solana-expanded-reference-controls-20261111.log)。统一入口`validate_solana_expanded.py`已完成两Rust工作区全目标、Clippy、旧策略回归、5类正常RPC-PG/Kafka/双Router及实际计划回放；当前结果见本节最终凭证。all_requested_features_complete=false、production_ready=false，原26工作包完整设计验收仍0。
+原始复验与篡改检查：参考复验（`integration/artifacts/local/solana-expanded-reference-reexecution-20261111.log`，已清理）、参考控制（`integration/artifacts/local/solana-expanded-reference-controls-20261111.log`，已清理）。统一入口`validate_solana_expanded.py`已完成两Rust工作区全目标、Clippy、旧策略回归、5类正常RPC-PG/Kafka/双Router及实际计划回放；当前结果见本节最终凭证。all_requested_features_complete=false、production_ready=false，原26工作包完整设计验收仍0。
 
 阶段52最终校验发现并修正两个迁移边界：已迁移曲线的四项储备全部清零，不能继续强制迁移前偏移；原migrate还将boost对应余额写入AMM的virtual_quote_reserves，定价/费用档使用real+virtual，扣款仍受真实vault约束。新增严格boost策略版本及原程序InsufficientRealQuoteReserves反例、canonical版本解析正虚拟余额、混合Curve SOL钱包/AMM WSOL ATA不误判共享余额的回归。完成曲线保留但不阻断目标AMM，普通多活跃Pump共享资金账户仍排除。此前失败的同源验证保留，修正后重新验证。
 
@@ -2623,7 +2629,7 @@ Chrome验证五模型双向ExactOut并保持执行按钮禁用；编辑普通账
 
 最终同源码复验通过：`make -C integration weighted-exact-out-current-check` 执行17项检查全部成功，33次Rust测试执行（含旧Weighted输入、V2/V3目标报价与路径回归）、12项真实Chrome双向金额/门禁检查、11项前端单测、普通与-OO各17项进度文档检查通过。Go固定块Weighted/多资产、配置、状态和wire回归覆盖4个包；315份合同/12工具副本/164公共来源、公共协议生成物及严格Clippy（核心、计划和前端测试服务）通过。304个原回调场景为222成功/82拒绝，12条连续序列48步、2组双池四份额网格和2组同池三次顺序分配均与原回调一致。HTTP对应304目标场景、222个成功场景的预算减一拒绝、数学计划/协议视图及旧视图撤销通过；证据保留旧快照并标记snapshot_valid=false，旧构建返回SNAPSHOT_REORGED。
 
-报告位于[最终验证记录](integration/artifacts/local/weighted-exact-out-check/report.json)，代码与配置指纹 `43a2ed5278d7ca80ceaa4f4a47b89e3a02a70784d9b7225e62b6d83160d9e0ec`，参考语料SHA256 `061b67d3c2b3e43e875ca94ce72cda8b83d0b8ae46ba2838aa50774dfd573af9`。源码指纹覆盖未忽略的代码/配置/构建及校验工具，Markdown进度回填单独复核。原参考源码逐文件校验，294份实际加载的Node依赖摘要随生成记录保留；生成语料、日志、测试二进制和截图位于忽略目录。已查看多币非首币对页面，目标、实际消耗、单物理池和能力版本/11显示正确；下载/签名/广播门禁保持。最终测试进程退出，未提交公网交易。本批不升级完整链/DEX、独立生产执行或26工作包完整验收状态。
+报告位于最终验证记录（`integration/artifacts/local/weighted-exact-out-check/report.json`，已清理），代码与配置指纹 `43a2ed5278d7ca80ceaa4f4a47b89e3a02a70784d9b7225e62b6d83160d9e0ec`，参考语料SHA256 `061b67d3c2b3e43e875ca94ce72cda8b83d0b8ae46ba2838aa50774dfd573af9`。源码指纹覆盖未忽略的代码/配置/构建及校验工具，Markdown进度回填单独复核。原参考源码逐文件校验，294份实际加载的Node依赖摘要随生成记录保留；生成语料、日志、测试二进制和截图位于忽略目录。已查看多币非首币对页面，目标、实际消耗、单物理池和能力版本/11显示正确；下载/签名/广播门禁保持。最终测试进程退出，未提交公网交易。本批不升级完整链/DEX、独立生产执行或26工作包完整验收状态。
 
 
 <a id="plan-2026-11-15-stable-exact-out"></a>
@@ -2646,7 +2652,7 @@ Chrome验证五模型双向ExactOut并保持执行按钮禁用；编辑普通账
 
 阶段75最终同源码有限验收：`make -C integration stable-exact-out-current-check` 的20项检查全部通过，48次Rust测试执行、4项真实Chrome双向金额/门禁、11项前端单测、8类篡改反例普通/-OO各通过，普通/-OO各17项进度文档检查通过。原数学参考720场景（396成功/324拒绝），45条序列180步、3组双池四份额网格、3组同池三次有序目标完整对照；同一冻结源码下回归旧Weighted/V2/V3数学、路由、分配与API。HTTP保存720份真实请求/响应和396个成功场景的预算减一控制，核对计划/协议视图与撤销后的snapshot_valid=false及SNAPSHOT_REORGED。4包Go固定块/配置/状态/wire、316份合同/12工具副本/164公共来源、公共协议及核心/计划/前端测试服务严格Clippy均通过。
 
-代码/配置/校验工具指纹 `a665aa4a392dcc887d34f549f5a2af1be71a9732b6dfdc1d06d20b1909564485`，原参考语料SHA256 `9dd3f4a208488d9f233d64619b3b6785da300d89cce872e1b4f430ef4bed74f6`；748份日志/捕获/截图/语料/测试服务二进制摘要保留在[最终验证记录](integration/artifacts/local/stable-exact-out-check/report.json)。Markdown进度回填不计入代码指纹，回填后单独执行文档校验。294份已加载Node依赖、源文件和语料副本均核对。原始StablePool._onSwapGivenOut与BaseGeneralPool._swapGivenOut的同revision调用顺序另作源码核对，与本包装一致，仍不宣称已执行完整StablePool/Vault/ERC20交易。已查看前端实际输出/输入/单池和禁用执行能力，测试进程退出，未向公网发交易。
+代码/配置/校验工具指纹 `a665aa4a392dcc887d34f549f5a2af1be71a9732b6dfdc1d06d20b1909564485`，原参考语料SHA256 `9dd3f4a208488d9f233d64619b3b6785da300d89cce872e1b4f430ef4bed74f6`；748份日志/捕获/截图/语料/测试服务二进制摘要保留在最终验证记录（`integration/artifacts/local/stable-exact-out-check/report.json`，已清理）。Markdown进度回填不计入代码指纹，回填后单独执行文档校验。294份已加载Node依赖、源文件和语料副本均核对。原始StablePool._onSwapGivenOut与BaseGeneralPool._swapGivenOut的同revision调用顺序另作源码核对，与本包装一致，仍不宣称已执行完整StablePool/Vault/ERC20交易。已查看前端实际输出/输入/单池和禁用执行能力，测试进程退出，未向公网发交易。
 
 后续主线继续：零hook Uniswap V4/Pancake Infinity CL 原始正数amountSpecified探针已在644场景中取得424完整输出及4条连续序列12步的结果，但尚未正式接入路由/API，不据此开放能力。原会话六阶段目标保持active；其他数学/链组合和51个执行模板继续未完成。all_requested_features_complete=false、production_ready=false。
 
@@ -2671,7 +2677,7 @@ Chrome验证五模型双向ExactOut并保持执行按钮禁用；编辑普通账
 
 阶段76最终同源码有限验收：统一入口 `make -C integration singleton-exact-out-current-check` 的20项检查全部通过，51次Rust测试执行与8项真实Chrome检查通过，含旧Stable2/Weighted/V2/V3数学、路由、分配/API回归。644个正数原核心场景为424完整输出、220拒绝（172部分目标/整数范围、48原始回滚）；4条原调用内混合方向序列12步、4条同池同方向序列12步、4组容量网格与独立seed重放一致。每组网格5份额中3项可行，浅池整单或过大份额原始部分成交保留为不可行控制。HTTP保存644个实际场景与424次预算减一控制，均为预期200/404 NO_ROUTE/400 EXACT_OUT_MAX_INPUT，旧视图证据失效及构建SNAPSHOT_REORGED通过。
 
-10类篡改反例普通/-OO、进度文档各17项普通/-OO、11前端单测、Go固定块/配置/状态/wire、317合同/12工具副本/164公共来源及公共生成物和严格Clippy通过。代码/配置/验证工具指纹 `9714c5dca9466d94b09eb5155e90dd4745f263e7beff51ca7e496148ed210e41`，原核心语料SHA256 `60fae9ca232b4a2a9af76d9f07b9e8f66f36a8ff8d352cb2d6690ce3204f1835`；673份冻结日志、捕获、语料、截图与测试服务二进制摘要及302份已加载Node依赖核对在[最终验证记录](integration/artifacts/local/singleton-exact-out-check/report.json)。源码指纹不包含Markdown，进度回填后单独复验文档。已查看前端manager/poolId、原始输入输出及未实现执行门禁。
+10类篡改反例普通/-OO、进度文档各17项普通/-OO、11前端单测、Go固定块/配置/状态/wire、317合同/12工具副本/164公共来源及公共生成物和严格Clippy通过。代码/配置/验证工具指纹 `9714c5dca9466d94b09eb5155e90dd4745f263e7beff51ca7e496148ed210e41`，原核心语料SHA256 `60fae9ca232b4a2a9af76d9f07b9e8f66f36a8ff8d352cb2d6690ce3204f1835`；673份冻结日志、捕获、语料、截图与测试服务二进制摘要及302份已加载Node依赖核对在最终验证记录（`integration/artifacts/local/singleton-exact-out-check/report.json`，已清理）。源码指纹不包含Markdown，进度回填后单独复验文档。已查看前端manager/poolId、原始输入输出及未实现执行门禁。
 
 模型只更新定价core，原始protocolAmount和swapFee保留在原参考；不将原Pool/CLPool的seed执行等同Manager unlock/资金结算、ERC20转账、完整LP费账、native/hooks/advanced或公开unsigned模板。以上仍按原设计继续开发；51个执行模板与其他协议/链/费用组合尚未完成。测试进程退出，无公网交易。all_requested_features_complete=false、production_ready=false；原会话六阶段目标保持active。
 
@@ -2698,7 +2704,7 @@ Chrome验证五模型双向ExactOut并保持执行按钮禁用；编辑普通账
 
 新增共享manager币种账本同步回归：ExactIn与ExactOut复用同一传播函数，同manager相关app现金/protocol费用同步，兄弟池自身bins/active不改写，下一笔仍通过完整依赖验证；旧共享树/币种记账及Singleton/Stable2/Weighted/V2/V3数学、路由/分配/API一起回归。Go固定块解析/配置/状态/wire、319合同/12工具副本/164公共来源、公共生成物及核心/计划/前端测试服务严格Clippy通过。初期测试迁移字段名、未绑定模型bank和零预算控制的失败已修正，保留日志但不计为通过；生产bank/币种依赖校验未放宽。
 
-源码指纹 `f3c22ffaccaf64bde18a61a8d77bcc1ffc40a8e824e7ffed31e3e03392381c81`，语料SHA256 `c24f144b0ae4934b6dc2cffb4543038708fa607366564a38a6dbef8c8b533d2d`；292份冻结产物摘要、302份已加载运行时模块、所有锁定原源码/语料副本、实际HTTP流程已核对，详见[最终验证记录](integration/artifacts/local/infinity-bin-exact-out-check/report.json)。已查看Chrome双向金额及manager/poolId/禁用执行门禁。Markdown回填不计入代码指纹，回填后单独验证。原BinPool seed/burn/swap不升级完整Manager/Vault/ERC20资金结算，未知hook/动态/native与执行模板仍未实现。测试进程退出，无公网交易。原会话六阶段目标active；51执行模板和其余数学/链/净费用组合继续未完成，all_requested_features_complete=false、production_ready=false。
+源码指纹 `f3c22ffaccaf64bde18a61a8d77bcc1ffc40a8e824e7ffed31e3e03392381c81`，语料SHA256 `c24f144b0ae4934b6dc2cffb4543038708fa607366564a38a6dbef8c8b533d2d`；292份冻结产物摘要、302份已加载运行时模块、所有锁定原源码/语料副本、实际HTTP流程已核对，详见最终验证记录（`integration/artifacts/local/infinity-bin-exact-out-check/report.json`，已清理）。已查看Chrome双向金额及manager/poolId/禁用执行门禁。Markdown回填不计入代码指纹，回填后单独验证。原BinPool seed/burn/swap不升级完整Manager/Vault/ERC20资金结算，未知hook/动态/native与执行模板仍未实现。测试进程退出，无公网交易。原会话六阶段目标active；51执行模板和其余数学/链/净费用组合继续未完成，all_requested_features_complete=false、production_ready=false。
 
 
 <a id="plan-2026-11-15-managed-snapshot-exact-out"></a>
@@ -2727,7 +2733,7 @@ Vault facade、合成模型地址/现金和显式unlimited contract size仅为�
 
 同一最终源码下保存180份实际HTTP请求/响应、108成功场景的预算减一、数学计划/协议视图绑定与旧视图撤销；失败严格为404 NO_ROUTE，预算不足为400 EXACT_OUT_MAX_INPUT，零预算按请求约束拒绝。10类篡改反例普通/-OO、普通/-OO各17项进度文档、4包Go固定块/配置/状态/wire、319合同/12工具副本/164公共来源、公共协议和核心/计划/前端测试服务严格Clippy通过。Chrome使用原参考完整录制的0↔2非首币对，报价正确且unsigned/签名/广播门禁保留。
 
-代码/配置/验证工具指纹 `6e05bacf315c4c42a87af31192836fb5556f38882ac5234b3778df1fcb2f3dba`，语料SHA256 `7c2cd94ba41e715bdd539255c7f5c333db80b1705918a213e3b7999d3828a002`；207份日志/捕获/语料/截图/测试服务二进制和294份已加载Node模块摘要核对一致，详见[最终验证记录](integration/artifacts/local/managed-snapshot-exact-out-check/report.json)。验收每次使用独立run目录并在中断时清理所属进程组；旧重叠日志因混写已作废，当前日志无NUL混写且HTTP捕获数量为强制检查。快照时间使用实际读取区块时间，不能用setTime请求值替代。Markdown进度回填不计入代码指纹，回填后单独复验。
+代码/配置/验证工具指纹 `6e05bacf315c4c42a87af31192836fb5556f38882ac5234b3778df1fcb2f3dba`，语料SHA256 `7c2cd94ba41e715bdd539255c7f5c333db80b1705918a213e3b7999d3828a002`；207份日志/捕获/语料/截图/测试服务二进制和294份已加载Node模块摘要核对一致，详见最终验证记录（`integration/artifacts/local/managed-snapshot-exact-out-check/report.json`，已清理）。验收每次使用独立run目录并在中断时清理所属进程组；旧重叠日志因混写已作废，当前日志无NUL混写且HTTP捕获数量为强制检查。快照时间使用实际读取区块时间，不能用setTime请求值替代。Markdown进度回填不计入代码指纹，回填后单独复验。
 
 此参考仅为原回调+测试Vault facade，显式unlimited code size与合成模型身份不升级生产部署、完整Vault/ERC20、非零BPT费用、AUM/其他Managed版本或执行模板。51个执行模板及其余数学/链/净费用范围继续未完成；原会话六阶段目标active，all_requested_features_complete=false、production_ready=false。测试服务退出，无公网交易。
 
@@ -2754,7 +2760,7 @@ Vault facade、合成模型地址/现金和显式unlimited contract size仅为�
 
 HTTP保留288份真实请求/响应及216预算减一控制，成功目标/计划token流/协议视图与旧view撤销一致。额外36次BPT买卖HTTP控制为404 NO_ROUTE，图无BPT边，直接数学/注入路径/含BPT计划全部拒绝；Chrome普通币双向金额、BPT不在可选币种和执行门禁通过。10类篡改反例普通/-OO、普通/-OO各17项文档、4包Go固定块/配置/状态/wire、320合同/12工具副本/164公共来源及协议生成物、核心/计划/前端测试服务严格Clippy通过；旧Composable ExactIn、Managed/Weighted及V2/V3路由/API回归通过。
 
-代码/配置/验证工具指纹 `0e7fc88d29920ca8972110f5dcab21351772fffab60be7fde25cf9b95a6672a1`，语料SHA256 `95bc1f5103a8921de4fc64714b422337f2730627f0ab5283fcfe3434e527a5f7`，315份冻结日志/捕获/语料/截图/测试服务二进制和294份已加载Node模块摘要核对，详见[最终验证记录](integration/artifacts/local/composable-exact-out-check/report.json)。每次独立run目录、HTTP捕获数量/状态强制检查，Markdown回填后单独复验。已查看最终Chrome的BPT排除、普通币路线/金额与能力版本/16，测试服务退出，无公网交易。
+代码/配置/验证工具指纹 `0e7fc88d29920ca8972110f5dcab21351772fffab60be7fde25cf9b95a6672a1`，语料SHA256 `95bc1f5103a8921de4fc64714b422337f2730627f0ab5283fcfe3434e527a5f7`，315份冻结日志/捕获/语料/截图/测试服务二进制和294份已加载Node模块摘要核对，详见最终验证记录（`integration/artifacts/local/composable-exact-out-check/report.json`，已清理）。每次独立run目录、HTTP捕获数量/状态强制检查，Markdown回填后单独复验。已查看最终Chrome的BPT排除、普通币路线/金额与能力版本/16，测试服务退出，无公网交易。
 
 目标输出只开放no-rates普通币模型；BPT供应/铸造/待结费用/缓存/rate与完整ComposableStablePool/Vault/ERC20资金执行仍需独立实现，执行准备/unsigned/钱包仍false。原会话六阶段目标继续active，51个执行模板和其余数学/链/净费用范围未完成，all_requested_features_complete=false、production_ready=false。后续执行链路已有Raydium经典SPL的WSOL补足/临时退款/解包原SBF探针，正式账户准备、独立模拟和钱包/回执验收继续推进。
 
@@ -2776,7 +2782,7 @@ HTTP保留288份真实请求/响应及216预算减一控制，成功目标/计�
 
 独立原参考按实际下载wire执行，逐项校验签名槽/权限/指令角色/资金顺序、捕获hash、Pool完整字节/原Oracle/原Vault、用户扣付/到账与原SBF后账户摘要。最大输入减一或最小输出加一在原程序失败，全账户创建/包装/兑换回滚，只扣实际网络费。钱包提交仍需要用户签名及独立确认，默认生产配置关闭；测试仅loopback原SBF，没有公网交易。
 
-最终统一验收：21项检查、26次Rust测试执行、155项真实Chrome（40项新增Raydium资金场景），10份实际服务准备/10份重启回执及20次原始交易验证通过。14项证据篡改控制分别在普通和`-OO`模式通过；严格Clippy、公共协议、契约副本、旧Pump资金与捕获/回执回归通过。源码指纹`d0c8975b03aa392bd14afb4ca96fc5a6b275d4af71ee5f06577e506553e6de1f`，398份产物摘要绑定独立目录`integration/artifacts/local/raydium-funding-check/runs/ee0783ded2f441b58ae9385c4901f30d`；[最终报告](integration/artifacts/local/raydium-funding-check/report.json)。浏览器场景元数据移除完整原账户/程序和after字节，服务持有的同次捕获与原生证据保持完整。
+最终统一验收：21项检查、26次Rust测试执行、155项真实Chrome（40项新增Raydium资金场景），10份实际服务准备/10份重启回执及20次原始交易验证通过。14项证据篡改控制分别在普通和`-OO`模式通过；严格Clippy、公共协议、契约副本、旧Pump资金与捕获/回执回归通过。源码指纹`d0c8975b03aa392bd14afb4ca96fc5a6b275d4af71ee5f06577e506553e6de1f`，398份产物摘要绑定独立目录`integration/artifacts/local/raydium-funding-check/runs/ee0783ded2f441b58ae9385c4901f30d`；最终报告（`integration/artifacts/local/raydium-funding-check/report.json`，已清理）。浏览器场景元数据移除完整原账户/程序和after字节，服务持有的同次捕获与原生证据保持完整。
 
 实际ExactOut能力目录仍38/61、执行准备10/61；Raydium在原有准备能力内增加account_creation/native_funding，原生SOL直接交易与Token2022/其他Raydium版本不借此开放。51个执行模板与其他数学/链/净费用组合继续；原会话六阶段目标active，all_requested_features_complete=false、production_ready=false。
 
@@ -2794,24 +2800,24 @@ HTTP保留288份真实请求/响应及216预算减一控制，成功目标/计�
 |F81.4|钱包/回执与前端|WP16,WP25|LOCAL_SCOPE_VERIFIED|32实际单次发送/真实费用租金/重启回执和6发送失败不重发通过；20新场景81项真实Chrome，连同旧流程共236项Chrome。独立模拟后只一次账户读取，发送前另一次实时预检，刷新回执不再取账户或重发。原数学专用银行不能借用他池账户。|
 |F81.5|严格回归与进度|WP25|LOCAL_SCOPE_VERIFIED|25统一检查/88次Rust测试执行通过，含原数学/路由/Parser、旧Pump/Raydium资金、账户捕获/回执、严格API与核心Clippy、构建和前端单元；16证据控制普通/-OO及17文档控制普通/-OO通过，冻结源/银行/运行时和全部产物摘要。|
 
-最终统一验收：25检查、88次Rust执行、236项真实Chrome（81新增Orca）通过，32份实际准备/32份重启回执及64次原始交易验证完成；16项证据篡改控制普通/-OO通过。源码指纹`355880d339d0785cd80d5348800b85551957e48e635fa481ac6ef702b25e1137`，863份产物摘要绑定独立目录`integration/artifacts/local/orca-execution-check/runs/1e2bc953f8c146cb9b47525971e565ce`；[最终报告](integration/artifacts/local/orca-execution-check/report.json)。原始程序、运行时和银行输入摘要全部复核，浏览器最终截图已检查。
+最终统一验收：25检查、88次Rust执行、236项真实Chrome（81新增Orca）通过，32份实际准备/32份重启回执及64次原始交易验证完成；16项证据篡改控制普通/-OO通过。源码指纹`355880d339d0785cd80d5348800b85551957e48e635fa481ac6ef702b25e1137`，863份产物摘要绑定独立目录`integration/artifacts/local/orca-execution-check/runs/1e2bc953f8c146cb9b47525971e565ce`；最终报告（`integration/artifacts/local/orca-execution-check/report.json`，已清理）。原始程序、运行时和银行输入摘要全部复核，浏览器最终截图已检查。
 
-[原始指令探针](integration/artifacts/local/orca-execution-probe.json)仅证明其注明的本地原程序范围，不能代替完整API/钱包/前端验收。adaptive动态费/奖励组合、Token2022与其他程序版本按独立适配范围处理，未知扩展继续明确拒绝。原会话整体目标保持active，all_requested_features_complete=false、production_ready=false。
-
-
-后续执行范围的独立探针：三个既有Orca自适应模型的实际原SBF双向ExactIn/Out共12场景通过，逐字节核对Pool、初始化Oracle、Vault与所有数组；[规范化slot/ProgramData/Token身份探针](integration/artifacts/local/orca-adaptive-execution-normalized-probe.json)与[重新计算PDA的WSOL受控池探针](integration/artifacts/local/orca-adaptive-execution-wsol-probe.json)分别保留原生证据。它们采用显式受控状态和既有实际程序字节，不代表公开池观察或历史bank共识；自适应执行适配、API、资金组合、钱包和Chrome仍待独立实现验收，本批能力标签不因此扩展。
+原始指令探针（`integration/artifacts/local/orca-execution-probe.json`，已清理）仅证明其注明的本地原程序范围，不能代替完整API/钱包/前端验收。adaptive动态费/奖励组合、Token2022与其他程序版本按独立适配范围处理，未知扩展继续明确拒绝。原会话整体目标保持active，all_requested_features_complete=false、production_ready=false。
 
 
-后续自适应执行银行草稿已扩展至54场景：三模型各18场景，包含普通双币、WSOL双币、双向ExactIn/Out、显式ATA/WSOL资金、临时退款/输出解包及预存租金。[银行生成草稿证据](integration/artifacts/local/orca-adaptive-execution-bank-draft.json)与[54次成功原SBF交易探针](integration/artifacts/local/orca-adaptive-bank-sbf-probe.json)已保留，最大wire为903字节，Pool/初始化Oracle/Vault/所有tick数组的实际后字节与新鲜原生参考相符。这些交易由独立探针构建，尚不是Router API产出的交易；适配草稿只在独立目录检查，当前统一验收源码和能力范围不变。
+后续执行范围的独立探针：三个既有Orca自适应模型的实际原SBF双向ExactIn/Out共12场景通过，逐字节核对Pool、初始化Oracle、Vault与所有数组；规范化slot/ProgramData/Token身份探针（`integration/artifacts/local/orca-adaptive-execution-normalized-probe.json`，已清理）与重新计算PDA的WSOL受控池探针（`integration/artifacts/local/orca-adaptive-execution-wsol-probe.json`，已清理）分别保留原生证据。它们采用显式受控状态和既有实际程序字节，不代表公开池观察或历史bank共识；自适应执行适配、API、资金组合、钱包和Chrome仍待独立实现验收，本批能力标签不因此扩展。
 
 
-自适应草稿的[54场景／108次原交易控制](integration/artifacts/local/orca-adaptive-bank-sbf-controls.json)进一步通过：ExactOut最大输入减一、ExactIn最小输出加一在原程序失败，所有已捕获及交易使用账户除payer实际5000网络费外恢复原值；成功时实际payer变化逐项核对包装、退租、未用输入退款、解包收款及预存租金补差。此控制仍只证明独立构建的本地交易，不代替Router产出wire、同次捕获、钱包和前端的后续验收。
+后续自适应执行银行草稿已扩展至54场景：三模型各18场景，包含普通双币、WSOL双币、双向ExactIn/Out、显式ATA/WSOL资金、临时退款/输出解包及预存租金。银行生成草稿证据（`integration/artifacts/local/orca-adaptive-execution-bank-draft.json`，已清理）与54次成功原SBF交易探针（`integration/artifacts/local/orca-adaptive-bank-sbf-probe.json`，已清理）已保留，最大wire为903字节，Pool/初始化Oracle/Vault/所有tick数组的实际后字节与新鲜原生参考相符。这些交易由独立探针构建，尚不是Router API产出的交易；适配草稿只在独立目录检查，当前统一验收源码和能力范围不变。
 
 
-自适应独立模拟草稿新增[54场景实际worker入口验证](integration/artifacts/local/orca-adaptive-sbf-worker-probe.json)：通过与正式worker相同的有界stdin、unsigned message和RPC捕获结构调用原SBF，核对实际输入／输出、payer变化、wire摘要和源银行不变；三个模型将初始化Oracle改为只读时均拒绝。完整254字节Oracle所有字段及16/16/128预留区的篡改、缺失、owner/可执行标志、绑定和长度控制已在普通/-OO模式下通过。该worker仍只在草稿目录运行，当前Router生产源码和能力标签保持阶段81冻结范围。
+自适应草稿的54场景／108次原交易控制（`integration/artifacts/local/orca-adaptive-bank-sbf-controls.json`，已清理）进一步通过：ExactOut最大输入减一、ExactIn最小输出加一在原程序失败，所有已捕获及交易使用账户除payer实际5000网络费外恢复原值；成功时实际payer变化逐项核对包装、退租、未用输入退款、解包收款及预存租金补差。此控制仍只证明独立构建的本地交易，不代替Router产出wire、同次捕获、钱包和前端的后续验收。
 
 
-自适应组件草稿的[54份真实resolver准备与同捕获worker结果、72项Oracle拒绝控制](integration/artifacts/local/orca-adaptive-component-draft-verification.json)已完成：每场景通过真实Rust resolver读一次有界RPC账户、产生unsigned交易，再由草稿worker复用捕获执行原SBF；实际金额、资金/租金、消息hash和Oracle写权限均通过。初始化Oracle全部字段/预留区篡改及owner/长度/可执行标志/缺失均阻止交易产出。输入源码、草稿二进制和54份产物摘要已单独绑定；这些验证不含正式QuoteView缓存、HTTP API、钱包回执或Chrome准入，下一阶段仍需完成集成。
+自适应独立模拟草稿新增54场景实际worker入口验证（`integration/artifacts/local/orca-adaptive-sbf-worker-probe.json`，已清理）：通过与正式worker相同的有界stdin、unsigned message和RPC捕获结构调用原SBF，核对实际输入／输出、payer变化、wire摘要和源银行不变；三个模型将初始化Oracle改为只读时均拒绝。完整254字节Oracle所有字段及16/16/128预留区的篡改、缺失、owner/可执行标志、绑定和长度控制已在普通/-OO模式下通过。该worker仍只在草稿目录运行，当前Router生产源码和能力标签保持阶段81冻结范围。
+
+
+自适应组件草稿的54份真实resolver准备与同捕获worker结果、72项Oracle拒绝控制（`integration/artifacts/local/orca-adaptive-component-draft-verification.json`，已清理）已完成：每场景通过真实Rust resolver读一次有界RPC账户、产生unsigned交易，再由草稿worker复用捕获执行原SBF；实际金额、资金/租金、消息hash和Oracle写权限均通过。初始化Oracle全部字段/预留区篡改及owner/长度/可执行标志/缺失均阻止交易产出。输入源码、草稿二进制和54份产物摘要已单独绑定；这些验证不含正式QuoteView缓存、HTTP API、钱包回执或Chrome准入，下一阶段仍需完成集成。
 
 当前能力目录：61模型中38项ExactOut、12项执行准备；本批新增Orca静态/奖励2项，剩余49个执行模板及其他数学/链/净费用组合继续开发。所有26工作包仍未获完整设计验收，all_requested_features_complete=false、production_ready=false，原会话六阶段目标保持active。
 
@@ -2831,7 +2837,7 @@ HTTP保留288份真实请求/响应及216预算减一控制，成功目标/计�
 |F82.3|钱包和回执|WP16,WP25|LOCAL_SCOPE_VERIFIED|54单次签名发送/真实费用租金与用户收付款/重启恢复回执、12失败发送不重发通过；WSOL背书拒绝使用实际WSOL银行验证，普通SPL的lamports不误当Token背书。|
 |F82.4|前端与门禁|WP16,WP25|LOCAL_SCOPE_VERIFIED|30场景121项新Chrome及原静态Orca81/旧流程155，共357项真实Chrome通过；28统一门禁/95次Rust执行、原数学/Parser/严格lint/构建、19证据控制及6Oracle worker控制普通/-OO和17文档控制普通/-OO通过。|
 
-[阶段81最终报告](integration/artifacts/local/orca-execution-check/report.json)保留了上一批冻结源码、运行时及863产物摘要，两份实际浏览器二进制已存入独立运行目录以供后续重建后的复查。阶段82的银行归档为独立`orca-adaptive-execution-bank.json`，原静态/奖励银行和数学语料不覆盖；受控slot/资产替换/PDA重算与真实程序代码边界均明确记录。当前数学ExactOut仍38/61，准备代码新增3模型到15/61但本批资格待完成；剩余46模板与其他数学/链/净费用范围继续，all_requested_features_complete=false、production_ready=false，原六阶段目标保持active。
+阶段81最终报告（`integration/artifacts/local/orca-execution-check/report.json`，已清理）保留了上一批冻结源码、运行时及863产物摘要，两份实际浏览器二进制已存入独立运行目录以供后续重建后的复查。阶段82的银行归档为独立`orca-adaptive-execution-bank.json`，原静态/奖励银行和数学语料不覆盖；受控slot/资产替换/PDA重算与真实程序代码边界均明确记录。当前数学ExactOut仍38/61，准备代码新增3模型到15/61但本批资格待完成；剩余46模板与其他数学/链/净费用范围继续，all_requested_features_complete=false、production_ready=false，原六阶段目标保持active。
 
 
 阶段82当前正式预检已产出42份API准备和11份重启回执；首批8份实际下载wire的16次外部原SBF成功/限制反例通过。6项初始化Oracle worker控制和16项证据控制均在普通/-OO通过，严格Clippy与自适应浏览器harness构建通过；54场景API组和30场景Chrome预检继续进行。状态拒绝测试中将WSOL背书用于普通SPL的断言已修正到实际WSOL银行，修正用例需待当前测试组结束后重编译复验，未计作通过。
@@ -2840,18 +2846,18 @@ HTTP保留288份真实请求/响应及216预算减一控制，成功目标/计�
 2026-11-16预检更新：30场景121项真实Chrome已通过，54份正式API准备均完成；54份重启回执仍在运行。当前整组测试保留了修正前的普通SPL/WSOL背书断言失败，修正源码已就绪，需在进程终止后单独重编译复验。完整实际wire原SBF重放进行中。证据控制扩至19项并在普通/-OO通过，新增重复ProgramData账户的有界存储复用检查；owner/lamports不同不合并、原始snapshot hash保持不变。
 
 
-后续Raydium CLMM执行的[16场景／32次原交易探针](integration/artifacts/local/rayclmm-execution-initial-evidence.json)于2026-11-16通过，覆盖保留来源的奖励版、显式清除奖励的静态版及Token0/Token1协议收费分支，双向ExactIn/ExactOut与输入/输出限制失败均验。Pool/Observation/全部已声明数组、双Vault全部Token字节和WSOL原有SOL余额变化、用户实际收付与全账户失败回滚和5000网络费相符。既有来源缺少Token2022 ProgramData，探针显式附加锁定本地运行时的Token2022完整闭包，Memo按保留原字节显式载入，不把VM隐式缓存当来源；不代表Token2022资产扩展或历史bank共识。Raydium CLMM的Router执行准备、同次捕获、钱包和前端尚未接入，本批Orca冻结源码与能力标签不变。
+后续Raydium CLMM执行的16场景／32次原交易探针（`integration/artifacts/local/rayclmm-execution-initial-evidence.json`，已清理）于2026-11-16通过，覆盖保留来源的奖励版、显式清除奖励的静态版及Token0/Token1协议收费分支，双向ExactIn/ExactOut与输入/输出限制失败均验。Pool/Observation/全部已声明数组、双Vault全部Token字节和WSOL原有SOL余额变化、用户实际收付与全账户失败回滚和5000网络费相符。既有来源缺少Token2022 ProgramData，探针显式附加锁定本地运行时的Token2022完整闭包，Memo按保留原字节显式载入，不把VM隐式缓存当来源；不代表Token2022资产扩展或历史bank共识。Raydium CLMM的Router执行准备、同次捕获、钱包和前端尚未接入，本批Orca冻结源码与能力标签不变。
 
 
-Raydium CLMM后续受控银行草稿已扩展为56场景：奖励/静态/两种协议收费方向各14场景，覆盖双向ExactIn/Out、显式ATA/WSOL、临时退款/输出解包和预存租金。其[112次独立原SBF交易控制](integration/artifacts/local/rayclmm-bank-sbf-controls.json)通过，Pool/Observation/声明数组/双Vault完整字节及原有SOL余额、用户实际收款、payer费用/租金与失败全账户回滚均核对。该探针自行构建交易，尚不是Router API产出的wire；下一批仍需完整账户验证、同次捕获、钱包与前端接入，当前Orca能力范围未扩大。
+Raydium CLMM后续受控银行草稿已扩展为56场景：奖励/静态/两种协议收费方向各14场景，覆盖双向ExactIn/Out、显式ATA/WSOL、临时退款/输出解包和预存租金。其112次独立原SBF交易控制（`integration/artifacts/local/rayclmm-bank-sbf-controls.json`，已清理）通过，Pool/Observation/声明数组/双Vault完整字节及原有SOL余额、用户实际收款、payer费用/租金与失败全账户回滚均核对。该探针自行构建交易，尚不是Router API产出的wire；下一批仍需完整账户验证、同次捕获、钱包与前端接入，当前Orca能力范围未扩大。
 
 
-Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/local/rayclmm-component-draft-verification.json)已通过56场景：真实Rust resolver仅一次读取完整有界RPC、核对Pool/Observation/数组/配置/PDA/代码/Clock与资产后生成unsigned wire，外部原SBF重放112次成功/限制失败并验证实际资金租金和全回滚；同次捕获再交草稿worker独立模拟56次，源银行不变。56项resolver拒绝控制与8组worker普通/-OO控制通过，经济字段和未知扩展被拒绝，原程序允许的历史opaque填充及无挂单的order cohort保留。附属Memo与Token2022程序按显式字节加载并核对，未开放Token2022资产。草稿输入、二进制和56份产物摘要独立绑定；正式Router/QuoteView、钱包/回执及Chrome仍待下一批实现。
+Raydium CLMM准备与独立模拟组件草稿验证（`integration/artifacts/local/rayclmm-component-draft-verification.json`，已清理）已通过56场景：真实Rust resolver仅一次读取完整有界RPC、核对Pool/Observation/数组/配置/PDA/代码/Clock与资产后生成unsigned wire，外部原SBF重放112次成功/限制失败并验证实际资金租金和全回滚；同次捕获再交草稿worker独立模拟56次，源银行不变。56项resolver拒绝控制与8组worker普通/-OO控制通过，经济字段和未知扩展被拒绝，原程序允许的历史opaque填充及无挂单的order cohort保留。附属Memo与Token2022程序按显式字节加载并核对，未开放Token2022资产。草稿输入、二进制和56份产物摘要独立绑定；正式Router/QuoteView、钱包/回执及Chrome仍待下一批实现。
 
 
 阶段82统一冻结验收当前已通过54份正式准备、54份恢复回执、108次实际wire原SBF重放、19项证据控制和6项Oracle worker控制的普通/-OO门禁，旧Orca准备/钱包回归也已通过；其余旧资金/捕获/解析/前端和最终摘要门禁仍进行中，因此阶段状态不升级。当前源码及全部68份运行时/银行/原生参考输入摘要持续一致。
 
-阶段82最终验证完成于2026-11-16：28门禁、95次Rust执行、357项真实Chrome、54份实际API准备/54份恢复回执及108次原交易全部通过。源码指纹`dc54e6df7c6f30fe1d32a36ccb5840481fe6be64fff0f801915142b7caa838eb`，1458份产物摘要与运行时/银行/三个原生参考程序输入绑定独立目录`integration/artifacts/local/orca-adaptive-execution-check/runs/14207d2b93c547a38cca48d90baf92c0`；[最终报告](integration/artifacts/local/orca-adaptive-execution-check/report.json)。19项证据控制含大型ProgramData的无损内存复用：完整账户内容相同才共享，owner/lamports变化与原始快照hash均独立保留；6项Oracle全部字段/预留区拒绝控制在普通/-OO均通过。失败预检日志与修正回归保留，最终截图已检查。
+阶段82最终验证完成于2026-11-16：28门禁、95次Rust执行、357项真实Chrome、54份实际API准备/54份恢复回执及108次原交易全部通过。源码指纹`dc54e6df7c6f30fe1d32a36ccb5840481fe6be64fff0f801915142b7caa838eb`，1458份产物摘要与运行时/银行/三个原生参考程序输入绑定独立目录`integration/artifacts/local/orca-adaptive-execution-check/runs/14207d2b93c547a38cca48d90baf92c0`；最终报告（`integration/artifacts/local/orca-adaptive-execution-check/report.json`，已清理）。19项证据控制含大型ProgramData的无损内存复用：完整账户内容相同才共享，owner/lamports变化与原始快照hash均独立保留；6项Oracle全部字段/预留区拒绝控制在普通/-OO均通过。失败预检日志与修正回归保留，最终截图已检查。
 
 当前注明范围能力为61模型中38项ExactOut、15项执行准备；剩余46执行模板及其他数学/链/净费用范围继续。26工作包完整设计验收仍为0，all_requested_features_complete=false、production_ready=false，原会话六阶段目标保持active。
 
@@ -2875,12 +2881,12 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 阶段83预检更新：修正后的56份准备/同捕获SBF独立用例通过，56份钱包单次发送及重启回执用例通过，完整状态/资金选项/16失败发送不重发/运行时容量拒绝均通过。一次整组预检在第36场景正确拒绝过期报价，浏览器早期复验记录准备状态变化和第43场景独立模拟超时，均未计作成功且未放宽生产有效期/超时。后续单独复验32场景129项真实Chrome全部通过，明确检查实际准备和独立模拟HTTP响应。31项统一冻结验收已启动，要求56份当前API准备/56回执、112次实际wire原程序和四组共486项Chrome；门禁未全部完成前本批仍IN_PROGRESS。
 
 
-后续Raydium三个高级模型的[独立组件草稿证据](integration/artifacts/local/rayclmm-advanced-component-draft-verification.json)已扩展至162场景：Bitmap、自定义seed、动态费各覆盖三种收费模式、普通币对和明确重算PDA的WSOL币对、双向ExactIn/Out、ATA/补足/临时退款解包和预存租金。324次独立原SBF成功/限制失败验证通过，完整Pool/Observation/数组/扩展/Vault及资金租金与失败全回滚相符；162次真实Rust准备生成wire并沿同捕获交草稿worker模拟通过。新增完整1832字节扩展/seed及34字节动态费状态校验，9组worker普通/-OO控制通过。源码草稿、独立二进制和证据摘要已绑定；当前生产代码仍只开放阶段83冻结范围，后续正式API/钱包回执/Chrome尚待接入。
+后续Raydium三个高级模型的独立组件草稿证据（`integration/artifacts/local/rayclmm-advanced-component-draft-verification.json`，已清理）已扩展至162场景：Bitmap、自定义seed、动态费各覆盖三种收费模式、普通币对和明确重算PDA的WSOL币对、双向ExactIn/Out、ATA/补足/临时退款解包和预存租金。324次独立原SBF成功/限制失败验证通过，完整Pool/Observation/数组/扩展/Vault及资金租金与失败全回滚相符；162次真实Rust准备生成wire并沿同捕获交草稿worker模拟通过。新增完整1832字节扩展/seed及34字节动态费状态校验，9组worker普通/-OO控制通过。源码草稿、独立二进制和证据摘要已绑定；当前生产代码仍只开放阶段83冻结范围，后续正式API/钱包回执/Chrome尚待接入。
 
 
-2026-11-16中断后核查：上一轮验收父进程已不存在，测试日志显示5通过/2失败（`SBF_WORKER_IO`），其遗留RUNNING报告已按实际证据改为FAILED，未猜测未保留的进程退出码。独立复验56场景准备/同捕获模拟通过。原临时目录参考程序缺失，按仓库锁定离线构建脚本恢复后，新二进制摘要与旧摘要分别保留；[完整1546个原请求重放](integration/artifacts/local/rayclmm-restored-reference-replay.json)与225份上游源文件检查通过，1266报价/280数值结果全部与原记录一致，不据此声称二进制字节相同。当前新冻结验收重新绑定实际参考和银行输入，仍待所有门禁完成。验收中断的SIGINT/SIGTERM报告与子进程组清理2项控制分别在普通/-OO通过；交易负控独立构建函数新增4项回归后，证据控制为23项普通/-OO通过。
+2026-11-16中断后核查：上一轮验收父进程已不存在，测试日志显示5通过/2失败（`SBF_WORKER_IO`），其遗留RUNNING报告已按实际证据改为FAILED，未猜测未保留的进程退出码。独立复验56场景准备/同捕获模拟通过。原临时目录参考程序缺失，按仓库锁定离线构建脚本恢复后，新二进制摘要与旧摘要分别保留；完整1546个原请求重放（`integration/artifacts/local/rayclmm-restored-reference-replay.json`，已清理）与225份上游源文件检查通过，1266报价/280数值结果全部与原记录一致，不据此声称二进制字节相同。当前新冻结验收重新绑定实际参考和银行输入，仍待所有门禁完成。验收中断的SIGINT/SIGTERM报告与子进程组清理2项控制分别在普通/-OO通过；交易负控独立构建函数新增4项回归后，证据控制为23项普通/-OO通过。
 
-阶段83最终统一结果：31门禁、135次Rust执行、486项真实Chrome、56实际准备/56恢复回执/112实际wire原SBF全部通过。源码指纹`db6e4b21429a193ce6749d0e8ab990454037951d2baaa2273521bd03b989723f`，1761份产物摘要与运行时/银行/实际原参考绑定独立目录`integration/artifacts/local/rayclmm-execution-check/runs/2a6bb3e7814b43ce804534b5456ae362`；[最终报告](integration/artifacts/local/rayclmm-execution-check/report.json)。最终完成截图和全部摘要已检查。失败预检均保留：fixture故障注入遗漏/地址误写已修正，过期报价和模拟超时均未被计为通过，也未放宽生产有效期或超时；新冻结运行独立证明完整结果。
+阶段83最终统一结果：31门禁、135次Rust执行、486项真实Chrome、56实际准备/56恢复回执/112实际wire原SBF全部通过。源码指纹`db6e4b21429a193ce6749d0e8ab990454037951d2baaa2273521bd03b989723f`，1761份产物摘要与运行时/银行/实际原参考绑定独立目录`integration/artifacts/local/rayclmm-execution-check/runs/2a6bb3e7814b43ce804534b5456ae362`；最终报告（`integration/artifacts/local/rayclmm-execution-check/report.json`，已清理）。最终完成截图和全部摘要已检查。失败预检均保留：fixture故障注入遗漏/地址误写已修正，过期报价和模拟超时均未被计为通过，也未放宽生产有效期或超时；新冻结运行独立证明完整结果。
 
 原始目标保持完整：38/61 ExactOut、18/61注明范围执行准备，仍有43执行模板和其他链/数学/净费用组合待完成；26工作包完整设计验收仍为0，all_requested_features_complete=false、production_ready=false，六阶段目标active。
 
@@ -2904,19 +2910,19 @@ Raydium CLMM[准备与独立模拟组件草稿验证](integration/artifacts/loca
 阶段84正式预检当前已生成82份API准备，完整状态污染拒绝、资金选项显式授权及运行时容量检查通过，162场景的准备/SBF和钱包回执组仍运行中。首批8份实际API wire的16次外部原SBF成功/限制失败重放通过，覆盖普通资产、WSOL、ATA、退款与预存租金；完整Bitmap扩展及Pool/Observation/数组/Vault/费用租金/失败全回滚核对相符。严格API Clippy、23证据控制普通/-OO、9Oracle/扩展worker控制普通/-OO及17项进度文档门禁通过。45场景181Chrome测试程序已构建但尚未运行，32项最终冻结驱动已准备但尚未启动，不将这些草稿/局部结果视为完整阶段验收。
 
 
-阶段84实际准备审计：162份API准备／独立证据承诺、unsigned wire摘要、扩展账户位于原指令剩余账户首位且可写、三模型各三种收费模式均已核对；[审计记录](integration/artifacts/local/rayclmm-advanced-current-preparation-audit.json)明确记录核对时的部分回执数量，不作162份钱包完成声明。[实际API原wire矩阵](integration/artifacts/local/rayclmm-advanced-original-model-matrix.json)以18场景36次原交易覆盖三模型/三费模式和各类资金操作通过，是完整324次最终重放前的限定子集。当前长测试只剩162场景钱包回执循环，暂无失败。
+阶段84实际准备审计：162份API准备／独立证据承诺、unsigned wire摘要、扩展账户位于原指令剩余账户首位且可写、三模型各三种收费模式均已核对；审计记录（`integration/artifacts/local/rayclmm-advanced-current-preparation-audit.json`，已清理）明确记录核对时的部分回执数量，不作162份钱包完成声明。实际API原wire矩阵（`integration/artifacts/local/rayclmm-advanced-original-model-matrix.json`，已清理）以18场景36次原交易覆盖三模型/三费模式和各类资金操作通过，是完整324次最终重放前的限定子集。当前长测试只剩162场景钱包回执循环，暂无失败。
 
 
-阶段84完整实际wire预检：162份正式API下载交易已完成324次原SBF成功／限制失败重放，完整Pool、Observation、全部声明数组和Bitmap扩展、双Vault/原SOL余额、用户实际收付、payer费用/租金及失败全账户回滚均通过。[原程序完整记录](integration/artifacts/local/rayclmm-advanced-original-full-preflight.json)保留真实捕获批次、交易/准备/独立证据摘要。162份钱包回执预检和45场景浏览器仍在运行，阶段84不借此提前升级完成状态。
+阶段84完整实际wire预检：162份正式API下载交易已完成324次原SBF成功／限制失败重放，完整Pool、Observation、全部声明数组和Bitmap扩展、双Vault/原SOL余额、用户实际收付、payer费用/租金及失败全账户回滚均通过。原程序完整记录（`integration/artifacts/local/rayclmm-advanced-original-full-preflight.json`，已清理）保留真实捕获批次、交易/准备/独立证据摘要。162份钱包回执预检和45场景浏览器仍在运行，阶段84不借此提前升级完成状态。
 
 
 阶段84正式预检已全部齐备：162份API准备/独立SBF与162份实际单次发送/重启恢复回执通过，324次实际wire原程序成功/限制失败、23项证据控制/9组worker控制普通/-OO、严格Clippy及45场景181项Chrome全部通过。预检截图已检查，独立模拟/真实回执的输出与手续费、租金相符。32项最终冻结验收已从新目录启动，重新要求162当前准备/162回执/324原交易及五组共667项Chrome；源码和65份运行时/参考输入锁定，未全部通过前仍保持本批IN_PROGRESS。
 
 
-后续EVM执行链路的[原Router02离线签名／费用探针](integration/artifacts/local/evm-router02-wallet-probe.json)通过8次EIP1559原交易：双向ExactIn/ExactOut各含成功和限制失败，输入/输出均大于u64范围，未借用Solana金额宽度。原公开Factory/Pair/Router02/ERC20字节与pins校验、chain ID/nonce/目标/calldata/签名恢复/零ETH交易值绑定通过；每笔仅一次原始交易发送，回执恢复无重发，实际gasUsed×effectiveGasPrice与payer费用一致，成功时用户收付/双Vault和Swap日志核对，限制失败时全部合约余额与Pool状态回滚但扣实际网络费。只在本地受控VM与测试钱包运行，未提交公网交易，也尚未接入正式EVM准备、QuoteView绑定、独立生产验证或前端；该证据不扩大本批Orca/Raydium能力标签。
+后续EVM执行链路的原Router02离线签名／费用探针（`integration/artifacts/local/evm-router02-wallet-probe.json`，已清理）通过8次EIP1559原交易：双向ExactIn/ExactOut各含成功和限制失败，输入/输出均大于u64范围，未借用Solana金额宽度。原公开Factory/Pair/Router02/ERC20字节与pins校验、chain ID/nonce/目标/calldata/签名恢复/零ETH交易值绑定通过；每笔仅一次原始交易发送，回执恢复无重发，实际gasUsed×effectiveGasPrice与payer费用一致，成功时用户收付/双Vault和Swap日志核对，限制失败时全部合约余额与Pool状态回滚但扣实际网络费。只在本地受控VM与测试钱包运行，未提交公网交易，也尚未接入正式EVM准备、QuoteView绑定、独立生产验证或前端；该证据不扩大本批Orca/Raydium能力标签。
 
 
-后续EVM组件的[独立准备草稿验证](integration/artifacts/local/evm-preparation-component-draft-verification.json)已通过6组Rust控制及3组ethers编码／离线签名互验。组件重建现有单池ExactIn的完整BoundEvmExecution承诺，保留uint256金额，核对chain ID/pending nonce/源快照/caller/token/spender及费用预算；余额／授权不足不生成unsigned wire，也不自动插入approve。EIP1559九字段unsigned编码与独立ethers逐字节一致，原Router02 ABI核对调用参数并恢复指定测试账户签名，额外覆盖零nonce/priority与高于u128的费用字段。这些使用组件调用方提供的观察，不含实际RPC捕获、共识／部署验证、ExactOut准备、独立REVM执行、QuoteView/API缓存、正式钱包／回执或前端集成；未据此开放EVM能力或缩小原始目标。
+后续EVM组件的独立准备草稿验证（`integration/artifacts/local/evm-preparation-component-draft-verification.json`，已清理）已通过6组Rust控制及3组ethers编码／离线签名互验。组件重建现有单池ExactIn的完整BoundEvmExecution承诺，保留uint256金额，核对chain ID/pending nonce/源快照/caller/token/spender及费用预算；余额／授权不足不生成unsigned wire，也不自动插入approve。EIP1559九字段unsigned编码与独立ethers逐字节一致，原Router02 ABI核对调用参数并恢复指定测试账户签名，额外覆盖零nonce/priority与高于u128的费用字段。这些使用组件调用方提供的观察，不含实际RPC捕获、共识／部署验证、ExactOut准备、独立REVM执行、QuoteView/API缓存、正式钱包／回执或前端集成；未据此开放EVM能力或缩小原始目标。
 
 阶段84首次冻结运行的API组以6通过/1失败结束：第132个钱包场景的独立模拟超时，失败前131份回执成功，失败场景未发送。该失败报告保留，生产超时和有效期未调整。下一轮以完整相同场景集串行运行，并仅在进程生命周期内禁止系统空闲休眠，未加入自动重试或削减测试；执行环境单独写入新运行目录，当前阶段84仍IN_PROGRESS。
 
@@ -3923,15 +3929,15 @@ processed或meta缺失保持RECEIPT_PENDING；confirmed已核对费用也不提�
 
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
-|F134.1|独立Regolith参数与原始交易字节费用内核|WP13,WP15|LOCAL_SCOPE_VERIFIED|原op-geth函数、三笔原signed user wire及72宽整数向量；[验证记录](integration/artifacts/local/op-l1-data-cost-check/report.json)。|
-|F134.2|ABI/激活/类型/字节预算与最终溢出守卫|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|Rust有限范围与独立参考普通/优化守卫；[验证记录](integration/artifacts/local/op-l1-data-cost-check/report.json)。|
-|F134.3|冻结输入与原正常worker回归|WP01,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|准备/API/原bank及Legacy/EIP1559正常HTTP回归；[验证记录](integration/artifacts/local/op-l1-data-cost-check/report.json)。|
+|F134.1|独立Regolith参数与原始交易字节费用内核|WP13,WP15|LOCAL_SCOPE_VERIFIED|原op-geth函数、三笔原signed user wire及72宽整数向量；验证记录（`integration/artifacts/local/op-l1-data-cost-check/report.json`，已清理）。|
+|F134.2|ABI/激活/类型/字节预算与最终溢出守卫|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|Rust有限范围与独立参考普通/优化守卫；验证记录（`integration/artifacts/local/op-l1-data-cost-check/report.json`，已清理）。|
+|F134.3|冻结输入与原正常worker回归|WP01,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|准备/API/原bank及Legacy/EIP1559正常HTTP回归；验证记录（`integration/artifacts/local/op-l1-data-cost-check/report.json`，已清理）。|
 
 Regolith计完整已编码用户交易的零/非零字节，不使用仅calldata/unsigned preparation代替，不重复加pre-Regolith的68字节；4/16 gas权重、overhead与scalar按原整数顺序相乘后向下除1e6，最终fee检查uint256。中间乘积及gas加overhead保留宽整数，避免先截断/溢出或将显式零判为未知。输入字节预算由调用方传入；空输入、deposit/未来类型、不支持链/激活范围、错误ABI/u64高位/L1时间晚于execution均拒绝。该函数不是完整交易解码器，synthetic byte vectors仅作算术探针。
 
 独立参考从既有native语义固定的op-geth `79e9d244748a1201fe686ca8a882b5fe7e173348`取原`newL1CostFuncBedrockHelper`和`l1CostHelper`，完整文件SHA256固定，选中函数原文不改动，由小Go包装仅提供类型/常量和I/O执行。留存OP历史body的原L1 deposit和三笔原signed user wire，结果分别对照留存RPC回执的l1Fee/l1GasUsed；另72组零/高位/舍入/最终溢出与宽中间值，不能称72笔可执行交易。历史RPC费用字段不属于receipt trie承诺，原source/body/root验证和链源资格没有被此算术对照替代。
 
-验证工具：[validate_op_l1_data_cost.py](integration/tools/acceptance/validate_op_l1_data_cost.py)，报告：[op-l1-data-cost-check/report.json](integration/artifacts/local/op-l1-data-cost-check/report.json)。本轮尚未把该历史核算接入正常报价的完整链费、付款人总余额核验或候选排名；正常Legacy/EIP1559 worker作为回归，不意味着OP执行适配器已完成。后续继续P0-3的同块属性/签名交易来源绑定和正常链费接线，再补独立版本的Ecotone/Fjord/后续模型、可靠Token估值及净评分；其余优先级均保留。
+验证工具：[validate_op_l1_data_cost.py](integration/tools/acceptance/validate_op_l1_data_cost.py)，报告：op-l1-data-cost-check/report.json（`integration/artifacts/local/op-l1-data-cost-check/report.json`，已清理）。本轮尚未把该历史核算接入正常报价的完整链费、付款人总余额核验或候选排名；正常Legacy/EIP1559 worker作为回归，不意味着OP执行适配器已完成。后续继续P0-3的同块属性/签名交易来源绑定和正常链费接线，再补独立版本的Ecotone/Fjord/后续模型、可靠Token估值及净评分；其余优先级均保留。
 
 阶段134首次冻结验收保留FAILED：算术预检4项及75原参考输入通过，正式进度门禁发现新增plan锚点未登记批次历史。已按原文档约束补历史行及任务表，未放宽校验；重启完整冻结验收，首批报告保留。
 
@@ -3946,15 +3952,15 @@ Regolith计完整已编码用户交易的零/非零字节，不使用仅calldata
 
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
-|F135.1|普通native来源与完整签名user wire|WP03,WP05,WP13,WP15|LOCAL_SCOPE_VERIFIED|同header/body承诺、首deposit身份/完整属性ABI、原wire/txID/链ID与London签名恢复；[验证记录](integration/artifacts/local/op-l1-source-inputs-check/report.json)。|
-|F135.2|历史记录/重放与旧归档兼容|WP05,WP15,WP18|LOCAL_SCOPE_VERIFIED|原证据重算投影、12篡改拒绝、旧缺省不借零费用、header RawMessage压缩前后摘要稳定；[验证记录](integration/artifacts/local/op-l1-source-inputs-check/report.json)。|
-|F135.3|正常服务/跨语言费用与冻结回归|WP01,WP13,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|原OP四tx body/三user wire经普通读取与回调归档后交Rust内核，并对原op-geth；旧native/准备/API/正常构建回归；[验证记录](integration/artifacts/local/op-l1-source-inputs-check/report.json)。|
+|F135.1|普通native来源与完整签名user wire|WP03,WP05,WP13,WP15|LOCAL_SCOPE_VERIFIED|同header/body承诺、首deposit身份/完整属性ABI、原wire/txID/链ID与London签名恢复；验证记录（`integration/artifacts/local/op-l1-source-inputs-check/report.json`，已清理）。|
+|F135.2|历史记录/重放与旧归档兼容|WP05,WP15,WP18|LOCAL_SCOPE_VERIFIED|原证据重算投影、12篡改拒绝、旧缺省不借零费用、header RawMessage压缩前后摘要稳定；验证记录（`integration/artifacts/local/op-l1-source-inputs-check/report.json`，已清理）。|
+|F135.3|正常服务/跨语言费用与冻结回归|WP01,WP13,WP15,WP16,WP18|LOCAL_SCOPE_VERIFIED|原OP四tx body/三user wire经普通读取与回调归档后交Rust内核，并对原op-geth；旧native/准备/API/正常构建回归；验证记录（`integration/artifacts/local/op-l1-source-inputs-check/report.json`，已清理）。|
 
 首项deposit必须为原System depositor到L1Block、零mint/value、非system flag，完整260字节`setL1BlockValues`属性，且deposit sourceHash必须按原L1-info domain 1由属性L1 hash/sequence精确导出；L1 number/time/sequence为u64，L1时间不晚于目标执行块。全部属性/用户字节来自同一已核验body；user只接受该历史范围的legacy/type1/type2，解码链ID、原txID和真实签名恢复，deposit单列不作为用户数据费对象。输入投影含block/hash/time/body root、native语义、compact header与attributes摘要、user index/hash/raw/sender，无费用金额和共识标签；receipt的l1Fee等非trie字段不进入此来源投影。解析/保留空间在原递减证明预算内预扣，不新增RPC调用，正常完成前仍按既有最终锚点检查。
 
 历史记录增加可选投影，重放每次从完整原证据重新验证后比较，改链、属性、用户wire/sender/index、body root、deposit或authority均拒绝；旧v1缺省仍可重放既有事实，缺省不是零费用或新费用资格。JSON RawMessage归档会压缩空白，header来源摘要基于compact bytes，避免一次正常保存重载就产生假矛盾。来源仍是RPC锚定header/body承诺，非独立共识或已执行完整OP VM，不能将原L1属性视作独立L1最终性证明。
 
-正常读取测试的完整JSON视图由既有原signed wire生成，其再编码须匹配已留存body root/txID，未伪造新的公网响应。三笔user输入经Go普通完成回调及历史记录，交Rust共享内核与固定原op-geth及留存RPC费用观察对照；该跨语言路径是限定集成验证，不表示当前报价API已消费完整OP链费。测试工具：[validate_op_l1_source_inputs.py](integration/tools/acceptance/validate_op_l1_source_inputs.py)，报告：[op-l1-source-inputs-check/report.json](integration/artifacts/local/op-l1-source-inputs-check/report.json)。后续仍需版本化现行OP费用及来源、router正常链费接线/完整付款人净扣款、可靠估值与净评分；原26工作包完整验收和VERIFIED继续关闭。
+正常读取测试的完整JSON视图由既有原signed wire生成，其再编码须匹配已留存body root/txID，未伪造新的公网响应。三笔user输入经Go普通完成回调及历史记录，交Rust共享内核与固定原op-geth及留存RPC费用观察对照；该跨语言路径是限定集成验证，不表示当前报价API已消费完整OP链费。测试工具：[validate_op_l1_source_inputs.py](integration/tools/acceptance/validate_op_l1_source_inputs.py)，报告：op-l1-source-inputs-check/report.json（`integration/artifacts/local/op-l1-source-inputs-check/report.json`，已清理）。后续仍需版本化现行OP费用及来源、router正常链费接线/完整付款人净扣款、可靠估值与净评分；原26工作包完整验收和VERIFIED继续关闭。
 
 阶段135首批冻结验收保留CANCELLED（运行目录`8ba4d917c9d44404bddcff539c9d1e0d`）：文档/原仿真/API/准备回归通过，Go EVM运行时补充复核发现应进一步校验L1-info deposit sourceHash。主动停止总控并确认取消/子进程回收后，增加原domain 1与属性L1 hash/sequence的一致性，固定原Optimism v1.9.5 source方法及25独立向量，扩大语义控制后重新冻结；未改预算或放宽断言。
 
@@ -3968,15 +3974,15 @@ Regolith计完整已编码用户交易的零/非零字节，不使用仅calldata
 
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
-|F136.1|packed参数/FastLZ与两种DA公式|WP13,WP15|LOCAL_SCOPE_VERIFIED|原op-geth函数原文执行605输入，宽中间值/最终uint256及长度/显式零控制；[验证记录](integration/artifacts/local/op-packed-cost-check/report.json)。|
-|F136.2|operator单位/舍入/常量与缺省语义|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|Isthmus除1e6与Jovian乘100独立规则，gas/scalar/constant宽度和旧格式缺参数不猜零；[验证记录](integration/artifacts/local/op-packed-cost-check/report.json)。|
-|F136.3|当前公链body普通读取/重放与独立核算|WP03,WP15,WP18|LOCAL_SCOPE_VERIFIED|50交易/receipt header承诺、49原signed user、4来源反例及新旧费用/仿真/API回归；[验证记录](integration/artifacts/local/op-packed-cost-check/report.json)。|
+|F136.1|packed参数/FastLZ与两种DA公式|WP13,WP15|LOCAL_SCOPE_VERIFIED|原op-geth函数原文执行605输入，宽中间值/最终uint256及长度/显式零控制；验证记录（`integration/artifacts/local/op-packed-cost-check/report.json`，已清理）。|
+|F136.2|operator单位/舍入/常量与缺省语义|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|Isthmus除1e6与Jovian乘100独立规则，gas/scalar/constant宽度和旧格式缺参数不猜零；验证记录（`integration/artifacts/local/op-packed-cost-check/report.json`，已清理）。|
+|F136.3|当前公链body普通读取/重放与独立核算|WP03,WP15,WP18|LOCAL_SCOPE_VERIFIED|50交易/receipt header承诺、49原signed user、4来源反例及新旧费用/仿真/API回归；验证记录（`integration/artifacts/local/op-packed-cost-check/report.json`，已清理）。|
 
 Fjord对完整编码user wire计算FastLZ压缩长度，估算大小`max(100e6,836500*FastLZBytes−42585600)`，费用保持原整数顺序除1e12，l1GasUsed为估算大小乘16再除1e6；Ecotone按零/非零字节4/16计Gas，乘原base/blob fee和scalar组合后除16e6。不是仅calldata或预签名长度估计，不加旧68字节。单wire最多16MiB且遵守调用方更低预算，拒绝deposit/blob/未知类型；Type4还需带operator时代属性，完整交易/签名和激活资格由调用方另验。显式零有效，缺operator属性保持未知。operator两规则保持独立，不从DA字段借零；fee-charged gas及refund语义由执行适配器认证，DA footprint scalar只保留，不误当作附加DA费用。
 
 当前原始输入来自官方`https://mainnet.optimism.io`于本日采集的finalized块159697405、hash`0xe400a05f016ba3a9115fe13874fb5790e3c69c7fa395e2ebe64d7ba07d944f51`，50交易/50receipt，读后高度锚点一致。公开raw/bulk方法403后通过完整交易JSON和逐笔receipt完成有界采集；此前PublicNode TLS EOF、drpc403及成功官方请求原响应均保留。采集目录`integration/.runtime/design-review/op-current-captures/e7cc59e6c16c4560ad1229b0264993f6`最初标CAPTURED_NOT_VERIFIED；本轮新增测试以固定完整原字节送普通native ReadComplete与历史回调重放，重算header/body/receipt根，不从采集状态推定可信。user恢复链ID10真实签名，gas取已承诺cumulative差分，deposit身份及L1-info sourceHash独立校验。额外RPC l1Fee/l1GasUsed只作非trie观察对照，不授予共识或独立L1最终性。
 
-独立参考复用固定op-geth原文件SHA256，执行未改动的FastLZ/Ecotone/Fjord/operator函数、原估算方法及常量。605输入包含49原signed用户和556算术字节/参数探针（含103最终溢出）；后者不冒充可执行交易。正式验收前导出原来源以生成参考，冻结期间再次正常导出且必须字节摘要一致。预检先遇负对照误读normal已保存raw而非JSON数组的测试panic，修正测试取实际raw后四反例通过；未改变产品预算或放宽验证。验证工具：[validate_op_packed_cost.py](integration/tools/acceptance/validate_op_packed_cost.py)，报告：[op-packed-cost-check/report.json](integration/artifacts/local/op-packed-cost-check/report.json)。本轮不授予完整现行OP执行资格，未接完整payer净扣款/报价链费/可信Token估值与候选净排序；这些与后续优先级继续。
+独立参考复用固定op-geth原文件SHA256，执行未改动的FastLZ/Ecotone/Fjord/operator函数、原估算方法及常量。605输入包含49原signed用户和556算术字节/参数探针（含103最终溢出）；后者不冒充可执行交易。正式验收前导出原来源以生成参考，冻结期间再次正常导出且必须字节摘要一致。预检先遇负对照误读normal已保存raw而非JSON数组的测试panic，修正测试取实际raw后四反例通过；未改变产品预算或放宽验证。验证工具：[validate_op_packed_cost.py](integration/tools/acceptance/validate_op_packed_cost.py)，报告：op-packed-cost-check/report.json（`integration/artifacts/local/op-packed-cost-check/report.json`，已清理）。本轮不授予完整现行OP执行资格，未接完整payer净扣款/报价链费/可信Token估值与候选净排序；这些与后续优先级继续。
 
 阶段136最终限定验收：运行目录`b2a16308638f42c6a92b37b42256619d`，18门禁全部exit0、150次Rust（仿真100/API20/准备23/新packed4/旧Regolith3）及6次Go（新当前来源1/旧历史来源5）通过，普通/优化各17进度检查与各4参考守卫、Go race/vet、准备/仿真/API全目标严格Clippy及正常router构建通过。605份固定原Go参考含49原signed用户与556算术探针、103最终溢出；原用户费用和l1GasUsed与留存非trie RPC观察一致。当前50交易块经普通ReadComplete/历史回调重放核验后导出，正式期间再次导出字节一致；四来源篡改拒绝，旧Regolith范围与归档回归通过。源码摘要`dd5ebfbd0e44e2633e2f20a33baf2779667d3056493f16c59bc3c70d60db0851`及911固定输入、45运行pins、9参考输入前后一致，所有日志与导出/向量报告摘要核对。仍未把显式算术入口等同自动激活/完整现行OP执行或正常报价总费；后续补真实升级首块及后继的版本选择、普通来源投影/重放与链费上下文，再继续完整净扣款/可信估值/净评分和其余优先级。
 
@@ -3988,15 +3994,15 @@ Fjord对完整编码user wire计算FastLZ压缩长度，估算大小`max(100e6,8
 
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
-|F137.1|正常来源现代版本/完整签名交易及Gas投影|WP05,WP13,WP15|LOCAL_SCOPE_VERIFIED|当日50交易和8实际升级区块，deposit身份/ABI/sourceHash、签名与累计Gas；[验证记录](integration/artifacts/local/op-packed-source-inputs-check/report.json)。|
-|F137.2|升级首块/归档重算与缺目标创建交易|WP03,WP05,WP15,WP18|LOCAL_SCOPE_VERIFIED|旧ABI首块deposits-only/正常后继、60投影篡改、旧归档及15语义预算反例、缺省to创建deposit和普通call目标删除拒绝；[验证记录](integration/artifacts/local/op-packed-source-inputs-check/report.json)。|
-|F137.3|原参考/正常来源到Rust联验与回归|WP01,WP03,WP13,WP15,WP18|LOCAL_SCOPE_VERIFIED|128升级后继及49当日原signed用户对固定原函数，Go全EVM/正常服务race、旧Regolith/仿真/API/准备回归；[验证记录](integration/artifacts/local/op-packed-source-inputs-check/report.json)。|
+|F137.1|正常来源现代版本/完整签名交易及Gas投影|WP05,WP13,WP15|LOCAL_SCOPE_VERIFIED|当日50交易和8实际升级区块，deposit身份/ABI/sourceHash、签名与累计Gas；验证记录（`integration/artifacts/local/op-packed-source-inputs-check/report.json`，已清理）。|
+|F137.2|升级首块/归档重算与缺目标创建交易|WP03,WP05,WP15,WP18|LOCAL_SCOPE_VERIFIED|旧ABI首块deposits-only/正常后继、60投影篡改、旧归档及15语义预算反例、缺省to创建deposit和普通call目标删除拒绝；验证记录（`integration/artifacts/local/op-packed-source-inputs-check/report.json`，已清理）。|
+|F137.3|原参考/正常来源到Rust联验与回归|WP01,WP03,WP13,WP15,WP18|LOCAL_SCOPE_VERIFIED|128升级后继及49当日原signed用户对固定原函数，Go全EVM/正常服务race、旧Regolith/仿真/API/准备回归；验证记录（`integration/artifacts/local/op-packed-source-inputs-check/report.json`，已清理）。|
 
 四升级首块Ecotone/Fjord/Isthmus/Jovian与各下一个块的原完整JSON/逐笔receipt及读后锚点已采集：首Ecotone仍260字节Bedrock、首Isthmus仍164字节Ecotone、首Jovian仍176字节Isthmus，Fjord继续Ecotone格式但费用公式改变。四首块只有deposit/upgrade，投影明确upgrade且user为空；若有user则拒绝，未在缺参数/升级状态尚未建立时猜零。实际8块共158交易、128用户，后继格式/版本分别独立核对。采集目录`integration/.runtime/design-review/op-upgrade-captures/c391bf7c033944b5af1269643ec9479d`，manifest摘要`994b73a40295ba29885e0bb77741547d7b382912b86568c6f18e78d79bcf9514`；初次TLS超时失败目录`320460c8d552448cb5846d466ad8321e`保留，有界重试只补缺块完成。采集状态仍CAPTURED_NOT_VERIFIED，只有本轮正常Go核验授予RPC承诺范围。
 
 预检发现原normal JSON body编码要求所有deposit存在to，真实升级创建合约deposit会省略to，四首块被拒绝。对照固定原op-geth `transaction_marshalling.go`（SHA256 `2bd82ecba3cd08c3edf444e8436d54480bca062241a1030d8c6112aa5053a3b6`）的nil目标解码，允许创建交易缺省/显式null均编码空目标；交易哈希/body root仍必须匹配，删掉实际call目标拒绝，未合成缺失响应或重算新根掩盖问题。测试进一步拒绝四首块user和普通后继unsigned user，旧normal路径完整预算保持。
 
-历史归档保存可选新投影；重放从原header/body/receipt重新派生，60次规则/格式/属性/Gas/sender/wire/index/root/deposit/authority/activation/upgrade/header/time篡改拒绝。旧记录缺字段兼容原事实；原字段不是可信价格、共识/L1最终性证明或完整OP VM。128后继原signed users交Rust显式内核，对固定原Go函数和留存非trie费用观察一致；Ecotone未激活operator保持NotActive，缺参数不调用operator估算。当前49原signed用户沿同生产投影继续回归。工具：[validate_op_packed_source_inputs.py](integration/tools/acceptance/validate_op_packed_source_inputs.py)，报告：[op-packed-source-inputs-check/report.json](integration/artifacts/local/op-packed-source-inputs-check/report.json)。完整正常报价链费/付款人净扣款、可信估值/候选净排序、独立链执行和生产VERIFIED仍待继续，原26工作包未关闭。
+历史归档保存可选新投影；重放从原header/body/receipt重新派生，60次规则/格式/属性/Gas/sender/wire/index/root/deposit/authority/activation/upgrade/header/time篡改拒绝。旧记录缺字段兼容原事实；原字段不是可信价格、共识/L1最终性证明或完整OP VM。128后继原signed users交Rust显式内核，对固定原Go函数和留存非trie费用观察一致；Ecotone未激活operator保持NotActive，缺参数不调用operator估算。当前49原signed用户沿同生产投影继续回归。工具：[validate_op_packed_source_inputs.py](integration/tools/acceptance/validate_op_packed_source_inputs.py)，报告：op-packed-source-inputs-check/report.json（`integration/artifacts/local/op-packed-source-inputs-check/report.json`，已清理）。完整正常报价链费/付款人净扣款、可信估值/候选净排序、独立链执行和生产VERIFIED仍待继续，原26工作包未关闭。
 
 阶段137最终限定验收：运行目录`5b702f530c124f618ee95f6ba8369435`，19门禁全部exit0、153次Rust及214次Go（208全EVM race与6正常service race）通过。八真实升级块158交易/128后继原signed用户、四首块deposit-only及当日49用户经普通native/原证据重放交Rust对固定原op-geth；60投影篡改、15语义预算/取消、四首块user及后继unsigned、创建deposit缺省/null目标一致与普通call删除目标拒绝全部通过。旧Regolith来源、仿真/API/准备、Go vet/build、普通/优化各参考守卫、全目标严格Clippy及正常router构建通过。源码`a00a3481d1a020f68084629e85f0f84828c8bb2cfdf2e151cf08c1bb2dac3cde`、911固定输入、45运行pins与148参考输入前后一致，五份来源/向量产物及全部日志摘要独立核对。仅完成固定版本的来源与跨语言费用算术，不授予共识/L1最终性、完整当前OP执行或报价总费资格；下一轮继续P0-3的完整付款人链费/最大资金与原客户端状态转换对照，然后推进可信估值、净评分及其余优先级。
 
@@ -4008,13 +4014,13 @@ Fjord对完整编码user wire计算FastLZ压缩长度，估算大小`max(100e6,8
 
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
-|F138.1|完整OP费用、预付/最大资金及退款|WP13,WP15|LOCAL_SCOPE_VERIFIED|五规则、Legacy/type1/type2和宽金额，最终总和溢出/规则/ABI/native value/预算拒绝；[验证记录](integration/artifacts/local/op-chain-cost-check/report.json)。|
-|F138.2|费用账户聚合和付款人原生净扣款|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|分离/payer/base/L1/operator coinbase五别名，源before与独立after精确地址覆盖、资金门限、缺失/额外/篡改和burn替换拒绝；[验证记录](integration/artifacts/local/op-chain-cost-check/report.json)。|
-|F138.3|完整原客户端状态转换和初始状态一致性|WP01,WP13,WP15,WP18|LOCAL_SCOPE_VERIFIED|固定原op-geth完整源码无改动执行core.ApplyMessage；320本地签名场景/955实际状态转换、交易前committed/current storage一致，正常Ethereum worker/API回归；[验证记录](integration/artifacts/local/op-chain-cost-check/report.json)。|
+|F138.1|完整OP费用、预付/最大资金及退款|WP13,WP15|LOCAL_SCOPE_VERIFIED|五规则、Legacy/type1/type2和宽金额，最终总和溢出/规则/ABI/native value/预算拒绝；验证记录（`integration/artifacts/local/op-chain-cost-check/report.json`，已清理）。|
+|F138.2|费用账户聚合和付款人原生净扣款|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|分离/payer/base/L1/operator coinbase五别名，源before与独立after精确地址覆盖、资金门限、缺失/额外/篡改和burn替换拒绝；验证记录（`integration/artifacts/local/op-chain-cost-check/report.json`，已清理）。|
+|F138.3|完整原客户端状态转换和初始状态一致性|WP01,WP13,WP15,WP18|LOCAL_SCOPE_VERIFIED|固定原op-geth完整源码无改动执行core.ApplyMessage；320本地签名场景/955实际状态转换、交易前committed/current storage一致，正常Ethereum worker/API回归；验证记录（`integration/artifacts/local/op-chain-cost-check/report.json`，已清理）。|
 
 独立参考固定原op-geth commit `79e9d244748a1201fe686ca8a882b5fe7e173348`，codeload归档SHA256 `baee7f36d27a3074e0e601a32618183ce88e4f8f17a86bd23c1b78fef08aa492`，逐文件对照归档核验完整解包源码，所有原Go文件及go.mod/go.sum在统一验收前后固定摘要。只新增外部场景/I/O wrapper，不抽取重写状态转换；通过原`TransactionToMessage`恢复真实本地签名者，nonce与transaction检查均启用；原`NewL1CostFunc/NewOperatorCostFunc`从初始化本地L1Block storage取参数，原VM执行成功、SSTORE清除退款、状态写入后REVERT及INVALID耗尽Gas。五费用规则×三交易类型×四结果×五coinbase地址，另20个零费/精确base/未clip/wide场景，共320；每例富余额/精确最大资金均实际执行，315例不足1拒绝且费用账户/nonce未变，共955状态转换。该bank是明确构造的本地费用隔离场景，不是历史公链bank或真实协议成交。
 
-原wrapper预检首遇旧GasPool API编译拒绝，修正为固定客户端的NewGasPool；手工Rust检查曾因PATH使用旧rustc而拒绝，现明确使用1.90工具链。进一步独立REVM对照发现原wrapper在设置初始storage后直接执行，GetCommittedState仍返回旧零值，构成交易内dirty write而非已完成的交易前状态，导致退款场景失真。已在安装完整本地初始状态后调用原Finalise(false)，并硬检查GetCommittedState与GetState一致、refund计数为零；不会改原客户端函数。此前基于该不一致参考提出的计费Gas下界修改和API/整数正例全部撤回，共享native函数仍按原有准入行为，未把错误参考结果推进产品。工具：[validate_op_chain_cost.py](integration/tools/acceptance/validate_op_chain_cost.py)，报告：[op-chain-cost-check/report.json](integration/artifacts/local/op-chain-cost-check/report.json)。正常报价仍披露LOCAL_EVM_ONLY/未知L1项；该轮不升级完整当前OP执行/历史bank、可信Token估值/全候选净排序或生产VERIFIED，后续继续P0-3的正常来源链费接线与其余优先级。
+原wrapper预检首遇旧GasPool API编译拒绝，修正为固定客户端的NewGasPool；手工Rust检查曾因PATH使用旧rustc而拒绝，现明确使用1.90工具链。进一步独立REVM对照发现原wrapper在设置初始storage后直接执行，GetCommittedState仍返回旧零值，构成交易内dirty write而非已完成的交易前状态，导致退款场景失真。已在安装完整本地初始状态后调用原Finalise(false)，并硬检查GetCommittedState与GetState一致、refund计数为零；不会改原客户端函数。此前基于该不一致参考提出的计费Gas下界修改和API/整数正例全部撤回，共享native函数仍按原有准入行为，未把错误参考结果推进产品。工具：[validate_op_chain_cost.py](integration/tools/acceptance/validate_op_chain_cost.py)，报告：op-chain-cost-check/report.json（`integration/artifacts/local/op-chain-cost-check/report.json`，已清理）。正常报价仍披露LOCAL_EVM_ONLY/未知L1项；该轮不升级完整当前OP执行/历史bank、可信Token估值/全候选净排序或生产VERIFIED，后续继续P0-3的正常来源链费接线与其余优先级。
 
 阶段138前两次统一验收记录保留：首轮`03255dea7f5540f9b7f4251b7f3721e7`为FAILED，仿真100次Rust通过、API旧下界测试19通过/1失败；第二轮`d1115457ebfe4f1e8ea80e4e172a8399`已有局部门禁和Legacy HTTP通过，但进一步原Go/独立REVM对照揭示初始storage未完成的参考错误，主动SIGTERM取消，总控exit130、子进程确认回收后才修改源码。先前“57个真实退款场景证明可低于21000”结论撤回；该值来自不一致的原始slot上下文，不能作为合法已提交初始状态依据。撤回相关共享函数/API改动，修正外部场景初始化并加硬断言，再完整对照两个独立内核及重新冻结验收。旧报告/原始参考和REVM差异记录保留，不升级本轮状态。
 
@@ -4031,10 +4037,10 @@ Fjord对完整编码user wire计算FastLZ压缩长度，估算大小`max(100e6,8
 
 |任务|内容|工作包|状态|验证|
 |---|---|---|---|---|
-|F139.1|完整签名user envelope认证和私有VM环境|WP13,WP15|LOCAL_SCOPE_VERIFIED|EIP155 Legacy/type1/type2严格RLP、链/交易hash/caller、lowS/parity及字段宽度/访问列表总预算，签名wire与实际执行字段不可分离；[验证记录](integration/artifacts/local/op-execution-check/report.json)|
-|F139.2|七个历史OP规则和严格提供状态执行|WP15,WP18|LOCAL_SCOPE_VERIFIED|OP/Base固定Regolith/Canyon/Ecotone/Fjord/Granite/Holocene/Isthmus，完整同银行L1属性和费用slot匹配，未知账户/code/storage拒绝；不开放Jovian及之后；[验证记录](integration/artifacts/local/op-execution-check/report.json)|
-|F139.3|实际费用账户、最大资金和资源守卫|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|执行前checked最大资金、执行后原生账户守恒与付款人净扣款、实际Gas/nonce/storage；读/字节/指令/内存/取消/期限fatal，无可用失败delta；[验证记录](integration/artifacts/local/op-execution-check/report.json)|
-|F139.4|完整原客户端与归档公链签名差分|WP01,WP15,WP18,WP25|LOCAL_SCOPE_VERIFIED|448本地原signed场景1337原转换、896产品执行与441资金不足、180归档公链用户认证；冻结全门禁与原Shanghai HTTP回归通过后才收口；[验证记录](integration/artifacts/local/op-execution-check/report.json)|
+|F139.1|完整签名user envelope认证和私有VM环境|WP13,WP15|LOCAL_SCOPE_VERIFIED|EIP155 Legacy/type1/type2严格RLP、链/交易hash/caller、lowS/parity及字段宽度/访问列表总预算，签名wire与实际执行字段不可分离；验证记录（`integration/artifacts/local/op-execution-check/report.json`，已清理）|
+|F139.2|七个历史OP规则和严格提供状态执行|WP15,WP18|LOCAL_SCOPE_VERIFIED|OP/Base固定Regolith/Canyon/Ecotone/Fjord/Granite/Holocene/Isthmus，完整同银行L1属性和费用slot匹配，未知账户/code/storage拒绝；不开放Jovian及之后；验证记录（`integration/artifacts/local/op-execution-check/report.json`，已清理）|
+|F139.3|实际费用账户、最大资金和资源守卫|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|执行前checked最大资金、执行后原生账户守恒与付款人净扣款、实际Gas/nonce/storage；读/字节/指令/内存/取消/期限fatal，无可用失败delta；验证记录（`integration/artifacts/local/op-execution-check/report.json`，已清理）|
+|F139.4|完整原客户端与归档公链签名差分|WP01,WP15,WP18,WP25|LOCAL_SCOPE_VERIFIED|448本地原signed场景1337原转换、896产品执行与441资金不足、180归档公链用户认证；冻结全门禁与原Shanghai HTTP回归通过后才收口；验证记录（`integration/artifacts/local/op-execution-check/report.json`，已清理）|
 
 实现边界：`simulation::op_transaction::AuthenticatedUser`字段私有，完整wire由认证入口构造的TxEnv保存，caller/nonce/to/value/data/gas/费用/访问列表均从同一原签名派生。完整wire最多16MiB并受更低调用方预算限制，访问列表最多4096个entry+slot；拒绝未保护legacy、deposit/blob/type4、非规范RLP、签名malleability及nonce/gas/优先费非法值。签名有效只证明该caller授权该wire，不证明来源/共识/时效。
 
@@ -4042,7 +4048,7 @@ Fjord对完整编码user wire计算FastLZ压缩长度，估算大小`max(100e6,8
 
 参考只使用完整固定原op-geth源码和新独立wrapper，初始化先Finalise(false)并硬查初始committed/current一致及refund0。七规则×三交易类型×四执行结果×五coinbase别名加宽值/零费等共448场景，OP/Base交错并含非空access list；富余额/精确最大资金和不足1合计1337原转换。预检发现测试Base Regolith时间早于其创世，准入正确拒绝后修正输入；初始测试AccountInfo默认内联空code亦被严格image拒绝，现按显式独立code安装。不放宽产品状态/时间边界。
 
-工具：[validate_op_execution.py](integration/tools/acceptance/validate_op_execution.py)，报告：[op-execution-check/report.json](integration/artifacts/local/op-execution-check/report.json)。归档公链180笔仅重新认证原阶段137普通来源输出的完整签名/hash/sender，不重新授予历史VM、当前Jovian/Karst或共识资格。统一验收完成后记录冻结摘要、实际通过门禁和提交结果；原26工作包完整验收仍为0，VERIFIED继续关闭，后续按P0-3补正常来源/执行接线、可信估值和净排序及其余优先级。
+工具：[validate_op_execution.py](integration/tools/acceptance/validate_op_execution.py)，报告：op-execution-check/report.json（`integration/artifacts/local/op-execution-check/report.json`，已清理）。归档公链180笔仅重新认证原阶段137普通来源输出的完整签名/hash/sender，不重新授予历史VM、当前Jovian/Karst或共识资格。统一验收完成后记录冻结摘要、实际通过门禁和提交结果；原26工作包完整验收仍为0，VERIFIED继续关闭，后续按P0-3补正常来源/执行接线、可信估值和净排序及其余优先级。
 
 阶段139首次统一验收`eca269c0e9454e169bf1ee17279a90c0`因新增任务锚点遗漏历史批次入口被进度文档检查拒绝，FAILED记录保留；该次仅format/contracts通过，尚未进入Rust执行门禁。总控退出并确认无子进程后补历史行与任务表标准列名，再重新完整验收，不据预检升级状态。
 
@@ -4067,7 +4073,7 @@ Fjord对完整编码user wire计算FastLZ压缩长度，估算大小`max(100e6,8
 
 开发预检曾在Ecotone后首次观察遇缺blob环境拒绝，按固定OP无blob规则补齐；新失败用例初用WETH allowance slot4，但本银行实际Uniswap ERC20 slot2，已按实际代码改正。一次手工过滤命中仅用于导出输入的ignored测试且缺导出路径，明确为测试调用错误；正式执行会跳过导出测试，所有原输入在冻结前生成。未放宽预算或原客户端，原26工作包完整验收仍0，生产VERIFIED继续关闭。
 
-工具：[validate_op_bound.py](integration/tools/acceptance/validate_op_bound.py)，报告：[op-bound-check/report.json](integration/artifacts/local/op-bound-check/report.json)。最终冻结限定验收已通过，摘要与实际结果见下；后续按P0-3接正常OP worker/API与来源、可信估值/净评分，再按原优先级推进其余设计范围，没有确认阻断全部后续工作的外部阻塞。
+工具：[validate_op_bound.py](integration/tools/acceptance/validate_op_bound.py)，报告：op-bound-check/report.json（`integration/artifacts/local/op-bound-check/report.json`，已清理）。最终冻结限定验收已通过，摘要与实际结果见下；后续按P0-3接正常OP worker/API与来源、可信估值/净评分，再按原优先级推进其余设计范围，没有确认阻断全部后续工作的外部阻塞。
 
 阶段140首次冻结批次`0ce573a313cc487db99c1bbd3b3e6275`在源码复核发现独立wrapper的Isthmus前序Granite/Holocene开关缺失后主动CANCELLED；总控及已知子进程组全部退出、无残留harness后才补齐参考配置。首次已通过format/contracts/普通和优化进度检查，尚未完成统一执行验收，原取消报告保留；补齐后重建448原参考并重新完整冻结，不沿用首次通过资格。
 
@@ -4092,7 +4098,7 @@ Fjord对完整编码user wire计算FastLZ压缩长度，估算大小`max(100e6,8
 
 OP和prepared模式暂不混用，ExactIn/Out严格唯一；worker先检查expected genesis/protocol/timeout，签名字段认证通过后才选择BOUND执行，不根据调用者传入fee JSON授予权威。stdout仍只有有界response，actual binary SHA256随响应并在父进程核验；旧无`op_user`序列化省略字段，原正常HTTP生产调用显式传None，正常API尚未开放OP来源、费用和签名请求。
 
-测试从已构建router复制字节一致的实际二进制执行，签名不会被发送到链；56成功子进程比较整个结果，17反例覆盖nonce/Gas/fee/priority/hash/wire截断/尾随/属性/不支持fork/genesis/未知字段/缺OP/双模式/预算/过长属性/chain/caller。依然是本地构造历史bank，不提供当前Jovian及后续或共识/生产VERIFIED资格；原26工作包完整验收仍0。工具：[validate_op_worker.py](integration/tools/acceptance/validate_op_worker.py)，报告：[op-worker-check/report.json](integration/artifacts/local/op-worker-check/report.json)。该轮完成后继续正常API/来源接线、可信估值/候选净评分与其余原优先级。
+测试从已构建router复制字节一致的实际二进制执行，签名不会被发送到链；56成功子进程比较整个结果，17反例覆盖nonce/Gas/fee/priority/hash/wire截断/尾随/属性/不支持fork/genesis/未知字段/缺OP/双模式/预算/过长属性/chain/caller。依然是本地构造历史bank，不提供当前Jovian及后续或共识/生产VERIFIED资格；原26工作包完整验收仍0。工具：[validate_op_worker.py](integration/tools/acceptance/validate_op_worker.py)，报告：op-worker-check/report.json（`integration/artifacts/local/op-worker-check/report.json`，已清理）。该轮完成后继续正常API/来源接线、可信估值/候选净评分与其余原优先级。
 
 阶段141最终限定验收：运行目录`cd7284662bdd4ed2870c02c17c7bc95c`，19门禁全部exit0、159次Rust（仿真101/API21/准备23/BOUND3/实际worker2/签名执行9）通过。56次实际`dex-router --evm-simulation-worker`覆盖七历史规则、两方向、Legacy/type2和ExactIn/Out，整个SimulationOutcome与库内执行完全一致，worker自行报告的实际二进制SHA256逐次相同；17种签名/context/模式/预算替换拒绝且无可用成功outcome。旧OP原Router448参考/448 BOUND与448直接执行、14精确最大资金和14不足1、896原签名产品执行及441资金拒绝和180归档用户签名继续通过；8次真实Shanghai HTTP（Legacy/动态价各四）保持旧wire和费用披露。
 
@@ -4119,7 +4125,7 @@ OP和prepared模式暂不混用，ExactIn/Out严格唯一；worker先检查expec
 
 验证以阶段139固定原op-geth完整签名/状态转换参考及阶段141完整Router参考为基准，896组七历史规则/成功、退款、回退、HALT/费用角色重合/实际与精确最大资金，逐项独立源核验；另覆盖费用和payer字段增删改、账户前后及平移、源账户/slot缺失、nonce/资金/属性/时间/签名替换、精确与不足读字节预算、取消/期限。首次预检因参考相对路径、跨链替换探针未先选同链和新增反例计数不足被拒绝，已修正探针来源并补齐逐费用角色缺失及源余额篡改覆盖；未降低产品预算或已声明覆盖数量。
 
-工具：[validate_op_fee_measurements.py](integration/tools/acceptance/validate_op_fee_measurements.py)，报告：[op-fee-measurements-check/report.json](integration/artifacts/local/op-fee-measurements-check/report.json)。统一冻结验收已通过，结果见下；后续按P0-3完成限定历史正常build/签名simulate及父进程接线，再推进当前链规则、可信Token估值/净评分与其余原优先级。原26完整工作包验收仍为0，无阻断全部工作的外部阻塞；只推送实际配置的GitHub origin。
+工具：[validate_op_fee_measurements.py](integration/tools/acceptance/validate_op_fee_measurements.py)，报告：op-fee-measurements-check/report.json（`integration/artifacts/local/op-fee-measurements-check/report.json`，已清理）。统一冻结验收已通过，结果见下；后续按P0-3完成限定历史正常build/签名simulate及父进程接线，再推进当前链规则、可信Token估值/净评分与其余原优先级。原26完整工作包验收仍为0，无阻断全部工作的外部阻塞；只推送实际配置的GitHub origin。
 
 阶段142首批冻结`8a2a83c35bdc4b1b9cf4019ee2ec6127`为FAILED：format/contracts通过，进度检查发现新增任务锚点漏写既有规范要求的任务表。确认总控/子进程及harness已退出后补齐Markdown任务表和批次顺序，保留失败报告；不改源码、不放宽验证规则，重新全量冻结验收。
 
@@ -4148,7 +4154,7 @@ OP和prepared模式暂不混用，ExactIn/Out严格唯一；worker先检查expec
 
 预检父进程28场景/252次重新seal的回执篡改通过。首个HTTP预演触发原15秒期限，完整保留原进程日志；停止并确认无残留后单独复现，实际ExactIn/Out分别12.659/12.920秒，均在原期限内完成，原客户端分别核对新HTTP calldata的Gas/实际Token/费用。采样确认主要阻塞线程在debug可执行文件SHA256，首次超时与并发Clippy同现，但未据此宣称唯一因果；产品期限与覆盖均未降低。第二预演的ExactOut比较脚本误读省略的None `bound`键而失败，保留原API结果并用独立原转换恢复比较通过，随后修正脚本按可选字段读取；统一冻结仍从头运行，不沿用预演通过资格。
 
-工具：[validate_op_api.py](integration/tools/acceptance/validate_op_api.py)、[op_api_http.py](integration/tools/acceptance/op_api_http.py)，报告：[op-api-check/report.json](integration/artifacts/local/op-api-check/report.json)。本地固定公知key1仅存在验收钱包wrapper，实际签署正常build当时返回的calldata，正常服务不持有私钥。独立原完整op-geth在装载初态后Finalise(false)，逐slot确认committed/current一致及refund0，再执行同一完整signed wire；不改原客户端。当前Jovian及后续VM、可信历史bank/共识、通用可信估值/净评分及剩余工作包继续；原26完整验收与生产资格不升级，无阻断全部工作的外部阻塞。验证结束后本轮commit并推送实际GitHub origin，再按优先级继续。
+工具：[validate_op_api.py](integration/tools/acceptance/validate_op_api.py)、[op_api_http.py](integration/tools/acceptance/op_api_http.py)，报告：op-api-check/report.json（`integration/artifacts/local/op-api-check/report.json`，已清理）。本地固定公知key1仅存在验收钱包wrapper，实际签署正常build当时返回的calldata，正常服务不持有私钥。独立原完整op-geth在装载初态后Finalise(false)，逐slot确认committed/current一致及refund0，再执行同一完整signed wire；不改原客户端。当前Jovian及后续VM、可信历史bank/共识、通用可信估值/净评分及剩余工作包继续；原26完整验收与生产资格不升级，无阻断全部工作的外部阻塞。验证结束后本轮commit并推送实际GitHub origin，再按优先级继续。
 
 阶段143最终限定验收：运行目录`bc3c76cc99814c6bbda10ebedfc825f2`，19门禁全部exit0、161次Rust（仿真101/API21/准备23/BOUND及父进程回执4/签名执行及费用源12）通过。七历史规则×Legacy/type2×ExactIn/Out共28笔正常build实际签名/HTTP执行与原完整op-geth逐Gas、实际Token和费用账户一致；168错误签名/旧计划/未知覆盖拒绝及28次build未授权拒绝通过，28个父进程回执场景及252次重新seal篡改拒绝、旧8笔正常Shanghai实际worker全部通过。全目标严格Clippy、正常router/harness构建、普通/优化各17进度及各4原参考守卫通过。源码`08d04e6024c144788e6c80c1d370bdcad4e8e3c3e86e93ba276e8f213080fd29`、911固定输入、46运行输入、1488参考输入、4产物、19日志和28 OP场景224原JSON文件及8旧HTTP原simulation摘要独立复核一致，无残留worker/harness。
 
@@ -4170,7 +4176,7 @@ OP和prepared模式暂不混用，ExactIn/Out严格唯一；worker先检查expec
 
 原始语料来自完整归档已验证的op-geth core/vm/testdata，原数据继续留本地。新wrapper直接执行未修改的原预编译和core.ApplyMessage，并复用既有wrapper的配置/初态辅助函数；只重命名其入口，原客户端不修改。完整交易在初态Finalise(false)后执行，实际费用账户、nonce、Gas及返回字节由两引擎对照。首个原wrapper预演因Isthmus低Gas交易未满足EIP7623 calldata floor被原客户端拒绝，失败输入/日志保留；第二预演按原core.FloorDataGas构造合法总Gas，直接调用和完整交易各自比较，不假定floor产生的额外可用Gas与直接调用相等，未修改产品规则或放宽预算。
 
-工具：[validate_op_precompiles.py](integration/tools/acceptance/validate_op_precompiles.py)、[op_precompile_vectors.py](integration/tools/acceptance/op_precompile_vectors.py)，报告：[op-precompiles-check/report.json](integration/artifacts/local/op-precompiles-check/report.json)。原26完整工作包验收仍0、生产VERIFIED关闭；本轮成功仅证明列明预编译范围，继续当前VM/可信bank、可靠Token估值和全候选净评分。每轮验证通过后commit并推送实际GitHub origin，再按既定优先级继续。
+工具：[validate_op_precompiles.py](integration/tools/acceptance/validate_op_precompiles.py)、[op_precompile_vectors.py](integration/tools/acceptance/op_precompile_vectors.py)，报告：op-precompiles-check/report.json（`integration/artifacts/local/op-precompiles-check/report.json`，已清理）。原26完整工作包验收仍0、生产VERIFIED关闭；本轮成功仅证明列明预编译范围，继续当前VM/可信bank、可靠Token估值和全候选净评分。每轮验证通过后commit并推送实际GitHub origin，再按既定优先级继续。
 
 阶段144文档预检发现新任务表列名未使用既有解析器约定，已改回“任务/内容/工作包/状态/验证”，不修改进度校验器；当时聚合报告尚未创建，报告链接检查随正式总控写入RUNNING报告后执行，未伪造通过记录。
 
@@ -4326,7 +4332,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 
 下一轮保持P0-3、§13.1/13.3/13.5：先给现有ExactIn/ExactOut有界优化器加入逐完整候选费用评分入口，成本必须来自具体候选的核验/估计与授权单位换算，不能把毛额最优一笔的费用外推其他路径；覆盖不足时在相同已评估集合统一毛额回退，保留预算/取消/原子余数与共享池顺序。非加性的逐候选费用禁止套用原加性独立池DP。随后接正常报价的执行/成本模型与可靠真实价格来源，未绑定签名的OP候选不得伪造完整L1费；单笔transactionEconomics继续不冒充全候选净评分。原26完整工作包验收仍0，生产VERIFIED关闭；可信bank/共识及其余既定优先级继续。
 
-阶段149独立复核：冻结源码`c68237973c1450ffc4171e1937ff89fc930994ffdfd03fc4b93a9c3bf50b25e8`、913固定输入、46运行pins、13683参考输入、12产物与51日志摘要一致；484份嵌套原始文件摘要及8旧HTTP simulation重新核对，含36 OP/13带价格EVM/4带价格Karst的实际输入与输出。最长原OP HTTP为1.360416秒，15秒预算未放宽。[独立复核记录](integration/artifacts/local/native-valuation-check/runs/ac277e133c344c61bbabc80c95f06632/independent-audit.json)。
+阶段149独立复核：冻结源码`c68237973c1450ffc4171e1937ff89fc930994ffdfd03fc4b93a9c3bf50b25e8`、913固定输入、46运行pins、13683参考输入、12产物与51日志摘要一致；484份嵌套原始文件摘要及8旧HTTP simulation重新核对，含36 OP/13带价格EVM/4带价格Karst的实际输入与输出。最长原OP HTTP为1.360416秒，15秒预算未放宽。独立复核记录（`integration/artifacts/local/native-valuation-check/runs/ac277e133c344c61bbabc80c95f06632/independent-audit.json`，已清理）。
 
 
 <a id="plan-2026-11-19-candidate-costs"></a>
@@ -4356,7 +4362,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 
 该轮只完成可接服务执行/成本模型的算法组件；回调不认证价格或bank，测试费用明确合成。`normal_quote_cost_model_connected=false`与`all_candidate_net_cost_ranking_supported=false`保留，正常API继续毛额回退，不能把组件通过记作完整设计完成。下一轮按上面的实现建议接限定正常报价、逐候选实际执行/父费用核验与来源/时间/单位绑定，然后继续可靠真实价格来源、拆单执行成本及其余既定优先级；原26完整工作包验收仍0、生产VERIFIED关闭。
 
-阶段150独立复核：冻结源码`b5985eeb2589f9a824e25ae25afc23247e83c6d458f49ebeca58dabbbac3d389`、913固定输入、46运行pins、13683参考输入、12产物、54门禁日志摘要一致，484份嵌套原始文件及8旧HTTP simulation摘要重新核验；正常OP最长HTTP为1.361364秒，原15秒预算保持。[独立复核记录](integration/artifacts/local/candidate-cost-check/runs/b53bf6ef3d3e4ddb8a2e1d8a2f17bede/independent-audit.json)。
+阶段150独立复核：冻结源码`b5985eeb2589f9a824e25ae25afc23247e83c6d458f49ebeca58dabbbac3d389`、913固定输入、46运行pins、13683参考输入、12产物、54门禁日志摘要一致，484份嵌套原始文件及8旧HTTP simulation摘要重新核验；正常OP最长HTTP为1.361364秒，原15秒预算保持。独立复核记录（`integration/artifacts/local/candidate-cost-check/runs/b53bf6ef3d3e4ddb8a2e1d8a2f17bede/independent-audit.json`，已清理）。
 
 
 <a id="plan-2026-11-19-normal-candidate-costs"></a>
@@ -4388,7 +4394,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 
 额外四Karst正常报价在模型启用时明确未签名费用未知、零候选worker；当时正常build后的实际签名/worker/原完整引擎执行和24错误请求拒绝继续通过。旧13带价格EVM/4带价格Karst、36 OP签名HTTP与8 Shanghai HTTP全部保留，共原61正常HTTP不减；原448 BOUND/父费用源核验、现代9452组件及全部历史Gas/签名/费用/原生余额回归保持。优化器、公共crate、仿真/API全目标严格Clippy及正常router/harness构建通过。
 
-独立复核：源码`033d71fac1be05af23e8240a69c7170cd0b59047d2b58909165f7ddc58051592`、913固定输入、46运行pins、13827参考输入、14产物和59日志摘要一致，694份嵌套原始文件及8旧HTTP simulation摘要重新核验；16正常成本报价最长2.894542秒，旧OP最长1.516594秒，原15秒预算不变。[独立复核记录](integration/artifacts/local/normal-candidate-cost-check/runs/e5c5ebeb7c174000b7199fcad9039f9b/independent-audit.json)。确认无总控、worker或harness残留。验收期间仅清理可重建Go编译缓存以回收磁盘，未删除原参考、测试二进制或报告，冻结源码/输入摘要未变。
+独立复核：源码`033d71fac1be05af23e8240a69c7170cd0b59047d2b58909165f7ddc58051592`、913固定输入、46运行pins、13827参考输入、14产物和59日志摘要一致，694份嵌套原始文件及8旧HTTP simulation摘要重新核验；16正常成本报价最长2.894542秒，旧OP最长1.516594秒，原15秒预算不变。独立复核记录（`integration/artifacts/local/normal-candidate-cost-check/runs/e5c5ebeb7c174000b7199fcad9039f9b/independent-audit.json`，已清理）。确认无总控、worker或harness残留。验收期间仅清理可重建Go编译缓存以回收磁盘，未删除原参考、测试二进制或报告，冻结源码/输入摘要未变。
 
 本轮`normal_quote_cost_model_connected=true`仅指上述可选本地单路线V2目标；`complete_quote_cost_ranking_supported=false`、`all_candidate_net_cost_ranking_supported=false`与`live_market_price_adapter_supported=false`保留。证据有单worker输出1MiB及每请求最多16计划的局部上界；租户/缓存总字节配额仍属P1-4/P2-2后续范围，不据此宣称生产内存容量通过。原26完整工作包验收仍0、生产VERIFIED关闭。
 
@@ -4397,7 +4403,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 
 阶段151提交前补查：第一份冻结运行与独立复核已通过，但`git diff --cached --check`发现新验收脚本第32行存在一个行尾空格（此前工作区diff不覆盖未跟踪新文件）。确认总控/worker/harness全部退出后仅移除该空格；不改功能、断言或预算。第一份LOCAL_SCOPE_VERIFIED报告及其`033d71…`源码摘要保留，仅证明修正前字节。当前任务暂回IN_PROGRESS，重新运行完整59门禁，最终提交资格以第二份冻结及独立复核为准，不能用行为未变替代精确源码一致性。
 
-阶段151最终提交资格：移除单个行尾空格后的完整冻结运行`6f0c325abe344e6c87713c5789fefef0`再次59门禁全部exit0、215次Rust/78次Go通过；本轮16报价/30候选worker/30原Router重放、额外4 OP未知费用回退与原61正常HTTP完整保留。源码`12173ec4f6ca6b61e0f433eeffc7b4990ad2fdfbc3cb9c1c1efe2ea3a629e307`、913固定输入、46运行pins、13827参考输入、14产物和59日志摘要均独立重算一致，694份嵌套原始文件及8旧HTTP simulation摘要通过。[本次独立复核](integration/artifacts/local/normal-candidate-cost-check/runs/6f0c325abe344e6c87713c5789fefef0/independent-audit.json)。最长候选报价3.017708秒、原OP HTTP 1.439458秒，原15秒预算保持。第一份报告仅保留其原字节资格；本轮状态恢复LOCAL_SCOPE_VERIFIED，完整设计/生产资格边界不变。总控、worker和harness均已退出，提交前同时检查暂存区与工作区空白，最终文档普通/优化检查后commit/push实际origin，再进入下一项。
+阶段151最终提交资格：移除单个行尾空格后的完整冻结运行`6f0c325abe344e6c87713c5789fefef0`再次59门禁全部exit0、215次Rust/78次Go通过；本轮16报价/30候选worker/30原Router重放、额外4 OP未知费用回退与原61正常HTTP完整保留。源码`12173ec4f6ca6b61e0f433eeffc7b4990ad2fdfbc3cb9c1c1efe2ea3a629e307`、913固定输入、46运行pins、13827参考输入、14产物和59日志摘要均独立重算一致，694份嵌套原始文件及8旧HTTP simulation摘要通过。本次独立复核（`integration/artifacts/local/normal-candidate-cost-check/runs/6f0c325abe344e6c87713c5789fefef0/independent-audit.json`，已清理）。最长候选报价3.017708秒、原OP HTTP 1.439458秒，原15秒预算保持。第一份报告仅保留其原字节资格；本轮状态恢复LOCAL_SCOPE_VERIFIED，完整设计/生产资格边界不变。总控、worker和harness均已退出，提交前同时检查暂存区与工作区空白，最终文档普通/优化检查后commit/push实际origin，再进入下一项。
 
 
 <a id="plan-2026-11-19-approved-chainlink-feeds"></a>
@@ -4426,7 +4432,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 
 当前产品CLI对48合成向量与1真实公开观察逐一重验，49结果与独立观察/签名消息一致；17份原始RPC返回以固定请求和原捕获时间完整离线重放，不进行新公共读取，也不更新旧轮次时间。固定官方AggregatorV3/Proxy/EACProxy源码摘要一致，公开测试策略固定到实际proxy/aggregator代码；实际市场数据、合成算术样本和公开测试签名者的权限边界分别保留。当前CLI构建摘要为`3c37d58654faada3712dc93d2ddbaa2af72a78606bb438869c87de693a84dfc9`。
 
-原59门禁完整保留：16正常候选报价/30实际worker/30原Router重放、4未签名OP回退与后续签名执行、原61正常HTTP及全部现代/历史原引擎、父费用审计、严格Clippy和正常构建均通过。最长本轮候选报价2.837371秒、原OP HTTP 1.462419秒，原15秒预算不变。源码`bd7d177ef6ef76170002cd9b60fa19750f75330f6860a04580931d607c12220b`、913固定输入、46运行pins、13856参考输入、16产物和68日志均独立重算一致；840份原始产物、8旧HTTP simulation、49 CLI观察及当前校验器二进制摘要再次核验。[独立复核](integration/artifacts/local/approved-market-feed-check/runs/b880a8f71f784227bfdcdba4d4a678e3/independent-audit.json)。总控/worker/harness/采集子进程已退出。
+原59门禁完整保留：16正常候选报价/30实际worker/30原Router重放、4未签名OP回退与后续签名执行、原61正常HTTP及全部现代/历史原引擎、父费用审计、严格Clippy和正常构建均通过。最长本轮候选报价2.837371秒、原OP HTTP 1.462419秒，原15秒预算不变。源码`bd7d177ef6ef76170002cd9b60fa19750f75330f6860a04580931d607c12220b`、913固定输入、46运行pins、13856参考输入、16产物和68日志均独立重算一致；840份原始产物、8旧HTTP simulation、49 CLI观察及当前校验器二进制摘要再次核验。独立复核（`integration/artifacts/local/approved-market-feed-check/runs/b880a8f71f784227bfdcdba4d4a678e3/independent-audit.json`，已清理）。总控/worker/harness/采集子进程已退出。
 
 该轮完成批准Ethereum feed的有限适配/授权与采集工具，未完成持续live book刷新、可信bank联验、L2 sequencer/其他链来源、拆单完整执行及报价总成本。`approved_ethereum_chainlink_usd_pair_adapter_supported=true`，完整live/完整净评分/生产边界继续false，原26完整工作包验收仍0。最终文档普通/优化检查后commit/push实际GitHub origin，再进入下一项；GitLab远端仍未配置。
 
@@ -4451,7 +4457,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 
 阶段153最终限定验收：完整冻结运行`9a4eba40e65b41e495863fea60834a1e`的68门禁全部exit0、226次Rust与80次Go通过，无FAILED/CANCELLED冻结。六项候选控制/费用发布测试覆盖15种计划/绑定/金额/评分错配、无证据/执行失败、缺价、负目标与宽费用。16个正常报价/30次实际worker及30次原Router重放通过；16报价公开costs逐字段与选中执行一致，单计划预算场景的毛额选中计划也有执行证据；另4未签名OP报价没有执行证据，费用保持未知。缓存、内部evidence及最终simulate同计划/绑定/calldata/outcome不变。
 
-原批准feed的8有效/14无效三语言配置、48合成/1公共捕获、49产品CLI结果及17原RPC返回离线重放通过；原61正常HTTP、全部现代/历史原引擎与父费用源审计、严格Clippy及正常构建完整保留。冻结源码`3fdc38ea81de6fdff1511dc9c59ae68202bdc68d507f9cd9914bbfe38def0bf6`；独立摘要复核通过：913固定输入、46运行pins、13856参考输入、16产物与68日志一致，840原始文件和8旧HTTP simulation再次核对；16同源费用披露及4未签名OP未知报价、49市场CLI与当前二进制摘要均一致。最长候选报价2.897446秒、原OP HTTP 1.458427秒，原15秒预算不变。[独立复核](integration/artifacts/local/selected-candidate-cost-check/runs/9a4eba40e65b41e495863fea60834a1e/independent-audit.json)。总控/worker/harness均已退出。
+原批准feed的8有效/14无效三语言配置、48合成/1公共捕获、49产品CLI结果及17原RPC返回离线重放通过；原61正常HTTP、全部现代/历史原引擎与父费用源审计、严格Clippy及正常构建完整保留。冻结源码`3fdc38ea81de6fdff1511dc9c59ae68202bdc68d507f9cd9914bbfe38def0bf6`；独立摘要复核通过：913固定输入、46运行pins、13856参考输入、16产物与68日志一致，840原始文件和8旧HTTP simulation再次核对；16同源费用披露及4未签名OP未知报价、49市场CLI与当前二进制摘要均一致。最长候选报价2.897446秒、原OP HTTP 1.458427秒，原15秒预算不变。独立复核（`integration/artifacts/local/selected-candidate-cost-check/runs/9a4eba40e65b41e495863fea60834a1e/independent-audit.json`，已清理）。总控/worker/harness均已退出。
 
 本轮仅完成已有显式启用的本地V2单路线正常报价选中费用披露，完整报价总费/完整net与生产VERIFIED继续关闭；其他执行/成本模型、可信bank、持续live价格刷新/授权发布及其余优先级未完成，原26完整工作包验收仍0。下一轮按P0-3和§13.1/15.5/21.3/26.3补授权价格book的运行期版本发布和报价快照/缓存绑定：版本必须由配置签署方签名覆盖，拒绝进程内回退、同版本改写与币种集合降级，每次候选比较固定同一book，旧报价执行不得悄悄套新价格。固定本地bank不获得live/共识资格，跨重启耐久发布与自动采集/签署需分别闭合。每轮继续验证/文档/commit/push现有GitHub origin，GitLab仍未配置。
 
@@ -4480,7 +4486,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 
 阶段154最终限定验收：完整第二轮运行`1efadba05545403b8a65d6c3e6a14f5f`的72门禁全部exit0、229次Rust与80次Go通过。首轮contracts FAILED保留，最终通过只对应第二轮冻结。新发布状态/签名版本测试与独立Solders10份book核对通过；旧零版本省略编码保持原签名/hash。6个正常ExactIn/Out报价、12候选实际worker与12原Router重放通过，11种内容/授权错误加缺文件/目录/FIFO共14错误发布拒绝，原已授权快照保持不变；4次并发发布均成功，旧版本报价均以409明确失效，未混用价格。新版本改变了实际费用排序，旧quoteId的build/simulate均拒绝换价，原内部evidence保持且price_current=false。
 
-新增市场CLI6案例覆盖零/正/u64最大发布版本及负数/超宽/字符串拒绝，签名消息由独立Python摘要核对，未签名观察不获得授权，原公开捕获时间不改且不进行新公共RPC。原68门禁完整保留，包括16候选正常报价/30原执行、4未签名OP回退、原61正常HTTP、48合成/1真实公开捕获、49CLI/17原RPC、全部现代/历史原引擎与严格Clippy/正常构建。源码`2b4d870c1325cf0018907ec3aad06d2945943163d8da4d6a7fb02703a63c4141`，独立复核通过：915固定输入、46运行pins、13859参考输入、18产物与72日志一致，902原始文件和8旧HTTP simulation再次核对；12发布观察的签名独立验证、6报价/12原重放、14拒绝/4并发及6 CLI消息一致。最长普通候选报价4.465740秒、原OP HTTP 1.937883秒，15秒预算未改。当前市场CLI摘要`3cffe3ffc271f25b8c4fff030ec3ebdea96f9604fab5147819d26cb8df9f619b`。[独立复核](integration/artifacts/local/price-publication-check/runs/1efadba05545403b8a65d6c3e6a14f5f/independent-audit.json)。
+新增市场CLI6案例覆盖零/正/u64最大发布版本及负数/超宽/字符串拒绝，签名消息由独立Python摘要核对，未签名观察不获得授权，原公开捕获时间不改且不进行新公共RPC。原68门禁完整保留，包括16候选正常报价/30原执行、4未签名OP回退、原61正常HTTP、48合成/1真实公开捕获、49CLI/17原RPC、全部现代/历史原引擎与严格Clippy/正常构建。源码`2b4d870c1325cf0018907ec3aad06d2945943163d8da4d6a7fb02703a63c4141`，独立复核通过：915固定输入、46运行pins、13859参考输入、18产物与72日志一致，902原始文件和8旧HTTP simulation再次核对；12发布观察的签名独立验证、6报价/12原重放、14拒绝/4并发及6 CLI消息一致。最长普通候选报价4.465740秒、原OP HTTP 1.937883秒，15秒预算未改。当前市场CLI摘要`3cffe3ffc271f25b8c4fff030ec3ebdea96f9604fab5147819d26cb8df9f619b`。独立复核（`integration/artifacts/local/price-publication-check/runs/1efadba05545403b8a65d6c3e6a14f5f/independent-audit.json`，已清理）。
 
 本轮只完成当前进程、固定本地bank下的显式授权发布，`price_publication_restart_rollback_protected=false`和`continuous_live_market_book_refresh_supported=false`；完整费用/net、可信bank/共识与生产VERIFIED保持关闭，原26完整工作包验收仍0。下一轮继续P0-3和§15.5/21.3/26.3，补显式配置的耐久发布journal与重启防回退：固定策略/链身份、已有签名book和记录hash链、独占文件锁、写入fsync先于确认、尾部半记录恢复/完整损坏拒绝、丢journal不自动重新初始化，覆盖旧book重启、并发writer、崩溃/IO故障与恢复；持久化提交超时必须区分未知结果并关闭旧价格使用，不能承诺无法实现的“超时必无持久效果”。持续自动市场采集/独立签署/真实bank推进及其余优先级分别继续。通过最终文档检查后commit/push实际GitHub origin，GitLab目标仍未配置。
 
@@ -4523,7 +4529,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 
 首次全量运行 `6c9f5b21afea49c49d2c2e188a408c60` 失败，报告保留。旧配置门禁运行整个 `native_valuation` 测试目标，提前选中了依赖尚未导出的 `XONE_PRICE_JOURNAL_CONFIGS` 的新增用例。已将两份 Rust 的新增用例隔离到 `durable_price_journal` 测试目标，在 Go 导出之后运行；保留原断言和旧门禁。
 
-最终运行 `4ab92751086041e49f974d0a2d599007`：80 项门禁全部通过，239 次 Rust、82 次 Go；源码 SHA-256 `d2cca58ec04921d2a9613588a7d6500db1c40bf9fd72b190d0fd57958835cf78`。[独立复核](integration/artifacts/local/durable-price-router-check/runs/4ab92751086041e49f974d0a2d599007/independent-audit.json)核对了 21 份报告、80 份日志、1055 份原始产物，以及报价版本和费用来源、发布回执和前一条记录的摘要。默认进程内模式的回执仍为 `restartRollbackProtected=false`。
+最终运行 `4ab92751086041e49f974d0a2d599007`：80 项门禁全部通过，239 次 Rust、82 次 Go；源码 SHA-256 `d2cca58ec04921d2a9613588a7d6500db1c40bf9fd72b190d0fd57958835cf78`。独立复核（`integration/artifacts/local/durable-price-router-check/runs/4ab92751086041e49f974d0a2d599007/independent-audit.json`，已清理）核对了 21 份报告、80 份日志、1055 份原始产物，以及报价版本和费用来源、发布回执和前一条记录的摘要。默认进程内模式的回执仍为 `restartRollbackProtected=false`。
 
 下一项仍为 P0-3：持续采集批准来源，保留原始块、采集时间与有效期，组装待独立授权的完整价格簿；验证过期、不同块或签名不足的输入不能发布。随后补拆单完整执行、授权等辅助交易费用与全候选净额。以上不等于可信 bank 或生产资格；原 26 个工作包完整验收仍为 0。
 
@@ -4568,9 +4574,9 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F159.1|不打开日志的签署候选生成|WP13,WP15|LOCAL_SCOPE_VERIFIED|日志文件不在原处时仍能核验并生成相同候选，明确不声称已核对版本或已发布。|
 |F159.2|在线预检、双摘要条件与结果回读|WP15,WP16|LOCAL_SCOPE_VERIFIED|实际 HTTP 未认证 401，候选变化、错误高水位与过期回执重放均 409；预检不改日志，状态回读与重启确认一致。|
 
-[定向 HTTP 结果](integration/artifacts/local/online-price-control-159-1795059640/report.json)保留原 4 次报价和 5 个启动拒绝。该范围仅是固定本地 bank、显式耐久模式的在线发布。安装候选文件、收集独立回执和服务调度仍需编排；持续采集、可信 bank 推进、拆单、辅助交易费用、完整净额及其他优先级保持未完成。
+定向 HTTP 结果（`integration/artifacts/local/online-price-control-159-1795059640/report.json`，已清理）保留原 4 次报价和 5 个启动拒绝。该范围仅是固定本地 bank、显式耐久模式的在线发布。安装候选文件、收集独立回执和服务调度仍需编排；持续采集、可信 bank 推进、拆单、辅助交易费用、完整净额及其他优先级保持未完成。
 
-[本轮完整回归](integration/artifacts/local/durable-price-router-check/runs/c7390d09c36d4869af00c102a12af6ce/report.json)：82 项检查全部退出 0，239 次 Rust、82 次 Go 测试执行。逐项复核 82 份日志及 21 份产物报告摘要，源码摘要 `bd0e15d88270cfee3f9a9a9c49fa1e11154982595e94e4c4efeb3d391452d801`。下一项 P0-3：将已核验候选的原子安装、双摘要发布和结果不确定时的状态回读接入操作工具；不会因网络超时盲目覆盖旧文件或重发。
+本轮完整回归（`integration/artifacts/local/durable-price-router-check/runs/c7390d09c36d4869af00c102a12af6ce/report.json`，已清理）：82 项检查全部退出 0，239 次 Rust、82 次 Go 测试执行。逐项复核 82 份日志及 21 份产物报告摘要，源码摘要 `bd0e15d88270cfee3f9a9a9c49fa1e11154982595e94e4c4efeb3d391452d801`。下一项 P0-3：将已核验候选的原子安装、双摘要发布和结果不确定时的状态回读接入操作工具；不会因网络超时盲目覆盖旧文件或重发。
 
 <a id="market-book-operator"></a>
 
@@ -4583,7 +4589,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F160.1|验证候选、留存旧文件并原子安装|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|核对候选摘要、签名、时效、配置币种及已生效的旧簿；失败回放中旧文件备份字节一致、已安装但未解决的候选不被覆盖。|
 |F160.2|只提交一次并支持进程外只读核对|WP15,WP16|LOCAL_SCOPE_VERIFIED|请求未送达返回结果未知；提交后丢失回执能通过当前日志头确认；相同版本不重发。独立 CLI 能回读，日志后续推进则拒绝冒认旧结果。|
 
-[定向 HTTP 报告](integration/artifacts/local/online-price-operator-160-final-1795061399/report.json)及[操作顺序记录](integration/artifacts/local/online-price-operator-160-final-1795061399/operator-run/results.json)：保留 4 次正常报价和 5 个启动拒绝，工具分支独立日志依次为 1、2、3、4。回放使用实际 Router、实际 Rust 验证器、固定测试时间，在传输边界注入未送达与丢回执；不等于真实断电或生产环境认证。阶段158组装测试亦通过，本轮未重跑前轮 82 项全量验收。
+定向 HTTP 报告（`integration/artifacts/local/online-price-operator-160-final-1795061399/report.json`，已清理）及操作顺序记录（`integration/artifacts/local/online-price-operator-160-final-1795061399/operator-run/results.json`，已清理）：保留 4 次正常报价和 5 个启动拒绝，工具分支独立日志依次为 1、2、3、4。回放使用实际 Router、实际 Rust 验证器、固定测试时间，在传输边界注入未送达与丢回执；不等于真实断电或生产环境认证。阶段158组装测试亦通过，本轮未重跑前轮 82 项全量验收。
 
 下一项 P0-3：将同块采集、等待外部阈值签署、组装和本机发布接入有界的轮次调度；过期重新采集，未决发布先核对，不自动生成签署权。可信 bank 推进、拆单执行、辅助交易费与完整净额仍未完成。
 
@@ -4598,7 +4604,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F161.1|分步采集、等待签名和过期换版|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|两币种通过回环 RPC 实际采集；等待不发交易，过期换更高版本，旧回执不能授权新请求。|
 |F161.2|未决发布防重放与受限恢复|WP15,WP16|LOCAL_SCOPE_VERIFIED|用实际 Rust CLI 推进日志后注入中断，恢复仅查询一次状态即确认；请求未送达时连续两次恢复仅查询状态、不启动新轮次。|
 
-`python3 -B integration/tools/acceptance/tests/test_market_book_schedule.py -v` 三项通过，已接入综合验收。调度测试使用固定时钟、测试签署者和由真实日志 CLI 支持的测试 Router 接口；另行运行的[真实 Router HTTP 回归](integration/artifacts/local/round-schedule-161-operator-1795061864/report.json)保留 4 次报价、5 个启动拒绝和操作工具断连回读。本轮未重跑 82 项全量回归，不宣称生产签署或可信共识已就绪。
+`python3 -B integration/tools/acceptance/tests/test_market_book_schedule.py -v` 三项通过，已接入综合验收。调度测试使用固定时钟、测试签署者和由真实日志 CLI 支持的测试 Router 接口；另行运行的真实 Router HTTP 回归（`integration/artifacts/local/round-schedule-161-operator-1795061864/report.json`，已清理）保留 4 次报价、5 个启动拒绝和操作工具断连回读。本轮未重跑 82 项全量回归，不宣称生产签署或可信共识已就绪。
 
 下一项 P0-3：让采集以 Router 已确认的 bank 身份选块，并在发布前复核锚点和来源有效期，避免 finalized 采集落在另一块；可信 bank 推进另行验证。随后继续拆单执行、辅助交易费和完整净额，整体设计未完成。
 
@@ -4613,7 +4619,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F162.1|按服务端完整锚点选块|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|对两币种均调用按哈希取块，不查询 finalized；显式块冲突、旧服务缺少锚点在 RPC 前拒绝；同块哈希但父哈希不同不产出请求。|
 |F162.2|签后重验与持久状态回读|WP15,WP16|LOCAL_SCOPE_VERIFIED|等待期间发生锚点变化则旧请求作废，不安装文件或发布。真实 Router 状态、预检、重启后的锚点均与固定 bank 一致。|
 
-定向测试：5 项调度测试、4 项原独立采集测试、Rust 格式检查及[真实 Router HTTP 回归](integration/artifacts/local/bank-anchor-162-1795062290/report.json)通过。HTTP 回归保留 4 次报价、5 个启动拒绝及断连确认流程。本轮未重跑全量门禁；仅补齐固定 bank 的选块一致性，不证明动态 bank 推进、来源共识、生产签署或完整工作包通过。
+定向测试：5 项调度测试、4 项原独立采集测试、Rust 格式检查及真实 Router HTTP 回归（`integration/artifacts/local/bank-anchor-162-1795062290/report.json`，已清理）通过。HTTP 回归保留 4 次报价、5 个启动拒绝及断连确认流程。本轮未重跑全量门禁；仅补齐固定 bank 的选块一致性，不证明动态 bank 推进、来源共识、生产签署或完整工作包通过。
 
 下一项 P0-3 按 §13 的候选成本覆盖要求，核对拆单候选的执行绑定、顺序状态与费用覆盖，从可执行的完整计划验证入手；无法核验全部腿及辅助交易时保留原币披露和毛额回退。可信 bank 推进和其他既定优先级继续。
 
@@ -4628,7 +4634,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F163.1|按序执行整笔 ExactIn/Out|WP13,WP15|LOCAL_SCOPE_VERIFIED|两腿共享末端池，调换腿序后各自与同一初始状态的原 Router02 顺序参考一致。逐笔核对付款、收款、执行器余款及残留授权、四池储备和五次 Swap 日志顺序。|
 |F163.2|聚合限额及单笔原币费用|WP15,WP16|LOCAL_SCOPE_VERIFIED|最低收款提高 1 或最高付款降低 1 均使整笔失败，未保留日志或池及代币变化；宽松 ExactOut 预算不多扣。成功回执直接给整笔 Gas，预先授权另计。|
 
-[本地差分回放](integration/artifacts/local/ordered-v2-split-163.json)：4 笔成功、4 笔回滚。测试前检查了活动进程及系统临时目录，没有遗留 xone 临时目录；保留共享构建和历史报告。本轮仅定向验收；综合入口已加入此回放，未重跑全量。合约未部署到公共网络、未经生产审计，结果不代表正常报价已经支持拆单净额。
+本地差分回放（`integration/artifacts/local/ordered-v2-split-163.json`，已清理）：4 笔成功、4 笔回滚。测试前检查了活动进程及系统临时目录，没有遗留 xone 临时目录；保留共享构建和历史报告。本轮仅定向验收；综合入口已加入此回放，未重跑全量。合约未部署到公共网络、未经生产审计，结果不代表正常报价已经支持拆单净额。
 
 下一项 P0-3：从 Plan/ExactOutPlan 的有序分配重建批量 calldata，在 worker 独立核对批量合约、Router02、工厂、各池和 bank；把同一计划下的回执接回父进程及正常报价。授权与辅助交易费用、可信 bank 和其他优先项继续开放。
 
@@ -4643,7 +4649,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F164.1|ExactIn/Out 整笔调用绑定|WP13,WP15|LOCAL_SCOPE_VERIFIED|两种腿序分别从四池状态重建成交金额、整笔 calldata 和 Swap 日志池序；ExactOut 使用用户预算与滑点的较紧上限。|
 |F164.2|拒绝陈旧分配及来源替换|WP13,WP15|LOCAL_SCOPE_VERIFIED|调换腿序后重新计算计划哈希仍不能复用旧金额；ExactOut 重排会越过旧预算；篡改中间金额、池序、交易数据、执行器身份、状态摘要或区块均拒绝。|
 
-[本地原合约回放报告](integration/artifacts/local/ordered-v2-split-164-final.json)记录 4 笔成功、4 笔整笔回滚和生成自链上读取的本地向量；测试不依赖未提交的数据文件。执行计划包 34 项、原 V2 路径仿真 5 项通过。测试前检查临时目录、活动进程；保留共享构建缓存和历史证据，清理本轮多余的可再生向量副本。未重跑综合验收，也未开放拆单正常报价。
+本地原合约回放报告（`integration/artifacts/local/ordered-v2-split-164-final.json`，已清理）记录 4 笔成功、4 笔整笔回滚和生成自链上读取的本地向量；测试不依赖未提交的数据文件。执行计划包 34 项、原 V2 路径仿真 5 项通过。测试前检查临时目录、活动进程；保留共享构建缓存和历史证据，清理本轮多余的可再生向量副本。未重跑综合验收，也未开放拆单正常报价。
 
 下一项 P0-3：为本地拆单回放补齐 worker 所需的执行前账户与存储，再让 worker 在同一 bank 独立核对批量合约指向的 Router02、工厂、池、余额与授权并执行单笔交易。之后接父进程费用核验和正常报价；辅助费用和可信 bank 仍未完成。
 
@@ -4658,11 +4664,11 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F165.1|对照原始成交和失败回执|WP13,WP15|LOCAL_SCOPE_VERIFIED|严格 REVM 重放 ExactIn/Out 两种腿序的 4 笔成功及 4 笔回滚，逐笔核对状态、Gas、完整事件序列、全部已采集账户和存储值。|
 |F165.2|独立子进程执行整笔绑定|WP15,WP16|LOCAL_SCOPE_VERIFIED|真实 worker 重新绑定计划，核对执行器代码、router()、工厂和各物理池，读取卖方对批量合约的授权。4 笔成功的输入、输出、Gas、有效单价和整笔原币费用与出块器一致。代码摘要不符、Router 指向错误、缺少授权存储均拒绝。|
 
-[本地回放报告](integration/artifacts/local/ordered-v2-bank-165-caps.json)。路径仿真 6 项、拆单绑定与 worker 4 项通过。测试前检查了系统临时目录及活动进程，共享构建缓存和往期证据保留。工作包仍为部分完成。本轮验收范围为固定本地 Shanghai bank。
+本地回放报告（`integration/artifacts/local/ordered-v2-bank-165-caps.json`，已清理）。路径仿真 6 项、拆单绑定与 worker 4 项通过。测试前检查了系统临时目录及活动进程，共享构建缓存和往期证据保留。工作包仍为部分完成。本轮验收范围为固定本地 Shanghai bank。
 
 下一项 P0-3 是在报价服务载入独立配置的批量合约身份，将同一计划的结果交给父进程费用核验，再对正常报价覆盖多候选竞争与统一回退。
 
-阶段165 结构回归修正：综合验收在仓库契约检查处发现 Router 根目录的 `contracts` 为保留路径。执行源码移至 [Router EVM 目录](dex-router/evm/OrderedV2Split.sol)。修正后 3 个服务的契约检查通过（328 份契约、12 份基础夹具、171 份公开来源夹具），并重跑 [4 笔成功与 4 笔回滚](integration/artifacts/local/ordered-v2-source-layout-165.json)。源码 SHA-256 与阶段163一致。
+阶段165 结构回归修正：综合验收在仓库契约检查处发现 Router 根目录的 `contracts` 为保留路径。执行源码移至 [Router EVM 目录](dex-router/evm/OrderedV2Split.sol)。修正后 3 个服务的契约检查通过（328 份契约、12 份基础夹具、171 份公开来源夹具），并重跑 4 笔成功与 4 笔回滚（`integration/artifacts/local/ordered-v2-source-layout-165.json`，已清理）。源码 SHA-256 与阶段163一致。
 
 <a id="ordered-v2-quote"></a>
 
@@ -4675,7 +4681,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F166.1|共享池计划按实测费用比较|WP13,WP15|LOCAL_SCOPE_VERIFIED|ExactIn 和 ExactOut 各比较两条单路线及两种拆单顺序，独立计算目标值后均选中两腿计划。|
 |F166.2|费用证据不全时统一回退|WP13,WP16|LOCAL_SCOPE_VERIFIED|两种方向分别覆盖执行预算不足、价格过期及缺批量执行器。选中计划缺回执时不披露其他候选费用。|
 
-同一出块夹具增加调用者对 Router02 的授权槽，使单路线和批量合约均能读取实际授权。两套 Rust 配置测试、Go 配置测试、父进程回执替换测试及 [正常 HTTP 的 8 个场景](integration/artifacts/local/ordered-split-166/http/report.json)通过。[阶段165冻结验收](integration/artifacts/local/durable-price-router-check/runs/7f9298b6d4774e92a0a6058d0b85912c/report.json)在已运行的 82 个门禁中通过 81 个，签名 OP 的 HTTP 测试读到了尚未写完的启动文件。本轮改为同目录原子发布启动文件，使用原始输入重跑[签名 OP 的 HTTP 门禁](integration/artifacts/local/ordered-split-166/op/report.json)，全部 36 个执行场景通过。进度文档在普通和优化 Python 下各通过 17 项检查。本轮未重新运行整套综合验收。
+同一出块夹具增加调用者对 Router02 的授权槽，使单路线和批量合约均能读取实际授权。两套 Rust 配置测试、Go 配置测试、父进程回执替换测试及 正常 HTTP 的 8 个场景（`integration/artifacts/local/ordered-split-166/http/report.json`，已清理）通过。阶段165冻结验收（`integration/artifacts/local/durable-price-router-check/runs/7f9298b6d4774e92a0a6058d0b85912c/report.json`，已清理）在已运行的 82 个门禁中通过 81 个，签名 OP 的 HTTP 测试读到了尚未写完的启动文件。本轮改为同目录原子发布启动文件，使用原始输入重跑签名 OP 的 HTTP 门禁（`integration/artifacts/local/ordered-split-166/op/report.json`，已清理），全部 36 个执行场景通过。进度文档在普通和优化 Python 下各通过 17 项检查。本轮未重新运行整套综合验收。
 
 下一项 P0-3 按 §13 处理额外授权和资金交易。先区分已具备授权、需要授权、证据不足三种情况，再按同一区块顺序验证每笔交易的费用和付款余额。可信动态 bank、生产验证及其余工作包仍开放。当前仓库的已配置远端为 GitHub，GitLab 交付需要项目地址。
 
@@ -4690,7 +4696,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F167.1|按候选执行目标判定额外授权费用|WP13,WP15|LOCAL_SCOPE_VERIFIED|两种报价方向各核对所有已计价候选。错误 spender、重复读数、缺少读数和返回长度异常均拒绝。|
 |F167.2|准备接口披露授权缺口|WP15,WP16|LOCAL_SCOPE_VERIFIED|4 项接口测试通过，覆盖授权不足、资金不足、重组、ExactOut 所需输入及准备摘要。|
 
-[正常 HTTP 8 个场景](integration/artifacts/local/ordered-approval-167/http/report.json)与父进程定向单测通过。测试前确认上一轮隔离编译目录已经清理，核对并移除了重复的出块夹具。下一项是用连续状态核对新增授权交易及随后兑换的实际费用，随后处理补充资金和全候选净额。
+正常 HTTP 8 个场景（`integration/artifacts/local/ordered-approval-167/http/report.json`，已清理）与父进程定向单测通过。测试前确认上一轮隔离编译目录已经清理，核对并移除了重复的出块夹具。下一项是用连续状态核对新增授权交易及随后兑换的实际费用，随后处理补充资金和全候选净额。
 
 <a id="approval-sequence"></a>
 
@@ -4703,7 +4709,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F168.1|ExactIn|46074|476599|65968458803684|
 |F168.2|ExactOut|46110|497444|68597279195014|
 
-7 项 V2 路径执行测试全部通过，其中包括新增的两笔连续状态回放和原有的 8 笔拆单成功及回滚比对。[本地出块记录](integration/artifacts/local/ordered-approval-168/bank.json)
+7 项 V2 路径执行测试全部通过，其中包括新增的两笔连续状态回放和原有的 8 笔拆单成功及回滚比对。本地出块记录（`integration/artifacts/local/ordered-approval-168/bank.json`，已清理）
 
 下一项是将已验证的顺序执行引入受限 worker，绑定授权额度、执行目标、费用上限、两笔 nonce 和环境来源，再由报价服务按候选核对总费用。补充资金交易、可信动态 bank 和其他优先项继续开放。
 
@@ -4718,11 +4724,11 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F169.1|从完整拆单计划重建调用者授权|WP13,WP15|LOCAL_SCOPE_VERIFIED|两种方向生成的 calldata 与出块交易相同。已有足额授权时省略额外交易，非零但不足的授权需要代币替换策略。|
 |F169.2|子进程逐笔执行并核对费用|WP15|LOCAL_SCOPE_VERIFIED|两笔费用、实际输入输出、授权后余额与下一笔起始余额相符。错误代码摘要、父区块和 nonce 均拒绝。|
 
-6 项绑定和独立 worker 测试通过，使用[两种方向的原始本地区块记录](integration/artifacts/local/ordered-approval-168/bank.json)。报价父进程接收授权序列的费用、完整净额、补充资金交易和可信动态 bank 仍待完成。下一步在父进程核对两笔付款、区块、费用与授权来源，并将合计应用到相应候选。
+6 项绑定和独立 worker 测试通过，使用两种方向的原始本地区块记录（`integration/artifacts/local/ordered-approval-168/bank.json`，已清理）。报价父进程接收授权序列的费用、完整净额、补充资金交易和可信动态 bank 仍待完成。下一步在父进程核对两笔付款、区块、费用与授权来源，并将合计应用到相应候选。
 
-阶段168的冻结提交 `af504ab` 完成了 88 项命令检查，全部通过。最终汇总读取出块器报告时发现缺少 `passed` 字段，因此本次综合验收结果为失败。[综合报告](integration/artifacts/local/durable-price-router-check/runs/58da093613bd4ce88c227843eaf53521/report.json)
+阶段168的冻结提交 `af504ab` 完成了 88 项命令检查，全部通过。最终汇总读取出块器报告时发现缺少 `passed` 字段，因此本次综合验收结果为失败。综合报告（`integration/artifacts/local/durable-price-router-check/runs/58da093613bd4ce88c227843eaf53521/report.json`，已清理）
 
-出块器现于所有回放断言及冻结绑定摘要校验通过后写入成功标记。定向重新出块的完整 JSON 除新增标记外与原始输入逐项相同。[修正后出块报告](integration/artifacts/local/ordered-approval-168/verified-bank.json)
+出块器现于所有回放断言及冻结绑定摘要校验通过后写入成功标记。定向重新出块的完整 JSON 除新增标记外与原始输入逐项相同。修正后出块报告（`integration/artifacts/local/ordered-approval-168/verified-bank.json`，已清理）
 
 <a id="approval-quote"></a>
 
@@ -4735,7 +4741,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F170.1|在同一报价的候选中比较直接兑换及先授权后拆单|WP13,WP15,WP16|LOCAL_SCOPE_VERIFIED|两种方向按各候选实测 Gas 和签名价格独立核算，两笔费用仅归入对应计划。|
 |F170.2|按各候选成交区块检查签名价格有效期|WP13,WP16|LOCAL_SCOPE_VERIFIED|价格在授权后、兑换时到期，两种方向均回退为毛额排序。|
 
-12 个本地 HTTP 场景覆盖有价、预算不足、价格过期、缺执行器、顺序授权和兑换时到期。后续 P0-3 优先处理非零不足授权的替换策略、补充资金交易及其费用，再验收完整候选净额。完整工作包验收仍为 0/26。[HTTP 验证报告](integration/artifacts/local/approval-quote-170/report.json)
+12 个本地 HTTP 场景覆盖有价、预算不足、价格过期、缺执行器、顺序授权和兑换时到期。后续 P0-3 优先处理非零不足授权的替换策略、补充资金交易及其费用，再验收完整候选净额。完整工作包验收仍为 0/26。HTTP 验证报告（`integration/artifacts/local/approval-quote-170/report.json`，已清理）
 
 <a id="reset-approval-replay"></a>
 
@@ -4748,7 +4754,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |F171.1|采集非零不足授权时的三笔连续交易|WP13,WP15|LOCAL_SCOPE_VERIFIED|两个方向各有三个连续区块。原两笔序列及此前报告字段逐项相同。|
 |F171.2|对照独立出块逐笔执行、累计核算付款人支出|WP15|LOCAL_SCOPE_VERIFIED|V2 路径执行套件 8 项全部通过。|
 
-下一项是将三笔序列接入执行计划、受限 worker 及报价排序。阶段170 的报价库回归为 68 项通过、5 项按测试环境要求跳过。[三笔序列出块报告](integration/artifacts/local/approval-reset-171/bank.json)
+下一项是将三笔序列接入执行计划、受限 worker 及报价排序。阶段170 的报价库回归为 68 项通过、5 项按测试环境要求跳过。三笔序列出块报告（`integration/artifacts/local/approval-reset-171/bank.json`，已清理）
 
 <a id="reset-approval-plan"></a>
 
@@ -4760,9 +4766,9 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 |---|---|---|---|---|
 |F172.1|按明确策略构建有序授权计划|WP13,WP15|LOCAL_SCOPE_VERIFIED|两种方向的授权数据、付款方、目标和交易原币金额均与出块记录逐笔相符。篡改执行目标会被拒绝。|
 
-绑定和独立 worker 回归共 7 项通过。下一项是为清零、授权、兑换绑定三个交易环境及 nonce，并让报价服务核对三笔费用。[原始本地区块](integration/artifacts/local/approval-reset-171/bank.json)
+绑定和独立 worker 回归共 7 项通过。下一项是为清零、授权、兑换绑定三个交易环境及 nonce，并让报价服务核对三笔费用。原始本地区块（`integration/artifacts/local/approval-reset-171/bank.json`，已清理）
 
-冻结提交 `48e2489` 的综合回归已通过，覆盖 88 项命令检查、248 次 Rust 测试。阶段170–172 的验证结果分别记录在各阶段条目中。[冻结提交验收报告](integration/artifacts/local/durable-price-router-check/runs/a2ecb98ae8f74422b94a0e59e102abd4/report.json)
+冻结提交 `48e2489` 的综合回归已通过，覆盖 88 项命令检查、248 次 Rust 测试。阶段170–172 的验证结果分别记录在各阶段条目中。冻结提交验收报告（`integration/artifacts/local/durable-price-router-check/runs/a2ecb98ae8f74422b94a0e59e102abd4/report.json`，已清理）
 
 <a id="reset-approval-worker"></a>
 
@@ -4770,7 +4776,7 @@ CLZ通过有界安全栈接口实现；注册在所有指令的inspector包装�
 
 worker 在同一仿真预算内，按三个连续区块执行清零、准确额度授权和拆单兑换，将每一笔的结果状态交给下一笔。每次授权后重新读取 allowance，回执记录付款人和受益人的余额与费用。两种方向都与独立出块记录逐笔比对。缺少清零环境、错误 nonce 和不匹配的父区块均触发拒绝。
 
-8 项执行计划和 worker 回归通过。下一项是正常报价端独立核验三个区块的付款连续性，并以合计费用进行候选比较。[三笔序列原始区块](integration/artifacts/local/approval-reset-171/bank.json)
+8 项执行计划和 worker 回归通过。下一项是正常报价端独立核验三个区块的付款连续性，并以合计费用进行候选比较。三笔序列原始区块（`integration/artifacts/local/approval-reset-171/bank.json`，已清理）
 
 <a id="reset-approval-quote"></a>
 
@@ -4778,7 +4784,7 @@ worker 在同一仿真预算内，按三个连续区块执行清零、准确额�
 
 对明确配置的非零不足授权模型，报价服务从同一份初始区块状态读取付款人和各区块受益人的余额，按顺序核对三笔交易的目标、额度、nonce、费用和余额。返回的费用明细列出清零、授权和兑换，`approvalNative` 合计前两笔，候选排序使用三笔付款人净支出。若价格在兑换区块到期，整组候选使用毛额排序。
 
-16 个正常 HTTP 场景通过。报价库单元测试 68 项通过，5 项按环境要求跳过。报价与仿真库通过 Clippy 严格检查。P0-3 下一项为资金操作的来源、金额与费用核算。完整工作包验收仍为 0/26。[HTTP 报告](integration/artifacts/local/reset-quote-174/report.json)
+16 个正常 HTTP 场景通过。报价库单元测试 68 项通过，5 项按环境要求跳过。报价与仿真库通过 Clippy 严格检查。P0-3 下一项为资金操作的来源、金额与费用核算。完整工作包验收仍为 0/26。HTTP 报告（`integration/artifacts/local/reset-quote-174/report.json`，已清理）
 
 <a id="sequence-native-funding"></a>
 
@@ -4786,7 +4792,7 @@ worker 在同一仿真预算内，按三个连续区块执行清零、准确额�
 
 在本地 Shanghai 成交候选中，服务端按执行顺序取“已发生的付款人净扣款加当前 Gas 预留额”的最大值，得到指定零原币转账交易序列的最低起始余额。该值与付款人的初始账户余额核对。`nativeFunding` 同时披露计划绑定、余额来源金额和最终净扣款。对有完整原币余额证据的单笔兑换、授权后兑换和清零后授权兑换均适用。
 
-16 个 HTTP 场景通过。原币费用定向测试 5 项通过，1 项需要单独参考输入。报价本地仿真定向测试 22 项通过，1 项为可选探针。后续资金操作仍需验证原币转账或包装的本金及费用。[HTTP 验证报告](integration/artifacts/local/sequence-funding-175/report.json)
+16 个 HTTP 场景通过。原币费用定向测试 5 项通过，1 项需要单独参考输入。报价本地仿真定向测试 22 项通过，1 项为可选探针。后续资金操作仍需验证原币转账或包装的本金及费用。HTTP 验证报告（`integration/artifacts/local/sequence-funding-175/report.json`，已清理）
 
 <a id="wrapped-input-replay"></a>
 
@@ -4794,7 +4800,7 @@ worker 在同一仿真预算内，按三个连续区块执行清零、准确额�
 
 出块器部署固定版本的 WETH9、Router02 和拆单合约，把调用者已有的 WETH 保留为一个最小单位。ExactIn 和 ExactOut 均按成交所需数量补足差额，先执行 `deposit()`，再从上一步的状态执行拆单。核对付款人原币余额减少额等于包装本金与两笔网络费之和，并逐笔对照 Gas、日志、nonce、代码及全部采集的账户和存储槽。
 
-9 项 V2 路径执行测试通过。下一项为包装交易的计划绑定、准入资金核算、worker 核验及正常报价接线。[独立出块记录](integration/artifacts/local/weth-wrap-176/bank.json)
+9 项 V2 路径执行测试通过。下一项为包装交易的计划绑定、准入资金核算、worker 核验及正常报价接线。独立出块记录（`integration/artifacts/local/weth-wrap-176/bank.json`，已清理）
 
 <a id="wrapped-input-worker"></a>
 
@@ -4802,7 +4808,7 @@ worker 在同一仿真预算内，按三个连续区块执行清零、准确额�
 
 worker 核对 Router02 的 WETH 地址和包装合约运行代码摘要，再读取付款人的 WETH 余额。执行计划依据 ExactIn 卖出量或 ExactOut 实际所需输入计算包装本金。worker 核对 WETH 余额增量、合约收到的原币、付款人支出与区块受益人的收入，再执行兑换。
 
-9 项绑定和 worker 测试通过。两种方向生成的包装交易和两笔 Gas 与独立出块记录相符，错误包装地址、nonce 和父区块均被拒绝。正常报价端的费用核验与排序是下一项。[本地区块记录](integration/artifacts/local/weth-wrap-176/bank.json)
+9 项绑定和 worker 测试通过。两种方向生成的包装交易和两笔 Gas 与独立出块记录相符，错误包装地址、nonce 和父区块均被拒绝。正常报价端的费用核验与排序是下一项。本地区块记录（`integration/artifacts/local/weth-wrap-176/bank.json`，已清理）
 
 <a id="wrapped-quote-funding"></a>
 
@@ -4810,9 +4816,9 @@ worker 核对 Router02 的 WETH 地址和包装合约运行代码摘要，再读
 
 依据 §13.1、§14.2–14.3，正常 ExactIn 和 ExactOut 报价现在对单路线与拆单执行同一套资金核算。报价服务从源区块 WETH9 存储读取付款人的已有余额，按计划实际输入补足差额。服务分别核对包装本金、两笔交易的网络费、付款人及区块受益人的原币余额。最低起始余额包含包装本金与执行两笔交易所需的峰值预留。排序只折算付款人的网络费，价格须覆盖包装与兑换两个区块。
 
-新增 4 个本地 HTTP 场景，分别核对两种报价方向在有效价格和到期价格下的 4 个候选。有效价格下按折算费用选择最优候选，到期时采用毛额。既有 16 个 HTTP 场景全部通过。报价库测试 68 项通过、5 项按环境忽略，Clippy 严格检查通过。剩余 P0-3 范围包括包装与授权都不足时的组合操作，以及不同链费上下文的完整候选净额。工作包总体验收仍为 0/26。[包装报价验收报告](integration/artifacts/local/wrapped-quote-178/report.json)
+新增 4 个本地 HTTP 场景，分别核对两种报价方向在有效价格和到期价格下的 4 个候选。有效价格下按折算费用选择最优候选，到期时采用毛额。既有 16 个 HTTP 场景全部通过。报价库测试 68 项通过、5 项按环境忽略，Clippy 严格检查通过。剩余 P0-3 范围包括包装与授权都不足时的组合操作，以及不同链费上下文的完整候选净额。工作包总体验收仍为 0/26。包装报价验收报告（`integration/artifacts/local/wrapped-quote-178/report.json`，已清理）
 
-阶段175提交 `fcf7cb3` 的综合验收另有 89 项检查通过。[阶段175综合报告](integration/artifacts/local/durable-price-router-check/runs/05fdf1fcf60b45379dc3924503c606a2/report.json)
+阶段175提交 `fcf7cb3` 的综合验收另有 89 项检查通过。阶段175综合报告（`integration/artifacts/local/durable-price-router-check/runs/05fdf1fcf60b45379dc3924503c606a2/report.json`，已清理）
 
 <a id="wrapped-approval-replay"></a>
 
@@ -4820,7 +4826,7 @@ worker 核对 Router02 的 WETH 地址和包装合约运行代码摘要，再读
 
 付款人初始持有一个最小单位 WETH。按 §13.1、§14.2–14.3，在授权充足、零授权和非零不足授权三种源状态下分别执行 ExactIn 和 ExactOut。包装按成交所需输入补足差额，零授权时增加精确授权，非零不足时先清零再精确授权。REVM 连续执行同一序列，逐笔对照 Gas、日志及全部采集账户和存储槽。每步付款人累计原币支出等于一次包装本金与截至该步的网络费之和。
 
-9 项 V2 路径测试通过。其中 6 组包装序列覆盖 18 笔交易。下一项为 worker 和正常报价端的组合操作绑定及候选费用核算。[本地独立出块记录](integration/artifacts/local/wrap-approval-179/bank.json)
+9 项 V2 路径测试通过。其中 6 组包装序列覆盖 18 笔交易。下一项为 worker 和正常报价端的组合操作绑定及候选费用核算。本地独立出块记录（`integration/artifacts/local/wrap-approval-179/bank.json`，已清理）
 
 <a id="wrapped-approval-worker"></a>
 
@@ -4828,7 +4834,7 @@ worker 核对 Router02 的 WETH 地址和包装合约运行代码摘要，再读
 
 拆单 worker 在同一仿真预算中执行包装、可选清零、精确授权和兑换。回执摘要同时覆盖包装及授权模型。每笔交易使用前一笔的状态，校验父区块、nonce 和执行环境，核对授权额度、付款人及受益人的余额。独立出块对照覆盖两种报价方向，遗漏中间区块或替换 nonce 等情形均被拒绝。
 
-9 项计划绑定与 worker 测试通过。报价服务的组合费用披露和候选排序待接入。[独立出块记录](integration/artifacts/local/wrap-approval-179/bank.json)
+9 项计划绑定与 worker 测试通过。报价服务的组合费用披露和候选排序待接入。独立出块记录（`integration/artifacts/local/wrap-approval-179/bank.json`，已清理）
 
 <a id="combined-funding-quote"></a>
 
@@ -4836,7 +4842,7 @@ worker 核对 Router02 的 WETH 地址和包装合约运行代码摘要，再读
 
 在固定 Shanghai 状态上，ExactIn 与 ExactOut 均可在正常报价时比较四个候选。单路线使用已有 Router 授权，拆单按其额度执行包装、可选清零、精确授权和兑换。服务从源区块核对包装本金，再将实际付款人、包装合约和受益人的余额传给后续费用校验。报价披露每步网络费，以及本金加上执行各步所需的最高资金预留。
 
-12 个包装 HTTP 场景通过，涵盖额度充足、零授权、非零不足及成交区块价格到期。四个候选逐一核对资金需求与成交时估值，价格到期时验证统一毛额回退。报价库 68 项通过、5 项按环境忽略，Clippy 严格检查通过。后续仍需依据正常单路线的实际授权余额选择资金操作，并补齐不同链的费用范围。[组合报价验收报告](integration/artifacts/local/combined-funding-181/report.json)
+12 个包装 HTTP 场景通过，涵盖额度充足、零授权、非零不足及成交区块价格到期。四个候选逐一核对资金需求与成交时估值，价格到期时验证统一毛额回退。报价库 68 项通过、5 项按环境忽略，Clippy 严格检查通过。后续仍需依据正常单路线的实际授权余额选择资金操作，并补齐不同链的费用范围。组合报价验收报告（`integration/artifacts/local/combined-funding-181/report.json`，已清理）
 
 <a id="weth-spender-allowance"></a>
 
@@ -4844,7 +4850,7 @@ worker 核对 Router02 的 WETH 地址和包装合约运行代码摘要，再读
 
 WETH 包装报价从固定版本 WETH9 的源存储读取 `allowance[caller][spender]`。单路线核对 Router02，拆单核对批量执行合约。报价进程将其与 worker 实际调用 `allowance` 的结果核对，按当前候选所需输入披露授权是否充足及额外授权费。
 
-12 个 HTTP 场景逐个核对两种方向的四个候选。报价库 68 项测试通过、5 项按环境忽略，Clippy 严格检查通过。下一项为单路线额度不足时执行精确授权及可选清零。[验收报告](integration/artifacts/local/spender-allowance-182/report.json)
+12 个 HTTP 场景逐个核对两种方向的四个候选。报价库 68 项测试通过、5 项按环境忽略，Clippy 严格检查通过。下一项为单路线额度不足时执行精确授权及可选清零。验收报告（`integration/artifacts/local/spender-allowance-182/report.json`，已清理）
 
 <a id="router-wrap-approval"></a>
 
@@ -4852,7 +4858,7 @@ WETH 包装报价从固定版本 WETH9 的源存储读取 `allowance[caller][spe
 
 在固定 Shanghai 区块，报价服务根据 Router02 与批量执行器各自的 WETH9 额度，为每个候选选择资金操作。额度为零时授权实际所需输入，额度非零且不足时按配置先清零，再精确授权。单路线和拆单各自绑定 spender，父进程核对每笔收支、预留资金和成交时价格。
 
-新增 Router02 额度不足的本地独立出块记录。20 个正常报价 HTTP 场景全部通过，覆盖 ExactIn、ExactOut、不同 spender 的额度差异和价格到期。报价库 68 项通过、5 项按环境忽略，Clippy 严格检查通过。[独立出块记录](integration/artifacts/local/router-approval-183/bank.json) · [HTTP 验收报告](integration/artifacts/local/router-approval-183/http/report.json)
+新增 Router02 额度不足的本地独立出块记录。20 个正常报价 HTTP 场景全部通过，覆盖 ExactIn、ExactOut、不同 spender 的额度差异和价格到期。报价库 68 项通过、5 项按环境忽略，Clippy 严格检查通过。独立出块记录（`integration/artifacts/local/router-approval-183/bank.json`，已清理） · HTTP 验收报告（`integration/artifacts/local/router-approval-183/http/report.json`，已清理）
 
 <a id="quote-funding-ui"></a>
 
@@ -4860,7 +4866,7 @@ WETH 包装报价从固定版本 WETH9 的源存储读取 `allowance[caller][spe
 
 报价页按选中计划和执行回执的绑定摘要核对资金信息。ExactIn 和 ExactOut 均以 wei 展示付款人网络费、包装本金、预计原币支出和最低起始余额，并标明本次排序是否使用已折算的网络费。金额以整数原子单位校验。
 
-24 项前端测试通过。另用 20 个正常报价响应核对展示值，并在 Chromium 中通过实际 Router 请求核对两种报价方向的页面金额。[浏览器验收报告](integration/artifacts/local/quote-funding-ui-184/run-nkFhvg/report.json)
+24 项前端测试通过。另用 20 个正常报价响应核对展示值，并在 Chromium 中通过实际 Router 请求核对两种报价方向的页面金额。浏览器验收报告（`integration/artifacts/local/quote-funding-ui-184/run-nkFhvg/report.json`，已清理）
 
 <a id="ethereum-withdrawals-integrity"></a>
 
@@ -4868,9 +4874,9 @@ WETH 包装报价从固定版本 WETH9 的源存储读取 `allowance[caller][spe
 
 复核设计 §7.3、§28.5、§28.7 时，发现普通 Ethereum 完整区块读取和离线证据验证都接受只修改提款列表的响应。两条路径现按主网 Shanghai 激活条件检查列表与根的存在性，从每项完整字段按原顺序重建提款树，校验区块头中的根。空列表与遗漏列表分别处理。读取使用既有完整区块响应。生产来源资格仍需独立可信的共识锚点。
 
-固定主网块 26355865 含 101 笔交易及 16 条提款。Go `-race -count=1` 专项通过 52 项（含子测试），覆盖实际 RPC 读取、列表遗漏、对调、空条目、分叉边界、缺少取值为零的字段及 17 条输入。`source-evidence -verify` 对仓库中的原始证据回放成功，相关 Go 包 `go vet` 通过。[专项测试记录](integration/artifacts/local/ethereum-body-185/test.jsonl) · [离线回放报告](integration/artifacts/local/ethereum-body-185/replay.json)
+固定主网块 26355865 含 101 笔交易及 16 条提款。Go `-race -count=1` 专项通过 52 项（含子测试），覆盖实际 RPC 读取、列表遗漏、对调、空条目、分叉边界、缺少取值为零的字段及 17 条输入。`source-evidence -verify` 对仓库中的原始证据回放成功，相关 Go 包 `go vet` 通过。专项测试记录（`integration/artifacts/local/ethereum-body-185/test.jsonl`，已清理） · 离线回放报告（`integration/artifacts/local/ethereum-body-185/replay.json`，已清理）
 
-阶段183综合验收已结束，92 个门禁通过，Rust 测试执行 253 次，Go 测试执行 82 次，最终状态为 `LOCAL_SCOPE_VERIFIED`。该报告对应提交 `cf1eee9`。阶段184前端验收见上一节。[阶段183最终报告](integration/artifacts/local/durable-price-router-check/runs/e8c1d92b128e4f0598750fbeb0481b90/report.json)
+阶段183综合验收已结束，92 个门禁通过，Rust 测试执行 253 次，Go 测试执行 82 次，最终状态为 `LOCAL_SCOPE_VERIFIED`。该报告对应提交 `cf1eee9`。阶段184前端验收见上一节。阶段183最终报告（`integration/artifacts/local/durable-price-router-check/runs/e8c1d92b128e4f0598750fbeb0481b90/report.json`，已清理）
 
 <a id="ethereum-offline-transaction-body"></a>
 
@@ -4878,7 +4884,7 @@ WETH 包装报价从固定版本 WETH9 的源存储读取 `allowance[caller][spe
 
 按 §7.3 和 §28.5，离线证据中的区块交易列表现在与已由交易根验证的原始签名交易逐笔核对。完整对象须符合签名交易内容、交易编号、块号、块哈希及位置。含 `from` 的记录还从签名按当时的主网规则恢复发送人。哈希列表按相同顺序核对。历史仅保存区块头和原始交易的证据继续核对交易根。
 
-Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet` 通过。普通 `source-evidence -verify` 回放块 26355865 的 101 笔及块 26360354 的 248 笔交易成功。额外输入 `prestate-evidence.json` 含两个空代码账户，部署证据 CLI 以 `PROVENANCE_DEPLOYMENT_CODE_HASH` 拒绝。P0-1 的独立共识锚点、重组撤权与跨链恢复仍在跟踪。GitLab 项目克隆地址待提供。[专项测试、回放与拒绝记录](integration/artifacts/local/mainnet-transaction-body-186/)
+Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet` 通过。普通 `source-evidence -verify` 回放块 26355865 的 101 笔及块 26360354 的 248 笔交易成功。额外输入 `prestate-evidence.json` 含两个空代码账户，部署证据 CLI 以 `PROVENANCE_DEPLOYMENT_CODE_HASH` 拒绝。P0-1 的独立共识锚点、重组撤权与跨链恢复仍在跟踪。GitLab 项目克隆地址待提供。专项测试、回放与拒绝记录（`integration/artifacts/local/mainnet-transaction-body-186/`，已清理）
 
 <a id="beacon-checkpoint-execution"></a>
 
@@ -4886,7 +4892,7 @@ Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet
 
 设计 §7.1、§7.3、§28.5 要求核对来源并披露确认依据。`source-evidence --verify` 新增配对参数 `--beacon-root` 和 `--beacon-bootstrap`。工具重算 beacon header 根，核对执行载荷及同步委员会的两条 SSZ 分支，随后核对执行块哈希并运行原部署证明验证。报告保留显式检查点、slot、fork、委员会根与执行哈希。当前历史根取自公开主网信标 API，其信任来源和新鲜度仍待独立验证，`consensus_verified` 保持 false。
 
-实际 Fulu slot 15595392 对应主网块 26355865，101 笔交易与部署证据通过。12 个 CLI 场景覆盖正常响应、替换根、错误证据、分叉、时间、字段、载荷及委员会分支。Go 证据包 48 项 race 测试和 `go vet` 通过。仓库的模块校验器通过 242 个外部模块校验，并识别本地 protobuf 模块。直接调用 `go mod verify` 对该本地模块报告缺少 ziphash。[历史回放与拒绝记录](integration/artifacts/local/beacon-checkpoint-187/report.json) · [检查点绑定报告](integration/artifacts/local/beacon-checkpoint-187/verified.json)
+实际 Fulu slot 15595392 对应主网块 26355865，101 笔交易与部署证据通过。12 个 CLI 场景覆盖正常响应、替换根、错误证据、分叉、时间、字段、载荷及委员会分支。Go 证据包 48 项 race 测试和 `go vet` 通过。仓库的模块校验器通过 242 个外部模块校验，并识别本地 protobuf 模块。直接调用 `go mod verify` 对该本地模块报告缺少 ziphash。历史回放与拒绝记录（`integration/artifacts/local/beacon-checkpoint-187/report.json`，已清理） · 检查点绑定报告（`integration/artifacts/local/beacon-checkpoint-187/verified.json`，已清理）
 
 <a id="beacon-committee-finality"></a>
 
@@ -4894,7 +4900,7 @@ Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet
 
 按设计 §7.1、§7.3、§28.5，`source-evidence --verify` 支持读取标准 `finality_update`。工具从显式信标根验证当前委员会，核对签名 slot、主网分叉域、参与位图与三分之二门槛，验证 BLS 聚合签名。再从 attested header 的状态根核对最终化分支，将 finalized header 的执行载荷与部署证据核对。报告单列检查点、最终化 slot、签名 slot 与人数。当前支持同一分叉和委员会周期，跨期交接、运维可信根配置及在线 owner 接入仍开放。
 
-本轮采集的 Fulu slot 15687904 对应块 26448094，100 笔交易。508 名签署者的聚合签名和 Pair 账户证明通过。主查节点首次返回 RPC 错误 4444，交换已配置的两个只读来源后取得同一最终化块的完整证据。13 个最终性 CLI 场景、阶段187的 12 个场景、48 项 Go race 测试与 `go vet` 通过。[最终性回放与输入摘要](integration/artifacts/local/beacon-finality-188/report.json) · [部署验证报告](integration/artifacts/local/beacon-finality-188/verified.json)
+本轮采集的 Fulu slot 15687904 对应块 26448094，100 笔交易。508 名签署者的聚合签名和 Pair 账户证明通过。主查节点首次返回 RPC 错误 4444，交换已配置的两个只读来源后取得同一最终化块的完整证据。13 个最终性 CLI 场景、阶段187的 12 个场景、48 项 Go race 测试与 `go vet` 通过。最终性回放与输入摘要（`integration/artifacts/local/beacon-finality-188/report.json`，已清理） · 部署验证报告（`integration/artifacts/local/beacon-finality-188/verified.json`，已清理）
 
 <a id="beacon-committee-transitions"></a>
 
@@ -4902,7 +4908,7 @@ Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet
 
 按 §7.1、§7.3、§28.5，离线部署验证支持标准 `light_client/updates` 响应中的连续交接。每项验证所在周期、同分叉的最终化和 attested 载荷、最终化分支、下一委员会分支及当前委员会超多数签名，然后以已证明的下一委员会校验下一项。输入上限为 16 个周期和 2 MiB。报告按序记录委员会根及签名人数。
 
-实际 Fulu 周期 1913 和 1914 的连续交接后，周期 1915 的签名和最终化执行块 26448094 均通过。10 项交接回放覆盖跳过、重复、提前结束、委员会或分支替换、签名与门槛。原同周期 13 项回归、Go 证据包 48 项 race 测试与 vet 通过。跨分叉、可信检查点的发布与更新、在线 owner 验证和重组撤权仍待完成。[交接验收](integration/artifacts/local/beacon-transition-189/report.json)
+实际 Fulu 周期 1913 和 1914 的连续交接后，周期 1915 的签名和最终化执行块 26448094 均通过。10 项交接回放覆盖跳过、重复、提前结束、委员会或分支替换、签名与门槛。原同周期 13 项回归、Go 证据包 48 项 race 测试与 vet 通过。跨分叉、可信检查点的发布与更新、在线 owner 验证和重组撤权仍待完成。交接验收（`integration/artifacts/local/beacon-transition-189/report.json`，已清理）
 
 <a id="beacon-selected-capture"></a>
 
@@ -4910,9 +4916,9 @@ Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet
 
 §7.1、§7.3 和 §28.5 要求明确每次读取的链和区块。`source-evidence` 捕获模式现可先验证显式信标根、委员会更新和最终性签名，再从已验证载荷取执行高度。首个完整区块响应须匹配该高度及哈希，随后才读取合约代码与账户证明。见证来源的同高复核和最后一次主查复核仍参与采集。
 
-普通 CLI 从周期 1913 的指定根，经两次交接和 510 名参与者的最终性签名，选定主网块 26448285，完成 151 笔交易及原 Pair 的部署证明验证。采集报告与离线重放逐字节相同。较早块 26448094 的 RPC 采集尝试返回 -32000，本轮改用新取得的已签名更新。错链和冲突高度在首次 RPC 前失败，同高异块在第三次 RPC 后失败。53 项 Go race 测试、23 项历史 CLI 场景和 vet 通过。[采集报告](integration/artifacts/local/beacon-capture-190/live.json) · [离线报告](integration/artifacts/local/beacon-capture-190/offline.json)
+普通 CLI 从周期 1913 的指定根，经两次交接和 510 名参与者的最终性签名，选定主网块 26448285，完成 151 笔交易及原 Pair 的部署证明验证。采集报告与离线重放逐字节相同。较早块 26448094 的 RPC 采集尝试返回 -32000，本轮改用新取得的已签名更新。错链和冲突高度在首次 RPC 前失败，同高异块在第三次 RPC 后失败。53 项 Go race 测试、23 项历史 CLI 场景和 vet 通过。采集报告（`integration/artifacts/local/beacon-capture-190/live.json`，已清理） · 离线报告（`integration/artifacts/local/beacon-capture-190/offline.json`，已清理）
 
-阶段189提交 `c1870c8` 的完整来源、EVM 与服务包 race 回归已结束，三个包分别通过 48、2914 和 230 项测试（含子测试）。[完整回归记录](integration/artifacts/local/beacon-transition-189/owner-evm-regression.jsonl)
+阶段189提交 `c1870c8` 的完整来源、EVM 与服务包 race 回归已结束，三个包分别通过 48、2914 和 230 项测试（含子测试）。完整回归记录（`integration/artifacts/local/beacon-transition-189/owner-evm-regression.jsonl`，已清理）
 
 <a id="beacon-owner-admission"></a>
 
@@ -4920,9 +4926,9 @@ Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet
 
 按 §7.1–7.3、§7.9 和 §28.26，Go owner 的 Ethereum 主网 native profile 可配置检查点根、证明文件和检查点年龄上限。每次同步读取一份完整证明，验证签名、委员会和最终化载荷，按载荷高度读取执行层。发布时用同一份证明检查快照哈希与时效。短缺口在提交前从已验证的头向后检查父块。后退或同高冲突进入现有撤权路径。
 
-主网 DAI/WETH 池在块 26448349 首次发布。替换证明后基线接口返回 503，恢复原证明后同块重新发布，日志序号从 1 增至 3。首次测试脚本使用了错误的 HTTP 高度字段，修正为 `number_or_slot` 后重新运行了完整场景。验收使用公开信标来源提供的检查点。生产运维的独立可信根来源和轮换流程仍待验收。[普通进程验收记录](integration/artifacts/local/beacon-owner-191/live-2/report.json)
+主网 DAI/WETH 池在块 26448349 首次发布。替换证明后基线接口返回 503，恢复原证明后同块重新发布，日志序号从 1 增至 3。首次测试脚本使用了错误的 HTTP 高度字段，修正为 `number_or_slot` 后重新运行了完整场景。验收使用公开信标来源提供的检查点。生产运维的独立可信根来源和轮换流程仍待验收。普通进程验收记录（`integration/artifacts/local/beacon-owner-191/live-2/report.json`，已清理）
 
-本轮配置、来源证明和 owner 服务的完整 Go race 回归分别通过 309、58 和 230 项（含子测试），三个包的 `go vet` 通过。[回归记录](integration/artifacts/local/beacon-owner-191/go.jsonl)
+本轮配置、来源证明和 owner 服务的完整 Go race 回归分别通过 309、58 和 230 项（含子测试），三个包的 `go vet` 通过。回归记录（`integration/artifacts/local/beacon-owner-191/go.jsonl`，已清理）
 
 <a id="beacon-owner-refresh"></a>
 
@@ -4930,7 +4936,7 @@ Go 证据包 `-race -count=1` 共通过 48 项测试（含子测试），`go vet
 
 Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS 信标 API>` 从发布配置取得可信根、目标文件与时效预算，读取 bootstrap、finality_update 及所需周期的 updates。验证签名、最终化分支与时效后，持文件锁复核已安装证明，拒绝高度或 slot 后退及同高冲突。写入使用同目录临时文件、文件同步、重命名和目录同步。
 
-实际主网块 26448381 的证明先后两次通过 CLI 刷新。从两份保留的历史更新重放正常推进、同块重复、回退、无效数据、并发竞争、过期及取消。五个失败场景均逐字节核对了原文件。Go 证据包 64 项 race 测试及 vet 通过。[主网刷新报告](integration/artifacts/local/beacon-refresh-192/refresh.json) · [回归记录](integration/artifacts/local/beacon-refresh-192/go.jsonl)
+实际主网块 26448381 的证明先后两次通过 CLI 刷新。从两份保留的历史更新重放正常推进、同块重复、回退、无效数据、并发竞争、过期及取消。五个失败场景均逐字节核对了原文件。Go 证据包 64 项 race 测试及 vet 通过。主网刷新报告（`integration/artifacts/local/beacon-refresh-192/refresh.json`，已清理） · 回归记录（`integration/artifacts/local/beacon-refresh-192/go.jsonl`，已清理）
 
 <a id="beacon-owner-ancestry"></a>
 
@@ -4938,7 +4944,7 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 
 普通 Go owner 从签名最终化头反向核对短尾时，按精确高度请求 `eth_getBlockByNumber(height, false)`，重算执行头哈希并沿父哈希连接已有游标。该路径沿用整段追块时限、租约截止时间和来源观测。正向读取仍验证完整区块、回执和池状态，发布时逐高度核对反向确认的哈希。
 
-使用主网块 26355865 回放正常响应、父哈希篡改、错误高度、浮动标签、非规范数量、取消和未配置证明七种情况。服务回归使用已验证的信标证明和构造的中间链节，通过正常发布门禁检验接受与拒绝。相关包通过 `go vet`。服务包首跑的 V3 模板重启用例超时，该用例和本轮用例在 `-count=1 -race` 独立复跑通过。后续优先实测同一 owner 在相邻最终化头之间逐块发布。[定向回归](integration/artifacts/local/beacon-ancestor-193/focused.log) · [全包首跑](integration/artifacts/local/beacon-ancestor-193/tests.jsonl)
+使用主网块 26355865 回放正常响应、父哈希篡改、错误高度、浮动标签、非规范数量、取消和未配置证明七种情况。服务回归使用已验证的信标证明和构造的中间链节，通过正常发布门禁检验接受与拒绝。相关包通过 `go vet`。服务包首跑的 V3 模板重启用例超时，该用例和本轮用例在 `-count=1 -race` 独立复跑通过。后续优先实测同一 owner 在相邻最终化头之间逐块发布。定向回归（`integration/artifacts/local/beacon-ancestor-193/focused.log`，已清理） · 全包首跑（`integration/artifacts/local/beacon-ancestor-193/tests.jsonl`，已清理）
 
 <a id="beacon-owner-advance"></a>
 
@@ -4946,7 +4952,7 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 
 `verify_beacon_owner.py` 新增 `--refresh-endpoint`，从首个已验证快照开始，调用正常 CLI 刷新证明，核对每条 `BLOCK_COMMIT` 的高度、父哈希、日志序号、代际、作用域和终点基线。`--next-proof` 可安装另一份签名证明重放。验证器通过连续发布、父哈希冲突、代际变化、重新建立基线和终点基线冲突测试。
 
-旧主网起点 26448349 的公开状态请求失败。改用新鲜证明后，owner 在 26448795 发布 DAI/WETH 基线，CLI 获取最终化块 26448827。日志在首个连续增量前记录 `RECEIPT_PROOF_BUDGET` 并撤权，验收器报 `OWNER_JOURNAL_DISCONTINUITY`。单独读取块 26448796 的交易体使用 5,232,897 字节预算，核对回执和见证后剩余 14,811,711 字节。下一步减少已验证交易体的重复解码与获取，再运行同一发布验收。阶段193的 service 包 231 项 race 用例复跑通过。EVM 全包首跑在 10 分钟总时限终止，定向回归已通过。[运行日志](integration/artifacts/local/beacon-advance-194/run-2/owner.log) · [预算诊断](integration/artifacts/local/beacon-advance-194/budget.log) · [service 包复跑](integration/artifacts/local/beacon-ancestor-193/service-retry.jsonl)
+旧主网起点 26448349 的公开状态请求失败。改用新鲜证明后，owner 在 26448795 发布 DAI/WETH 基线，CLI 获取最终化块 26448827。日志在首个连续增量前记录 `RECEIPT_PROOF_BUDGET` 并撤权，验收器报 `OWNER_JOURNAL_DISCONTINUITY`。单独读取块 26448796 的交易体使用 5,232,897 字节预算，核对回执和见证后剩余 14,811,711 字节。下一步减少已验证交易体的重复解码与获取，再运行同一发布验收。阶段193的 service 包 231 项 race 用例复跑通过。EVM 全包首跑在 10 分钟总时限终止，定向回归已通过。运行日志（`integration/artifacts/local/beacon-advance-194/run-2/owner.log`，已清理） · 预算诊断（`integration/artifacts/local/beacon-advance-194/budget.log`，已清理） · service 包复跑（`integration/artifacts/local/beacon-ancestor-193/service-retry.jsonl`，已清理）
 
 <a id="beacon-witness-budget"></a>
 
@@ -4956,7 +4962,7 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 
 在同一 64 MiB 配置下，对块 26448796 完成回执见证后可用预算由 14,811,711 升至 20,877,746 字节，对块 26448827 则由 33,123,702 升至 37,321,993 字节。普通 owner 从新鲜基线 26448987 向 26449019 推进，依序发布 26448988 和 26448989。随后日志记录 `RECEIPT_WITNESS_INVALID` 并撤权，完整的 32 块短尾验收仍为 `PARTIAL_LOCAL`。下一轮优先在块 26448990 区分来源读取、字节预算与回执内容校验的错误原因，再复验整个区间。
 
-[主网读取预算](integration/artifacts/local/beacon-witness-195/budget.log) · [定向回归](integration/artifacts/local/beacon-witness-195/regression.log) · [owner 运行日志](integration/artifacts/local/beacon-witness-195/live-2/owner.log)
+主网读取预算（`integration/artifacts/local/beacon-witness-195/budget.log`，已清理） · 定向回归（`integration/artifacts/local/beacon-witness-195/regression.log`，已清理） · owner 运行日志（`integration/artifacts/local/beacon-witness-195/live-2/owner.log`，已清理）
 
 <a id="beacon-witness-diagnostics"></a>
 
@@ -4966,7 +4972,7 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 
 块 26448990 的双节点回读核验了 275 笔交易及回执。回执核验后剩余 34,625,608 字节，该次复测成功。此前线上失败的具体原因尚待观测。新鲜签名块 26449307 的 owner 启动返回 `RECEIPT_PROOF_BUDGET`，可用此块度量各步骤消耗。阶段195的 EVM 全包延长测试期限后通过，共 2,923 项通过、21 项跳过。完整短尾验收和可信检查点发布仍为待办。
 
-[块 26448990 回读](integration/artifacts/local/beacon-witness-196/diagnostic.log) · [错误分类回归](integration/artifacts/local/beacon-witness-196/controls.log) · [启动记录](integration/artifacts/local/beacon-witness-196/live/owner.log) · [EVM 全包结果](integration/artifacts/local/beacon-witness-195/full.jsonl)
+块 26448990 回读（`integration/artifacts/local/beacon-witness-196/diagnostic.log`，已清理） · 错误分类回归（`integration/artifacts/local/beacon-witness-196/controls.log`，已清理） · 启动记录（`integration/artifacts/local/beacon-witness-196/live/owner.log`，已清理） · EVM 全包结果（`integration/artifacts/local/beacon-witness-195/full.jsonl`，已清理）
 
 <a id="native-body-encoding-budget"></a>
 
@@ -4976,7 +4982,7 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 
 同一旧块的 owner 状态读取返回 `RPC_ERROR_-32000`。用新鲜证明启动时，从 26449402 连续发布至 26449404，目标为 26449434。后续源请求返回 HTTP 408，owner 撤权。该窗口的连续发布验收仍为 `PARTIAL_LOCAL`。下一步把现有 RPC 有界重试策略接入普通在线配置并复验瞬时超时。
 
-[改动前](integration/artifacts/local/beacon-body-197/before.log) · [改动后](integration/artifacts/local/beacon-body-197/after.log) · [预算回归](integration/artifacts/local/beacon-body-197/regression-fixed.jsonl) · [普通 owner 日志](integration/artifacts/local/beacon-body-197/live-2/owner.log)
+改动前（`integration/artifacts/local/beacon-body-197/before.log`，已清理） · 改动后（`integration/artifacts/local/beacon-body-197/after.log`，已清理） · 预算回归（`integration/artifacts/local/beacon-body-197/regression-fixed.jsonl`，已清理） · 普通 owner 日志（`integration/artifacts/local/beacon-body-197/live-2/owner.log`，已清理）
 
 <a id="owner-rpc-retry"></a>
 
@@ -4986,7 +4992,7 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 
 主网 owner 以 26449658 为基线。证明刷新至 26449722 后发生 `RPC_ERROR_-32000`，owner 撤权，对该区间的连续发布验收仍为 `PARTIAL_LOCAL`。
 
-[回归结果](integration/artifacts/local/beacon-retry-198/go.jsonl) · [owner 日志](integration/artifacts/local/beacon-retry-198/live/owner.log)
+回归结果（`integration/artifacts/local/beacon-retry-198/go.jsonl`，已清理） · owner 日志（`integration/artifacts/local/beacon-retry-198/live/owner.log`，已清理）
 
 <a id="v2-verified-account-batch"></a>
 
@@ -4996,7 +5002,7 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 
 上一轮首个增量 26449659 的独立复查中，两端点返回同一区块哈希。dRPC 对账户证明返回历史状态不可用，PublicNode 返回该块超过证明窗口，错误码分别为 `-32000`、`4444`。新鲜主网窗口以 26449753 为基线，目标为 26449785。owner 连续发布至 26449761，共 8 个增量，随后源请求返回 `RPC_ERROR_-32000` 并撤权。完整连续发布待具有对应历史状态的输入复验。
 
-[来源复查](integration/artifacts/local/beacon-account-199/historical-availability.json) · [批次回归](integration/artifacts/local/beacon-account-199/batch.log) · [池验证回归](integration/artifacts/local/beacon-account-199/tests.jsonl) · [主网运行日志](integration/artifacts/local/beacon-account-199/live/owner.log)
+来源复查（`integration/artifacts/local/beacon-account-199/historical-availability.json`，已清理） · 批次回归（`integration/artifacts/local/beacon-account-199/batch.log`，已清理） · 池验证回归（`integration/artifacts/local/beacon-account-199/tests.jsonl`，已清理） · 主网运行日志（`integration/artifacts/local/beacon-account-199/live/owner.log`，已清理）
 
 <a id="beacon-owner-archive"></a>
 
@@ -5006,7 +5012,7 @@ Go 命令 `chain-parser --config <owner 配置> --refresh-beacon-proof <HTTPS �
 
 主网起始块 26449944，签名目标 26449976，最后连续提交 26449962。583 条记录共 108,580,577 字节，18 条派生块与发布引用相符。owner 在并行读取高度 26449964 时报告 `RPC_HTTP_429`，验收观察到日志中断。dRPC 原始响应对 `eth_getCode`、`eth_chainId`、`eth_getBlockByNumber` 报告公共端点限流（码 15）。已发布 19 个高度的归档覆盖检查全部通过，32 块发布仍待完整验收。5 项信标验收工具测试、11 项来源证据测试和 Go 服务相关 race 回归通过。
 
-[主网报告](integration/artifacts/local/beacon-archive-200/live/report.json) · [普通 owner 日志](integration/artifacts/local/beacon-archive-200/live/owner.log)
+主网报告（`integration/artifacts/local/beacon-archive-200/live/report.json`，已清理） · 普通 owner 日志（`integration/artifacts/local/beacon-archive-200/live/owner.log`，已清理）
 
 <a id="pool-proof-endpoint"></a>
 
@@ -5016,7 +5022,7 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 
 主网基线 26450264，目标 26450296，连续发布至 26450270。256 条归档共 45,063,808 字节，已发布 7 个高度的覆盖检查通过。26450271 的并行读取报告 `RPC_ERROR_-32000`。dRPC 对该窗口内两个哈希的 Pair 存储证明返回历史状态不可用。PublicNode 对完全相同的两次 `eth_getProof` 请求均返回错误码 4444，指明超过证明窗口。完整跨头发布仍需要能提供这些历史状态证明的节点。
 
-[专项回归](integration/artifacts/local/beacon-endpoint-201/focused.log) · [主网报告](integration/artifacts/local/beacon-endpoint-201/live/report.json) · [第二端点复查](integration/artifacts/local/beacon-endpoint-201/secondary-proof-check.json)
+专项回归（`integration/artifacts/local/beacon-endpoint-201/focused.log`，已清理） · 主网报告（`integration/artifacts/local/beacon-endpoint-201/live/report.json`，已清理） · 第二端点复查（`integration/artifacts/local/beacon-endpoint-201/secondary-proof-check.json`，已清理）
 
 <a id="beacon-owner-execution-config"></a>
 
@@ -5034,7 +5040,7 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 
 26449944–26449962 和 26450264–26450270 两段合计 26 个高度通过，其中 24 个增量的派生哈希全部相符。两个窗口分别执行 1,022 次与 398 次本地 RPC 读取。原归档分别有 3 条限流响应、2 条历史状态错误。完整 32 块在线发布仍依赖可提供相应证明的主网节点。两项新增回归涵盖响应歧义、未记录请求、派生内容篡改和代际改变，Go 工具构建与 vet 通过。
 
-[18 个增量重算报告](integration/artifacts/local/beacon-replay-203/window-200.json) · [6 个增量重算报告](integration/artifacts/local/beacon-replay-203/window-201.json)
+18 个增量重算报告（`integration/artifacts/local/beacon-replay-203/window-200.json`，已清理） · 6 个增量重算报告（`integration/artifacts/local/beacon-replay-203/window-201.json`，已清理）
 
 <a id="beacon-fork-handover"></a>
 
@@ -5044,7 +5050,7 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 
 主网块 23942645 的哈希为 `0x4417a28d346e978a8e77128d3596a355c20d87ca18ebd126276933895cace473`。错误的更新版本、缺少委员会交接和下一委员会分支篡改均被拒绝。另一个历史 Deneb 样本通过了检查点根与执行载荷校验，在当前委员会的 Merkle 分支校验时拒绝。Deneb 至 Electra 的完整正例仍需能通过该校验的起始证据。来源验证包 66 项 race 回归（含子测试）及 vet 通过。
 
-[固定输入说明](integration/test/source/beacon-fork-handover/README.md) · [专项测试](chain-parser-go/internal/provenance/beacon_fork_handover_test.go) · [包回归](integration/artifacts/local/beacon-fork-204/go.log)
+[固定输入说明](integration/test/source/beacon-fork-handover/README.md) · [专项测试](chain-parser-go/internal/provenance/beacon_fork_handover_test.go) · 包回归（`integration/artifacts/local/beacon-fork-204/go.log`，已清理）
 
 <a id="beacon-checkpoint-rotation"></a>
 
@@ -5054,7 +5060,7 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 
 执行块 26450712、信标时隙 15690528 的实测包含 511 名签署者。旧版本从原检查点经两轮交接验证，新版本从最终化根直接验证。CLI 输出的最终化结果逐字节相同。75 项 race 回归及 vet 通过，覆盖配置根错误、bootstrap 不匹配、各自时效到期、取消、刷新锁竞争及目标文件已存在。首个生产可信根的独立获取、部署版本实际切换和跨区恢复仍待验收。
 
-[主网轮换结果](integration/artifacts/local/beacon-rotation-205/rotation.json) · [固定输入回归](chain-parser-go/internal/provenance/beacon_rotation_test.go)
+主网轮换结果（`integration/artifacts/local/beacon-rotation-205/rotation.json`，已清理） · [固定输入回归](chain-parser-go/internal/provenance/beacon_rotation_test.go)
 
 <a id="beacon-rotation-switch"></a>
 
@@ -5064,7 +5070,7 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 
 两次主网读取均返回区块 26451448 的 DAI/WETH 池状态。签署者 511 名，代际、写入者版本和日志序号均从 1 递增至 2。7 项信标工具回归通过。独立初始根的运维供应和生产多节点切换仍待验收。
 
-[主网切换报告](integration/artifacts/local/beacon-switch-206/report.json) · [运行工具](integration/tools/acceptance/verify_beacon_rotation.py)
+主网切换报告（`integration/artifacts/local/beacon-switch-206/report.json`，已清理） · [运行工具](integration/tools/acceptance/verify_beacon_rotation.py)
 
 <a id="account-proof-rpc-routing"></a>
 
@@ -5074,7 +5080,7 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 
 Ethereum 主网块 26452499 的归档包含 dRPC 和 PublicNode 的区块体及回执，以及 Alchemy 的 6 个账户证明响应。普通 owner 核验 Pair、Factory、DAI 和 WETH 后发布基线，归档审计缺口为 0。用 Alchemy 承担整块读取时，`eth_getBlockReceipts` 返回 HTTP 401。错误链 ID、错误创世块、损坏的 MPT 节点及错误来源的归档回归均通过。Go 全包测试、`go vet ./...`、证明路由和配置/RPC 专项 race 测试通过。完整 32 块窗口和重放单独验收。当前已授权推送目标为 GitHub `origin`，GitLab 项目地址待提供。
 
-[主网基线归档审计](integration/artifacts/local/beacon-proof-routing-207/first-audit.json) · [整块读取失败报告](integration/artifacts/local/beacon-archive-providers-207/live/report.json) · [Go 全包回归](integration/artifacts/local/beacon-proof-routing-207/go-all.log)
+主网基线归档审计（`integration/artifacts/local/beacon-proof-routing-207/first-audit.json`，已清理） · 整块读取失败报告（`integration/artifacts/local/beacon-archive-providers-207/live/report.json`，已清理） · Go 全包回归（`integration/artifacts/local/beacon-proof-routing-207/go-all.log`，已清理）
 
 <a id="beacon-complete-window"></a>
 
@@ -5084,7 +5090,7 @@ Ethereum 主网块 26452499 的归档包含 dRPC 和 PublicNode 的区块体及�
 
 普通 owner 在新窗口从块 26453011 建立基线，到签名最终化块 26453043 共发布 32 个连续增量。逐块核对父哈希、代际、日志序号及终点基线。三个 RPC 来源共归档 909 条记录，覆盖缺口和 RPC 错误均为 0。离线重算 33 个高度，每个增量的池状态和兑换事实哈希均与原始归档匹配。P0-1 仍需完成其余链与协议矩阵、来源资格和恢复验收。GitLab 推送待项目地址。
 
-[在线发布报告](integration/artifacts/local/beacon-proof-window-208/live/report.json) · [离线重算](integration/artifacts/local/beacon-proof-window-208/replay.json) · [原失败块重算](integration/artifacts/local/beacon-proof-routing-207/replay208-26452503.json) · [Go 回归](integration/artifacts/local/beacon-proof-window-208/go-all.log)
+在线发布报告（`integration/artifacts/local/beacon-proof-window-208/live/report.json`，已清理） · 离线重算（`integration/artifacts/local/beacon-proof-window-208/replay.json`，已清理） · 原失败块重算（`integration/artifacts/local/beacon-proof-routing-207/replay208-26452503.json`，已清理） · Go 回归（`integration/artifacts/local/beacon-proof-window-208/go-all.log`，已清理）
 
 <a id="op-mainnet-withdrawals"></a>
 
@@ -5094,7 +5100,7 @@ Ethereum 主网块 26452499 的归档包含 dRPC 和 PublicNode 的区块体及�
 
 普通 owner 起初在批量回执方法收到 HTTP 403。改用 PublicNode 与 Tenderly 读取区块体和回执后，OP 主网公共节点对 Factory 的历史账户证明返回 `-32603`。改用 Tenderly 读取账户证明后，普通 owner 在 Token 余额验证报告 `STATE_VIEW_OPCODE_UNSUPPORTED`，启动未发布基线。下一项是从该次响应定位具体 Token、执行路径及所需账户证明。L2 共识来源、消息传递合约存储根的 MPT 核验以及完整池状态仍待验收。
 
-[固定主网输入及复验说明](integration/test/source/op-mainnet-withdrawals/README.md) · [两来源 owner 日志](integration/artifacts/local/optimism-v2-209/witness.log) · [使用 Tenderly 证明的 owner 日志](integration/artifacts/local/optimism-v2-209/tenderly/owner.log) · [Go 全包回归](integration/artifacts/local/optimism-v2-209/go-final.log)
+[固定主网输入及复验说明](integration/test/source/op-mainnet-withdrawals/README.md) · 两来源 owner 日志（`integration/artifacts/local/optimism-v2-209/witness.log`，已清理） · 使用 Tenderly 证明的 owner 日志（`integration/artifacts/local/optimism-v2-209/tenderly/owner.log`，已清理） · Go 全包回归（`integration/artifacts/local/optimism-v2-209/go-final.log`，已清理）
 
 <a id="op-usdc-delegate"></a>
 
@@ -5108,7 +5114,7 @@ Ethereum 主网块 26452499 的归档包含 dRPC 和 PublicNode 的区块体及�
 
 P0-1 下一项是从执行头状态根核验 `L2ToL1MessagePasser` 账户证明，并在普通读取与归档重放中比对 Isthmus `withdrawalsRoot`。OP 的 L1 派生与最终性、重组撤权和恢复仍待验收。GitLab 推送等待项目克隆地址，当前 `origin` 指向 GitHub。
 
-[固定输入与复验命令](integration/test/source/op-mainnet-withdrawals/README.md) · [普通 owner 基线](integration/artifacts/local/optimism-v2-209/delegate/baseline.json) · [Go 验证日志](integration/artifacts/local/op-usdc-210/)
+[固定输入与复验命令](integration/test/source/op-mainnet-withdrawals/README.md) · 普通 owner 基线（`integration/artifacts/local/optimism-v2-209/delegate/baseline.json`，已清理） · Go 验证日志（`integration/artifacts/local/op-usdc-210/`，已清理）
 
 <a id="op-message-passer"></a>
 
@@ -5120,7 +5126,7 @@ P0-1 下一项是从执行头状态根核验 `L2ToL1MessagePasser` 账户证明�
 
 P0-1 下一项是把 OP 的 L2 来源与可信 L1 最终化证据绑定，再验证重组后的撤权与恢复。原 26 个工作包完整验收仍为 0。GitLab 交付需要项目克隆地址。
 
-[主网基线](integration/artifacts/local/optimism-v2-209/message-passer/baseline.json) · [归档重放报告](integration/artifacts/local/op-passer-211/replay.json) · [固定输入说明](integration/test/source/op-mainnet-withdrawals/README.md)
+主网基线（`integration/artifacts/local/optimism-v2-209/message-passer/baseline.json`，已清理） · 归档重放报告（`integration/artifacts/local/op-passer-211/replay.json`，已清理） · [固定输入说明](integration/test/source/op-mainnet-withdrawals/README.md)
 
 <a id="op-signed-l1-origin"></a>
 
@@ -5130,7 +5136,7 @@ P0-1 下一项是把 OP 的 L2 来源与可信 L1 最终化证据绑定，再验
 
 固定输入中 OP 块 144644465 引用了以太坊块 23942644，序号为 0。签名确认的执行块 23942645 的父哈希与该来源一致。离线 CLI 可重算。缺少来源头、重复头和顺序调换均拒绝。Go 全包测试、vet 及 OP 来源和费用解码专项 race 回归通过。该项覆盖历史 L1 来源资格，普通 owner 的来源策略、从 L1 批次重建 L2 以及重组撤权和恢复仍在 P0-1 范围内。
 
-[固定输入与重算命令](integration/test/source/op-mainnet-withdrawals/README.md) · [CLI 输出](integration/artifacts/local/op-l1-origin-212/result.json) · [专项回归](chain-parser-go/internal/chain/evm/op_l1_origin_test.go)
+[固定输入与重算命令](integration/test/source/op-mainnet-withdrawals/README.md) · CLI 输出（`integration/artifacts/local/op-l1-origin-212/result.json`，已清理） · [专项回归](chain-parser-go/internal/chain/evm/op_l1_origin_test.go)
 
 <a id="op-owner-l1-origin"></a>
 
@@ -5140,7 +5146,7 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 
 普通 owner 发布的 OP 块 159771706 引用了以太坊块 26453350。511 名签署者确认了以太坊执行块 26453360。本次归档用三个本地端点重放，共读取 84 次，重建的区块和 USDC/WETH 池状态与在线基线一致。用重复头替换中间父块后，owner 启动返回 `OP_ORIGIN_ANCESTRY_LINK`。Go 全包测试、专项 race 回归与 vet 通过。阶段 208 的已留存主网窗口含 8 笔发往 OP 批次收件地址的 blob 交易，可用于下一轮核验。P0-1 仍需证明 L1 中对应批次的包含和数据可用性、重建 L2，以及验证重组后的撤权与恢复。
 
-[主网基线](integration/artifacts/local/op-signed-owner-213/baseline.json) · [重放报告](integration/artifacts/local/op-signed-owner-213/replay.json) · [拒绝记录](integration/artifacts/local/op-signed-owner-213/bad.log) · [时效与父链接回归](chain-parser-go/internal/chain/evm/op_l1_online_test.go)
+主网基线（`integration/artifacts/local/op-signed-owner-213/baseline.json`，已清理） · 重放报告（`integration/artifacts/local/op-signed-owner-213/replay.json`，已清理） · 拒绝记录（`integration/artifacts/local/op-signed-owner-213/bad.log`，已清理） · [时效与父链接回归](chain-parser-go/internal/chain/evm/op_l1_online_test.go)
 
 <a id="op-batch-blob"></a>
 
@@ -5150,7 +5156,7 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 
 主网块 26453043 含 309 笔交易。第 193 号交易（从 0 起算）引用了信标时隙 15692864 的第 3 至 7 号 blob。五份完整数据均已复核。最初测试的 sidecar 响应中，五项 `kzg_proof` 都使用无穷远点编码，逐项验证在第一项即拒绝。实际成功路径使用同一时隙的 blobs 接口，直接从原始数据重算承诺。错误发送者、缺少末尾 blob、错位起点及改单字节均有拒绝回归。Go 全包测试、专项 race 回归与 vet 通过。发送者在该高度的动态授权、通道解码、重建 L2 块和 owner 撤权恢复仍待验收。
 
-[固定主网输入与 CLI 命令](integration/test/source/op-mainnet-batches/README.md) · [五个版本哈希](integration/artifacts/local/op-batch-214/result.json) · [专项回归](chain-parser-go/internal/chain/evm/op_batch_blobs_test.go)
+[固定主网输入与 CLI 命令](integration/test/source/op-mainnet-batches/README.md) · 五个版本哈希（`integration/artifacts/local/op-batch-214/result.json`，已清理） · [专项回归](chain-parser-go/internal/chain/evm/op_batch_blobs_test.go)
 
 <a id="op-channel-frames"></a>
 
@@ -5160,7 +5166,7 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 
 块 26453043 的五个帧构成通道 `912c873f4ac241003e7e83ea8738dc67`。614073 字节的带版本压缩数据解压后为 1202848 字节，包含一个 span 批次。独立 Brotli 命令得到相同的解压长度和 SHA-256。缺帧、乱序、重复帧、结束后追加帧、错误字段高位、截断和非零填充均已覆盖。Go 全包测试、专项 race 回归和 vet 通过。P0-1 继续核验 span 批次内的区块及签名交易、跨提交的通道与发送者授权。
 
-[固定主网输入与复验命令](integration/test/source/op-mainnet-batches/README.md) · [通道报告](integration/artifacts/local/op-channel-215/result.json)
+[固定主网输入与复验命令](integration/test/source/op-mainnet-batches/README.md) · 通道报告（`integration/artifacts/local/op-channel-215/result.json`，已清理）
 
 
 <a id="op-span-contents"></a>
@@ -5235,7 +5241,7 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 
 验收端点将 OP `finalized` 读取固定在主网块 159774767，提供该高度的区块、回执和池状态证明。普通 `chain-parser` 进程核验以太坊提交、批次交易和 L1 来源，随后通过基线接口返回该块及 USDC/WETH 池。归档重放工具把两个 L2 来源、证明来源及 L1 来源映射到本机端点，用独立状态目录重新启动同一进程。正确证据重建的块和池与采集结果一致。将批次观测替换为空数组后，进程在发布基线前退出，错误为 `OP_SPAN_BLOCKS_REQUIRED`。两次重放共读取 123 次归档 RPC。
 
-[重放工具](integration/tools/acceptance/replay_op_span_owner.py) · [重放报告](integration/artifacts/local/op-owner-run-222/replay.json)
+[重放工具](integration/tools/acceptance/replay_op_span_owner.py) · 重放报告（`integration/artifacts/local/op-owner-run-222/replay.json`，已清理）
 
 
 <a id="op-owner-span-refresh"></a>
@@ -5246,7 +5252,7 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 
 普通 CLI 从归档节点读取块 159774755 至 159774778，核验 1099 笔用户交易和 5 个 L1 来源。输出的 24 个块与阶段 222 owner 的输入一致。截断前缀、超限块数、旧水位回退、重叠哈希冲突及发布前撤销均有回归。Go 全包测试、专项 race 和 vet 通过。
 
-[运行说明](integration/test/source/op-mainnet-batches/README.md) · [更新报告](integration/artifacts/local/op-span-refresh-223/report.json)
+[运行说明](integration/test/source/op-mainnet-batches/README.md) · 更新报告（`integration/artifacts/local/op-span-refresh-223/report.json`，已清理）
 
 
 <a id="op-owner-live-collection"></a>
@@ -5257,7 +5263,7 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 
 主网运行从以太坊块 26454223 找到提交块 26454214，得到五帧通道 `9f631924b60aac4e1087c7d35d07b80b`，验证 OP 块 159776772 至 159776841、4354 笔用户交易和 13 个 L1 来源。前两次采集分别遇到 RPC 错误和读取超时。采用有界并发读取后，在正常 CLI 的时限内发布了观测文件。固定输入回归覆盖搜索窗口耗尽、字节上限、错误父块和独立授权证明请求。Go 全包测试、专项 race 和 vet 通过。
 
-[复验命令](integration/test/source/op-mainnet-batches/README.md) · [主网采集报告](integration/artifacts/local/op-live-refresh-224/result.json)
+[复验命令](integration/test/source/op-mainnet-batches/README.md) · 主网采集报告（`integration/artifacts/local/op-live-refresh-224/result.json`，已清理）
 
 
 <a id="owner-fork-revocation"></a>
@@ -5319,7 +5325,7 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 
 218 块长窗口与严格离线复验另行记录。P0-1 后续需取得同一通道跨多笔 L1 提交的主网样本，核验 L2 执行派生，并完成其余链和协议的来源与恢复验收。原工作包完整验收 0/26。GitLab 推送等待项目克隆地址。
 
-[窗口复验说明](integration/test/source/op-mainnet-batches/README.md) · [归档边界复验](integration/artifacts/local/op-owner-window-229/offline-boundary/report.json) · [撤权与恢复](integration/artifacts/local/op-owner-window-229/withdrawal.json)
+[窗口复验说明](integration/test/source/op-mainnet-batches/README.md) · 归档边界复验（`integration/artifacts/local/op-owner-window-229/offline-boundary/report.json`，已清理） · 撤权与恢复（`integration/artifacts/local/op-owner-window-229/withdrawal.json`，已清理）
 
 <a id="op-origin-base-fee"></a>
 
@@ -5329,7 +5335,7 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 
 OP 块 144644465 的存款与以太坊块 23942644 均给出 48265514 wei。修改中间 epoch 的费用会得到 `OP_ORIGIN_L1_BASE_FEE_MISMATCH`。阶段229的跨批次边界在新二进制下用纯缓存重放，基线和四条增量与前轮逐条相同。Go 全包测试、专项 race 和 vet 通过。其余存款、blob 费参数、L2 执行后状态和主网跨提交样本仍待验证。
 
-[纯缓存 owner 报告](integration/artifacts/local/op-owner-window-229/basefee-boundary/report.json)
+纯缓存 owner 报告（`integration/artifacts/local/op-owner-window-229/basefee-boundary/report.json`，已清理）
 
 <a id="op-portal-deposits"></a>
 

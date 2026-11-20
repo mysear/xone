@@ -49,7 +49,10 @@ def _status(value):
 
 
 def _refs(value):
-    return re.findall(r'\]\(([^)]+)\)', value)
+    # Authorized result cleanup keeps the original evidence path as a marked
+    # historical reference, without leaving a live link to a missing file.
+    matches = re.findall(r'\]\(([^)]+)\)|（`([^`]+)`，已清理）', value)
+    return [link or cleaned for link, cleaned in matches]
 
 
 def _list(value):

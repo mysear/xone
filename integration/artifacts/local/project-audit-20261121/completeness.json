@@ -314,7 +314,7 @@
     }
   ],
   "cleanup_report": "cleanup.json",
-  "implementation_source_modified": false,
+  "implementation_source_modified": true,
   "documentation_summary_corrections": [
     "optimizer max_splits is 8, not 2",
     "statePolicy/allowSources and tenant isolation still missing",
@@ -326,5 +326,23 @@
     "partial implementations awaiting complete version/mode coverage",
     "real source/bank/provider evidence gaps",
     "production infrastructure, approved workload/SLO and independent fault-domain acceptance gaps"
-  ]
+  ],
+  "additional_user_authorized_test_result_cleanup": "test-results-cleanup.json",
+  "historic_untracked_reports_and_recordings_pruned": true,
+  "total_cleanup_allocated_bytes": 70206324736,
+  "business_service_source_modified": false,
+  "maintenance_tool_change": "progress_document.py recognizes marked historical evidence paths while retaining existing source/test binding validation",
+  "validation_after_test_results_cleanup": {
+    "progress_document_tests": {
+      "passed": true,
+      "count": 17
+    },
+    "design_delivery_audit_controls": {
+      "passed": true,
+      "count": 6
+    },
+    "live_documentation_links_broken": 0,
+    "historical_output_links_annotated": 398,
+    "contracts_gate": "preexisting 5 cross-project test paths remain unresolved"
+  }
 }
