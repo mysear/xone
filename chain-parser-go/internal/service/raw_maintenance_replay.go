@@ -196,7 +196,7 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 	}
 	frozenRaw, _ := json.Marshal(chain)
 	_ = json.Unmarshal(frozenRaw, &chain)
-	source := &evm.Adapter{Client: normal.Client, Chain: chain}
+	source := &evm.Adapter{Client: normal.Client, Chain: chain, OPOriginProofFile: normal.OPOriginProofFile, OPOriginMaxAgeMS: normal.OPOriginMaxAgeMS}
 	if request.Namespace == ingest.NamespaceOnline {
 		source.OnComplete = normal.OnComplete
 	}

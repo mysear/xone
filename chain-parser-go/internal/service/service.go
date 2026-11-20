@@ -102,6 +102,9 @@ func NewWithSource(cfg *config.Snapshot, source SnapshotSource) (*Service, error
 	}
 	if source != nil {
 		for _, ch := range cfg.Config.Chains {
+			if ch.OPOrigin != nil {
+				return nil, errors.New("OP_ORIGIN_NORMAL_SOURCE_REQUIRED")
+			}
 			if ch.BeaconFinality != nil {
 				return nil, errors.New("BEACON_NORMAL_SOURCE_REQUIRED")
 			}
@@ -132,6 +135,10 @@ func NewWithSource(cfg *config.Snapshot, source SnapshotSource) (*Service, error
 				return nil, err
 			}
 			s.adapters[chain.Key] = &evm.Adapter{Client: client, Chain: chain}
+			if chain.OPOrigin != nil {
+				s.adapters[chain.Key].OPOriginProofFile = cfg.Resolve(chain.OPOrigin.ProofFile)
+				s.adapters[chain.Key].OPOriginMaxAgeMS = cfg.Config.Startup.MaxAge
+			}
 			if raw := cfg.Config.Journal.RawEvidence; raw != nil {
 				archive, err := ingest.OpenArchive(filepath.Join(cfg.Resolve(cfg.Config.State.Path), "raw-evidence", strings.ReplaceAll(chain.Key, ":", "-")), ingest.ArchiveLimits{MaxBytes: raw.MaxBytes, MaxRecords: raw.MaxRecords, MaxRecordBytes: raw.MaxRecordBytes})
 				if err != nil {
@@ -618,6 +625,8 @@ func (s *Service) Handler() http.Handler {
 				profile, confirmation = chain.BlockIntegrity, chain.Confirmation
 				if chain.BeaconFinality != nil {
 					policy = "PINNED_BEACON_FINALITY"
+				} else if chain.OPOrigin != nil {
+					policy = "PROVIDER_TAG_WITH_FINALIZED_L1_ORIGIN"
 				}
 				break
 			}

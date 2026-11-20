@@ -121,7 +121,7 @@ func (r *CatalogRuntime) readCurrent(ctx context.Context, client *rpc.Client, c 
 	}
 	chain := r.options.Chain
 	chain.Pools = []config.PoolConfig{poolConfig}
-	adapter := evm.Adapter{Client: client, Chain: chain}
+	adapter := evm.Adapter{Client: client, Chain: chain, OPOriginProofFile: r.options.OPOriginProofFile, OPOriginMaxAgeMS: r.options.OPOriginMaxAgeMS}
 	block, pools, err := adapter.ReadState(ctx, fmt.Sprintf("0x%x", a.Height), false)
 	if err != nil {
 		return fail(err)

@@ -141,7 +141,7 @@ func (s *Service) initRuntimeSources() error {
 			return errors.New("CATALOG_RAW_ARCHIVE_REQUIRED")
 		}
 		state := p.normal
-		catalog, err := OpenCatalogRuntime(CatalogRuntimeOptions{Path: filepath.Join(s.cfg.Resolve(s.cfg.Config.State.Path), "runtime-catalog", strings.ReplaceAll(ch.Key, ":", "-")), Chain: ch, Config: *ch.DynamicCatalog, Client: a.Client, Providers: p, Archive: raw.archive, CheckFence: state.check, VerifyBlock: func(ctx context.Context, b ingest.FactoryBlock) error { return s.verifyRuntimeFactoryProof(ctx, ch, b) }})
+		catalog, err := OpenCatalogRuntime(CatalogRuntimeOptions{OPOriginProofFile: a.OPOriginProofFile, OPOriginMaxAgeMS: a.OPOriginMaxAgeMS, Path: filepath.Join(s.cfg.Resolve(s.cfg.Config.State.Path), "runtime-catalog", strings.ReplaceAll(ch.Key, ":", "-")), Chain: ch, Config: *ch.DynamicCatalog, Client: a.Client, Providers: p, Archive: raw.archive, CheckFence: state.check, VerifyBlock: func(ctx context.Context, b ingest.FactoryBlock) error { return s.verifyRuntimeFactoryProof(ctx, ch, b) }})
 		if err != nil {
 			return err
 		}

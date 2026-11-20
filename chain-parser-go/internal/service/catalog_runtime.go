@@ -47,12 +47,14 @@ type RuntimeCatalogSnapshot struct {
 	Entries   []RuntimeCatalogEntry
 }
 type CatalogRuntimeOptions struct {
-	Path      string
-	Chain     config.Chain
-	Config    config.DynamicCatalogConfig
-	Client    *rpc.Client
-	Providers *ProviderRuntime
-	Archive   *ingest.Archive
+	OPOriginProofFile string
+	OPOriginMaxAgeMS  uint64
+	Path              string
+	Chain             config.Chain
+	Config            config.DynamicCatalogConfig
+	Client            *rpc.Client
+	Providers         *ProviderRuntime
+	Archive           *ingest.Archive
 	// When nil, the built-in HTTP receipt-root verifier is used. An override
 	// for another chain must bind the exact receipt/log set to archived HTTP bytes and
 	// the chain's receipt integrity rule. A caller's event assertion is insufficient.

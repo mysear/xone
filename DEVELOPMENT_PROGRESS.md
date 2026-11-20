@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|普通 OP owner 核验 L1 来源（[阶段213](#op-owner-l1-origin)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|OP 块 159771706 发布基线，读取签名最终化头至其来源的 11 个 L1 头部|下一项核验 L1 批次包含证据和 L2 派生|
 |OP 块引用的 L1 来源（[阶段212](#op-signed-l1-origin)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从 OP 块 144644465 的交易根核验首笔存款，沿签名确认的以太坊执行链核对 L1 来源|L2 批次派生、重组撤权与恢复待验收|
 |OP Mainnet 提款根（[阶段211](#op-message-passer)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|读取合约状态前，从执行头状态根证明消息传递合约的存储根，与 Isthmus 提款根核对|块 159771104 的在线池基线与本地归档重算一致，L1 派生与最终性待验收|
 |OP Mainnet USDC 代理余额（[阶段210](#op-usdc-delegate)，P0-1）|§7.1、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|普通 Go owner 发布块 159770518 的 USDC/WETH 基线，离线重算 USDC 余额|下一步从执行状态根验证 Isthmus 消息传递合约的存储根，覆盖在线读取和归档重放|
@@ -5058,3 +5059,13 @@ P0-1 下一项是把 OP 的 L2 来源与可信 L1 最终化证据绑定，再验
 固定输入中 OP 块 144644465 引用了以太坊块 23942644，序号为 0。签名确认的执行块 23942645 的父哈希与该来源一致。离线 CLI 可重算。缺少来源头、重复头和顺序调换均拒绝。Go 全包测试、vet 及 OP 来源和费用解码专项 race 回归通过。该项覆盖历史 L1 来源资格，普通 owner 的来源策略、从 L1 批次重建 L2 以及重组撤权和恢复仍在 P0-1 范围内。
 
 [固定输入与重算命令](integration/test/source/op-mainnet-withdrawals/README.md) · [CLI 输出](integration/artifacts/local/op-l1-origin-212/result.json) · [专项回归](chain-parser-go/internal/chain/evm/op_l1_origin_test.go)
+
+<a id="op-owner-l1-origin"></a>
+
+## 普通 owner 在 OP Mainnet 发布前核验 L1 来源（2026-11-20，阶段213，P0-1）
+
+OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段为 `checkpoint_root`、`proof_file`、`max_checkpoint_age_ms` 和 `l1_rpc_url`。Go owner 从发布配置读取检查点，从证明文件重验以太坊最终性签名，向指定 L1 节点核对链 ID 和创世块。每次池状态读取从已验证的 OP 交易体解出来源，逐个核验签名执行头至来源块的高度、哈希及父链接，核对来源时间。读取受本次超时、剩余字节、头部数与 128 层回溯上限约束。状态读取结束时按 `max_baseline_age_ms` 再检查签名头时效。
+
+普通 owner 发布的 OP 块 159771706 引用了以太坊块 26453350。511 名签署者确认了以太坊执行块 26453360。本次归档用三个本地端点重放，共读取 84 次，重建的区块和 USDC/WETH 池状态与在线基线一致。用重复头替换中间父块后，owner 启动返回 `OP_ORIGIN_ANCESTRY_LINK`。Go 全包测试、专项 race 回归与 vet 通过。阶段 208 的已留存主网窗口含 8 笔发往 OP 批次收件地址的 blob 交易，可用于下一轮核验。P0-1 仍需证明 L1 中对应批次的包含和数据可用性、重建 L2，以及验证重组后的撤权与恢复。
+
+[主网基线](integration/artifacts/local/op-signed-owner-213/baseline.json) · [重放报告](integration/artifacts/local/op-signed-owner-213/replay.json) · [拒绝记录](integration/artifacts/local/op-signed-owner-213/bad.log) · [时效与父链接回归](chain-parser-go/internal/chain/evm/op_l1_online_test.go)

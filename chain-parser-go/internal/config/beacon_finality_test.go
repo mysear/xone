@@ -72,3 +72,39 @@ func TestAccountProofRPCConfiguration(t *testing.T) {
 		}
 	}
 }
+
+func TestOPOriginPolicy(t *testing.T) {
+	cfg, err := Load("../../config/config-test.yaml", "chain-parser-go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	chain := cfg.Config.Chains[0]
+	chain.Key = "evm:10"
+	chain.Genesis = "0x7ca38a1916c42007829c55e69d3e9a73265554b586a499015373241b8a3fa48b"
+	chain.Confirmation = "finalized"
+	chain.BlockIntegrity = "known-evm-native-commitments-v2"
+	chain.NativeProof = &NativeProofConfig{MaxBytes: 1 << 20, MaxHeaders: 16, MaxWindowBlocks: 8, MaxTransactions: 256, MaxLookahead: 16}
+	policy := OPOriginConfig{BeaconFinalityConfig: BeaconFinalityConfig{CheckpointRoot: "0x" + strings.Repeat("12", 32), ProofFile: "l1.json", MaxCheckpointAgeMS: 86400000}, L1RPCURL: "https://example.org/rpc"}
+	for _, name := range []string{"valid", "genesis", "tag", "wrong chain", "file", "missing endpoint"} {
+		t.Run(name, func(t *testing.T) {
+			c, p := chain, policy
+			switch name {
+			case "genesis":
+				c.Genesis = p.CheckpointRoot
+			case "tag":
+				c.Confirmation = "safe"
+			case "wrong chain":
+				c.Key = "evm:1"
+			case "file":
+				p.ProofFile = ""
+			case "missing endpoint":
+				p.L1RPCURL = ""
+			}
+			c.OPOrigin = &p
+			cfg.Config.Chains[0] = c
+			if err := cfg.Config.Validate("chain-parser-go"); (err == nil) != (name == "valid") {
+				t.Fatal(err)
+			}
+		})
+	}
+}

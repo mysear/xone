@@ -8,14 +8,17 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/rpc"
 )
 
 type Adapter struct {
-	Client *rpc.Client
-	Chain  config.Chain
+	OPOriginProofFile string
+	OPOriginMaxAgeMS  uint64
+	Client            *rpc.Client
+	Chain             config.Chain
 	// OnComplete runs only after receipts/root/witness, pool state, and the
 	// final canonical anchor have all passed. An error backpressures the read.
 	OnComplete        func(context.Context, RawBlock, []Receipt) error
@@ -253,6 +256,13 @@ func (a *Adapter) readState(ctx context.Context, tag string, completeBlock bool)
 		}
 	}
 
+	var checkOriginAge func() error
+	if a.Chain.OPOrigin != nil {
+		checkOriginAge, e = a.verifyOnlineOPOrigin(ctx, b, time.Now)
+		if e != nil {
+			return ref, nil, nil, e
+		}
+	}
 	stateReader, e := a.nativeStateReader(ctx, b)
 	if e != nil {
 		return ref, nil, nil, e
@@ -347,6 +357,11 @@ func (a *Adapter) readState(ctx context.Context, tag string, completeBlock bool)
 	}
 	if !sameReceiptAnchor(b, check) {
 		return ref, nil, nil, errors.New("ANCHOR_REORGED")
+	}
+	if checkOriginAge != nil {
+		if e = checkOriginAge(); e != nil {
+			return ref, nil, nil, e
+		}
 	}
 	if completeBlock && a.OnComplete != nil {
 		if ctx.Err() != nil {

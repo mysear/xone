@@ -112,24 +112,38 @@ func VerifyOPOrigin(ctx context.Context, proof *provenance.VerifiedExecutionFina
 	if origin.Number > head || head-origin.Number != uint64(len(evidence.Headers)-1) {
 		return empty, errors.New("OP_ORIGIN_ANCESTRY_WINDOW")
 	}
+	if err = verifyOriginAncestry(ctx, head, hash, origin, func(height uint64) (json.RawMessage, error) { return evidence.Headers[head-height], nil }); err != nil {
+		return empty, err
+	}
+	number, _ := canonicalIndex(body.Block.Number)
+	return OPOriginReport{OPBlockHash: body.Block.Hash, OPBlockNumber: number, Origin: origin, FinalizedL1Number: head, FinalizedL1Hash: hash, Authority: "signed-ethereum-mainnet-l1-origin"}, ctx.Err()
+}
+
+func verifyOriginAncestry(ctx context.Context, head uint64, hash string, origin OPL1Origin, read func(uint64) (json.RawMessage, error)) error {
+	if origin.Number > head || head-origin.Number > 128 {
+		return errors.New("OP_ORIGIN_ANCESTRY_WINDOW")
+	}
 	expected := hash
-	for i, raw := range evidence.Headers {
+	for h := head; ; h-- {
+		raw, err := read(h)
+		if err != nil {
+			return err
+		}
 		header, err := VerifyChainHeaderJSON(ctx, "evm:1", raw)
 		if err != nil {
-			return empty, err
+			return err
 		}
 		height, err := canonicalIndex(header.Block.Number)
-		if err != nil || height != head-uint64(i) || header.Block.Hash != expected {
-			return empty, errors.New("OP_ORIGIN_ANCESTRY_LINK")
+		if err != nil || height != h || header.Block.Hash != expected {
+			return errors.New("OP_ORIGIN_ANCESTRY_LINK")
 		}
 		if height == origin.Number {
 			time, err := canonicalIndex(header.Block.Timestamp)
 			if err != nil || time != origin.Timestamp || expected != origin.Hash {
-				return empty, errors.New("OP_ORIGIN_L1_MISMATCH")
+				return errors.New("OP_ORIGIN_L1_MISMATCH")
 			}
+			return ctx.Err()
 		}
 		expected = header.Block.ParentHash
 	}
-	number, _ := canonicalIndex(body.Block.Number)
-	return OPOriginReport{OPBlockHash: body.Block.Hash, OPBlockNumber: number, Origin: origin, FinalizedL1Number: head, FinalizedL1Hash: hash, Authority: "signed-ethereum-mainnet-l1-origin"}, ctx.Err()
 }

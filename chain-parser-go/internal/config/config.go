@@ -272,6 +272,7 @@ type RPCRetryConfig struct {
 }
 
 type Chain struct {
+	OPOrigin           *OPOriginConfig       `json:"op_l1_origin,omitempty"`
 	ProofRPCURL        string                `json:"proof_rpc_url,omitempty"`
 	RPCRetry           *RPCRetryConfig       `json:"rpc_retry,omitempty"`
 	BeaconFinality     *BeaconFinalityConfig `json:"beacon_finality,omitempty"`
@@ -625,6 +626,9 @@ func (c Config) Validate(expected string) error {
 			if expected != "chain-parser-go" || len(ch.RPCURLs) == 0 || retry.MaxAttempts < 1 || retry.MaxAttempts > 16 || retry.BaseBackoffMS == 0 || retry.BaseBackoffMS > retry.MaxBackoffMS || retry.MaxBackoffMS > 60000 || retry.MaxBackoffMS >= c.Journal.TimeoutMS {
 				return errors.New("CONFIG_RPC_RETRY")
 			}
+		}
+		if ch.OPOrigin != nil && !ch.OPOrigin.valid(ch, expected) {
+			return errors.New("CONFIG_OP_L1_ORIGIN")
 		}
 		if ch.BeaconFinality != nil && !ch.BeaconFinality.valid(ch, expected) {
 			return errors.New("CONFIG_BEACON_FINALITY")

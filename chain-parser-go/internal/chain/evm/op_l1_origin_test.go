@@ -10,31 +10,32 @@ import (
 	"xone/chain-parser-go/internal/provenance"
 )
 
-func TestOPHistoricalSignedOrigin(t *testing.T) {
-	read := func(name string, target any) {
-		t.Helper()
-		f, err := os.Open("../../../../integration/test/source/" + name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer f.Close()
-		gz, err := gzip.NewReader(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer gz.Close()
-		if err = json.NewDecoder(gz).Decode(target); err != nil {
-			t.Fatal(err)
-		}
+func readOriginFixture(t *testing.T, name string, target any) {
+	t.Helper()
+	f, err := os.Open("../../../../integration/test/source/" + name)
+	if err != nil {
+		t.Fatal(err)
 	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gz.Close()
+	if err = json.NewDecoder(gz).Decode(target); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOPHistoricalSignedOrigin(t *testing.T) {
 	var archived provenance.OnlineBeaconProof
-	read("beacon-fork-handover/electra-fulu.json.gz", &archived)
+	readOriginFixture(t, "beacon-fork-handover/electra-fulu.json.gz", &archived)
 	proof, err := provenance.VerifyExecutionFinality("0xd203fe26634fb6d972b70fdc29d9684963183549cab12cae1ce60aea9aa2533c", archived.Bootstrap, archived.Finality, archived.Updates)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var evidence OPOriginEvidence
-	read("op-mainnet-withdrawals/origin-144644465.json.gz", &evidence)
+	readOriginFixture(t, "op-mainnet-withdrawals/origin-144644465.json.gz", &evidence)
 	ctx := context.Background()
 	report, err := VerifyOPOrigin(ctx, proof, evidence)
 	if err != nil || report.Origin.Number != 23942644 || report.Origin.Hash != "0x3259dfa10a19ae66f8e819ef1790b178fdcf98ffd0dfc7d97565079d26ff50a6" || report.OPBlockNumber != 144644465 || report.FinalizedL1Number != 23942645 {
