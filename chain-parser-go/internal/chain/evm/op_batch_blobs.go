@@ -16,12 +16,16 @@ import (
 const opBatchInbox = "0xff00000000000000000000000000000000000010"
 
 type OPBatchEvidence struct {
+	Descendants []json.RawMessage   `json:"descendants,omitempty"` // Descending from the finalized head, excluding the submission.
+	SenderProof *OPBatchSenderProof `json:"-"`                     // Selected explicitly by the caller.
+
 	Block  json.RawMessage `json:"block"`
 	TxHash string          `json:"tx_hash"`
 	Blobs  []*kzg4844.Blob `json:"blobs"`
 }
 
 type OPBatchReport struct {
+	SenderAuthority string           `json:"sender_authority,omitempty"`
 	Channel         *OPChannelReport `json:"channel,omitempty"`
 	L1Number        uint64           `json:"l1_number"`
 	L1Hash          string           `json:"l1_hash"`
@@ -81,7 +85,7 @@ func VerifyOPBatchSpanOrigins(ctx context.Context, finality *provenance.Verified
 
 func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFinality, expectedSender common.Address, e OPBatchEvidence, channel bool, blocks []json.RawMessage) (OPBatchReport, error) {
 	var empty OPBatchReport
-	if finality == nil || expectedSender == (common.Address{}) || !receiptHex(e.TxHash, 32) {
+	if finality == nil || (expectedSender == (common.Address{}) && e.SenderProof == nil) || !receiptHex(e.TxHash, 32) {
 		return empty, errors.New("OP_BATCH_IDENTITY")
 	}
 	body, err := VerifyChainBlockJSON(ctx, "evm:1", e.Block, 32<<20)
@@ -90,8 +94,40 @@ func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFi
 	}
 	head, hash := finality.ExecutionBlock()
 	height, err := canonicalIndex(body.Block.Number)
-	if err != nil || head == 0 || height != head || body.Block.Hash != hash {
+	if err != nil || head == 0 || height > head || head-height != uint64(len(e.Descendants)) || len(e.Descendants) > 128 {
 		return empty, errors.New("OP_BATCH_FINALIZED_L1_BLOCK")
+	}
+	remaining := 32 << 20
+	for i, raw := range e.Descendants {
+		if len(raw) > remaining {
+			return empty, errors.New("OP_BATCH_ANCESTRY_BUDGET")
+		}
+		remaining -= len(raw)
+		header, err := VerifyChainHeaderJSON(ctx, "evm:1", raw)
+		if err != nil {
+			return empty, err
+		}
+		n, err := canonicalIndex(header.Block.Number)
+		if err != nil || n != head-uint64(i) || header.Block.Hash != hash {
+			return empty, errors.New("OP_BATCH_ANCESTRY_LINK")
+		}
+		hash = header.Block.ParentHash
+	}
+	if body.Block.Hash != hash {
+		return empty, errors.New("OP_BATCH_FINALIZED_L1_BLOCK")
+	}
+	var authority string
+	if e.SenderProof != nil {
+		anchor := ExecutionStateAnchor{Height: height, BlockHash: hash, StateRoot: body.HeaderCommitment.StateRoot, SettlingHeight: height, SettlingHash: hash, AccountEncodingID: "ethereum-account-rlp/v1", Authority: "native-post-execution-header-state-root"}
+		proven, err := e.SenderProof.sender(ctx, anchor)
+		if err != nil {
+			return empty, err
+		}
+		if expectedSender != (common.Address{}) && expectedSender != proven {
+			return empty, errors.New("OP_BATCH_SENDER_POLICY")
+		}
+		expectedSender = proven
+		authority = "op-mainnet-system-config-storage"
 	}
 	first := 0
 	for i, raw := range body.RawTransactions {
@@ -127,7 +163,7 @@ func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFi
 				return empty, err
 			}
 		}
-		return OPBatchReport{Channel: decoded, L1Number: height, L1Hash: hash, TxHash: e.TxHash, Sender: sender.Hex(), FirstBlobIndex: first, VersionedHashes: hashes}, nil
+		return OPBatchReport{SenderAuthority: authority, Channel: decoded, L1Number: height, L1Hash: hash, TxHash: e.TxHash, Sender: sender.Hex(), FirstBlobIndex: first, VersionedHashes: hashes}, nil
 	}
 	return empty, errors.New("OP_BATCH_TRANSACTION_MISSING")
 }

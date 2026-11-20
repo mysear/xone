@@ -23,11 +23,12 @@ func run() error {
 	channel := flag.Bool("channel", false, "also verify a complete channel within this transaction")
 	span := flag.String("span-blocks", "", "ordered OP Mainnet full block array to match to the complete span")
 	origins := flag.String("origin-headers", "", "descending Ethereum headers from the finalized submission block through the first span origin")
+	senderProof := flag.String("sender-proof", "", "authenticate the sender from the SystemConfig account and storage proofs at the submission block")
 	flag.Parse()
 	if *origins != "" && *span == "" {
 		return errors.New("OP_SPAN_BLOCKS_REQUIRED")
 	}
-	if !common.IsHexAddress(*sender) {
+	if (*sender != "" || *senderProof == "") && !common.IsHexAddress(*sender) {
 		return errors.New("OP_BATCH_SENDER")
 	}
 	proof, err := provenance.ReadOnlineBeaconProof(*file, *root)
@@ -37,6 +38,13 @@ func run() error {
 	var evidence evm.OPBatchEvidence
 	if err = readJSON(*input, &evidence); err != nil {
 		return err
+	}
+	if *senderProof != "" {
+		var authority evm.OPBatchSenderProof
+		if err = readJSON(*senderProof, &authority); err != nil {
+			return err
+		}
+		evidence.SenderProof = &authority
 	}
 	ctx := context.Background()
 	var report evm.OPBatchReport

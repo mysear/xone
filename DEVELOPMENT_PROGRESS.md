@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 批次发送者授权（[阶段218](#op-batch-sender-authority)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从提交块的 SystemConfig 存储证明取得发送者并核验五份 blob|继续覆盖跨提交通道与 owner 派生|
 |OP 批次的 L1 来源（[阶段217](#op-span-origin-range)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|12 个以太坊头部将 21 个 OP 块引用的 4 个来源连至签名最终化的提交块|继续验证发送者授权与跨提交通道|
 |OP 批次用户交易（[阶段216](#op-span-contents)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|已从 21 个 OP 块重建并逐字节匹配 1082 笔用户交易的 span|L1 来源、发送者授权、跨提交通道和执行派生仍需验收|
 |OP 通道重组（[阶段215](#op-channel-frames)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从一笔已验证提交的五份 blob 得到完整通道与一个 span 批次|下一步核验批次内各块与交易|
@@ -5115,3 +5116,14 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 下一项核验主网提交高度实际生效的 batch sender，随后覆盖跨提交通道、执行派生与普通 owner 的重组恢复。现有 CLI 仍由调用方给出预期发送者。该来源窗口的验收范围与工作包完整验收分别记录。
 
 [主网归档与离线复验](integration/test/source/op-mainnet-batches/README.md)
+
+
+<a id="op-batch-sender-authority"></a>
+
+## 从提交高度的 SystemConfig 核验发送者（2026-11-20，阶段218，P0-1）
+
+`verify-op-batch -sender-proof` 从签名确认的以太坊执行头核验提交块及其状态根。通过账户和存储 MPT 证明检查 OP Mainnet 的 SystemConfig 代理、实现地址、两份运行时代码哈希与 `batcherHash` 槽，再将该地址与提交交易签名恢复出的地址匹配。配置合约版本变化需要单独核验其存储布局。
+
+固定样本中，以太坊最终化块 26453871 的父块 26453870 包含一笔五 blob 提交。普通 CLI 从状态证明取得 `0x6887246668a3b87f54deb3b94ba47a6f63f32985` 并核验五份承诺。原样本 26453043 的 `eth_getProof` 返回错误 4444，超出节点历史证明窗口。新样本使用同一提交块高度的交易、状态证明和数据。回归覆盖策略地址不符、缺子块头、错误实现账户和被更改的证明值。Go 全包测试、专项 race 和 vet 均通过。阶段 208 主网窗口的八笔提交分别使用不同的通道 ID，每笔的帧编号均从 0 开始。跨提交通道需要另取样本。
+
+[主网固定输入与普通 CLI 复验](integration/test/source/op-mainnet-batches/README.md)
