@@ -816,6 +816,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|208|[主网连续发布及重放](#beacon-complete-window)|LOCAL_SCOPE_VERIFIED|主网连续发布 32 个增量，归档重算 33 个高度，32 个派生哈希全部匹配|
 |207|[按方法选取账户证明来源](#account-proof-rpc-routing)|LOCAL_SCOPE_VERIFIED|普通 owner 主网基线和三来源归档核对，错误链、创世块和损坏证明回归通过|
 |206|[后继配置重启](#beacon-rotation-switch)|LOCAL_SCOPE_VERIFIED|普通 owner 两次运行和基线记录复核通过|
 |205|[信标检查点轮换](#beacon-checkpoint-rotation)|LOCAL_SCOPE_VERIFIED|配置根、时效、锁、取消和已有目标回归通过，实际主网证明轮换通过|
@@ -4997,3 +4998,13 @@ DAI/WETH 每块需要对不同账户和存储键多次请求 `eth_getProof`。�
 Ethereum 主网块 26452499 的归档包含 dRPC 和 PublicNode 的区块体及回执，以及 Alchemy 的 6 个账户证明响应。普通 owner 核验 Pair、Factory、DAI 和 WETH 后发布基线，归档审计缺口为 0。用 Alchemy 承担整块读取时，`eth_getBlockReceipts` 返回 HTTP 401。错误链 ID、错误创世块、损坏的 MPT 节点及错误来源的归档回归均通过。Go 全包测试、`go vet ./...`、证明路由和配置/RPC 专项 race 测试通过。完整 32 块窗口和重放单独验收。当前已授权推送目标为 GitHub `origin`，GitLab 项目地址待提供。
 
 [主网基线归档审计](integration/artifacts/local/beacon-proof-routing-207/first-audit.json) · [整块读取失败报告](integration/artifacts/local/beacon-archive-providers-207/live/report.json) · [Go 全包回归](integration/artifacts/local/beacon-proof-routing-207/go-all.log)
+
+<a id="beacon-complete-window"></a>
+
+## Ethereum 主网连续发布 32 块及归档重放（2026-11-20，阶段208，P0-1）
+
+阶段 207 的首次运行发布了 3 个增量。块 26452503 含 300 笔交易，两个见证均返回完整回执。旧程序从封存响应稳定复现 `RECEIPT_PROOF_BUDGET`。按设计 §7.1，Ethereum 见证在回执核对后再次读取同一高度的完整块体，若响应字节与该见证刚验证的块体完全一致，复用已验证的交易结果。响应内容有变化时重新解码并验证。每次读取继续计入同一预算。原失败块经同一批归档响应在 64 MiB 上限内通过。专项 race 测试覆盖重读次数、等价响应和损坏的状态根。Go 全包测试及 vet 通过。
+
+普通 owner 在新窗口从块 26453011 建立基线，到签名最终化块 26453043 共发布 32 个连续增量。逐块核对父哈希、代际、日志序号及终点基线。三个 RPC 来源共归档 909 条记录，覆盖缺口和 RPC 错误均为 0。离线重算 33 个高度，每个增量的池状态和兑换事实哈希均与原始归档匹配。P0-1 仍需完成其余链与协议矩阵、来源资格和恢复验收。GitLab 推送待项目地址。
+
+[在线发布报告](integration/artifacts/local/beacon-proof-window-208/live/report.json) · [离线重算](integration/artifacts/local/beacon-proof-window-208/replay.json) · [原失败块重算](integration/artifacts/local/beacon-proof-routing-207/replay208-26452503.json) · [Go 回归](integration/artifacts/local/beacon-proof-window-208/go-all.log)

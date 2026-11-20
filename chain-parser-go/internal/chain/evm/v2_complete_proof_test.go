@@ -470,3 +470,63 @@ func TestDedicatedAccountProofSource(t *testing.T) {
 		})
 	}
 }
+
+func TestWitnessRecheckReadsFreshBytesBeforeReusingVerifiedBody(t *testing.T) {
+	bank := newV2ProofBank(t, "")
+	a := bank.adapter(t, "")
+	var mode, bodyReads atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		var q struct {
+			Method string
+			Params []json.RawMessage
+		}
+		if err := json.NewDecoder(req.Body).Decode(&q); err != nil {
+			t.Error(err)
+			return
+		}
+		var result any
+		switch {
+		case q.Method == "eth_chainId":
+			result = "0x1"
+		case q.Method == "eth_getBlockByNumber" && string(q.Params[0]) == `"0x0"`:
+			result = map[string]any{"hash": a.Chain.Genesis}
+		case q.Method == "eth_getBlockByNumber" && string(q.Params[1]) == "true":
+			bodyReads.Add(1)
+			header := make(map[string]any, len(bank.header)+1)
+			for k, v := range bank.header {
+				header[k] = v
+			}
+			switch mode.Load() {
+			case 1:
+				header["providerMetadata"] = "changed representation"
+			case 2:
+				header["stateRoot"] = "0x" + strings.Repeat("00", 32)
+			}
+			result = header
+		default:
+			t.Errorf("unexpected %s %s", q.Method, q.Params)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": 1, "result": result})
+	}))
+	defer server.Close()
+	a.Client = rpc.New([]string{server.URL}, time.Second, 2<<20)
+	ctx, limits := context.Background(), nativeProofTestLimits()
+	previous, err := a.ReadNativeBlockProof(ctx, fmt.Sprintf("0x%x", bank.bank.StateAnchor.Number), limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	block, used, err := a.recheckWitnessBody(ctx, previous, limits)
+	if err != nil || used <= 0 || !sameReceiptAnchor(previous.CanonicalBlock, block) {
+		t.Fatal(err, used)
+	}
+	mode.Store(1)
+	block, changedCost, err := a.recheckWitnessBody(ctx, previous, limits)
+	if err != nil || changedCost <= used || !sameReceiptAnchor(previous.CanonicalBlock, block) {
+		t.Fatal(err, used, changedCost)
+	}
+	mode.Store(2)
+	if _, _, err = a.recheckWitnessBody(ctx, previous, limits); err == nil || bodyReads.Load() != 4 {
+		t.Fatal("recheck accepted inconsistent header or skipped a read", err, bodyReads.Load())
+	}
+}

@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 
@@ -109,15 +110,15 @@ func (a *Adapter) verifyNativeReceiptWitnessesBudget(ctx context.Context, expect
 			return errors.New("RECEIPT_PROVIDER_DISAGREEMENT")
 		}
 		current.MaxBytes = *remaining
-		after, err := witness.ReadNativeBlockProof(ctx, expected.Block.Number, current)
+		after, recheckCost, err := witness.recheckWitnessBody(ctx, body, current)
 		if err != nil {
 			return witnessFailure("RECEIPT_WITNESS_UNAVAILABLE", "body_recheck", i, expected.Block.Number, err)
 		}
-		*remaining -= after.ProofBytesUsed
+		*remaining -= recheckCost
 		if *remaining < 0 {
 			return errors.New("NATIVE_WITNESS_BUDGET")
 		}
-		if !sameReceiptAnchor(observed.CanonicalBlock, after.CanonicalBlock) {
+		if !sameReceiptAnchor(observed.CanonicalBlock, after) {
 			return errors.New("RECEIPT_PROVIDER_DISAGREEMENT")
 		}
 		current.MaxBytes = *remaining
@@ -132,6 +133,40 @@ func (a *Adapter) verifyNativeReceiptWitnessesBudget(ctx context.Context, expect
 	}
 	return nil
 }
+
+// Reacquire the numbered body from this witness after receipts. If its complete
+// Ethereum response matches the body just proved on this reader's endpoint,
+// the signed transactions and header have already been decoded and verified.
+// Other representations are proved from the newly received bytes.
+func (a *Adapter) recheckWitnessBody(ctx context.Context, previous ChainBlockBodyProof, limits ReceiptProofLimits) (RawBlock, int, error) {
+	tag := previous.Block.Number
+	if a.Chain.Key != "evm:1" || previous.verifiedRPCBodyDigest == ([32]byte{}) {
+		next, err := a.ReadNativeBlockProof(ctx, tag, limits)
+		return next.CanonicalBlock, next.ProofBytesUsed, err
+	}
+	r, err := newNativeProofReader(ctx, a, limits)
+	if err != nil {
+		return RawBlock{}, 0, err
+	}
+	defer r.cancel()
+	raw, err := r.call("eth_getBlockByNumber", []any{tag, true})
+	if err != nil {
+		return RawBlock{}, 0, err
+	}
+	if err = r.budget.charge(len(raw)); err != nil {
+		return RawBlock{}, 0, err
+	}
+	if sha256.Sum256(raw) == previous.verifiedRPCBodyDigest {
+		return previous.CanonicalBlock, limits.MaxBytes - r.budget.remaining, r.ctx.Err()
+	}
+	header, body, err := r.decodeFullBlock(tag, raw)
+	if err != nil {
+		return RawBlock{}, 0, err
+	}
+	next, err := r.proveBody(header, body)
+	return next.CanonicalBlock, next.ProofBytesUsed, err
+}
+
 func sameNativeStateAnchor(a, b *ExecutionStateAnchor) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil

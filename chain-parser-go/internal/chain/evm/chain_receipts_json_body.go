@@ -18,6 +18,7 @@ import (
 const ChainNativeCommitmentsV2 = "known-evm-native-commitments-v2"
 
 type ChainBlockBodyProof struct {
+	verifiedRPCBodyDigest           [32]byte                   // Local read only. Never accepted from serialized evidence.
 	ObservedHead                    *RawBlock                  `json:"observed_head,omitempty"`
 	CanonicalBlock                  RawBlock                   `json:"canonical_block"`
 	UncommittedSystemTransactionIDs []string                   `json:"uncommitted_system_transaction_ids"`

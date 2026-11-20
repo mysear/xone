@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,14 +15,15 @@ import (
 )
 
 type nativeProofReader struct {
-	ctx          context.Context
-	cancel       context.CancelFunc
-	client       *rpc.Client
-	baseMaxBytes int
-	budget       receiptProofBudget
-	chainKey     string
-	genesis      string
-	limits       ReceiptProofLimits
+	fullBodyDigest [32]byte
+	ctx            context.Context
+	cancel         context.CancelFunc
+	client         *rpc.Client
+	baseMaxBytes   int
+	budget         receiptProofBudget
+	chainKey       string
+	genesis        string
+	limits         ReceiptProofLimits
 }
 
 func newNativeProofReader(ctx context.Context, a *Adapter, limits ReceiptProofLimits) (*nativeProofReader, error) {
@@ -169,13 +171,17 @@ func (r *nativeProofReader) fullBlock(height uint64) (ChainHeaderCommitment, Exe
 	return r.fullBlockTag(fmt.Sprintf("0x%x", height))
 }
 func (r *nativeProofReader) fullBlockTag(tag string) (ChainHeaderCommitment, ExecutionReceiptBlock, error) {
-	var empty ChainHeaderCommitment
-	var block ExecutionReceiptBlock
 	raw, err := r.call("eth_getBlockByNumber", []any{tag, true})
 	if err != nil {
-		return empty, block, err
+		return ChainHeaderCommitment{}, ExecutionReceiptBlock{}, err
 	}
-	if err = r.budget.charge(len(raw) + 128); err != nil {
+	return r.decodeFullBlock(tag, raw)
+}
+
+func (r *nativeProofReader) decodeFullBlock(tag string, raw json.RawMessage) (ChainHeaderCommitment, ExecutionReceiptBlock, error) {
+	var empty ChainHeaderCommitment
+	var block ExecutionReceiptBlock
+	if err := r.budget.charge(len(raw) + 128); err != nil {
 		return empty, block, err
 	}
 	header, txs, err := projectFullRPCBlock(raw)
@@ -191,6 +197,9 @@ func (r *nativeProofReader) fullBlockTag(tag string) (ChainHeaderCommitment, Exe
 	}
 	if len(txs) > r.limits.MaxTransactions {
 		return empty, block, errors.New("RECEIPT_PROOF_TRANSACTION_BUDGET")
+	}
+	if r.chainKey == "evm:1" {
+		r.fullBodyDigest = sha256.Sum256(raw)
 	}
 	return proof, ExecutionReceiptBlock{Header: header, TransactionsJSON: txs}, nil
 }
@@ -525,7 +534,7 @@ func (r *nativeProofReader) proveBody(header ChainHeaderCommitment, body Executi
 	if r.chainKey == "evm:137" && height < 80084800 {
 		scope = "canonical-header-transactions/system-observations-isolated"
 	}
-	return ChainBlockBodyProof{Block: header.Block, CanonicalBlock: canonical, Header: body.Header, HeaderCommitment: header, RawTransactions: body.RawTransactions, UncommittedSystemTransactionIDs: system, BodyCoverageScope: scope, NativeSemantics: &sem, ProofBytesUsed: r.limits.MaxBytes - r.budget.remaining, TransactionEncodingAuthority: "standard-signed-json+enumerated-native-rlp/native-raw-if-required"}, nil
+	return ChainBlockBodyProof{verifiedRPCBodyDigest: r.fullBodyDigest, Block: header.Block, CanonicalBlock: canonical, Header: body.Header, HeaderCommitment: header, RawTransactions: body.RawTransactions, UncommittedSystemTransactionIDs: system, BodyCoverageScope: scope, NativeSemantics: &sem, ProofBytesUsed: r.limits.MaxBytes - r.budget.remaining, TransactionEncodingAuthority: "standard-signed-json+enumerated-native-rlp/native-raw-if-required"}, nil
 }
 
 // ReadNativeAccountProof reads explicit physical EIP-1186 storage keys.
