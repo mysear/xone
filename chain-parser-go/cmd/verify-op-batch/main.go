@@ -21,6 +21,7 @@ func run() error {
 	sender := flag.String("sender", "", "expected OP Mainnet batch sender for this L1 block")
 	input := flag.String("evidence", "", "Ethereum block, OP inbox transaction hash and block-ordered blobs JSON")
 	channel := flag.Bool("channel", false, "also verify a complete channel within this transaction")
+	span := flag.String("span-blocks", "", "ordered OP Mainnet full block array to match to the complete span")
 	flag.Parse()
 	if !common.IsHexAddress(*sender) {
 		return errors.New("OP_BATCH_SENDER")
@@ -29,7 +30,33 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	f, err := os.Open(*input)
+	var evidence evm.OPBatchEvidence
+	if err = readJSON(*input, &evidence); err != nil {
+		return err
+	}
+	ctx := context.Background()
+	var report evm.OPBatchReport
+	address := common.HexToAddress(*sender)
+	switch {
+	case *span != "":
+		var blocks []json.RawMessage
+		if err = readJSON(*span, &blocks); err != nil {
+			return err
+		}
+		report, err = evm.VerifyOPBatchSpan(ctx, proof, address, evidence, blocks)
+	case *channel:
+		report, err = evm.VerifyOPBatchChannel(ctx, proof, address, evidence)
+	default:
+		report, err = evm.VerifyOPBatchBlobs(ctx, proof, address, evidence)
+	}
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(os.Stdout).Encode(report)
+}
+
+func readJSON(path string, dst any) error {
+	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
@@ -42,19 +69,7 @@ func run() error {
 	if len(raw) > limit {
 		return errors.New("OP_BATCH_BYTE_LIMIT")
 	}
-	var evidence evm.OPBatchEvidence
-	if err = json.Unmarshal(raw, &evidence); err != nil {
-		return err
-	}
-	verify := evm.VerifyOPBatchBlobs
-	if *channel {
-		verify = evm.VerifyOPBatchChannel
-	}
-	report, err := verify(context.Background(), proof, common.HexToAddress(*sender), evidence)
-	if err != nil {
-		return err
-	}
-	return json.NewEncoder(os.Stdout).Encode(report)
+	return json.Unmarshal(raw, dst)
 }
 
 func main() {

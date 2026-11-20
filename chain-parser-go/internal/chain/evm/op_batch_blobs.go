@@ -34,14 +34,22 @@ type OPBatchReport struct {
 // VerifyOPBatchBlobs authenticates an inbox submission in the signed L1 head.
 // The expected batch sender comes from the caller's epoch-specific policy.
 func VerifyOPBatchBlobs(ctx context.Context, finality *provenance.VerifiedExecutionFinality, expectedSender common.Address, e OPBatchEvidence) (OPBatchReport, error) {
-	return verifyOPBatch(ctx, finality, expectedSender, e, false)
+	return verifyOPBatch(ctx, finality, expectedSender, e, false, nil)
 }
 
 func VerifyOPBatchChannel(ctx context.Context, finality *provenance.VerifiedExecutionFinality, expectedSender common.Address, e OPBatchEvidence) (OPBatchReport, error) {
-	return verifyOPBatch(ctx, finality, expectedSender, e, true)
+	return verifyOPBatch(ctx, finality, expectedSender, e, true, nil)
 }
 
-func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFinality, expectedSender common.Address, e OPBatchEvidence, channel bool) (OPBatchReport, error) {
+// VerifyOPBatchSpan compares a complete single-span channel to committed L2 block bodies.
+func VerifyOPBatchSpan(ctx context.Context, finality *provenance.VerifiedExecutionFinality, sender common.Address, e OPBatchEvidence, blocks []json.RawMessage) (OPBatchReport, error) {
+	if len(blocks) == 0 {
+		return OPBatchReport{}, errors.New("OP_SPAN_BLOCKS_REQUIRED")
+	}
+	return verifyOPBatch(ctx, finality, sender, e, true, blocks)
+}
+
+func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFinality, expectedSender common.Address, e OPBatchEvidence, channel bool, blocks []json.RawMessage) (OPBatchReport, error) {
 	var empty OPBatchReport
 	if finality == nil || expectedSender == (common.Address{}) || !receiptHex(e.TxHash, 32) {
 		return empty, errors.New("OP_BATCH_IDENTITY")
@@ -84,7 +92,7 @@ func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFi
 			if timestamp, err := canonicalIndex(body.Block.Timestamp); err != nil || timestamp < opFjordTime {
 				return empty, errors.New("OP_CHANNEL_FJORD_REQUIRED")
 			}
-			decoded, err = decodeOPChannel(ctx, e.Blobs[first:first+len(hashes)])
+			decoded, err = decodeOPChannel(ctx, e.Blobs[first:first+len(hashes)], blocks)
 			if err != nil {
 				return empty, err
 			}

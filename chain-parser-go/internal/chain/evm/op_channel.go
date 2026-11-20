@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -47,14 +48,15 @@ func unpackOPBlob(blob *kzg4844.Blob) ([]byte, error) {
 }
 
 type OPChannelReport struct {
-	ID              string `json:"channel_id"`
-	Frames          int    `json:"frames"`
-	Compression     string `json:"compression"`
-	CompressedBytes int    `json:"compressed_bytes"`
-	DecodedBytes    int    `json:"decoded_bytes"`
-	DecodedSHA256   string `json:"decoded_sha256"`
-	SingularBatches int    `json:"singular_batches"`
-	SpanBatches     int    `json:"span_batches"`
+	Span            *OPSpanReport `json:"span,omitempty"`
+	ID              string        `json:"channel_id"`
+	Frames          int           `json:"frames"`
+	Compression     string        `json:"compression"`
+	CompressedBytes int           `json:"compressed_bytes"`
+	DecodedBytes    int           `json:"decoded_bytes"`
+	DecodedSHA256   string        `json:"decoded_sha256"`
+	SingularBatches int           `json:"singular_batches"`
+	SpanBatches     int           `json:"span_batches"`
 }
 
 type opFrames struct {
@@ -95,7 +97,7 @@ func (c *opFrames) appendPayload(payload []byte) error {
 }
 
 // Decode one contiguous complete channel from the transaction's verified blobs.
-func decodeOPChannel(ctx context.Context, blobs []*kzg4844.Blob) (*OPChannelReport, error) {
+func decodeOPChannel(ctx context.Context, blobs []*kzg4844.Blob, blocks []json.RawMessage) (*OPChannelReport, error) {
 	var frames opFrames
 	for _, blob := range blobs {
 		if err := ctx.Err(); err != nil {
@@ -142,6 +144,15 @@ func decodeOPChannel(ctx context.Context, blobs []*kzg4844.Blob) (*OPChannelRepo
 		batch, rest, err := rlp.SplitString(raw)
 		if err != nil || len(batch) < 2 {
 			return nil, errors.New("OP_CHANNEL_BATCH_RLP")
+		}
+		if blocks != nil {
+			if batch[0] != 1 || len(rest) != 0 {
+				return nil, errors.New("OP_CHANNEL_SINGLE_SPAN_REQUIRED")
+			}
+			report.Span, err = verifyOPSpan(ctx, batch, blocks)
+			if err != nil {
+				return nil, err
+			}
 		}
 		switch batch[0] {
 		case 0:

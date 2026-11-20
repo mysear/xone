@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 批次用户交易（[阶段216](#op-span-contents)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|已从 21 个 OP 块重建并逐字节匹配 1082 笔用户交易的 span|L1 来源、发送者授权、跨提交通道和执行派生仍需验收|
 |OP 通道重组（[阶段215](#op-channel-frames)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从一笔已验证提交的五份 blob 得到完整通道与一个 span 批次|下一步核验批次内各块与交易|
 |OP Mainnet 批次数据（[阶段214](#op-batch-blob)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|在签名确认的以太坊块 26453043 中核验收件交易与五份 blob 的完整数据|下一项从提交数据重组通道并解析 L2 批次|
 |普通 OP owner 核验 L1 来源（[阶段213](#op-owner-l1-origin)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|OP 块 159771706 发布基线，读取签名最终化头至其来源的 11 个 L1 头部|下一项核验 L1 批次包含证据和 L2 派生|
@@ -5091,3 +5092,14 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 块 26453043 的五个帧构成通道 `912c873f4ac241003e7e83ea8738dc67`。614073 字节的带版本压缩数据解压后为 1202848 字节，包含一个 span 批次。独立 Brotli 命令得到相同的解压长度和 SHA-256。缺帧、乱序、重复帧、结束后追加帧、错误字段高位、截断和非零填充均已覆盖。Go 全包测试、专项 race 回归和 vet 通过。P0-1 继续核验 span 批次内的区块及签名交易、跨提交的通道与发送者授权。
 
 [固定主网输入与复验命令](integration/test/source/op-mainnet-batches/README.md) · [通道报告](integration/artifacts/local/op-channel-215/result.json)
+
+
+<a id="op-span-contents"></a>
+
+## OP Mainnet 批次与 21 个 L2 块的逐字节核对（2026-11-20，阶段216，P0-1）
+
+`verify-op-batch -span-blocks` 接受有序的完整 OP 块。工具重算每块头部哈希和交易根，核对高度、时间、父链接和首笔存款的 L1 来源变化。它从用户交易重建 span 的区块前缀、创建位、签名、接收地址、交易数据、nonce、gas 与 legacy 保护位，并与已核验的完整通道逐字节比对。
+
+以太坊块 26453043 的单个 span 匹配 OP 块 159769779 至 159769799，共 1082 笔用户交易，其中 1050 笔为类型 2，32 笔为 legacy。改动最终来源哈希、签名字节或交易数据，以及缺块、跳块和倒序均被拒绝。普通 CLI、Go 全包测试、专项 race 和 vet 通过。P0-1 仍需对全部来源做 L1 祖先核验，补齐对应高度的发送者授权和跨提交通道，验证执行派生及普通 owner 的重组撤权和恢复。工作包完整验收保持 0/26。GitLab 项目克隆地址待提供。
+
+[主网输入与复验命令](integration/test/source/op-mainnet-batches/README.md)

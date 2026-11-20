@@ -12,7 +12,7 @@ func TestOPChannelFiveCommittedFrames(t *testing.T) {
 	readOriginFixture(t, "op-mainnet-batches/batch-26453043.json.gz", &evidence)
 	blobs := evidence.Blobs[3:8]
 	ctx := context.Background()
-	report, err := decodeOPChannel(ctx, blobs)
+	report, err := decodeOPChannel(ctx, blobs, nil)
 	if err != nil || report.Frames != 5 || report.ID != "912c873f4ac241003e7e83ea8738dc67" || report.CompressedBytes != 614073 || report.DecodedBytes != 1202848 || report.DecodedSHA256 != "d2d00254efa34182369af0b770589a2c08e63e48f8af3cb885d111144236bdf5" || report.SpanBatches != 1 || report.SingularBatches != 0 {
 		t.Fatal(report, err)
 	}
@@ -23,7 +23,7 @@ func TestOPChannelFiveCommittedFrames(t *testing.T) {
 		{"missing last", blobs[:4]}, {"missing middle", []*kzg4844.Blob{blobs[0], blobs[2]}}, {"reversed first two", []*kzg4844.Blob{blobs[1], blobs[0]}}, {"duplicate", []*kzg4844.Blob{blobs[0], blobs[0]}}, {"after close", append(append([]*kzg4844.Blob{}, blobs...), blobs[0])},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if out, err := decodeOPChannel(ctx, tc.blobs); err == nil || out != nil {
+			if out, err := decodeOPChannel(ctx, tc.blobs, nil); err == nil || out != nil {
 				t.Fatal(out, err)
 			}
 		})
