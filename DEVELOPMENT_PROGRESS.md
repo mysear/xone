@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 属性存款的 L1 blob 基础费用（[阶段236](#op-origin-blob-fee)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|按签名 L1 祖先头重算 blob 基础费用，218 个高度离线复验通过|主网跨提交通道、执行后状态及其他链与协议来源仍待验收|
 |OP 批次交界的 L1 来源连续性（[阶段235](#op-origin-boundaries)，P0-1）|§7.2、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通发布命令重放五个 span，核验四个边界的 epoch 和序号|真实跨提交通道及执行后状态待验收|
 |含存款核验的 OP owner 长窗口（[阶段234](#op-owner-full-deposits)，P0-1）|§7.1、§7.3、§7.4，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|补读 L1 回执后跨四个 span 发布 217 条增量，与阶段233和独立离线重放逐条一致|主网跨多笔提交通道、L2 执行派生及各链来源与恢复验收仍待完成|
 |OP 普通 owner 连续 218 块验收（[阶段233](#op-owner-full-218)，P0-1）|§7.1、§7.3、§7.4、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|4 个 span、1 条基线、217 条连续增量，两次运行逐条一致|含用户存款核验的新 owner 长窗口、跨提交通道和执行派生待验收|
@@ -5328,3 +5329,13 @@ OP 块 144644465 的存款与以太坊块 23942644 均给出 48265514 wei。修�
 普通 CLI 从以太坊块 26454408 顺序重放五个批次，产生的观测文件与阶段229归档逐字节相同。四个边界中，同一 epoch 的序号分别由 4 增至 5、由 0 增至 1，另外两处切换 epoch 后均从 0 开始。执行 RPC 命中原来源缓存，blob 来自信标 API。Go 全包测试、发布与来源专项 race、vet 通过。
 
 [边界记录](integration/artifacts/local/op-boundaries-235/boundaries.json)
+
+<a id="op-origin-blob-fee"></a>
+
+## 由已签名 L1 祖先头重算 OP 的 blob 基础费用（2026-11-20，阶段236，P0-1）
+
+普通 owner 和归档 CLI 读取紧凑属性存款中的完整 256 位费用，使用已核验 L1 头的时间、excessBlobGas 和仓库固定的 geth 主网参数重算。同一 epoch 内的声明须一致。计算前检查分叉和超大输入。以太坊块 26454436 派生的值为 8298648 wei，声明增加 1 wei 时来源核验拒绝。
+
+普通 owner 以纯缓存跨四个 span 发布 OP 块 159778006 至 159778223，基线和全部 217 条增量与阶段233逐条相同。四个代理的上游读取均为零。Go 全包测试、OP 专项 race 和 vet 通过。测试前清理了闲置的阶段235二进制，释放 57381976 字节。
+
+[窗口记录](integration/artifacts/local/op-blob-fee-236/window.json)

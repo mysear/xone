@@ -9,15 +9,19 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	"xone/chain-parser-go/internal/provenance"
 )
 
 type OPL1Origin struct {
-	BaseFeeWei string `json:"base_fee_wei"`
-	Number     uint64 `json:"number"`
-	Hash       string `json:"hash"`
-	Timestamp  uint64 `json:"timestamp"`
-	Sequence   uint64 `json:"sequence"`
+	BlobBaseFeeWei string `json:"blob_base_fee_wei,omitempty"`
+	BaseFeeWei     string `json:"base_fee_wei"`
+	Number         uint64 `json:"number"`
+	Hash           string `json:"hash"`
+	Timestamp      uint64 `json:"timestamp"`
+	Sequence       uint64 `json:"sequence"`
 }
 
 func parseOPOrigin(first []byte, timestamp uint64) (opDepositWire, OPL1Origin, error) {
@@ -39,6 +43,7 @@ func parseOPOrigin(first []byte, timestamp uint64) (opDepositWire, OPL1Origin, e
 	}
 	var number, sequence, l1Time uint64
 	l1Hash := common.BytesToHash(data[100:132])
+	var blobBaseFee string
 	baseFee := data[36:68]
 	if format == "Bedrock" {
 		baseFee = data[68:100]
@@ -54,13 +59,14 @@ func parseOPOrigin(first []byte, timestamp uint64) (opDepositWire, OPL1Origin, e
 			return opDepositWire{}, OPL1Origin{}, err
 		}
 	} else {
+		blobBaseFee = new(big.Int).SetBytes(data[68:100]).String()
 		number = binary.BigEndian.Uint64(data[28:36])
 		sequence, l1Time = binary.BigEndian.Uint64(data[12:20]), binary.BigEndian.Uint64(data[20:28])
 	}
 	if l1Time > timestamp || deposit.SourceHash != opL1InfoSourceHash(l1Hash, sequence) {
 		return opDepositWire{}, OPL1Origin{}, errors.New("OP_PACKED_ATTRIBUTES_SOURCE_IDENTITY")
 	}
-	return deposit, OPL1Origin{BaseFeeWei: new(big.Int).SetBytes(baseFee).String(), Number: number, Hash: l1Hash.Hex(), Timestamp: l1Time, Sequence: sequence}, nil
+	return deposit, OPL1Origin{BlobBaseFeeWei: blobBaseFee, BaseFeeWei: new(big.Int).SetBytes(baseFee).String(), Number: number, Hash: l1Hash.Hex(), Timestamp: l1Time, Sequence: sequence}, nil
 }
 
 // OPOriginEvidence carries the OP execution block and L1 headers in descending
@@ -182,6 +188,11 @@ func verifyOriginRange(ctx context.Context, head uint64, hash string, origins []
 			if header.ethBaseFeeWei == "" || header.ethBaseFeeWei != origin.BaseFeeWei {
 				return errors.New("OP_ORIGIN_L1_BASE_FEE_MISMATCH")
 			}
+			if origin.BlobBaseFeeWei != "" {
+				if err := verifyOPBlobBaseFee(time, header.ethExcessBlobGas, origin.BlobBaseFeeWei); err != nil {
+					return err
+				}
+			}
 			if last == 0 {
 				return ctx.Err()
 			}
@@ -192,4 +203,24 @@ func verifyOriginRange(ctx context.Context, head uint64, hash string, origins []
 		}
 		expected = header.Block.ParentHash
 	}
+}
+
+// The packed attributes carry a uint256. Bound the exponential work before
+// calling geth: a ratio above 256 already exceeds the representable fee.
+func verifyOPBlobBaseFee(timestamp uint64, excess *uint64, claimed string) error {
+	cfg := params.MainnetChainConfig
+	expected := "1"
+	if timestamp >= *cfg.CancunTime {
+		schedule := cfg.BlobConfig(cfg.LatestFork(timestamp))
+		if excess == nil || schedule == nil || schedule.UpdateFraction == 0 || *excess/schedule.UpdateFraction > 256 {
+			return errors.New("OP_ORIGIN_BLOB_FEE_INPUT")
+		}
+		expected = eip4844.CalcBlobFee(cfg, &types.Header{Time: timestamp, ExcessBlobGas: excess}).String()
+	} else if excess != nil {
+		return errors.New("OP_ORIGIN_BLOB_FEE_INPUT")
+	}
+	if claimed != expected {
+		return errors.New("OP_ORIGIN_L1_BLOB_BASE_FEE_MISMATCH")
+	}
+	return nil
 }

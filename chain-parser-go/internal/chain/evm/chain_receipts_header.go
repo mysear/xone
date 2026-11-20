@@ -27,6 +27,7 @@ type NitroHeaderInfo struct {
 }
 
 type ChainHeaderCommitment struct {
+	ethExcessBlobGas    *uint64
 	ethBaseFeeWei       string           // From the locally hash-verified Ethereum header.
 	opMessagePasserRoot string           // Derived only from the hash-verified OP header after Isthmus.
 	Nitro               *NitroHeaderInfo `json:"nitro,omitempty"`
@@ -112,6 +113,7 @@ func VerifyChainHeaderJSON(ctx context.Context, chainKey string, raw json.RawMes
 	}
 	if chainKey == "evm:1" && header.BaseFee != nil {
 		out.ethBaseFeeWei = header.BaseFee.String()
+		out.ethExcessBlobGas = header.ExcessBlobGas
 	}
 	if chainKey == "evm:10" {
 		if err := verifyOPMainnetWithdrawalFields(&header, fields["withdrawals"]); err != nil {

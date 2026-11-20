@@ -7,6 +7,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
+
 	"xone/chain-parser-go/internal/provenance"
 )
 
@@ -57,5 +60,48 @@ func TestOPHistoricalSignedOrigin(t *testing.T) {
 				t.Fatal(out, e)
 			}
 		})
+	}
+}
+
+func TestOPOriginBlobFee(t *testing.T) {
+	var input OPOriginEvidence
+	readOriginFixture(t, "op-mainnet-batches/portal-origin-26454436.json.gz", &input)
+	ctx := context.Background()
+	body, err := VerifyChainBlockJSON(ctx, "evm:10", input.Block, 32<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts, err := canonicalIndex(body.Block.Timestamp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, origin, err := parseOPOrigin(common.FromHex(body.RawTransactions[0]), ts)
+	if err != nil || origin.BlobBaseFeeWei != "8298648" {
+		t.Fatal(origin, err)
+	}
+	tip, err := VerifyChainHeaderJSON(ctx, "evm:1", input.Headers[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	height, err := canonicalIndex(tip.Block.Number)
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(h uint64) (json.RawMessage, error) { return input.Headers[height-h], nil }
+	origin.BlobBaseFeeWei = "8298649"
+	if err := verifyOriginAncestry(ctx, height, tip.Block.Hash, origin, read); err == nil || err.Error() != "OP_ORIGIN_L1_BLOB_BASE_FEE_MISMATCH" {
+		t.Fatal(err)
+	}
+	cancun := *params.MainnetChainConfig.CancunTime
+	if err := verifyOPBlobBaseFee(cancun-1, nil, "1"); err != nil {
+		t.Fatal(err)
+	}
+	for _, excess := range []*uint64{nil, new(uint64)} {
+		if excess != nil {
+			*excess = ^uint64(0)
+		}
+		if err := verifyOPBlobBaseFee(cancun, excess, "1"); err == nil {
+			t.Fatal("invalid Cancun excess accepted")
+		}
 	}
 }

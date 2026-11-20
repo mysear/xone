@@ -148,6 +148,9 @@ func verifyOPSpan(ctx context.Context, batch []byte, blocks []json.RawMessage) (
 		}
 		if i == 0 || origin.Number != prev.Number {
 			report.origins = append(report.origins, origin)
+		} else if prev.BlobBaseFeeWei == "" && origin.BlobBaseFeeWei != "" {
+			// Ecotone can introduce the field partway through one L1 epoch.
+			report.origins[len(report.origins)-1].BlobBaseFeeWei = origin.BlobBaseFeeWei
 		}
 		if origin.Sequence == 0 {
 			originBits.SetBit(&originBits, i, 1)
@@ -196,6 +199,9 @@ func verifyOPSpan(ctx context.Context, batch []byte, blocks []json.RawMessage) (
 
 func checkOPOriginTransition(prev, origin OPL1Origin) error {
 	if origin.Number == prev.Number {
+		if prev.BlobBaseFeeWei != "" && origin.BlobBaseFeeWei != prev.BlobBaseFeeWei {
+			return errors.New("OP_SPAN_ORIGIN_BLOB_BASE_FEE")
+		}
 		if origin.BaseFeeWei != prev.BaseFeeWei {
 			return errors.New("OP_SPAN_ORIGIN_BASE_FEE")
 		}
