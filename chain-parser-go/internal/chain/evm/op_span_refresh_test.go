@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 )
 
@@ -40,7 +41,7 @@ func TestOPSpanRefreshPreservesPreviousObservation(t *testing.T) {
 		t.Fatal(err)
 	}
 	previous := &OPSpanReport{FirstBlock: 11, LastBlock: 11, blockHashes: []string{"one"}}
-	if err = installOPSpan(path, raw, previous, good); err != nil {
+	if err = installOPSpan(path+".beacon", path, raw, previous, good); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
@@ -48,12 +49,53 @@ func TestOPSpanRefreshPreservesPreviousObservation(t *testing.T) {
 		gate   func() error
 		reason string
 	}{{&OPSpanReport{FirstBlock: 10, LastBlock: 10}, good, "OP_SPAN_REFRESH_CONFLICT"}, {&OPSpanReport{FirstBlock: 11, LastBlock: 12, blockHashes: []string{"other", "last"}}, good, "OP_SPAN_REFRESH_CONFLICT"}, {previous, func() error { return errors.New("OP_SPAN_REFRESH_HEAD_CHANGED") }, "OP_SPAN_REFRESH_HEAD_CHANGED"}, {previous, func() error { return context.Canceled }, context.Canceled.Error()}} {
-		if err = installOPSpan(path, []byte("changed"), tc.tip, tc.gate); err == nil || err.Error() != tc.reason {
+		if err = installOPSpan(path+".beacon", path, []byte("changed"), tc.tip, tc.gate); err == nil || err.Error() != tc.reason {
 			t.Fatal(err)
 		}
 		content, e := os.ReadFile(path)
 		if e != nil || !bytes.Equal(content, raw) {
 			t.Fatal(e, string(content))
 		}
+	}
+}
+
+func TestOPSpanPublicationPinsBeaconThroughFinalCheck(t *testing.T) {
+	dir := t.TempDir()
+	proof, path := filepath.Join(dir, "beacon"), filepath.Join(dir, "channel")
+	lock, err := os.OpenFile(proof+".lock", os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Close()
+	writer := func() error { return syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) }
+	if err := writer(); err != nil {
+		t.Fatal(err)
+	}
+	raw := []byte(`{"blocks":[{"number":"0xb","hash":"one"}]}`)
+	tip := &OPSpanReport{FirstBlock: 11, LastBlock: 11, blockHashes: []string{"one"}}
+	if err := os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	err = installOPSpan(proof, path, []byte("changed"), tip, func() error { t.Fatal("entered gate during beacon refresh"); return nil })
+	if err == nil || err.Error() != "OP_SPAN_BEACON_REFRESH_BUSY" {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(path); err != nil || !bytes.Equal(got, raw) {
+		t.Fatal("previous channel lost", err)
+	}
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_UN); err != nil {
+		t.Fatal(err)
+	}
+	err = installOPSpan(proof, path, raw, tip, func() error {
+		if err := writer(); !errors.Is(err, syscall.EWOULDBLOCK) {
+			t.Fatalf("beacon writer at final check: %v", err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writer(); err != nil {
+		t.Fatal("beacon lock not released", err)
 	}
 }

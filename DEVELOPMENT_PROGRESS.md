@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 批次连续刷新（[阶段227](#op-refresh-consecutive)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|发布批次时锁定已复核的信标文件，两次相邻最终化周期刷新通过|两个 OP span 之间有 218 块待覆盖|
 |OP 同高轮询重新核验批次（[阶段226](#op-owner-idle-recovery)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|在同一 owner 进程撤销 OP 块 159774767 的基线，恢复证明后重新发布|相邻签名周期连续刷新、跨提交发现及 L2 执行派生待验收|
 |重组时撤销旧基线（[阶段225](#owner-fork-revocation)，P0-1）|§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|发现队列损坏时仍发布撤权记录。替代状态不可读期间 baseline 返回 503|已用两个本地 RPC 端点验证恢复。OP 专用批次证明轮换与恢复待验收|
 |OP 最新批次自动采集（[阶段224](#op-owner-live-collection)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从当前签名头自动取得提交交易、发送者证明和 blob，核验 70 个 OP 块|连续刷新、跨提交发现、执行派生与重组恢复待验收|
@@ -5225,3 +5226,14 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 后续优先验证相邻签名周期内的连续刷新，再完成跨提交发现、主网跨提交正例和 L2 执行派生。GitHub 已配置为授权远端，GitLab 交付仍需项目克隆地址。
 
 [重放工具](integration/tools/acceptance/replay_op_span_owner.py) · [重放报告](integration/artifacts/local/op-owner-recovery-226/report.json)
+
+
+<a id="op-refresh-consecutive"></a>
+
+## 相邻最终化周期刷新 OP 批次文件（2026-11-20，阶段227，P0-1）
+
+之前，信标更新可能在批次发布者完成最终复核后、替换文件前提交。现在批次发布者在最终复核、原子替换及目录同步期间持有信标文件共享锁。信标写入者持有独占锁期间，批次发布返回 `OP_SPAN_BEACON_REFRESH_BUSY` 并保留旧文件。两种锁竞争顺序、失败后的旧文件保留和成功后的解锁均有回归。Go 全包测试、专项 race 和 vet 通过。
+
+普通 CLI 在同一目录刷新到相邻的以太坊最终化时隙 15694240 和 15694272。第一次从提交块 26454407 验证 OP 块 159777910 至 159778005 共 4081 笔用户交易。第二次从提交块 26454447 验证 OP 块 159778224 至 159778249 共 1046 笔用户交易。两次采集之间还有 218 个 OP 块。后续需要按 L1 顺序发现这段区间的提交、组装跨提交通道并验证连续 owner 发布。L2 执行派生和其余链的来源资格仍待验收。
+
+[两次主网刷新报告](integration/artifacts/local/op-refresh-227/window.json)

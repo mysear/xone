@@ -109,7 +109,7 @@ func refreshOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions [
 			}
 			return nil
 		}
-		if err = installOPSpan(opObservationPath(proofFile, policy.BatchProofFile), data, span, gate); err != nil {
+		if err = installOPSpan(proofFile, opObservationPath(proofFile, policy.BatchProofFile), data, span, gate); err != nil {
 			return nil, err
 		}
 		return report, nil
@@ -117,7 +117,7 @@ func refreshOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions [
 	return nil, errors.New("CONFIG_OP_SPAN_REQUIRED")
 }
 
-func installOPSpan(path string, data []byte, next *OPSpanReport, gate func() error) error {
+func installOPSpan(proofFile, path string, data []byte, next *OPSpanReport, gate func() error) error {
 	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return err
@@ -157,6 +157,19 @@ func installOPSpan(path string, data []byte, next *OPSpanReport, gate func() err
 	}
 	if closeErr != nil {
 		return closeErr
+	}
+	// Pin the signed head across the final check, rename and directory sync.
+	// Acquisition and staging above can run concurrently with beacon refresh.
+	beaconLock, err := os.OpenFile(proofFile+".lock", os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return err
+	}
+	defer beaconLock.Close()
+	if err = syscall.Flock(int(beaconLock.Fd()), syscall.LOCK_SH|syscall.LOCK_NB); err != nil {
+		if errors.Is(err, syscall.EWOULDBLOCK) {
+			return errors.New("OP_SPAN_BEACON_REFRESH_BUSY")
+		}
+		return err
 	}
 	if err = gate(); err != nil {
 		return err
