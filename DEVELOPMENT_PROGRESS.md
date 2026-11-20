@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 提交间收件交易覆盖（[阶段220](#op-channel-interval)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|核验提交间每个完整 L1 块及两端块内交易范围，拒绝遗漏的授权提交|跨提交正例及 owner 执行派生待验收|
 |OP 多笔提交通道（[阶段219](#op-ordered-channel-submissions)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|PARTIAL_LOCAL|逐笔核验授权、提交位置与 blob，跨提交累积有序帧|待真实跨提交样本、期间收件交易覆盖与重置核验|
 |OP 批次发送者授权（[阶段218](#op-batch-sender-authority)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从提交块的 SystemConfig 存储证明取得发送者并核验五份 blob|继续覆盖跨提交通道与 owner 派生|
 |OP 批次的 L1 来源（[阶段217](#op-span-origin-range)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|12 个以太坊头部将 21 个 OP 块引用的 4 个来源连至签名最终化的提交块|继续验证发送者授权与跨提交通道|
@@ -5139,3 +5140,14 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 普通 CLI 从块 26453870 的提交读出五帧，通道 `c7a81691135d79ebbb32d983e3f23954` 解压后为 1395451 字节。重复提交返回 `OP_CHANNEL_SUBMISSION_ORDER`。分组回归遍历了五帧的四个拆分位置，并核验最后允许高度和超时拒绝。Go 全包测试、专项 race 和 vet 通过。真实跨提交样本、期间全部有效收件交易及通道重置仍待核验，状态为 `PARTIAL_LOCAL`。
 
 [普通入口和输入说明](integration/test/source/op-mainnet-batches/README.md)
+
+
+<a id="op-channel-interval"></a>
+
+## OP 通道的提交间交易覆盖（2026-11-20，阶段220，P0-1）
+
+多提交核验入口现在要求两笔提交之间每个 L1 高度的完整区块，核对父链接并重算交易根。它也会扫描首块在前一笔提交之后、末块在后一笔提交之前的所有交易。同块提交仅扫描两个交易位置之间的区间。遇到发往收件地址的交易时核对发送者，若发现遗漏的授权提交则拒绝该通道。
+
+阶段 208 归档中，以太坊块 26453040 和 26453043 各含一笔 OP 提交。块 26453041、26453042 及两个边界块的相应交易范围均通过扫描。缺块、错序、候选交易缺少授权证明及漏报发送者交易均有拒绝回归。Go 全包测试、专项 race 和 vet 均通过。两笔提交使用不同通道 ID，真实跨提交正例仍待采集。
+
+[输入与复验说明](integration/test/source/op-mainnet-batches/README.md)

@@ -119,7 +119,7 @@ func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFi
 	}
 	var authority string
 	if e.SenderProof != nil {
-		anchor := ExecutionStateAnchor{Height: height, BlockHash: hash, StateRoot: body.HeaderCommitment.StateRoot, SettlingHeight: height, SettlingHash: hash, AccountEncodingID: "ethereum-account-rlp/v1", Authority: "native-post-execution-header-state-root"}
+		anchor := opConfigAnchor(body, height)
 		proven, err := e.SenderProof.sender(ctx, anchor)
 		if err != nil {
 			return empty, err

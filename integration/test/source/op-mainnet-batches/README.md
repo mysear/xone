@@ -51,4 +51,4 @@ jq -n --slurpfile evidence "$scratch/batch-26453870.json" \
   -beacon-proof "$scratch/beacon-26453871.json" -submissions "$scratch/submissions.json")
 ```
 
-This verifies the selected submissions and ordered frames within the Granite timeout. Canonical derivation also needs coverage of intervening inbox traffic and channel resets. The retained live submission in this example contains the entire channel.
+This verifies the selected submissions and ordered frames within the Granite timeout. For each subsequent submission, supply `intervening` as an ascending array of `{ "block": <full Ethereum block>, "authority": <optional SystemConfig proof> }` entries for every height strictly between the two submission blocks. The verifier checks their parent links, recomputes their transaction roots, and scans the open transaction interval, including both boundary blocks. An inbox candidate in an intermediate block requires its own authority proof. An omitted authorized inbox transaction fails the channel check. The retained live submission in this example contains the entire channel.

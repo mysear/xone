@@ -57,3 +57,7 @@ func (proof OPBatchSenderProof) sender(ctx context.Context, anchor ExecutionStat
 	}
 	return provenAddress(proxy, "0x67")
 }
+
+func opConfigAnchor(body ChainBlockBodyProof, height uint64) ExecutionStateAnchor {
+	return ExecutionStateAnchor{Height: height, BlockHash: body.Block.Hash, StateRoot: body.HeaderCommitment.StateRoot, SettlingHeight: height, SettlingHash: body.Block.Hash, AccountEncodingID: "ethereum-account-rlp/v1", Authority: "native-post-execution-header-state-root"}
+}

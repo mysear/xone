@@ -10,8 +10,9 @@ import (
 )
 
 type OPChannelSubmission struct {
-	Evidence  OPBatchEvidence    `json:"evidence"`
-	Authority OPBatchSenderProof `json:"authority"`
+	Intervening []OPChannelIntervalBlock `json:"intervening,omitempty"`
+	Evidence    OPBatchEvidence          `json:"evidence"`
+	Authority   OPBatchSenderProof       `json:"authority"`
 }
 
 type OPChannelSubmissionsReport struct {
@@ -43,7 +44,7 @@ func VerifyOPChannelSubmissions(ctx context.Context, finality *provenance.Verifi
 	}
 	var frames opFrames
 	var result OPChannelSubmissionsReport
-	for _, submission := range submissions {
+	for i, submission := range submissions {
 		evidence := submission.Evidence
 		evidence.SenderProof = &submission.Authority
 		report, err := VerifyOPBatchBlobs(ctx, finality, common.Address{}, evidence)
@@ -58,6 +59,13 @@ func VerifyOPChannelSubmissions(ctx context.Context, finality *provenance.Verifi
 			first = report
 		}
 		if err = checkOPChannelPosition(first, previous, report); err != nil {
+			return nil, err
+		}
+		if i == 0 {
+			if len(submission.Intervening) > 0 {
+				return nil, errors.New("OP_CHANNEL_INTERVAL_LENGTH")
+			}
+		} else if err := verifyOPChannelInterval(ctx, submissions[i-1], previous, submission, report); err != nil {
 			return nil, err
 		}
 		start := report.FirstBlobIndex
