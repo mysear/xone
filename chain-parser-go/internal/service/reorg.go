@@ -22,17 +22,15 @@ type forkReader interface {
 // recoverFork publishes a revocation barrier before doing bounded rollback and
 // replacement reads. Intermediate branch states never become Current/Bootstrap.
 func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.Snapshot, a forkReader) error {
+	barrierErr := s.revokeScope(ctx, ch, old)
 	if ch.BeaconFinality != nil {
-		return errors.New("BEACON_FINALITY_PARENT_CONFLICT")
+		return errors.Join(errors.New("BEACON_FINALITY_PARENT_CONFLICT"), barrierErr)
 	}
-	if err := s.revokeRuntimeSources(ctx, ch, []string{old.Reference.Block.Hash}); err != nil {
+	cleanupErr := s.revokeRuntimeSources(ctx, ch, []string{old.Reference.Block.Hash})
+	if err := errors.Join(barrierErr, cleanupErr); err != nil {
 		return err
 	}
 	store := s.stores[ch.Key]
-	store.Suspend()
-	if e := s.revokeScope(ctx, ch, old); e != nil {
-		return e
-	}
 	revoked := old
 	revoked.Reference.JournalSeq++
 	publish := func(u journal.Unit) error {
@@ -211,6 +209,8 @@ func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.S
 }
 
 func (s *Service) revokeScope(ctx context.Context, ch config.Chain, old domain.Snapshot) error {
+	// Stop local readers before the journal write or any sidecar I/O.
+	s.stores[ch.Key].Suspend()
 	revoked := old
 	revoked.Reference.JournalSeq++
 	if revoked.Reference.JournalSeq == 0 {

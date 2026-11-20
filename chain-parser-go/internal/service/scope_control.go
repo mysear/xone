@@ -101,11 +101,11 @@ func (s *Service) ensurePoolScope(w http.ResponseWriter, r *http.Request) {
 				write(503, map[string]any{"error": "POOL_SCOPE_RESTORE_FAILED", "ready": false, "retained_scope_ready": true})
 				return
 			}
-			_ = s.revokeRuntimeSources(ctx, *selected, nil)
 			if old, ok := store.Current(); ok {
 				_ = s.revokeScope(ctx, *selected, old)
 			}
 			store.Suspend()
+			_ = s.revokeRuntimeSources(ctx, *selected, nil)
 			fail(503, "POOL_SCOPE_RESTORE_FAILED")
 			return
 		}

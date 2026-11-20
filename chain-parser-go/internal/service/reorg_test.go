@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/domain"
+	"xone/chain-parser-go/internal/ingest"
 )
 
 type forkFixture struct {
@@ -135,4 +137,34 @@ func TestDeepOrUnconfirmedForkCannotPublishReady(t *testing.T) {
 func (f *forkFixture) ReadComplete(ctx context.Context, tag string) (domain.BlockRef, []domain.Pool, []domain.SwapFact, error) {
 	b, p, e := f.ReadState(ctx, tag, true)
 	return b, p, []domain.SwapFact{}, e
+}
+
+// A corrupt discovery queue must not keep the last branch readable or prevent
+// consumers from observing the revocation in the owner journal.
+func TestForkRevocationSurvivesDiscoveryCleanupFailure(t *testing.T) {
+	s, _, old := runtimeBridgeFixture(t)
+	ch := s.cfg.Config.Chains[0]
+	catalog := s.catalogRuntime[ch.Key]
+	if err := catalog.db.Set(runtimeDiscoveryKey, []byte(`{"digest":"invalid"}`), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.recoverFork(context.Background(), ch, old, nil); !errors.Is(err, ingest.ErrCorrupt) {
+		t.Fatalf("expected discovery corruption, got %v", err)
+	}
+	store := s.stores[ch.Key]
+	if _, ready := store.Current(); ready {
+		t.Fatal("discovery cleanup failure left the old baseline online")
+	}
+	if _, err := store.Bootstrap(); err == nil {
+		t.Fatal("discovery cleanup failure left bootstrap online")
+	}
+	records, err := store.Records(old.Reference.JournalSeq, 2)
+	if err != nil || len(records) != 1 || records[0].Kind != "ONLINE_SCOPE_REVOKED" || store.DurableRef().CanonicalEpoch != old.Reference.CanonicalEpoch {
+		t.Fatalf("missing revocation at original epoch: %+v, %v", records, err)
+	}
+	catalog.mu.Lock()
+	defer catalog.mu.Unlock()
+	if !catalog.revokedLocked(old.Reference.Block.Hash) {
+		t.Fatal("discovery cleanup failure skipped catalog orphan tombstone")
+	}
 }

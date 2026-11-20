@@ -363,18 +363,17 @@ func (s *Service) revokeRuntimeSources(ctx context.Context, ch config.Chain, orp
 	if !catalogFenceFollows(f, f) {
 		return nil
 	}
-	if err := s.revokeRuntimeDiscovery(ch, orphanHashes); err != nil {
-		return err
-	}
 
 	// Invalidate memory on a canceled caller too; persistence uses a separately
 	// bounded cleanup context because cancellation must not leave online visible.
 	if ctx.Err() != nil {
 		cleanup, cancel := context.WithTimeout(context.Background(), time.Duration(ch.DynamicCatalog.TimeoutMS)*time.Millisecond)
 		defer cancel()
-		return catalog.Revoke(cleanup, orphanHashes, f)
+		ctx = cleanup
 	}
-	return catalog.Revoke(ctx, orphanHashes, f)
+	catalogErr := catalog.Revoke(ctx, orphanHashes, f)
+	queueErr := s.revokeRuntimeDiscovery(ch, orphanHashes)
+	return errors.Join(catalogErr, queueErr)
 }
 
 // runtimeCatalogChain merges only admitted configs. Static IDs always retain

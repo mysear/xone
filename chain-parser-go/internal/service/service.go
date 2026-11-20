@@ -457,13 +457,6 @@ func (s *Service) Tick(ctx context.Context) {
 			continue
 		}
 		if e := s.syncChain(ctx, chain); e != nil {
-			_ = s.revokeRuntimeSources(ctx, chain, nil)
-			if tracker := s.rawSources[chain.Key]; tracker != nil {
-				if err := tracker.quarantine("SOURCE_COLLECTION_FAILED", chain.Key); err != nil {
-					s.log.Event("error", "source_dlq_failed", map[string]any{"chain_key": chain.Key, "error_code": "SOURCE_DLQ_WRITE"})
-				}
-			}
-			s.lastError.Add(1)
 			// A failed source read must revoke other replicas as well. Only
 			// later independent fork confirmation may advance canonical epoch.
 			if current, ready := s.stores[chain.Key].Current(); ready {
@@ -472,6 +465,15 @@ func (s *Service) Tick(ctx context.Context) {
 				}
 			}
 			s.stores[chain.Key].Suspend()
+			if err := s.revokeRuntimeSources(ctx, chain, nil); err != nil {
+				s.log.Event("error", "source_revocation_failed", map[string]any{"chain_key": chain.Key, "error_code": err.Error()})
+			}
+			if tracker := s.rawSources[chain.Key]; tracker != nil {
+				if err := tracker.quarantine("SOURCE_COLLECTION_FAILED", chain.Key); err != nil {
+					s.log.Event("error", "source_dlq_failed", map[string]any{"chain_key": chain.Key, "error_code": "SOURCE_DLQ_WRITE"})
+				}
+			}
+			s.lastError.Add(1)
 			if w := s.sessions[chain.Key]; w != nil {
 				w.close()
 				delete(s.sessions, chain.Key)
@@ -523,7 +525,6 @@ func (s *Service) syncChain(ctx context.Context, ch config.Chain) error {
 		if e := s.revokeScope(ctx, ch, current); e != nil {
 			return e
 		}
-		store.Suspend()
 		return s.reanchor(ctx, ch, false)
 	}
 	if beaconView != nil {

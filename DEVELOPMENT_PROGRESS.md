@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|重组时撤销旧基线（[阶段225](#owner-fork-revocation)，P0-1）|§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|发现队列损坏时仍发布撤权记录。替代状态不可读期间 baseline 返回 503|已用两个本地 RPC 端点验证恢复。OP 专用批次证明轮换与恢复待验收|
 |OP 最新批次自动采集（[阶段224](#op-owner-live-collection)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从当前签名头自动取得提交交易、发送者证明和 blob，核验 70 个 OP 块|连续刷新、跨提交发现、执行派生与重组恢复待验收|
 |OP owner 批次证明更新（[阶段223](#op-owner-span-refresh)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从已核验的提交确定 L2 范围，自动读取 24 个块并原子发布批次文件|L1 提交与授权证明的持续获取、执行派生及重组恢复待验收|
 |OP owner 批次基线重放（[阶段222](#op-owner-span-replay)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通进程发布块 159774767 的 USDC/WETH 基线，从归档复验相同池状态并拒绝空批次|持续供应当前批次、执行派生与重组恢复待验收|
@@ -5197,3 +5198,16 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 主网运行从以太坊块 26454223 找到提交块 26454214，得到五帧通道 `9f631924b60aac4e1087c7d35d07b80b`，验证 OP 块 159776772 至 159776841、4354 笔用户交易和 13 个 L1 来源。前两次采集分别遇到 RPC 错误和读取超时。采用有界并发读取后，在正常 CLI 的时限内发布了观测文件。固定输入回归覆盖搜索窗口耗尽、字节上限、错误父块和独立授权证明请求。Go 全包测试、专项 race 和 vet 通过。
 
 [复验命令](integration/test/source/op-mainnet-batches/README.md) · [主网采集报告](integration/artifacts/local/op-live-refresh-224/result.json)
+
+
+<a id="owner-fork-revocation"></a>
+
+## 旧基线撤权与同高分叉恢复（2026-11-20，阶段225，P0-1）
+
+对照 §7.9，在 Go owner 已发布基线后损坏动态发现队列，复现了重组处理返回清理错误、旧基线仍可读取的问题。现在先关闭本地基线读取并向 owner journal 发布 `ONLINE_SCOPE_REVOKED`，再清理目录和隔离失败的原始响应。孤块标记与发现队列清理分别尝试，错误返回调用方。
+
+通过普通 `Tick` 和两个本地 RPC 端点复验同高换块。替代池状态暂缺时，baseline HTTP 返回 503，`Current` 和 `Bootstrap` 均不可用，日志只有撤权记录，`canonical_epoch` 保持原值。替代状态恢复可读并通过两个端点确认后，owner 发布新基线，代际和 `canonical_epoch` 各递增一次，HTTP 恢复 200。
+
+`go test ./...`、重组路径的 `go test -race` 和 `go vet ./...` 均通过。
+
+下一项仍属 P0-1，使用 OP 批次文件和归档重放验证证明缺失、重新取得证明及连续更新。跨提交自动发现与真实主网正例、L2 执行派生以及其余链和协议的来源资格仍待验收。GitLab 交付等待该项目的克隆地址，当前仓库只配置了 GitHub `origin`。
