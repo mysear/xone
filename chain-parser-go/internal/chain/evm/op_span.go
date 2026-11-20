@@ -97,9 +97,6 @@ func (c *opSpanColumns) add(raw []byte, timestamp uint64) error {
 func spanBits(bits *big.Int, count int) []byte { return bits.FillBytes(make([]byte, (count+7)/8)) }
 
 func verifyOPSpan(ctx context.Context, batch []byte, blocks []json.RawMessage) (*OPSpanReport, error) {
-	const genesisTime = 1686068903
-	const genesisHeight = 105235063
-	const blockTime = 2
 	if len(blocks) == 0 || len(blocks) > 1000000 {
 		return nil, errors.New("OP_SPAN_BLOCK_COUNT")
 	}
@@ -121,11 +118,11 @@ func verifyOPSpan(ctx context.Context, batch []byte, blocks []json.RawMessage) (
 		}
 		b := body.Block
 		t, err := canonicalIndex(b.Timestamp)
-		if err != nil || t < genesisTime || (t-genesisTime)%blockTime != 0 {
+		if err != nil || t < opBedrockTime || (t-opBedrockTime)%opBlockSeconds != 0 {
 			return nil, errors.New("OP_SPAN_BLOCK_TIME")
 		}
 		h, err := canonicalIndex(b.Number)
-		if err != nil || h != (t-genesisTime)/blockTime+genesisHeight {
+		if err != nil || h != (t-opBedrockTime)/opBlockSeconds+opBedrockHeight {
 			return nil, errors.New("OP_SPAN_BLOCK_HEIGHT")
 		}
 		if len(body.RawTransactions) == 0 {
@@ -137,7 +134,7 @@ func verifyOPSpan(ctx context.Context, batch []byte, blocks []json.RawMessage) (
 		}
 		if i == 0 {
 			report.FirstBlock = h
-			relative = t - genesisTime
+			relative = t - opBedrockTime
 			parent = common.FromHex(b.ParentHash)[:20]
 		} else {
 			if b.ParentHash != report.LastHash || h != report.LastBlock+1 {

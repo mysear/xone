@@ -1,0 +1,59 @@
+package evm
+
+import (
+	"bytes"
+	"context"
+	"encoding/binary"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestOPSpanCaptureRange(t *testing.T) {
+	prefix := binary.AppendUvarint([]byte{1}, (159774755-opBedrockHeight)*opBlockSeconds)
+	prefix = binary.AppendUvarint(prefix, 26453861)
+	prefix = append(prefix, make([]byte, 40)...)
+	prefix = binary.AppendUvarint(prefix, 24)
+	first, count, err := opSpanHeightRange(prefix)
+	if err != nil || first != 159774755 || count != 24 {
+		t.Fatal(first, count, err)
+	}
+	for i := range prefix {
+		if _, _, err := opSpanHeightRange(prefix[:i]); err == nil {
+			t.Fatal("truncated prefix accepted", i)
+		}
+	}
+	for _, bad := range [][]byte{{1, 1}, append(bytes.Clone(prefix[:len(prefix)-1]), 0), binary.AppendUvarint(bytes.Clone(prefix[:len(prefix)-1]), 1000001)} {
+		if _, _, err := opSpanHeightRange(bad); err == nil {
+			t.Fatal("invalid range")
+		}
+	}
+}
+
+func TestOPSpanRefreshPreservesPreviousObservation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "owner.json")
+	good := func() error { return nil }
+	raw, err := json.Marshal(OPChannelObservation{Blocks: []json.RawMessage{json.RawMessage(`{"number":"0xb","hash":"one"}`)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := &OPSpanReport{FirstBlock: 11, LastBlock: 11, blockHashes: []string{"one"}}
+	if err = installOPSpan(path, raw, previous, good); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		tip    *OPSpanReport
+		gate   func() error
+		reason string
+	}{{&OPSpanReport{FirstBlock: 10, LastBlock: 10}, good, "OP_SPAN_REFRESH_CONFLICT"}, {&OPSpanReport{FirstBlock: 11, LastBlock: 12, blockHashes: []string{"other", "last"}}, good, "OP_SPAN_REFRESH_CONFLICT"}, {previous, func() error { return errors.New("OP_SPAN_REFRESH_HEAD_CHANGED") }, "OP_SPAN_REFRESH_HEAD_CHANGED"}, {previous, func() error { return context.Canceled }, context.Canceled.Error()}} {
+		if err = installOPSpan(path, []byte("changed"), tc.tip, tc.gate); err == nil || err.Error() != tc.reason {
+			t.Fatal(err)
+		}
+		content, e := os.ReadFile(path)
+		if e != nil || !bytes.Equal(content, raw) {
+			t.Fatal(e, string(content))
+		}
+	}
+}

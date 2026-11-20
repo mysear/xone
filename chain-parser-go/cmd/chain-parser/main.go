@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"time"
 	"xone/chain-parser-go/internal/app"
+	"xone/chain-parser-go/internal/chain/evm"
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/provenance"
 )
@@ -28,6 +30,7 @@ func run() error {
 	refresh := flags.String("refresh-beacon-proof", "", "verify and publish an owner proof from this HTTPS beacon API, then exit")
 	rotate := flags.String("prepare-beacon-rotation", "", "prepare a new proof file for this successor owner configuration")
 	bootstrap := flags.String("beacon-bootstrap", "", "bootstrap response for the successor checkpoint root")
+	span := flags.String("refresh-op-span", "", "read authenticated L1 submission evidence and publish the corresponding OP span observation")
 	if e := flags.Parse(os.Args[1:]); e != nil {
 		return fmt.Errorf("INVALID_CLI")
 	}
@@ -37,6 +40,35 @@ func run() error {
 	cfg, e := config.Load(*path, "chain-parser-go")
 	if e != nil {
 		return e
+	}
+	if *span != "" {
+		if *check || *refresh != "" || *rotate != "" || *bootstrap != "" {
+			return fmt.Errorf("INVALID_CLI")
+		}
+		file, err := os.Open(*span)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		const max = 32 << 20
+		raw, err := io.ReadAll(io.LimitReader(file, max+1))
+		if err != nil {
+			return err
+		}
+		if len(raw) > max {
+			return fmt.Errorf("OP_BATCH_BYTE_LIMIT")
+		}
+		var submissions []evm.OPChannelSubmission
+		if err = json.Unmarshal(raw, &submissions); err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		report, err := evm.RefreshOwnerOPSpan(ctx, cfg, submissions)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(report)
 	}
 	if (*rotate == "") != (*bootstrap == "") || *rotate != "" && (*check || *refresh != "") {
 		return fmt.Errorf("INVALID_CLI")

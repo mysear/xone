@@ -62,3 +62,7 @@ The sample for Ethereum submission 26453870 covers OP heights 159774755 through 
 ```sh
 (cd chain-parser-go && go test ./internal/chain/evm -run '^TestOPOwnerSpanMembership$' -count=1)
 ```
+
+### Refresh the owner's observation from the configured L2 RPC
+
+With `op_l1_origin.batch_proof_file` and a fresh beacon proof configured, run `chain-parser --config "$release" --refresh-op-span "$submissions"`. Supply the ordered submission array described above. The command authenticates the L1 submissions, reads the first L2 height and block count from the committed span, and requests those full bodies from the configured OP RPC. It compares every byte of the span and checks the referenced epochs against the configured L1 RPC. A successful command publishes the observation by atomic rename and prints its report. The refresh supports up to 128 L2 blocks per span and 32 MiB per observation, subject to the configured proof byte budget.

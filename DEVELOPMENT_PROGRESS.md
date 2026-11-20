@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP owner 批次证明更新（[阶段223](#op-owner-span-refresh)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从已核验的提交确定 L2 范围，自动读取 24 个块并原子发布批次文件|L1 提交与授权证明的持续获取、执行派生及重组恢复待验收|
 |OP owner 批次基线重放（[阶段222](#op-owner-span-replay)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通进程发布块 159774767 的 USDC/WETH 基线，从归档复验相同池状态并拒绝空批次|持续供应当前批次、执行派生与重组恢复待验收|
 |OP owner 发布前核对批次（[阶段221](#op-owner-span-membership)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通池状态读取按已验证批次核对 L2 块位置和哈希，共用本次证明预算|持续供应当前批次、普通进程发布与重组恢复待验收|
 |OP 提交间收件交易覆盖（[阶段220](#op-channel-interval)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|核验提交间每个完整 L1 块及两端块内交易范围，拒绝遗漏的授权提交|跨提交正例及 owner 执行派生待验收|
@@ -5173,3 +5174,14 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 验收端点将 OP `finalized` 读取固定在主网块 159774767，提供该高度的区块、回执和池状态证明。普通 `chain-parser` 进程核验以太坊提交、批次交易和 L1 来源，随后通过基线接口返回该块及 USDC/WETH 池。归档重放工具把两个 L2 来源、证明来源及 L1 来源映射到本机端点，用独立状态目录重新启动同一进程。正确证据重建的块和池与采集结果一致。将批次观测替换为空数组后，进程在发布基线前退出，错误为 `OP_SPAN_BLOCKS_REQUIRED`。两次重放共读取 123 次归档 RPC。
 
 [重放工具](integration/tools/acceptance/replay_op_span_owner.py) · [重放报告](integration/artifacts/local/op-owner-run-222/replay.json)
+
+
+<a id="op-owner-span-refresh"></a>
+
+## 从已核验的提交更新 owner 批次文件（2026-11-20，阶段223，P0-1）
+
+`chain-parser --config <release> --refresh-op-span <submissions>` 核验 L1 提交和通道后，从 span 前缀取得 L2 起始高度和块数，向发布配置的 OP RPC 读取完整区块。所有交易逐字节匹配且来源通过 L1 祖先核验后，命令在文件锁内检查旧水位、重新验证签名头和时效，原子替换批次文件。
+
+普通 CLI 从归档节点读取块 159774755 至 159774778，核验 1099 笔用户交易和 5 个 L1 来源。输出的 24 个块与阶段 222 owner 的输入一致。截断前缀、超限块数、旧水位回退、重叠哈希冲突及发布前撤销均有回归。Go 全包测试、专项 race 和 vet 通过。
+
+[运行说明](integration/test/source/op-mainnet-batches/README.md) · [更新报告](integration/artifacts/local/op-span-refresh-223/report.json)

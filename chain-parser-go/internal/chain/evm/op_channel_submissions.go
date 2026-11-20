@@ -39,6 +39,10 @@ func checkOPChannelPosition(first, previous, current OPBatchReport) error {
 // VerifyOPChannelSubmissions authenticates every selected transaction and its
 // sender against the same finalized chain before joining its frames.
 func VerifyOPChannelSubmissions(ctx context.Context, finality *provenance.VerifiedExecutionFinality, submissions []OPChannelSubmission, blocks []json.RawMessage) (*OPChannelSubmissionsReport, error) {
+	return verifyOPSubmissions(ctx, finality, submissions, blocks, nil)
+}
+
+func verifyOPSubmissions(ctx context.Context, finality *provenance.VerifiedExecutionFinality, submissions []OPChannelSubmission, blocks []json.RawMessage, load opSpanLoader) (*OPChannelSubmissionsReport, error) {
 	if len(submissions) == 0 || len(submissions) > 128 {
 		return nil, errors.New("OP_CHANNEL_SUBMISSION_COUNT")
 	}
@@ -75,7 +79,7 @@ func VerifyOPChannelSubmissions(ctx context.Context, finality *provenance.Verifi
 		result.Submissions = append(result.Submissions, report)
 	}
 	var err error
-	result.Channel, err = frames.decode(ctx, blocks)
+	result.Channel, err = frames.decodeWithLoader(ctx, blocks, load)
 	if err != nil {
 		return nil, err
 	}

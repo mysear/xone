@@ -121,6 +121,10 @@ func decodeOPChannel(ctx context.Context, blobs []*kzg4844.Blob, blocks []json.R
 }
 
 func (frames *opFrames) decode(ctx context.Context, blocks []json.RawMessage) (*OPChannelReport, error) {
+	return frames.decodeWithLoader(ctx, blocks, nil)
+}
+
+func (frames *opFrames) decodeWithLoader(ctx context.Context, blocks []json.RawMessage, load opSpanLoader) (*OPChannelReport, error) {
 	if !frames.closed || len(frames.compressed) == 0 {
 		return nil, errors.New("OP_CHANNEL_INCOMPLETE")
 	}
@@ -155,9 +159,19 @@ func (frames *opFrames) decode(ctx context.Context, blocks []json.RawMessage) (*
 		if err != nil || len(batch) < 2 {
 			return nil, errors.New("OP_CHANNEL_BATCH_RLP")
 		}
-		if blocks != nil {
+		if blocks != nil || load != nil {
 			if batch[0] != 1 || len(rest) != 0 {
 				return nil, errors.New("OP_CHANNEL_SINGLE_SPAN_REQUIRED")
+			}
+			if load != nil {
+				first, count, err := opSpanHeightRange(batch)
+				if err != nil {
+					return nil, err
+				}
+				blocks, err = load(ctx, first, count)
+				if err != nil {
+					return nil, err
+				}
 			}
 			report.Span, err = verifyOPSpan(ctx, batch, blocks)
 			if err != nil {

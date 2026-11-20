@@ -19,39 +19,9 @@ type OPChannelObservation struct {
 }
 
 func readOwnerOPSpan(ctx context.Context, checkpointFile, path string, proof *provenance.VerifiedExecutionFinality, block RawBlock, budget int) (*OPSpanReport, int, error) {
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(filepath.Dir(checkpointFile), path)
-	}
-	limit := int64(min(budget, 32<<20))
-	info, err := os.Lstat(path)
+	observation, used, err := readOPChannelObservation(opObservationPath(checkpointFile, path), budget)
 	if err != nil {
 		return nil, 0, err
-	}
-	if !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > limit {
-		return nil, 0, errors.New("OP_BATCH_OBSERVATION_FILE")
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer f.Close()
-	stat, err := f.Stat()
-	if err != nil || !os.SameFile(info, stat) {
-		return nil, 0, errors.New("OP_BATCH_OBSERVATION_FILE")
-	}
-	raw, err := io.ReadAll(io.LimitReader(f, limit+1))
-	if err != nil {
-		return nil, 0, err
-	}
-	if int64(len(raw)) != info.Size() {
-		return nil, 0, errors.New("OP_BATCH_OBSERVATION_FILE")
-	}
-	var observation OPChannelObservation
-	if err := json.Unmarshal(raw, &observation); err != nil {
-		return nil, 0, err
-	}
-	if len(observation.Blocks) == 0 {
-		return nil, 0, errors.New("OP_SPAN_BLOCKS_REQUIRED")
 	}
 	report, err := VerifyOPChannelSubmissions(ctx, proof, observation.Submissions, observation.Blocks)
 	if err != nil {
@@ -65,5 +35,47 @@ func readOwnerOPSpan(ctx context.Context, checkpointFile, path string, proof *pr
 	if span.origins[len(span.origins)-1].Number > report.Submissions[len(report.Submissions)-1].L1Number {
 		return nil, 0, errors.New("OP_SPAN_ORIGIN_AFTER_SUBMISSION")
 	}
-	return span, len(raw), nil
+	return span, used, nil
+}
+
+func opObservationPath(checkpointFile, path string) string {
+	if !filepath.IsAbs(path) {
+		return filepath.Join(filepath.Dir(checkpointFile), path)
+	}
+	return path
+}
+
+func readOPChannelObservation(path string, budget int) (OPChannelObservation, int, error) {
+	limit := int64(min(budget, 32<<20))
+	info, err := os.Lstat(path)
+	if err != nil {
+		return OPChannelObservation{}, 0, err
+	}
+	if !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > limit {
+		return OPChannelObservation{}, 0, errors.New("OP_BATCH_OBSERVATION_FILE")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return OPChannelObservation{}, 0, err
+	}
+	defer f.Close()
+	stat, err := f.Stat()
+	if err != nil || !os.SameFile(info, stat) {
+		return OPChannelObservation{}, 0, errors.New("OP_BATCH_OBSERVATION_FILE")
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, limit+1))
+	if err != nil {
+		return OPChannelObservation{}, 0, err
+	}
+	if int64(len(raw)) != info.Size() {
+		return OPChannelObservation{}, 0, errors.New("OP_BATCH_OBSERVATION_FILE")
+	}
+	var observation OPChannelObservation
+	if err := json.Unmarshal(raw, &observation); err != nil {
+		return OPChannelObservation{}, 0, err
+	}
+	if len(observation.Blocks) == 0 {
+		return OPChannelObservation{}, 0, errors.New("OP_SPAN_BLOCKS_REQUIRED")
+	}
+	return observation, len(raw), nil
 }
