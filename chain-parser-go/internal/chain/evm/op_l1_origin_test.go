@@ -7,7 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 
 	"xone/chain-parser-go/internal/provenance"
@@ -75,7 +74,7 @@ func TestOPOriginBlobFee(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, origin, err := parseOPOrigin(common.FromHex(body.RawTransactions[0]), ts)
+	origin, err := opBlockOrigin(&body, ts)
 	if err != nil || origin.BlobBaseFeeWei != "8298648" {
 		t.Fatal(origin, err)
 	}

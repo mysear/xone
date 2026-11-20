@@ -10,8 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/provenance"
 	"xone/chain-parser-go/internal/rpc"
@@ -168,7 +166,7 @@ func installOPSpan(ctx context.Context, proofFile, path string, data []byte, nex
 			if err != nil {
 				return err
 			}
-			_, previous, err := parseOPOrigin(common.FromHex(body.RawTransactions[0]), timestamp)
+			previous, err := opBlockOrigin(&body, timestamp)
 			if err != nil {
 				return err
 			}

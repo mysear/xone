@@ -1,0 +1,26 @@
+[
+  {
+    "source_index": 0,
+    "method": "debug_traceBlockByNumber",
+    "error_code": -32601,
+    "received_result": false
+  },
+  {
+    "source_index": 0,
+    "method": "eth_getProof",
+    "status": "HTTPError",
+    "http": 403
+  },
+  {
+    "source_index": 1,
+    "method": "debug_traceBlockByNumber",
+    "status": "HTTPError",
+    "http": 429
+  },
+  {
+    "source_index": 1,
+    "method": "eth_getProof",
+    "error_code": -32603,
+    "received_result": false
+  }
+]

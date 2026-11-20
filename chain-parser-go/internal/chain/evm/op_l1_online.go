@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/provenance"
@@ -31,7 +30,7 @@ func (a *Adapter) verifyOPBodyOrigin(ctx context.Context, b RawBlock, now func()
 	if err != nil {
 		return nil, err
 	}
-	_, origin, err := parseOPOrigin(common.FromHex(b.NativeBodyProof.RawTransactions[0]), timestamp)
+	origin, err := opBlockOrigin(b.NativeBodyProof, timestamp)
 	if err != nil {
 		return nil, err
 	}

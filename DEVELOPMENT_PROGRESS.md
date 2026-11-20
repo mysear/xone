@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 执行载荷属性（[阶段237](#op-origin-payload-attributes)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|由签名 L1 来源核对 L2 的 prevRandao 和父信标块根，跨批次边界复验通过|执行见证来源、真实跨提交通道及完整执行后状态待验收|
 |OP 属性存款的 L1 blob 基础费用（[阶段236](#op-origin-blob-fee)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|按签名 L1 祖先头重算 blob 基础费用，218 个高度离线复验通过|主网跨提交通道、执行后状态及其他链与协议来源仍待验收|
 |OP 批次交界的 L1 来源连续性（[阶段235](#op-origin-boundaries)，P0-1）|§7.2、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通发布命令重放五个 span，核验四个边界的 epoch 和序号|真实跨提交通道及执行后状态待验收|
 |含存款核验的 OP owner 长窗口（[阶段234](#op-owner-full-deposits)，P0-1）|§7.1、§7.3、§7.4，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|补读 L1 回执后跨四个 span 发布 217 条增量，与阶段233和独立离线重放逐条一致|主网跨多笔提交通道、L2 执行派生及各链来源与恢复验收仍待完成|
@@ -5339,3 +5340,13 @@ OP 块 144644465 的存款与以太坊块 23942644 均给出 48265514 wei。修�
 普通 owner 以纯缓存跨四个 span 发布 OP 块 159778006 至 159778223，基线和全部 217 条增量与阶段233逐条相同。四个代理的上游读取均为零。Go 全包测试、OP 专项 race 和 vet 通过。测试前清理了闲置的阶段235二进制，释放 57381976 字节。
 
 [窗口记录](integration/artifacts/local/op-blob-fee-236/window.json)
+
+<a id="op-origin-payload-attributes"></a>
+
+## 核对 OP 执行载荷的随机数与父信标块根（2026-11-20，阶段237，P0-1）
+
+普通 owner、归档 CLI 和连续批次发布者从已验证的 L2 头读取 prevRandao 和激活后的父信标块根，按 L1 epoch 与签名祖先链的对应头比较。回归测试分别改变中间 epoch 的这两个值，均被拒绝。两次纯缓存运行从 159778222 跨批次提交到 159778226，基线和四条增量逐条一致。第一次运行结束时日志出现一次 `RPC_RECORDING_FAILED`，第二次复验只记录退出时取消。Go 全包测试、专项 race 和 vet 通过。
+
+两个已配置 OP 来源对 159778224 的 `debug_executionWitness` 均返回 -32601。`debug_traceBlockByNumber` 分别返回 -32601 和 HTTP 429。对父高度的账户证明请求分别返回 HTTP 403 和 -32603。以这两个来源重算该块完整执行后状态仍缺少见证。测试前清理闲置构建产物 57386664 字节。
+
+[边界复验](integration/artifacts/local/op-execution-witness-237/owner-second/report.json) · [见证探测](integration/artifacts/local/op-execution-witness-237/probes.json) · [替代来源探测](integration/artifacts/local/op-execution-witness-237/alternative-probes.json)

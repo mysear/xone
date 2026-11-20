@@ -16,12 +16,14 @@ import (
 )
 
 type OPL1Origin struct {
-	BlobBaseFeeWei string `json:"blob_base_fee_wei,omitempty"`
-	BaseFeeWei     string `json:"base_fee_wei"`
-	Number         uint64 `json:"number"`
-	Hash           string `json:"hash"`
-	Timestamp      uint64 `json:"timestamp"`
-	Sequence       uint64 `json:"sequence"`
+	PrevRandao       string `json:"prev_randao"`
+	ParentBeaconRoot string `json:"parent_beacon_block_root,omitempty"`
+	BlobBaseFeeWei   string `json:"blob_base_fee_wei,omitempty"`
+	BaseFeeWei       string `json:"base_fee_wei"`
+	Number           uint64 `json:"number"`
+	Hash             string `json:"hash"`
+	Timestamp        uint64 `json:"timestamp"`
+	Sequence         uint64 `json:"sequence"`
 }
 
 func parseOPOrigin(first []byte, timestamp uint64) (opDepositWire, OPL1Origin, error) {
@@ -67,6 +69,24 @@ func parseOPOrigin(first []byte, timestamp uint64) (opDepositWire, OPL1Origin, e
 		return opDepositWire{}, OPL1Origin{}, errors.New("OP_PACKED_ATTRIBUTES_SOURCE_IDENTITY")
 	}
 	return deposit, OPL1Origin{BlobBaseFeeWei: blobBaseFee, BaseFeeWei: new(big.Int).SetBytes(baseFee).String(), Number: number, Hash: l1Hash.Hex(), Timestamp: l1Time, Sequence: sequence}, nil
+}
+
+// Include payload attributes from the locally verified L2 header as well as
+// the L1-info deposit. The signed origin is checked by verifyOriginRange.
+func opBlockOrigin(body *ChainBlockBodyProof, timestamp uint64) (OPL1Origin, error) {
+	if len(body.RawTransactions) == 0 {
+		return OPL1Origin{}, errors.New("OP_ORIGIN_ATTRIBUTES_REQUIRED")
+	}
+	_, origin, err := parseOPOrigin(common.FromHex(body.RawTransactions[0]), timestamp)
+	if err != nil {
+		return OPL1Origin{}, err
+	}
+	origin.PrevRandao = body.HeaderCommitment.randomness
+	origin.ParentBeaconRoot = body.HeaderCommitment.parentBeaconRoot
+	if origin.PrevRandao == "" || (timestamp >= opEcotoneTime) != (origin.ParentBeaconRoot != "") {
+		return OPL1Origin{}, errors.New("OP_ORIGIN_PAYLOAD_ATTRIBUTES")
+	}
+	return origin, nil
 }
 
 // OPOriginEvidence carries the OP execution block and L1 headers in descending
@@ -117,7 +137,7 @@ func VerifyOPOrigin(ctx context.Context, proof *provenance.VerifiedExecutionFina
 	if timestamp < 1686068903 || len(body.RawTransactions) == 0 {
 		return empty, errors.New("OP_ORIGIN_ATTRIBUTES_REQUIRED")
 	}
-	_, origin, err := parseOPOrigin(common.FromHex(body.RawTransactions[0]), timestamp)
+	origin, err := opBlockOrigin(&body, timestamp)
 	if err != nil {
 		return empty, err
 	}
@@ -184,6 +204,18 @@ func verifyOriginRange(ctx context.Context, head uint64, hash string, origins []
 			time, err := canonicalIndex(header.Block.Timestamp)
 			if err != nil || time != origin.Timestamp || expected != origin.Hash {
 				return errors.New("OP_ORIGIN_L1_MISMATCH")
+			}
+			if header.randomness != origin.PrevRandao {
+				return errors.New("OP_ORIGIN_PREV_RANDAO_MISMATCH")
+			}
+			if origin.ParentBeaconRoot != "" {
+				root := header.parentBeaconRoot
+				if root == "" && time < *params.MainnetChainConfig.CancunTime {
+					root = (common.Hash{}).Hex()
+				}
+				if root != origin.ParentBeaconRoot {
+					return errors.New("OP_ORIGIN_PARENT_BEACON_ROOT_MISMATCH")
+				}
 			}
 			if header.ethBaseFeeWei == "" || header.ethBaseFeeWei != origin.BaseFeeWei {
 				return errors.New("OP_ORIGIN_L1_BASE_FEE_MISMATCH")

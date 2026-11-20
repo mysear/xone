@@ -80,7 +80,9 @@ func TestOPSpanOriginRange(t *testing.T) {
 		n, _ := canonicalIndex(h.Number)
 		ts, _ := canonicalIndex(h.Timestamp)
 		var fee struct {
-			Value string `json:"baseFeePerGas"`
+			Value      string `json:"baseFeePerGas"`
+			Mix        string `json:"mixHash"`
+			ParentRoot string `json:"parentBeaconBlockRoot"`
 		}
 		if err := json.Unmarshal(headers[i], &fee); err != nil {
 			t.Fatal(err)
@@ -89,7 +91,7 @@ func TestOPSpanOriginRange(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		origins = append(origins, OPL1Origin{Number: n, Hash: h.Hash, Timestamp: ts, BaseFeeWei: strconv.FormatUint(value, 10)})
+		origins = append(origins, OPL1Origin{Number: n, Hash: h.Hash, Timestamp: ts, PrevRandao: fee.Mix, ParentBeaconRoot: fee.ParentRoot, BaseFeeWei: strconv.FormatUint(value, 10)})
 	}
 	ctx := context.Background()
 	const head = 26453043
@@ -98,6 +100,17 @@ func TestOPSpanOriginRange(t *testing.T) {
 	if err := verifyOriginRange(ctx, head, hash, origins, read); err != nil {
 		t.Fatal(err)
 	}
+	savedOrigin := origins[1]
+	origins[1].PrevRandao = origins[1].Hash
+	if err := verifyOriginRange(ctx, head, hash, origins, read); err == nil || err.Error() != "OP_ORIGIN_PREV_RANDAO_MISMATCH" {
+		t.Fatal(err)
+	}
+	origins[1] = savedOrigin
+	origins[1].ParentBeaconRoot = origins[1].Hash
+	if err := verifyOriginRange(ctx, head, hash, origins, read); err == nil || err.Error() != "OP_ORIGIN_PARENT_BEACON_ROOT_MISMATCH" {
+		t.Fatal(err)
+	}
+	origins[1] = savedOrigin
 	saved := origins[1].BaseFeeWei
 	origins[1].BaseFeeWei = "18446744073709551616"
 	if err := verifyOriginRange(ctx, head, hash, origins, read); err == nil || err.Error() != "OP_ORIGIN_L1_BASE_FEE_MISMATCH" {

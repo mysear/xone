@@ -1,0 +1,134 @@
+{
+  "baseline": {
+    "block": {
+      "chain_key": "evm:10",
+      "number_or_slot": 159778222,
+      "hash": "0x7d87b361e67a29f2f67bf6647b87db8f8dd28f6df73aceaa5acffeb621b7aa3d",
+      "parent_hash": "0xe5ac2921ff83588be22570284ef12579b5a0a2d6c01632c31deb79af91c62a38",
+      "timestamp_ms": 1795155221000
+    },
+    "canonical_epoch": 1,
+    "journal_seq": 1,
+    "schema_version": 1,
+    "adapter_set_hash": "6654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad",
+    "online_generation": 1,
+    "scope_hash": "cdd1aa409906aca43368d7dacc00777b3e447d8c5d24dc8e90263a187b4d11ed",
+    "writer_epoch": 1,
+    "owner_service": "chain-parser-go",
+    "owner_assignment_version": 1
+  },
+  "requested_last": 159778226,
+  "commits": [
+    {
+      "reference": {
+        "block": {
+          "chain_key": "evm:10",
+          "number_or_slot": 159778223,
+          "hash": "0x60f6e6f84ed73434f79f09573a2abed6ec9d217758ba3e052b399168b211ce2e",
+          "parent_hash": "0x7d87b361e67a29f2f67bf6647b87db8f8dd28f6df73aceaa5acffeb621b7aa3d",
+          "timestamp_ms": 1795155223000
+        },
+        "canonical_epoch": 1,
+        "journal_seq": 2,
+        "schema_version": 1,
+        "adapter_set_hash": "6654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad",
+        "online_generation": 1,
+        "scope_hash": "cdd1aa409906aca43368d7dacc00777b3e447d8c5d24dc8e90263a187b4d11ed",
+        "writer_epoch": 1,
+        "owner_service": "chain-parser-go",
+        "owner_assignment_version": 1
+      },
+      "payload_hash": "313c8ee09acde9bfc32bbfa967b8d58eff97306187151d430088a262563de6cd"
+    },
+    {
+      "reference": {
+        "block": {
+          "chain_key": "evm:10",
+          "number_or_slot": 159778224,
+          "hash": "0xc193ce8bd45193c920e6869b3403cae4fd52fbc55c94f2928145f1aa8757ad45",
+          "parent_hash": "0x60f6e6f84ed73434f79f09573a2abed6ec9d217758ba3e052b399168b211ce2e",
+          "timestamp_ms": 1795155225000
+        },
+        "canonical_epoch": 1,
+        "journal_seq": 3,
+        "schema_version": 1,
+        "adapter_set_hash": "6654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad",
+        "online_generation": 1,
+        "scope_hash": "cdd1aa409906aca43368d7dacc00777b3e447d8c5d24dc8e90263a187b4d11ed",
+        "writer_epoch": 1,
+        "owner_service": "chain-parser-go",
+        "owner_assignment_version": 1
+      },
+      "payload_hash": "1b4d2afb24714d086ee8ac876aa42785458520ab172a2e3e7cc77e1e0c239550"
+    },
+    {
+      "reference": {
+        "block": {
+          "chain_key": "evm:10",
+          "number_or_slot": 159778225,
+          "hash": "0xb68db7f60408d0bab5faa84015ce842283de4c056d65e21f3a2239a3b0494631",
+          "parent_hash": "0xc193ce8bd45193c920e6869b3403cae4fd52fbc55c94f2928145f1aa8757ad45",
+          "timestamp_ms": 1795155227000
+        },
+        "canonical_epoch": 1,
+        "journal_seq": 4,
+        "schema_version": 1,
+        "adapter_set_hash": "6654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad",
+        "online_generation": 1,
+        "scope_hash": "cdd1aa409906aca43368d7dacc00777b3e447d8c5d24dc8e90263a187b4d11ed",
+        "writer_epoch": 1,
+        "owner_service": "chain-parser-go",
+        "owner_assignment_version": 1
+      },
+      "payload_hash": "73ae1b8834c8fbce80cd873664750371c0e1f35e3d8d88f6b60e5c851b5b3a83"
+    },
+    {
+      "reference": {
+        "block": {
+          "chain_key": "evm:10",
+          "number_or_slot": 159778226,
+          "hash": "0xae4805693b4516ab3858ad609996db8222ec9550d65f718a64b9aaa01f721f65",
+          "parent_hash": "0xb68db7f60408d0bab5faa84015ce842283de4c056d65e21f3a2239a3b0494631",
+          "timestamp_ms": 1795155229000
+        },
+        "canonical_epoch": 1,
+        "journal_seq": 5,
+        "schema_version": 1,
+        "adapter_set_hash": "6654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad",
+        "online_generation": 1,
+        "scope_hash": "cdd1aa409906aca43368d7dacc00777b3e447d8c5d24dc8e90263a187b4d11ed",
+        "writer_epoch": 1,
+        "owner_service": "chain-parser-go",
+        "owner_assignment_version": 1
+      },
+      "payload_hash": "6169fb1a20a8def055b6985d313f6f5db9d64143a13fc3e1329296263c1645b3"
+    }
+  ],
+  "cache_only": true,
+  "max_age_ms": 86400000,
+  "endpoint_reads": [
+    {
+      "upstream": 0,
+      "cached": 209,
+      "errors": []
+    },
+    {
+      "upstream": 0,
+      "cached": 54,
+      "errors": []
+    },
+    {
+      "upstream": 0,
+      "cached": 60,
+      "errors": []
+    },
+    {
+      "upstream": 0,
+      "cached": 79,
+      "errors": []
+    }
+  ],
+  "spans": 2,
+  "last": 159778226,
+  "count": 4
+}

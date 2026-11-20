@@ -27,6 +27,8 @@ type NitroHeaderInfo struct {
 }
 
 type ChainHeaderCommitment struct {
+	randomness          string
+	parentBeaconRoot    string
 	ethExcessBlobGas    *uint64
 	ethBaseFeeWei       string           // From the locally hash-verified Ethereum header.
 	opMessagePasserRoot string           // Derived only from the hash-verified OP header after Isthmus.
@@ -110,6 +112,12 @@ func VerifyChainHeaderJSON(ctx context.Context, chainKey string, raw json.RawMes
 	}
 	if !receiptHex(out.Block.Hash, 32) || crypto.Keccak256Hash(encoded) != common.HexToHash(out.Block.Hash) {
 		return out, errors.New("BLOCK_INTEGRITY_HEADER_HASH")
+	}
+	if chainKey == "evm:1" || chainKey == "evm:10" {
+		out.randomness = header.MixDigest.Hex()
+		if header.ParentBeaconRoot != nil {
+			out.parentBeaconRoot = header.ParentBeaconRoot.Hex()
+		}
 	}
 	if chainKey == "evm:1" && header.BaseFee != nil {
 		out.ethBaseFeeWei = header.BaseFee.String()
