@@ -87,9 +87,17 @@ func (a *Adapter) verifyOPBodyOrigin(ctx context.Context, b RawBlock, now func()
 		return nil, err
 	}
 	defer reader.cancel()
+	var originHeader json.RawMessage
 	err = verifyOriginRange(ctx, head, hash, origins, func(height uint64) (json.RawMessage, error) {
-		return reader.call("eth_getBlockByNumber", []any{fmt.Sprintf("0x%x", height), false})
+		raw, err := reader.call("eth_getBlockByNumber", []any{fmt.Sprintf("0x%x", height), false})
+		if height == origin.Number {
+			originHeader = raw
+		}
+		return raw, err
 	})
+	if err == nil && timestamp > opJovianTime {
+		err = verifyOnlinePortalDeposits(ctx, reader, origin, originHeader, *b.NativeBodyProof)
+	}
 	if err != nil {
 		session.reject()
 		return nil, err

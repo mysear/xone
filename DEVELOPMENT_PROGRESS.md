@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|普通 OP owner 核验用户存款（[阶段232](#op-owner-portal)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|owner 在 159778224 自动取得 L1 完整回执并核验用户存款，跨批次 4 条增量纯缓存复验通过|主网跨提交通道、完整执行派生和其他链的来源资格待验收|
 |OP 用户存款来源（[阶段231](#op-portal-deposits)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|由 4 个以太坊块的完整回执重建 4 笔 OP 用户存款，核对编码和位置|普通 owner 自动读取回执、完整执行派生及其他协议覆盖待验收|
 |OP 首笔存款的 L1 基础费用（[阶段230](#op-origin-base-fee)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通 owner 按签名 L1 祖先区块头核对每个引用 epoch 的基础费用|其余存款输入、L2 执行派生、真实跨提交通道及多链覆盖待验收|
 |OP 普通 owner 跨批次连续发布（[阶段229](#op-owner-window)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|跨两个 span 连续发布 4 条增量，同源离线复验逐条一致|218 块长窗口、主网跨提交通道及执行派生待验收|
@@ -5286,3 +5287,13 @@ OP 块 144644465 的存款与以太坊块 23942644 均给出 48265514 wei。修�
 以太坊块 26454406、26454411、26454425、26454436 共 1029 条回执，各重建一笔存款，分别与 OP 块 159778047、159778075、159778160、159778224 的存款匹配。仓库包含第四个样本和签名证明，覆盖回执倒序、缺失、存款错位和多余存款。普通 owner 的自动回执读取、其余升级规则与执行后状态仍待验收。
 
 [四块核验报告](integration/artifacts/local/op-origin-deposits-231/report.json) · [复验命令](integration/test/source/op-mainnet-batches/README.md)
+
+<a id="op-owner-portal"></a>
+
+## 普通 OP owner 在发布前核验用户存款（2026-11-20，阶段232，P0-1）
+
+普通读取和同高轮询现在从本次签名祖先核验中保留所选 L1 origin 头。对 Jovian 激活后的 epoch 首块，日志 bloom 可以排除 Portal 事件时，L2 块只允许属性存款。可能有事件时，通过同一个受预算和截止时间约束的 L1 reader 读取完整回执、验证回执根并核对存款序列。epoch 内后续块也会拒绝多出的存款。
+
+在 159778222 至 159778226 的窗口，L1 代理新增一次按区块哈希读取完整回执的请求。纯缓存复验得到相同的基线和四条增量。最初的工具运行只复验了旧路径，修正调用点后已用新二进制复查来源请求。Go 全包测试、OP 专项 race 和 vet 通过。
+
+[普通读取](integration/artifacts/local/op-origin-deposits-231/owner-wired/report.json) · [离线复验](integration/artifacts/local/op-origin-deposits-231/owner-wired-offline/report.json)

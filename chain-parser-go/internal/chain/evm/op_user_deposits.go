@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -93,10 +95,41 @@ func verifyPortalDeposits(ctx context.Context, l1 RawBlock, receipts []Receipt, 
 			hashes = append(hashes, body.Block.Transactions[pos])
 		}
 	}
-	for _, wire := range body.RawTransactions[1+len(hashes):] {
+	return hashes, rejectExtraDeposits(body.RawTransactions[1+len(hashes):])
+}
+
+func rejectExtraDeposits(transactions []string) error {
+	for _, wire := range transactions {
 		if len(wire) >= 4 && wire[:4] == "0x7e" {
-			return nil, errors.New("OP_PORTAL_EXTRA_DEPOSIT")
+			return errors.New("OP_PORTAL_EXTRA_DEPOSIT")
 		}
 	}
-	return hashes, nil
+	return nil
+}
+
+// The header bytes come from the signed ancestry walk in this read. Its bloom
+// can exclude the event. A positive bloom requires checking all receipts.
+func verifyOnlinePortalDeposits(ctx context.Context, reader *nativeProofReader, origin OPL1Origin, raw json.RawMessage, body ChainBlockBodyProof) error {
+	if origin.Sequence != 0 {
+		return rejectExtraDeposits(body.RawTransactions[1:])
+	}
+	var header struct {
+		RawBlock
+		LogsBloom types.Bloom `json:"logsBloom"`
+	}
+	if err := json.Unmarshal(raw, &header); err != nil {
+		return err
+	}
+	if header.Hash != origin.Hash {
+		return errors.New("OP_PORTAL_ORIGIN_HEADER")
+	}
+	if !types.BloomLookup(header.LogsBloom, opPortal) || !types.BloomLookup(header.LogsBloom, opDepositEvent) {
+		return rejectExtraDeposits(body.RawTransactions[1:])
+	}
+	receipts, err := reader.receipts(header.RawBlock, "bulk-auto")
+	if err != nil {
+		return err
+	}
+	_, err = verifyPortalDeposits(ctx, header.RawBlock, receipts, body)
+	return err
 }
