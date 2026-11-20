@@ -142,15 +142,8 @@ func verifyOPSpan(ctx context.Context, batch []byte, blocks []json.RawMessage) (
 			if b.ParentHash != report.LastHash || h != report.LastBlock+1 {
 				return nil, errors.New("OP_SPAN_BLOCK_LINK")
 			}
-			if origin.Number == prev.Number {
-				if origin.BaseFeeWei != prev.BaseFeeWei {
-					return nil, errors.New("OP_SPAN_ORIGIN_BASE_FEE")
-				}
-				if origin.Hash != prev.Hash || origin.Timestamp != prev.Timestamp || origin.Sequence == 0 || origin.Sequence-1 != prev.Sequence {
-					return nil, errors.New("OP_SPAN_ORIGIN_SEQUENCE")
-				}
-			} else if origin.Number <= prev.Number || origin.Number-prev.Number != 1 || origin.Sequence != 0 || origin.Timestamp <= prev.Timestamp || origin.Hash == prev.Hash {
-				return nil, errors.New("OP_SPAN_ORIGIN_TRANSITION")
+			if err := checkOPOriginTransition(prev, origin); err != nil {
+				return nil, err
 			}
 		}
 		if i == 0 || origin.Number != prev.Number {
@@ -199,4 +192,18 @@ func verifyOPSpan(ctx context.Context, batch []byte, blocks []json.RawMessage) (
 	}
 	report.UserTransactions = columns.count
 	return &report, ctx.Err()
+}
+
+func checkOPOriginTransition(prev, origin OPL1Origin) error {
+	if origin.Number == prev.Number {
+		if origin.BaseFeeWei != prev.BaseFeeWei {
+			return errors.New("OP_SPAN_ORIGIN_BASE_FEE")
+		}
+		if origin.Hash != prev.Hash || origin.Timestamp != prev.Timestamp || origin.Sequence == 0 || origin.Sequence-1 != prev.Sequence {
+			return errors.New("OP_SPAN_ORIGIN_SEQUENCE")
+		}
+	} else if origin.Number <= prev.Number || origin.Number-prev.Number != 1 || origin.Sequence != 0 || origin.Timestamp <= prev.Timestamp || origin.Hash == prev.Hash {
+		return errors.New("OP_SPAN_ORIGIN_TRANSITION")
+	}
+	return nil
 }

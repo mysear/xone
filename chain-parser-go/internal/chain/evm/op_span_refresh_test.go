@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func TestOPSpanCaptureRange(t *testing.T) {
@@ -41,7 +43,7 @@ func TestOPSpanRefreshPreservesPreviousObservation(t *testing.T) {
 		t.Fatal(err)
 	}
 	previous := &OPSpanReport{FirstBlock: 11, LastBlock: 11, blockHashes: []string{"one"}}
-	if err = installOPSpan(path+".beacon", path, raw, previous, good, false); err != nil {
+	if err = installOPSpan(context.Background(), path+".beacon", path, raw, previous, good, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
@@ -49,7 +51,7 @@ func TestOPSpanRefreshPreservesPreviousObservation(t *testing.T) {
 		gate   func() error
 		reason string
 	}{{&OPSpanReport{FirstBlock: 10, LastBlock: 10}, good, "OP_SPAN_REFRESH_CONFLICT"}, {&OPSpanReport{FirstBlock: 11, LastBlock: 12, blockHashes: []string{"other", "last"}}, good, "OP_SPAN_REFRESH_CONFLICT"}, {previous, func() error { return errors.New("OP_SPAN_REFRESH_HEAD_CHANGED") }, "OP_SPAN_REFRESH_HEAD_CHANGED"}, {previous, func() error { return context.Canceled }, context.Canceled.Error()}} {
-		if err = installOPSpan(path+".beacon", path, []byte("changed"), tc.tip, tc.gate, false); err == nil || err.Error() != tc.reason {
+		if err = installOPSpan(context.Background(), path+".beacon", path, []byte("changed"), tc.tip, tc.gate, false); err == nil || err.Error() != tc.reason {
 			t.Fatal(err)
 		}
 		content, e := os.ReadFile(path)
@@ -76,7 +78,7 @@ func TestOPSpanPublicationPinsBeaconThroughFinalCheck(t *testing.T) {
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	err = installOPSpan(proof, path, []byte("changed"), tip, func() error { t.Fatal("entered gate during beacon refresh"); return nil }, false)
+	err = installOPSpan(context.Background(), proof, path, []byte("changed"), tip, func() error { t.Fatal("entered gate during beacon refresh"); return nil }, false)
 	if err == nil || err.Error() != "OP_SPAN_BEACON_REFRESH_BUSY" {
 		t.Fatal(err)
 	}
@@ -86,7 +88,7 @@ func TestOPSpanPublicationPinsBeaconThroughFinalCheck(t *testing.T) {
 	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_UN); err != nil {
 		t.Fatal(err)
 	}
-	err = installOPSpan(proof, path, raw, tip, func() error {
+	err = installOPSpan(context.Background(), proof, path, raw, tip, func() error {
 		if err := writer(); !errors.Is(err, syscall.EWOULDBLOCK) {
 			t.Fatalf("beacon writer at final check: %v", err)
 		}
@@ -108,15 +110,44 @@ func TestOPForwardPublisherRequiresAdjacentBlockAndParent(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, tip := range []OPSpanReport{{FirstBlock: 12, LastBlock: 12, firstParent: "parent"}, {FirstBlock: 11, LastBlock: 11, firstParent: "other"}} {
-		if err := installOPSpan(proof, path, []byte("new"), &tip, nil, true); err == nil || err.Error() != "OP_SPAN_REFRESH_DISCONTINUITY" {
+		if err := installOPSpan(context.Background(), proof, path, []byte("new"), &tip, nil, true); err == nil || err.Error() != "OP_SPAN_REFRESH_DISCONTINUITY" {
 			t.Fatal(err)
 		}
 		if got, err := os.ReadFile(path); err != nil || !bytes.Equal(got, raw) {
 			t.Fatal(err)
 		}
 	}
-	tip := &OPSpanReport{FirstBlock: 11, LastBlock: 11, firstParent: "parent", blockHashes: []string{"next"}}
-	if err := installOPSpan(proof, path, []byte(`{"blocks":[{"number":"0xb","hash":"next"}]}`), tip, func() error { return nil }, true); err != nil {
+	// Check the origin sequence at the boundary using a committed L2 body.
+	var input OPOriginEvidence
+	readOriginFixture(t, "op-mainnet-batches/portal-origin-26454436.json.gz", &input)
+	raw, err := json.Marshal(OPChannelObservation{Blocks: []json.RawMessage{input.Block}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	body, err := VerifyChainBlockJSON(context.Background(), "evm:10", input.Block, 32<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts, err := canonicalIndex(body.Block.Timestamp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, origin, err := parseOPOrigin(common.FromHex(body.RawTransactions[0]), ts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tip := &OPSpanReport{FirstBlock: 159778225, LastBlock: 159778225, firstParent: body.Block.Hash, origins: []OPL1Origin{origin}}
+	if err := installOPSpan(context.Background(), proof, path, []byte("wrong sequence"), tip, nil, true); err == nil || err.Error() != "OP_SPAN_ORIGIN_SEQUENCE" {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(path); err != nil || !bytes.Equal(got, raw) {
+		t.Fatal("previous span changed", err)
+	}
+	tip.origins[0].Sequence++
+	if err := installOPSpan(context.Background(), proof, path, []byte("accepted"), tip, func() error { return nil }, true); err != nil {
 		t.Fatal(err)
 	}
 }

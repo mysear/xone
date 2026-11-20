@@ -1,0 +1,42 @@
+[
+  {
+    "first": 159778006,
+    "last": 159778103,
+    "first_origin": 26454399,
+    "first_sequence": 4,
+    "last_origin": 26454415,
+    "last_sequence": 4
+  },
+  {
+    "first": 159778104,
+    "last": 159778170,
+    "first_origin": 26454415,
+    "first_sequence": 5,
+    "last_origin": 26454427,
+    "last_sequence": 0
+  },
+  {
+    "first": 159778171,
+    "last": 159778199,
+    "first_origin": 26454427,
+    "first_sequence": 1,
+    "last_origin": 26454431,
+    "last_sequence": 3
+  },
+  {
+    "first": 159778200,
+    "last": 159778223,
+    "first_origin": 26454432,
+    "first_sequence": 0,
+    "last_origin": 26454435,
+    "last_sequence": 5
+  },
+  {
+    "first": 159778224,
+    "last": 159778249,
+    "first_origin": 26454436,
+    "first_sequence": 0,
+    "last_origin": 26454440,
+    "last_sequence": 0
+  }
+]

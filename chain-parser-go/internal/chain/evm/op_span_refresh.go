@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/provenance"
 	"xone/chain-parser-go/internal/rpc"
@@ -123,7 +125,7 @@ func refreshOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions [
 			}
 			return nil
 		}
-		if err = installOPSpan(proofFile, opObservationPath(proofFile, policy.BatchProofFile), data, span, gate, cursor != nil); err != nil {
+		if err = installOPSpan(ctx, proofFile, opObservationPath(proofFile, policy.BatchProofFile), data, span, gate, cursor != nil); err != nil {
 			return nil, err
 		}
 		return report, nil
@@ -131,7 +133,7 @@ func refreshOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions [
 	return nil, errors.New("CONFIG_OP_SPAN_REQUIRED")
 }
 
-func installOPSpan(proofFile, path string, data []byte, next *OPSpanReport, gate func() error, contiguous bool) error {
+func installOPSpan(ctx context.Context, proofFile, path string, data []byte, next *OPSpanReport, gate func() error, contiguous bool) error {
 	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return err
@@ -152,6 +154,27 @@ func installOPSpan(proofFile, path string, data []byte, next *OPSpanReport, gate
 		}
 		if contiguous && (next.FirstBlock == 0 || h != next.FirstBlock-1 || watermark.Hash != next.firstParent) {
 			return errors.New("OP_SPAN_REFRESH_DISCONTINUITY")
+		}
+		if contiguous {
+			// The old tip's body must match the parent hash committed by the new span.
+			body, err := VerifyChainBlockJSON(ctx, "evm:10", old.Blocks[len(old.Blocks)-1], 32<<20)
+			if err != nil {
+				return err
+			}
+			if len(body.RawTransactions) == 0 || len(next.origins) == 0 {
+				return errors.New("OP_SPAN_ATTRIBUTES")
+			}
+			timestamp, err := canonicalIndex(body.Block.Timestamp)
+			if err != nil {
+				return err
+			}
+			_, previous, err := parseOPOrigin(common.FromHex(body.RawTransactions[0]), timestamp)
+			if err != nil {
+				return err
+			}
+			if err = checkOPOriginTransition(previous, next.origins[0]); err != nil {
+				return err
+			}
 		}
 		if h > next.LastBlock || (h >= next.FirstBlock && watermark.Hash != next.blockHashes[h-next.FirstBlock]) {
 			return errors.New("OP_SPAN_REFRESH_CONFLICT")
