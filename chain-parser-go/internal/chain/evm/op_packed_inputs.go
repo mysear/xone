@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -132,39 +131,12 @@ func projectOPPackedFeeInputs(ctx context.Context, coverage VerifiedReceiptCover
 			return nil, errors.New("OP_PACKED_TRANSACTION_ENCODING")
 		}
 	}
-	deposit, err := decodeOPDeposit(common.FromHex(raws[0]))
-	if err != nil || deposit.From != common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001") || common.BytesToAddress(deposit.To) != common.HexToAddress("0x4200000000000000000000000000000000000015") || deposit.Mint.Sign() != 0 || deposit.Value.Sign() != 0 || deposit.System {
-		return nil, errors.New("OP_PACKED_ATTRIBUTES_DEPOSIT_IDENTITY")
+	deposit, _, err := parseOPOrigin(common.FromHex(raws[0]), timestamp)
+	if err != nil {
+		return nil, err
 	}
 	format, dataRule, operatorRule, upgrade := opPackedRules(timestamp)
 	data := deposit.Data
-	expected := map[string]struct {
-		selector string
-		length   int
-	}{"Bedrock": {"015d8eb9", 260}, "Ecotone": {"440a5e20", 164}, "Isthmus": {"098999be", 176}, "Jovian": {"3db6be2b", 178}}[format]
-	if len(data) != expected.length || hex.EncodeToString(data[:4]) != expected.selector {
-		return nil, errors.New("OP_PACKED_ATTRIBUTES_ACTIVATION_ABI")
-	}
-	var sequence, l1Time uint64
-	l1Hash := common.BytesToHash(data[100:132])
-	if format == "Bedrock" {
-		if _, err = opAttributeUint64(data[4:36]); err != nil {
-			return nil, err
-		}
-		l1Time, err = opAttributeUint64(data[36:68])
-		if err != nil {
-			return nil, err
-		}
-		sequence, err = opAttributeUint64(data[132:164])
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		sequence, l1Time = binary.BigEndian.Uint64(data[12:20]), binary.BigEndian.Uint64(data[20:28])
-	}
-	if l1Time > timestamp || deposit.SourceHash != opL1InfoSourceHash(l1Hash, sequence) {
-		return nil, errors.New("OP_PACKED_ATTRIBUTES_SOURCE_IDENTITY")
-	}
 	var compact bytes.Buffer
 	if err = json.Compact(&compact, block.Header); err != nil {
 		return nil, err

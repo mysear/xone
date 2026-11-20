@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 块引用的 L1 来源（[阶段212](#op-signed-l1-origin)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从 OP 块 144644465 的交易根核验首笔存款，沿签名确认的以太坊执行链核对 L1 来源|L2 批次派生、重组撤权与恢复待验收|
 |OP Mainnet 提款根（[阶段211](#op-message-passer)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|读取合约状态前，从执行头状态根证明消息传递合约的存储根，与 Isthmus 提款根核对|块 159771104 的在线池基线与本地归档重算一致，L1 派生与最终性待验收|
 |OP Mainnet USDC 代理余额（[阶段210](#op-usdc-delegate)，P0-1）|§7.1、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|普通 Go owner 发布块 159770518 的 USDC/WETH 基线，离线重算 USDC 余额|下一步从执行状态根验证 Isthmus 消息传递合约的存储根，覆盖在线读取和归档重放|
 |普通 owner 在持久化存储上切换信标根（阶段206，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|旧配置发布基线后停机，新配置从同一存储启动并发布同块新基线|主网块 26451448 的池状态一致，代际、写入者版本及日志序号均从 1 递增至 2|
@@ -5047,3 +5048,13 @@ P0-1 下一项是从执行头状态根核验 `L2ToL1MessagePasser` 账户证明�
 P0-1 下一项是把 OP 的 L2 来源与可信 L1 最终化证据绑定，再验证重组后的撤权与恢复。原 26 个工作包完整验收仍为 0。GitLab 交付需要项目克隆地址。
 
 [主网基线](integration/artifacts/local/optimism-v2-209/message-passer/baseline.json) · [归档重放报告](integration/artifacts/local/op-passer-211/replay.json) · [固定输入说明](integration/test/source/op-mainnet-withdrawals/README.md)
+
+<a id="op-signed-l1-origin"></a>
+
+## 从 OP 块追溯签名确认的以太坊来源（2026-11-20，阶段212，P0-1）
+
+`verify-op-origin` 从调用方指定的主网信标检查点验证同步委员会交接与最终性签名，按父哈希向前校验最多 128 个区块。它从 OP 区块重新编码交易并验证交易根，检查首笔 L1 信息存款的地址、分叉格式与来源哈希，再将其中的高度、哈希、时间戳与对应的以太坊头部比对。在线费用读取与该命令共用打包属性解码。
+
+固定输入中 OP 块 144644465 引用了以太坊块 23942644，序号为 0。签名确认的执行块 23942645 的父哈希与该来源一致。离线 CLI 可重算。缺少来源头、重复头和顺序调换均拒绝。Go 全包测试、vet 及 OP 来源和费用解码专项 race 回归通过。该项覆盖历史 L1 来源资格，普通 owner 的来源策略、从 L1 批次重建 L2 以及重组撤权和恢复仍在 P0-1 范围内。
+
+[固定输入与重算命令](integration/test/source/op-mainnet-withdrawals/README.md) · [CLI 输出](integration/artifacts/local/op-l1-origin-212/result.json) · [专项回归](chain-parser-go/internal/chain/evm/op_l1_origin_test.go)

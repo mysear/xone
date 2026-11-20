@@ -101,3 +101,4 @@ tools/reference/pump-amm/upstream/
 !test/source/op-mainnet-withdrawals/block-159769967.json.gz
 !test/source/op-mainnet-withdrawals/usdc-159770518.json.gz
 !test/source/op-mainnet-withdrawals/passer-159769967.json.gz
+!test/source/op-mainnet-withdrawals/origin-144644465.json.gz

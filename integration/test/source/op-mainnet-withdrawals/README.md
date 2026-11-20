@@ -15,3 +15,16 @@ From `chain-parser-go`, run `go test -count=1 ./internal/chain/evm -run 'Test(OP
 ## Isthmus message passer at block 159769967
 
 `passer-159769967.json.gz` retains the `eth_getProof` result from Tenderly for `0x4200000000000000000000000000000000000016` at the same block as `block-159769967.json.gz`. Run `go test -race -count=1 ./internal/chain/evm -run TestOPMessagePasserArchiveAccountRead` from `chain-parser-go`. The ordinary contract-state reader verifies the message passer before it returns the Pair account. The regression also substitutes another proven account and checks rejection of a mismatching storage root.
+
+## OP block 144644465 and its Ethereum origin
+
+`origin-144644465.json.gz` contains the OP Mainnet execution block returned by `optimism-rpc.publicnode.com` and the Ethereum Mainnet execution headers for heights 23942645 and 23942644 returned by `ethereum-rpc.publicnode.com`. The first deposit identifies origin 23942644 at sequence zero. The existing Electra/Fulu beacon fixture authenticates its immediate successor.
+
+From the repository root, run the historical check with the fixture checkpoint below. The report covers the Ethereum origin referenced by this OP block. L2 derivation requires separate batch and execution evidence.
+
+```sh
+scratch=$(mktemp -d)
+gzip -dc integration/test/source/op-mainnet-withdrawals/origin-144644465.json.gz > "$scratch/origin.json"
+gzip -dc integration/test/source/beacon-fork-handover/electra-fulu.json.gz > "$scratch/beacon.json"
+(cd chain-parser-go && go run ./cmd/verify-op-origin -beacon-root 0xd203fe26634fb6d972b70fdc29d9684963183549cab12cae1ce60aea9aa2533c -beacon-proof "$scratch/beacon.json" -evidence "$scratch/origin.json")
+```
