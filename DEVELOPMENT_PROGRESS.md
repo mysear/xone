@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP Mainnet 批次数据（[阶段214](#op-batch-blob)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|在签名确认的以太坊块 26453043 中核验收件交易与五份 blob 的完整数据|下一项从提交数据重组通道并解析 L2 批次|
 |普通 OP owner 核验 L1 来源（[阶段213](#op-owner-l1-origin)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|OP 块 159771706 发布基线，读取签名最终化头至其来源的 11 个 L1 头部|下一项核验 L1 批次包含证据和 L2 派生|
 |OP 块引用的 L1 来源（[阶段212](#op-signed-l1-origin)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从 OP 块 144644465 的交易根核验首笔存款，沿签名确认的以太坊执行链核对 L1 来源|L2 批次派生、重组撤权与恢复待验收|
 |OP Mainnet 提款根（[阶段211](#op-message-passer)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|读取合约状态前，从执行头状态根证明消息传递合约的存储根，与 Isthmus 提款根核对|块 159771104 的在线池基线与本地归档重算一致，L1 派生与最终性待验收|
@@ -5069,3 +5070,13 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 普通 owner 发布的 OP 块 159771706 引用了以太坊块 26453350。511 名签署者确认了以太坊执行块 26453360。本次归档用三个本地端点重放，共读取 84 次，重建的区块和 USDC/WETH 池状态与在线基线一致。用重复头替换中间父块后，owner 启动返回 `OP_ORIGIN_ANCESTRY_LINK`。Go 全包测试、专项 race 回归与 vet 通过。阶段 208 的已留存主网窗口含 8 笔发往 OP 批次收件地址的 blob 交易，可用于下一轮核验。P0-1 仍需证明 L1 中对应批次的包含和数据可用性、重建 L2，以及验证重组后的撤权与恢复。
 
 [主网基线](integration/artifacts/local/op-signed-owner-213/baseline.json) · [重放报告](integration/artifacts/local/op-signed-owner-213/replay.json) · [拒绝记录](integration/artifacts/local/op-signed-owner-213/bad.log) · [时效与父链接回归](chain-parser-go/internal/chain/evm/op_l1_online_test.go)
+
+<a id="op-batch-blob"></a>
+
+## 从已最终化的以太坊块核验 OP 批次提交（2026-11-20，阶段214，P0-1）
+
+`verify-op-batch` 使用调用方指定的主网检查点验证最终性签名，再从以太坊区块重算交易根。它恢复指定交易的发送者，核对预期地址、链 ID 和 OP Mainnet 收件地址，按全块交易顺序定位 blob。从实际 blob 字节计算 KZG 承诺并逐一比对交易中签名的版本哈希。
+
+主网块 26453043 含 309 笔交易。第 193 号交易（从 0 起算）引用了信标时隙 15692864 的第 3 至 7 号 blob。五份完整数据均已复核。最初测试的 sidecar 响应中，五项 `kzg_proof` 都使用无穷远点编码，逐项验证在第一项即拒绝。实际成功路径使用同一时隙的 blobs 接口，直接从原始数据重算承诺。错误发送者、缺少末尾 blob、错位起点及改单字节均有拒绝回归。Go 全包测试、专项 race 回归与 vet 通过。发送者在该高度的动态授权、通道解码、重建 L2 块和 owner 撤权恢复仍待验收。
+
+[固定主网输入与 CLI 命令](integration/test/source/op-mainnet-batches/README.md) · [五个版本哈希](integration/artifacts/local/op-batch-214/result.json) · [专项回归](chain-parser-go/internal/chain/evm/op_batch_blobs_test.go)
