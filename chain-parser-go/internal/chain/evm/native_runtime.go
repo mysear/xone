@@ -406,6 +406,13 @@ func (batch *accountProofBatch) read(address string, logicalKeys []string) (out 
 			return out, err
 		}
 		coverageCost = coverage.ProofBytesUsed
+		if coverage.opMessagePasserRoot != "" {
+			used, err := batch.verifyOPMessagePasserRoot(coverage.opMessagePasserRoot)
+			if err != nil {
+				return out, err
+			}
+			coverageCost += used
+		}
 	}
 	limits, err = s.available()
 	if err != nil {

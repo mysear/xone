@@ -100,3 +100,4 @@ tools/reference/pump-amm/upstream/
 # Pinned OP Mainnet block used to regress the withdrawal and receipt checks.
 !test/source/op-mainnet-withdrawals/block-159769967.json.gz
 !test/source/op-mainnet-withdrawals/usdc-159770518.json.gz
+!test/source/op-mainnet-withdrawals/passer-159769967.json.gz

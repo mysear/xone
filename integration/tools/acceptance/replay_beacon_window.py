@@ -18,9 +18,10 @@ FILE_LIMIT = LIMITS['max_record_bytes'] * 2 + (256 << 10)
 
 class ArchiveRPC(RecordedRPC):
     """Index successful reads by provider, method and params, retaining bodies on disk."""
-    def __init__(self, source):
+    def __init__(self, source, expected_chain='evm:1'):
         super().__init__([])
         self.source = source
+        self.expected_chain = expected_chain
         self.index = {}
         self.errors = 0
         self.served = 0
@@ -45,7 +46,7 @@ class ArchiveRPC(RecordedRPC):
         key = (method, canonical(params))
         require(key in self.index, 'UNRECORDED_RPC_REQUEST')
         path, _ = self.index[key]
-        owner, data, identity = sealed_payload(path, FILE_LIMIT)
+        owner, data, identity = sealed_payload(path, FILE_LIMIT, self.expected_chain)
         require(owner['ProviderID'] == self.source, 'REPLAY_UNKNOWN_PROVIDER')
         recorded, arguments, body = rpc_observation(owner, data, identity, REPLAY_METHODS)
         require((recorded, canonical(arguments)) == key, 'REPLAY_REQUEST_CHANGED')
@@ -54,14 +55,14 @@ class ArchiveRPC(RecordedRPC):
         return body
 
 
-def read_window(directory, endpoints):
-    sources = {provider_id(url): ArchiveRPC(provider_id(url)) for url in endpoints}
+def read_window(directory, endpoints, expected_chain='evm:1'):
+    sources = {provider_id(url): ArchiveRPC(provider_id(url), expected_chain) for url in endpoints}
     staged = {}
     total = 0
     for count, path in enumerate(directory.glob('*.raw'), start=1):
         total += path.lstat().st_size
         require(count <= LIMITS['max_records'] and total <= LIMITS['max_bytes'], 'REPLAY_INPUT_BUDGET')
-        owner, data, identity = sealed_payload(path, FILE_LIMIT)
+        owner, data, identity = sealed_payload(path, FILE_LIMIT, expected_chain)
         source = owner['ProviderID']
         if source == 'derived-state-from-recorded-rpc':
             block = json.loads(data, object_pairs_hook=pairs)['block']

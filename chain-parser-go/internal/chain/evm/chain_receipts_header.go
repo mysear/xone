@@ -27,14 +27,15 @@ type NitroHeaderInfo struct {
 }
 
 type ChainHeaderCommitment struct {
-	Nitro            *NitroHeaderInfo `json:"nitro,omitempty"`
-	Block            RawBlock         `json:"block"`
-	TransactionsRoot string           `json:"transactions_root"`
-	StateRoot        string           `json:"state_root"`
-	ReceiptsRoot     string           `json:"receipts_root"`
-	LogsBloom        string           `json:"logs_bloom"`
-	SettledHeight    *uint64          `json:"settled_height,omitempty"`
-	HeaderEncoding   string           `json:"header_encoding"`
+	opMessagePasserRoot string           // Derived only from the hash-verified OP header after Isthmus.
+	Nitro               *NitroHeaderInfo `json:"nitro,omitempty"`
+	Block               RawBlock         `json:"block"`
+	TransactionsRoot    string           `json:"transactions_root"`
+	StateRoot           string           `json:"state_root"`
+	ReceiptsRoot        string           `json:"receipts_root"`
+	LogsBloom           string           `json:"logs_bloom"`
+	SettledHeight       *uint64          `json:"settled_height,omitempty"`
+	HeaderEncoding      string           `json:"header_encoding"`
 }
 
 var avalancheGraniteTime = uint64(time.Date(2025, 11, 19, 16, 0, 0, 0, time.UTC).Unix())
@@ -111,6 +112,9 @@ func VerifyChainHeaderJSON(ctx context.Context, chainKey string, raw json.RawMes
 	if chainKey == "evm:10" {
 		if err := verifyOPMainnetWithdrawalFields(&header, fields["withdrawals"]); err != nil {
 			return out, err
+		}
+		if header.Time >= opIsthmusTime {
+			out.opMessagePasserRoot = header.WithdrawalsHash.Hex()
 		}
 	}
 	if err := ctx.Err(); err != nil {

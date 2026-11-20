@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP Mainnet 提款根（[阶段211](#op-message-passer)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|读取合约状态前，从执行头状态根证明消息传递合约的存储根，与 Isthmus 提款根核对|块 159771104 的在线池基线与本地归档重算一致，L1 派生与最终性待验收|
 |OP Mainnet USDC 代理余额（[阶段210](#op-usdc-delegate)，P0-1）|§7.1、§9，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|普通 Go owner 发布块 159770518 的 USDC/WETH 基线，离线重算 USDC 余额|下一步从执行状态根验证 Isthmus 消息传递合约的存储根，覆盖在线读取和归档重放|
 |普通 owner 在持久化存储上切换信标根（阶段206，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|旧配置发布基线后停机，新配置从同一存储启动并发布同块新基线|主网块 26451448 的池状态一致，代际、写入者版本及日志序号均从 1 递增至 2|
 |主网信标检查点轮换（阶段205，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通 CLI 从旧配置验证后继根，为新配置原子发布证明|主网块 26450712 的新旧最终化结果一致，独立初始根和生产切换待验收|
@@ -5034,3 +5035,15 @@ Ethereum 主网块 26452499 的归档包含 dRPC 和 PublicNode 的区块体及�
 P0-1 下一项是从执行头状态根核验 `L2ToL1MessagePasser` 账户证明，并在普通读取与归档重放中比对 Isthmus `withdrawalsRoot`。OP 的 L1 派生与最终性、重组撤权和恢复仍待验收。GitLab 推送等待项目克隆地址，当前 `origin` 指向 GitHub。
 
 [固定输入与复验命令](integration/test/source/op-mainnet-withdrawals/README.md) · [普通 owner 基线](integration/artifacts/local/optimism-v2-209/delegate/baseline.json) · [Go 验证日志](integration/artifacts/local/op-usdc-210/)
+
+<a id="op-message-passer"></a>
+
+## OP Mainnet 普通合约状态读取验证 Isthmus 提款根（2026-11-20，阶段211，P0-1）
+
+每批普通合约状态读取从重验的执行头取得 Isthmus `withdrawalsRoot`，通过已核验身份的证明节点，在同块 `stateRoot` 下验证 `L2ToL1MessagePasser` 的账户 MPT。节点返回的账户必须存在，证明所得存储根必须与头部值相等。验证复用当前批次的超时、块哈希选择器和字节预算。读取纯回执时只核验头部字段。
+
+离线固定块 159769967 通过了普通账户读取。替换消息传递合约的账户证明会终止读取会话，错误的头部存储根也被拒绝。在线普通 owner 发布块 159771104 的 USDC/WETH 基线。随后用同一二进制和新的状态目录重放归档，两处本地 RPC 分别服务 45 和 26 次请求，重算的区块及完整池状态均与基线相同。Go 全包测试、vet、专项 race 和两项既有 Python 重放回归通过。
+
+P0-1 下一项是把 OP 的 L2 来源与可信 L1 最终化证据绑定，再验证重组后的撤权与恢复。原 26 个工作包完整验收仍为 0。GitLab 交付需要项目克隆地址。
+
+[主网基线](integration/artifacts/local/optimism-v2-209/message-passer/baseline.json) · [归档重放报告](integration/artifacts/local/op-passer-211/replay.json) · [固定输入说明](integration/test/source/op-mainnet-withdrawals/README.md)

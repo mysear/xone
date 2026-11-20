@@ -11,3 +11,7 @@ Run `go test ./internal/chain/evm -run TestOPMainnet` from `chain-parser-go`. Th
 `usdc-159770518.json.gz` contains the execution header, five account/storage proof responses for the USDC proxy and its implementation, and both runtime bytecodes from the owner run at `0x537edb4c73a257687c2ebde3f740eef497dc34484c5bbdf33362cec0a73a3f17`. The proof endpoint was Tenderly. The pair `0x4c43646304492a925e335f2b6d840c1489f17815` held 250054139 USDC base units at this block.
 
 From `chain-parser-go`, run `go test -count=1 ./internal/chain/evm -run 'Test(OPUSDCDelegatedBalance159770518|CommittedViewRequiresSuccessfulSingleDelegate)'`. The fixed-input regression verifies accounts against the header state root, checks both code hashes, and recalculates the balance. Removing each proven proxy slot or changing the delegate target exercises the rejection paths. The companion unit test also covers a proxy that catches a reverted child call.
+
+## Isthmus message passer at block 159769967
+
+`passer-159769967.json.gz` retains the `eth_getProof` result from Tenderly for `0x4200000000000000000000000000000000000016` at the same block as `block-159769967.json.gz`. Run `go test -race -count=1 ./internal/chain/evm -run TestOPMessagePasserArchiveAccountRead` from `chain-parser-go`. The ordinary contract-state reader verifies the message passer before it returns the Pair account. The regression also substitutes another proven account and checks rejection of a mismatching storage root.

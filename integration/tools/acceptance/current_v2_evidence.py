@@ -40,7 +40,7 @@ def pairs(items):
         require(key not in value,'DUPLICATE_JSON_KEY');value[key]=item
     return value
 
-def sealed_payload(path, file_budget):
+def sealed_payload(path, file_budget, expected_chain='evm:1'):
     path=Path(path);require(not path.is_symlink() and path.is_file(),'REGULAR_CAPTURE_REQUIRED')
     require(path.stat().st_size <= file_budget, 'CAPTURE_FILE_BUDGET')
     with path.open('rb') as stream:
@@ -54,7 +54,7 @@ def sealed_payload(path, file_budget):
     require(sha(text[start:end].encode())==value['Digest'],'CAPTURE_ENVELOPE_HASH')
     payload=value['Payload'];require(set(payload)=={'Ref','Data','CapturedAt'},'CAPTURE_PAYLOAD_FIELDS')
     ref=payload['Ref'];owner=ref['Owner'];require(set(ref)=={'ID','Digest','Owner','Bytes'} and set(owner)=={'Chain','Height','Hash','ProviderID'},'CAPTURE_OWNER_FIELDS')
-    require(owner['Chain'] == 'evm:1', 'CAPTURE_OWNER')
+    require(owner['Chain'] == expected_chain, 'CAPTURE_OWNER')
     data=base64.b64decode(payload['Data'],validate=True)
     require(len(data)==ref['Bytes'] and sha(data)==ref['Digest'],'CAPTURE_DATA_HASH')
     owner_bytes=json.dumps({k:owner[k] for k in ['Chain','Height','Hash','ProviderID']},separators=(',',':')).encode()

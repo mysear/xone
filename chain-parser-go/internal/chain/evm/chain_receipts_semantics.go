@@ -197,5 +197,6 @@ func attachNativeSemantics(out *VerifiedReceiptCoverage, header ChainHeaderCommi
 	out.NativeSemanticsID = sem.ID
 	out.ActivationID = sem.ActivationID
 	out.NativeSemantics = &sem
+	out.opMessagePasserRoot = header.opMessagePasserRoot
 	return nil
 }
