@@ -3,6 +3,7 @@ module xone/chain-parser-go
 go 1.26.0
 
 require (
+	github.com/andybalholm/brotli v1.2.0
 	github.com/cockroachdb/pebble v1.1.5
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/twmb/franz-go v1.19.5

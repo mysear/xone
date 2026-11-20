@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 通道重组（[阶段215](#op-channel-frames)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从一笔已验证提交的五份 blob 得到完整通道与一个 span 批次|下一步核验批次内各块与交易|
 |OP Mainnet 批次数据（[阶段214](#op-batch-blob)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|在签名确认的以太坊块 26453043 中核验收件交易与五份 blob 的完整数据|下一项从提交数据重组通道并解析 L2 批次|
 |普通 OP owner 核验 L1 来源（[阶段213](#op-owner-l1-origin)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|OP 块 159771706 发布基线，读取签名最终化头至其来源的 11 个 L1 头部|下一项核验 L1 批次包含证据和 L2 派生|
 |OP 块引用的 L1 来源（[阶段212](#op-signed-l1-origin)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从 OP 块 144644465 的交易根核验首笔存款，沿签名确认的以太坊执行链核对 L1 来源|L2 批次派生、重组撤权与恢复待验收|
@@ -5080,3 +5081,13 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 主网块 26453043 含 309 笔交易。第 193 号交易（从 0 起算）引用了信标时隙 15692864 的第 3 至 7 号 blob。五份完整数据均已复核。最初测试的 sidecar 响应中，五项 `kzg_proof` 都使用无穷远点编码，逐项验证在第一项即拒绝。实际成功路径使用同一时隙的 blobs 接口，直接从原始数据重算承诺。错误发送者、缺少末尾 blob、错位起点及改单字节均有拒绝回归。Go 全包测试、专项 race 回归与 vet 通过。发送者在该高度的动态授权、通道解码、重建 L2 块和 owner 撤权恢复仍待验收。
 
 [固定主网输入与 CLI 命令](integration/test/source/op-mainnet-batches/README.md) · [五个版本哈希](integration/artifacts/local/op-batch-214/result.json) · [专项回归](chain-parser-go/internal/chain/evm/op_batch_blobs_test.go)
+
+<a id="op-channel-frames"></a>
+
+## OP Mainnet 五帧通道重组（2026-11-20，阶段215，P0-1）
+
+`verify-op-batch -channel` 从已通过 KZG 核验的 blob 解包版本、字段和填充，读取每个帧的通道 ID、序号、长度与结束位。该模式支持单笔提交中的完整有序通道，并对压缩和解压字节数设置上限。按 RLP 边界逐项读取批次类型。
+
+块 26453043 的五个帧构成通道 `912c873f4ac241003e7e83ea8738dc67`。614073 字节的带版本压缩数据解压后为 1202848 字节，包含一个 span 批次。独立 Brotli 命令得到相同的解压长度和 SHA-256。缺帧、乱序、重复帧、结束后追加帧、错误字段高位、截断和非零填充均已覆盖。Go 全包测试、专项 race 回归和 vet 通过。P0-1 继续核验 span 批次内的区块及签名交易、跨提交的通道与发送者授权。
+
+[固定主网输入与复验命令](integration/test/source/op-mainnet-batches/README.md) · [通道报告](integration/artifacts/local/op-channel-215/result.json)

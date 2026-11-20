@@ -20,6 +20,7 @@ func run() error {
 	file := flag.String("beacon-proof", "", "archived bootstrap, finality and committee updates JSON")
 	sender := flag.String("sender", "", "expected OP Mainnet batch sender for this L1 block")
 	input := flag.String("evidence", "", "Ethereum block, OP inbox transaction hash and block-ordered blobs JSON")
+	channel := flag.Bool("channel", false, "also verify a complete channel within this transaction")
 	flag.Parse()
 	if !common.IsHexAddress(*sender) {
 		return errors.New("OP_BATCH_SENDER")
@@ -45,7 +46,11 @@ func run() error {
 	if err = json.Unmarshal(raw, &evidence); err != nil {
 		return err
 	}
-	report, err := evm.VerifyOPBatchBlobs(context.Background(), proof, common.HexToAddress(*sender), evidence)
+	verify := evm.VerifyOPBatchBlobs
+	if *channel {
+		verify = evm.VerifyOPBatchChannel
+	}
+	report, err := verify(context.Background(), proof, common.HexToAddress(*sender), evidence)
 	if err != nil {
 		return err
 	}

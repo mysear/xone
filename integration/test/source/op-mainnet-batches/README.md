@@ -15,3 +15,5 @@ gzip -dc integration/test/source/op-mainnet-batches/beacon-26453043.json.gz > "$
   -beacon-proof "$scratch/beacon.json" -evidence "$scratch/batch.json" \
   -sender 0x6887246668a3b87f54deb3b94ba47a6f63f32985)
 ```
+
+Add `-channel` to the same command to reassemble the five ordered frames and decode the Brotli channel. The resulting 1202848 bytes have SHA-256 `d2d00254efa34182369af0b770589a2c08e63e48f8af3cb885d111144236bdf5` and contain a single RLP-wrapped span batch. The format references are Optimism's `op-service/eth/blob.go` and `op-node/rollup/derive/channel.go` at `v1.13.5`.

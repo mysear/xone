@@ -22,17 +22,26 @@ type OPBatchEvidence struct {
 }
 
 type OPBatchReport struct {
-	L1Number        uint64        `json:"l1_number"`
-	L1Hash          string        `json:"l1_hash"`
-	TxHash          string        `json:"tx_hash"`
-	Sender          string        `json:"sender"`
-	FirstBlobIndex  int           `json:"first_blob_index"`
-	VersionedHashes []common.Hash `json:"versioned_hashes"`
+	Channel         *OPChannelReport `json:"channel,omitempty"`
+	L1Number        uint64           `json:"l1_number"`
+	L1Hash          string           `json:"l1_hash"`
+	TxHash          string           `json:"tx_hash"`
+	Sender          string           `json:"sender"`
+	FirstBlobIndex  int              `json:"first_blob_index"`
+	VersionedHashes []common.Hash    `json:"versioned_hashes"`
 }
 
 // VerifyOPBatchBlobs authenticates an inbox submission in the signed L1 head.
 // The expected batch sender comes from the caller's epoch-specific policy.
 func VerifyOPBatchBlobs(ctx context.Context, finality *provenance.VerifiedExecutionFinality, expectedSender common.Address, e OPBatchEvidence) (OPBatchReport, error) {
+	return verifyOPBatch(ctx, finality, expectedSender, e, false)
+}
+
+func VerifyOPBatchChannel(ctx context.Context, finality *provenance.VerifiedExecutionFinality, expectedSender common.Address, e OPBatchEvidence) (OPBatchReport, error) {
+	return verifyOPBatch(ctx, finality, expectedSender, e, true)
+}
+
+func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFinality, expectedSender common.Address, e OPBatchEvidence, channel bool) (OPBatchReport, error) {
 	var empty OPBatchReport
 	if finality == nil || expectedSender == (common.Address{}) || !receiptHex(e.TxHash, 32) {
 		return empty, errors.New("OP_BATCH_IDENTITY")
@@ -70,7 +79,17 @@ func VerifyOPBatchBlobs(ctx context.Context, finality *provenance.VerifiedExecut
 		if err = verifyOPBatchData(ctx, first, hashes, e.Blobs); err != nil {
 			return empty, err
 		}
-		return OPBatchReport{L1Number: height, L1Hash: hash, TxHash: e.TxHash, Sender: sender.Hex(), FirstBlobIndex: first, VersionedHashes: hashes}, nil
+		var decoded *OPChannelReport
+		if channel {
+			if timestamp, err := canonicalIndex(body.Block.Timestamp); err != nil || timestamp < opFjordTime {
+				return empty, errors.New("OP_CHANNEL_FJORD_REQUIRED")
+			}
+			decoded, err = decodeOPChannel(ctx, e.Blobs[first:first+len(hashes)])
+			if err != nil {
+				return empty, err
+			}
+		}
+		return OPBatchReport{Channel: decoded, L1Number: height, L1Hash: hash, TxHash: e.TxHash, Sender: sender.Hex(), FirstBlobIndex: first, VersionedHashes: hashes}, nil
 	}
 	return empty, errors.New("OP_BATCH_TRANSACTION_MISSING")
 }
