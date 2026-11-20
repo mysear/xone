@@ -24,16 +24,41 @@ func run() error {
 	span := flag.String("span-blocks", "", "ordered OP Mainnet full block array to match to the complete span")
 	origins := flag.String("origin-headers", "", "descending Ethereum headers from the finalized submission block through the first span origin")
 	senderProof := flag.String("sender-proof", "", "authenticate the sender from the SystemConfig account and storage proofs at the submission block")
+	submissions := flag.String("submissions", "", "ordered array of channel submissions and their authority proofs")
 	flag.Parse()
 	if *origins != "" && *span == "" {
 		return errors.New("OP_SPAN_BLOCKS_REQUIRED")
 	}
-	if (*sender != "" || *senderProof == "") && !common.IsHexAddress(*sender) {
+	if *submissions != "" && (*sender != "" || *input != "" || *senderProof != "" || *origins != "") {
+		return errors.New("OP_CHANNEL_INPUT_CONFLICT")
+	}
+	if *submissions == "" && (*sender != "" || *senderProof == "") && !common.IsHexAddress(*sender) {
 		return errors.New("OP_BATCH_SENDER")
 	}
 	proof, err := provenance.ReadOnlineBeaconProof(*file, *root)
 	if err != nil {
 		return err
+	}
+	ctx := context.Background()
+	var blocks []json.RawMessage
+	if *span != "" {
+		if err = readJSON(*span, &blocks); err != nil {
+			return err
+		}
+		if len(blocks) == 0 {
+			return errors.New("OP_SPAN_BLOCKS_REQUIRED")
+		}
+	}
+	if *submissions != "" {
+		var items []evm.OPChannelSubmission
+		if err = readJSON(*submissions, &items); err != nil {
+			return err
+		}
+		report, err := evm.VerifyOPChannelSubmissions(ctx, proof, items, blocks)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(report)
 	}
 	var evidence evm.OPBatchEvidence
 	if err = readJSON(*input, &evidence); err != nil {
@@ -46,15 +71,10 @@ func run() error {
 		}
 		evidence.SenderProof = &authority
 	}
-	ctx := context.Background()
 	var report evm.OPBatchReport
 	address := common.HexToAddress(*sender)
 	switch {
 	case *span != "":
-		var blocks []json.RawMessage
-		if err = readJSON(*span, &blocks); err != nil {
-			return err
-		}
 		if *origins == "" {
 			report, err = evm.VerifyOPBatchSpan(ctx, proof, address, evidence, blocks)
 		} else {

@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 多笔提交通道（[阶段219](#op-ordered-channel-submissions)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|PARTIAL_LOCAL|逐笔核验授权、提交位置与 blob，跨提交累积有序帧|待真实跨提交样本、期间收件交易覆盖与重置核验|
 |OP 批次发送者授权（[阶段218](#op-batch-sender-authority)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从提交块的 SystemConfig 存储证明取得发送者并核验五份 blob|继续覆盖跨提交通道与 owner 派生|
 |OP 批次的 L1 来源（[阶段217](#op-span-origin-range)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|12 个以太坊头部将 21 个 OP 块引用的 4 个来源连至签名最终化的提交块|继续验证发送者授权与跨提交通道|
 |OP 批次用户交易（[阶段216](#op-span-contents)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|已从 21 个 OP 块重建并逐字节匹配 1082 笔用户交易的 span|L1 来源、发送者授权、跨提交通道和执行派生仍需验收|
@@ -5127,3 +5128,14 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 固定样本中，以太坊最终化块 26453871 的父块 26453870 包含一笔五 blob 提交。普通 CLI 从状态证明取得 `0x6887246668a3b87f54deb3b94ba47a6f63f32985` 并核验五份承诺。原样本 26453043 的 `eth_getProof` 返回错误 4444，超出节点历史证明窗口。新样本使用同一提交块高度的交易、状态证明和数据。回归覆盖策略地址不符、缺子块头、错误实现账户和被更改的证明值。Go 全包测试、专项 race 和 vet 均通过。阶段 208 主网窗口的八笔提交分别使用不同的通道 ID，每笔的帧编号均从 0 开始。跨提交通道需要另取样本。
 
 [主网固定输入与普通 CLI 复验](integration/test/source/op-mainnet-batches/README.md)
+
+
+<a id="op-ordered-channel-submissions"></a>
+
+## 多笔提交的 OP 通道核验入口（2026-11-20，阶段219，P0-1）
+
+`verify-op-batch -submissions` 在同一签名最终化头下逐笔核验提交块、授权账户及 blob 承诺，按区块高度和块内 blob 序号核对提交顺序。帧累积到同一通道，检查 Granite 的 50 块时限。单通道完整后可继续核验 span 交易。
+
+普通 CLI 从块 26453870 的提交读出五帧，通道 `c7a81691135d79ebbb32d983e3f23954` 解压后为 1395451 字节。重复提交返回 `OP_CHANNEL_SUBMISSION_ORDER`。分组回归遍历了五帧的四个拆分位置，并核验最后允许高度和超时拒绝。Go 全包测试、专项 race 和 vet 通过。真实跨提交样本、期间全部有效收件交易及通道重置仍待核验，状态为 `PARTIAL_LOCAL`。
+
+[普通入口和输入说明](integration/test/source/op-mainnet-batches/README.md)

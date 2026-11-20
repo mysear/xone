@@ -37,3 +37,18 @@ done
 ```
 
 The recovered sender matches the proved address and all five versioned blob hashes match their commitments. Supplying `-sender` as well additionally requires that address to match the proved value.
+
+### Ordered submissions for a single channel
+
+Pass an array of `{ "evidence": <batch evidence>, "authority": <SystemConfig proof> }` objects to `-submissions` with one beacon checkpoint and finality proof. Supply the objects in L1 block and transaction order. Each object's `descendants` connects its inclusion block to the same finalized head. `-span-blocks` optionally checks the resulting span. For a reproducible single-submission replay of the same entry point, run this after the previous example.
+
+```sh
+jq -n --slurpfile evidence "$scratch/batch-26453870.json" \
+  --slurpfile authority "$scratch/authority-26453870.json" \
+  '[{evidence:$evidence[0],authority:$authority[0]}]' > "$scratch/submissions.json"
+(cd chain-parser-go && go run ./cmd/verify-op-batch \
+  -beacon-root 0x48176a8eb6476fee86b5540b0764721cb93572a1d83234db95dbedcc845907c7 \
+  -beacon-proof "$scratch/beacon-26453871.json" -submissions "$scratch/submissions.json")
+```
+
+This verifies the selected submissions and ordered frames within the Granite timeout. Canonical derivation also needs coverage of intervening inbox traffic and channel resets. The retained live submission in this example contains the entire channel.

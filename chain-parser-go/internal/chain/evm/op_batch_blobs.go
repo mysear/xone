@@ -25,6 +25,7 @@ type OPBatchEvidence struct {
 }
 
 type OPBatchReport struct {
+	inclusionTime   uint64
 	SenderAuthority string           `json:"sender_authority,omitempty"`
 	Channel         *OPChannelReport `json:"channel,omitempty"`
 	L1Number        uint64           `json:"l1_number"`
@@ -153,9 +154,13 @@ func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFi
 		if err = verifyOPBatchData(ctx, first, hashes, e.Blobs); err != nil {
 			return empty, err
 		}
+		timestamp, err := canonicalIndex(body.Block.Timestamp)
+		if err != nil {
+			return empty, err
+		}
 		var decoded *OPChannelReport
 		if channel {
-			if timestamp, err := canonicalIndex(body.Block.Timestamp); err != nil || timestamp < opFjordTime {
+			if timestamp < opFjordTime {
 				return empty, errors.New("OP_CHANNEL_FJORD_REQUIRED")
 			}
 			decoded, err = decodeOPChannel(ctx, e.Blobs[first:first+len(hashes)], blocks)
@@ -163,7 +168,7 @@ func verifyOPBatch(ctx context.Context, finality *provenance.VerifiedExecutionFi
 				return empty, err
 			}
 		}
-		return OPBatchReport{SenderAuthority: authority, Channel: decoded, L1Number: height, L1Hash: hash, TxHash: e.TxHash, Sender: sender.Hex(), FirstBlobIndex: first, VersionedHashes: hashes}, nil
+		return OPBatchReport{inclusionTime: timestamp, SenderAuthority: authority, Channel: decoded, L1Number: height, L1Hash: hash, TxHash: e.TxHash, Sender: sender.Hex(), FirstBlobIndex: first, VersionedHashes: hashes}, nil
 	}
 	return empty, errors.New("OP_BATCH_TRANSACTION_MISSING")
 }

@@ -96,21 +96,31 @@ func (c *opFrames) appendPayload(payload []byte) error {
 	return nil
 }
 
-// Decode one contiguous complete channel from the transaction's verified blobs.
-func decodeOPChannel(ctx context.Context, blobs []*kzg4844.Blob, blocks []json.RawMessage) (*OPChannelReport, error) {
-	var frames opFrames
+func (frames *opFrames) appendBlobs(ctx context.Context, blobs []*kzg4844.Blob) error {
 	for _, blob := range blobs {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return err
 		}
 		data, err := unpackOPBlob(blob)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if err = frames.appendPayload(data); err != nil {
-			return nil, err
+			return err
 		}
 	}
+	return nil
+}
+
+func decodeOPChannel(ctx context.Context, blobs []*kzg4844.Blob, blocks []json.RawMessage) (*OPChannelReport, error) {
+	var frames opFrames
+	if err := frames.appendBlobs(ctx, blobs); err != nil {
+		return nil, err
+	}
+	return frames.decode(ctx, blocks)
+}
+
+func (frames *opFrames) decode(ctx context.Context, blocks []json.RawMessage) (*OPChannelReport, error) {
 	if !frames.closed || len(frames.compressed) == 0 {
 		return nil, errors.New("OP_CHANNEL_INCOMPLETE")
 	}
