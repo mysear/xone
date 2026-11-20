@@ -115,3 +115,16 @@ python3 integration/tools/acceptance/verify_op_owner_window.py \
 ```
 
 The driver maps L2 head tags to historical heights, preserves source identity and checks the owner’s HTTP journal from the initial baseline through the last commit. Compare `baseline` and `commits` in the two reports when reproducing a run. For acquisition, omit `--cache-only` to fetch missing responses from each configured endpoint. The 24-hour age budget applies only to this historical acceptance run. The owner still evaluates proof freshness against its clock.
+
+### OP Mainnet user deposits from Ethereum receipts
+
+The stage 231 fixture includes OP block 159778224, the descending Ethereum headers from finalized block 26454447 to origin 26454436, and the origin block’s complete receipts in `origin_receipts`. The verifier reconstructs each successful OptimismPortal deposit event in receipt and log order. It checks the full encoded transaction against the deposit prefix after the L1 attributes transaction. The report includes the verified transaction hashes for this first block of the Jovian epoch.
+
+```sh
+for name in beacon-26454447 portal-origin-26454436; do
+  gzip -dc "integration/test/source/op-mainnet-batches/$name.json.gz" > "$scratch/$name.json"
+done
+(cd chain-parser-go && go run ./cmd/verify-op-origin \
+  -beacon-root 0x48176a8eb6476fee86b5540b0764721cb93572a1d83234db95dbedcc845907c7 \
+  -beacon-proof "$scratch/beacon-26454447.json" -evidence "$scratch/portal-origin-26454436.json")
+```

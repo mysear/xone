@@ -66,11 +66,13 @@ func parseOPOrigin(first []byte, timestamp uint64) (opDepositWire, OPL1Origin, e
 // OPOriginEvidence carries the OP execution block and L1 headers in descending
 // height order, including both the signed execution head and the origin.
 type OPOriginEvidence struct {
-	Block   json.RawMessage   `json:"block"`
-	Headers []json.RawMessage `json:"headers"`
+	OriginReceipts json.RawMessage   `json:"origin_receipts,omitempty"`
+	Block          json.RawMessage   `json:"block"`
+	Headers        []json.RawMessage `json:"headers"`
 }
 
 type OPOriginReport struct {
+	UserDepositHashes *[]string  `json:"verified_user_deposit_hashes,omitempty"`
 	OPBlockHash       string     `json:"op_block_hash"`
 	OPBlockNumber     uint64     `json:"op_block_number"`
 	Origin            OPL1Origin `json:"l1_origin"`
@@ -91,7 +93,7 @@ func VerifyOPOrigin(ctx context.Context, proof *provenance.VerifiedExecutionFina
 		return empty, errors.New("OP_ORIGIN_ANCESTRY_WINDOW")
 	}
 	const budget = 32 << 20
-	remaining := budget - len(evidence.Block)
+	remaining := budget - len(evidence.Block) - len(evidence.OriginReceipts)
 	for _, header := range evidence.Headers {
 		if len(header) > remaining {
 			return empty, errors.New("OP_ORIGIN_BYTE_LIMIT")
@@ -120,7 +122,26 @@ func VerifyOPOrigin(ctx context.Context, proof *provenance.VerifiedExecutionFina
 		return empty, err
 	}
 	number, _ := canonicalIndex(body.Block.Number)
-	return OPOriginReport{OPBlockHash: body.Block.Hash, OPBlockNumber: number, Origin: origin, FinalizedL1Number: head, FinalizedL1Hash: hash, Authority: "signed-ethereum-mainnet-l1-origin"}, ctx.Err()
+	report := OPOriginReport{OPBlockHash: body.Block.Hash, OPBlockNumber: number, Origin: origin, FinalizedL1Number: head, FinalizedL1Hash: hash, Authority: "signed-ethereum-mainnet-l1-origin"}
+	if evidence.OriginReceipts != nil {
+		if timestamp <= opJovianTime || origin.Sequence != 0 {
+			return empty, errors.New("OP_PORTAL_EPOCH_START_REQUIRED")
+		}
+		var receipts []Receipt
+		if err := json.Unmarshal(evidence.OriginReceipts, &receipts); err != nil || receipts == nil {
+			return empty, errors.New("OP_PORTAL_RECEIPTS_REQUIRED")
+		}
+		var l1 RawBlock
+		if err := json.Unmarshal(evidence.Headers[len(evidence.Headers)-1], &l1); err != nil {
+			return empty, err
+		}
+		hashes, err := verifyPortalDeposits(ctx, l1, receipts, body)
+		if err != nil {
+			return empty, err
+		}
+		report.UserDepositHashes = &hashes
+	}
+	return report, ctx.Err()
 }
 
 func verifyOriginAncestry(ctx context.Context, head uint64, hash string, origin OPL1Origin, read func(uint64) (json.RawMessage, error)) error {

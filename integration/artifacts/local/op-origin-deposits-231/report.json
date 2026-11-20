@@ -1,0 +1,70 @@
+[
+  {
+    "verified_user_deposit_hashes": [
+      "0x7f834e57442f616ccbd502cb61dde5329ad9ffb9a1acfea3374422c93291efaf"
+    ],
+    "op_block_hash": "0xaa020378f2dfbfe60f5f269d20c7d84e10d0874efc92914b7d6c0c73cb1efe4a",
+    "op_block_number": 159778047,
+    "l1_origin": {
+      "base_fee_wei": "120846152",
+      "number": 26454406,
+      "hash": "0x012232b48065d13e9ba57612fca06424c5eb529ec60edf0b0fd2ded55a7e0c6b",
+      "timestamp": 1795154795,
+      "sequence": 0
+    },
+    "finalized_l1_number": 26454447,
+    "finalized_l1_hash": "0x7448ed256cda127b7616e75899459d22a9fb618b9700f2fb838204e6e0b7af8f",
+    "authority": "signed-ethereum-mainnet-l1-origin"
+  },
+  {
+    "verified_user_deposit_hashes": [
+      "0xd1a14b6cf08d910f45e907c98e53ed5c51fb35ae296c52555987efe2067fbc0d"
+    ],
+    "op_block_hash": "0x06959bce2965efa02e6e5f3a9122746e1de4e9840cef2ce947dba49c8596541c",
+    "op_block_number": 159778075,
+    "l1_origin": {
+      "base_fee_wei": "116702959",
+      "number": 26454411,
+      "hash": "0x55e3cffb3f610faa5ed9502be105a067fde162c85d529f5dbb86779e80d7f4d1",
+      "timestamp": 1795154855,
+      "sequence": 0
+    },
+    "finalized_l1_number": 26454447,
+    "finalized_l1_hash": "0x7448ed256cda127b7616e75899459d22a9fb618b9700f2fb838204e6e0b7af8f",
+    "authority": "signed-ethereum-mainnet-l1-origin"
+  },
+  {
+    "verified_user_deposit_hashes": [
+      "0x3223887e1b5a0bb9cd3eb2e54d274e1e9344a6b5a9cec2910fb6c0bf05ff73af"
+    ],
+    "op_block_hash": "0x00385b8e81fd942e04e32019cc6f1eebdc951e727803144d316c82dbc469badb",
+    "op_block_number": 159778160,
+    "l1_origin": {
+      "base_fee_wei": "120829076",
+      "number": 26454425,
+      "hash": "0x8bd7570d1ea4b9efc491661caceec5e6fbec3c4dedb99c5d1bc3c9a9ee08c186",
+      "timestamp": 1795155023,
+      "sequence": 0
+    },
+    "finalized_l1_number": 26454447,
+    "finalized_l1_hash": "0x7448ed256cda127b7616e75899459d22a9fb618b9700f2fb838204e6e0b7af8f",
+    "authority": "signed-ethereum-mainnet-l1-origin"
+  },
+  {
+    "verified_user_deposit_hashes": [
+      "0x4ef2f95c5a1de8c2010056acb0966e61c7fc27cdf6f604ae8a32c163f3835093"
+    ],
+    "op_block_hash": "0xc193ce8bd45193c920e6869b3403cae4fd52fbc55c94f2928145f1aa8757ad45",
+    "op_block_number": 159778224,
+    "l1_origin": {
+      "base_fee_wei": "119899344",
+      "number": 26454436,
+      "hash": "0xc8636dfc4b7cf2690f83f4d4c9a5d8a76e5ff8f94fc14b3e74524fca7eb4021b",
+      "timestamp": 1795155155,
+      "sequence": 0
+    },
+    "finalized_l1_number": 26454447,
+    "finalized_l1_hash": "0x7448ed256cda127b7616e75899459d22a9fb618b9700f2fb838204e6e0b7af8f",
+    "authority": "signed-ethereum-mainnet-l1-origin"
+  }
+]

@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 用户存款来源（[阶段231](#op-portal-deposits)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|由 4 个以太坊块的完整回执重建 4 笔 OP 用户存款，核对编码和位置|普通 owner 自动读取回执、完整执行派生及其他协议覆盖待验收|
 |OP 首笔存款的 L1 基础费用（[阶段230](#op-origin-base-fee)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通 owner 按签名 L1 祖先区块头核对每个引用 epoch 的基础费用|其余存款输入、L2 执行派生、真实跨提交通道及多链覆盖待验收|
 |OP 普通 owner 跨批次连续发布（[阶段229](#op-owner-window)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|跨两个 span 连续发布 4 条增量，同源离线复验逐条一致|218 块长窗口、主网跨提交通道及执行派生待验收|
 |OP 批次按 L1 顺序补读（[阶段228](#op-forward-window)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|四笔 L1 提交覆盖阶段227的 218 个 OP 块，重跑报告一致|普通 owner 逐块消费、真实跨提交通道及执行派生待验收|
@@ -5275,3 +5276,13 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 OP 块 144644465 的存款与以太坊块 23942644 均给出 48265514 wei。修改中间 epoch 的费用会得到 `OP_ORIGIN_L1_BASE_FEE_MISMATCH`。阶段229的跨批次边界在新二进制下用纯缓存重放，基线和四条增量与前轮逐条相同。Go 全包测试、专项 race 和 vet 通过。其余存款、blob 费参数、L2 执行后状态和主网跨提交样本仍待验证。
 
 [纯缓存 owner 报告](integration/artifacts/local/op-owner-window-229/basefee-boundary/report.json)
+
+<a id="op-portal-deposits"></a>
+
+## 由已最终化的以太坊回执重建 OP 用户存款（2026-11-20，阶段231，P0-1）
+
+归档 CLI 现在接受 L1 origin 的完整回执，从签名最终化头核对祖先链后重算回执根。对 Jovian 激活后的 epoch 首块，按以太坊规范日志序号处理 OP Mainnet Portal 的 `TransactionDeposited` 事件，重建来源哈希、发送方、接收方或创建标志、铸币量、转账额、gas 和 calldata。在 L2 已核验的交易体中逐字节核对顺序和内容，同时检查多出的存款。
+
+以太坊块 26454406、26454411、26454425、26454436 共 1029 条回执，各重建一笔存款，分别与 OP 块 159778047、159778075、159778160、159778224 的存款匹配。仓库包含第四个样本和签名证明，覆盖回执倒序、缺失、存款错位和多余存款。普通 owner 的自动回执读取、其余升级规则与执行后状态仍待验收。
+
+[四块核验报告](integration/artifacts/local/op-origin-deposits-231/report.json) · [复验命令](integration/test/source/op-mainnet-batches/README.md)
