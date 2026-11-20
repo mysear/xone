@@ -18,6 +18,14 @@ import (
 // RefreshOwnerOPSpan uses the owner's release, freshness limits and endpoint
 // identities. The file lock serializes writers and rename publishes one span.
 func RefreshOwnerOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions []OPChannelSubmission) (*OPChannelSubmissionsReport, error) {
+	return refreshOPSpan(ctx, snapshot, submissions, "")
+}
+
+func RefreshLatestOPSpan(ctx context.Context, snapshot *config.Snapshot, beaconAPI string) (*OPChannelSubmissionsReport, error) {
+	return refreshOPSpan(ctx, snapshot, nil, beaconAPI)
+}
+
+func refreshOPSpan(ctx context.Context, snapshot *config.Snapshot, submissions []OPChannelSubmission, beaconAPI string) (*OPChannelSubmissionsReport, error) {
 	for _, chain := range snapshot.Config.Chains {
 		policy := chain.OPOrigin
 		if policy == nil || policy.BatchProofFile == "" {
@@ -41,15 +49,33 @@ func RefreshOwnerOPSpan(ctx context.Context, snapshot *config.Snapshot, submissi
 			return nil, err
 		}
 		head, hash := proof.ExecutionBlock()
-		observation, report, err := CaptureOPSpan(ctx, proof, submissions, l2, 128)
-		if err != nil {
-			return nil, err
-		}
 		genesis, err := knownBodyGenesis("evm:1")
 		if err != nil {
 			return nil, err
 		}
 		if err = l1.VerifyEVM(ctx, "evm:1", genesis); err != nil {
+			return nil, err
+		}
+		if beaconAPI != "" {
+			blobsAt, err := opBeaconBlobs(beaconAPI)
+			if err != nil {
+				return nil, err
+			}
+			state := l1
+			if policy.L1ProofRPCURL != "" && policy.L1ProofRPCURL != policy.L1RPCURL {
+				state = rpc.New([]string{policy.L1ProofRPCURL}, timeout, 2<<20)
+				defer state.HTTP.CloseIdleConnections()
+				if err = state.VerifyEVM(ctx, "evm:1", genesis); err != nil {
+					return nil, err
+				}
+			}
+			submissions, err = collectOPSubmission(ctx, proof, l1, state, min(129, chain.NativeProof.MaxHeaders), chain.NativeProof.MaxBytes, blobsAt)
+			if err != nil {
+				return nil, err
+			}
+		}
+		observation, report, err := CaptureOPSpan(ctx, proof, submissions, l2, 128)
+		if err != nil {
 			return nil, err
 		}
 		span := report.Channel.Span

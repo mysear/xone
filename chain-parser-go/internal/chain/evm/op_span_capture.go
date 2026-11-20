@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"math"
+	"sync/atomic"
 
 	"xone/chain-parser-go/internal/provenance"
 	"xone/chain-parser-go/internal/rpc"
@@ -58,17 +60,31 @@ func CaptureOPSpan(ctx context.Context, finality *provenance.VerifiedExecutionFi
 		if err = client.VerifyEVM(ctx, "evm:10", genesis); err != nil {
 			return nil, err
 		}
-		remaining := 32 << 20
-		for offset := uint64(0); offset < count; offset++ {
-			var raw json.RawMessage
-			if err := client.Call(ctx, "eth_getBlockByNumber", []any{fmt.Sprintf("0x%x", first+offset), true}, &raw); err != nil {
-				return nil, err
+		var retained atomic.Int64
+		bodies = make([]json.RawMessage, count)
+		group, requests := errgroup.WithContext(ctx)
+		group.SetLimit(4)
+		for offset := range count {
+			if requests.Err() != nil {
+				break
 			}
-			if len(raw) > remaining {
-				return nil, errors.New("OP_SPAN_BYTE_LIMIT")
-			}
-			remaining -= len(raw)
-			bodies = append(bodies, raw)
+			group.Go(func() error {
+				var raw json.RawMessage
+				if err := client.Call(requests, "eth_getBlockByNumber", []any{fmt.Sprintf("0x%x", first+offset), true}, &raw); err != nil {
+					return err
+				}
+				if retained.Add(int64(len(raw))) > 32<<20 {
+					return errors.New("OP_SPAN_BYTE_LIMIT")
+				}
+				bodies[offset] = raw
+				return nil
+			})
+		}
+		if err := group.Wait(); err != nil {
+			return nil, err
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
 		return bodies, nil
 	}

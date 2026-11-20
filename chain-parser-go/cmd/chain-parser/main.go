@@ -20,6 +20,11 @@ func beaconRelease(cfg *config.Snapshot) (provenance.BeaconRelease, error) {
 			return provenance.BeaconRelease{Root: b.CheckpointRoot, ProofFile: cfg.Resolve(b.ProofFile), CheckpointAgeMS: b.MaxCheckpointAgeMS, FinalizedAgeMS: cfg.Config.Startup.MaxAge}, nil
 		}
 	}
+	for _, chain := range cfg.Config.Chains {
+		if b := chain.OPOrigin; b != nil {
+			return provenance.BeaconRelease{Root: b.CheckpointRoot, ProofFile: cfg.Resolve(b.ProofFile), CheckpointAgeMS: b.MaxCheckpointAgeMS, FinalizedAgeMS: cfg.Config.Startup.MaxAge}, nil
+		}
+	}
 	return provenance.BeaconRelease{}, fmt.Errorf("CONFIG_BEACON_FINALITY_REQUIRED")
 }
 
@@ -31,6 +36,7 @@ func run() error {
 	rotate := flags.String("prepare-beacon-rotation", "", "prepare a new proof file for this successor owner configuration")
 	bootstrap := flags.String("beacon-bootstrap", "", "bootstrap response for the successor checkpoint root")
 	span := flags.String("refresh-op-span", "", "read authenticated L1 submission evidence and publish the corresponding OP span observation")
+	latestSpan := flags.String("refresh-latest-op-span", "", "collect the latest finalized OP blob submission using this beacon API and refresh the owner observation")
 	if e := flags.Parse(os.Args[1:]); e != nil {
 		return fmt.Errorf("INVALID_CLI")
 	}
@@ -40,6 +46,18 @@ func run() error {
 	cfg, e := config.Load(*path, "chain-parser-go")
 	if e != nil {
 		return e
+	}
+	if *latestSpan != "" {
+		if *check || *span != "" || *refresh != "" || *rotate != "" || *bootstrap != "" {
+			return fmt.Errorf("INVALID_CLI")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		report, err := evm.RefreshLatestOPSpan(ctx, cfg, *latestSpan)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(report)
 	}
 	if *span != "" {
 		if *check || *refresh != "" || *rotate != "" || *bootstrap != "" {
@@ -98,18 +116,17 @@ func run() error {
 		if *check {
 			return fmt.Errorf("INVALID_CLI")
 		}
-		for _, chain := range cfg.Config.Chains {
-			if b := chain.BeaconFinality; b != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-				defer cancel()
-				result, err := provenance.RefreshBeaconProof(ctx, *refresh, b.CheckpointRoot, cfg.Resolve(b.ProofFile), b.MaxCheckpointAgeMS, cfg.Config.Startup.MaxAge)
-				if err != nil {
-					return err
-				}
-				return json.NewEncoder(os.Stdout).Encode(result)
-			}
+		release, err := beaconRelease(cfg)
+		if err != nil {
+			return err
 		}
-		return fmt.Errorf("CONFIG_BEACON_FINALITY_REQUIRED")
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		result, err := provenance.RefreshBeaconProof(ctx, *refresh, release.Root, release.ProofFile, release.CheckpointAgeMS, release.FinalizedAgeMS)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(result)
 	}
 	if *check {
 		fmt.Printf("{\"service\":\"chain-parser-go\",\"valid\":true,\"public_hash\":\"%s\",\"economic_hash\":\"%s\"}\n", cfg.PublicHash, cfg.EconomicHash)

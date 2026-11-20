@@ -35,14 +35,31 @@ func provenAddress(account VerifiedAccountCommitment, key string) (common.Addres
 	return common.BigToAddress(word), nil
 }
 
-func (proof OPBatchSenderProof) sender(ctx context.Context, anchor ExecutionStateAnchor) (common.Address, error) {
+func (proof OPBatchSenderProof) verifiedProxy(ctx context.Context, anchor ExecutionStateAnchor) (VerifiedAccountCommitment, error) {
 	const budget = 2 << 20
 	proxy, err := VerifyExecutionAccountProof(ctx, anchor, proof.Proxy, budget)
 	if err != nil {
-		return common.Address{}, err
+		return VerifiedAccountCommitment{}, err
 	}
 	if !proxy.Exists || proxy.Address != opConfigProxy || proxy.CodeHash != opConfigProxyCode {
-		return common.Address{}, errors.New("OP_CONFIG_PROXY")
+		return VerifiedAccountCommitment{}, errors.New("OP_CONFIG_PROXY")
+	}
+	return proxy, nil
+}
+
+func (proof OPBatchSenderProof) implementationAddress(ctx context.Context, anchor ExecutionStateAnchor) (common.Address, error) {
+	proxy, err := proof.verifiedProxy(ctx, anchor)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return provenAddress(proxy, opConfigImplSlot)
+}
+
+func (proof OPBatchSenderProof) sender(ctx context.Context, anchor ExecutionStateAnchor) (common.Address, error) {
+	const budget = 2 << 20
+	proxy, err := proof.verifiedProxy(ctx, anchor)
+	if err != nil {
+		return common.Address{}, err
 	}
 	addr, err := provenAddress(proxy, opConfigImplSlot)
 	if err != nil {

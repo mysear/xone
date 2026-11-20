@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 最新批次自动采集（[阶段224](#op-owner-live-collection)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从当前签名头自动取得提交交易、发送者证明和 blob，核验 70 个 OP 块|连续刷新、跨提交发现、执行派生与重组恢复待验收|
 |OP owner 批次证明更新（[阶段223](#op-owner-span-refresh)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从已核验的提交确定 L2 范围，自动读取 24 个块并原子发布批次文件|L1 提交与授权证明的持续获取、执行派生及重组恢复待验收|
 |OP owner 批次基线重放（[阶段222](#op-owner-span-replay)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通进程发布块 159774767 的 USDC/WETH 基线，从归档复验相同池状态并拒绝空批次|持续供应当前批次、执行派生与重组恢复待验收|
 |OP owner 发布前核对批次（[阶段221](#op-owner-span-membership)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通池状态读取按已验证批次核对 L2 块位置和哈希，共用本次证明预算|持续供应当前批次、普通进程发布与重组恢复待验收|
@@ -5185,3 +5186,14 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 普通 CLI 从归档节点读取块 159774755 至 159774778，核验 1099 笔用户交易和 5 个 L1 来源。输出的 24 个块与阶段 222 owner 的输入一致。截断前缀、超限块数、旧水位回退、重叠哈希冲突及发布前撤销均有回归。Go 全包测试、专项 race 和 vet 通过。
 
 [运行说明](integration/test/source/op-mainnet-batches/README.md) · [更新报告](integration/artifacts/local/op-span-refresh-223/report.json)
+
+
+<a id="op-owner-live-collection"></a>
+
+## 从签名头自动采集 OP 提交（2026-11-20，阶段224，P0-1）
+
+普通 owner 配置可以刷新 OP 所用的以太坊信标签名证明。`--refresh-latest-op-span` 从已最终化的执行块向父块查找，逐块核对交易根和父哈希，使用提交高度的 SystemConfig 证明选择授权发送者，然后从对应信标时隙取得 blob。命令按有界并发读取 L2 块并核验整个 span。当前自动发现覆盖单笔交易内完整的通道。
+
+主网运行从以太坊块 26454223 找到提交块 26454214，得到五帧通道 `9f631924b60aac4e1087c7d35d07b80b`，验证 OP 块 159776772 至 159776841、4354 笔用户交易和 13 个 L1 来源。前两次采集分别遇到 RPC 错误和读取超时。采用有界并发读取后，在正常 CLI 的时限内发布了观测文件。固定输入回归覆盖搜索窗口耗尽、字节上限、错误父块和独立授权证明请求。Go 全包测试、专项 race 和 vet 通过。
+
+[复验命令](integration/test/source/op-mainnet-batches/README.md) · [主网采集报告](integration/artifacts/local/op-live-refresh-224/result.json)

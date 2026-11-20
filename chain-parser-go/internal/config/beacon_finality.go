@@ -33,6 +33,7 @@ func (b *BeaconFinalityConfig) validCheckpoint() bool {
 type OPOriginConfig struct {
 	BeaconFinalityConfig
 	L1RPCURL       string `json:"l1_rpc_url"`
+	L1ProofRPCURL  string `json:"l1_proof_rpc_url,omitempty"`
 	BatchProofFile string `json:"batch_proof_file,omitempty"`
 }
 
@@ -44,6 +45,10 @@ func (p *OPOriginConfig) valid(c Chain, service string) bool {
 	if path := p.BatchProofFile; path != "" && (strings.TrimSpace(path) == "" || path == "." || filepath.Clean(path) != path) {
 		return false
 	}
-	u, err := url.Parse(p.L1RPCURL)
-	return err == nil && u.Hostname() != "" && (u.Scheme == "https" || u.Scheme == "http") && u.User == nil && u.Fragment == "" && strings.IndexFunc(p.L1RPCURL, unicode.IsSpace) < 0
+	return validOriginEndpoint(p.L1RPCURL) && (p.L1ProofRPCURL == "" || validOriginEndpoint(p.L1ProofRPCURL))
+}
+
+func validOriginEndpoint(endpoint string) bool {
+	u, err := url.Parse(endpoint)
+	return err == nil && u.Hostname() != "" && (u.Scheme == "https" || u.Scheme == "http") && u.User == nil && u.Fragment == "" && strings.IndexFunc(endpoint, unicode.IsSpace) < 0
 }

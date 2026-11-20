@@ -107,6 +107,7 @@ tools/reference/pump-amm/upstream/
 !test/source/op-mainnet-batches/beacon-26453871.json.gz
 !test/source/op-mainnet-batches/interval-26453040-26453042.json.gz
 !test/source/op-mainnet-batches/origins-26453871-26453857.json.gz
+!test/source/op-mainnet-batches/search-head-26453871.json.gz
 !test/source/op-mainnet-batches/origins-26453043-26453032.json.gz
 !test/source/op-mainnet-batches/l2-159774755-159774778.json.gz
 !test/source/op-mainnet-batches/l2-159769779-159769799.json.gz
