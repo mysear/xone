@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP owner 发布前核对批次（[阶段221](#op-owner-span-membership)，P0-1）|§7.1、§7.3、§9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|普通池状态读取按已验证批次核对 L2 块位置和哈希，共用本次证明预算|持续供应当前批次、普通进程发布与重组恢复待验收|
 |OP 提交间收件交易覆盖（[阶段220](#op-channel-interval)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|核验提交间每个完整 L1 块及两端块内交易范围，拒绝遗漏的授权提交|跨提交正例及 owner 执行派生待验收|
 |OP 多笔提交通道（[阶段219](#op-ordered-channel-submissions)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|PARTIAL_LOCAL|逐笔核验授权、提交位置与 blob，跨提交累积有序帧|待真实跨提交样本、期间收件交易覆盖与重置核验|
 |OP 批次发送者授权（[阶段218](#op-batch-sender-authority)，P0-1）|§7.1、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|从提交块的 SystemConfig 存储证明取得发送者并核验五份 blob|继续覆盖跨提交通道与 owner 派生|
@@ -5151,3 +5152,14 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 阶段 208 归档中，以太坊块 26453040 和 26453043 各含一笔 OP 提交。块 26453041、26453042 及两个边界块的相应交易范围均通过扫描。缺块、错序、候选交易缺少授权证明及漏报发送者交易均有拒绝回归。Go 全包测试、专项 race 和 vet 均通过。两笔提交使用不同通道 ID，真实跨提交正例仍待采集。
 
 [输入与复验说明](integration/test/source/op-mainnet-batches/README.md)
+
+
+<a id="op-owner-span-membership"></a>
+
+## OP owner 读取池状态前核对批次（2026-11-20，阶段221，P0-1）
+
+启用 `op_l1_origin.batch_proof_file` 后，Go owner 用同一签名最终化头核验批次提交、发送者及完整通道，从 L2 块重建 span。读取池状态前，它核对当前块在批次中的高度和哈希，并从 L1 RPC 核验各个来源的哈希和时间。证明文件消耗本次原生读取的剩余预算。
+
+固定输入中，以太坊块 26453870 的提交涵盖 OP 块 159774755 至 159774778，共 1099 笔用户交易。owner 核验函数接受位于批次中间的块 159774767，拒绝同一高度的错误哈希和超出剩余预算的文件。Go 全包测试、专项 race 和 vet 通过。后续验收包括批次文件持续供应、普通进程发布、执行派生、重组撤权与恢复。
+
+[固定输入与复验命令](integration/test/source/op-mainnet-batches/README.md)

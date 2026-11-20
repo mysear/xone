@@ -52,3 +52,13 @@ jq -n --slurpfile evidence "$scratch/batch-26453870.json" \
 ```
 
 This verifies the selected submissions and ordered frames within the Granite timeout. For each subsequent submission, supply `intervening` as an ascending array of `{ "block": <full Ethereum block>, "authority": <optional SystemConfig proof> }` entries for every height strictly between the two submission blocks. The verifier checks their parent links, recomputes their transaction roots, and scans the open transaction interval, including both boundary blocks. An inbox candidate in an intermediate block requires its own authority proof. An omitted authorized inbox transaction fails the channel check. The retained live submission in this example contains the entire channel.
+
+### Owner verification before reading pool state
+
+Set the optional `op_l1_origin.batch_proof_file` to an observation containing `submissions` and an ordered `blocks` array. Relative paths resolve from the directory containing the configured beacon proof. Replace the file atomically when publishing the next observation. The owner reads it under its native session byte budget and checks the observation against the same signed L1 head as its RPC origin checks. Each submission needs the SystemConfig proofs for its inclusion block. The owner checks its requested L2 height and hash against the corresponding verified span member.
+
+The sample for Ethereum submission 26453870 covers OP heights 159774755 through 159774778. Reproduce the owner check with the retained L1 headers and 24 L2 bodies from this directory.
+
+```sh
+(cd chain-parser-go && go test ./internal/chain/evm -run '^TestOPOwnerSpanMembership$' -count=1)
+```

@@ -48,7 +48,24 @@ func (a *Adapter) verifyOnlineOPOrigin(ctx context.Context, b RawBlock, now func
 	if err != nil {
 		return nil, err
 	}
-	if origin.Number > head || head-origin.Number >= uint64(limits.MaxHeaders) || head-origin.Number > 128 {
+	origins := []OPL1Origin{origin}
+	if p.BatchProofFile != "" {
+		span, used, err := readOwnerOPSpan(ctx, a.OPOriginProofFile, p.BatchProofFile, proof, b, limits.MaxBytes)
+		if err != nil {
+			session.reject()
+			return nil, err
+		}
+		if err = session.consume(used); err != nil {
+			return nil, err
+		}
+		limits, err = session.available()
+		if err != nil {
+			return nil, err
+		}
+		origins = span.origins
+	}
+	first := origins[0].Number
+	if first > head || head-first >= uint64(limits.MaxHeaders) || head-first > 128 {
 		return nil, errors.New("OP_ORIGIN_ANCESTRY_WINDOW")
 	}
 	genesis, err := knownBodyGenesis("evm:1")
@@ -62,7 +79,7 @@ func (a *Adapter) verifyOnlineOPOrigin(ctx context.Context, b RawBlock, now func
 		return nil, err
 	}
 	defer reader.cancel()
-	err = verifyOriginAncestry(ctx, head, hash, origin, func(height uint64) (json.RawMessage, error) {
+	err = verifyOriginRange(ctx, head, hash, origins, func(height uint64) (json.RawMessage, error) {
 		return reader.call("eth_getBlockByNumber", []any{fmt.Sprintf("0x%x", height), false})
 	})
 	if err != nil {

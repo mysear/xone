@@ -32,12 +32,16 @@ func (b *BeaconFinalityConfig) validCheckpoint() bool {
 
 type OPOriginConfig struct {
 	BeaconFinalityConfig
-	L1RPCURL string `json:"l1_rpc_url"`
+	L1RPCURL       string `json:"l1_rpc_url"`
+	BatchProofFile string `json:"batch_proof_file,omitempty"`
 }
 
 func (p *OPOriginConfig) valid(c Chain, service string) bool {
 	const genesis = "0x7ca38a1916c42007829c55e69d3e9a73265554b586a499015373241b8a3fa48b"
 	if service != "chain-parser-go" || c.Key != "evm:10" || c.Genesis != genesis || c.Confirmation != "finalized" || c.BlockIntegrity != "known-evm-native-commitments-v2" || !p.validCheckpoint() {
+		return false
+	}
+	if path := p.BatchProofFile; path != "" && (strings.TrimSpace(path) == "" || path == "." || filepath.Clean(path) != path) {
 		return false
 	}
 	u, err := url.Parse(p.L1RPCURL)

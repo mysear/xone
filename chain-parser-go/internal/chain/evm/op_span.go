@@ -17,6 +17,7 @@ import (
 // The report identifies the observed L2 bodies whose sequencer inputs match the span.
 // Execution outputs and the contents of deposits require separate derivation.
 type OPSpanReport struct {
+	blockHashes       []string
 	origins           []OPL1Origin
 	VerifiedL1Origins int `json:"verified_l1_origins,omitempty"`
 
@@ -176,6 +177,7 @@ func verifyOPSpan(ctx context.Context, batch []byte, blocks []json.RawMessage) (
 		prev = origin
 		report.LastBlock = h
 		report.LastHash = b.Hash
+		report.blockHashes = append(report.blockHashes, b.Hash)
 	}
 	// Compare in wire order without allocating a second complete batch.
 	prefix := binary.AppendUvarint([]byte{1}, relative)
