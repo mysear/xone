@@ -97,3 +97,21 @@ chain-parser --config "$release" --refresh-latest-op-span "$beacon_api" \
 ```
 
 The decimal transaction index is inclusive. The start must be within the configured header window (at most 129 heights). The collector checks bodies in transaction order, gathers frames and intervening blocks, and stops at the first closed channel. An incomplete channel or an unsupported authorized submission leaves the previous observation available. When a previous file exists, the next verified span must extend its last height and full block hash. Keep the report cursor with its observation. Use a separate observation path when replaying an older window.
+
+### Replay an OP owner across two consecutive spans
+
+Use the retained stage 229 span observations, historical beacon proof and endpoint-specific RPC cache. Build the ordinary owner and choose a fresh output directory for each run. Run these commands from the repository root.
+
+```sh
+window=integration/artifacts/local/op-owner-window-229
+scratch=$(mktemp -d)
+(cd chain-parser-go && go build -o "$scratch/owner" ./cmd/chain-parser)
+python3 integration/tools/acceptance/verify_op_owner_window.py \
+  --config integration/artifacts/local/op-signed-owner-213/owner-config.json \
+  --binary "$scratch/owner" --beacon "$window/beacon.json" \
+  --spans "$window/159778200.span" "$window/159778224.span" \
+  --first 159778222 --last 159778226 --max-age-ms 86400000 \
+  --rpc-cache "$window/boundary-retry/rpc" --cache-only --out "$scratch/replay"
+```
+
+The driver maps L2 head tags to historical heights, preserves source identity and checks the owner’s HTTP journal from the initial baseline through the last commit. Compare `baseline` and `commits` in the two reports when reproducing a run. For acquisition, omit `--cache-only` to fetch missing responses from each configured endpoint. The 24-hour age budget applies only to this historical acceptance run. The owner still evaluates proof freshness against its clock.

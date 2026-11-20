@@ -122,6 +122,18 @@ func (r OPCurrentHeaderReader) Header(ctx context.Context, tag string) (domain.B
 	// The block hash already commits the state and receipts validated at
 	// publication. Only the replaceable L1 evidence needs renewal here.
 	fresh, err := a.verifyOPBodyOrigin(ctx, b, time.Now)
+	if errors.Is(err, errOPSpanOwnerBlockMismatch) {
+		// The span may have advanced after reading the head tag. Only return
+		// a different observed block to the caller's normal tail/fork checks.
+		// An unchanged head still requires its own membership proof.
+		next, readErr := a.Header(ctx, tag)
+		if readErr != nil {
+			return domain.BlockRef{}, readErr
+		}
+		if next.Number != ref.Number || next.Hash != ref.Hash {
+			return next, nil
+		}
+	}
 	if err != nil {
 		return domain.BlockRef{}, err
 	}

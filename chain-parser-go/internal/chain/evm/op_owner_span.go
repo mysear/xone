@@ -11,6 +11,8 @@ import (
 	"xone/chain-parser-go/internal/provenance"
 )
 
+var errOPSpanOwnerBlockMismatch = errors.New("OP_SPAN_OWNER_BLOCK_MISMATCH")
+
 // The publisher can atomically replace this observation as the finalized L1
 // head advances. Only verified submissions and bodies supply membership.
 type OPChannelObservation struct {
@@ -30,7 +32,7 @@ func readOwnerOPSpan(ctx context.Context, checkpointFile, path string, proof *pr
 	span := report.Channel.Span
 	height, err := canonicalIndex(block.Number)
 	if err != nil || height < span.FirstBlock || height > span.LastBlock || span.blockHashes[height-span.FirstBlock] != block.Hash {
-		return nil, 0, errors.New("OP_SPAN_OWNER_BLOCK_MISMATCH")
+		return nil, 0, errOPSpanOwnerBlockMismatch
 	}
 	if span.origins[len(span.origins)-1].Number > report.Submissions[len(report.Submissions)-1].L1Number {
 		return nil, 0, errors.New("OP_SPAN_ORIGIN_AFTER_SUBMISSION")

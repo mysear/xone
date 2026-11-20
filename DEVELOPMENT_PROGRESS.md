@@ -16,6 +16,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|OP 普通 owner 跨批次连续发布（[阶段229](#op-owner-window)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|跨两个 span 连续发布 4 条增量，同源离线复验逐条一致|218 块长窗口、主网跨提交通道及执行派生待验收|
 |OP 批次按 L1 顺序补读（[阶段228](#op-forward-window)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|四笔 L1 提交覆盖阶段227的 218 个 OP 块，重跑报告一致|普通 owner 逐块消费、真实跨提交通道及执行派生待验收|
 |OP 批次连续刷新（[阶段227](#op-refresh-consecutive)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|发布批次时锁定已复核的信标文件，两次相邻最终化周期刷新通过|两个 OP span 之间有 218 块待覆盖|
 |OP 同高轮询重新核验批次（[阶段226](#op-owner-idle-recovery)，P0-1）|§7.1、§7.3、§7.9，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|在同一 owner 进程撤销 OP 块 159774767 的基线，恢复证明后重新发布|相邻签名周期连续刷新、跨提交发现及 L2 执行派生待验收|
@@ -5251,3 +5252,15 @@ OP Mainnet 的 `finalized` 原生承诺配置可设置 `op_l1_origin`，字段�
 此次发布的是批次观测文件。普通 owner 在整个区间逐块提交仍需验收。这五个通道各由一笔提交组成，跨多笔提交的通道仍需主网正例。P0-1 还需补齐 L2 执行派生和其他链的来源资格。
 
 [采集报告](integration/artifacts/local/op-gap-228/verified.json) · [复验说明](integration/test/source/op-mainnet-batches/README.md)
+
+<a id="op-owner-window"></a>
+
+## 普通 owner 跨批次发布与同源离线复验（2026-11-20，阶段229，P0-1）
+
+在 OP 块 159778223 提交后替换批次文件，旧头的同高轮询可能读到下一批次并返回 `OP_SPAN_OWNER_BLOCK_MISMATCH`，触发错误撤权。现在仅在同高轮询遇到该错误时，在原截止时间内再取一次头。高度或哈希变化交给原追块或重组流程，同一头仍返回成员核验错误。
+
+使用 HTTP 开发日志和 Pebble，普通 Go owner 从块 159778222 跨两个 span 提交至 159778226。以同一来源缓存严格离线复验，四个代理共命中 419 次，上游读取为零。两次的基线引用及四条增量的引用、载荷哈希逐条一致。空批次仍导致撤权，恢复后代际升至 2。Go 全包测试、EVM/service 定向 race 与 vet 通过。历史窗口年龄预算为 86400000 毫秒，仅用于这次归档验收。
+
+218 块长窗口与严格离线复验另行记录。P0-1 后续需取得同一通道跨多笔 L1 提交的主网样本，核验 L2 执行派生，并完成其余链和协议的来源与恢复验收。原工作包完整验收 0/26。GitLab 推送等待项目克隆地址。
+
+[窗口复验说明](integration/test/source/op-mainnet-batches/README.md) · [归档边界复验](integration/artifacts/local/op-owner-window-229/offline-boundary/report.json) · [撤权与恢复](integration/artifacts/local/op-owner-window-229/withdrawal.json)
