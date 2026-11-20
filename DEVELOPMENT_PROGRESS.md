@@ -816,6 +816,7 @@
 |189|[同步委员会跨期交接](#beacon-committee-transitions)|LOCAL_SCOPE_VERIFIED|两次连续主网交接绑定最终化区块 26448094|
 |190|[从最终性证据选取执行块](#beacon-selected-capture)|LOCAL_SCOPE_VERIFIED|两次交接后完成主网 151 笔交易和 Pair 部署证明核对|
 |191|[普通 owner 的信标最终性校验](#beacon-owner-admission)|LOCAL_SCOPE_VERIFIED|主网块 26448349 的快照在证明失效后撤权，恢复证明后重新发布|
+|209|[OP Mainnet 提款字段与 Pair 证明](#op-mainnet-withdrawals)|LOCAL_SCOPE_VERIFIED|块 159769967 的 66 笔交易、回执根和 Pair 的七项存储证明通过离线复核|
 |208|[主网连续发布及重放](#beacon-complete-window)|LOCAL_SCOPE_VERIFIED|主网连续发布 32 个增量，归档重算 33 个高度，32 个派生哈希全部匹配|
 |207|[按方法选取账户证明来源](#account-proof-rpc-routing)|LOCAL_SCOPE_VERIFIED|普通 owner 主网基线和三来源归档核对，错误链、创世块和损坏证明回归通过|
 |206|[后继配置重启](#beacon-rotation-switch)|LOCAL_SCOPE_VERIFIED|普通 owner 两次运行和基线记录复核通过|
@@ -5008,3 +5009,13 @@ Ethereum 主网块 26452499 的归档包含 dRPC 和 PublicNode 的区块体及�
 普通 owner 在新窗口从块 26453011 建立基线，到签名最终化块 26453043 共发布 32 个连续增量。逐块核对父哈希、代际、日志序号及终点基线。三个 RPC 来源共归档 909 条记录，覆盖缺口和 RPC 错误均为 0。离线重算 33 个高度，每个增量的池状态和兑换事实哈希均与原始归档匹配。P0-1 仍需完成其余链与协议矩阵、来源资格和恢复验收。GitLab 推送待项目地址。
 
 [在线发布报告](integration/artifacts/local/beacon-proof-window-208/live/report.json) · [离线重算](integration/artifacts/local/beacon-proof-window-208/replay.json) · [原失败块重算](integration/artifacts/local/beacon-proof-routing-207/replay208-26452503.json) · [Go 回归](integration/artifacts/local/beacon-proof-window-208/go-all.log)
+
+<a id="op-mainnet-withdrawals"></a>
+
+## OP Mainnet 提款字段与 Pair 证明（2026-11-20，阶段209，P0-1）
+
+按设计 §7.1、§7.3 和 §28，普通 Go 解析器按 OP Mainnet 的 Canyon 和 Isthmus 激活时间核验提款列表与头部字段。Canyon 要求空列表和空提款树根。Isthmus 要求空列表和空请求哈希，提款根按消息传递合约存储根解释。固定主网块 159769967 的回归重建了 66 笔交易、完整回执根及 USDC/WETH Pair 的账户和七项存储证明。真实块保留原头部哈希但更换提款列表时，解码器拒绝。Go 全包测试、专项 race 和 vet 通过。
+
+普通 owner 起初在批量回执方法收到 HTTP 403。改用 PublicNode 与 Tenderly 读取区块体和回执后，OP 主网公共节点对 Factory 的历史账户证明返回 `-32603`。改用 Tenderly 读取账户证明后，普通 owner 在 Token 余额验证报告 `STATE_VIEW_OPCODE_UNSUPPORTED`，启动未发布基线。下一项是从该次响应定位具体 Token、执行路径及所需账户证明。L2 共识来源、消息传递合约存储根的 MPT 核验以及完整池状态仍待验收。
+
+[固定主网输入及复验说明](integration/test/source/op-mainnet-withdrawals/README.md) · [两来源 owner 日志](integration/artifacts/local/optimism-v2-209/witness.log) · [使用 Tenderly 证明的 owner 日志](integration/artifacts/local/optimism-v2-209/tenderly/owner.log) · [Go 全包回归](integration/artifacts/local/optimism-v2-209/go-final.log)

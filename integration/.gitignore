@@ -96,3 +96,6 @@ tools/reference/velodrome-v2/Pool.sol
 tools/reference/pump-bonding/packages/
 
 tools/reference/pump-amm/upstream/
+
+# Pinned OP Mainnet block used to regress the withdrawal and receipt checks.
+!test/source/op-mainnet-withdrawals/block-159769967.json.gz
