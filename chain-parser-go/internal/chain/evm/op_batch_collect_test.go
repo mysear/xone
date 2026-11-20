@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -88,6 +89,23 @@ func TestCollectOPSubmissionChecksEveryHeight(t *testing.T) {
 			}
 			if err != nil || len(items) != 1 || items[0].Evidence.TxHash != evidence.TxHash || len(items[0].Evidence.Descendants) != 1 || calls != 1 {
 				t.Fatal(err, calls)
+			}
+			// This allowance covers the two execution responses and is one byte
+			// short of the authority responses. Proof reads must exhaust it
+			// before any blob request, even before sender/frame filtering.
+			proofBudget := -1
+			for _, raw := range []json.RawMessage{evidence.Descendants[0], evidence.Block, authority.Proxy, authority.Implementation} {
+				// json.Encoder compacts the server's RawMessage result, so use
+				// the wire size rather than retained fixture whitespace.
+				var compact bytes.Buffer
+				if err := json.Compact(&compact, raw); err != nil {
+					t.Fatal(err)
+				}
+				proofBudget += compact.Len()
+			}
+			beforeProofBudget := calls
+			if got, err := collectOPForward(context.Background(), proof, client, client, tc.window, proofBudget, opScanCursor{26453870, 0}, blobsAt); err == nil || err.Error() != "OP_BATCH_SEARCH_BUDGET" || got != nil || calls != beforeProofBudget {
+				t.Fatal("authority bytes not charged before blob retrieval", err, calls-beforeProofBudget)
 			}
 			for _, scan := range []struct {
 				cursor opScanCursor

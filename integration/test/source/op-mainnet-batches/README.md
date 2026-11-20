@@ -98,6 +98,13 @@ chain-parser --config "$release" --refresh-latest-op-span "$beacon_api" \
 
 The decimal transaction index is inclusive. The start must be within the configured header window (at most 129 heights). The collector checks bodies in transaction order, gathers frames and intervening blocks, and stops at the first closed channel. An incomplete channel or an unsupported authorized submission leaves the previous observation available. When a previous file exists, the next verified span must extend its last height and full block hash. Keep the report cursor with its observation. Use a separate observation path when replaying an older window.
 
+For Holocene L1 origins, recovery is supported at transaction boundaries: a new transaction starting at frame zero replaces an unfinished channel, orphan-only transactions without an active channel are skipped, and a channel expires after its inclusive 50-block window. Replaced evidence is discarded while cumulative response bytes (including SystemConfig proofs) and the 128-candidate allowance remain charged. A transaction mixing discarded frames and a new channel, or an invalid continuation of an active channel, remains unsupported. The selected channel still passes the full submission and intervening-transaction verifier. The recovery tests use retained mainnet blob bytes with synthetic submission boundaries; they do not establish a captured mainnet multi-submission positive.
+
+```sh
+(cd chain-parser-go && go test -race ./internal/chain/evm \
+  -run 'Test(OPForward|CollectOPSubmissionChecksEveryHeight|OPChannelSubmission)' -count=1)
+```
+
 ### Replay an OP owner across two consecutive spans
 
 Use the retained stage 229 span observations, historical beacon proof and endpoint-specific RPC cache. Build the ordinary owner and choose a fresh output directory for each run. Run these commands from the repository root.

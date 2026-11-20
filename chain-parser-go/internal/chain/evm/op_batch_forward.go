@@ -38,16 +38,15 @@ func collectOPForward(ctx context.Context, proof *provenance.VerifiedExecutionFi
 	if cursor.height > head || head-cursor.height >= uint64(window) {
 		return nil, errors.New("OP_BATCH_SEARCH_WINDOW")
 	}
-	encodedBudget := min(budget, 32<<20)
+	scan := newOPForwardScan(budget)
 	read := func(h uint64, full bool) (json.RawMessage, error) {
 		var raw json.RawMessage
 		if err := l1.Call(ctx, "eth_getBlockByNumber", []any{fmt.Sprintf("0x%x", h), full}, &raw); err != nil {
 			return nil, err
 		}
-		if len(raw) > budget {
-			return nil, errors.New("OP_BATCH_SEARCH_BUDGET")
+		if err := scan.charge(len(raw)); err != nil {
+			return nil, err
 		}
-		budget -= len(raw)
 		return raw, nil
 	}
 	// Pin every expected body hash to the signed head before scanning forwards.
@@ -69,14 +68,7 @@ func collectOPForward(ctx context.Context, proof *provenance.VerifiedExecutionFi
 		expected = header.Block.ParentHash
 		hashes = append(hashes, expected)
 	}
-	var submissions []OPChannelSubmission
-	var between []OPChannelIntervalBlock
-	var frames opFrames
-	var first uint64
 	for h := cursor.height; ; h++ {
-		if len(submissions) > 0 && h-first > 50 {
-			return nil, errors.New("OP_CHANNEL_TIMEOUT")
-		}
 		raw, err := read(h, true)
 		if err != nil {
 			return nil, err
@@ -88,13 +80,19 @@ func collectOPForward(ctx context.Context, proof *provenance.VerifiedExecutionFi
 		if body.Block.Number != fmt.Sprintf("0x%x", h) || body.Block.Hash != hashes[head-h] {
 			return nil, errors.New("OP_BATCH_ANCESTRY_LINK")
 		}
+		timestamp, err := canonicalIndex(body.Block.Timestamp)
+		if err != nil {
+			return nil, err
+		}
+		if err := scan.beginHeight(h, timestamp); err != nil {
+			return nil, err
+		}
 		if h == cursor.height && cursor.index > uint64(len(body.RawTransactions)) {
 			return nil, errors.New("OP_BATCH_SCAN_CURSOR")
 		}
 		var authority *OPBatchSenderProof
 		var sender common.Address
 		var blobs []*kzg4844.Blob
-		before := len(submissions)
 		for i, encoded := range body.RawTransactions {
 			if h == cursor.height && uint64(i) < cursor.index {
 				continue
@@ -114,6 +112,9 @@ func collectOPForward(ctx context.Context, proof *provenance.VerifiedExecutionFi
 				if err != nil {
 					return nil, err
 				}
+				if err = scan.charge(len(authority.Proxy) + len(authority.Implementation)); err != nil {
+					return nil, err
+				}
 			}
 			from, err := types.Sender(types.LatestSignerForChainID(big.NewInt(1)), &tx)
 			if err != nil {
@@ -125,22 +126,23 @@ func collectOPForward(ctx context.Context, proof *provenance.VerifiedExecutionFi
 			if tx.Type() != types.BlobTxType {
 				return nil, errors.New("OP_BATCH_INBOX_TRANSACTION")
 			}
-			if len(submissions) >= 128 {
-				return nil, errors.New("OP_CHANNEL_SUBMISSION_COUNT")
+			if err := scan.candidate(); err != nil {
+				return nil, err
 			}
 			if blobs == nil {
-				timestamp, err := canonicalIndex(body.Block.Timestamp)
-				if err != nil || timestamp < 1606824023 || (timestamp-1606824023)%12 != 0 {
+				if timestamp < 1606824023 || (timestamp-1606824023)%12 != 0 {
 					return nil, errors.New("OP_BATCH_BEACON_SLOT")
 				}
 				blobs, err = blobsAt(ctx, (timestamp-1606824023)/12)
 				if err != nil {
 					return nil, err
 				}
-				if len(blobs) > budget/len(kzg4844.Blob{}) {
+				if len(blobs) > scan.remaining/len(kzg4844.Blob{}) {
 					return nil, errors.New("OP_BATCH_SEARCH_BUDGET")
 				}
-				budget -= len(blobs) * len(kzg4844.Blob{})
+				if err := scan.charge(len(blobs) * len(kzg4844.Blob{})); err != nil {
+					return nil, err
+				}
 			}
 			e := OPBatchEvidence{Block: raw, TxHash: tx.Hash().Hex(), Blobs: blobs, Descendants: descendants[:head-h], SenderProof: authority}
 			report, err := VerifyOPBatchBlobs(ctx, proof, common.Address{}, e)
@@ -148,37 +150,21 @@ func collectOPForward(ctx context.Context, proof *provenance.VerifiedExecutionFi
 				return nil, err
 			}
 			start := report.FirstBlobIndex
-			if err = frames.appendBlobs(ctx, blobs[start:start+len(report.VersionedHashes)]); err != nil {
-				return nil, err
-			}
-			if len(submissions) == 0 {
-				first = h
-			}
-			item := OPChannelSubmission{Evidence: e, Authority: *authority, Intervening: between}
-			// The output repeats block and blob evidence for transactions sharing
-			// one inclusion height. Bound that expansion before retaining the item.
-			wire, err := json.Marshal(item)
+			item := OPChannelSubmission{Evidence: e, Authority: *authority}
+			closed, err := scan.append(ctx, h, timestamp, blobs[start:start+len(report.VersionedHashes)], item)
 			if err != nil {
 				return nil, err
 			}
-			if len(wire) > encodedBudget {
-				return nil, errors.New("OP_BATCH_OBSERVATION_FILE")
-			}
-			encodedBudget -= len(wire)
-			submissions = append(submissions, item)
-			between = nil
-			if frames.closed {
-				return submissions, nil
+			if closed {
+				return scan.submissions, nil
 			}
 		}
-		if before > 0 && before == len(submissions) {
-			between = append(between, OPChannelIntervalBlock{Block: raw, Authority: authority})
-		}
+		scan.endHeight(raw, authority)
 		if h == head {
 			break
 		}
 	}
-	if len(submissions) > 0 {
+	if len(scan.submissions) > 0 {
 		return nil, errors.New("OP_CHANNEL_INCOMPLETE")
 	}
 	return nil, errors.New("OP_BATCH_SEARCH_EXHAUSTED")

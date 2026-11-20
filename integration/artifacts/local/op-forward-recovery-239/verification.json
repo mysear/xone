@@ -1,0 +1,72 @@
+{
+  "scope": "OP Holocene transaction-boundary channel scan recovery; not captured multi-submission acceptance",
+  "first": 159778006,
+  "last": 159778249,
+  "channels": [
+    {
+      "first": 159778006,
+      "last": 159778103,
+      "submissions": 1,
+      "observation_sha256": "4ba77f018c4b8deaa6b632600070a55424a7e2e3fe9d84ae551aa43666feac66"
+    },
+    {
+      "first": 159778104,
+      "last": 159778170,
+      "submissions": 1,
+      "observation_sha256": "6cfa9dd2f3d583a00884642e770bb4be4f4bdc814c32b15692f1077cc4eb0d5a"
+    },
+    {
+      "first": 159778171,
+      "last": 159778199,
+      "submissions": 1,
+      "observation_sha256": "a126148352858f1eeeef683a4b45157cb89844f681019001ee37f110e9d67baa"
+    },
+    {
+      "first": 159778200,
+      "last": 159778223,
+      "submissions": 1,
+      "observation_sha256": "3b5857a688f67e1a767b3f641f4ae61db39ea5ebe51d74ebf8fc2764b70ad07a"
+    },
+    {
+      "first": 159778224,
+      "last": 159778249,
+      "submissions": 1,
+      "observation_sha256": "4935798400e2511f9d0a2730bf91efaa967abcfdabffd5c5d46d069a986eded5"
+    }
+  ],
+  "all_observations_and_reports_match_stage235": true,
+  "execution_rpc_cache_only": true,
+  "blob_source": "existing public beacon API, network reads",
+  "synthetic_recovery_inputs": "original mainnet blob bytes, synthetic split/replacement transaction placement",
+  "discovery_inventory": {
+    "candidates": 70,
+    "readable_frame_zero": 60,
+    "readable_other_frame": 0,
+    "http_errors": 10
+  },
+  "limitations": [
+    "mixed-channel transactions remain unsupported",
+    "invalid active continuations remain rejected",
+    "no real captured multi-submission positive",
+    "full execution witness still unavailable at configured OP sources"
+  ],
+  "validation": {
+    "go_test_all": "passed",
+    "go_test_targeted": "passed",
+    "go_test_targeted_race": "passed",
+    "go_vet_all": "passed",
+    "git_diff_check": "passed",
+    "normal_cli_five_channels": "passed",
+    "initial_full_test_failure": "budget regression counted retained whitespace rather than compact JSON; corrected and rerun"
+  },
+  "source_and_fixture_sha256": {
+    "chain-parser-go/internal/chain/evm/op_batch_forward.go": "9c531133582f835b8600b85af049472d5cf1885051e9ac6c3ea4ee73068a5e35",
+    "chain-parser-go/internal/chain/evm/op_batch_forward_recovery.go": "930009b2575d299be5e14fd41bc7b8c5e72dc075b80a5752d9fee448faa6379d",
+    "chain-parser-go/internal/chain/evm/op_batch_forward_recovery_test.go": "8094f0288447e5d8b11ea4dc2219b36b2f29a6817d9f096056db2fd58c75f357",
+    "chain-parser-go/internal/chain/evm/op_batch_collect_test.go": "c69ae1f9481d387b97b93b06e21bd7eebfc6042e960c33efaa5161644e31c988",
+    "integration/test/source/op-mainnet-batches/batch-26453043.json.gz": "bbf2de1a1895297d266247c03d14d4350726a3edb2a49bc316b64522a31c48d4",
+    "integration/test/source/op-mainnet-batches/batch-26453870.json.gz": "015625047e5cf04c1bb691ebcb785aad1a7870e0b72f920a94941bde38e13942",
+    "integration/test/source/op-mainnet-batches/authority-26453870.json.gz": "47826ba645727c3d0fd4af245f7e64b0eb96de542fbfb4e64106cce04e21b5fb",
+    "integration/test/source/op-mainnet-batches/beacon-26453871.json.gz": "9698319d2380bde7b4421ec461c06a19f1f3bd1c1de970cecb6b8dfc97696a61"
+  }
+}
