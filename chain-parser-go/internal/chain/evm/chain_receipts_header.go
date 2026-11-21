@@ -126,6 +126,9 @@ func VerifyChainHeaderJSON(ctx context.Context, chainKey string, raw json.RawMes
 	}
 	if chainKey == "evm:10" {
 		out.opFeeRecipient = header.Coinbase
+		if err := verifyOPMainnetHeaderRules(&header); err != nil {
+			return out, err
+		}
 		if err := verifyOPMainnetWithdrawalFields(&header, fields["withdrawals"]); err != nil {
 			return out, err
 		}
