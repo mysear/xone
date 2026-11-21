@@ -38,13 +38,13 @@
 |WP15|部分完成|严格缺状态拒绝的REVM/SBF、取消/期限/子进程预算、限定真实余额差|可信当前完整bank、全链规则/全协议/复杂计划仿真；[通用verify明确不可用](dex-router/crates/simulation/src/lib.rs)、[本地EVM后端](dex-router/crates/quote-api/src/local_simulation.rs)|
 |WP16|部分完成|ExactIn/Out、认证、期限、缓存、single-flight、版本/新鲜度检查|VERIFIED被主动拒绝、全局单token额度不等于租户隔离、statePolicy/allowSources及完整API未齐；[API入口](dex-router/crates/quote-api/src/lib.rs)、[ExactOut](dex-router/crates/quote-api/src/exact_out.rs)|
 |WP17|部分完成|health/startup/链状态、SIGTERM、日志指标和开发compose|真实多AZ/PG/Kafka故障、灰度、监控/OTel与批准SLO；[开发compose](integration/compose/compose.yaml)、[单机基础设施](integration/tools/acceptance/infrastructure.py)|
-|WP18|完整交付未启动/未验收|七链原生承诺规则、多链配置与部分公开链样本|第二/第三真实链全闭环及费用/版本/恢复/上线验收；一链启动失败仍可中止全部启动，依据 [Go启动](chain-parser-go/internal/service/service.go)、[Rust启动](chain-parser-rust/crates/solana-ingest/src/service.rs) 的源码推断，尚未新增运行复现|
+|WP18|完整交付未启动/未验收|七链原生承诺规则、多链配置与部分公开链样本|第二/第三真实链全闭环及费用/版本/恢复/上线验收；阶段242–243已补[Go](chain-parser-go/internal/service/startup.go)与[Rust](chain-parser-rust/crates/solana-ingest/src/service_startup.rs)失败链启动隔离，慢链并发调度仍缺|
 |WP19|部分完成|Go analytics有限Job/只读连续worker、cursor/幂等/失败checkpoint|专属DLQ/raw重放、多插件配额、ClickHouse；Rust analytics显式未启用；[Go worker](chain-parser-go/internal/analysis/worker.go)、[Rust角色](chain-parser-rust/crates/solana-ingest/src/service.rs)|
 |WP20|部分完成|Solana tonic/流WAL/账户屏障、多种AMM数学和限定SBF/钱包链路|真实同源连续流/fork/完整bank、程序版本与扩展交叉、多池原子交易、生产CU/锁/负载；[流来源](chain-parser-rust/crates/solana-ingest/src/stream.rs)、[SBF披露](dex-router/crates/simulation/src/solana_sbf.rs)|
 |WP21|部分完成|本地candles/1、精确OHLC、撤销重算、revision/水位/原子checkpoint|HEAD_PROVISIONAL不等于正式发布；ClickHouse/shadow/发布指针/查询API、迟到与decoder升级；[K线日志](chain-parser-go/internal/analysis/journal.go)、[本地持久化](chain-parser-go/internal/analysis/job.go)|
 |WP22|外部来源竞争未启动|本地有限范围启发式、网格/共享状态/可选费用评分|RFQ/聚合器、多独立solver、有效期/调用者约束、通用上界与收益分布；[搜索边界](dex-router/crates/optimizer/src/search.rs)、[报价披露](dex-router/crates/quote-api/src/lib.rs)|
 |WP23|部分完成|本地重启/接管/无KV恢复及阻断门禁|生产shadow/逐租户放量、区域灾备/切回、真实RPO/RTO/回滚；[生产门禁](integration/tools/acceptance/gate.py)、[生产评审](integration/tools/acceptance/report.py)|
-|WP24|部分完成|HEAD_FIRST、当前基线/有限尾窗、历史故障不阻塞当前链|1h/1d/30d真实停机、范围扩展与资源全矩阵、链级启动隔离、首个VERIFIED报价；[历史隔离](chain-parser-go/internal/service/history_lifecycle.go)、[恢复目录](dex-router/crates/quote-api/src/remote_checkpoint.rs)|
+|WP24|部分完成|HEAD_FIRST、当前基线/有限尾窗、历史故障不阻塞当前链|1h/1d/30d真实停机、范围扩展与资源全矩阵、慢链调度隔离、首个VERIFIED报价；[历史隔离](chain-parser-go/internal/service/history_lifecycle.go)、[恢复目录](dex-router/crates/quote-api/src/remote_checkpoint.rs)|
 |WP25|部分完成|严格版本化文件、ConfigProvider、策略hash与secret文件权限|生产Kafka TLS/SASL当前配置不支持；secret修订/轮换、完整schema兼容与配置中心物化；[Go配置](chain-parser-go/internal/config/config.go)、[Rust配置](chain-parser-rust/crates/config/src/lib.rs)|
 |WP26|部分完成|Go/Rust结构化JSON、脱敏、有界队列、drop计数与部分事务审计|SDK故障映射、轮转/spool/集中采集/OTel、全控制审计和生产运行手册；[现有日志手册](integration/runbooks/log-investigation.md)|
 
@@ -68,7 +68,8 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
-|Go 链级启动与失败租约清理（[阶段242](#go-chain-startup-isolation)，P0-1）|§9.24、§18、§28.6、§28.26，WP04、WP07、WP18、WP24|LOCAL_SCOPE_VERIFIED|单链来源失败不阻断其他链；正常RPC修复可轮询恢复，实PG/Kafka证明post-Acquire失败释放租约|当前仍串行启动/轮询；Rust对应路径及慢链调度、真实多链完整交付继续推进|
+|Rust 链级启动与失败writer清理（[阶段243](#rust-chain-startup-isolation)，P0-1）|§9.24、§18、§28.6、§28.26，WP04、WP07、WP18、WP24|LOCAL_SCOPE_VERIFIED|逐链隔离/重试RPC和流初始化失败；保留状态重启仅提升失败链，关闭竞态与post-open租约泄漏已修复，实PG/Kafka通过|流任务启动不等于完整bank；串行actor、慢链调度及真实多链全闭环仍缺|
+|Go 链级启动与失败租约清理（[阶段242](#go-chain-startup-isolation)，P0-1）|§9.24、§18、§28.6、§28.26，WP04、WP07、WP18、WP24|LOCAL_SCOPE_VERIFIED|单链来源失败不阻断其他链；正常RPC修复可轮询恢复，实PG/Kafka证明post-Acquire失败释放租约|当前仍串行启动/轮询；Rust见阶段243，慢链调度、真实多链完整交付继续推进|
 |OP 原生头固定字段（[阶段241](#op-native-header-rules)，P0-1）|§7.3、§28.6、§28.7，WP04、WP05|LOCAL_SCOPE_VERIFIED|从Bedrock高度核对difficulty/nonce/uncle与Gas边界，两个真实块的重算哈希反例拒绝；Go全包/race/vet通过|父块依赖规则、完整执行后状态及各链最终性继续验收|
 |Go 测试独立性与必要文件收敛（[阶段240](#go-standalone-fixtures)，P0-1）|§25、§28.3、§28.5，WP01、WP03|LOCAL_SCOPE_VERIFIED|移除5处兄弟项目路径，显式保留20份必要gzip，契约191份公开来源逐字节通过；再清理10.81GiB重复构建环境|CI/供应链、完整工作包验收和其余设计缺项继续推进|
 |OP 自动扫描的废弃通道恢复（[阶段239](#op-forward-channel-recovery)，P0-1）|§7.1、§7.2、§7.3，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|Holocene 交易边界恢复、授权证明累计计费和旧证据清理，五个真实通道重放一致|恢复布局为原始 blob 的合成提交边界；真实跨提交正例、混合通道交易和完整执行仍待验收|
@@ -5469,3 +5470,17 @@ OP 块 144644465 的存款与以太坊块 23942644 均给出 48265514 wei。修�
 复核同时发现openSession获取租约后，owner/prepared等校验错误的部分出口没有释放租约。统一失败清理现在关闭producer、暂停旧状态，并以独立一秒上下文释放租约，保留冲突的prepared字节。实PG/Kafka测试分别制造JOURNAL_OWNER_MISMATCH与PREPARED_JOURNAL_CONFLICT：旧基线不可读，peer立即取得原本还有120秒的租约，prepared哈希不变。测试使用自行启动的回环PG/Kafka、独立topic，完成后停止服务并删除全部临时数据。初次环境启动受macOS Unix socket路径长度影响，改用短的/tmp路径后通过；没有将环境准备交给用户。
 
 9组正常本地RPC场景覆盖错链、节点503、池状态不可用、两种配置顺序、全部失败和全局取消。恢复期间继续错误的身份不能读池状态；修复后首次发布自身基线，健康链的完整引用保持不变。Go全包、专项race、vet、contracts及实PG/Kafka门禁通过。本轮没有留下测试结果或二进制；准备后因优先级暂不实施的租户工作树和分支已移除。仍需按链并发调度以隔离慢链延迟，本轮只关闭失败对其他链启动的阻断，未关闭全部WP18/WP24条款。
+
+<a id="rust-chain-startup-isolation"></a>
+
+## Rust解析器逐链启动、失败重试与writer交接（2026-11-21，阶段243，P0-1）
+
+Rust普通启动在共享配置/存储/PG初始化之后逐链尝试。单条RPC或Yellowstone恢复失败时撤销可读范围、暂停store、关闭writer，记录pending后继续其他链；至少一链初始化成功或真实LEASE_NOT_OWNED standby时启动服务，全部失败仍返回首个错误。Tick重试pending链，成功后清除标记；保留状态的首次重试按启动语义提升自身writer/generation，健康链引用不变。正常流任务只在初始化恢复完成后启动，不使用RPC后备，也不将异步任务存在当作完整bank，未取得所需来源证明仍返回503。
+
+复审修复两类关闭/交接边界：流任务在列表锁内重新检查stop并注册，Close先取出句柄、释放列表锁再join，避免恢复actor与任务退出互相等待；读取和提交之间检查关闭状态，关闭后的启动不返回成功。Writer::open取得租约后任一初始化Result错误均以独立有界PG操作释放；open成功后而尚未安装writer时，本地prepared/ledger恢复或store锁错误也由统一helper关闭。此helper同时用于普通baseline、流撤销恢复及scope writer恢复，冲突证据不被删除。
+
+服务crate完整tests通过；复审修复后49项lib通过、2项需显式实环境驱动的测试保持ignored，其中新增租约测试已单独启用并通过。正常Yellowstone含实PG/Kafka的18项全部通过：发布、撤销、重启和fencing继续成立。新测试在取得writer后制造SCOPE_STORE_CORRUPT，确认坏字节不变、失败writer未安装、健康链HTTP200且版本不变，peer在30秒测试窗口内立即取得原本120秒TTL的租约。环境为自行启动的回环PG13/Kafka3.9.1，退出后停止全部服务并删除临时数据。fmt、全目标全feature Clippy的-D warnings及契约门禁通过。
+
+本轮额外移除10个闲置的可重取编译器/SDK/sysroot/crate缓存及2个临时symlink，释放7879778304字节；正常Solders/LiteSVM和两份正式参考.so在清理前后均能加载且SHA256不变。保留固定源代码、锁文件、版本/来源清单、bank与实际运行时；显式源码重编译所需缓存须按固定版本重新准备。本轮Rust临时target在检查完成后删除，释放13132001280字节，没有保留测试报告或二进制。每轮清理要求继续执行。
+
+阶段242–243关闭的是失败链对其他链启动的阻断和对应交接漏洞，当前仍使用串行恢复actor，慢链延迟隔离未完成。下一步沿P0-1推进Ethereum首个v2-complete真实签名来源、正常owner/Router与恢复闭环，已自行找到可提供finalized证明的公开源并取得512签署者的当前BLS最终性；不因此授予生产或VERIFIED资格。原26工作包完整验收仍为0，继续开发剩余条款。

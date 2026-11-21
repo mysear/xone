@@ -571,18 +571,9 @@ impl Parser {
             (db.previous(), db.prepared()?)
         };
         let (opened, recovery) = Writer::open(pg, &self.config, chain, previous, pending).await?;
-        {
-            let mut db = self.stores[&chain.key]
-                .lock()
-                .map_err(|_| err("STATE_LOCK_POISONED"))?;
-            if let Some(cursor) = recovery {
-                db.apply_prepared(cursor)?;
-            } else {
-                db.discard_prepared()?;
-            }
-            db.suspend();
-        }
-        *active = opened;
+        *active = self
+            .reconcile_opened_writer(pg, chain, opened, recovery)
+            .await?;
         Ok(())
     }
 }

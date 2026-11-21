@@ -47,109 +47,112 @@ impl Writer {
         )
         .await
         .map_err(|_| err("CONTROL_DEADLINE"))??;
-        let config = cfg.clone();
-        let ch = chain.clone();
-        let opened = tokio::task::spawn_blocking(move || {
-            let k = &config.config.journal.kafka;
-            let timeout = Duration::from_millis(k.transaction_timeout_ms);
-            let topic = k
-                .topics
-                .get(&ch.key)
-                .ok_or_else(|| err("KAFKA_TOPIC_CONFIG"))?;
-            let producer = KafkaProducer::open(
-                &k.brokers,
-                topic,
-                &format!("xone.canonical.{}", ch.key),
-                k.chunk_bytes,
-                config.config.journal.max_payload_bytes,
-                timeout,
-            )?;
-            let (latest, cursor) = xone_kafka_transport::tail(
-                &k.brokers,
-                topic,
-                config.config.journal.max_payload_bytes,
-                k.max_tail_records,
-                timeout,
-            )?;
-            Ok::<_, xone_domain::Error>((producer, latest, cursor))
-        })
-        .await
-        .map_err(|_| err("KAFKA_INIT_TASK"))?;
-        let (producer, latest, cursor) = match opened {
-            Ok(v) => v,
-            Err(e) => {
-                let _ = pg.release(&lease).await;
-                return Err(e);
-            }
-        };
-        let floor = if let Some(u) = &latest {
-            u.snapshot
-                .validate(&chain.owner_service, chain.assignment_version)?;
-            if u.snapshot.reference.block.chain_key != chain.key {
-                return Err(err("JOURNAL_CHAIN_MISMATCH"));
-            }
-            u.snapshot.reference.clone()
-        } else {
-            previous
-                .clone()
-                .ok_or_else(|| err("EMPTY_JOURNAL_INITIAL_REFERENCE_REQUIRED"))?
-        };
-        let mut recovery = None;
-        let mut retry = None;
-        if let Some(p) = pending {
-            p.snapshot
-                .validate(&chain.owner_service, chain.assignment_version)?;
-            if p.snapshot.reference.block.chain_key != chain.key {
-                return Err(err("JOURNAL_CHAIN_MISMATCH"));
-            }
-            if let Some(actual) = latest {
-                if p.snapshot.reference == actual.snapshot.reference {
-                    if hash(&p)? != hash(&actual)? {
-                        return Err(err("PREPARED_JOURNAL_CONFLICT"));
+        // The acquired lease is not yet installed in Parser.writers. Every
+        // initialization/validation Result error must release it here, or a
+        // tolerant peer can mistake this process's leaked lease for standby.
+        let cleanup_lease = lease.clone();
+        let initialization = async {
+            let config = cfg.clone();
+            let ch = chain.clone();
+            let opened = tokio::task::spawn_blocking(move || {
+                let k = &config.config.journal.kafka;
+                let timeout = Duration::from_millis(k.transaction_timeout_ms);
+                let topic = k
+                    .topics
+                    .get(&ch.key)
+                    .ok_or_else(|| err("KAFKA_TOPIC_CONFIG"))?;
+                let producer = KafkaProducer::open(
+                    &k.brokers,
+                    topic,
+                    &format!("xone.canonical.{}", ch.key),
+                    k.chunk_bytes,
+                    config.config.journal.max_payload_bytes,
+                    timeout,
+                )?;
+                let (latest, cursor) = xone_kafka_transport::tail(
+                    &k.brokers,
+                    topic,
+                    config.config.journal.max_payload_bytes,
+                    k.max_tail_records,
+                    timeout,
+                )?;
+                Ok::<_, xone_domain::Error>((producer, latest, cursor))
+            })
+            .await
+            .map_err(|_| err("KAFKA_INIT_TASK"))?;
+            let (producer, latest, cursor) = opened?;
+            let floor = if let Some(u) = &latest {
+                u.snapshot
+                    .validate(&chain.owner_service, chain.assignment_version)?;
+                if u.snapshot.reference.block.chain_key != chain.key {
+                    return Err(err("JOURNAL_CHAIN_MISMATCH"));
+                }
+                u.snapshot.reference.clone()
+            } else {
+                previous
+                    .clone()
+                    .ok_or_else(|| err("EMPTY_JOURNAL_INITIAL_REFERENCE_REQUIRED"))?
+            };
+            let mut recovery = None;
+            let mut retry = None;
+            if let Some(p) = pending {
+                p.snapshot
+                    .validate(&chain.owner_service, chain.assignment_version)?;
+                if p.snapshot.reference.block.chain_key != chain.key {
+                    return Err(err("JOURNAL_CHAIN_MISMATCH"));
+                }
+                if let Some(actual) = latest {
+                    if p.snapshot.reference == actual.snapshot.reference {
+                        if hash(&p)? != hash(&actual)? {
+                            return Err(err("PREPARED_JOURNAL_CONFLICT"));
+                        }
+                        recovery = Some(cursor);
+                    } else if p.kind == "ONLINE_SCOPE_REVOKED" {
+                        let mut predecessor = p.snapshot.clone();
+                        predecessor.reference.journal_seq = predecessor
+                            .reference
+                            .journal_seq
+                            .checked_sub(1)
+                            .ok_or_else(|| err("SEQUENCE_OVERFLOW"))?;
+                        if predecessor == actual.snapshot && actual.kind == "ONLINE_BASELINE_COMMIT"
+                        {
+                            // Recover the exact immutable intent under the newly acquired lease
+                            // and Kafka transactional fence. Its original reference must match
+                            // the committed predecessor; it is not a new old-writer proposal.
+                            retry = Some(p);
+                        } else if actual.snapshot.reference.journal_seq
+                            <= p.snapshot.reference.journal_seq
+                            || actual.snapshot.reference.online_generation
+                                <= p.snapshot.reference.online_generation
+                        {
+                            return Err(err("REVOCATION_FLOOR_CONFLICT"));
+                        }
                     }
-                    recovery = Some(cursor);
                 } else if p.kind == "ONLINE_SCOPE_REVOKED" {
-                    let mut predecessor = p.snapshot.clone();
-                    predecessor.reference.journal_seq = predecessor
-                        .reference
-                        .journal_seq
-                        .checked_sub(1)
-                        .ok_or_else(|| err("SEQUENCE_OVERFLOW"))?;
-                    if predecessor == actual.snapshot && actual.kind == "ONLINE_BASELINE_COMMIT" {
-                        // Recover the exact immutable intent under the newly acquired lease
-                        // and Kafka transactional fence. Its original reference must match
-                        // the committed predecessor; it is not a new old-writer proposal.
-                        retry = Some(p);
-                    } else if actual.snapshot.reference.journal_seq
-                        <= p.snapshot.reference.journal_seq
-                        || actual.snapshot.reference.online_generation
-                            <= p.snapshot.reference.online_generation
-                    {
-                        return Err(err("REVOCATION_FLOOR_CONFLICT"));
-                    }
-                }
-            } else if p.kind == "ONLINE_SCOPE_REVOKED" {
-                return Err(err("REVOCATION_BASELINE_MISSING"));
-            }
-        }
-        let mut writer = Self {
-            lease,
-            producer: Some(producer),
-            floor,
-            takeover: true,
-            renewed: acquire_started,
-        };
-        if let Some(intent) = retry {
-            match writer.publish(pg, cfg, intent).await {
-                Ok(cursor) => recovery = Some(cursor),
-                Err(error) => {
-                    writer.close(pg, cfg).await;
-                    return Err(error);
+                    return Err(err("REVOCATION_BASELINE_MISSING"));
                 }
             }
+            let mut writer = Self {
+                lease,
+                producer: Some(producer),
+                floor,
+                takeover: true,
+                renewed: acquire_started,
+            };
+            if let Some(intent) = retry {
+                recovery = Some(writer.publish(pg, cfg, intent).await?);
+            }
+            Ok((writer, recovery))
         }
-        Ok((writer, recovery))
+        .await;
+        if initialization.is_err() {
+            // Use a fresh bounded cleanup allowance even if initialization's
+            // request/transaction deadline has already expired.
+            let _ = tokio::time::timeout(budget, pg.release(&cleanup_lease)).await;
+        }
+        initialization
     }
+
     pub async fn baseline(
         &mut self,
         pg: &Postgres,
