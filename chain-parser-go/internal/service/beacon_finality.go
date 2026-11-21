@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"xone/chain-parser-go/internal/config"
@@ -56,26 +57,101 @@ func (v *beaconOwnerView) check(block domain.BlockRef) error {
 // Walk backwards through verified execution headers before any short-tail
 // publication. This binds every intermediate height to the signed head hash.
 func (v *beaconOwnerView) admitTail(ctx context.Context, head, base domain.BlockRef, read func(context.Context, string) (domain.BlockRef, error)) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := v.check(head); err != nil {
 		return err
 	}
-	for head.Number > base.Number {
-		parent := head.Number - 1
-		if parent == base.Number {
-			if !strings.EqualFold(head.ParentHash, base.Hash) {
-				return errors.New("BEACON_FINALITY_PARENT_CONFLICT")
-			}
-			break
-		}
-		prev, err := read(ctx, fmt.Sprintf("0x%x", parent))
+	if base.ChainKey != head.ChainKey || base.Number > head.Number || base.Hash == "" {
+		return errors.New("BEACON_FINALITY_PARENT_CONFLICT")
+	}
+	var ancestors []domain.BlockRef
+	if head.Number > base.Number {
+		var err error
+		ancestors, err = prefetchBeaconAncestors(ctx, head.Number, head.Number-base.Number-1, read)
 		if err != nil {
 			return err
 		}
-		if prev.Number != parent || prev.ChainKey != head.ChainKey || !strings.EqualFold(head.ParentHash, prev.Hash) {
+		for _, prev := range ancestors {
+			if prev.Number != head.Number-1 || prev.ChainKey != head.ChainKey || prev.Hash == "" || !strings.EqualFold(head.ParentHash, prev.Hash) {
+				return errors.New("BEACON_FINALITY_PARENT_CONFLICT")
+			}
+			head = prev
+		}
+		if !strings.EqualFold(head.ParentHash, base.Hash) {
 			return errors.New("BEACON_FINALITY_PARENT_CONFLICT")
 		}
-		v.hashes[parent] = prev.Hash
-		head = prev
+	} else if !strings.EqualFold(head.Hash, base.Hash) {
+		return errors.New("BEACON_FINALITY_PARENT_CONFLICT")
 	}
-	return ctx.Err()
+	// Keep the signed head and previously admitted hashes unchanged on every
+	// failed read, ancestry check, cancellation or freshness check.
+	hashes := make(map[uint64]string, len(v.hashes)+len(ancestors))
+	for height, hash := range v.hashes {
+		hashes[height] = hash
+	}
+	for _, ancestor := range ancestors {
+		hashes[ancestor.Number] = ancestor.Hash
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := v.fresh(); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	v.hashes = hashes
+	return nil
+}
+
+// Fetch independently verified headers concurrently, retaining their requested
+// descending order. Admission still follows the signed head's parent links.
+func prefetchBeaconAncestors(ctx context.Context, head, count uint64, read func(context.Context, string) (domain.BlockRef, error)) ([]domain.BlockRef, error) {
+	if count == 0 {
+		return nil, ctx.Err()
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	ancestors := make([]domain.BlockRef, count)
+	jobs := make(chan int)
+	var workers sync.WaitGroup
+	var failed sync.Once
+	var firstErr error
+	for range min(4, len(ancestors)) {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for index := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
+				block, err := read(ctx, fmt.Sprintf("0x%x", head-uint64(index)-1))
+				if err != nil {
+					failed.Do(func() {
+						firstErr = err
+						cancel()
+					})
+					return
+				}
+				ancestors[index] = block
+			}
+		}()
+	}
+dispatch:
+	for index := range ancestors {
+		select {
+		case jobs <- index:
+		case <-ctx.Done():
+			break dispatch
+		}
+	}
+	close(jobs)
+	workers.Wait()
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	return ancestors, ctx.Err()
 }
