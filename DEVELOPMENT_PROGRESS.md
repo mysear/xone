@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|近期签名原始输入与普通双Router/恢复（[阶段245](#recent-signed-v2-bank)，P0-1）|§7.3、§7.9、§9.24、§18、§28.5–28.7、§28.26，WP03、WP04、WP07、WP09、WP24|LOCAL_SCOPE_VERIFIED|当前真实签名bank的完整原始响应有界采集；普通Go验签/MPT后四向整数报价、双副本/冷启动/owner重启与签名拒绝通过，冻结处理无上游读取|明确为近期签名录制模式；真实连续窗口、直连/生产SLO、完整VERIFIED和其他链协议继续推进|
 |Ethereum 签名短尾的有界祖先读取（[阶段244](#beacon-bounded-tail-prefetch)，P0-1）|§7.3、§7.9、§28.5–28.7，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|最多4个已核验祖先读取并发，按父链顺序完整验证后一次授权；取消/错误等待全部退出，固定夹具发布门禁不再依赖已清理环境|真实32高度owner、双Router和恢复闭环继续同P0-1验收，预算与来源资格保持原要求|
 |Rust 链级启动与失败writer清理（[阶段243](#rust-chain-startup-isolation)，P0-1）|§9.24、§18、§28.6、§28.26，WP04、WP07、WP18、WP24|LOCAL_SCOPE_VERIFIED|逐链隔离/重试RPC和流初始化失败；保留状态重启仅提升失败链，关闭竞态与post-open租约泄漏已修复，实PG/Kafka通过|流任务启动不等于完整bank；串行actor、慢链调度及真实多链全闭环仍缺|
 |Go 链级启动与失败租约清理（[阶段242](#go-chain-startup-isolation)，P0-1）|§9.24、§18、§28.6、§28.26，WP04、WP07、WP18、WP24|LOCAL_SCOPE_VERIFIED|单链来源失败不阻断其他链；正常RPC修复可轮询恢复，实PG/Kafka证明post-Acquire失败释放租约|当前仍串行启动/轮询；Rust见阶段243，慢链调度、真实多链完整交付继续推进|
@@ -5499,3 +5500,19 @@ Rust普通启动在共享配置/存储/PG初始化之后逐链尝试。单条RPC
 本轮没有把合成父链测试算作真实32高度成功窗口。直连的签名双Router尝试因公网大响应超时被拒绝；信标API短暂返回参与者不足的更新也被正确拒绝。已自行准备另一网络路径的有界只读转发环境，压缩传输与源部署验收继续推进，不交由用户配置，也不授予生产、完整共识或VERIFIED资格。下一项仍是P0-1的首个v2-complete签名来源与正常owner/双Router/恢复闭环。
 
 追加清理21处未跟踪、无打开文件的旧编译工具、下载包、Go缓存、不再读取的旧parser运行状态及未接入原型的生成JSON，释放2837950464字节；其中vendor的948个crate、42521个文件均对照锁文件及逐文件hash确认没有唯一修改。保留固定源码/锁/哈希清单、正式bank、实际回放所读的case结果与归档二进制。新的Router临时构建target在编译完成后删除，释放2114486272字节，仅当前验收仍需的可执行文件临时放在私有/tmp目录，待该项结束清除。本轮不保留新的测试结果报告到项目。原26工作包完整验收仍为0，整体目标继续。
+
+<a id="recent-signed-v2-bank"></a>
+
+## 当前签名V2 bank的有界采集、正常报价及持久状态恢复（2026-11-21，阶段245，P0-1）
+
+实测当前公网路径的完整正文/回执读取时间超过普通readState贯穿的60秒总预算。保持原始完整正文复核、receipt覆盖、MPT和时效门禁，本轮将有限原始响应采集与正常处理分开。SignedRPCCapture只接受显式HTTPS上游和只读JSON-RPC，最多4个fetch worker、64个pending、10000个key、512MiB总解码/磁盘预算及16MiB单响应；MISS异步采集并立即返回pending，不能授予范围可读。原始响应不重新序列化，按原provider/method/params绑定、metadata/gzip/原文hash校验，私有权限原子落盘/fsync。freeze后禁止新采集，缺失请求拒绝；关闭取消仅自己的curl进程组。空连接/半header回归同时覆盖HTTP解析前的2秒超时与有界关闭。
+
+prime_current_bank以临时普通Go owner逐次发现缺失输入，每轮失败的config/log/state全部清除；只有普通HTTP baseline为200、子进程仍活且block完全匹配固定proof，才返回primed。采集器没有snapshot注入或ready文件。重试由新enqueued/pending驱动，永久失败key立即停止；总900秒、最多96次。近期签名录制模式明确标记RETAINED_RECENT_SIGNED_RPC_BYTES，owner及Router均保留1小时新鲜度；旧未签离线模式的10年容限没有用于本模式。HTTPS直连仍单独标为LIVE_EXPLICIT_SIGNED_RPC。CLI支持显式proof/root/source及精确预期启动错误，不把任意启动失败算作签名负控。
+
+Ethereum主网块26464230、hash为0xac965af6cf1f4725fb1bd664aa973dd67ad670cb0616aa8bdc42f3289f45da4d，由原固定检查点跨委员会验证，509名签署者。固定proof的SHA256为c3d881f6849f84bac285b9f8badbddc0d3d1f9180d02425d2e23706279b19134。正文/回执原源为MEV Blocker与Publicnode，证明端点为0xRPC；这些URL选择和录制不证明独立故障域。采集过程中预采12条及新增40条；清除其中6份未用于本bank的旧高度响应后，保留46份必要原始输入，解码1664990字节、磁盘298648字节，其中6份eth_getProof。普通owner完成全部原门禁后，四个方向的ExactIn/ExactOut报价与独立整数公式和完整snapshotRef一致；首个报价2440ms仅表示冻结输入后的处理时间，采集预热约75.565秒、26次有限尝试另行记录，不能合并成直连启动SLO。
+
+两个正常Router完成单实例退出与冷重启，均不建本地状态KV、不调用外部RPC；Go owner保留原本地状态重启，同一block的writer_epoch/online_generation/journal_seq均由1变为2，canonical_epoch不变，再次四向报价通过。签名改动一位后精确返回PROVENANCE_BEACON_UPDATE_SIGNATURE，HTTP quote503。冻结后的正常报价、拒绝和owner恢复均无上游fetch。source disclosure保留consensus_verified=false，验收production_ready=false；输出INDICATIVE，不授予VERIFIED或完整共识资格。
+
+刷新工具保持900秒有限等待，仅对精确网络失败和参与率不足重试12秒；拒绝时确认proof逐字节未变，成功时校验CLI与实际proof的执行height/hash一致。其他错误、owner退出及超限立即失败，原600秒journal连续提交断言保持。新增/受影响的18项签名模式、16项采集器、15项普通owner预热、9项刷新控制测试通过，既有连续性/重放、17项进度文档、6项审计控制与统一契约门禁均通过。本轮未修改Go/Rust生产校验和各自预算。
+
+私有/tmp仅保留下一项连续窗口仍需的固定输入、采集cache及当前验收可执行文件；失败attempt目录、无用SSH转发原型/manifest和旧测试输出已清除，不在项目内保留新的结果报告。后续先完成同P0-1的真实连续高度及raw重放，不跳到低优先级租户/分析等功能。原26工作包完整验收仍为0，整个设计目标继续。

@@ -20,6 +20,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 from configuration import config_for
 
 ROOT=Path(__file__).resolve().parents[3]
@@ -170,27 +171,75 @@ def check_quote(pool,reference,request,response):
         require(int(quote['requiredSellAmount'])==expected and amount_out(expected)>=target and amount_out(expected-1)<target,'INTEGER_EXACT_OUT_ORACLE')
     return {'kind':request['kind'],'sell_token':request['sellToken'],'independent_integer_expected':str(expected),'matches':True}
 
-def run_processes(output,owner_binary,router_binary,endpoints,live=False,owner_state=None,reject=False,replica=False):
-    output=Path(output);output.mkdir(parents=True,exist_ok=False);token=secrets.token_urlsafe(32);ports={'owner':free_port(),'router':free_port(),'replica':free_port()};owner_url='http://127.0.0.1:'+str(ports['owner']);router_url='http://127.0.0.1:'+str(ports['router'])
-    require(len(endpoints)==2 and (tuple(endpoints)==ENDPOINTS if live else all(re.fullmatch(r'http://127\.0\.0\.1:\d+',url) for url in endpoints)),'SOURCE_ENDPOINT_SCOPE')
+def source_configuration(endpoints,live,signed_finality=None,proof_endpoint=None):
+    """Keep legacy selection fixed; separate signed live and retained inputs."""
+    signed=signed_finality is not None
+    require(proof_endpoint is None or signed,'PROOF_ENDPOINT_REQUIRES_SIGNED_FINALITY')
+    if signed:
+        require(len(endpoints)==2 and len(set(endpoints))==2,'SIGNED_SOURCE_ENDPOINT_SCOPE')
+        for url in [*endpoints,*([proof_endpoint] if proof_endpoint is not None else [])]:
+            require(isinstance(url,str) and not any(c.isspace() for c in url),'SIGNED_SOURCE_URL')
+            if live:
+                parsed=urlsplit(url)
+                require(parsed.scheme=='https' and parsed.hostname and parsed.username is None and parsed.password is None and not parsed.fragment,'SIGNED_SOURCE_URL')
+            else:
+                match=re.fullmatch(r'http://127\.0\.0\.1:([1-9][0-9]{0,4})',url)
+                require(match is not None and int(match.group(1))<=65535,'SIGNED_RETAINED_SOURCE_URL')
+        require(isinstance(signed_finality,dict) and set(signed_finality)=={'checkpoint_root','proof_file','max_checkpoint_age_ms'},'SIGNED_FINALITY_FIELDS')
+        require(isinstance(signed_finality['checkpoint_root'],str) and re.fullmatch(r'0x[0-9a-f]{64}',signed_finality['checkpoint_root']),'SIGNED_CHECKPOINT_ROOT')
+        age=signed_finality['max_checkpoint_age_ms'];require(type(age) is int and 0<age<=7*86400000,'SIGNED_CHECKPOINT_AGE')
+        path=Path(signed_finality['proof_file']);require(path.is_file() and not path.is_symlink() and path.stat().st_size<=16<<20,'SIGNED_PROOF_FILE')
+        with path.open('rb') as stream:raw=stream.read((16<<20)+1)
+        require(len(raw)<=16<<20,'SIGNED_PROOF_FILE')
+        proof=json.loads(raw,object_pairs_hook=pairs)
+        execution=proof['finality']['data']['finalized_header']['execution']
+        require(isinstance(execution['block_number'],str) and re.fullmatch(r'[0-9]+',execution['block_number']),'SIGNED_EXECUTION_NUMBER')
+        require(isinstance(execution['block_hash'],str) and re.fullmatch(r'0x[0-9a-f]{64}',execution['block_hash']),'SIGNED_EXECUTION_HASH')
+        binding={'checkpoint_root':signed_finality['checkpoint_root'],'proof_sha256':sha(raw),'execution_number':int(execution['block_number']),'execution_hash':execution['block_hash']}
+    else:
+        require(len(endpoints)==2 and (tuple(endpoints)==ENDPOINTS if live else all(re.fullmatch(r'http://127\.0\.0\.1:\d+',url) for url in endpoints)),'SOURCE_ENDPOINT_SCOPE')
+        raw=None;binding=None
     chain={'key':'evm:1','owner_service':'chain-parser-go','assignment_version':1,'genesis_hash':GENESIS,'rpc_urls':list(endpoints),'pools':[copy.deepcopy(POOL)],'confirmation_tag':'finalized','auto_reorg_window':128,'block_integrity':'known-evm-native-commitments-v2','receipts_mode':'bulk-auto','native_proof':{'max_bytes':64<<20,'max_headers':64,'max_window_blocks':16,'max_transactions':4096,'max_lookahead':32}}
-    children=[];streams=[];result={'passed':False,'source_mode':'LIVE_PUBLIC_RPC' if live else 'RETAINED_PUBLIC_BYTES_LOOPBACK_ONLY','history_enabled':False,'production_ready':False,'consensus_verified':False,'public_transactions_submitted':False,'started_ms':int(time.time()*1000)};start=time.monotonic()
+    if signed:
+        chain['beacon_finality']=copy.deepcopy(signed_finality)
+        chain['rpc_retry']={'max_attempts':3,'base_backoff_ms':150,'max_backoff_ms':1500}
+        if proof_endpoint is not None:chain['proof_rpc_url']=proof_endpoint
+    return chain,binding,raw
+
+def check_source_binding(evidence,reference,binding=None):
+    require(evidence['confirmation_tag']=='finalized' and evidence['consensus_verified'] is False,'NORMAL_SOURCE_DISCLOSURE')
+    if binding is not None:
+        require(evidence['confirmation_policy']=='PINNED_BEACON_FINALITY','SIGNED_CONFIRMATION_POLICY')
+        block=reference['block']
+        require(block['hash']==binding['execution_hash'] and block['number_or_slot']==binding['execution_number'],'SIGNED_EXECUTION_BINDING')
+
+def run_processes(output,owner_binary,router_binary,endpoints,live=False,owner_state=None,reject=False,replica=False,signed_finality=None,proof_endpoint=None,expected_startup_failure=None):
+    require(expected_startup_failure is None or reject,'EXPECTED_FAILURE_REQUIRES_REJECTION')
+    chain,binding,proof_bytes=source_configuration(endpoints,live,signed_finality,proof_endpoint)
+    output=Path(output);output.mkdir(parents=True,exist_ok=False);output.chmod(0o700)
+    if binding is not None:
+        proof_path=output/'signed-proof.json';proof_path.touch(mode=0o600,exist_ok=False);proof_path.write_bytes(proof_bytes)
+        chain['beacon_finality']['proof_file']=str(proof_path.resolve())
+    token=secrets.token_urlsafe(32);ports={'owner':free_port(),'router':free_port(),'replica':free_port()};owner_url='http://127.0.0.1:'+str(ports['owner']);router_url='http://127.0.0.1:'+str(ports['router'])
+    recent=live or binding is not None
+    source_mode=('LIVE_EXPLICIT_SIGNED_RPC' if live else 'RETAINED_RECENT_SIGNED_RPC_BYTES') if binding is not None else ('LIVE_PUBLIC_RPC' if live else 'RETAINED_PUBLIC_BYTES_LOOPBACK_ONLY')
+    children=[];streams=[];result={'passed':False,'source_mode':source_mode,'history_enabled':False,'production_ready':False,'consensus_verified':False,'public_transactions_submitted':False,'started_ms':int(time.time()*1000)};start=time.monotonic()
     try:
         selected=[('owner','chain-parser-go',owner_binary),('router','dex-router',router_binary)]
         if replica and not reject:selected.append(('replica','dex-router',router_binary))
         for alias,service,binary in selected:
-            cfg=config_for(service,output/alias,token,ports[alias]);cfg['chains']=[copy.deepcopy(chain)];cfg['history']['enabled']=False;cfg['startup']['max_baseline_age_ms']=3600000 if live else 315360000000;cfg['journal'].update(transport='http-development',source_urls=[owner_url],poll_interval_ms=60000 if alias=='owner' else 250,request_timeout_ms=60000,max_payload_bytes=16<<20)
+            cfg=config_for(service,output/alias,token,ports[alias]);cfg['chains']=[copy.deepcopy(chain)];cfg['history']['enabled']=False;cfg['startup']['max_baseline_age_ms']=3600000 if recent else 315360000000;cfg['journal'].update(transport='http-development',source_urls=[owner_url],poll_interval_ms=60000 if alias=='owner' else 250,request_timeout_ms=60000,max_payload_bytes=16<<20)
             if alias=='owner':
                 cfg['journal']['raw_evidence']={'max_bytes':512<<20,'max_records':10000,'max_record_bytes':128<<20}
                 if owner_state is not None:cfg['state']['path']=str(Path(owner_state).resolve())
             else:
-                cfg['chains'][0]={key:value for key,value in chain.items() if key not in ['block_integrity','receipts_mode','native_proof']};cfg['chains'][0].update(rpc_urls=[],pools=[]);cfg['journal']['source_auth_tokens']={owner_url:token};cfg['routing'].update(max_hops=1,max_splits=1,max_state_age_ms=3600000 if live else 315360000000,quote_ttl_ms=60000,route_activation_cost='0');cfg['api'].update(quote_timeout_ms=10000,quote_concurrency=1)
+                cfg['chains'][0]={key:value for key,value in chain.items() if key not in ['block_integrity','receipts_mode','native_proof','beacon_finality','proof_rpc_url','rpc_retry']};cfg['chains'][0].update(rpc_urls=[],pools=[]);cfg['journal']['source_auth_tokens']={owner_url:token};cfg['routing'].update(max_hops=1,max_splits=1,max_state_age_ms=3600000 if recent else 315360000000,quote_ttl_ms=60000,route_activation_cost='0');cfg['api'].update(quote_timeout_ms=10000,quote_concurrency=1)
             path=output/(alias+'-config.json');path.write_text(json.dumps(cfg,indent=2)+'\n');path.chmod(0o600)
             checked=subprocess.run([str(binary),'--config',str(path),'--check-config'],cwd=ROOT,capture_output=True,text=True,timeout=10)
             require(checked.returncode==0,'NORMAL_CONFIG_REJECTED:'+alias)
             result[alias+'_binary_sha256']=sha(Path(binary).read_bytes());stream=(output/(alias+'.log')).open('w');streams.append(stream)
             children.append(subprocess.Popen([str(binary),'--config',str(path)],cwd=ROOT/service,stdout=stream,stderr=subprocess.STDOUT,start_new_session=True))
-        deadline=time.monotonic()+(120 if live else 30)
+        deadline=time.monotonic()+(120 if recent else 30)
         while time.monotonic()<deadline:
             baseline=http(owner_url+'/internal/chains/evm:1/baseline',token);status=http(router_url+'/internal/chains/evm:1/status',token);result.update(baseline=baseline,router_status=status)
             if baseline['status']==200 and 'first_snapshot_ms' not in result:result['first_snapshot_ms']=round((time.monotonic()-start)*1000)
@@ -203,6 +252,8 @@ def run_processes(output,owner_binary,router_binary,endpoints,live=False,owner_s
             logs=[json.loads(line) for line in (output/'owner.log').read_text().splitlines() if line.strip()]
             failures=[line['fields']['error_code'] for line in logs if line.get('event')=='service_start_failed']
             require(len(failures)==1,'FAULT_STARTUP_FAILURE_NOT_OBSERVED');result['startup_failure_code']=failures[0]
+            if expected_startup_failure is not None:
+                require(failures[0]==expected_startup_failure,'UNEXPECTED_STARTUP_FAILURE')
             rejection_deadline=time.monotonic()+10
             while True:
                 attempted=http(router_url+'/v1/quote',token,next(requests_for(POOL))[1])
@@ -217,7 +268,9 @@ def run_processes(output,owner_binary,router_binary,endpoints,live=False,owner_s
                 response=http(router_url+route,token,request);result['integer_oracles'].append(check_quote(pool,ref,request,response));result['quotes'].append({'request':request,'response':response})
                 if 'first_quote_ms' not in result:result['first_quote_ms']=round((time.monotonic()-start)*1000)
             result['source_evidence']=http(owner_url+'/internal/chains/evm:1/source-evidence',token);result['source_status']=http(owner_url+'/internal/chains/evm:1/source-status',token)
-            evidence=result['source_evidence']['body'];require(evidence['confirmation_tag']=='finalized' and evidence['consensus_verified'] is False,'NORMAL_SOURCE_DISCLOSURE')
+            require(result['source_evidence']['status']==200,'NORMAL_SOURCE_EVIDENCE_UNAVAILABLE')
+            evidence=result['source_evidence']['body'];check_source_binding(evidence,ref,binding)
+            if binding is not None:result['signed_finality']={**binding,'owner_admitted_signed_execution':True}
             history=result['source_status']['body']['history'];require(history.get('Enabled',history.get('enabled')) is False,'HISTORY_BLOCKED_CURRENT_SCOPE')
             require(history['Queue']['Declared'] and not history['Queue']['Complete'] and history['Queue']['Gaps'] and history['Queue']['FactBlocks']==0 and all(job['Attempts']==0 for job in history['Queue']['Jobs']),'HISTORY_GAP_NOT_EXPLICIT_OR_READINESS_DEPENDENT')
             require(not (output/'router/state').exists(),'ROUTER_UNEXPECTED_LOCAL_KV')
@@ -277,3 +330,29 @@ def unpack_fixture(directory,destination):
     for name,raw in staged.items():
         with (destination/name).open('xb') as stream:stream.write(raw)
     return manifest
+
+
+def signed_main():
+    """Run the signed mode with already built ordinary service executables."""
+    import argparse
+    parser=argparse.ArgumentParser(description=signed_main.__doc__)
+    parser.add_argument('owner',type=Path);parser.add_argument('router',type=Path);parser.add_argument('output',type=Path)
+    parser.add_argument('--beacon-proof',type=Path,required=True)
+    parser.add_argument('--checkpoint-root',required=True)
+    parser.add_argument('--rpc-urls',nargs=2,required=True)
+    parser.add_argument('--proof-rpc-url')
+    parser.add_argument('--retained-signed',action='store_true',help='use only loopback retained recent RPC bytes; keep signed proof and one-hour freshness requirements')
+    parser.add_argument('--max-checkpoint-age-ms',type=int,default=7*86400000)
+    parser.add_argument('--replica',action='store_true')
+    parser.add_argument('--expect-startup-failure',help='require this exact owner error and HTTP quote 503')
+    args=parser.parse_args()
+    result=run_processes(args.output.resolve(),args.owner.resolve(),args.router.resolve(),args.rpc_urls,
+                         live=not args.retained_signed,replica=args.replica,reject=args.expect_startup_failure is not None,
+                         signed_finality={'checkpoint_root':args.checkpoint_root,'proof_file':str(args.beacon_proof.resolve()),
+                                          'max_checkpoint_age_ms':args.max_checkpoint_age_ms},
+                         proof_endpoint=args.proof_rpc_url,expected_startup_failure=args.expect_startup_failure)
+    print(json.dumps({key:result[key] for key in ('passed','source_mode','signed_finality','first_quote_ms',
+                                                 'startup_failure_code','consensus_verified','production_ready') if key in result},indent=2))
+
+
+if __name__=='__main__':signed_main()

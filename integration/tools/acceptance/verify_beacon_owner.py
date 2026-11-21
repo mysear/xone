@@ -11,6 +11,72 @@ from beacon_owner_archive import LIMITS, audit_archive
 from current_v2_evidence import ENDPOINTS, GENESIS, POOL, config_for, free_port, http, pairs, provider_id, stop
 
 
+RETRYABLE_REFRESH_ERRORS = frozenset({'PROVENANCE_BEACON_REFRESH_NETWORK',
+                                     'PROVENANCE_BEACON_UPDATE_PARTICIPATION'})
+
+
+def wait_for_next_finality(binary, config, path, endpoint, child, first_number, on_retry=None):
+    """Wait for a verified advance; rejected refreshes cannot replace the proof."""
+    deadline = time.monotonic() + 900
+    while True:
+        if child.poll() is not None:
+            raise ValueError('OWNER_NEXT_FINALITY_CHILD_EXITED')
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ValueError('OWNER_NEXT_FINALITY_TIMEOUT')
+        with path.open('rb') as stream:
+            before = stream.read((16 << 20) + 1)
+        if len(before) > 16 << 20:
+            raise ValueError('OWNER_REFRESH_PROOF_SIZE')
+        try:
+            reply = subprocess.run([binary, '--config', config, '--refresh-beacon-proof', endpoint],
+                                   check=False, capture_output=True, timeout=min(70, remaining))
+        except subprocess.TimeoutExpired:
+            if time.monotonic() >= deadline:
+                raise ValueError('OWNER_NEXT_FINALITY_TIMEOUT')
+            raise
+        if child.poll() is not None:
+            raise ValueError('OWNER_NEXT_FINALITY_CHILD_EXITED')
+        if time.monotonic() >= deadline:
+            raise ValueError('OWNER_NEXT_FINALITY_TIMEOUT')
+        if reply.returncode != 0:
+            try:
+                failure = json.loads(reply.stderr, object_pairs_hook=pairs)
+                code = failure['fields']['error_code'] if failure['event'] == 'service_start_failed' else None
+            except (ValueError, KeyError, TypeError):
+                code = None
+            if not isinstance(code, str) or code not in RETRYABLE_REFRESH_ERRORS:
+                raise subprocess.CalledProcessError(reply.returncode, reply.args,
+                                                    output=reply.stdout, stderr=reply.stderr)
+            with path.open('rb') as stream:
+                unchanged = stream.read(len(before) + 1) == before
+            if not unchanged:
+                raise ValueError('OWNER_REFRESH_REJECTED_PROOF_CHANGED')
+            if on_retry:
+                on_retry(code)
+        else:
+            with path.open('rb') as stream:
+                raw = stream.read((16 << 20) + 1)
+            if len(raw) > 16 << 20:
+                raise ValueError('OWNER_REFRESH_PROOF_SIZE')
+            try:
+                following = json.loads(raw, object_pairs_hook=pairs)
+                binding = json.loads(reply.stdout, object_pairs_hook=pairs)
+                execution = following['finality']['data']['finalized_header']['execution']
+                number = binding['execution_number']
+                matches = (type(number) is int and isinstance(execution['block_number'], str)
+                           and str(number) == execution['block_number']
+                           and isinstance(binding['execution_hash'], str)
+                           and binding['execution_hash'] == execution['block_hash'] and number >= first_number)
+            except (ValueError, KeyError, TypeError):
+                raise ValueError('OWNER_REFRESH_EXECUTION_BINDING') from None
+            if not matches:
+                raise ValueError('OWNER_REFRESH_EXECUTION_BINDING')
+            if number > first_number:
+                return following
+        time.sleep(min(12, max(0, deadline - time.monotonic())))
+
+
 def execution_endpoints(config_path):
     if config_path is None:
         return ENDPOINTS
@@ -121,6 +187,9 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
     def on_commit(record):
         progress['commits'].append(record)
         checkpoint()
+    def on_refresh_retry(code):
+        progress.setdefault('refresh_retry_codes', []).append(code)
+        checkpoint()
     with (output/'owner.log').open('w') as stream:
         child = subprocess.Popen([binary, '--config', config], stdout=stream, stderr=subprocess.STDOUT,
                                  start_new_session=True)
@@ -143,16 +212,8 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
                     following = json.loads(next_proof.read_bytes())
                     install(following)
                 else:
-                    deadline = time.monotonic() + 900
-                    while time.monotonic() < deadline and child.poll() is None:
-                        reply = subprocess.run([binary, '--config', config, '--refresh-beacon-proof', refresh_endpoint],
-                                               check=True, capture_output=True, timeout=70)
-                        if json.loads(reply.stdout)['execution_number'] > first['block']['number_or_slot']:
-                            break
-                        time.sleep(12)
-                    else:
-                        raise ValueError('OWNER_NEXT_FINALITY_TIMEOUT')
-                    following = json.loads(path.read_bytes())
+                    following = wait_for_next_finality(binary, config, path, refresh_endpoint, child,
+                                                       first['block']['number_or_slot'], on_refresh_retry)
                 target = following['finality']['data']['finalized_header']['execution']
                 progress['target'] = {k: target[k] for k in ('block_hash', 'block_number')}
                 checkpoint()

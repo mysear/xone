@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import Mock, patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import current_v2_evidence as m
 
@@ -51,6 +52,104 @@ class CurrentV2Evidence(unittest.TestCase):
         pool={'token0':'a','token1':'b','reserve0':'1','reserve1':'2'};request={'sellToken':'a','kind':'EXACT_IN','sellAmount':'1'};quote={'snapshotRef':{},'verification':{'level':'VERIFIED','success':True}}
         with self.assertRaisesRegex(ValueError,'FALSE_VERIFIED_CLAIM'):m.check_quote(pool,{},request,{'status':200,'body':quote})
         with self.assertRaisesRegex(ValueError,'QUOTE_REFERENCE_CHANGED'):m.check_quote(pool,{'other':1},request,{'status':200,'body':quote})
+
+
+class SignedCurrentV2Inputs(unittest.TestCase):
+    def setUp(self):
+        self.directory=tempfile.TemporaryDirectory();self.addCleanup(self.directory.cleanup);self.root=Path(self.directory.name)
+        self.path=self.root/'proof.json';self.execution={'block_number':'26460850','block_hash':'0x'+'12'*32}
+        self.path.write_text(json.dumps({'finality':{'data':{'finalized_header':{'execution':self.execution}}}}))
+        self.pin={'checkpoint_root':'0x'+'34'*32,'proof_file':str(self.path),'max_checkpoint_age_ms':7*86400000}
+        self.endpoints=('https://ethereum-rpc.publicnode.com','https://0xrpc.io/eth')
+    def test_signed_configuration_keeps_explicit_pin_and_separate_proof_source(self):
+        chain,binding,raw=m.source_configuration(self.endpoints,True,self.pin,self.endpoints[1])
+        self.assertEqual(chain['beacon_finality'],self.pin);self.assertEqual(chain['proof_rpc_url'],self.endpoints[1])
+        self.assertEqual(binding['execution_number'],26460850);self.assertEqual(binding['execution_hash'],self.execution['block_hash'])
+        self.assertEqual(binding['proof_sha256'],m.sha(self.path.read_bytes()));self.assertEqual(raw,self.path.read_bytes())
+        chain['beacon_finality']['checkpoint_root']='changed';self.assertEqual(self.pin['checkpoint_root'],'0x'+'34'*32)
+    def test_signed_mode_cannot_expand_legacy_scope_or_accept_ambiguous_sources(self):
+        with self.assertRaisesRegex(ValueError,'SOURCE_ENDPOINT_SCOPE'):m.source_configuration(self.endpoints,True)
+        with self.assertRaisesRegex(ValueError,'PROOF_ENDPOINT_REQUIRES_SIGNED_FINALITY'):m.source_configuration(m.ENDPOINTS,True,proof_endpoint=self.endpoints[1])
+        for endpoints,live,proof in [((self.endpoints[0],)*2,True,None)]:
+            with self.subTest(endpoints=endpoints,live=live),self.assertRaisesRegex(ValueError,'SIGNED_SOURCE_ENDPOINT_SCOPE'):m.source_configuration(endpoints,live,self.pin,proof)
+        for url in ['http://example.org','https://user:secret@example.org','https://example.org/#fragment','https://example.org/ white']:
+            with self.subTest(url=url),self.assertRaisesRegex(ValueError,'SIGNED_SOURCE_URL'):m.source_configuration(self.endpoints,True,self.pin,url)
+    def test_duplicate_json_symlink_and_unbounded_or_unknown_release_are_rejected(self):
+        self.path.write_text('{"finality":{},"finality":{}}')
+        with self.assertRaisesRegex(ValueError,'DUPLICATE_JSON_KEY'):m.source_configuration(self.endpoints,True,self.pin)
+        link=self.root/'link.json';link.symlink_to(self.path);pin={**self.pin,'proof_file':str(link)}
+        with self.assertRaisesRegex(ValueError,'SIGNED_PROOF_FILE'):m.source_configuration(self.endpoints,True,pin)
+        with self.assertRaisesRegex(ValueError,'SIGNED_FINALITY_FIELDS'):m.source_configuration(self.endpoints,True,{**self.pin,'untrusted_root':True})
+        with self.assertRaisesRegex(ValueError,'SIGNED_CHECKPOINT_AGE'):m.source_configuration(self.endpoints,True,{**self.pin,'max_checkpoint_age_ms':7*86400000+1})
+    def test_signed_admission_requires_same_block_and_disclosed_policy_without_verified_claim(self):
+        _,binding,_=m.source_configuration(self.endpoints,True,self.pin)
+        evidence={'confirmation_tag':'finalized','confirmation_policy':'PINNED_BEACON_FINALITY','consensus_verified':False}
+        ref={'block':{'hash':self.execution['block_hash'],'number_or_slot':26460850}}
+        m.check_source_binding(evidence,ref,binding)
+        for key,value in [('hash','0x'+'56'*32),('number_or_slot',26460849)]:
+            changed=copy.deepcopy(ref);changed['block'][key]=value
+            with self.subTest(key=key),self.assertRaisesRegex(ValueError,'SIGNED_EXECUTION_BINDING'):m.check_source_binding(evidence,changed,binding)
+        with self.assertRaisesRegex(ValueError,'SIGNED_CONFIRMATION_POLICY'):m.check_source_binding({**evidence,'confirmation_policy':'CONFIGURED_PROVIDER_TAG'},ref,binding)
+        with self.assertRaisesRegex(ValueError,'NORMAL_SOURCE_DISCLOSURE'):m.check_source_binding({**evidence,'consensus_verified':True},ref,binding)
+    def test_retained_signed_urls_are_strict_loopback_and_isolated_from_live_https(self):
+        retained=('http://127.0.0.1:19001','http://127.0.0.1:19002');proof='http://127.0.0.1:19003'
+        chain,binding,_=m.source_configuration(retained,False,self.pin,proof)
+        self.assertEqual(chain['rpc_urls'],list(retained));self.assertEqual(chain['proof_rpc_url'],proof)
+        self.assertEqual(binding['execution_hash'],self.execution['block_hash'])
+        with self.assertRaisesRegex(ValueError,'SIGNED_SOURCE_URL'):m.source_configuration(retained,True,self.pin,proof)
+        for url in [self.endpoints[0],'http://localhost:19001','http://127.0.0.2:19001',
+                    'http://127.0.0.1:0','http://127.0.0.1:65536','http://127.0.0.1:019001',
+                    'http://127.0.0.1:19001/','http://127.0.0.1:19001?upstream=public',
+                    'http://user@127.0.0.1:19001','http://[::1]:19001','http://127.0.0.1:19001#fragment']:
+            with self.subTest(url=url):
+                with self.assertRaisesRegex(ValueError,'SIGNED_RETAINED_SOURCE_URL'):m.source_configuration((url,retained[1]),False,self.pin,proof)
+                with self.assertRaisesRegex(ValueError,'SIGNED_RETAINED_SOURCE_URL'):m.source_configuration(retained,False,self.pin,url)
+    def test_rendered_owner_router_freshness_and_source_labels_preserve_legacy_modes(self):
+        owner=self.root/'owner-bin';owner.write_bytes(b'owner');router=self.root/'router-bin';router.write_bytes(b'router')
+        retained=('http://127.0.0.1:19001','http://127.0.0.1:19002')
+        cases=[('legacy-live',True,m.ENDPOINTS,None,None,3600000,'LIVE_PUBLIC_RPC'),
+               ('legacy-retained',False,retained,None,None,315360000000,'RETAINED_PUBLIC_BYTES_LOOPBACK_ONLY'),
+               ('signed-live',True,self.endpoints,self.pin,self.endpoints[1],3600000,'LIVE_EXPLICIT_SIGNED_RPC'),
+               ('signed-retained',False,retained,self.pin,'http://127.0.0.1:19003',3600000,'RETAINED_RECENT_SIGNED_RPC_BYTES')]
+        def spawn(args,**kwargs):
+            failed=args[0]==str(owner);child=Mock(returncode=1 if failed else 0);child.poll.return_value=1 if failed else None
+            if failed:
+                kwargs['stdout'].write(json.dumps({'event':'service_start_failed','fields':{'error_code':'TEST_CONFIG_RENDER'}})+'\n');kwargs['stdout'].flush()
+            return child
+        for name,live,endpoints,pin,proof,age,label in cases:
+            with self.subTest(mode=name),patch.object(m,'free_port',side_effect=[18001,18002,18003]), \
+                    patch.object(m.subprocess,'run',return_value=Mock(returncode=0)), \
+                    patch.object(m.subprocess,'Popen',side_effect=spawn),patch.object(m,'stop'), \
+                    patch.object(m,'http',return_value={'status':503,'body':{'error':'CHAIN_NOT_READY'}}):
+                output=self.root/name
+                result=m.run_processes(output,owner,router,endpoints,live=live,signed_finality=pin,
+                    proof_endpoint=proof,reject=True,expected_startup_failure='TEST_CONFIG_RENDER')
+                self.assertEqual(result['source_mode'],label);self.assertFalse(result['production_ready']);self.assertFalse(result['consensus_verified'])
+                for alias in ['owner','router']:
+                    cfg=json.loads((output/(alias+'-config.json')).read_bytes())
+                    self.assertEqual(cfg['startup']['max_baseline_age_ms'],age)
+                    self.assertEqual(cfg['journal']['request_timeout_ms'],60000)
+                    if alias=='router':
+                        self.assertEqual(cfg['routing']['max_state_age_ms'],age);self.assertEqual(cfg['chains'][0]['rpc_urls'],[])
+                        self.assertNotIn('beacon_finality',cfg['chains'][0]);self.assertNotIn('proof_rpc_url',cfg['chains'][0])
+    def test_cli_retained_signed_is_explicit_and_keeps_required_proof_release(self):
+        import contextlib
+        import io
+        base=['current_v2_evidence.py','owner-bin','router-bin',str(self.root/'output'),
+              '--beacon-proof',str(self.path),'--checkpoint-root',self.pin['checkpoint_root'],'--rpc-urls']
+        for retained in [False,True]:
+            urls=['http://127.0.0.1:19001','http://127.0.0.1:19002'] if retained else list(self.endpoints)
+            args=base+urls+(['--retained-signed'] if retained else [])
+            with self.subTest(retained=retained),patch.object(sys,'argv',args), \
+                    patch.object(m,'run_processes',return_value={'passed':True}) as run,contextlib.redirect_stdout(io.StringIO()):
+                m.signed_main()
+                self.assertEqual(run.call_args.kwargs['live'],not retained)
+                self.assertEqual(run.call_args.kwargs['signed_finality']['checkpoint_root'],self.pin['checkpoint_root'])
+                self.assertEqual(run.call_args.kwargs['signed_finality']['proof_file'],str(self.path.resolve()))
+        with patch.object(sys,'argv',['current_v2_evidence.py','owner','router','output','--retained-signed',
+                                    '--rpc-urls','http://127.0.0.1:1','http://127.0.0.1:2']), \
+                contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):
+            m.signed_main()
 
 
 class FixedCurrentV2Fixture(unittest.TestCase):
