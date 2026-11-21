@@ -45,19 +45,33 @@ func (s *Service) openSession(ctx context.Context, ch config.Chain) (*writerSess
 	if e != nil {
 		return nil, e
 	}
+	initialized := false
+	defer func() {
+		if initialized {
+			return
+		}
+		// Acquisition succeeded but no usable session was returned. The caller
+		// cannot close it, and its source context may already be canceled.
+		s.stores[ch.Key].Suspend()
+		cleanup, stop := context.WithTimeout(context.Background(), time.Second)
+		defer stop()
+		_ = pg.Release(cleanup, lease)
+	}()
 	kcfg := s.cfg.Config.Journal.Kafka
 	kctx, kcancel := context.WithTimeout(ctx, time.Duration(kcfg.TransactionTimeoutMS)*time.Millisecond)
 	defer kcancel()
 	producer, e := journal.OpenKafka(kctx, kcfg.Brokers, kcfg.Topics[ch.Key], fmt.Sprintf("xone.canonical.%s", ch.Key), kcfg.ChunkBytes, s.cfg.Config.Journal.MaxBytes, kcfg.MaxTailRecords, time.Duration(kcfg.TransactionTimeoutMS)*time.Millisecond)
 	if e != nil {
-		_ = pg.Release(timeout, lease)
 		return nil, e
 	}
+	defer func() {
+		if !initialized {
+			producer.Close()
+		}
+	}()
 	session := &writerSession{pg: pg, lease: lease, kafka: producer, store: s.stores[ch.Key], cfg: s.cfg, chain: ch, takeover: true, renewed: acquireStarted}
 	latest, cursor, e := producer.Tail(kctx)
 	if e != nil {
-		producer.Close()
-		_ = pg.Release(timeout, lease)
 		return nil, e
 	}
 	session.store.SetAuthorityDeadline(acquireStarted.Add(time.Duration(s.cfg.Config.Control.LeaseTTLMS) * time.Millisecond))
@@ -65,7 +79,6 @@ func (s *Service) openSession(ctx context.Context, ch config.Chain) (*writerSess
 	if latest != nil {
 		ref := latest.Snapshot.Reference
 		if ref.OwnerService != ch.Owner || ref.OwnerAssignmentVersion != ch.Assignment {
-			producer.Close()
 			return nil, errors.New("JOURNAL_OWNER_MISMATCH")
 		}
 		session.floor = ref
@@ -75,7 +88,6 @@ func (s *Service) openSession(ctx context.Context, ch config.Chain) (*writerSess
 	}
 	pending, e := session.store.Prepared()
 	if e != nil {
-		producer.Close()
 		return nil, e
 	}
 	if pending != nil {
@@ -83,19 +95,17 @@ func (s *Service) openSession(ctx context.Context, ch config.Chain) (*writerSess
 			a, ae := pending.CanonicalHash()
 			b, be := latest.CanonicalHash()
 			if ae != nil || be != nil || a != b {
-				producer.Close()
 				return nil, errors.New("PREPARED_JOURNAL_CONFLICT")
 			}
 			if e = session.store.ApplyPrepared(cursor); e != nil {
-				producer.Close()
 				return nil, e
 			}
 		} else if e = session.store.DiscardPrepared(); e != nil {
-			producer.Close()
 			return nil, e
 		}
 		session.store.Suspend()
 	}
+	initialized = true
 	return session, nil
 }
 func (w *writerSession) baseline(ctx context.Context, snapshot *domain.Snapshot, fork bool) error {

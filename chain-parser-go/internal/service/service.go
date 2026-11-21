@@ -163,7 +163,7 @@ func NewWithSource(cfg *config.Snapshot, source SnapshotSource) (*Service, error
 	s.rawMaintenance = maintenance
 	return s, nil
 }
-func (s *Service) Start(ctx context.Context) error {
+func (s *Service) Start(ctx context.Context) (result error) {
 	s.syncMu.Lock()
 	defer s.syncMu.Unlock()
 	if s.closed.Load() {
@@ -172,6 +172,15 @@ func (s *Service) Start(ctx context.Context) error {
 	if s.started.Load() {
 		return nil
 	}
+	// Cancellation applies to the whole startup attempt. A baseline acquired
+	// before another chain observes cancellation must not remain available.
+	defer func() {
+		if result != nil && ctx.Err() != nil {
+			for _, chain := range s.cfg.Config.Chains {
+				s.failChain(ctx, chain, ctx.Err(), "chain_start_canceled")
+			}
+		}
+	}()
 	s.initHistoryLifecycle(ctx)
 	s.startRuntimeSources(ctx)
 	if s.cfg.Config.Journal.Transport == "kafka" {
@@ -182,33 +191,31 @@ func (s *Service) Start(ctx context.Context) error {
 		s.control = pg
 		s.sessions = map[string]*writerSession{}
 	}
+	initialized, standby := 0, false
+	var firstError error
 	for _, chain := range s.cfg.Config.Chains {
-		if s.control != nil {
-			session, e := s.openSession(ctx, chain)
-			if e != nil {
-				if e.Error() == "LEASE_NOT_OWNED" {
-					continue
-				}
-				return e
-			}
-			s.sessions[chain.Key] = session
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-
-		if a := s.adapters[chain.Key]; a != nil {
-			identity := func(observe context.Context) error { return a.Client.VerifyEVM(observe, chain.Key, chain.Genesis) }
-			var err error
-			if s.rawMaintenance != nil {
-				err = s.rawMaintenance.Observe(ctx, chain.Key, RawObserveIdentity, identity)
-			} else {
-				err = identity(ctx)
-			}
-			if err != nil {
-				return err
-			}
+		active, err := s.initializeChain(ctx, chain)
+		if canceled := ctx.Err(); canceled != nil {
+			return canceled
 		}
-		if e := s.reanchor(ctx, chain, false); e != nil {
-			return e
+		if err != nil {
+			if firstError == nil {
+				firstError = err
+			}
+			s.failChain(ctx, chain, err, "chain_start_failed")
+			continue
 		}
+		if active {
+			initialized++
+		} else {
+			standby = true
+		}
+	}
+	if initialized == 0 && !standby {
+		return firstError
 	}
 	if err := s.startWebsockets(ctx); err != nil {
 		return err
@@ -217,6 +224,9 @@ func (s *Service) Start(ctx context.Context) error {
 		if e := s.rawMaintenance.Start(ctx); e != nil {
 			return e
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	s.started.Store(true)
 	s.startCheckpointWorker(ctx)
@@ -417,8 +427,7 @@ func (s *Service) Tick(ctx context.Context) {
 				}
 				s.sessions[ch.Key] = session
 				if e = s.reanchor(ctx, ch, false); e != nil {
-					session.close()
-					delete(s.sessions, ch.Key)
+					s.failChain(ctx, ch, e, "chain_sync_failed")
 				}
 				continue
 			}
@@ -457,34 +466,7 @@ func (s *Service) Tick(ctx context.Context) {
 			continue
 		}
 		if e := s.syncChain(ctx, chain); e != nil {
-			// A failed source read must revoke other replicas as well. Only
-			// later independent fork confirmation may advance canonical epoch.
-			if current, ready := s.stores[chain.Key].Current(); ready {
-				if revokeError := s.revokeScope(ctx, chain, current); revokeError != nil {
-					s.log.Event("error", "scope_revocation_failed", map[string]any{"chain_key": chain.Key, "error_code": revokeError.Error()})
-				}
-			}
-			s.stores[chain.Key].Suspend()
-			if err := s.revokeRuntimeSources(ctx, chain, nil); err != nil {
-				s.log.Event("error", "source_revocation_failed", map[string]any{"chain_key": chain.Key, "error_code": err.Error()})
-			}
-			if tracker := s.rawSources[chain.Key]; tracker != nil {
-				if err := tracker.quarantine("SOURCE_COLLECTION_FAILED", chain.Key); err != nil {
-					s.log.Event("error", "source_dlq_failed", map[string]any{"chain_key": chain.Key, "error_code": "SOURCE_DLQ_WRITE"})
-				}
-			}
-			s.lastError.Add(1)
-			if w := s.sessions[chain.Key]; w != nil {
-				w.close()
-				delete(s.sessions, chain.Key)
-			}
-			fields := map[string]any{"chain_key": chain.Key, "error_code": e.Error()}
-			var witness *evm.NativeWitnessError
-			if errors.As(e, &witness) {
-				fields["witness_phase"], fields["witness_index"] = witness.Phase, witness.WitnessIndex
-				fields["block_tag"], fields["witness_error_class"] = witness.HeightTag, witness.Class
-			}
-			s.log.Event("error", "chain_sync_failed", fields)
+			s.failChain(ctx, chain, e, "chain_sync_failed")
 		} else if e := s.tickRuntimeSources(ctx, chain); e != nil {
 			s.log.Event("warn", "catalog_qualification_pending", map[string]any{"chain_key": chain.Key, "error_code": e.Error()})
 		}
