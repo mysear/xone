@@ -5,6 +5,7 @@ validate the retained bodies, receipts, state proofs and signed finality.
 """
 from collections import Counter
 from contextlib import suppress
+import copy
 import gzip
 import hashlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -91,13 +92,39 @@ def _stop_child(child):
 
 
 def curl_fetch(url, method, params, cancel):
-    """Use bounded nonblocking pipes; diagnostics never enter error messages."""
+    """Retry transport failures within one wall/byte budget; retain exact bytes."""
     request = json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method,
                           'params': params}, separators=(',', ':')).encode()
     fail(len(request) <= REQUEST_BYTES, 'CAPTURE_REQUEST_BUDGET')
+    deadline = time.monotonic() + FETCH_SECONDS
+    expires_at = time.time() + FETCH_SECONDS
+    # Failed partial responses also consume the original budgets. Each attempt
+    # owns a new output buffer, so no failed bytes can prefix a later response.
+    budget = [RESPONSE_BYTES, STDERR_BYTES]
+    for attempt in range(3):
+        fail(not cancel.is_set(), 'CAPTURE_CANCELLED')
+        fail(_fetch_remaining(deadline, expires_at) > 0, 'CAPTURE_FETCH_TIMEOUT')
+        try:
+            return _curl_fetch_attempt(url, request, cancel, deadline, budget, expires_at)
+        except CaptureError as error:
+            if error.code != 'CAPTURE_FETCH_FAILED' or attempt == 2:
+                raise
+            remaining = _fetch_remaining(deadline, expires_at)
+            fail(remaining > 0, 'CAPTURE_FETCH_TIMEOUT')
+            fail(not cancel.wait(min(.25 * (2 ** attempt), remaining)), 'CAPTURE_CANCELLED')
+    raise CaptureError('CAPTURE_FETCH_FAILED')
+
+
+def _fetch_remaining(deadline, expires_at):
+    # macOS's monotonic clock can exclude system suspension. Neither a wall
+    # clock jump backward nor suspension may extend the original request budget.
+    return min(deadline - time.monotonic(), expires_at - time.time())
+
+
+def _curl_fetch_attempt(url, request, cancel, deadline, budget, expires_at):
     args = ['curl', '--disable', '--silent', '--show-error', '--fail',
             '--compressed', '--proto', '=https', '--max-redirs', '0',
-            '--max-time', str(FETCH_SECONDS), '--connect-timeout', '15',
+            '--max-time', str(max(.001, _fetch_remaining(deadline, expires_at))), '--connect-timeout', '15',
             '--request', 'POST', '--header', 'Content-Type: application/json',
             '--data-binary', '@-', '--url', url]
     try:
@@ -107,8 +134,7 @@ def curl_fetch(url, method, params, cancel):
         raise CaptureError('CAPTURE_FETCH_START', digest(type(error).__name__.encode())) from None
     output = bytearray()
     stderr_hash = hashlib.sha256()
-    stderr_size = sent = 0
-    deadline = time.monotonic() + FETCH_SECONDS
+    sent = 0
     try:
         with selectors.DefaultSelector() as selector:
             for stream, event, kind in [(child.stdin, selectors.EVENT_WRITE, 'stdin'),
@@ -118,7 +144,7 @@ def curl_fetch(url, method, params, cancel):
                 selector.register(stream, event, kind)
             while selector.get_map():
                 fail(not cancel.is_set(), 'CAPTURE_CANCELLED')
-                fail(time.monotonic() < deadline, 'CAPTURE_FETCH_TIMEOUT')
+                fail(_fetch_remaining(deadline, expires_at) > 0, 'CAPTURE_FETCH_TIMEOUT')
                 for key, _ in selector.select(timeout=.1):
                     stream, kind = key.fileobj, key.data
                     try:
@@ -139,15 +165,16 @@ def curl_fetch(url, method, params, cancel):
                         selector.unregister(stream)
                         stream.close()
                     elif kind == 'stdout':
-                        fail(len(output) + len(data) <= RESPONSE_BYTES, 'CAPTURE_RESPONSE_BUDGET')
+                        fail(len(data) <= budget[0], 'CAPTURE_RESPONSE_BUDGET')
+                        budget[0] -= len(data)
                         output.extend(data)
                     else:
-                        stderr_size += len(data)
                         stderr_hash.update(data)
-                        fail(stderr_size <= STDERR_BYTES, 'CAPTURE_STDERR_BUDGET')
+                        fail(len(data) <= budget[1], 'CAPTURE_STDERR_BUDGET')
+                        budget[1] -= len(data)
         while child.poll() is None:
             fail(not cancel.wait(.05), 'CAPTURE_CANCELLED')
-            fail(time.monotonic() < deadline, 'CAPTURE_FETCH_TIMEOUT')
+            fail(_fetch_remaining(deadline, expires_at) > 0, 'CAPTURE_FETCH_TIMEOUT')
         if child.returncode:
             raise CaptureError('CAPTURE_FETCH_FAILED', stderr_hash.hexdigest())
         return bytes(output)
@@ -528,6 +555,25 @@ class SignedRPCCapture:
             fail(self.started and not self.closed, 'CAPTURE_CLOSED')
             fail(not self.pending, 'CAPTURE_PENDING')
             self.frozen = True
+
+    def request_inventory(self):
+        """Return authenticated request templates, never response replacements."""
+        with self.condition:
+            fail(self.started and not self.closed, 'CAPTURE_CLOSED')
+            fail(not self.storage_failed, 'CAPTURE_STORAGE_FAILED')
+            inventory = []
+            for key in sorted(self.records):
+                metadata, _, _ = self._read_file(self.directory/(key + '.rpc'))
+                fail(metadata['provider_id'] in self.providers, 'CAPTURE_PROVIDER_MISMATCH')
+                inventory.append({
+                    'provider_id': metadata['provider_id'],
+                    'source_index': self.providers.index(metadata['provider_id']),
+                    'method': metadata['method'],
+                    'params': copy.deepcopy(metadata['params']),
+                    'response_sha256': metadata['response_sha256'],
+                    'response_bytes': metadata['response_bytes'],
+                })
+            return inventory
 
     def stats(self):
         with self.condition:

@@ -94,9 +94,9 @@ def check_rows(rows, report, staged):
                     'REPLAY_STATE_OR_FACTS_CHANGED')
 
 
-def replay(binary, directory, trusted_root):
+def replay(binary, directory, trusted_root, retained_signed=False):
     config_path = directory / 'owner-config.json'
-    endpoints = execution_endpoints(config_path)
+    endpoints = execution_endpoints(config_path, retained_signed=retained_signed)
     cfg = json.loads(config_path.read_bytes(), object_pairs_hook=pairs)
     require(len(cfg['chains']) == 1, 'REPLAY_SINGLE_CHAIN')
     report = json.loads((directory / 'report.json').read_bytes(), object_pairs_hook=pairs)
@@ -132,15 +132,25 @@ def replay(binary, directory, trusted_root):
             and decoded['signed_hash'] == report['target']['block_hash'], 'REPLAY_SIGNED_TARGET')
     rows = decoded['rows']
     check_rows(rows, report, staged)
-    return dict(scope='historical-published-prefix', signed_target=report['target'], verified_blocks=rows,
-                matched_staged_records=len(rows)-1, reads_by_source=dict(zip(sources, counts)),
-                excluded_error_responses={key: rpc.errors for key, rpc in sources.items()})
+    result = dict(scope='historical-published-prefix', signed_target=report['target'], verified_blocks=rows,
+                  matched_staged_records=len(rows)-1, reads_by_source=dict(zip(sources, counts)),
+                  excluded_error_responses={key: rpc.errors for key, rpc in sources.items()})
+    if retained_signed:
+        result.update(source_mode='RETAINED_RECENT_SIGNED_RPC_BYTES', production_ready=False,
+                      consensus_verified=False)
+    return result
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('binary', type=Path, help='built replay-beacon-window executable')
     parser.add_argument('directory', type=Path, help='stopped owner acceptance directory')
     parser.add_argument('trusted_root', help='externally selected mainnet beacon checkpoint root')
+    parser.add_argument('--retained-signed', action='store_true',
+                        help='require the recorded owner config to contain only path-free loopback recent signed sources')
     args = parser.parse_args()
-    print(json.dumps(replay(args.binary.resolve(), args.directory.resolve(), args.trusted_root), indent=2))
+    print(json.dumps(replay(args.binary.resolve(), args.directory.resolve(), args.trusted_root,
+                            retained_signed=args.retained_signed), indent=2))
+
+
+if __name__ == '__main__':main()

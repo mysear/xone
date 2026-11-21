@@ -227,6 +227,62 @@ class CaptureTests(unittest.TestCase):
         finally:
             capture.servers = []
 
+    def test_request_inventory_validates_completed_records_and_copies_params(self):
+        capture = self.capture(upstreams=(URLS[0], URLS[1], URLS[0]))
+        params = [{'blockHash': '0x1234', 'keys': ['0x0']}]
+        capture.response(2, request('eth_getProof', params))
+        self.assertTrue(capture.wait_pending(3))
+        capture.freeze()
+        before_stats = capture.stats()
+        before_files = {path.name: path.read_bytes() for path in self.directory.iterdir()}
+        rows = capture.request_inventory()
+        self.assertEqual(rows, [{
+            'provider_id': capture.providers[0], 'source_index': 0,
+            'method': 'eth_getProof', 'params': params,
+            'response_sha256': m.digest(RAW), 'response_bytes': len(RAW),
+        }])
+        self.assertNotIn('secret', json.dumps(rows))
+        rows[0]['params'][0]['keys'].append('changed')
+        rows[0]['method'] = 'changed'
+        self.assertEqual(capture.request_inventory()[0]['params'], params)
+        self.assertEqual(capture.stats(), before_stats)
+        self.assertEqual({path.name: path.read_bytes() for path in self.directory.iterdir()}, before_files)
+
+    def test_request_inventory_excludes_pending_never_fetches_and_rejects_closed_or_failed(self):
+        entered, release = threading.Event(), threading.Event()
+        def fetch(*_):
+            entered.set()
+            release.wait(2)
+            return RAW
+        capture = self.capture(fetch)
+        capture.response(0, request())
+        self.assertTrue(entered.wait(1))
+        before = capture.stats()
+        self.assertEqual(capture.request_inventory(), [])
+        self.assertEqual(capture.stats(), before)
+        release.set()
+        self.assertTrue(capture.wait_pending(3))
+        capture.storage_failed = True
+        with self.assertRaisesRegex(m.CaptureError, 'CAPTURE_STORAGE_FAILED'):
+            capture.request_inventory()
+        capture.storage_failed = False
+        capture.close()
+        with self.assertRaisesRegex(m.CaptureError, 'CAPTURE_CLOSED'):
+            capture.request_inventory()
+
+    def test_request_inventory_rejects_corrupt_retained_response_without_fetch(self):
+        capture = self.capture()
+        capture.response(0, request())
+        self.assertTrue(capture.wait_pending(3))
+        path = next(self.directory.glob('*.rpc'))
+        damaged = bytearray(path.read_bytes())
+        damaged[-1] ^= 1
+        path.write_bytes(damaged)
+        before = capture.stats()
+        with self.assertRaisesRegex(m.CaptureError, 'CAPTURE_GZIP_HASH'):
+            capture.request_inventory()
+        self.assertEqual(capture.stats(), before)
+
     def test_failed_keys_hold_record_slots_and_storage_failure_stops_new_writes(self):
         capture = self.capture(lambda *_: b'bad-json', MAX_RECORDS=1)
         capture.response(0, request())
@@ -278,17 +334,26 @@ class CaptureTests(unittest.TestCase):
 
 
 class CurlPipeTests(unittest.TestCase):
-    def fetch_with_local_child(self, script, cancel=None, **patches):
+    def fetch_with_local_child(self, script, cancel=None, after_spawn=None, **patches):
         """Exercise real nonblocking pipes/child cancellation, never curl/network."""
         children = []
+        self.last_fetch_children = children
+        self.last_curl_args = []
+        scripts = None if isinstance(script, str) else list(script)
         original = m.subprocess.Popen
         def spawn(args, **kwargs):
             self.assertEqual(args[0:2], ['curl', '--disable'])
             self.assertEqual(args[-2:], ['--url', URLS[0]])
             self.assertIn('@-', args)
             self.assertTrue(kwargs['start_new_session'])
-            child = original([sys.executable, '-B', '-c', script], **kwargs)
+            self.last_curl_args.append(list(args))
+            if scripts is not None:
+                self.assertLess(len(children), len(scripts), 'unexpected extra transport retry')
+            selected = script if scripts is None else scripts[len(children)]
+            child = original([sys.executable, '-B', '-c', selected], **kwargs)
             children.append(child)
+            if after_spawn is not None:
+                after_spawn(child)
             return child
         constants = mock.patch.multiple(m, **patches) if patches else nullcontext()
         with mock.patch.object(m.subprocess, 'Popen', side_effect=spawn), constants:
@@ -326,6 +391,115 @@ class CurlPipeTests(unittest.TestCase):
                 self.fetch_with_local_child('import sys,time;sys.stdin.read();time.sleep(10)', cancel)
         finally:
             timer.cancel()
+
+    @staticmethod
+    def failed_transport(stdout=b'', stderr=b'upstream HTTP 504', delay=0):
+        return ('import sys,time;sys.stdin.buffer.read();time.sleep(' + repr(delay) + ');'
+                'sys.stdout.buffer.write(' + repr(stdout) + ');sys.stdout.buffer.flush();'
+                'sys.stderr.buffer.write(' + repr(stderr) + ');sys.stderr.buffer.flush();sys.exit(56)')
+
+    @staticmethod
+    def successful_response(body=RAW):
+        return 'import sys;sys.stdin.buffer.read();sys.stdout.buffer.write(' + repr(body) + ')'
+
+    def test_two_transport_failures_then_third_success_preserve_only_success_bytes(self):
+        scripts = [self.failed_transport(b'failed-prefix-one'),
+                   self.failed_transport(b'failed-prefix-two'), self.successful_response()]
+        self.assertEqual(self.fetch_with_local_child(scripts), RAW)
+        self.assertEqual(len(self.last_fetch_children), 3)
+
+    def test_three_transport_failures_exhaust_attempt_limit_and_hash_diagnostics(self):
+        script = self.failed_transport(b'partial', b'private-upstream-504')
+        with self.assertRaises(m.CaptureError) as raised:
+            self.fetch_with_local_child([script, script, script])
+        self.assertEqual(raised.exception.code, 'CAPTURE_FETCH_FAILED')
+        self.assertEqual(len(self.last_fetch_children), 3)
+        self.assertEqual(raised.exception.detail_hash, m.digest(b'private-upstream-504'))
+        self.assertNotIn('private-upstream', str(raised.exception))
+
+    def test_partial_failed_outputs_share_one_response_budget_with_later_attempts(self):
+        cases = [([self.failed_transport(b'a'*5, b''), self.failed_transport(b'b'*5, b''),
+                   self.successful_response()], 9),
+                 ([self.failed_transport(b'a'*4, b''), self.successful_response()], len(RAW)+3)]
+        for scripts, budget in cases:
+            with self.subTest(budget=budget), self.assertRaises(m.CaptureError) as raised:
+                self.fetch_with_local_child(scripts, RESPONSE_BYTES=budget)
+            self.assertEqual(raised.exception.code, 'CAPTURE_RESPONSE_BUDGET')
+            self.assertEqual(len(self.last_fetch_children), 2)
+
+    def test_failed_attempt_stderr_shares_one_budget_and_cannot_trigger_more_retries(self):
+        script = self.failed_transport(stderr=b'e'*5)
+        with self.assertRaises(m.CaptureError) as raised:
+            self.fetch_with_local_child([script, script, self.successful_response()], STDERR_BYTES=9)
+        self.assertEqual(raised.exception.code, 'CAPTURE_STDERR_BUDGET')
+        self.assertEqual(len(self.last_fetch_children), 2)
+
+    def test_retries_share_original_wall_deadline_and_curl_receives_only_remaining_time(self):
+        started = time.monotonic()
+        real_wall, backward = time.time, [0]
+        scripts = [self.failed_transport(delay=.05),
+                   'import sys,time;sys.stdin.buffer.read();time.sleep(10)']
+        # A wall-clock rollback after launch cannot extend the monotonic bound.
+        with mock.patch.object(m.time, 'time', side_effect=lambda: real_wall()-backward[0]), \
+                self.assertRaises(m.CaptureError) as raised:
+            self.fetch_with_local_child(scripts, FETCH_SECONDS=1.2,
+                after_spawn=lambda _: backward.__setitem__(0, 3600))
+        self.assertEqual(raised.exception.code, 'CAPTURE_FETCH_TIMEOUT')
+        self.assertEqual(len(self.last_fetch_children), 2)
+        limits = [float(args[args.index('--max-time')+1]) for args in self.last_curl_args]
+        self.assertLessEqual(limits[0], 1.2)
+        self.assertLess(limits[1], limits[0]-.2)
+        self.assertLess(time.monotonic()-started, 2.5)
+
+    def test_wall_forward_jump_after_real_child_launch_times_out_without_retry(self):
+        real_wall, forward = time.time, [0]
+        cancel = threading.Event()
+        # Bound an intentionally broken implementation too; cancellation would
+        # produce the wrong error and fail the assertion rather than hang.
+        fallback = threading.Timer(1.5, cancel.set)
+        fallback.start()
+        started = time.monotonic()
+        try:
+            with mock.patch.object(m.time, 'time', side_effect=lambda: real_wall()+forward[0]), \
+                    self.assertRaises(m.CaptureError) as raised:
+                self.fetch_with_local_child('import sys,time;sys.stdin.buffer.read();time.sleep(10)',
+                    cancel, after_spawn=lambda _: forward.__setitem__(0, m.FETCH_SECONDS+1))
+            self.assertEqual(raised.exception.code, 'CAPTURE_FETCH_TIMEOUT')
+            self.assertEqual(len(self.last_fetch_children), 1)
+            self.assertLess(time.monotonic()-started, 1.5)
+        finally:
+            fallback.cancel()
+            fallback.join(timeout=2)
+
+    def test_cancellation_during_transport_backoff_prevents_next_child(self):
+        cancel, backoff = threading.Event(), threading.Event()
+        real_wait = cancel.wait
+        def observed_wait(seconds=None):
+            if seconds is not None and seconds >= .2:
+                backoff.set()
+            return real_wait(seconds)
+        def cancel_backoff():
+            if backoff.wait(2):
+                cancel.set()
+        worker = threading.Thread(target=cancel_backoff)
+        worker.start()
+        try:
+            with mock.patch.object(cancel, 'wait', side_effect=observed_wait), \
+                    self.assertRaises(m.CaptureError) as raised:
+                self.fetch_with_local_child([self.failed_transport(), self.successful_response()], cancel)
+            self.assertEqual(raised.exception.code, 'CAPTURE_CANCELLED')
+            self.assertTrue(backoff.is_set())
+            self.assertEqual(len(self.last_fetch_children), 1)
+        finally:
+            cancel.set()
+            worker.join(timeout=3)
+            self.assertFalse(worker.is_alive())
+
+    def test_successful_http_jsonrpc_semantic_error_is_returned_once_without_transport_retry(self):
+        semantic = b'{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"historical state unavailable"}}\n'
+        self.assertEqual(self.fetch_with_local_child([
+            self.successful_response(semantic), self.successful_response()]), semantic)
+        self.assertEqual(len(self.last_fetch_children), 1)
 
 
 if __name__ == '__main__':

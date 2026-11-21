@@ -1,6 +1,7 @@
 """Exercise signed finality admission and revocation on the ordinary Go owner."""
 import argparse
 import json
+import re
 import secrets
 import subprocess
 import time
@@ -77,8 +78,10 @@ def wait_for_next_finality(binary, config, path, endpoint, child, first_number, 
         time.sleep(min(12, max(0, deadline - time.monotonic())))
 
 
-def execution_endpoints(config_path):
+def execution_endpoints(config_path, retained_signed=False):
     if config_path is None:
+        if retained_signed:
+            raise ValueError('RETAINED_SIGNED_EXECUTION_CONFIG_REQUIRED')
         return ENDPOINTS
     with config_path.open('rb') as stream:
         raw = stream.read((1 << 20) + 1)
@@ -97,10 +100,15 @@ def execution_endpoints(config_path):
     for url in urls:
         if not isinstance(url, str) or not url or any(c.isspace() for c in url):
             raise ValueError('EXECUTION_CONFIG_URL')
-        parsed = urlsplit(url)
-        if (parsed.scheme != 'https' or not parsed.hostname or parsed.username is not None
-                or parsed.password is not None or parsed.fragment):
-            raise ValueError('EXECUTION_CONFIG_URL')
+        if retained_signed:
+            match = re.fullmatch(r'http://127\.0\.0\.1:([1-9][0-9]{0,4})', url)
+            if match is None or int(match.group(1)) > 65535:
+                raise ValueError('RETAINED_SIGNED_EXECUTION_CONFIG_URL')
+        else:
+            parsed = urlsplit(url)
+            if (parsed.scheme != 'https' or not parsed.hostname or parsed.username is not None
+                    or parsed.password is not None or parsed.fragment):
+                raise ValueError('EXECUTION_CONFIG_URL')
     if len(set(urls[:2])) != 2:
         raise ValueError('EXECUTION_CONFIG_WITNESSES')
     return tuple(urls)
@@ -142,8 +150,8 @@ def verify_advancement(owner, token, child, start, execution, max_tail, on_commi
     raise ValueError('OWNER_ADVANCE_TIMEOUT')
 
 
-def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None, refresh_endpoint=None, execution_config=None):
-    endpoints = execution_endpoints(execution_config)
+def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None, refresh_endpoint=None, execution_config=None, retained_signed=False):
+    endpoints = execution_endpoints(execution_config, retained_signed=retained_signed)
     output.mkdir(mode=0o700, exist_ok=False, parents=True)
     proof = {'bootstrap': json.loads(bootstrap.read_bytes()), 'finality': json.loads(finality.read_bytes())}
     if updates:
@@ -179,7 +187,9 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
     config = output/'owner-config.json'
     config.touch(mode=0o600, exist_ok=False)
     config.write_text(json.dumps(cfg))
-    progress = {'passed': False, 'commits': [], 'provider_ids': [provider_id(url) for url in endpoints]}
+    progress = {'passed': False, 'commits': [], 'provider_ids': [provider_id(url) for url in endpoints],
+                'source_mode': 'RETAINED_RECENT_SIGNED_RPC_BYTES' if retained_signed else 'LIVE_EXPLICIT_SIGNED_RPC',
+                'production_ready': False, 'consensus_verified': False}
     def checkpoint():
         tmp = output / 'report.tmp'
         tmp.write_text(json.dumps(progress, indent=2))
@@ -226,7 +236,9 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
                 recovered = baseline(200)['reference']
                 if recovered['block']!=first['block'] or recovered['journal_seq']<=first['journal_seq']:
                     raise ValueError('OWNER_RECOVERY')
-                return {'passed':True, 'first':first,'revoked_status':503,'recovered':recovered}
+                progress.update(passed=True, first=first, revoked_status=503, recovered=recovered)
+                checkpoint()
+                return progress
         except (ValueError, OSError, subprocess.SubprocessError) as exc:
             progress['failure'] = str(exc)
             checkpoint()
@@ -246,7 +258,7 @@ def exercise(binary, output, bootstrap, updates, finality, root, next_proof=None
     return progress
 
 
-if __name__=='__main__':
+def main():
     parser=argparse.ArgumentParser(description=__doc__)
     for key in ('binary','output','bootstrap','finality'):
         parser.add_argument(key,type=Path)
@@ -254,9 +266,16 @@ if __name__=='__main__':
     parser.add_argument('--updates',type=Path)
     parser.add_argument('--execution-config', type=Path,
                         help='read the two body witnesses and optional proof RPC URL from the evm:1 chain of an owner JSON config')
+    parser.add_argument('--retained-signed', action='store_true',
+                        help='require explicit execution config with only path-free loopback retained recent RPC sources')
     advance = parser.add_mutually_exclusive_group()
     advance.add_argument('--next-proof', type=Path, help='exercise continuous publication to a later signed head')
     advance.add_argument('--refresh-endpoint', help='refresh the installed proof until the finalized head advances')
     args=parser.parse_args()
-    result=exercise(args.binary.resolve(), args.output.resolve(),args.bootstrap,args.updates,args.finality,args.root,args.next_proof,args.refresh_endpoint,args.execution_config)
+    if args.retained_signed and args.execution_config is None:
+        parser.error('--retained-signed requires --execution-config')
+    result=exercise(args.binary.resolve(), args.output.resolve(),args.bootstrap,args.updates,args.finality,args.root,args.next_proof,args.refresh_endpoint,args.execution_config,retained_signed=args.retained_signed)
     (args.output/'report.json').write_text(json.dumps(result,indent=2))
+
+
+if __name__=='__main__':main()
