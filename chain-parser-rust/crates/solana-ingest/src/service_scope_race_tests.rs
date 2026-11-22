@@ -394,8 +394,7 @@ async fn read_race(change_phase: bool) {
     // concurrent finalized-incomplete ingress transition while authority I/O settles.
     parser.stores["solana:localnet"].lock().unwrap().scope_now = std::sync::Arc::new(move || {
         if calls.fetch_add(1, Ordering::SeqCst) + 1 == 7 {
-            let mut statuses = statuses.lock().unwrap();
-            let status = statuses.get_mut("solana:localnet").unwrap();
+            let mut status = statuses["solana:localnet"].lock().unwrap();
             if change_phase {
                 status.phase = "ASSEMBLING_UNCERTAIN".into();
             } else {

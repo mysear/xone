@@ -447,6 +447,15 @@ impl Recorder {
         .await
         .map_err(|_| err("SOURCE_WAL_TASK"))?
     }
+    // A cancelled network read can drop its waiter while an admitted append
+    // still owns the only permit inside spawn_blocking. Drain it before close.
+    pub(crate) async fn drain(&self) {
+        let _permit = self
+            .1
+            .acquire()
+            .await
+            .expect("recorder semaphore stays open");
+    }
     pub fn read(&self, sequence: u64) -> Result<CapturedResponse> {
         self.0
             .lock()
@@ -523,22 +532,24 @@ mod admission_tests {
             recorder.capture_async("rpc", "getBlock", &json!([2]), b"two"),
         )
         .await;
+        let drain = recorder.drain();
+        tokio::pin!(drain);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(30), &mut drain)
+                .await
+                .is_err()
+        );
         drop(release);
         thread.join().unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(2), drain)
+            .await
+            .unwrap();
         assert!(
             matches!(result,Ok(Err(ref e))if e.0=="SOURCE_WAL_BUSY"),
             "{result:?}"
         );
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
-        loop {
-            if recorder.len().unwrap() == 1 {
-                break;
-            }
-            assert!(std::time::Instant::now() < deadline);
-            tokio::task::yield_now().await;
-        }
+        assert_eq!(recorder.len().unwrap(), 1);
         assert!(recorder.read(1).unwrap().receive_timestamp_ms <= received_before_release);
-        drop(recorder);
         std::fs::remove_dir_all(path).unwrap();
     }
 }

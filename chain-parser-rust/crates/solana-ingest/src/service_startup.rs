@@ -20,17 +20,12 @@ impl Parser {
                 return Ok(());
             }
         }
-        self.reanchor(chain, startup).await
+        self.reanchor_locked(chain, startup).await
     }
 
     pub(super) fn check_startup_open(&self) -> Result<()> {
         if *self.stream_stop.borrow() {
             self.started.store(false, Ordering::Release);
-            // A read/commit already in progress settles under the actor before
-            // shutdown drains it. Do not keep its scope visible after close.
-            for store in self.stores.values() {
-                store.lock().map(|mut store| store.suspend()).ok();
-            }
             return Err(err("PARSER_ALREADY_STARTED_OR_CLOSED"));
         }
         Ok(())

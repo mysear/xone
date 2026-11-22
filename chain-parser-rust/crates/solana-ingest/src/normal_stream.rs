@@ -91,15 +91,19 @@ impl Drop for SourceRegistration {
 impl Parser {
     pub fn stream_status(&self, chain: &str) -> Result<StreamStatus> {
         self.stream_statuses
-            .lock()
-            .map_err(|_| err("STREAM_STATUS_LOCK"))?
             .get(chain)
-            .cloned()
-            .ok_or_else(|| err("STREAM_NOT_CONFIGURED"))
+            .ok_or_else(|| err("STREAM_NOT_CONFIGURED"))?
+            .lock()
+            .map(|status| status.clone())
+            .map_err(|_| err("STREAM_STATUS_LOCK"))
     }
     fn stream_update(&self, chain: &str, update: impl FnOnce(&mut StreamStatus)) {
-        if let Ok(mut statuses) = self.stream_statuses.lock() {
-            update(statuses.entry(chain.into()).or_default());
+        if let Some(mut status) = self
+            .stream_statuses
+            .get(chain)
+            .and_then(|slot| slot.lock().ok())
+        {
+            update(&mut status);
         }
     }
     pub(super) fn admitted_chain(&self, chain: &Chain) -> Result<(Chain, Option<String>)> {
@@ -167,7 +171,7 @@ impl Parser {
                 s.last_error = result.as_ref().err().map_or(String::new(), |e| e.0.clone());
             });
             {
-                let _actor = self.recovery_lock.lock().await;
+                let _actor = self.chain_actors[&chain.key].lock().await;
                 if let Err(error) = self.revoke_scope(&chain).await {
                     self.logger.event(
                         "error",
@@ -175,13 +179,13 @@ impl Parser {
                         json!({"chain_key":chain.key,"error_code":error.0}),
                     );
                 }
-            }
-            if let Some(pg) = self.control.get() {
-                let mut writer = self.writers[&chain.key].lock().await;
-                if let Some(active) = writer.as_mut() {
-                    active.close(pg, &self.config).await;
+                if let Some(pg) = self.control.get() {
+                    let mut writer = self.writers[&chain.key].lock().await;
+                    if let Some(active) = writer.as_mut() {
+                        active.close(pg, &self.config).await;
+                    }
+                    *writer = None;
                 }
-                *writer = None;
             }
             if let Err(e) = &result {
                 self.logger.event(
@@ -410,7 +414,7 @@ impl Parser {
                         a.seal_native_versions(&record.frame.source,std::mem::take(&mut proof.native_writes))?;
                         a.seal_accounts(&record.frame.source, proof.completion.clone())?;
                         proofs.insert(bank, proof);
-                        self.ingest_refs.lock().map_err(|_|err("SOURCE_REFS_LOCK"))?.insert(chain.key.clone(),proofs.values().flat_map(|p|[p.manifest.bank.blockhash.clone(),p.manifest.parent.blockhash.clone()]).collect());
+                        *self.ingest_refs[&chain.key].lock().map_err(|_|err("SOURCE_REFS_LOCK"))? = proofs.values().flat_map(|p|[p.manifest.bank.blockhash.clone(),p.manifest.parent.blockhash.clone()]).collect();
                     }
                 }
                 let Some(a) = assembler.as_mut() else {
@@ -455,7 +459,7 @@ impl Parser {
                     };
                     snapshot.source =
                         serde_json::to_string(&evidence).map_err(|_| err("STREAM_EVIDENCE_ENCODING"))?;
-                    let _actor = self.recovery_lock.lock().await;
+                    let _actor = self.chain_actors[&chain.key].lock().await;
                     if *stop.borrow() {
                         return Ok(());
                     }
@@ -514,7 +518,7 @@ impl Parser {
                     let mut material=material;material.source=snapshot.source.clone();
                     self.commit_snapshot(&target,snapshot.clone(),false,Some(material.clone())).await?;
                     self.certified.lock().map_err(|_|err("SCOPE_CACHE_LOCK"))?.insert(chain.key.clone(),material);
-                    self.ingest_refs.lock().map_err(|_|err("SOURCE_REFS_LOCK"))?.insert(chain.key.clone(),proofs.values().flat_map(|p|[p.manifest.bank.blockhash.clone(),p.manifest.parent.blockhash.clone()]).collect());
+                    *self.ingest_refs[&chain.key].lock().map_err(|_|err("SOURCE_REFS_LOCK"))? = proofs.values().flat_map(|p|[p.manifest.bank.blockhash.clone(),p.manifest.parent.blockhash.clone()]).collect();
                     // Checkpoint belongs to the committed owner state. Failed or
                     // ambiguous checkpoints force revocation and a new session.
                     let committed_wal=self.stores[&chain.key].lock().map_err(|_|err("STATE_LOCK_POISONED"))?.committed_wal()?;
@@ -534,7 +538,7 @@ impl Parser {
                     }
                 }
                 if published_in_session && !a.ready() {
-                    let _actor = self.recovery_lock.lock().await;
+                    let _actor = self.chain_actors[&chain.key].lock().await;
                     self.revoke_scope(&admitted).await?;
                 }
             }
@@ -544,12 +548,12 @@ impl Parser {
         self.stream_update(&chain.key, |s| s.phase = "DRAIN_AND_MARK_UNCERTAIN".into());
         // Never open a replacement while the previous worker still owns RocksDB.
         writer.close().await?;
-        self.ingest_refs
+        self.ingest_refs[&chain.key]
             .lock()
             .map_err(|_| err("SOURCE_REFS_LOCK"))?
-            .remove(&chain.key);
+            .clear();
         if let Some(proof) = rotation {
-            let _actor = self.recovery_lock.lock().await;
+            let _actor = self.chain_actors[&chain.key].lock().await;
             let protected = self.stores[&chain.key]
                 .lock()
                 .map_err(|_| err("STATE_LOCK_POISONED"))?

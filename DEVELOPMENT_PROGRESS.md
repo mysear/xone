@@ -1,6 +1,6 @@
 # Xone 开发进度与完成情况
 
-更新：2026-11-21。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
+更新：2026-11-22。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Solana 多链启动和运行隔离（[阶段250](#rust-chain-workers)，P0-1）|§7、§8、§28，WP04、WP05、WP07、WP24|LOCAL_SCOPE_VERIFIED|每链独立同步和续租，退出前完成已接收的 Kafka 提交与撤权，两个正式解析器再连主网|独立主网 bank、同源 Yellowstone 和跨故障域验收仍待完成|
 |Ethereum 交易发送方声明（[阶段249](#ethereum-rpc-sender)，P0-1）|§7.3、§28.6，WP04、WP24|LOCAL_SCOPE_VERIFIED|两种完整正文入口对主网标准交易按块高和时间恢复签名，核对 RPC 提供的发送地址|连续签名来源窗口、执行后状态及生产验收继续推进|
 |主网开发 RPC 与正式解析器（[阶段248](#public-mainnet-dev-rpc)，P0-1）|§3、§7、§28，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|8 条链实时核对身份和 finalized 块，Ethereum 与 Solana 正式解析器发布池快照|签名连续窗口、独立 Solana bank、Yellowstone 和生产验收仍待完成|
 |Go慢链启动、调度与租约隔离（[阶段247](#go-per-chain-scheduling)，P0-1）|§7.8、§9.24、§9.30、§18、§19.5、§28.6–28.9、§28.26，WP04、WP06、WP07、WP18、WP24|LOCAL_SCOPE_VERIFIED|每链worker与有界唤醒；正常RPC慢链不阻塞健康链启动/追块，实PG/Kafka独立提交/续租/撤权及释放通过|验证为本机受控RPC和实中间件；Rust慢链调度、真实第二/第三链及独立故障域仍缺|
@@ -5578,3 +5579,17 @@ Close先取消服务源生命周期，再无全局I/O锁等待已登记操作和
 使用主网块 26355865 的原始正文，通过普通适配器验证两种入口。只改 RPC 的发送地址时，交易的签名字节及哈希保持一致，两个入口均返回 `BLOCK_INTEGRITY_TRANSACTION_SENDER`。另以 Frontier/Homestead 的 high-S 和 Cancun 激活前后的 blob 交易核对分叉规则。专项 race 与 Go vet 通过。已有主网开发配置的正式 Go 进程也在块 26467038 读得完整池状态。
 
 [源码](chain-parser-go/internal/chain/evm/transaction_sender.go) · [回归样本与测试](chain-parser-go/internal/chain/evm/transaction_sender_test.go)
+
+<a id="rust-chain-workers"></a>
+
+## Solana 多链启动、续租和关闭（2026-11-22，阶段250，P0-1）
+
+Rust 解析器分别启动每条链的工作任务。第一条完成初始化的链允许服务启动；HTTP 就绪检查仍核对提交引用、数据年龄和写入权限。每条链最多积压一次轮询，慢链上的 RPC、数据恢复和 Kafka 发布不再占用其他链的写入锁。独立计时器为已有 writer 续租，状态和正在写入的 manifest 引用按链保护。关闭服务时，停止接收新工作，取消只读 RPC，等待已开始的写入和 WAL 落盘，然后发送撤权、释放租约。
+
+慢 RPC 回归覆盖了交换两条链的配置顺序、128 次调度通知、另一条链提交新 slot，以及关闭时抑制迟到响应。隔离的 PostgreSQL 13 和 Kafka 3.9.1 实测读取到两条连续基线和一条撤权，HTTP 调用者中途取消仍能完成已接收的提交。另以普通 Rust 服务、受控 Yellowstone 流和同一类真实数据库复验 1、24、720 小时等价 slot 间隔，以及空 owner 状态恢复。真实时间停机和生产故障域演练仍待验收。
+
+主网复测使用 Go 和 Rust 正常入口读取池状态。Ethereum 的 DAI/WETH 位于区块 26467325（`0x04b70aa8b7b3190160e72c55dc74117a0a1a05c93cab2a7f2f740cda8cf1b53c`），Solana 的 Raydium CPMM 位于 slot 472359176（`86nfds8d66uWT9Gf7ims7qDNv4zZqDtAd1fqCvUiVeuq`）。PublicNode 和 Pocket Network 分别回读了对应区块。另六链完成链身份和 finalized 区块检查。全程未广播交易。
+
+清理三批旧 Orca 和 Raydium 测试输出，共 4055 份 JSON，磁盘占用 2564354048 字节。保留三个默认回归样本，清理后 58 项相关测试通过。另清理 16 份已执行完毕的阶段文档编辑脚本。完整流程可重新采集 RPC 和 API 输出；项目中不新增本轮测试报告。
+
+[链调度源码](chain-parser-rust/crates/solana-ingest/src/service_chain_workers.rs) · [多链回归](chain-parser-rust/crates/solana-ingest/src/service_startup_tests.rs) · [PG 与 Kafka 回归](chain-parser-rust/crates/solana-ingest/src/service_writer_recovery_tests.rs)

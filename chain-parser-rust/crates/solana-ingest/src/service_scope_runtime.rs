@@ -224,13 +224,12 @@ impl Parser {
         if versioned {
             let evidence: StreamEvidence = serde_json::from_str(&snapshot.source)
                 .map_err(|_| err("SCOPE_CACHE_PROVENANCE"))?;
-            let statuses = self
+            let status = self
                 .stream_statuses
+                .get(key)
+                .ok_or_else(|| err("STREAM_NOT_CONFIGURED"))?
                 .lock()
                 .map_err(|_| err("STREAM_STATUS_LOCK"))?;
-            let status = statuses
-                .get(key)
-                .ok_or_else(|| err("STREAM_NOT_CONFIGURED"))?;
             let db = self.stores[key]
                 .lock()
                 .map_err(|_| err("STATE_LOCK_POISONED"))?;

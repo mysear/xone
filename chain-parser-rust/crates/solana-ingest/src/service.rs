@@ -10,7 +10,7 @@ use axum::{
 };
 use serde_json::{json, Value};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     sync::{atomic::Ordering, Arc, Mutex},
     time::Duration,
 };
@@ -30,18 +30,23 @@ use scope_runtime::ScopeMaterial;
 #[path = "service_startup.rs"]
 mod startup_isolation;
 
+#[path = "service_chain_workers.rs"]
+mod chain_workers;
+
 pub type SnapshotSource = Arc<dyn Fn(&Chain) -> Result<Snapshot> + Send + Sync>;
 #[derive(Clone)]
 pub struct Parser {
     checkpoint_task: Arc<tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
     checkpoint_metrics: Arc<checkpoint::Metrics>,
     checkpoint_gate: Arc<tokio::sync::Mutex<()>>,
-    ingest_refs: Arc<Mutex<BTreeMap<String, std::collections::BTreeSet<String>>>>,
+    ingest_refs: Arc<BTreeMap<String, Mutex<BTreeSet<String>>>>,
     certified: Arc<Mutex<BTreeMap<String, ScopeMaterial>>>,
-    stream_statuses: Arc<Mutex<BTreeMap<String, StreamStatus>>>,
+    stream_statuses: Arc<BTreeMap<String, Mutex<StreamStatus>>>,
     stream_stop: tokio::sync::watch::Sender<bool>,
     stream_tasks: Arc<tokio::sync::Mutex<Vec<tokio::task::JoinHandle<()>>>>,
-    recovery_lock: Arc<tokio::sync::Mutex<()>>,
+    lifecycle: Arc<tokio::sync::Mutex<()>>,
+    chain_actors: Arc<BTreeMap<String, Arc<tokio::sync::Mutex<()>>>>,
+    workers: Arc<Mutex<Vec<chain_workers::Worker>>>,
     pending_starts: Arc<Mutex<BTreeMap<String, String>>>,
     started: Arc<std::sync::atomic::AtomicBool>,
     control: Arc<tokio::sync::OnceCell<Postgres>>,
@@ -121,19 +126,35 @@ impl Parser {
             checkpoint_task: Arc::new(tokio::sync::Mutex::new(None)),
             checkpoint_metrics: Arc::new(checkpoint::Metrics::default()),
             checkpoint_gate: Arc::new(tokio::sync::Mutex::new(())),
-            ingest_refs: Arc::new(Mutex::new(BTreeMap::new())),
+            ingest_refs: Arc::new(
+                config
+                    .config
+                    .chains
+                    .iter()
+                    .map(|chain| (chain.key.clone(), Mutex::new(BTreeSet::new())))
+                    .collect(),
+            ),
             certified: Arc::new(Mutex::new(BTreeMap::new())),
-            stream_statuses: Arc::new(Mutex::new(
+            stream_statuses: Arc::new(
                 config
                     .config
                     .yellowstone
                     .keys()
-                    .map(|key| (key.clone(), StreamStatus::default()))
+                    .map(|key| (key.clone(), Mutex::new(StreamStatus::default())))
                     .collect(),
-            )),
+            ),
             stream_stop,
             stream_tasks: Arc::new(tokio::sync::Mutex::new(Vec::new())),
-            recovery_lock: Arc::new(tokio::sync::Mutex::new(())),
+            lifecycle: Arc::new(tokio::sync::Mutex::new(())),
+            chain_actors: Arc::new(
+                config
+                    .config
+                    .chains
+                    .iter()
+                    .map(|chain| (chain.key.clone(), Arc::new(tokio::sync::Mutex::new(()))))
+                    .collect(),
+            ),
+            workers: Arc::new(Mutex::new(Vec::new())),
             pending_starts: Arc::new(Mutex::new(BTreeMap::new())),
             started: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             control: Arc::new(tokio::sync::OnceCell::new()),
@@ -148,44 +169,29 @@ impl Parser {
         })
     }
     pub async fn start(&self) -> Result<()> {
-        let _startup = self.recovery_lock.lock().await;
-        if self.started.load(Ordering::Acquire) || *self.stream_stop.borrow() {
+        // The worker registry and startup result belong to the parser even if
+        // the caller drops its waiter after a writer transaction was prepared.
+        let parser = self.clone();
+        tokio::spawn(async move { parser.start_owned().await })
+            .await
+            .map_err(|_| err("PARSER_START_TASK"))?
+    }
+    async fn start_owned(&self) -> Result<()> {
+        let _lifecycle = self.lifecycle.lock().await;
+        self.check_startup_open()?;
+        if self.started.load(Ordering::Acquire) {
             return Err(err("PARSER_ALREADY_STARTED_OR_CLOSED"));
         }
         if self.config.config.journal.transport == "kafka" {
-            let pg = Postgres::open(&self.config.control_dsn).await?;
             self.control
-                .set(pg)
-                .map_err(|_| err("CONTROL_ALREADY_INITIALIZED"))?;
+                .get_or_try_init(|| Postgres::open(&self.config.control_dsn))
+                .await?;
         }
-        let mut usable = false;
-        let mut first_error = None;
-        for chain in &self.config.config.chains {
-            self.check_startup_open()?;
-            let result = self.initialize_chain(chain, true).await;
-            self.check_startup_open()?;
-            match result {
-                Ok(()) => {
-                    self.clear_pending_start(&chain.key)?;
-                    usable = true;
-                }
-                Err(error) => {
-                    let standby = error.0 == "LEASE_NOT_OWNED";
-                    self.isolate_start_failure(chain, &error).await?;
-                    if standby {
-                        usable = true;
-                        self.logger
-                            .event("info", "writer_standby", json!({"chain_key":chain.key}));
-                    } else if first_error.is_none() {
-                        first_error = Some(error);
-                    }
-                }
-            }
+        if let Err(error) = self.start_chain_workers().await {
+            self.drain_chain_workers().await;
+            return Err(error);
         }
         self.check_startup_open()?;
-        if !usable {
-            return Err(first_error.unwrap_or_else(|| err("NO_INITIALIZED_CHAINS")));
-        }
         self.started.store(true, Ordering::Release);
         self.history.start(self.stream_stop.subscribe()).await;
         self.start_checkpoint_worker().await;
@@ -228,6 +234,21 @@ impl Parser {
         Ok(())
     }
     pub async fn reanchor(&self, chain: &Chain, startup: bool) -> Result<()> {
+        let gate = self
+            .chain_actors
+            .get(&chain.key)
+            .ok_or_else(|| err("UNKNOWN_CHAIN"))?;
+        let actor = gate.clone().lock_owned().await;
+        let parser = self.clone();
+        let chain = chain.clone();
+        spawn_owned_scope_recovery(actor, async move {
+            parser.reanchor_locked(&chain, startup).await
+        })
+        .await
+        .map_err(|_| err("PARSER_REANCHOR_TASK"))?
+    }
+    async fn reanchor_locked(&self, chain: &Chain, startup: bool) -> Result<()> {
+        self.check_startup_open()?;
         if self.source.is_none() && self.config.config.yellowstone.contains_key(&chain.key) {
             return Err(err("STREAM_RECOVERY_OWNS_CHAIN"));
         }
@@ -235,13 +256,15 @@ impl Parser {
         let snapshot: Snapshot = if let Some(source) = &self.source {
             source(chain)?
         } else {
-            tokio::time::timeout(
-                Duration::from_millis(self.config.config.journal.request_timeout_ms),
-                self.rpc
-                    .current_baseline_recorded(chain, self.source_wals.get(&chain.key)),
-            )
-            .await
-            .map_err(|_| err("BASELINE_DEADLINE"))??
+            let mut stop = self.stream_stop.subscribe();
+            tokio::select! {
+                biased;
+                _ = stop.wait_for(|closed| *closed) => return Err(err("PARSER_ALREADY_STARTED_OR_CLOSED")),
+                result = tokio::time::timeout(
+                    Duration::from_millis(self.config.config.journal.request_timeout_ms),
+                    self.rpc.current_baseline_recorded(chain, self.source_wals.get(&chain.key)),
+                ) => result.map_err(|_| err("BASELINE_DEADLINE"))??,
+            }
         };
         self.check_startup_open()?;
         snapshot.validate(&chain.owner_service, chain.assignment_version)?;
@@ -434,117 +457,94 @@ impl Parser {
             .event("warn", "scope_revoked", json!({"chain_key":chain.key}));
         Ok(())
     }
-    pub async fn tick(&self) {
-        let _actor = self.recovery_lock.lock().await;
-        if !self.started.load(Ordering::Acquire) || *self.stream_stop.borrow() {
+    async fn tick_chain(&self, chain: &Chain) {
+        if *self.stream_stop.borrow() {
             return;
         }
-        if let Some(pg) = self.control.get() {
-            for chain in &self.config.config.chains {
-                let mut writer = self.writers[&chain.key].lock().await;
-                if let Some(active) = writer.as_mut() {
-                    if active.heartbeat(pg, &self.config).await.is_err() {
-                        active.close(pg, &self.config).await;
-                        *writer = None;
-                        self.stores[&chain.key].lock().map(|mut s| s.suspend()).ok();
-                    } else {
-                        self.stores[&chain.key]
-                            .lock()
-                            .map(|mut s| s.set_authority_deadline(active.deadline(&self.config)))
-                            .ok();
-                    }
-                }
-            }
+        self.renew_chain(chain).await;
+        let pending = self.pending_start(&chain.key);
+        if self.source.is_some() && self.control.get().is_none() && !pending {
+            return;
         }
-        for chain in &self.config.config.chains {
-            if *self.stream_stop.borrow() {
-                return;
-            }
-            let pending = self.pending_start(&chain.key);
-            if self.source.is_some() && self.control.get().is_none() && !pending {
-                continue;
-            }
-            if self.source.is_none() && self.config.config.yellowstone.contains_key(&chain.key) {
-                if pending {
-                    let result = self.initialize_chain(chain, false).await;
-                    if *self.stream_stop.borrow() {
-                        return;
-                    }
-                    match result {
-                        Ok(()) => {
-                            if let Err(error) = self.clear_pending_start(&chain.key) {
-                                self.logger.event(
-                                    "error",
-                                    "chain_start_retry_failed",
-                                    json!({"chain_key":chain.key,"error_code":error.0}),
-                                );
-                            }
-                        }
-                        Err(error) => {
-                            if let Err(failure) = self.isolate_start_failure(chain, &error).await {
-                                self.logger.event(
-                                    "error",
-                                    "chain_start_retry_failed",
-                                    json!({"chain_key":chain.key,"error_code":failure.0}),
-                                );
-                            }
+        if self.source.is_none() && self.config.config.yellowstone.contains_key(&chain.key) {
+            if pending {
+                let result = self.initialize_chain(chain, false).await;
+                if *self.stream_stop.borrow() {
+                    return;
+                }
+                match result {
+                    Ok(()) => {
+                        if let Err(error) = self.clear_pending_start(&chain.key) {
+                            self.logger.event(
+                                "error",
+                                "chain_start_retry_failed",
+                                json!({"chain_key":chain.key,"error_code":error.0}),
+                            );
                         }
                     }
-                    continue;
-                }
-                let stale = self.current(&chain.key).is_err();
-                if stale {
-                    if let Err(error) = self.revoke_scope(chain).await {
-                        self.logger.event(
-                            "error",
-                            "stream_scope_revocation_failed",
-                            json!({"chain_key":chain.key,"error_code":error.0}),
-                        );
+                    Err(error) => {
+                        if let Err(failure) = self.isolate_start_failure(chain, &error).await {
+                            self.logger.event(
+                                "error",
+                                "chain_start_retry_failed",
+                                json!({"chain_key":chain.key,"error_code":failure.0}),
+                            );
+                        }
                     }
                 }
-                continue;
-            }
-            let result = self.reanchor(chain, pending).await;
-            if *self.stream_stop.borrow() {
-                self.stores[&chain.key].lock().map(|mut s| s.suspend()).ok();
                 return;
             }
-            if let Err(e) = result {
-                if e.0 == "LEASE_NOT_OWNED" {
-                    continue;
-                }
+            let stale = self.current(&chain.key).is_err();
+            if stale {
                 if let Err(error) = self.revoke_scope(chain).await {
                     self.logger.event(
                         "error",
-                        "scope_revocation_failed",
+                        "stream_scope_revocation_failed",
                         json!({"chain_key":chain.key,"error_code":error.0}),
                     );
                 }
-                if let Some(store) = self.stores.get(&chain.key) {
-                    if let Ok(mut s) = store.lock() {
-                        s.suspend();
-                    }
-                }
-                if let Some(pg) = self.control.get() {
-                    let mut writer = self.writers[&chain.key].lock().await;
-                    if let Some(w) = writer.as_mut() {
-                        w.close(pg, &self.config).await;
-                    }
-                    *writer = None;
-                }
+            }
+            return;
+        }
+        let result = self.reanchor_locked(chain, pending).await;
+        if *self.stream_stop.borrow() {
+            return;
+        }
+        if let Err(e) = result {
+            if e.0 == "LEASE_NOT_OWNED" {
+                return;
+            }
+            if let Err(error) = self.revoke_scope(chain).await {
                 self.logger.event(
                     "error",
-                    "chain_sync_failed",
-                    json!({"chain_key":chain.key,"error_code":e.0}),
+                    "scope_revocation_failed",
+                    json!({"chain_key":chain.key,"error_code":error.0}),
                 );
-            } else if pending {
-                if let Err(error) = self.clear_pending_start(&chain.key) {
-                    self.logger.event(
-                        "error",
-                        "chain_start_retry_failed",
-                        json!({"chain_key":chain.key,"error_code":error.0}),
-                    );
+            }
+            if let Some(store) = self.stores.get(&chain.key) {
+                if let Ok(mut s) = store.lock() {
+                    s.suspend();
                 }
+            }
+            if let Some(pg) = self.control.get() {
+                let mut writer = self.writers[&chain.key].lock().await;
+                if let Some(w) = writer.as_mut() {
+                    w.close(pg, &self.config).await;
+                }
+                *writer = None;
+            }
+            self.logger.event(
+                "error",
+                "chain_sync_failed",
+                json!({"chain_key":chain.key,"error_code":e.0}),
+            );
+        } else if pending {
+            if let Err(error) = self.clear_pending_start(&chain.key) {
+                self.logger.event(
+                    "error",
+                    "chain_start_retry_failed",
+                    json!({"chain_key":chain.key,"error_code":error.0}),
+                );
             }
         }
     }
@@ -592,27 +592,50 @@ impl Parser {
     pub async fn close(&self) {
         self.started.store(false, Ordering::Release);
         self.stream_stop.send_replace(true);
+        let parser = self.clone();
+        // A dropped caller must not interrupt a prepared shutdown revocation.
+        tokio::spawn(async move { parser.close_owned().await })
+            .await
+            .expect("parser shutdown task");
+    }
+    async fn close_owned(&self) {
+        let _lifecycle = self.lifecycle.lock().await;
+        self.drain_chain_workers().await;
         let checkpoint_task = self.checkpoint_task.lock().await.take();
         if let Some(task) = checkpoint_task {
             let _ = task.await;
         }
         let _checkpoint_drain = self.checkpoint_gate.lock().await;
         self.history.close().await;
-        // Stream exit may need recovery_lock while initialization holds it
-        // and registers a task. Never hold the task registry across joins.
+        // Stream exit can need a chain actor to settle its journal. Never hold
+        // the registry or a chain guard while waiting for the stream to exit.
         let tasks = std::mem::take(&mut *self.stream_tasks.lock().await);
         for task in tasks {
             let _ = task.await;
         }
-        let _drain_actor = self.recovery_lock.lock().await;
-        if let Some(pg) = self.control.get() {
-            for writer in self.writers.values() {
-                let mut writer = writer.lock().await;
+        for chain in &self.config.config.chains {
+            let _drain = self.chain_actors[&chain.key].lock().await;
+            if let Some(wal) = self.source_wals.get(&chain.key) {
+                wal.drain().await;
+            }
+            if let Some(pg) = self.control.get() {
+                if let Err(error) = self.revoke_scope(chain).await {
+                    self.logger.event(
+                        "error",
+                        "scope_revocation_failed",
+                        json!({"chain_key":chain.key,"error_code":error.0}),
+                    );
+                }
+                let mut writer = self.writers[&chain.key].lock().await;
                 if let Some(w) = writer.as_mut() {
                     w.close(pg, &self.config).await;
                 }
                 *writer = None;
             }
+            self.stores[&chain.key]
+                .lock()
+                .map(|mut store| store.suspend())
+                .ok();
         }
         self.started.store(false, Ordering::Release);
     }
@@ -626,6 +649,9 @@ impl Parser {
         Ok(())
     }
     fn current(&self, chain: &str) -> Result<Snapshot> {
+        if *self.stream_stop.borrow() {
+            return Err(err("CHAIN_NOT_READY"));
+        }
         if self.source.is_none() && self.config.config.yellowstone.contains_key(chain) {
             let status = self.stream_status(chain)?;
             if status.phase != "LIVE" {
@@ -683,16 +709,32 @@ async fn startup(State(s): State<Parser>) -> impl IntoResponse {
     )
 }
 async fn ready(State(s): State<Parser>) -> impl IntoResponse {
-    let mut ready = false;
-    for c in &s.config.config.chains {
-        if s.checked_current(&c.key).await.is_ok_and(|v| {
-            now_ms().saturating_sub(v.reference.block.timestamp_ms)
-                <= s.config.config.startup.max_baseline_age_ms
-        }) {
-            ready = true;
-            break;
-        }
+    // Each probe only reads authority and committed state. A busy writer on
+    // one chain must not hold up HTTP readiness for another qualified chain.
+    let mut probes = tokio::task::JoinSet::new();
+    for chain in &s.config.config.chains {
+        let parser = s.clone();
+        let key = chain.key.clone();
+        probes.spawn(async move {
+            parser.checked_current(&key).await.is_ok_and(|snapshot| {
+                now_ms().saturating_sub(snapshot.reference.block.timestamp_ms)
+                    <= parser.config.config.startup.max_baseline_age_ms
+            })
+        });
     }
+    let ready = tokio::time::timeout(
+        Duration::from_millis(s.config.config.journal.request_timeout_ms),
+        async {
+            while let Some(result) = probes.join_next().await {
+                if matches!(result, Ok(true)) {
+                    return true;
+                }
+            }
+            false
+        },
+    )
+    .await
+    .unwrap_or(false);
     (
         if ready {
             StatusCode::OK
@@ -793,6 +835,8 @@ async fn source_refs(
     // prepare and removed only after commit/reconciliation, so this union is coherent.
     let ingress = s
         .ingest_refs
+        .get(&chain)
+        .ok_or_else(|| failure(err("UNKNOWN_CHAIN")))?
         .lock()
         .map_err(|_| failure(err("SOURCE_REFS_LOCK")))?;
     let db = s
@@ -802,7 +846,7 @@ async fn source_refs(
         .lock()
         .map_err(|_| failure(err("STATE_LOCK_POISONED")))?;
     let mut refs = db.protected_manifest_hashes().map_err(failure)?;
-    refs.extend(ingress.get(&chain).into_iter().flatten().cloned());
+    refs.extend(ingress.iter().cloned());
     Ok(Json(
         json!({"chain_key":chain,"protected_blockhashes":refs,"committed_slot":db.native_committed_slot().map_err(failure)?,"gc_permitted":true,"ready":false}),
     ))
@@ -836,7 +880,16 @@ pub async fn run(config: ConfigSnapshot) -> Result<()> {
     serve(Parser::new(config)?).await
 }
 pub async fn serve(parser: Parser) -> Result<()> {
-    if let Err(error) = parser.start().await {
+    let mut signal = Box::pin(shutdown());
+    let startup = tokio::select! {
+        biased;
+        _ = &mut signal => {
+            parser.close().await;
+            return Ok(());
+        },
+        result = parser.start() => result,
+    };
+    if let Err(error) = startup {
         parser.close().await;
         return Err(error);
     }
@@ -847,7 +900,7 @@ pub async fn serve(parser: Parser) -> Result<()> {
             return Err(err("HTTP_LISTENER_FAILED"));
         }
     };
-    serve_started_until(parser, listener, shutdown()).await
+    serve_started_until(parser, listener, signal).await
 }
 pub(super) async fn serve_started_until(
     parser: Parser,
@@ -859,9 +912,14 @@ pub(super) async fn serve_started_until(
         let mut ticker = tokio::time::interval(Duration::from_millis(
             background.config.config.journal.poll_interval_ms,
         ));
-        loop {
-            ticker.tick().await;
-            background.tick().await;
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut stop = background.stream_stop.subscribe();
+        while !*stop.borrow_and_update() {
+            tokio::select! {
+                biased;
+                _ = stop.changed() => break,
+                _ = ticker.tick() => background.schedule_tick(),
+            }
         }
     });
     let stop = parser.stream_stop.clone();
@@ -871,7 +929,7 @@ pub(super) async fn serve_started_until(
             stop.send_replace(true);
         })
         .await;
-    task.abort();
+    parser.stream_stop.send_replace(true);
     let _ = task.await;
     parser.close().await;
     parser.logger.flush();
@@ -999,9 +1057,12 @@ async fn ensure_pool_scope(
             "SCOPE_VERSIONED_SOURCE_REQUIRED",
         );
     }
-    let Ok(actor) = s.recovery_lock.clone().try_lock_owned() else {
+    let Ok(actor) = s.chain_actors[&chain].clone().try_lock_owned() else {
         return failure(StatusCode::TOO_MANY_REQUESTS, "CHAIN_ACTOR_BUSY");
     };
+    if *s.stream_stop.borrow() {
+        return failure(StatusCode::SERVICE_UNAVAILABLE, "PARSER_NOT_STARTED");
+    }
     let mut actor = Some(actor);
     let generation = match s
         .stores
@@ -1025,6 +1086,9 @@ async fn ensure_pool_scope(
             .map(|w| w.lease.clone());
         if let Err(error) = s.check_owner_authority(&config, lease.as_ref()).await {
             return failure(StatusCode::SERVICE_UNAVAILABLE, &error.0);
+        }
+        if *s.stream_stop.borrow() {
+            return failure(StatusCode::SERVICE_UNAVAILABLE, "PARSER_NOT_STARTED");
         }
         let max_jobs = s.config.config.yellowstone[&chain].max_catalog_pools;
         if let Err(error) = s.stores[&chain]
@@ -1053,7 +1117,7 @@ async fn ensure_pool_scope(
                     "POOL_SCOPE_STREAM_RECOVERY_PENDING",
                 );
             }
-            actor = match s.recovery_lock.clone().try_lock_owned() {
+            actor = match s.chain_actors[&chain].clone().try_lock_owned() {
                 Ok(g) => Some(g),
                 Err(_) => return failure(StatusCode::TOO_MANY_REQUESTS, "CHAIN_ACTOR_BUSY"),
             };
@@ -1077,7 +1141,7 @@ async fn ensure_pool_scope(
         let recovery = s.clone();
         let recovery_chain = config.clone();
         let task = spawn_owned_scope_recovery(actor.take().expect("scope actor"), async move {
-            let result = recovery.reanchor(&recovery_chain, false).await;
+            let result = recovery.reanchor_locked(&recovery_chain, false).await;
             if result.is_err() {
                 if let Err(error) = recovery.revoke_scope(&recovery_chain).await {
                     recovery.logger.event(
@@ -1099,7 +1163,7 @@ async fn ensure_pool_scope(
         if !matches!(task.await, Ok(Ok(()))) {
             return failure(StatusCode::SERVICE_UNAVAILABLE, "POOL_SCOPE_RESTORE_FAILED");
         }
-        actor = match s.recovery_lock.clone().try_lock_owned() {
+        actor = match s.chain_actors[&chain].clone().try_lock_owned() {
             Ok(v) => Some(v),
             Err(_) => return failure(StatusCode::TOO_MANY_REQUESTS, "CHAIN_ACTOR_BUSY"),
         };

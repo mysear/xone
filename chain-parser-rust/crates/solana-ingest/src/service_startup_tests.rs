@@ -12,7 +12,10 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone)]
 struct Provider {
-    fault: Arc<AtomicU8>, // 0: normal, 1: HTTP unavailable, 2: wrong genesis
+    fault: Arc<AtomicU8>, // 0: normal, 1: HTTP unavailable, 2: wrong genesis, 3: paused genesis
+    slot: Arc<AtomicU64>,
+    genesis_calls: Arc<AtomicU64>,
+    resume: Arc<tokio::sync::Semaphore>,
     genesis: String,
     hash: String,
     timestamp: u64,
@@ -27,14 +30,45 @@ async fn rpc_reply(State(p): State<Provider>, Json(q): Json<Value>) -> axum::res
         )
             .into_response();
     }
-    let result = match q["method"].as_str().unwrap() {
+    let method = q["method"].as_str().unwrap();
+    if method == "getGenesisHash" {
+        p.genesis_calls.fetch_add(1, Ordering::AcqRel);
+        if p.fault.load(Ordering::Acquire) == 3 {
+            p.resume.acquire().await.unwrap().forget();
+        }
+    }
+    let slot = p.slot.load(Ordering::Acquire);
+    let result = match method {
         "getGenesisHash" if p.fault.load(Ordering::Acquire) == 2 => json!("wrong-genesis"),
         "getGenesisHash" => json!(p.genesis),
-        "getMultipleAccounts" => json!({"context":{"slot":100},"value":q["params"][0]
-            .as_array().unwrap().iter().map(|id|p.accounts.get(id.as_str().unwrap())
-                .cloned().unwrap_or(Value::Null)).collect::<Vec<_>>()}),
-        "getBlock" => json!({"blockTime":p.timestamp,"blockhash":p.hash,
-            "previousBlockhash":orca_support::key(71),"parentSlot":99}),
+        "getMultipleAccounts" => {
+            let accounts = q["params"][0]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|id| {
+                    let key = id.as_str().unwrap();
+                    let mut value = p.accounts.get(key).cloned().unwrap_or(Value::Null);
+                    if key == orca_support::CLOCK {
+                        let mut clock =
+                            STANDARD.decode(value["data"][0].as_str().unwrap()).unwrap();
+                        orca_support::put64(&mut clock, 0, slot);
+                        value["data"][0] = json!(STANDARD.encode(clock));
+                    }
+                    value
+                })
+                .collect::<Vec<_>>();
+            json!({"context":{"slot":slot},"value":accounts})
+        }
+        "getBlock" => {
+            let height = q["params"][0].as_u64().unwrap();
+            let (hash, parent) = match height {
+                100 => (p.hash.clone(), orca_support::key(71)),
+                101 => (orca_support::key(78), p.hash.clone()),
+                _ => panic!("unknown fixture block {height}"),
+            };
+            json!({"blockTime":p.timestamp,"blockhash":hash,"previousBlockhash":parent,"parentSlot":height-1})
+        }
         _ => panic!("unexpected RPC method: {q}"),
     };
     Json(json!({"jsonrpc":"2.0","id":1,"result":result})).into_response()
@@ -67,6 +101,9 @@ async fn provider(
         .collect();
     let state = Provider {
         fault: Arc::new(AtomicU8::new(fault)),
+        slot: Arc::new(AtomicU64::new(100)),
+        genesis_calls: Arc::new(AtomicU64::new(0)),
+        resume: Arc::new(tokio::sync::Semaphore::new(0)),
         genesis: format!("genesis-{label}"),
         hash: orca_support::key(hash),
         timestamp,
@@ -107,6 +144,97 @@ async fn chain_status(parser: &Parser, key: &str) -> StatusCode {
         .await
         .into_response()
         .status()
+}
+
+async fn wait_until(check: impl Fn() -> bool) {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !check() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("chain condition timed out");
+}
+
+#[tokio::test]
+async fn rust_slow_rpc_allows_peer_start_and_commit_and_bounds_pending_work() {
+    for slow_first in [true, false] {
+        let (a, slow, a_task) = provider("paused", 3, 70).await;
+        let (b, fast, b_task) = provider("fast", 0, 72).await;
+        let chains = if slow_first {
+            vec![a.clone(), b.clone()]
+        } else {
+            vec![b.clone(), a.clone()]
+        };
+        let (mut cfg, path) = configuration(chains);
+        cfg.config.journal.request_timeout_ms = 30_000;
+        let parser = Parser::new(cfg).unwrap();
+        tokio::time::timeout(Duration::from_secs(5), parser.start())
+            .await
+            .unwrap()
+            .unwrap();
+        wait_until(|| slow.genesis_calls.load(Ordering::Acquire) == 1).await;
+        assert_eq!(
+            chain_status(&parser, &a.key).await,
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        let busy_writer = parser.writers[&a.key].lock().await;
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(2), ready(State(parser.clone())))
+                .await
+                .unwrap()
+                .into_response()
+                .status(),
+            StatusCode::OK
+        );
+        drop(busy_writer);
+        let before = parser.current(&b.key).unwrap();
+        fast.slot.store(101, Ordering::Release);
+        for _ in 0..128 {
+            parser.schedule_tick();
+        }
+        wait_until(|| {
+            parser
+                .current(&b.key)
+                .is_ok_and(|s| s.reference.block.number_or_slot == 101)
+        })
+        .await;
+        let after = parser.current(&b.key).unwrap();
+        assert_eq!(
+            after.reference.block.parent_hash,
+            before.reference.block.hash
+        );
+        assert_eq!(
+            after.reference.journal_seq,
+            before.reference.journal_seq + 1
+        );
+        assert_eq!(chain_status(&parser, &b.key).await, StatusCode::OK);
+        if slow_first {
+            // Let startup and the single queued tick finish after the peer
+            // advances. Both use the same bank, so only one baseline exists.
+            slow.resume.add_permits(2);
+            wait_until(|| slow.genesis_calls.load(Ordering::Acquire) == 2).await;
+            let _settled = parser.chain_actors[&a.key].lock().await;
+            assert_eq!(parser.current(&a.key).unwrap().reference.journal_seq, 1);
+            assert_eq!(slow.genesis_calls.load(Ordering::Acquire), 2);
+        }
+        tokio::time::timeout(Duration::from_secs(2), parser.close())
+            .await
+            .unwrap();
+        slow.resume.add_permits(1);
+        assert!(parser.workers.lock().unwrap().is_empty());
+        assert!(parser.stream_tasks.lock().await.is_empty());
+        assert!(parser.current(&b.key).is_err());
+        if !slow_first {
+            assert!(parser.stores[&a.key].lock().unwrap().previous().is_none());
+        }
+        a_task.abort();
+        b_task.abort();
+        let _ = a_task.await;
+        let _ = b_task.await;
+        drop(parser);
+        std::fs::remove_dir_all(path).unwrap();
+    }
 }
 
 #[tokio::test]
@@ -218,6 +346,7 @@ async fn rust_partial_restart_retry_advances_only_failed_chain_writer_once() {
     let (cfg, path) = configuration(vec![a.clone(), b.clone()]);
     let first = Parser::new(cfg.clone()).unwrap();
     first.start().await.unwrap();
+    wait_until(|| first.current(&a.key).is_ok() && first.current(&b.key).is_ok()).await;
     let old = first.current(&a.key).unwrap().reference;
     first.close().await;
     drop(first);
@@ -225,6 +354,7 @@ async fn rust_partial_restart_retry_advances_only_failed_chain_writer_once() {
     failed.fault.store(1, Ordering::Release);
     let restarted = Parser::new(cfg).unwrap();
     restarted.start().await.unwrap();
+    wait_until(|| restarted.pending_start(&a.key)).await;
     assert!(restarted.current(&a.key).is_err());
     let healthy = restarted.current(&b.key).unwrap();
     failed.fault.store(0, Ordering::Release);
@@ -369,6 +499,7 @@ async fn rust_failed_initial_stream_revocation_isolated_then_retried_by_tick() {
         .put(b"online/prepared", b"invalid-json")
         .unwrap();
     parser.start().await.unwrap();
+    wait_until(|| parser.pending_start(&a.key)).await;
     assert_eq!(
         parser.pending_starts.lock().unwrap()[&a.key],
         "PREPARED_CORRUPT"
