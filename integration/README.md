@@ -29,8 +29,11 @@ make -C integration contract-test
 # 运行各服务的 make check，并记录退出码和日志
 make -C integration check
 
-# 公开主网 RPC 联调，读取全部八条链，并用两个正式解析器核对主网池快照
+# 公开主网 RPC 联调，读取八条链的真实池状态
 make -C integration public-rpc-test
+
+# 要求八条链都通过正式解析器启动并发布池快照
+make -C integration public-rpc-owner-test
 
 # 构建后执行隔离三进程离线联调；自动停止本次子进程
 make -C integration fixture-test
@@ -41,7 +44,9 @@ make -C integration test
 
 `make -C integration` 默认执行 `test`。`acceptance-report` 与 `test` 使用相同的现有离线验收流程。报告写入 `integration/artifacts/local/`。未通过的代码检查或联调会返回失败，不会标记为成功。
 
-主网测试使用各解析器的 `config-dev.yaml`，临时分配本地 API 端口、凭据和空状态目录。Ethereum 使用 MEV Blocker 与 PublicNode，Solana 使用官方 RPC 与 Pocket Network。测试按解析器快照的高度或 slot 回读区块，核对块哈希、父哈希和时间，逐链打印实际响应的端点。其余六条 EVM 链按目标目录核对链 ID、创世哈希并读取 finalized 块。开发配置的快照年龄上限为 Ethereum 20 分钟、Solana 2 分钟。结果写到标准输出；RPC、数据核对或服务启动失败会返回非零退出码。
+主网测试使用各解析器的 `config-dev.yaml`，每次启动分配临时本地 API 端口、凭据和空状态目录。Ethereum 使用 MEV Blocker 与 PublicNode，Solana 使用官方 RPC 与 Pocket Network。两条链均通过正式解析器发布池快照，再按同高度或 slot 核对块哈希、父哈希和时间。另六条 EVM 链使用 [主网目标配置](config/chain-targets.json) 中的池地址、工厂、代币和合约代码 SHA-256 读取固定 finalized 高度的状态。BNB Smart Chain 核对 Pancake V2 双边储备，Base、Arbitrum One、OP Mainnet、Polygon PoS 和 Avalanche C-Chain 核对 Uniswap V3 价格、tick 和流动性。读取后再次核对块头。
+
+`public-rpc-owner-test` 为这六条链逐一启动 Go 解析器，使用目录中的前两个 RPC 核验原生区块和回执。V3 读取当前 bitmap word 的全部初始化 tick。主网复验配置将池的 `v3.tick_read_concurrency` 设为 4，省略或设为 0 时沿用串行读取。解析器快照须与同高度合约状态匹配。单链复验可在构建后运行 `python3 -B integration/tools/acceptance/public_rpc_smoke.py --all-owners --chain arbitrum`。同一进程的多链复验使用 `--shared-owner --chain base --chain optimism`。这两条链上的 WETH 合约地址相同，池、区块和价格仍需按各自 chain key 校验。每条链打印实际回读端点。Go 采用开发配置的 20 分钟时效限制，Solana 为 2 分钟。公网来源过期、核对不一致或服务启动失败均会返回非零。两条命令均只读，结束时清除临时凭据、状态和日志。
 
 Ethereum 连续窗口使用 `make -C integration public-signed-window-test`。从空目录启动，使用 Go 开发配置中的执行层 RPC 以及 PublicNode 信标接口，等待两个不同的签名最终化头。采集时限为 30 分钟。随后冻结响应，重新启动解析器，校验连续 journal、两个 Router 的整数报价、重启恢复和原始字节重放。命令退出时清除采集响应、状态目录和测试报告。仓库固定的信标检查点受七天时效约束；更新时通过 `BEACON_CHECKPOINT_ROOT` 指定经独立确认的主网检查点。整个过程只读。
 
@@ -55,7 +60,7 @@ make -C integration kafka-smoke-test
 make -C integration durable-journal-test
 ```
 
-测试使用专用回环地址实例与临时凭据，并关闭本次创建的进程。基础设施工具位置沿用现有脚本：PostgreSQL 13 位于 `/usr/local/opt/postgresql@13/bin`，JDK 11 位于 `/Library/Java/JavaVirtualMachines/jdk-11.jdk/Contents/Home`，Kafka 3.9.1 位于 `integration/.runtime/deps/kafka_2.13-3.9.1`。数据库初始化使用 `integration/postgres/schema.sql`；本次实例数据写入 `integration/.runtime/infrastructure/`。
+测试使用专用回环地址实例与临时凭据，并关闭本次创建的进程。基础设施工具位置沿用现有脚本：PostgreSQL 13 位于 `/usr/local/opt/postgresql@13/bin`，JDK 11 位于 `/Library/Java/JavaVirtualMachines/jdk-11.jdk/Contents/Home`，Kafka 3.9.1 位于 `integration/.runtime/deps/kafka_2.13-3.9.1`。数据库初始化使用 `integration/postgres/schema.sql`；本次实例数据写入 `integration/.runtime/infrastructure/`。Kafka 的应用日志和 JVM GC 日志写入实例专属临时目录，实例关闭时自动清除。
 
 ## 本地 Compose 与初始化
 

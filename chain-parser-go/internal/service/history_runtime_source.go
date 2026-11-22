@@ -173,6 +173,7 @@ type historyClaimContextKey struct{}
 type historyEvidenceContextKey struct{}
 type historyStepEvidence struct{ Parents []string }
 type historyPublicSource struct {
+	recordMu            sync.Mutex // protects the transfer budget and deduplication across concurrent pinned reads
 	identityReceipt     string
 	mu                  sync.RWMutex
 	adapter             evm.Adapter
@@ -183,6 +184,8 @@ type historyPublicSource struct {
 }
 
 func (h *historyPublicSource) record(ctx context.Context, provider, method string, params json.RawMessage, response []byte) error {
+	h.recordMu.Lock()
+	defer h.recordMu.Unlock()
 	cost := len(params) + len(response)
 	if cost > h.remaining {
 		return errors.New("HISTORY_SOURCE_BUFFER_BUDGET")

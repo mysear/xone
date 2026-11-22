@@ -4,7 +4,7 @@
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
-状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。目前原26工作包完整验收仍为0，生产准入与VERIFIED报价关闭。
+状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。目前 26 个工作包完整验收为 0。阶段252后，WP18 进入部分实现，25 个工作包为 `PARTIAL_LOCAL`，WP22 为 `NOT_STARTED`。生产准入与 VERIFIED 报价关闭。
 
 优先级：区块解析和精确兑换量计算优先，分析功能低优先级。三服务各自独立，公共协议位于common。
 
@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|八条主网的正式解析器和真实池状态（[阶段252](#public-mainnet-pool-owners)，P0-1）|§3、§7、§9、§28，WP03、WP04、WP05、WP18、WP24|LOCAL_SCOPE_VERIFIED|七条 EVM 链和 Solana 在同一次公网验收发布快照，六个新增部署按同块合约状态复核|覆盖每链一个指定池，独立共识来源、全协议和生产验收仍待完成|
 |Ethereum 主网连续签名窗口（[阶段251](#public-signed-ethereum-windows)，P0-1）|§7、§18、§28，WP03、WP04、WP05、WP20、WP24|LOCAL_SCOPE_VERIFIED|两个真实窗口各 32 条连续提交、双 Router 整数报价和冷重启、原始响应冻结重放；空目录可复验|执行层完整状态转换、独立故障域、Solana 可信 bank 和生产验收仍待完成|
 |Solana 多链启动和运行隔离（[阶段250](#rust-chain-workers)，P0-1）|§7、§8、§28，WP04、WP05、WP07、WP24|LOCAL_SCOPE_VERIFIED|每链独立同步和续租，退出前完成已接收的 Kafka 提交与撤权，两个正式解析器再连主网|独立主网 bank、同源 Yellowstone 和跨故障域验收仍待完成|
 |Ethereum 交易发送方声明（[阶段249](#ethereum-rpc-sender)，P0-1）|§7.3、§28.6，WP04、WP24|LOCAL_SCOPE_VERIFIED|两种完整正文入口对主网标准交易按块高和时间恢复签名，核对 RPC 提供的发送地址|连续签名来源窗口、执行后状态及生产验收继续推进|
@@ -301,7 +302,7 @@
 |WP15|独立交易仿真|§28.17|PARTIAL_LOCAL|验证接口明确拒绝无后端的VERIFIED；固定blockHash eth_call仅标RPC_CALL_CHECKED；新增Shanghai单hop V2的严格REVM本地状态DB、独立真实余额差、执行预算与可终止子进程接口，原合约全状态差分、双副本故障恢复、全量及双审通过限定本地验收；阶段58–84限定Solana原SBF/Token-CPI、实际wire/收款差和钱包回执按独立批次验证|可信历史bank、生产独立验证、多链hardfork/L2费用、未覆盖协议/多池/拆单仿真与规模化容量仍缺，VERIFIED保持关闭|
 |WP16|报价API、认证、配额及质量语义|§28.18|PARTIAL_LOCAL|FAST指示性ExactIn、字符串金额、鉴权、单凭据配额、并发/期限、single-flight、证据、缓存版本、旧quote build拒绝；新增认证simulate API、缓存前后新鲜度复核、实际余额/费用/worker证据；限定本地验收通过|多租户独立额度、statePolicy/allowSources 请求契约、任意仿真隔离、成本完整性、VERIFIED可执行闭环与完整业务成功率SLO待完成|
 |WP17|多副本、高可用、监控与发布|§28.19|PARTIAL_LOCAL|进程health/startup/按链状态、SIGTERM、日志/报价低基数指标、三个独立Dockerfile及本地compose|多区主备、PG/Kafka故障/磁盘满/节点或区丢失演练、OTel、灰度/发布控制与生产readiness待完成|
-|WP18|第二与第三条EVM链|§28.20|NOT_STARTED|chain_key隔离、两个解析源独立范围；配置可描述多条EVM链；多DEX版本以chainKey+code/factory+adapter配置域区分，协议覆盖矩阵单列每版本解析/数学/执行|第二/第三条真实EVM链部署、硬分叉/Gas差异、真实协议/版本目录与升级审计未验收；合成同链不算真实多链上线|
+|WP18|第二与第三条EVM链|§28.20|PARTIAL_LOCAL|七条 EVM 主网以正式 Go 解析器发布指定池的 finalized 快照。六个新增部署的同高度合约状态与快照一致。已验证每链独立启动、工作队列和租约|逐协议版本与升级审计、各链 hardfork 和 Gas/原生币费用差异、同时负载下缓存与预算隔离及逐链生产 SLO 仍待验收|
 |WP19|分析事件与worker基础|§28.21|PARTIAL_LOCAL|现有Go解析二进制analytics角色已接只读Kafka有限Job及显式常驻journal-continuous模式；持久cursor、topic身份、事实去重、毒消息暂停及失败状态checkpoint已实现；不占用在线KV/PG|持续调度/取消/故障停止与实际重启已验；持久DLQ/raw回放、ClickHouse重试/发布、跨插件隔离配额与故障验收待完成|
 |WP20|Solana数据与执行适配|§28.22|PARTIAL_LOCAL|Rust RocksDB、账户依赖/完成屏障、来源session/write_version隔离、skipped范围验证；RPC整批限定布局CPMM数据解码；固定6d7a0f82动态费独立profile，classicSPL/backedWSOL、fee0/1/2、seed0..65535及mandatoryextension，原解析/分段exact-in和41真实PG-Kafka双router检查通过；本批限定范围整体验收通过；正常Solana RPC原始响应证据WAL、独立耐久head/损坏封闭与重启新会话验证通过；当前RPC分片bootstrap、失败整批丢弃/切源重新采集、全scope/报价快照引用及WAL新会话恢复局部验证完成；经典SPL静态费Orca/Raydium奖励增长及完整后状态已由联合批次局部验证；本批新增固定Orca原FeeRateManager的逐group/时间/波动原native差分，限定adaptive在线解析由本批独立版本完成；其他组合未完成；本批新增经典SPL三fixed数组/未初始化奖励的Orca adaptive账户解析及正常分派；其余组合和完整SBF执行待补；新增独立adaptive-rewards版classic SPL/三fixed数组/完整Oracle/初始化奖励增长与跨tick状态，20原bank及双router/13故障恢复限定验收通过；新增classic SPL/完整Oracle/三完整dynamic或fixed混合数组与初始化奖励的解析/报价/双副本限定验收；normal tonic/帧WAL/manifest/owner发布桥与认证scope控制已接本地持久后端；截至阶段84的Meteora/Pump/Raydium/Orca执行范围以逐批表为准|真实同源Yellowstone连续性/fork/补洞资格、完整版本化bank与动态scope联验、订单/奖励领取/Token2022交叉及未覆盖协议版本、生产CU/账户锁/交易负载仍待完成|
 |WP21|K线、重组更正与历史分析发布|§28.23|PARTIAL_LOCAL|精确有理数OHLC、事件时间排序、撤销最高/最低成交后独立重算、revision、离线原子发布；现有Go二进制analytics journal有限Job及显式常驻只读消费公共事实，无在线KV/PG；HEAD_PROVISIONAL事件时间水位/原子单位和历史缺口；有限预算失败状态持久化|ClickHouse事实/版本表、shadow/发布指针、FINAL及merge前查询、正式分析API/查询配额、迟到/decoder升级回补、真实链与生产故障条款待实现/验收|
@@ -5613,3 +5614,31 @@ Rust 解析器分别启动每条链的工作任务。第一条完成初始化的
 常规复验输出起止区块及计数，自动删除临时目录。显式提供 `--output` 时可保留输入以逐条审计。64 项签名采集、规划和验收流程回归通过。
 
 [验收入口](integration/tools/acceptance/signed_window_evidence.py) · [采集和限速](integration/tools/acceptance/signed_rpc_capture.py) · [复验说明](integration/README.md)
+
+
+<a id="public-mainnet-pool-owners"></a>
+
+## 八条主网的实时池状态与普通解析器验证（2026-11-22，阶段252，P0-1）
+
+北京时间 10:23–10:28，`make -C integration public-rpc-owner-test` 一次运行中八条主网全部通过。使用 Go 和 Rust 正式运行入口、空状态目录和公开 HTTPS RPC。校验链身份、固定创世哈希和 finalized 块或 slot，并按同高度核对解析器发布的块哈希、父哈希和时间。下表记录实际快照，块哈希可按高度在主网上复查。
+
+|主网|区块或 slot|块哈希|池状态|
+|---|---:|---|---|
+|Ethereum|26467549|`0xe2ed9cee9803425bf4633562803449fa57d42037a4a09106e086f48b34daf9c1`|DAI/WETH Uniswap V2 完整快照|
+|Base|60613521|`0xe3e86a149b191254654d45ab81e0c0f8ba703fe5d0202bf6597f533128bc2a1d`|Uniswap V3，256 个初始化 tick|
+|BNB Smart Chain|134998582|`0x177d491f5513a2ecb2b760fdb75cb91ea7e1b39110fd0a39fb2c7da9c0ca7c43`|Pancake V2 双边储备|
+|Solana|472372615|`2rtvJQFngdPEqVPkAwbnEpGihTkKKnYqC7PbwGuEpPy9`|Raydium CPMM 快照|
+|Arbitrum One|526393225|`0x0c6cafae4b8d4909b15f8209200dbaac8c572f81a6792a8a2ec32c2f08913a29`|Uniswap V3，256 个初始化 tick|
+|OP Mainnet|159857248|`0xdcee4020e6b8f677bf726a419e9839f25b14783a7a7509b64b6744ca7dbc0663`|Uniswap V3，203 个初始化 tick|
+|Polygon PoS|97739323|`0xb86ddba5ca27fc615a7b19e8a4f9305086251664c4fc9400adafe206da938e51`|Uniswap V3，79 个初始化 tick|
+|Avalanche C-Chain|101030093|`0xaede38cde646e070c71f151fa41064b4bc8ed2302eb7df9bbf142dc248109def`|Uniswap V3，117 个初始化 tick|
+
+六条新增 EVM 链均固定部署地址、运行时代码 SHA-256、工厂、两种代币和费率。Go 解析器使用对应链的原生区块、交易及回执校验规则。快照发布后通过公开 RPC 在同一高度读取 V2 储备或 V3 的价格、tick、流动性，逐项比较并检查结束块头。另以 Tenderly 和官方端点分别作为 Arbitrum 第一来源，在同一块成功复验。免费端点曾返回 HTTP 403、429、超时或过期的 finalized 头。保留 60 秒请求时限及既有 20 分钟 EVM、2 分钟 Solana 新鲜度要求。来源失配和超限样本均未计入通过次数。
+
+真实读取发现，密集的 Uniswap V3 池在一个 bitmap word 内可有 256 个初始化 tick。Go 增加可选池配置 `v3.tick_read_concurrency`，省略时串行，本轮并发 4。所有请求固定在同一块哈希，沿用同一字节预算、来源检查和原始输入记录。返回顺序固定为 bitmap 顺序，含无效或缺失响应时整池失败。两套 Rust 配置读取同一字段，历史采集在并发回调时串行计入总字节预算。本轮覆盖每条链的一个池，Solana 独立 bank 与同源 Yellowstone、全协议覆盖、端到端生产 SLO 及完整工作包验收仍待完成。
+
+同一 Go 进程也同时发布了 BNB Smart Chain 块 135001670 与 Avalanche 块 101031302 的两个池。复验工具校验池与块引用各自的 chain key，拒绝把另一条链的同地址状态计为通过。再次执行八链严格入口时，Base 和 OP 的 finalized 块超出时效，两条明确返回 `BASELINE_TOO_OLD`，其余六条通过。等公开源提供新 finalized 块后，Base 与 OP 在同一个 Go 进程分别发布块 60623228、159858049，同地址 WETH 的两个池分别读取 256 和 203 个已初始化 tick，并经同高度合约调用复核。
+
+本轮另清理 837 份旧报告、预检日志和一次性源码编辑脚本，共占用 964141056 字节。四份最大的 Balancer 输出均有仓库内的原始输入和生成命令。清理后覆盖 68 项相关回归，其中两个测试类使用项目固定的 Node v25.3.0 复验。613 份属于旧 Kafka 应用和 GC 日志。本轮另起真实 PostgreSQL 与 Kafka，验证测试程序把此类日志放入每实例临时目录，退出后删除，Kafka 安装目录的文件及修改时间保持一致。Go 全包普通测试、vet、race 与两个 Rust 配置包回归通过。全量 Go race 的 EVM 包超过首次运行的十分钟限制，在延长测试超时后通过。
+
+[公开主网复验](integration/tools/acceptance/public_rpc_smoke.py) · [固定部署与公开端点](integration/config/chain-targets.json) · [运行方式](integration/README.md) · [V3 状态读取](chain-parser-go/internal/chain/evm/v3.go)

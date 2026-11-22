@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+
+	"golang.org/x/sync/errgroup"
+
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/domain"
 )
@@ -75,7 +78,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 		return domain.Pool{}, errors.New("PROTOCOL_UNSUPPORTED")
 	}
 	v := p.V3
-	if v == nil || v.TickWordRadius > 16 || v.MaxInitializedTicks == 0 || v.MaxInitializedTicks > 4096 || v.MaxSteps == 0 || v.MaxSteps > 8192 {
+	if v == nil || v.TickWordRadius > 16 || v.TickReadConcurrency > 4 || v.MaxInitializedTicks == 0 || v.MaxInitializedTicks > 4096 || v.MaxSteps == 0 || v.MaxSteps > 8192 {
 		return domain.Pool{}, errors.New("V3_CONFIG_REQUIRED")
 	}
 	var code string
@@ -93,7 +96,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 	if hex.EncodeToString(h[:]) != v.ExpectedCodeSHA256 {
 		return domain.Pool{}, errors.New("V3_CODE_HASH_MISMATCH")
 	}
-	call := func(data string, words int) ([]byte, error) {
+	call := func(ctx context.Context, data string, words int) ([]byte, error) {
 		var result string
 		request := map[string]any{"to": p.ID, "data": data}
 		if options.origin != "" {
@@ -109,7 +112,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 		return raw, nil
 	}
 	for _, item := range []struct{ selector, expected string }{{"0x0dfe1681", p.Token0}, {"0xd21220a7", p.Token1}, {"0xc45a0155", v.ExpectedFactory}} {
-		b, e := call(item.selector, 1)
+		b, e := call(ctx, item.selector, 1)
 		if e != nil {
 			return domain.Pool{}, e
 		}
@@ -125,7 +128,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 			return domain.Pool{}, err
 		}
 	}
-	b, e := call("0xddca3f43", 1)
+	b, e := call(ctx, "0xddca3f43", 1)
 	if e != nil {
 		return domain.Pool{}, e
 	}
@@ -133,7 +136,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 	if e != nil || (p.Protocol != "aerodrome-slipstream" && fee.Uint64() != p.FeeNumerator) || p.FeeDenominator != 1000000 || fee.Uint64() >= 1000000 || p.Protocol == "aerodrome-slipstream" && fee.Uint64() > 100000 {
 		return domain.Pool{}, errors.New("V3_FEE_MISMATCH")
 	}
-	b, e = call("0xd0c93a7c", 1)
+	b, e = call(ctx, "0xd0c93a7c", 1)
 	if e != nil {
 		return domain.Pool{}, e
 	}
@@ -146,7 +149,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 	if p.Protocol == "aerodrome-slipstream" {
 		slotWords = 6
 	}
-	slot, e := call("0x3850c7bd", slotWords)
+	slot, e := call(ctx, "0x3850c7bd", slotWords)
 	if e != nil {
 		return domain.Pool{}, e
 	}
@@ -183,7 +186,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 	if new(big.Int).SetBytes(slot[unlockedIndex*32:(unlockedIndex+1)*32]).Uint64() != 1 {
 		return domain.Pool{}, errors.New("V3_POOL_LOCKED")
 	}
-	b, e = call("0x1a686502", 1)
+	b, e = call(ctx, "0x1a686502", 1)
 	if e != nil {
 		return domain.Pool{}, e
 	}
@@ -199,7 +202,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 		if feeProtocol&65535 > 10000 || feeProtocol>>16 > 10000 {
 			return domain.Pool{}, errors.New("V3_PROTOCOL_FEE_RANGE")
 		}
-		lm, e := call("0x540d4918", 1)
+		lm, e := call(ctx, "0x540d4918", 1)
 		if e != nil {
 			return domain.Pool{}, e
 		}
@@ -207,7 +210,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 			return domain.Pool{}, errors.New("PANCAKE_LM_POOL_UNSUPPORTED")
 		}
 	}
-	state := &domain.V3State{Implementation: v.ExpectedImplementation, ImplementationCodeSHA256: v.ExpectedImplementationCodeSHA256, FactoryCodeSHA256: v.ExpectedFactoryCodeSHA256, FeeProtocol: feeProtocol, SqrtPriceX96: domain.Amount(price.String()), Tick: int32(tick.Int64()), Liquidity: domain.Amount(liquidity.String()), TickSpacing: space, Factory: v.ExpectedFactory, CodeSHA256: v.ExpectedCodeSHA256, MaxSteps: v.MaxSteps, TickWords: []domain.V3BitmapWord{}, Ticks: []domain.V3Tick{}}
+	state := &domain.V3State{Implementation: v.ExpectedImplementation, ImplementationCodeSHA256: v.ExpectedImplementationCodeSHA256, FactoryCodeSHA256: v.ExpectedFactoryCodeSHA256, FeeProtocol: feeProtocol, SqrtPriceX96: domain.Amount(price.String()), Tick: int32(tick.Int64()), Liquidity: domain.Amount(liquidity.String()), TickSpacing: space, Factory: v.ExpectedFactory, CodeSHA256: v.ExpectedCodeSHA256, MaxSteps: v.MaxSteps, TickWords: []domain.V3BitmapWord{}}
 	center := floorDiv(floorDiv(state.Tick, space), 256)
 	lower := center - int32(v.TickWordRadius)
 	upper := center + int32(v.TickWordRadius)
@@ -221,7 +224,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 	}
 	initialized := []int32{}
 	for pos := lower; pos <= upper; pos++ {
-		b, e = call("0x5339c296"+signedArg(pos), 1)
+		b, e = call(ctx, "0x5339c296"+signedArg(pos), 1)
 		if e != nil {
 			return domain.Pool{}, e
 		}
@@ -240,45 +243,77 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 			}
 		}
 	}
-	for _, index := range initialized {
-		tickWords := 8
-		if p.Protocol == "aerodrome-slipstream" {
-			tickWords = 10
-		}
-		b, e = call("0xf30dba93"+signedArg(index), tickWords)
-		if e != nil {
-			return domain.Pool{}, e
-		}
-		gross, e := wordUint(b[:32], 128)
-		if e != nil {
-			return domain.Pool{}, e
-		}
-		net, e := wordInt(b[32:64], 128)
-		if e != nil {
-			return domain.Pool{}, e
-		}
-		offset := 0
-		if p.Protocol == "aerodrome-slipstream" {
-			offset = 64
-			if _, e = wordInt(b[64:96], 128); e != nil {
-				return domain.Pool{}, e
-			}
-		}
-		if _, e = wordInt(b[128+offset:160+offset], 56); e != nil {
-			return domain.Pool{}, e
-		}
-		if _, e = wordUint(b[160+offset:192+offset], 160); e != nil {
-			return domain.Pool{}, e
-		}
-		if _, e = wordUint(b[192+offset:224+offset], 32); e != nil {
-			return domain.Pool{}, e
-		}
-		flag, e := wordUint(b[224+offset:256+offset], 1)
-		if e != nil || flag.Uint64() != 1 || gross.Sign() == 0 {
-			return domain.Pool{}, errors.New("V3_INCOMPLETE_TICKS")
-		}
-		state.Ticks = append(state.Ticks, domain.V3Tick{Tick: index, LiquidityGross: domain.Amount(gross.String()), LiquidityNet: net.String()})
+	state.Ticks, e = readV3Ticks(ctx, initialized, v.TickReadConcurrency, p.Protocol == "aerodrome-slipstream", call)
+	if e != nil {
+		return domain.Pool{}, e
 	}
 	pool := domain.Pool{ChainKey: a.Chain.Key, PoolID: p.ID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: "0", Reserve1: "0", FeeNumerator: fee.Uint64(), FeeDenominator: 1000000, AdapterVersion: profile.AdapterVersion, TokenBehavior: "standard", V3: state}
 	return pool, pool.Validate()
+}
+
+// Every tick is pinned to the same block. Keep results in bitmap order even
+// when public RPC requests finish out of order.
+func readV3Ticks(ctx context.Context, indices []int32, concurrency uint32, slipstream bool, call func(context.Context, string, int) ([]byte, error)) ([]domain.V3Tick, error) {
+	words := 8
+	if slipstream {
+		words = 10
+	}
+	ticks := make([]domain.V3Tick, len(indices))
+	group, requests := errgroup.WithContext(ctx)
+	group.SetLimit(max(1, int(concurrency)))
+	for pos, index := range indices {
+		if requests.Err() != nil {
+			break
+		}
+		group.Go(func() error {
+			raw, err := call(requests, "0xf30dba93"+signedArg(index), words)
+			if err != nil {
+				return err
+			}
+			tick, err := decodeV3Tick(index, raw, slipstream)
+			if err == nil {
+				ticks[pos] = tick
+			}
+			return err
+		})
+	}
+	if err := group.Wait(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return ticks, nil
+}
+
+func decodeV3Tick(index int32, b []byte, slipstream bool) (domain.V3Tick, error) {
+	gross, e := wordUint(b[:32], 128)
+	if e != nil {
+		return domain.V3Tick{}, e
+	}
+	net, e := wordInt(b[32:64], 128)
+	if e != nil {
+		return domain.V3Tick{}, e
+	}
+	offset := 0
+	if slipstream {
+		offset = 64
+		if _, e = wordInt(b[64:96], 128); e != nil {
+			return domain.V3Tick{}, e
+		}
+	}
+	if _, e = wordInt(b[128+offset:160+offset], 56); e != nil {
+		return domain.V3Tick{}, e
+	}
+	if _, e = wordUint(b[160+offset:192+offset], 160); e != nil {
+		return domain.V3Tick{}, e
+	}
+	if _, e = wordUint(b[192+offset:224+offset], 32); e != nil {
+		return domain.V3Tick{}, e
+	}
+	flag, e := wordUint(b[224+offset:256+offset], 1)
+	if e != nil || flag.Uint64() != 1 || gross.Sign() == 0 {
+		return domain.V3Tick{}, errors.New("V3_INCOMPLETE_TICKS")
+	}
+	return domain.V3Tick{Tick: index, LiquidityGross: domain.Amount(gross.String()), LiquidityNet: net.String()}, nil
 }

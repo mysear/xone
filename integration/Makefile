@@ -23,11 +23,13 @@ log-redaction-test log-pressure-test:
 reducer-replay-test reorg-test fencing-test:
 	cd ../chain-parser-go && go test ./internal/reducer
 	$(MAKE) -C ../dex-router unit
-.PHONY: public-rpc-test
-public-rpc-test:
+.PHONY: public-rpc-test public-rpc-owner-test
+public-rpc-owner-test: public_rpc_options = --all-owners
+public-rpc-test public-rpc-owner-test:
+	python3 -B -m unittest discover -s tools/acceptance/tests -p test_public_rpc_smoke.py
 	$(MAKE) -C ../chain-parser-go build
 	$(MAKE) -C ../chain-parser-rust build
-	python3 -B tools/acceptance/public_rpc_smoke.py
+	python3 -B tools/acceptance/public_rpc_smoke.py $(public_rpc_options)
 
 # Independently pinned Ethereum mainnet checkpoint. The verifier enforces its age.
 BEACON_CHECKPOINT_ROOT ?= 0x48176a8eb6476fee86b5540b0764721cb93572a1d83234db95dbedcc845907c7

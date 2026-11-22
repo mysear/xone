@@ -10,8 +10,8 @@
       "owner": "chain-parser-go",
       "genesis_hash": "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
       "rpc_urls": [
-        "https://eth.drpc.org",
-        "https://1rpc.io/eth"
+        "https://rpc.mevblocker.io",
+        "https://ethereum-rpc.publicnode.com"
       ],
       "planned_protocols": [
         "Uniswap V2",
@@ -33,7 +33,8 @@
       "owner": "chain-parser-go",
       "rpc_urls": [
         "https://mainnet.base.org",
-        "https://base.drpc.org"
+        "https://base.drpc.org",
+        "https://base.gateway.tenderly.co"
       ],
       "planned_protocols": [
         "Uniswap V3",
@@ -44,7 +45,17 @@
       "documentation": "https://docs.base.org/base-chain/network-information",
       "genesis_hash": "0xf712aa9241cc24369b143cf6dce85f0902a9731e70d66818a3a5845b296c73dd",
       "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
-      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9",
+      "public_pool_probe": {
+        "protocol": "uniswap-v3",
+        "pool": "0xd0b53d9277642d899df5c87a3966a349a798f224",
+        "factory": "0x33128a8fc17869897dce68ed026d694621f6fdfd",
+        "token0": "0x4200000000000000000000000000000000000006",
+        "token1": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "runtime_sha256": "0d14cff6e9be9c1cf4ff7a4856a44e5d17b8a92db7e1f41f2fb5e73ad8b5419a",
+        "fee_numerator": 500,
+        "fee_denominator": 1000000
+      }
     },
     "bsc": {
       "chain_key": "evm:56",
@@ -52,7 +63,8 @@
       "family": "evm",
       "owner": "chain-parser-go",
       "rpc_urls": [
-        "https://bsc-dataseed.bnbchain.org"
+        "https://bsc-dataseed.bnbchain.org",
+        "https://bsc-dataseed1.defibit.io"
       ],
       "planned_protocols": [
         "Pancake V2",
@@ -64,7 +76,17 @@
       "documentation": "https://docs.bnbchain.org/bnb-smart-chain/developers/network-config/",
       "genesis_hash": "0x0d21840abff46b96c84b2ac9e10e4f5cdaeb5693cb665db62a2f3b02d2d57b5b",
       "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
-      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9",
+      "public_pool_probe": {
+        "protocol": "pancake-v2",
+        "pool": "0x16b9a82891338f9ba80e2d6970fdda79d1eb0dae",
+        "factory": "0xca143ce32fe78f1f7019d7d551a6402fc5350c73",
+        "token0": "0x55d398326f99059ff775485246999027b3197955",
+        "token1": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+        "runtime_sha256": "ab89a0244c7e5a86aa8e1673b4c5b825db93bc406c7934e923ebb0a7c4548ac7",
+        "fee_numerator": 25,
+        "fee_denominator": 10000
+      }
     },
     "solana": {
       "chain_key": "solana:mainnet-beta",
@@ -72,8 +94,8 @@
       "owner": "chain-parser-rust",
       "genesis_hash": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
       "rpc_urls": [
-        "https://api.mainnet-beta.solana.com",
-        "https://solana-rpc.publicnode.com"
+        "https://api.mainnet.solana.com",
+        "https://solana.api.pocket.network"
       ],
       "planned_protocols": [
         "Raydium CPMM",
@@ -95,16 +117,27 @@
       "owner": "chain-parser-go",
       "rpc_urls": [
         "https://arb1.arbitrum.io/rpc",
+        "https://arbitrum.gateway.tenderly.co",
         "https://arbitrum-one-rpc.publicnode.com"
       ],
       "planned_protocols": [
         "Uniswap V3"
       ],
       "later_protocols": [],
-      "documentation": "https://docs.arbitrum.io/build-decentralized-apps/reference/node-providers",
+      "documentation": "https://docs.arbitrum.io/chain-info",
       "genesis_hash": "0x7ee576b35482195fc49205cec9af72ce14f003b9ae69f6ba0faef4514be8b442",
       "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
-      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9",
+      "public_pool_probe": {
+        "protocol": "uniswap-v3",
+        "pool": "0xc6962004f452be9203591991d15f6b388e09e8d0",
+        "factory": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+        "token0": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+        "token1": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+        "runtime_sha256": "a723f86636f9367338bcbcf899ab27aa8d56fe5a787f8bf57ec841c68e9952da",
+        "fee_numerator": 500,
+        "fee_denominator": 1000000
+      }
     },
     "optimism": {
       "chain_key": "evm:10",
@@ -112,8 +145,9 @@
       "family": "evm",
       "owner": "chain-parser-go",
       "rpc_urls": [
-        "https://mainnet.optimism.io",
         "https://optimism-rpc.publicnode.com",
+        "https://optimism.gateway.tenderly.co",
+        "https://mainnet.optimism.io",
         "https://optimism.drpc.org"
       ],
       "planned_protocols": [
@@ -124,7 +158,17 @@
       "documentation": "https://docs.optimism.io/chain/networks",
       "genesis_hash": "0x7ca38a1916c42007829c55e69d3e9a73265554b586a499015373241b8a3fa48b",
       "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
-      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9",
+      "public_pool_probe": {
+        "protocol": "uniswap-v3",
+        "pool": "0x1fb3cf6e48f1e7b10213e7b6d87d4c073c7fdb7b",
+        "factory": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+        "token0": "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+        "token1": "0x4200000000000000000000000000000000000006",
+        "runtime_sha256": "c3799de2bd3cb0d8257a3e404aebd5be954cdb5bcf9cb05d056cb31de3efbd49",
+        "fee_numerator": 500,
+        "fee_denominator": 1000000
+      }
     },
     "polygon": {
       "chain_key": "evm:137",
@@ -142,7 +186,17 @@
       "documentation": "https://docs.polygon.technology/pos/reference/rpc-endpoints/",
       "genesis_hash": "0xa9c28ce2141b56c474f1dc504bee9b01eb1bd7d1a507580d5519d4437a97de1b",
       "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
-      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9",
+      "public_pool_probe": {
+        "protocol": "uniswap-v3",
+        "pool": "0xb6e57ed85c4c9dbfef2a68711e9d6f36c56e0fcb",
+        "factory": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+        "token0": "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270",
+        "token1": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
+        "runtime_sha256": "39eff71708eb4d85a04a3ed269ab881db1a248ca046ded6f1a48ba619ce41c6a",
+        "fee_numerator": 500,
+        "fee_denominator": 1000000
+      }
     },
     "avalanche": {
       "chain_key": "evm:43114",
@@ -150,6 +204,8 @@
       "family": "evm",
       "owner": "chain-parser-go",
       "rpc_urls": [
+        "https://avalanche-c-chain-rpc.publicnode.com",
+        "https://avalanche.drpc.org",
         "https://api.avax.network/ext/bc/C/rpc"
       ],
       "planned_protocols": [
@@ -160,7 +216,17 @@
       "documentation": "https://build.avax.network/docs/api-reference/c-chain/api",
       "genesis_hash": "0x31ced5b9beb7f8782b014660da0cb18cc409f121f408186886e1ca3e8eeca96b",
       "genesis_evidence": "integration/test/source/chain-genesis-observations.json",
-      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9"
+      "genesis_evidence_sha256": "a8ec21f63d83b92c54fd273ff0fa9062fbe011cc090f23c5754049912038dcc9",
+      "public_pool_probe": {
+        "protocol": "uniswap-v3",
+        "pool": "0xfae3f424a0a47706811521e3ee268f00cfb5c45e",
+        "factory": "0x740b1c1de25031c31ff4fc9a62f554a55cdc1bad",
+        "token0": "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+        "token1": "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
+        "runtime_sha256": "c1df88e5f52f9cec10ef7881b4d75c8bce5cebc06d528cc2aa9d91eadbf38eaa",
+        "fee_numerator": 500,
+        "fee_denominator": 1000000
+      }
     }
   }
 }

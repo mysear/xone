@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 	"xone/chain-parser-go/internal/config"
@@ -64,7 +65,7 @@ func TestV3HashPinnedReadChecksCodeBitmapAndEveryTick(t *testing.T) {
 			if mode == "word-budget" {
 				cfg.V3.MaxInitializedTicks = 1
 			}
-			pinned := 0
+			var pinned atomic.Int32
 			headers := 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var q struct {
@@ -90,7 +91,7 @@ func TestV3HashPinnedReadChecksCodeBitmapAndEveryTick(t *testing.T) {
 					if anchor["blockHash"] != "0x"+strings.Repeat("1", 64) || anchor["requireCanonical"] != true {
 						t.Error("unpinned V3 dependency")
 					}
-					pinned++
+					pinned.Add(1)
 					if q.Method == "eth_getCode" {
 						out = "0x" + hex.EncodeToString(code)
 						if mode == "code" {
@@ -215,8 +216,76 @@ func TestV3HashPinnedReadChecksCodeBitmapAndEveryTick(t *testing.T) {
 			if mode == "minimum-price" {
 				wantWords = 2
 			}
-			if pinned < 8+wantWords+len(pool.V3.Ticks) || len(pools[0].V3.TickWords) != wantWords || len(pools[0].V3.Ticks) != len(pool.V3.Ticks) || pools[0].V3.Ticks[len(pool.V3.Ticks)-1].LiquidityNet != pool.V3.Ticks[len(pool.V3.Ticks)-1].LiquidityNet {
-				t.Fatal("dependencies incomplete", pinned)
+			if int(pinned.Load()) < 8+wantWords+len(pool.V3.Ticks) || len(pools[0].V3.TickWords) != wantWords || len(pools[0].V3.Ticks) != len(pool.V3.Ticks) || pools[0].V3.Ticks[len(pool.V3.Ticks)-1].LiquidityNet != pool.V3.Ticks[len(pool.V3.Ticks)-1].LiquidityNet {
+				t.Fatal("dependencies incomplete", pinned.Load())
+			}
+		})
+	}
+}
+
+func TestV3TickReadsBoundConcurrencyKeepOrderAndRejectPartialState(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		t.Run(fmt.Sprintf("failure-%t", fail), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			indices := []int32{-5, -4, -3, -2, -1, 0, 1, 2, 3}
+			// Keep the first response pending until the next three have started.
+			started := make(chan string, len(indices))
+			release := make(chan struct{})
+			var active atomic.Int32
+			call := func(ctx context.Context, data string, words int) ([]byte, error) {
+				n := active.Add(1)
+				defer active.Add(-1)
+				if n > 4 || words != 8 {
+					t.Errorf("in flight %d, words %d", n, words)
+				}
+				started <- data
+				select {
+				case <-release:
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+				value := make([]byte, words*32)
+				value[31], value[len(value)-1] = 1, 1
+				if fail && data == "0xf30dba93"+signedArg(-3) {
+					value[len(value)-1] = 0
+				}
+				return value, nil
+			}
+			type result struct {
+				ticks []domain.V3Tick
+				err   error
+			}
+			done := make(chan result, 1)
+			go func() {
+				ticks, err := readV3Ticks(ctx, indices, 4, false, call)
+				done <- result{ticks, err}
+			}()
+			for range 4 {
+				select {
+				case <-started:
+				case <-ctx.Done():
+					t.Fatal("four bounded reads did not start")
+				}
+			}
+			close(release)
+			got := <-done
+			if active.Load() != 0 {
+				t.Fatal("tick requests remained in flight")
+			}
+			if fail {
+				if got.err == nil || got.err.Error() != "V3_INCOMPLETE_TICKS" || got.ticks != nil {
+					t.Fatalf("published partial ticks %v, error %v", got.ticks, got.err)
+				}
+				return
+			}
+			if got.err != nil || len(got.ticks) != len(indices) {
+				t.Fatal(got.err, len(got.ticks))
+			}
+			for i, tick := range got.ticks {
+				if tick.Tick != indices[i] {
+					t.Fatal("bitmap order changed", got.ticks)
+				}
 			}
 		})
 	}

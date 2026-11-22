@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Dedicated loopback-only PG/Kafka instances. Never uses a developer database."""
 from pathlib import Path
-import atexit,json,os,secrets,socket,subprocess,time
+import atexit,json,os,secrets,socket,subprocess,tempfile,time
 ROOT=Path(__file__).resolve().parents[3]
 BASE=ROOT/'integration/.runtime/infrastructure'
 PG=Path('/usr/local/opt/postgresql@13/bin')
@@ -10,7 +10,17 @@ def port():
  with socket.socket() as s:s.bind(('127.0.0.1',0));return s.getsockname()[1]
 def command(args,**kw):return subprocess.run([str(v) for v in args],check=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,**kw).stdout
 class Infrastructure:
- def __init__(self):self.kafka=None;self.log=None;self.pg_started=False;self.env=os.environ.copy();self.env['JAVA_HOME']='/Library/Java/JavaVirtualMachines/jdk-11.jdk/Contents/Home';self.env['KAFKA_HEAP_OPTS']='-Xms256m -Xmx512m';self.path=BASE/(str(os.getpid())+'-'+secrets.token_hex(3));self.path.mkdir(parents=True);self.pgport=port();self.kafka_port=port();self.controller_port=port()
+ def __init__(self):
+  self.kafka = None
+  self.log = None
+  self.pg_started = False
+  self.env = dict(os.environ, JAVA_HOME='/Library/Java/JavaVirtualMachines/jdk-11.jdk/Contents/Home',
+                  KAFKA_HEAP_OPTS='-Xms256m -Xmx512m')
+  self.path = BASE / (str(os.getpid())+'-'+secrets.token_hex(3))
+  self.path.mkdir(parents=True)
+  self.pgport, self.kafka_port, self.controller_port = port(), port(), port()
+  self.kafka_logs = tempfile.TemporaryDirectory(prefix='kafka-logs-', dir=self.path)
+  self.env['LOG_DIR'] = self.kafka_logs.name
  def start(self):
   command([PG/'initdb','-D',self.path/'pg','-U','xone_test','-A','trust','--no-locale','-E','UTF8'])
   command([PG/'pg_ctl','-D',self.path/'pg','-l',self.path/'postgres.log','-o',f'-h 127.0.0.1 -p {self.pgport} -k {self.path}','-w','start']);self.pg_started=True
@@ -54,6 +64,7 @@ log.retention.hours=1
    try:self.kafka.wait(timeout=10)
    except subprocess.TimeoutExpired:self.kafka.kill();self.kafka.wait()
   if self.log:self.log.close()
+  self.kafka_logs.cleanup()
   if self.pg_started:
    try:command([PG/'pg_ctl','-D',self.path/'pg','-m','immediate','-w','stop'])
    except subprocess.CalledProcessError:pass

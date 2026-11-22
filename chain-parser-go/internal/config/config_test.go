@@ -95,6 +95,14 @@ func TestV3RequiresExplicitCodeAndFiniteTickBudget(t *testing.T) {
 	if e = cfg.Config.Validate("chain-parser-go"); e != nil {
 		t.Fatal(e)
 	}
+	cfg.Config.Chains[0].Pools[0].V3.TickReadConcurrency = 5
+	if cfg.Config.Validate("chain-parser-go") == nil {
+		t.Fatal("unbounded tick concurrency accepted")
+	}
+	cfg.Config.Chains[0].Pools[0].V3.TickReadConcurrency = 4
+	if err := cfg.Config.Validate("chain-parser-go"); err != nil {
+		t.Fatal(err)
+	}
 	cfg.Config.Chains[0].Pools[0].V3.TickWordRadius = 17
 	if cfg.Config.Validate("chain-parser-go") == nil {
 		t.Fatal("unbounded tick radius accepted")
