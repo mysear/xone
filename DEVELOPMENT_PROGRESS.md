@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Ethereum 交易发送方声明（[阶段249](#ethereum-rpc-sender)，P0-1）|§7.3、§28.6，WP04、WP24|LOCAL_SCOPE_VERIFIED|两种完整正文入口对主网标准交易按块高和时间恢复签名，核对 RPC 提供的发送地址|连续签名来源窗口、执行后状态及生产验收继续推进|
 |主网开发 RPC 与正式解析器（[阶段248](#public-mainnet-dev-rpc)，P0-1）|§3、§7、§28，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|8 条链实时核对身份和 finalized 块，Ethereum 与 Solana 正式解析器发布池快照|签名连续窗口、独立 Solana bank、Yellowstone 和生产验收仍待完成|
 |Go慢链启动、调度与租约隔离（[阶段247](#go-per-chain-scheduling)，P0-1）|§7.8、§9.24、§9.30、§18、§19.5、§28.6–28.9、§28.26，WP04、WP06、WP07、WP18、WP24|LOCAL_SCOPE_VERIFIED|每链worker与有界唤醒；正常RPC慢链不阻塞健康链启动/追块，实PG/Kafka独立提交/续租/撤权及释放通过|验证为本机受控RPC和实中间件；Rust慢链调度、真实第二/第三链及独立故障域仍缺|
 |签名窗口输入规划与近期录制重放入口（[阶段246](#signed-window-input-planning)，P0-1）|§7.1–7.3、§7.9、§9.24、§28.5–28.7，WP03、WP04、WP05、WP24|LOCAL_SCOPE_VERIFIED|实际原始请求模板、最多128高度的有界输入采集规划；传输重试共用原期限/字节预算，近期录制owner及归档重放需显式选择|仅工具和有限正常bank通过；真实32高度连续发布/重放仍未通过，旧失败和超范围窗口不计成功|
@@ -5567,3 +5568,13 @@ Close先取消服务源生命周期，再无全局I/O锁等待已登记操作和
 三服务联调首次启动时 Ethereum 基线超过开发配置的 20 分钟上限，Go 返回 `BASELINE_TOO_OLD`。节点公布新的 finalized 块后，以相同配置和全新状态目录重启。Router 的 `/v1/quote-options` 同时返回两条链 ready，并列出了 Ethereum 块 26467069 的 DAI/WETH 池和 Solana slot 472344468 的 Raydium 池。
 
 [公网复验入口](integration/tools/acceptance/public_rpc_smoke.py) · [运行说明](integration/README.md)
+
+<a id="ethereum-rpc-sender"></a>
+
+## Ethereum 正文中的发送方地址（2026-11-22，阶段249，P0-1）
+
+交易的签名编码不包含 RPC 单独提供的 `from` 字段。普通 Ethereum 正文读取和原生正文证明读取都在已核对交易身份后，使用该块高度、时间对应的主网签名规则恢复发送方。声明地址与签名不符、格式无效或显式 null 会拒绝整个正文。旧记录可以省略该字段。适用范围为 Ethereum 主网标准交易。
+
+使用主网块 26355865 的原始正文，通过普通适配器验证两种入口。只改 RPC 的发送地址时，交易的签名字节及哈希保持一致，两个入口均返回 `BLOCK_INTEGRITY_TRANSACTION_SENDER`。另以 Frontier/Homestead 的 high-S 和 Cancun 激活前后的 blob 交易核对分叉规则。专项 race 与 Go vet 通过。已有主网开发配置的正式 Go 进程也在块 26467038 读得完整池状态。
+
+[源码](chain-parser-go/internal/chain/evm/transaction_sender.go) · [回归样本与测试](chain-parser-go/internal/chain/evm/transaction_sender_test.go)

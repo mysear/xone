@@ -80,10 +80,11 @@ func (a *Adapter) ethereumBlock(ctx context.Context, tag string) (RawBlock, erro
 		}
 		remaining -= 2*len(encoded) + 1024
 		var position struct {
-			Hash        string `json:"hash"`
-			BlockHash   string `json:"blockHash"`
-			BlockNumber string `json:"blockNumber"`
-			Index       string `json:"transactionIndex"`
+			Hash        string          `json:"hash"`
+			BlockHash   string          `json:"blockHash"`
+			BlockNumber string          `json:"blockNumber"`
+			Index       string          `json:"transactionIndex"`
+			From        json.RawMessage `json:"from"`
 		}
 		tx := new(types.Transaction)
 		if json.Unmarshal(encoded, &position) != nil || json.Unmarshal(encoded, tx) != nil {
@@ -98,6 +99,9 @@ func (a *Adapter) ethereumBlock(ctx context.Context, tag string) (RawBlock, erro
 		}
 		if tx.Protected() && tx.ChainId().Cmp(big.NewInt(1)) != 0 {
 			return block, errors.New("BLOCK_INTEGRITY_TRANSACTION_CHAIN")
+		}
+		if err := verifyMainnetRPCSender(block, tx, position.From); err != nil {
+			return block, err
 		}
 		seen[strings.ToLower(position.Hash)] = true
 		block.Transactions = append(block.Transactions, position.Hash)

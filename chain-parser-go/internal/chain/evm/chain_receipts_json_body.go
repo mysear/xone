@@ -130,6 +130,7 @@ func encodeChainTransactionJSON(chainKey string, block RawBlock, index uint64, r
 		return nil, errors.New("NATIVE_TRANSACTION_TYPE_UNSUPPORTED")
 	}
 	var payload []byte
+	var mainnetStandard *types.Transaction
 	switch {
 	case kind <= types.SetCodeTxType:
 		tx := new(types.Transaction)
@@ -140,6 +141,9 @@ func encodeChainTransactionJSON(chainKey string, block RawBlock, index uint64, r
 			return nil, errors.New("BLOCK_INTEGRITY_TRANSACTION_CHAIN")
 		}
 		payload, err = tx.MarshalBinary()
+		if chainKey == "evm:1" {
+			mainnetStandard = tx
+		}
 	case chainKey == "evm:42161" && kind == 0x6a:
 		chain, e := headerQuantity(fields["chainId"], true)
 		if e != nil || !chain.IsUint64() || chain.Uint64() != expectedChain {
@@ -165,6 +169,11 @@ func encodeChainTransactionJSON(chainKey string, block RawBlock, index uint64, r
 	}
 	if crypto.Keccak256Hash(payload) != common.HexToHash(position.Hash) {
 		return nil, errors.New("BLOCK_INTEGRITY_TRANSACTION_HASH")
+	}
+	if mainnetStandard != nil {
+		if err := verifyMainnetRPCSender(block, mainnetStandard, fields["from"]); err != nil {
+			return nil, err
+		}
 	}
 	return payload, nil
 }
