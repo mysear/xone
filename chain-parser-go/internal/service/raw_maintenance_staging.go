@@ -26,7 +26,7 @@ func (m *RawMaintenance) PublishStaged(ctx context.Context, unit journal.Unit, s
 	if len(records) == 0 {
 		return errors.New("RAW_STAGING_ACQUISITION_REQUIRED")
 	}
-	writer := m.s.sessions[key]
+	writer := m.s.session(key)
 	if m.s.cfg.Config.Journal.Transport == "kafka" && writer == nil {
 		return errors.New("RAW_ACTIVE_LEASE_REQUIRED")
 	}
@@ -36,7 +36,7 @@ func (m *RawMaintenance) PublishStaged(ctx context.Context, unit journal.Unit, s
 			return ctx.Err()
 		}
 		ref := unit.Snapshot.Reference
-		if m.s.sessions[key] != writer || ref.WriterEpoch != current.Reference.WriterEpoch || ref.OnlineGeneration != current.Reference.OnlineGeneration || ref.OwnerService != current.Reference.OwnerService || ref.OwnerAssignmentVersion != current.Reference.OwnerAssignmentVersion {
+		if m.s.session(key) != writer || ref.WriterEpoch != current.Reference.WriterEpoch || ref.OnlineGeneration != current.Reference.OnlineGeneration || ref.OwnerService != current.Reference.OwnerService || ref.OwnerAssignmentVersion != current.Reference.OwnerAssignmentVersion {
 			return ingest.ErrReplayFence
 		}
 		if writer != nil {

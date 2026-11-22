@@ -34,7 +34,7 @@ func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.S
 	revoked := old
 	revoked.Reference.JournalSeq++
 	publish := func(u journal.Unit) error {
-		if w := s.sessions[ch.Key]; w != nil {
+		if w := s.session(ch.Key); w != nil {
 			return w.publish(ctx, u)
 		}
 		return store.ApplyLocal(u)
@@ -77,7 +77,7 @@ func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.S
 		if ctx.Err() != nil {
 			return errors.New("REORG_DEADLINE")
 		}
-		if w := s.sessions[ch.Key]; w != nil {
+		if w := s.session(ch.Key); w != nil {
 			if e = w.heartbeat(ctx); e != nil {
 				return e
 			}
@@ -133,7 +133,7 @@ func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.S
 		if ctx.Err() != nil {
 			return errors.New("REORG_DEADLINE")
 		}
-		nextBlock, pools, swaps, err := readCompleteWithLease(ctx, a, s.sessions[ch.Key], fmt.Sprintf("0x%x", h))
+		nextBlock, pools, swaps, err := readCompleteWithLease(ctx, a, s.session(ch.Key), fmt.Sprintf("0x%x", h))
 		if err != nil {
 			return err
 		}
@@ -183,7 +183,7 @@ func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.S
 			return e
 		}
 	}
-	if w := s.sessions[ch.Key]; w != nil {
+	if w := s.session(ch.Key); w != nil {
 		if len(records) > 0 {
 			e = w.publishOwnerRecords(ctx, unit, records, gate)
 		} else {
@@ -217,7 +217,7 @@ func (s *Service) revokeScope(ctx context.Context, ch config.Chain, old domain.S
 		return errors.New("REORG_VERSION_OVERFLOW")
 	}
 	unit := journal.Unit{Kind: "ONLINE_SCOPE_REVOKED", Snapshot: revoked}
-	if w := s.sessions[ch.Key]; w != nil {
+	if w := s.session(ch.Key); w != nil {
 		return w.publish(ctx, unit)
 	}
 	return s.stores[ch.Key].ApplyLocal(unit)

@@ -15,7 +15,7 @@ func (s *Service) readObservedHeader(ctx context.Context, ch config.Chain, reade
 	var block domain.BlockRef
 	read := func(observe context.Context) error {
 		var err error
-		block, err = readHeaderWithLease(observe, reader, s.sessions[ch.Key], tag)
+		block, err = readHeaderWithLease(observe, reader, s.session(ch.Key), tag)
 		return err
 	}
 	if s.rawMaintenance != nil {
@@ -45,7 +45,7 @@ func (s *Service) observeChainHeader(ctx context.Context, chain config.Chain) er
 		if view != nil {
 			tag = view.proof.BlockTag()
 		}
-		head, err = readHeaderWithLease(source, adapter, s.sessions[chain.Key], tag)
+		head, err = readHeaderWithLease(source, adapter, s.session(chain.Key), tag)
 		if err == nil && view != nil {
 			err = view.check(head)
 		}

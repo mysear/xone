@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Go慢链启动、调度与租约隔离（[阶段247](#go-per-chain-scheduling)，P0-1）|§7.8、§9.24、§9.30、§18、§19.5、§28.6–28.9、§28.26，WP04、WP06、WP07、WP18、WP24|LOCAL_SCOPE_VERIFIED|每链worker与有界唤醒；正常RPC慢链不阻塞健康链启动/追块，实PG/Kafka独立提交/续租/撤权及释放通过|验证为本机受控RPC和实中间件；Rust慢链调度、真实第二/第三链及独立故障域仍缺|
 |签名窗口输入规划与近期录制重放入口（[阶段246](#signed-window-input-planning)，P0-1）|§7.1–7.3、§7.9、§9.24、§28.5–28.7，WP03、WP04、WP05、WP24|LOCAL_SCOPE_VERIFIED|实际原始请求模板、最多128高度的有界输入采集规划；传输重试共用原期限/字节预算，近期录制owner及归档重放需显式选择|仅工具和有限正常bank通过；真实32高度连续发布/重放仍未通过，旧失败和超范围窗口不计成功|
 |近期签名原始输入与普通双Router/恢复（[阶段245](#recent-signed-v2-bank)，P0-1）|§7.3、§7.9、§9.24、§18、§28.5–28.7、§28.26，WP03、WP04、WP07、WP09、WP24|LOCAL_SCOPE_VERIFIED|当前真实签名bank的完整原始响应有界采集；普通Go验签/MPT后四向整数报价、双副本/冷启动/owner重启与签名拒绝通过，冻结处理无上游读取|明确为近期签名录制模式；真实连续窗口、直连/生产SLO、完整VERIFIED和其他链协议继续推进|
 |Ethereum 签名短尾的有界祖先读取（[阶段244](#beacon-bounded-tail-prefetch)，P0-1）|§7.3、§7.9、§28.5–28.7，WP03、WP04、WP24|LOCAL_SCOPE_VERIFIED|最多4个已核验祖先读取并发，按父链顺序完整验证后一次授权；取消/错误等待全部退出，固定夹具发布门禁不再依赖已清理环境|真实32高度owner、双Router和恢复闭环继续同P0-1验收，预算与来源资格保持原要求|
@@ -5535,3 +5536,19 @@ SignedRPCCapture新增经原文件完整校验的请求清单，返回原provide
 采集器27项、窗口规划16项、信标相关22项、归档重放2项、当前V2模式18项及普通预热15项，共100项通过；包括真实本机子进程的失败片段隔离、三次上限、累计字节、取消、共同期限和wall前跳/回拨。另17项进度文档、6项审计控制及328/12/191份契约门禁通过。子agent环境曾禁止一个socket测试bind，root可监听环境的完整27项已复跑通过；没有将该环境错误记成逻辑通过。
 
 已清理两个不再使用的私有响应cache，共1334个文件、16378932字节，并在核对失败事实后删除旧trial及其诊断/结果目录。下一轮只保留41份经原字节/hash复核的必要请求输入、固定proof/config与当前验收可执行文件；旧输入只是请求形状，不能恢复新鲜度资格，项目内不新增测试结果。慢链隔离及Ethereum冗余sender字段核验继续按同P0-1开发，分别验收和提交。原26工作包完整验收仍为0，完整设计目标继续。
+
+<a id="go-per-chain-scheduling"></a>
+
+## Go每链调度、慢源隔离与完整生命周期（2026-11-22，阶段247，P0-1）
+
+普通Start先完成共享资源初始化，再分别启动各链的初始probe与owner actor。每链只等待自己的probe；首条合格链或真实lease standby完成后开放服务，其他链仍由已登记worker管理，不将pending当作ready。全部链失败仍按配置顺序返回首个错误。普通app改用非阻塞ScheduleTick，每链固定一个worker、最多一个待处理wake；显式Tick并发处理可取得actor的链，忙链不累积等待goroutine。WS/HTTP读取间隔仍在链内执行，慢链不会占用健康链后续轮询。
+
+同一链的session、recovery、scope与writer操作保持串行；session/recovery映射仅使用短锁。每链独立续租timer也在自身actor内运行，不另开无锁heartbeat写入。Scope请求只竞争目标链，raw replay仍先在目标actor内冻结ref/writer，解锁读取来源，提交时重锁并核对完整ref、writer及runtime fence。Kafka配置下没有该链session就拒绝reanchor，防止另一链已开放HTTP时尚未持租的链落入本地发布分支；最终门禁同时拒绝closed状态。
+
+Close先取消服务源生命周期，再无全局I/O锁等待已登记操作和worker退出，raw维护关闭时同样能取消普通RPC。退出在仍有权威时以独立一秒上下文尝试peer撤权，随后本地Suspend、失效runtime owner并释放writer。失败Start只取消本次子run，清理可重启句柄而保留持久store/catalog/PG，可用新context重试；旧context不能杀掉新run。成功run取消后重复Start明确返回取消错误，不能借旧成功记录报告可运行。
+
+正常RPC夹具分别阻塞identity、pool及初始provider探测，覆盖两种链顺序：健康链先取得HTTP200并连续前进两高度，慢链仍503；64次重叠唤醒最多一个inflight和一个待办。raw开/关均覆盖Close取消及故意迟到的有效响应，scope/raw目标actor及generation fencing反例通过。首轮全包发现清理测试适配器的nil client和checkpoint取消测试的旧生命周期假设；补充nil保护，并将后台发布器取消与全局源取消分别验证后通过，未放宽全局取消撤权。
+
+自行启动的私有回环PG13/Kafka3.9.1中，A已持有120秒租约但普通finalized RPC阻塞，B仍完成真实baseline及两次BLOCK_COMMIT；无新RPC或ScheduleTick时PG ExpiresMS继续增长，证明独立续租。只读Kafka peer按完整引用连续应用，Close的ONLINE_SCOPE_REVOKED令peer失去可读；A晚响应不产生记录，A/B均立即可由peer取得租约。新门禁3.007秒，原post-Acquire失败释放门禁4.018秒，合并race4.894秒均通过。结束后已停止全部自行启动的服务并删除其数据、topic及临时脚本。
+
+最终Go全包通过（本轮evm152.535秒、service168.450秒），vet通过；普通生命周期/慢链/scope/raw/runtime的race及全包修复专项race通过，契约门禁保持328/12/191。本轮不保留新的测试报告或二进制。此项证明本机受控RPC和真实中间件下的链级隔离；Rust慢链调度、真实多链完整来源与独立故障域仍需推进，原26工作包完整验收仍为0。

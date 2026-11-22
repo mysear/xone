@@ -421,7 +421,7 @@ func TestRawMaintenanceFinalGateRejectsGenerationChangeOutsideNetworkLock(t *tes
 	var changed atomic.Bool
 	client.HTTP.Transport = rawMaintenanceRoundTrip(func(r *http.Request) (*http.Response, error) {
 		if !changed.Swap(true) {
-			if !s.syncMu.TryLock() {
+			if !s.chainLock(key).TryLock() {
 				t.Error("network read held chain actor")
 			} else {
 				base, _ := s.stores[key].Current()
@@ -431,7 +431,7 @@ func TestRawMaintenanceFinalGateRejectsGenerationChangeOutsideNetworkLock(t *tes
 				if err := s.stores[key].ApplyLocal(journal.Unit{Kind: "ONLINE_BASELINE_COMMIT", Snapshot: base}); err != nil {
 					t.Error(err)
 				}
-				s.syncMu.Unlock()
+				s.chainLock(key).Unlock()
 			}
 		}
 		return upstream.RoundTrip(r)

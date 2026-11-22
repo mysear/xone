@@ -47,6 +47,11 @@ func replayVersions(pools []domain.Pool) string {
 	return h
 }
 func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawReplayRequest) (ingest.ReplayRecord, error) {
+	ctx, finish, e := m.s.beginOperation(ctx)
+	if e != nil {
+		return ingest.ReplayRecord{}, e
+	}
+	defer finish()
 	ctx, done, e := m.enter(ctx)
 	if e != nil {
 		return ingest.ReplayRecord{}, e
@@ -128,17 +133,18 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 	if decoder.Decode(&original) != nil || original.Block.ChainKey != key || original.Block.Number != letter.Raw.Owner.Height || original.Block.Hash != letter.Raw.Owner.Hash {
 		return ingest.ReplayRecord{}, errors.New("RAW_STAGED_IDENTITY")
 	}
-	if !m.s.syncMu.TryLock() {
+	actor := m.s.chainLock(key)
+	if !actor.TryLock() {
 		return ingest.ReplayRecord{}, ingest.ErrReplayBusy
 	}
 	store := m.s.stores[key]
 	base, ready := store.Current()
 	if !ready {
-		m.s.syncMu.Unlock()
+		actor.Unlock()
 		return ingest.ReplayRecord{}, errors.New("RAW_OWNER_NOT_ACTIVE")
 	}
 	if request.ExpectedGeneration != base.Reference.OnlineGeneration {
-		m.s.syncMu.Unlock()
+		actor.Unlock()
 		return ingest.ReplayRecord{}, ingest.ErrReplayFence
 	}
 	var chain config.Chain
@@ -153,7 +159,7 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 	// selection belongs under this actor; all provider reads happen after unlock.
 	activeAdapter := m.s.adapters[key]
 	if activeAdapter == nil {
-		m.s.syncMu.Unlock()
+		actor.Unlock()
 		return ingest.ReplayRecord{}, errors.New("RAW_NORMAL_ADAPTER_REQUIRED")
 	}
 	merged := m.s.runtimeCatalogChain(chain)
@@ -166,14 +172,14 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 	for _, p := range base.Pools {
 		cfg, ok := admitted[p.PoolID]
 		if !ok {
-			m.s.syncMu.Unlock()
+			actor.Unlock()
 			return ingest.ReplayRecord{}, errors.New("RAW_SCOPE_NOT_ADMITTED")
 		}
 		selected.Pools = append(selected.Pools, cfg)
 	}
 	selection, e := m.s.freezeRuntimeScope(ctx, selected)
 	if e != nil {
-		m.s.syncMu.Unlock()
+		actor.Unlock()
 		return ingest.ReplayRecord{}, e
 	}
 	normal := activeAdapter.CopyWithChain(selected)
@@ -189,7 +195,7 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 	for _, p := range original.Pools {
 		cfg, ok := configs[p.PoolID]
 		if !ok || cfg.Protocol != p.Protocol {
-			m.s.syncMu.Unlock()
+			actor.Unlock()
 			return ingest.ReplayRecord{}, errors.New("RAW_SCOPE_NOT_ADMITTED")
 		}
 		chain.Pools = append(chain.Pools, cfg)
@@ -201,13 +207,13 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 		source.OnComplete = normal.OnComplete
 	}
 	reference := base.Reference
-	writer := m.s.sessions[key]
+	writer := m.s.session(key)
 	if m.s.cfg.Config.Journal.Transport == "kafka" && writer == nil {
-		m.s.syncMu.Unlock()
+		actor.Unlock()
 		return ingest.ReplayRecord{}, errors.New("RAW_ACTIVE_LEASE_REQUIRED")
 	}
 	spec := ingest.ReplaySpec{DeadLetterID: request.DeadLetterID, IncidentID: incident.ID, Raw: letter.Raw, DecoderVersion: m.cfg.DecoderVersion, Namespace: request.Namespace, WriterID: reference.OwnerService + "/" + strconv.FormatUint(reference.OwnerAssignmentVersion, 10), Fence: reference.WriterEpoch, Generation: strconv.FormatUint(reference.OnlineGeneration, 10), Attempt: request.Attempt}
-	m.s.syncMu.Unlock()
+	actor.Unlock()
 	if request.Namespace == ingest.NamespaceOnline {
 		if e := m.s.verifyRuntimeAnchor(ctx, chain, reference.Block); e != nil {
 			return ingest.ReplayRecord{}, e
@@ -296,19 +302,19 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 		if json.Unmarshal(output, &result) != nil {
 			return ingest.CommitReceipt{}, ingest.ErrCorrupt
 		}
-		if !m.s.syncMu.TryLock() {
+		if !actor.TryLock() {
 			return ingest.CommitReceipt{}, ingest.ErrReplayBusy
 		}
-		defer m.s.syncMu.Unlock()
+		defer actor.Unlock()
 		current, ok := store.Current()
-		if !ok || current.Reference != reference || m.s.sessions[key] != writer {
+		if !ok || current.Reference != reference || m.s.session(key) != writer {
 			return ingest.CommitReceipt{}, ingest.ErrReplayFence
 		}
 		gate := func() error {
 			if c.Err() != nil {
 				return c.Err()
 			}
-			if i.Spec != spec || i.AttemptID != spec.ID() || i.Spec.Raw != letter.Raw || i.Spec.IncidentID != incident.ID || i.Spec.DecoderVersion != RawStagedDecoderVersion || i.Spec.Fence != reference.WriterEpoch || i.Spec.Generation != strconv.FormatUint(reference.OnlineGeneration, 10) || m.s.stores[key] != store || m.s.sessions[key] != writer || m.s.adapters[key] == nil || m.s.adapters[key].Client != source.Client || m.s.adapters[key].Chain.Owner != chain.Owner || m.s.adapters[key].Chain.Assignment != chain.Assignment || m.s.adapters[key].Chain.Genesis != chain.Genesis {
+			if i.Spec != spec || i.AttemptID != spec.ID() || i.Spec.Raw != letter.Raw || i.Spec.IncidentID != incident.ID || i.Spec.DecoderVersion != RawStagedDecoderVersion || i.Spec.Fence != reference.WriterEpoch || i.Spec.Generation != strconv.FormatUint(reference.OnlineGeneration, 10) || m.s.stores[key] != store || m.s.session(key) != writer || m.s.adapters[key] == nil || m.s.adapters[key].Client != source.Client || m.s.adapters[key].Chain.Owner != chain.Owner || m.s.adapters[key].Chain.Assignment != chain.Assignment || m.s.adapters[key].Chain.Genesis != chain.Genesis {
 				return ingest.ErrReplayFence
 			}
 			if writer != nil {
@@ -318,6 +324,9 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 				}
 			}
 			if i.Spec.Namespace == ingest.NamespaceOnline {
+				// The chain actor is still held, including under the reducer gate.
+				// Rebuild from its observed lease after publishOwner's renewal;
+				// a gate frozen before that renewal would retain the old deadline.
 				return m.s.runtimeScopeGate(c, selection, result.Snapshot)()
 			}
 			return nil

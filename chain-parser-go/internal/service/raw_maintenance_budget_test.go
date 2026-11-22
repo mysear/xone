@@ -139,8 +139,8 @@ func TestRawMaintenanceReviewCloseCancelsBothPipelineReadersKeepsUnknownPins(t *
 		return domain.BlockRef{}, nil, nil, ctx.Err()
 	})
 	go func() {
-		s.syncMu.Lock()
-		defer s.syncMu.Unlock()
+		s.chainLock(key).Lock()
+		defer s.chainLock(key).Unlock()
 		finished <- s.syncStaged(parent, s.cfg.Config.Chains[0], current, current.Reference.Block.Number+2, reader)
 	}()
 	for i := 0; i < 2; i++ {

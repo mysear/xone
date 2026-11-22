@@ -321,18 +321,18 @@ func (s *Service) publishRecoveredScope(ctx context.Context, chain config.Chain,
 		stateLimit = 64 << 20
 	}
 	diskLimits := bootstrap.FileScopeLimits{MaxJobs: 1, MaxAccountBytes: budget, MaxRetainedJobs: 64, MaxSnapshotBytes: stateLimit, AttemptLeaseMS: s.cfg.Config.Control.LeaseTTLMS, MaxAuthorityLeaseMS: s.cfg.Config.Control.LeaseTTLMS}
-	backend := &ownerScopeBackend{maintenance: s.rawMaintenance, runtimeGate: s.runtimeScopeGate(ctx, selection, snapshot), fence: fence, ctx: ctx, store: store, session: s.sessions[chain.Key], snapshot: snapshot}
-	if old := s.recoveries[chain.Key]; old != nil {
+	backend := &ownerScopeBackend{maintenance: s.rawMaintenance, runtimeGate: s.runtimeScopeGate(ctx, selection, snapshot), fence: fence, ctx: ctx, store: store, session: s.session(chain.Key), snapshot: snapshot}
+	if old := s.recovery(chain.Key); old != nil {
 		if e := old.Close(); e != nil {
 			return e
 		}
-		delete(s.recoveries, chain.Key)
+		s.takeRecovery(chain.Key)
 	}
 	engine, e := bootstrap.OpenEmbeddedScopeStore(backend, fence, diskLimits, now)
 	if e != nil {
 		return e
 	}
-	s.recoveries[chain.Key] = engine
+	s.setRecovery(chain.Key, engine)
 	until := now() + s.cfg.Config.Control.LeaseTTLMS
 	if backend.session != nil {
 		until = uint64(backend.session.renewed.Add(time.Duration(s.cfg.Config.Control.LeaseTTLMS) * time.Millisecond).UnixMilli())

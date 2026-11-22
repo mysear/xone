@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -232,14 +233,42 @@ func TestStartupCancellationRevokesEarlierHealthyChain(t *testing.T) {
 	cfg.Config.Chains = []config.Chain{good, second}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	secondNode.onIdentity = cancel
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	defer releaseOnce.Do(func() { close(release) })
+	secondNode.onIdentity = func() { <-release; cancel() }
 	s, err := New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(s.Close)
-	if err = s.Start(ctx); err != context.Canceled || s.started.Load() {
-		t.Fatal("canceled startup was treated as an isolated chain error", err)
+	started := make(chan error, 1)
+	go func() { started <- s.Start(ctx) }()
+	deadline := time.After(2 * time.Second)
+	for {
+		if _, ready := s.stores[good.Key].Current(); ready {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("healthy chain did not commit before the other identity completed")
+		case <-time.After(time.Millisecond):
+		}
+	}
+	releaseOnce.Do(func() { close(release) })
+	if err = <-started; err != nil && err != context.Canceled {
+		t.Fatal("unexpected startup result", err)
+	}
+	<-ctx.Done()
+	drained := make(chan struct{})
+	go func() { s.actorWG.Wait(); close(drained) }()
+	select {
+	case <-drained:
+	case <-time.After(2 * time.Second):
+		t.Fatal("canceled startup lifetime did not drain its registered chains")
+	}
+	if s.started.Load() {
+		t.Fatal("canceled source lifetime left startup ready")
 	}
 	if s.stores[good.Key].DurableRef().OnlineGeneration != 1 {
 		t.Fatal("test did not cancel after the first chain committed")

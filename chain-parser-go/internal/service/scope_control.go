@@ -44,6 +44,13 @@ func (s *Service) ensurePoolScope(w http.ResponseWriter, r *http.Request) {
 		fail(404, "UNKNOWN_CHAIN")
 		return
 	}
+	ctx, finish, err := s.beginOperation(r.Context())
+	if err != nil {
+		fail(503, "SERVICE_CLOSED")
+		return
+	}
+	defer finish()
+	r = r.WithContext(ctx)
 	merged := s.runtimeCatalogChain(*selected)
 	selected = &merged
 	catalog := map[string]bool{}
@@ -62,11 +69,12 @@ func (s *Service) ensurePoolScope(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if !s.syncMu.TryLock() {
+	actor := s.chainLock(key)
+	if !actor.TryLock() {
 		fail(429, "CHAIN_ACTOR_BUSY")
 		return
 	}
-	defer s.syncMu.Unlock()
+	defer actor.Unlock()
 	if s.closed.Load() {
 		fail(503, "SERVICE_CLOSED")
 		return

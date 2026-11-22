@@ -12,7 +12,7 @@ package service
 //     a separately quota-locked, bounded file sink per chain.
 //  3. Start: after the first owner scope and runtime-source admission, call
 //     s.rawMaintenance.Start(ctx). This owns the periodic maintenance goroutine;
-//     do NOT also run Tick synchronously inside s.syncMu. Explicit Tick(ctx) is
+//     do NOT also run Tick synchronously inside a chain actor. Explicit Tick(ctx) is
 //     provided for a separately scheduled lifecycle hook or deterministic runs.
 //  4. Preserve staging.go's two-block Pipeline. For each window, before creating
 //     Pipeline.Fetch, wrap its local reader with

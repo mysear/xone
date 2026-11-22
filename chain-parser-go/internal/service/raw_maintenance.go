@@ -40,7 +40,7 @@ type RawMaintenance struct {
 }
 
 // Main hooks: Service.rawMaintenance *RawMaintenance; construct after rawSources,
-// Start after first owner scope, Tick outside syncMu, Close before archives and
+// Start after first owner scope, Tick outside chain actors, Close before archives and
 // reducer stores, and mount Handler. Config's optional Journal.RawMaintenance
 // field and Validate hook are declared in config/raw_maintenance.go.
 func NewRawMaintenance(s *Service, c *config.RawMaintenanceConfig) (*RawMaintenance, error) {

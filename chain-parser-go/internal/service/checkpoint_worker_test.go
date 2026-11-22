@@ -31,10 +31,7 @@ type checkpointObjects struct {
 }
 
 func checkpointWorkerService(t *testing.T, interval uint64) (*Service, *checkpointObjects) {
-	return checkpointWorkerServiceContext(t, interval, context.Background())
-}
-func checkpointWorkerServiceContext(t *testing.T, interval uint64, parent context.Context) (*Service, *checkpointObjects) {
-	return checkpointWorkerServiceConfigured(t, interval, parent, nil, nil)
+	return checkpointWorkerServiceConfigured(t, interval, context.Background(), nil, nil)
 }
 func checkpointWorkerServiceConfigured(t *testing.T, interval uint64, parent context.Context, configure func(*config.Snapshot), source SnapshotSource) (*Service, *checkpointObjects) {
 	t.Helper()
@@ -315,11 +312,17 @@ func TestCheckpointCloseAlsoCancelsManualUploadAndDisabledWorkerStaysIdle(t *tes
 	}
 }
 
-func TestCheckpointWorkerParentCancellationLeavesManualPublicationAvailable(t *testing.T) {
-	parent, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	s, objects := checkpointWorkerServiceContext(t, 100, parent)
+func TestCheckpointWorkerCancellationLeavesManualPublicationAvailable(t *testing.T) {
+	s, objects := checkpointWorkerService(t, 100)
 	workerWait(t, func() bool { return s.checkpointCycles.Load() > 0 })
+	// Cancel only the background publisher. Canceling Start's parent is now a
+	// source-lifetime stop and must also withdraw the online baseline.
+	s.checkpointLifecycle.Lock()
+	cancel := s.checkpointCancel
+	s.checkpointLifecycle.Unlock()
+	if cancel == nil {
+		t.Fatal("background publisher did not register its cancellation")
+	}
 	cancel()
 	workerWait(t, func() bool { return !s.checkpointActive.Load() })
 	before := s.checkpointCycles.Load()

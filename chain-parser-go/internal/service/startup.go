@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"xone/chain-parser-go/internal/chain/evm"
 	"xone/chain-parser-go/internal/config"
@@ -12,6 +13,9 @@ import (
 // prevent independent chains from acquiring and publishing their own baseline.
 // false, nil denotes a legitimate writer standby, not an ignored source error.
 func (s *Service) initializeChain(ctx context.Context, chain config.Chain) (bool, error) {
+	if err := s.waitInitialProbe(ctx, chain.Key); err != nil {
+		return false, err
+	}
 	if s.control != nil {
 		session, err := s.openSession(ctx, chain)
 		if err != nil {
@@ -21,7 +25,7 @@ func (s *Service) initializeChain(ctx context.Context, chain config.Chain) (bool
 			}
 			return false, err
 		}
-		s.sessions[chain.Key] = session
+		s.setSession(chain.Key, session)
 	}
 	if a := s.adapters[chain.Key]; a != nil {
 		identity := func(observe context.Context) error { return a.Client.VerifyEVM(observe, chain.Key, chain.Genesis) }
@@ -42,6 +46,11 @@ func (s *Service) initializeChain(ctx context.Context, chain config.Chain) (bool
 // Reanchor verifies identity again before state collection, so Tick can repair a
 // source rejected at startup without ever publishing from an unverified source.
 func (s *Service) failChain(ctx context.Context, chain config.Chain, cause error, event string) {
+	if ctx.Err() != nil {
+		cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		ctx = cleanup
+	}
 	// A failed source read must revoke other replicas as well. Only later
 	// independent fork confirmation may advance canonical epoch.
 	if current, ready := s.stores[chain.Key].Current(); ready {
@@ -59,9 +68,8 @@ func (s *Service) failChain(ctx context.Context, chain config.Chain, cause error
 		}
 	}
 	s.lastError.Add(1)
-	if w := s.sessions[chain.Key]; w != nil {
+	if w := s.takeSession(chain.Key); w != nil {
 		w.close()
-		delete(s.sessions, chain.Key)
 	}
 	fields := map[string]any{"chain_key": chain.Key, "error_code": cause.Error()}
 	var witness *evm.NativeWitnessError

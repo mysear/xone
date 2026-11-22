@@ -40,7 +40,7 @@ func (s *Service) syncStagedRuntime(ctx context.Context, ch config.Chain, curren
 		}
 		source := ctx
 		cancel := func() {}
-		if writer := s.sessions[ch.Key]; writer != nil {
+		if writer := s.session(ch.Key); writer != nil {
 			if e := writer.heartbeat(ctx); e != nil {
 				return e
 			}
@@ -103,7 +103,7 @@ func (s *Service) syncStagedRuntime(ctx context.Context, ch config.Chain, curren
 					if e := s.rawMaintenance.PublishStaged(ctx, unit, selection); e != nil {
 						return e
 					}
-				} else if writer := s.sessions[ch.Key]; writer != nil {
+				} else if writer := s.session(ch.Key); writer != nil {
 					if e := writer.publishOwner(ctx, unit, nil, s.runtimeScopeGate(ctx, selection, next)); e != nil {
 						return e
 					}

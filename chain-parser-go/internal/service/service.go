@@ -62,13 +62,22 @@ type Service struct {
 	providerWG        sync.WaitGroup
 	recoveries        map[string]*bootstrap.EmbeddedScopeStore
 	wsHTTPBudget      bool
-	nextHTTP          map[string]time.Time
 	wake              chan struct{}
 	wsCancel          context.CancelFunc
 	wsWG              sync.WaitGroup
 	rawSources        map[string]*rawRecorder
-	syncMu            sync.Mutex
+	lifecycleMu       sync.Mutex
+	runContext        context.Context
+	runCancel         context.CancelFunc
+	activeContext     context.Context
+	operationWG       sync.WaitGroup
+	actorWG           sync.WaitGroup
+	actors            map[string]*chainActor
+	startup           *startupAttempt
+	sessionsMu        sync.RWMutex
+	recoveryMu        sync.Mutex
 	source            SnapshotSource
+	sourceMu          sync.Mutex
 	control           *control.Postgres
 	sessions          map[string]*writerSession
 	cfg               *config.Snapshot
@@ -111,11 +120,12 @@ func NewWithSource(cfg *config.Snapshot, source SnapshotSource) (*Service, error
 		}
 	}
 	checkpointContext, checkpointStop := context.WithCancel(context.Background())
-	s := &Service{checkpointContext: checkpointContext, checkpointStop: checkpointStop, checkpointGate: make(chan struct{}, 1), constructedAt: time.Now(), scopeTimings: map[string]*scopeRestoreStats{}, recoveries: map[string]*bootstrap.EmbeddedScopeStore{}, cfg: cfg, source: source, stores: map[string]*reducer.Store{}, adapters: map[string]*evm.Adapter{}, log: observability.New(os.Stdout, "chain-parser-go", cfg.Config.Service.Role, cfg.Release, cfg.PublicHash, cfg.Config.Logging)}
+	runContext, runCancel := context.WithCancel(context.Background())
+	s := &Service{runContext: runContext, runCancel: runCancel, actors: map[string]*chainActor{}, checkpointContext: checkpointContext, checkpointStop: checkpointStop, checkpointGate: make(chan struct{}, 1), constructedAt: time.Now(), scopeTimings: map[string]*scopeRestoreStats{}, recoveries: map[string]*bootstrap.EmbeddedScopeStore{}, cfg: cfg, source: source, stores: map[string]*reducer.Store{}, adapters: map[string]*evm.Adapter{}, log: observability.New(os.Stdout, "chain-parser-go", cfg.Config.Service.Role, cfg.Release, cfg.PublicHash, cfg.Config.Logging)}
 	s.rawSources = map[string]*rawRecorder{}
 	s.wake = make(chan struct{}, 1)
-	s.nextHTTP = map[string]time.Time{}
 	for _, chain := range cfg.Config.Chains {
+		s.actorLocked(chain.Key)
 		if chain.Websocket != nil {
 			s.wsHTTPBudget = true
 		}
@@ -164,78 +174,147 @@ func NewWithSource(cfg *config.Snapshot, source SnapshotSource) (*Service, error
 	return s, nil
 }
 func (s *Service) Start(ctx context.Context) (result error) {
-	s.syncMu.Lock()
-	defer s.syncMu.Unlock()
+	parent := ctx
+	ctx, finish, err := s.beginOperation(ctx)
+	if err != nil {
+		return err
+	}
+	defer finish()
+	s.lifecycleMu.Lock()
 	if s.closed.Load() {
+		s.lifecycleMu.Unlock()
 		return errors.New("SERVICE_CLOSED")
 	}
 	if s.started.Load() {
+		if s.activeContext != nil && s.activeContext.Err() != nil {
+			err := s.activeContext.Err()
+			s.lifecycleMu.Unlock()
+			return err
+		}
+		s.lifecycleMu.Unlock()
 		return nil
 	}
-	// Cancellation applies to the whole startup attempt. A baseline acquired
-	// before another chain observes cancellation must not remain available.
-	defer func() {
-		if result != nil && ctx.Err() != nil {
-			for _, chain := range s.cfg.Config.Chains {
-				s.failChain(ctx, chain, ctx.Err(), "chain_start_canceled")
+	if previous := s.startup; previous != nil {
+		s.lifecycleMu.Unlock()
+		completed := func() error {
+			if previous.err != nil {
+				return previous.err
 			}
+			return ctx.Err()
 		}
+		select {
+		case <-ctx.Done():
+			if parent.Err() == nil && !s.closed.Load() {
+				<-previous.done
+				return completed()
+			}
+			return ctx.Err()
+		case <-previous.done:
+			return completed()
+		}
+	}
+	attempt := &startupAttempt{done: make(chan struct{})}
+	s.startup = attempt
+	run, cancelRun := context.WithCancel(s.runContext)
+	stopParent := context.AfterFunc(parent, cancelRun)
+	s.activeContext = run
+	s.lifecycleMu.Unlock()
+	defer func() {
+		if result != nil {
+			stopParent()
+			cancelRun()
+			s.resetStartupRun()
+			s.lifecycleMu.Lock()
+			if s.startup == attempt {
+				s.startup = nil
+				s.activeContext = nil
+			}
+			s.lifecycleMu.Unlock()
+		}
+		attempt.err = result
+		close(attempt.done)
 	}()
-	s.initHistoryLifecycle(ctx)
-	s.startRuntimeSources(ctx)
-	if s.cfg.Config.Journal.Transport == "kafka" {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if s.cfg.Config.Journal.Transport == "kafka" && s.control == nil {
 		pg, e := control.Open(ctx, s.cfg.ControlDSN)
 		if e != nil {
 			return e
 		}
 		s.control = pg
-		s.sessions = map[string]*writerSession{}
 	}
-	initialized, standby := 0, false
-	var firstError error
-	for _, chain := range s.cfg.Config.Chains {
-		if err := ctx.Err(); err != nil {
-			return err
+	s.initHistoryLifecycle(run)
+	s.startRuntimeSourcesAsync(run)
+	results := make(chan chainStartResult, len(s.cfg.Config.Chains))
+	s.lifecycleMu.Lock()
+	if s.closed.Load() || ctx.Err() != nil {
+		s.lifecycleMu.Unlock()
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
-		active, err := s.initializeChain(ctx, chain)
-		if canceled := ctx.Err(); canceled != nil {
-			return canceled
-		}
-		if err != nil {
-			if firstError == nil {
-				firstError = err
+		return errors.New("SERVICE_CLOSED")
+	}
+	s.actorWG.Add(len(s.cfg.Config.Chains))
+	for index, chain := range s.cfg.Config.Chains {
+		go s.runChainActor(run, chain, index, results)
+	}
+	s.lifecycleMu.Unlock()
+	failures := make([]error, len(s.cfg.Config.Chains))
+	for range s.cfg.Config.Chains {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case first := <-results:
+			failures[first.index] = first.err
+			if first.err != nil {
+				continue
 			}
-			s.failChain(ctx, chain, err, "chain_start_failed")
-			continue
-		}
-		if active {
-			initialized++
-		} else {
-			standby = true
-		}
-	}
-	if initialized == 0 && !standby {
-		return firstError
-	}
-	if err := s.startWebsockets(ctx); err != nil {
-		return err
-	}
-	if s.rawMaintenance != nil {
-		if e := s.rawMaintenance.Start(ctx); e != nil {
-			return e
+			// The first completed active chain or legitimate standby opens the
+			// service. Other registered attempts remain owned by their workers.
+			s.lifecycleMu.Lock()
+			if s.closed.Load() || ctx.Err() != nil {
+				s.lifecycleMu.Unlock()
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				return errors.New("SERVICE_CLOSED")
+			}
+			if err := s.startWebsockets(run); err != nil {
+				s.lifecycleMu.Unlock()
+				return err
+			}
+			if err := s.rawMaintenance.Start(run); err != nil {
+				s.lifecycleMu.Unlock()
+				return err
+			}
+			if err := ctx.Err(); err != nil {
+				s.lifecycleMu.Unlock()
+				return err
+			}
+			s.started.Store(true)
+			s.startCheckpointWorker(run)
+			s.lifecycleMu.Unlock()
+			return nil
 		}
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	s.started.Store(true)
-	s.startCheckpointWorker(ctx)
-	return nil
+	// Preserve the configured first-error contract even when completion order
+	// differs. A source error is never treated as a legitimate writer standby.
+	return failures[0]
 }
 func (s *Service) reanchor(ctx context.Context, chain config.Chain, fork bool) error {
 	return s.reanchorScope(ctx, chain, fork, nil)
 }
 func (s *Service) reanchorScope(ctx context.Context, chain config.Chain, fork bool, requested []string) (result error) {
+	// A different chain may already have opened the HTTP service while this
+	// chain is still acquiring its writer. Control requests cannot use the
+	// local-development publication path in the absence of that Kafka lease.
+	if s.cfg.Config.Journal.Transport == "kafka" && s.session(chain.Key) == nil {
+		return errors.New("LEASE_NOT_OWNED")
+	}
 	chain = s.runtimeCatalogChain(chain)
 	selected, err := s.targetScopeChain(chain, requested)
 	if err != nil {
@@ -282,13 +361,15 @@ func (s *Service) reanchorScope(ctx context.Context, chain config.Chain, fork bo
 	store := s.stores[chain.Key]
 	old := store.DurableRef()
 	revoked := store.ReorgRevoked()
-	if w := s.sessions[chain.Key]; w != nil {
+	if w := s.session(chain.Key); w != nil {
 		revoked = revoked || w.reorgUnresolved == "ONLINE_SCOPE_REVOKED"
 	}
 	var snapshot domain.Snapshot
 	if s.source != nil {
 		var e error
+		s.sourceMu.Lock()
 		snapshot, e = s.source(ctx, chain)
+		s.sourceMu.Unlock()
 		if e != nil {
 			return e
 		}
@@ -314,7 +395,7 @@ func (s *Service) reanchorScope(ctx context.Context, chain config.Chain, fork bo
 			}
 		}
 		unresolved := store.ReorgPending()
-		if w := s.sessions[chain.Key]; w != nil {
+		if w := s.session(chain.Key); w != nil {
 			unresolved = unresolved || w.reorgUnresolved != ""
 		}
 		if unresolved {
@@ -323,7 +404,7 @@ func (s *Service) reanchorScope(ctx context.Context, chain config.Chain, fork bo
 			}
 			if revoked {
 				previous := old
-				if w := s.sessions[chain.Key]; w != nil && w.floor.JournalSeq > previous.JournalSeq {
+				if w := s.session(chain.Key); w != nil && w.floor.JournalSeq > previous.JournalSeq {
 					previous = w.floor
 				}
 				if previous.Block.Number > block.Number {
@@ -374,7 +455,7 @@ func (s *Service) reanchorScope(ctx context.Context, chain config.Chain, fork bo
 	if e := s.verifyRuntimeAnchor(ctx, chain, snapshot.Reference.Block); e != nil {
 		return e
 	}
-	if w := s.sessions[chain.Key]; w != nil {
+	if w := s.session(chain.Key); w != nil {
 		if e := w.baseline(ctx, &snapshot, fork); e != nil {
 			return e
 		}
@@ -393,83 +474,73 @@ func (s *Service) reanchorScope(ctx context.Context, chain config.Chain, fork bo
 	return nil
 }
 func (s *Service) Tick(ctx context.Context) {
-	s.syncMu.Lock()
-	defer s.syncMu.Unlock()
+	ctx, finish, err := s.beginOperation(ctx)
+	if err != nil {
+		return
+	}
+	defer finish()
+	var running sync.WaitGroup
+	for _, chain := range s.cfg.Config.Chains {
+		actor := s.actor(chain.Key)
+		// Concurrent explicit ticks must not accumulate goroutines waiting for
+		// an already busy chain. Production wakeups use the bounded queue.
+		if !actor.mu.TryLock() {
+			continue
+		}
+		running.Add(1)
+		go func(chain config.Chain, actor *chainActor) {
+			defer running.Done()
+			defer actor.mu.Unlock()
+			s.tickChain(ctx, chain, actor)
+		}(chain, actor)
+	}
+	running.Wait()
+}
+
+func (s *Service) tickChain(ctx context.Context, chain config.Chain, actor *chainActor) {
 	if s.closed.Load() {
 		return
 	}
 	// WS and polling share the explicit polling check budget. Hints cannot
-	// multiply source requests (including other chains) or bypass backoff via
+	// multiply source requests or bypass backoff via
 	// repeated reanchor/lease acquisition. Cancellation still revokes promptly.
-	eligible := map[string]bool{}
 	now := time.Now()
-	for _, chain := range s.cfg.Config.Chains {
-		due := !s.wsHTTPBudget || ctx.Err() != nil || !now.Before(s.nextHTTP[chain.Key])
-		eligible[chain.Key] = due
-		if due && s.wsHTTPBudget {
-			s.nextHTTP[chain.Key] = now.Add(time.Duration(s.cfg.Config.Journal.PollMS) * time.Millisecond)
-		}
+	eligible := !s.wsHTTPBudget || ctx.Err() != nil || !now.Before(actor.nextHTTP)
+	if eligible && s.wsHTTPBudget {
+		actor.nextHTTP = now.Add(time.Duration(s.cfg.Config.Journal.PollMS) * time.Millisecond)
 	}
-
 	if s.control != nil {
-		for _, ch := range s.cfg.Config.Chains {
-			w := s.sessions[ch.Key]
-			if w == nil {
-				if !eligible[ch.Key] {
-					continue
-				}
-				session, e := s.openSession(ctx, ch)
-				if s.wsHTTPBudget {
-					eligible[ch.Key] = false
-				}
-				if e != nil {
-					continue
-				}
-				s.sessions[ch.Key] = session
-				if e = s.reanchor(ctx, ch, false); e != nil {
-					s.failChain(ctx, ch, e, "chain_sync_failed")
-				}
-				continue
+		w := s.session(chain.Key)
+		if w == nil {
+			if !eligible {
+				return
 			}
+			writer, e := s.openSession(ctx, chain)
+			if e != nil {
+				return
+			}
+			s.setSession(chain.Key, writer)
+			if e = s.reanchor(ctx, chain, false); e != nil {
+				s.failChain(ctx, chain, e, "chain_sync_failed")
+			}
+			return
+		} else {
 			if e := w.heartbeat(ctx); e != nil {
-				w.close()
-				delete(s.sessions, ch.Key)
-				s.log.Event("warn", "writer_lease_lost", map[string]any{"chain_key": ch.Key, "error_code": e.Error()})
+				s.failChain(ctx, chain, e, "writer_lease_lost")
+				return
 			}
 		}
 	}
 	if s.source != nil {
-		if s.control != nil {
-			for _, chain := range s.cfg.Config.Chains {
-				if s.sessions[chain.Key] == nil {
-					if !eligible[chain.Key] {
-						continue
-					}
-					w, e := s.openSession(ctx, chain)
-					if e == nil {
-						s.sessions[chain.Key] = w
-						if e = s.reanchor(ctx, chain, false); e != nil {
-							w.close()
-							delete(s.sessions, chain.Key)
-						}
-					}
-				}
-			}
-		}
 		return
 	}
-	for _, chain := range s.cfg.Config.Chains {
-		if !eligible[chain.Key] {
-			continue
-		}
-		if s.control != nil && s.sessions[chain.Key] == nil {
-			continue
-		}
-		if e := s.syncChain(ctx, chain); e != nil {
-			s.failChain(ctx, chain, e, "chain_sync_failed")
-		} else if e := s.tickRuntimeSources(ctx, chain); e != nil {
-			s.log.Event("warn", "catalog_qualification_pending", map[string]any{"chain_key": chain.Key, "error_code": e.Error()})
-		}
+	if !eligible {
+		return
+	}
+	if e := s.syncChain(ctx, chain); e != nil {
+		s.failChain(ctx, chain, e, "chain_sync_failed")
+	} else if e := s.tickRuntimeSources(ctx, chain); e != nil {
+		s.log.Event("warn", "catalog_qualification_pending", map[string]any{"chain_key": chain.Key, "error_code": e.Error()})
 	}
 }
 func (s *Service) syncChain(ctx context.Context, ch config.Chain) error {
@@ -553,7 +624,7 @@ func (s *Service) syncChain(ctx context.Context, ch config.Chain) error {
 		return nil
 	}
 	for h := current.Reference.Block.Number + 1; h <= head.Number; h++ {
-		block, pools, swaps, e := readCompleteWithLease(ctx, a, s.sessions[ch.Key], fmt.Sprintf("0x%x", h))
+		block, pools, swaps, e := readCompleteWithLease(ctx, a, s.session(ch.Key), fmt.Sprintf("0x%x", h))
 		if e != nil {
 			// A fork can occur while an EIP-1898 read is in flight. Confirm
 			// against the currently applied block before treating it as a
@@ -579,7 +650,7 @@ func (s *Service) syncChain(ctx context.Context, ch config.Chain) error {
 		}
 		gate := s.runtimeScopeGate(ctx, selection, next)
 		var applyError error
-		if w := s.sessions[ch.Key]; w != nil {
+		if w := s.session(ch.Key); w != nil {
 			applyError = w.publishOwner(ctx, unit, nil, gate)
 		} else {
 			if e := gate(); e != nil {
@@ -874,35 +945,55 @@ func (s *Service) Handler() http.Handler {
 	})
 }
 func (s *Service) Close() {
+	s.lifecycleMu.Lock()
 	if !s.closed.CompareAndSwap(false, true) {
+		s.lifecycleMu.Unlock()
 		return
 	}
+	s.started.Store(false)
+	if s.runCancel != nil {
+		s.runCancel()
+	}
+	s.lifecycleMu.Unlock()
 	s.stopCheckpointWorker()
 	if s.rawMaintenance != nil {
 		_ = s.rawMaintenance.Close()
 	}
-	// Raw.Close cancels active captures first; the chain actor can then finish
-	// before we collect and stop every history/provider/websocket worker.
-	s.syncMu.Lock()
-	defer s.syncMu.Unlock()
+	// Every ordinary source is canceled even with raw maintenance disabled.
+	// Wait without holding lifecycle, chain or session locks; registered startup,
+	// scope/replay calls and workers may still need those locks to unwind.
+	s.actorWG.Wait()
+	s.operationWG.Wait()
 	s.closeHistoryLifecycle()
 	s.closeRuntimeSources()
 	if s.wsCancel != nil {
 		s.wsCancel()
 		s.wsWG.Wait()
 	}
-	s.started.Store(false)
 	for _, recorder := range s.rawSources {
 		_ = recorder.archive.Close()
 	}
-	for _, w := range s.sessions {
+	s.sessionsMu.Lock()
+	writers := s.sessions
+	s.sessions = nil
+	s.sessionsMu.Unlock()
+	for _, w := range writers {
 		w.close()
 	}
 	if s.control != nil {
 		s.control.Close()
 	}
-	for _, recovery := range s.recoveries {
+	s.recoveryMu.Lock()
+	recoveries := s.recoveries
+	s.recoveries = nil
+	s.recoveryMu.Unlock()
+	for _, recovery := range recoveries {
 		_ = recovery.Close()
+	}
+	for _, adapter := range s.adapters {
+		if adapter != nil && adapter.Client != nil && adapter.Client.HTTP != nil {
+			adapter.Client.HTTP.CloseIdleConnections()
+		}
 	}
 	for _, store := range s.stores {
 		store.Close()

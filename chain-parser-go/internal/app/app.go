@@ -50,9 +50,9 @@ func Run(cfg *config.Snapshot, source service.SnapshotSource) error {
 			}
 			return nil
 		case <-ticker.C:
-			s.Tick(ctx)
+			s.ScheduleTick(ctx)
 		case <-s.Wake():
-			s.Tick(ctx)
+			s.ScheduleTick(ctx)
 		}
 	}
 }

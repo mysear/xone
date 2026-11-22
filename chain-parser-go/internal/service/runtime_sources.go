@@ -164,18 +164,53 @@ func (s *Service) initRuntimeSources() error {
 // startRuntimeSources runs before the baseline loop. A historical probe error
 // is recorded separately; verifyRuntimeAnchor gates the actual current source.
 func (s *Service) startRuntimeSources(ctx context.Context) {
+	s.startRuntimeSourcesAsync(ctx)
+	for _, chain := range s.cfg.Config.Chains {
+		_ = s.waitInitialProbe(ctx, chain.Key)
+	}
+}
+
+// Each chain waits for only its own initial capability observation. Production
+// startup must not wait for another provider's historical/current probe.
+func (s *Service) startRuntimeSourcesAsync(ctx context.Context) {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
 	if s.source != nil || s.providerCancel != nil {
+		return
+	}
+	if s.closed.Load() {
 		return
 	}
 	run, cancel := context.WithCancel(ctx)
 	s.providerCancel = cancel
-	for _, p := range s.providerRuntime {
+	for key, p := range s.providerRuntime {
 		if p.normal != nil && p.normal.closed.Load() {
 			continue
 		}
-		_ = p.Refresh(run)
+		done := make(chan struct{})
+		s.actorLocked(key).probeDone = done
 		s.providerWG.Add(1)
-		go func(p *ProviderRuntime) { defer s.providerWG.Done(); p.Run(run) }(p)
+		go func(p *ProviderRuntime) {
+			defer s.providerWG.Done()
+			_ = p.Refresh(run)
+			close(done)
+			p.Run(run)
+		}(p)
+	}
+}
+
+func (s *Service) waitInitialProbe(ctx context.Context, key string) error {
+	s.lifecycleMu.Lock()
+	done := s.actorLocked(key).probeDone
+	s.lifecycleMu.Unlock()
+	if done == nil {
+		return ctx.Err()
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-done:
+		return ctx.Err()
 	}
 }
 func (s *Service) closeRuntimeSources() {
@@ -207,7 +242,7 @@ func (s *Service) captureRuntimeOwner(ch config.Chain) *runtimeOwnerView {
 		current, ready := store.Current()
 		v.Valid = ready && current.Reference == v.Ref && v.Ref.OwnerService == ch.Owner && v.Ref.OwnerAssignmentVersion == ch.Assignment && !store.ReorgPending()
 		if s.cfg.Config.Journal.Transport == "kafka" {
-			w := s.sessions[ch.Key]
+			w := s.session(ch.Key)
 			if w == nil {
 				v.Valid = false
 			} else {
@@ -487,7 +522,7 @@ func (s *Service) runtimeScopeGate(ctx context.Context, selection *RuntimeScopeS
 	// renewal/allocation may extend the deadline without changing the frozen
 	// source generation. Consume that actor lease view, never reread Store here.
 	if selection != nil {
-		p, w := s.providerRuntime[selection.Chain], s.sessions[selection.Chain]
+		p, w := s.providerRuntime[selection.Chain], s.session(selection.Chain)
 		ref := target.Reference
 		if p != nil && p.normal != nil && w != nil && w.chain.Owner == selection.Owner && w.chain.Assignment == selection.Assignment && w.lease.Chain == selection.Chain && w.lease.WriterEpoch == ref.WriterEpoch && w.lease.Generation == ref.OnlineGeneration && w.lease.CanonicalEpoch == ref.CanonicalEpoch {
 			view := p.normal.owner.Load()
@@ -520,6 +555,9 @@ func (s *Service) runtimeScopeGate(ctx context.Context, selection *RuntimeScopeS
 	}
 	view, _ := ctx.Value(beaconOwnerKey{}).(*beaconOwnerView)
 	return func() error {
+		if s.closed.Load() {
+			return ingest.ErrClosed
+		}
 		if requireBeacon {
 			if view == nil {
 				return errors.New("BEACON_OWNER_PROOF_REQUIRED")
