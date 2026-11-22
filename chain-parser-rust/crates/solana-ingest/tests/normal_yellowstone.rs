@@ -358,16 +358,30 @@ async fn wait(parser: &Parser, check: impl Fn(&xone_solana_ingest::service::Stre
         )
     });
 }
-async fn api(parser: &Parser) -> (String, tokio::task::JoinHandle<()>) {
+struct ApiServer {
+    stop: tokio::sync::oneshot::Sender<()>,
+    task: tokio::task::JoinHandle<()>,
+}
+impl ApiServer {
+    async fn close(self) {
+        let _ = self.stop.send(());
+        self.task.await.unwrap();
+    }
+}
+async fn api(parser: &Parser) -> (String, ApiServer) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let handler = parser.handler();
-    (
-        format!("http://{address}"),
-        tokio::spawn(async move {
-            axum::serve(listener, handler).await.unwrap();
-        }),
-    )
+    let (stop, done) = tokio::sync::oneshot::channel();
+    let task = tokio::spawn(async move {
+        axum::serve(listener, handler)
+            .with_graceful_shutdown(async {
+                let _ = done.await;
+            })
+            .await
+            .unwrap();
+    });
+    (format!("http://{address}"), ApiServer { stop, task })
 }
 async fn baseline(url: &str) -> reqwest::Response {
     reqwest::Client::new()
@@ -477,7 +491,7 @@ async fn normal_public_grpc_publishes_only_complete_bank_then_revokes_and_restar
         .any(|g| g["reason"] == "HEAD_FIRST_SOURCE_SESSION_CONTINUITY_UNPROVEN"));
     let generation = second["reference"]["online_generation"].as_u64().unwrap();
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c3);
     let parser = Parser::new(h.cfg.clone()).unwrap();
@@ -495,7 +509,7 @@ async fn normal_public_grpc_publishes_only_complete_bank_then_revokes_and_restar
     assert!(third["reference"]["online_generation"].as_u64().unwrap() > generation);
     assert!(third["history_gaps"].as_array().unwrap().len() >= 2);
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c4);
     let wal = FrameWal::open(
@@ -537,7 +551,7 @@ async fn normal_raw_ack_survives_unsupported_frame_and_missing_or_cross_session_
     assert_ne!(c2.session, c3.session);
     assert!(!baseline(&url).await.status().is_success());
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c);
     drop(c2);
@@ -618,7 +632,7 @@ async fn current_admitted_catalog_expands_normal_scope_without_startup_yaml_pool
         true
     );
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c);
     drop(c2);
@@ -647,7 +661,7 @@ async fn independent_manifest_version_dependency_digest_and_freshness_are_requir
         let c2 = h.connection().await;
         assert!(!baseline(&url).await.status().is_success(), "{mutation}");
         parser.close().await;
-        http.abort();
+        http.close().await;
         drop(parser);
         drop(c);
         drop(c2);
@@ -876,7 +890,7 @@ async fn normal_higher_finalized_incomplete_bank_revokes_previous_scope_until_co
     let snapshot: Value = baseline(&url).await.json().await.unwrap();
     assert_eq!(snapshot["reference"]["block"]["number_or_slot"], 101);
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c);
 }
@@ -933,7 +947,7 @@ async fn normal_owner_rotates_only_committed_segments_and_never_restores_archive
     h.send_block(&next, 103, true).await;
     wait(&parser, |s| s.phase == "LIVE").await;
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c);
     drop(next);
@@ -1038,7 +1052,7 @@ async fn native_public_bank_observer_exports_completion_into_real_grpc_owner_sco
     let (url, http) = api(&parser).await;
     assert!(baseline(&url).await.status().is_success());
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c);
 }
@@ -1091,7 +1105,7 @@ async fn subset_first_and_requested_scope_publish_through_same_owner_without_fil
         .unwrap();
     assert_eq!(bootstrap.status(), 200);
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c);
 }
@@ -1119,7 +1133,7 @@ async fn startup_waits_for_native_manifest_on_same_session_without_promoting_old
         c.session
     );
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c);
 }
@@ -1148,7 +1162,7 @@ async fn reconnect_cannot_publish_a_known_conflicting_finalized_parent() {
     let (url, http) = api(&parser).await;
     assert!(!baseline(&url).await.status().is_success());
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c2);
 }
@@ -1228,7 +1242,7 @@ async fn actual_postgres_kafka_scope_publish_revoke_restart_and_fence() {
     .unwrap();
     assert_eq!(unit.unwrap().kind, "ONLINE_SCOPE_REVOKED");
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c2);
 
@@ -1265,7 +1279,7 @@ async fn actual_postgres_kafka_scope_publish_revoke_restart_and_fence() {
         "expired PG authority must withdraw current scope"
     );
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c3);
 
@@ -1313,7 +1327,7 @@ async fn actual_postgres_kafka_scope_publish_revoke_restart_and_fence() {
         );
         previous = restored.reference;
         parser.close().await;
-        http.abort();
+        http.close().await;
         drop(parser);
         drop(connection);
     }
@@ -1370,7 +1384,7 @@ async fn terminal_audit_jobs_do_not_block_two_budgeted_wal_rotations() {
     wait(&parser, |s| s.phase == "LIVE").await;
     assert!(baseline(&url).await.status().is_success());
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c);
     drop(next);
@@ -1418,7 +1432,7 @@ async fn unrequested_missing_dependency_does_not_block_boot_subset() {
     assert!(reply.status().is_success());
     let body: Value = reply.json().await.unwrap();
     assert_eq!(body["pools"].as_array().unwrap().len(), 1);
-    http.abort();
+    http.close().await;
     println!(
         "Requested subset status: {:?}",
         parser.stream_status("solana:localnet").unwrap()
@@ -1544,7 +1558,7 @@ async fn v2_target_proof_projects_native_count_and_reconnects_for_scope_expansio
     assert_eq!(after["pools"].as_array().unwrap().len(), 2);
     assert_eq!(after["reference"]["block"]["number_or_slot"], 102);
     parser.close().await;
-    http.abort();
+    http.close().await;
     drop(parser);
     drop(c);
     drop(next);

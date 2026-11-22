@@ -5588,6 +5588,8 @@ Rust 解析器分别启动每条链的工作任务。第一条完成初始化的
 
 慢 RPC 回归覆盖了交换两条链的配置顺序、128 次调度通知、另一条链提交新 slot，以及关闭时抑制迟到响应。隔离的 PostgreSQL 13 和 Kafka 3.9.1 实测读取到两条连续基线和一条撤权，HTTP 调用者中途取消仍能完成已接收的提交。另以普通 Rust 服务、受控 Yellowstone 流和同一类真实数据库复验 1、24、720 小时等价 slot 间隔，以及空 owner 状态恢复。真实时间停机和生产故障域演练仍待验收。
 
+全套回归的重复运行发现，Yellowstone 测试在发出 HTTP 服务中止请求后立即重开 RocksDB，前一个 HTTP 连接有时仍持有数据库锁。测试服务已改为等待连接处理完毕再重新打开同一目录。此前失败的关闭、重开和重新订阅用例连续八次通过；PG/Kafka 额外验证了两个链隔离用例和受控流的撤权恢复。
+
 主网复测使用 Go 和 Rust 正常入口读取池状态。Ethereum 的 DAI/WETH 位于区块 26467325（`0x04b70aa8b7b3190160e72c55dc74117a0a1a05c93cab2a7f2f740cda8cf1b53c`），Solana 的 Raydium CPMM 位于 slot 472359176（`86nfds8d66uWT9Gf7ims7qDNv4zZqDtAd1fqCvUiVeuq`）。PublicNode 和 Pocket Network 分别回读了对应区块。另六链完成链身份和 finalized 区块检查。全程未广播交易。
 
 清理三批旧 Orca 和 Raydium 测试输出，共 4055 份 JSON，磁盘占用 2564354048 字节。保留三个默认回归样本，清理后 58 项相关测试通过。另清理 16 份已执行完毕的阶段文档编辑脚本。完整流程可重新采集 RPC 和 API 输出；项目中不新增本轮测试报告。
