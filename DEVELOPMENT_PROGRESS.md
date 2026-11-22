@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Ethereum 主网连续签名窗口（[阶段251](#public-signed-ethereum-windows)，P0-1）|§7、§18、§28，WP03、WP04、WP05、WP20、WP24|LOCAL_SCOPE_VERIFIED|两个真实窗口各 32 条连续提交、双 Router 整数报价和冷重启、原始响应冻结重放；空目录可复验|执行层完整状态转换、独立故障域、Solana 可信 bank 和生产验收仍待完成|
 |Solana 多链启动和运行隔离（[阶段250](#rust-chain-workers)，P0-1）|§7、§8、§28，WP04、WP05、WP07、WP24|LOCAL_SCOPE_VERIFIED|每链独立同步和续租，退出前完成已接收的 Kafka 提交与撤权，两个正式解析器再连主网|独立主网 bank、同源 Yellowstone 和跨故障域验收仍待完成|
 |Ethereum 交易发送方声明（[阶段249](#ethereum-rpc-sender)，P0-1）|§7.3、§28.6，WP04、WP24|LOCAL_SCOPE_VERIFIED|两种完整正文入口对主网标准交易按块高和时间恢复签名，核对 RPC 提供的发送地址|连续签名来源窗口、执行后状态及生产验收继续推进|
 |主网开发 RPC 与正式解析器（[阶段248](#public-mainnet-dev-rpc)，P0-1）|§3、§7、§28，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|8 条链实时核对身份和 finalized 块，Ethereum 与 Solana 正式解析器发布池快照|签名连续窗口、独立 Solana bank、Yellowstone 和生产验收仍待完成|
@@ -3603,7 +3604,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 
 |顺序|差距 / 工作包|实现建议|退出标准 / 后续边界|当前状态|
 |---|---|---|---|---|
-|P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
+|P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。阶段251已在两个真实 Ethereum 窗口验证连续签名来源、普通服务和原始重放。独立故障域、Solana 同源 bank 及其余来源仍待完成。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
 |P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；阶段149补服务端配置预言机签名授权、源块/币种/历史时效绑定和父源审计后的单笔原子单位换算/费后金额；阶段150完成逐完整候选费用评分组件及有符号目标/完整覆盖检查/统一毛额回退，阶段151接通显式启用的单路线V2正常报价、逐候选实际worker/父费用核验/授权换算和固定计划deadline；阶段152补批准Ethereum Chainlink USD双feed固定部署/原ABI/时效和签名来源绑定、全宽约分/换算与有界采集/待签署CLI；阶段153补选中候选费用的正常报价同源披露；阶段154补进程内授权价格book签名版本/原子刷新、单报价价格快照/缓存及旧报价执行绑定；阶段155–156补离线初始化与显式启用的正常Router重启耐久高水位；默认模式仍无跨重启保证。其他执行/成本模型、可信bank、持续live价格刷新/授权发布及其他链来源、完整全候选净评分及报价总费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
@@ -5595,3 +5596,20 @@ Rust 解析器分别启动每条链的工作任务。第一条完成初始化的
 清理三批旧 Orca 和 Raydium 测试输出，共 4055 份 JSON，磁盘占用 2564354048 字节。保留三个默认回归样本，清理后 58 项相关测试通过。另清理 16 份已执行完毕的阶段文档编辑脚本。完整流程可重新采集 RPC 和 API 输出；项目中不新增本轮测试报告。
 
 [链调度源码](chain-parser-rust/crates/solana-ingest/src/service_chain_workers.rs) · [多链回归](chain-parser-rust/crates/solana-ingest/src/service_startup_tests.rs) · [PG 与 Kafka 回归](chain-parser-rust/crates/solana-ingest/src/service_writer_recovery_tests.rs)
+
+<a id="public-signed-ethereum-windows"></a>
+
+## Ethereum 主网连续签名窗口、报价和原始输入重放（2026-11-22，阶段251，P0-1）
+
+`make -C integration public-signed-window-test` 从版本库的主网开发配置和固定信标检查点启动。Go 校验信标 BLS 签名并取得两个递增的最终化头，采集器按完整区块、回执、合约调用和状态证明的原始响应录制输入。共享主机的请求有统一的发送间隔，遇到 HTTP 429 或 503 时遵守 Retry-After。单次请求保留三次尝试、120 秒及原字节上限，采集总时限 1800 秒。冻结输入后再次运行普通 Go 服务，按高度逐条比较父哈希、journal 序号、writer、generation 和 scope，再启动两个 Router，核验双向 EXACT_IN／EXACT_OUT 的原子单位结果、健康副本和冷重启。独立重放器读取 owner 存档，核对签名头、原始正文、回执和对应提交的摘要。
+
+|主网窗口|采集|冻结及独立回放|
+|---|---|---|
+|26467165 → 26467197|912.855 秒，使用已认证的请求模板；结束于 `0x5bb36c21f072bedce3a3666ed32e90f208431017fc9908cdda4599e1cd89b7db`|32 条连续提交、33 个含起点的区块，冻结后 0 次上游请求|
+|26467293 → 26467325|1277.127 秒，从空目录启动，零模板、零旧签名文件。两个正文端点分别完成 chainId 和创世核验，录得 1357 条响应。起点 `0x37d749e8a47466601bbc7680e85f130027ee4223eb796017d0ebcf34d8ea0cab`，终点 `0x04b70aa8b7b3190160e72c55dc74117a0a1a05c93cab2a7f2f740cda8cf1b53c`|32 条连续提交、33 个含起点的区块，冻结后 0 次上游请求|
+
+较早的 26467133 → 26467165 尝试因公开节点返回 HTTP 429 失败。空目录初试也发现缺少两个正文端点的身份响应；现在显式采集并核验两个端点，原有拒绝条件保留。两个通过窗口均使用 MEV Blocker 和 PublicNode 正文，证明端点与第一正文端点重合。供应商故障域独立性仍未证实。本项核验 DAI/WETH 的 Uniswap V2 完整池范围、已签名的执行层引用和对应读集；全链执行后状态、Solana 独立 bank、其他协议和生产容量继续按原设计验收。
+
+常规复验输出起止区块及计数，自动删除临时目录。显式提供 `--output` 时可保留输入以逐条审计。64 项签名采集、规划和验收流程回归通过。
+
+[验收入口](integration/tools/acceptance/signed_window_evidence.py) · [采集和限速](integration/tools/acceptance/signed_rpc_capture.py) · [复验说明](integration/README.md)

@@ -3,6 +3,9 @@ CONFIG ?= config/config-dev.yaml
 
 build:
 	go build -trimpath -o bin/chain-parser-go ./cmd/chain-parser
+.PHONY: build-beacon-replay
+build-beacon-replay:
+	go build -trimpath -o bin/replay-beacon-window ./cmd/replay-beacon-window
 fmt:
 	gofmt -w cmd internal test/cmd
 fmt-check:

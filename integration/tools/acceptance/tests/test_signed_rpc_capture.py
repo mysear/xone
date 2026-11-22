@@ -334,7 +334,7 @@ class CaptureTests(unittest.TestCase):
 
 
 class CurlPipeTests(unittest.TestCase):
-    def fetch_with_local_child(self, script, cancel=None, after_spawn=None, **patches):
+    def fetch_with_local_child(self, script, cancel=None, after_spawn=None, pace=None, **patches):
         """Exercise real nonblocking pipes/child cancellation, never curl/network."""
         children = []
         self.last_fetch_children = children
@@ -358,7 +358,7 @@ class CurlPipeTests(unittest.TestCase):
         constants = mock.patch.multiple(m, **patches) if patches else nullcontext()
         with mock.patch.object(m.subprocess, 'Popen', side_effect=spawn), constants:
             try:
-                return m.curl_fetch(URLS[0], 'eth_chainId', [], cancel or threading.Event())
+                return m.curl_fetch(URLS[0], 'eth_chainId', [], cancel or threading.Event(), pace)
             finally:
                 self.assertTrue(children)
                 self.assertTrue(all(child.poll() is not None for child in children))
@@ -366,6 +366,40 @@ class CurlPipeTests(unittest.TestCase):
     def test_original_response_and_id_are_not_reserialized(self):
         script = 'import sys,json;r=json.load(sys.stdin);assert type(r["id"]) is int and r["id"]==1;sys.stdout.buffer.write(' + repr(RAW) + ')'
         self.assertEqual(self.fetch_with_local_child(script), RAW)
+
+    def test_rate_response_defers_same_host_using_header_and_keeps_original_success_bytes(self):
+        pace = mock.Mock(wraps=m.ProviderPace(interval=0))
+        pace.defer.side_effect = lambda _: None
+        limited = 'import sys;sys.stdin.read();sys.stderr.write("\\nXONE-HTTP 429\\n45\\n");sys.exit(22)'
+        self.assertEqual(self.fetch_with_local_child([limited, self.successful_response()], pace=pace), RAW)
+        pace.defer.assert_called_once_with(45)
+        self.assertEqual(pace.acquire.call_count, 2)
+        self.assertIn('%header{retry-after}', self.last_curl_args[0][self.last_curl_args[0].index('--write-out') + 1])
+        with mock.patch.object(m.time, 'time', return_value=0):
+            self.assertEqual(m._retry_seconds(b'Thu, 01 Jan 1970 00:01:05 GMT'), 65)
+        self.assertEqual(m._retry_seconds(b'99999999999999999999'), float('inf'))
+
+    def test_shared_provider_cooldown_never_extends_fetch_deadline_or_delays_another_host(self):
+        capture = m.SignedRPCCapture(Path('unused'), (URLS[0], URLS[1], URLS[0]+'/proof'))
+        lanes = []
+        with mock.patch.object(m, 'curl_fetch', side_effect=lambda *args: lanes.append(args[-1])):
+            for url in capture.upstreams:
+                capture.fetcher(url, 'eth_chainId', [], threading.Event())
+        self.assertIs(lanes[0], lanes[2])
+        self.assertIsNot(lanes[0], lanes[1])
+        lanes[0].defer(60)
+        with self.assertRaisesRegex(m.CaptureError, 'CAPTURE_FETCH_TIMEOUT'):
+            lanes[2].acquire(threading.Event(), time.monotonic()+.05, time.time()+.05)
+        lanes[1].acquire(threading.Event(), time.monotonic()+1, time.time()+1)
+        cancel = threading.Event()
+        cancel.set()
+        with self.assertRaisesRegex(m.CaptureError, 'CAPTURE_CANCELLED'):
+            lanes[2].acquire(cancel, time.monotonic()+60, time.time()+60)
+
+    def test_forbidden_http_response_is_terminal(self):
+        forbidden = 'import sys;sys.stdin.read();sys.stderr.write("\\nXONE-HTTP 403\\n\\n");sys.exit(22)'
+        with self.assertRaisesRegex(m.CaptureError, 'CAPTURE_HTTP_403'):
+            self.fetch_with_local_child([forbidden])
 
     def test_decoded_stdout_stderr_and_wall_time_are_bounded(self):
         for script, patches, code in [

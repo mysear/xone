@@ -195,6 +195,26 @@ def _observed_header(job, value):
     return number, value['hash'].lower(), value['parentHash'].lower()
 
 
+def prefill_signed_identities(capture, genesis_hash, budget_seconds):
+    """Record the exact identity reads required by both ordinary body providers."""
+    if not _hash(genesis_hash) or not 0 < budget_seconds <= 1800:
+        raise ValueError('SIGNED_WINDOW_IDENTITY_INPUT')
+    planner = _Planner(capture, time.monotonic() + budget_seconds, time.time() + budget_seconds)
+
+    def check_identity(job, result):
+        if job[1] == 'eth_chainId':
+            valid = result == '0x1'
+        else:
+            valid = isinstance(result, dict) and result.get('number') == '0x0' and result.get('hash') == genesis_hash
+        if not valid:
+            raise ValueError('SIGNED_WINDOW_IDENTITY_CONFLICT')
+
+    jobs = ((index, method, params) for index in (0, 1) for method, params in
+            [('eth_chainId', []), ('eth_getBlockByNumber', ['0x0', False])])
+    planner.run(jobs, check_identity)
+    return len(planner.completed)
+
+
 def prefill_signed_range(capture, template_block, first, last, expected_last_hash,
                          expected_parent=None, budget_seconds=1200):
     """Collect actual bytes for at most 128 linked heights; grant no readiness."""

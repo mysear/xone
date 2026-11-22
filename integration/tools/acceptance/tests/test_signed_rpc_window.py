@@ -153,6 +153,26 @@ class SignedRPCWindow(unittest.TestCase):
             return m.prefill_signed_range(self.capture, self.template, first, last, expected,
                                          **kwargs)
 
+    def test_cold_identity_requires_both_sources_to_match_the_chain_and_genesis(self):
+        genesis = block_hash(0)
+        for field in ('valid', 'chainId', 'genesis', 'number'):
+            capture = Capture(self.clock)
+            def response(job):
+                index, method, params = job
+                if method == 'eth_chainId':
+                    self.assertEqual(params, [])
+                    return '0x5' if index == 1 and field == 'chainId' else '0x1'
+                self.assertEqual((method, params), ('eth_getBlockByNumber', ['0x0', False]))
+                return dict(number='0x1' if index == 1 and field == 'number' else '0x0',
+                            hash=block_hash(1) if index == 1 and field == 'genesis' else genesis)
+            capture.result = response
+            with self.subTest(field=field):
+                if field == 'valid':
+                    self.assertEqual(m.prefill_signed_identities(capture, genesis, 60), 4)
+                else:
+                    with self.assertRaisesRegex(ValueError, 'IDENTITY_CONFLICT'):
+                        m.prefill_signed_identities(capture, genesis, 60)
+
     def test_observed_window_replaces_only_each_method_block_selector_and_source(self):
         original = copy.deepcopy(self.capture.inventory)
         result = self.prefill(expected_parent=block_hash(100))

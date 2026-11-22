@@ -43,6 +43,8 @@ make -C integration test
 
 主网测试使用各解析器的 `config-dev.yaml`，临时分配本地 API 端口、凭据和空状态目录。Ethereum 使用 MEV Blocker 与 PublicNode，Solana 使用官方 RPC 与 Pocket Network。测试按解析器快照的高度或 slot 回读区块，核对块哈希、父哈希和时间，逐链打印实际响应的端点。其余六条 EVM 链按目标目录核对链 ID、创世哈希并读取 finalized 块。开发配置的快照年龄上限为 Ethereum 20 分钟、Solana 2 分钟。结果写到标准输出；RPC、数据核对或服务启动失败会返回非零退出码。
 
+Ethereum 连续窗口使用 `make -C integration public-signed-window-test`。从空目录启动，使用 Go 开发配置中的执行层 RPC 以及 PublicNode 信标接口，等待两个不同的签名最终化头。采集时限为 30 分钟。随后冻结响应，重新启动解析器，校验连续 journal、两个 Router 的整数报价、重启恢复和原始字节重放。命令退出时清除采集响应、状态目录和测试报告。仓库固定的信标检查点受七天时效约束；更新时通过 `BEACON_CHECKPOINT_ROOT` 指定经独立确认的主网检查点。整个过程只读。
+
 各服务单独构建和测试仍使用 `make -C <service> build/check/contract-test`。integration 不复制 Go/Cargo 的构建实现，也不是服务编译依赖。
 
 ## PostgreSQL / Kafka 集成

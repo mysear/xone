@@ -5,6 +5,7 @@ validate the retained bodies, receipts, state proofs and signed finality.
 """
 from collections import Counter
 from contextlib import suppress
+from email.utils import parsedate_to_datetime
 import copy
 import gzip
 import hashlib
@@ -91,7 +92,52 @@ def _stop_child(child):
             child.wait(timeout=1)
 
 
-def curl_fetch(url, method, params, cancel):
+class ProviderPace:
+    """Space starts at one host, including retries and different RPC roles."""
+    def __init__(self, interval=1.0):
+        self.interval = interval
+        self.lock = threading.Lock()
+        self.next_start = 0.0
+
+    def acquire(self, cancel, deadline, expires_at):
+        while True:
+            fail(not cancel.is_set(), 'CAPTURE_CANCELLED')
+            remaining = _fetch_remaining(deadline, expires_at)
+            fail(remaining > 0, 'CAPTURE_FETCH_TIMEOUT')
+            with self.lock:
+                now = time.monotonic()
+                delay = self.next_start - now
+                if delay <= 0:
+                    self.next_start = now + self.interval
+                    return
+            fail(not cancel.wait(min(delay, remaining)), 'CAPTURE_CANCELLED')
+
+    def defer(self, seconds):
+        with self.lock:
+            self.next_start = max(self.next_start, time.monotonic() + seconds)
+
+
+class ProviderBackoff(CaptureError):
+    def __init__(self, detail_hash, status, retry_after):
+        super().__init__('CAPTURE_HTTP_' + str(status), detail_hash)
+        self.retry_after = retry_after
+
+
+def _retry_seconds(value):
+    if value.isdigit():
+        # A server may specify a delay beyond the entire collection campaign.
+        digits = value.lstrip(b'0')
+        return int(digits or b'0') if len(digits) <= 10 else math.inf
+    try:
+        date = parsedate_to_datetime(value.decode('ascii'))
+        if date.tzinfo is not None:
+            return max(0, date.timestamp() - time.time())
+    except (ValueError, TypeError, UnicodeError, OverflowError, OSError):
+        pass
+    return 0
+
+
+def curl_fetch(url, method, params, cancel, pace=None):
     """Retry transport failures within one wall/byte budget; retain exact bytes."""
     request = json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method,
                           'params': params}, separators=(',', ':')).encode()
@@ -101,11 +147,16 @@ def curl_fetch(url, method, params, cancel):
     # Failed partial responses also consume the original budgets. Each attempt
     # owns a new output buffer, so no failed bytes can prefix a later response.
     budget = [RESPONSE_BYTES, STDERR_BYTES]
+    if pace is None:
+        pace = ProviderPace(interval=0)
     for attempt in range(3):
-        fail(not cancel.is_set(), 'CAPTURE_CANCELLED')
-        fail(_fetch_remaining(deadline, expires_at) > 0, 'CAPTURE_FETCH_TIMEOUT')
+        pace.acquire(cancel, deadline, expires_at)
         try:
             return _curl_fetch_attempt(url, request, cancel, deadline, budget, expires_at)
+        except ProviderBackoff as error:
+            pace.defer(max(error.retry_after, 8 * (2 ** attempt)))
+            if attempt == 2:
+                raise
         except CaptureError as error:
             if error.code != 'CAPTURE_FETCH_FAILED' or attempt == 2:
                 raise
@@ -126,6 +177,7 @@ def _curl_fetch_attempt(url, request, cancel, deadline, budget, expires_at):
             '--compressed', '--proto', '=https', '--max-redirs', '0',
             '--max-time', str(max(.001, _fetch_remaining(deadline, expires_at))), '--connect-timeout', '15',
             '--request', 'POST', '--header', 'Content-Type: application/json',
+            '--write-out', '%{stderr}\nXONE-HTTP %{http_code}\n%header{retry-after}\n',
             '--data-binary', '@-', '--url', url]
     try:
         child = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -134,6 +186,7 @@ def _curl_fetch_attempt(url, request, cancel, deadline, budget, expires_at):
         raise CaptureError('CAPTURE_FETCH_START', digest(type(error).__name__.encode())) from None
     output = bytearray()
     stderr_hash = hashlib.sha256()
+    diagnostics = bytearray()
     sent = 0
     try:
         with selectors.DefaultSelector() as selector:
@@ -172,10 +225,18 @@ def _curl_fetch_attempt(url, request, cancel, deadline, budget, expires_at):
                         stderr_hash.update(data)
                         fail(len(data) <= budget[1], 'CAPTURE_STDERR_BUDGET')
                         budget[1] -= len(data)
+                        diagnostics.extend(data)
         while child.poll() is None:
             fail(not cancel.wait(.05), 'CAPTURE_CANCELLED')
             fail(_fetch_remaining(deadline, expires_at) > 0, 'CAPTURE_FETCH_TIMEOUT')
         if child.returncode:
+            trailer = re.search(rb'\nXONE-HTTP (\d{3})\n([^\r\n]*)\n\Z', diagnostics)
+            if trailer:
+                status = int(trailer[1])
+                if status in (429, 503):
+                    raise ProviderBackoff(stderr_hash.hexdigest(), status, _retry_seconds(trailer[2].strip()))
+                if 400 <= status < 500 and status != 408:
+                    raise CaptureError('CAPTURE_HTTP_' + str(status), stderr_hash.hexdigest())
             raise CaptureError('CAPTURE_FETCH_FAILED', stderr_hash.hexdigest())
         return bytes(output)
     except CaptureError as error:
@@ -211,7 +272,8 @@ class SignedRPCCapture:
             fail(parsed.scheme == 'https' and parsed.hostname and parsed.username is None
                  and parsed.password is None and not parsed.fragment, 'CAPTURE_SOURCE_URL')
         self.providers = tuple(provider_id(url) for url in self.upstreams)
-        self.fetcher = fetcher or curl_fetch
+        self.pacing = {urlsplit(url).hostname: ProviderPace() for url in self.upstreams}
+        self.fetcher = fetcher or self._fetch
         self.cancel = threading.Event()
         self.condition = threading.Condition(threading.RLock())
         self.jobs = queue.Queue(maxsize=self.MAX_PENDING)
@@ -227,6 +289,9 @@ class SignedRPCCapture:
         self.servers = []
         self.server_threads = []
         self.workers = []
+
+    def _fetch(self, url, method, params, cancel):
+        return curl_fetch(url, method, params, cancel, self.pacing[urlsplit(url).hostname])
 
     def __enter__(self):
         return self.start()

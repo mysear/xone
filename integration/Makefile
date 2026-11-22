@@ -29,6 +29,15 @@ public-rpc-test:
 	$(MAKE) -C ../chain-parser-rust build
 	python3 -B tools/acceptance/public_rpc_smoke.py
 
+# Independently pinned Ethereum mainnet checkpoint. The verifier enforces its age.
+BEACON_CHECKPOINT_ROOT ?= 0x48176a8eb6476fee86b5540b0764721cb93572a1d83234db95dbedcc845907c7
+.PHONY: public-signed-window-test
+public-signed-window-test:
+	$(MAKE) -C ../chain-parser-go build build-beacon-replay
+	$(MAKE) -C ../dex-router build
+	python3 -B tools/acceptance/signed_window_evidence.py --replay-binary ../chain-parser-go/bin/replay-beacon-window \
+	  --checkpoint-root "$(BEACON_CHECKPOINT_ROOT)"
+
 fixture-test: build debug-build
 	python3 tools/acceptance/smoke.py
 optimizer-oracle-test restore-test head-first-startup-test: fixture-test
