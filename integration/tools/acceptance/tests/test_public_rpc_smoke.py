@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import sys
 import unittest
@@ -154,3 +155,22 @@ class PublicPoolProbe(unittest.TestCase):
             for changed in (dict(bank_slot=45), dict(fund_fees0=0), dict(raw_vault1=1 << 64), dict(creator_fees0=50)):
                 with self.subTest(changed=changed), patch.dict(state, changed), self.assertRaises(ValueError):
                     smoke.check_snapshot(target, chain, snapshot, 120000)
+
+    def test_offline_read_binds_published_state_call_count_and_provider(self):
+        live = dict(source="RPC", reference=dict(writer_epoch=1, scope_hash="scope", block=dict(number_or_slot=44)),
+                    pools=[dict(reserve0="34")], history_gaps=[])
+        replay = dict(scope="offline-rpc-baseline-read", evidence_only=True, read_number=3, snapshot=copy.deepcopy(live),
+                      read=dict(session_id=2, source_id=hashlib.sha256(b"provider").hexdigest(),
+                                sequences=[1, 2, 3, 3], snapshot_sha256="f"*64))
+        receipt = smoke.check_replayed_snapshot(live, replay, "provider", True)
+        self.assertEqual((receipt["calls"], receipt["raw_records"], receipt["read_number"]), (4, 3, 3))
+        live["reference"]["writer_epoch"] = 2
+        live["history_gaps"].append({"from": 40})
+        smoke.check_replayed_snapshot(live, replay, "provider", False)
+        with self.assertRaises(ValueError):
+            smoke.check_replayed_snapshot(live, replay, "provider", True)
+        for obj, changes in [(replay, dict(evidence_only=False)), (replay["read"], dict(sequences=[1, 2, 3])),
+                             (replay["read"], dict(source_id="0"*64)), (replay["snapshot"]["reference"], dict(scope_hash="new")),
+                             (replay["snapshot"], dict(pools=[dict(reserve0="35")]))]:
+            with self.subTest(changes=changes), patch.dict(obj, changes), self.assertRaises(ValueError):
+                smoke.check_replayed_snapshot(live, replay, "provider", False)

@@ -1,7 +1,9 @@
-use crate::source_wal::Recorder;
+use crate::source_wal::{BaselineRead, Recorder, SourceWal, WalLimits};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 use xone_config::Chain;
 use xone_domain::{err, hash, scope_hash, Amount, BlockRef, Result, Snapshot, SnapshotRef};
 pub const TOKEN_PROGRAM: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -13,35 +15,19 @@ pub struct Rpc {
 }
 impl Rpc {
     pub async fn call(&self, url: &str, method: &str, params: Value) -> Result<Value> {
-        self.call_recorded(url, method, params, None).await
+        let body = self
+            .response(url, method, &params, self.max_bytes, "RPC_RESPONSE_LIMIT")
+            .await?;
+        decode_reply(&body)
     }
-    async fn call_recorded(
+    async fn response(
         &self,
         url: &str,
         method: &str,
-        params: Value,
-        recorder: Option<&Recorder>,
-    ) -> Result<Value> {
-        self.call_capped(
-            url,
-            method,
-            params,
-            recorder,
-            self.max_bytes,
-            "RPC_RESPONSE_LIMIT",
-        )
-        .await
-        .map(|(value, _)| value)
-    }
-    async fn call_capped(
-        &self,
-        url: &str,
-        method: &str,
-        params: Value,
-        recorder: Option<&Recorder>,
+        params: &Value,
         limit: usize,
         limit_error: &'static str,
-    ) -> Result<(Value, usize)> {
+    ) -> Result<Vec<u8>> {
         if limit == 0 {
             return Err(err(limit_error));
         }
@@ -65,18 +51,7 @@ impl Rpc {
             }
             b.extend(chunk);
         }
-        if let Some(recorder) = recorder {
-            recorder.capture_async(url, method, &params, &b).await?;
-        }
-        let mut v: Value = serde_json::from_slice(&b).map_err(|_| err("RPC_INVALID_JSON"))?;
-        if v["jsonrpc"] != "2.0"
-            || v["id"] != 1
-            || v.get("error").is_some()
-            || v["result"].is_null()
-        {
-            return Err(err("RPC_INVALID_RESULT"));
-        }
-        Ok((v["result"].take(), b.len()))
+        Ok(b)
     }
     pub async fn current_baseline(&self, ch: &Chain) -> Result<Snapshot> {
         self.current_baseline_recorded(ch, None).await
@@ -86,77 +61,211 @@ impl Rpc {
         ch: &Chain,
         recorder: Option<&Recorder>,
     ) -> Result<Snapshot> {
-        if ch.pools.iter().any(|p| {
-            matches!(
-                p.protocol.as_str(),
-                "raydium-clmm-static"
-                    | "raydium-clmm-token-fee"
-                    | "raydium-clmm-bitmap"
-                    | "raydium-clmm-custom-seed"
-                    | "raydium-clmm-rewards"
-                    | "raydium-clmm-dynamic"
-            )
-        }) && ch.confirmation_tag != "finalized"
-        {
-            return Err(err("RAYCLMM_REQUIRES_FINALIZED"));
-        }
-        if ch
-            .pools
-            .iter()
-            .any(|p| p.protocol == "raydium-cpmm-creator")
-            && ch.confirmation_tag != "finalized"
-        {
-            return Err(err("RAYDIUM_REQUIRES_FINALIZED"));
-        }
-        if ch.pools.iter().any(|p| {
-            matches!(
-                p.protocol.as_str(),
-                "orca-whirlpools-static"
-                    | "orca-whirlpools-rewards"
-                    | "orca-whirlpools-adaptive"
-                    | "orca-whirlpools-adaptive-rewards"
-                    | "orca-whirlpools-adaptive-dynamic"
-            )
-        }) && ch.confirmation_tag != "finalized"
-        {
-            return Err(err("ORCA_REQUIRES_FINALIZED"));
-        }
+        check_confirmation(ch)?;
         let mut last = err("NO_HEALTHY_PROVIDER");
         for url in &ch.rpc_urls {
-            match self.baseline_at(url, ch, recorder).await {
-                Ok(s) => return Ok(s),
+            let mut reader = BaselineReader {
+                max_bytes: self.max_bytes,
+                input: BaselineInput::Network {
+                    rpc: self,
+                    url,
+                    recorder,
+                    sequences: vec![],
+                },
+            };
+            match reader.baseline_at(ch).await {
+                Ok(snapshot) => {
+                    if let BaselineInput::Network {
+                        recorder: Some(recorder),
+                        sequences,
+                        ..
+                    } = reader.input
+                    {
+                        recorder
+                            .finish_baseline(url, sequences, hash(&snapshot)?)
+                            .await?;
+                    }
+                    return Ok(snapshot);
+                }
                 Err(e) if e.0.starts_with("SOURCE_WAL_") => return Err(e),
                 Err(e) => last = e,
             }
         }
         Err(last)
     }
-    async fn block_at(
-        &self,
-        url: &str,
-        ch: &Chain,
-        slot: u64,
-        recorder: Option<&Recorder>,
-    ) -> Result<Value> {
-        self.call_recorded(
-            url,
+}
+
+fn decode_reply(b: &[u8]) -> Result<Value> {
+    let mut v: Value = serde_json::from_slice(b).map_err(|_| err("RPC_INVALID_JSON"))?;
+    if v["jsonrpc"] != "2.0" || v["id"] != 1 || v.get("error").is_some() || v["result"].is_null() {
+        return Err(err("RPC_INVALID_RESULT"));
+    }
+    Ok(v["result"].take())
+}
+
+fn check_confirmation(ch: &Chain) -> Result<()> {
+    if ch.pools.iter().any(|p| {
+        matches!(
+            p.protocol.as_str(),
+            "raydium-clmm-static"
+                | "raydium-clmm-token-fee"
+                | "raydium-clmm-bitmap"
+                | "raydium-clmm-custom-seed"
+                | "raydium-clmm-rewards"
+                | "raydium-clmm-dynamic"
+        )
+    }) && ch.confirmation_tag != "finalized"
+    {
+        return Err(err("RAYCLMM_REQUIRES_FINALIZED"));
+    }
+    if ch
+        .pools
+        .iter()
+        .any(|p| p.protocol == "raydium-cpmm-creator")
+        && ch.confirmation_tag != "finalized"
+    {
+        return Err(err("RAYDIUM_REQUIRES_FINALIZED"));
+    }
+    if ch.pools.iter().any(|p| {
+        matches!(
+            p.protocol.as_str(),
+            "orca-whirlpools-static"
+                | "orca-whirlpools-rewards"
+                | "orca-whirlpools-adaptive"
+                | "orca-whirlpools-adaptive-rewards"
+                | "orca-whirlpools-adaptive-dynamic"
+        )
+    }) && ch.confirmation_tag != "finalized"
+    {
+        return Err(err("ORCA_REQUIRES_FINALIZED"));
+    }
+    Ok(())
+}
+
+enum BaselineInput<'a> {
+    Network {
+        rpc: &'a Rpc,
+        url: &'a str,
+        recorder: Option<&'a Recorder>,
+        sequences: Vec<u64>,
+    },
+    Archive {
+        wal: &'a SourceWal,
+        read: &'a BaselineRead,
+        position: usize,
+    },
+}
+struct BaselineReader<'a> {
+    max_bytes: usize,
+    input: BaselineInput<'a>,
+}
+
+/// Reconstruct a completed provider read in an existing WAL, defaulting to the latest. The archive
+/// variant consumes only its ordered records and has no network client.
+pub async fn replay_baseline(
+    path: &Path,
+    ch: &Chain,
+    limits: WalLimits,
+    number: Option<u64>,
+) -> Result<(Snapshot, u64, BaselineRead)> {
+    check_confirmation(ch)?;
+    let wal = SourceWal::open_read_only(path, &ch.key, limits)?;
+    let (number, read) = wal.baseline_read(number)?;
+    if !ch
+        .rpc_urls
+        .iter()
+        .any(|url| hex::encode(Sha256::digest(url.as_bytes())) == read.source_id)
+    {
+        return Err(err("SOURCE_WAL_REPLAY_PROVIDER"));
+    }
+    let mut reader = BaselineReader {
+        max_bytes: limits.max_response_bytes,
+        input: BaselineInput::Archive {
+            wal: &wal,
+            read: &read,
+            position: 0,
+        },
+    };
+    let snapshot = reader.baseline_at(ch).await?;
+    if !matches!(reader.input, BaselineInput::Archive { position, .. } if position == read.sequences.len())
+        || hash(&snapshot)? != read.snapshot_sha256
+    {
+        return Err(err("SOURCE_WAL_REPLAY_MISMATCH"));
+    }
+    snapshot.validate(&ch.owner_service, ch.assignment_version)?;
+    Ok((snapshot, number, read))
+}
+
+impl BaselineReader<'_> {
+    async fn call(&mut self, method: &str, params: Value) -> Result<Value> {
+        self.call_capped(method, params, self.max_bytes, "RPC_RESPONSE_LIMIT")
+            .await
+            .map(|(value, _)| value)
+    }
+    async fn call_capped(
+        &mut self,
+        method: &str,
+        params: Value,
+        limit: usize,
+        limit_error: &'static str,
+    ) -> Result<(Value, usize)> {
+        let body = match &mut self.input {
+            BaselineInput::Network {
+                rpc,
+                url,
+                recorder,
+                sequences,
+            } => {
+                let body = rpc
+                    .response(url, method, &params, limit, limit_error)
+                    .await?;
+                if let Some(recorder) = recorder {
+                    sequences.push(recorder.capture_async(url, method, &params, &body).await?);
+                }
+                body
+            }
+            BaselineInput::Archive {
+                wal,
+                read,
+                position,
+            } => {
+                let seq = read
+                    .sequences
+                    .get(*position)
+                    .ok_or_else(|| err("SOURCE_WAL_REPLAY_INCOMPLETE"))?;
+                let record = wal.read(*seq)?;
+                if record.session_id != read.session_id
+                    || record.source_id != read.source_id
+                    || record.method != method
+                    || record.params != params
+                {
+                    return Err(err("SOURCE_WAL_REPLAY_REQUEST_MISMATCH"));
+                }
+                if record.response.len() > limit || limit == 0 {
+                    return Err(err(limit_error));
+                }
+                *position += 1;
+                record.response
+            }
+        };
+        Ok((decode_reply(&body)?, body.len()))
+    }
+    async fn block_at(&mut self, ch: &Chain, slot: u64) -> Result<Value> {
+        self.call(
             "getBlock",
             json!([slot,{
                 "commitment":ch.confirmation_tag,"transactionDetails":"none","rewards":false,
                 "maxSupportedTransactionVersion":0
             }]),
-            recorder,
         )
         .await
     }
     /// A provider-declared current bootstrap, not an independent account-bank
     /// proof or historical snapshot. No context chasing or cross-provider merge.
     async fn sharded_accounts(
-        &self,
-        url: &str,
+        &mut self,
         ch: &Chain,
         required: &BTreeSet<String>,
-        recorder: Option<&Recorder>,
     ) -> Result<(u64, BTreeMap<String, Value>, Option<Value>)> {
         if ch.confirmation_tag != "finalized" {
             return Err(err("ACCOUNT_SHARDS_REQUIRES_FINALIZED"));
@@ -181,10 +290,8 @@ impl Rpc {
             requested.push(clock.into());
             let (result, bytes) = self
                 .call_capped(
-                    url,
                     "getMultipleAccounts",
                     json!([requested,{"encoding":"base64","commitment":"finalized"}]),
-                    recorder,
                     remaining,
                     "ACCOUNT_SHARD_RESPONSE_BUDGET",
                 )
@@ -216,7 +323,7 @@ impl Rpc {
                 return Err(err("ACCOUNT_SHARD_CLOCK_CHANGED"));
             }
             if slot.is_none() {
-                let block = self.block_at(url, ch, current, recorder).await?;
+                let block = self.block_at(ch, current).await?;
                 validate_bank_anchor(&block, current)?;
                 anchor = Some(block);
                 slot = Some(current);
@@ -240,15 +347,8 @@ impl Rpc {
             anchor,
         ))
     }
-    async fn baseline_at(
-        &self,
-        url: &str,
-        ch: &Chain,
-        recorder: Option<&Recorder>,
-    ) -> Result<Snapshot> {
-        let genesis = self
-            .call_recorded(url, "getGenesisHash", json!([]), recorder)
-            .await?;
+    async fn baseline_at(&mut self, ch: &Chain) -> Result<Snapshot> {
+        let genesis = self.call("getGenesisHash", json!([])).await?;
         if genesis.as_str() != Some(&ch.genesis_hash) {
             return Err(err("RPC_WRONG_GENESIS"));
         }
@@ -325,15 +425,13 @@ impl Rpc {
         ids.extend(orca_ids.iter().cloned());
         let sharded = ids.len() > 100;
         let (slot, values, initial_anchor) = if sharded {
-            self.sharded_accounts(url, ch, &ids, recorder).await?
+            self.sharded_accounts(ch, &ids).await?
         } else {
             let ids = ids.into_iter().collect::<Vec<_>>();
             let result = self
-                .call_recorded(
-                    url,
+                .call(
                     "getMultipleAccounts",
                     json!([ids,{"encoding":"base64","commitment":ch.confirmation_tag}]),
-                    recorder,
                 )
                 .await?;
             let slot = result["context"]["slot"]
@@ -402,7 +500,7 @@ impl Rpc {
         // minContextSlot is intentionally not used as an exact historical account selector.
         let block = match initial_anchor {
             Some(block) => block,
-            None => self.block_at(url, ch, slot, recorder).await?,
+            None => self.block_at(ch, slot).await?,
         };
         let timestamp = block["blockTime"]
             .as_u64()
@@ -457,14 +555,12 @@ impl Rpc {
         }
         if pinned_bank {
             let after = self
-                .call_recorded(
-                    url,
+                .call(
                     "getBlock",
                     json!([slot,{
                         "commitment":"finalized","transactionDetails":"none","rewards":false,
                         "maxSupportedTransactionVersion":0
                     }]),
-                    recorder,
                 )
                 .await?;
             if after["blockhash"] != block["blockhash"]

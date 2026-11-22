@@ -261,6 +261,78 @@ def check_snapshot(target, chain, snapshot, max_age_ms):
     return row
 
 
+def check_replayed_snapshot(live, replay, account_url, cold_start):
+    read = replay["read"]
+    number = replay["read_number"]
+    if (replay["scope"] != "offline-rpc-baseline-read" or replay["evidence_only"] is not True
+            or type(number) is not int or number < 1 or read["source_id"] != hashlib.sha256(account_url.encode()).hexdigest()
+            or type(read["session_id"]) is not int or read["session_id"] < 1
+            or not isinstance(read["sequences"], list) or len(read["sequences"]) != 4
+            or any(type(n) is not int or n < 1 for n in read["sequences"])
+            or not re.fullmatch("[a-f0-9]{64}", read["snapshot_sha256"])):
+        raise ValueError("offline replay did not select the recorded provider and read")
+    # The owner assigns publication epochs, sequence, generation and gap history
+    # after decoding. Empty-state startup also checks those fields in full.
+    decoded = replay["snapshot"]
+    source_ref = {k: v for k, v in live["reference"].items()
+                  if k not in {"canonical_epoch", "journal_seq", "online_generation", "writer_epoch"}}
+    replay_ref = {k: v for k, v in decoded["reference"].items()
+                  if k not in {"canonical_epoch", "journal_seq", "online_generation", "writer_epoch"}}
+    if (source_ref != replay_ref or decoded["pools"] != live["pools"] or decoded["source"] != live["source"]
+            or (cold_start and decoded != live)):
+        raise ValueError("offline RPC evidence differs from the published snapshot")
+    return dict(read_number=number, session_id=read["session_id"], calls=len(read["sequences"]),
+                raw_records=len(set(read["sequences"])), snapshot_sha256=read["snapshot_sha256"])
+
+
+def check_solana_replay(target, binary):
+    config = json.loads((ROOT / target["owner"] / "config/config-dev.yaml").read_bytes())
+    chain, = config["chains"]
+    first, second = chain["rpc_urls"]
+    if first == second or chain["key"] != target["chain_key"] or chain["genesis_hash"] != target["genesis_hash"]:
+        raise ValueError("expected two public mainnet RPC providers")
+    with tempfile.TemporaryDirectory(prefix="xone-public-solana-replay-") as tmp:
+        directory = Path(tmp)
+        rows, samples = [], []
+        for account_url, witness in [(first, second), (second, first)]:
+            chain["rpc_urls"] = [account_url]
+            sample = parser_baselines(binary, config, directory)[chain["key"]]
+            samples.append(sample)
+            row = check_snapshot(target, dict(chain, rpc_urls=[witness]), sample, config["startup"]["max_baseline_age_ms"])
+            rows.append(dict(row, account_rpc=account_url))
+        a, b = (s["reference"] for s in samples)
+        if (b["block"]["number_or_slot"] <= a["block"]["number_or_slot"] or b["online_generation"] <= a["online_generation"]
+                or b["journal_seq"] <= a["journal_seq"] or b["writer_epoch"] <= a["writer_epoch"]):
+            raise ValueError("restart did not publish a later bank and owner generation")
+        chain["rpc_urls"] = [first, second]
+        path = directory / "config-dev.yaml"
+        path.write_text(json.dumps(config))
+        tool = binary.with_name("source-evidence-rust")
+        # A poll may complete after the API sample but before process exit. Walk
+        # this private archive backwards and match the published block and provider.
+        selection = []
+        for sample, row in reversed(list(zip(samples, rows))):
+            while True:
+                run = subprocess.run([str(tool), "--replay-rpc", "--config", str(path), "--chain", chain["key"], *selection],
+                                     capture_output=True, text=True, timeout=60)
+                if run.returncode:
+                    raise RuntimeError(f"offline replay failed: {run.stderr.strip()}")
+                reply = json.loads(run.stdout)
+                number = reply["read_number"]
+                if type(number) is not int or number < 1 or (selection and str(number) != selection[1]):
+                    raise ValueError("offline replay returned an unexpected read number")
+                selection = ["--read", str(number - 1)]
+                if (reply["read"]["source_id"] == hashlib.sha256(row["account_rpc"].encode()).hexdigest()
+                        and reply["snapshot"]["reference"]["block"] == sample["reference"]["block"]):
+                    row["offline_replay"] = check_replayed_snapshot(sample, reply, row["account_rpc"], row is rows[0])
+                    break
+                if number == 1:
+                    raise ValueError("archive has no read matching the published bank and provider")
+        if rows[1]["offline_replay"]["session_id"] <= rows[0]["offline_replay"]["session_id"]:
+            raise ValueError("both reads came from the same WAL session")
+        return rows
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--go-binary", type=Path, default=ROOT / "chain-parser-go/bin/chain-parser-go")
@@ -270,9 +342,20 @@ def main():
     parser.add_argument("--all-owners", action="store_true", help="require a live parser baseline for each selected chain")
     parser.add_argument("--chain", choices=targets, action="append", help="limit this run to the selected chain(s)")
     parser.add_argument("--shared-owner", action="store_true", help="run the selected chains in a single owner process")
+    parser.add_argument("--solana-replay", action="store_true", help="restart across two mainnet RPCs and replay both recorded Solana snapshots offline")
     args = parser.parse_args()
     binaries = {"chain-parser-go": args.go_binary.resolve(), "chain-parser-rust": args.rust_binary.resolve()}
     names = list(dict.fromkeys(args.chain or targets))
+    if args.solana_replay:
+        if args.shared_owner or (args.chain and names != ["solana"]):
+            parser.error("--solana-replay selects Solana mainnet")
+        try:
+            for row in check_solana_replay(targets["solana"], binaries["chain-parser-rust"]):
+                print(json.dumps(row), flush=True)
+        except (ValueError, KeyError, TypeError, OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+            print(f"Solana replay FAILED {exc}", file=sys.stderr, flush=True)
+            return 1
+        return 0
     if args.shared_owner:
         selected = [targets[name] for name in names]
         if len(names) < 2 or len({t["owner"] for t in selected}) != 1:

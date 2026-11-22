@@ -568,3 +568,143 @@ async fn rejected_shards_are_recorded_before_context_decode_and_wal_failure_neve
     }
     std::fs::remove_dir_all(base).unwrap();
 }
+
+#[tokio::test]
+async fn offline_replay_consumes_the_exact_successful_provider_reads() {
+    use sha2::{Digest, Sha256};
+    use xone_solana_ingest::{
+        rpc::replay_baseline,
+        source_wal::{Recorder, SourceWal, WalLimits},
+    };
+
+    for count in [1, 16] {
+        let (mut chain, accounts) = scope(count);
+        let (bad, bad_task, _) = start(accounts.clone(), "anchor").await;
+        let (good, good_task, calls) = start(accounts, "").await;
+        chain.rpc_urls = vec![bad, good.clone()];
+        let path = std::env::temp_dir().join(format!(
+            "xone-solana-baseline-replay-{}-{count}",
+            std::process::id()
+        ));
+        let limits = WalLimits {
+            max_response_bytes: 4_000_000,
+            max_records: 80,
+        };
+        let recorder = Recorder::new(SourceWal::open(&path, &chain.key, limits).unwrap());
+        let rpc = Rpc {
+            http: reqwest::Client::new(),
+            max_bytes: limits.max_response_bytes,
+        };
+        let online = rpc
+            .current_baseline_recorded(&chain, Some(&recorder))
+            .await
+            .unwrap();
+        let expected_calls = calls.lock().unwrap().len();
+        drop(recorder);
+        bad_task.abort();
+        good_task.abort();
+        let _ = bad_task.await;
+        let _ = good_task.await;
+
+        let files = || {
+            std::fs::read_dir(&path)
+                .unwrap()
+                .map(|entry| {
+                    let entry = entry.unwrap();
+                    (
+                        entry.file_name(),
+                        Sha256::digest(std::fs::read(entry.path()).unwrap()),
+                    )
+                })
+                .collect::<BTreeMap<_, _>>()
+        };
+        let before = files();
+        let (offline, number, read) = replay_baseline(&path, &chain, limits, Some(1))
+            .await
+            .unwrap();
+        assert_eq!(number, 1);
+        assert_eq!(online, offline);
+        assert_eq!(read.sequences.len(), expected_calls);
+        assert_eq!(read.source_id, hex::encode(Sha256::digest(good.as_bytes())));
+        let unique: BTreeSet<_> = read.sequences.iter().collect();
+        assert!(
+            unique.len() < expected_calls,
+            "identical closing block still needs its own call"
+        );
+        assert_eq!(before, files(), "offline replay changed the source WAL");
+
+        let head = path.join("SOURCE_HEAD");
+        let original_marker: Value =
+            serde_json::from_slice(&std::fs::read(&head).unwrap()).unwrap();
+        let key = "baseline/00000000000000000001";
+        let (original, original_meta): (Value, Value) = {
+            let db = rocksdb::DB::open_default(&path).unwrap();
+            (
+                serde_json::from_slice(&db.get(key).unwrap().unwrap()).unwrap(),
+                serde_json::from_slice(&db.get(b"meta").unwrap().unwrap()).unwrap(),
+            )
+        };
+        let rewrite = |entry: Option<&Value>| {
+            let mut marker = original_marker.clone();
+            let mut meta = original_meta.clone();
+            let db = rocksdb::DB::open_default(&path).unwrap();
+            if let Some(entry) = entry {
+                let raw = serde_json::to_vec(entry).unwrap();
+                let index = json!({"count":1,"bytes":raw.len(),"last_hash":hex::encode(Sha256::digest(&raw))});
+                marker["baseline_reads"] = index.clone();
+                meta["baseline_reads"] = index;
+                db.put(key, raw).unwrap();
+            } else {
+                db.delete(key).unwrap();
+                marker.as_object_mut().unwrap().remove("baseline_reads");
+                meta.as_object_mut().unwrap().remove("baseline_reads");
+            }
+            db.put(b"meta", serde_json::to_vec(&meta).unwrap()).unwrap();
+            marker.as_object_mut().unwrap().remove("checksum");
+            let sum = Sha256::digest(serde_json::to_vec(&marker).unwrap());
+            marker["checksum"] = json!(hex::encode(sum));
+            std::fs::write(&head, serde_json::to_vec(&marker).unwrap()).unwrap();
+        };
+        for (fault, expected) in [
+            ("other-provider", "SOURCE_WAL_REPLAY_REQUEST_MISMATCH"),
+            ("reordered", "SOURCE_WAL_REPLAY_REQUEST_MISMATCH"),
+            ("missing-close", "SOURCE_WAL_REPLAY_INCOMPLETE"),
+            ("extra-close", "SOURCE_WAL_REPLAY_MISMATCH"),
+            ("changed-result", "SOURCE_WAL_REPLAY_MISMATCH"),
+            ("legacy", "SOURCE_WAL_BASELINE_READ_MISSING"),
+        ] {
+            let mut entry = original.clone();
+            let seq = entry["read"]["sequences"].as_array_mut().unwrap();
+            match fault {
+                "other-provider" => seq[0] = json!(1),
+                "reordered" => seq.swap(0, 1),
+                "missing-close" => {
+                    seq.pop();
+                }
+                "extra-close" => seq.push(seq.last().unwrap().clone()),
+                "changed-result" => entry["read"]["snapshot_sha256"] = json!("f".repeat(64)),
+                "legacy" => {}
+                _ => unreachable!(),
+            }
+            rewrite((fault != "legacy").then_some(&entry));
+            assert_eq!(
+                replay_baseline(&path, &chain, limits, None)
+                    .await
+                    .unwrap_err()
+                    .0,
+                expected,
+                "{fault}"
+            );
+        }
+        rewrite(Some(&original));
+        chain.rpc_urls.remove(1);
+        assert_eq!(
+            replay_baseline(&path, &chain, limits, None)
+                .await
+                .unwrap_err()
+                .0,
+            "SOURCE_WAL_REPLAY_PROVIDER"
+        );
+        std::fs::remove_dir_all(path).unwrap();
+    }
+}

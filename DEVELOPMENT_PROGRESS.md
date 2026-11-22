@@ -4,7 +4,7 @@
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
-状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。目前 26 个工作包完整验收为 0。截至阶段253，WP18 已进入部分实现，25 个工作包为 `PARTIAL_LOCAL`，WP22 为 `NOT_STARTED`。生产准入与 VERIFIED 报价关闭。
+状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。目前 26 个工作包完整验收为 0。截至阶段254，WP18 已进入部分实现，25 个工作包为 `PARTIAL_LOCAL`，WP22 为 `NOT_STARTED`。生产准入与 VERIFIED 报价关闭。
 
 优先级：区块解析和精确兑换量计算优先，分析功能低优先级。三服务各自独立，公共协议位于common。
 
@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Solana 主网账户 RPC 归档重放（[阶段254](#solana-raw-rpc-replay)，P0-1）|§7、§8.4、§8.9、§28，WP03、WP04、WP05、WP24|LOCAL_SCOPE_VERIFIED|正式解析器跨两个主网来源重启，按原始调用顺序重放两个 finalized slot 的池状态，每个块由另一端点复核|覆盖一个固定 Raydium CPMM 池，独立 bank、Yellowstone 与生产故障域仍待验收|
 |滞后主网 RPC 的选择与复核（[阶段253](#public-mainnet-stale-head)，P0-1）|§7、§23.4、§28，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|首选 EVM 端点报告过期头时，在同一确认级别交叉核对数值高度与哈希，保留正文和回执见证。Ethereum 增加同块储备复核|八链各验证一个池，Solana 独立 bank 和生产故障域仍待验收|
 |八条主网的正式解析器和真实池状态（[阶段252](#public-mainnet-pool-owners)，P0-1）|§3、§7、§9、§28，WP03、WP04、WP05、WP18、WP24|LOCAL_SCOPE_VERIFIED|七条 EVM 链和 Solana 在同一次公网验收发布快照，六个新增部署按同块合约状态复核|覆盖每链一个指定池，独立共识来源、全协议和生产验收仍待完成|
 |Ethereum 主网连续签名窗口（[阶段251](#public-signed-ethereum-windows)，P0-1）|§7、§18、§28，WP03、WP04、WP05、WP20、WP24|LOCAL_SCOPE_VERIFIED|两个真实窗口各 32 条连续提交、双 Router 整数报价和冷重启、原始响应冻结重放；空目录可复验|执行层完整状态转换、独立故障域、Solana 可信 bank 和生产验收仍待完成|
@@ -3606,7 +3607,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 
 |顺序|差距 / 工作包|实现建议|退出标准 / 后续边界|当前状态|
 |---|---|---|---|---|
-|P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。阶段251已在两个真实 Ethereum 窗口验证连续签名来源、普通服务和原始重放。独立故障域、Solana 同源 bank 及其余来源仍待完成。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
+|P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。阶段251已在两个真实 Ethereum 窗口验证连续签名来源、普通服务和原始重放。阶段254在两个真实 Solana slot 由原始 RPC 归档重放了来源快照。独立故障域、Solana 同源 bank 及其余来源仍待完成。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
 |P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；阶段149补服务端配置预言机签名授权、源块/币种/历史时效绑定和父源审计后的单笔原子单位换算/费后金额；阶段150完成逐完整候选费用评分组件及有符号目标/完整覆盖检查/统一毛额回退，阶段151接通显式启用的单路线V2正常报价、逐候选实际worker/父费用核验/授权换算和固定计划deadline；阶段152补批准Ethereum Chainlink USD双feed固定部署/原ABI/时效和签名来源绑定、全宽约分/换算与有界采集/待签署CLI；阶段153补选中候选费用的正常报价同源披露；阶段154补进程内授权价格book签名版本/原子刷新、单报价价格快照/缓存及旧报价执行绑定；阶段155–156补离线初始化与显式启用的正常Router重启耐久高水位；默认模式仍无跨重启保证。其他执行/成本模型、可信bank、持续live价格刷新/授权发布及其他链来源、完整全候选净评分及报价总费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
@@ -5662,3 +5663,19 @@ Go 全包与 vet 通过，移动头和时效用例通过 race 检查。全包复
 历史测试目录中 12 份已按内容摘要固定的程序有 3 组不同字节。核对 SHA-256 后将 9 份重复副本改为硬链接，保留每份旧记录的验证路径，减少重复文件内容 570993248 字节。删除 54 个过期日志及构建文件共 49934971 字节。新的 Solana 三池离线验收为同一轮的各池共享按哈希归档的程序，44 项原有回归通过。主网测试运行时生成的状态、凭据、报告与构建目录按轮清理。
 
 [移动头选择](chain-parser-go/internal/chain/evm/native_head.go) · [回归与故障场景](chain-parser-go/internal/chain/evm/native_head_test.go) · [公网验收](integration/tools/acceptance/public_rpc_smoke.py) · [主网配置与复验](integration/README.md)
+
+<a id="solana-raw-rpc-replay"></a>
+
+## Solana 主网账户 RPC 的逐次归档与离线重放（2026-11-22，阶段254，P0-1）
+
+普通 Rust 解析器在每个来源完成基线解码时，记录有序的原始响应编号、来源会话、端点标识与快照 SHA-256。相同响应可复用同一条原始记录，结束时再次核验块头的调用也出现在顺序中。同一会话中若连续两次的全部调用编号和快照摘要相同，则复用读取编号。索引按读取编号连结前项摘要，纳入原归档空间配额及持久化确认点。只读入口核验确认点、读取顺序、每一条请求的方法与参数、全部账户布局和快照摘要。缺少索引的旧档案保留原始证据，新写入的成功读取可按编号回放。
+
+真实主网验收使用开发配置的 Raydium CPMM 池 `B5oZhRDmdazrJoDSJSL9EQw6Fe9M46aG98bvXH3h1QNi`。最终版本先由 Solana 官方 RPC 在 slot 472399630 读取账户，Pocket 复核块 `2X1FhMoRUG855xVgD5HLFG4L5ExM4RHREeH7rbBhTQj8`。重启后由 Pocket 在 slot 472399677 读取账户，官方 RPC 复核块 `9ExxURJJoYJd7Nf56e2hitCQKjLAumPDaczj8iG79eYh`。来源会话、在线代次、提交序号和 writer epoch 均推进。关闭解析器后按归档重放两次读取，各有四个调用和三份不同响应，包含两次相同的块头检查。两个 slot 的净储备原始整数均为 `125400457955` 和 `843930427296813`。两次重放的池与来源字段分别匹配各自发布的快照。第二个来源复核了创世块和同 slot 块引用；独立账户 bank、Yellowstone 实时流和生产故障域仍待验收。
+
+本轮另用正式解析器复验八条主网，Ethereum 26468060、Base 60644193、BNB Smart Chain 135012109、Polygon PoS 97743294 和 Solana 472400698 通过。八链整次命令返回非零。Arbitrum 与 OP 曾返回超出 20 分钟时效的 finalized 头。使用普通配置重试时，Arbitrum 与 Avalanche 的区块正文复核在 60 秒截止时间内未完成，OP 再次触及时效限制；备用端点还出现过 HTTP 403。13:14–13:17 再用普通开发参数顺序重试这三条链，Arbitrum 超时，OP 的 finalized 头超龄，Avalanche 的第二个见证端点在回执阶段超时。独立通过公开 RPC 在 Arbitrum 526413864、OP 159860584 和 Avalanche 101037122 核对了指定池的代码、合约身份、同块状态及收尾块哈希。这三项合约读取与阶段253的完整解析器结果分别记录。
+
+Rust 工作区 746 项通过，15 项按原有条件跳过。针对归档和分片的最终版本复跑 74 项通过。另起 PostgreSQL 与 Kafka 并建好四个单分区测试主题后，验证了慢链隔离、取消与提交、故障链释放 writer 和健康链继续发布，两项通过。格式、Clippy、11 项公网验收工具回归、17 项进度文档回归及跨服务契约检查通过。普通归档恢复与离线读取的回归覆盖了受损调用顺序、来源和摘要不一致、缺索引的旧库、配额耗尽以及持久化确认点写入失败。
+
+清理 15 份已并入项目的 Rust 草稿、21 份旧预检日志与 2 个可从现有 Go 源码离线重建的原型程序，共 30475992 字节。重新构建两个程序后，用保留的固定输入和原始 OP 客户端重算 448 个历史用例，两个相关测试组共 8 项通过。本轮临时构建、数据库和 Kafka 状态目录合计占用 6682529792 字节，关闭后清除。
+
+[基线解析与重放](chain-parser-rust/crates/solana-ingest/src/rpc.rs) · [归档持久化](chain-parser-rust/crates/solana-ingest/src/source_wal.rs) · [主网验收命令](integration/README.md)

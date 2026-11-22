@@ -1,5 +1,6 @@
 //! Durable raw JSON-RPC reception evidence. It never grants online readiness.
 use rocksdb::{DBRecoveryMode, IteratorMode, Options, WriteBatch, WriteOptions, DB};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
@@ -17,6 +18,19 @@ pub struct WalLimits {
     pub max_response_bytes: usize,
     pub max_records: usize,
 }
+pub fn configured_wal(config: &xone_config::ConfigSnapshot, chain: &str) -> (PathBuf, WalLimits) {
+    (
+        config
+            .resolve(&config.config.state.path)
+            .join("source-evidence")
+            .join(chain.replace(':', "-")),
+        WalLimits {
+            max_response_bytes: config.config.journal.max_payload_bytes,
+            max_records: config.config.journal.kafka.max_tail_records,
+        },
+    )
+}
+
 impl WalLimits {
     fn record_bytes(self) -> Result<usize> {
         self.max_response_bytes
@@ -42,10 +56,95 @@ pub struct CapturedResponse {
     pub response: Vec<u8>,
     pub payload_sha256: String,
 }
+// A successful RPC read may use the same deduplicated record more than once.
+// The durable head binds the logical call order to this verified WAL prefix.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BaselineRead {
+    pub session_id: u64,
+    pub source_id: String,
+    pub sequences: Vec<u64>,
+    pub snapshot_sha256: String,
+}
+const MAX_BASELINE_CALLS: usize = 35; // genesis, up to 32 account shards and two block checks
+
+impl BaselineRead {
+    fn valid_at(&self, session: u64, sequence: u64) -> bool {
+        let digest = |s: &str| {
+            s.len() == 64
+                && s.bytes()
+                    .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+        };
+        (1..=session).contains(&self.session_id)
+            && digest(&self.source_id)
+            && digest(&self.snapshot_sha256)
+            && (1..=MAX_BASELINE_CALLS).contains(&self.sequences.len())
+            && self.sequences.iter().all(|n| (1..=sequence).contains(n))
+    }
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReadEntry {
+    previous_hash: String,
+    read: BaselineRead,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReadIndex {
+    count: u64,
+    bytes: usize,
+    last_hash: String,
+}
+#[derive(Default)]
+struct AcknowledgedHead {
+    session: u64,
+    sequence: u64,
+    reads: ReadIndex,
+}
+impl Default for ReadIndex {
+    fn default() -> Self {
+        Self {
+            count: 0,
+            bytes: 0,
+            last_hash: ZERO_HASH.into(),
+        }
+    }
+}
+impl ReadIndex {
+    fn from_meta(meta: &Value) -> Result<Self> {
+        match meta.get("baseline_reads") {
+            Some(index) => serde_json::from_value(index.clone()).map_err(|_| corrupt()),
+            None => Ok(Self::default()), // pre-receipt archives still verify their full raw prefix
+        }
+    }
+    fn advance(&self, raw: &[u8]) -> Result<Self> {
+        if raw.len() > 2048 {
+            return Err(corrupt());
+        }
+        Ok(Self {
+            count: self.count.checked_add(1).ok_or_else(corrupt)?,
+            bytes: self.bytes.checked_add(raw.len()).ok_or_else(corrupt)?,
+            last_hash: sha(raw),
+        })
+    }
+}
+fn read_key(n: u64) -> String {
+    format!("baseline/{n:020}")
+}
+fn decode_read(raw: &[u8]) -> Result<ReadEntry> {
+    if raw.len() > 2048 {
+        return Err(corrupt());
+    }
+    serde_json::from_slice(raw).map_err(|_| corrupt())
+}
 pub struct SourceWal {
     db: DB,
     path: PathBuf,
     poisoned: bool,
+    reads: ReadIndex,
+    acknowledged_reads: u64,
+    last_read: Option<BaselineRead>,
     chain: String,
     limits: WalLimits,
     session: u64,
@@ -83,6 +182,19 @@ fn bounded_head_bytes(reader: &mut impl Read) -> Result<Vec<u8>> {
 
 impl SourceWal {
     pub fn open(path: &Path, chain: &str, limits: WalLimits) -> Result<Self> {
+        let mut wal = Self::load(path, chain, limits, false)?;
+        wal.session = wal
+            .session
+            .checked_add(1)
+            .ok_or_else(|| err("SOURCE_WAL_SESSION_OVERFLOW"))?;
+        wal.commit(None)?;
+        wal.acknowledged_reads = wal.reads.count;
+        Ok(wal)
+    }
+    pub(crate) fn open_read_only(path: &Path, chain: &str, limits: WalLimits) -> Result<Self> {
+        Self::load(path, chain, limits, true)
+    }
+    fn load(path: &Path, chain: &str, limits: WalLimits, read_only: bool) -> Result<Self> {
         if !chain.starts_with("solana:")
             || chain.len() == 7
             || limits.max_response_bytes == 0
@@ -92,18 +204,27 @@ impl SourceWal {
         }
         limits.total_bytes()?;
         let mut options = Options::default();
-        options.create_if_missing(true);
+        options.create_if_missing(!read_only);
         options.set_wal_recovery_mode(DBRecoveryMode::AbsoluteConsistency);
-        let db = DB::open(&options, path).map_err(|_| err("SOURCE_WAL_OPEN"))?;
+        let db = if read_only {
+            DB::open_for_read_only(&options, path, false)
+        } else {
+            DB::open(&options, path)
+        }
+        .map_err(|_| err("SOURCE_WAL_OPEN"))?;
         let meta = db.get(META).map_err(|_| err("SOURCE_WAL_READ"))?;
-        let (session, sequence, bytes, last_hash) = if let Some(raw) = meta {
+        let (session, sequence, bytes, last_hash, reads) = if let Some(raw) = meta {
             let v: Value = serde_json::from_slice(&raw).map_err(|_| corrupt())?;
             if v["schema"] != 1 || v["chain_key"] != chain {
                 return Err(err("SOURCE_WAL_IDENTITY"));
             }
             let sequence = u64_field(&v, "sequence")?;
             let bytes = usize::try_from(u64_field(&v, "bytes")?).map_err(|_| corrupt())?;
-            if sequence > limits.max_records as u64 || bytes > limits.total_bytes()? {
+            let reads = ReadIndex::from_meta(&v)?;
+            if sequence > limits.max_records as u64
+                || reads.count > limits.max_records as u64
+                || bytes.checked_add(reads.bytes).ok_or_else(corrupt)? > limits.total_bytes()?
+            {
                 return Err(err("SOURCE_WAL_CAPACITY"));
             }
             (
@@ -111,14 +232,18 @@ impl SourceWal {
                 sequence,
                 bytes,
                 string_field(&v, "last_hash")?,
+                reads,
             )
         } else {
-            (0, 0, 0, ZERO_HASH.into())
+            (0, 0, 0, ZERO_HASH.into(), ReadIndex::default())
         };
         let mut wal = Self {
             db,
             path: path.to_owned(),
             poisoned: false,
+            reads,
+            acknowledged_reads: 0,
+            last_read: None,
             chain: chain.into(),
             limits,
             session,
@@ -127,17 +252,13 @@ impl SourceWal {
             last_hash,
             last: BTreeMap::new(),
         };
-        wal.verify()?;
-        wal.verify_durable_head()?;
-        wal.session = wal
-            .session
-            .checked_add(1)
-            .ok_or_else(|| err("SOURCE_WAL_SESSION_OVERFLOW"))?;
-        wal.commit(None)?;
+        let acknowledged = wal.verify_durable_head()?;
+        wal.verify(&acknowledged)?;
+        wal.acknowledged_reads = acknowledged.reads.count;
         Ok(wal)
     }
     pub fn status(&self) -> Value {
-        json!({"chain_key":self.chain,"session_id":self.session,"records":self.sequence,"retained_bytes":self.bytes,"max_records":self.limits.max_records,"max_response_bytes":self.limits.max_response_bytes,"max_retained_bytes":self.limits.total_bytes().ok(),"last_record_sha256":self.last_hash,"evidence_only":true,"confers_readiness":false,"write_poisoned":self.poisoned})
+        json!({"chain_key":self.chain,"session_id":self.session,"records":self.sequence,"retained_bytes":self.bytes+self.reads.bytes,"baseline_reads":self.acknowledged_reads,"max_records":self.limits.max_records,"max_response_bytes":self.limits.max_response_bytes,"max_retained_bytes":self.limits.total_bytes().ok(),"last_record_sha256":self.last_hash,"evidence_only":true,"confers_readiness":false,"write_poisoned":self.poisoned})
     }
     pub fn len(&self) -> u64 {
         self.sequence
@@ -146,9 +267,9 @@ impl SourceWal {
         self.sequence == 0
     }
     fn metadata(&self) -> Value {
-        json!({"schema":1,"chain_key":self.chain,"session":self.session,"sequence":self.sequence,"bytes":self.bytes,"last_hash":self.last_hash})
+        json!({"schema":1,"chain_key":self.chain,"session":self.session,"sequence":self.sequence,"bytes":self.bytes,"last_hash":self.last_hash,"baseline_reads":self.reads})
     }
-    fn verify_durable_head(&self) -> Result<()> {
+    fn verify_durable_head(&self) -> Result<AcknowledgedHead> {
         let head = self.path.join("SOURCE_HEAD");
         let mut file = match std::fs::File::open(&head) {
             Ok(file) => file,
@@ -157,7 +278,7 @@ impl SourceWal {
                     && self.session == 0
                     && self.sequence == 0 =>
             {
-                return Ok(())
+                return Ok(AcknowledgedHead::default())
             }
             Err(_) => return Err(corrupt()),
         };
@@ -196,10 +317,78 @@ impl SourceWal {
         if string_field(&v, "last_hash")? != expected {
             return Err(corrupt());
         }
+        let reads = ReadIndex::from_meta(&v)?;
+        if reads.count > self.reads.count || reads.bytes > self.reads.bytes {
+            return Err(corrupt());
+        }
+        if reads.count == 0 && reads != ReadIndex::default() {
+            return Err(corrupt());
+        }
+        Ok(AcknowledgedHead {
+            session: head_session,
+            sequence: acknowledged,
+            reads,
+        })
+    }
+    pub(crate) fn baseline_read(&self, number: Option<u64>) -> Result<(u64, BaselineRead)> {
+        let number = number.unwrap_or(self.acknowledged_reads);
+        if number == 0 || number > self.acknowledged_reads {
+            return Err(err("SOURCE_WAL_BASELINE_READ_MISSING"));
+        }
+        let raw = self
+            .db
+            .get(read_key(number))
+            .map_err(|_| corrupt())?
+            .ok_or_else(corrupt)?;
+        Ok((number, decode_read(&raw)?.read))
+    }
+    fn finish_baseline(
+        &mut self,
+        source_id: String,
+        sequences: Vec<u64>,
+        snapshot_sha256: String,
+    ) -> Result<()> {
+        if self.poisoned {
+            return Err(err("SOURCE_WAL_REOPEN_REQUIRED"));
+        }
+        let read = BaselineRead {
+            session_id: self.session,
+            source_id,
+            sequences,
+            snapshot_sha256,
+        };
+        if !read.valid_at(self.session, self.sequence) {
+            return Err(err("SOURCE_WAL_BASELINE_READ_INVALID"));
+        }
+        if self.last_read.as_ref() == Some(&read) {
+            return Ok(());
+        }
+        let entry = ReadEntry {
+            previous_hash: self.reads.last_hash.clone(),
+            read,
+        };
+        let raw = serde_json::to_vec(&entry).map_err(|_| err("SOURCE_WAL_ENCODING"))?;
+        let next = self.reads.advance(&raw)?;
+        if next.count > self.limits.max_records as u64
+            || next.bytes.checked_add(self.bytes).ok_or_else(corrupt)?
+                > self.limits.total_bytes()?
+        {
+            return Err(err("SOURCE_WAL_CAPACITY"));
+        }
+        let id = next.count;
+        let previous = std::mem::replace(&mut self.reads, next);
+        if let Err(e) = self.commit(Some((read_key(id), &raw))) {
+            self.reads = previous;
+            self.poisoned = true;
+            return Err(e);
+        }
+        self.acknowledged_reads = id;
+        self.last_read = Some(entry.read);
         Ok(())
     }
     fn persist_head(&self) -> Result<()> {
         let mut marker = json!({"schema":1,"chain_key":self.chain,"session":self.session,"sequence":self.sequence,"last_hash":self.last_hash});
+        marker["baseline_reads"] = json!(self.reads);
         let checksum = sha(&serde_json::to_vec(&marker).map_err(|_| err("SOURCE_WAL_ENCODING"))?);
         marker["checksum"] = json!(checksum);
         let raw = serde_json::to_vec(&marker).map_err(|_| err("SOURCE_WAL_ENCODING"))?;
@@ -219,10 +408,10 @@ impl SourceWal {
             .and_then(|dir| dir.sync_all())
             .map_err(|_| err("SOURCE_WAL_WRITE"))
     }
-    fn commit(&self, record: Option<(u64, &[u8])>) -> Result<()> {
+    fn commit(&self, record: Option<(String, &[u8])>) -> Result<()> {
         let mut batch = WriteBatch::default();
-        if let Some((sequence, bytes)) = record {
-            batch.put(key(sequence), bytes);
+        if let Some((record_key, bytes)) = record {
+            batch.put(record_key, bytes);
         }
         batch.put(
             META,
@@ -292,14 +481,17 @@ impl SourceWal {
             .bytes
             .checked_add(encoded.len())
             .ok_or_else(|| err("SOURCE_WAL_CAPACITY"))?;
-        if encoded.len() > self.limits.record_bytes()? || bytes > self.limits.total_bytes()? {
+        if encoded.len() > self.limits.record_bytes()?
+            || bytes.checked_add(self.reads.bytes).ok_or_else(corrupt)?
+                > self.limits.total_bytes()?
+        {
             return Err(err("SOURCE_WAL_CAPACITY"));
         }
         let previous = (self.sequence, self.bytes, self.last_hash.clone());
         self.sequence = next;
         self.bytes = bytes;
         self.last_hash = sha(&encoded);
-        if let Err(e) = self.commit(Some((next, &encoded))) {
+        if let Err(e) = self.commit(Some((key(next), &encoded))) {
             // A failed fsync/marker write has an unknown durability outcome.
             // Even an old dedup hit must not bypass a verified reopen.
             self.poisoned = true;
@@ -360,7 +552,9 @@ impl SourceWal {
             .ok_or_else(|| err("SOURCE_WAL_NOT_FOUND"))?;
         self.decode(sequence, &raw).map(|(record, _)| record)
     }
-    fn verify(&self) -> Result<()> {
+    fn verify(&self, acknowledged: &AcknowledgedHead) -> Result<()> {
+        let mut read_session = 0;
+        let mut reads = ReadIndex::default();
         let mut count = 0u64;
         let mut bytes = 0usize;
         let mut previous = ZERO_HASH.to_owned();
@@ -368,6 +562,30 @@ impl SourceWal {
         for entry in self.db.iterator(IteratorMode::Start) {
             let (k, v) = entry.map_err(|_| corrupt())?;
             if k.as_ref() == META {
+                continue;
+            }
+            if k.starts_with(b"baseline/") {
+                let entry = decode_read(&v)?;
+                let (session_limit, record_limit) = if reads.count < acknowledged.reads.count {
+                    (acknowledged.session, acknowledged.sequence)
+                } else {
+                    (self.session, self.sequence)
+                };
+                if entry.previous_hash != reads.last_hash
+                    || entry.read.session_id < read_session
+                    || !entry.read.valid_at(session_limit, record_limit)
+                {
+                    return Err(corrupt());
+                }
+                read_session = entry.read.session_id;
+                reads = reads.advance(&v)?;
+                if reads.count == acknowledged.reads.count && reads != acknowledged.reads {
+                    return Err(corrupt());
+                }
+                if reads.count > self.reads.count || k.as_ref() != read_key(reads.count).as_bytes()
+                {
+                    return Err(corrupt());
+                }
                 continue;
             }
             count = count.checked_add(1).ok_or_else(corrupt)?;
@@ -386,7 +604,11 @@ impl SourceWal {
             previous = sha(&v);
             bytes = bytes.checked_add(v.len()).ok_or_else(corrupt)?;
         }
-        if count != self.sequence || bytes != self.bytes || previous != self.last_hash {
+        if count != self.sequence
+            || bytes != self.bytes
+            || previous != self.last_hash
+            || reads != self.reads
+        {
             return Err(corrupt());
         }
         Ok(())
@@ -426,23 +648,45 @@ impl Recorder {
         // Admit before copying response bytes or spawning work. The owned
         // permit lives inside the actual blocking task, including after an
         // outer baseline timeout drops its JoinHandle.
-        let permit = self
-            .1
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| err("SOURCE_WAL_BUSY"))?;
-        let recorder = self.clone();
+        let permit = self.admit_write()?;
         let url = url.to_owned();
         let method = method.to_owned();
         let params = params.clone();
         let response = response.to_vec();
+        self.write(permit, move |wal| {
+            wal.append(&url, &method, &params, &response, received_at)
+        })
+        .await
+    }
+    pub(crate) async fn finish_baseline(
+        &self,
+        url: &str,
+        sequences: Vec<u64>,
+        snapshot_sha256: String,
+    ) -> Result<()> {
+        let permit = self.admit_write()?;
+        let source = sha(url.as_bytes());
+        self.write(permit, move |wal| {
+            wal.finish_baseline(source, sequences, snapshot_sha256)
+        })
+        .await
+    }
+    fn admit_write(&self) -> Result<tokio::sync::OwnedSemaphorePermit> {
+        self.1
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| err("SOURCE_WAL_BUSY"))
+    }
+    async fn write<T: Send + 'static>(
+        &self,
+        permit: tokio::sync::OwnedSemaphorePermit,
+        op: impl FnOnce(&mut SourceWal) -> Result<T> + Send + 'static,
+    ) -> Result<T> {
+        let recorder = self.clone();
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            recorder
-                .0
-                .lock()
-                .map_err(|_| err("SOURCE_WAL_LOCK"))?
-                .append(&url, &method, &params, &response, received_at)
+            let mut wal = recorder.0.lock().map_err(|_| err("SOURCE_WAL_LOCK"))?;
+            op(&mut wal)
         })
         .await
         .map_err(|_| err("SOURCE_WAL_TASK"))?
@@ -488,6 +732,76 @@ mod admission_tests {
                 let _ = sender.send(());
             }
         }
+    }
+    #[test]
+    fn read_index_is_bounded_and_only_acknowledged_reads_can_be_replayed() {
+        let path = std::env::temp_dir().join(format!("xone-wal-read-index-{}", std::process::id()));
+        let limits = WalLimits {
+            max_response_bytes: 4096,
+            max_records: 2,
+        };
+        let chain = "solana:localnet";
+        let mut wal = SourceWal::open(&path, chain, limits).unwrap();
+        let source = sha(b"rpc");
+        wal.append("rpc", "getBlock", &json!([1]), b"one", 1)
+            .unwrap();
+        wal.finish_baseline(source.clone(), vec![1], sha(b"first"))
+            .unwrap();
+        wal.finish_baseline(source.clone(), vec![1], sha(b"first"))
+            .unwrap();
+        assert_eq!(wal.status()["baseline_reads"], 1);
+        wal.append("rpc", "getBlock", &json!([2]), b"two", 2)
+            .unwrap();
+        std::fs::create_dir(path.join("SOURCE_HEAD.tmp")).unwrap();
+        assert_eq!(
+            wal.finish_baseline(source.clone(), vec![2], sha(b"second"))
+                .unwrap_err()
+                .0,
+            "SOURCE_WAL_WRITE"
+        );
+        assert_eq!(
+            wal.finish_baseline(source.clone(), vec![1], sha(b"first"))
+                .unwrap_err()
+                .0,
+            "SOURCE_WAL_REOPEN_REQUIRED"
+        );
+        drop(wal);
+        let archive = SourceWal::open_read_only(&path, chain, limits).unwrap();
+        assert_eq!(archive.baseline_read(None).unwrap().0, 1);
+        assert_eq!(
+            archive.baseline_read(Some(2)).unwrap_err().0,
+            "SOURCE_WAL_BASELINE_READ_MISSING"
+        );
+        drop(archive);
+        std::fs::remove_dir(path.join("SOURCE_HEAD.tmp")).unwrap();
+        let mut wal = SourceWal::open(&path, chain, limits).unwrap();
+        assert_eq!(
+            wal.baseline_read(Some(1)).unwrap().1.snapshot_sha256,
+            sha(b"first")
+        );
+        assert_eq!(
+            wal.baseline_read(None).unwrap().1.snapshot_sha256,
+            sha(b"second")
+        );
+        assert_eq!(wal.status()["baseline_reads"], 2);
+        assert_eq!(
+            wal.finish_baseline(source, vec![2], sha(b"third"))
+                .unwrap_err()
+                .0,
+            "SOURCE_WAL_CAPACITY"
+        );
+        drop(wal);
+        let db = DB::open_default(&path).unwrap();
+        db.delete(read_key(1)).unwrap();
+        drop(db);
+        assert_eq!(
+            SourceWal::open_read_only(&path, chain, limits)
+                .err()
+                .unwrap()
+                .0,
+            "SOURCE_WAL_CORRUPT"
+        );
+        std::fs::remove_dir_all(path).unwrap();
     }
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn timed_out_captures_do_not_accumulate_blocking_jobs_or_change_arrival_time() {

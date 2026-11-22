@@ -34,6 +34,7 @@ make -C integration public-rpc-test
 
 # 要求八条链都通过正式解析器启动并发布池快照
 make -C integration public-rpc-owner-test
+make -C integration public-solana-replay-test
 
 # 构建后执行隔离三进程离线联调；自动停止本次子进程
 make -C integration fixture-test
@@ -47,6 +48,8 @@ make -C integration test
 主网测试使用各解析器的 `config-dev.yaml`，每次启动分配临时本地 API 端口、凭据和空状态目录。Ethereum 使用 MEV Blocker 与 PublicNode，Solana 使用官方 RPC 与 Pocket Network。两条链均通过正式解析器发布池快照，再按同高度或 slot 核对块哈希、父哈希和时间。Solana 同时检查 Raydium 账户批次的 slot 与块引用一致，并按金库余额扣除累计费用复算两侧净储备。Ethereum 还在该高度复查 DAI/WETH 池的运行时代码、工厂、代币和两侧储备。另六条 EVM 链使用 [主网目标配置](config/chain-targets.json) 中的池地址、工厂、代币和合约代码 SHA-256 读取固定 finalized 高度的状态。BNB Smart Chain 核对 Pancake V2 双边储备，Base、Arbitrum One、OP Mainnet、Polygon PoS 和 Avalanche C-Chain 核对 Uniswap V3 价格、tick 和流动性。读取后再次核对块头。
 
 `public-rpc-owner-test` 为这六条链逐一启动 Go 解析器，使用目录中的前两个 RPC 核验原生区块和回执。V3 读取当前 bitmap word 的全部初始化 tick。主网复验配置将池的 `v3.tick_read_concurrency` 设为 4，省略或设为 0 时沿用串行读取。解析器快照须与同高度合约状态匹配。单链复验可在构建后运行 `python3 -B integration/tools/acceptance/public_rpc_smoke.py --all-owners --chain arbitrum`。同一进程的多链复验使用 `--shared-owner --chain base --chain optimism`。这两条链上的 WETH 合约地址相同，池、区块和价格仍需按各自 chain key 校验。每条链打印实际回读端点。Go 采用开发配置的 20 分钟时效限制，Solana 为 2 分钟。公网来源过期、核对不一致或服务启动失败均会返回非零。两条命令均只读，结束时清除临时凭据、状态和日志。
+
+`public-solana-replay-test` 依次用 Solana 官方端点和 Pocket 作为账户来源，重启同一个 Rust 解析器，每次用另一端点复核 finalized slot 的块哈希、父哈希和时间。两次发布后关闭解析器，从原始 RPC 归档重放两个池快照。输出包含实际端点、slot、读取编号、调用次数、不同响应数及快照摘要。重启后的发布序号和代次由在线服务分配，验收分别核对它们是否推进，以及来源状态能否重放。命令退出时删除本次归档。
 
 Ethereum 连续窗口使用 `make -C integration public-signed-window-test`。从空目录启动，使用 Go 开发配置中的执行层 RPC 以及 PublicNode 信标接口，等待两个不同的签名最终化头。采集时限为 30 分钟。随后冻结响应，重新启动解析器，校验连续 journal、两个 Router 的整数报价、重启恢复和原始字节重放。命令退出时清除采集响应、状态目录和测试报告。仓库固定的信标检查点受七天时效约束；更新时通过 `BEACON_CHECKPOINT_ROOT` 指定经独立确认的主网检查点。整个过程只读。
 

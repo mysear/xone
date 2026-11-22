@@ -1,5 +1,5 @@
 use crate::session::Writer;
-use crate::source_wal::{Recorder, SourceWal, WalLimits};
+use crate::source_wal::{configured_wal, Recorder, SourceWal};
 use crate::{rpc::Rpc, store::Store};
 use axum::{
     extract::{Path, Query, State},
@@ -87,18 +87,8 @@ impl Parser {
                 if config.config.yellowstone.contains_key(&chain.key) {
                     continue;
                 }
-                let path = config
-                    .resolve(&config.config.state.path)
-                    .join("source-evidence")
-                    .join(chain.key.replace(':', "-"));
-                let wal = SourceWal::open(
-                    &path,
-                    &chain.key,
-                    WalLimits {
-                        max_response_bytes: config.config.journal.max_payload_bytes,
-                        max_records: config.config.journal.kafka.max_tail_records,
-                    },
-                )?;
+                let (path, limits) = configured_wal(&config, &chain.key);
+                let wal = SourceWal::open(&path, &chain.key, limits)?;
                 source_wals.insert(chain.key.clone(), Recorder::new(wal));
             }
         }

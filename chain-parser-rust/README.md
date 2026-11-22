@@ -36,6 +36,12 @@ GET /internal/chains/{chain}/baseline、/status、/journal?after={seq} 提供own
 
 开发配置连接 Solana 官方主网 RPC 与 Pocket Network，在 finalized 账户响应的 context slot 读取区块，解码已固定程序版本的 Raydium CPMM 池。服务监听本机 8092 端口。测试配置供本地回归使用。生产文件是部署模板：需要填写真实 RPC、Kafka、控制面及认证参数。当前生产 TLS/SASL 能力仍受既有实现范围限制，生产模板缺少部署参数时校验失败。
 
+解析器将一次成功基线读取的调用顺序、来源标识和快照摘要写入本链的 RPC 归档。在已有归档的配置上运行下列命令，可离线复原第一个读取。省略 `--read 1` 时使用最近一次已持久确认的读取。输出是来源快照，后续发布分配的序号、代次及历史缺口由在线 journal 保存。旧归档可继续追加；只有原始响应而缺少调用顺序时，离线重放会报告 `SOURCE_WAL_BASELINE_READ_MISSING`。
+
+```bash
+./target/debug/source-evidence-rust --replay-rpc --config config/config-dev.yaml --chain solana:mainnet-beta --read 1
+```
+
 配置结构、重复键、字段取值检查仍保留。运行中使用的配置/报价上下文指纹为派生业务数据，不是配置包 SHA256 校验；公开指纹不包含 API token。
 
 显式离线调试：

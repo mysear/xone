@@ -1,5 +1,4 @@
-//! Finite read-only real Yellowstone capture, with raw WAL before projection.
-//! Never changes an online store or grants readiness from a captured stream.
+//! Finite Yellowstone capture and offline replay of a parser's raw RPC input.
 use serde::Deserialize;
 use serde_json::json;
 use std::{
@@ -79,6 +78,39 @@ async fn main() {
 }
 async fn run() -> Result<(), String> {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("--replay-rpc") {
+        const USAGE: &str =
+            "usage: source-evidence-rust --replay-rpc --config FILE --chain KEY [--read NUMBER]";
+        let [_, _, config_flag, path, chain_flag, key, selection @ ..] = args.as_slice() else {
+            return Err(USAGE.into());
+        };
+        if config_flag != "--config" || chain_flag != "--chain" {
+            return Err(USAGE.into());
+        }
+        let number = match selection {
+            [] => None,
+            [flag, value] if flag == "--read" => Some(value.parse::<u64>().map_err(|_| USAGE)?),
+            _ => return Err(USAGE.into()),
+        };
+        let config = xone_config::load(path, "chain-parser-rust").map_err(|e| e.0)?;
+        let chain = config
+            .config
+            .chains
+            .iter()
+            .find(|c| &c.key == key)
+            .ok_or("UNKNOWN_CHAIN")?;
+        let (directory, limits) =
+            xone_solana_ingest::source_wal::configured_wal(&config, &chain.key);
+        let (snapshot, number, read) =
+            xone_solana_ingest::rpc::replay_baseline(&directory, chain, limits, number)
+                .await
+                .map_err(|e| e.0)?;
+        println!(
+            "{}",
+            json!({"scope":"offline-rpc-baseline-read", "evidence_only":true, "read_number":number, "read":read, "snapshot":snapshot})
+        );
+        return Ok(());
+    }
     if args.len() != 3 && args.len() != 4
         || args.get(1).map(String::as_str) != Some("--config")
         || args.len() == 4 && args[3] != "--check-config"
