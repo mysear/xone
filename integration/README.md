@@ -29,6 +29,9 @@ make -C integration contract-test
 # 运行各服务的 make check，并记录退出码和日志
 make -C integration check
 
+# 公开主网 RPC 联调，读取全部八条链，并用两个正式解析器核对主网池快照
+make -C integration public-rpc-test
+
 # 构建后执行隔离三进程离线联调；自动停止本次子进程
 make -C integration fixture-test
 
@@ -37,6 +40,8 @@ make -C integration test
 ```
 
 `make -C integration` 默认执行 `test`。`acceptance-report` 与 `test` 使用相同的现有离线验收流程。报告写入 `integration/artifacts/local/`。未通过的代码检查或联调会返回失败，不会标记为成功。
+
+主网测试使用各解析器的 `config-dev.yaml`，临时分配本地 API 端口、凭据和空状态目录。Ethereum 使用 MEV Blocker 与 PublicNode，Solana 使用官方 RPC 与 Pocket Network。测试按解析器快照的高度或 slot 回读区块，核对块哈希、父哈希和时间，逐链打印实际响应的端点。其余六条 EVM 链按目标目录核对链 ID、创世哈希并读取 finalized 块。开发配置的快照年龄上限为 Ethereum 20 分钟、Solana 2 分钟。结果写到标准输出；RPC、数据核对或服务启动失败会返回非零退出码。
 
 各服务单独构建和测试仍使用 `make -C <service> build/check/contract-test`。integration 不复制 Go/Cargo 的构建实现，也不是服务编译依赖。
 
@@ -59,7 +64,7 @@ docker compose -f integration/compose/compose.yaml up --build
 docker compose -f integration/compose/compose.yaml down
 ```
 
-`compose-prepare` 在 `integration/compose/.runtime/` 生成三个服务的配置、SHA256 摘要及权限为 0600 的共享开发凭据。Compose 使用各服务自己的 Dockerfile，仅将端口发布到本机回环地址。
+`compose-prepare` 在 `integration/compose/.runtime/` 生成三个权限为 0600 的服务配置，写入共享的本地开发凭据。解析器沿用开发配置中的主网 RPC 和池目录。Compose 使用各服务自己的 Dockerfile，仅将端口发布到本机回环地址。
 
 数据库初始化源为 `postgres/schema.sql`，操作手册位于 `runbooks/`。所有跨服务配置、准备脚本和测试资源均由 integration 管理。
 

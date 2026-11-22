@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|主网开发 RPC 与正式解析器（[阶段248](#public-mainnet-dev-rpc)，P0-1）|§3、§7、§28，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|8 条链实时核对身份和 finalized 块，Ethereum 与 Solana 正式解析器发布池快照|签名连续窗口、独立 Solana bank、Yellowstone 和生产验收仍待完成|
 |Go慢链启动、调度与租约隔离（[阶段247](#go-per-chain-scheduling)，P0-1）|§7.8、§9.24、§9.30、§18、§19.5、§28.6–28.9、§28.26，WP04、WP06、WP07、WP18、WP24|LOCAL_SCOPE_VERIFIED|每链worker与有界唤醒；正常RPC慢链不阻塞健康链启动/追块，实PG/Kafka独立提交/续租/撤权及释放通过|验证为本机受控RPC和实中间件；Rust慢链调度、真实第二/第三链及独立故障域仍缺|
 |签名窗口输入规划与近期录制重放入口（[阶段246](#signed-window-input-planning)，P0-1）|§7.1–7.3、§7.9、§9.24、§28.5–28.7，WP03、WP04、WP05、WP24|LOCAL_SCOPE_VERIFIED|实际原始请求模板、最多128高度的有界输入采集规划；传输重试共用原期限/字节预算，近期录制owner及归档重放需显式选择|仅工具和有限正常bank通过；真实32高度连续发布/重放仍未通过，旧失败和超范围窗口不计成功|
 |近期签名原始输入与普通双Router/恢复（[阶段245](#recent-signed-v2-bank)，P0-1）|§7.3、§7.9、§9.24、§18、§28.5–28.7、§28.26，WP03、WP04、WP07、WP09、WP24|LOCAL_SCOPE_VERIFIED|当前真实签名bank的完整原始响应有界采集；普通Go验签/MPT后四向整数报价、双副本/冷启动/owner重启与签名拒绝通过，冻结处理无上游读取|明确为近期签名录制模式；真实连续窗口、直连/生产SLO、完整VERIFIED和其他链协议继续推进|
@@ -5552,3 +5553,17 @@ Close先取消服务源生命周期，再无全局I/O锁等待已登记操作和
 自行启动的私有回环PG13/Kafka3.9.1中，A已持有120秒租约但普通finalized RPC阻塞，B仍完成真实baseline及两次BLOCK_COMMIT；无新RPC或ScheduleTick时PG ExpiresMS继续增长，证明独立续租。只读Kafka peer按完整引用连续应用，Close的ONLINE_SCOPE_REVOKED令peer失去可读；A晚响应不产生记录，A/B均立即可由peer取得租约。新门禁3.007秒，原post-Acquire失败释放门禁4.018秒，合并race4.894秒均通过。结束后已停止全部自行启动的服务并删除其数据、topic及临时脚本。
 
 最终Go全包通过（本轮evm152.535秒、service168.450秒），vet通过；普通生命周期/慢链/scope/raw/runtime的race及全包修复专项race通过，契约门禁保持328/12/191。本轮不保留新的测试报告或二进制。此项证明本机受控RPC和真实中间件下的链级隔离；Rust慢链调度、真实多链完整来源与独立故障域仍需推进，原26工作包完整验收仍为0。
+
+<a id="public-mainnet-dev-rpc"></a>
+
+## Ethereum 与 Solana 开发配置直连主网（2026-11-22，阶段248，P0-1）
+
+默认开发配置使用 Ethereum 主网的 MEV Blocker、PublicNode 和 Solana 官方主网 RPC、Pocket Network。解析器核对固定创世哈希，两个池使用各自的主网程序或合约身份。Router 消费两条主网链的 owner 快照。离线夹具使用测试配置。公开 Solana 节点中有端点能读块，但对本轮 11 个账户的完整批量请求返回 HTTP 403；最终选择的两个 Solana 端点均返回完整批次，Raydium 程序代码摘要和部署 slot 463522946 均匹配。
+
+2026-11-22 北京时间 08:41–08:42，`make -C integration public-rpc-test` 通过。Go 在 Ethereum 块 26467038（`0xbc23b083d143c8b2bdc98d0955ab9b02e31012946f017b44b7f1e4e480cfaac9`）发布 DAI/WETH 的 Uniswap V2 完整池状态，Rust 在 Solana slot 472343814（`DwZPitXjkFRi6vS9XPjjy3pubNgxP4fNjPCcpwAp8Bug`）发布 Raydium CPMM 固定版本的池状态。以普通解析器 HTTP 基线为输入，逐项与公开 RPC 的同高度块哈希、父哈希和时间比对。单独使用 Pocket Network 启动 Rust 也在 slot 472343574 发布了相同池的快照。
+
+其余六链通过公开 RPC 核对链 ID、固定创世哈希与 finalized 块。观察高度分别为 Base 60582915、BNB Smart Chain 134984940、Arbitrum One 526374762、OP Mainnet 159854011、Polygon PoS 97735130、Avalanche C-Chain 101024097。本轮覆盖两个池的实时状态读取与六条链的块观察。阶段246的连续签名窗口、Solana 独立 bank 证明、Yellowstone 流及整体生产验收继续按原门槛核对。
+
+三服务联调首次启动时 Ethereum 基线超过开发配置的 20 分钟上限，Go 返回 `BASELINE_TOO_OLD`。节点公布新的 finalized 块后，以相同配置和全新状态目录重启。Router 的 `/v1/quote-options` 同时返回两条链 ready，并列出了 Ethereum 块 26467069 的 DAI/WETH 池和 Solana slot 472344468 的 Raydium 池。
+
+[公网复验入口](integration/tools/acceptance/public_rpc_smoke.py) · [运行说明](integration/README.md)

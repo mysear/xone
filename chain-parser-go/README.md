@@ -18,7 +18,7 @@ Make会使用本项目锁文件。`make check`包含格式、静态检查、测�
 
 公开诊断：GET /health/live、/health/startup、/health/ready、/metrics。配置了 `api.auth_token` 时，内部接口要求 Authorization: Bearer 凭据。可选凭据通过 `api.auth_token` 显式配置；为空时不启用该认证，不生成开发凭据文件。
 
-GET /internal/chains/{chain}/baseline、/status、/journal?after={seq} 提供owner池状态和版本；链ID包含冒号，例如evm:31337。历史与在线namespace分离；本地旧cursor不能直接使服务ready。解析服务不生成路由/用户兑换量。
+GET /internal/chains/{chain}/baseline、/status、/journal?after={seq} 提供owner池状态和版本；链ID包含冒号，例如 evm:1。历史与在线namespace分离；本地旧cursor不能直接使服务ready。解析服务不生成路由/用户兑换量。
 
 正式 analytics 入口仅接受 `service.role=analytics`、`service.mode=journal`，按 `chains[].analysis_interval_ms` 读取分析间隔；离线事件回放通过独立的 `bin/fixture-parser-go --replay <events.json> --output <result.json>` 调试入口执行。
 
@@ -36,7 +36,7 @@ GET /internal/chains/{chain}/baseline、/status、/journal?after={seq} 提供own
 
 `config` 只有 `config-dev.yaml`、`config-test.yaml`、`config-prod.yaml` 三个完整配置文件，不使用 manifest、配置版本、文件清单或文件摘要。`make run CONFIG=config/config-test.yaml` 可选择环境；`--check-config` 只校验所选文件，不连接数据源。
 
-开发/测试配置使用本机 RPC 地址，需要配置对应链的 genesis、节点和池目录。生产文件是部署模板：需要填写真实 RPC、Kafka、控制面及认证参数。当前生产 TLS/SASL 能力仍受既有实现范围限制，生产模板缺少部署参数时校验失败。
+开发配置通过 MEV Blocker 和 PublicNode 连接 Ethereum 主网，以 finalized 块锚定 Uniswap V2 DAI/WETH 池，核验正文、回执和状态证明。服务监听本机 8091 端口。测试配置供本地回归使用。生产文件是部署模板：需要填写真实 RPC、Kafka、控制面及认证参数。当前生产 TLS/SASL 能力仍受既有实现范围限制，生产模板缺少部署参数时校验失败。
 
 配置结构、重复键、字段取值检查仍保留。运行中使用的配置/报价上下文指纹为派生业务数据，不是配置包 SHA256 校验；公开指纹不包含 API token。
 
@@ -44,7 +44,7 @@ GET /internal/chains/{chain}/baseline、/status、/journal?after={seq} 提供own
 
 ```bash
 make debug-build
-./bin/fixture-parser-go --config config/config-dev.yaml --fixtures test/fixtures
+./bin/fixture-parser-go --config config/config-test.yaml --fixtures test/fixtures
 ```
 
 调试程序与正式服务二进制分离，不包含在运行镜像中；Rust 调试程序仅在启用 `debug-fixtures` feature 时构建。集成测试自行生成临时配置和凭据，并明确选择调试入口。

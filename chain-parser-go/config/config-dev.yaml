@@ -3,7 +3,7 @@
     "mode": "HEAD_FIRST",
     "resume_previous_online_cursor": false,
     "history_catchup_blocks_online_readiness": false,
-    "max_baseline_age_ms": 315360000000,
+    "max_baseline_age_ms": 1200000,
     "max_tail_blocks": 128
   },
   "history": {
@@ -24,9 +24,9 @@
       "http://127.0.0.1:8091",
       "http://127.0.0.1:8092"
     ],
-    "poll_interval_ms": 200,
-    "request_timeout_ms": 2000,
-    "max_payload_bytes": 8388608,
+    "poll_interval_ms": 15000,
+    "request_timeout_ms": 60000,
+    "max_payload_bytes": 16777216,
     "kafka": {
       "brokers": [],
       "topics": {},
@@ -54,7 +54,7 @@
   },
   "state": {
     "engine": "pebble",
-    "path": "../.runtime/development/state"
+    "path": "../.runtime/development/public-ethereum/state"
   },
   "api": {
     "listen": "127.0.0.1:8091",
@@ -63,16 +63,40 @@
   },
   "chains": [
     {
-      "key": "evm:31337",
+      "key": "evm:1",
       "owner_service": "chain-parser-go",
       "assignment_version": 1,
-      "genesis_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "genesis_hash": "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
       "rpc_urls": [
-        "http://127.0.0.1:8545"
+        "https://rpc.mevblocker.io",
+        "https://ethereum-rpc.publicnode.com"
       ],
-      "pools": [],
-      "confirmation_tag": "latest",
-      "auto_reorg_window": 128
+      "proof_rpc_url": "https://rpc.mevblocker.io",
+      "pools": [
+        {
+          "id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+          "protocol": "uniswap-v2-complete",
+          "token0": "0x6b175474e89094c44da98b954eedeac495271d0f",
+          "token1": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "fee_numerator": 3,
+          "fee_denominator": 1000,
+          "v2": {
+            "expected_factory": "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f",
+            "expected_code_sha256": "8b5db55fa9ab3b9527508d4abe0b39eb588bf310270c8e04b3f38214e8ba63b4"
+          }
+        }
+      ],
+      "confirmation_tag": "finalized",
+      "auto_reorg_window": 128,
+      "block_integrity": "known-evm-native-commitments-v2",
+      "receipts_mode": "bulk-auto",
+      "native_proof": {
+        "max_bytes": 67108864,
+        "max_headers": 64,
+        "max_transactions": 4096,
+        "max_lookahead": 32,
+        "max_window_blocks": 16
+      }
     }
   ]
 }

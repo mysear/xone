@@ -13,4 +13,4 @@ for name,port in [('chain-parser-go',8091),('chain-parser-rust',8092),('dex-rout
  if name=='dex-router':config['journal']['source_auth_tokens']={url:token for url in config['journal']['source_urls']}
  target=out/name/'config';target.mkdir(parents=True,exist_ok=True)
  path=target/'config-dev.yaml';path.write_text(json.dumps(config,indent=2)+'\n');path.chmod(0o600)
-print('Prepared local Compose configs. Configure reachable RPC endpoints and pool catalogs before starting parsers.')
+print('Prepared local Compose configs for the Ethereum and Solana public mainnet RPCs.')

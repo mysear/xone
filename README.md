@@ -52,7 +52,9 @@ Protobuf 已接入类型生成和跨语言编码测试，当前Kafka数据通道
 
 服务使用 `--config config/config-dev.yaml`、`config/config-test.yaml` 或 `config/config-prod.yaml`，每个环境文件包含全部所需配置；保留 `--check-config`。无配置包版本、文件清单、逐文件 SHA256 或开发凭据生成步骤。可选 API 认证通过 `api.auth_token` 显式配置；不配置时无需本地 token 文件。配置值仍执行字段和约束检查。
 
-正式解析服务使用 RPC，analytics 使用 journal。合成样本与离线回放由服务内独立 `test/cmd` 调试程序提供，默认构建和运行镜像不包含调试程序。`make -C integration fixture-test` 显式构建/运行调试入口；RPC 重组测试使用正式解析器。开发/测试配置需按本地节点填写链身份和池目录，生产文件为待填写部署参数的模板。
+正式解析服务使用 RPC，analytics 使用 journal。合成样本与离线回放由服务内独立 `test/cmd` 调试程序提供，默认构建和运行镜像不包含调试程序。`make -C integration fixture-test` 显式构建/运行调试入口；RPC 重组测试使用正式解析器。开发配置默认连接 Ethereum 和 Solana 主网公开 RPC，读取 Uniswap V2 DAI/WETH 与 Raydium CPMM 的固定池。测试配置供本地节点与离线回归使用，生产配置需填写部署参数。
+
+运行 `make -C integration public-rpc-test` 可直连主网复验。它启动两个正式解析器，在全新的临时状态目录读取池快照，向公开 RPC 核对对应块或 slot 的引用，并探测设计中其余六条 EVM 链的身份与 finalized 区块。
 
 公共协议变更运行 `make -C common/protoc generate`，用 `make -C common/protoc check` 检查两种语言生成物；普通服务构建不需要生成工具。Docker 使用 xone 根目录作为 context，例如 `docker build -f chain-parser-go/Dockerfile .`。
 

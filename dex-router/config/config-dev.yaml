@@ -3,7 +3,7 @@
     "mode": "HEAD_FIRST",
     "resume_previous_online_cursor": false,
     "history_catchup_blocks_online_readiness": false,
-    "max_baseline_age_ms": 315360000000,
+    "max_baseline_age_ms": 1200000,
     "max_tail_blocks": 128
   },
   "history": {
@@ -45,7 +45,7 @@
     "split_parts": 20,
     "max_splits": 4,
     "route_activation_cost": "0",
-    "max_state_age_ms": 315360000000,
+    "max_state_age_ms": 1200000,
     "quote_ttl_ms": 5000
   },
   "simulation": {
@@ -83,23 +83,23 @@
   },
   "chains": [
     {
-      "key": "evm:31337",
+      "key": "evm:1",
       "owner_service": "chain-parser-go",
       "assignment_version": 1,
-      "genesis_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "genesis_hash": "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
       "rpc_urls": [],
       "pools": [],
-      "confirmation_tag": "latest",
+      "confirmation_tag": "finalized",
       "auto_reorg_window": 128
     },
     {
-      "key": "solana:localnet",
+      "key": "solana:mainnet-beta",
       "owner_service": "chain-parser-rust",
       "assignment_version": 1,
-      "genesis_hash": "localnet",
+      "genesis_hash": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
       "rpc_urls": [],
       "pools": [],
-      "confirmation_tag": "confirmed",
+      "confirmation_tag": "finalized",
       "auto_reorg_window": 128
     }
   ]

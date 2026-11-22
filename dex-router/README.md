@@ -38,7 +38,7 @@ VERIFIED返回INDEPENDENT_SIMULATION_UNAVAILABLE（422）；POST /v1/quotes/{id}
 
 `config` 只有 `config-dev.yaml`、`config-test.yaml`、`config-prod.yaml` 三个完整配置文件，不使用 manifest、配置版本、文件清单或文件摘要。`make run CONFIG=config/config-test.yaml` 可选择环境；`--check-config` 只校验所选文件，不连接数据源。
 
-开发/测试配置使用本机 RPC 地址，需要配置对应链的 genesis、节点和池目录。生产文件是部署模板：需要填写真实 RPC、Kafka、控制面及认证参数。当前生产 TLS/SASL 能力仍受既有实现范围限制，生产模板缺少部署参数时校验失败。
+开发配置通过本机 8091、8092 端口的解析器消费 evm:1 与 solana:mainnet-beta 快照。两个解析器各自连接主网公开 RPC。测试配置供本地回归使用。生产文件是部署模板：需要填写真实 RPC、Kafka、控制面及认证参数。当前生产 TLS/SASL 能力仍受既有实现范围限制，生产模板缺少部署参数时校验失败。
 
 配置结构、重复键、字段取值检查仍保留。运行中使用的配置/报价上下文指纹为派生业务数据，不是配置包 SHA256 校验；公开指纹不包含 API token。
 

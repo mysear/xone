@@ -23,6 +23,12 @@ log-redaction-test log-pressure-test:
 reducer-replay-test reorg-test fencing-test:
 	cd ../chain-parser-go && go test ./internal/reducer
 	$(MAKE) -C ../dex-router unit
+.PHONY: public-rpc-test
+public-rpc-test:
+	$(MAKE) -C ../chain-parser-go build
+	$(MAKE) -C ../chain-parser-rust build
+	python3 -B tools/acceptance/public_rpc_smoke.py
+
 fixture-test: build debug-build
 	python3 tools/acceptance/smoke.py
 optimizer-oracle-test restore-test head-first-startup-test: fixture-test
