@@ -144,7 +144,7 @@ func NewWithSource(cfg *config.Snapshot, source SnapshotSource) (*Service, error
 				s.Close()
 				return nil, err
 			}
-			s.adapters[chain.Key] = &evm.Adapter{Client: client, Chain: chain}
+			s.adapters[chain.Key] = &evm.Adapter{Client: client, Chain: chain, OnlineMaxAgeMS: cfg.Config.Startup.MaxAge}
 			if chain.OPOrigin != nil {
 				s.adapters[chain.Key].OPOriginProofFile = cfg.Resolve(chain.OPOrigin.ProofFile)
 				s.adapters[chain.Key].OPOriginMaxAgeMS = cfg.Config.Startup.MaxAge

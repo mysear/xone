@@ -19,13 +19,14 @@ class PublicPoolProbe(unittest.TestCase):
         self.balance = [37, 55, 10]
         self.change = None
         self.servers = []
+        self.chain_id = 10
 
     def rpc(self, url, method, params):
         self.servers.append(url)
         if self.change == "offline" and url == self.target["rpc_urls"][0]:
             raise OSError("unavailable")
         if method == "eth_chainId":
-            return "0x1" if self.change == "chain" else "0xa"
+            return "0x99" if self.change == "chain" else hex(self.chain_id)
         if method == "eth_getBlockByNumber":
             selector, full = params
             self.assertIs(full, False)
@@ -79,6 +80,25 @@ class PublicPoolProbe(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "parser block differs"):
                 smoke.check_public_pool(self.target, expected=dict(expected, parent_hash="0x" + "e" * 64))
 
+    def test_ethereum_owner_reserves_must_match_finalized_contract(self):
+        self.chain_id = 1
+        target = dict(self.target, chain_key="evm:1", chain_id=1, owner="chain-parser-go")
+        target.pop("public_pool_probe")
+        chain = dict(rpc_urls=target["rpc_urls"], pools=[dict(
+            id=self.pool["pool"], protocol="uniswap-v2-complete", token0=self.pool["token0"], token1=self.pool["token1"],
+            v2=dict(expected_factory=self.pool["factory"], expected_code_sha256=self.pool["runtime_sha256"]))])
+        with patch.object(smoke, "rpc", self.rpc), patch.object(smoke.time, "time", return_value=11):
+            block = smoke.block_from_provider(target, chain["rpc_urls"][0], None)
+            pool = dict(pool_id=self.pool["pool"], chain_key=target["chain_key"], protocol="uniswap-v2-complete",
+                        token0=self.pool["token0"], token1=self.pool["token1"], reserve0="37", reserve1="55")
+            snapshot = dict(reference=dict(owner_service=target["owner"], block=block), pools=[pool])
+            row = smoke.check_snapshot(target, chain, snapshot, 10000)
+            self.assertEqual(row["contract_state"], dict(reserve0="37", reserve1="55"))
+            self.assertEqual(row["rpc"], chain["rpc_urls"][1])
+            pool["reserve1"] = "56"
+            with self.assertRaisesRegex(ValueError, "same-block contract"):
+                smoke.check_snapshot(target, chain, snapshot, 10000)
+
     def test_invalid_block_hash_cannot_bind_a_contract_observation(self):
         self.block["hash"] = "0xabc"
         with patch.object(smoke, "rpc", self.rpc), self.assertRaisesRegex(RuntimeError, "invalid EVM block hash"):
@@ -116,3 +136,21 @@ class PublicPoolProbe(unittest.TestCase):
         snapshot = dict(pools=[pool], reference=dict(owner_service="chain-parser-go", block={"chain_key": "evm:8453"}))
         with self.assertRaisesRegex(ValueError, "pool scope differs"):
             smoke.check_snapshot(target, chain, snapshot, 1200000)
+
+    def test_solana_snapshot_binds_vault_reserves_to_its_account_bank(self):
+        key = "solana:mainnet-beta"
+        target = dict(owner="chain-parser-rust", chain_key=key)
+        chain = dict(rpc_urls=["primary", "secondary"], pools=[
+            dict(id="pool", protocol="raydium-cpmm-creator", token0="a", token1="b")])
+        state = dict(bank_slot=44, raw_vault0=40, raw_vault1=50, fund_fees0=1, fund_fees1=1,
+                     protocol_fees0=2, protocol_fees1=2, creator_fees0=3, creator_fees1=3)
+        block = dict(chain_key=key, number_or_slot=44, timestamp_ms=10000)
+        pool = dict(pool_id="pool", protocol="raydium-cpmm-creator", chain_key=key, token0="a", token1="b",
+                    reserve0="34", reserve1="44", raydium_cpmm=state)
+        snapshot = dict(pools=[pool], reference=dict(owner_service=target["owner"], block=block))
+        with patch.object(smoke, "check_block", return_value={"block": block}), patch.object(smoke.time, "time", return_value=10):
+            row = smoke.check_snapshot(target, chain, snapshot, 120000)
+            self.assertEqual(row["parser_pool_state"], dict(bank_slot=44, reserve0="34", reserve1="44"))
+            for changed in (dict(bank_slot=45), dict(fund_fees0=0), dict(raw_vault1=1 << 64), dict(creator_fees0=50)):
+                with self.subTest(changed=changed), patch.dict(state, changed), self.assertRaises(ValueError):
+                    smoke.check_snapshot(target, chain, snapshot, 120000)

@@ -27,6 +27,7 @@ type normalNativeFixture struct {
 	observed        string
 	corruptSettling atomic.Bool
 	fullReads       atomic.Int32
+	tagReads        atomic.Int32
 	stateReads      atomic.Int32
 }
 
@@ -76,6 +77,7 @@ func (f *normalNativeFixture) serve(t *testing.T) *httptest.Server {
 				result = map[string]any{"hash": f.chain.Genesis}
 			} else {
 				if tag == "latest" || tag == "safe" || tag == "finalized" {
+					f.tagReads.Add(1)
 					tag = f.observed
 				}
 				if full {

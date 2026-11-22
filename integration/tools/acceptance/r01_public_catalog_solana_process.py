@@ -11,12 +11,14 @@ import copy
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import re
 import secrets
 import shutil
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 import urllib.error
@@ -271,7 +273,15 @@ def read_http(url,token,body=None,timeout=3):
 def pin_binary(source,cache):
     raw=source.read_bytes();h=digest(raw);require(source.read_bytes()==raw,'normal-binary-changed-while-copying')
     target=cache/(source.name+'-'+h);cache.mkdir(parents=True,exist_ok=True)
-    if not target.exists():target.write_bytes(raw);target.chmod(0o755)
+    if not target.exists():
+        with tempfile.NamedTemporaryFile(dir=cache) as staged:
+            staged.write(raw)
+            staged.flush()
+            os.fchmod(staged.fileno(),0o755)
+            try:
+                os.link(staged.name,target)
+            except FileExistsError:
+                pass
     require(digest(target.read_bytes())==h,'normal-binary-copy-hash')
     return source,{'source':str(source),'archived_identical_bytes':str(target),'path':str(source),'sha256':h,'bytes':len(raw),'source_mtime_ns':source.stat().st_mtime_ns,'mode':'normal-production-binary; no fixture-parser'}
 
@@ -286,7 +296,8 @@ def run_case(label,output,parser_bin,router_bin,timeout=45,*,clmm_window='full-c
         result['freshness_policy']={'startup_max_baseline_age_ms':FRESHNESS,'router_max_state_age_ms':FRESHNESS,'Clock_rewritten':False,'scope':'explicit offline test configuration'}
         commands={};result['binaries']={}
         for alias,source in [('parser',parser_bin),('router',router_bin)]:
-            binary,pin=pin_binary(source,output/'binaries');result['binaries'][alias]=pin
+            # Cases in this run record and verify the same content-addressed executables.
+            binary,pin=pin_binary(source,output.parent/'binaries');result['binaries'][alias]=pin
             cfg_path=output/(alias+'-config.json');cfg_path.write_text(json.dumps(configs[alias],indent=2)+'\n');cfg_path.chmod(0o600)
             command=[str(binary),'--config',str(cfg_path)];commands[alias]=command
             stream=(output/(alias+'.log')).open('w');streams.append(stream)

@@ -72,7 +72,16 @@ func openNativeProofReader(ctx context.Context, a *Adapter, limits ReceiptProofL
 		cancel()
 		return nil, errors.New("NO_HEALTHY_PROVIDER")
 	}
-	r := &nativeProofReader{ctx: ctx, cancel: cancel, client: providers[0], baseMaxBytes: a.Client.MaxBytes, budget: receiptProofBudget{remaining: limits.MaxBytes}, chainKey: a.Chain.Key, genesis: genesis, limits: limits}
+	r := &nativeProofReader{ctx: ctx, cancel: cancel, baseMaxBytes: a.Client.MaxBytes, budget: receiptProofBudget{remaining: limits.MaxBytes}, chainKey: a.Chain.Key, genesis: genesis, limits: limits}
+	if err := r.bindProvider(providers[0], verified); err != nil {
+		cancel()
+		return nil, err
+	}
+	return r, nil
+}
+
+func (r *nativeProofReader) bindProvider(provider *rpc.Client, verified *proofEndpointIdentity) error {
+	r.client = provider
 	httpClient := *r.client.HTTP
 	transport := httpClient.Transport
 	if transport == nil {
@@ -80,36 +89,32 @@ func openNativeProofReader(ctx context.Context, a *Adapter, limits ReceiptProofL
 	}
 	httpClient.Transport = nativeBudgetTransport{base: transport, budget: &r.budget}
 	r.client.HTTP = &httpClient
-	selected := proofEndpointIdentity{url: r.client.URLs[0], chainKey: r.chainKey, genesis: genesis}
+	selected := proofEndpointIdentity{url: r.client.URLs[0], chainKey: r.chainKey, genesis: r.genesis}
 	if verified != nil && *verified == selected {
-		return r, nil
+		return nil
 	}
 	identity, err := r.call("eth_chainId", []any{})
 	if err != nil {
-		cancel()
-		return nil, err
+		return err
 	}
 	var id string
 	json.Unmarshal(identity, &id)
 	number, e := canonicalIndex(id)
-	if e != nil || "evm:"+strconv.FormatUint(number, 10) != a.Chain.Key {
-		cancel()
-		return nil, errors.New("BLOCK_BODY_FINGERPRINT")
+	if e != nil || "evm:"+strconv.FormatUint(number, 10) != r.chainKey {
+		return errors.New("BLOCK_BODY_FINGERPRINT")
 	}
 	origin, err := r.call("eth_getBlockByNumber", []any{"0x0", false})
 	if err != nil {
-		cancel()
-		return nil, err
+		return err
 	}
 	var hash struct{ Hash string }
-	if json.Unmarshal(origin, &hash) != nil || !strings.EqualFold(hash.Hash, genesis) {
-		cancel()
-		return nil, errors.New("BLOCK_BODY_FINGERPRINT")
+	if json.Unmarshal(origin, &hash) != nil || !strings.EqualFold(hash.Hash, r.genesis) {
+		return errors.New("BLOCK_BODY_FINGERPRINT")
 	}
 	if verified != nil {
 		*verified = selected
 	}
-	return r, nil
+	return nil
 }
 func (r *nativeProofReader) call(method string, params []any) (json.RawMessage, error) {
 	switch method {
@@ -616,11 +621,7 @@ func (a *Adapter) ReadNativeSettledBlockProof(ctx context.Context, tag string, l
 		return empty, err
 	}
 	defer r.cancel()
-	raw, err := r.call("eth_getBlockByNumber", []any{tag, false})
-	if err != nil {
-		return empty, err
-	}
-	head, err := VerifyChainHeaderJSON(r.ctx, r.chainKey, raw)
+	head, expectedHash, err := a.selectNativeHead(r, tag)
 	if err != nil {
 		return empty, err
 	}
@@ -632,7 +633,7 @@ func (a *Adapter) ReadNativeSettledBlockProof(ctx context.Context, tag string, l
 	if err != nil {
 		return empty, err
 	}
-	if head.SettledHeight == nil && header.Block.Hash != head.Block.Hash {
+	if expectedHash != "" && header.Block.Hash != expectedHash {
 		return empty, errors.New("NATIVE_PROOF_HEAD_REORG")
 	}
 	proof, err := r.proveBody(header, body)

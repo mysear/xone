@@ -4,7 +4,7 @@
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
-状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。目前 26 个工作包完整验收为 0。阶段252后，WP18 进入部分实现，25 个工作包为 `PARTIAL_LOCAL`，WP22 为 `NOT_STARTED`。生产准入与 VERIFIED 报价关闭。
+状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。目前 26 个工作包完整验收为 0。截至阶段253，WP18 已进入部分实现，25 个工作包为 `PARTIAL_LOCAL`，WP22 为 `NOT_STARTED`。生产准入与 VERIFIED 报价关闭。
 
 优先级：区块解析和精确兑换量计算优先，分析功能低优先级。三服务各自独立，公共协议位于common。
 
@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|滞后主网 RPC 的选择与复核（[阶段253](#public-mainnet-stale-head)，P0-1）|§7、§23.4、§28，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|首选 EVM 端点报告过期头时，在同一确认级别交叉核对数值高度与哈希，保留正文和回执见证。Ethereum 增加同块储备复核|八链各验证一个池，Solana 独立 bank 和生产故障域仍待验收|
 |八条主网的正式解析器和真实池状态（[阶段252](#public-mainnet-pool-owners)，P0-1）|§3、§7、§9、§28，WP03、WP04、WP05、WP18、WP24|LOCAL_SCOPE_VERIFIED|七条 EVM 链和 Solana 在同一次公网验收发布快照，六个新增部署按同块合约状态复核|覆盖每链一个指定池，独立共识来源、全协议和生产验收仍待完成|
 |Ethereum 主网连续签名窗口（[阶段251](#public-signed-ethereum-windows)，P0-1）|§7、§18、§28，WP03、WP04、WP05、WP20、WP24|LOCAL_SCOPE_VERIFIED|两个真实窗口各 32 条连续提交、双 Router 整数报价和冷重启、原始响应冻结重放；空目录可复验|执行层完整状态转换、独立故障域、Solana 可信 bank 和生产验收仍待完成|
 |Solana 多链启动和运行隔离（[阶段250](#rust-chain-workers)，P0-1）|§7、§8、§28，WP04、WP05、WP07、WP24|LOCAL_SCOPE_VERIFIED|每链独立同步和续租，退出前完成已接收的 Kafka 提交与撤权，两个正式解析器再连主网|独立主网 bank、同源 Yellowstone 和跨故障域验收仍待完成|
@@ -5642,3 +5643,22 @@ Rust 解析器分别启动每条链的工作任务。第一条完成初始化的
 本轮另清理 837 份旧报告、预检日志和一次性源码编辑脚本，共占用 964141056 字节。四份最大的 Balancer 输出均有仓库内的原始输入和生成命令。清理后覆盖 68 项相关回归，其中两个测试类使用项目固定的 Node v25.3.0 复验。613 份属于旧 Kafka 应用和 GC 日志。本轮另起真实 PostgreSQL 与 Kafka，验证测试程序把此类日志放入每实例临时目录，退出后删除，Kafka 安装目录的文件及修改时间保持一致。Go 全包普通测试、vet、race 与两个 Rust 配置包回归通过。全量 Go race 的 EVM 包超过首次运行的十分钟限制，在延长测试超时后通过。
 
 [公开主网复验](integration/tools/acceptance/public_rpc_smoke.py) · [固定部署与公开端点](integration/config/chain-targets.json) · [运行方式](integration/README.md) · [V3 状态读取](chain-parser-go/internal/chain/evm/v3.go)
+
+
+<a id="public-mainnet-stale-head"></a>
+
+## 公开 RPC 过期头切换与主网池储备复核（2026-11-22，阶段253，P0-1）
+
+Go 普通在线解析器现在先检查移动标签的时间。当首选端点返回哈希有效但已过期的头时，解析器向其他已配置的健康端点请求同一标签，并检查链 ID 和创世哈希。候选端点须按高度确认已见旧头，首选端点须按高度确认候选头，随后仍从首选端点读取完整正文。Avalanche SAE 同时检查待发布执行块。所有探测共用此次证明的字节预算和截止时间。未来时间、哈希冲突、记录失败、取消和预算耗尽都会阻止本次发布。历史数值高度及已签名的固定引用继续按原目标读取。
+
+北京时间 11:09–11:21，正式解析器分别接入七条 EVM 主网及 Solana。Ethereum 在 26467804 发布 DAI/WETH 快照，增加储备复核后再次在 26467836 发布，PublicNode 在同块读回两个原始整数 `3167250035322729866418488` 和 `1896973864188940389507`。Base 60628953、BNB Smart Chain 135004841、Arbitrum One 526401634、OP Mainnet 159858651、Polygon PoS 97741154、Avalanche C-Chain 101033014 均完成同块合约状态复核。Solana 在 slot 472388290 发布 Raydium CPMM 快照。随后将账户来源限定为官方主网 RPC，Pocket 在 slot 472388907 读回同一块哈希 `9k9sXXoAw2AKgagQLSq6xg4LWMKUJEeubPeAR9YBx81T`、父哈希和时间。两侧金库余额分别扣除协议、基金和创建者累计费用后得到原始整数 `125400457955`、`843930427296813`，与池快照一致。Solana 这项跨来源复核覆盖块引用，独立 bank 仍待验收。
+
+另用 BNB Smart Chain 主网演练首选端点滞后。将首选端点的 finalized 读取固定在此前实测的 134998582，其余调用实时转发至原公网来源。备用端点提供块 135004698，首选端点提供该块完整正文。复查哈希 `0x76e5e498ca2f5b60f1096bbfeec6fc26b473073dda5e1aeedb1079c32f71731f` 和 Pancake V2 两侧储备均与解析器一致。最终版本在相同滞后条件下再次通过，选定块 135006263，哈希 `0xa3b2568ed710bff4e120d8894560c1c3a90fca9aef16cf54c55edacfd00ca521`。再将两个端点均固定到真实旧块，解析器发出两次 finalized 请求，返回 `BASELINE_TOO_OLD`，未请求新区块正文或发布池快照。此次滞后由演练注入。实际探测中 OP 两个端点也曾同时落后约 23 分钟，待端点推进后在既有 20 分钟限制内通过。
+
+11:26–11:33 以最终版本再执行八链验收，Ethereum 26467868、BNB Smart Chain 135007199、Solana 472390541、Arbitrum One 526405425、OP Mainnet 159859165、Polygon PoS 97741896、Avalanche C-Chain 101034248 通过。Base 首次触及 60 秒截止时间，整次命令返回非零。保留相同端点、时限及 20 分钟时效要求单链重试，在块 60634671 通过，256 个已初始化 tick，链上价格和流动性与快照一致。
+
+Go 全包与 vet 通过，移动头和时效用例通过 race 检查。全包复跑曾暴露 checkpoint 轮转回归的等待条件只观察健康链发布，故障链尚未轮到即可断言失败。现等待健康链发布和故障计数两个事件，保留目录、恢复和单次并发断言，连续 12 次 race 及全包复验通过。跨服务契约检查覆盖 328 个契约文件、12 个普通 fixture 和 191 个公开来源文件。
+
+历史测试目录中 12 份已按内容摘要固定的程序有 3 组不同字节。核对 SHA-256 后将 9 份重复副本改为硬链接，保留每份旧记录的验证路径，减少重复文件内容 570993248 字节。删除 54 个过期日志及构建文件共 49934971 字节。新的 Solana 三池离线验收为同一轮的各池共享按哈希归档的程序，44 项原有回归通过。主网测试运行时生成的状态、凭据、报告与构建目录按轮清理。
+
+[移动头选择](chain-parser-go/internal/chain/evm/native_head.go) · [回归与故障场景](chain-parser-go/internal/chain/evm/native_head_test.go) · [公网验收](integration/tools/acceptance/public_rpc_smoke.py) · [主网配置与复验](integration/README.md)

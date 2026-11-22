@@ -103,7 +103,7 @@ def check_public_pool(target, expected=None, urls=None):
                 value, = abi_words(url, pool, selector, height, 1)
                 if value != int(probe[key], 16):
                     raise RuntimeError(f"pool {key} differs at {height} on {url}")
-            if probe["protocol"] == "pancake-v2":
+            if probe["protocol"] in {"pancake-v2", "uniswap-v2-complete"}:
                 r0, r1, stamp = abi_words(url, pool, "0x0902f1ac", height, 3)
                 if r0 >= 1 << 112 or r1 >= 1 << 112 or stamp >= 1 << 32:
                     raise RuntimeError("invalid V2 reserve encoding")
@@ -227,6 +227,13 @@ def check_snapshot(target, chain, snapshot, max_age_ms):
         raise ValueError(f"parser baseline outside configured freshness window ({age} ms)")
     # Prefer the secondary for the cross-check. Report the actual responding URL.
     urls = list(reversed(chain["rpc_urls"]))
+    if target["chain_key"] == "evm:1" and "public_pool_probe" not in target:
+        pool, = chain["pools"]
+        if pool["protocol"] != "uniswap-v2-complete":
+            raise ValueError("unsupported Ethereum development pool")
+        target = dict(target, public_pool_probe=dict(
+            pool=pool["id"], protocol=pool["protocol"], token0=pool["token0"], token1=pool["token1"],
+            factory=pool["v2"]["expected_factory"], runtime_sha256=pool["v2"]["expected_code_sha256"]))
     if "public_pool_probe" in target:
         row = check_public_pool(target, ref, urls)
         pool, = snapshot["pools"]
@@ -237,6 +244,19 @@ def check_snapshot(target, chain, snapshot, max_age_ms):
             row["initialized_ticks"] = len(values["ticks"])
     else:
         row = check_block(target, urls, ref)
+        if target["chain_key"] == "solana:mainnet-beta":
+            pool, = snapshot["pools"]
+            state = pool["raydium_cpmm"]
+            if pool["protocol"] != "raydium-cpmm-creator" or state["bank_slot"] != ref["number_or_slot"]:
+                raise ValueError("Raydium pool bank differs from the parser block")
+            for i in (0, 1):
+                amounts = [state[key + str(i)] for key in ("raw_vault", "protocol_fees", "fund_fees", "creator_fees")]
+                if any(type(n) is not int or not 0 <= n < 1 << 64 for n in amounts):
+                    raise ValueError("Raydium vault amount outside u64")
+                reserve = amounts[0] - sum(amounts[1:])
+                if reserve <= 0 or str(reserve) != pool["reserve" + str(i)]:
+                    raise ValueError("Raydium reserve differs from vault less accrued fees")
+            row["parser_pool_state"] = dict(bank_slot=state["bank_slot"], reserve0=pool["reserve0"], reserve1=pool["reserve1"])
     row.update(parser=project, pools=[p["pool_id"] for p in snapshot["pools"]])
     return row
 

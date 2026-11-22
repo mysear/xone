@@ -379,10 +379,11 @@ func TestCheckpointWorkerFairRotationIsolatesPersistentChainFailureAndRecovers(t
 	}
 	workerWait(t, func() bool {
 		w := catalog("evm:31338")
-		return w.Code == 200 && json.Unmarshal(w.Body.Bytes(), &publication) == nil
+		// Either chain may be first after both bootstraps become visible.
+		return w.Code == 200 && json.Unmarshal(w.Body.Bytes(), &publication) == nil && s.checkpointErrors.Load() > 0
 	})
-	if publication.Reference.Reference != healthy.Snapshot.Reference || s.checkpointErrors.Load() == 0 {
-		t.Fatal("healthy chain starved or failure disappeared", s.checkpointErrors.Load())
+	if publication.Reference.Reference != healthy.Snapshot.Reference {
+		t.Fatal("healthy chain published the wrong checkpoint")
 	}
 	if w := catalog("evm:31337"); w.Code != 503 {
 		t.Fatal("failed chain was advertised", w.Code)

@@ -18,7 +18,7 @@ xone/
 
 两个解析器的正式入口统一为 `cmd/chain-parser/main.go` 或 `cmd/chain-parser/main.rs`，路由器入口为 `cmd/dex-router/main.rs`；测试资源统一为 `test/contracts`、`test/fixtures`，独立调试程序位于 `test/cmd`。Rust 库 crate 继续使用各自的 `src`。
 
-当前交付是**离线开发闭环**：可以启动三个真实进程、消费两个解析源、执行ExactIn路径/拆单计算、验证重启代际和旧报价失效。真实Kafka/PG开发链路、双副本与旧主隔离已接通并验证；生产TLS/ISR/故障域、独立余额差仿真、真实Yellowstone及更多协议仍未完成。`FAST`返回`INDICATIVE`；`VERIFIED`和交易build明确拒绝，不返回看似可执行的交易。详见进度文档。
+开发环境已接入 Ethereum 与 Solana 的公开主网 RPC。离线联调可启动三个进程，消费两个解析源，执行 ExactIn 路径和拆单计算，验证重启代际和旧报价失效。真实Kafka/PG开发链路、双副本与旧主隔离已接通并验证；生产TLS/ISR/故障域、独立余额差仿真、真实Yellowstone及更多协议仍未完成。`FAST`返回`INDICATIVE`；`VERIFIED`和交易build明确拒绝，不返回看似可执行的交易。详见进度文档。
 
 项目进度只维护 [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md)，其中包含原26工作包、全部协议覆盖、功能与设计条款映射及历史实施计划。
 
@@ -46,7 +46,7 @@ Protobuf 已接入类型生成和跨语言编码测试，当前Kafka数据通道
 
 组合启动和 Compose 使用方法见 [integration/README.md](integration/README.md)。
 
-需要Go 1.26、Rust 1.90.0、Protobuf编译器、Python 3；Rust工具链由各项目rust-toolchain.toml固定，Make显式使用rustup的Cargo。RocksDB首次编译需要C++工具链和libclang，耗时明显长于后续构建。单元测试与联调在首次安装依赖后不读取公网RPC。
+需要Go 1.26、Rust 1.90.0、Protobuf编译器、Python 3；Rust工具链由各项目rust-toolchain.toml固定，Make显式使用rustup的Cargo。RocksDB首次编译需要C++工具链和libclang，耗时明显长于后续构建。单元测试与 fixture 联调在首次安装依赖后可离线运行。下列公开主网测试需要网络。
 
 ## 配置和安全边界
 
@@ -54,7 +54,7 @@ Protobuf 已接入类型生成和跨语言编码测试，当前Kafka数据通道
 
 正式解析服务使用 RPC，analytics 使用 journal。合成样本与离线回放由服务内独立 `test/cmd` 调试程序提供，默认构建和运行镜像不包含调试程序。`make -C integration fixture-test` 显式构建/运行调试入口；RPC 重组测试使用正式解析器。开发配置默认连接 Ethereum 和 Solana 主网公开 RPC，读取 Uniswap V2 DAI/WETH 与 Raydium CPMM 的固定池。测试配置供本地节点与离线回归使用，生产配置需填写部署参数。
 
-运行 `make -C integration public-rpc-test` 可直连主网复验。它启动两个正式解析器，在全新的临时状态目录读取池快照，向公开 RPC 核对对应块或 slot 的引用，并探测设计中其余六条 EVM 链的身份与 finalized 区块。
+运行 `make -C integration public-rpc-owner-test` 可让正式解析器在七条 EVM 主网和 Solana 各发布一个池快照，并按块高或 slot 回读核对。较短的 `public-rpc-test` 对 Ethereum 和 Solana 启动正式解析器，对其余六条 EVM 主网直接调用合约。两种方式都使用临时状态目录。[公开 RPC 和目标池](integration/config/chain-targets.json) · [复验命令与口径](integration/README.md)
 
 公共协议变更运行 `make -C common/protoc generate`，用 `make -C common/protoc check` 检查两种语言生成物；普通服务构建不需要生成工具。Docker 使用 xone 根目录作为 context，例如 `docker build -f chain-parser-go/Dockerfile .`。
 

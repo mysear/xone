@@ -9,12 +9,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"xone/chain-parser-go/internal/bootstrap"
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/rpc"
 )
 
 type Adapter struct {
+	OnlineMaxAgeMS    uint64 // moving online heads only; numeric history and signed checkpoint reads keep their exact target
 	OPOriginProofFile string
 	OPOriginMaxAgeMS  uint64
 	Client            *rpc.Client
@@ -238,6 +240,11 @@ func (a *Adapter) readState(ctx context.Context, tag string, completeBlock bool)
 	ref, e := blockReference(a.Chain.Key, b)
 	if e != nil {
 		return domain.BlockRef{}, nil, nil, e
+	}
+	if a.OnlineMaxAgeMS > 0 && movingHeadTag(tag) {
+		if e := bootstrap.CheckTimestampMS(ref.TimestampMS, uint64(time.Now().UnixMilli()), a.OnlineMaxAgeMS); e != nil {
+			return ref, nil, nil, e
+		}
 	}
 	facts := []domain.SwapFact{}
 	var completedReceipts []Receipt
