@@ -159,6 +159,37 @@ func TestNormalizedFactsSurviveBinaryJournal(t *testing.T) {
 	}
 }
 
+func TestNativeBNBPancakeV2FactsRoundTripAndRequireNewDecoder(t *testing.T) {
+	s := fixture(t)
+	s.Reference.Block.ChainKey = "evm:56"
+	s.Pools = s.Pools[:1]
+	p := &s.Pools[0]
+	p.ChainKey, p.Protocol, p.AdapterVersion = "evm:56", "pancake-v2", "pancake-v2/core-1"
+	p.PoolID, p.Token0, p.Token1 = "0x"+strings.Repeat("10", 20), "0x"+strings.Repeat("20", 20), "0x"+strings.Repeat("30", 20)
+	p.FeeNumerator, p.FeeDenominator = 25, 10000
+	p.V2 = &domain.V2State{Factory: "0x" + strings.Repeat("11", 20), CodeSHA256: strings.Repeat("aa", 32)}
+	s.Reference.ScopeHash, _ = domain.ScopeHash(s.Pools)
+	s.Reference.AdapterSetHash, _ = domain.Hash([]string{p.AdapterVersion})
+	block := s.Reference.Block
+	fact := domain.SwapFact{EventID: domain.SwapEventID(block, 1, 2), TxHash: "0x" + strings.Repeat("ab", 32), TxIndex: 1, LogIndex: 2,
+		PoolID: p.PoolID, Token0: p.Token0, Token1: p.Token1, Amount0In: "10", Amount1In: "0", Amount0Out: "0", Amount1Out: "8"}
+	u := Unit{Kind: "BLOCK_COMMIT", Snapshot: s, NormalizedFacts: &domain.FactBatch{SchemaVersion: 1,
+		DecoderVersion: domain.NativeBNBV2SwapDecoder, Blocks: []domain.FactBlock{{Block: block, Swaps: []domain.SwapFact{fact}}}}}
+	raw, err := EncodeUnit(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := DecodeUnit(raw)
+	if err != nil || got.NormalizedFacts == nil || got.NormalizedFacts.DecoderVersion != domain.NativeBNBV2SwapDecoder ||
+		got.NormalizedFacts.Blocks[0].Swaps[0] != fact {
+		t.Fatal(got, err)
+	}
+	u.NormalizedFacts.DecoderVersion = domain.LegacyV2SwapDecoder
+	if _, err := EncodeUnit(u); err == nil || err.Error() != "FACT_POOL_SCOPE" {
+		t.Fatal("legacy decoder accepted Pancake scope", err)
+	}
+}
+
 func TestProtocNormalizedFactsGolden(t *testing.T) {
 	raw, e := os.ReadFile("../../test/contracts/normalized-facts.json")
 	if e != nil {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 	"xone/chain-parser-go/internal/bootstrap"
+	"xone/chain-parser-go/internal/chain/evm"
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/ingest"
@@ -20,6 +21,28 @@ type stagedState struct {
 	Block domain.BlockRef   `json:"block"`
 	Pools []domain.Pool     `json:"pools"`
 	Swaps []domain.SwapFact `json:"swaps"`
+}
+
+const rawStagedProvider = "derived-state-from-recorded-rpc"
+const rawStagedSwapProvider = "derived-state-from-recorded-rpc/v2"
+const rawStagedSwapDecoderVersion = "staged-state/public-adapter-v2"
+
+func stagedProvider(chain config.Chain, pools []domain.Pool) string {
+	if evm.V2JournalDecoder(chain, pools) == domain.NativeBNBV2SwapDecoder {
+		return rawStagedSwapProvider
+	}
+	return rawStagedProvider
+}
+
+func stagedDecoderVersion(provider string) string {
+	switch provider {
+	case rawStagedProvider:
+		return RawStagedDecoderVersion
+	case rawStagedSwapProvider:
+		return rawStagedSwapDecoderVersion
+	default:
+		return ""
+	}
 }
 
 // syncStaged runs under the chain actor. Source reads run concurrently; no
@@ -51,7 +74,7 @@ func (s *Service) syncStagedRuntime(ctx context.Context, ch config.Chain, curren
 		base := current
 		windowReader := reader
 		if s.rawMaintenance != nil {
-			windowReader = s.rawMaintenance.ProtectReader(ch.Key, base.Reference, reader)
+			windowReader = s.rawMaintenance.protectStagedReader(ch, base.Reference, reader)
 		}
 		pipe := &ingest.Pipeline{Chain: ch.Key, Archive: tracker.archive, Limits: ingest.Limits{Workers: 2, MaxTasks: 2, MaxBlockBytes: payload * 2, MaxBytes: payload * 4},
 			Fetch: func(source context.Context, height uint64, limit int64) (ingest.Fetched, error) {
@@ -66,7 +89,7 @@ func (s *Service) syncStagedRuntime(ctx context.Context, ch config.Chain, curren
 				if int64(len(raw))*2 > limit {
 					return ingest.Fetched{}, ingest.ErrBudget
 				}
-				return ingest.Fetched{Height: block.Number, Hash: block.Hash, ParentHash: block.ParentHash, ProviderID: "derived-state-from-recorded-rpc", Raw: raw}, nil
+				return ingest.Fetched{Height: block.Number, Hash: block.Hash, ParentHash: block.ParentHash, ProviderID: stagedProvider(ch, pools), Raw: raw}, nil
 			},
 			Decode: func(_ context.Context, fetched ingest.Fetched) ([]byte, error) { return fetched.Raw, nil },
 			Validate: func(ctx context.Context, fetched ingest.Fetched, raw []byte) error {
@@ -95,10 +118,8 @@ func (s *Service) syncStagedRuntime(ctx context.Context, ch config.Chain, curren
 				next.Reference.Block = data.Block
 				next.Reference.JournalSeq++
 				next.Pools = data.Pools
-				unit := journal.Unit{Kind: "BLOCK_COMMIT", Snapshot: next}
-				if hasV2Scope(next.Pools) {
-					unit.NormalizedFacts = &domain.FactBatch{SchemaVersion: 1, DecoderVersion: "uniswap-v2/1", Blocks: []domain.FactBlock{{Block: data.Block, Swaps: data.Swaps}}}
-				}
+				unit := journal.Unit{Kind: "BLOCK_COMMIT", Snapshot: next,
+					NormalizedFacts: evm.V2JournalFacts(ch, next.Pools, []domain.FactBlock{{Block: data.Block, Swaps: data.Swaps}}, nil)}
 				if s.rawMaintenance != nil {
 					if e := s.rawMaintenance.PublishStaged(ctx, unit, selection); e != nil {
 						return e

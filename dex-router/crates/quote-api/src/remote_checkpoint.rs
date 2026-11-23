@@ -265,6 +265,7 @@ impl Api {
                             staged.apply(xone_domain::Record {
                                 reference: unit.snapshot.reference.clone(),
                                 kind: unit.kind,
+                                normalized_facts: unit.normalized_facts,
                                 record_id: String::new(),
                                 payload_hash: xone_domain::hash(&unit.snapshot.pools)?,
                                 pools: unit.snapshot.pools.clone(),

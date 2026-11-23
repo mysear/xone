@@ -21,6 +21,7 @@ fn immutable_handles_reorg_and_scope_barrier() {
     let r = Record {
         reference: s.reference.clone(),
         kind: "BLOCK_COMMIT".into(),
+        normalized_facts: None,
         record_id: "next".into(),
         payload_hash: hash(&s.pools).unwrap(),
         pools: s.pools.clone(),
@@ -46,6 +47,7 @@ fn wrong_owner_missing_seq_and_history_rejected() {
     let r = Record {
         reference: s.reference,
         kind: "HISTORY_BLOCK".into(),
+        normalized_facts: None,
         record_id: "history".into(),
         payload_hash: hash(&s.pools).unwrap(),
         pools: s.pools,
@@ -84,6 +86,7 @@ fn record(s: &Snapshot, kind: &str) -> Record {
     Record {
         reference: s.reference.clone(),
         kind: kind.into(),
+        normalized_facts: None,
         record_id: String::new(),
         payload_hash: hash(&s.pools).unwrap(),
         pools: s.pools.clone(),

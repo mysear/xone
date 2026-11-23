@@ -293,6 +293,7 @@ fn apply_admission_bank(api: &Api, snapshot: &mut Snapshot, marker: u8) {
         .apply(xone_domain::Record {
             reference: snapshot.reference.clone(),
             kind: "BLOCK_COMMIT".into(),
+            normalized_facts: None,
             record_id: format!("api-admission-{marker}"),
             payload_hash: hash(&snapshot.pools).unwrap(),
             pools: snapshot.pools.clone(),

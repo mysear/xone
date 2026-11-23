@@ -629,10 +629,8 @@ func (s *Service) syncChain(ctx context.Context, ch config.Chain) error {
 		if e := bootstrap.CheckFresh(next, uint64(time.Now().UnixMilli()), s.cfg.Config.Startup.MaxAge); e != nil {
 			return e
 		}
-		unit := journal.Unit{Kind: "BLOCK_COMMIT", Snapshot: next}
-		if hasV2Scope(next.Pools) {
-			unit.NormalizedFacts = &domain.FactBatch{SchemaVersion: 1, DecoderVersion: "uniswap-v2/1", Blocks: []domain.FactBlock{{Block: block, Swaps: swaps}}}
-		}
+		unit := journal.Unit{Kind: "BLOCK_COMMIT", Snapshot: next,
+			NormalizedFacts: evm.V2JournalFacts(ch, next.Pools, []domain.FactBlock{{Block: block, Swaps: swaps}}, nil)}
 		gate := s.runtimeScopeGate(ctx, selection, next)
 		var applyError error
 		if w := s.session(ch.Key); w != nil {
@@ -986,15 +984,4 @@ func (s *Service) Close() {
 	if s.log != nil {
 		s.log.Close()
 	}
-}
-
-// Fact completeness is decoder-specific. A V3-only scope must not publish an
-// empty V2 fact batch as evidence that V3 trades were decoded.
-func hasV2Scope(pools []domain.Pool) bool {
-	for _, p := range pools {
-		if p.Protocol == "uniswap-v2" {
-			return true
-		}
-	}
-	return false
 }

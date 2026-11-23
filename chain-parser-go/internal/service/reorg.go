@@ -171,10 +171,8 @@ func (s *Service) recoverFork(ctx context.Context, ch config.Chain, old domain.S
 	if e = store.StageReorg(branch, s.cfg.Config.Journal.MaxBytes); e != nil {
 		return e
 	}
-	unit := journal.Unit{Kind: "REORG_COMMIT", Snapshot: next}
-	if hasV2Scope(next.Pools) {
-		unit.NormalizedFacts = &domain.FactBatch{SchemaVersion: 1, DecoderVersion: "uniswap-v2/1", Blocks: factBlocks, RevertedBlocks: reverted}
-	}
+	unit := journal.Unit{Kind: "REORG_COMMIT", Snapshot: next,
+		NormalizedFacts: evm.V2JournalFacts(selected, next.Pools, factBlocks, reverted)}
 	gate := s.runtimeScopeGate(ctx, selection, next)
 	var records map[string]json.RawMessage
 	if s.rawMaintenance != nil {

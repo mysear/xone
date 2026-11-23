@@ -10,6 +10,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+	"xone/chain-parser-go/internal/chain/evm"
+	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/ingest"
 	"xone/chain-parser-go/internal/journal"
@@ -57,19 +59,27 @@ func (m *RawMaintenance) newCapture(key string) (context.Context, *rawCapture) {
 
 type maintenanceReader struct {
 	m      *RawMaintenance
-	key    string
+	chain  config.Chain
 	base   domain.SnapshotRef
 	reader stateBlockReader
 }
 
 func (m *RawMaintenance) ProtectReader(key string, base domain.SnapshotRef, reader stateBlockReader) stateBlockReader {
-	return maintenanceReader{m, key, base, reader}
+	chain := config.Chain{Key: key}
+	if adapter, ok := reader.(*evm.Adapter); ok {
+		chain = adapter.Chain
+	}
+	return m.protectStagedReader(chain, base, reader)
+}
+func (m *RawMaintenance) protectStagedReader(chain config.Chain, base domain.SnapshotRef, reader stateBlockReader) stateBlockReader {
+	return maintenanceReader{m, chain, base, reader}
 }
 func (r maintenanceReader) ReadComplete(ctx context.Context, tag string) (domain.BlockRef, []domain.Pool, []domain.SwapFact, error) {
-	if r.m.chains[r.key] == nil {
+	key := r.chain.Key
+	if r.m.chains[key] == nil {
 		return domain.BlockRef{}, nil, nil, errors.New("RAW_CHAIN")
 	}
-	ctx, group, finish, e := r.m.beginResponsibleCapture(ctx, r.key, "fact")
+	ctx, group, finish, e := r.m.beginResponsibleCapture(ctx, key, "fact")
 	if e != nil {
 		return domain.BlockRef{}, nil, nil, e
 	}
@@ -83,7 +93,7 @@ func (r maintenanceReader) ReadComplete(ctx context.Context, tag string) (domain
 	if e != nil || int64(len(raw)) > r.m.cfg.MaxRawBytes {
 		return block, nil, nil, ingest.ErrBudget
 	}
-	ref, e := r.m.putEvidencePinned(ctx, r.key, ingest.Owner{Chain: r.key, Height: block.Number, Hash: block.Hash, ProviderID: "derived-state-from-recorded-rpc"}, raw, "staged-"+group.ID)
+	ref, e := r.m.putEvidencePinned(ctx, key, ingest.Owner{Chain: key, Height: block.Number, Hash: block.Hash, ProviderID: stagedProvider(r.chain, pools)}, raw, "staged-"+group.ID)
 	if e != nil {
 		return block, nil, nil, e
 	}
@@ -96,12 +106,12 @@ func (r maintenanceReader) ReadComplete(ctx context.Context, tag string) (domain
 	if e != nil {
 		return block, nil, nil, e
 	}
-	acq.Proof, e = r.m.putEvidencePinned(ctx, r.key, ingest.Owner{Chain: r.key, Height: block.Number, Hash: rawDigest(encoded), ProviderID: "staged-acquisition-v1"}, encoded, "acquisition-"+group.ID)
+	acq.Proof, e = r.m.putEvidencePinned(ctx, key, ingest.Owner{Chain: key, Height: block.Number, Hash: rawDigest(encoded), ProviderID: "staged-acquisition-v1"}, encoded, "acquisition-"+group.ID)
 	if e != nil {
 		return block, nil, nil, e
 	}
 	r.m.mu.Lock()
-	r.m.chains[r.key].acquisitions = append(r.m.chains[r.key].acquisitions, acq)
+	r.m.chains[key].acquisitions = append(r.m.chains[key].acquisitions, acq)
 	r.m.mu.Unlock()
 	return block, pools, swaps, nil
 }
@@ -146,6 +156,10 @@ func (m *RawMaintenance) OwnerRecordsForUnit(unit journal.Unit) (map[string]json
 		if a.Raw.Owner.Height != r.Block.Number || a.Raw.Owner.Hash != r.Block.Hash || a.Base.OnlineGeneration != r.OnlineGeneration || a.Base.WriterEpoch != r.WriterEpoch || a.Base.ScopeHash != r.ScopeHash || a.Base.AdapterSetHash != r.AdapterSetHash {
 			continue
 		}
+		version := stagedDecoderVersion(a.Raw.Owner.ProviderID)
+		if version == "" || version == RawStagedDecoderVersion && unit.NormalizedFacts != nil && unit.NormalizedFacts.DecoderVersion == domain.NativeBNBV2SwapDecoder {
+			continue
+		}
 		data, e := state.recorder.archive.Read(a.Raw)
 		if e != nil {
 			return nil, e
@@ -162,17 +176,16 @@ func (m *RawMaintenance) OwnerRecordsForUnit(unit journal.Unit) (map[string]json
 		if e != nil || observed != published {
 			return nil, errors.New("RAW_CAPTURE_UNIT_STATE_CONFLICT")
 		}
-		if hasV2Scope(staged.Pools) {
-			if unit.NormalizedFacts == nil || len(unit.NormalizedFacts.Blocks) != 1 || unit.NormalizedFacts.Blocks[0].Block != staged.Block {
-				return nil, errors.New("RAW_CAPTURE_UNIT_FACTS_CONFLICT")
-			}
-			expected, _ := domain.Hash(staged.Swaps)
-			actual, _ := domain.Hash(unit.NormalizedFacts.Blocks[0].Swaps)
-			if expected != actual {
-				return nil, errors.New("RAW_CAPTURE_UNIT_FACTS_CONFLICT")
-			}
+		chain := config.Chain{Key: r.Block.ChainKey}
+		if version == rawStagedSwapDecoderVersion {
+			chain.BlockIntegrity = evm.ChainNativeCommitmentsV2
 		}
-		p := rawOwnerProof{Kind: "raw-capture-owner-v1", CommitID: id, Reference: r, Groups: []rawPinGroup{acquisitionGroup(a)}, Raw: a.Raw, DecoderVersion: RawStagedDecoderVersion}
+		expected, _ := domain.Hash(evm.V2JournalFacts(chain, staged.Pools, []domain.FactBlock{{Block: staged.Block, Swaps: staged.Swaps}}, nil))
+		actual, _ := domain.Hash(unit.NormalizedFacts)
+		if expected != actual {
+			return nil, errors.New("RAW_CAPTURE_UNIT_FACTS_CONFLICT")
+		}
+		p := rawOwnerProof{Kind: "raw-capture-owner-v1", CommitID: id, Reference: r, Groups: []rawPinGroup{acquisitionGroup(a)}, Raw: a.Raw, DecoderVersion: version}
 		encoded, e := json.Marshal(p)
 		if e != nil || len(encoded) > 65536 {
 			return nil, ingest.ErrBudget

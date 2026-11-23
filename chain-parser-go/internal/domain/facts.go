@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+const LegacyV2SwapDecoder = "uniswap-v2/1"
+const NativeBNBV2SwapDecoder = "evm-v2-swap/2"
+
 type SwapFact struct {
 	EventID    string `json:"event_id"`
 	TxHash     string `json:"tx_hash"`
@@ -42,7 +45,8 @@ func validFactBlock(b BlockRef) bool {
 	return ValidateChain(b.ChainKey) == nil && strings.HasPrefix(b.ChainKey, "evm:") && rawEVMHash(b.Hash) && rawEVMHash(b.ParentHash) && b.TimestampMS > 0
 }
 func (f FactBatch) Validate(kind string, tip BlockRef) error {
-	if f.SchemaVersion != 1 || f.DecoderVersion != "uniswap-v2/1" || len(f.Blocks)+len(f.RevertedBlocks) > 100000 {
+	if f.SchemaVersion != 1 || (f.DecoderVersion != LegacyV2SwapDecoder &&
+		(f.DecoderVersion != NativeBNBV2SwapDecoder || tip.ChainKey != "evm:56")) || len(f.Blocks)+len(f.RevertedBlocks) > 100000 {
 		return errors.New("FACT_SCHEMA_OR_LIMIT")
 	}
 	if kind != "BLOCK_COMMIT" && kind != "REORG_COMMIT" {

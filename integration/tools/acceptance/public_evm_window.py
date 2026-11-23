@@ -15,8 +15,11 @@ import time
 import urllib.error
 
 from current_v2_evidence import canonical, pairs, provider_id, require, rpc_observation, sealed_payload, sha
-from public_rpc_smoke import ROOT, check_snapshot, owner_process, probe_owner_chain
-from replay_beacon_window import ArchiveRPC, FILE_LIMIT, REPLAY_METHODS, read_window
+from public_rpc_smoke import ROOT, check_snapshot, owner_process, probe_owner_chain, rpc
+from replay_beacon_window import ArchiveRPC, FILE_LIMIT, REPLAY_METHODS, STAGED_V1, STAGED_V2, read_window
+
+PANCAKE_SWAP_TOPIC = '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822'
+BSC_SWAP_WITNESS = 'https://bsc-rpc.publicnode.com'
 
 
 class FinalizedObservations:
@@ -42,7 +45,7 @@ class FinalizedObservations:
             require(len(self.files) <= self.bounds['max_records'] and self.bytes <= self.bounds['max_bytes'],
                     'PUBLIC_WINDOW_ARCHIVE_BUDGET')
             owner, payload, identity = sealed_payload(path, FILE_LIMIT, self.chain, with_capture_time=True)
-            if owner['ProviderID'] == 'derived-state-from-recorded-rpc':
+            if owner['ProviderID'] in (STAGED_V1, STAGED_V2):
                 continue
             require(owner['ProviderID'] in self.providers, 'PUBLIC_WINDOW_ARCHIVE_PROVIDER')
             method, params, body = rpc_observation(owner, payload, identity, REPLAY_METHODS)
@@ -143,11 +146,12 @@ def read_journal(read, path, last):
     return records
 
 
-def capture(binary, config, target, directory, minimum, timeout):
+def capture(binary, config, target, directory, minimum, timeout, require_swaps=False):
     chain, = config['chains']
     witness = dict(chain, rpc_urls=[chain['rpc_urls'][1]])
     path = f"/internal/chains/{chain['key']}"
     first = None
+    checked_sequence = 0
     with owner_process(binary, config, directory) as (process, read, log):
         archive = Path(config['state']['path']) / 'raw-evidence' / chain['key'].replace(':', '-')
         heads = FinalizedObservations(archive, chain, config['journal']['raw_evidence'])
@@ -170,12 +174,16 @@ def capture(binary, config, target, directory, minimum, timeout):
             require(current['reference'] == dict(first['reference'], block=current['reference']['block'],
                                                  journal_seq=current['reference']['journal_seq']),
                     'PUBLIC_WINDOW_JOURNAL_DISCONTINUITY')
-            if distance >= minimum:
+            if distance >= minimum and current['reference']['journal_seq'] > checked_sequence:
                 heads.scan()
                 if heads.find(current) is not None:
                     records = read_journal(read, path, current)
                     verify_journal(first, current, records, minimum)
-                    return first, current, records, first_check
+                    checked_sequence = current['reference']['journal_seq']
+                    if not require_swaps or any(
+                            block['swaps'] for record in records[1:]
+                            for block in (record.get('normalized_facts') or {}).get('blocks', [])):
+                        return first, current, records, first_check
             time.sleep(0.6)
         size = log.seek(0, 2)
         log.seek(max(0, size - 2048))
@@ -192,10 +200,65 @@ def verify_replay(decoded, first, last, records, staged):
         block = record['reference']['block']
         for field in ('reference', 'kind', 'record_id', 'payload_hash'):
             require(row[field] == record[field], 'PUBLIC_WINDOW_REPLAY_JOURNAL')
+        require(row.get('normalized_facts') == record.get('normalized_facts'), 'PUBLIC_WINDOW_REPLAY_FACT_BATCH')
         require(row['block'] == block and row['staged_sha256'] == staged.get((block['number_or_slot'], block['hash']))
                 and re.fullmatch('[0-9a-f]{64}', row['staged_sha256'])
                 and type(row['swap_count']) is int and row['swap_count'] >= 0, 'PUBLIC_WINDOW_REPLAY_STAGED_FACTS')
     return rows
+
+
+def witness_bsc_swaps(target, records):
+    probe = target['public_pool_probe']
+    first, last = (records[index]['reference']['block'] for index in (0, -1))
+    blocks = {record['reference']['block']['number_or_slot']: record['reference']['block'] for record in records[1:]}
+    require(target['chain_key'] == 'evm:56' and probe['protocol'] == 'pancake-v2'
+            and 2 <= len(blocks) <= 128 and len(blocks) == len(records) - 1
+            and last['number_or_slot'] - first['number_or_slot'] == len(blocks), 'BSC_SWAP_WITNESS_RANGE')
+    logs = rpc(BSC_SWAP_WITNESS, 'eth_getLogs', [dict(
+        address=probe['pool'], topics=[PANCAKE_SWAP_TOPIC],
+        fromBlock=hex(first['number_or_slot'] + 1), toBlock=hex(last['number_or_slot']))])
+    require(isinstance(logs, list) and logs, 'BSC_SWAP_WITNESS_EMPTY')
+    # The two owner RPCs already bind genesis and the native commitments.
+    # Bind this log observation to that window by chain ID and both numbered
+    # anchors. The public log endpoint need only serve the recent window.
+    require(rpc(BSC_SWAP_WITNESS, 'eth_chainId', []) == '0x38', 'BSC_SWAP_WITNESS_CHAIN')
+    for anchor in (first, last):
+        number = hex(anchor['number_or_slot'])
+        raw = rpc(BSC_SWAP_WITNESS, 'eth_getBlockByNumber', [number, False])
+        require((raw['number'], raw['hash'], raw['parentHash'], int(raw['timestamp'], 16) * 1000)
+                == (number, anchor['hash'], anchor['parent_hash'], anchor['timestamp_ms']), 'BSC_SWAP_WITNESS_BLOCK')
+    expected = defaultdict(list)
+    events = set()
+    for log in logs:
+        require(log['address'] == probe['pool'] and log['removed'] is False and len(log['topics']) == 3
+                and log['topics'][0] == PANCAKE_SWAP_TOPIC
+                and all(re.fullmatch(r'0x0{24}[0-9a-f]{40}', topic) for topic in log['topics'][1:])
+                and re.fullmatch(r'0x[0-9a-f]{64}', log['transactionHash'])
+                and re.fullmatch(r'0x[0-9a-f]{256}', log['data'])
+                and all(re.fullmatch(r'0x(?:0|[1-9a-f][0-9a-f]*)', log[key])
+                        for key in ('blockNumber', 'transactionIndex', 'logIndex')), 'BSC_SWAP_WITNESS_LOG')
+        height, tx, index = (int(log[key], 16) for key in ('blockNumber', 'transactionIndex', 'logIndex'))
+        block = blocks.get(height)
+        require(block and block['hash'] == log['blockHash'] and (height, index) not in events,
+                'BSC_SWAP_WITNESS_LOG_IDENTITY')
+        events.add((height, index))
+        amounts = [str(int(log['data'][offset:offset+64], 16)) for offset in range(2, 258, 64)]
+        expected[height].append(dict(
+            event_id=f"{block['chain_key']}/{block['hash']}/{tx}/{index}", tx_hash=log['transactionHash'],
+            tx_index=tx, log_index=index, pool_id=probe['pool'], token0=probe['token0'], token1=probe['token1'],
+            **dict(zip(('amount0_in', 'amount1_in', 'amount0_out', 'amount1_out'), amounts))))
+
+    verified = []
+    for record in records[1:]:
+        block = record['reference']['block']
+        swaps = sorted(expected[block['number_or_slot']], key=lambda event: event['log_index'])
+        batch = record.get('normalized_facts') or {}
+        require(batch.get('schema_version') == 1 and batch.get('decoder_version') == 'evm-v2-swap/2'
+                and not batch.get('reverted_blocks') and batch.get('blocks') == [dict(block=block, swaps=swaps)],
+                'BSC_SWAP_WITNESS_FACTS')
+        verified.extend(swaps)
+    return dict(rpc=BSC_SWAP_WITNESS, count=len(verified), first_swap=verified[0],
+                swaps_sha256=sha(canonical(verified).encode()))
 
 
 def replay(binary, directory, config, chain, first, last, records):
@@ -205,7 +268,9 @@ def replay(binary, directory, config, chain, first, last, records):
     begin, end = heads.find(first), heads.find(last)
     require(begin and end and datetime.fromisoformat(begin[0]['captured_at']) < datetime.fromisoformat(end[0]['captured_at']),
             'PUBLIC_WINDOW_FINALIZED_ORDER')
-    sources, staged = read_window(archive, chain['rpc_urls'], chain['key'], rpc_type=NumberedArchiveRPC)
+    pancake = chain['key'] == 'evm:56' and any(pool['protocol'] == 'pancake-v2' for pool in chain['pools'])
+    sources, staged = read_window(archive, chain['rpc_urls'], chain['key'], rpc_type=NumberedArchiveRPC,
+                                  staged_provider=STAGED_V2 if pancake else STAGED_V1)
     loopback = copy.deepcopy(config)
     loopback['state']['path'] = str(directory / 'reconstruction')
     start = first['reference']['block']['number_or_slot']
@@ -229,12 +294,18 @@ def replay(binary, directory, config, chain, first, last, records):
         decoded = json.loads(result.stdout, object_pairs_hook=pairs)
     rows = verify_replay(decoded, first, last, records, staged)
     observed_window = dict(initial_snapshot=first, records=records, final_snapshot=last)
-    return dict(chain_key=chain['key'], scope='public-provider-finalized-journal',
-                first=first['reference'], last=last['reference'], commits=rows,
-                window_sha256=sha(canonical(observed_window).encode()), finalized=dict(first=begin, last=end),
-                archive=dict(records=len(heads.files), bytes=heads.bytes),
-                providers=[dict(rpc=url, provider_id=source.source, requests=source.served,
-                                replayed_batches=source.served_batches) for url, source in zip(chain['rpc_urls'], sources.values())])
+    report = dict(chain_key=chain['key'], scope='public-provider-finalized-journal',
+                  first=first['reference'], last=last['reference'], commits=rows,
+                  window_sha256=sha(canonical(observed_window).encode()), finalized=dict(first=begin, last=end),
+                  archive=dict(records=len(heads.files), bytes=heads.bytes),
+                  providers=[dict(rpc=url, provider_id=source.source, requests=source.served,
+                                  replayed_batches=source.served_batches) for url, source in zip(chain['rpc_urls'], sources.values())])
+    if history := decoded.get('history'):
+        require(any(row['block'] == history['block'] and row['swap_count'] == history['swap_count'] > 0 for row in rows)
+                and all(re.fullmatch(r'[0-9a-f]{64}', history[key])
+                        for key in ('scope_dataset_id', 'dataset_id', 'evidence_sha256')), 'PUBLIC_WINDOW_HISTORY_EVIDENCE')
+        report['history'] = history
+    return report
 
 
 def main(argv=None):
@@ -243,10 +314,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--chain', choices=eligible, default='bsc')
     parser.add_argument('--commits', type=int, default=3, help='minimum consecutive commits after the baseline')
+    parser.add_argument('--require-swaps', action='store_true', help='require independently witnessed Pancake V2 swaps on BSC')
     parser.add_argument('--window-timeout', type=int, default=120, help='seconds to observe the owner after startup')
     parser.add_argument('--go-binary', type=Path, default=ROOT / 'chain-parser-go/bin/chain-parser-go')
     parser.add_argument('--replay-binary', type=Path, default=ROOT / 'chain-parser-go/bin/replay-beacon-window')
     args = parser.parse_args(argv)
+    if args.require_swaps and args.chain != 'bsc':
+        parser.error('--require-swaps requires the pinned BSC Pancake V2 scope')
     target = targets[args.chain]
     try:
         config, chain = config_for(target)
@@ -255,11 +329,15 @@ def main(argv=None):
         with tempfile.TemporaryDirectory(prefix='xone-public-evm-window-') as tmp:
             directory = Path(tmp)
             first, last, records, first_check = capture(args.go_binary.resolve(), config, target, directory,
-                                                        args.commits, args.window_timeout)
+                                                        args.commits, args.window_timeout, args.require_swaps)
             witness = dict(chain, rpc_urls=[chain['rpc_urls'][1]])
             last_check = check_snapshot(target, witness, last, config['startup']['max_baseline_age_ms'])
+            swaps = witness_bsc_swaps(target, records) if args.require_swaps else None
             result = replay(args.replay_binary.resolve(), directory, config, chain, first, last, records)
             result['pool_checks'] = [first_check, last_check]
+            if swaps is not None:
+                require(result.get('history'), 'PUBLIC_WINDOW_HISTORY_EVIDENCE_REQUIRED')
+                result['swap_witness'] = swaps
             print(json.dumps(result), flush=True)
     except (KeyError, TypeError, OSError, RuntimeError, ValueError, subprocess.TimeoutExpired) as error:
         print(f'{args.chain} public EVM window FAILED {error}', file=sys.stderr, flush=True)

@@ -345,6 +345,7 @@ fn advance_scope_bank(s: &mut Snapshot, marker: u8) -> xone_domain::Record {
     xone_domain::Record {
         reference: s.reference.clone(),
         kind: "BLOCK_COMMIT".into(),
+        normalized_facts: None,
         record_id: format!("admission-{marker}"),
         payload_hash: hash(&s.pools).unwrap(),
         pools: s.pools.clone(),

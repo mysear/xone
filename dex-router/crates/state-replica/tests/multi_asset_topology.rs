@@ -31,6 +31,7 @@ fn a_changed_third_asset_rebuilds_the_complete_graph_without_mutating_old_handle
     let record = Record {
         reference: s.reference.clone(),
         kind: "BLOCK_COMMIT".into(),
+        normalized_facts: None,
         record_id: "third-token-change".into(),
         payload_hash: hash(&s.pools).unwrap(),
         pools: s.pools,

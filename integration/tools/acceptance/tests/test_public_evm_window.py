@@ -10,7 +10,8 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from current_v2_evidence import provider_id, sha
-from public_evm_window import FinalizedObservations, NumberedArchiveRPC, capture, verify_journal, verify_replay
+from public_evm_window import (BSC_SWAP_WITNESS, PANCAKE_SWAP_TOPIC, FinalizedObservations,
+                               NumberedArchiveRPC, capture, verify_journal, verify_replay, witness_bsc_swaps)
 
 
 def encoded(value):
@@ -112,6 +113,7 @@ class PublicWindow(unittest.TestCase):
             verify_replay(changed_baseline, first, last, records, staged)
         for field, value, reason in [('payload_hash', '0' * 64, 'REPLAY_JOURNAL'),
                                      ('record_id', 'evm:56/2/3', 'REPLAY_JOURNAL'),
+                                     ('normalized_facts', {'blocks': []}, 'REPLAY_FACT_BATCH'),
                                      ('staged_sha256', '0' * 64, 'REPLAY_STAGED_FACTS')]:
             with self.subTest(field=field):
                 broken = copy.deepcopy(decoded)
@@ -155,3 +157,48 @@ class PublicWindow(unittest.TestCase):
             self.assertEqual(capture(Path('parser'), config, {}, Path('/private'), 2, 30),
                              (first, last, records, {'verified': True}))
         self.assertEqual(events, [('sample', 1), ('check', 1), ('sample', 3)])
+
+    def test_bsc_swap_witness_compares_all_event_amounts_and_rejects_foreign_logs(self):
+        pool, token0, token1 = ('0x' + value * 40 for value in ('a', 'b', 'c'))
+        probe = dict(pool=pool, token0=token0, token1=token1, protocol='pancake-v2')
+        target = dict(chain_key='evm:56', public_pool_probe=probe)
+        first, traded, last = (block(h) for h in range(10, 13))
+        swap = dict(event_id=f"evm:56/{traded['hash']}/2/3", tx_hash='0x' + 'e' * 64,
+                    tx_index=2, log_index=3, pool_id=pool, token0=token0, token1=token1,
+                    amount0_in=str(2**128), amount1_in='0', amount0_out='0', amount1_out='17')
+        records = [dict(reference=dict(block=first))]
+        for ref, swaps in ((traded, [swap]), (last, [])):
+            records.append(dict(reference=dict(block=ref), normalized_facts=dict(
+                schema_version=1, decoder_version='evm-v2-swap/2', blocks=[dict(block=ref, swaps=swaps)])))
+        reply = dict(address=pool, removed=False, topics=[PANCAKE_SWAP_TOPIC, '0x' + '0' * 64, '0x' + '0' * 64],
+                     transactionHash=swap['tx_hash'], blockHash=traded['hash'], blockNumber='0xb',
+                     transactionIndex='0x2', logIndex='0x3',
+                     data='0x' + ''.join(f'{value:064x}' for value in (2**128, 0, 0, 17)))
+        replies = [reply]
+
+        def read_witness(url, method, params):
+            self.assertEqual(url, BSC_SWAP_WITNESS)
+            if method == 'eth_getLogs':
+                self.assertEqual(params, [dict(address=pool, topics=[PANCAKE_SWAP_TOPIC], fromBlock='0xb', toBlock='0xc')])
+                return replies
+            if method == 'eth_chainId':
+                return '0x38'
+            self.assertEqual(method, 'eth_getBlockByNumber')
+            ref = block(int(params[0], 16))
+            return dict(number=params[0], hash=ref['hash'], parentHash=ref['parent_hash'],
+                        timestamp=hex(ref['timestamp_ms']//1000))
+
+        with patch('public_evm_window.rpc', side_effect=read_witness):
+            observed = witness_bsc_swaps(target, records)
+            self.assertEqual((observed['count'], observed['first_swap']), (1, swap))
+            replies[:] = [dict(reply, blockHash=last['hash'])]
+            with self.assertRaisesRegex(ValueError, 'WITNESS_LOG_IDENTITY'):
+                witness_bsc_swaps(target, records)
+            replies[:] = [reply, reply]
+            with self.assertRaisesRegex(ValueError, 'WITNESS_LOG_IDENTITY'):
+                witness_bsc_swaps(target, records)
+            replies[:] = [reply]
+            broken = copy.deepcopy(records)
+            broken[1]['normalized_facts']['blocks'][0]['swaps'][0]['amount1_out'] = '18'
+            with self.assertRaisesRegex(ValueError, 'WITNESS_FACTS'):
+                witness_bsc_swaps(target, broken)

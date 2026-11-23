@@ -256,7 +256,7 @@ func (a *Adapter) readState(ctx context.Context, tag string, completeBlock bool)
 		}
 		completedReceipts = receipts
 		if completeBlock {
-			facts, e = DecodeSwapFacts(ref, receipts, a.Chain.Pools)
+			facts, e = decodeSwapFacts(ref, receipts, a.Chain.Pools, swapDecoderVersion(a.Chain))
 			if e != nil {
 				return ref, nil, nil, e
 			}

@@ -274,7 +274,7 @@ func (s *Store) ApplyLocalOwnerRecords(unit journal.Unit, records map[string]jso
 		copy := clone(*s.current)
 		undo = &copy
 	}
-	return s.persistScope(unit.Snapshot, unit.Kind, undo, nil, nil, gate)
+	return s.persistScope(unit, undo, nil, nil, gate)
 }
 func HistoryOwnerCommitID(snapshot domain.Snapshot) (string, error) {
 	return domain.Hash(map[string]any{"kind": "HISTORY_REPLAY_COMMIT", "snapshot": snapshot})

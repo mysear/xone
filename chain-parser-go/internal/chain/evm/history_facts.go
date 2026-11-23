@@ -50,7 +50,8 @@ func (a *Adapter) ReadFactsAndCatalog(ctx context.Context, tag string) (domain.F
 	if e != nil {
 		return empty, nil, e
 	}
-	facts, e := DecodeSwapFacts(ref, receipts, a.Chain.Pools)
+	version := swapDecoderVersion(a.Chain)
+	facts, e := decodeSwapFacts(ref, receipts, a.Chain.Pools, version)
 	if e != nil {
 		return empty, nil, e
 	}
@@ -61,7 +62,7 @@ func (a *Adapter) ReadFactsAndCatalog(ctx context.Context, tag string) (domain.F
 	if !sameReceiptAnchor(b, after) {
 		return empty, nil, errors.New("HISTORY_ANCHOR_CHANGED")
 	}
-	batch := domain.FactBatch{SchemaVersion: 1, DecoderVersion: "uniswap-v2/1", Blocks: []domain.FactBlock{{Block: ref, Swaps: facts}}}
+	batch := domain.FactBatch{SchemaVersion: 1, DecoderVersion: version, Blocks: []domain.FactBlock{{Block: ref, Swaps: facts}}}
 	if e = ctx.Err(); e != nil {
 		return empty, nil, e
 	}
@@ -191,13 +192,21 @@ func historyWordAddress(word string) (string, error) {
 // tokens and pool identity. Reordering does not change it. It is not a market-
 // completeness claim; pools discovered later require an explicit scope update.
 func HistoryDatasetID(chain config.Chain) (string, error) {
+	return historyDatasetID(chain, swapDecoderVersion(chain))
+}
+
+func historyDatasetID(chain config.Chain, version string) (string, error) {
 	if domain.ValidateChain(chain.Key) != nil || len(chain.Pools) > 100000 {
 		return "", errors.New("HISTORY_SCOPE_LIMIT")
+	}
+	if version != domain.LegacyV2SwapDecoder && version != swapDecoderVersion(chain) {
+		return "", errors.New("HISTORY_SWAP_DECODER_SCOPE")
 	}
 	pools := []config.PoolConfig{}
 	seen := map[string]bool{}
 	for _, p := range chain.Pools {
-		if p.Protocol != "uniswap-v2" && p.Protocol != domain.V2CompleteProtocol {
+		if p.Protocol != "uniswap-v2" && p.Protocol != domain.V2CompleteProtocol &&
+			!(version == domain.NativeBNBV2SwapDecoder && pancakeV2FactPool(p)) {
 			continue
 		}
 		key := strings.ToLower(p.ID)
@@ -230,7 +239,7 @@ func HistoryDatasetID(chain config.Chain) (string, error) {
 		Version, Chain, Genesis, Integrity string
 		Pools                              []config.PoolConfig
 		Factories                          *config.DynamicCatalogConfig
-	}{"uniswap-v2/1+factory-creation/1+chain-receipt-root-witness/1", chain.Key, chain.Genesis, chain.BlockIntegrity, pools, factories})
+	}{version + "+factory-creation/1+chain-receipt-root-witness/1", chain.Key, chain.Genesis, chain.BlockIntegrity, pools, factories})
 	if err != nil {
 		return "", err
 	}

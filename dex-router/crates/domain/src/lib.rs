@@ -769,11 +769,16 @@ pub struct Record {
     pub record_id: String,
     pub payload_hash: String,
     pub pools: Vec<Pool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub normalized_facts: Option<facts::FactBatch>,
 }
 impl Record {
     pub fn validate_payload(&self) -> Result<()> {
         if hash(&self.pools)? != self.payload_hash {
             return Err(err("PAYLOAD_HASH_MISMATCH"));
+        }
+        if let Some(facts) = &self.normalized_facts {
+            facts.validate_scope(&self.kind, &self.reference.block, &self.pools)?;
         }
         Ok(())
     }

@@ -1,4 +1,4 @@
-use crate::{err, wire, Amount, BlockRef, Result, Snapshot};
+use crate::{err, wire, Amount, BlockRef, Pool, Result, Snapshot};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -45,9 +45,13 @@ fn valid_block(b: &BlockRef, chain: &str) -> bool {
 }
 impl FactBatch {
     pub fn validate(&self, kind: &str, snapshot: &Snapshot) -> Result<()> {
-        let tip = &snapshot.reference.block;
+        self.validate_scope(kind, &snapshot.reference.block, &snapshot.pools)
+    }
+
+    pub(crate) fn validate_scope(&self, kind: &str, tip: &BlockRef, pools: &[Pool]) -> Result<()> {
+        let native_bnb = self.decoder_version == "evm-v2-swap/2" && tip.chain_key == "evm:56";
         if self.schema_version != 1
-            || self.decoder_version != "uniswap-v2/1"
+            || (self.decoder_version != "uniswap-v2/1" && !native_bnb)
             || self.blocks.len() + self.reverted_blocks.len() > 100000
         {
             return Err(err("FACT_SCHEMA_OR_LIMIT"));
@@ -57,6 +61,12 @@ impl FactBatch {
         }
         if kind == "BLOCK_COMMIT" && (self.blocks.len() != 1 || !self.reverted_blocks.is_empty()) {
             return Err(err("FACT_BLOCK_REQUIRED"));
+        }
+        let pancake_scope = |pool: &Pool| {
+            pool.protocol == "pancake-v2" && pool.chain_key == "evm:56" && pool.v2.is_some()
+        };
+        if native_bnb && !pools.iter().any(pancake_scope) {
+            return Err(err("FACT_POOL_SCOPE"));
         }
         let mut seen = BTreeSet::new();
         for (i, b) in self.blocks.iter().enumerate() {
@@ -92,12 +102,11 @@ impl FactBatch {
                         return Err(err("FACT_EVENT_SEQUENCE"));
                     }
                 }
-                let pool = snapshot
-                    .pools
+                let pool = pools
                     .iter()
                     .find(|p| p.pool_id == s.pool_id)
                     .ok_or_else(|| err("FACT_POOL_SCOPE"))?;
-                if pool.protocol != "uniswap-v2"
+                if (pool.protocol != "uniswap-v2" && !(native_bnb && pancake_scope(pool)))
                     || pool.token0 != s.token0
                     || pool.token1 != s.token1
                 {

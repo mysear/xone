@@ -30,6 +30,7 @@ fn protocol_partitions_are_deterministic_state_bound_and_reorg_revoked() {
     let unit = Record {
         reference: s.reference.clone(),
         kind: "BLOCK_COMMIT".into(),
+        normalized_facts: None,
         record_id: "next".into(),
         payload_hash: hash(&s.pools).unwrap(),
         pools: s.pools.clone(),

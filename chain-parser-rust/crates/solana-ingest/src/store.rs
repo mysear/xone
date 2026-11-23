@@ -170,6 +170,7 @@ impl Store {
         let record = Record {
             reference: s.reference.clone(),
             kind: kind.into(),
+            normalized_facts: None,
             record_id: format!(
                 "{}/{}/{}",
                 s.reference.block.chain_key, s.reference.online_generation, s.reference.journal_seq

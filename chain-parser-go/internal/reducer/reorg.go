@@ -110,7 +110,7 @@ func (s *Store) ApplyLocalGuard(u journal.Unit, gate func() error) error {
 		previous := clone(*s.current)
 		undo = &previous
 	}
-	return s.persistScope(u.Snapshot, u.Kind, undo, nil, nil, gate)
+	return s.persistScope(u, undo, nil, nil, gate)
 }
 
 func (s *Store) ReorgRevoked() bool {

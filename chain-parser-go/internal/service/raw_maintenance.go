@@ -255,14 +255,15 @@ func (m *RawMaintenance) Tick(ctx context.Context) (err error) {
 			if e != nil {
 				return e
 			}
-			staged := r.Raw.Owner.ProviderID == "derived-state-from-recorded-rpc"
+			decoderVersion := stagedDecoderVersion(r.Raw.Owner.ProviderID)
+			staged := decoderVersion != ""
 			if !r.Archived && archived < m.cfg.MaxArchive {
 				if staged && !proved {
 					continue
 				}
 				meta := ingest.ArchiveMetadata{Namespace: ingest.NamespaceHistory, DecoderVersion: RawObservationVersion, CanonicalProof: "raw-observation-only; no canonical or whole-scope claim"}
 				if staged {
-					meta = ingest.ArchiveMetadata{Namespace: ingest.NamespaceOnline, DecoderVersion: m.cfg.DecoderVersion, CanonicalProof: "owner-bound staged input; canonical output is separate; " + proof}
+					meta = ingest.ArchiveMetadata{Namespace: ingest.NamespaceOnline, DecoderVersion: decoderVersion, CanonicalProof: "owner-bound staged input; canonical output is separate; " + proof}
 				}
 				if _, e = state.recorder.archive.ArchiveRaw(ctx, r.Raw, meta, state.sink); e != nil {
 					return e

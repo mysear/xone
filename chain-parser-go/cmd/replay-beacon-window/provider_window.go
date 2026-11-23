@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"xone/chain-parser-go/internal/chain/evm"
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/domain"
+	"xone/chain-parser-go/internal/journal"
 	"xone/chain-parser-go/internal/reducer"
 	"xone/chain-parser-go/internal/rpc"
 )
@@ -22,6 +25,16 @@ type numberedObservation struct {
 	PayloadHash string             `json:"payload_hash"`
 	Digest      string             `json:"staged_sha256"`
 	SwapCount   int                `json:"swap_count"`
+	Facts       *domain.FactBatch  `json:"normalized_facts,omitempty"`
+}
+
+type historyObservation struct {
+	Block             domain.BlockRef `json:"block"`
+	SwapCount         int             `json:"swap_count"`
+	ScopeDatasetID    string          `json:"scope_dataset_id"`
+	DatasetID         string          `json:"dataset_id"`
+	NativeSemanticsID string          `json:"native_semantics_id"`
+	Digest            string          `json:"evidence_sha256"`
 }
 
 type numberedWindow struct {
@@ -29,6 +42,7 @@ type numberedWindow struct {
 	InitialRecord domain.Record         `json:"initial_record"`
 	Rows          []numberedObservation `json:"rows"`
 	Final         domain.Snapshot       `json:"final_snapshot"`
+	History       *historyObservation   `json:"history,omitempty"`
 }
 
 func replayProviderWindow(ctx context.Context, cfg *config.Snapshot, first, last uint64) (result *numberedWindow, err error) {
@@ -111,7 +125,8 @@ func replayProviderWindow(ctx context.Context, cfg *config.Snapshot, first, last
 		current.Reference.Block = block
 		current.Reference.JournalSeq++
 		current.Pools = pools
-		if err = store.Commit(current); err != nil {
+		facts := evm.V2JournalFacts(chain, pools, []domain.FactBlock{{Block: block, Swaps: swaps}}, nil)
+		if err = store.ApplyLocal(journal.Unit{Kind: "BLOCK_COMMIT", Snapshot: current, NormalizedFacts: facts}); err != nil {
 			return nil, err
 		}
 		records, err := store.Records(after, 1)
@@ -124,8 +139,14 @@ func replayProviderWindow(ctx context.Context, cfg *config.Snapshot, first, last
 		record := records[0]
 		report.Rows = append(report.Rows, numberedObservation{
 			Block: block, Reference: record.Reference, Kind: record.Kind, RecordID: record.RecordID,
-			PayloadHash: record.PayloadHash, Digest: digest, SwapCount: len(swaps),
+			PayloadHash: record.PayloadHash, Digest: digest, SwapCount: len(swaps), Facts: record.NormalizedFacts,
 		})
+		if chain.Key == "evm:56" && len(swaps) != 0 && report.History == nil {
+			report.History, err = replayHistoricalSwaps(ctx, adapter, block, record.NormalizedFacts)
+			if err != nil {
+				return nil, fmt.Errorf("decode history %d: %w", height, err)
+			}
+		}
 		if height == last {
 			snapshot, ready := store.Current()
 			if !ready || snapshot.Reference != current.Reference {
@@ -135,4 +156,56 @@ func replayProviderWindow(ctx context.Context, cfg *config.Snapshot, first, last
 			return report, nil
 		}
 	}
+}
+
+// Re-read a nonempty block through the history adapter against the sealed
+// responses. Verify its serialized native receipt evidence independently of
+// state storage, then compare the result to the persisted online fact batch.
+func replayHistoricalSwaps(ctx context.Context, adapter *evm.Adapter, block domain.BlockRef, published *domain.FactBatch) (*historyObservation, error) {
+	if published == nil || len(published.RevertedBlocks) != 0 {
+		return nil, errors.New("REPLAY_HISTORY_FACTS_MISMATCH")
+	}
+	history := adapter.CopyWithChain(adapter.Chain)
+	var raw []byte
+	history.OnHistoryEvidence = func(_ context.Context, value evm.NativeHistoryEvidence) error {
+		var err error
+		raw, err = json.Marshal(value)
+		return err
+	}
+	batch, err := history.ReadFacts(ctx, fmt.Sprintf("0x%x", block.Number))
+	if err != nil {
+		return nil, err
+	}
+	var evidence evm.NativeHistoryEvidence
+	if err = json.Unmarshal(raw, &evidence); err != nil {
+		return nil, err
+	}
+	facts, _, err := evm.VerifyNativeHistoryEvidence(ctx, history.Chain, evidence)
+	if err != nil {
+		return nil, err
+	}
+	// The journal record materializes empty protobuf arrays. Historical
+	// acquisition uses nil for its empty list of reverted blocks.
+	normalized := *published
+	normalized.RevertedBlocks = nil
+	live, err := domain.Hash(normalized)
+	if err != nil {
+		return nil, err
+	}
+	calculated, err := domain.Hash(batch)
+	if err != nil {
+		return nil, err
+	}
+	verified, err := domain.Hash(facts)
+	if err != nil {
+		return nil, err
+	}
+	if live != calculated || live != verified || len(facts.Blocks) != 1 || facts.Blocks[0].Block != block {
+		return nil, errors.New("REPLAY_HISTORY_FACTS_MISMATCH")
+	}
+	return &historyObservation{
+		Block: block, SwapCount: len(facts.Blocks[0].Swaps), ScopeDatasetID: evidence.ScopeDatasetID,
+		DatasetID: evidence.DatasetID, NativeSemanticsID: evidence.NativeSemanticsID,
+		Digest: fmt.Sprintf("%x", sha256.Sum256(raw)),
+	}, nil
 }

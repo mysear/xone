@@ -162,7 +162,7 @@ func (s *Store) installBaselineScope(snapshot domain.Snapshot, scope *preparedSc
 	} else if pending != nil {
 		return errors.New("SCOPE_OWNER_COMMIT_PENDING")
 	}
-	return s.persistScope(snapshot, "ONLINE_BASELINE_COMMIT", nil, nil, scope, gate)
+	return s.persistScope(journal.Unit{Kind: "ONLINE_BASELINE_COMMIT", Snapshot: snapshot}, nil, nil, scope, gate)
 }
 func (s *Store) applyScopeBatch(batch *pebble.Batch, snapshot domain.Snapshot, kind string, scope *preparedScope) error {
 	if scope == nil {

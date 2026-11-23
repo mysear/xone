@@ -113,7 +113,7 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 	if letter == nil {
 		return ingest.ReplayRecord{}, ingest.ErrOwnership
 	}
-	if letter.Raw.Owner.Chain != key || letter.Raw.Owner.ProviderID != "derived-state-from-recorded-rpc" {
+	if letter.Raw.Owner.Chain != key || stagedDecoderVersion(letter.Raw.Owner.ProviderID) == "" {
 		return ingest.ReplayRecord{}, errors.New("RAW_REPLAY_REQUIRES_STAGED_STATE_NOT_HTTP")
 	}
 	incident, e := state.recorder.archive.CurrentIncident(request.DeadLetterID)
@@ -212,7 +212,8 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 		actor.Unlock()
 		return ingest.ReplayRecord{}, errors.New("RAW_ACTIVE_LEASE_REQUIRED")
 	}
-	spec := ingest.ReplaySpec{DeadLetterID: request.DeadLetterID, IncidentID: incident.ID, Raw: letter.Raw, DecoderVersion: m.cfg.DecoderVersion, Namespace: request.Namespace, WriterID: reference.OwnerService + "/" + strconv.FormatUint(reference.OwnerAssignmentVersion, 10), Fence: reference.WriterEpoch, Generation: strconv.FormatUint(reference.OnlineGeneration, 10), Attempt: request.Attempt}
+	decoderVersion := stagedDecoderVersion(stagedProvider(chain, original.Pools))
+	spec := ingest.ReplaySpec{DeadLetterID: request.DeadLetterID, IncidentID: incident.ID, Raw: letter.Raw, DecoderVersion: decoderVersion, Namespace: request.Namespace, WriterID: reference.OwnerService + "/" + strconv.FormatUint(reference.OwnerAssignmentVersion, 10), Fence: reference.WriterEpoch, Generation: strconv.FormatUint(reference.OnlineGeneration, 10), Attempt: request.Attempt}
 	actor.Unlock()
 	if request.Namespace == ingest.NamespaceOnline {
 		if e := m.s.verifyRuntimeAnchor(ctx, chain, reference.Block); e != nil {
@@ -314,7 +315,7 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 			if c.Err() != nil {
 				return c.Err()
 			}
-			if i.Spec != spec || i.AttemptID != spec.ID() || i.Spec.Raw != letter.Raw || i.Spec.IncidentID != incident.ID || i.Spec.DecoderVersion != RawStagedDecoderVersion || i.Spec.Fence != reference.WriterEpoch || i.Spec.Generation != strconv.FormatUint(reference.OnlineGeneration, 10) || m.s.stores[key] != store || m.s.session(key) != writer || m.s.adapters[key] == nil || m.s.adapters[key].Client != source.Client || m.s.adapters[key].Chain.Owner != chain.Owner || m.s.adapters[key].Chain.Assignment != chain.Assignment || m.s.adapters[key].Chain.Genesis != chain.Genesis {
+			if i.Spec != spec || i.AttemptID != spec.ID() || i.Spec.Raw != letter.Raw || i.Spec.IncidentID != incident.ID || i.Spec.DecoderVersion != decoderVersion || i.Spec.Fence != reference.WriterEpoch || i.Spec.Generation != strconv.FormatUint(reference.OnlineGeneration, 10) || m.s.stores[key] != store || m.s.session(key) != writer || m.s.adapters[key] == nil || m.s.adapters[key].Client != source.Client || m.s.adapters[key].Chain.Owner != chain.Owner || m.s.adapters[key].Chain.Assignment != chain.Assignment || m.s.adapters[key].Chain.Genesis != chain.Genesis {
 				return ingest.ErrReplayFence
 			}
 			if writer != nil {
@@ -334,10 +335,8 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 		if e := gate(); e != nil {
 			return ingest.CommitReceipt{}, e
 		}
-		unit := journal.Unit{Kind: "BLOCK_COMMIT", Snapshot: result.Snapshot}
-		if hasV2Scope(unit.Snapshot.Pools) {
-			unit.NormalizedFacts = &domain.FactBatch{SchemaVersion: 1, DecoderVersion: "uniswap-v2/1", Blocks: []domain.FactBlock{{Block: unit.Snapshot.Reference.Block, Swaps: result.Swaps}}}
-		}
+		unit := journal.Unit{Kind: "BLOCK_COMMIT", Snapshot: result.Snapshot,
+			NormalizedFacts: evm.V2JournalFacts(chain, result.Snapshot.Pools, []domain.FactBlock{{Block: result.Snapshot.Reference.Block, Swaps: result.Swaps}}, nil)}
 		kind := "BLOCK_COMMIT"
 		commitID, e := unit.CanonicalHash()
 		if i.Spec.Namespace == ingest.NamespaceHistory {
@@ -388,7 +387,7 @@ func (m *RawMaintenance) Replay(ctx context.Context, key string, request RawRepl
 // from the same reducer transaction as state/journal/cursor. Missing records,
 // still-prepared Kafka transactions and malformed identities remain unknown.
 func (m *RawMaintenance) confirmOwner(key string, i ingest.ReplayIntent) (ingest.CommitReceipt, error) {
-	if i.Spec.Raw.Owner.Chain != key || i.Spec.Raw.Owner.ProviderID != "derived-state-from-recorded-rpc" {
+	if i.Spec.Raw.Owner.Chain != key || stagedDecoderVersion(i.Spec.Raw.Owner.ProviderID) == "" {
 		return ingest.CommitReceipt{}, ingest.ErrOwnership
 	}
 	record, e := m.lookupOwnerRecord(key, string(i.Spec.Namespace)+"-replay/"+i.AttemptID)

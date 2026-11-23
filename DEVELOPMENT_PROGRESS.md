@@ -5746,3 +5746,15 @@ Go 全包、vet、离线命令专项 race、跨服务契约以及 17 项进度�
 采集目录和离线 Pebble 目录随测试结束清理，两个独立工作目录的归档、构建和日志共清理 299228 KiB。已核对本轮无残留采集或重放目录。
 
 [主网连续验收入口](integration/tools/acceptance/public_evm_window.py) · [编号离线重建](chain-parser-go/cmd/replay-beacon-window/provider_window.go) · [原生结算状态门禁](chain-parser-go/internal/chain/evm/chain_receipts_coverage.go)
+
+<a id="bnb-pancake-canonical-swaps"></a>
+
+## BNB Smart Chain 固定 Pancake V2 池的 Swap 事实（2026-11-23，阶段257，P0-1）
+
+在原生 BNB 区块和回执校验范围内，按已配置池的 Pancake V2 Swap ABI 解出交易索引、日志索引与四个无损整数金额。`evm-v2-swap/2` 标明新增覆盖范围。连续提交、重组与修复使用同一事实选择逻辑。Pebble 本地提交将可选 `normalized_facts` 与池快照和 journal 记录原子落盘。Go/Rust 的旧解码器兼容性保留，新 staging 和历史数据集使用不同身份，旧范围的空结果仍按原版本验证。
+
+使用原 BNB Chain 与 Defibit 公开 RPC，通过正式历史读取入口复验 BSC 块 135214575（`0xc71f5d34f6b813a64e832f2378e2a51ffc823f3d166e25d276050592a31ae7d7`）。固定池 `0x16b9a82891338f9ba80e2d6970fdda79d1eb0dae` 有两条事实，同一交易 `0x483623549d63e583dd298961c2b06e29b631d4de8c5951dfca7aa338b756c58f` 的日志索引分别为 268 和 278。序列化原生回执证据后重新验算，事实 SHA-256 为 `92c12e7f82fe3c32cdf5f6dd20e52d2ba9761c8e3a7412ede4a658b488bd253e`，历史数据集为 `730eb48ae34834bd86bd39564d47fb5214ded6be480cec8ee8506b7a5571999c`。PublicNode 返回同一编号块和这两条日志，交易与日志索引和四个金额逐项相符。
+
+连续窗口的首次复跑因代次切换拒绝。带日志的下一次复跑已在 135216197 的实际 HTTP journal 读到两条持久化 Swap。随后 135216200 的 RPC 返回 `-32000`，解析器撤销已发布代并重新建立基线，整段验收拒绝跨代拼接。
+
+[原生事实解析](chain-parser-go/internal/chain/evm/facts.go) · [历史证据核验](chain-parser-go/internal/chain/evm/chain_receipts_history.go) · [公网非空窗口验收](integration/README.md)

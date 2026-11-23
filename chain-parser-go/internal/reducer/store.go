@@ -165,12 +165,13 @@ func (s *Store) Commit(snapshot domain.Snapshot) error {
 	return s.persist(snapshot, "BLOCK_COMMIT", &previous, nil)
 }
 func (s *Store) persist(snapshot domain.Snapshot, kind string, undo *domain.Snapshot, cursor *journal.Cursor) error {
-	return s.persistScope(snapshot, kind, undo, cursor, nil, nil)
+	return s.persistScope(journal.Unit{Kind: kind, Snapshot: snapshot}, undo, cursor, nil, nil)
 }
-func (s *Store) persistScope(snapshot domain.Snapshot, kind string, undo *domain.Snapshot, cursor *journal.Cursor, scope *preparedScope, gate func() error) error {
+func (s *Store) persistScope(unit journal.Unit, undo *domain.Snapshot, cursor *journal.Cursor, scope *preparedScope, gate func() error) error {
 	if s.closed || s.failed {
 		return ErrOwnerReopenRequired
 	}
+	snapshot, kind := unit.Snapshot, unit.Kind
 	if scope == nil {
 		var err error
 		scope, err = s.scopePrepared()
@@ -181,6 +182,17 @@ func (s *Store) persistScope(snapshot domain.Snapshot, kind string, undo *domain
 	record, e := domain.NewRecord(snapshot, kind)
 	if e != nil {
 		return e
+	}
+	if unit.NormalizedFacts != nil {
+		// Match the protobuf decoder's array representation, even when a
+		// covered block has no swaps or there are no reverted blocks.
+		facts := *unit.NormalizedFacts
+		facts.Blocks = append([]domain.FactBlock{}, facts.Blocks...)
+		facts.RevertedBlocks = append([]domain.BlockRef{}, facts.RevertedBlocks...)
+		for i := range facts.Blocks {
+			facts.Blocks[i].Swaps = append([]domain.SwapFact{}, facts.Blocks[i].Swaps...)
+		}
+		record.NormalizedFacts = &facts
 	}
 	b, e := json.Marshal(snapshot)
 	if e != nil {
@@ -620,7 +632,7 @@ func (s *Store) ApplyPreparedScope(cursor journal.Cursor, gate func() error) err
 		copy := clone(*s.current)
 		undo = &copy
 	}
-	return s.persistScope(u.Snapshot, u.Kind, undo, &cursor, nil, gate)
+	return s.persistScope(*u, undo, &cursor, nil, gate)
 }
 func (s *Store) Bootstrap() (journal.Bootstrap, error) {
 	s.mu.RLock()

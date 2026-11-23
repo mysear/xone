@@ -13,6 +13,8 @@ from verify_beacon_owner import execution_endpoints
 
 
 BATCH_METHOD = 'jsonrpc_batch'
+STAGED_V1 = 'derived-state-from-recorded-rpc'
+STAGED_V2 = 'derived-state-from-recorded-rpc/v2'
 REPLAY_METHODS = METHODS | {'eth_getRawTransactionByHash', BATCH_METHOD}
 FILE_LIMIT = LIMITS['max_record_bytes'] * 2 + (256 << 10)
 
@@ -84,7 +86,8 @@ class ArchiveRPC(RecordedRPC):
         return body
 
 
-def read_window(directory, endpoints, expected_chain='evm:1', rpc_type=ArchiveRPC):
+def read_window(directory, endpoints, expected_chain='evm:1', rpc_type=ArchiveRPC, staged_provider=STAGED_V1):
+    require(staged_provider in (STAGED_V1, STAGED_V2), 'REPLAY_STAGED_PROVIDER')
     sources = {provider_id(url): rpc_type(provider_id(url), expected_chain) for url in endpoints}
     staged = {}
     total = 0
@@ -93,11 +96,14 @@ def read_window(directory, endpoints, expected_chain='evm:1', rpc_type=ArchiveRP
         require(count <= LIMITS['max_records'] and total <= LIMITS['max_bytes'], 'REPLAY_INPUT_BUDGET')
         owner, data, identity = sealed_payload(path, FILE_LIMIT, expected_chain)
         source = owner['ProviderID']
-        if source == 'derived-state-from-recorded-rpc':
+        if source in (STAGED_V1, STAGED_V2):
             block = json.loads(data, object_pairs_hook=pairs)['block']
             require(block['chain_key'] == owner['Chain'] and block['number_or_slot'] == owner['Height']
                     and block['hash'] == owner['Hash'], 'REPLAY_STAGED_IDENTITY')
-            staged[(owner['Height'], owner['Hash'])] = identity['data_sha256']
+            if source == staged_provider:
+                key = owner['Height'], owner['Hash']
+                require(key not in staged or staged[key] == identity['data_sha256'], 'AMBIGUOUS_STAGED_CAPTURE')
+                staged[key] = identity['data_sha256']
         else:
             require(source in sources, 'REPLAY_UNKNOWN_PROVIDER')
             method, params, body = rpc_observation(owner, data, identity, REPLAY_METHODS)

@@ -513,11 +513,12 @@ func (s Snapshot) Validate(owner string, assignment uint64) error {
 }
 
 type Record struct {
-	Reference   SnapshotRef `json:"reference"`
-	Kind        string      `json:"kind"`
-	RecordID    string      `json:"record_id"`
-	PayloadHash string      `json:"payload_hash"`
-	Pools       []Pool      `json:"pools"`
+	Reference       SnapshotRef `json:"reference"`
+	Kind            string      `json:"kind"`
+	RecordID        string      `json:"record_id"`
+	PayloadHash     string      `json:"payload_hash"`
+	Pools           []Pool      `json:"pools"`
+	NormalizedFacts *FactBatch  `json:"normalized_facts,omitempty"`
 }
 
 func NewRecord(s Snapshot, kind string) (Record, error) {
@@ -525,5 +526,5 @@ func NewRecord(s Snapshot, kind string) (Record, error) {
 	if e != nil {
 		return Record{}, e
 	}
-	return Record{s.Reference, kind, fmt.Sprintf("%s/%d/%d", s.Reference.Block.ChainKey, s.Reference.OnlineGeneration, s.Reference.JournalSeq), h, s.Pools}, nil
+	return Record{Reference: s.Reference, Kind: kind, RecordID: fmt.Sprintf("%s/%d/%d", s.Reference.Block.ChainKey, s.Reference.OnlineGeneration, s.Reference.JournalSeq), PayloadHash: h, Pools: s.Pools}, nil
 }

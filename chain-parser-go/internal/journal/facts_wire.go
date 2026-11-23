@@ -109,13 +109,20 @@ func (u Unit) ValidateFacts() error {
 		return e
 	}
 	pools := map[string]domain.Pool{}
+	pancakeScope := false
 	for _, p := range u.Snapshot.Pools {
 		pools[p.PoolID] = p
+		pancakeScope = pancakeScope || p.Protocol == "pancake-v2" && p.ChainKey == "evm:56" && p.V2 != nil
+	}
+	nativeBNB := u.NormalizedFacts.DecoderVersion == domain.NativeBNBV2SwapDecoder
+	if nativeBNB && !pancakeScope {
+		return errors.New("FACT_POOL_SCOPE")
 	}
 	for _, b := range u.NormalizedFacts.Blocks {
 		for _, f := range b.Swaps {
 			p, ok := pools[f.PoolID]
-			if !ok || p.Protocol != "uniswap-v2" || p.Token0 != f.Token0 || p.Token1 != f.Token1 {
+			if !ok || (p.Protocol != "uniswap-v2" && !(nativeBNB && p.Protocol == "pancake-v2" && p.ChainKey == "evm:56" && p.V2 != nil)) ||
+				p.Token0 != f.Token0 || p.Token1 != f.Token1 {
 				return errors.New("FACT_POOL_SCOPE")
 			}
 		}

@@ -714,6 +714,7 @@ impl Api {
                             let record = Record {
                                 reference: u.snapshot.reference,
                                 kind: u.kind,
+                                normalized_facts: u.normalized_facts,
                                 record_id: String::new(),
                                 payload_hash: hash(&u.snapshot.pools).unwrap_or_default(),
                                 pools: u.snapshot.pools,

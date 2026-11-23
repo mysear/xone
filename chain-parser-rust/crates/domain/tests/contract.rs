@@ -50,3 +50,62 @@ fn unchecked_internal_amount_never_panics_wire_encoding() {
     assert!(amount.to_be_bytes().is_err());
     assert!(serde_json::to_string(&amount).is_err());
 }
+
+#[test]
+fn http_record_reads_legacy_and_native_bnb_swap_facts() {
+    let mut snapshot: Snapshot =
+        serde_json::from_str(include_str!("../../../test/fixtures/evm/baseline.json")).unwrap();
+    snapshot.reference.block.chain_key = "evm:56".into();
+    snapshot.pools.truncate(1);
+    let pool = &mut snapshot.pools[0];
+    pool.chain_key = "evm:56".into();
+    pool.protocol = "pancake-v2".into();
+    pool.v2 = Some(protocols::V2State {
+        factory: format!("0x{}", "12".repeat(20)),
+        code_sha256: "ab".repeat(32),
+        swap: None,
+    });
+    let block = &snapshot.reference.block;
+    let mut raw = serde_json::json!({
+        "reference": snapshot.reference,
+        "kind": "BLOCK_COMMIT",
+        "record_id": "evm:56/1/2",
+        "payload_hash": hash(&snapshot.pools).unwrap(),
+        "pools": snapshot.pools,
+    });
+    let legacy: Record = serde_json::from_value(raw.clone()).unwrap();
+    assert!(legacy.normalized_facts.is_none());
+    legacy.validate_payload().unwrap();
+    assert_eq!(serde_json::to_value(legacy).unwrap(), raw);
+
+    raw["normalized_facts"] = serde_json::json!({
+        "schema_version": 1,
+        "decoder_version": "evm-v2-swap/2",
+        "blocks": [{"block": block, "swaps": [{
+            "event_id": format!("evm:56/{}/1/2", block.hash),
+            "tx_hash": format!("0x{}", "ad".repeat(32)),
+            "tx_index": 1,
+            "log_index": 2,
+            "pool_id": snapshot.pools[0].pool_id,
+            "token0": snapshot.pools[0].token0,
+            "token1": snapshot.pools[0].token1,
+            "amount0_in": "10",
+            "amount1_in": "0",
+            "amount0_out": "0",
+            "amount1_out": "8"
+        }]}],
+        "reverted_blocks": []
+    });
+    let native: Record = serde_json::from_value(raw.clone()).unwrap();
+    native.validate_payload().unwrap();
+    let facts = native.normalized_facts.as_ref().unwrap();
+    assert_eq!(
+        facts::FactBatch::from_proto(facts.to_proto().unwrap()).unwrap(),
+        *facts
+    );
+    raw["normalized_facts"]["decoder_version"] = "uniswap-v2/1".into();
+    assert!(serde_json::from_value::<Record>(raw)
+        .unwrap()
+        .validate_payload()
+        .is_err());
+}

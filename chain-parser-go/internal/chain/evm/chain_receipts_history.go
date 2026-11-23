@@ -26,7 +26,11 @@ type NativeHistoryEvidence struct {
 // closed, order-independent pool/factory/decoder scope. The queue scope ID
 // remains distinct so crossing a fork does not silently change claim scope.
 func NativeHistoryDatasetID(chain config.Chain, coverage VerifiedReceiptCoverage) (string, error) {
-	scope, err := HistoryDatasetID(chain)
+	return nativeHistoryDatasetID(chain, coverage, swapDecoderVersion(chain))
+}
+
+func nativeHistoryDatasetID(chain config.Chain, coverage VerifiedReceiptCoverage, version string) (string, error) {
+	scope, err := historyDatasetID(chain, version)
 	if err != nil {
 		return "", err
 	}
@@ -39,6 +43,9 @@ func buildNativeHistoryEvidence(chain config.Chain, b RawBlock, batch domain.Fac
 	var out NativeHistoryEvidence
 	if b.NativeCoverage == nil || b.NativeCoverage.Evidence == nil {
 		return out, errors.New("HISTORY_NATIVE_EVIDENCE_REQUIRED")
+	}
+	if batch.DecoderVersion != swapDecoderVersion(chain) {
+		return out, errors.New("HISTORY_SWAP_DECODER_SCOPE")
 	}
 	scope, err := HistoryDatasetID(chain)
 	if err != nil {
@@ -56,7 +63,10 @@ func VerifyNativeHistoryEvidence(ctx context.Context, chain config.Chain, e Nati
 	if err != nil {
 		return empty, nil, err
 	}
-	scope, err := HistoryDatasetID(chain)
+	version := e.Facts.DecoderVersion
+	// Legacy evidence remains verifiable against its own frozen scope. It does
+	// not acquire the coverage of the current Pancake-aware dataset.
+	scope, err := historyDatasetID(chain, version)
 	if err != nil || e.SchemaVersion != 1 || scope != e.ScopeDatasetID {
 		return empty, nil, errors.New("HISTORY_NATIVE_SCOPE_MISMATCH")
 	}
@@ -83,7 +93,7 @@ func VerifyNativeHistoryEvidence(ctx context.Context, chain config.Chain, e Nati
 			return empty, nil, errors.New("HISTORY_OP_PACKED_FEE_INPUT_PROJECTION_MISMATCH")
 		}
 	}
-	dataset, err := NativeHistoryDatasetID(chain, coverage)
+	dataset, err := nativeHistoryDatasetID(chain, coverage, version)
 	if err != nil || dataset != e.DatasetID || coverage.NativeSemanticsID != e.NativeSemanticsID {
 		return empty, nil, errors.New("HISTORY_NATIVE_DATASET_MISMATCH")
 	}
@@ -91,7 +101,7 @@ func VerifyNativeHistoryEvidence(ctx context.Context, chain config.Chain, e Nati
 	if err != nil {
 		return empty, nil, err
 	}
-	facts, err := DecodeSwapFacts(ref, coverage.CanonicalReceipts, chain.Pools)
+	facts, err := decodeSwapFacts(ref, coverage.CanonicalReceipts, chain.Pools, version)
 	if err != nil {
 		return empty, nil, err
 	}
@@ -100,7 +110,7 @@ func VerifyNativeHistoryEvidence(ctx context.Context, chain config.Chain, e Nati
 	if err != nil {
 		return empty, nil, err
 	}
-	batch := domain.FactBatch{SchemaVersion: 1, DecoderVersion: "uniswap-v2/1", Blocks: []domain.FactBlock{{Block: ref, Swaps: facts}}}
+	batch := domain.FactBatch{SchemaVersion: 1, DecoderVersion: version, Blocks: []domain.FactBlock{{Block: ref, Swaps: facts}}}
 	if err = batch.Validate("BLOCK_COMMIT", ref); err != nil {
 		return empty, nil, err
 	}

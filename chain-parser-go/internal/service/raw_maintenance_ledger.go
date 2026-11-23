@@ -198,7 +198,7 @@ func decodeOwnerProof(record reducer.OwnerRecord, key string) (rawOwnerProof, er
 		if i.Spec.Namespace != ingest.NamespaceOnline && i.Spec.Namespace != ingest.NamespaceHistory {
 			return p, ingest.ErrOwnership
 		}
-		if i.AttemptID != i.Spec.ID() || i.Spec.Raw.Owner.ProviderID != "derived-state-from-recorded-rpc" || record.Reference.Block.Hash != p.Raw.Owner.Hash || record.Reference.Block.Number != p.Raw.Owner.Height {
+		if i.AttemptID != i.Spec.ID() || stagedDecoderVersion(i.Spec.Raw.Owner.ProviderID) == "" || record.Reference.Block.Hash != p.Raw.Owner.Hash || record.Reference.Block.Number != p.Raw.Owner.Height {
 			return p, ingest.ErrOwnership
 		}
 		expected := "BLOCK_COMMIT"
