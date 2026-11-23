@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
@@ -286,42 +287,45 @@ func (a *Adapter) RecheckNativeReceiptEvidence(ctx context.Context, block RawBlo
 	return a.RecheckQualifiedBlock(ctx, block)
 }
 
-func (a *Adapter) recheckNativeSettling(ctx context.Context, coverage VerifiedReceiptCoverage, limits ReceiptProofLimits) (used int, err error) {
+func (a *Adapter) recheckNativeSettling(ctx context.Context, coverage VerifiedReceiptCoverage, limits ReceiptProofLimits) (int, error) {
 	if coverage.Evidence == nil || coverage.Evidence.SAE == nil {
 		return 0, nil
-	}
-	headers := coverage.Evidence.SAE.Headers
-	if len(headers) < 2 {
-		return 0, errors.New("SAE_PROOF_RANGE_INVALID")
 	}
 	reader, err := newNativeProofReader(ctx, a, limits)
 	if err != nil {
 		return 0, err
 	}
 	defer reader.cancel()
-	defer func() { used = limits.MaxBytes - reader.budget.remaining }()
-	if err = reader.budget.charge(2*len(headers[len(headers)-1]) + 256); err != nil {
-		return 0, err
+	err = reader.recheckSettlingHeader(coverage.Evidence.SAE.Headers)
+	return limits.MaxBytes - reader.budget.remaining, err
+}
+
+func (reader *nativeProofReader) recheckSettlingHeader(headers []json.RawMessage) error {
+	if len(headers) < 2 {
+		return errors.New("SAE_PROOF_RANGE_INVALID")
 	}
-	expected, err := VerifyChainHeaderJSON(reader.ctx, a.Chain.Key, headers[len(headers)-1])
+	if err := reader.budget.charge(2*len(headers[len(headers)-1]) + 256); err != nil {
+		return err
+	}
+	expected, err := VerifyChainHeaderJSON(reader.ctx, reader.chainKey, headers[len(headers)-1])
 	if err != nil {
-		return 0, err
+		return err
 	}
 	raw, err := reader.call("eth_getBlockByNumber", []any{expected.Block.Number, false})
 	if err != nil {
-		return 0, err
+		return err
 	}
 	if err = reader.budget.charge(len(raw) + 256); err != nil {
-		return 0, err
+		return err
 	}
-	actual, err := VerifyChainHeaderJSON(reader.ctx, a.Chain.Key, raw)
+	actual, err := VerifyChainHeaderJSON(reader.ctx, reader.chainKey, raw)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	if !sameReceiptAnchor(expected.Block, actual.Block) {
-		return 0, errors.New("SAE_SETTLING_ANCHOR_CHANGED")
+		return errors.New("SAE_SETTLING_ANCHOR_CHANGED")
 	}
-	return 0, reader.ctx.Err()
+	return reader.ctx.Err()
 }
 
 // ReadNativeContractAccountProof consumes a normal native block's shared read

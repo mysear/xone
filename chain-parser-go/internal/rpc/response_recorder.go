@@ -51,7 +51,10 @@ func (c *Client) recordResponse(ctx context.Context, providerID, method string, 
 	var envelope struct {
 		Params json.RawMessage `json:"params"`
 	}
-	if err := json.Unmarshal(request, &envelope); err != nil {
+	if len(request) > 0 && request[0] == '[' {
+		method = batchArchiveMethod
+		envelope.Params = request
+	} else if err := json.Unmarshal(request, &envelope); err != nil {
 		return &CallError{ProviderID: providerID, Class: RecordingFailed, Code: ErrRecordingFailed.Error(), Cause: errors.Join(ErrRecordingFailed, err)}
 	}
 	err := record(ctx, providerID, method, append(json.RawMessage(nil), envelope.Params...), append([]byte(nil), response...))

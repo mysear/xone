@@ -104,6 +104,10 @@ class RecordedRPC:
             value['result']['stateRoot']='0x'+'11'*32;mutated=True
         with self.lock:self.trace.append({'method':method,'params':params,'mutated':mutated,'original_response_sha256':sha(original)})
         return json.dumps(value,separators=(',',':')).encode() if mutated else original
+    def dispatch(self, request):
+        require(isinstance(request,dict) and type(request.get('id')) is int and request['id']==1
+                and request.get('jsonrpc')=='2.0','REQUEST_ID')
+        return self.response(request['method'],request.get('params',[]))
     def start(self):
         owner=self
         class Handler(BaseHTTPRequestHandler):
@@ -111,8 +115,7 @@ class RecordedRPC:
             def do_POST(self):
                 try:
                     size=int(self.headers.get('Content-Length','0'));require(0<size<=65536,'REQUEST_BUDGET')
-                    request=json.loads(self.rfile.read(size),object_pairs_hook=pairs);require(request.get('id')==1 and request.get('jsonrpc')=='2.0','REQUEST_ID')
-                    body=owner.response(request['method'],request.get('params',[]))
+                    body=owner.dispatch(json.loads(self.rfile.read(size),object_pairs_hook=pairs))
                 except (ValueError,KeyError,TypeError) as error:
                     with owner.lock:owner.trace.append({'error':str(error)})
                     body=json.dumps({'jsonrpc':'2.0','id':1,'error':{'code':-32000,'message':str(error)}}).encode()

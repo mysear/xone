@@ -23,7 +23,12 @@ log-redaction-test log-pressure-test:
 reducer-replay-test reorg-test fencing-test:
 	cd ../chain-parser-go && go test ./internal/reducer
 	$(MAKE) -C ../dex-router unit
-.PHONY: public-rpc-test public-rpc-owner-test public-solana-replay-test
+.PHONY: public-rpc-test public-rpc-owner-test public-solana-replay-test public-evm-replay-test
+public-evm-replay-test:
+	python3 -B -m unittest discover -s tools/acceptance/tests -p test_replay_beacon_window.py
+	python3 -B -m unittest discover -s tools/acceptance/tests -p test_public_rpc_smoke.py
+	$(MAKE) -C ../chain-parser-go build
+	python3 -B tools/acceptance/public_rpc_smoke.py --evm-replay
 public-solana-replay-test:
 	python3 -B -m unittest discover -s tools/acceptance/tests -p test_public_rpc_smoke.py
 	$(MAKE) -C ../chain-parser-rust build

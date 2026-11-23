@@ -184,11 +184,15 @@ func (c *Client) attempt(ctx context.Context, url, method string, params, out an
 			s.tokens = math.Min(float64(p.Burst), s.tokens+now.Sub(s.updated).Seconds()*p.RequestsPerSecond)
 		}
 		s.updated = now
-		if s.tokens < 1 {
+		cost := 1.0
+		if batch, ok := params.(ethCallBatch); ok {
+			cost = float64(len(batch))
+		}
+		if s.tokens < cost {
 			s.mu.Unlock()
 			return &CallError{ProviderID: endpointID(url), Class: BudgetExceeded, Code: "RPC_RATE_BUDGET"}
 		}
-		s.tokens--
+		s.tokens -= cost
 	}
 	s.mu.Unlock()
 	start := time.Now()

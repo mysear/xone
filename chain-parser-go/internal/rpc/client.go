@@ -43,7 +43,7 @@ type rpcResponse struct {
 }
 
 func (c *Client) callURL(ctx context.Context, url, method string, params any, out any) error {
-	b, e := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
+	b, e := encodeRequest(method, params)
 	if e != nil {
 		return errors.New("RPC_REQUEST_ENCODING")
 	}
@@ -81,6 +81,17 @@ func (c *Client) callURL(ctx context.Context, url, method string, params any, ou
 	}
 	if res.StatusCode != 200 {
 		return fmt.Errorf("RPC_HTTP_%d", res.StatusCode)
+	}
+	if batch, ok := params.(ethCallBatch); ok {
+		values, err := decodeEthCallBatch(b, len(batch))
+		if err != nil {
+			return err
+		}
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+		*out.(*[]string) = values
+		return nil
 	}
 	var response rpcResponse
 	if json.Unmarshal(b, &response) != nil || response.JSONRPC != "2.0" || response.ID != 1 {

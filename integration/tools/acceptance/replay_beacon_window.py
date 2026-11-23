@@ -12,8 +12,17 @@ from current_v2_evidence import (METHODS, RecordedRPC, canonical, pairs, provide
 from verify_beacon_owner import execution_endpoints
 
 
-REPLAY_METHODS = METHODS | {'eth_getRawTransactionByHash'}
+BATCH_METHOD = 'jsonrpc_batch'
+REPLAY_METHODS = METHODS | {'eth_getRawTransactionByHash', BATCH_METHOD}
 FILE_LIMIT = LIMITS['max_record_bytes'] * 2 + (256 << 10)
+
+
+def valid_call_batch(request):
+    return isinstance(request, list) and 1 <= len(request) <= 16 and all(
+        isinstance(call, dict) and set(call) == {'jsonrpc', 'id', 'method', 'params'}
+        and call['jsonrpc'] == '2.0' and type(call['id']) is int and call['id'] == i
+        and call['method'] == 'eth_call' and isinstance(call['params'], list) and len(call['params']) == 2
+        for i, call in enumerate(request, 1))
 
 
 class ArchiveRPC(RecordedRPC):
@@ -25,13 +34,24 @@ class ArchiveRPC(RecordedRPC):
         self.index = {}
         self.errors = 0
         self.served = 0
+        self.served_batches = 0
 
     def add(self, path, method, params, body):
         try:
             reply = json.loads(body, object_pairs_hook=pairs)
         except (UnicodeDecodeError, json.JSONDecodeError):
             reply = None
-        if (not isinstance(reply, dict) or reply.get('jsonrpc') != '2.0' or type(reply.get('id')) is not int
+        if method == BATCH_METHOD:
+            require(valid_call_batch(params), 'REPLAY_INVALID_CALL_BATCH')
+            if (not isinstance(reply, list) or len(reply) != len(params)
+                    or any(not isinstance(r, dict) or r.get('jsonrpc') != '2.0' or type(r.get('id')) is not int
+                           or 'error' in r or not isinstance(r.get('result'), str) for r in reply)
+                    or sorted(r['id'] for r in reply) != list(range(1, len(params)+1))):
+                self.errors += 1
+                return
+            # IDs associate results even when a server returns them out of order.
+            reply.sort(key=lambda r: r['id'])
+        elif (not isinstance(reply, dict) or reply.get('jsonrpc') != '2.0' or type(reply.get('id')) is not int
                 or reply['id'] != 1 or 'error' in reply or reply.get('result') is None):
             self.errors += 1
             return
@@ -40,18 +60,27 @@ class ArchiveRPC(RecordedRPC):
         if key in self.index:
             require(self.index[key][1] == digest, 'AMBIGUOUS_CAPTURE_RESULT')
         else:
-            self.index[key] = path, digest
+            self.index[key] = path, digest, sha(body)
+
+    def dispatch(self, request):
+        if isinstance(request, list):
+            require(valid_call_batch(request), 'REPLAY_INVALID_CALL_BATCH')
+            return self.response(BATCH_METHOD, request)
+        require(not isinstance(request, dict) or request.get('method') != BATCH_METHOD, 'REPLAY_INVALID_CALL_BATCH')
+        return super().dispatch(request)
 
     def response(self, method, params):
         key = (method, canonical(params))
         require(key in self.index, 'UNRECORDED_RPC_REQUEST')
-        path, _ = self.index[key]
+        path, _, raw_digest = self.index[key]
         owner, data, identity = sealed_payload(path, FILE_LIMIT, self.expected_chain)
         require(owner['ProviderID'] == self.source, 'REPLAY_UNKNOWN_PROVIDER')
         recorded, arguments, body = rpc_observation(owner, data, identity, REPLAY_METHODS)
         require((recorded, canonical(arguments)) == key, 'REPLAY_REQUEST_CHANGED')
+        require(sha(body) == raw_digest, 'REPLAY_RESPONSE_CHANGED')
         with self.lock:
             self.served += 1
+            self.served_batches += method == BATCH_METHOD
         return body
 
 

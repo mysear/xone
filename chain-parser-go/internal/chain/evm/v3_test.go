@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -25,6 +26,93 @@ func abiInt(n int64) string {
 		v.Add(v, new(big.Int).Lsh(big.NewInt(1), 256))
 	}
 	return fmt.Sprintf("%064x", v)
+}
+
+func TestV3TickBatchPreservesCallerAnchorOrderAndTail(t *testing.T) {
+	const pool = "pool-address"
+	const origin = "caller-address"
+	hash := "0x" + strings.Repeat("1", 64)
+	for _, invalid := range []bool{false, true} {
+		t.Run(fmt.Sprintf("bad-width-%t", invalid), func(t *testing.T) {
+			type request struct {
+				ID     int
+				Method string
+				Params []json.RawMessage
+			}
+			seen := make(chan int, 2)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var raw json.RawMessage
+				if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+					t.Error(err)
+					return
+				}
+				var calls []request
+				grouped := raw[0] == '['
+				if grouped {
+					if err := json.Unmarshal(raw, &calls); err != nil {
+						t.Error(err)
+						return
+					}
+				} else {
+					calls = make([]request, 1)
+					if err := json.Unmarshal(raw, &calls[0]); err != nil {
+						t.Error(err)
+						return
+					}
+				}
+				seen <- len(calls)
+				replies := make([]map[string]any, len(calls))
+				for i, call := range calls {
+					index := i - 8
+					if !grouped {
+						index = 8
+					}
+					var args map[string]string
+					var anchor map[string]any
+					if call.ID != i+1 || call.Method != "eth_call" || len(call.Params) != 2 ||
+						json.Unmarshal(call.Params[0], &args) != nil || json.Unmarshal(call.Params[1], &anchor) != nil ||
+						args["from"] != origin || args["to"] != pool || args["data"] != "0xf30dba93"+signedArg(int32(index)) ||
+						anchor["blockHash"] != hash || anchor["requireCanonical"] != true {
+						t.Errorf("wrong tick request at index %d", index)
+						return
+					}
+					value := "0x" + abiInt(int64(index+9)) + strings.Repeat("0", 6*64) + abiInt(1)
+					if invalid && index == -2 {
+						value = value[:len(value)-2]
+					}
+					replies[i] = map[string]any{"jsonrpc": "2.0", "id": call.ID, "result": value}
+				}
+				if grouped {
+					slices.Reverse(replies)
+					json.NewEncoder(w).Encode(replies)
+				} else {
+					json.NewEncoder(w).Encode(replies[0])
+				}
+			}))
+			defer server.Close()
+			reader := v3PoolReader{client: rpc.New([]string{server.URL}, 3*time.Second, 1<<16), address: pool,
+				origin: origin, anchor: map[string]any{"blockHash": hash, "requireCanonical": true}}
+			indices := make([]int32, 17)
+			for i := range indices {
+				indices[i] = int32(i - 8)
+			}
+			ticks, err := readV3Ticks(context.Background(), indices, 2, 16, false, reader.readTicks)
+			if invalid {
+				if err == nil || err.Error() != "V3_ABI_SIZE" || ticks != nil {
+					t.Fatal(ticks, err)
+				}
+				return
+			}
+			if err != nil || len(ticks) != len(indices) || len(seen) != 2 || <-seen+<-seen != 17 {
+				t.Fatal(ticks, err)
+			}
+			for i, tick := range ticks {
+				if tick.Tick != indices[i] || string(tick.LiquidityGross) != fmt.Sprint(i+1) {
+					t.Fatal(i, tick)
+				}
+			}
+		})
+	}
 }
 func TestV3HashPinnedReadChecksCodeBitmapAndEveryTick(t *testing.T) {
 	for _, mode := range []string{"ok", "code", "missing-tick", "bad-net", "locked", "anchor", "word-budget", "minimum-price", "pancake-ok", "pancake-lm", "pancake-bad-protocol-fee", "uniswap-wide-protocol-fee", "slipstream-ok", "slipstream-module", "slipstream-unstaked-module", "slipstream-clone-unpinned", "factory-code-ok", "factory-code-mismatch"} {
@@ -258,7 +346,10 @@ func TestV3TickReadsBoundConcurrencyKeepOrderAndRejectPartialState(t *testing.T)
 			}
 			done := make(chan result, 1)
 			go func() {
-				ticks, err := readV3Ticks(ctx, indices, 4, false, call)
+				ticks, err := readV3Ticks(ctx, indices, 4, 0, false, func(ctx context.Context, batch []int32, words int) ([][]byte, error) {
+					raw, err := call(ctx, "0xf30dba93"+signedArg(batch[0]), words)
+					return [][]byte{raw}, err
+				})
 				done <- result{ticks, err}
 			}()
 			for range 4 {

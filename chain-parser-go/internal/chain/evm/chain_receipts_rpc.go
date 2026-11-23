@@ -93,6 +93,16 @@ func (r *nativeProofReader) bindProvider(provider *rpc.Client, verified *proofEn
 	if verified != nil && *verified == selected {
 		return nil
 	}
+	if err := r.checkProviderIdentity(); err != nil {
+		return err
+	}
+	if verified != nil {
+		*verified = selected
+	}
+	return nil
+}
+
+func (r *nativeProofReader) checkProviderIdentity() error {
 	identity, err := r.call("eth_chainId", []any{})
 	if err != nil {
 		return err
@@ -110,9 +120,6 @@ func (r *nativeProofReader) bindProvider(provider *rpc.Client, verified *proofEn
 	var hash struct{ Hash string }
 	if json.Unmarshal(origin, &hash) != nil || !strings.EqualFold(hash.Hash, r.genesis) {
 		return errors.New("BLOCK_BODY_FINGERPRINT")
-	}
-	if verified != nil {
-		*verified = selected
 	}
 	return nil
 }
@@ -307,6 +314,11 @@ func (a *Adapter) readNativeReceiptCoverageCached(ctx context.Context, target Ra
 		return empty, err
 	}
 	defer r.cancel()
+	return r.readReceiptCoverage(target, mode, cached)
+}
+
+func (r *nativeProofReader) readReceiptCoverage(target RawBlock, mode string, cached *ChainBlockBodyProof) (VerifiedReceiptCoverage, error) {
+	var empty VerifiedReceiptCoverage
 	height, err := canonicalIndex(target.Number)
 	if err != nil {
 		return empty, err
@@ -349,10 +361,10 @@ func (a *Adapter) readNativeReceiptCoverageCached(ctx context.Context, target Ra
 		if err != nil {
 			return empty, err
 		}
+		limits := r.limits
 		limits.MaxBytes = r.budget.remaining
 		coverage, err := VerifyBorReceiptCoverage(r.ctx, header.Block, receipts, BorReceiptProof{ChainKey: r.chainKey, GenesisHash: r.genesis, Header: body.Header, TransactionsJSON: body.TransactionsJSON, RawTransactions: body.RawTransactions}, limits)
-		coverage.ProofBytesUsed += r.limits.MaxBytes - r.budget.remaining
-		return coverage, err
+		return r.accountVerifiedCoverage(coverage, err)
 	}
 	if err = r.prepareBody(header, &body, false); err != nil {
 		return empty, err
@@ -472,8 +484,16 @@ func (r *nativeProofReader) saeCoverage(target RawBlock, targetHeader ChainHeade
 	}
 	limits := r.limits
 	limits.MaxBytes = r.budget.remaining
-	coverage, err := VerifySAEExecutionProof(r.ctx, target, proof, limits)
-	coverage.ProofBytesUsed += r.limits.MaxBytes - r.budget.remaining
+	return r.accountVerifiedCoverage(VerifySAEExecutionProof(r.ctx, target, proof, limits))
+}
+
+// The stand-alone verifiers use a sub-budget for decoding the supplied evidence.
+// Charge that work to this reader before it can make any further RPC calls.
+func (r *nativeProofReader) accountVerifiedCoverage(coverage VerifiedReceiptCoverage, err error) (VerifiedReceiptCoverage, error) {
+	if err == nil {
+		err = r.budget.charge(coverage.ProofBytesUsed)
+	}
+	coverage.ProofBytesUsed = r.limits.MaxBytes - r.budget.remaining
 	return coverage, err
 }
 
@@ -487,7 +507,12 @@ func (a *Adapter) ReadNativeBlockProof(ctx context.Context, tag string, limits R
 		return empty, err
 	}
 	defer r.cancel()
-	if err = validateNativeBlockTag(tag); err != nil {
+	return r.readBlockProof(tag)
+}
+
+func (r *nativeProofReader) readBlockProof(tag string) (ChainBlockBodyProof, error) {
+	var empty ChainBlockBodyProof
+	if err := validateNativeBlockTag(tag); err != nil {
 		return empty, err
 	}
 	header, body, err := r.fullBlockTag(tag)

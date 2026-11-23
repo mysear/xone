@@ -132,6 +132,7 @@ type V3PoolConfig struct {
 	MaxInitializedTicks              uint32 `json:"max_initialized_ticks"`
 	MaxSteps                         uint32 `json:"max_steps"`
 	TickReadConcurrency              uint32 `json:"tick_read_concurrency,omitempty"`
+	TickReadBatchSize                uint32 `json:"tick_read_batch_size,omitempty"`
 }
 type V2PoolConfig struct {
 	ExpectedFactory    string `json:"expected_factory"`
@@ -1086,7 +1087,7 @@ func (c Config) Validate(expected string) error {
 				if (p.Protocol == "aerodrome-slipstream" || v != nil && v.ExpectedFactoryCodeSHA256 != "") && (v == nil || domain.ValidateEVMIdentity(v.ExpectedFactory, v.ExpectedFactoryCodeSHA256) != nil) {
 					return invalid()
 				}
-				if v == nil || v.TickWordRadius > 16 || v.TickReadConcurrency > 4 || v.MaxInitializedTicks == 0 || v.MaxInitializedTicks > 4096 || v.MaxSteps == 0 || v.MaxSteps > 8192 || p.FeeDenominator != 1000000 || p.FeeNumerator >= 1000000 {
+				if v == nil || v.TickWordRadius > 16 || v.TickReadConcurrency > 4 || v.TickReadBatchSize > 16 || v.MaxInitializedTicks == 0 || v.MaxInitializedTicks > 4096 || v.MaxSteps == 0 || v.MaxSteps > 8192 || p.FeeDenominator != 1000000 || p.FeeNumerator >= 1000000 {
 					return invalid()
 				}
 				for _, a := range []string{p.ID, p.Token0, p.Token1, v.ExpectedFactory} {

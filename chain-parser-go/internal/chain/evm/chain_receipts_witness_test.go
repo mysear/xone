@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -29,7 +30,7 @@ func TestNativeWitnessReprovesCurrentSAEInsteadOfOwnHeader(t *testing.T) {
 		headers[b.Number] = h
 	}
 	var settledReads sync.Map
-	var mutateAfterReceipt atomic.Bool
+	var mutateAfterReceipt, switchChain atomic.Bool
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Method string
@@ -47,6 +48,9 @@ func TestNativeWitnessReprovesCurrentSAEInsteadOfOwnHeader(t *testing.T) {
 			json.Unmarshal(req.Params[1], &fullBody)
 			if tag == "0x0" {
 				result = map[string]any{"hash": proof.GenesisHash}
+				if _, read := settledReads.Load(r.Host); read && switchChain.Load() {
+					result = map[string]any{"hash": target.Hash}
+				}
 			} else if tag == target.Number && fullBody {
 				result = full
 			} else {
@@ -80,6 +84,14 @@ func TestNativeWitnessReprovesCurrentSAEInsteadOfOwnHeader(t *testing.T) {
 	if err := a.VerifyNativeReceiptWitnesses(context.Background(), expected, "bulk-auto", nativeProofTestLimits()); err == nil {
 		t.Fatal("witness final check ignored orphaned settling header")
 	}
+	settledReads.Clear()
+	switchChain.Store(true)
+	err = a.VerifyNativeReceiptWitnesses(context.Background(), expected, "bulk-auto", nativeProofTestLimits())
+	var detail *NativeWitnessError
+	if !errors.As(err, &detail) || detail.Phase != "body_recheck" {
+		t.Fatalf("genesis changed after receipts: %#v", err)
+	}
+
 }
 
 func TestEthereumWitnessReusesOnlyItsOwnBody(t *testing.T) {
@@ -120,6 +132,68 @@ func TestEthereumWitnessReusesOnlyItsOwnBody(t *testing.T) {
 	var detail *NativeWitnessError
 	if !errors.As(err, &detail) || detail.Error() != "RECEIPT_WITNESS_INVALID" || detail.Phase != "receipts" || detail.WitnessIndex != 1 || detail.HeightTag != block.Number || detail.Class != rpc.InvalidResponse && detail.Class != rpc.Unavailable {
 		t.Fatalf("unexpected missing-receipts diagnostic: %#v", err)
+	}
+}
+
+func TestNativeWitnessCallOrderAndSharedBudget(t *testing.T) {
+	for _, name := range []string{"arbitrum", "avalanche-current", "polygon-synthetic"} {
+		t.Run(name, func(t *testing.T) {
+			left, right := newNormalNativeFixture(t, name), newNormalNativeFixture(t, name)
+			leftURL, rightURL := left.serve(t).URL, right.serve(t).URL
+			ctx, limits := context.Background(), nativeProofTestLimits()
+			limits.MaxBytes = 64 << 20
+			a := Adapter{Client: rpc.New([]string{leftURL}, 30*time.Second, 16<<20), Chain: left.chain}
+			expected, err := a.ReadNativeReceiptCoverage(ctx, left.target, "bulk-auto", limits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			a.Client = rpc.New([]string{leftURL, rightURL}, 30*time.Second, 16<<20)
+			calls := make(map[string][]string)
+			a.Client.SetRecorder(func(_ context.Context, source, method string, request json.RawMessage, _ []byte) error {
+				if method == "eth_getBlockByNumber" {
+					var params []json.RawMessage
+					if err := json.Unmarshal(request, &params); err != nil {
+						return err
+					}
+					switch {
+					case string(params[0]) == `"0x0"`:
+						method = "genesis"
+					case string(params[1]) == "true":
+						method = "body"
+					default:
+						method = "header"
+					}
+				}
+				calls[source] = append(calls[source], method)
+				return nil
+			})
+			used, err := a.VerifyNativeReceiptWitnessesUsage(ctx, expected, "bulk-auto", limits)
+			if err != nil || used <= 0 {
+				t.Fatal(used, err)
+			}
+			want := []string{"eth_chainId", "genesis", "body"}
+			if expected.Evidence.SAE != nil {
+				for range expected.Evidence.SAE.Headers[1:] {
+					want = append(want, "header")
+				}
+			}
+			want = append(want, "eth_getBlockReceipts", "eth_chainId", "genesis", "body")
+			if name == "avalanche-current" {
+				want = append(want, "header")
+			}
+			if len(calls) != 2 {
+				t.Fatal("distinct recorded witnesses", calls)
+			}
+			for source, actual := range calls {
+				if !slices.Equal(actual, want) {
+					t.Fatalf("source %s: %v, want %v", source, actual, want)
+				}
+			}
+			limits.MaxBytes = used - 1
+			if _, err = a.VerifyNativeReceiptWitnessesUsage(ctx, expected, "bulk-auto", limits); err == nil {
+				t.Fatal("witnesses reused the allowance consumed by an earlier phase")
+			}
+		})
 	}
 }
 

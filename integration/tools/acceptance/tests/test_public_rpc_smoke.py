@@ -129,6 +129,9 @@ class PublicPoolProbe(unittest.TestCase):
                 self.assertNotIn("proof_rpc_url", chain)
                 self.assertEqual(chain["block_integrity"], "known-evm-native-commitments-v2")
                 self.assertEqual(chain["confirmation_tag"], "finalized")
+                if pool["protocol"] == "uniswap-v3":
+                    self.assertEqual(pool["v3"]["tick_read_concurrency"], 4)
+                    self.assertEqual(pool["v3"]["tick_read_batch_size"], 1 if chain["key"] == "evm:8453" else 16)
 
     def test_pool_from_different_chain_cannot_match_by_address(self):
         chain = {"pools": [{"id": "pool", "token0": "a", "token1": "b", "protocol": "pancake-v2"}]}
@@ -174,3 +177,44 @@ class PublicPoolProbe(unittest.TestCase):
                              (replay["snapshot"], dict(pools=[dict(reserve0="35")]))]:
             with self.subTest(changes=changes), patch.dict(obj, changes), self.assertRaises(ValueError):
                 smoke.check_replayed_snapshot(live, replay, "provider", False)
+
+    def test_evm_replay_remaps_proof_provider_and_requires_every_source(self):
+        from replay_beacon_window import ArchiveRPC, provider_id
+
+        urls = ["https://one.example", "https://two.example", "https://proof.example"]
+        pool = dict(id="pool", v3=dict(tick_read_batch_size=16))
+        config = dict(state=dict(path="/live"), chains=[dict(key="evm:1", rpc_urls=urls[:2], proof_rpc_url=urls[2], pools=[pool])])
+        expected = {"evm:1": {"pools": [dict(pool_id=pool["id"], v3=dict(ticks=[-1, 1]))]}}
+        sources = {provider_id(url): ArchiveRPC(provider_id(url)) for url in urls}
+        local = {source: f"http://127.0.0.1:{3000+i}" for i, source in enumerate(sources)}
+        for source in sources.values():
+            source.served = 1
+        primary = sources[provider_id(urls[0])]
+        primary.served_batches = 1
+
+        def baseline(binary, cfg, directory):
+            chain, = cfg["chains"]
+            self.assertEqual(chain["rpc_urls"], [local[provider_id(url)] for url in urls[:2]])
+            self.assertEqual(chain["proof_rpc_url"], local[provider_id(urls[2])])
+            return copy.deepcopy(expected)
+
+        with patch("replay_beacon_window.read_window", return_value=(sources, {})), \
+                patch.object(ArchiveRPC, "start", lambda rpc: local[rpc.source]), \
+                patch.object(smoke, "parser_baselines", side_effect=baseline) as parser:
+            args = (Path("parser"), config, expected, Path("/offline"))
+            row = smoke.replay_evm_baselines(*args)["evm:1"]
+            self.assertEqual(len(row["providers"]), 3)
+            self.assertEqual([item["replayed_batches"] for item in row["providers"]], [1, 0, 0])
+            self.assertEqual(config["chains"][0]["rpc_urls"], urls[:2])
+            primary.served_batches = 0
+            with self.assertRaisesRegex(ValueError, "did not use a recorded tick batch"):
+                smoke.replay_evm_baselines(*args)
+            primary.served_batches = 1
+            source = sources[provider_id(urls[1])]
+            for served, trace in [(0, []), (1, [{"error": "UNRECORDED_RPC_REQUEST"}])]:
+                source.served, source.trace = served, trace
+                with self.assertRaisesRegex(ValueError, "unrecorded read or skipped"):
+                    smoke.replay_evm_baselines(*args)
+            parser.side_effect = lambda *_: {"evm:1": {"pools": []}}
+            with self.assertRaisesRegex(ValueError, "differs"):
+                smoke.replay_evm_baselines(*args)

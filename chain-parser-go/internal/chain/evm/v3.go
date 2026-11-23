@@ -13,6 +13,7 @@ import (
 
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/domain"
+	"xone/chain-parser-go/internal/rpc"
 )
 
 func wordUint(b []byte, bits int) (*big.Int, error) {
@@ -78,7 +79,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 		return domain.Pool{}, errors.New("PROTOCOL_UNSUPPORTED")
 	}
 	v := p.V3
-	if v == nil || v.TickWordRadius > 16 || v.TickReadConcurrency > 4 || v.MaxInitializedTicks == 0 || v.MaxInitializedTicks > 4096 || v.MaxSteps == 0 || v.MaxSteps > 8192 {
+	if v == nil || v.TickWordRadius > 16 || v.TickReadConcurrency > 4 || v.TickReadBatchSize > rpc.MaxEthCallBatch || v.MaxInitializedTicks == 0 || v.MaxInitializedTicks > 4096 || v.MaxSteps == 0 || v.MaxSteps > 8192 {
 		return domain.Pool{}, errors.New("V3_CONFIG_REQUIRED")
 	}
 	var code string
@@ -96,21 +97,8 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 	if hex.EncodeToString(h[:]) != v.ExpectedCodeSHA256 {
 		return domain.Pool{}, errors.New("V3_CODE_HASH_MISMATCH")
 	}
-	call := func(ctx context.Context, data string, words int) ([]byte, error) {
-		var result string
-		request := map[string]any{"to": p.ID, "data": data}
-		if options.origin != "" {
-			request["from"] = options.origin
-		}
-		if e := a.Client.Call(ctx, "eth_call", []any{request, anchor}, &result); e != nil {
-			return nil, e
-		}
-		raw, e := hex.DecodeString(strings.TrimPrefix(result, "0x"))
-		if e != nil || len(raw) != words*32 {
-			return nil, errors.New("V3_ABI_SIZE")
-		}
-		return raw, nil
-	}
+	reader := v3PoolReader{client: a.Client, address: p.ID, origin: options.origin, anchor: anchor}
+	call := reader.call
 	for _, item := range []struct{ selector, expected string }{{"0x0dfe1681", p.Token0}, {"0xd21220a7", p.Token1}, {"0xc45a0155", v.ExpectedFactory}} {
 		b, e := call(ctx, item.selector, 1)
 		if e != nil {
@@ -243,7 +231,7 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 			}
 		}
 	}
-	state.Ticks, e = readV3Ticks(ctx, initialized, v.TickReadConcurrency, p.Protocol == "aerodrome-slipstream", call)
+	state.Ticks, e = readV3Ticks(ctx, initialized, v.TickReadConcurrency, v.TickReadBatchSize, p.Protocol == "aerodrome-slipstream", reader.readTicks)
 	if e != nil {
 		return domain.Pool{}, e
 	}
@@ -251,9 +239,64 @@ func (a *Adapter) readV3Context(ctx context.Context, p config.PoolConfig, anchor
 	return pool, pool.Validate()
 }
 
-// Every tick is pinned to the same block. Keep results in bitmap order even
-// when public RPC requests finish out of order.
-func readV3Ticks(ctx context.Context, indices []int32, concurrency uint32, slipstream bool, call func(context.Context, string, int) ([]byte, error)) ([]domain.V3Tick, error) {
+type v3PoolReader struct {
+	client          *rpc.Client
+	address, origin string
+	anchor          map[string]any
+}
+
+func (r v3PoolReader) params(data string) []any {
+	request := map[string]any{"to": r.address, "data": data}
+	if r.origin != "" {
+		request["from"] = r.origin
+	}
+	return []any{request, r.anchor}
+}
+func v3ABIWords(result string, words int) ([]byte, error) {
+	raw, err := hex.DecodeString(strings.TrimPrefix(result, "0x"))
+	if err != nil || len(raw) != words*32 {
+		return nil, errors.New("V3_ABI_SIZE")
+	}
+	return raw, nil
+}
+func (r v3PoolReader) call(ctx context.Context, data string, words int) ([]byte, error) {
+	var result string
+	if err := r.client.Call(ctx, "eth_call", r.params(data), &result); err != nil {
+		return nil, err
+	}
+	return v3ABIWords(result, words)
+}
+
+func (r v3PoolReader) readTicks(ctx context.Context, indices []int32, words int) ([][]byte, error) {
+	const selector = "0xf30dba93"
+	if len(indices) == 1 {
+		value, err := r.call(ctx, selector+signedArg(indices[0]), words)
+		if err != nil {
+			return nil, err
+		}
+		return [][]byte{value}, nil
+	}
+	params := make([][]any, len(indices))
+	for i, tick := range indices {
+		params[i] = r.params(selector + signedArg(tick))
+	}
+	results, err := r.client.BatchEthCall(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	values := make([][]byte, len(results))
+	for i, result := range results {
+		values[i], err = v3ABIWords(result, words)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return values, nil
+}
+
+// Each batch uses the same block hash and caller for all of its getters.
+// Install in bitmap order only after every bounded group has completed.
+func readV3Ticks(ctx context.Context, indices []int32, concurrency, batchSize uint32, slipstream bool, read func(context.Context, []int32, int) ([][]byte, error)) ([]domain.V3Tick, error) {
 	words := 8
 	if slipstream {
 		words = 10
@@ -261,20 +304,25 @@ func readV3Ticks(ctx context.Context, indices []int32, concurrency uint32, slips
 	ticks := make([]domain.V3Tick, len(indices))
 	group, requests := errgroup.WithContext(ctx)
 	group.SetLimit(max(1, int(concurrency)))
-	for pos, index := range indices {
+	size := max(1, int(batchSize))
+	for first := 0; first < len(indices); first += size {
 		if requests.Err() != nil {
 			break
 		}
+		batch := indices[first:min(first+size, len(indices))]
 		group.Go(func() error {
-			raw, err := call(requests, "0xf30dba93"+signedArg(index), words)
+			values, err := read(requests, batch, words)
 			if err != nil {
 				return err
 			}
-			tick, err := decodeV3Tick(index, raw, slipstream)
-			if err == nil {
-				ticks[pos] = tick
+			for i, index := range batch {
+				tick, err := decodeV3Tick(index, values[i], slipstream)
+				if err != nil {
+					return err
+				}
+				ticks[first+i] = tick
 			}
-			return err
+			return nil
 		})
 	}
 	if err := group.Wait(); err != nil {

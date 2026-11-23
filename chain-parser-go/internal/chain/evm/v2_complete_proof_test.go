@@ -512,21 +512,30 @@ func TestWitnessRecheckReadsFreshBytesBeforeReusingVerifiedBody(t *testing.T) {
 	defer server.Close()
 	a.Client = rpc.New([]string{server.URL}, time.Second, 2<<20)
 	ctx, limits := context.Background(), nativeProofTestLimits()
-	previous, err := a.ReadNativeBlockProof(ctx, fmt.Sprintf("0x%x", bank.bank.StateAnchor.Number), limits)
+	reader, err := newNativeProofReader(ctx, a, limits)
 	if err != nil {
 		t.Fatal(err)
 	}
-	block, used, err := a.recheckWitnessBody(ctx, previous, limits)
+	defer reader.cancel()
+	previous, err := reader.readBlockProof(fmt.Sprintf("0x%x", bank.bank.StateAnchor.Number))
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := reader.budget.remaining
+	block, err := reader.recheckWitnessBody(previous)
+	used := start - reader.budget.remaining
 	if err != nil || used <= 0 || !sameReceiptAnchor(previous.CanonicalBlock, block) {
 		t.Fatal(err, used)
 	}
 	mode.Store(1)
-	block, changedCost, err := a.recheckWitnessBody(ctx, previous, limits)
+	start = reader.budget.remaining
+	block, err = reader.recheckWitnessBody(previous)
+	changedCost := start - reader.budget.remaining
 	if err != nil || changedCost <= used || !sameReceiptAnchor(previous.CanonicalBlock, block) {
 		t.Fatal(err, used, changedCost)
 	}
 	mode.Store(2)
-	if _, _, err = a.recheckWitnessBody(ctx, previous, limits); err == nil || bodyReads.Load() != 4 {
+	if _, err = reader.recheckWitnessBody(previous); err == nil || bodyReads.Load() != 4 {
 		t.Fatal("recheck accepted inconsistent header or skipped a read", err, bodyReads.Load())
 	}
 }

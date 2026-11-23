@@ -155,13 +155,15 @@ pub struct V3PoolConfig {
     pub expected_factory_code_sha256: String,
     pub expected_factory: String,
     pub expected_code_sha256: String,
-    #[serde(default, skip_serializing_if = "v3_serial_tick_reads")]
+    #[serde(default, skip_serializing_if = "v3_default_read_option")]
     pub tick_read_concurrency: u32,
+    #[serde(default, skip_serializing_if = "v3_default_read_option")]
+    pub tick_read_batch_size: u32,
     pub tick_word_radius: u32,
     pub max_initialized_ticks: u32,
     pub max_steps: u32,
 }
-fn v3_serial_tick_reads(value: &u32) -> bool {
+fn v3_default_read_option(value: &u32) -> bool {
     *value == 0
 }
 config_struct!(V2PoolConfig {
@@ -1958,6 +1960,7 @@ impl Config {
                     }
                     if v.tick_word_radius > 16
                         || v.tick_read_concurrency > 4
+                        || v.tick_read_batch_size > 16
                         || !(1..=4096).contains(&v.max_initialized_ticks)
                         || !(1..=8192).contains(&v.max_steps)
                         || p.fee_denominator != 1000000

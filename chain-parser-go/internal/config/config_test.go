@@ -100,6 +100,11 @@ func TestV3RequiresExplicitCodeAndFiniteTickBudget(t *testing.T) {
 		t.Fatal("unbounded tick concurrency accepted")
 	}
 	cfg.Config.Chains[0].Pools[0].V3.TickReadConcurrency = 4
+	cfg.Config.Chains[0].Pools[0].V3.TickReadBatchSize = 17
+	if cfg.Config.Validate("chain-parser-go") == nil {
+		t.Fatal("unbounded tick batch accepted")
+	}
+	cfg.Config.Chains[0].Pools[0].V3.TickReadBatchSize = 16
 	if err := cfg.Config.Validate("chain-parser-go"); err != nil {
 		t.Fatal(err)
 	}

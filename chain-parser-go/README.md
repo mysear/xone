@@ -38,6 +38,8 @@ GET /internal/chains/{chain}/baseline、/status、/journal?after={seq} 提供own
 
 开发配置通过 MEV Blocker 和 PublicNode 连接 Ethereum 主网，以 finalized 块锚定 Uniswap V2 DAI/WETH 池，核验正文、回执和状态证明。服务监听本机 8091 端口。测试配置供本地回归使用。生产文件是部署模板：需要填写真实 RPC、Kafka、控制面及认证参数。当前生产 TLS/SASL 能力仍受既有实现范围限制，生产模板缺少部署参数时校验失败。
 
+V3 池可通过 `v3.tick_read_batch_size` 批量读取初始化 tick。省略或设为 0、1 时逐条发送，2–16 时把固定于同一块哈希的 `eth_call` 合并为 JSON-RPC 批次。端点需支持批量请求，限流按批次内调用数计费。解析器校验每项响应并按 bitmap 顺序发布完整 tick 列表。
+
 配置结构、重复键、字段取值检查仍保留。运行中使用的配置/报价上下文指纹为派生业务数据，不是配置包 SHA256 校验；公开指纹不包含 API token。
 
 显式离线调试：

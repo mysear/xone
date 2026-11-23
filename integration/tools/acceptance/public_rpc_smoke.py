@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Read finalized mainnet pool state and cross-check normal development parsers."""
 import argparse
+import copy
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -180,7 +182,10 @@ def probe_owner_chain(base, target):
     pool["id"] = probe["pool"]
     identity = dict(expected_factory=probe["factory"], expected_code_sha256=probe["runtime_sha256"])
     if pool["protocol"] == "uniswap-v3":
-        pool["v3"] = dict(identity, tick_word_radius=0, tick_read_concurrency=4, max_initialized_ticks=256, max_steps=8192)
+        # Base's pinned RPC pair rate-limits requests and caps free batches at three calls.
+        batch_size = 1 if target["chain_key"] == "evm:8453" else 16
+        pool["v3"] = dict(identity, tick_word_radius=0, tick_read_concurrency=4, tick_read_batch_size=batch_size,
+                          max_initialized_ticks=256, max_steps=8192)
     elif pool["protocol"] == "pancake-v2":
         pool["v2"] = identity
     else:
@@ -194,7 +199,55 @@ def probe_owner_chain(base, target):
     return chain
 
 
-def check_owners(targets, binary):
+def replay_evm_baselines(binary, live_config, snapshots, directory):
+    from replay_beacon_window import BATCH_METHOD, provider_id, read_window
+
+    config = copy.deepcopy(live_config)
+    archive = Path(config["state"]["path"]) / "raw-evidence"
+    by_chain = {}
+    with ExitStack() as servers:
+        for chain in config["chains"]:
+            key = chain["key"]
+            urls = list(chain["rpc_urls"])
+            if chain.get("proof_rpc_url"):
+                urls.append(chain["proof_rpc_url"])
+            sources, _ = read_window(archive / key.replace(":", "-"), urls, key)
+            by_chain[key] = sources
+            local = {}
+            for url in dict.fromkeys(urls):
+                source = sources[provider_id(url)]
+                servers.callback(source.close)
+                local[url] = source.start()
+            chain["rpc_urls"] = [local[url] for url in chain["rpc_urls"]]
+            if chain.get("proof_rpc_url"):
+                chain["proof_rpc_url"] = local[chain["proof_rpc_url"]]
+        try:
+            replay = parser_baselines(binary, config, directory)
+        except RuntimeError as error:
+            missed = [entry for sources in by_chain.values() for source in sources.values() for entry in source.trace]
+            raise RuntimeError(f"offline EVM replay failed (missing reads: {missed[:2]}) {error}") from error
+    if replay != snapshots:
+        raise ValueError("offline EVM snapshot differs from the published snapshot")
+    result = {}
+    for chain in config["chains"]:
+        key = chain["key"]
+        sources = by_chain[key]
+        if any(not source.served or source.trace for source in sources.values()):
+            raise ValueError(f"{key} replay required an unrecorded read or skipped a provider")
+        batched_pools = {pool["id"] for pool in chain["pools"] if pool.get("v3", {}).get("tick_read_batch_size", 0) > 1}
+        if (any(pool["pool_id"] in batched_pools and len(pool["v3"]["ticks"]) > 1 for pool in replay[key]["pools"])
+                and not any(source.served_batches for source in sources.values())):
+            raise ValueError(f"{key} replay did not use a recorded tick batch")
+        encoded = json.dumps(replay[key], sort_keys=True, separators=(",", ":")).encode()
+        providers = [dict(provider_id=source.source, requests=source.served,
+                          recorded_batches=sum(method == BATCH_METHOD for method, _ in source.index),
+                          replayed_batches=source.served_batches)
+                     for source in sources.values()]
+        result[key] = dict(snapshot_sha256=hashlib.sha256(encoded).hexdigest(), providers=providers)
+    return result
+
+
+def check_owners(targets, binary, evm_replay=False):
     project = targets[0]["owner"]
     if any(target["owner"] != project for target in targets):
         raise ValueError("a shared parser must own every selected chain")
@@ -206,10 +259,20 @@ def check_owners(targets, binary):
                 target["chain_key"], target["genesis_hash"], "finalized"):
             raise ValueError("development config identity or commitment differs from target")
     config["chains"] = chains
+    if evm_replay:
+        config["journal"]["raw_evidence"] = dict(max_bytes=512 << 20, max_records=8192,
+                                                 max_record_bytes=4 * config["journal"]["max_payload_bytes"] + 16384)
     with tempfile.TemporaryDirectory(prefix="xone-public-rpc-") as tmp:
         snapshots = parser_baselines(binary, config, Path(tmp))
-    return [check_snapshot(target, chain, snapshots[chain["key"]], config["startup"]["max_baseline_age_ms"])
-            for target, chain in zip(targets, chains)]
+        rows = [check_snapshot(target, chain, snapshots[chain["key"]], config["startup"]["max_baseline_age_ms"])
+                for target, chain in zip(targets, chains)]
+        if evm_replay:
+            offline = Path(tmp) / "offline"
+            offline.mkdir()
+            replays = replay_evm_baselines(binary, config, snapshots, offline)
+            for row, chain in zip(rows, chains):
+                row["offline_replay"] = replays[chain["key"]]
+        return rows
 
 
 def check_snapshot(target, chain, snapshot, max_age_ms):
@@ -342,10 +405,16 @@ def main():
     parser.add_argument("--all-owners", action="store_true", help="require a live parser baseline for each selected chain")
     parser.add_argument("--chain", choices=targets, action="append", help="limit this run to the selected chain(s)")
     parser.add_argument("--shared-owner", action="store_true", help="run the selected chains in a single owner process")
-    parser.add_argument("--solana-replay", action="store_true", help="restart across two mainnet RPCs and replay both recorded Solana snapshots offline")
+    replays = parser.add_mutually_exclusive_group()
+    replays.add_argument("--solana-replay", action="store_true", help="restart across two mainnet RPCs and replay both recorded Solana snapshots offline")
+    replays.add_argument("--evm-replay", action="store_true", help="record live EVM owners and reproduce their snapshots from sealed RPC responses")
     args = parser.parse_args()
     binaries = {"chain-parser-go": args.go_binary.resolve(), "chain-parser-rust": args.rust_binary.resolve()}
     names = list(dict.fromkeys(args.chain or targets))
+    if args.evm_replay:
+        if args.chain and any(targets[name]["family"] != "evm" for name in names):
+            parser.error("--evm-replay requires EVM chains")
+        names = [name for name in names if targets[name]["family"] == "evm"]
     if args.solana_replay:
         if args.shared_owner or (args.chain and names != ["solana"]):
             parser.error("--solana-replay selects Solana mainnet")
@@ -361,7 +430,7 @@ def main():
         if len(names) < 2 or len({t["owner"] for t in selected}) != 1:
             parser.error("--shared-owner requires at least two chains owned by the same parser")
         try:
-            for row in check_owners(selected, binaries[selected[0]["owner"]]):
+            for row in check_owners(selected, binaries[selected[0]["owner"]], args.evm_replay):
                 print(json.dumps(row), flush=True)
         except (ValueError, KeyError, TypeError, OSError, RuntimeError) as exc:
             print(f"shared owner {names} FAILED {exc}", file=sys.stderr, flush=True)
@@ -371,8 +440,8 @@ def main():
     for name in names:
         target = targets[name]
         try:
-            if args.all_owners or "public_pool_probe" not in target:
-                row, = check_owners([target], binaries[target["owner"]])
+            if args.evm_replay or args.all_owners or "public_pool_probe" not in target:
+                row, = check_owners([target], binaries[target["owner"]], args.evm_replay)
             else:
                 row = check_public_pool(target)
             print(json.dumps(row), flush=True)

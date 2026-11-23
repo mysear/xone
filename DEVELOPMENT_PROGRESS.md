@@ -1,10 +1,10 @@
 # Xone 开发进度与完成情况
 
-更新：2026-11-22。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
+更新：2026-11-23。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
-状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。目前 26 个工作包完整验收为 0。截至阶段254，WP18 已进入部分实现，25 个工作包为 `PARTIAL_LOCAL`，WP22 为 `NOT_STARTED`。生产准入与 VERIFIED 报价关闭。
+状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。截至阶段255，26 个工作包完整验收为 0，25 个为 `PARTIAL_LOCAL`，WP22 为 `NOT_STARTED`。生产准入与 VERIFIED 报价关闭。
 
 优先级：区块解析和精确兑换量计算优先，分析功能低优先级。三服务各自独立，公共协议位于common。
 
@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|EVM 主网原生见证与 V3 批量归档（[阶段255](#public-evm-witness-batch)，P0-1）|§7、§9、§18、§28，WP03、WP04、WP05、WP18、WP24|LOCAL_SCOPE_VERIFIED|七条 EVM 主网分别通过正式解析器实时采样、双端点核对和完整快照离线重放|验收覆盖每链一个指定池和块。各链的独立共识来源、连续窗口及跨故障域仍待完成|
 |Solana 主网账户 RPC 归档重放（[阶段254](#solana-raw-rpc-replay)，P0-1）|§7、§8.4、§8.9、§28，WP03、WP04、WP05、WP24|LOCAL_SCOPE_VERIFIED|正式解析器跨两个主网来源重启，按原始调用顺序重放两个 finalized slot 的池状态，每个块由另一端点复核|覆盖一个固定 Raydium CPMM 池，独立 bank、Yellowstone 与生产故障域仍待验收|
 |滞后主网 RPC 的选择与复核（[阶段253](#public-mainnet-stale-head)，P0-1）|§7、§23.4、§28，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|首选 EVM 端点报告过期头时，在同一确认级别交叉核对数值高度与哈希，保留正文和回执见证。Ethereum 增加同块储备复核|八链各验证一个池，Solana 独立 bank 和生产故障域仍待验收|
 |八条主网的正式解析器和真实池状态（[阶段252](#public-mainnet-pool-owners)，P0-1）|§3、§7、§9、§28，WP03、WP04、WP05、WP18、WP24|LOCAL_SCOPE_VERIFIED|七条 EVM 链和 Solana 在同一次公网验收发布快照，六个新增部署按同块合约状态复核|覆盖每链一个指定池，独立共识来源、全协议和生产验收仍待完成|
@@ -3607,7 +3608,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 
 |顺序|差距 / 工作包|实现建议|退出标准 / 后续边界|当前状态|
 |---|---|---|---|---|
-|P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。阶段251已在两个真实 Ethereum 窗口验证连续签名来源、普通服务和原始重放。阶段254在两个真实 Solana slot 由原始 RPC 归档重放了来源快照。独立故障域、Solana 同源 bank 及其余来源仍待完成。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
+|P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。阶段251验证两个真实 Ethereum 连续签名窗口。阶段254重放两个真实 Solana slot 的来源快照。阶段255分别重放七条 EVM 主网的完整启动快照。独立故障域、Solana 同源 bank 及其余来源仍待完成。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
 |P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；阶段149补服务端配置预言机签名授权、源块/币种/历史时效绑定和父源审计后的单笔原子单位换算/费后金额；阶段150完成逐完整候选费用评分组件及有符号目标/完整覆盖检查/统一毛额回退，阶段151接通显式启用的单路线V2正常报价、逐候选实际worker/父费用核验/授权换算和固定计划deadline；阶段152补批准Ethereum Chainlink USD双feed固定部署/原ABI/时效和签名来源绑定、全宽约分/换算与有界采集/待签署CLI；阶段153补选中候选费用的正常报价同源披露；阶段154补进程内授权价格book签名版本/原子刷新、单报价价格快照/缓存及旧报价执行绑定；阶段155–156补离线初始化与显式启用的正常Router重启耐久高水位；默认模式仍无跨重启保证。其他执行/成本模型、可信bank、持续live价格刷新/授权发布及其他链来源、完整全候选净评分及报价总费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
@@ -5679,3 +5680,45 @@ Rust 工作区 746 项通过，15 项按原有条件跳过。针对归档和分�
 清理 15 份已并入项目的 Rust 草稿、21 份旧预检日志与 2 个可从现有 Go 源码离线重建的原型程序，共 30475992 字节。重新构建两个程序后，用保留的固定输入和原始 OP 客户端重算 448 个历史用例，两个相关测试组共 8 项通过。本轮临时构建、数据库和 Kafka 状态目录合计占用 6682529792 字节，关闭后清除。
 
 [基线解析与重放](chain-parser-rust/crates/solana-ingest/src/rpc.rs) · [归档持久化](chain-parser-rust/crates/solana-ingest/src/source_wal.rs) · [主网验收命令](integration/README.md)
+
+<a id="public-evm-witness-batch"></a>
+
+## EVM 主网原生见证与 V3 批量归档（2026-11-23，阶段255，P0-1）
+
+每个见证端点在既有截止时间和共享字节预算内，验证并复用该端点自己的编号块正文读取回执。正文承诺、回执根、Bor 的业务范围和 Avalanche SAE 的结算窗口仍按链规则检查。读完回执后重新查询链 ID、创世块和正文，SAE 同时重查结算块。回归覆盖两来源各自的调用顺序、总预算耗尽、收尾创世块或结算锚点变更。
+
+Arbitrum 真链响应显示逐个读取 V3 tick 超出解析器的启动截止时间。主网验收配置启用每批最多 16 个同块哈希的 `eth_call`，至多四个并行请求。通用配置保留逐条调用的默认值。批次包含调用者和 EIP-1898 块引用，全部成员按请求编号校验，完整 tick 列表按 bitmap 顺序写入。批次按成员数量计入 RPC 限流并保留原始请求和响应。缺项、重复编号、错误 ABI 长度、归档失败均会拒绝发布。
+
+11 月 22 日使用普通 Go 解析器和现有在线时效配置通过以下采样。每条快照完成原生区块和回执见证，随后在表中第二个端点核对同高块引用、池代码、工厂、代币、价格、tick 和流动性。
+
+|主网|finalized 块|初始化 tick 数|配置的主端点|同块复核端点|
+|---|---:|---:|---|---|
+|Arbitrum One|526432690|234|`arb1.arbitrum.io/rpc`|`arbitrum.gateway.tenderly.co`|
+|OP Mainnet|159863252|203|`optimism-rpc.publicnode.com`|`optimism.gateway.tenderly.co`|
+|Avalanche C-Chain|101042607|118|`avalanche-c-chain-rpc.publicnode.com`|`avalanche.drpc.org`|
+
+Arbitrum 块哈希为 `0x8e62515b5b42a97ed8195bb12f5d8e8cb085cc08e26fb029d536df377dedcb94`。保留原始响应后，从空目录以两个本地归档端点重启解析器，两个来源分别回答 48 和 11 次读取，主端点归档含 15 个批次。完整快照的 SHA-256 为 `c163fe969b892f7f5cf052ba117cc15240f856a4248c7ab4c3cc93f2e5302535`，与在线发布一致。历史样本跨过新鲜度窗口后，通过隔离配置复核离线功能，在线验收命令沿用正常时效。
+
+11 月 23 日，`--evm-replay` 在正常时效内完成以下主网的实时采集、同块合约复核和立即离线重放。两个来源均参与重放，所有请求均来自对应端点的归档。
+
+|主网|finalized 块|两个来源的回放请求数|实际回放批次数|完整快照 SHA-256|
+|---|---:|---|---:|---|
+|Ethereum|26475461|MEV Blocker 49、PublicNode 11|0|`f4a7883df8d51f34235b563597dc423fd0d47d4cb252bddd4c68c9a64943a06a`|
+|Base|61091540|官方端点 289、dRPC 11|0|`98f4fb1036f50a3fa108a737cbc349f2bcda032dfb84d051f852482ef32bc387`|
+|Arbitrum One|526705329|官方端点 49、Tenderly 11|16|`d1e956ee984f69e5d4fbdd249acadfd331d3eb16e1b3962904a64ae11beabf70`|
+|OP Mainnet|159904962|PublicNode 46、Tenderly 11|13|`1592d6efff21b786a6044b28c1c5bb07dcf4014ec9a36a72e964af662079d479`|
+|Polygon PoS|97802543|PublicNode 43、dRPC 11|9|`69235ad745dd9f7800dde878ba72b666958313482b9f6400363be99a6c0eeb56`|
+|Avalanche C-Chain|101133547|PublicNode 62、dRPC 19|8|`7a06b65c7d16e7ac1b0bc619681b29c14cc4a11b543134c45dc1197d2a2e1afa`|
+|BNB Smart Chain|135209736|BNB Chain 31、Defibit 11|0|`494785f6fb4b1ab099a22100f359a388c4881eb3e608914097a35fba94e4c3e3`|
+
+11 月 22 日后续整组复跑未通过，多端点的 HTTP 请求超过 15 秒，Go 在既有截止时间拒绝启动。11 月 23 日再次通过公开 RPC 核对八条主网的链身份、创世块与 finalized 块。OP Mainnet 首次采集遇到 `BASELINE_TOO_OLD`，更新的 finalized 头进入时效窗口后采集和重放通过。Base 官方端点对大批次返回每秒 25 调用的限流错误，dRPC 免费端点最多接受 3 个成员，另一个试用端点 PublicNode 的创世块请求返回 HTTP 403。Base 保留四个并发的逐条读取，并在出现合格的新 finalized 头后采集和重放了 256 个初始化 tick。
+
+Solana 在 11 月 22 日复跑重放命令时遇到 `BASELINE_DEADLINE`，阶段254中两个经正式解析器验证的 slot 见上节。11 月 23 日，Solana 官方端点和 Pocket 分别从 finalized slot 472815374 和 472815378 返回 Raydium CPMM 池的 11 个依赖账户。分别核对了 Clock slot、固定的 Raydium 和 SPL Token 部署 slot 与程序代码摘要，再读取对应 slot 的块引用。五次并行双端点探测中，四次账户快照落在不同 slot，一次 RPC 拒绝方法参数，未取得跨端点的同 slot 账户证据。
+
+实测 PublicNode 的 Yellowstone `GetVersion` 返回 `grpc-status: 7`，需要个人 token。本机有 16 GiB RAM，Agave 的主网节点建议至少 256 GB RAM 和独立的大容量 NVMe。后续主网同源 Bank 验收需要可运行原生 exporter 的节点，现有冻结 Bank 导出器已覆盖本地 Agave Bank 及通知回调测试。 [PublicNode](https://solana.publicnode.com/) · [Agave 节点要求](https://docs.anza.xyz/operations/requirements)
+
+Go 全包、vet、见证及 V3 专项 race、两套 Rust 配置测试、跨服务契约和 17 项进度检查通过。Rust 解析器及 Router 的配置测试分别通过 51 和 50 项，各有 9 项按既有条件跳过。Python 公网与归档相关测试共 33 项通过。阶段255未重复完整构建 Rust 解析器二进制。
+
+两份历史中间测试输入由保留的 OP 原始执行向量及仓库现有导出测试重新生成，分别通过 SHA-256 逐字节核对。已删除旧中间文件共 59551318 字节。新一轮的 16 个 EVM 采集与诊断运行目录、57421304 字节的 Go 测试程序，以及占用 2637852672 字节的本轮本地构建和验证目录均已清理。
+
+[正文与回执见证](chain-parser-go/internal/chain/evm/chain_receipts_witness.go) · [批量读取](chain-parser-go/internal/rpc/eth_call_batch.go) · [公网与离线验收](integration/README.md)

@@ -3,12 +3,42 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from replay_beacon_window import ArchiveRPC, check_rows
+from replay_beacon_window import ArchiveRPC, BATCH_METHOD, check_rows
 
 
 class HistoricalWindow(unittest.TestCase):
+    def test_provider_batch_matches_complete_requests_and_preserves_wire_order(self):
+        source = ArchiveRPC('source')
+        calls = [dict(id=i, jsonrpc='2.0', method='eth_call', params=[{'data': hex(i)}, '0x50'])
+                 for i in range(1, 17)]
+        replies = [dict(id=i, jsonrpc='2.0', result=hex(i)) for i in range(16, 0, -1)]
+        raw = json.dumps(replies).encode()
+        path = Path('record.raw')
+        for invalid in [replies[:-1], replies[:-1] + replies[:1], [dict(replies[0], error={})] + replies[1:]]:
+            source.add(path, BATCH_METHOD, calls, json.dumps(invalid).encode())
+        self.assertEqual((source.index, source.errors), ({}, 3))
+        source.add(path, BATCH_METHOD, calls, raw)
+        source.add(path, BATCH_METHOD, calls, json.dumps(list(reversed(replies))).encode())
+        with patch('replay_beacon_window.sealed_payload', return_value=({'ProviderID':'source'}, b'', {})), \
+                patch('replay_beacon_window.rpc_observation', return_value=(BATCH_METHOD, calls, raw)) as observation:
+            self.assertEqual(source.dispatch(calls), raw)
+            self.assertEqual((source.served, source.served_batches), (1, 1))
+            observation.return_value = (BATCH_METHOD, calls, raw + b' ')
+            with self.assertRaisesRegex(ValueError, 'REPLAY_RESPONSE_CHANGED'):
+                source.dispatch(calls)
+            self.assertEqual((source.served, source.served_batches), (1, 1))
+        changed = copy.deepcopy(calls)
+        changed[0]['params'][1] = '0x51'
+        with self.assertRaisesRegex(ValueError, 'UNRECORDED_RPC_REQUEST'):
+            source.dispatch(changed)
+        for invalid in [[], calls + [calls[-1]], [calls[-1]], [dict(calls[0], method='eth_chainId')],
+                        dict(calls[0], method=BATCH_METHOD, params=calls)]:
+            with self.assertRaisesRegex(ValueError, 'REPLAY_INVALID_CALL_BATCH'):
+                source.dispatch(invalid)
+
     def test_conflicting_successes_rejected_and_transient_errors_counted(self):
         rpc = ArchiveRPC('source')
         params = ['0x1', False]
