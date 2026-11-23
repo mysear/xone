@@ -41,7 +41,7 @@ def pairs(items):
         require(key not in value,'DUPLICATE_JSON_KEY');value[key]=item
     return value
 
-def sealed_payload(path, file_budget, expected_chain='evm:1'):
+def sealed_payload(path, file_budget, expected_chain='evm:1', *, with_capture_time=False):
     path=Path(path);require(not path.is_symlink() and path.is_file(),'REGULAR_CAPTURE_REQUIRED')
     require(path.stat().st_size <= file_budget, 'CAPTURE_FILE_BUDGET')
     with path.open('rb') as stream:
@@ -61,6 +61,7 @@ def sealed_payload(path, file_budget, expected_chain='evm:1'):
     owner_bytes=json.dumps({k:owner[k] for k in ['Chain','Height','Hash','ProviderID']},separators=(',',':')).encode()
     require(ref['ID']==sha(owner_bytes) and path.name==ref['ID']+'.raw','CAPTURE_ID')
     identity = {'file':path.name,'sha256':sha(raw),'data_sha256':ref['Digest'],'bytes':len(raw),'provider_id':owner['ProviderID']}
+    if with_capture_time:identity['captured_at']=payload['CapturedAt']
     return owner, data, identity
 
 

@@ -35,6 +35,7 @@ make -C integration public-rpc-test
 # 要求八条链都通过正式解析器启动并发布池快照
 make -C integration public-rpc-owner-test
 make -C integration public-evm-replay-test
+make -C integration public-evm-window-test
 make -C integration public-solana-replay-test
 
 # 构建后执行隔离三进程离线联调；自动停止本次子进程
@@ -51,6 +52,8 @@ make -C integration test
 `public-rpc-owner-test` 为这六条链逐一启动 Go 解析器，使用目录中的前两个 RPC 核验原生区块和回执。V3 读取当前 bitmap word 的全部初始化 tick，主网复验配置使用最多四个并行请求、每个批次最多 16 个 tick。Base 公开端点有批次大小和调用频率限制，验收配置对该链逐条读取。解析器快照须与同高度合约状态匹配。单链复验可在构建后运行 `python3 -B integration/tools/acceptance/public_rpc_smoke.py --all-owners --chain arbitrum`。同一进程的多链复验使用 `--shared-owner --chain base --chain optimism`。这两条链上的 WETH 合约地址相同，池、区块和价格仍需按各自 chain key 校验。每条链打印实际回读端点。Go 采用开发配置的 20 分钟时效限制，Solana 为 2 分钟。公网来源过期、核对不一致或服务启动失败均会返回非零。主网联调均只读，结束时清除本次临时凭据、状态和日志。
 
 `public-evm-replay-test` 从七条 EVM 主网逐链采集正式解析器使用的原始 RPC 响应，按端点封存请求和响应，包含完整的 JSON-RPC 批次。随后用本地回放端点和空状态目录重启解析器，检查每个来源均参与，所需请求均有记录，并比较完整发布快照。输出包含快照 SHA-256、各来源回放请求数以及归档和实际重放的批次数。构建后可用 `python3 -B integration/tools/acceptance/public_rpc_smoke.py --evm-replay --chain arbitrum` 单链复验。
+
+`public-evm-window-test` 默认从 BNB Smart Chain 主网采集正常 Go owner 的启动快照和至少三个连续提交。验收检查同一 generation 内的父块、journal 序号和完整池状态，在第二个公开端点复核首末池状态。封存的 finalized 响应提供首末区块锚点。离线阶段用两个只读本地回放端点按编号解码，在空 Pebble 目录重建 journal，核对两份完整快照、每条记录的编号和状态摘要，以及包含交易事实的 staging 摘要。构建后可用 `python3 -B integration/tools/acceptance/public_evm_window.py --chain polygon --commits 3` 复验其他指定主网。结果记录区块与完整截面摘要，命令退出时清理本次归档和临时库。
 
 `public-solana-replay-test` 依次用 Solana 官方端点和 Pocket 作为账户来源，重启同一个 Rust 解析器，每次用另一端点复核 finalized slot 的块哈希、父哈希和时间。两次发布后关闭解析器，从原始 RPC 归档重放两个池快照。输出包含实际端点、slot、读取编号、调用次数、不同响应数及快照摘要。重启后的发布序号和代次由在线服务分配，验收分别核对它们是否推进，以及来源状态能否重放。命令退出时删除本次归档。
 

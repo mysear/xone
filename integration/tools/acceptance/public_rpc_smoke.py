@@ -2,7 +2,7 @@
 """Read finalized mainnet pool state and cross-check normal development parsers."""
 import argparse
 import copy
-from contextlib import ExitStack
+from contextlib import contextmanager, ExitStack
 import hashlib
 import json
 import os
@@ -129,7 +129,8 @@ def check_public_pool(target, expected=None, urls=None):
     raise RuntimeError(" | ".join(failures) or "empty RPC list")
 
 
-def parser_baselines(binary, config, directory):
+@contextmanager
+def owner_process(binary, config, directory):
     token = secrets.token_urlsafe(32)
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -139,32 +140,17 @@ def parser_baselines(binary, config, directory):
     path = directory / "config-dev.yaml"
     path.write_text(json.dumps(config))
     path.chmod(0o600)
-    requests = {chain["key"]: urllib.request.Request(f"http://{listen}/internal/chains/{chain['key']}/baseline",
-                                                      headers={"Authorization": f"Bearer {token}"})
-                for chain in config["chains"]}
-    snapshots = {}
-    poll_interval = max(0.5, 60 * len(requests) / config["api"]["requests_per_minute"])
     local = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+    def read(path):
+        request = urllib.request.Request(f"http://{listen}{path}", headers={"Authorization": f"Bearer {token}"})
+        with local.open(request, timeout=2) as response:
+            return json.load(response)
+
     with (directory / "parser.log").open("w+b") as log:
         proc = subprocess.Popen([str(binary), "--config", str(path)], stdout=log, stderr=log)
         try:
-            deadline = time.monotonic() + 150
-            while proc.poll() is None and time.monotonic() < deadline:
-                for key, request in requests.items():
-                    if key in snapshots:
-                        continue
-                    try:
-                        with local.open(request, timeout=2) as response:
-                            snapshots[key] = json.load(response)
-                    except (urllib.error.URLError, TimeoutError, ConnectionError):
-                        continue
-                if len(snapshots) == len(requests):
-                    return snapshots
-                time.sleep(min(poll_interval, max(0, deadline - time.monotonic())))
-            end = log.seek(0, 2)
-            log.seek(max(0, end - 2048))
-            missing = sorted(requests.keys() - snapshots.keys())
-            raise RuntimeError(f"no parser baseline for {missing} (exit {proc.poll()}) {log.read().decode(errors='replace')}")
+            yield proc, read, log
         finally:
             if proc.poll() is None:
                 proc.terminate()
@@ -173,6 +159,29 @@ def parser_baselines(binary, config, directory):
                 except subprocess.TimeoutExpired:
                     proc.kill()
                     proc.wait()
+
+
+def parser_baselines(binary, config, directory):
+    keys = [chain["key"] for chain in config["chains"]]
+    snapshots = {}
+    poll_interval = max(0.5, 60 * len(keys) / config["api"]["requests_per_minute"])
+    with owner_process(binary, config, directory) as (proc, read, log):
+        deadline = time.monotonic() + 150
+        while proc.poll() is None and time.monotonic() < deadline:
+            for key in keys:
+                if key in snapshots:
+                    continue
+                try:
+                    snapshots[key] = read(f"/internal/chains/{key}/baseline")
+                except (urllib.error.URLError, TimeoutError, ConnectionError):
+                    continue
+            if len(snapshots) == len(keys):
+                return snapshots
+            time.sleep(min(poll_interval, max(0, deadline - time.monotonic())))
+        end = log.seek(0, 2)
+        log.seek(max(0, end - 2048))
+        missing = sorted(set(keys) - snapshots.keys())
+        raise RuntimeError(f"no parser baseline for {missing} (exit {proc.poll()}) {log.read().decode(errors='replace')}")
 
 
 def probe_owner_chain(base, target):

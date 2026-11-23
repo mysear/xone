@@ -1,5 +1,6 @@
-// replay-beacon-window runs the normal EVM decoder on two local recorded-response
-// servers. It verifies a historical signed head and returns staged payload hashes.
+// replay-beacon-window runs the normal EVM decoder against recorded-response
+// servers. It supports a signed Ethereum head or an explicitly numbered window
+// whose provider finality observations are checked by the caller.
 package main
 
 import (
@@ -11,6 +12,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 	"xone/chain-parser-go/internal/chain/evm"
 	"xone/chain-parser-go/internal/config"
@@ -30,6 +32,37 @@ type windowReport struct {
 	Rows         []observation `json:"rows"`
 }
 
+func checkReplayEndpoints(chain config.Chain) error {
+	urls := append([]string(nil), chain.RPCURLs...)
+	if chain.ProofRPCURL != "" {
+		urls = append(urls, chain.ProofRPCURL)
+	}
+	for _, raw := range urls {
+		u, err := url.Parse(raw)
+		if err != nil || u.Scheme != "http" || u.Hostname() != "127.0.0.1" ||
+			u.User != nil || u.Path != "" || u.ForceQuery || u.RawQuery != "" || u.Fragment != "" {
+			return errors.New("REPLAY_LOOPBACK_REQUIRED")
+		}
+		port, err := strconv.Atoi(u.Port())
+		if err != nil || port < 1 || port > 65535 || raw != "http://127.0.0.1:"+strconv.Itoa(port) {
+			return errors.New("REPLAY_LOOPBACK_REQUIRED")
+		}
+	}
+	return nil
+}
+
+func stagedDigest(block domain.BlockRef, pools []domain.Pool, swaps []domain.SwapFact) (string, error) {
+	raw, err := json.Marshal(struct {
+		Block domain.BlockRef   `json:"block"`
+		Pools []domain.Pool     `json:"pools"`
+		Swaps []domain.SwapFact `json:"swaps"`
+	}{block, pools, swaps})
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", sha256.Sum256(raw)), nil
+}
+
 func replay(ctx context.Context, cfg *config.Snapshot, base, last uint64) (*windowReport, error) {
 	if len(cfg.Config.Chains) != 1 {
 		return nil, errors.New("REPLAY_MAINNET_PROFILE")
@@ -39,15 +72,8 @@ func replay(ctx context.Context, cfg *config.Snapshot, base, last uint64) (*wind
 	if chain.Key != "evm:1" || policy == nil || len(chain.RPCURLs) != 2 || chain.RPCURLs[0] == chain.RPCURLs[1] {
 		return nil, errors.New("REPLAY_MAINNET_PROFILE")
 	}
-	urls := append([]string(nil), chain.RPCURLs...)
-	if chain.ProofRPCURL != "" {
-		urls = append(urls, chain.ProofRPCURL)
-	}
-	for _, raw := range urls {
-		u, err := url.Parse(raw)
-		if err != nil || u.Scheme != "http" || u.Hostname() != "127.0.0.1" || u.Port() == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
-			return nil, errors.New("REPLAY_LOOPBACK_REQUIRED")
-		}
+	if err := checkReplayEndpoints(chain); err != nil {
+		return nil, err
 	}
 	proof, err := provenance.ReadOnlineBeaconProof(cfg.Resolve(policy.ProofFile), policy.CheckpointRoot)
 	if err != nil {
@@ -88,15 +114,11 @@ func replay(ctx context.Context, cfg *config.Snapshot, base, last uint64) (*wind
 		if block.Number != h || block.Hash != expected[h] {
 			return nil, errors.New("REPLAY_BLOCK")
 		}
-		raw, err := json.Marshal(struct {
-			Block domain.BlockRef   `json:"block"`
-			Pools []domain.Pool     `json:"pools"`
-			Swaps []domain.SwapFact `json:"swaps"`
-		}{block, pools, swaps})
+		digest, err := stagedDigest(block, pools, swaps)
 		if err != nil {
 			return nil, err
 		}
-		rows = append(rows, observation{block, fmt.Sprintf("%x", sha256.Sum256(raw))})
+		rows = append(rows, observation{block, digest})
 		if h == last {
 			break
 		}
@@ -107,6 +129,7 @@ func run() error {
 	path := flag.String("config", "", "local replay config")
 	base := flag.Uint64("first", 0, "first height")
 	last := flag.Uint64("last", 0, "last height")
+	providerFinalized := flag.Bool("provider-finalized", false, "decode a numbered window from a provider-finalized capture on loopback")
 	flag.Parse()
 	cfg, err := config.Load(*path, "chain-parser-go")
 	if err != nil {
@@ -114,6 +137,13 @@ func run() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
+	if *providerFinalized {
+		window, err := replayProviderWindow(ctx, cfg, *base, *last)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(window)
+	}
 	rows, err := replay(ctx, cfg, *base, *last)
 	if err != nil {
 		return err

@@ -4,7 +4,7 @@
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
-状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。截至阶段255，26 个工作包完整验收为 0，25 个为 `PARTIAL_LOCAL`，WP22 为 `NOT_STARTED`。生产准入与 VERIFIED 报价关闭。
+状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。截至阶段256，26 个工作包完整验收为 0，25 个为 `PARTIAL_LOCAL`，WP22 为 `NOT_STARTED`。生产准入与 VERIFIED 报价关闭。
 
 优先级：区块解析和精确兑换量计算优先，分析功能低优先级。三服务各自独立，公共协议位于common。
 
@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|非 Ethereum 主网连续 journal 重建（[阶段256](#public-evm-contiguous-journal)，P0-1）|§7、§9、§18、§28，WP03–WP08、WP18、WP24|LOCAL_SCOPE_VERIFIED|BNB Smart Chain 与 Polygon 的正式解析器在同一代连续发布，封存响应可在空 Pebble 库重建|覆盖指定池与有限窗口。其余链的连续状态、非空交易事实、独立故障域仍待验收|
 |EVM 主网原生见证与 V3 批量归档（[阶段255](#public-evm-witness-batch)，P0-1）|§7、§9、§18、§28，WP03、WP04、WP05、WP18、WP24|LOCAL_SCOPE_VERIFIED|七条 EVM 主网分别通过正式解析器实时采样、双端点核对和完整快照离线重放|验收覆盖每链一个指定池和块。各链的独立共识来源、连续窗口及跨故障域仍待完成|
 |Solana 主网账户 RPC 归档重放（[阶段254](#solana-raw-rpc-replay)，P0-1）|§7、§8.4、§8.9、§28，WP03、WP04、WP05、WP24|LOCAL_SCOPE_VERIFIED|正式解析器跨两个主网来源重启，按原始调用顺序重放两个 finalized slot 的池状态，每个块由另一端点复核|覆盖一个固定 Raydium CPMM 池，独立 bank、Yellowstone 与生产故障域仍待验收|
 |滞后主网 RPC 的选择与复核（[阶段253](#public-mainnet-stale-head)，P0-1）|§7、§23.4、§28，WP03、WP04、WP05|LOCAL_SCOPE_VERIFIED|首选 EVM 端点报告过期头时，在同一确认级别交叉核对数值高度与哈希，保留正文和回执见证。Ethereum 增加同块储备复核|八链各验证一个池，Solana 独立 bank 和生产故障域仍待验收|
@@ -3608,7 +3609,7 @@ Go在导出向量时保留原对象目录供Rust只读分析，原观察时刻�
 
 |顺序|差距 / 工作包|实现建议|退出标准 / 后续边界|当前状态|
 |---|---|---|---|---|
-|P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。阶段251验证两个真实 Ethereum 连续签名窗口。阶段254重放两个真实 Solana slot 的来源快照。阶段255分别重放七条 EVM 主网的完整启动快照。独立故障域、Solana 同源 bank 及其余来源仍待完成。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
+|P0-1|G10；WP02,WP03,WP04,WP05,WP07,WP18,WP20,WP24|首个闭环选现有v2-complete；复核真实部署/升级、header/body/receipt/state证明与普通服务资格、完整raw回放；Solana真实同源流和bank单独闭合|当前可信锚点、完整性/重组撤权、错误来源拒绝及恢复均有可重复证据；RPC一致性不升级为共识资格。阶段251验证两个真实 Ethereum 连续签名窗口。阶段254重放两个真实 Solana slot 的来源快照。阶段255重放七条 EVM 主网启动快照。阶段256在 BNB Smart Chain 和 Polygon 重建真实连续 journal。独立故障域、Solana 同源 bank 及其余来源仍待完成。外部来源不足逐项记录，继续其余可本地实现工作|IN_PROGRESS|
 |P0-2|G04/G05基础；WP05,WP10,WP11,WP20|补选定版本的整数边界、连续交换及完整后状态，原合约/原程序独立差分；先补已接profile缺口|解析→数学→独立执行收付款/后状态一致；未支持Token/布局明确拒绝，限定版本不自动扩展|PARTIAL_LOCAL|
 |P0-3|G01；WP13,WP15,WP16,WP18|建立链费上下文及完整性标签，分开Gas/原生币换算/L1数据费/L2差异，接入净收益评分|net输入/输出与真实费用有明确来源/时效/边界，金额守恒；不能用route_activation_cost或调用者猜测替代真实费用；阶段123–145补共享EVM原生费/源余额守恒/最大资金、无可信费用排序回退和Solana消息费用来源/资金分类/提交前上下文、耐久凭证、已执行原生同单位经济净额、失败网络费/回滚核验及成功/失败费用前端闭环及Legacy实际原生测量/净扣款及OP Regolith历史L1数据费内核/同body费用输入来源重放、现代packed版本来源及完整零value费用账户/最大资金/退款内核与签名wire绑定的历史OP严格执行；阶段140完成签名BOUND完整Router/实际Token/后状态及费用闭环，阶段141完成受限worker签名OP协议，阶段142补独立源费用核验组件，阶段143接限定历史正常build/签名simulate，阶段144补KZG/BLS后端与Isthmus输入/Gas规则，阶段145接限定OP Mainnet历史Jovian用户VM/operator/四预编译上限及32笔正常HTTP，阶段146完成9452原Karst预编译组件/Osaka费用与限制差分，阶段147补CLZ/Gas cap与468完整原引擎签名组件差分，阶段148贯通有界Karst本地正常API/实际worker/父费用源审计、四完整原Router与36正常OP HTTP；阶段149补服务端配置预言机签名授权、源块/币种/历史时效绑定和父源审计后的单笔原子单位换算/费后金额；阶段150完成逐完整候选费用评分组件及有符号目标/完整覆盖检查/统一毛额回退，阶段151接通显式启用的单路线V2正常报价、逐候选实际worker/父费用核验/授权换算和固定计划deadline；阶段152补批准Ethereum Chainlink USD双feed固定部署/原ABI/时效和签名来源绑定、全宽约分/换算与有界采集/待签署CLI；阶段153补选中候选费用的正常报价同源披露；阶段154补进程内授权价格book签名版本/原子刷新、单报价价格快照/缓存及旧报价执行绑定；阶段155–156补离线初始化与显式启用的正常Router重启耐久高水位；默认模式仍无跨重启保证。其他执行/成本模型、可信bank、持续live价格刷新/授权发布及其他链来源、完整全候选净评分及报价总费仍未完成|PARTIAL_LOCAL|
 |P0-4|G02；WP03,WP04,WP15,WP16,WP20|绑定可信bank、实际链规则、原始交易及费用，独立后余额核验；保留取消/超时/重组撤权和资源预算|按具体链/版本满足独立执行和来源资格后才开放VERIFIED；提供本地状态的成功仍只授予本地资格|PARTIAL_LOCAL|
@@ -5722,3 +5723,26 @@ Go 全包、vet、见证及 V3 专项 race、两套 Rust 配置测试、跨服�
 两份历史中间测试输入由保留的 OP 原始执行向量及仓库现有导出测试重新生成，分别通过 SHA-256 逐字节核对。已删除旧中间文件共 59551318 字节。新一轮的 16 个 EVM 采集与诊断运行目录、57421304 字节的 Go 测试程序，以及占用 2637852672 字节的本轮本地构建和验证目录均已清理。
 
 [正文与回执见证](chain-parser-go/internal/chain/evm/chain_receipts_witness.go) · [批量读取](chain-parser-go/internal/rpc/eth_call_batch.go) · [公网与离线验收](integration/README.md)
+
+<a id="public-evm-contiguous-journal"></a>
+
+## BNB Smart Chain 与 Polygon 主网连续 journal 及原始响应重建（2026-11-23，阶段256，P0-1）
+
+新增 `make -C integration public-evm-window-test`。正式解析器从空状态启动，读取公开 finalized 头和固定部署。在同一代收集启动快照、连续 `BLOCK_COMMIT`、末快照与两个 RPC 的原始响应。验收配置以 2 秒轮询观测 finalized 短尾，沿用开发配置的时效、证明预算和双端点见证。首末区块同时核对归档中的 finalized 观测、journal 父链和同块合约状态。
+
+离线入口按显式块号读取封存的编号响应，验证正常原生正文、回执和池状态。finalized 原始响应只用于证明采集时观察到的首末锚点。离线使用普通 baseline 状态构造逻辑和空 Pebble reducer，核对首末完整快照、启动记录、每条增量的引用、记录编号和池内容摘要，并按原序列化方式核对含 swap 的 staging 摘要。覆盖链上协议的已解码事实依赖现有适配器，本轮 BNB Smart Chain 与 Polygon 样本的已解码 swap 数均为 0。
+
+|主网|启动块 → 末块|同代连续提交|两个来源的离线请求数|在线窗口 SHA-256|
+|---|---|---:|---|---|
+|BNB Smart Chain|135213856 → 135213872|16|BNB Chain 359、Defibit 121|`581442bc87e4802d57dcb5c1dcfaf9657025ea46f5dbd80e8f170490ddc23ef7`|
+|Polygon PoS|97803728 → 97803734|6|PublicNode 240、dRPC 51|`2ae36e1d67dae57250fc569bafaacbf903b137a53fde234d986d2397c0e0f980`|
+
+两个窗口的在线末块哈希分别为 `0x63950fa485a3816d71f80b5d7db02fd7e46e1b5f00aa66e5c20602548b8f0e19` 和 `0xda5d59aa63a44d674ef272fb7eccb5f51e6dbcbf1515eba922f6d4b0183964aa`。Polygon 离线实际处理 63 个 JSON-RPC 批次。较早一次 BNB Smart Chain 运行遇到 RPC 错误后切换代次，Polygon 也曾出现代次切换，验收拒绝跨代拼接。Polygon 另一次复跑取得初始快照，100 秒内未取得合格连续窗口。首快照同块复核在启动发布后即执行，避免公开 BNB 节点稍后剪枝时返回 `missing trie node`。
+
+Avalanche 初始快照已绑定封存 finalized 响应的 `settledHeight` 和同端点父链。实测高度 101135144 缺少直接绑定该块的结算状态锚点，解析器返回 `EXECUTION_STATE_TARGET_NOT_DIRECTLY_SETTLED` 并撤销当前代。该链跨结算窗口的连续状态仍待验收。
+
+Go 全包、vet、离线命令专项 race、跨服务契约以及 17 项进度文档检查通过。新增验收的 4 项 Python 回归在普通和优化模式均通过，阶段255的 15 项公网及离线回归继续通过。另验证了原始证据与连续窗口相关的 54 项 Python 回归。
+
+采集目录和离线 Pebble 目录随测试结束清理，两个独立工作目录的归档、构建和日志共清理 299228 KiB。已核对本轮无残留采集或重放目录。
+
+[主网连续验收入口](integration/tools/acceptance/public_evm_window.py) · [编号离线重建](chain-parser-go/cmd/replay-beacon-window/provider_window.go) · [原生结算状态门禁](chain-parser-go/internal/chain/evm/chain_receipts_coverage.go)

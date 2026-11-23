@@ -342,6 +342,40 @@ type Snapshot struct {
 	HistoryGaps []Gap       `json:"history_gaps"`
 }
 
+// NewCurrentStateBaseline builds the decoded state and scope identities shared
+// by HEAD_FIRST publication and offline reconstruction. The caller assigns
+// writer, generation and journal sequence from its own authority.
+func NewCurrentStateBaseline(block BlockRef, pools []Pool, owner string, assignment, previousHeight uint64) (Snapshot, error) {
+	versions := make([]string, 0, len(pools))
+	seen := make(map[string]bool, len(pools))
+	for _, pool := range pools {
+		if !seen[pool.AdapterVersion] {
+			versions = append(versions, pool.AdapterVersion)
+			seen[pool.AdapterVersion] = true
+		}
+	}
+	sort.Strings(versions)
+	adapterHash, err := Hash(versions)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	scope, err := ScopeHash(pools)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	snapshot := Snapshot{
+		Reference: SnapshotRef{Block: block, SchemaVersion: SchemaVersion, CanonicalEpoch: 1,
+			AdapterSetHash: adapterHash, ScopeHash: scope, OwnerService: owner, OwnerAssignmentVersion: assignment},
+		Pools: pools, Source: "CURRENT_CHAIN_STATE", HistoryGaps: []Gap{},
+	}
+	if block.Number > previousHeight && block.Number-previousHeight > 1 {
+		snapshot.HistoryGaps = append(snapshot.HistoryGaps, Gap{
+			From: previousHeight + 1, To: block.Number - 1, Reason: "HEAD_FIRST_HISTORY_DECOUPLED",
+		})
+	}
+	return snapshot, nil
+}
+
 func ScopeHash(pools []Pool) (string, error) {
 	ids := make([]string, 0, len(pools))
 	for _, p := range pools {

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -421,23 +420,9 @@ func (s *Service) reanchorScope(ctx context.Context, chain config.Chain, fork bo
 				}
 			}
 		}
-		versions := []string{}
-		seen := map[string]bool{}
-		for _, p := range pools {
-			if !seen[p.AdapterVersion] {
-				versions = append(versions, p.AdapterVersion)
-				seen[p.AdapterVersion] = true
-			}
-		}
-		sort.Strings(versions)
-		adapterHash, _ := domain.Hash(versions)
-		scope, e := domain.ScopeHash(pools)
+		snapshot, e = domain.NewCurrentStateBaseline(block, pools, chain.Owner, chain.Assignment, old.Block.Number)
 		if e != nil {
 			return e
-		}
-		snapshot = domain.Snapshot{Reference: domain.SnapshotRef{Block: block, SchemaVersion: 1, CanonicalEpoch: 1, AdapterSetHash: adapterHash, ScopeHash: scope, OwnerService: chain.Owner, OwnerAssignmentVersion: chain.Assignment}, Pools: pools, Source: "CURRENT_CHAIN_STATE", HistoryGaps: []domain.Gap{}}
-		if block.Number > old.Block.Number+1 {
-			snapshot.HistoryGaps = append(snapshot.HistoryGaps, domain.Gap{From: old.Block.Number + 1, To: block.Number - 1, Reason: "HEAD_FIRST_HISTORY_DECOUPLED"})
 		}
 	}
 	snapshot.Reference.OnlineGeneration = old.OnlineGeneration + 1
