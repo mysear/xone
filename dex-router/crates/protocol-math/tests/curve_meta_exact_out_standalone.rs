@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "../src/curve_multi.rs"]
 mod curve_multi;
 
