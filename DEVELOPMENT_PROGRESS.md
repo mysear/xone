@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|BNB Smart Chain 连续 Swap journal 复验（[阶段259](#bsc-contiguous-swap-journal-replay)，P0-1）|§7、§9、§18、§23、§28，WP03–WP07、WP18、WP24|LOCAL_SCOPE_VERIFIED|2026-11-26 采集 18 个同代连续提交，NodeReal 状态见证、Defibit 原生解析和 PublicNode 10 条 Swap 日志逐项匹配|本轮固定窗口与离线重放完成。连续长期采集、独立共识来源和生产故障域仍待验收|
 |固定 EVM 区块读取的有限重试（[阶段258](#fixed-evm-block-read-retry)，P0-1）|§7、§23、§28，WP04、WP05、WP24|LOCAL_SCOPE_VERIFIED|显式 RPC 策略下按区块号读正文、按哈希批读回执遇到 `-32000` 时在原有预算内重试|本地验证覆盖恢复、持续失败和原生证明字节计费。公网非空 Swap 窗口继续验收|
 |非 Ethereum 主网连续 journal 重建（[阶段256](#public-evm-contiguous-journal)，P0-1）|§7、§9、§18、§28，WP03–WP08、WP18、WP24|LOCAL_SCOPE_VERIFIED|BNB Smart Chain 与 Polygon 的正式解析器在同一代连续发布，封存响应可在空 Pebble 库重建|覆盖指定池与有限窗口。其余链的连续状态、非空交易事实、独立故障域仍待验收|
 |EVM 主网原生见证与 V3 批量归档（[阶段255](#public-evm-witness-batch)，P0-1）|§7、§9、§18、§28，WP03、WP04、WP05、WP18、WP24|LOCAL_SCOPE_VERIFIED|七条 EVM 主网分别通过正式解析器实时采样、双端点核对和完整快照离线重放|验收覆盖每链一个指定池和块。各链的独立共识来源、连续窗口及跨故障域仍待完成|
@@ -5767,3 +5768,11 @@ Go 全包、vet、离线命令专项 race、跨服务契约以及 17 项进度�
 显式配置 `rpc_retry` 后，按区块号的 `eth_getBlockByNumber` 和按区块哈希的 `eth_getBlockReceipts` 遇到 `-32000` 可再次调用。每次都经过原有尝试次数、期限、归档和原生读取预算。公网 BSC 窗口工具启用最多三次尝试。本地回归验证正式原生解析入口从一次故障恢复，并在持续故障时于第三次结束。另验证移动块标签及其他不可用错误的处理、所有重试响应的计费和归档。
 
 Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口和离线回放测试通过。公网非空 Swap 窗口另行验收。
+
+<a id="bsc-contiguous-swap-journal-replay"></a>
+
+## BNB Smart Chain 连续 Swap journal 复验（2026-11-26，阶段259，P0-1）
+
+本轮用 BNB Smart Chain 固定 Pancake V2 池完成 18 个同代连续提交，首块为 135843804，末块为 135843822。两个 owner RPC 端点提供连续父块、原生提交和回执，NodeReal 作为固定高度池状态见证端点完成首末状态核对。PublicNode 的区间日志逐条匹配交易、日志索引、区块哈希和四个金额，共 10 条 Swap。历史非空块为 135843805，包含 6 条 Swap。离线空 Pebble 重放完成，归档 195 条记录、55,858,336 字节。
+
+本轮工具新增独立 BSC 状态见证端点，避免把单一 RPC 的 `missing trie node` 当作池状态失败。封存时间解析接受 Go RFC3339 的 1–9 位小数并按纳秒排序，拒绝非 UTC 或超过 9 位小数。复验结果摘要为窗口 SHA-256 `da48f3f229521e1ce11e9cedfd937ff299d56aa5210acda1af3126a6ca50a57f`、Swap SHA-256 `a1297ce6f7252ae9426ab53611296ba745285453c7ef8abcbc40fcc69de52e24`、历史证据 SHA-256 `7b5ec0b90f09a657c1954ec33c3b9726b62b7684921aeda8d9c70017120f81d6`。

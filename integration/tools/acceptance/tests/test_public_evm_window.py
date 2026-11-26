@@ -10,8 +10,9 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from current_v2_evidence import provider_id, sha
-from public_evm_window import (BSC_SWAP_WITNESS, PANCAKE_SWAP_TOPIC, FinalizedObservations,
-                               NumberedArchiveRPC, capture, verify_journal, verify_replay, witness_bsc_swaps)
+from public_evm_window import (BSC_STATE_WITNESS, BSC_SWAP_WITNESS, PANCAKE_SWAP_TOPIC, FinalizedObservations,
+                               NumberedArchiveRPC, capture, capture_time_key, state_witness, verify_journal,
+                               verify_replay, witness_bsc_swaps)
 
 
 def encoded(value):
@@ -29,6 +30,21 @@ def snapshot(ref, sequence):
 
 
 class PublicWindow(unittest.TestCase):
+    def test_capture_order_retains_nanoseconds_and_requires_utc(self):
+        prefix = '2026-11-23T05:00:00'
+        times = [capture_time_key(prefix + suffix) for suffix in ('Z', '.000000001Z', '.000000002Z', '.1Z')]
+        self.assertTrue(all(a < b for a, b in zip(times, times[1:])))
+        self.assertEqual(capture_time_key(prefix + '.100000000Z'), times[-1])
+        with self.assertRaisesRegex(ValueError, 'PUBLIC_WINDOW_CAPTURE_TIME'):
+            capture_time_key(prefix + '.0000000001Z')
+
+    def test_bsc_state_check_can_use_distinct_fallback_without_primary(self):
+        primary, secondary = 'https://one.example', 'https://two.example'
+        chain = dict(key='evm:56', rpc_urls=[primary, secondary])
+        self.assertEqual(state_witness(chain)['rpc_urls'], [BSC_STATE_WITNESS, secondary])
+        self.assertEqual(state_witness(dict(chain, rpc_urls=[BSC_STATE_WITNESS, secondary]))['rpc_urls'], [secondary])
+        self.assertEqual(state_witness(dict(chain, key='evm:137'))['rpc_urls'], [secondary])
+
     def write_header(self, directory, ref, url, *, tag=None, captured_at='2026-11-23T05:00:00.1Z', **fields):
         height = ref['number_or_slot']
         header = dict(number=hex(height), hash=ref['hash'], parentHash=ref['parent_hash'],
@@ -147,7 +163,7 @@ class PublicWindow(unittest.TestCase):
             yield process, read, None
 
         def check(_target, _chain, snap, _age):
-            self.assertEqual(_chain['rpc_urls'], [chain['rpc_urls'][1]])
+            self.assertEqual(_chain['rpc_urls'], [BSC_STATE_WITNESS, chain['rpc_urls'][1]])
             events.append(('check', snap['reference']['journal_seq']))
             return {'verified': True}
 

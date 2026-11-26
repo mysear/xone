@@ -20,6 +20,15 @@ from replay_beacon_window import ArchiveRPC, FILE_LIMIT, REPLAY_METHODS, STAGED_
 
 PANCAKE_SWAP_TOPIC = '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822'
 BSC_SWAP_WITNESS = 'https://bsc-rpc.publicnode.com'
+BSC_STATE_WITNESS = 'https://bsc.nodereal.io'
+
+
+def capture_time_key(value):
+    # Go archives store UTC RFC3339 timestamps with up to nine fractional digits.
+    match = re.fullmatch(r'([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,9}))?Z', value)
+    require(match is not None, 'PUBLIC_WINDOW_CAPTURE_TIME')
+    seconds = datetime.strptime(match[1], '%Y-%m-%dT%H:%M:%S')
+    return seconds, (match[2] or '').ljust(9, '0')
 
 
 class FinalizedObservations:
@@ -78,7 +87,7 @@ class FinalizedObservations:
     def find(self, snapshot):
         target = snapshot['reference']['block']
         heads = self.finalized.get(target['number_or_slot'], [])
-        for head in sorted(heads, key=lambda row: (datetime.fromisoformat(row['captured_at']), row['provider_id'],
+        for head in sorted(heads, key=lambda row: (capture_time_key(row['captured_at']), row['provider_id'],
                                                  row['record_sha256'])):
             path = [head]
             block = head['block']
@@ -117,6 +126,13 @@ def config_for(target):
     return config, chain
 
 
+def state_witness(chain):
+    primary, secondary = chain['rpc_urls']
+    # check_snapshot tries the URLs in reverse order and reports the one used.
+    urls = [BSC_STATE_WITNESS, secondary] if chain['key'] == 'evm:56' and BSC_STATE_WITNESS != primary else [secondary]
+    return dict(chain, rpc_urls=urls)
+
+
 def verify_journal(first, last, records, minimum):
     start = first['reference']
     require(start['journal_seq'] == 1 and len(records) > minimum and records[0]['kind'] == 'ONLINE_BASELINE_COMMIT'
@@ -150,7 +166,7 @@ def read_journal(read, path, last):
 
 def capture(binary, config, target, directory, minimum, timeout, require_swaps=False):
     chain, = config['chains']
-    witness = dict(chain, rpc_urls=[chain['rpc_urls'][1]])
+    witness = state_witness(chain)
     path = f"/internal/chains/{chain['key']}"
     first = None
     checked_sequence = 0
@@ -268,7 +284,7 @@ def replay(binary, directory, config, chain, first, last, records):
     heads = FinalizedObservations(archive, chain, config['journal']['raw_evidence'])
     heads.scan()
     begin, end = heads.find(first), heads.find(last)
-    require(begin and end and datetime.fromisoformat(begin[0]['captured_at']) < datetime.fromisoformat(end[0]['captured_at']),
+    require(begin and end and capture_time_key(begin[0]['captured_at']) < capture_time_key(end[0]['captured_at']),
             'PUBLIC_WINDOW_FINALIZED_ORDER')
     pancake = chain['key'] == 'evm:56' and any(pool['protocol'] == 'pancake-v2' for pool in chain['pools'])
     sources, staged = read_window(archive, chain['rpc_urls'], chain['key'], rpc_type=NumberedArchiveRPC,
@@ -332,7 +348,7 @@ def main(argv=None):
             directory = Path(tmp)
             first, last, records, first_check = capture(args.go_binary.resolve(), config, target, directory,
                                                         args.commits, args.window_timeout, args.require_swaps)
-            witness = dict(chain, rpc_urls=[chain['rpc_urls'][1]])
+            witness = state_witness(chain)
             last_check = check_snapshot(target, witness, last, config['startup']['max_baseline_age_ms'])
             swaps = witness_bsc_swaps(target, records) if args.require_swaps else None
             result = replay(args.replay_binary.resolve(), directory, config, chain, first, last, records)
