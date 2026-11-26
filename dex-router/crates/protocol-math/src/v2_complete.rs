@@ -227,3 +227,87 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, zero_for_one: bool) -> Result
         next_pool: next,
     })
 }
+
+/// Original Router getAmountIn followed by full standard-token Pair settlement.
+/// The explicit execution clock keeps cumulative price state correct when a
+/// later swap uses the same captured bank.
+pub fn quote_exact_out(
+    pool: &Pool,
+    output: &Amount,
+    zero_for_one: bool,
+    execution_timestamp: u64,
+) -> Result<Swap> {
+    pool.validate()?;
+    if pool.protocol != PROFILE {
+        return Err(err("V2_SWAP_PROFILE_MISMATCH"));
+    }
+    let source = pool
+        .v2
+        .as_ref()
+        .and_then(|v| v.swap.as_ref())
+        .ok_or_else(|| err("V2_SWAP_STATE_REQUIRED"))?;
+    if output.0.is_zero() {
+        return Err(err("EXACT_OUT_ZERO_OUTPUT"));
+    }
+    if output.0.bits() > 256 {
+        return Err(err("EXACT_OUT_AMOUNT_WIDTH"));
+    }
+    let (reserve_in, reserve_out) = if zero_for_one {
+        (&pool.reserve0, &pool.reserve1)
+    } else {
+        (&pool.reserve1, &pool.reserve0)
+    };
+    if reserve_in.0.is_zero() || output.0 >= reserve_out.0 {
+        return Err(err("EXACT_OUT_LIQUIDITY_BOUND"));
+    }
+    let numerator = &reserve_in.0 * &output.0 * BigUint::from(1000u16);
+    let denominator = (&reserve_out.0 - &output.0) * BigUint::from(997u16);
+    if numerator.bits() > 256 || denominator.bits() > 256 {
+        return Err(err("EXACT_OUT_UINT256_OVERFLOW"));
+    }
+    let amount_in = Amount::checked(numerator / denominator + BigUint::one())?;
+    let none = Amount::zero();
+    let (out0, out1, balance0, balance1) = if zero_for_one {
+        if source.raw_balance1.0 < output.0 {
+            return Err(err("V2_SWAP_UINT256_UNDERFLOW"));
+        }
+        (
+            &none,
+            output,
+            Amount::checked(&source.raw_balance0.0 + &amount_in.0)?,
+            Amount::checked(&source.raw_balance1.0 - &output.0)?,
+        )
+    } else {
+        if source.raw_balance0.0 < output.0 {
+            return Err(err("V2_SWAP_UINT256_UNDERFLOW"));
+        }
+        (
+            output,
+            &none,
+            Amount::checked(&source.raw_balance0.0 - &output.0)?,
+            Amount::checked(&source.raw_balance1.0 + &amount_in.0)?,
+        )
+    };
+    let settled = settle_swap(
+        [&pool.reserve0, &pool.reserve1],
+        source,
+        [out0, out1],
+        [&balance0, &balance1],
+        execution_timestamp,
+    )?;
+    let mut next_pool = pool.clone();
+    next_pool.reserve0 = settled.reserve0;
+    next_pool.reserve1 = settled.reserve1;
+    next_pool
+        .v2
+        .as_mut()
+        .ok_or_else(|| err("V2_SWAP_STATE_REQUIRED"))?
+        .swap = Some(settled.state);
+    next_pool.validate()?;
+    Ok(Swap {
+        amount_out: output.clone(),
+        consumed_in: amount_in,
+        remaining_in: Amount::zero(),
+        next_pool,
+    })
+}

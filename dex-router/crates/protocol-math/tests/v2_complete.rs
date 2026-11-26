@@ -248,3 +248,27 @@ fn explicit_clock_wraps_uint32_and_uint256_without_changing_source_identity() {
     )
     .is_err());
 }
+
+#[test]
+fn exact_out_explicit_clock_updates_cumulatives_for_later_execution() {
+    use xone_protocol_math::v2_complete::quote_exact_out;
+
+    let p = pool(50, 50);
+    let source = p.v2.as_ref().unwrap().swap.as_ref().unwrap();
+    let q = quote_exact_out(&p, &amount(181), true, source.bank_unix_timestamp + 7).unwrap();
+    assert_eq!(q.amount_out, amount(181));
+    assert_eq!(q.consumed_in, amount(100));
+    let state = q.next_pool.v2.as_ref().unwrap().swap.as_ref().unwrap();
+    assert_eq!(
+        state.block_timestamp_last,
+        source.bank_unix_timestamp as u32 + 7
+    );
+    assert_eq!(
+        state.price0_cumulative_last,
+        Amount(BigUint::from(214u16) << 112usize)
+    );
+    assert_eq!(
+        state.price1_cumulative_last,
+        Amount(BigUint::from(107u16) << 111usize)
+    );
+}

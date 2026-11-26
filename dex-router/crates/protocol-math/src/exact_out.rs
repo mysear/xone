@@ -1,7 +1,6 @@
 //! Independent exact-output target and original Router02 integer rounding.
 //! Pair settlement uses the chosen output, never the maximum ExactIn output.
 use num_bigint::BigUint;
-use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use xone_domain::{err, v2_swap, Amount, Pool, Result};
 
@@ -227,76 +226,17 @@ pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<Exact
     if pool.protocol != v2_swap::PROFILE {
         return Err(err("EXACT_OUT_PROTOCOL_UNSUPPORTED"));
     }
-    pool.validate()?;
-    if output.0.is_zero() {
-        return Err(err("EXACT_OUT_ZERO_OUTPUT"));
-    }
-    if output.0.bits() > 256 {
-        return Err(err("EXACT_OUT_AMOUNT_WIDTH"));
-    }
     let source = pool
         .v2
         .as_ref()
         .and_then(|s| s.swap.as_ref())
         .ok_or_else(|| err("V2_SWAP_STATE_REQUIRED"))?;
-    let (reserve_in, reserve_out) = if zero {
-        (&pool.reserve0, &pool.reserve1)
-    } else {
-        (&pool.reserve1, &pool.reserve0)
-    };
-    if reserve_in.0.is_zero() || output.0 >= reserve_out.0 {
-        return Err(err("EXACT_OUT_LIQUIDITY_BOUND"));
-    }
-    // Match original getAmountIn's floor + 1, including exactly divisible cases.
-    // This is the admitted Router execution constraint, not arbitrary Pair min.
-    let numerator = &reserve_in.0 * &output.0 * BigUint::from(1000u16);
-    let denominator = (&reserve_out.0 - &output.0) * BigUint::from(997u16);
-    if numerator.bits() > 256 || denominator.bits() > 256 {
-        return Err(err("EXACT_OUT_UINT256_OVERFLOW"));
-    }
-    let amount_in = Amount::checked(numerator / denominator + BigUint::one())?;
-    let none = Amount::zero();
-    let (out0, out1, balance0, balance1) = if zero {
-        if source.raw_balance1.0 < output.0 {
-            return Err(err("V2_SWAP_UINT256_UNDERFLOW"));
-        }
-        (
-            &none,
-            output,
-            Amount::checked(&source.raw_balance0.0 + &amount_in.0)?,
-            Amount::checked(&source.raw_balance1.0 - &output.0)?,
-        )
-    } else {
-        if source.raw_balance0.0 < output.0 {
-            return Err(err("V2_SWAP_UINT256_UNDERFLOW"));
-        }
-        (
-            output,
-            &none,
-            Amount::checked(&source.raw_balance0.0 - &output.0)?,
-            Amount::checked(&source.raw_balance1.0 + &amount_in.0)?,
-        )
-    };
-    let settled = crate::v2_complete::settle_swap(
-        [&pool.reserve0, &pool.reserve1],
-        source,
-        [out0, out1],
-        [&balance0, &balance1],
-        source.bank_unix_timestamp,
-    )?;
-    let mut next_pool = pool.clone();
-    next_pool.reserve0 = settled.reserve0;
-    next_pool.reserve1 = settled.reserve1;
-    next_pool
-        .v2
-        .as_mut()
-        .ok_or_else(|| err("V2_SWAP_STATE_REQUIRED"))?
-        .swap = Some(settled.state);
-    next_pool.validate()?;
+    let settled =
+        crate::v2_complete::quote_exact_out(pool, output, zero, source.bank_unix_timestamp)?;
     Ok(ExactOutSwap {
-        amount_in,
-        amount_out: output.clone(),
-        next_pool,
+        amount_in: settled.consumed_in,
+        amount_out: settled.amount_out,
+        next_pool: settled.next_pool,
     })
 }
 

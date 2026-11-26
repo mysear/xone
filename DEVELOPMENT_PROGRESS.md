@@ -5776,3 +5776,13 @@ Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口�
 本轮用 BNB Smart Chain 固定 Pancake V2 池完成 18 个同代连续提交，首块为 135843804，末块为 135843822。两个 owner RPC 端点提供连续父块、原生提交和回执，NodeReal 作为固定高度池状态见证端点完成首末状态核对。PublicNode 的区间日志逐条匹配交易、日志索引、区块哈希和四个金额，共 10 条 Swap。历史非空块为 135843805，包含 6 条 Swap。离线空 Pebble 重放完成，归档 195 条记录、55,858,336 字节。
 
 本轮工具新增独立 BSC 状态见证端点，避免把单一 RPC 的 `missing trie node` 当作池状态失败。封存时间解析接受 Go RFC3339 的 1–9 位小数并按纳秒排序，拒绝非 UTC 或超过 9 位小数。复验结果摘要为窗口 SHA-256 `da48f3f229521e1ce11e9cedfd937ff299d56aa5210acda1af3126a6ca50a57f`、Swap SHA-256 `a1297ce6f7252ae9426ab53611296ba745285453c7ef8abcbc40fcc69de52e24`、历史证据 SHA-256 `7b5ec0b90f09a657c1954ec33c3b9726b62b7684921aeda8d9c70017120f81d6`。
+
+<a id="v2-exact-out-explicit-clock"></a>
+
+## V2 ExactOut 显式执行时钟与后状态（2026-11-26，阶段260，P0-2）
+
+将标准 V2 ExactOut 的 Router02 整数输入计算、Pair 完整结算和累计价格更新收敛到同一个 `v2_complete` 内核。新增显式执行时间入口，后续区块执行会更新 `block_timestamp_last`、两个累计价格和原始余额，保留原 `quote_exact_out` 入口使用采集银行时间的兼容行为。删除原 ExactOut 分支中的重复结算逻辑，避免两个内核出现不同的边界检查。
+
+新增回归覆盖后续 7 秒执行、输入输出守恒、uint32 时间和 uint256 累计价格边界。`cargo check -p xone-protocol-math` 与新增定向测试通过。完整测试仍受工作区已有历史 fixture 删除影响，未恢复这些用户已有改动。
+
+[V2 完整数学](dex-router/crates/protocol-math/src/v2_complete.rs) · [ExactOut 入口](dex-router/crates/protocol-math/src/exact_out.rs) · [回归](dex-router/crates/protocol-math/tests/v2_complete.rs)
