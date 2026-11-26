@@ -28,6 +28,8 @@ pub fn supports_protocol(protocol: &str) -> bool {
             | "balancer-v2-composable-regular"
             | "curve-plain3-basic"
             | "curve-plain4-basic"
+            | "curve-metausd-direct"
+            | "curve-stableswap-ng"
     ) {
         return true;
     }
@@ -173,6 +175,8 @@ pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<Exact
         || pool.protocol == "balancer-v2-composable-regular"
         || pool.protocol == "curve-plain3-basic"
         || pool.protocol == "curve-plain4-basic"
+        || pool.protocol == "curve-metausd-direct"
+        || pool.protocol == "curve-stableswap-ng"
     {
         let (input, output_token) = if zero {
             (&pool.token0, &pool.token1)

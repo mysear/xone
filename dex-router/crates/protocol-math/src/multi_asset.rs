@@ -368,6 +368,8 @@ pub fn quote_exact_out_tokens(
             | "balancer-v2-composable-regular"
             | "curve-plain3-basic"
             | "curve-plain4-basic"
+            | "curve-metausd-direct"
+            | "curve-stableswap-ng"
     ) {
         return Err(err("EXACT_OUT_PROTOCOL_UNSUPPORTED"));
     }
@@ -396,6 +398,77 @@ pub fn quote_exact_out_tokens(
         .iter()
         .map(|a| a.scaling.0.clone())
         .collect::<Vec<_>>();
+    if pool.protocol == "curve-stableswap-ng" {
+        let ng = s
+            .curve_ng
+            .as_ref()
+            .ok_or_else(|| err("CURVE_NG_STATE_REQUIRED"))?;
+        let native = crate::curve_ng::NgOracleState {
+            stored_balances: ng.stored_balances.iter().map(|a| a.0.clone()).collect(),
+            admin_balances: ng.admin_balances.iter().map(|a| a.0.clone()).collect(),
+            last_prices_packed: ng.last_prices_packed.iter().map(|a| a.0.clone()).collect(),
+            last_d_packed: ng.last_d_packed.0.clone(),
+            ma_last_time: ng.ma_last_time.0.clone(),
+            ma_exp_time: ng.ma_exp_time,
+            d_ma_time: ng.d_ma_time,
+            timestamp: ng.timestamp,
+        };
+        let q = crate::curve_ng::quote_full_exact_out(
+            &balances,
+            &s.amplification.0,
+            &scales,
+            &BigUint::from(pool.fee_numerator),
+            &BigUint::from(s.admin_fee),
+            &ng.offpeg_fee_multiplier.0,
+            &output.0,
+            i,
+            j,
+            &native,
+        )?;
+        let mut next_pool = pool.clone();
+        let next = next_pool
+            .multi_asset
+            .as_mut()
+            .ok_or_else(|| err("MULTI_ASSET_STATE_REQUIRED"))?;
+        for (asset, balance) in next.assets.iter_mut().zip(q.next_balances) {
+            asset.balance = Amount::checked(balance)?;
+        }
+        let state = next
+            .curve_ng
+            .as_mut()
+            .ok_or_else(|| err("CURVE_NG_STATE_REQUIRED"))?;
+        state.stored_balances = q
+            .next_state
+            .stored_balances
+            .into_iter()
+            .map(Amount::checked)
+            .collect::<Result<_>>()?;
+        state.admin_balances = q
+            .next_state
+            .admin_balances
+            .into_iter()
+            .map(Amount::checked)
+            .collect::<Result<_>>()?;
+        state.last_prices_packed = q
+            .next_state
+            .last_prices_packed
+            .into_iter()
+            .map(Amount::checked)
+            .collect::<Result<_>>()?;
+        state.last_d_packed = Amount::checked(q.next_state.last_d_packed)?;
+        state.ma_last_time = Amount::checked(q.next_state.ma_last_time)?;
+        next_pool.reserve0 = next.assets[0].balance.clone();
+        next_pool.reserve1 = next.assets[1].balance.clone();
+        next_pool.validate()?;
+        return Ok(Swap {
+            amount_out: output.clone(),
+            consumed_in: Amount::checked(q.amount_in)?,
+            remaining_in: Amount::zero(),
+            next_pool,
+        });
+    }
+    let mut meta_admin_fee_amount = None;
+
     let q = if matches!(
         pool.protocol.as_str(),
         "curve-plain3-basic" | "curve-plain4-basic"
@@ -449,6 +522,27 @@ pub fn quote_exact_out_tokens(
                 management_swap_fee: BigUint::zero(),
             },
         )?
+    } else if pool.protocol == "curve-metausd-direct" {
+        let m = s
+            .curve_meta
+            .as_ref()
+            .ok_or_else(|| err("CURVE_META_STATE_REQUIRED"))?;
+        let q = crate::curve_multi::quote_meta_exact_out(
+            &balances,
+            &s.amplification.0,
+            &scales[0],
+            &m.base_virtual_price.0,
+            &BigUint::from(pool.fee_numerator),
+            &BigUint::from(s.admin_fee),
+            &output.0,
+            i,
+            j,
+        )?;
+        meta_admin_fee_amount = Some(q.admin_fee_amount.clone());
+        crate::balancer_multi::MultiExactOutQuote {
+            amount_in: q.amount_in,
+            next_balances: q.next_balances,
+        }
     } else {
         crate::balancer_multi::quote_exact_out(
             &balances,
@@ -467,6 +561,18 @@ pub fn quote_exact_out_tokens(
         .ok_or_else(|| err("MULTI_ASSET_STATE_REQUIRED"))?;
     for (asset, balance) in next.assets.iter_mut().zip(q.next_balances) {
         asset.balance = Amount::checked(balance)?;
+    }
+    if let Some(admin_fee_amount) = meta_admin_fee_amount {
+        let m = next
+            .curve_meta
+            .as_mut()
+            .ok_or_else(|| err("CURVE_META_STATE_REQUIRED"))?;
+        if m.stored_balances[j].0 < output.0 {
+            return Err(err("CURVE_META_BALANCE_ACCOUNTING"));
+        }
+        m.stored_balances[i] = Amount::checked(&m.stored_balances[i].0 + &q.amount_in)?;
+        m.stored_balances[j] = Amount::checked(&m.stored_balances[j].0 - &output.0)?;
+        m.admin_balances[j] = Amount::checked(&m.admin_balances[j].0 + admin_fee_amount)?;
     }
     next_pool.reserve0 = next.assets[0].balance.clone();
     next_pool.reserve1 = next.assets[1].balance.clone();

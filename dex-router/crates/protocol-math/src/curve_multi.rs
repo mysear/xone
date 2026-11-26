@@ -140,6 +140,95 @@ pub fn quote_meta_exact_in(
     )
 }
 
+/// Solve the pinned MetaUSD direct integer exchange for an exact output target.
+/// The base pool virtual price is a read-only dependency for this operation.
+#[allow(clippy::too_many_arguments)]
+pub fn quote_meta_exact_out(
+    balances: &[BigUint],
+    amp: &BigUint,
+    meta_rate: &BigUint,
+    base_virtual_price: &BigUint,
+    fee: &BigUint,
+    admin_fee: &BigUint,
+    output: &BigUint,
+    index_in: usize,
+    index_out: usize,
+) -> Result<CurveQuote> {
+    if output.is_zero() {
+        return Err(err("CURVE_EXACT_OUT_ZERO"));
+    }
+    if balances.len() != 2 {
+        return Err(err("CURVE_META_INVALID_COIN_COUNT"));
+    }
+    validate(
+        balances,
+        &[meta_rate.clone(), base_virtual_price.clone()],
+        amp,
+        fee,
+        admin_fee,
+        &BigUint::from(1u8),
+        index_in,
+        index_out,
+    )?;
+    ensure(output)?;
+    let mut high = BigUint::one();
+    let mut upper = None;
+    for _ in 0..=256 {
+        let quote = quote_meta_exact_in(
+            balances,
+            amp,
+            meta_rate,
+            base_virtual_price,
+            fee,
+            admin_fee,
+            &high,
+            index_in,
+            index_out,
+        )?;
+        if quote.amount_out >= *output {
+            upper = Some(high);
+            break;
+        }
+        high <<= 1usize;
+    }
+    let mut high = upper.ok_or_else(|| err("CURVE_EXACT_OUT_UNREACHABLE"))?;
+    let mut low = BigUint::zero();
+    while low < high {
+        let mid = (&low + &high) >> 1usize;
+        let quote = quote_meta_exact_in(
+            balances,
+            amp,
+            meta_rate,
+            base_virtual_price,
+            fee,
+            admin_fee,
+            &mid,
+            index_in,
+            index_out,
+        )?;
+        if quote.amount_out >= *output {
+            high = mid;
+        } else {
+            low = mid + BigUint::one();
+        }
+    }
+    let quote = quote_meta_exact_in(
+        balances,
+        amp,
+        meta_rate,
+        base_virtual_price,
+        fee,
+        admin_fee,
+        &low,
+        index_in,
+        index_out,
+    )?;
+    if quote.amount_out != *output {
+        return Err(err("CURVE_EXACT_OUT_UNREACHABLE"));
+    }
+    Ok(quote)
+}
+
 /// The exact external actions needed by MetaUSD `exchange_underlying`.
 /// A rate alone cannot determine base LP mint/burn amounts or their poststate.
 #[derive(Clone, Debug, PartialEq, Eq)]

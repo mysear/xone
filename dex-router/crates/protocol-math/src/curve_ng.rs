@@ -34,6 +34,7 @@ pub struct NgOracleState {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NgFullQuote {
+    pub amount_in: BigUint,
     pub amount_out: BigUint,
     pub next_balances: Vec<BigUint>,
     pub next_state: NgOracleState,
@@ -105,6 +106,7 @@ pub fn quote_full_exact_in(
     xp[j] = y;
     oracle::upkeep(&xp, amp, &q.invariant, &mut next_state)?;
     Ok(NgFullQuote {
+        amount_in: input.clone(),
         amount_out: q.amount_out,
         next_balances: q.next_balances,
         next_state,
@@ -112,6 +114,86 @@ pub fn quote_full_exact_in(
         fee_rate: q.fee_rate,
         invariant: q.invariant,
     })
+}
+
+/// Invert the complete fixed-rate exchange while retaining the original
+/// oracle and admin-fee poststate for the selected input.
+#[allow(clippy::too_many_arguments)]
+pub fn quote_full_exact_out(
+    balances: &[BigUint],
+    amp: &BigUint,
+    rates: &[BigUint],
+    fee: &BigUint,
+    admin_fee: &BigUint,
+    offpeg_fee_multiplier: &BigUint,
+    output: &BigUint,
+    i: usize,
+    j: usize,
+    state: &NgOracleState,
+) -> Result<NgFullQuote> {
+    if output.is_zero() {
+        return Err(err("CURVE_EXACT_OUT_ZERO"));
+    }
+    ensure(output)?;
+    let mut high = BigUint::from(1u8);
+    let mut upper = None;
+    for _ in 0..=256 {
+        let quote = quote_full_exact_in(
+            balances,
+            amp,
+            rates,
+            fee,
+            admin_fee,
+            offpeg_fee_multiplier,
+            &high,
+            i,
+            j,
+            state,
+        )?;
+        if quote.amount_out >= *output {
+            upper = Some(high);
+            break;
+        }
+        high <<= 1usize;
+    }
+    let mut high = upper.ok_or_else(|| err("CURVE_EXACT_OUT_UNREACHABLE"))?;
+    let mut low = BigUint::zero();
+    while low < high {
+        let mid = (&low + &high) >> 1usize;
+        let quote = quote_full_exact_in(
+            balances,
+            amp,
+            rates,
+            fee,
+            admin_fee,
+            offpeg_fee_multiplier,
+            &mid,
+            i,
+            j,
+            state,
+        )?;
+        if quote.amount_out >= *output {
+            high = mid;
+        } else {
+            low = mid + BigUint::from(1u8);
+        }
+    }
+    let quote = quote_full_exact_in(
+        balances,
+        amp,
+        rates,
+        fee,
+        admin_fee,
+        offpeg_fee_multiplier,
+        &low,
+        i,
+        j,
+        state,
+    )?;
+    if quote.amount_out != *output {
+        return Err(err("CURVE_EXACT_OUT_UNREACHABLE"));
+    }
+    Ok(quote)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
