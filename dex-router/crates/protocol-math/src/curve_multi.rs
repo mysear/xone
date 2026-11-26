@@ -260,6 +260,7 @@ pub struct BaseLiquidityQuote {
     pub amount_in: BigUint,
     pub amount_out: BigUint,
     pub next_balances: Vec<BigUint>,
+    pub next_admin_balances: Vec<BigUint>,
     pub next_total_supply: BigUint,
     pub fee_amounts: Vec<BigUint>,
     pub admin_fee_amount: BigUint,
@@ -268,6 +269,7 @@ pub struct BaseLiquidityQuote {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BaseLiquidityState {
     pub balances: Vec<BigUint>,
+    pub admin_balances: Vec<BigUint>,
     pub rates: Vec<BigUint>,
     pub amplification: BigUint,
     pub fee: BigUint,
@@ -282,6 +284,7 @@ pub struct MetaUnderlyingQuote {
     pub next_meta_balances: Vec<BigUint>,
     pub next_meta_admin_balances: Vec<BigUint>,
     pub next_base_balances: Vec<BigUint>,
+    pub next_base_admin_balances: Vec<BigUint>,
     pub next_base_total_supply: BigUint,
     pub base_fee_amounts: Vec<BigUint>,
     pub meta_fee_amount: BigUint,
@@ -332,12 +335,15 @@ pub fn quote_meta_underlying_exact_in(
             )?;
             let mut base_fee_amounts = vec![u(0); base.balances.len()];
             base_fee_amounts[j] = q.fee_amount.clone();
+            let mut next_base_admin_balances = base.admin_balances.clone();
+            next_base_admin_balances[j] = add(&next_base_admin_balances[j], &q.admin_fee_amount)?;
             return Ok(MetaUnderlyingQuote {
                 amount_in: input.clone(),
                 amount_out: q.amount_out,
                 next_meta_balances,
                 next_meta_admin_balances,
                 next_base_balances: q.next_balances,
+                next_base_admin_balances,
                 next_base_total_supply: base.total_supply.clone(),
                 base_fee_amounts,
                 meta_fee_amount: u(0),
@@ -348,6 +354,7 @@ pub fn quote_meta_underlying_exact_in(
         MetaUnderlyingBoundary::BaseDepositThenMeta { base_index } => {
             let deposit = quote_base_add_liquidity_one_coin(
                 &base.balances,
+                &base.admin_balances,
                 &base.rates,
                 &base.amplification,
                 &base.fee,
@@ -376,6 +383,7 @@ pub fn quote_meta_underlying_exact_in(
                 next_meta_balances,
                 next_meta_admin_balances,
                 next_base_balances: deposit.next_balances,
+                next_base_admin_balances: deposit.next_admin_balances,
                 next_base_total_supply: deposit.next_total_supply,
                 base_fee_amounts: deposit.fee_amounts,
                 meta_fee_amount: meta.fee_amount,
@@ -397,6 +405,7 @@ pub fn quote_meta_underlying_exact_in(
             )?;
             let withdrawal = quote_base_remove_liquidity_one_coin(
                 &base.balances,
+                &base.admin_balances,
                 &base.rates,
                 &base.amplification,
                 &base.fee,
@@ -414,6 +423,7 @@ pub fn quote_meta_underlying_exact_in(
                 next_meta_balances,
                 next_meta_admin_balances,
                 next_base_balances: withdrawal.next_balances,
+                next_base_admin_balances: withdrawal.next_admin_balances,
                 next_base_total_supply: withdrawal.next_total_supply,
                 base_fee_amounts: withdrawal.fee_amounts,
                 meta_fee_amount: meta.fee_amount,
@@ -515,6 +525,7 @@ pub fn quote_meta_underlying_exact_out(
 #[allow(clippy::too_many_arguments)]
 pub fn quote_base_add_liquidity_one_coin(
     balances: &[BigUint],
+    admin_balances: &[BigUint],
     rates: &[BigUint],
     amp: &BigUint,
     fee: &BigUint,
@@ -525,6 +536,7 @@ pub fn quote_base_add_liquidity_one_coin(
 ) -> Result<BaseLiquidityQuote> {
     validate_base_liquidity(
         balances,
+        admin_balances,
         rates,
         amp,
         fee,
@@ -551,12 +563,14 @@ pub fn quote_base_add_liquidity_one_coin(
     let base_fee = div(&mul(fee, &n)?, &mul(&u(4), &u(balances.len() as u64 - 1))?)?;
     let fd = u(FEE_DENOMINATOR);
     let mut fees = vec![u(0); balances.len()];
+    let mut next_admin_balances = admin_balances.to_vec();
     let mut fee_adjusted = normalize(&new_balances, rates)?;
     for i in 0..balances.len() {
         let ideal = div(&mul(&d1, &old_xp[i])?, &d0)?;
         let difference = distance(&ideal, &fee_adjusted[i]);
         fees[i] = div(&mul(&base_fee, &difference)?, &fd)?;
         let admin_part = div(&mul(&fees[i], admin_fee)?, &fd)?;
+        next_admin_balances[i] = add(&next_admin_balances[i], &admin_part)?;
         fee_adjusted[i] = sub(&fee_adjusted[i], &fees[i])?;
         let internal = sub(
             &new_balances[i],
@@ -585,6 +599,7 @@ pub fn quote_base_add_liquidity_one_coin(
         amount_in: input.clone(),
         amount_out: minted.clone(),
         next_balances: new_balances,
+        next_admin_balances,
         next_total_supply: add(total_supply, &minted)?,
         fee_amounts: fees,
         admin_fee_amount,
@@ -596,6 +611,7 @@ pub fn quote_base_add_liquidity_one_coin(
 #[allow(clippy::too_many_arguments)]
 pub fn quote_base_remove_liquidity_one_coin(
     balances: &[BigUint],
+    admin_balances: &[BigUint],
     rates: &[BigUint],
     amp: &BigUint,
     fee: &BigUint,
@@ -606,6 +622,7 @@ pub fn quote_base_remove_liquidity_one_coin(
 ) -> Result<BaseLiquidityQuote> {
     validate_base_liquidity(
         balances,
+        admin_balances,
         rates,
         amp,
         fee,
@@ -649,11 +666,14 @@ pub fn quote_base_remove_liquidity_one_coin(
     let admin_fee_amount = sub(&dy0, &dy)?;
     let admin_part = div(&mul(&admin_fee_amount, admin_fee)?, &fd)?;
     let mut next_balances = balances.to_vec();
+    let mut next_admin_balances = admin_balances.to_vec();
+    next_admin_balances[index] = add(&next_admin_balances[index], &admin_part)?;
     next_balances[index] = sub(&next_balances[index], &add(&dy, &admin_part)?)?;
     Ok(BaseLiquidityQuote {
         amount_in: burn_amount.clone(),
         amount_out: dy,
         next_balances,
+        next_admin_balances,
         next_total_supply: sub(total_supply, burn_amount)?,
         fee_amounts,
         admin_fee_amount: admin_part,
@@ -662,6 +682,7 @@ pub fn quote_base_remove_liquidity_one_coin(
 
 fn validate_base_liquidity(
     balances: &[BigUint],
+    admin_balances: &[BigUint],
     rates: &[BigUint],
     amp: &BigUint,
     fee: &BigUint,
@@ -670,8 +691,11 @@ fn validate_base_liquidity(
     amount: &BigUint,
     index: usize,
 ) -> Result<()> {
-    if balances.len() != 3 || rates.len() != 3 || index >= 3 {
+    if balances.len() != 3 || admin_balances.len() != 3 || rates.len() != 3 || index >= 3 {
         return Err(err("CURVE_BASE_INVALID_SHAPE"));
+    }
+    for value in admin_balances {
+        ensure(value)?;
     }
     validate(
         balances,

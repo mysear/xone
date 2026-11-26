@@ -5827,3 +5827,9 @@ Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口�
 为解除 Meta underlying 对 virtual price-only 快照的限制，新增可选 `CurveMetaBasePoolState`。字段绑定同一块的 base 三币内部余额、admin 余额、固定 rate、`A_precise`、fee、admin fee 和 LP totalSupply。Go EVM 解析器在 `enable_underlying` 配置开启时读取这些字段，旧配置默认省略并保留 direct-only 行为。Go、Router Rust、Parser Rust 的 domain 和 protobuf 转换均保留该可选状态，非法长度、范围、空供应量和零 rate 拒绝。
 
 新增 Go 自包含 wire roundtrip 回归。Go domain/config/evm 包编译通过，Router 与 Parser Rust domain/config 编译通过。完整历史测试仍受仓库既有已删除 fixture 影响，common/protoc 生成检查在当前机器缺少固定 Rust `1.90.0` toolchain 时无法完成，已用本机 Rust 1.94 生成物和 Go 编译检查验证本轮字段。
+
+## Meta underlying base admin 会计传播（2026-11-27，阶段266，P0-2）
+
+补齐 base 单币存取款和 base→base underlying 交换的 admin 余额后状态。`BaseLiquidityState` 现在显式携带三币 admin 余额，存款将逐币 admin fee 累加，退出和交换按源规则更新对应币的 admin 余额，组合结果同时返回 base 内部余额与 admin 余额。原有七项 Meta underlying 回归继续通过，覆盖三路径 ExactIn、组合 ExactOut 和 base admin 状态传播。
+
+本轮只推进显式快照数学，尚未把 `Pool` 路由入口接到 underlying token 索引，真实在线执行仍需 base 余额与 token 转账证据。

@@ -49,8 +49,10 @@ fn meta_state() -> (
 #[test]
 fn one_sided_base_deposit_mints_lp_and_tracks_admin_balance() {
     let (balances, rates, amp, fee, admin, supply) = base_state();
+    let admin_balances = vec![n("0"); 3];
     let q = curve_multi::quote_base_add_liquidity_one_coin(
         &balances,
+        &admin_balances,
         &rates,
         &amp,
         &fee,
@@ -70,8 +72,10 @@ fn one_sided_base_deposit_mints_lp_and_tracks_admin_balance() {
 #[test]
 fn one_sided_base_withdrawal_burns_lp_and_preserves_supply_accounting() {
     let (balances, rates, amp, fee, admin, supply) = base_state();
+    let admin_balances = vec![n("0"); 3];
     let q = curve_multi::quote_base_remove_liquidity_one_coin(
         &balances,
+        &admin_balances,
         &rates,
         &amp,
         &fee,
@@ -91,8 +95,10 @@ fn one_sided_base_withdrawal_burns_lp_and_preserves_supply_accounting() {
 #[test]
 fn base_liquidity_rejects_initial_one_sided_deposit_and_invalid_burn() {
     let (balances, rates, amp, fee, admin, _) = base_state();
+    let admin_balances = vec![n("0"); 3];
     assert!(curve_multi::quote_base_add_liquidity_one_coin(
         &balances,
+        &admin_balances,
         &rates,
         &amp,
         &fee,
@@ -104,6 +110,7 @@ fn base_liquidity_rejects_initial_one_sided_deposit_and_invalid_burn() {
     .is_err());
     assert!(curve_multi::quote_base_remove_liquidity_one_coin(
         &balances,
+        &admin_balances,
         &rates,
         &amp,
         &fee,
@@ -122,6 +129,7 @@ fn meta_underlying_composes_base_deposit_and_meta_swap() {
         meta_state();
     let base = curve_multi::BaseLiquidityState {
         balances: base_balances,
+        admin_balances: vec![n("0"); 3],
         rates: base_rates,
         amplification: base_amp,
         fee: base_fee,
@@ -154,6 +162,7 @@ fn meta_underlying_composes_meta_swap_and_base_withdrawal() {
         meta_state();
     let base = curve_multi::BaseLiquidityState {
         balances: base_balances.clone(),
+        admin_balances: vec![n("0"); 3],
         rates: base_rates,
         amplification: base_amp,
         fee: base_fee,
@@ -186,6 +195,7 @@ fn meta_underlying_routes_base_to_base_without_touching_meta_state() {
         meta_state();
     let base = curve_multi::BaseLiquidityState {
         balances: base_balances,
+        admin_balances: vec![n("0"); 3],
         rates: base_rates,
         amplification: base_amp,
         fee: base_fee,
@@ -218,6 +228,7 @@ fn meta_underlying_exact_out_replays_composed_target() {
         meta_state();
     let base = curve_multi::BaseLiquidityState {
         balances: base_balances,
+        admin_balances: vec![n("0"); 3],
         rates: base_rates,
         amplification: base_amp,
         fee: base_fee,
