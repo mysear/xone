@@ -40,3 +40,48 @@ fn meta_exact_out_replays_integer_poststate_and_admin_fee() {
     assert_eq!(exact_out.next_balances, exact_in.next_balances);
     assert!(exact_out.admin_fee_amount > BigUint::from(0u8));
 }
+
+#[test]
+fn meta_exact_out_rejects_zero_and_unreachable_targets() {
+    let balances = vec![n("1000000000000000000000000"); 2];
+    let rates = (
+        &balances,
+        &n("10000"),
+        &n("1000000000000000000"),
+        &n("1000000000000000000"),
+        &n("4000000"),
+        &n("5000000000"),
+    );
+    assert_eq!(
+        curve_multi::quote_meta_exact_out(
+            rates.0,
+            rates.1,
+            rates.2,
+            rates.3,
+            rates.4,
+            rates.5,
+            &n("0"),
+            0,
+            1,
+        )
+        .unwrap_err()
+        .0,
+        "CURVE_EXACT_OUT_ZERO"
+    );
+    assert_eq!(
+        curve_multi::quote_meta_exact_out(
+            rates.0,
+            rates.1,
+            rates.2,
+            rates.3,
+            rates.4,
+            rates.5,
+            &n("3000000000000000000000000"),
+            0,
+            1,
+        )
+        .unwrap_err()
+        .0,
+        "CURVE_EXACT_OUT_UNREACHABLE"
+    );
+}
