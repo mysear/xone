@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/rpc"
 )
@@ -26,6 +27,7 @@ type normalNativeFixture struct {
 	receipts        map[string][]Receipt
 	observed        string
 	corruptSettling atomic.Bool
+	unavailableBody int32
 	fullReads       atomic.Int32
 	tagReads        atomic.Int32
 	stateReads      atomic.Int32
@@ -81,7 +83,10 @@ func (f *normalNativeFixture) serve(t *testing.T) *httptest.Server {
 					tag = f.observed
 				}
 				if full {
-					f.fullReads.Add(1)
+					if f.fullReads.Add(1) <= f.unavailableBody {
+						fmt.Fprint(w, `{"jsonrpc":"2.0","id":1,"error":{"code":-32000}}`)
+						return
+					}
 					result = f.full[tag]
 				} else {
 					raw := f.headers[tag]
@@ -139,6 +144,30 @@ func (f *normalNativeFixture) adapter(t *testing.T) *Adapter {
 	})
 	return a
 }
+
+func TestNativeReadCompleteRetriesNumberedBodyUnavailable(t *testing.T) {
+	for _, unavailable := range []int32{1, 3} {
+		t.Run(fmt.Sprint(unavailable), func(t *testing.T) {
+			f := newNativeHeadEndpoint()
+			height, hash := addHeadTestBlock(t, f, 25000001, common.HexToHash(f.chain.Genesis), time.Now().Unix()-2)
+			f.unavailableBody = unavailable
+			a := f.adapter(t)
+			if err := a.Client.SetPolicy(rpc.Policy{MaxAttempts: 3}); err != nil {
+				t.Fatal(err)
+			}
+			ctx := context.WithValue(context.Background(), nativeDutyKey{}, "numbered-body-retry")
+			ref, _, _, err := a.ReadComplete(ctx, height)
+			if unavailable == 1 {
+				if err != nil || ref.Hash != hash.Hex() || f.fullReads.Load() < 2 {
+					t.Fatalf("numbered block retry failed: block=%v err=%v reads=%d", ref, err, f.fullReads.Load())
+				}
+			} else if rpc.Classify(err) != rpc.Unavailable || f.fullReads.Load() != 3 {
+				t.Fatalf("numbered block retry did not stop: err=%v reads=%d", err, f.fullReads.Load())
+			}
+		})
+	}
+}
+
 func TestNormalNativeReadCompleteUsesActualPublicCommitments(t *testing.T) {
 	for _, name := range []string{"avalanche-current", "arbitrum", "polygon-synthetic"} {
 		t.Run(name, func(t *testing.T) {

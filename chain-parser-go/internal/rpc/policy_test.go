@@ -14,6 +14,54 @@ import (
 	"time"
 )
 
+func TestFixedBlockUnavailableRetry(t *testing.T) {
+	hash := "0x" + strings.Repeat("a", 64)
+	for _, tc := range []struct {
+		name, method, failure string
+		params                []any
+		policy, succeed       bool
+		wantAttempts          int
+	}{
+		{"numbered body", "eth_getBlockByNumber", "-32000", []any{"0x2a", true}, true, true, 2},
+		{"hash receipts", "eth_getBlockReceipts", "-32000", []any{hash}, true, true, 2},
+		{"persistent error", "eth_getBlockByNumber", "-32000", []any{"0x2a", true}, true, false, 3},
+		{"default policy", "eth_getBlockByNumber", "-32000", []any{"0x2a", true}, false, true, 1},
+		{"moving tag", "eth_getBlockByNumber", "-32000", []any{"finalized", true}, true, true, 1},
+		{"other unavailable code", "eth_getBlockByNumber", "-32001", []any{"0x2a", true}, true, true, 1},
+		{"transaction receipt", "eth_getTransactionReceipt", "-32000", []any{hash}, true, true, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				if calls.Add(1) > 1 && tc.succeed {
+					fmt.Fprint(w, `{"jsonrpc":"2.0","id":1,"result":"ok"}`)
+					return
+				}
+				fmt.Fprintf(w, `{"jsonrpc":"2.0","id":1,"error":{"code":%s}}`, tc.failure)
+			}))
+			defer server.Close()
+			client := New([]string{server.URL}, time.Second, 1024)
+			if tc.policy {
+				if err := client.SetPolicy(Policy{MaxAttempts: 3}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var out string
+			err := client.Call(context.Background(), tc.method, tc.params, &out)
+			if int(calls.Load()) != tc.wantAttempts {
+				t.Fatalf("attempts = %d, want %d", calls.Load(), tc.wantAttempts)
+			}
+			if tc.succeed && tc.wantAttempts > 1 {
+				if err != nil || out != "ok" {
+					t.Fatalf("retry result = %q, err = %v", out, err)
+				}
+			} else if Classify(err) != Unavailable || out != "" {
+				t.Fatalf("result = %q, err = %v, want unavailable", out, err)
+			}
+		})
+	}
+}
+
 func TestRetryClassificationAndRateBudget(t *testing.T) {
 	for _, tc := range []struct {
 		wire  string

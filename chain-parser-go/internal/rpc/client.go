@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -148,6 +149,7 @@ func (c *Client) CallWithProvider(ctx context.Context, method string, params any
 		return "", errors.New("NO_HEALTHY_PROVIDER")
 	}
 	p := c.getPolicy()
+	retryUnavailable := p.MaxAttempts > 0 && fixedBlockRead(method, params)
 	max := p.MaxAttempts
 	if max == 0 {
 		max = len(urls)
@@ -179,6 +181,12 @@ func (c *Client) CallWithProvider(ctx context.Context, method string, params any
 				return endpointID(url), last
 			case Transient, RateLimited:
 				retryable = true
+			case Unavailable:
+				if retryUnavailable && last.Error() == "RPC_ERROR_-32000" {
+					retryable = true
+				} else {
+					disabled[url] = true
+				}
 			default:
 				disabled[url] = true
 			}
@@ -192,6 +200,38 @@ func (c *Client) CallWithProvider(ctx context.Context, method string, params any
 	}
 	return lastID, last
 }
+
+// These requests name a fixed block. Providers can use -32000 for temporary
+// unavailability, so allow another attempt when a retry policy is configured.
+// This does not change the classification or the validation of a returned block.
+func fixedBlockRead(method string, params any) bool {
+	args, ok := params.([]any)
+	if !ok || len(args) == 0 {
+		return false
+	}
+	ref, ok := args[0].(string)
+	if !ok || !strings.HasPrefix(ref, "0x") {
+		return false
+	}
+	switch method {
+	case "eth_getBlockByNumber":
+		if len(args) != 2 {
+			return false
+		}
+		_, validFlag := args[1].(bool)
+		height, err := strconv.ParseUint(ref[2:], 16, 64)
+		return validFlag && err == nil && strconv.FormatUint(height, 16) == ref[2:]
+	case "eth_getBlockReceipts":
+		if len(args) != 1 || len(ref) != 66 {
+			return false
+		}
+		_, err := hex.DecodeString(ref[2:])
+		return err == nil
+	default:
+		return false
+	}
+}
+
 func (c *Client) VerifyEVM(ctx context.Context, chain, genesis string) error {
 	ctx, cancel := callContext(ctx, c.HTTP.Timeout)
 	defer cancel()

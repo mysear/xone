@@ -107,6 +107,8 @@ def config_for(target):
     chain = probe_owner_chain(base, target)
     require(len(set(chain['rpc_urls'])) == 2 and all(url.startswith('https://') for url in chain['rpc_urls'])
             and chain['confirmation_tag'] == 'finalized' and not chain.get('proof_rpc_url'), 'PUBLIC_WINDOW_CONFIG')
+    if chain['key'] == 'evm:56':
+        chain['rpc_retry'] = dict(max_attempts=3, base_backoff_ms=100, max_backoff_ms=250)
     config['chains'] = [chain]
     # Sample short finalized tails even on chains whose blocks arrive sub-second.
     config['journal']['poll_interval_ms'] = 2000

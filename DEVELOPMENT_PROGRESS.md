@@ -1,6 +1,6 @@
 # Xone 开发进度与完成情况
 
-更新：2026-11-23。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
+更新：2026-11-26。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|固定 EVM 区块读取的有限重试（[阶段258](#fixed-evm-block-read-retry)，P0-1）|§7、§23、§28，WP04、WP05、WP24|LOCAL_SCOPE_VERIFIED|显式 RPC 策略下按区块号读正文、按哈希批读回执遇到 `-32000` 时在原有预算内重试|本地验证覆盖恢复、持续失败和原生证明字节计费。公网非空 Swap 窗口继续验收|
 |非 Ethereum 主网连续 journal 重建（[阶段256](#public-evm-contiguous-journal)，P0-1）|§7、§9、§18、§28，WP03–WP08、WP18、WP24|LOCAL_SCOPE_VERIFIED|BNB Smart Chain 与 Polygon 的正式解析器在同一代连续发布，封存响应可在空 Pebble 库重建|覆盖指定池与有限窗口。其余链的连续状态、非空交易事实、独立故障域仍待验收|
 |EVM 主网原生见证与 V3 批量归档（[阶段255](#public-evm-witness-batch)，P0-1）|§7、§9、§18、§28，WP03、WP04、WP05、WP18、WP24|LOCAL_SCOPE_VERIFIED|七条 EVM 主网分别通过正式解析器实时采样、双端点核对和完整快照离线重放|验收覆盖每链一个指定池和块。各链的独立共识来源、连续窗口及跨故障域仍待完成|
 |Solana 主网账户 RPC 归档重放（[阶段254](#solana-raw-rpc-replay)，P0-1）|§7、§8.4、§8.9、§28，WP03、WP04、WP05、WP24|LOCAL_SCOPE_VERIFIED|正式解析器跨两个主网来源重启，按原始调用顺序重放两个 finalized slot 的池状态，每个块由另一端点复核|覆盖一个固定 Raydium CPMM 池，独立 bank、Yellowstone 与生产故障域仍待验收|
@@ -5758,3 +5759,11 @@ Go 全包、vet、离线命令专项 race、跨服务契约以及 17 项进度�
 连续窗口的首次复跑因代次切换拒绝。带日志的下一次复跑已在 135216197 的实际 HTTP journal 读到两条持久化 Swap。随后 135216200 的 RPC 返回 `-32000`，解析器撤销已发布代并重新建立基线，整段验收拒绝跨代拼接。
 
 [原生事实解析](chain-parser-go/internal/chain/evm/facts.go) · [历史证据核验](chain-parser-go/internal/chain/evm/chain_receipts_history.go) · [公网非空窗口验收](integration/README.md)
+
+<a id="fixed-evm-block-read-retry"></a>
+
+## 固定 EVM 区块读取的有限重试（2026-11-26，阶段258，P0-1）
+
+显式配置 `rpc_retry` 后，按区块号的 `eth_getBlockByNumber` 和按区块哈希的 `eth_getBlockReceipts` 遇到 `-32000` 可再次调用。每次都经过原有尝试次数、期限、归档和原生读取预算。公网 BSC 窗口工具启用最多三次尝试。本地回归验证正式原生解析入口从一次故障恢复，并在持续故障时于第三次结束。另验证移动块标签及其他不可用错误的处理、所有重试响应的计费和归档。
+
+Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口和离线回放测试通过。公网非空 Swap 窗口另行验收。

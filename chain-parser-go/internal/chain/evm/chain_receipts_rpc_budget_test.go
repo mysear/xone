@@ -58,10 +58,16 @@ func TestNativeProofTransportRequiresRequestBudgetBeforeSending(t *testing.T) {
 func TestNativeProofCallChargesEveryRetryWithoutDoubleChargingFirst(t *testing.T) {
 	var attempts, requestBytes, responseBytes, recorded atomic.Int64
 	const reply = `{"jsonrpc":"2.0","id":1,"result":"0xa4b1"}`
+	const unavailable = `{"jsonrpc":"2.0","id":1,"error":{"code":-32000}}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		requestBytes.Add(int64(len(raw)))
-		if attempts.Add(1) <= 3 {
+		switch attempts.Add(1) {
+		case 1:
+			responseBytes.Add(int64(len(unavailable)))
+			io.WriteString(w, unavailable)
+			return
+		case 2, 3:
 			w.WriteHeader(503)
 			return
 		}
@@ -82,7 +88,7 @@ func TestNativeProofCallChargesEveryRetryWithoutDoubleChargingFirst(t *testing.T
 		recorded.Add(1)
 		return nil
 	})
-	result, err := reader.call("eth_chainId", []any{})
+	result, err := reader.call("eth_getBlockByNumber", []any{"0x2a", true})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -40,14 +40,15 @@ func addHeadTestBlock(t *testing.T, f *normalNativeFixture, number int64, parent
 	return key, h.Hash()
 }
 
+func newNativeHeadEndpoint() *normalNativeFixture {
+	genesis, _ := knownBodyGenesis("evm:1")
+	return &normalNativeFixture{chain: config.Chain{Key: "evm:1", Genesis: genesis,
+		BlockIntegrity: ChainNativeCommitmentsV2, ReceiptsMode: "bulk-auto",
+		NativeProof: &config.NativeProofConfig{MaxBytes: 16 << 20, MaxHeaders: 64, MaxWindowBlocks: 16, MaxTransactions: 4096, MaxLookahead: 32}},
+		headers: map[string]json.RawMessage{}, full: map[string]json.RawMessage{}, receipts: map[string][]Receipt{}}
+}
+
 func TestOnlineNativeHeadSelection(t *testing.T) {
-	newEndpoint := func() *normalNativeFixture {
-		genesis, _ := knownBodyGenesis("evm:1")
-		return &normalNativeFixture{chain: config.Chain{Key: "evm:1", Genesis: genesis,
-			BlockIntegrity: ChainNativeCommitmentsV2, ReceiptsMode: "bulk-auto",
-			NativeProof: &config.NativeProofConfig{MaxBytes: 16 << 20, MaxHeaders: 64, MaxWindowBlocks: 16, MaxTransactions: 4096, MaxLookahead: 32}},
-			headers: map[string]json.RawMessage{}, full: map[string]json.RawMessage{}, receipts: map[string][]Receipt{}}
-	}
 	for _, tc := range []struct {
 		scenario string
 		wantErr  string
@@ -73,7 +74,7 @@ func TestOnlineNativeHeadSelection(t *testing.T) {
 		{"header-limit", "NATIVE_HEAD_HEADER_BUDGET", 1},
 	} {
 		t.Run(tc.scenario, func(t *testing.T) {
-			first, peer := newEndpoint(), newEndpoint()
+			first, peer := newNativeHeadEndpoint(), newNativeHeadEndpoint()
 			now := time.Now().Unix()
 			parent := common.HexToHash(first.chain.Genesis)
 			old, oldHash := addHeadTestBlock(t, first, 25000001, parent, now-180)
