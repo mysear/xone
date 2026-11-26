@@ -5799,3 +5799,11 @@ Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口�
 多资产路由与协议能力目录已接入这两个 profile，返回结果携带实际输入金额和完整物理余额向量。`cargo check -p xone-protocol-math` 和格式检查通过。测试目标仍受仓库已有删除的 `curve-multi-quotes.json` fixture 影响，临时 smoke example 因 dex-router 默认 Kafka 原生构建缺少 macOS C++ 标准库而未保留。
 
 [Curve 多资产数学](dex-router/crates/protocol-math/src/curve_multi.rs) · [多资产路由](dex-router/crates/protocol-math/src/multi_asset.rs) · [ExactOut 分发](dex-router/crates/protocol-math/src/exact_out.rs)
+
+<a id="curve-meta-underlying-base-liquidity"></a>
+
+## Meta underlying 的 Base LP 存取款内核（2026-11-27，阶段262，P0-2）
+
+为 MetaUSD `exchange_underlying` 的后续组合接入补齐固定 3pool 依赖的单币 `add_liquidity` 与 `remove_liquidity_one_coin` 整数内核。实现严格复用 Plain3Basic 的 D、`get_y_D`、不平衡费、admin fee、LP 供应量和内部余额舍入规则。结果返回完整 base pool 后余额、LP 总供应量、逐币 fee 和实际 admin fee，初始单币存款、无 LP 铸造、非法 burn 和余额不足均拒绝。
+
+本轮新增自包含 `curve_meta_underlying_standalone` 回归，覆盖单币存款、单币退出、供应量守恒、admin fee 记账及边界拒绝。`cargo test -p xone-protocol-math --test curve_meta_underlying_standalone` 三项通过。该内核尚未接入在线 Meta 状态，因为当前 Meta 快照只保存 base virtual price，不含可证明的 base pool 三币余额、A、fee 和 LP totalSupply。在线 `exchange_underlying`、base pool 真实读取、组合 ExactOut 与独立执行仍保持拒绝，不能将本轮记为 Meta underlying 完成。

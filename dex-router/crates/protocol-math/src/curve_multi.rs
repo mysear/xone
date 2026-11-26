@@ -251,6 +251,196 @@ pub enum MetaUnderlyingBoundary {
     BaseDepositThenMeta { base_index: usize },
     MetaThenBaseWithdraw { base_index: usize },
 }
+
+/// The state and result of one-sided liquidity operations on MetaUSD's pinned
+/// 3pool dependency. The base pool must be supplied explicitly because the
+/// Meta pool only stores the base LP token and virtual price.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BaseLiquidityQuote {
+    pub amount_in: BigUint,
+    pub amount_out: BigUint,
+    pub next_balances: Vec<BigUint>,
+    pub next_total_supply: BigUint,
+    pub fee_amounts: Vec<BigUint>,
+    pub admin_fee_amount: BigUint,
+}
+
+/// Mirrors Plain3Basic `add_liquidity` for a one-coin deposit. The returned
+/// balances are the pool's internal balances after removing the admin-fee
+/// portion, and the LP amount is the exact integer amount minted by the source.
+#[allow(clippy::too_many_arguments)]
+pub fn quote_base_add_liquidity_one_coin(
+    balances: &[BigUint],
+    rates: &[BigUint],
+    amp: &BigUint,
+    fee: &BigUint,
+    admin_fee: &BigUint,
+    total_supply: &BigUint,
+    input: &BigUint,
+    index: usize,
+) -> Result<BaseLiquidityQuote> {
+    validate_base_liquidity(
+        balances,
+        rates,
+        amp,
+        fee,
+        admin_fee,
+        total_supply,
+        input,
+        index,
+    )?;
+    if total_supply.is_zero() {
+        return Err(err("CURVE_BASE_INITIAL_DEPOSIT_UNSUPPORTED"));
+    }
+    let old_xp = normalize(balances, rates)?;
+    let d0 = invariant(&old_xp, amp)?;
+    if d0.is_zero() {
+        return Err(err("CURVE_BASE_EMPTY"));
+    }
+    let mut new_balances = balances.to_vec();
+    new_balances[index] = add(&new_balances[index], input)?;
+    let d1 = invariant(&normalize(&new_balances, rates)?, amp)?;
+    if d1 <= d0 {
+        return Err(err("CURVE_BASE_DEPOSIT_NO_LP"));
+    }
+    let n = u(balances.len() as u64);
+    let base_fee = div(&mul(fee, &n)?, &mul(&u(4), &u(balances.len() as u64 - 1))?)?;
+    let fd = u(FEE_DENOMINATOR);
+    let mut fees = vec![u(0); balances.len()];
+    let mut fee_adjusted = normalize(&new_balances, rates)?;
+    for i in 0..balances.len() {
+        let ideal = div(&mul(&d1, &old_xp[i])?, &d0)?;
+        let difference = distance(&ideal, &fee_adjusted[i]);
+        fees[i] = div(&mul(&base_fee, &difference)?, &fd)?;
+        let admin_part = div(&mul(&fees[i], admin_fee)?, &fd)?;
+        fee_adjusted[i] = sub(&fee_adjusted[i], &fees[i])?;
+        let internal = sub(
+            &new_balances[i],
+            &div(&mul(&admin_part, &u(PRECISION))?, &rates[i])?,
+        )?;
+        new_balances[i] = internal;
+    }
+    let d2 = invariant(&fee_adjusted, amp)?;
+    let minted = div(&mul(total_supply, &sub(&d2, &d0)?)?, &d0)?;
+    if minted.is_zero() {
+        return Err(err("CURVE_BASE_DEPOSIT_NO_LP"));
+    }
+    let admin_fee_amount = fees
+        .iter()
+        .zip(rates)
+        .map(|(fee_xp, rate)| {
+            div(
+                &mul(&div(&mul(fee_xp, admin_fee)?, &fd)?, &u(PRECISION))?,
+                rate,
+            )
+        })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .try_fold(u(0), |sum, value| add(&sum, &value))?;
+    Ok(BaseLiquidityQuote {
+        amount_in: input.clone(),
+        amount_out: minted.clone(),
+        next_balances: new_balances,
+        next_total_supply: add(total_supply, &minted)?,
+        fee_amounts: fees,
+        admin_fee_amount,
+    })
+}
+
+/// Mirrors Plain3Basic `remove_liquidity_one_coin`, including the source's
+/// reduced-xp fee calculation and the separate admin-fee balance accounting.
+#[allow(clippy::too_many_arguments)]
+pub fn quote_base_remove_liquidity_one_coin(
+    balances: &[BigUint],
+    rates: &[BigUint],
+    amp: &BigUint,
+    fee: &BigUint,
+    admin_fee: &BigUint,
+    total_supply: &BigUint,
+    burn_amount: &BigUint,
+    index: usize,
+) -> Result<BaseLiquidityQuote> {
+    validate_base_liquidity(
+        balances,
+        rates,
+        amp,
+        fee,
+        admin_fee,
+        total_supply,
+        burn_amount,
+        index,
+    )?;
+    if burn_amount.is_zero() || burn_amount >= total_supply {
+        return Err(err("CURVE_BASE_INVALID_BURN"));
+    }
+    let xp = normalize(balances, rates)?;
+    let d0 = invariant(&xp, amp)?;
+    if d0.is_zero() {
+        return Err(err("CURVE_BASE_EMPTY"));
+    }
+    let d1 = sub(&d0, &div(&mul(burn_amount, &d0)?, total_supply)?)?;
+    let new_y = solve_y_d(amp, index, &xp, &d1)?;
+    let n = u(balances.len() as u64);
+    let base_fee = div(&mul(fee, &n)?, &mul(&u(4), &u(balances.len() as u64 - 1))?)?;
+    let fd = u(FEE_DENOMINATOR);
+    let mut reduced = xp.clone();
+    let mut fee_amounts = vec![u(0); balances.len()];
+    for i in 0..balances.len() {
+        let expected = if i == index {
+            sub(&div(&mul(&xp[i], &d1)?, &d0)?, &new_y)?
+        } else {
+            sub(&xp[i], &div(&mul(&xp[i], &d1)?, &d0)?)?
+        };
+        let fee_xp = div(&mul(&base_fee, &expected)?, &fd)?;
+        fee_amounts[i] = div(&mul(&fee_xp, &u(PRECISION))?, &rates[i])?;
+        reduced[i] = sub(&xp[i], &fee_xp)?;
+    }
+    let reduced_y = solve_y_d(amp, index, &reduced, &d1)?;
+    let dy_xp = sub(&sub(&reduced[index], &reduced_y)?, &u(1))?;
+    let dy = div(&mul(&dy_xp, &u(PRECISION))?, &rates[index])?;
+    let dy0 = div(
+        &mul(&sub(&xp[index], &new_y)?, &u(PRECISION))?,
+        &rates[index],
+    )?;
+    let admin_fee_amount = sub(&dy0, &dy)?;
+    let admin_part = div(&mul(&admin_fee_amount, admin_fee)?, &fd)?;
+    let mut next_balances = balances.to_vec();
+    next_balances[index] = sub(&next_balances[index], &add(&dy, &admin_part)?)?;
+    Ok(BaseLiquidityQuote {
+        amount_in: burn_amount.clone(),
+        amount_out: dy,
+        next_balances,
+        next_total_supply: sub(total_supply, burn_amount)?,
+        fee_amounts,
+        admin_fee_amount: admin_part,
+    })
+}
+
+fn validate_base_liquidity(
+    balances: &[BigUint],
+    rates: &[BigUint],
+    amp: &BigUint,
+    fee: &BigUint,
+    admin_fee: &BigUint,
+    total_supply: &BigUint,
+    amount: &BigUint,
+    index: usize,
+) -> Result<()> {
+    if balances.len() != 3 || rates.len() != 3 || index >= 3 {
+        return Err(err("CURVE_BASE_INVALID_SHAPE"));
+    }
+    validate(
+        balances,
+        rates,
+        amp,
+        fee,
+        admin_fee,
+        amount,
+        index,
+        (index + 1) % 3,
+    )?;
+    ensure(total_supply)
+}
 pub fn meta_underlying_boundary(
     index_in: usize,
     index_out: usize,
@@ -415,6 +605,39 @@ pub(crate) fn solve_y(
             &sub(&add(&mul(&u(2), &y)?, &b)?, d)?,
         )?;
         if distance(&y, &old) <= u(1) {
+            return Ok(y);
+        }
+    }
+    Err(err("CURVE_Y_DID_NOT_CONVERGE"))
+}
+
+/// Solve the source `get_y_D` quadratic while holding every coin except `i`
+/// constant and targeting an explicit invariant value.
+fn solve_y_d(amp: &BigUint, i: usize, xp: &[BigUint], d: &BigUint) -> Result<BigUint> {
+    if i >= xp.len() || xp.len() < 2 {
+        return Err(err("CURVE_INVALID_INDEX"));
+    }
+    let n = u(xp.len() as u64);
+    let ann = mul(amp, &n)?;
+    let mut sum = u(0);
+    let mut c = d.clone();
+    for (index, value) in xp.iter().enumerate() {
+        if index == i {
+            continue;
+        }
+        sum = add(&sum, value)?;
+        c = div(&mul(&c, d)?, &mul(value, &n)?)?;
+    }
+    c = div(&mul(&mul(&c, d)?, &u(100))?, &mul(&ann, &n)?)?;
+    let b = add(&sum, &div(&mul(d, &u(100))?, &ann)?)?;
+    let mut y = d.clone();
+    for _ in 0..255 {
+        let previous = y.clone();
+        y = div(
+            &add(&mul(&y, &y)?, &c)?,
+            &sub(&add(&mul(&u(2), &y)?, &b)?, d)?,
+        )?;
+        if distance(&y, &previous) <= u(1) {
             return Ok(y);
         }
     }
