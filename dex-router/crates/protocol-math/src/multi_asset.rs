@@ -2,6 +2,76 @@ use crate::Swap;
 use num_bigint::BigUint;
 use num_traits::Zero;
 use xone_domain::{err, Amount, Pool, Result};
+
+fn meta_underlying_states(
+    pool: &Pool,
+) -> Result<(
+    Vec<BigUint>,
+    Vec<BigUint>,
+    Vec<BigUint>,
+    BigUint,
+    BigUint,
+    BigUint,
+    crate::curve_multi::BaseLiquidityState,
+)> {
+    pool.validate()?;
+    if pool.protocol != "curve-metausd-direct" {
+        return Err(err("CURVE_META_UNDERLYING_UNSUPPORTED"));
+    }
+    let s = pool
+        .multi_asset
+        .as_ref()
+        .ok_or_else(|| err("MULTI_ASSET_STATE_REQUIRED"))?;
+    let m = s
+        .curve_meta
+        .as_ref()
+        .ok_or_else(|| err("CURVE_META_STATE_REQUIRED"))?;
+    let base = m
+        .base_pool_state
+        .as_ref()
+        .ok_or_else(|| err("CURVE_META_BASE_POOL_STATE_REQUIRED"))?;
+    Ok((
+        s.assets.iter().map(|a| a.balance.0.clone()).collect(),
+        m.admin_balances.iter().map(|a| a.0.clone()).collect(),
+        s.assets.iter().map(|a| a.scaling.0.clone()).collect(),
+        s.amplification.0.clone(),
+        BigUint::from(pool.fee_numerator),
+        BigUint::from(s.admin_fee),
+        crate::curve_multi::BaseLiquidityState {
+            balances: base.balances.iter().map(|a| a.0.clone()).collect(),
+            admin_balances: base.admin_balances.iter().map(|a| a.0.clone()).collect(),
+            rates: base.rates.iter().map(|a| a.0.clone()).collect(),
+            amplification: base.amplification.0.clone(),
+            fee: BigUint::from(base.fee),
+            admin_fee: BigUint::from(base.admin_fee),
+            total_supply: base.total_supply.0.clone(),
+        },
+    ))
+}
+
+pub fn quote_meta_underlying_exact_in(
+    pool: &Pool,
+    input: &Amount,
+    index_in: usize,
+    index_out: usize,
+) -> Result<crate::curve_multi::MetaUnderlyingQuote> {
+    let (balances, admin, rates, amp, fee, admin_fee, base) = meta_underlying_states(pool)?;
+    crate::curve_multi::quote_meta_underlying_exact_in(
+        &balances, &admin, &rates, &amp, &fee, &admin_fee, &base, &input.0, index_in, index_out,
+    )
+}
+
+pub fn quote_meta_underlying_exact_out(
+    pool: &Pool,
+    output: &Amount,
+    index_in: usize,
+    index_out: usize,
+) -> Result<crate::curve_multi::MetaUnderlyingQuote> {
+    let (balances, admin, rates, amp, fee, admin_fee, base) = meta_underlying_states(pool)?;
+    crate::curve_multi::quote_meta_underlying_exact_out(
+        &balances, &admin, &rates, &amp, &fee, &admin_fee, &base, &output.0, index_in, index_out,
+    )
+}
 /// Token-selected multi-asset swaps mutate a single full physical balance vector.
 /// Callers may not manufacture independently mutable pair projections.
 pub fn quote_exact_in_tokens(

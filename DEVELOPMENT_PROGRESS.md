@@ -5833,3 +5833,9 @@ Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口�
 补齐 base 单币存取款和 base→base underlying 交换的 admin 余额后状态。`BaseLiquidityState` 现在显式携带三币 admin 余额，存款将逐币 admin fee 累加，退出和交换按源规则更新对应币的 admin 余额，组合结果同时返回 base 内部余额与 admin 余额。原有七项 Meta underlying 回归继续通过，覆盖三路径 ExactIn、组合 ExactOut 和 base admin 状态传播。
 
 本轮只推进显式快照数学，尚未把 `Pool` 路由入口接到 underlying token 索引，真实在线执行仍需 base 余额与 token 转账证据。
+
+## Meta underlying Pool 快照入口（2026-11-27，阶段267，P0-2）
+
+新增 `multi_asset::quote_meta_underlying_exact_in` 与 `quote_meta_underlying_exact_out`，从已验证的 Meta `Pool` 快照提取 Meta 内部/admin 余额和可选 base pool 状态，统一调用三路径组合内核。缺少 `base_pool_state` 或使用非 Meta profile 时返回明确错误，避免将 Meta virtual price 误当作完整 base 状态。
+
+协议数学编译和七项 Meta underlying 自包含回归通过。入口尚未接入上层 token 路由和交易准备，在线 token 转账、base LP allowance、真实 receipt 与生产 VERIFIED 仍未完成。
