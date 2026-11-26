@@ -70,6 +70,7 @@
 |---|---|---|---|---|
 |Curve MetaUSD direct ExactOut（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|补齐有界单调整数逆解、零目标和不可达目标拒绝、Meta 直接兑换完整 stored/admin balance 后状态，并接入 multi-asset 与 ExactOut 能力目录|自包含 `curve_meta_exact_out_standalone` 两项回归通过；Meta underlying、真实 base LP 链路和生产执行资格仍待完成|
 |Curve StableSwap NG ExactOut（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|补齐固定 rate NG 完整 oracle/admin-fee 后状态逆解、零目标和不可达目标拒绝，接入 multi-asset 与 ExactOut 能力目录|自包含 `curve_ng_exact_out_standalone` 两项回归通过；特殊 Token、外部 rate provider、真实来源和生产执行资格仍待完成|
+|Curve Plain3/Plain4 ExactOut 边界收敛（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|源整数溢出或流动性不足时统一返回不可达目标，3/4 资产后状态反解回归通过|自包含 `curve_plain_exact_out_standalone` 两项回归通过；真实部署来源和执行资格仍待完成|
 |BNB Smart Chain 连续 Swap journal 复验（[阶段259](#bsc-contiguous-swap-journal-replay)，P0-1）|§7、§9、§18、§23、§28，WP03–WP07、WP18、WP24|LOCAL_SCOPE_VERIFIED|2026-11-26 采集 18 个同代连续提交，NodeReal 状态见证、Defibit 原生解析和 PublicNode 10 条 Swap 日志逐项匹配|本轮固定窗口与离线重放完成。连续长期采集、独立共识来源和生产故障域仍待验收|
 |固定 EVM 区块读取的有限重试（[阶段258](#fixed-evm-block-read-retry)，P0-1）|§7、§23、§28，WP04、WP05、WP24|LOCAL_SCOPE_VERIFIED|显式 RPC 策略下按区块号读正文、按哈希批读回执遇到 `-32000` 时在原有预算内重试|本地验证覆盖恢复、持续失败和原生证明字节计费。公网非空 Swap 窗口继续验收|
 |非 Ethereum 主网连续 journal 重建（[阶段256](#public-evm-contiguous-journal)，P0-1）|§7、§9、§18、§28，WP03–WP08、WP18、WP24|LOCAL_SCOPE_VERIFIED|BNB Smart Chain 与 Polygon 的正式解析器在同一代连续发布，封存响应可在空 Pebble 库重建|覆盖指定池与有限窗口。其余链的连续状态、非空交易事实、独立故障域仍待验收|

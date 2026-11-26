@@ -80,31 +80,38 @@ pub fn quote_exact_out(
     let mut high = BigUint::one();
     let mut upper = None;
     for _ in 0..=256 {
-        let quote = quote_exact_in(
+        match quote_exact_in(
             balances, amp, rates, fee, admin_fee, &high, index_in, index_out,
-        )?;
-        if quote.amount_out >= *output {
-            upper = Some(high);
-            break;
+        ) {
+            Ok(quote) if quote.amount_out >= *output => {
+                upper = Some(high);
+                break;
+            }
+            Ok(_) => high <<= 1usize,
+            Err(_) => {
+                upper = Some(high);
+                break;
+            }
         }
-        high <<= 1usize;
     }
     let mut high = upper.ok_or_else(|| err("CURVE_EXACT_OUT_UNREACHABLE"))?;
     let mut low = BigUint::zero();
     while low < high {
         let mid = (&low + &high) >> 1usize;
-        let quote = quote_exact_in(
+        match quote_exact_in(
             balances, amp, rates, fee, admin_fee, &mid, index_in, index_out,
-        )?;
-        if quote.amount_out >= *output {
-            high = mid;
-        } else {
-            low = mid + BigUint::one();
+        ) {
+            Ok(quote) if quote.amount_out >= *output => high = mid,
+            Ok(_) => low = mid + BigUint::one(),
+            Err(_) => high = mid,
         }
     }
-    let quote = quote_exact_in(
+    let quote = match quote_exact_in(
         balances, amp, rates, fee, admin_fee, &low, index_in, index_out,
-    )?;
+    ) {
+        Ok(quote) => quote,
+        Err(_) => return Err(err("CURVE_EXACT_OUT_UNREACHABLE")),
+    };
     if quote.amount_out != *output {
         return Err(err("CURVE_EXACT_OUT_UNREACHABLE"));
     }
