@@ -887,6 +887,27 @@ pub struct CurveMetaState {
     pub implementation: ::prost::alloc::string::String,
     #[prost(bytes = "vec", tag = "10")]
     pub implementation_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "11")]
+    pub base_pool_state: ::core::option::Option<CurveMetaBasePoolState>,
+}
+/// Optional fixed-block snapshot of the MetaUSD base 3pool used by
+/// exchange_underlying. It is omitted by legacy direct-only snapshots.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CurveMetaBasePoolState {
+    #[prost(message, repeated, tag = "1")]
+    pub balances: ::prost::alloc::vec::Vec<Amount>,
+    #[prost(message, repeated, tag = "2")]
+    pub admin_balances: ::prost::alloc::vec::Vec<Amount>,
+    #[prost(message, repeated, tag = "3")]
+    pub rates: ::prost::alloc::vec::Vec<Amount>,
+    #[prost(message, optional, tag = "4")]
+    pub amplification: ::core::option::Option<Amount>,
+    #[prost(uint64, tag = "5")]
+    pub fee: u64,
+    #[prost(uint64, tag = "6")]
+    pub admin_fee: u64,
+    #[prost(message, optional, tag = "7")]
+    pub total_supply: ::core::option::Option<Amount>,
 }
 /// Initial endpoint of the pinned two-coin CryptoSwap packed A/gamma schedule.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

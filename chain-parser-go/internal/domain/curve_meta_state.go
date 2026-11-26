@@ -12,18 +12,29 @@ const CurveMetaRuntimeSHA256 = "c5351fd332fdf0f04486a838b2bceba15d7a45965e3df61e
 const CurveMetaBasePool = "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7"
 const CurveMetaBaseLP = "0x6c3f90f043a72fa612cbac8115ee7e52bde6e490"
 
+type CurveMetaBasePoolState struct {
+	Balances      []Amount `json:"balances"`
+	AdminBalances []Amount `json:"admin_balances"`
+	Rates         []Amount `json:"rates"`
+	Amplification Amount   `json:"amplification"`
+	Fee           uint64   `json:"fee"`
+	AdminFee      uint64   `json:"admin_fee"`
+	TotalSupply   Amount   `json:"total_supply"`
+}
+
 // CurveMetaState preserves physical balances and the explicitly read-only base.
 type CurveMetaState struct {
-	Implementation           string   `json:"implementation"`
-	ImplementationCodeSHA256 string   `json:"implementation_code_sha256"`
-	BasePool                 string   `json:"base_pool"`
-	BasePoolCodeSHA256       string   `json:"base_pool_code_sha256"`
-	BaseVirtualPrice         Amount   `json:"base_virtual_price"`
-	StoredBalances           []Amount `json:"stored_balances"`
-	AdminBalances            []Amount `json:"admin_balances"`
-	Timestamp                uint64   `json:"timestamp"`
-	BlockNumber              uint64   `json:"block_number"`
-	BlockHash                string   `json:"block_hash"`
+	Implementation           string                  `json:"implementation"`
+	ImplementationCodeSHA256 string                  `json:"implementation_code_sha256"`
+	BasePool                 string                  `json:"base_pool"`
+	BasePoolCodeSHA256       string                  `json:"base_pool_code_sha256"`
+	BaseVirtualPrice         Amount                  `json:"base_virtual_price"`
+	StoredBalances           []Amount                `json:"stored_balances"`
+	AdminBalances            []Amount                `json:"admin_balances"`
+	Timestamp                uint64                  `json:"timestamp"`
+	BlockNumber              uint64                  `json:"block_number"`
+	BlockHash                string                  `json:"block_hash"`
+	BasePoolState            *CurveMetaBasePoolState `json:"base_pool_state,omitempty"`
 }
 
 func (p Pool) validateCurveMeta() error {
@@ -34,6 +45,9 @@ func (p Pool) validateCurveMeta() error {
 	m := s.CurveMeta
 	if s.CurveNG != nil || s.ManagedFees != nil || len(s.Assets) != 2 || len(s.Weights) != 0 || s.Vault != "" || s.VaultCodeSHA256 != "" || s.PoolID != "" || len(m.StoredBalances) != 2 || len(m.AdminBalances) != 2 || s.Assets[1].Token != CurveMetaBaseLP || s.Assets[1].Scaling != "1000000000000000000" || m.BasePool != CurveMetaBasePool || p.PoolID == m.BasePool || !validDigest(m.BasePoolCodeSHA256) || m.Timestamp == 0 || m.Timestamp > ^uint64(0)/1000 || len(m.BlockHash) != 66 || !strings.HasPrefix(m.BlockHash, "0x") || !validDigest(m.BlockHash[2:]) || strings.Trim(m.BlockHash[2:], "0") == "" {
 		return errors.New("CURVE_META_PARAMETERS")
+	}
+	if b := m.BasePoolState; b != nil && (len(b.Balances) != 3 || len(b.AdminBalances) != 3 || len(b.Rates) != 3 || b.Fee < 4000000 || b.Fee > 100000000 || b.AdminFee != 5000000000 || b.TotalSupply.Big().Sign() == 0 || b.Amplification.Big().Cmp(big.NewInt(100)) < 0 || b.Amplification.Big().Cmp(big.NewInt(100000000)) >= 0) {
+		return errors.New("CURVE_META_BASE_POOL_STATE")
 	}
 	amp, e := ParseAmount(string(s.Amplification))
 	if e != nil || amp.Big().Cmp(big.NewInt(100)) < 0 || amp.Big().Cmp(big.NewInt(100000000)) >= 0 || s.AdminFee != 5000000000 || p.FeeNumerator < 4000000 || p.FeeNumerator > 100000000 {

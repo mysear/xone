@@ -60,7 +60,32 @@ func CurveMetaToProto(s *CurveMetaState) (*pb.CurveMetaState, error) {
 	if e != nil {
 		return nil, e
 	}
-	return &pb.CurveMetaState{Implementation: s.Implementation, ImplementationCodeSha256: impl, BasePool: s.BasePool, BasePoolCodeSha256: code, BaseVirtualPrice: vp, StoredBalances: stored, AdminBalances: admin, Timestamp: s.Timestamp, BlockNumber: s.BlockNumber, BlockHash: hash}, nil
+	var base *pb.CurveMetaBasePoolState
+	if s.BasePoolState != nil {
+		b := s.BasePoolState
+		balances, e := values(b.Balances)
+		if e != nil {
+			return nil, e
+		}
+		adminBalances, e := values(b.AdminBalances)
+		if e != nil {
+			return nil, e
+		}
+		rates, e := values(b.Rates)
+		if e != nil {
+			return nil, e
+		}
+		amplification, e := amount(b.Amplification)
+		if e != nil {
+			return nil, e
+		}
+		totalSupply, e := amount(b.TotalSupply)
+		if e != nil {
+			return nil, e
+		}
+		base = &pb.CurveMetaBasePoolState{Balances: balances, AdminBalances: adminBalances, Rates: rates, Amplification: amplification, Fee: b.Fee, AdminFee: b.AdminFee, TotalSupply: totalSupply}
+	}
+	return &pb.CurveMetaState{Implementation: s.Implementation, ImplementationCodeSha256: impl, BasePool: s.BasePool, BasePoolCodeSha256: code, BaseVirtualPrice: vp, StoredBalances: stored, AdminBalances: admin, Timestamp: s.Timestamp, BlockNumber: s.BlockNumber, BlockHash: hash, BasePoolState: base}, nil
 }
 func CurveMetaFromProto(s *pb.CurveMetaState) (*CurveMetaState, error) {
 	if s == nil {
@@ -98,5 +123,29 @@ func CurveMetaFromProto(s *pb.CurveMetaState) (*CurveMetaState, error) {
 	if e != nil {
 		return nil, e
 	}
-	return &CurveMetaState{Implementation: s.Implementation, ImplementationCodeSHA256: hex.EncodeToString(s.ImplementationCodeSha256), BasePool: s.BasePool, BasePoolCodeSHA256: hex.EncodeToString(s.BasePoolCodeSha256), BaseVirtualPrice: vp, StoredBalances: stored, AdminBalances: admin, Timestamp: s.Timestamp, BlockNumber: s.BlockNumber, BlockHash: "0x" + hex.EncodeToString(s.BlockHash)}, nil
+	var base *CurveMetaBasePoolState
+	if b := s.BasePoolState; b != nil {
+		balances, e := values(b.Balances)
+		if e != nil {
+			return nil, e
+		}
+		adminBalances, e := values(b.AdminBalances)
+		if e != nil {
+			return nil, e
+		}
+		rates, e := values(b.Rates)
+		if e != nil {
+			return nil, e
+		}
+		amplification, e := amount(b.Amplification)
+		if e != nil {
+			return nil, e
+		}
+		totalSupply, e := amount(b.TotalSupply)
+		if e != nil {
+			return nil, e
+		}
+		base = &CurveMetaBasePoolState{Balances: balances, AdminBalances: adminBalances, Rates: rates, Amplification: amplification, Fee: b.Fee, AdminFee: b.AdminFee, TotalSupply: totalSupply}
+	}
+	return &CurveMetaState{Implementation: s.Implementation, ImplementationCodeSHA256: hex.EncodeToString(s.ImplementationCodeSha256), BasePool: s.BasePool, BasePoolCodeSHA256: hex.EncodeToString(s.BasePoolCodeSha256), BaseVirtualPrice: vp, StoredBalances: stored, AdminBalances: admin, Timestamp: s.Timestamp, BlockNumber: s.BlockNumber, BlockHash: "0x" + hex.EncodeToString(s.BlockHash), BasePoolState: base}, nil
 }

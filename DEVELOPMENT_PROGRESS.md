@@ -5821,3 +5821,9 @@ Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口�
 为三条 underlying 组合路径增加有界单调 ExactOut 逆解。每个候选输入都完整重放 base LP 铸造或退出、Meta 交换、admin fee 和两侧后状态，最终重新计算并拒绝整数舍入无法精确达到的目标。新增回归覆盖由 ExactIn 生成的组合目标、最小输入守恒及零目标拒绝，`curve_meta_underlying_standalone` 七项通过。
 
 组合 ExactOut 仍属于显式快照数学能力。在线 Meta 快照未包含 base pool 的三币状态，服务入口和生产执行资格保持关闭。
+
+## Meta base pool 快照字段与跨语言 wire（2026-11-27，阶段265，P0-2）
+
+为解除 Meta underlying 对 virtual price-only 快照的限制，新增可选 `CurveMetaBasePoolState`。字段绑定同一块的 base 三币内部余额、admin 余额、固定 rate、`A_precise`、fee、admin fee 和 LP totalSupply。Go EVM 解析器在 `enable_underlying` 配置开启时读取这些字段，旧配置默认省略并保留 direct-only 行为。Go、Router Rust、Parser Rust 的 domain 和 protobuf 转换均保留该可选状态，非法长度、范围、空供应量和零 rate 拒绝。
+
+新增 Go 自包含 wire roundtrip 回归。Go domain/config/evm 包编译通过，Router 与 Parser Rust domain/config 编译通过。完整历史测试仍受仓库既有已删除 fixture 影响，common/protoc 生成检查在当前机器缺少固定 Rust `1.90.0` toolchain 时无法完成，已用本机 Rust 1.94 生成物和 Go 编译检查验证本轮字段。

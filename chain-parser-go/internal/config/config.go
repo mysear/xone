@@ -202,6 +202,7 @@ type MultiAssetConfig struct {
 	ExpectedLPToken                  string               `json:"expected_lp_token,omitempty"`
 	ExpectedLPTokenCodeSHA256        string               `json:"expected_lp_token_code_sha256,omitempty"`
 	ExpectedBasePoolCodeSHA256       string               `json:"expected_base_pool_code_sha256,omitempty"`
+	EnableUnderlying                 bool                 `json:"enable_underlying,omitempty"`
 	ExpectedCodeSHA256               string               `json:"expected_code_sha256"`
 	ExpectedImplementation           string               `json:"expected_implementation,omitempty"`
 	ExpectedImplementationCodeSHA256 string               `json:"expected_implementation_code_sha256,omitempty"`
@@ -773,6 +774,9 @@ func (c Config) Validate(expected string) error {
 					return invalid()
 				}
 				if p.Protocol != "curve-metausd-direct" && v.ExpectedBasePoolCodeSHA256 != "" {
+					return invalid()
+				}
+				if p.Protocol != "curve-metausd-direct" && v.EnableUnderlying {
 					return invalid()
 				}
 				if p.Protocol == "curve-metausd-direct" {

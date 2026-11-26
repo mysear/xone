@@ -8,6 +8,17 @@ pub const BASE_POOL: &str = "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7";
 pub const BASE_LP: &str = "0x6c3f90f043a72fa612cbac8115ee7e52bde6e490";
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+pub struct CurveMetaBasePoolState {
+    pub balances: Vec<Amount>,
+    pub admin_balances: Vec<Amount>,
+    pub rates: Vec<Amount>,
+    pub amplification: Amount,
+    pub fee: u64,
+    pub admin_fee: u64,
+    pub total_supply: Amount,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct CurveMetaState {
     pub implementation: String,
     pub implementation_code_sha256: String,
@@ -19,6 +30,7 @@ pub struct CurveMetaState {
     pub timestamp: u64,
     pub block_number: u64,
     pub block_hash: String,
+    pub base_pool_state: Option<CurveMetaBasePoolState>,
 }
 fn digest(s: &str) -> bool {
     s.len() == 64 && s == s.to_ascii_lowercase() && hex::decode(s).is_ok()
@@ -42,6 +54,19 @@ impl Pool {
             || !s.pool_id.is_empty()
             || m.stored_balances.len() != 2
             || m.admin_balances.len() != 2
+            || m.base_pool_state.as_ref().is_some_and(|b| {
+                b.balances.len() != 3
+                    || b.admin_balances.len() != 3
+                    || b.rates.len() != 3
+                    || b.amplification.0 < BigUint::from(100u64)
+                    || b.amplification.0 >= BigUint::from(100_000_000u64)
+                    || !(4_000_000..=100_000_000).contains(&b.fee)
+                    || b.admin_fee != 5_000_000_000
+                    || b.total_supply.0.is_zero()
+                    || b.rates.iter().any(|r| r.0.is_zero())
+                    || b.balances.iter().any(|v| v.0.bits() > 256)
+                    || b.admin_balances.iter().any(|v| v.0.bits() > 256)
+            })
             || s.assets[1].token != BASE_LP
             || s.assets[1].scaling.0 != BigUint::from(1_000_000_000_000_000_000u64)
             || m.base_pool != BASE_POOL
@@ -171,6 +196,25 @@ impl CurveMetaState {
             timestamp: self.timestamp,
             block_number: self.block_number,
             block_hash: bytes(&self.block_hash)?,
+            base_pool_state: self
+                .base_pool_state
+                .as_ref()
+                .map(|b| {
+                    Ok(wire::CurveMetaBasePoolState {
+                        balances: b.balances.iter().map(amount).collect::<Result<_>>()?,
+                        admin_balances: b
+                            .admin_balances
+                            .iter()
+                            .map(amount)
+                            .collect::<Result<_>>()?,
+                        rates: b.rates.iter().map(amount).collect::<Result<_>>()?,
+                        amplification: Some(amount(&b.amplification)?),
+                        fee: b.fee,
+                        admin_fee: b.admin_fee,
+                        total_supply: Some(amount(&b.total_supply)?),
+                    })
+                })
+                .transpose()?,
         })
     }
     pub fn from_proto(s: wire::CurveMetaState) -> Result<Self> {
@@ -183,6 +227,30 @@ impl CurveMetaState {
         {
             return Err(err("CURVE_META_BYTES_WIDTH"));
         }
+        let base_pool_state = s
+            .base_pool_state
+            .map(|b| {
+                Ok(CurveMetaBasePoolState {
+                    balances: b.balances.into_iter().map(amount).collect::<Result<_>>()?,
+                    admin_balances: b
+                        .admin_balances
+                        .into_iter()
+                        .map(amount)
+                        .collect::<Result<_>>()?,
+                    rates: b.rates.into_iter().map(amount).collect::<Result<_>>()?,
+                    amplification: amount(
+                        b.amplification
+                            .ok_or_else(|| err("CURVE_META_AMOUNT_REQUIRED"))?,
+                    )?,
+                    fee: b.fee,
+                    admin_fee: b.admin_fee,
+                    total_supply: amount(
+                        b.total_supply
+                            .ok_or_else(|| err("CURVE_META_AMOUNT_REQUIRED"))?,
+                    )?,
+                })
+            })
+            .transpose()?;
         Ok(Self {
             implementation: s.implementation,
             implementation_code_sha256: hex::encode(s.implementation_code_sha256),
@@ -205,6 +273,7 @@ impl CurveMetaState {
             timestamp: s.timestamp,
             block_number: s.block_number,
             block_hash: format!("0x{}", hex::encode(s.block_hash)),
+            base_pool_state,
         })
     }
 }

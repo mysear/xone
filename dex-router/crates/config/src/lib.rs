@@ -1445,6 +1445,7 @@ impl Config {
                                 timestamp: 1,
                                 block_number: 1,
                                 block_hash: format!("0x{}", "1".repeat(64)),
+                                base_pool_state: None,
                             })
                         } else {
                             None

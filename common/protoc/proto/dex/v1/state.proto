@@ -301,6 +301,15 @@ message CurveMetaState {
  repeated Amount stored_balances = 4; repeated Amount admin_balances = 5;
  uint64 timestamp = 6; uint64 block_number = 7; bytes block_hash = 8;
  string implementation = 9; bytes implementation_code_sha256 = 10;
+ CurveMetaBasePoolState base_pool_state = 11;
+}
+
+// Optional fixed-block snapshot of the MetaUSD base 3pool used by
+// exchange_underlying. It is omitted by legacy direct-only snapshots.
+message CurveMetaBasePoolState {
+ repeated Amount balances = 1; repeated Amount admin_balances = 2;
+ repeated Amount rates = 3; Amount amplification = 4;
+ uint64 fee = 5; uint64 admin_fee = 6; Amount total_supply = 7;
 }
 
 // Initial endpoint of the pinned two-coin CryptoSwap packed A/gamma schedule.

@@ -272,6 +272,8 @@ pub struct MultiAssetConfig {
     pub expected_lp_token_code_sha256: String,
     #[serde(default)]
     pub expected_base_pool_code_sha256: String,
+    #[serde(default)]
+    pub enable_underlying: bool,
     pub expected_code_sha256: String,
     #[serde(default)]
     pub expected_implementation: String,
@@ -1445,6 +1447,7 @@ impl Config {
                                 timestamp: 1,
                                 block_number: 1,
                                 block_hash: format!("0x{}", "1".repeat(64)),
+                                base_pool_state: None,
                             })
                         } else {
                             None

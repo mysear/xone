@@ -53,6 +53,41 @@ func (a *Adapter) readCurveMeta(ctx context.Context, p config.PoolConfig, anchor
 		return domain.Amount(value.String()), nil
 	}
 	m := &domain.CurveMetaState{Implementation: v.ExpectedImplementation, ImplementationCodeSHA256: v.ExpectedImplementationCodeSHA256, BasePool: domain.CurveMetaBasePool, BasePoolCodeSHA256: v.ExpectedBasePoolCodeSHA256, StoredBalances: make([]domain.Amount, 2), AdminBalances: make([]domain.Amount, 2), Timestamp: block.TimestampMS / 1000, BlockNumber: block.Number, BlockHash: block.Hash}
+	if v.EnableUnderlying {
+		base := &domain.CurveMetaBasePoolState{Balances: make([]domain.Amount, 3), AdminBalances: make([]domain.Amount, 3), Rates: []domain.Amount{"1000000000000000000", "1000000000000000000", "1000000000000000000"}, Fee: 0, AdminFee: 0}
+		for i := 0; i < 3; i++ {
+			base.Balances[i], e = amount(m.BasePool, selectorBalances+fmt.Sprintf("%064x", i))
+			if e != nil {
+				return domain.Pool{}, e
+			}
+			base.AdminBalances[i], e = amount(m.BasePool, "0xe2e7d264"+fmt.Sprintf("%064x", i))
+			if e != nil {
+				return domain.Pool{}, e
+			}
+		}
+		base.Amplification, e = amount(m.BasePool, selectorAPrecise)
+		if e != nil {
+			return domain.Pool{}, e
+		}
+		feeAmount, e := amount(m.BasePool, selectorFee)
+		if e != nil {
+			return domain.Pool{}, e
+		}
+		adminFeeAmount, e := amount(m.BasePool, selectorAdminFee)
+		if e != nil {
+			return domain.Pool{}, e
+		}
+		base.TotalSupply, e = amount(m.BasePool, "0x18160ddd")
+		if e != nil {
+			return domain.Pool{}, e
+		}
+		if !feeAmount.Big().IsUint64() || !adminFeeAmount.Big().IsUint64() {
+			return fail("CURVE_META_BASE_FEE_WIDTH")
+		}
+		base.Fee = feeAmount.Big().Uint64()
+		base.AdminFee = adminFeeAmount.Big().Uint64()
+		m.BasePoolState = base
+	}
 	m.BaseVirtualPrice, e = amount(m.BasePool, "0xbb7b8b80")
 	if e != nil {
 		return domain.Pool{}, e
