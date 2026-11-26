@@ -138,7 +138,7 @@ pub fn quote_full_exact_out(
     let mut high = BigUint::from(1u8);
     let mut upper = None;
     for _ in 0..=256 {
-        let quote = quote_full_exact_in(
+        match quote_full_exact_in(
             balances,
             amp,
             rates,
@@ -149,18 +149,23 @@ pub fn quote_full_exact_out(
             i,
             j,
             state,
-        )?;
-        if quote.amount_out >= *output {
-            upper = Some(high);
-            break;
+        ) {
+            Ok(quote) if quote.amount_out >= *output => {
+                upper = Some(high);
+                break;
+            }
+            Ok(_) => high <<= 1usize,
+            Err(_) => {
+                upper = Some(high);
+                break;
+            }
         }
-        high <<= 1usize;
     }
     let mut high = upper.ok_or_else(|| err("CURVE_EXACT_OUT_UNREACHABLE"))?;
     let mut low = BigUint::zero();
     while low < high {
         let mid = (&low + &high) >> 1usize;
-        let quote = quote_full_exact_in(
+        match quote_full_exact_in(
             balances,
             amp,
             rates,
@@ -171,14 +176,13 @@ pub fn quote_full_exact_out(
             i,
             j,
             state,
-        )?;
-        if quote.amount_out >= *output {
-            high = mid;
-        } else {
-            low = mid + BigUint::from(1u8);
+        ) {
+            Ok(quote) if quote.amount_out >= *output => high = mid,
+            Ok(_) => low = mid + BigUint::from(1u8),
+            Err(_) => high = mid,
         }
     }
-    let quote = quote_full_exact_in(
+    let quote = match quote_full_exact_in(
         balances,
         amp,
         rates,
@@ -189,7 +193,10 @@ pub fn quote_full_exact_out(
         i,
         j,
         state,
-    )?;
+    ) {
+        Ok(quote) => quote,
+        Err(_) => return Err(err("CURVE_EXACT_OUT_UNREACHABLE")),
+    };
     if quote.amount_out != *output {
         return Err(err("CURVE_EXACT_OUT_UNREACHABLE"));
     }
