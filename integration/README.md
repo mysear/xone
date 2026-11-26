@@ -56,7 +56,7 @@ make -C integration test
 
 `public-evm-window-test` 默认从 BNB Smart Chain 主网采集正常 Go owner 的启动快照和至少三个连续提交。验收检查同一 generation 内的父块、journal 序号和完整池状态，在第二个公开端点复核首末池状态。封存的 finalized 响应提供首末区块锚点。离线阶段用两个只读本地回放端点按编号解码，在空 Pebble 目录重建 journal，核对两份完整快照、每条记录的编号和状态摘要，以及包含交易事实的 staging 摘要。构建后可用 `python3 -B integration/tools/acceptance/public_evm_window.py --chain polygon --commits 3` 复验其他指定主网。结果记录区块与完整截面摘要，命令退出时清理本次归档和临时库。
 
-`public-bsc-swap-test` 要求同代窗口中至少有一条固定 Pancake V2 池的 Swap。两个配置端点提供原生区块、回执和池状态，另用 PublicNode 的区间日志逐项核对 journal 中的区块哈希、交易及日志索引和四个原始金额。离线重建比较完整事实批次，并选一个非空块走历史读取及原生回执证据复验。结果包含窗口、Swap 和历史数据集摘要。
+`public-bsc-swap-test` 要求同代窗口中至少有一条固定 Pancake V2 池的 Swap。两个配置端点提供原生区块、回执和连续 journal，NodeReal 的固定高度状态读取只作为 BSC 池状态见证，不能替代两个 owner 来源或原生提交证据。另用 PublicNode 的区间日志逐项核对 journal 中的区块哈希、交易及日志索引和四个原始金额。离线重建比较完整事实批次，并选一个非空块走历史读取及原生回执证据复验。结果包含窗口、Swap 和历史数据集摘要。
 
 `public-solana-replay-test` 依次用 Solana 官方端点和 Pocket 作为账户来源，重启同一个 Rust 解析器，每次用另一端点复核 finalized slot 的块哈希、父哈希和时间。两次发布后关闭解析器，从原始 RPC 归档重放两个池快照。输出包含实际端点、slot、读取编号、调用次数、不同响应数及快照摘要。重启后的发布序号和代次由在线服务分配，验收分别核对它们是否推进，以及来源状态能否重放。命令退出时删除本次归档。
 
