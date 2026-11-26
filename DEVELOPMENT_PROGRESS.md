@@ -5807,3 +5807,11 @@ Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口�
 为 MetaUSD `exchange_underlying` 的后续组合接入补齐固定 3pool 依赖的单币 `add_liquidity` 与 `remove_liquidity_one_coin` 整数内核。实现严格复用 Plain3Basic 的 D、`get_y_D`、不平衡费、admin fee、LP 供应量和内部余额舍入规则。结果返回完整 base pool 后余额、LP 总供应量、逐币 fee 和实际 admin fee，初始单币存款、无 LP 铸造、非法 burn 和余额不足均拒绝。
 
 本轮新增自包含 `curve_meta_underlying_standalone` 回归，覆盖单币存款、单币退出、供应量守恒、admin fee 记账及边界拒绝。`cargo test -p xone-protocol-math --test curve_meta_underlying_standalone` 三项通过。该内核尚未接入在线 Meta 状态，因为当前 Meta 快照只保存 base virtual price，不含可证明的 base pool 三币余额、A、fee 和 LP totalSupply。在线 `exchange_underlying`、base pool 真实读取、组合 ExactOut 与独立执行仍保持拒绝，不能将本轮记为 Meta underlying 完成。
+
+<a id="curve-meta-underlying-composition"></a>
+
+## Meta underlying 三路径组合报价（2026-11-27，阶段263，P0-2）
+
+在显式 base pool 快照上接入 `exchange_underlying` 的三条 ExactIn 组合路径。base→meta 先按 Plain3Basic 单币存款铸造 LP，再执行 Meta LP→meta 兑换。meta→base 先执行 Meta meta→LP 兑换，再按 base pool 单币退出。base→base 直接复用 base pool 的原始交换内核。每条结果同时返回 Meta 内部余额、Meta admin 余额、base 余额、LP 供应量、fee 和 admin fee，避免把 virtual price 当作可替代的 base pool 状态。
+
+新增回归覆盖三条路径和 Meta 状态不变边界，`curve_meta_underlying_standalone` 六项通过。组合 API 仍要求调用方提供同一快照的 base 三币余额、A、fee 和 totalSupply，当前在线 Meta protobuf 未扩展这些字段，因此正常服务与 ExactOut 入口继续拒绝 underlying，真实 base 读取和独立执行仍未完成。

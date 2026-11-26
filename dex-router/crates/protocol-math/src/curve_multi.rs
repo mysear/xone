@@ -265,6 +265,165 @@ pub struct BaseLiquidityQuote {
     pub admin_fee_amount: BigUint,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BaseLiquidityState {
+    pub balances: Vec<BigUint>,
+    pub rates: Vec<BigUint>,
+    pub amplification: BigUint,
+    pub fee: BigUint,
+    pub admin_fee: BigUint,
+    pub total_supply: BigUint,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MetaUnderlyingQuote {
+    pub amount_in: BigUint,
+    pub amount_out: BigUint,
+    pub next_meta_balances: Vec<BigUint>,
+    pub next_meta_admin_balances: Vec<BigUint>,
+    pub next_base_balances: Vec<BigUint>,
+    pub next_base_total_supply: BigUint,
+    pub base_fee_amounts: Vec<BigUint>,
+    pub meta_fee_amount: BigUint,
+    pub base_admin_fee_amount: BigUint,
+    pub meta_admin_fee_amount: BigUint,
+}
+
+/// Compose the pinned MetaUSD exchange-underlying actions with an explicit
+/// base-pool snapshot. The snapshot is required for LP mint/burn accounting,
+/// so this helper is intentionally separate from the online Meta pool quote.
+#[allow(clippy::too_many_arguments)]
+pub fn quote_meta_underlying_exact_in(
+    meta_balances: &[BigUint],
+    meta_admin_balances: &[BigUint],
+    meta_rates: &[BigUint],
+    meta_amp: &BigUint,
+    meta_fee: &BigUint,
+    meta_admin_fee: &BigUint,
+    base: &BaseLiquidityState,
+    input: &BigUint,
+    index_in: usize,
+    index_out: usize,
+) -> Result<MetaUnderlyingQuote> {
+    if meta_balances.len() != 2
+        || meta_admin_balances.len() != 2
+        || meta_rates.len() != 2
+        || meta_rates[1].is_zero()
+    {
+        return Err(err("CURVE_META_INVALID_STATE"));
+    }
+    let action = meta_underlying_boundary(index_in, index_out)?;
+    let mut next_meta_balances = meta_balances.to_vec();
+    let mut next_meta_admin_balances = meta_admin_balances.to_vec();
+    match action {
+        MetaUnderlyingBoundary::BaseExchange {
+            index_in: i,
+            index_out: j,
+        } => {
+            let q = quote_exact_in(
+                &base.balances,
+                &base.amplification,
+                &base.rates,
+                &base.fee,
+                &base.admin_fee,
+                input,
+                i,
+                j,
+            )?;
+            let mut base_fee_amounts = vec![u(0); base.balances.len()];
+            base_fee_amounts[j] = q.fee_amount.clone();
+            return Ok(MetaUnderlyingQuote {
+                amount_in: input.clone(),
+                amount_out: q.amount_out,
+                next_meta_balances,
+                next_meta_admin_balances,
+                next_base_balances: q.next_balances,
+                next_base_total_supply: base.total_supply.clone(),
+                base_fee_amounts,
+                meta_fee_amount: u(0),
+                base_admin_fee_amount: q.admin_fee_amount,
+                meta_admin_fee_amount: u(0),
+            });
+        }
+        MetaUnderlyingBoundary::BaseDepositThenMeta { base_index } => {
+            let deposit = quote_base_add_liquidity_one_coin(
+                &base.balances,
+                &base.rates,
+                &base.amplification,
+                &base.fee,
+                &base.admin_fee,
+                &base.total_supply,
+                input,
+                base_index,
+            )?;
+            let meta = quote_meta_exact_in(
+                meta_balances,
+                meta_amp,
+                &meta_rates[0],
+                &meta_rates[1],
+                meta_fee,
+                meta_admin_fee,
+                &deposit.amount_out,
+                1,
+                0,
+            )?;
+            next_meta_balances = meta.next_balances.clone();
+            next_meta_admin_balances[0] =
+                add(&next_meta_admin_balances[0], &meta.admin_fee_amount)?;
+            return Ok(MetaUnderlyingQuote {
+                amount_in: input.clone(),
+                amount_out: meta.amount_out,
+                next_meta_balances,
+                next_meta_admin_balances,
+                next_base_balances: deposit.next_balances,
+                next_base_total_supply: deposit.next_total_supply,
+                base_fee_amounts: deposit.fee_amounts,
+                meta_fee_amount: meta.fee_amount,
+                base_admin_fee_amount: deposit.admin_fee_amount,
+                meta_admin_fee_amount: meta.admin_fee_amount,
+            });
+        }
+        MetaUnderlyingBoundary::MetaThenBaseWithdraw { base_index } => {
+            let meta = quote_meta_exact_in(
+                meta_balances,
+                meta_amp,
+                &meta_rates[0],
+                &meta_rates[1],
+                meta_fee,
+                meta_admin_fee,
+                input,
+                0,
+                1,
+            )?;
+            let withdrawal = quote_base_remove_liquidity_one_coin(
+                &base.balances,
+                &base.rates,
+                &base.amplification,
+                &base.fee,
+                &base.admin_fee,
+                &base.total_supply,
+                &meta.amount_out,
+                base_index,
+            )?;
+            next_meta_balances = meta.next_balances.clone();
+            next_meta_admin_balances[1] =
+                add(&next_meta_admin_balances[1], &meta.admin_fee_amount)?;
+            return Ok(MetaUnderlyingQuote {
+                amount_in: input.clone(),
+                amount_out: withdrawal.amount_out,
+                next_meta_balances,
+                next_meta_admin_balances,
+                next_base_balances: withdrawal.next_balances,
+                next_base_total_supply: withdrawal.next_total_supply,
+                base_fee_amounts: withdrawal.fee_amounts,
+                meta_fee_amount: meta.fee_amount,
+                base_admin_fee_amount: withdrawal.admin_fee_amount,
+                meta_admin_fee_amount: meta.admin_fee_amount,
+            });
+        }
+    }
+}
+
 /// Mirrors Plain3Basic `add_liquidity` for a one-coin deposit. The returned
 /// balances are the pool's internal balances after removing the admin-fee
 /// portion, and the LP amount is the exact integer amount minted by the source.
