@@ -5786,3 +5786,13 @@ Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口�
 新增回归覆盖后续 7 秒执行、输入输出守恒、uint32 时间和 uint256 累计价格边界。`cargo check -p xone-protocol-math` 与新增定向测试通过。完整测试仍受工作区已有历史 fixture 删除影响，未恢复这些用户已有改动。
 
 [V2 完整数学](dex-router/crates/protocol-math/src/v2_complete.rs) · [ExactOut 入口](dex-router/crates/protocol-math/src/exact_out.rs) · [回归](dex-router/crates/protocol-math/tests/v2_complete.rs)
+
+<a id="curve-plain-multi-exact-out"></a>
+
+## Curve Plain3/Plain4 多资产 ExactOut（2026-11-26，阶段261，P0-2）
+
+为已登记的 `curve-plain3-basic` 与 `curve-plain4-basic` profile 补充 ExactOut。实现使用原 PlainPool 的整数 ExactIn 内核做单调有界逆解，再以最终整数输入重新计算完整余额和 admin fee 后状态。无法由原始舍入规则精确达到的目标明确返回 `CURVE_EXACT_OUT_UNREACHABLE`，不会把近似输出当成 ExactOut 成功。
+
+多资产路由与协议能力目录已接入这两个 profile，返回结果携带实际输入金额和完整物理余额向量。`cargo check -p xone-protocol-math` 和格式检查通过。测试目标仍受仓库已有删除的 `curve-multi-quotes.json` fixture 影响，临时 smoke example 因 dex-router 默认 Kafka 原生构建缺少 macOS C++ 标准库而未保留。
+
+[Curve 多资产数学](dex-router/crates/protocol-math/src/curve_multi.rs) · [多资产路由](dex-router/crates/protocol-math/src/multi_asset.rs) · [ExactOut 分发](dex-router/crates/protocol-math/src/exact_out.rs)

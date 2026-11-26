@@ -26,6 +26,40 @@ fn three_and_four_coin_exchange_accepts_current_precise_a() {
         assert!(q.admin_fee_amount > BigUint::from(0u8));
     }
 }
+
+#[test]
+fn exact_out_replays_three_and_four_coin_integer_poststate() {
+    for count in [3, 4] {
+        let balances = vec![n("1000000000000000000000000"); count];
+        let rates = vec![n("1000000000000000000"); count];
+        let input = n("10000000000000000000000");
+        let exact_in = curve_multi::quote_exact_in(
+            &balances,
+            &n("10000"),
+            &rates,
+            &n("4000000"),
+            &n("5000000000"),
+            &input,
+            0,
+            count - 1,
+        )
+        .unwrap();
+        let exact_out = curve_multi::quote_exact_out(
+            &balances,
+            &n("10000"),
+            &rates,
+            &n("4000000"),
+            &n("5000000000"),
+            &exact_in.amount_out,
+            0,
+            count - 1,
+        )
+        .unwrap();
+        assert_eq!(exact_out.amount_in, input);
+        assert_eq!(exact_out.amount_out, exact_in.amount_out);
+        assert_eq!(exact_out.next_balances, exact_in.next_balances);
+    }
+}
 #[test]
 fn checked_uint256_rejects_oversized_intermediate() {
     let b = vec![BigUint::one() << 255, BigUint::one(), BigUint::one()];

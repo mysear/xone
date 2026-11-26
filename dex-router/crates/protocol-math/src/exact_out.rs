@@ -26,6 +26,8 @@ pub fn supports_protocol(protocol: &str) -> bool {
             | "balancer-v2-weighted-multi"
             | "balancer-v2-managed-snapshot"
             | "balancer-v2-composable-regular"
+            | "curve-plain3-basic"
+            | "curve-plain4-basic"
     ) {
         return true;
     }
@@ -169,6 +171,8 @@ pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<Exact
     if pool.protocol == "balancer-v2-weighted-multi"
         || pool.protocol == "balancer-v2-managed-snapshot"
         || pool.protocol == "balancer-v2-composable-regular"
+        || pool.protocol == "curve-plain3-basic"
+        || pool.protocol == "curve-plain4-basic"
     {
         let (input, output_token) = if zero {
             (&pool.token0, &pool.token1)

@@ -3,7 +3,7 @@
 //! Balances exclude admin fees. Rates and A_precise must be evaluated at the same
 //! block. No transfer/rebase or external provider calls occur in this module.
 use num_bigint::BigUint;
-use num_traits::Zero;
+use num_traits::{One, Zero};
 use xone_domain::{err, Result};
 
 pub(crate) const PRECISION: u64 = 1_000_000_000_000_000_000;
@@ -12,6 +12,7 @@ pub(crate) const ADMIN_FEE: u64 = 5_000_000_000;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CurveQuote {
+    pub amount_in: BigUint,
     pub amount_out: BigUint,
     /// Internal balances after removing both user output and admin fee.
     pub next_balances: Vec<BigUint>,
@@ -41,6 +42,73 @@ pub fn quote_exact_in(
     quote(
         balances, amp, rates, fee, admin_fee, input, index_in, index_out,
     )
+}
+
+/// Solve the pinned plain-pool integer exchange for an exact output target.
+/// The source contract exposes an input-oriented exchange, so the inverse is
+/// found with a bounded monotonic search and then re-evaluated for the final
+/// post-state. A target that cannot be represented by the contract's integer
+/// rounding is rejected instead of being rounded up silently.
+#[allow(clippy::too_many_arguments)]
+pub fn quote_exact_out(
+    balances: &[BigUint],
+    amp: &BigUint,
+    rates: &[BigUint],
+    fee: &BigUint,
+    admin_fee: &BigUint,
+    output: &BigUint,
+    index_in: usize,
+    index_out: usize,
+) -> Result<CurveQuote> {
+    if output.is_zero() {
+        return Err(err("CURVE_EXACT_OUT_ZERO"));
+    }
+    validate(
+        balances,
+        rates,
+        amp,
+        fee,
+        admin_fee,
+        &BigUint::from(1u8),
+        index_in,
+        index_out,
+    )?;
+    if ![3, 4].contains(&balances.len()) {
+        return Err(err("CURVE_MULTI_UNSUPPORTED_COIN_COUNT"));
+    }
+    ensure(output)?;
+    let mut high = BigUint::one();
+    let mut upper = None;
+    for _ in 0..=256 {
+        let quote = quote_exact_in(
+            balances, amp, rates, fee, admin_fee, &high, index_in, index_out,
+        )?;
+        if quote.amount_out >= *output {
+            upper = Some(high);
+            break;
+        }
+        high <<= 1usize;
+    }
+    let mut high = upper.ok_or_else(|| err("CURVE_EXACT_OUT_UNREACHABLE"))?;
+    let mut low = BigUint::zero();
+    while low < high {
+        let mid = (&low + &high) >> 1usize;
+        let quote = quote_exact_in(
+            balances, amp, rates, fee, admin_fee, &mid, index_in, index_out,
+        )?;
+        if quote.amount_out >= *output {
+            high = mid;
+        } else {
+            low = mid + BigUint::one();
+        }
+    }
+    let quote = quote_exact_in(
+        balances, amp, rates, fee, admin_fee, &low, index_in, index_out,
+    )?;
+    if quote.amount_out != *output {
+        return Err(err("CURVE_EXACT_OUT_UNREACHABLE"));
+    }
+    Ok(quote)
 }
 
 /// MetaUSD `exchange`, between the meta coin and base LP token, using a supplied
@@ -131,6 +199,7 @@ fn quote(
     next_balances[i] = add(&b[i], input)?;
     next_balances[j] = sub(&sub(&b[j], &amount_out)?, &admin_fee_amount)?;
     Ok(CurveQuote {
+        amount_in: input.clone(),
         amount_out,
         next_balances,
         fee_amount,

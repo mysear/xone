@@ -366,6 +366,8 @@ pub fn quote_exact_out_tokens(
         "balancer-v2-weighted-multi"
             | "balancer-v2-managed-snapshot"
             | "balancer-v2-composable-regular"
+            | "curve-plain3-basic"
+            | "curve-plain4-basic"
     ) {
         return Err(err("EXACT_OUT_PROTOCOL_UNSUPPORTED"));
     }
@@ -394,7 +396,25 @@ pub fn quote_exact_out_tokens(
         .iter()
         .map(|a| a.scaling.0.clone())
         .collect::<Vec<_>>();
-    let q = if pool.protocol == "balancer-v2-composable-regular" {
+    let q = if matches!(
+        pool.protocol.as_str(),
+        "curve-plain3-basic" | "curve-plain4-basic"
+    ) {
+        let q = crate::curve_multi::quote_exact_out(
+            &balances,
+            &s.amplification.0,
+            &scales,
+            &BigUint::from(pool.fee_numerator),
+            &BigUint::from(s.admin_fee),
+            &output.0,
+            i,
+            j,
+        )?;
+        crate::balancer_multi::MultiExactOutQuote {
+            amount_in: q.amount_in,
+            next_balances: q.next_balances,
+        }
+    } else if pool.protocol == "balancer-v2-composable-regular" {
         let bpt = s
             .assets
             .iter()
