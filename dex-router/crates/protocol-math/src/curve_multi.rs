@@ -424,6 +424,91 @@ pub fn quote_meta_underlying_exact_in(
     }
 }
 
+/// Invert the composed underlying quote with the same bounded integer search
+/// used by the direct Curve ExactOut kernels. The final candidate is replayed
+/// once so unreachable rounded targets are rejected explicitly.
+#[allow(clippy::too_many_arguments)]
+pub fn quote_meta_underlying_exact_out(
+    meta_balances: &[BigUint],
+    meta_admin_balances: &[BigUint],
+    meta_rates: &[BigUint],
+    meta_amp: &BigUint,
+    meta_fee: &BigUint,
+    meta_admin_fee: &BigUint,
+    base: &BaseLiquidityState,
+    output: &BigUint,
+    index_in: usize,
+    index_out: usize,
+) -> Result<MetaUnderlyingQuote> {
+    if output.is_zero() {
+        return Err(err("CURVE_EXACT_OUT_ZERO"));
+    }
+    let mut high = BigUint::one();
+    let mut upper = None;
+    for _ in 0..=256 {
+        match quote_meta_underlying_exact_in(
+            meta_balances,
+            meta_admin_balances,
+            meta_rates,
+            meta_amp,
+            meta_fee,
+            meta_admin_fee,
+            base,
+            &high,
+            index_in,
+            index_out,
+        ) {
+            Ok(q) if q.amount_out >= *output => {
+                upper = Some(high);
+                break;
+            }
+            Ok(_) => high <<= 1usize,
+            Err(_) => {
+                upper = Some(high);
+                break;
+            }
+        }
+    }
+    let mut high = upper.ok_or_else(|| err("CURVE_EXACT_OUT_UNREACHABLE"))?;
+    let mut low = BigUint::zero();
+    while low < high {
+        let mid = (&low + &high) >> 1usize;
+        match quote_meta_underlying_exact_in(
+            meta_balances,
+            meta_admin_balances,
+            meta_rates,
+            meta_amp,
+            meta_fee,
+            meta_admin_fee,
+            base,
+            &mid,
+            index_in,
+            index_out,
+        ) {
+            Ok(q) if q.amount_out >= *output => high = mid,
+            Ok(_) => low = mid + BigUint::one(),
+            Err(_) => high = mid,
+        }
+    }
+    let quote = quote_meta_underlying_exact_in(
+        meta_balances,
+        meta_admin_balances,
+        meta_rates,
+        meta_amp,
+        meta_fee,
+        meta_admin_fee,
+        base,
+        &low,
+        index_in,
+        index_out,
+    )
+    .map_err(|_| err("CURVE_EXACT_OUT_UNREACHABLE"))?;
+    if quote.amount_out != *output {
+        return Err(err("CURVE_EXACT_OUT_UNREACHABLE"));
+    }
+    Ok(quote)
+}
+
 /// Mirrors Plain3Basic `add_liquidity` for a one-coin deposit. The returned
 /// balances are the pool's internal balances after removing the admin-fee
 /// portion, and the LP amount is the exact integer amount minted by the source.

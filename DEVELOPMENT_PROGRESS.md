@@ -5815,3 +5815,9 @@ Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口�
 在显式 base pool 快照上接入 `exchange_underlying` 的三条 ExactIn 组合路径。base→meta 先按 Plain3Basic 单币存款铸造 LP，再执行 Meta LP→meta 兑换。meta→base 先执行 Meta meta→LP 兑换，再按 base pool 单币退出。base→base 直接复用 base pool 的原始交换内核。每条结果同时返回 Meta 内部余额、Meta admin 余额、base 余额、LP 供应量、fee 和 admin fee，避免把 virtual price 当作可替代的 base pool 状态。
 
 新增回归覆盖三条路径和 Meta 状态不变边界，`curve_meta_underlying_standalone` 六项通过。组合 API 仍要求调用方提供同一快照的 base 三币余额、A、fee 和 totalSupply，当前在线 Meta protobuf 未扩展这些字段，因此正常服务与 ExactOut 入口继续拒绝 underlying，真实 base 读取和独立执行仍未完成。
+
+## Meta underlying 组合 ExactOut（2026-11-27，阶段264，P0-2）
+
+为三条 underlying 组合路径增加有界单调 ExactOut 逆解。每个候选输入都完整重放 base LP 铸造或退出、Meta 交换、admin fee 和两侧后状态，最终重新计算并拒绝整数舍入无法精确达到的目标。新增回归覆盖由 ExactIn 生成的组合目标、最小输入守恒及零目标拒绝，`curve_meta_underlying_standalone` 七项通过。
+
+组合 ExactOut 仍属于显式快照数学能力。在线 Meta 快照未包含 base pool 的三币状态，服务入口和生产执行资格保持关闭。

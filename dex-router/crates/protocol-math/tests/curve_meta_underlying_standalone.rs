@@ -210,3 +210,60 @@ fn meta_underlying_routes_base_to_base_without_touching_meta_state() {
     assert_eq!(q.next_meta_admin_balances, meta_admin_balances);
     assert_eq!(q.next_base_total_supply, base.total_supply);
 }
+
+#[test]
+fn meta_underlying_exact_out_replays_composed_target() {
+    let (base_balances, base_rates, base_amp, base_fee, base_admin, base_supply) = base_state();
+    let (meta_balances, meta_admin_balances, meta_rates, meta_amp, meta_fee, meta_admin) =
+        meta_state();
+    let base = curve_multi::BaseLiquidityState {
+        balances: base_balances,
+        rates: base_rates,
+        amplification: base_amp,
+        fee: base_fee,
+        admin_fee: base_admin,
+        total_supply: base_supply,
+    };
+    let input = n("1000000000000000000000");
+    let exact_in = curve_multi::quote_meta_underlying_exact_in(
+        &meta_balances,
+        &meta_admin_balances,
+        &meta_rates,
+        &meta_amp,
+        &meta_fee,
+        &meta_admin,
+        &base,
+        &input,
+        2,
+        0,
+    )
+    .unwrap();
+    let exact_out = curve_multi::quote_meta_underlying_exact_out(
+        &meta_balances,
+        &meta_admin_balances,
+        &meta_rates,
+        &meta_amp,
+        &meta_fee,
+        &meta_admin,
+        &base,
+        &exact_in.amount_out,
+        2,
+        0,
+    )
+    .unwrap();
+    assert_eq!(exact_out.amount_in, input);
+    assert_eq!(exact_out.amount_out, exact_in.amount_out);
+    assert!(curve_multi::quote_meta_underlying_exact_out(
+        &meta_balances,
+        &meta_admin_balances,
+        &meta_rates,
+        &meta_amp,
+        &meta_fee,
+        &meta_admin,
+        &base,
+        &BigUint::from(0u8),
+        2,
+        0,
+    )
+    .is_err());
+}
