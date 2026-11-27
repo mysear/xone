@@ -21,7 +21,7 @@ pub struct BptMathQuote {
     pub next_actual_supply: BigUint,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CachedRate {
     pub current: BigUint,
     pub old: BigUint,
@@ -55,6 +55,26 @@ pub struct SupplyView {
     pub pending_protocol_bpt: BigUint,
     pub actual_supply: BigUint,
     pub invariant_at_last_join_exit_amp: BigUint,
+}
+
+#[derive(Clone, Copy)]
+pub enum BptSwapKind {
+    GivenIn,
+    GivenOut,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct BptSwapQuote {
+    pub amount_in: BigUint,
+    pub amount_out: BigUint,
+    pub next_balances: Vec<BigUint>,
+    pub next_total_supply: BigUint,
+    pub next_actual_supply_after_mint: BigUint,
+    pub protocol_bpt_before_swap: BigUint,
+    pub protocol_bpt_after_swap: BigUint,
+    pub last_join_exit_invariant: BigUint,
+    pub last_join_exit_amp: BigUint,
+    pub next_rates: Vec<Option<CachedRate>>,
 }
 fn checked(x: BigUint) -> Result<BigUint> {
     if x.bits() > 256 {
@@ -111,6 +131,9 @@ fn complement(x: &BigUint) -> BigUint {
     } else {
         one - x
     }
+}
+fn protocol_bpt(supply: &BigUint, ownership: &BigUint) -> Result<BigUint> {
+    down(&mul(supply, ownership)?, &complement(ownership))
 }
 fn sum(xs: &[BigUint]) -> Result<BigUint> {
     xs.iter().try_fold(BigUint::zero(), |a, b| add(&a, b))
@@ -258,7 +281,7 @@ pub fn supply_view(input: &SupplyInput<'_>) -> Result<SupplyView> {
         }
         _ => protocol_ownership(input, &scaled, &total_invariant)?,
     };
-    let pending_protocol_bpt = down(&mul(&virtual_supply, &ownership)?, &complement(&ownership))?;
+    let pending_protocol_bpt = protocol_bpt(&virtual_supply, &ownership)?;
     let actual_supply = add(&virtual_supply, &pending_protocol_bpt)?;
     Ok(SupplyView {
         virtual_supply,
@@ -453,24 +476,72 @@ pub fn quote_bpt_exact_in_after_fees(
     if actual_supply_after_fees.is_zero() {
         return Err(err("BALANCER_COMPOSABLE_SUPPLY"));
     }
-    let one = BigUint::from(ONE);
-    let mut b = balances
+    let b = balances
         .iter()
         .zip(scales)
         .map(|(v, s)| md(v, s))
         .collect::<Result<Vec<_>>>()?;
     let d = invariant(amplification, &b)?;
-    let total = sum(&b)?;
-    let amount_out;
-    let next_actual_supply;
+    let scaled_input = if token_to_bpt {
+        md(input, &scales[token_index])?
+    } else {
+        input.clone()
+    };
+    let scaled_out = bpt_given_in(
+        &b,
+        amplification,
+        fee,
+        &scaled_input,
+        actual_supply_after_fees,
+        &d,
+        token_index,
+        token_to_bpt,
+    )?;
     let mut next_underlying_balances = balances.to_vec();
+    let (amount_out, next_actual_supply) = if token_to_bpt {
+        next_underlying_balances[token_index] = add(&balances[token_index], input)?;
+        if next_underlying_balances[token_index].bits() > 112 {
+            return Err(err("BALANCER_COMPOSABLE_UINT112"));
+        }
+        let next = add(actual_supply_after_fees, &scaled_out)?;
+        (scaled_out, next)
+    } else {
+        let amount_out = dd(&scaled_out, &scales[token_index])?;
+        if amount_out >= balances[token_index] {
+            return Err(err("INSUFFICIENT_OUTPUT"));
+        }
+        next_underlying_balances[token_index] = sub(&balances[token_index], &amount_out)?;
+        (amount_out, sub(actual_supply_after_fees, input)?)
+    };
+    if amount_out.is_zero() {
+        return Err(err("INSUFFICIENT_OUTPUT"));
+    }
+    Ok(BptMathQuote {
+        amount_out,
+        next_underlying_balances,
+        next_actual_supply,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn bpt_given_in(
+    b: &[BigUint],
+    amplification: &BigUint,
+    fee: &BigUint,
+    input: &BigUint,
+    supply: &BigUint,
+    d: &BigUint,
+    index: usize,
+    token_to_bpt: bool,
+) -> Result<BigUint> {
+    let one = BigUint::from(ONE);
+    let total = sum(b)?;
     if token_to_bpt {
-        let scaled_input = md(input, &scales[token_index])?;
         let mut ratios = Vec::with_capacity(b.len());
         let mut ratio_with_fees = BigUint::zero();
         for (k, x) in b.iter().enumerate() {
-            let amount = if k == token_index {
-                scaled_input.clone()
+            let amount = if k == index {
+                input.clone()
             } else {
                 BigUint::zero()
             };
@@ -478,9 +549,10 @@ pub fn quote_bpt_exact_in_after_fees(
             ratio_with_fees = add(&ratio_with_fees, &md(&ratio, &dd(x, &total)?)?)?;
             ratios.push(ratio);
         }
-        for k in 0..b.len() {
-            let amount = if k == token_index {
-                scaled_input.clone()
+        let mut next = b.to_vec();
+        for k in 0..next.len() {
+            let amount = if k == index {
+                input.clone()
             } else {
                 BigUint::zero()
             };
@@ -491,43 +563,213 @@ pub fn quote_bpt_exact_in_after_fees(
             } else {
                 amount
             };
-            b[k] = add(&b[k], &net)?;
+            next[k] = add(&b[k], &net)?;
         }
-        let ratio = dd(&invariant(amplification, &b)?, &d)?;
-        amount_out = if ratio > one {
-            md(actual_supply_after_fees, &(ratio - &one))?
+        let ratio = dd(&invariant(amplification, &next)?, d)?;
+        if ratio > one {
+            md(supply, &(ratio - &one))
         } else {
-            BigUint::zero()
-        };
-        next_actual_supply = add(actual_supply_after_fees, &amount_out)?;
-        next_underlying_balances[token_index] = add(&balances[token_index], input)?;
-        if next_underlying_balances[token_index].bits() > 112 {
-            return Err(err("BALANCER_COMPOSABLE_UINT112"));
+            Ok(BigUint::zero())
         }
     } else {
-        if input >= actual_supply_after_fees {
+        if input >= supply {
             return Err(err("BALANCER_COMPOSABLE_SUPPLY"));
         }
-        next_actual_supply = sub(actual_supply_after_fees, input)?;
-        let new_d = mu(&du(&next_actual_supply, actual_supply_after_fees)?, &d)?;
-        let y = token_balance(amplification, &b, &new_d, token_index)?;
-        let gross = sub(&b[token_index], &y)?;
-        let taxable = mu(&gross, &complement(&dd(&b[token_index], &total)?))?;
+        let new_d = mu(&du(&sub(supply, input)?, supply)?, d)?;
+        let y = token_balance(amplification, b, &new_d, index)?;
+        let gross = sub(&b[index], &y)?;
+        let taxable = mu(&gross, &complement(&dd(&b[index], &total)?))?;
         let non_taxable = sub(&gross, &taxable)?;
-        let scaled_out = add(&non_taxable, &md(&taxable, &sub(&one, fee)?)?)?;
-        amount_out = dd(&scaled_out, &scales[token_index])?;
-        if amount_out >= balances[token_index] {
-            return Err(err("INSUFFICIENT_OUTPUT"));
-        }
-        next_underlying_balances[token_index] = sub(&balances[token_index], &amount_out)?;
+        add(&non_taxable, &md(&taxable, &sub(&one, fee)?)?)
     }
-    if amount_out.is_zero() {
+}
+
+#[allow(clippy::too_many_arguments)]
+fn bpt_given_out(
+    balances: &[BigUint],
+    amp: &BigUint,
+    fee: &BigUint,
+    output: &BigUint,
+    supply: &BigUint,
+    invariant_before: &BigUint,
+    index: usize,
+    token_to_bpt: bool,
+) -> Result<BigUint> {
+    let fee_complement = complement(fee);
+    let total = sum(balances)?;
+    if token_to_bpt {
+        let ratio = du(&add(supply, output)?, supply)?;
+        let target = mu(&ratio, invariant_before)?;
+        let balance = &balances[index];
+        let amount = sub(&token_balance(amp, balances, &target, index)?, balance)?;
+        let taxable = mu(&amount, &complement(&dd(balance, &total)?))?;
+        return add(&sub(&amount, &taxable)?, &du(&taxable, &fee_complement)?);
+    }
+
+    let mut ratios = Vec::with_capacity(balances.len());
+    let mut weighted_ratio = BigUint::zero();
+    let zero = BigUint::zero();
+    for (i, balance) in balances.iter().enumerate() {
+        let amount = if i == index { output } else { &zero };
+        let ratio = du(&sub(balance, amount)?, balance)?;
+        weighted_ratio = add(&weighted_ratio, &mu(&ratio, &du(balance, &total)?)?)?;
+        ratios.push(ratio);
+    }
+    let mut next = Vec::with_capacity(balances.len());
+    for (i, (balance, ratio)) in balances.iter().zip(ratios).enumerate() {
+        let amount = if i == index { output } else { &zero };
+        let gross = if weighted_ratio > ratio {
+            let non_taxable = md(balance, &complement(&weighted_ratio))?;
+            let taxable = sub(amount, &non_taxable)?;
+            add(&non_taxable, &du(&taxable, &fee_complement)?)?
+        } else {
+            amount.clone()
+        };
+        next.push(sub(balance, &gross)?);
+    }
+    let ratio = dd(&invariant(amp, &next)?, invariant_before)?;
+    mu(supply, &complement(&ratio))
+}
+
+/// Models the BPT swap callback and Vault balance deltas. Supply inputs must
+/// reflect the token-rate caches and effective factors at callback entry.
+pub fn quote_bpt_swap(
+    input: &SupplyInput<'_>,
+    amp: &BigUint,
+    fee: &BigUint,
+    amount: &BigUint,
+    index_in: usize,
+    index_out: usize,
+    kind: BptSwapKind,
+) -> Result<BptSwapQuote> {
+    let bpt = input.bpt_index;
+    if index_in >= input.balances.len()
+        || index_out >= input.balances.len()
+        || index_in == index_out
+        || (index_in != bpt && index_out != bpt)
+    {
+        return Err(err("BALANCER_COMPOSABLE_INDEX"));
+    }
+    let supply = supply_view(input)?;
+    if supply.actual_supply.is_zero() {
+        return Err(err("BALANCER_COMPOSABLE_SUPPLY"));
+    }
+    let token_to_bpt = index_out == bpt;
+    let token = if token_to_bpt { index_in } else { index_out };
+    let index = token - usize::from(token > bpt);
+    let underlying: Vec<_> = (0..input.balances.len()).filter(|&i| i != bpt).collect();
+    let raw: Vec<_> = underlying
+        .iter()
+        .map(|&i| input.balances[i].clone())
+        .collect();
+    let scales: Vec<_> = underlying
+        .iter()
+        .map(|&i| input.scales[i].clone())
+        .collect();
+    validate(&raw, amp, &scales, fee, amount)?;
+    let mut balances = raw
+        .iter()
+        .zip(&scales)
+        .map(|(v, s)| md(v, s))
+        .collect::<Result<Vec<_>>>()?;
+    let invariant_before = if amp == input.last_join_exit_amp {
+        supply.invariant_at_last_join_exit_amp
+    } else {
+        invariant(amp, &balances)?
+    };
+    let (amount_in, amount_out, token_delta) = match kind {
+        BptSwapKind::GivenIn => {
+            let known = md(amount, &input.scales[index_in])?;
+            let calculated = bpt_given_in(
+                &balances,
+                amp,
+                fee,
+                &known,
+                &supply.actual_supply,
+                &invariant_before,
+                index,
+                token_to_bpt,
+            )?;
+            let output = dd(&calculated, &input.scales[index_out])?;
+            let delta = if token_to_bpt { known } else { calculated };
+            (amount.clone(), output, delta)
+        }
+        BptSwapKind::GivenOut => {
+            if amount > &input.balances[index_out] {
+                return Err(err("INSUFFICIENT_LIQUIDITY"));
+            }
+            let known = md(amount, &input.scales[index_out])?;
+            let calculated = bpt_given_out(
+                &balances,
+                amp,
+                fee,
+                &known,
+                &supply.actual_supply,
+                &invariant_before,
+                index,
+                token_to_bpt,
+            )?;
+            let input_amount = du(&calculated, &input.scales[index_in])?;
+            let delta = if token_to_bpt { calculated } else { known };
+            (input_amount, amount.clone(), delta)
+        }
+    };
+    if amount_in.is_zero() || amount_out.is_zero() {
         return Err(err("INSUFFICIENT_OUTPUT"));
     }
-    Ok(BptMathQuote {
+    let mut next_balances = input.balances.to_vec();
+    next_balances[index_in] = add(&next_balances[index_in], &amount_in)?;
+    next_balances[index_out] = sub(&next_balances[index_out], &amount_out)?;
+    if next_balances[index_in].bits() > 112 {
+        return Err(err("BALANCER_COMPOSABLE_UINT112"));
+    }
+    let supply_before_mint = if token_to_bpt {
+        balances[index] = add(&balances[index], &token_delta)?;
+        add(&supply.actual_supply, &amount_out)?
+    } else {
+        balances[index] = sub(&balances[index], &token_delta)?;
+        sub(&supply.actual_supply, &amount_in)?
+    };
+    // The callback stores the invariant of the in-memory scaled balances.
+    // The Vault independently settles the downscaled token delta above.
+    let invariant_after = invariant(amp, &balances)?;
+    if invariant_after.bits() > 233 {
+        return Err(err("BALANCER_COMPOSABLE_FEE_STATE"));
+    }
+    let ratio = dd(&supply_before_mint, &supply.actual_supply)?;
+    let feeless = md(&invariant_before, &ratio)?;
+    let protocol_bpt_after_swap = if invariant_after > feeless {
+        let growth = sub(&invariant_after, &feeless)?;
+        let ownership = down(&mul(&growth, input.protocol_swap_fee)?, &invariant_after)?;
+        protocol_bpt(&supply_before_mint, &ownership)?
+    } else {
+        BigUint::zero()
+    };
+    let next_total_supply = add(
+        &add(input.total_supply, &supply.pending_protocol_bpt)?,
+        &protocol_bpt_after_swap,
+    )?;
+    let next_rates = input
+        .rates
+        .iter()
+        .map(|rate| {
+            rate.as_ref().map(|rate| CachedRate {
+                old: rate.current.clone(),
+                current: rate.current.clone(),
+            })
+        })
+        .collect();
+    Ok(BptSwapQuote {
+        amount_in,
         amount_out,
-        next_underlying_balances,
-        next_actual_supply,
+        next_balances,
+        next_total_supply,
+        next_actual_supply_after_mint: add(&supply_before_mint, &protocol_bpt_after_swap)?,
+        protocol_bpt_before_swap: supply.pending_protocol_bpt,
+        protocol_bpt_after_swap,
+        last_join_exit_invariant: invariant_after,
+        last_join_exit_amp: amp.clone(),
+        next_rates,
     })
 }
 

@@ -79,6 +79,8 @@ async function main() {
     })));
     const rateArtifact = helper.contracts['Rate.sol'].Rate;
     const cases = [];
+    const bptSwaps = [];
+    let rejectedJoins = 0;
     for (const [name, exempt, count, providerCount] of [
       ['no-rate', false, 2, 0], ['yield', false, 3, 2], ['exempt', true, 5, 5],
     ]) {
@@ -127,7 +129,7 @@ async function main() {
         const total = BigInt(await pool.totalSupply(at));
         const virtual = total - BigInt(balances[bpt]);
         const actual = BigInt(await pool.getActualSupply(at));
-        cases.push({
+        return {
           name: `${name}/${step}`,
           block: block.number,
           balances: balances.map(String), scales: (await pool.getScalingFactors(at)).map(String),
@@ -136,14 +138,14 @@ async function main() {
           swap_fee: String(await pool.getProtocolFeePercentageCache(0, at)),
           yield_fee: String(await pool.getProtocolFeePercentageCache(2, at)),
           virtual_supply: String(virtual), pending_protocol_bpt: String(actual - virtual), actual_supply: String(actual),
-        });
+        };
       };
-      await capture('initial');
+      cases.push(await capture('initial'));
       await send(vault, 'swap', {
         poolId, kind: 0, assetIn: tokens[0].address, assetOut: tokens[1].address,
         amount: 400n * units[0], userData: '0x',
       }, { sender: owner, recipient: owner, fromInternalBalance: false, toInternalBalance: false }, 0, max);
-      await capture('swap-fees');
+      cases.push(await capture('swap-fees'));
       if (rates.length) {
         for (const [step, rate] of [
           ['yield-gain', E * 115n / 100n],
@@ -154,11 +156,70 @@ async function main() {
             await send(rates[index], 'set', rate);
             await send(pool, 'updateTokenRateCache', tokens[index].address);
           }
-          await capture(step);
+          cases.push(await capture(step));
         }
       }
+      if (rates.length) {
+        for (let index = 0; index < rates.length; index++) {
+          await send(rates[index], 'set', E * 107n / 100n);
+          await send(pool, 'updateTokenRateCache', tokens[index].address);
+        }
+      }
+      const block = await provider.getBlock('latest');
+      await send(pool, 'startAmplificationParameterUpdate', 350, block.timestamp + 2 * 86400);
+      await chain.request({ method: 'evm_increaseTime', params: [600] });
+      await chain.request({ method: 'evm_mine', params: [] });
+      const funds = { sender: owner, recipient: owner, fromInternalBalance: false, toInternalBalance: false };
+      const tokenIndex = registered.indexOf(tokens[0].address);
+      const walletBalances = async (at) => Promise.all([pool, tokens[0]].map(async token =>
+        String(await token.balanceOf(owner, at))));
+      const beforeFailure = await capture('failed-join');
+      const walletsBefore = await walletBalances({ blockTag: beforeFailure.block });
+      const feesBefore = await pool.balanceOf(collector.address, { blockTag: beforeFailure.block });
+      const rejected = await vault.swap({
+        poolId, kind: 1, assetIn: registered[tokenIndex], assetOut: registered[bpt],
+        amount: 7n * E, userData: '0x',
+      }, funds, 0, max, gas);
+      await assert.rejects(rejected.wait(), error => error.receipt?.status === 0);
+      const afterFailure = await capture('failed-join');
+      assert.deepEqual(afterFailure, { ...beforeFailure, block: afterFailure.block });
+      assert.deepEqual(await walletBalances({ blockTag: afterFailure.block }), walletsBefore);
+      assert((await pool.balanceOf(collector.address, { blockTag: afterFailure.block })).eq(feesBefore));
+      rejectedJoins++;
+      for (const [step, kind, join, amount] of [
+        ['join-exact-out', 1, true, 101n * E + 17n],
+        ['exit-exact-out', 1, false, 51n * units[0] + 1n],
+        ['join-exact-in', 0, true, 81n * units[0] + 1n],
+        ['exit-exact-in', 0, false, 33n * E + 33n],
+      ]) {
+        const before = await capture(`${step}/before`);
+        const [i, j] = join ? [tokenIndex, bpt] : [bpt, tokenIndex];
+        const request = { poolId, kind, assetIn: registered[i], assetOut: registered[j], amount, userData: '0x' };
+        const poolFee = await pool.getSwapFeePercentage({ blockTag: before.block });
+        const receipt = await send(vault, 'swap', request, funds, kind === 0 ? 0 : max, max);
+        const [amp] = await pool.getAmplificationParameter({ blockTag: receipt.blockNumber });
+        const after = await capture(`${step}/after`);
+        const swap = receipt.events.find(event => event.event === 'Swap').args;
+        const mints = receipt.logs.filter(log => log.address === pool.address)
+          .map(log => pool.interface.parseLog(log))
+          .filter(log => log.name === 'Transfer' && log.args.from === zero && log.args.to === collector.address)
+          .map(log => log.args.value.toString());
+        const pending = before.pending_protocol_bpt;
+        if (pending !== '0') assert.equal(mints.shift(), pending);
+        assert(mints.length <= 1);
+        bptSwaps.push({
+          before, after, kind, i, j, amount: String(amount), amp: String(amp), pool_fee: String(poolFee),
+          amount_in: String(swap.amountIn), amount_out: String(swap.amountOut), mint_after_swap: mints[0] ?? '0',
+        });
+        const traderIn = new ethers.Contract(registered[i], ['function balanceOf(address) view returns (uint256)'], signer);
+        const traderOut = new ethers.Contract(registered[j], ['function balanceOf(address) view returns (uint256)'], signer);
+        const atBefore = { blockTag: before.block };
+        const atAfter = { blockTag: after.block };
+        assert.equal(BigInt(await traderIn.balanceOf(owner, atBefore)) - BigInt(await traderIn.balanceOf(owner, atAfter)), BigInt(swap.amountIn));
+        assert.equal(BigInt(await traderOut.balanceOf(owner, atAfter)) - BigInt(await traderOut.balanceOf(owner, atBefore)), BigInt(swap.amountOut));
+      }
     }
-    fs.writeFileSync(output, JSON.stringify({ builds: pins, cases }, null, 2) + '\n');
+    fs.writeFileSync(output, JSON.stringify({ builds: pins, cases, bpt_swaps: bptSwaps, rejected_joins: rejectedJoins }, null, 2) + '\n');
   } finally {
     await chain.disconnect();
   }

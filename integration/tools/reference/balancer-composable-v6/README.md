@@ -2,6 +2,8 @@
 
 `supply.cjs` deploys the published factory, Vault and fee contracts from the Balancer deployments archive at `b55dc2b8a46bce8f27aed5a3b03f719f662f860a`. It checks the build-info SHA-256 hashes and verifies the factory's stored pool creation bytecode. The fixture records fixed-block Vault and pool getters from the local chain. A mock provider supplies controlled rate changes.
 
+The reference executes consecutive BPT joins and exits in both swap modes while amplification is changing. It records actual transfers, registered balances, both protocol fee mints and the updated join/exit baseline. It also checks that a failed limit check rolls back the balances, supply and fee recipient state.
+
 Use the build-info JSON files from these directories and the dependencies from `integration/.runtime/stable-reference`.
 
 | File | Directory in the archive |
