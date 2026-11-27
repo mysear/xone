@@ -251,10 +251,8 @@ async fn http_advanced_deployed_swap_v2() {
 }
 
 async fn deployed_swaps(bank_env: &str) {
-    let bank: Value = serde_json::from_slice(
-        &std::fs::read(std::env::var(bank_env).unwrap()).unwrap(),
-    )
-    .unwrap();
+    let bank: Value =
+        serde_json::from_slice(&std::fs::read(std::env::var(bank_env).unwrap()).unwrap()).unwrap();
     let manifest = std::env::var("XONE_RAYCLMM_ORDER_MANIFEST").unwrap();
     let runtime: Value = serde_json::from_slice(&std::fs::read(&manifest).unwrap()).unwrap();
     for case in bank["cases"].as_array().unwrap() {
@@ -272,15 +270,27 @@ async fn deployed_swaps(bank_env: &str) {
         assert_eq!(prepared["ready"], true, "{prepared}");
         let swap = &prepared["instructions"][1];
         for historical in state.tick_arrays.iter().filter(|array| {
-            !array.ticks.iter().any(xone_domain::raydium_clmm::RaydiumCLMMTick::is_initialized)
+            !array
+                .ticks
+                .iter()
+                .any(xone_domain::raydium_clmm::RaydiumCLMMTick::is_initialized)
         }) {
-            assert!(swap["accounts"].as_array().unwrap().iter().all(|a| a["pubkey"] != historical.address));
+            assert!(swap["accounts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|a| a["pubkey"] != historical.address));
         }
         let order_array = state
             .tick_arrays
             .iter()
-            .find(|a| a.ticks.iter().any(|tick| tick.limit_orders.as_ref()
-                .is_some_and(xone_domain::raydium_clmm::RaydiumCLMMLimitOrders::has_orders)))
+            .find(|a| {
+                a.ticks.iter().any(|tick| {
+                    tick.limit_orders
+                        .as_ref()
+                        .is_some_and(xone_domain::raydium_clmm::RaydiumCLMMLimitOrders::has_orders)
+                })
+            })
             .unwrap();
         let independent_path = format!(
             "/v1/quotes/{id}/preparations/{}/simulate-independent",
@@ -356,9 +366,18 @@ async fn deployed_swaps(bank_env: &str) {
             let mut accounts = rpc_bank.accounts.lock().unwrap();
             let data = &mut accounts[&order_array.address]["data"][0];
             let mut bytes = STANDARD.decode(data.as_str().unwrap()).unwrap();
-            let tick = order_array.ticks.iter().find(|tick| tick.limit_orders.as_ref()
-                .is_some_and(xone_domain::raydium_clmm::RaydiumCLMMLimitOrders::has_orders)).unwrap();
-            let offset = ((tick.tick - order_array.start_tick_index) as usize / state.tick_spacing as usize) * 168;
+            let tick = order_array
+                .ticks
+                .iter()
+                .find(|tick| {
+                    tick.limit_orders
+                        .as_ref()
+                        .is_some_and(xone_domain::raydium_clmm::RaydiumCLMMLimitOrders::has_orders)
+                })
+                .unwrap();
+            let offset = ((tick.tick - order_array.start_tick_index) as usize
+                / state.tick_spacing as usize)
+                * 168;
             bytes[44 + offset + 124] ^= 1;
             *data = STANDARD.encode(bytes).into();
         }
@@ -372,10 +391,18 @@ async fn deployed_swaps(bank_env: &str) {
 #[tokio::test]
 #[ignore = "requires the controlled deployed Raydium reward bank and pinned SBF runtime"]
 async fn http_reward_settlement_and_independent_deployed_decrease_v2() {
-    let bank: Value = serde_json::from_slice(
-        &std::fs::read(std::env::var("XONE_RAYCLMM_REWARD_BANK").unwrap()).unwrap(),
-    )
-    .unwrap();
+    deployed_position_settlement("XONE_RAYCLMM_REWARD_BANK").await;
+}
+
+#[tokio::test]
+#[ignore = "requires the controlled deployed Raydium advanced position bank and pinned SBF runtime"]
+async fn http_advanced_position_settlement_and_independent_deployed_decrease_v2() {
+    deployed_position_settlement("XONE_RAYCLMM_ADVANCED_REWARD_BANK").await;
+}
+
+async fn deployed_position_settlement(bank_env: &str) {
+    let bank: Value =
+        serde_json::from_slice(&std::fs::read(std::env::var(bank_env).unwrap()).unwrap()).unwrap();
     let manifest = std::env::var("XONE_RAYCLMM_ORDER_MANIFEST").unwrap();
     let runtime: Value = serde_json::from_slice(&std::fs::read(&manifest).unwrap()).unwrap();
     for case in bank["cases"].as_array().unwrap() {
@@ -423,6 +450,26 @@ async fn http_reward_settlement_and_independent_deployed_decrease_v2() {
         let (status, rejected) = call(&api, &path, &invalid).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{rejected}");
         assert_eq!(rejected["error"], "RAYCLMM_POSITION_INVALID");
+        if let Some(extension) = &pool.raydium_clmm.as_ref().unwrap().bitmap_extension {
+            assert!(prepared["instructions"][1]["accounts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|account| account["pubkey"] == extension.address));
+            let original = {
+                let mut accounts = rpc_bank.accounts.lock().unwrap();
+                let data = &mut accounts[&extension.address]["data"][0];
+                let original = data.clone();
+                let mut bytes = STANDARD.decode(data.as_str().unwrap()).unwrap();
+                bytes[40] ^= 1;
+                *data = STANDARD.encode(bytes).into();
+                original
+            };
+            let (status, rejected) = call(&api, &path, &request).await;
+            assert_eq!(status, StatusCode::CONFLICT, "{rejected}");
+            assert_eq!(rejected["error"], "QUOTE_STATE_CHANGED");
+            rpc_bank.accounts.lock().unwrap()[&extension.address]["data"][0] = original;
+        }
         if case["expected"]["fee_on_reward1"] != 0 {
             let mut accounts = rpc_bank.accounts.lock().unwrap().clone();
             let destination = case["claim"]["rewardAccounts"][1].as_str().unwrap();

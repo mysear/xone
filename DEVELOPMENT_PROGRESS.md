@@ -363,12 +363,14 @@
 - 正常 HTTP 入口通过 `claim.updateBeforeCollect` 在同一笔交易中先执行 `UpdateFeesAndRewards`，再领取奖励。准备阶段在同一 finalized bank 绑定 Position 的两侧 tick array 和 Clock，并复用 swap 的奖励累计逻辑。
 - 原部署程序通过 6 组更新后领取和 6 组直接领取回放。覆盖固定与动态边界数组、视图中的稀疏数组、标准 SPL 与 Token-2022 的全额、部分和空 vault。核对 Whirlpool、Position 全部费用与奖励检查点、奖励 vault、收款账户和 Token-2022 withheld，另复现冻结收款账户的 CPI 失败。SwapV2 的 24 组资金路径和 24 组阈值回滚复验通过。 [复验说明](integration/tools/ci/orca-token2022-execution.md#position-reward-collection)
 
-#### 下一轮迭代目标（I4 Raydium 高级头寸结算）
+#### Raydium 高级头寸结算验收
 
-- 在 `raydium-clmm-advanced` 接入头寸费用与奖励领取，验证 custom seed 池、扩展 tick bitmap、限价订单和活动奖励状态。以独立 `DecreaseLiquidityV2` 回放核对头寸、池和 Token-2022 到账，再进入 I5。签名和真实回执继续按 I6 验收。
+- `raydium-clmm-advanced` 的费用与奖励领取复用 SwapV2 的 custom seed 池 PDA 和扩展 bitmap 校验。头寸边界超出主 bitmap 时，`DecreaseLiquidityV2` 携带扩展账户。
+- 高级组合与经典奖励版本分别通过 5 组独立部署程序回放。高级组合覆盖非零 seed、主 bitmap 与扩展 bitmap 两侧的头寸边界、活动订单、动态费状态、Token-2022 奖励净额，以及 5 组扩展 bitmap 数据变更拒绝。签名和真实回执继续按 I6 验收。 [复验说明](integration/tools/reference/raydium-clmm/README.md#deployed-position-settlement-replay)
 
 ### I5 V4/Infinity
 
+- 本轮先用原版 PoolManager 在 Cancun 执行具有明确权限和可核对字节码的 hook，覆盖 beforeSwap 覆盖费、before/after swap delta、`unlock` 内的 ERC-20 与 native 结算。逐笔核对调用方、hook、manager 和接收账户的余额，再接入正式报价与执行入口。
 - 完成 hook 自定义会计、覆盖费和 native currency 结算。
 - 完成 Infinity Bin 动态、hook、native 组合，以及 Manager、Vault、transient storage 和完整结算状态。
 - unknown hook 继续保持拒绝。

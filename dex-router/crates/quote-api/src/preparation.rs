@@ -39,7 +39,9 @@ pub(super) async fn prepare_rayclmm_reward(
     let pool = view
         .pools
         .iter()
-        .find(|pool| pool.pool_id == pool_id && pool.protocol == "raydium-clmm-rewards")
+        .find(|pool| {
+            pool.pool_id == pool_id && xone_domain::raydium_clmm::supports_rewards(&pool.protocol)
+        })
         .ok_or_else(|| failure(err("EXECUTION_ADAPTER_UNSUPPORTED")))?;
     let chain = api
         .config

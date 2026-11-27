@@ -53,6 +53,61 @@ pub(super) fn bump(seeds: &[&[u8]], program: &str, address: &str) -> Result<u8> 
     }
     Err(bad())
 }
+pub(super) fn validate_pool_pda(pool: &Pool, state: &r::RaydiumCLMMState) -> Result<()> {
+    let seed_bytes = u16::try_from(state.seed_index)
+        .map_err(|_| bad())?
+        .to_le_bytes();
+    let seed: &[u8] = if state.seed_index == 0 {
+        &[]
+    } else {
+        &seed_bytes
+    };
+    let seeds: &[&[u8]] = &[
+        b"pool",
+        &m::pubkey(&state.amm_config)?,
+        &m::pubkey(&pool.token0)?,
+        &m::pubkey(&pool.token1)?,
+        seed,
+    ];
+    if m::pda(seeds, r::PROGRAM_ID)? != pool.pool_id
+        || u32::from(bump(seeds, r::PROGRAM_ID, &pool.pool_id)?) != state.pool_bump
+    {
+        return Err(err("RAYCLMM_POOL_IDENTITY"));
+    }
+    Ok(())
+}
+
+pub(super) fn validate_bitmap_extension(
+    bank: &BTreeMap<String, Option<Account>>,
+    pool: &Pool,
+    extension: &r::RaydiumCLMMBitmapExtension,
+) -> Result<()> {
+    if extension.positive.len() != 112
+        || extension.negative.len() != 112
+        || m::pda(
+            &[
+                b"pool_tick_array_bitmap_extension",
+                &m::pubkey(&pool.pool_id)?,
+            ],
+            r::PROGRAM_ID,
+        )? != extension.address
+    {
+        return Err(bad());
+    }
+    let mut bytes = vec![0; 1832];
+    bytes[..8].copy_from_slice(&m::discriminator("TickArrayBitmapExtension"));
+    key(&mut bytes, 8, &pool.pool_id)?;
+    for (i, value) in extension
+        .positive
+        .iter()
+        .chain(&extension.negative)
+        .enumerate()
+    {
+        bytes[40 + 8 * i..48 + 8 * i].copy_from_slice(&value.to_le_bytes());
+    }
+    raw(bank, &extension.address, r::PROGRAM_ID, &bytes)
+}
+
 pub(super) fn pool_bytes(p: &Pool, observed: &[u8]) -> Result<Vec<u8>> {
     let s = p.raydium_clmm.as_ref().ok_or_else(bad)?;
     let mut b = observed.to_vec();
@@ -369,30 +424,14 @@ pub(super) async fn resolve(
         return Err(err("QUOTE_STATE_CHANGED"));
     }
     let config_seed = m::u16_at(cfg, 9).to_be_bytes();
-    let seed_bytes = u16::try_from(state.seed_index)
-        .map_err(|_| bad())?
-        .to_le_bytes();
-    let seed: &[u8] = if state.seed_index == 0 {
-        &[]
-    } else {
-        &seed_bytes
-    };
+    validate_pool_pda(p, state).map_err(|_| bad())?;
     let pool_key = m::pubkey(&p.pool_id)?;
-    let cfg_key = m::pubkey(&state.amm_config)?;
-    let m0 = m::pubkey(&p.token0)?;
-    let m1 = m::pubkey(&p.token1)?;
     if m::pda(&[b"amm_config", &config_seed], r::PROGRAM_ID)? != state.amm_config
         || bump(
             &[b"amm_config", &config_seed],
             r::PROGRAM_ID,
             &state.amm_config,
         )? != cfg[8]
-        || m::pda(&[b"pool", &cfg_key, &m0, &m1, seed], r::PROGRAM_ID)? != p.pool_id
-        || u32::from(bump(
-            &[b"pool", &cfg_key, &m0, &m1, seed],
-            r::PROGRAM_ID,
-            &p.pool_id,
-        )?) != state.pool_bump
         || m::pda(&[b"observation", &pool_key], r::PROGRAM_ID)? != state.observation
     {
         return Err(bad());
@@ -463,27 +502,7 @@ pub(super) async fn resolve(
         }
     }
     if let Some(extension) = &state.bitmap_extension {
-        if extension.positive.len() != 112
-            || extension.negative.len() != 112
-            || m::pda(
-                &[b"pool_tick_array_bitmap_extension", &pool_key],
-                r::PROGRAM_ID,
-            )? != extension.address
-        {
-            return Err(bad());
-        }
-        let mut bytes = vec![0; 1832];
-        bytes[..8].copy_from_slice(&m::discriminator("TickArrayBitmapExtension"));
-        key(&mut bytes, 8, &p.pool_id)?;
-        for (i, value) in extension
-            .positive
-            .iter()
-            .chain(&extension.negative)
-            .enumerate()
-        {
-            bytes[40 + 8 * i..48 + 8 * i].copy_from_slice(&value.to_le_bytes());
-        }
-        raw(&bank, &extension.address, r::PROGRAM_ID, &bytes)?;
+        validate_bitmap_extension(&bank, p, extension)?;
     }
     for a in &state.tick_arrays {
         if m::pda(

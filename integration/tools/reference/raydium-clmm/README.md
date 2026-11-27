@@ -105,6 +105,17 @@ XONE_RAYCLMM_ORDER_MANIFEST=/tmp/rayclmm-order-manifest.json \
 
 `POST /v1/chains/{chain}/pools/{pool}/prepare-rayclmm-reward` accepts a `claim` containing the authority, position PDA, position token account, recipient, two fee accounts and reward accounts in on-chain reward index order. Set `simulate` to bind the prepared transaction to independent SBF replay. The controlled cases settle accrued fees, active and ended rewards, empty and partially funded reward vaults, and Token-2022 reward transfer fees. The test checks the complete projected state of the pool, position, vaults and recipient accounts, plus unsigned execution and source bank preservation. Two HTTP rejection checks are run per case, and four cases independently reproduce a frozen recipient Token-2022 CPI failure.
 
+Pass the advanced SwapV2 bank as the generator input to replay the same settlements on `raydium-clmm-advanced`. This combination uses a nonzero pool seed, a position spanning the default and extended bitmap, an active order, and dynamic fee state. The test also checks rejection after modifying the captured bitmap extension.
+
+```sh
+python3.11 integration/tools/ci/rayclmm-reward-execution-bank.py \
+  /tmp/rayclmm-advanced-bank.json /tmp/rayclmm-advanced-reward-bank.json
+XONE_RAYCLMM_ADVANCED_REWARD_BANK=/tmp/rayclmm-advanced-reward-bank.json \
+XONE_RAYCLMM_ORDER_MANIFEST=/tmp/rayclmm-order-manifest.json \
+  cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-quote-api \
+  --test rayclmm_limit_orders http_advanced_position -- --ignored
+```
+
 `source-metadata.json` records every file and both retained codeload archives. `rayclmm-reference-fetch.py` compares all **105 upstream files** and **120 parity-common files** against both the manifest and exact archive bytes; it also checks for extra or missing source files.
 
 - Upstream archive SHA-256: `13841cd1cddf0fc906970f70f8a639cb595e484c8ff260176aec0009cc561727`.

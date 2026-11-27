@@ -363,6 +363,19 @@ def main():
                      preparation['lowerTickArray'], preparation['upperTickArray'],
                      fees[0]['account'], fees[1]['account'], TOKEN, TOKEN22, MEMO,
                      model['token0'], model['token1']]
+            span = 60 * state['tick_spacing']
+            arrays = {a['address']: a['start_tick_index'] for a in state['tick_arrays']}
+            position_data = raw(bank['accounts'][preparation['position']])
+            extension_required = False
+            for offset, address in zip((73, 77), metas[7:9]):
+                tick = int.from_bytes(position_data[offset:offset + 4], 'little', signed=True)
+                index = tick // span
+                require(arrays.get(address) == index * span, 'SBF_RAYCLMM_POSITION_TICKS')
+                extension_required |= not -512 <= index <= 511
+            if extension_required:
+                extension = state.get('bitmap_extension')
+                require(extension is not None, 'SBF_RAYCLMM_POSITION_BITMAP')
+                metas.append(extension['address'])
             for reward, transfer in zip(rewards, reward_transfers):
                 require(reward['token_vault']==transfer['vault'], 'SBF_RAYCLMM_POSITION_CONTEXT')
                 metas.extend([reward['token_vault'], transfer['account'], reward['token_mint']])

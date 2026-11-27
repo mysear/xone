@@ -157,7 +157,7 @@ pub async fn prepare(
     request: &ClaimRequest,
 ) -> Result<SolanaPreparation> {
     pool.validate()?;
-    if pool.protocol != "raydium-clmm-rewards" {
+    if !r::supports_rewards(&pool.protocol) {
         return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
     }
     let state = pool.raydium_clmm.as_ref().ok_or_else(bad)?;
@@ -200,6 +200,9 @@ pub async fn prepare(
         request.position_token_account.clone(),
     ];
     ids.extend(state.tick_arrays.iter().map(|a| a.address.clone()));
+    if let Some(extension) = &state.bitmap_extension {
+        ids.push(extension.address.clone());
+    }
     ids.extend(
         request
             .fee_accounts
@@ -271,16 +274,9 @@ pub async fn prepare(
         &rayclmm::pool_bytes(pool, pool_data)?,
     )?;
     let pool_key = m::pubkey(&pool.pool_id)?;
-    let seeds: &[&[u8]] = &[
-        b"pool",
-        &m::pubkey(&state.amm_config)?,
-        &m::pubkey(&pool.token0)?,
-        &m::pubkey(&pool.token1)?,
-    ];
-    if m::pda(seeds, r::PROGRAM_ID)? != pool.pool_id
-        || u32::from(rayclmm::bump(seeds, r::PROGRAM_ID, &pool.pool_id)?) != state.pool_bump
-    {
-        return Err(err("RAYCLMM_POSITION_POOL_IDENTITY"));
+    rayclmm::validate_pool_pda(pool, state).map_err(|_| err("RAYCLMM_POSITION_POOL_IDENTITY"))?;
+    if let Some(extension) = &state.bitmap_extension {
+        rayclmm::validate_bitmap_extension(&bank, pool, extension)?;
     }
     let position_data = rayclmm::owned(&bank, &request.position, r::PROGRAM_ID, POSITION_LEN)?;
     let position = position_state(
@@ -348,6 +344,13 @@ pub async fn prepare(
         meta(&pool.token0, false, false),
         meta(&pool.token1, false, false),
     ];
+    if [lower_array, upper_array]
+        .iter()
+        .any(|array| !(-512..=511).contains(&(array.start_tick_index / span)))
+    {
+        let extension = state.bitmap_extension.as_ref().ok_or_else(bad)?;
+        metas.push(meta(&extension.address, false, false));
+    }
     let fee_transfers = [
         transfer(
             &bank,

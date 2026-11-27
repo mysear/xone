@@ -27,6 +27,7 @@ def main():
     svm, pubkey, *_ = native_imports()
     vm = svm().with_mainnet_features()
     sample = bank['cases'][0]
+    advanced = sample['pool']['protocol'] == 'raydium-clmm-advanced'
     caller, recipient = bank['caller'], bank['recipient']
     account_key = lambda name: str(pubkey.from_bytes(hashlib.sha256(name.encode()).digest()))
     pub = lambda key: bytes(pubkey.from_string(key))
@@ -73,9 +74,11 @@ def main():
         model = copy.deepcopy(sample['pool'])
         accounts = copy.deepcopy(sample['accounts'])
         state = model['raydium_clmm']
-        model.update(protocol='raydium-clmm-rewards', adapter_version='raydium-clmm/6d7a0f82-spl-rewards-1')
+        if not advanced:
+            model.update(protocol='raydium-clmm-rewards', adapter_version='raydium-clmm/6d7a0f82-spl-rewards-1')
         state.update(liquidity='100', fee_growth_global0=str(4 * Q64), fee_growth_global1=str(2 * Q64))
-        state['bitmap'][8] &= ~1
+        if not advanced:
+            state['bitmap'][8] &= ~1
         pool_data = data(accounts[pool])
         pool_data[389] = status
         for off, val in [(237, 100), (277, 4 * Q64), (293, 2 * Q64)]:
@@ -85,12 +88,16 @@ def main():
             array_account = accounts[array['address']]
             array_data = data(array_account)
             for tick in array['ticks']:
-                off = 44 + (tick['tick'] - array['start_tick_index']) * 168
-                array_data[off + 36:off + 156] = bytes(120)
-                tick.pop('limit_orders', None)
+                index = (tick['tick'] - array['start_tick_index']) // state['tick_spacing']
+                off = 44 + index * 168
+                array_data[off + 36:off + 116] = bytes(80)
+                if not advanced:
+                    array_data[off + 116:off + 156] = bytes(40)
+                    tick.pop('limit_orders', None)
                 tick.update(fee_growth_outside0='0', fee_growth_outside1='0', reward_growths_outside=['0'] * 3)
-            array['ticks'] = [tick for tick in array['ticks'] if int(tick['liquidity_gross'])]
-            array_data[10124] = len(array['ticks'])
+            if not advanced:
+                array['ticks'] = [tick for tick in array['ticks'] if int(tick['liquidity_gross'])]
+                array_data[10124] = len(array['ticks'])
             replace(array_account, array_data)
         state['reward_infos'] = []
         now = state['bank_unix_timestamp']
@@ -105,6 +112,7 @@ def main():
             for offset, value in [(1, time[0]), (9, time[1]), (17, time[2]), (41, 2500), (49, 100)]:
                 put(pool_data, start + offset, value, 8)
             put(pool_data, start + 25, rate, 16)
+            put(pool_data, start + 153, 0, 16)
             for off, key in [(57, mint), (89, vault), (121, authority)]:
                 pool_data[start + off:start + off + 32] = pub(key)
             state['reward_infos'].append(dict(
@@ -135,8 +143,9 @@ def main():
         position_data[:8] = hashlib.sha256(b'account:PersonalPositionState').digest()[:8]
         position_data[8] = bump
         position_data[9:41], position_data[41:73] = pub(nft_mint), pub(pool)
-        put(position_data, 73, -20, 4, signed=True)
-        put(position_data, 77, 60, 4, signed=True)
+        lower, upper = (30700, 30780) if advanced else (-20, 60)
+        put(position_data, 73, lower, 4, signed=True)
+        put(position_data, 77, upper, 4, signed=True)
         put(position_data, 81, 100, 16)
         put(position_data, 129, 3, 8)
         put(position_data, 137, 5, 8)
