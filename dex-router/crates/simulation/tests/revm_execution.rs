@@ -393,11 +393,10 @@ fn actual_sender_nonce_balance_fees_and_block_gas_are_validated() {
     }
 }
 #[test]
-fn fork_is_explicit_and_only_shanghai_is_supported() {
+fn other_forks_remain_unsupported_and_shanghai_excludes_cancun_opcodes() {
     for fork in [
         SpecId::FRONTIER,
         SpecId::MERGE,
-        SpecId::CANCUN,
         SpecId::PRAGUE,
         SpecId::LATEST,
     ] {
@@ -419,6 +418,69 @@ fn fork_is_explicit_and_only_shanghai_is_supported() {
             ),
             "higher fork opcode {opcode:x} unexpectedly enabled or halted for the wrong reason"
         );
+    }
+}
+
+#[test]
+fn cancun_transient_storage_resets_and_uses_the_fixed_blob_fee() {
+    // Read a transient slot, store 42 there, read it again, then return blob base fee.
+    let code = hex::decode("5f5c5f52602a5f5d5f5c6020524a60405260605ff3").unwrap();
+    let image = image(&code);
+    let mut tx = request();
+    tx.fork = SpecId::CANCUN;
+    tx.block.set_blob_excess_gas_and_price(6_677_694, false);
+    let blob_fee = tx
+        .block
+        .blob_excess_gas_and_price
+        .as_ref()
+        .unwrap()
+        .blob_gasprice;
+    for mode in 0..4 {
+        let mut bad = tx.clone();
+        match mode {
+            0 => bad.block.blob_excess_gas_and_price = None,
+            1 => {
+                bad.block
+                    .blob_excess_gas_and_price
+                    .as_mut()
+                    .unwrap()
+                    .blob_gasprice += 1
+            }
+            2 => bad.tx.max_fee_per_blob_gas = Some(U256::from(blob_fee)),
+            _ => {
+                bad.block
+                    .blob_excess_gas_and_price
+                    .as_mut()
+                    .unwrap()
+                    .excess_blob_gas = u64::MAX
+            }
+        }
+        let error = execute(image.clone(), bad, limits(), ExecutionControl::default()).unwrap_err();
+        assert_eq!(error.reason(), "cancun_execution_context");
+        assert_eq!(error.telemetry.reads.reads, 0);
+    }
+    let first = execute(
+        image.clone(),
+        tx.clone(),
+        limits(),
+        ExecutionControl::default(),
+    )
+    .unwrap();
+    let post = Arc::new(image.apply(&first.result_and_state.state).unwrap());
+    assert_eq!(post.data().storage, image.data().storage);
+    tx.tx.nonce = Some(8);
+    let second = execute(post, tx, limits(), ExecutionControl::default()).unwrap();
+    for output in [first, second] {
+        let result = output.result_and_state.result;
+        assert!(result.is_success());
+        assert!(result.gas_used() > 21_000);
+        let output = result.output().unwrap();
+        assert_eq!(
+            (output.len(), U256::from_be_slice(&output[..32])),
+            (96, U256::ZERO)
+        );
+        assert_eq!(U256::from_be_slice(&output[32..64]), U256::from(42));
+        assert_eq!(U256::from_be_slice(&output[64..]), U256::from(blob_fee));
     }
 }
 #[test]

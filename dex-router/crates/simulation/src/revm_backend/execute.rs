@@ -1,5 +1,8 @@
 use super::{DbError, ExecutionControl, ExecutionLimits, StateImage, Telemetry};
-use revm::primitives::{BlockEnv, EVMError, ResultAndState, SpecId, TxEnv};
+use revm::primitives::{
+    BlockEnv, EVMError, ResultAndState, SpecId, TxEnv, BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN,
+    MIN_BLOB_GASPRICE,
+};
 use std::sync::Arc;
 #[derive(Clone, Debug)]
 pub struct TransactionRequest {
@@ -16,6 +19,7 @@ pub struct ExecutionOutput {
 #[derive(Debug)]
 pub enum ExecutionFailure {
     UnsupportedFork(SpecId),
+    InvalidCancunContext(&'static str),
     InvalidOpContext(&'static str),
     InvalidObservation,
     MissingNonce,
@@ -35,6 +39,7 @@ impl ExecutionError {
     pub fn reason(&self) -> &'static str {
         match &self.failure {
             ExecutionFailure::UnsupportedFork(_) => "unsupported_fork",
+            ExecutionFailure::InvalidCancunContext(_) => "cancun_execution_context",
             ExecutionFailure::InvalidOpContext(_) => "op_execution_context",
             ExecutionFailure::InvalidObservation => "invalid_observation",
             ExecutionFailure::MissingNonce => "missing_nonce",
@@ -280,11 +285,35 @@ fn execute_mode(
     }
     if !optimism && request.tx.optimism != Default::default() {
         return Err(reject(ExecutionFailure::InvalidOpContext(
-            "OP fields on Shanghai path",
+            "OP fields on Ethereum execution path",
         )));
     }
-    if !optimism && request.fork != SpecId::SHANGHAI {
-        return Err(reject(ExecutionFailure::UnsupportedFork(request.fork)));
+    if !optimism {
+        match request.fork {
+            SpecId::SHANGHAI => {}
+            SpecId::CANCUN => {
+                let blob = request
+                    .block
+                    .blob_excess_gas_and_price
+                    .as_ref()
+                    .ok_or_else(|| {
+                        reject(ExecutionFailure::InvalidCancunContext(
+                            "missing excess blob gas",
+                        ))
+                    })?;
+                if cancun_blob_base_fee(blob.excess_blob_gas) != Some(blob.blob_gasprice) {
+                    return Err(reject(ExecutionFailure::InvalidCancunContext(
+                        "blob base fee mismatch",
+                    )));
+                }
+                if !request.tx.blob_hashes.is_empty() || request.tx.max_fee_per_blob_gas.is_some() {
+                    return Err(reject(ExecutionFailure::InvalidCancunContext(
+                        "blob transaction unsupported",
+                    )));
+                }
+            }
+            fork => return Err(reject(ExecutionFailure::UnsupportedFork(fork))),
+        }
     }
     if request.tx.nonce.is_none() {
         return Err(reject(ExecutionFailure::MissingNonce));
@@ -434,6 +463,21 @@ fn execute_mode(
             failure: ExecutionFailure::Evm(Box::new(error)),
             telemetry,
         })
+}
+
+// EIP-4844 fake_exponential with checked intermediates for untrusted header inputs.
+fn cancun_blob_base_fee(excess_blob_gas: u64) -> Option<u128> {
+    let numerator = u128::from(excess_blob_gas);
+    let denominator = u128::from(BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN);
+    let mut term = u128::from(MIN_BLOB_GASPRICE) * denominator;
+    let mut sum = 0u128;
+    let mut index = 1;
+    while term != 0 {
+        sum = sum.checked_add(term)?;
+        term = term.checked_mul(numerator)? / (denominator * index);
+        index += 1;
+    }
+    Some(sum / denominator)
 }
 
 use super::StrictDB;

@@ -1,4 +1,4 @@
-//! Independent Shanghai and scoped historical OP execution over a strict state image.
+//! Independent Shanghai, Cancun and scoped historical OP execution over a strict state image.
 pub mod db;
 pub mod error;
 pub mod execute;
