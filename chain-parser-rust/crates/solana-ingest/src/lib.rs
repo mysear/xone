@@ -26,6 +26,10 @@ mod wal_segments;
 #[cfg(test)]
 extern crate self as xone_solana_ingest;
 
+#[cfg(test)]
+#[path = "../tests/support/owner_baseline.rs"]
+mod owner_baseline;
+
 mod token_program;
 
 pub mod history_queue;

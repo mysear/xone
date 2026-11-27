@@ -1003,9 +1003,7 @@ mod readiness_tests {
         ));
         cfg.config.state.path = directory.to_string_lossy().into_owned();
         cfg.config.routing.max_state_age_ms = 0;
-        let snapshot: Snapshot =
-            serde_json::from_str(include_str!("../../../test/fixtures/solana/baseline.json"))
-                .unwrap();
+        let snapshot = crate::owner_baseline::snapshot(now_ms());
         let source = Arc::new(move |_: &Chain| Ok(snapshot.clone()));
         let parser = Parser::with_source(cfg, Some(source)).unwrap();
         parser.start().await.unwrap();

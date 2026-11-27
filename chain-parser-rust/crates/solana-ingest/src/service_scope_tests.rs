@@ -10,9 +10,7 @@ fn fixture() -> Parser {
         .to_string_lossy()
         .into();
     cfg.token = "unit-test-explicit-api-token-12345".into();
-    let mut snapshot: Snapshot =
-        serde_json::from_str(include_str!("../../../test/fixtures/solana/baseline.json")).unwrap();
-    snapshot.reference.block.timestamp_ms = now_ms();
+    let snapshot = crate::owner_baseline::snapshot(now_ms());
     let source = Arc::new(move |_: &Chain| Ok(snapshot.clone()));
     Parser::with_source(cfg, Some(source)).unwrap()
 }

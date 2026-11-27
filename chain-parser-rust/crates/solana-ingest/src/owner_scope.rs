@@ -1298,10 +1298,7 @@ mod budget_tests {
                 .as_nanos()
         ));
         let mut db = Store::open(&path, "chain-parser-rust", 1).unwrap();
-        let mut snapshot: Snapshot =
-            serde_json::from_str(include_str!("../../../test/fixtures/solana/baseline.json"))
-                .unwrap();
-        snapshot.reference.block.timestamp_ms = 1000;
+        let snapshot = crate::owner_baseline::snapshot(1000);
         db.publish_baseline(snapshot.clone()).unwrap();
         let mut next = snapshot.clone();
         next.reference.online_generation += 1;

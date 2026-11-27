@@ -409,9 +409,7 @@ async fn rust_close_during_source_acquisition_cannot_return_partial_startup_succ
     let (test_cfg, path) = configuration(std::mem::take(&mut cfg.config.chains));
     let mut parser = Parser::with_source(test_cfg, Some(Arc::new(|_| Err(err("unused"))))).unwrap();
     let stop = parser.stream_stop.clone();
-    let mut snapshot: Snapshot =
-        serde_json::from_str(include_str!("../../../test/fixtures/solana/baseline.json")).unwrap();
-    snapshot.reference.block.timestamp_ms = now_ms();
+    let snapshot = crate::owner_baseline::snapshot(now_ms());
     parser.source = Some(Arc::new(move |_| {
         stop.send_replace(true);
         Ok(snapshot.clone())

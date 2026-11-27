@@ -1,3 +1,6 @@
+#[path = "support/owner_baseline.rs"]
+mod owner_baseline;
+
 use std::{
     path::PathBuf,
     sync::{
@@ -45,6 +48,7 @@ fn limits() -> FileScopeLimits {
         max_authority_lease_ms: 5000,
     }
 }
+
 #[test]
 fn real_owner_ledger_admits_claims_and_reopens_without_cached_ready_or_authority() {
     let dir = Temp::new();
@@ -222,15 +226,12 @@ impl RecoverySource for Source {
 }
 #[test]
 fn prepared_owner_apply_atomically_commits_scope_snapshot_journal_and_proof() {
-    use xone_domain::Snapshot;
     use xone_kafka_transport::{Cursor, Unit};
     let dir = Temp::new();
     let db = Arc::new(Mutex::new(
         Store::open(&dir.0, "chain-parser-rust", 1).unwrap(),
     ));
-    let mut snapshot: Snapshot =
-        serde_json::from_str(include_str!("../../../test/fixtures/solana/baseline.json")).unwrap();
-    snapshot.reference.block.timestamp_ms = 1000;
+    let snapshot = owner_baseline::snapshot(1000);
     let mut f = fence();
     f.adapter_version = snapshot.reference.adapter_set_hash.clone();
     let target = snapshot.clone();
@@ -356,15 +357,12 @@ fn prepared_owner_apply_atomically_commits_scope_snapshot_journal_and_proof() {
 
 #[test]
 fn unknown_publish_outcome_requires_reopen_and_reconcile_before_new_generation() {
-    use xone_domain::Snapshot;
     use xone_kafka_transport::{Cursor, Unit};
     let dir = Temp::new();
     let db = Arc::new(Mutex::new(
         Store::open(&dir.0, "chain-parser-rust", 1).unwrap(),
     ));
-    let mut snapshot: Snapshot =
-        serde_json::from_str(include_str!("../../../test/fixtures/solana/baseline.json")).unwrap();
-    snapshot.reference.block.timestamp_ms = 1000;
+    let snapshot = owner_baseline::snapshot(1000);
     let mut f = fence();
     f.adapter_version = snapshot.reference.adapter_set_hash.clone();
     let target = snapshot.clone();
@@ -480,7 +478,6 @@ fn unknown_publish_outcome_requires_reopen_and_reconcile_before_new_generation()
 
 #[test]
 fn quality_terminal_byte_budget_progress() {
-    use xone_domain::Snapshot;
     use xone_kafka_transport::{Cursor, Unit};
     let dir = Temp::new();
     let db = Arc::new(Mutex::new(
@@ -499,15 +496,13 @@ fn quality_terminal_byte_budget_progress() {
         max_baseline_age_ms: 5000,
         shard_accounts: 1,
     };
-    let base: Snapshot =
-        serde_json::from_str(include_str!("../../../test/fixtures/solana/baseline.json")).unwrap();
+    let base = owner_baseline::snapshot(1000);
     let mut committed = 0;
     for generation in 1..=30u64 {
         let mut snapshot = base.clone();
         snapshot.reference.online_generation = generation;
         snapshot.reference.journal_seq = generation;
         snapshot.reference.block.number_or_slot = 500 + generation;
-        snapshot.reference.block.timestamp_ms = 1000;
         let mut f = fence();
         f.generation = generation;
         f.adapter_version = snapshot.reference.adapter_set_hash.clone();

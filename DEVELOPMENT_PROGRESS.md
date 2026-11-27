@@ -416,6 +416,8 @@
 24. EVM 回执逐笔核对签名交易原文的哈希，按声明顺序重算 `transactionsRoot`，将回执位置绑定到同块交易正文。Anvil 单笔、Geth 中间交易及 Geth 末笔交易各 24 个回执通过。三组分别检查原文缺失与哈希不符，两组 Geth 另检查有效签名字节与同步伪造交易列表和回执元数据的拒绝。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 25. EVM 回执重建来源 H 块头，验证账户存在性、nonce、余额、代码哈希和声明存储的 MPT 证明，回传 `sourceStateRoot`。本地出块夹具排除不存在的账户和零值存储。Anvil 单笔、Geth 中间交易及末笔交易各 24 个回执通过，三组均验证来源根篡改、缺失账户证明和存储值篡改的拒绝。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 26. EVM 节点回执沿来源块父哈希核对声明的 `BLOCKHASH` 输入，检查执行块的 256 块窗口并重建经过的区块头。Anvil 单笔、Geth 中间交易和 Geth 末笔交易各通过 24 个回执，三组均拒绝缺失的中间头和篡改的父哈希。独立 REVM 的 26 项执行测试通过，其中一项直接验证历史哈希读取和窗口外返回零。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
+27. Solana owner、scope、checkpoint、startup 和就绪测试共用受控 CPMM 账户快照，由正式解码器生成池状态并计算 scope 摘要。移除了对缺失 `solana/baseline.json` 的编译期依赖。解析库 51 项与 owner scope 5 项通过，另有 74 项通过，覆盖受控 Yellowstone 服务、范围恢复、账户继承与流投影。解析库中 3 项外部基础设施验收待运行。
+28. 下一轮将 Cancun 结算后的信标根存储绑定到执行块 `stateRoot`。通过正常回执入口验证账户和环形缓冲区的两个存储槽，并加入篡改证明拒绝用例。
 
 ### I7 真实来源和恢复
 

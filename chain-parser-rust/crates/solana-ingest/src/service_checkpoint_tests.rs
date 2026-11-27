@@ -19,9 +19,7 @@ pub(super) fn fixture_configured(
         .to_string_lossy()
         .into_owned();
     config.token = "rust-checkpoint-api-test-20261118".into();
-    let mut snapshot: xone_domain::Snapshot =
-        serde_json::from_str(include_str!("../../../test/fixtures/solana/baseline.json")).unwrap();
-    snapshot.reference.block.timestamp_ms = xone_observability::now_ms();
+    let snapshot = crate::owner_baseline::snapshot(xone_observability::now_ms());
     configure(&mut config);
     Parser::with_source(
         config,
