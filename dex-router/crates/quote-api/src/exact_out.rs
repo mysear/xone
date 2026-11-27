@@ -271,6 +271,13 @@ impl Api {
                     selected_input: &commitment.allocation.required_input,
                 },
             )?;
+            let shared_suffix = xone_optimizer::shared_v2::quote_suffix_exact_out(
+                &worker_view.pools,
+                &commitment.allocation,
+                funds,
+            )
+            .map(|candidate| crate::shared_suffix_evidence(&commitment.plan_hash, candidate))
+            .transpose()?;
             Ok((
                 commitment,
                 candidates,
@@ -278,9 +285,10 @@ impl Api {
                 expires,
                 cost_ranking,
                 objective_bound,
+                shared_suffix,
             ))
         });
-        let (plan, candidates, optimized, expires, cost_ranking, objective_bound) =
+        let (plan, candidates, optimized, expires, cost_ranking, objective_bound, shared_suffix) =
             tokio::time::timeout(deadline.saturating_duration_since(Instant::now()), task)
                 .await
                 .map_err(|_| err("BUDGET_EXHAUSTED"))?
@@ -352,6 +360,9 @@ impl Api {
                 "expansions": candidates.expansions, "pathEvaluations": candidates.evaluations});
         if let Some(bound) = objective_bound {
             quality["objectiveBound"] = json!(bound);
+        }
+        if let Some(candidate) = shared_suffix {
+            quality["sharedSuffix"] = candidate;
         }
         let protocol_view_ids = view.protocol_bindings(
             plan.allocation

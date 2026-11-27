@@ -631,19 +631,7 @@ impl Api {
             )?;
             let shared_suffix =
                 xone_optimizer::shared_v2::quote_suffix(&worker_view.pools, &plan.allocation)
-                    .map(|candidate| {
-                        let candidate_hash = hash(&(
-                            xone_optimizer::shared_v2::CANDIDATE_VERSION,
-                            &plan.plan_hash,
-                            &candidate,
-                        ))?;
-                        Ok(json!({
-                            "scope": "SNAPSHOT_SHARED_V2_SUFFIX_REPLAY",
-                            "basisPlanHash": plan.plan_hash,
-                            "candidateHash": candidate_hash,
-                            "candidate": candidate,
-                        }))
-                    })
+                    .map(|candidate| shared_suffix_evidence(&plan.plan_hash, candidate))
                     .transpose()?;
             let candidate_search = json!({
                 "strategy": search_strategy,
@@ -1319,6 +1307,23 @@ async fn quote(
         }
     }
 }
+fn shared_suffix_evidence(
+    plan_hash: &str,
+    candidate: xone_optimizer::shared_v2::SharedSuffixQuote,
+) -> Result<Value> {
+    let candidate_hash = hash(&(
+        xone_optimizer::shared_v2::CANDIDATE_VERSION,
+        plan_hash,
+        &candidate,
+    ))?;
+    Ok(json!({
+        "scope": "SNAPSHOT_SHARED_V2_SUFFIX_REPLAY",
+        "basisPlanHash": plan_hash,
+        "candidateHash": candidate_hash,
+        "candidate": candidate,
+    }))
+}
+
 async fn build_transaction(
     State(api): State<Api>,
     headers: HeaderMap,

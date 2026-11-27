@@ -12,7 +12,7 @@ from native_valuation_http import prepare
 from native_valuation_vectors import digest
 
 
-def audit_shared_suffix(quote, pools):
+def audit_shared_suffix(quote, pools, exact_out=False):
     evidence = quote['quality']['sharedSuffix']
     candidate = evidence['candidate']
     require(evidence['scope'] == 'SNAPSHOT_SHARED_V2_SUFFIX_REPLAY'
@@ -34,25 +34,62 @@ def audit_shared_suffix(quote, pools):
             amount = output
         return amount
 
+    def exact_out_path(edges, amount):
+        amounts = [amount]
+        for edge in reversed(edges):
+            reserves = state[edge['pool_id']]
+            direction = 0 if edge['zero_for_one'] else 1
+            wanted = amounts[-1]
+            amounts.append(reserves[direction] * wanted * 1000 //
+                           ((reserves[1 - direction] - wanted) * 997) + 1)
+        for edge, required, received in zip(edges, reversed(amounts[1:]), reversed(amounts[:-1]), strict=True):
+            reserves = state[edge['pool_id']]
+            direction = 0 if edge['zero_for_one'] else 1
+            reserves[direction] += required
+            reserves[1 - direction] -= received
+        return amounts[-1]
+
     steps = candidate['steps']
     branches, suffix = steps[:-1], steps[-1]
     require(len(branches) == len(quote['routes']), 'Shared suffix branch count changed')
     intermediate = input_total = 0
-    for branch, route in zip(branches, quote['routes']):
+    weight = 0
+    last_step = {}
+    if exact_out:
+        output = int(quote['buyAmount'])
+        suffix_input = exact_out_path(suffix['edges'], output)
+    for index, (branch, route) in enumerate(zip(branches, quote['routes'], strict=True)):
+        edges = branch['edges']
+        dependencies = sorted({last_step[edge['pool_id']] for edge in edges if edge['pool_id'] in last_step})
         require(branch['inputFromSteps'] == []
-                and branch['edges'] + suffix['edges'] == route['path']['edges']
-                and branch['amountIn'] == route['amount_in'], 'Shared prefix funding mismatch')
-        amount = int(branch['amountIn'])
-        result = swap_path(branch['edges'], amount)
+                and branch['poolStateFromSteps'] == dependencies
+                and edges + suffix['edges'] == route.get('path', route)['edges'],
+                'Shared prefix dependencies mismatch')
+        for edge in edges:
+            last_step[edge['pool_id']] = index
+        if exact_out:
+            weight += int(route['amount_out'])
+            result = suffix_input * weight // output - intermediate
+            amount = exact_out_path(edges, result)
+        else:
+            amount = int(route['amount_in'])
+            result = swap_path(edges, amount)
+        require(branch['amountIn'] == str(amount), 'Shared prefix input differs from replay')
         require(branch['amountOut'] == str(result), 'Shared prefix output differs from replay')
         input_total += amount
         intermediate += result
-    output = swap_path(suffix['edges'], intermediate)
+    if exact_out:
+        require(intermediate == suffix_input and output == weight and input_total <= int(quote['inputBudget']),
+                'ExactOut funding or target mismatch')
+        expected_input = str(input_total)
+    else:
+        output = swap_path(suffix['edges'], intermediate)
+        expected_input = quote['sellAmount']
     require(suffix['inputFromSteps'] == list(range(len(branches)))
             and suffix['poolStateFromSteps'] == [] and suffix['amountIn'] == str(intermediate)
             and suffix['amountOut'] == candidate['buyAmount'] == str(output),
             'Merged suffix did not consume each prefix output once')
-    require(candidate['sellAmount'] == quote['sellAmount'] == str(input_total),
+    require(candidate['sellAmount'] == expected_input == str(input_total),
             'Shared candidate input is not conserved')
 
 
@@ -101,8 +138,7 @@ def scenario(binary, bank_path, report, directory, mode):
                 ranking = q['quality']['costRanking']
                 rows = ranking['candidateExecutions']
                 require(len(q['routes']) == 2 and len({r.get('path', r)['edges'][-1]['pool_id'] for r in q['routes']}) == 1, 'expected shared final pool')
-                if not exact:
-                    audit_shared_suffix(q, binding['pools'])
+                audit_shared_suffix(q, binding['pools'], exact)
                 require(ranking['optimizer']['evaluated_candidates'] == 4 and ranking['costAdjustmentApplied'] == (mode in ('priced', 'approval', 'reset-approval', 'wrap', 'wrap-approval', 'wrap-reset', 'wrap-router-reset', 'wrap-router-approval')), 'partial pricing influenced ranking')
                 require(ranking['completeQuoteCostRanking'] is False and q['verification']['level'] == 'INDICATIVE', 'unsupported verification scope')
                 selected = rows.get(q['planHash'])
