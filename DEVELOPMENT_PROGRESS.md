@@ -376,7 +376,8 @@
 - V4 单池执行合约通过原 PoolManager 的 8 组 ERC-20 与原生币双向 ExactIn、ExactOut，核对实际收款、授权额度、原生币退款和 8 组滑点回滚。正常 HTTP build 按计划绑定执行合约，固定区块核对合约、manager 与代币身份，8 组模板及 8 组执行合约字节码变更拒绝通过。签名、独立执行和真实回执继续按 I6 验收。
 - Infinity CL 已知 hook 的报价通过 8 组原版 Manager/Vault 回放，覆盖双向 ExactIn、ExactOut、原生币和 ERC-20。Go 固定块收集核对 hook 位图及其 Manager/Vault 依赖，Rust 核对成交金额、价格和 tick。能力目录为 `xone-protocol-capabilities/33`。
 - 固定版本的 Infinity CL Manager、Bin Manager 与 Vault 已通过 16 组双向 ExactIn、ExactOut、ERC-20 与原生币交易，核对 hook、付款方、接收方、Vault、应用储备和结算锁。另通过 16 组 `CurrencyNotSettled` 回滚。继续把快照、hook 身份和报价接入正常服务。 [复验说明](integration/tools/reference/singleton-advanced/README.md#infinity-manager-and-vault-settlement)
-- Infinity Bin 已知 hook 支持动态费及原生币和 ERC-20 的双向 ExactIn、ExactOut。8 组跨 bin 成交通过原版 Manager/Vault 和正常 HTTP 报价比对，核对三个 bin 的储备、份额、活跃 ID 与 Vault 应用储备。两个固定块采集回放覆盖 ERC-20 与原生币，验证 Go → Rust Protobuf，并拒绝错误位图、字节码和未知模型。移除了报价采集中的 `maxBinStep()` 读取，能力目录为 `xone-protocol-capabilities/34`。历史静态 Bin 测试向量仍需重建后复验。 [复验说明](integration/tools/reference/singleton-advanced/README.md#infinity-manager-and-vault-settlement)
+- Infinity Bin 已知 hook 支持动态费及原生币和 ERC-20 的双向 ExactIn、ExactOut。8 组跨 bin 成交通过原版 Manager/Vault 和正常 HTTP 报价比对，核对三个 bin 的储备、份额、活跃 ID 与 Vault 应用储备。两个固定块采集回放覆盖 ERC-20 与原生币，验证 Go → Rust Protobuf，并拒绝错误位图、字节码和未知模型。移除了报价采集中的 `maxBinStep()` 读取，能力目录为 `xone-protocol-capabilities/34`。 [复验说明](integration/tools/reference/singleton-advanced/README.md#infinity-manager-and-vault-settlement)
+- 静态 Infinity Bin 已用重新生成的原版 Manager 语料复验。ExactOut 的 264 个独立案例含 219 次成交和 45 次拒绝，另有 72 个连续步骤及 6 个有序步骤。Go 固定块采集、两套 Rust 域的完整树与 Protobuf 校验，以及 Rust 数学、路由、优化和 HTTP 专项均通过。独立 Bin wire 生成器自建快照，移除无效的 `maxBinStep()` mock 和跨协议目录总数断言。本次重新生成的语料在隔离目录复验，历史冻结语料的原始文件仍缺失。
 - Infinity CL/Bin 正常 HTTP build 已通过 16 组交易模板验收，逐组验证执行合约字节码变更拒绝。固定区块核对执行合约的 Manager、Vault、池类型与代币身份。原版 Manager/Vault 回放通过 16 组实际收款、ERC-20 扣款与原生币退款，另通过 16 组超限回滚与两个未授权回调拒绝。独立执行和真实回执继续按 I6 验收。
 - unknown hook 继续保持拒绝。
 
@@ -413,7 +414,7 @@
 - 完成 ClickHouse 事实、版本表、shadow 发布和 FINAL 查询。
 - 完成 RFQ、多 solver、外部来源竞争和收益分布。
 
-当前活动目标为 I5。I1 至 I3 的上述报价范围已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。I1 的 e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的 Managed 主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
+当前活动目标为 I6，先将 V4/Infinity 单池构建接入 Cancun 固定状态回放，再验收签名和实际回执。I1 至 I3 的上述报价范围已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。I1 的 e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的 Managed 主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
 
 <a id="work-packages"></a>
 

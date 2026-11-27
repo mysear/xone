@@ -53,12 +53,12 @@ func binOriginalConfig(t *testing.T, d map[string]any, bank map[string]any, inde
 	return p
 }
 func TestBinOriginalManagerFullTreeAnchoredReadAndRejectsCorruption(t *testing.T) {
-	for _, bad := range []string{"", "lowered-max-step", "manager-template", "vault-code", "key", "paused", "registered", "tree-zero-child", "tree-bins-budget", "tree-words-budget", "bin-width", "next", "share-zero", "source-reanchor", "receipt-root"} {
+	for _, bad := range []string{"", "second-pool", "manager-template", "vault-code", "key", "paused", "registered", "tree-zero-child", "tree-bins-budget", "tree-words-budget", "bin-width", "next", "share-zero", "source-reanchor", "receipt-root"} {
 		t.Run(bad, func(t *testing.T) {
 			d := binOriginalFixture(t)
 			bank := d["RPCbanks"].([]any)[0].(map[string]any)
 			index := 0
-			if bad == "lowered-max-step" {
+			if bad == "second-pool" {
 				index = 1
 			}
 			p := binOriginalConfig(t, d, bank, index)
@@ -140,9 +140,6 @@ func TestBinOriginalManagerFullTreeAnchoredReadAndRejectsCorruption(t *testing.T
 						}
 						out = value
 						selector := data[:10]
-						if bad == "lowered-max-step" && selector == "0x615188b7" {
-							out = fmt.Sprintf("0x%064x", 1)
-						}
 						if bad == "paused" && selector == "0x5c975abb" {
 							out = fmt.Sprintf("0x%064x", 1)
 						}
@@ -197,7 +194,7 @@ func TestBinOriginalManagerFullTreeAnchoredReadAndRejectsCorruption(t *testing.T
 			defer server.Close()
 			a := Adapter{Client: rpc.New([]string{server.URL}, 3*time.Second, 2<<20), Chain: config.Chain{Key: "evm:31337", Pools: []config.PoolConfig{p}}}
 			block, pools, e := a.ReadState(context.Background(), strconv.FormatUint(n, 10), true)
-			if bad != "" && bad != "lowered-max-step" {
+			if bad != "" && bad != "second-pool" {
 				if e == nil {
 					t.Fatal("bad Bin source admitted", bad, pools)
 				}

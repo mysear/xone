@@ -127,18 +127,6 @@ fn composable_regular_output_rejects_bpt_trades_and_invalid_cash_scales() {
     )
     .is_err());
     let catalog = xone_protocol_math::capabilities::catalog();
-    assert_eq!(catalog.len(), 61);
-    assert_eq!(
-        catalog
-            .values()
-            .filter(|c| c.quote_modes.iter().any(|m| m == "EXACT_OUT"))
-            .count(),
-        38
-    );
-    assert_eq!(
-        catalog.values().filter(|c| c.execution_preparation).count(),
-        10
-    );
     assert_eq!(
         catalog["balancer-v2-composable-regular"]
             .exact_out_route_scope

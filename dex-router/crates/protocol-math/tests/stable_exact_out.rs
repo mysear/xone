@@ -107,14 +107,6 @@ fn stable_output_boundaries_are_independent_of_weighted_ratios() {
         assert!(quote([&bad, &b[1]], &amp, [&e, &e], &zero, &one).is_err());
     }
     let m = xone_protocol_math::capabilities::catalog();
-    assert_eq!(m.len(), 61);
-    assert_eq!(
-        m.values()
-            .filter(|m| m.quote_modes.iter().any(|m| m == "EXACT_OUT"))
-            .count(),
-        38
-    );
-    assert_eq!(m.values().filter(|m| m.execution_preparation).count(), 10);
     assert_eq!(
         m["balancer-v2-stable2"].exact_out_route_scope.as_deref(),
         Some("SINGLE_POOL_ORDERED_ALLOCATION")

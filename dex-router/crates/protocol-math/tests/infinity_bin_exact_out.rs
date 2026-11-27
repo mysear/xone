@@ -93,16 +93,10 @@ fn bin_output_integer_tree_step_and_hook_bounds_fail_closed() {
     bad.infinity_bin.as_mut().unwrap().hooks = "0x0000000000000000000000000000000000000001".into();
     assert!(xone_protocol_math::exact_out::quote_exact_out(&bad, &output, true).is_err());
     let models = xone_protocol_math::capabilities::catalog();
-    assert_eq!(models.len(), 61);
     assert_eq!(
-        models
-            .values()
-            .filter(|m| m.quote_modes.iter().any(|q| q == "EXACT_OUT"))
-            .count(),
-        38
-    );
-    assert_eq!(
-        models.values().filter(|m| m.execution_preparation).count(),
-        10
+        models["pancake-infinity-bin"]
+            .exact_out_route_scope
+            .as_deref(),
+        Some("SINGLE_POOL_ORDERED_ALLOCATION")
     );
 }

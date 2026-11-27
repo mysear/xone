@@ -28,7 +28,15 @@ def pool():
  s={'manager':manager,'manager_code_sha256':'a'*64,'vault':vault,'vault_code_sha256':'b'*64,'pool_id':raw,'hooks':address(0),'parameters':params,'token0_code_sha256':'c'*64,'token1_code_sha256':'d'*64,'bin_step':1,'active_id':8388608,'lp_fee':3000,'protocol_fee0':4000,'protocol_fee1':17,'max_bins':64,'max_tree_words':64,'max_steps':64,'tree_level0':str(root),'tree_level1':[{'index':i,'value':str(v)}for i,v in sorted(l1.items())],'tree_level2':[{'index':i,'value':str(v)}for i,v in sorted(l2.items())],'bins':[{'id':i,'reserve0':'1000000','reserve1':'1000000','total_shares':'1000000000000000000'}for i in ids],'app_reserve0':'1000000000','app_reserve1':'2000000000','protocol_fees0':'3','protocol_fees1':'4','block_number':100,'timestamp':1793577600,'block_hash':'0x'+'a'*64}
  return {'chain_key':'evm:31337','pool_id':manager+'/'+raw,'protocol':'pancake-infinity-bin','token0':tokens[0],'token1':tokens[1],'reserve0':'0','reserve1':'0','fee_numerator':3000,'fee_denominator':1000000,'adapter_version':'pancake-infinity-bin/3c5ef1be-static-1','token_behavior':'standard','infinity_bin':s}
 def generate():
- p=pool();snap=json.loads((ROOT/'integration/test/evm/baseline.json').read_text());snap['source']='SYNTHETIC_COMPLETE_BIN_STATE_WIRE';snap['pools']=[p];ref=snap['reference'];s=p['infinity_bin'];ref['block'].update(number_or_slot=s['block_number'],hash=s['block_hash'],timestamp_ms=s['timestamp']*1000)
+ p=pool()
+ state=p['infinity_bin']
+ ref={
+  'block':{'chain_key':p['chain_key'],'number_or_slot':state['block_number'],
+           'hash':state['block_hash'],'parent_hash':'0x'+'b'*64,'timestamp_ms':state['timestamp']*1000},
+  'canonical_epoch':1,'journal_seq':1,'schema_version':1,'online_generation':1,
+  'writer_epoch':1,'owner_service':'chain-parser-go','owner_assignment_version':1,
+ }
+ snap={'reference':ref,'pools':[p],'source':'SYNTHETIC_COMPLETE_BIN_STATE_WIRE','history_gaps':[]}
  for k,f in [('scope_hash','pool_id'),('adapter_set_hash','adapter_version')]:ref[k]=hashlib.sha256(json.dumps([p[f]],separators=(',',':')).encode()).hexdigest()
  raw=subprocess.run(['protoc','-I',str(ROOT/'common/protoc/proto'),'--encode=dex.v1.OnlineSnapshot',str(ROOT/'common/protoc/proto/dex/v1/state.proto')],input=encode(snap).encode(),capture_output=True,check=True).stdout;data=json.dumps({'snapshot':snap,'protobuf_hex':raw.hex(),'protobuf_sha256':hashlib.sha256(raw).hexdigest()},indent=2)+'\n'
  for service in ['integration','chain-parser-go','chain-parser-rust','dex-router']:(ROOT/service/'test/contracts/infinity-bin-wire.json').write_text(data)
