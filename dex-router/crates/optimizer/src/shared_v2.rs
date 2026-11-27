@@ -6,11 +6,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use xone_domain::{v2_swap, Amount, Pool};
 use xone_routing::{evaluate_path, Edge};
 
+pub const CANDIDATE_VERSION: &str = "xone-shared-v2-suffix/1";
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FlowStep {
-    edges: Vec<Edge>,
-    amount_in: Amount,
+    pub edges: Vec<Edge>,
+    pub amount_in: Amount,
     amount_out: Amount,
     input_from_steps: Vec<usize>,
     pool_state_from_steps: Vec<usize>,
@@ -19,9 +21,9 @@ pub struct FlowStep {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SharedSuffixQuote {
-    sell_amount: Amount,
-    buy_amount: Amount,
-    steps: Vec<FlowStep>,
+    pub sell_amount: Amount,
+    pub buy_amount: Amount,
+    pub steps: Vec<FlowStep>,
 }
 
 /// Replay fan-in through a shared physical suffix on a private snapshot.

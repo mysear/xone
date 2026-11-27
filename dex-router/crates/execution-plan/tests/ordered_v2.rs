@@ -110,7 +110,9 @@ fn fixture_from_bank(bank: &Value, i: usize) -> (SplitPlan, Vec<Pool>, SplitExec
         SplitPlan::ExactOut(exact_out::build(&ctx, &a, &snapshot, "split-policy").unwrap())
     } else {
         let a = evaluate_allocation(&pools, &inputs, &Amount::zero()).unwrap();
-        assert_eq!(a.gross_buy_amount.to_string(), c["output"]);
+        if c.get("joined").is_none() {
+            assert_eq!(a.gross_buy_amount.to_string(), c["output"]);
+        }
         SplitPlan::ExactIn(build(&ctx, &a, &snapshot, "split-policy").unwrap())
     };
     (
@@ -137,6 +139,61 @@ fn split_plans_match_mined_calldata_balances_and_pool_order() {
         let mut reversed = pools.clone();
         reversed.reverse();
         validate(&b, &reversed, &e, &allowed).unwrap();
+    }
+}
+
+#[test]
+fn shared_suffix_binding_matches_mined_calldata_balances_and_pool_order() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let report = std::env::temp_dir().join(format!(
+        "xone-shared-suffix-{}-{}.json",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let run = Command::new("node")
+        .current_dir(root)
+        .arg("integration/tools/ci/ordered-v2-split-replay.cjs")
+        .arg(&report)
+        .arg("--shared-suffix")
+        .output()
+        .unwrap();
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let bytes = std::fs::read(&report).unwrap();
+    std::fs::remove_file(&report).unwrap();
+    let report: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(report["passed"], true);
+    let bank = &report["binding"];
+    for i in 0..2 {
+        let (SplitPlan::ExactIn(plan), pools, executor, c) = fixture_from_bank(bank, i) else {
+            panic!("expected ExactIn fixture");
+        };
+        let allowed = [executor.target.clone(), executor.router.target.clone()];
+        let binding = shared_suffix::bind(&plan, &pools, &executor, &allowed).unwrap();
+        assert_eq!(binding.transaction.data, c["data"]);
+        assert_eq!(binding.joined_amount.to_string(), c["joined"]);
+        assert_eq!(binding.buy_amount.to_string(), c["output"]);
+        assert_eq!(binding.min_buy_amount, binding.buy_amount);
+        assert_eq!(
+            serde_json::json!(binding.step_pools.concat()),
+            c["poolOrder"]
+        );
+        let mut reordered = pools.clone();
+        reordered.reverse();
+        shared_suffix::validate(&binding, &reordered, &executor, &allowed).unwrap();
+        let mut tampered = binding.clone();
+        tampered.transaction.data = "0x".into();
+        assert!(shared_suffix::validate(&tampered, &pools, &executor, &allowed).is_err());
+        let mut stale = pools.clone();
+        let swap = stale[0].v2.as_mut().unwrap().swap.as_mut().unwrap();
+        swap.bank_block_number += 1;
+        assert!(shared_suffix::validate(&binding, &stale, &executor, &allowed).is_err());
     }
 }
 

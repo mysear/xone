@@ -61,10 +61,7 @@ pub fn build(
     {
         return Err(err("INVALID_EXECUTION_CONTEXT"));
     }
-    let minimum = Amount::checked(
-        &allocation.gross_buy_amount.0 * BigUint::from(10000 - context.slippage_bps)
-            / BigUint::from(10000u64),
-    )?;
+    let minimum = minimum_output(&allocation.gross_buy_amount, context.slippage_bps)?;
     let hash = hash(
         &serde_json::json!({"context":context,"snapshot":snapshot,"allocation":allocation,"min_buy_amount":minimum,"economic_policy_hash":policy}),
     )?;
@@ -76,6 +73,9 @@ pub fn build(
         economic_policy_hash: policy.into(),
         plan_hash: hash,
     })
+}
+fn minimum_output(gross: &Amount, slippage_bps: u16) -> Result<Amount> {
+    Amount::checked(&gross.0 * BigUint::from(10000 - slippage_bps) / BigUint::from(10000u64))
 }
 /// Recompute the original economic commitment and exact slippage floor.
 /// This intentionally accepts generic quote contexts; EVM validation belongs to binding.

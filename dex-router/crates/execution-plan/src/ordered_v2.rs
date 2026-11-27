@@ -1,4 +1,6 @@
 //! Commitment for one call to OrderedV2Split. No runtime/code trust is inferred here.
+pub mod shared_suffix;
+
 use crate::bound_v2::{code_hash, nonzero_address};
 use crate::bound_v2_exact_out::{validate_complete_path, validate_evm_scope};
 use crate::{exact_out, verify_plan_hash, Context, ExecutorIdentity, Plan, Transaction};
@@ -405,6 +407,11 @@ fn encode(
     bytes.extend(output.to_be_bytes()?);
     bytes.extend(Amount((context.deadline_ms / 1000).into()).to_be_bytes()?);
     bytes.extend(small(6 * 32));
+    append_legs(&mut bytes, legs)?;
+    Ok(transaction(context, target, &bytes))
+}
+
+fn append_legs(bytes: &mut Vec<u8>, legs: &[Leg<'_>]) -> Result<()> {
     bytes.extend(small(legs.len()));
     // Tuple offsets start at the word after the array length, not the length word.
     let mut offset = 32 * legs.len();
@@ -415,16 +422,25 @@ fn encode(
     for leg in legs {
         bytes.extend(leg.amount.to_be_bytes()?);
         bytes.extend(small(64));
-        bytes.extend(small(leg.tokens.len()));
-        for token in leg.tokens {
-            bytes.extend(addr_word(token)?);
-        }
+        append_path(bytes, leg.tokens)?;
     }
-    Ok(Transaction {
+    Ok(())
+}
+
+fn append_path(bytes: &mut Vec<u8>, tokens: &[String]) -> Result<()> {
+    bytes.extend(small(tokens.len()));
+    for token in tokens {
+        bytes.extend(addr_word(token)?);
+    }
+    Ok(())
+}
+
+fn transaction(context: &Context, target: &str, bytes: &[u8]) -> Transaction {
+    Transaction {
         chain_key: context.chain_key.clone(),
         from: context.caller.clone(),
         to: target.to_owned(),
         data: format!("0x{}", hex::encode(bytes)),
         value: Amount::zero(),
-    })
+    }
 }

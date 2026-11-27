@@ -17,9 +17,12 @@ function original(name) {
   assert.equal(hash(bytes), pins.find(p => p.path === file).sha256);
   return JSON.parse(bytes);
 }
-async function replay(transport, captureBank, wrapped) {
+async function replay(transport, captureBank, wrapped, shared) {
   assert.equal(solc.version(), '0.8.26+commit.8a97fa7a.Emscripten.clang');
-  const build = JSON.parse(solc.compile(JSON.stringify({language:'Solidity', sources:{'OrderedV2Split.sol':{content:src}},
+  const sources = {'OrderedV2Split.sol': {content: src}};
+  const contract = shared ? 'SharedV2Suffix' : 'OrderedV2Split';
+  if (shared) sources['SharedV2Suffix.sol'] = {content: fs.readFileSync(path.join(root, 'dex-router/evm/SharedV2Suffix.sol'), 'utf8')};
+  const build = JSON.parse(solc.compile(JSON.stringify({language:'Solidity', sources,
     settings:{optimizer:{enabled:true,runs:200},viaIR:true,evmVersion:'shanghai',outputSelection:{'*':{'*':['abi','evm.bytecode.object']}}}})));
   assert.deepEqual((build.errors || []).filter(e => e.severity === 'error'), []);
   const provider = new ethers.providers.Web3Provider(transport);
@@ -29,7 +32,7 @@ async function replay(transport, captureBank, wrapped) {
   const factory = await deploy(original('core/build/UniswapV2Factory'), caller);
   const weth = await deploy(original('periphery/build/WETH9'));
   const router = await deploy(original('periphery/build/UniswapV2Router02'), factory.address, weth.address);
-  const batch = await deploy(build.contracts['OrderedV2Split.sol'].OrderedV2Split, router.address);
+  const batch = await deploy(build.contracts[`${contract}.sol`][contract], router.address);
   const token = original('periphery/build/ERC20'), pair = original('core/build/UniswapV2Pair');
   const unit = ethers.utils.parseEther, max = ethers.constants.MaxUint256;
   const mined = async tx => (await tx).wait();
@@ -48,6 +51,11 @@ async function replay(transport, captureBank, wrapped) {
   const sell=tokens[0], buy=tokens[3];
   await mined(sell.approve(router.address,max));
   const approval=await mined(sell.approve(batch.address,max));
+  if (shared) {
+    await mined(tokens[2].approve(router.address, max));
+    await mined(tokens[2].transfer(batch.address, 23));
+    await mined(sell.transfer(batch.address, 17));
+  }
   const state = async () => ({balances:await Promise.all([sell.balanceOf(caller),buy.balanceOf(recipient),
     sell.balanceOf(batch.address),sell.allowance(batch.address,router.address)].map(async n => String(await n))),
     reserves:await Promise.all(pairs.map(async p => (await p.getReserves()).slice(0,2).map(String)))});
@@ -68,6 +76,61 @@ async function replay(transport, captureBank, wrapped) {
   const binding = {pools,block:{chain_key:'evm:1337',number_or_slot:base.number,hash:base.hash,parent_hash:base.parentHash,timestamp_ms:base.timestamp*1000},
     executor:{target:lower(batch.address),code_sha256:await runtime(batch.address),router:{target:lower(router.address),code_sha256:await runtime(router.address),factory:lower(factory.address),factory_code_sha256:factoryHash,adapter_version:'uniswap-v2-router02/1.1.0-beta.0'}},
     caller:lower(caller),recipient:lower(recipient),deadlineMs:deadline*1000,cases:[]};
+  if (shared) {
+    const join = tokens[2];
+    const suffix = [join.address, buy.address];
+    const balances = async () => Promise.all([
+      join.balanceOf(caller), join.balanceOf(batch.address), join.allowance(batch.address, router.address)
+    ].map(async n => String(await n)));
+    const originalSwap = (amount, route, to) =>
+      router.swapExactTokensForTokens(amount, 0, route, to, deadline, {gasLimit: 3000000});
+    for (const reverse of [false, true]) {
+      const prefixes = [
+        [unit('110'), tokens.slice(0, 3).map(t => t.address)],
+        [unit('70'), [sell.address, join.address]]
+      ];
+      if (reverse) prefixes.reverse();
+      const input = unit('180');
+      const before = await state();
+      const joinBefore = await balances();
+      for (const [amount, route] of prefixes) await mined(originalSwap(amount, route, caller));
+      const joined = (await join.balanceOf(caller)).sub(joinBefore[0]);
+      await mined(originalSwap(joined, suffix, recipient));
+      const expected = await state();
+      const output = ethers.BigNumber.from(expected.balances[1]).sub(before.balances[1]);
+      assert.deepEqual(await balances(), joinBefore);
+      assert.equal(String(ethers.BigNumber.from(before.balances[0]).sub(expected.balances[0])), String(input));
+      await restore();
+
+      const execute = (cap, minimum, expiry = deadline) =>
+        batch.executeExactIn(recipient, cap, minimum, expiry, prefixes, suffix, {gasLimit: 3000000});
+      const receipt = await mined(execute(input, output));
+      assert.deepEqual(await state(), expected);
+      assert.deepEqual(await balances(), joinBefore);
+      const swaps = receipt.logs.filter(l => l.topics[0] === pairs[0].interface.getEventTopic('Swap')).map(l => l.address);
+      assert.deepEqual(swaps, (reverse ? [2, 0, 1, 3] : [0, 1, 2, 3]).map(i => pairs[i].address));
+      binding.cases.push({
+        exactOut: false, reverse, input: String(input), output: String(output), joined: String(joined),
+        legs: prefixes.map(([n, route]) => ({amount: String(n), tokens: [...route, buy.address].map(lower)})),
+        poolOrder: swaps.map(lower), data: (await provider.getTransaction(receipt.transactionHash)).data,
+        gasUsed: String(receipt.gasUsed)
+      });
+      await restore();
+      for (const [cap, minimum, expiry] of [
+        [input, output.add(1), deadline],
+        [input.sub(1), output, deadline],
+        [input.add(1), output, deadline],
+        [input, output, base.timestamp]
+      ]) {
+        const failure = await execute(cap, minimum, expiry);
+        await assert.rejects(failure.wait(), e => e.receipt?.status === 0 && e.receipt.logs.length === 0);
+        assert.deepEqual(await state(), before);
+        assert.deepEqual(await balances(), joinBefore);
+        await restore();
+      }
+    }
+    return {authority: 'LOCAL_ORIGINAL_ROUTER_DIFFERENTIAL', compiler: solc.version(), binding};
+  }
   const bank = captureBank ? await splitBank(provider,base,{caller,recipient,batch,router,factory,weth,tokens,pairs}) : null;
   const cases=[];
   for (const exactOut of [false,true]) for (const reverse of [false,true]) {
@@ -260,11 +323,12 @@ async function splitBank(provider,base,{caller,recipient,batch,router,factory,we
 }
 async function main() {
   const wrapped = process.argv[3] === '--wrap-bank';
+  const shared = process.argv[3] === '--shared-suffix';
   const transport=ganache.provider({logging:{quiet:true},wallet:wrapped ? {deterministic:true,defaultBalance:100000} : {deterministic:true},chain:{hardfork:'shanghai',time:new Date('2026-11-17Z')},miner:{timestampIncrement:1}});
   try {
     const captureBank=wrapped || process.argv[3]==='--bank';
-    const report=await replay(transport,captureBank,wrapped);
-    if (!wrapped) assert.equal(hash(JSON.stringify(report.binding)),'544d55501ed280378a67b9ab45b77a4cef8e0cd1bafeee2ba48f1ffbd60732be','Mined binding corpus changed');
+    const report=await replay(transport,captureBank,wrapped,shared);
+    if (!wrapped && !shared) assert.equal(hash(JSON.stringify(report.binding)),'544d55501ed280378a67b9ab45b77a4cef8e0cd1bafeee2ba48f1ffbd60732be','Mined binding corpus changed');
     report.passed = true;
     if (process.argv[2]) fs.writeFileSync(process.argv[2],JSON.stringify(report,null,2)+'\n',{flag:'wx'});
     console.log(JSON.stringify(process.argv[2]?{...report,binding:undefined,executionBank:undefined}:report));

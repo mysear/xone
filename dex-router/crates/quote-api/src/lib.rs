@@ -632,8 +632,11 @@ impl Api {
             let shared_suffix =
                 xone_optimizer::shared_v2::quote_suffix(&worker_view.pools, &plan.allocation)
                     .map(|candidate| {
-                        let candidate_hash =
-                            hash(&("xone-shared-v2-suffix/1", &plan.plan_hash, &candidate))?;
+                        let candidate_hash = hash(&(
+                            xone_optimizer::shared_v2::CANDIDATE_VERSION,
+                            &plan.plan_hash,
+                            &candidate,
+                        ))?;
                         Ok(json!({
                             "scope": "SNAPSHOT_SHARED_V2_SUFFIX_REPLAY",
                             "basisPlanHash": plan.plan_hash,
