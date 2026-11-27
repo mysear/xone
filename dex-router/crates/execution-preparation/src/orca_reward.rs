@@ -1,6 +1,7 @@
-//! Same-bank preparation for already accrued Whirlpool position rewards.
+//! Same-bank preparation for Whirlpool position reward collection.
 use super::*;
 use xone_domain::{orca as o, spl_token_2022 as token22};
+use xone_protocol_math::orca_adaptive_swap::accrue_reward_growth;
 
 const POSITION_SIZE: usize = 216;
 const POSITION_REWARDS: usize = 144;
@@ -16,14 +17,16 @@ pub struct ClaimRequest {
     pub reward_account: String,
     pub reward_index: u8,
     pub reward_token_program: String,
+    #[serde(default)]
+    pub update_before_collect: bool,
 }
 
-fn position_owed(
+fn validate_position(
     pool: &Pool,
     request: &ClaimRequest,
     position: &[u8],
     nft: &Account,
-) -> Result<(usize, u64)> {
+) -> Result<()> {
     let invalid = || err("ORCA_REWARD_POSITION_INVALID");
     if position[..8] != m::discriminator("Position") || m::key(position, 8) != pool.pool_id {
         return Err(invalid());
@@ -58,8 +61,152 @@ fn position_owed(
     } else if m::key(&nft.data, 32) != request.authority {
         return Err(err("ORCA_REWARD_AUTHORITY_INVALID"));
     }
-    let offset = POSITION_REWARDS + REWARD_SLOT_SIZE * usize::from(request.reward_index) + 16;
-    Ok((offset, m::u64_at(position, offset)))
+    Ok(())
+}
+
+fn inside_growth(
+    global: u128,
+    lower: Option<u128>,
+    upper: Option<u128>,
+    current: i32,
+    range: [i32; 2],
+) -> u128 {
+    let below = lower.map_or(global, |growth| {
+        if current < range[0] {
+            global.wrapping_sub(growth)
+        } else {
+            growth
+        }
+    });
+    let above = upper.map_or(0, |growth| {
+        if current < range[1] {
+            growth
+        } else {
+            global.wrapping_sub(growth)
+        }
+    });
+    global.wrapping_sub(below).wrapping_sub(above)
+}
+
+fn update_checkpoint(position: &mut [u8], offset: usize, growth: u128, liquidity: u128) -> u64 {
+    let checkpoint = m::u128_at(position, offset);
+    let delta = growth.wrapping_sub(checkpoint);
+    let (owed, checkpoint) = match liquidity.checked_mul(delta) {
+        Some(product) => {
+            let owed = (product >> 64) as u64;
+            let converted = (u128::from(owed) << 64).div_ceil(liquidity);
+            (owed, checkpoint.wrapping_add(converted))
+        }
+        None => (0, growth),
+    };
+    let total = m::u64_at(position, offset + 16).wrapping_add(owed);
+    position[offset..offset + 16].copy_from_slice(&checkpoint.to_le_bytes());
+    position[offset + 16..offset + 24].copy_from_slice(&total.to_le_bytes());
+    owed
+}
+
+fn project_update(
+    pool: &Pool,
+    bank: &BTreeMap<String, Option<Account>>,
+    bank_pool: &[u8],
+    position: &mut [u8],
+    reward_index: usize,
+) -> Result<([String; 2], Vec<u8>, u64)> {
+    let state = pool.orca_whirlpool.as_ref().ok_or_else(bad)?;
+    let current = state.tick_current_index;
+    let spacing = state.tick_spacing as i32;
+    let range = [m::i32_at(position, 88), m::i32_at(position, 92)];
+    let liquidity = m::u128_at(position, 72);
+    if liquidity == 0
+        || range[0] >= range[1]
+        || range
+            .iter()
+            .any(|tick| !(o::MIN_TICK..=o::MAX_TICK).contains(tick) || tick % spacing != 0)
+    {
+        return Err(err("ORCA_REWARD_POSITION_RANGE"));
+    }
+    let bounds = range.map(|tick| {
+        let start = tick.div_euclid(88 * spacing) * (88 * spacing);
+        let array = state
+            .tick_arrays
+            .iter()
+            .find(|a| a.start_tick_index == start && a.layout != "sparse")
+            .ok_or_else(|| err("ORCA_REWARD_TICK_ARRAY_MISSING"))?;
+        let address = m::pda(
+            &[
+                b"tick_array",
+                &m::pubkey(&pool.pool_id)?,
+                start.to_string().as_bytes(),
+            ],
+            o::PROGRAM_ID,
+        )?;
+        if address != array.address {
+            return Err(err("ORCA_REWARD_TICK_ARRAY_MISMATCH"));
+        }
+        raw(
+            bank,
+            &address,
+            o::PROGRAM_ID,
+            &orca::array_bytes(pool, array)?,
+        )
+        .map_err(|_| err("ORCA_REWARD_TICK_ARRAY_MISMATCH"))?;
+        Ok((address, array.ticks.iter().find(|entry| entry.tick == tick)))
+    });
+    let [lower, upper] = bounds;
+    let (lower_address, lower) = lower?;
+    let (upper_address, upper) = upper?;
+    let as_u128 = |value: &Amount| u128::try_from(&value.0).map_err(|_| bad());
+    for (side, global) in [&state.fee_growth_global0, &state.fee_growth_global1]
+        .into_iter()
+        .enumerate()
+    {
+        let outside = |tick: Option<&o::OrcaTick>| {
+            tick.map(|tick| as_u128([&tick.fee_growth_outside0, &tick.fee_growth_outside1][side]))
+                .transpose()
+        };
+        let growth = inside_growth(
+            as_u128(global)?,
+            outside(lower)?,
+            outside(upper)?,
+            current,
+            range,
+        );
+        update_checkpoint(position, 96 + side * 24, growth, liquidity);
+    }
+    let mut pool_after = bank_pool.to_vec();
+    let elapsed = state.bank_unix_timestamp - state.reward_last_updated_timestamp;
+    let pool_liquidity = as_u128(&state.liquidity)?;
+    pool_after[261..269].copy_from_slice(&state.bank_unix_timestamp.to_le_bytes());
+    let mut accrued_reward = 0;
+    for (index, reward) in state.reward_infos.iter().enumerate() {
+        let growth = if reward.initialized() {
+            let global = accrue_reward_growth(
+                as_u128(&reward.growth_global_x64)?,
+                as_u128(&reward.emissions_per_second_x64)?,
+                elapsed,
+                pool_liquidity,
+            );
+            let offset = 381 + index * 128;
+            pool_after[offset..offset + 16].copy_from_slice(&global.to_le_bytes());
+            let outside = |tick: Option<&o::OrcaTick>| {
+                tick.map(|tick| as_u128(&tick.reward_growths_outside[index]))
+                    .transpose()
+            };
+            inside_growth(global, outside(lower)?, outside(upper)?, current, range)
+        } else {
+            0
+        };
+        let accrued = update_checkpoint(
+            position,
+            POSITION_REWARDS + index * REWARD_SLOT_SIZE,
+            growth,
+            liquidity,
+        );
+        if index == reward_index {
+            accrued_reward = accrued;
+        }
+    }
+    Ok(([lower_address, upper_address], pool_after, accrued_reward))
 }
 
 pub async fn prepare(
@@ -114,6 +261,15 @@ pub async fn prepare(
     ];
     if v2 {
         ids.push(MEMO.into());
+    }
+    if request.update_before_collect {
+        ids.extend(
+            state
+                .tick_arrays
+                .iter()
+                .filter(|a| a.layout != "sparse")
+                .map(|a| a.address.clone()),
+        );
     }
     let mut seen = std::collections::BTreeSet::new();
     ids.retain(|key| seen.insert(key.clone()));
@@ -220,7 +376,22 @@ pub async fn prepare(
     let position = orca::owned(&bank, &request.position, o::PROGRAM_ID, POSITION_SIZE)
         .map_err(|_| err("ORCA_REWARD_POSITION_INVALID"))?;
     let nft = get(&bank, &request.position_token_account)?;
-    let (owed_offset, owed) = position_owed(pool, request, position, nft)?;
+    validate_position(pool, request, position, nft)?;
+    let reward_index = usize::from(request.reward_index);
+    let owed_offset = POSITION_REWARDS + REWARD_SLOT_SIZE * reward_index + 16;
+    let mut position_after = position.to_vec();
+    let update = if request.update_before_collect {
+        Some(project_update(
+            pool,
+            &bank,
+            observed_pool,
+            &mut position_after,
+            reward_index,
+        )?)
+    } else {
+        None
+    };
+    let owed = m::u64_at(&position_after, owed_offset);
     let mint = orca::owned(
         &bank,
         &reward.mint,
@@ -263,7 +434,6 @@ pub async fn prepare(
         .lamports
         .checked_add(if native { net } else { 0 })
         .ok_or_else(bad)?;
-    let mut position_after = position.to_vec();
     position_after[owed_offset..owed_offset + 8].copy_from_slice(&(owed - gross).to_le_bytes());
     let mut vault_after = vault.data.clone();
     vault_after[64..72].copy_from_slice(&(vault_balance - gross).to_le_bytes());
@@ -302,18 +472,28 @@ pub async fn prepare(
     }
     let mut budget_data = vec![2];
     budget_data.extend(orca::COMPUTE_LIMIT.to_le_bytes());
-    let instructions = [
-        Instruction {
-            program_id: orca::COMPUTE_BUDGET.into(),
-            accounts: vec![],
-            data_base64: STANDARD.encode(budget_data),
-        },
-        Instruction {
+    let mut instructions = vec![Instruction {
+        program_id: orca::COMPUTE_BUDGET.into(),
+        accounts: vec![],
+        data_base64: STANDARD.encode(budget_data),
+    }];
+    if let Some(([lower, upper], _, _)) = &update {
+        instructions.push(Instruction {
             program_id: o::PROGRAM_ID.into(),
-            accounts,
-            data_base64: STANDARD.encode(data),
-        },
-    ];
+            accounts: vec![
+                meta(&pool.pool_id, false, true),
+                meta(&request.position, false, true),
+                meta(lower, false, false),
+                meta(upper, false, false),
+            ],
+            data_base64: STANDARD.encode(&Sha256::digest(b"global:update_fees_and_rewards")[..8]),
+        });
+    }
+    instructions.push(Instruction {
+        program_id: o::PROGRAM_ID.into(),
+        accounts,
+        data_base64: STANDARD.encode(data),
+    });
     let latest = rpc
         .call(
             "getLatestBlockhash",
@@ -373,6 +553,17 @@ pub async fn prepare(
         "instructions":instructions,"messageBase64":STANDARD.encode(message),"unsignedTransaction":STANDARD.encode(packet),
         "accountSnapshot":snapshot.summary()?,
     });
+    if let Some(([lower, upper], pool_after, accrued)) = update {
+        result["rewardUpdate"] = json!({"lowerTickArray":lower,"upperTickArray":upper,"accruedReward":accrued.to_string()});
+        result["expectedPostAccounts"]
+            .as_array_mut()
+            .ok_or_else(bad)?
+            .push(json!({
+                "address":pool.pool_id,"owner":o::PROGRAM_ID,
+                "dataSha256":format!("{:x}",Sha256::digest(pool_after)),
+                "lamports":get(&bank, &pool.pool_id)?.lamports.to_string()
+            }));
+    }
     result["preparationHash"] = hash(&result)?.into();
     Ok(SolanaPreparation {
         result,

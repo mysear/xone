@@ -358,10 +358,14 @@
 - 双向 ExactIn、ExactOut 和三种收费模式通过 24 组原程序差分。复用 bitmap 位定位处理读写，修复了清空扩展数组中的最后一个订单时误写主 bitmap 的问题。6 组数组清空案例核对了扩展 bitmap 后状态。公开部署程序在受控 bank 上通过 24 组 HTTP 无签名准备及独立 SwapV2 回放，并核对 24 组限额回滚和 24 组账户变更拒绝。 [复验说明](integration/tools/reference/raydium-clmm/README.md#deployed-advanced-swapv2-replay)
 - Rust finalized RPC 解析套件 27 项通过，Go 通过 24 组原程序前后状态的 Protobuf 往返。能力目录结构测试通过。基于历史模型文件的能力测试只收集到 2 个有效模型，进度检查的 3 项失败涉及历史报告或本地链接缺失。
 
-#### 下一轮迭代目标（I4 Orca 奖励更新与领取）
+#### Orca 奖励更新与领取组合验收
 
-- 在同一 finalized bank 验证头寸和上下界 tick，按 Whirlpool 原程序更新费用和奖励后领取。用正常 HTTP 准备入口回放实际指令，核对 Whirlpool、Position、奖励 vault、收款账户和 Token-2022 withheld 后状态。
-- 覆盖普通与稀疏数组、空与部分资金奖励 vault，以及失败时的原子回滚。随后验收 Raydium 高级头寸领取的 custom seed 与扩展 bitmap 组合。签名和真实回执继续按 I6 验收。
+- 正常 HTTP 入口通过 `claim.updateBeforeCollect` 在同一笔交易中先执行 `UpdateFeesAndRewards`，再领取奖励。准备阶段在同一 finalized bank 绑定 Position 的两侧 tick array 和 Clock，并复用 swap 的奖励累计逻辑。
+- 原部署程序通过 6 组更新后领取和 6 组直接领取回放。覆盖固定与动态边界数组、视图中的稀疏数组、标准 SPL 与 Token-2022 的全额、部分和空 vault。核对 Whirlpool、Position 全部费用与奖励检查点、奖励 vault、收款账户和 Token-2022 withheld，另复现冻结收款账户的 CPI 失败。SwapV2 的 24 组资金路径和 24 组阈值回滚复验通过。 [复验说明](integration/tools/ci/orca-token2022-execution.md#position-reward-collection)
+
+#### 下一轮迭代目标（I4 Raydium 高级头寸结算）
+
+- 在 `raydium-clmm-advanced` 接入头寸费用与奖励领取，验证 custom seed 池、扩展 tick bitmap、限价订单和活动奖励状态。以独立 `DecreaseLiquidityV2` 回放核对头寸、池和 Token-2022 到账，再进入 I5。签名和真实回执继续按 I6 验收。
 
 ### I5 V4/Infinity
 

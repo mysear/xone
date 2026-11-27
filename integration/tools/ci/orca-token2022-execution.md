@@ -30,7 +30,9 @@ The capture is a finalized `getMultipleAccounts` response in the order defined b
 
 `POST /v1/chains/{chain}/pools/{pool}/prepare-orca-reward` resolves an initialized reward slot from the installed pool view. The `claim` body supplies `authority`, `position`, `positionTokenAccount`, `recipient`, `rewardAccount`, `rewardIndex` and `rewardTokenProgram`. Set `simulate` to `true` to verify the unsigned transaction with the configured RPC-capture SBF engine.
 
-The API covers already accrued rewards from standalone positions and pays up to the captured vault balance into an existing account. It prepares `CollectReward` for classic SPL and `CollectRewardV2` for the supported Token-2022 `TransferFeeConfig` profile. The SBF result verifies the gross debit, user credit, remaining position balance, fee payer and post-state digests for the position, vault and destination.
+The API collects rewards from standalone positions and pays up to the captured vault balance into an existing account. It prepares `CollectReward` for classic SPL and `CollectRewardV2` for the supported Token-2022 `TransferFeeConfig` profile. Set `claim.updateBeforeCollect` to `true` to prepend `UpdateFeesAndRewards` in the same transaction. Both position bounds must be in initialized tick array accounts in the installed view. The preparation binds the arrays and Clock to the same finalized slot and reports the selected reward slot's increment in `rewardUpdate.accruedReward`.
+
+The SBF replay verifies the gross debit, user credit, remaining position balance, fee payer and post-state digests for the position, vault and destination. With the update enabled it also verifies the complete Whirlpool poststate, all fee and reward checkpoints and the selected reward increment. The controlled cases use fixed and dynamic position-bound arrays with a separate sparse array in the pool view. They include full, partial and empty vault cases and a frozen recipient failure after the update instruction.
 
 Use the same deployment capture and bank as the SwapV2 test.
 

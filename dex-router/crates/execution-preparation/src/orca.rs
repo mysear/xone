@@ -79,7 +79,7 @@ pub(super) fn pool_bytes(p: &Pool, observed: &[u8]) -> Result<Vec<u8>> {
     }
     Ok(b)
 }
-fn array_bytes(pool: &Pool, a: &o::OrcaTickArray) -> Result<Vec<u8>> {
+pub(super) fn array_bytes(pool: &Pool, a: &o::OrcaTickArray) -> Result<Vec<u8>> {
     let s = pool.orca_whirlpool.as_ref().ok_or_else(bad)?;
     let dynamic = a.layout == "dynamic";
     let mut b = if dynamic {

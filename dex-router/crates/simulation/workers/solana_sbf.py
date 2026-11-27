@@ -47,7 +47,11 @@ def verify_reward_claim(request, preparation, before, account, native):
     destination = preparation['rewardAccount']
     caller = request['caller']
     witnesses = preparation['expectedPostAccounts']
-    require([w['address'] for w in witnesses] == [position, vault, destination],
+    update = preparation.get('rewardUpdate')
+    addresses = [position, vault, destination]
+    if update is not None:
+        addresses.append(preparation['poolId'])
+    require([w['address'] for w in witnesses] == addresses,
             'SBF_ORCA_REWARD_POST_STATE')
     actual = verify_post_accounts(witnesses, account, 'SBF_ORCA_REWARD_POST_STATE')
 
@@ -58,7 +62,8 @@ def verify_reward_claim(request, preparation, before, account, native):
     remaining = read_amount(account(position).data, owed_offset)
     gross = read_amount(before[vault].data, 64) - read_amount(account(vault).data, 64)
     net = read_amount(account(destination).data, 64) - read_amount(before[destination].data, 64)
-    require(read_amount(before[position].data, owed_offset) - remaining == gross
+    accrued = (remaining + gross - read_amount(before[position].data, owed_offset)) % (1 << 64)
+    require(accrued == (int(update['accruedReward']) if update is not None else 0)
             and gross == int(preparation['grossReward']) and net == int(preparation['netReward'])
             and gross - net == int(preparation['transferFee'])
             and remaining == int(preparation['remainingRewardOwed']),
@@ -147,31 +152,46 @@ def validate_orca(model,accounts,Pubkey,claim=False):
             data=raw(a)
             require(a['owner']==TOKEN and not a['executable'] and len(data)==165 and int.from_bytes(data[64:72],'little')==state[f'raw_vault{side}'],'SBF_ORCA_VAULT_MISMATCH')
     for a in state['tick_arrays']:
-        if a['layout'] == 'sparse':
-            pool = bytes(Pubkey.from_string(model['pool_id']))
-            seed = str(a['start_tick_index']).encode()
-            address, _ = Pubkey.find_program_address([b'tick_array', pool, seed], Pubkey.from_string(ORCA))
-            observed = accounts.get(str(address))
-            require(
-                model['protocol'] in ('orca-whirlpools-adaptive-dynamic', ORCA_TOKEN22)
-                and a['address'] == str(address) and int(a['initialized_bitmap']) == 0 and not a['ticks']
-                and observed is not None and observed['owner'] == SYSTEM
-                and not observed['executable'] and raw(observed) == b'',
-                'SBF_ORCA_SPARSE_ARRAY_MISMATCH',
-            )
-            continue
-        dynamic=a['layout']=='dynamic';b=bytearray(hashlib.sha256(('account:'+('DynamicTickArray'if dynamic else'TickArray')).encode()).digest()[:8]+int(a['start_tick_index']).to_bytes(4,'little',signed=True))
-        if dynamic:b+=bytes(Pubkey.from_string(model['pool_id']))+int(a['initialized_bitmap']).to_bytes(16,'little')
-        ticks={t['tick']:t for t in a['ticks']}
-        for i in range(88):
-            t=ticks.get(a['start_tick_index']+i*state['tick_spacing']);r=bytearray(1 if dynamic and t is None else 113)
-            if t is not None:
-                r[0]=1;r[1:17]=int(t['liquidity_net']).to_bytes(16,'little',signed=True)
-                for off,k in [(17,'liquidity_gross'),(33,'fee_growth_outside0'),(49,'fee_growth_outside1')]:r[off:off+16]=int(t[k]).to_bytes(16,'little')
-                for j,v in enumerate(t.get('reward_growths_outside',[])):r[65+j*16:81+j*16]=int(v).to_bytes(16,'little')
-            b+=r
-        if not dynamic:b+=bytes(Pubkey.from_string(model['pool_id']))
-        observed=accounts[a['address']];require(observed['owner']==ORCA and not observed['executable']and raw(observed)==b,'SBF_ORCA_ARRAY_MISMATCH')
+        validate_orca_array(model, a, accounts, Pubkey)
+
+def validate_orca_array(model, a, accounts, Pubkey):
+    state = model['orca_whirlpool']
+    pool = bytes(Pubkey.from_string(model['pool_id']))
+    start = a['start_tick_index']
+    if a['layout'] == 'sparse':
+        address, _ = Pubkey.find_program_address([b'tick_array', pool, str(start).encode()], Pubkey.from_string(ORCA))
+        observed = accounts.get(str(address))
+        require(
+            model['protocol'] in ('orca-whirlpools-adaptive-dynamic', ORCA_TOKEN22)
+            and a['address'] == str(address) and int(a['initialized_bitmap']) == 0 and not a['ticks']
+            and observed is not None and observed['owner'] == SYSTEM
+            and not observed['executable'] and raw(observed) == b'',
+            'SBF_ORCA_SPARSE_ARRAY_MISMATCH',
+        )
+        return
+    dynamic = a['layout'] == 'dynamic'
+    discriminator = b'account:DynamicTickArray' if dynamic else b'account:TickArray'
+    data = bytearray(hashlib.sha256(discriminator).digest()[:8] + start.to_bytes(4, 'little', signed=True))
+    if dynamic:
+        data += pool + int(a['initialized_bitmap']).to_bytes(16, 'little')
+    ticks = {tick['tick']: tick for tick in a['ticks']}
+    for i in range(88):
+        tick = ticks.get(start + i * state['tick_spacing'])
+        entry = bytearray(1 if dynamic and tick is None else 113)
+        if tick is not None:
+            entry[0] = 1
+            entry[1:17] = int(tick['liquidity_net']).to_bytes(16, 'little', signed=True)
+            for offset, field in [(17, 'liquidity_gross'), (33, 'fee_growth_outside0'), (49, 'fee_growth_outside1')]:
+                entry[offset:offset + 16] = int(tick[field]).to_bytes(16, 'little')
+            for index, value in enumerate(tick.get('reward_growths_outside', [])):
+                offset = 65 + index * 16
+                entry[offset:offset + 16] = int(value).to_bytes(16, 'little')
+        data += entry
+    if not dynamic:
+        data += pool
+    observed = accounts[a['address']]
+    require(observed['owner'] == ORCA and not observed['executable'] and raw(observed) == data,
+            'SBF_ORCA_ARRAY_MISMATCH')
 
 # Original classic-token CLMM layout validation.
 RAYCLMM='CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK'
@@ -279,6 +299,7 @@ def main():
     require(request['protocol']==PROTOCOL,'SBF_WORKER_PROTOCOL')
     preparation=request['preparation'];bank=request['bank'];limit=request['maxComputeUnits']
     claim=preparation.get('operation')=='ORCA_COLLECT_REWARD'
+    reward_update = preparation.get('rewardUpdate') if claim else None
     rayclmm_claim=preparation.get('operation')=='RAYCLMM_COLLECT_POSITION'
     reward_program=preparation.get('rewardTokenProgram') if claim else None
     wire=base64.b64decode(preparation['unsignedTransaction'],validate=True)
@@ -300,7 +321,8 @@ def main():
     if bank['pool']['protocol']in RAYCLMM_PROFILES:target=RAYCLMM
     require(not claim or (target==ORCA and bank.get('rpcCapture') and reward_program in (TOKEN,TOKEN22)),'SBF_ORCA_REWARD_CONTEXT')
     if claim:
-        require(programs == {ORCA, COMPUTE_BUDGET} and len(tx.message.instructions) == 2,
+        require(programs == {ORCA, COMPUTE_BUDGET} and
+                len(tx.message.instructions) == (3 if reward_update is not None else 2),
                 'SBF_ORCA_REWARD_INSTRUCTION')
     if rayclmm_claim:
         require(target==RAYCLMM and bank.get('rpcCapture')
@@ -365,9 +387,28 @@ def main():
             if v2:metas.append(reward['mint'])
             metas.extend([reward['vault'],reward_program])
             if v2:metas.append(MEMO)
-            require(len(ix)==1 and bytes(ix[0].data)==data and
-                    [str(tx.message.account_keys[i]) for i in ix[0].accounts]==metas,
+            require(len(ix) == (2 if reward_update is not None else 1) and bytes(ix[-1].data)==data and
+                    [str(tx.message.account_keys[i]) for i in ix[-1].accounts]==metas,
                     'SBF_ORCA_REWARD_INSTRUCTION')
+            if reward_update is not None:
+                pool = model['pool_id']
+                position = preparation['position']
+                bounds = [reward_update['lowerTickArray'], reward_update['upperTickArray']]
+                update_data = hashlib.sha256(b'global:update_fees_and_rewards').digest()[:8]
+                require(bytes(ix[0].data) == update_data and
+                        [str(tx.message.account_keys[i]) for i in ix[0].accounts] == [pool, position, *bounds],
+                        'SBF_ORCA_REWARD_UPDATE_INSTRUCTION')
+                position_data = raw(bank['accounts'][position])
+                span = 88 * state['tick_spacing']
+                arrays = {a['address']: a for a in state['tick_arrays'] if a['layout'] != 'sparse'}
+                for address, offset in zip(bounds, (88, 92)):
+                    tick = int.from_bytes(position_data[offset:offset + 4], 'little', signed=True)
+                    start = tick // span * span
+                    pda, _ = Pubkey.find_program_address(
+                        [b'tick_array', bytes(Pubkey.from_string(pool)), str(start).encode()], Pubkey.from_string(ORCA))
+                    require(address == str(pda) and address in arrays and arrays[address]['start_tick_index'] == start,
+                            'SBF_ORCA_REWARD_ARRAY_BINDING')
+                    validate_orca_array(model, arrays[address], bank['accounts'], Pubkey)
         else:
             oracle_index=list(map(str,tx.message.account_keys)).index(state['oracle']);h=tx.message.header
             writable=oracle_index<(h.num_required_signatures-h.num_readonly_signed_accounts if oracle_index<h.num_required_signatures else len(tx.message.account_keys)-h.num_readonly_unsigned_accounts)

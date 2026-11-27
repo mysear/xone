@@ -69,6 +69,17 @@ pub struct AdaptiveSwapReward {
     #[serde(with = "decimal_u128")]
     pub growth_global_x64: u128,
 }
+
+/// Whirlpool accrues against the initial pool liquidity. A product overflow
+/// leaves the growth unchanged, while the stored growth itself is wrapping.
+pub fn accrue_reward_growth(growth: u128, emissions: u128, elapsed: u64, liquidity: u128) -> u128 {
+    let delta = u128::from(elapsed)
+        .checked_mul(emissions)
+        .and_then(|n| n.checked_div(liquidity))
+        .unwrap_or(0);
+    growth.wrapping_add(delta)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AdaptiveSwapOracle {
@@ -419,26 +430,29 @@ fn quote_internal(
         .ok_or_else(|| err("ORCA_ADAPTIVE_SWAP_ARRAY_SEARCH"))?;
     // Swap selects up to three directionally contiguous accounts from the window.
     // Keep the original fixed-kernel admission behavior for direct callers.
-    let max_arrays = if allow_dynamic { 3 } else { state.tick_arrays.len() };
+    let max_arrays = if allow_dynamic {
+        3
+    } else {
+        state.tick_arrays.len()
+    };
     let order: Vec<usize> = if left {
         (0..=first).rev().take(max_arrays).collect()
     } else {
         (first..state.tick_arrays.len()).take(max_arrays).collect()
     };
     let mut next = state.clone();
-    // Original whirlpool_manager accrues once using the initial liquidity. A
-    // checked u128 product overflow halts this slot's increment, before division.
-    if allow_rewards && state.liquidity != 0 && p.timestamp != state.reward_last_updated_timestamp {
-        let elapsed = u128::from(p.timestamp - state.reward_last_updated_timestamp);
+    if allow_rewards {
+        let elapsed = p.timestamp - state.reward_last_updated_timestamp;
         for reward in &mut next.reward_infos {
             if reward.mint == [0; 32] {
                 continue;
             }
-            let delta = elapsed
-                .checked_mul(reward.emissions_per_second_x64)
-                .map(|n| n / state.liquidity)
-                .unwrap_or(0);
-            reward.growth_global_x64 = reward.growth_global_x64.wrapping_add(delta);
+            reward.growth_global_x64 = accrue_reward_growth(
+                reward.growth_global_x64,
+                reward.emissions_per_second_x64,
+                elapsed,
+                state.liquidity,
+            );
         }
     }
     let next_rewards = next.reward_infos.clone();
