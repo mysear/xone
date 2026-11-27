@@ -408,7 +408,8 @@
 16. EVM 节点回执同时核对付款人原生币的前后余额和 nonce，覆盖双 ERC-20 交换。交易索引查询复用同一账户跟踪结果，付款人也是原生币结算账户时复用同一余额。24 个 Geth 和 24 个 Anvil 回执通过，两组各 24 个仅篡改付款人原生余额的反例均被拒绝。
 17. OP 原版签名费用语料已从固定摘要的 op-geth 源码重建。覆盖 Regolith 至 Isthmus 的 448 个场景和 1337 次状态转换，严格执行与费用审计的 7 项 Rust 联测通过。原冻结 V2 文件缺失，重建的 24 组 V2 bank 通过独立验证器，文件摘要与旧冻结值不同。
 18. 正常 OP HTTP 签名验收新增 `op_api_http.py --export-validated-sources BANK TRACES EXECUTION_VECTORS OUTPUT`，复核重建 V2 bank 及原始跟踪文件后按摘要绑定导出。Regolith 至 Isthmus 的 Legacy 和 EIP-1559 各覆盖 ExactIn、ExactOut，共 28 个正常报价、构建及签名执行与原版 op-geth 的 gas、L1 数据费、operator fee、费用账户及收款差一致，168 个无效请求被拒绝。验收范围为本地历史状态。 [复验工具](integration/tools/acceptance/op_api_http.py)
-19. 下一轮复核 Jovian、Karst 原始客户端验收输入与普通 HTTP 分派，补齐受支持规则的费用和真实余额差证据。继续补齐含提款区块末笔交易的独立交易后状态。
+19. 重建 Jovian 的 64 个原版费用场景，并从固定源码、依赖和 Rust 1.99.0 构建 Karst 原版执行器。验收工具支持导出两个规则的输入，HTTP 验收不再重复写入同一份报价、构建、签名和仿真文件。Regolith 至 Karst 合计 36 个正常签名执行和 216 个拒绝场景通过，其中 Jovian、Karst 各有 4 个正常场景。 [OP HTTP 复验](integration/tools/acceptance/op_api_http.py) · [Karst 原版执行器](integration/tools/acceptance/karst_execution_vectors.py)
+20. 下一轮补齐含提款区块末笔交易的状态核对。先绑定完整提款列表与区块提款根，再核对提款发生前的付款、收款和费用余额，对无法精确还原的状态拒绝出具回执证据。
 
 ### I7 真实来源和恢复
 

@@ -55,8 +55,9 @@ def write(path, value):
     path.write_text(json.dumps(value, indent=2) + '\n')
 
 
-def export_validated_sources(bank, traces, execution_vectors, sources):
+def export_validated_sources(bank, traces, execution_vectors, sources, *, jovian_vectors=None, include_karst=False):
     """Export OP cases from independently validated, regenerated V2 evidence."""
+    require(not include_karst or jovian_vectors is not None, 'Karst export requires Jovian vectors')
     bank, traces, execution_vectors, sources = (
         Path(path).resolve() for path in (bank, traces, execution_vectors, sources)
     )
@@ -73,15 +74,42 @@ def export_validated_sources(bank, traces, execution_vectors, sources):
     env = dict(
         os.environ, XONE_OP_VALIDATED_V2_BANK=str(bank),
         XONE_OP_VALIDATED_V2_BANK_SHA256=bank_sha,
-        XONE_OP_EXECUTION_VECTORS=str(execution_vectors), XONE_OP_API_INPUTS=str(sources),
+        XONE_OP_EXECUTION_VECTORS=str(execution_vectors),
     )
-    subprocess.run([
+    cargo = [
         'cargo', '+1.90.0', 'test', '--locked', '--manifest-path', 'dex-router/Cargo.toml',
         '-p', 'xone-simulation', '--test', 'op_bound',
-        'export_original_op_bound_inputs_for_normal_op_api_sources', '--', '--ignored',
-    ], cwd=ROOT, env=env, check=True, timeout=240)
+    ]
+    report = dict(bank_sha256=bank_sha, execution_vectors_sha256=vectors_sha)
+    with tempfile.TemporaryDirectory(prefix='xone-op-api-export-') as temporary:
+        directory = Path(temporary)
+        historical = directory / 'historical.json'
+        env['XONE_OP_API_INPUTS'] = str(historical)
+        subprocess.run(
+            cargo + ['export_original_op_bound_inputs_for_normal_op_api_sources', '--', '--ignored'],
+            cwd=ROOT, env=env, check=True, timeout=240,
+        )
+        rows = json.loads(historical.read_bytes())
+        if jovian_vectors is not None:
+            from op_jovian_vectors import audit
+            jovian_vectors = Path(jovian_vectors).resolve()
+            jovian_sha = digest(jovian_vectors)
+            audit(json.loads(jovian_vectors.read_bytes())['cases'])
+            env['XONE_OP_JOVIAN_VECTORS'] = str(jovian_vectors)
+            rules = ['jovian', 'karst'] if include_karst else ['jovian']
+            for rule in rules:
+                output = directory / f'{rule}.json'
+                env[f'XONE_OP_{rule.upper()}_API_INPUTS'] = str(output)
+                subprocess.run(
+                    cargo + [f'export_original_op_bound_inputs_for_{rule}_normal_api_sources', '--', '--ignored'],
+                    cwd=ROOT, env=env, check=True, timeout=240,
+                )
+                rows.extend(json.loads(output.read_bytes()))
+            require(digest(jovian_vectors) == jovian_sha, 'Original Jovian vectors changed during export')
+            report['jovian_vectors_sha256'] = jovian_sha
     require(digest(execution_vectors) == vectors_sha, 'Original execution vectors changed during export')
-    return dict(bank_sha256=bank_sha, execution_vectors_sha256=vectors_sha, sources_sha256=digest(sources))
+    write(sources, rows)
+    return dict(report, sources_sha256=digest(sources))
 
 
 def run(binary, sources, runners, output, maximum_groups=None, *, scoped_karst=False, valuation_configs=None, candidate_cost_max_plans=None):
@@ -194,8 +222,8 @@ def run(binary, sources, runners, output, maximum_groups=None, *, scoped_karst=F
                         require(costs['parentFeeAuditReads'] > 0 and costs['totalUsage']['reads'] == outcome['usage']['reads'] + costs['parentFeeAuditReads'], 'Parent source reads omitted from aggregate budget')
                         require(costs['totalUsage']['read_bytes'] == outcome['usage']['read_bytes'] + costs['parentFeeAuditReadBytes'], 'Parent source bytes omitted from aggregate budget')
                         require(all(costs[key] is None for key in ['totalNativeEstimate', 'approvalNative', 'netBuyAmountEstimate', 'netSellAmountEstimate']), 'Unknown quote economic cost fabricated')
-                        for name, value in [('quote', quote), ('build', built), ('signed', signed), ('simulation', simulation), ('original-input', reference_input), ('original', reference)]:
-                            write(directory / (name + '.json'), value)
+                        write(directory / 'original-input.json', reference_input)
+                        write(directory / 'original.json', reference)
                         rows.append(dict(id=source['id'], quote_kind=simulation['quoteKind'], gas_used=reference['gas_used'],
                                          artifacts={str(p.relative_to(output)): digest(p) for p in directory.glob('*.json')}))
                 finally:
@@ -219,8 +247,13 @@ def run(binary, sources, runners, output, maximum_groups=None, *, scoped_karst=F
 if __name__ == '__main__':
     import sys
     if sys.argv[1:2] == ['--export-validated-sources']:
-        require(len(sys.argv) == 6, 'Expected --export-validated-sources BANK TRACES EXECUTION_VECTORS OUTPUT')
-        print(json.dumps(export_validated_sources(*sys.argv[2:])))
+        import argparse
+        parser = argparse.ArgumentParser(prog=f'{sys.argv[0]} --export-validated-sources')
+        for name in ('bank', 'traces', 'execution_vectors', 'sources'):
+            parser.add_argument(name, type=Path)
+        parser.add_argument('--jovian-vectors', type=Path)
+        parser.add_argument('--include-karst', action='store_true')
+        print(json.dumps(export_validated_sources(**vars(parser.parse_args(sys.argv[2:])))))
     else:
         require(len(sys.argv) in [6, 8], 'Expected HARNESS SOURCES SIGNER TRANSITION OUTPUT [--karst-transition RUNNER]')
         runners = dict(signer=Path(sys.argv[3]), transition=Path(sys.argv[4]))

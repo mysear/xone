@@ -156,21 +156,33 @@ def path_dependencies(module):
     return refs
 
 
-def write(output):
-    output=Path(output).resolve();output.parent.mkdir(parents=True,exist_ok=False)
-    refs=originals();inputs,retained_refs=cases();refs.update(retained_refs);refs[str(RUNNER.relative_to(ROOT))]=digest(RUNNER)
-    module=output.parent/'runner';(module/'src').mkdir(parents=True)
+def prepare_runner(directory):
+    directory = Path(directory).resolve()
+    refs = originals()
+    refs[str(RUNNER.relative_to(ROOT))] = digest(RUNNER)
+    module = directory / 'runner'
+    (module / 'src').mkdir(parents=True)
     shutil.copyfile(RUNNER,module/'src/main.rs');shutil.copyfile(OP/'rust/Cargo.lock',module/'Cargo.lock')
     (module/'Cargo.toml').write_text('[package]\nname="xone-karst-original-execution"\nversion="0.0.0"\nedition="2024"\n[workspace]\n[dependencies]\nop-revm={path="'+str(OP/'rust/op-revm')+'",default-features=true}\nalloy-consensus={version="=2.5.0",features=["k256"]}\nalloy-eips="=2.5.0"\nserde_json="1.0"\nhex="=0.4.3"\n')
     env=dict(os.environ,PATH=str(Path.home()/'.cargo/bin')+os.pathsep+os.environ['PATH'],CARGO_BUILD_JOBS='2',CARGO_INCREMENTAL='0',CARGO_TARGET_DIR=str(BASE/'target'))
     result=subprocess.run(['cargo','+1.99.0','build','--manifest-path',str(module/'Cargo.toml')],cwd=ROOT,env=env,capture_output=True,text=True,timeout=600)
-    (output.parent/'build.log').write_text(result.stdout+result.stderr);require(result.returncode==0,'Original full engine build failed: '+result.stderr[-2500:])
+    (directory/'build.log').write_text(result.stdout+result.stderr);require(result.returncode==0,'Original full engine build failed: '+result.stderr[-2500:])
     refs.update(path_dependencies(module));binary=module/'runner';shutil.copy2(BASE/'target/debug/xone-karst-original-execution',binary)
+    for path in (module/'src/main.rs', module/'Cargo.toml', module/'Cargo.lock', binary, directory/'build.log'):
+        refs[str(path.relative_to(ROOT))] = digest(path)
+    return binary, refs
+
+
+def write(output):
+    output=Path(output).resolve();output.parent.mkdir(parents=True,exist_ok=False)
+    inputs,retained_refs=cases()
+    binary,refs=prepare_runner(output.parent)
+    refs.update(retained_refs)
     (output.parent/'inputs.json').write_text(json.dumps(inputs)+'\n')
     result=subprocess.run([str(binary)],input=json.dumps(inputs),capture_output=True,text=True,timeout=300)
     (output.parent/'original.stderr').write_text(result.stderr);require(result.returncode==0,'Original full engine failed: '+result.stderr[-2500:])
     rows=json.loads(result.stdout);audit(inputs,rows)
-    for p in [module/'src/main.rs',module/'Cargo.toml',module/'Cargo.lock',binary,output.parent/'build.log',output.parent/'inputs.json',output.parent/'original.stderr']:refs[str(p.relative_to(ROOT))]=digest(p)
+    for p in [output.parent/'inputs.json',output.parent/'original.stderr']:refs[str(p.relative_to(ROOT))]=digest(p)
     report=dict(passed=True,original_op_commit='60360273aada79572fe2212497de578ad2fa249b',original_revm_version='43.0.3',inputs=inputs,cases=rows,case_count=len(rows),references=refs,current_vm_admitted=False,production_ready=False,all_requested_features_complete=False,scope='FIXED_FULL_ORIGINAL_KARST_USER_VM_LOCAL_BANK_NOT_SCHEDULE_ADMISSION_TRUSTED_BANK_DERIVATION_OR_CONSENSUS')
     output.write_text(json.dumps(report,indent=2)+'\n');return refs
 
@@ -187,4 +199,7 @@ def replay(vector,output):
 if __name__=='__main__':
     import sys
     if len(sys.argv)==4 and sys.argv[1]=='--replay':replay(sys.argv[2],sys.argv[3])
+    elif len(sys.argv) == 3 and sys.argv[1] == '--prepare-runner':
+        binary, refs = prepare_runner(sys.argv[2])
+        print(json.dumps(dict(binary=str(binary), sha256=refs[str(binary.relative_to(ROOT))])))
     else:write(sys.argv[1])
