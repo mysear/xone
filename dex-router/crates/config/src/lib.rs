@@ -126,6 +126,8 @@ config_struct!(Routing {
 pub struct Simulation {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub evm_cancun_verified_chain: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub evm_cancun_verified_rpc_state: bool,
     #[serde(default, skip_serializing_if = "simulation_zero_usize")]
     pub candidate_cost_max_plans: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -997,6 +999,9 @@ impl Config {
                 || sim.candidate_cost_max_plans > 16
                 || r.max_splits > 2)
         {
+            return Err(fail());
+        }
+        if sim.evm_cancun_verified_rpc_state && sim.evm_cancun_verified_chain.is_empty() {
             return Err(fail());
         }
         if !sim.evm_cancun_verified_chain.is_empty()

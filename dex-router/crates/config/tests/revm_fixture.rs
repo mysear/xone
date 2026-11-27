@@ -45,3 +45,26 @@ fn local_revm_settings_cannot_hide_in_a_disabled_backend() {
         assert!(c.validate("dex-router").is_err());
     }
 }
+
+#[test]
+fn verified_rpc_state_requires_an_explicit_configured_evm_chain() {
+    let mut value = configured();
+    value["simulation"]["evm_cancun_verified_rpc_state"] = json!(true);
+    let mut config: Config = serde_json::from_value(value).unwrap();
+    assert!(config.validate("dex-router").is_err());
+    let chain = config
+        .chains
+        .iter_mut()
+        .find(|chain| chain.key.starts_with("evm:"))
+        .unwrap();
+    config.simulation.evm_cancun_verified_chain = chain.key.clone();
+    assert!(config.validate("dex-router").is_err());
+    let chain = config
+        .chains
+        .iter_mut()
+        .find(|chain| chain.key == config.simulation.evm_cancun_verified_chain)
+        .unwrap();
+    chain.genesis_hash = format!("0x{}", "ab".repeat(32));
+    chain.rpc_urls = vec!["http://127.0.0.1:19999".into()];
+    config.validate("dex-router").unwrap();
+}

@@ -11,11 +11,13 @@ use xone_simulation::evm_fixture::{EvmStatus, FixtureState, SimulationOutcome};
 
 mod ancestors;
 mod native_simulation;
+mod rpc_fixture;
 mod source_state;
 mod transactions;
 pub(super) use native_simulation::{
     compare as compare_simulation, recheck as recheck_simulation_context,
 };
+pub(super) use rpc_fixture::refresh as refresh_simulation_fixture;
 
 #[derive(RlpEncodable)]
 struct Withdrawal {

@@ -4,7 +4,9 @@ use super::{
 };
 use alloy_primitives::{Bytes, B256, U256};
 use alloy_trie::{proof::verify_proof, Nibbles, TrieAccount};
-use xone_simulation::evm_fixture::{FixtureState, StorageEntry, BEACON_ROOTS_ADDRESS};
+use xone_simulation::evm_fixture::{
+    FixtureAccount, FixtureState, StorageEntry, BEACON_ROOTS_ADDRESS,
+};
 
 fn mismatch() -> xone_domain::Error {
     err("EVM_NODE_RECEIPT_SOURCE_STATE_MISMATCH")
@@ -38,6 +40,9 @@ fn verify_account(root: B256, owner: &str, exists: bool, proof: &Value) -> Resul
         storage_root: receipt_bytes::<32>(&proof["storageHash"])?.into(),
         code_hash: receipt_bytes::<32>(&proof["codeHash"])?.into(),
     };
+    if !exists && (account.nonce != 0 || !account.balance.is_zero()) {
+        return Err(mismatch());
+    }
     verify_proof(
         root,
         Nibbles::unpack(keccak256(&address)),
@@ -45,20 +50,36 @@ fn verify_account(root: B256, owner: &str, exists: bool, proof: &Value) -> Resul
         &nodes(&proof["accountProof"])?,
     )
     .map_err(|_| mismatch())?;
-    Ok(account)
+    Ok(if exists {
+        account
+    } else {
+        TrieAccount::default()
+    })
 }
 
 fn verify_storage(storage_root: B256, entries: &[StorageEntry], proof: &Value) -> Result<()> {
+    prove_storage(storage_root, entries, proof, |entry, value| {
+        if receipt_bytes::<32>(&json!(entry.value))? != value {
+            return Err(mismatch());
+        }
+        Ok(())
+    })
+}
+
+fn prove_storage(
+    storage_root: B256,
+    entries: &[StorageEntry],
+    proof: &Value,
+    mut read: impl FnMut(&StorageEntry, [u8; 32]) -> Result<()>,
+) -> Result<()> {
     let storage = proof["storageProof"].as_array().ok_or_else(mismatch)?;
     if storage.len() != entries.len() {
         return Err(mismatch());
     }
     for (entry, proof) in entries.iter().zip(storage) {
         let slot = receipt_bytes::<32>(&json!(entry.slot))?;
-        let value = receipt_bytes::<32>(&json!(entry.value))?;
-        if receipt_bytes::<32>(&proof["key"])? != slot
-            || quantity(&proof["value"])?.to_be_bytes()? != value
-        {
+        let value = quantity(&proof["value"])?.to_be_bytes()?;
+        if receipt_bytes::<32>(&proof["key"])? != slot {
             return Err(mismatch());
         }
         let encoded = (value != [0; 32]).then(|| alloy_rlp::encode(U256::from_be_bytes(value)));
@@ -69,6 +90,59 @@ fn verify_storage(storage_root: B256, entries: &[StorageEntry], proof: &Value) -
             &nodes(&proof["proof"])?,
         )
         .map_err(|_| mismatch())?;
+        read(entry, value)?;
+    }
+    Ok(())
+}
+
+async fn account_proof(
+    api: &Api,
+    chain: &str,
+    block_hash: &str,
+    root: B256,
+    account: &FixtureAccount,
+) -> Result<(TrieAccount, Value)> {
+    let slots: Vec<_> = account.storage.iter().map(|entry| &entry.slot).collect();
+    let proof = rpc(
+        api,
+        chain,
+        "eth_getProof",
+        json!([account.address, slots, {"blockHash":block_hash,"requireCanonical":true}]),
+    )
+    .await?;
+    let proved = verify_account(root, &account.address, account.exists, &proof)?;
+    if account.exists && proved.code_hash.0 != code_hash(&account.code)? {
+        return Err(mismatch());
+    }
+    Ok((proved, proof))
+}
+
+pub(super) async fn refresh_accounts(
+    api: &Api,
+    fixture: &mut FixtureState,
+    source: &Value,
+) -> Result<()> {
+    let root = B256::from(receipt_bytes::<32>(&source["stateRoot"])?);
+    let anchor = &fixture.state_anchor;
+    for account in &mut fixture.accounts {
+        let (proved, proof) =
+            account_proof(api, &anchor.chain_key, &anchor.block_hash, root, account).await?;
+        let mut storage = Vec::with_capacity(account.storage.len());
+        prove_storage(
+            proved.storage_root,
+            &account.storage,
+            &proof,
+            |entry, value| {
+                storage.push(StorageEntry {
+                    slot: entry.slot.clone(),
+                    value: format!("0x{}", hex::encode(value)),
+                });
+                Ok(())
+            },
+        )?;
+        account.balance = xone_domain::Amount::from_be_bytes(&proved.balance.to_be_bytes::<32>())?;
+        account.nonce = proved.nonce;
+        account.storage = storage;
     }
     Ok(())
 }
@@ -156,20 +230,10 @@ pub(super) async fn verify(api: &Api, chain: &str, fixture: &FixtureState) -> Re
     }
     super::ancestors::verify(api, chain, fixture, &source).await?;
     let root = B256::from(receipt_bytes::<32>(&source["stateRoot"])?);
-    let block = json!({"blockHash":anchor.block_hash,"requireCanonical":true});
     for account in &fixture.accounts {
-        let slots: Vec<_> = account.storage.iter().map(|entry| &entry.slot).collect();
-        let proof = rpc(
-            api,
-            chain,
-            "eth_getProof",
-            json!([account.address, slots, block]),
-        )
-        .await?;
-        let proved = verify_account(root, &account.address, account.exists, &proof)?;
+        let (proved, proof) = account_proof(api, chain, &anchor.block_hash, root, account).await?;
         if proved.nonce != account.nonce
             || proved.balance != U256::from_be_bytes(account.balance.to_be_bytes()?)
-            || (account.exists && proved.code_hash.0 != code_hash(&account.code)?)
         {
             return Err(mismatch());
         }

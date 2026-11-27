@@ -164,10 +164,12 @@ async fn assert_replay(
         );
     }
     let token = config.token.clone();
+    let rpc_state = std::env::var_os("XONE_SINGLETON_VERIFIED_RPC_STATE").is_some();
     if let Some(mined) = &mined {
         config.config.routing.quote_ttl_ms = mined.quote_ttl_ms();
         if mined.transaction_index() != 0 {
             config.config.simulation.evm_cancun_verified_chain = pool.chain_key.clone();
+            config.config.simulation.evm_cancun_verified_rpc_state = rpc_state;
             config.config.api.quote_timeout_ms = 15_000;
         }
     }
@@ -219,6 +221,12 @@ async fn assert_replay(
             && request["buyToken"] != xone_domain::singleton::ZERO_ADDRESS
         {
             request["verification"] = "VERIFIED".into();
+            if rpc_state {
+                mined.inject(node::Fault::SourceStorage);
+                let (status, rejected) = call(path.into(), request.clone()).await;
+                assert_eq!(status, 422, "{rejected}");
+                assert_eq!(rejected["error"], "SIMULATION_FAILED");
+            }
             mined.inject(node::Fault::SimulationGas);
             let (status, rejected) = call(path.into(), request.clone()).await;
             assert_eq!(status, 422, "{rejected}");

@@ -27,7 +27,8 @@ use xone_execution_plan::{
 };
 use xone_simulation::{
     evm_fixture::{
-        NativeFeeMeasurements, SimulationBudget, TransactionContext, SINGLETON_SIMULATOR_VERSION,
+        FixtureState, NativeFeeMeasurements, SimulationBudget, TransactionContext,
+        SINGLETON_SIMULATOR_VERSION,
     },
     revm_backend::StateImage,
     worker::{
@@ -179,6 +180,7 @@ fn singleton_order(config: &ConfigSnapshot, cached: &Selection) -> Result<Worker
             .collect(),
     })
 }
+#[derive(Clone)]
 pub(crate) struct LocalSimulation {
     wrap_source: Option<Arc<crate::wrapped_funding::Source>>,
     bundle: Arc<LocalSimulationBundle>,
@@ -444,6 +446,31 @@ impl PreparedExecution {
 }
 
 impl LocalSimulation {
+    pub(crate) fn with_verified_fixture(
+        &self,
+        fixture: FixtureState,
+        caller: &str,
+    ) -> Result<Arc<Self>> {
+        let mut bundle = (*self.bundle).clone();
+        bundle.transaction_context.nonce = fixture
+            .accounts
+            .iter()
+            .find(|account| account.address == caller && account.exists)
+            .ok_or_else(|| err("SIMULATION_OBSERVATION_UNAVAILABLE"))?
+            .nonce;
+        bundle.fixture = fixture;
+        let image = bundle
+            .fixture
+            .to_image(&self.budget)
+            .map_err(|_| err("SIMULATION_STATE_INVALID"))?;
+        Ok(Arc::new(Self {
+            bundle_sha256: hash(&bundle)?,
+            bundle: Arc::new(bundle),
+            _image: image,
+            ..self.clone()
+        }))
+    }
+
     pub(crate) fn fixture(&self) -> &xone_simulation::evm_fixture::FixtureState {
         &self.bundle.fixture
     }

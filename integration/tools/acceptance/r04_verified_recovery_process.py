@@ -91,13 +91,46 @@ def make_config(name, directory, token, listen, owner, infra, fixture):
             max_memory_bytes=67108864, max_gas=10000000, max_state_reads=200000,
             timeout_ms=15000, concurrency=1, allowed_targets=[fixture['executor']['executor']],
         )
+        if fixture.get('rpcState'):
+            config['simulation']['evm_cancun_verified_rpc_state'] = True
     return save_config(directory / 'config', config)
 
 
-def run(replay, geth, case, check_timeout):
+def previous_template(fixture, directory):
+    bundle = json.loads(Path(fixture['bundle']).read_text())
+    state = bundle['fixture']
+    anchor, environment = state['state_anchor'], state['execution_environment']
+    status, response = http(fixture['rpc'], body={
+        'jsonrpc': '2.0', 'id': 1, 'method': 'eth_getBlockByHash',
+        'params': [anchor['parent_hash'], False],
+    })
+    require(status == 200 and response['result']['hash'] == anchor['parent_hash'], response)
+    previous = response['result']
+    environment.update(block_number=anchor['block_number'], block_hash=anchor['block_hash'],
+                       parent_hash=anchor['parent_hash'])
+    anchor.update(block_number=int(previous['number'], 16), block_hash=previous['hash'],
+                  parent_hash=previous['parentHash'], timestamp=int(previous['timestamp'], 16),
+                  base_fee_per_gas=str(int(previous['baseFeePerGas'], 16)))
+    bundle['transaction_context']['nonce'] += 1
+    for account in state['accounts']:
+        if account['address'] == fixture['quote']['caller']:
+            account['balance'] = '0'
+            account['nonce'] += 1
+        for entry in account['storage']:
+            entry['value'] = '0x' + '00' * 32
+    path = directory / 'previous-template.json'
+    path.write_text(json.dumps(bundle))
+    manager = fixture['pool']['singleton_advanced']['snapshot']['manager']
+    next(account for account in state['accounts'] if account['address'] == manager)['storage'] = []
+    incomplete = directory / 'incomplete-template.json'
+    incomplete.write_text(json.dumps(bundle))
+    return anchor, str(path), str(incomplete)
+
+
+def run(replay, geth, case, check_timeout, rpc_state):
     output = ROOT / 'integration/artifacts/local'
     output.mkdir(parents=True, exist_ok=True)
-    scenario = 'timeout' if check_timeout else 'normal-process'
+    scenario = 'rpc-state' if rpc_state else 'timeout' if check_timeout else 'normal-process'
     report_path = output / f'r04-verified-recovery-{scenario}.json'
     sources, binaries = source_hash(), binary_fingerprint()
     with ExitStack() as stack:
@@ -121,6 +154,10 @@ def run(replay, geth, case, check_timeout):
 
         stack.callback(stop_fixture)
         fixture = wait_manifest(directory, server)
+        if rpc_state:
+            template_anchor, complete, incomplete = previous_template(fixture, directory)
+            fixture['rpcState'] = True
+            fixture['bundle'] = complete
         token = secrets.token_urlsafe(32)
         owner_port, router_port = port(), port()
         owner = f'http://127.0.0.1:{owner_port}'
@@ -143,11 +180,18 @@ def run(replay, geth, case, check_timeout):
         checkpoint = owner_cursor(owner, token)
         fast_request = dict(fixture['quote'], verification='FAST')
         quote_url = router + '/v1/quote'
-        first = start('dex-router', router_config, 'initial-router')
+        initial_config = router_config
+        if rpc_state:
+            initial_config = make_config('dex-router', directory / 'incomplete-router', token,
+                                         router_port, owner, infra, dict(fixture, bundle=incomplete))
+        first = start('dex-router', initial_config, 'initial-router')
         wait(router + '/health/live')
         wait_scope(router, token, chain)
         status, initial = http(quote_url, token, fast_request)
         require(status == 200 and initial['grossBuyAmount'] == fixture['expectedOutput'], (status, initial))
+        if rpc_state:
+            status, refused = http(quote_url, token, fixture['quote'], timeout=18)
+            require(status == 422 and refused['error'] == 'SIMULATION_FAILED', (status, refused))
         stop(first)
         started = time.monotonic()
         start('dex-router', router_config, 'cold-router')
@@ -206,6 +250,10 @@ def run(replay, geth, case, check_timeout):
         }
         if timeout_probe is not None:
             report['timeout_probe'] = timeout_probe
+        if rpc_state:
+            report['template_anchor'] = template_anchor
+            report['incomplete_template_error'] = 'SIMULATION_FAILED'
+            report['state'] = 'LOCAL_VERIFIED_RECOVERY_RPC_STATE_SCOPE_VERIFIED'
         write_result(report_path, report)
         print(json.dumps(report))
 
@@ -214,7 +262,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('replay', 'geth', 'case'):
         parser.add_argument(name, type=lambda path: Path(path).resolve(strict=True))
-    parser.add_argument('--check-timeout', action='store_true',
-                        help='stall the first native simulation and verify recovery on retry')
+    scenario = parser.add_mutually_exclusive_group()
+    scenario.add_argument('--check-timeout', action='store_true',
+                          help='stall the first native simulation and verify recovery on retry')
+    scenario.add_argument('--rpc-state', action='store_true',
+                          help='verify a newer block with RPC state and an older bundle template')
     args = parser.parse_args()
-    run(args.replay, args.geth, args.case, args.check_timeout)
+    run(args.replay, args.geth, args.case, args.check_timeout, args.rpc_state)

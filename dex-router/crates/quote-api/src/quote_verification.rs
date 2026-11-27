@@ -46,10 +46,36 @@ impl Api {
             .iter()
             .find(|chain| chain.key == selected.context().chain_key)
             .ok_or_else(|| err("UNKNOWN_CHAIN"))?;
-        if !backend.matches_snapshot(&selected.view().reference, &chain.genesis_hash) {
-            return Err(err("INDEPENDENT_SIMULATION_UNAVAILABLE"));
-        }
         self.check_verified_view(selected.view(), selected.expires())?;
+        let backend = if self.config.config.simulation.evm_cancun_verified_rpc_state {
+            if backend.fixture().state_anchor.chain_key != chain.key
+                || backend.fixture().state_anchor.genesis_hash != chain.genesis_hash
+            {
+                return Err(err("INDEPENDENT_SIMULATION_UNAVAILABLE"));
+            }
+            let fixture = evm_receipt::refresh_simulation_fixture(
+                self,
+                backend.fixture(),
+                &selected.view().reference.block,
+                deadline,
+            )
+            .await
+            .map_err(verification_error)?;
+            let caller = selected.context().caller.clone();
+            let prepared = tokio::task::spawn_blocking(move || {
+                backend.with_verified_fixture(fixture, &caller)
+            });
+            tokio::time::timeout_at(deadline.into(), prepared)
+                .await
+                .map_err(|_| err("BUDGET_EXHAUSTED"))?
+                .map_err(|_| err("SIMULATION_FAILED"))?
+                .map_err(|_| err("SIMULATION_FAILED"))?
+        } else {
+            if !backend.matches_snapshot(&selected.view().reference, &chain.genesis_hash) {
+                return Err(err("INDEPENDENT_SIMULATION_UNAVAILABLE"));
+            }
+            backend
+        };
         let replay = backend
             .clone()
             .execute(self.config.clone(), selected.clone(), deadline)
