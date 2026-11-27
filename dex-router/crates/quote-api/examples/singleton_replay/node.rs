@@ -39,6 +39,9 @@ pub(super) struct Node {
 pub(super) enum Fault {
     Gas,
     Logs,
+    ReceiptsMissing,
+    ReceiptsOrder,
+    ReceiptBloom,
     Balance,
     PayerBalance,
     Reorg,
@@ -55,6 +58,7 @@ pub(super) struct Mined {
     node: Arc<Node>,
     deadline: u64,
     pub(super) signed: Value,
+    pub(super) receipts_root: String,
     pub(super) withdrawals_root: Option<String>,
     payer: String,
     transaction_index: u64,
@@ -407,6 +411,7 @@ impl Node {
             node: Arc::new(self),
             deadline,
             signed,
+            receipts_root: field(&execution, "receiptsRoot"),
             withdrawals_root,
             payer: field(&case["context"], "caller"),
             transaction_index,
@@ -448,6 +453,7 @@ impl Mined {
         let execution_reads = self.execution_reads.clone();
         let payer = self.payer.clone();
         let final_target = self.final_target;
+        let index = self.transaction_index as usize;
         axum::Router::new().route(
             "/",
             axum::routing::post(move |axum::Json(mut request): axum::Json<Value>| {
@@ -472,12 +478,21 @@ impl Mined {
                     }
                     let result = &mut response["result"];
                     match (fault, request["method"].as_str().unwrap()) {
-                        (Some(Fault::Gas), "eth_getTransactionReceipt") => {
-                            result["gasUsed"] = "0x1".into();
+                        (Some(Fault::Gas), "eth_getBlockReceipts") => {
+                            result[index]["gasUsed"] = "0x1".into();
                         }
-                        (Some(Fault::Logs), "eth_getTransactionReceipt") => {
-                            assert!(!result["logs"].as_array().unwrap().is_empty());
-                            result["logs"][0]["data"] = "0x".into();
+                        (Some(Fault::Logs), "eth_getBlockReceipts") => {
+                            assert!(!result[index]["logs"].as_array().unwrap().is_empty());
+                            result[index]["logs"][0]["data"] = "0x".into();
+                        }
+                        (Some(Fault::ReceiptsMissing), "eth_getBlockReceipts") => {
+                            assert!(result.as_array_mut().unwrap().pop().is_some());
+                        }
+                        (Some(Fault::ReceiptsOrder), "eth_getBlockReceipts") => {
+                            result.as_array_mut().unwrap().swap(0, 1);
+                        }
+                        (Some(Fault::ReceiptBloom), "eth_getBlockReceipts") => {
+                            result[index]["logsBloom"] = format!("0x{}", "00".repeat(256)).into();
                         }
                         (Some(Fault::Balance), "eth_getBalance") if !final_target => {
                             *result = "0x1".into();

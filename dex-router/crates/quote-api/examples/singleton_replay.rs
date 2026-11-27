@@ -269,6 +269,7 @@ async fn assert_replay(
             mined.transaction_index()
         );
         assert_eq!(observed["nodeReceipt"]["success"], true);
+        assert_eq!(observed["nodeReceipt"]["receiptsRoot"], mined.receipts_root);
         assert_eq!(
             observed["nodeReceipt"]["transactionHash"],
             signed["transactionHash"]
@@ -290,6 +291,8 @@ async fn assert_replay(
         let mut faults = vec![
             node::Fault::Gas,
             node::Fault::Logs,
+            node::Fault::ReceiptsMissing,
+            node::Fault::ReceiptBloom,
             node::Fault::Balance,
             node::Fault::PayerBalance,
             node::Fault::Reorg,
@@ -310,6 +313,7 @@ async fn assert_replay(
                     .as_str()
             );
             faults.extend([
+                node::Fault::ReceiptsOrder,
                 node::Fault::IgnoreTraceIndex,
                 node::Fault::BeaconRoot,
                 node::Fault::BeaconStorage,

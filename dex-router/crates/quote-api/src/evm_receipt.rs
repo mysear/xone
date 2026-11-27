@@ -1,7 +1,7 @@
 use super::{err, hash, json, Api, Instant, Result, Value};
 use crate::{local_simulation::Failure, transaction_lifecycle::rpc};
-use alloy_rlp::{Encodable, Header, RlpEncodable};
-use alloy_trie::root::ordered_trie_root;
+use alloy_rlp::{Bytes, Encodable, Header, RlpEncodable};
+use alloy_trie::root::{ordered_trie_root, ordered_trie_root_with_encoder};
 use num_traits::CheckedSub;
 use std::collections::BTreeMap;
 use tiny_keccak::{Hasher, Keccak};
@@ -28,16 +28,10 @@ fn parse_withdrawals(block: &Value) -> Result<Vec<Withdrawal>> {
     let withdrawals = withdrawals
         .iter()
         .map(|row| {
-            let address = row["address"]
-                .as_str()
-                .and_then(|value| value.strip_prefix("0x"))
-                .ok_or_else(bad)?;
-            let mut bytes = [0; 20];
-            hex::decode_to_slice(address, &mut bytes).map_err(|_| bad())?;
             Ok(Withdrawal {
                 index: quantity_u64(&row["index"])?,
                 validator_index: quantity_u64(&row["validatorIndex"])?,
-                address: bytes,
+                address: receipt_bytes(&row["address"])?,
                 amount: quantity_u64(&row["amount"])?,
             })
         })
@@ -48,7 +42,7 @@ fn parse_withdrawals(block: &Value) -> Result<Vec<Withdrawal>> {
     Ok(withdrawals)
 }
 
-fn verify_withdrawals_header(block: &Value, fork: &str) -> Result<()> {
+fn verify_execution_header(block: &Value, fork: &str) -> Result<()> {
     let bad = || err("EVM_NODE_RECEIPT_MISMATCH");
     let mut fields = vec![
         ("parentHash", Some(32)),
@@ -120,6 +114,125 @@ fn verify_withdrawals_header(block: &Value, fork: &str) -> Result<()> {
     Ok(())
 }
 
+#[derive(RlpEncodable)]
+struct ReceiptLog {
+    address: [u8; 20],
+    topics: Vec<[u8; 32]>,
+    data: Bytes,
+}
+
+#[derive(RlpEncodable)]
+struct ReceiptPayload {
+    status: u8,
+    cumulative_gas: u64,
+    bloom: [u8; 256],
+    logs: Vec<ReceiptLog>,
+}
+
+fn receipt_hex(value: &Value) -> Result<&str> {
+    value
+        .as_str()
+        .and_then(|value| value.strip_prefix("0x"))
+        .ok_or_else(|| err("EVM_NODE_RECEIPT_MISMATCH"))
+}
+
+fn receipt_bytes<const N: usize>(value: &Value) -> Result<[u8; N]> {
+    let mut bytes = [0; N];
+    hex::decode_to_slice(receipt_hex(value)?, &mut bytes)
+        .map_err(|_| err("EVM_NODE_RECEIPT_MISMATCH"))?;
+    Ok(bytes)
+}
+
+fn committed_receipt<'a>(
+    block: &Value,
+    transactions: &[Value],
+    receipts: &'a Value,
+    target: &str,
+    fork: &str,
+) -> Result<(usize, &'a Value)> {
+    let bad = || err("EVM_NODE_RECEIPT_MISMATCH");
+    let receipts = receipts.as_array().ok_or_else(bad)?;
+    if receipts.len() != transactions.len() {
+        return Err(bad());
+    }
+    let mut previous_gas = 0;
+    let mut log_index = 0;
+    let mut found = None;
+    let mut encoded = Vec::with_capacity(receipts.len());
+    for (index, (receipt, transaction)) in receipts.iter().zip(transactions).enumerate() {
+        let status = quantity_u64(&receipt["status"])?;
+        let kind = quantity_u64(&receipt["type"])?;
+        let cumulative_gas = quantity_u64(&receipt["cumulativeGasUsed"])?;
+        let gas = quantity_u64(&receipt["gasUsed"])?;
+        receipt_bytes::<32>(transaction)?;
+        if receipt["transactionHash"] != *transaction
+            || receipt["blockHash"] != block["hash"]
+            || receipt["blockNumber"] != block["number"]
+            || quantity_u64(&receipt["transactionIndex"])? != index as u64
+            || status > 1
+            || kind > if fork == "cancun" { 3 } else { 2 }
+            || gas == 0
+            || cumulative_gas.checked_sub(previous_gas) != Some(gas)
+        {
+            return Err(bad());
+        }
+        previous_gas = cumulative_gas;
+        if transaction == target && found.replace((index, receipt)).is_some() {
+            return Err(bad());
+        }
+        let logs = receipt["logs"]
+            .as_array()
+            .ok_or_else(bad)?
+            .iter()
+            .map(|log| {
+                if log["blockHash"] != block["hash"]
+                    || log["blockNumber"] != block["number"]
+                    || log["transactionHash"] != *transaction
+                    || log["transactionIndex"] != receipt["transactionIndex"]
+                    || quantity_u64(&log["logIndex"])? != log_index
+                    || log["removed"] != false
+                {
+                    return Err(bad());
+                }
+                log_index += 1;
+                Ok(ReceiptLog {
+                    address: receipt_bytes(&log["address"])?,
+                    topics: log["topics"]
+                        .as_array()
+                        .ok_or_else(bad)?
+                        .iter()
+                        .map(receipt_bytes::<32>)
+                        .collect::<Result<_>>()?,
+                    data: hex::decode(receipt_hex(&log["data"])?)
+                        .map_err(|_| bad())?
+                        .into(),
+                })
+            })
+            .collect::<Result<_>>()?;
+        encoded.push((
+            kind as u8,
+            ReceiptPayload {
+                status: status as u8,
+                cumulative_gas,
+                bloom: receipt_bytes(&receipt["logsBloom"])?,
+                logs,
+            },
+        ));
+    }
+    let root = ordered_trie_root_with_encoder(&encoded, |(kind, receipt), output| {
+        if *kind != 0 {
+            output.push(*kind);
+        }
+        receipt.encode(output);
+    });
+    if previous_gas != quantity_u64(&block["gasUsed"])?
+        || block["receiptsRoot"] != format!("{root:#x}")
+    {
+        return Err(bad());
+    }
+    found.ok_or_else(bad)
+}
+
 pub(super) async fn compare(
     api: &Api,
     fixture: &FixtureState,
@@ -153,11 +266,11 @@ async fn observe(
     let chain = &context.chain_key;
     let request = |method, params| rpc(api, chain, method, params);
     let height = format!("0x{:x}", env.block_number);
-    let (chain_id, genesis, block, receipt) = tokio::try_join!(
+    let (chain_id, genesis, block, receipts) = tokio::try_join!(
         request("eth_chainId", json!([])),
         request("eth_getBlockByNumber", json!(["0x0", false])),
         request("eth_getBlockByNumber", json!([height, false])),
-        request("eth_getTransactionReceipt", json!([tx])),
+        request("eth_getBlockReceipts", json!([env.block_hash])),
     )?;
     if quantity(&chain_id)? != env.chain_id.to_string().parse::<Amount>()?
         || genesis["hash"] != fixture.state_anchor.genesis_hash
@@ -178,25 +291,15 @@ async fn observe(
         return Err(bad());
     }
     let transactions = block["transactions"].as_array().ok_or_else(bad)?;
-    let index = usize::try_from(quantity_u64(&receipt["transactionIndex"])?).map_err(|_| bad())?;
-    let next = index.checked_add(1).ok_or_else(bad)?;
-    let cumulative = quantity_u64(&receipt["cumulativeGasUsed"])?;
-    let block_gas = quantity_u64(&block["gasUsed"])?;
     let withdrawals = parse_withdrawals(&block)?;
-    verify_withdrawals_header(&block, &env.fork)?;
-    if transactions.get(index) != Some(&json!(tx))
-        || block["difficulty"] != "0x0"
+    verify_execution_header(&block, &env.fork)?;
+    let (index, receipt) = committed_receipt(&block, transactions, &receipts, tx, &env.fork)?;
+    let next = index + 1;
+    if block["difficulty"] != "0x0"
         || block["uncles"] != json!([])
-        || receipt["transactionHash"] != *tx
-        || receipt["blockHash"] != env.block_hash
-        || receipt["blockNumber"] != height
         || receipt["from"] != replay["transaction"]["from"]
         || receipt["to"] != replay["transaction"]["to"]
         || receipt["gasUsed"] != format!("0x{:x}", local.execution.gas_used)
-        || cumulative < local.execution.gas_used
-        || cumulative > block_gas
-        || (index == 0 && cumulative != local.execution.gas_used)
-        || (next == transactions.len() && cumulative != block_gas)
         || receipt["status"]
             != if local.execution.status == EvmStatus::Success {
                 "0x1"
@@ -207,31 +310,12 @@ async fn observe(
     {
         return Err(bad());
     }
-    let logs = receipt["logs"].as_array().ok_or_else(bad)?;
-    let log_start = logs
-        .first()
-        .map(|log| quantity_u64(&log["logIndex"]))
-        .transpose()?
-        .unwrap_or(0);
-    if index == 0 && log_start != 0 {
-        return Err(bad());
-    }
-    let logs = logs
+    let logs = receipt["logs"]
+        .as_array()
+        .ok_or_else(bad)?
         .iter()
-        .enumerate()
-        .map(|(offset, log)| {
-            if log["blockHash"] != env.block_hash
-                || log["transactionHash"] != *tx
-                || log["blockNumber"] != height
-                || log["transactionIndex"] != receipt["transactionIndex"]
-                || log_start.checked_add(offset as u64) != Some(quantity_u64(&log["logIndex"])?)
-                || log["removed"] != false
-            {
-                return Err(bad());
-            }
-            Ok(json!({"address":log["address"],"topics":log["topics"],"data":log["data"]}))
-        })
-        .collect::<Result<Vec<_>>>()?;
+        .map(|log| json!({"address":log["address"],"topics":log["topics"],"data":log["data"]}))
+        .collect::<Vec<_>>();
     if local.execution.logs_hash.as_deref() != Some(hash(&logs)?.as_str()) {
         return Err(bad());
     }
@@ -324,6 +408,7 @@ async fn observe(
         },
         "transactionHash":tx,"sourceBlockHash":source,"blockHash":execution,
         "transactionIndex":index,"success":local.execution.status == EvmStatus::Success,
+        "receiptsRoot":block["receiptsRoot"],
         "gasUsed":local.execution.gas_used,"logsHash":local.execution.logs_hash,
         "payerNativeBefore":payer_before,"payerNativeAfter":payer_after,
         "localReceiptHash":local.receipt_hash,"actualInputConsumed":local.actual_input_consumed,

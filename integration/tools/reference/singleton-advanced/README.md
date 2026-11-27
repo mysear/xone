@@ -67,13 +67,13 @@ The example runs 24 HTTP quote, build and simulation cases, then removes Manager
 
 The simulation endpoint also accepts `signedEvmTransaction` containing `transactionHash` and `signedWire` as lowercase hex strings with the `0x` prefix. It authenticates the external wallet signature and matches the decoded transaction to the build and the configured transaction context. The worker returns `LOCAL_SIGNED_EVM_EXECUTED` and includes the signed hash in the local receipt. The example signs and replays all 24 build results and checks 24 nonce mismatches.
 
-Set `checkEvmReceipt` to `true` alongside `signedEvmTransaction` to compare the replay with the first configured RPC node. This checks the signed transaction in the canonical H+1 block, including receipt status, gas, ordered logs and balances. Single-transaction blocks without withdrawals use balances at H and H+1. Transaction-index observations require Geth-compatible `debug_traceCall` with `txIndex`, `callTracer` and `prestateTracer`. The handler checks the sender nonce at both points and matches replayed absolute balances.
+Set `checkEvmReceipt` to `true` alongside `signedEvmTransaction` to compare the replay with the first configured RPC node. This checks the signed transaction in the canonical H+1 block, including receipt status, gas, ordered logs and balances. The API requests `eth_getBlockReceipts` by block hash, RLP-encodes the receipts in transaction order, compares the trie root with the execution header and checks gas used against consecutive cumulative values. The observed commitment appears as `nodeReceipt.receiptsRoot`. Single-transaction blocks without withdrawals use balances at H and H+1. Transaction-index observations require Geth-compatible `debug_traceCall` with `txIndex`, `callTracer` and `prestateTracer`. The handler checks the sender nonce at both points and matches replayed absolute balances.
 
 For a block with withdrawals, the API recomputes the withdrawals trie root and verifies the execution header hash. For the final transaction, it observes the pre-transaction state by transaction index and subtracts the authenticated withdrawal credits from end-of-block balances. The post-transaction ERC-20 reads use those restored balances as state overrides. The API rejects credits that cannot be reversed with balance overrides. The resulting `nodeReceipt` records `CANONICAL_RPC_OBSERVED` authority, `TRANSACTION_BEFORE_WITHDRAWALS` scope for this adjusted state, and the observed `withdrawalsRoot`. The response retains `verified: false`.
 
 The handler compares the payer's absolute native balances with the replay, including for ERC-20 to ERC-20 swaps. The node evidence includes `payerNativeBefore` and `payerNativeAfter`. The Anvil and Geth harnesses each check rejection when the proxy changes only the payer's native balance.
 
-Repeat the example with an Anvil 1.4.4 executable to run the same 24 cases against mined Cancun blocks. The test starts a loopback node for each case, mines the signed transaction, and verifies rejection when the proxy changes the receipt gas, logs, balance, or final canonical block read.
+Repeat the example with an Anvil 1.4.4 executable to run the same 24 cases against mined Cancun blocks. The test starts a loopback node for each case, mines the signed transaction, and verifies rejection when the proxy changes the receipt gas, logs, bloom, balance, or final canonical block read, or drops a receipt.
 
 ```sh
 XONE_SINGLETON_ANVIL="$(command -v anvil)" \
@@ -81,7 +81,7 @@ XONE_SINGLETON_ANVIL="$(command -v anvil)" \
   --example singleton_replay -- "$XONE_SINGLETON_REPLAY_DIR"
 ```
 
-Use the pinned Geth harness to mine three transactions per block and verify the middle transaction. The final transaction uses the same signer, and a block withdrawal credits the recipient after all three transactions. The harness verifies rejection if a proxy removes the trace transaction index or hides the nonempty withdrawal list.
+Use the pinned Geth harness to mine three transactions per block and verify the middle transaction. The final transaction uses the same signer, and a block withdrawal credits the recipient after all three transactions. The harness verifies rejection if a proxy reorders receipts, removes the trace transaction index or hides the nonempty withdrawal list.
 
 The Geth cases include the EIP-4788 beacon roots contract. When the execution environment includes `parent_beacon_block_root`, the worker applies the ring buffer writes before executing the swap. The receipt check compares the block header root, source contract code and resulting storage with the node. The harness injects a wrong header root and wrong storage to check rejection.
 
