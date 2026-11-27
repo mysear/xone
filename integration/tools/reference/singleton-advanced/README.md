@@ -1,5 +1,20 @@
 # Advanced singleton bounded reference and implementation
 
+## V4 PoolManager hook and native settlement
+
+The Cancun test deploys the pinned Uniswap V4 PoolManager from verified source. A controlled CREATE2 hook sets the exact beforeSwap, afterSwap and delta-return permission bits. The harness checks both amount modes, both directions and both currency modes against a matched PoolManager control pool. It reconciles caller, receiver, hook and manager balances, compares price and tick after the swap, and checks final lock state. Omitting part of the hook settlement triggers the original `CurrencyNotSettled` revert for each case.
+
+```sh
+python3 integration/tools/ci/singleton-reference-fetch.py
+npm ci --ignore-scripts --prefix integration/.runtime/singleton-reference
+node integration/tools/ci/v4-manager-settlement-build.cjs /tmp/xone-v4-manager-settlement.json
+XONE_V4_MANAGER_SETTLEMENT_BUILD=/tmp/xone-v4-manager-settlement.json \
+  cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-simulation \
+  --test v4_manager_settlement -- --ignored
+```
+
+## Bounded library reference
+
 This slice is explicitly separate from legacy singleton admission. The core protocol names inside `SingletonAdvancedState` remain `uniswap-v4` and `pancake-infinity-cl`; central Pool profiles may use their `-advanced` names. Shared registry/config/wire dispatch is owned by main.
 
 ## Independent authority

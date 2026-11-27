@@ -370,7 +370,8 @@
 
 ### I5 V4/Infinity
 
-- 本轮先用原版 PoolManager 在 Cancun 执行具有明确权限和可核对字节码的 hook，覆盖 beforeSwap 覆盖费、before/after swap delta、`unlock` 内的 ERC-20 与 native 结算。逐笔核对调用方、hook、manager 和接收账户的余额，再接入正式报价与执行入口。
+- 原版 Uniswap V4 PoolManager 在 Cancun 通过 8 组双向 ExactIn、ExactOut、ERC-20 与 native 组合。受控 hook 使用 beforeSwap 覆盖费，以及 beforeSwap 和 afterSwap 的会计差额。逐笔核对调用方、hook、manager 和接收账户余额，另有 8 组未结算 hook 差额的原程序回滚。 [复验说明](integration/tools/reference/singleton-advanced/README.md#v4-poolmanager-hook-and-native-settlement)
+- 下一轮接入可验证 hook 状态与金额逻辑，通过正常报价入口核对原程序结果，然后完成正式执行准备。并行保留 Infinity Bin 原版 Manager 和 Vault 结算的复验入口。
 - 完成 hook 自定义会计、覆盖费和 native currency 结算。
 - 完成 Infinity Bin 动态、hook、native 组合，以及 Manager、Vault、transient storage 和完整结算状态。
 - unknown hook 继续保持拒绝。
@@ -408,7 +409,7 @@
 - 完成 ClickHouse 事实、版本表、shadow 发布和 FINAL 查询。
 - 完成 RFQ、多 solver、外部来源竞争和收益分布。
 
-当前活动目标为 I4。I1 至 I3 的上述报价范围已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。I1 的 e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的 Managed 主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
+当前活动目标为 I5。I1 至 I3 的上述报价范围已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。I1 的 e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的 Managed 主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
 
 <a id="work-packages"></a>
 
