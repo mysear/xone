@@ -9,8 +9,81 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use xone_domain::{err, hash, v2_swap, Amount, Pool, Result, SnapshotRef};
 use xone_execution_plan::{
-    BoundEvmExactOutExecution, BoundEvmExecution, Context, ExecutorIdentity, Transaction,
+    v4_single::BoundV4Swap, BoundEvmExactOutExecution, BoundEvmExecution, Context,
+    ExecutorIdentity, Transaction,
 };
+
+pub async fn verify_v4_executor(
+    url: &str,
+    genesis_hash: &str,
+    snapshot: &SnapshotRef,
+    context: &Context,
+    bound: &BoundV4Swap,
+    token_digests: &BTreeMap<String, String>,
+) -> Result<()> {
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(5))
+        .build()
+        .map_err(|_| err("EVM_RPC_CONFIG"))?;
+    let mut rpc = Rpc {
+        client,
+        url: url.into(),
+        max_calls: 10,
+        bytes_left: 512 * 1024,
+        anchor: json!({"blockHash":snapshot.block.hash,"requireCanonical":true}),
+        caller: context.caller.clone(),
+        observations: Vec::new(),
+    };
+    tokio::time::timeout(Duration::from_secs(5), async {
+        let chain = uint64(&rpc.call("eth_chainId", json!([])).await?)?;
+        let genesis = rpc
+            .call("eth_getBlockByNumber", json!(["0x0", false]))
+            .await?;
+        if format!("evm:{chain}") != context.chain_key || genesis["hash"] != genesis_hash {
+            return Err(err("EVM_RPC_WRONG_CHAIN"));
+        }
+        rpc.header(snapshot).await?;
+        rpc.code(&bound.manager, &bound.manager_code_sha256, false)
+            .await?;
+        let raw = rpc
+            .call("eth_getCode", json!([bound.transaction.to, rpc.anchor]))
+            .await?;
+        let mut runtime = data(&raw, Some(4068))?;
+        if format!("{:x}", Sha256::digest(&runtime)) != bound.executor_code_sha256 {
+            return Err(err("EVM_RPC_CODE_CHANGED"));
+        }
+        // Immutable references emitted by the pinned Cancun V4SingleSwap build.
+        let manager =
+            hex::decode(word_address(&bound.manager)?).map_err(|_| err("EVM_RPC_DATA"))?;
+        for offset in [
+            144, 813, 978, 1071, 1148, 1261, 1367, 1712, 1852, 2468, 2997, 3594,
+        ] {
+            let range = &mut runtime[offset..offset + 32];
+            if range != manager {
+                return Err(err("EVM_RPC_CONTRACT_IDENTITY"));
+            }
+            range.fill(0);
+        }
+        if format!("{:x}", Sha256::digest(&runtime))
+            != "c30d9d986bef0e4203793330c48d953755650e9dd606e5101db9cd945b29f3e4"
+        {
+            return Err(err("V4_EXECUTOR_RUNTIME"));
+        }
+        for token in [&context.sell_token, &context.buy_token] {
+            if token != xone_domain::singleton::ZERO_ADDRESS {
+                let digest = token_digests
+                    .get(token)
+                    .ok_or_else(|| err("EVM_RPC_TOKEN_CODE_REQUIRED"))?;
+                rpc.code(token, digest, false).await?;
+            }
+        }
+        rpc.header(snapshot).await?;
+        Ok(())
+    })
+    .await
+    .map_err(|_| err("EVM_RPC_TIMEOUT"))?
+}
 
 #[derive(Clone, Debug)]
 pub struct RpcConfig {

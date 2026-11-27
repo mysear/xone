@@ -80,6 +80,8 @@ pub struct Api {
     pub listen: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub evm_preparation: BTreeMap<String, EvmPreparationConfig>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub v4_execution: BTreeMap<String, evm_preparation::V4ExecutionConfig>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub solana_runtime_manifest: String,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -779,6 +781,15 @@ impl Config {
                 || digest.bytes().all(|b| b == b'0')
             {
                 return Err(err("EVM_PREPARATION_CONFIG"));
+            }
+        }
+        for (chain, execution) in &self.api.v4_execution {
+            execution.validate()?;
+            if expected != "dex-router" || !chain.starts_with("evm:")
+                || !self.chains.iter().any(|c| &c.key == chain && c.rpc_urls.len() == 1
+                    && c.genesis_hash.strip_prefix("0x").is_some_and(evm_preparation::valid_digest))
+            {
+                return Err(err("V4_EXECUTION_CONFIG"));
             }
         }
         let s = &self.startup;

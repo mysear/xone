@@ -51,11 +51,16 @@ assert(output, 'Usage: node v4-manager-settlement-build.cjs <output.json>');
 const hookRuntime = build.contracts[harness].SettlementHook.evm.deployedBytecode;
 assert.equal(Object.keys(hookRuntime.immutableReferences).length, 1);
 const [hookManagerReferences] = Object.values(hookRuntime.immutableReferences);
+const executorRuntime = build.contracts[executor].V4SingleSwap.evm.deployedBytecode;
+assert.equal(Object.keys(executorRuntime.immutableReferences).length, 1);
+const [executorManagerReferences] = Object.values(executorRuntime.immutableReferences);
 fs.writeFileSync(output, JSON.stringify({
     manager: code(manager, 'PoolManager'),
     harness: code(harness, 'V4ManagerSettlement'),
     hook: code(harness, 'SettlementHook'),
-    executor: code(executor, executor.split('.')[0]),
+    executor: code(executor, 'V4SingleSwap'),
+    executorRuntime: executorRuntime.object,
+    executorManagerReferences,
     hookRuntime: hookRuntime.object,
     hookManagerReferences,
 }) + '\n');

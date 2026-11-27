@@ -19,6 +19,9 @@ fn corpus() -> Value {
     .unwrap()
 }
 fn setup() -> (Api, Snapshot) {
+    configure(|_| {})
+}
+fn configure(customize: impl FnOnce(&mut xone_config::ConfigSnapshot)) -> (Api, Snapshot) {
     let mut c = xone_config::load(
         concat!(env!("CARGO_MANIFEST_DIR"), "/../../config/config-test.yaml"),
         "dex-router",
@@ -33,6 +36,7 @@ fn setup() -> (Api, Snapshot) {
     c.config.routing.max_expansions = 10000;
     c.config.api.requests_per_minute = 10000;
     c.config.api.quote_timeout_ms = 30000;
+    customize(&mut c);
     let chain = c
         .config
         .chains
@@ -290,9 +294,85 @@ async fn v4_settlement_hook_http_matches_original_pool_manager() {
     use xone_domain::singleton::{SingletonAdvancedState, V4_SETTLEMENT_HOOK_MODEL};
 
     let path = std::env::var_os("XONE_V4_HOOK_QUOTES").unwrap();
-    let cases: Vec<Value> = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let fixture: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let cases = fixture["cases"].as_array().unwrap();
     assert_eq!(cases.len(), 8);
-    let (api, mut snapshot) = setup();
+    let genesis_hash = format!("0x{}", "bc".repeat(32));
+    let header = std::sync::Arc::new(std::sync::Mutex::new(Value::Null));
+    let corrupt = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let rpc = {
+        let fixture = std::sync::Arc::new(fixture.clone());
+        let (genesis_hash, header, corrupt) =
+            (genesis_hash.clone(), header.clone(), corrupt.clone());
+        axum::Router::new().route(
+            "/",
+            axum::routing::post(move |axum::Json(request): axum::Json<Value>| {
+                let (fixture, genesis_hash, header, corrupt) = (
+                    fixture.clone(),
+                    genesis_hash.clone(),
+                    header.clone(),
+                    corrupt.clone(),
+                );
+                async move {
+                    let block = header.lock().unwrap().clone();
+                    let result = match request["method"].as_str().unwrap() {
+                        "eth_chainId" => json!("0x7a69"),
+                        "eth_getBlockByNumber" if request["params"][0] == "0x0" => {
+                            json!({"hash": genesis_hash})
+                        }
+                        "eth_getBlockByNumber" => block.clone(),
+                        "eth_getCode" => {
+                            assert_eq!(request["params"][1]["blockHash"], block["hash"]);
+                            assert_eq!(request["params"][1]["requireCanonical"], true);
+                            if request["params"][0] == fixture["executor"] {
+                                if corrupt.load(std::sync::atomic::Ordering::Relaxed) {
+                                    json!("0x00")
+                                } else {
+                                    fixture["executorCode"].clone()
+                                }
+                            } else if request["params"][0] == fixture["cases"][0]["manager"] {
+                                fixture["managerCode"].clone()
+                            } else {
+                                fixture["tokenCode"].clone()
+                            }
+                        }
+                        method => panic!("unexpected V4 build RPC method {method}"),
+                    };
+                    axum::Json(json!({"jsonrpc":"2.0","id":request["id"],"result":result}))
+                }
+            }),
+        )
+    };
+    let server = tokio::spawn(async move { axum::serve(listener, rpc).await.unwrap() });
+    let (api, mut snapshot) = configure(|config| {
+        let chain = config
+            .config
+            .chains
+            .iter_mut()
+            .find(|c| c.key == "evm:31337")
+            .unwrap();
+        chain.rpc_urls = vec![url];
+        chain.genesis_hash = genesis_hash;
+        let token_digests: std::collections::BTreeMap<_, _> = cases
+            .iter()
+            .flat_map(|case| [&case["currency0"], &case["currency1"]])
+            .filter_map(Value::as_str)
+            .filter(|token| *token != xone_domain::singleton::ZERO_ADDRESS)
+            .map(|token| (token, &fixture["tokenCodeSha256"]))
+            .collect();
+        config.config.api.v4_execution.insert(chain.key.clone(), serde_json::from_value(json!({
+            "executor": fixture["executor"], "executor_code_sha256": fixture["executorCodeSha256"],
+            "token_code_sha256": token_digests,
+        })).unwrap());
+    });
+    snapshot.reference.block.timestamp_ms -= snapshot.reference.block.timestamp_ms % 1000;
+    *header.lock().unwrap() = json!({
+        "number": "0x64", "hash": snapshot.reference.block.hash, "parentHash": snapshot.reference.block.parent_hash,
+        "timestamp": format!("0x{:x}", snapshot.reference.block.timestamp_ms / 1000),
+        "stateRoot": format!("0x{}", "1".repeat(64)), "baseFeePerGas": "0x0",
+    });
     for case in cases {
         let zero = case["zeroForOne"].as_bool().unwrap();
         let exact_in = case["exactIn"].as_bool().unwrap();
@@ -340,7 +420,7 @@ async fn v4_settlement_hook_http_matches_original_pool_manager() {
         .unwrap();
         let i = usize::from(!zero);
         let pair = tokens(&pool, i, 1 - i);
-        let input = case["input"].as_str().unwrap().parse().unwrap();
+        let input: xone_domain::Amount = case["input"].as_str().unwrap().parse().unwrap();
         let output = case["output"].as_str().unwrap().parse().unwrap();
         let next = if exact_in {
             let quote = xone_protocol_math::quote_exact_in(&pool, &input, zero).unwrap();
@@ -356,6 +436,11 @@ async fn v4_settlement_hook_http_matches_original_pool_manager() {
         assert_eq!(core.sqrt_price_x96.to_string(), case["priceAfter"]);
         assert_eq!(i64::from(core.tick), case["tickAfter"]);
         install(&api, &mut snapshot, vec![pool]);
+        let input_limit = if exact_in {
+            input.clone()
+        } else {
+            xone_domain::Amount::checked(&input.0 + 1000u32).unwrap()
+        };
         let (status, quote) = if exact_in {
             call(&api, "/v1/quote", json!({
                 "chainKey":"evm:31337","kind":"EXACT_IN","sellToken":pair[0],"buyToken":pair[1],
@@ -364,12 +449,9 @@ async fn v4_settlement_hook_http_matches_original_pool_manager() {
                 "verification":"FAST"
             })).await
         } else {
-            call(
-                &api,
-                "/v1/quote-exact-out",
-                request(&pair, &case["output"], json!(MAX)),
-            )
-            .await
+            let mut body = request(&pair, &case["output"], json!(input_limit));
+            body["slippageBps"] = 100.into();
+            call(&api, "/v1/quote-exact-out", body).await
         };
         assert_eq!(status, StatusCode::OK, "{case}: {quote}");
         assert_eq!(quote["grossBuyAmount"], case["output"]);
@@ -379,7 +461,32 @@ async fn v4_settlement_hook_http_matches_original_pool_manager() {
             "requiredSellAmount"
         };
         assert_eq!(quote[sell_field], case["input"]);
+        let build_url = format!("/v1/quotes/{}/build", quote["quoteId"].as_str().unwrap());
+        let (status, built) = call(&api, &build_url, json!({})).await;
+        assert_eq!(status, StatusCode::OK, "{case}: {built}");
+        assert_eq!(built["transaction"]["to"], fixture["executor"]);
+        assert_eq!(built["binding"]["input_limit"], json!(input_limit));
+        let value = if pair[0] == xone_domain::singleton::ZERO_ADDRESS {
+            assert!(built["callerApproval"].is_null());
+            json!(input_limit)
+        } else {
+            assert!(built["callerApproval"].is_object());
+            json!("0")
+        };
+        assert_eq!(built["transaction"]["value"], value);
+        let calldata = built["transaction"]["data"].as_str().unwrap();
+        assert!(calldata.starts_with("0x31d2461f"));
+        assert_eq!(calldata.len(), 10 + 11 * 64);
+        assert_eq!(
+            &calldata[10 + 7 * 64..10 + 8 * 64],
+            hex::encode(input_limit.to_be_bytes().unwrap())
+        );
+        corrupt.store(true, std::sync::atomic::Ordering::Relaxed);
+        let (status, _) = call(&api, &build_url, json!({})).await;
+        assert_ne!(status, StatusCode::OK);
+        corrupt.store(false, std::sync::atomic::Ordering::Relaxed);
     }
+    server.abort();
 }
 
 #[tokio::test]

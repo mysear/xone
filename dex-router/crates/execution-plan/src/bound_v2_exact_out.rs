@@ -58,7 +58,7 @@ pub fn bind_v2_exact_out_execution(
     }
     code_hash(&executor.code_sha256)?;
     code_hash(&executor.factory_code_sha256)?;
-    validate_v2_scope(&plan.snapshot, pools, &plan.context)?;
+    validate_evm_scope(&plan.snapshot, pools, &plan.context)?;
     let route = &plan.allocation.routes[0];
     if route.edges.is_empty()
         || route.edges.len() > 8
@@ -81,7 +81,7 @@ pub fn bind_v2_exact_out_execution(
     bind_replayed(plan, pools, executor, touched)
 }
 
-pub(super) fn validate_v2_scope(
+pub(crate) fn validate_evm_scope(
     snapshot: &SnapshotRef,
     pools: &[Pool],
     context: &Context,
@@ -98,7 +98,7 @@ pub(super) fn validate_v2_scope(
     Snapshot {
         reference: snapshot.clone(),
         pools: pools.to_vec(),
-        source: "BOUND_V2".into(),
+        source: "BOUND_EXECUTION".into(),
         history_gaps: Vec::new(),
     }
     .validate(&snapshot.owner_service, snapshot.owner_assignment_version)?;

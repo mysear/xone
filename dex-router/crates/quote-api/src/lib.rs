@@ -14,6 +14,7 @@ mod remote_checkpoint;
 mod solana_simulation;
 mod transaction_economics;
 mod transaction_lifecycle;
+mod v4_execution;
 mod wrapped_funding;
 pub use exact_out::ExactOutRequest;
 mod local_simulation;
@@ -1127,6 +1128,9 @@ async fn build_transaction(
 ) -> std::result::Result<Json<Value>, HttpError> {
     api.authorize(&headers).map_err(failure)?;
     api.rate_limit().map_err(failure)?;
+    if let Some(response) = v4_execution::build(&api, &id).await.map_err(failure)? {
+        return Ok(Json(response));
+    }
     if let Some(backend) = api.local_simulation.clone().filter(|b| b.has_op_source()) {
         let selected = if api.exact_out_execution(&id).map_err(failure)? {
             let cache = api
@@ -1547,6 +1551,7 @@ async fn quote_options(
                     && api.local_simulation.as_ref().is_some_and(|backend| {
                         backend.matches_snapshot(&v.reference, &configured.genesis_hash)
                     });
+                let v4_template = available && v4_execution::configured(&api, pool);
                 pools.push(json!({
                     "protocolViewId":protocol_view.view_id,
                     "capabilities":capability,
@@ -1559,6 +1564,7 @@ async fn quote_options(
                     "directions": directions,
                     "available": available,
                     "unavailableReason": reason,
+                    "transactionBuildEndpoint":v4_template.then_some("/v1/quotes/{id}/build"),
                     "execution": {"evmIndependentLocalSimulation":evm_local,"evmPreparation":evm_preparation,"evmPreparationEndpoint":if evm_preparation{Some("/v1/quotes/{id}/prepare-evm")}else{None},"quote": available, "preparation": available && capability.execution_preparation && !configured.rpc_urls.is_empty(), "unsignedPlan": available && capability.unsigned_transaction && !configured.rpc_urls.is_empty(), "rpcSimulation": available && capability.rpc_simulation && !configured.rpc_urls.is_empty(), "createDestinationAta":available && capability.account_creation && !configured.rpc_urls.is_empty(), "wrapSourceSol": available && capability.native_funding && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "unwrapDestinationSol": available && capability.native_funding && !configured.rpc_urls.is_empty() && (pool.token0 == xone_domain::pump_amm::WSOL || pool.token1 == xone_domain::pump_amm::WSOL), "walletSubmission":wallet_submission,"receiptTracking":api.receipts.is_some(),"independentLocalSimulation":local_sbf,"simulation": false},
                 }));
             }

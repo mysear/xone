@@ -1,6 +1,6 @@
 //! Commitment for one call to OrderedV2Split. No runtime/code trust is inferred here.
 use crate::bound_v2::{code_hash, nonzero_address};
-use crate::bound_v2_exact_out::{validate_complete_path, validate_v2_scope};
+use crate::bound_v2_exact_out::{validate_complete_path, validate_evm_scope};
 use crate::{exact_out, verify_plan_hash, Context, ExecutorIdentity, Plan, Transaction};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -121,7 +121,7 @@ pub fn bind(
     ] {
         code_hash(digest)?;
     }
-    validate_v2_scope(snapshot, pools, context)?;
+    validate_evm_scope(snapshot, pools, context)?;
     let mut leg_pools = Vec::new();
     let mut physical = BTreeMap::new();
     for leg in &legs {

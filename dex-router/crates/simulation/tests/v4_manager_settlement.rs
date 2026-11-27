@@ -93,8 +93,13 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
     data.extend_from_slice(&salt);
     assert!(transact(&mut db, TxKind::Call(harness), data, 0).is_success());
     let hook = harness.create2(salt, hash);
-    let manager_code = &db.contracts[&db.accounts[&manager].info.code_hash];
-    let manager_sha256 = hex::encode(Sha256::digest(manager_code.original_bytes()));
+    let runtime = |db: &InMemoryDB, address| {
+        db.contracts[&db.accounts[&address].info.code_hash].original_bytes()
+    };
+    let manager_code = runtime(&db, manager);
+    let manager_sha256 = hex::encode(Sha256::digest(&manager_code));
+    let executor_code = runtime(&db, executor);
+    let mut token_code = None;
 
     let mut cases = Vec::new();
     for native in [false, true] {
@@ -121,6 +126,8 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
                 };
                 let words: Vec<&[u8]> = raw.chunks_exact(32).collect();
                 assert_eq!(words.len(), 6);
+                token_code
+                    .get_or_insert_with(|| runtime(&db, Address::from_slice(&words[1][12..])));
                 let delta0 = i128::from_be_bytes(words[2][16..].try_into().unwrap());
                 let delta1 = i128::from_be_bytes(words[3][16..].try_into().unwrap());
                 let (input, output) = if zero_for_one {
@@ -165,6 +172,16 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
         }
     }
     if let Some(path) = std::env::var_os("XONE_V4_HOOK_QUOTES") {
-        std::fs::write(path, serde_json::to_vec_pretty(&cases).unwrap()).unwrap();
+        let token_code = token_code.unwrap();
+        let fixture = json!({
+            "cases": cases,
+            "executor": format!("{executor:#x}"),
+            "executorCode": format!("0x{}", hex::encode(&executor_code)),
+            "executorCodeSha256": hex::encode(Sha256::digest(&executor_code)),
+            "managerCode": format!("0x{}", hex::encode(manager_code)),
+            "tokenCode": format!("0x{}", hex::encode(&token_code)),
+            "tokenCodeSha256": hex::encode(Sha256::digest(&token_code)),
+        });
+        std::fs::write(path, serde_json::to_vec_pretty(&fixture).unwrap()).unwrap();
     }
 }

@@ -3,6 +3,7 @@ pub mod ordered_v2;
 pub mod solana_signed;
 pub mod solana_unsigned;
 pub mod solana_wsol;
+pub mod v4_single;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use xone_domain::{err, hash, Amount, Result, SnapshotRef};
