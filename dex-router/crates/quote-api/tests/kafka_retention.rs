@@ -2,7 +2,7 @@ use axum::{
     body::{to_bytes, Body},
     extract::State,
     http::{HeaderMap, Request, StatusCode, Uri},
-    routing, Router,
+    routing, Json, Router,
 };
 use rdkafka::{
     admin::{AdminClient, AdminOptions, NewTopic, TopicReplication},
@@ -199,11 +199,54 @@ async fn cold_router_recovers_from_authenticated_peer_and_kafka_with_owner_offli
         tokio::spawn(async move { axum::serve(peer_listener, peer_app).await.unwrap() });
     let path = format!("/internal/chains/{CHAIN}/peer-checkpoint");
     assert_eq!(get(&peer, &path).await.0, StatusCode::UNAUTHORIZED);
-    cfg.config.journal.checkpoint_peer_urls = vec![peer_url.clone()];
-    cfg.config
+    let invalid_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let invalid_url = format!("http://{}", invalid_listener.local_addr().unwrap());
+    let mut invalid_cfg = cfg.clone();
+    invalid_cfg.config.journal.checkpoint_peer_urls = vec![invalid_url.clone()];
+    invalid_cfg
+        .config
         .journal
         .source_auth_tokens
-        .insert(peer_url, cfg.token.clone());
+        .insert(invalid_url, cfg.token.clone());
+    let invalid_candidate = Arc::new(RwLock::new(Value::Null));
+    let response = invalid_candidate.clone();
+    let invalid_app = Router::new().route(
+        &path,
+        routing::get(move || {
+            let body = response.read().unwrap().clone();
+            async move { Json(body) }
+        }),
+    );
+    let invalid_task = tokio::spawn(async move {
+        axum::serve(invalid_listener, invalid_app).await.unwrap();
+    });
+    let mut candidate =
+        json!({"reference": committed.snapshot.reference, "cursor": committed.cursor});
+    candidate["reference"]["block"]["chain_key"] = json!("evm:12345");
+    *invalid_candidate.write().unwrap() = candidate;
+    assert_unready(&Api::new(invalid_cfg.clone()).unwrap()).await;
+    let mut candidate =
+        json!({"reference": committed.snapshot.reference, "cursor": committed.cursor});
+    candidate["reference"]["block"]["timestamp_ms"] = json!(now_ms().saturating_sub(120_000));
+    *invalid_candidate.write().unwrap() = candidate;
+    assert_unready(&Api::new(invalid_cfg).unwrap()).await;
+    invalid_task.abort();
+    assert!(invalid_task.await.unwrap_err().is_cancelled());
+    let stalled_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let stalled_url = format!("http://{}", stalled_listener.local_addr().unwrap());
+    let stalled_app =
+        Router::new().route(&path, routing::get(|| std::future::pending::<StatusCode>()));
+    let stalled_task = tokio::spawn(async move {
+        axum::serve(stalled_listener, stalled_app).await.unwrap();
+    });
+    cfg.config.journal.request_timeout_ms = 15_000;
+    cfg.config.journal.checkpoint_peer_urls = vec![stalled_url.clone(), peer_url.clone()];
+    for url in [stalled_url, peer_url] {
+        cfg.config
+            .journal
+            .source_auth_tokens
+            .insert(url, cfg.token.clone());
+    }
     cfg.config.validate("dex-router").unwrap();
     let mut unauthenticated = cfg.config.clone();
     unauthenticated.journal.source_auth_tokens.clear();
@@ -213,7 +256,9 @@ async fn cold_router_recovers_from_authenticated_peer_and_kafka_with_owner_offli
     );
 
     let cold = Api::new(cfg.clone()).unwrap();
-    cold.sync_sources().await;
+    tokio::time::timeout(TIMEOUT, cold.sync_sources())
+        .await
+        .expect("a stalled peer delayed recovery from the healthy peer");
     assert_eq!(get(&cold, "/health/ready").await.0, StatusCode::OK);
     let restored = cold.replica.view(CHAIN).unwrap();
     assert_eq!(restored.reference, committed.snapshot.reference);
@@ -255,6 +300,8 @@ async fn cold_router_recovers_from_authenticated_peer_and_kafka_with_owner_offli
     let mut revoked = next.snapshot;
     revoked.reference.journal_seq += 1;
     publish(&mut producer, "ONLINE_SCOPE_REVOKED", revoked);
+    stalled_task.abort();
+    assert!(stalled_task.await.unwrap_err().is_cancelled());
     assert_unready(&Api::new(cfg).unwrap()).await;
     peer_task.abort();
 }

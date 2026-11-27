@@ -5,6 +5,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
+use tokio::task::JoinSet;
 use xone_domain::{err, Result, SnapshotRef};
 use xone_kafka_transport::{Bootstrap, Cursor};
 
@@ -41,13 +42,19 @@ pub(super) async fn checkpoint(
 
 impl Api {
     pub(super) async fn restore_peer_checkpoint(&self, chain: &str) -> Result<()> {
-        let journal = &self.config.config.journal;
-        for source in &journal.checkpoint_peer_urls {
+        let mut candidates = JoinSet::new();
+        for source in &self.config.config.journal.checkpoint_peer_urls {
             let path = format!("{source}/internal/chains/{chain}/peer-checkpoint");
+            let api = self.clone();
+            candidates.spawn(async move {
+                let raw = api.fetch_raw_limited(&path, 65536).await?;
+                serde_json::from_slice::<PeerCheckpoint>(&raw)
+                    .map_err(|_| err("CHECKPOINT_PEER_RESPONSE_INVALID"))
+            });
+        }
+        while let Some(candidate) = candidates.join_next().await {
             let result = async {
-                let raw = self.fetch_raw_limited(&path, 65536).await?;
-                let candidate: PeerCheckpoint = serde_json::from_slice(&raw)
-                    .map_err(|_| err("CHECKPOINT_PEER_RESPONSE_INVALID"))?;
+                let candidate = candidate.map_err(|_| err("CHECKPOINT_PEER_REQUEST_TASK"))??;
                 let boot = self.attest_peer_checkpoint(chain, candidate).await?;
                 self.restore_kafka_checkpoint(chain, boot, "PEER_CHECKPOINT_AND_KAFKA")
                     .await

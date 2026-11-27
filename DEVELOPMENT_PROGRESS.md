@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R04.2 peer 来源选择与拒绝（2026-11-28）|§9.23、§18.7、§23.14|LOCAL_SCOPE_VERIFIED|并发请求配置的 peer，串行核验 Kafka 提交并激活已对齐的范围。实际 Kafka 上四项恢复集成通过，覆盖首个 peer 挂起、过期、错链、owner 离线和撤销。正常 Go owner 和双报价进程复验在 347 毫秒恢复合格范围、350 毫秒返回 INDICATIVE，正常撤销及全部来源离线时返回 503|本机 PostgreSQL 和 Kafka 联验已完成。生产独立故障域、长期容量、真实同源流仍待验收。 [Kafka 集成](dex-router/crates/quote-api/tests/kafka_retention.rs)|
 |I7-R04.2 Cancun 按请求读取仿真状态（2026-11-28）|§9.25、§14、§23.14|LOCAL_SCOPE_VERIFIED|启用 `simulation.evm_cancun_verified_rpc_state` 后，按报价快照读取规范 H 和 H+1 区块头，验证模板声明的账户和存储证明，以链上余额、nonce 和存储值构建本次隔离 REVM 输入。正常 Go owner、PostgreSQL 和 Kafka 联验使用高度 1 的旧模板，在高度 2 恢复后 1,141 毫秒取得 VERIFIED，消耗 gas 209,487，到账 982,981。缺少 PoolManager 存储的模板返回 HTTP 422，9 项配置测试通过|目前支持 Cancun 单池 ERC-20，要求已有 H+1 及配置的账户、代码和存储位置。生产故障域、自动发现完整读取集合、其他执行范围待验收。 [复验工具](integration/tools/acceptance/r04_verified_recovery_process.py)|
 |I7-R04.2 VERIFIED 缓存与构建的区块复查（2026-11-28）|§10、§14、§15|LOCAL_SCOPE_VERIFIED|按报价证据复查源块和执行块，并重新计算区块头哈希。Geth 24 组 HTTP 回放覆盖缓存命中、源块和执行块改变后拒绝报价，以及执行块改变后拒绝构建|动态读取的证据继续按同一路径复查。 [复验工具](dex-router/crates/quote-api/examples/singleton_replay.rs)|
 |I7-R04.2 原生节点仿真超时与重试（2026-11-28）|§9.26、§14.4、§23.14|LOCAL_SCOPE_VERIFIED|正常 Go owner、PostgreSQL、Kafka 和冷报价副本联验。代理确认收到首个 `eth_simulateV1` 后延迟响应，请求在 15,003 毫秒返回 HTTP 504 `BUDGET_EXHAUSTED`，两项首个 VERIFIED 指标均为空。重试同一请求和快照取得 VERIFIED，支付 1,000,000，到账 982,981，消耗 gas 209,487。冷启动到首个成功 VERIFIED 报价为 16,119 毫秒|请求级动态源状态、真实长停机及独立故障域待验收。 [复验工具](integration/tools/acceptance/r04_verified_recovery_process.py)|
@@ -481,7 +482,7 @@
 #### 下一迭代目标（I7 R04.2，2026-11-28）
 
 - Cancun 固定 H/H+1 已通过 ExactIn 和 ExactOut 的 VERIFIED 报价、缓存和构建验收。冷启动报价进程已通过 Go owner 与 Kafka 恢复同一快照，并取得首个 VERIFIED 报价。
-- 原生节点仿真超时与重试、按请求读取 Cancun 状态均已通过正常进程验收。Geth 交易序号套件复验 24 组，覆盖 ExactIn 和 ExactOut 的 12 组 ERC-20 VERIFIED 报价与存储证明篡改拒绝。下一轮验证来源选择时首个 peer 挂起、过期、错链以及 Kafka 撤销，并测量健康 peer 接力、全部来源离线和恢复后的报价行为。
+- 原生节点仿真超时与重试、按请求读取 Cancun 状态均已通过正常进程验收。Geth 交易序号套件复验 24 组，覆盖 ExactIn 和 ExactOut 的 12 组 ERC-20 VERIFIED 报价与存储证明篡改拒绝。Kafka 复验通过首个 peer 挂起、过期、错链和撤销场景。下一轮在隔离故障域复验接力、全部来源离线及恢复后的报价行为。
 - 1 小时实际停机演练于 2026-11-28 通过。1 天和 30 天演练已分别于 2026-11-28 02:57:32 和 03:15:22（UTC+8）开始计时。重启后核对同时停机时长、Kafka 低水位与恢复游标、首个合格范围、目标范围和历史缺口。独立 VERIFIED 报价耗时仍待验收。
 - Kafka 读取器中断定向回归已通过，覆盖无新区块、一个待追赶区块、重组屏障续读和旧视图失效。生产故障域联验继续覆盖来源全部不可用的就绪状态。
 - 普通 Go owner 与两个报价进程的认证副本接力已在本机完成。下一次复验使用独立故障域，保留正常关闭撤销、意外退出与来源全部不可用三个场景。
