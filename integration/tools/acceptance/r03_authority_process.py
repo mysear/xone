@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import subprocess
+import sys
 import time
 
 from infrastructure import Infrastructure, ROOT
@@ -55,6 +56,13 @@ def run():
     try:
         env = os.environ.copy()
         env['PATH'] = str(Path.home() / '.cargo/bin') + os.pathsep + env['PATH']
+        bundled_protoc = Path('/tmp/xone-proto-21/bin/protoc')
+        if bundled_protoc.is_file():
+            env.setdefault('PROTOC', str(bundled_protoc))
+        if sys.platform == 'darwin':
+            sdk = subprocess.run(['xcrun', '--show-sdk-path'], capture_output=True, text=True, check=True).stdout.strip()
+            env.setdefault('SDKROOT', sdk)
+            env.setdefault('CXXFLAGS', f'-isystem {sdk}/usr/include/c++/v1')
         build_log = OUT / 'r03-normal-authority-build.log'
         report['phase'] = 'build'
         report['build_command'] = [

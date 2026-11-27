@@ -427,6 +427,13 @@
 - 完成 R03 Yellowstone 连续流、WAL、fork、补洞和乱序账户恢复。
 - 完成 R04 EnsurePoolScope、扩容、长停机恢复和历史隔离。
 
+#### 当前迭代目标（R03 基础设施闭环，2026-11-27）
+
+- 让 R03 验收在缺少本机 PostgreSQL 13 或 Kafka 安装时，自动使用隔离 Docker 实例，实例只暴露 loopback 端口并在退出时清理。
+- 修正 Kafka 容器的内部与外部监听地址，保证容器内 topic 管理命令和宿主机 Rust producer 分别获得稳定的 broker 地址。
+- 用固定 protobuf 工具链、macOS SDK 头文件和独立编译日志构建 `normal_yellowstone`，执行真实 PostgreSQL/Kafka 下的发布、撤销、重启、Fence 和 HEAD_FIRST 恢复场景。
+- 本轮目标已通过 `python3 integration/tools/acceptance/r03_authority_process.py`，报告状态为 `LOCAL_AUTHORITY_PROCESS_SCOPE_VERIFIED`。该结果覆盖受控 tonic 来源与真实本机中间件，真实同源 Yellowstone、历史 bank 完整性和生产故障域仍按 R01–R04 继续验收。
+
 ### I8 路由与费用
 
 - 接入实际 gas、L1 数据费和原生费换算，使用净输出评分。
@@ -1760,8 +1767,8 @@ CB5结构绑定补修完成：精确5任务/6设计ID/逐项WP与paths/tests规�
 |R02.1|Provider身份/能力/历史范围/错误分类/限流预算、独立故障域及双源head；WS通知与轮询/重连短缺口一致|WP04,WP05,WP07|IN_PROGRESS|normal provider身份/能力/HTTP分类/共享预算/WS与短缺口接线通过当前Go完整check/race；真实来源故障域和持续限流/历史矩阵不凭URL数推断|
 |R02.2|可信头/交易根/receipt根与链规则逐项核对，限定并行Fetch/Decode staging按链有序原子提交|WP04,WP05,WP07|IN_PROGRESS|native V2 normal Adapter/Factory/history/settled-head及Coreth逻辑/物理storage消费已接，174项EVM race全过；承诺核验不替代可信checkpoint/共识证明|
 |R02.3|原始数据不可变归档、解码异常持久DLQ/隔离和重放；工厂事件发现的当前状态准入|WP04,WP05,WP07|IN_PROGRESS|normal工厂目录、immutable archive/DLQ修复重放及owner责任已接；普通进程13项/845 raw/6 DLQ通过；证据流式清单和450真实请求计数另有37/43项边界回归，生产保留/吞吐仍有限|
-|R03.1|Yellowstone真实订阅传输、账户/交易/meta/slot来源身份和序号，先耐久WAL后解码/消费；重连与容量失败封闭|WP04,WP05,WP07,WP20,WP24|IN_PROGRESS|normal tonic/WAL/manifest/owner已接，当前Rust完整check和真实本机PG/Kafka发布/撤销/重启/Fence通过；既有Agave实际Bank构建证据保留，真实同源流资格继续核验|
-|R03.2|乱序账户/交易/metadata重建、版本化账户、slot/fork/skipped屏障、短缺口补洞；窗口不足HEAD_FIRST并登记history gap|WP04,WP05,WP07,WP20,WP24|IN_PROGRESS|版本化manifest、非零tail、fork/skipped/session屏障与HEAD_FIRST已接normal；当前PG/Kafka4恢复场景及定向/全Rust回归通过；真实历史bank账户完成性未自动成立|
+|R03.1|Yellowstone真实订阅传输、账户/交易/meta/slot来源身份和序号，先耐久WAL后解码/消费；重连与容量失败封闭|WP04,WP05,WP07,WP20,WP24|IN_PROGRESS|受控 tonic→WAL→manifest→owner 以及真实本机 PostgreSQL/Kafka 发布、撤销、重启、Fence 已由 `r03_authority_process.py` 通过；真实同源 Yellowstone 流资格和生产故障域继续核验|
+|R03.2|乱序账户/交易/metadata重建、版本化账户、slot/fork/skipped屏障、短缺口补洞；窗口不足HEAD_FIRST并登记history gap|WP04,WP05,WP07,WP20,WP24|IN_PROGRESS|版本化 manifest、非零 tail、fork/skipped/session 屏障与 HEAD_FIRST 已接 normal；真实 PG/Kafka 四类恢复场景及定向回归通过；真实历史 bank 账户完整性未自动成立|
 |R04.1|认证EnsurePoolScope控制接口，显式预算/去重/版本隔离、依赖分片和失败撤销；完成当前scope才能ready|WP08,WP09,WP20,WP24|IN_PROGRESS|Go32池首scope→33池扩容、Rust subset/认证/actor bridge已接并回归；旧fence/取消/预算及失败不发布部分ready均有测试；全准入目录与真实源资格联验仍待完成|
 |R04.2|当前可信baseline/peer选择、先缓冲流/固定锚点/有界尾窗对齐/generation原子发布，空盘及长停机恢复|WP08,WP09,WP20,WP24|IN_PROGRESS|Go/Rust同owner KV恢复账本及prepared/journal/原子READY已接；本机PG/Kafka共8个等效间隔/空KV场景通过；真实peer、retention及跨故障域资格仍有限|
 |R04.3|历史补洞独立namespace/权限/队列/配额，不参与ready、不覆盖online；记录首合格scope/报价及恢复容量|WP08,WP09,WP20,WP24|IN_PROGRESS|Go/Rust独立history namespace/dataset/revision及≤15%墙钟调度已接；Rust queue/runtime18项和normal关闭/暂停/不改online通过，真实历史能力及长期容量/留存持续验收未完成|
