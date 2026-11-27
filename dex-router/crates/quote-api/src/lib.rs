@@ -1324,13 +1324,59 @@ fn shared_suffix_evidence(
     }))
 }
 
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BuildRequest {
+    #[serde(default, rename = "sharedSuffixCandidateHash")]
+    shared_suffix_candidate_hash: Option<String>,
+}
+
 async fn build_transaction(
     State(api): State<Api>,
     headers: HeaderMap,
     Path(id): Path<String>,
+    request: axum::extract::Request,
 ) -> std::result::Result<Json<Value>, HttpError> {
+    let deadline =
+        Instant::now() + Duration::from_millis(api.config.config.simulation.timeout_ms.min(60_000));
     api.authorize(&headers).map_err(failure)?;
     api.rate_limit().map_err(failure)?;
+    let request: BuildRequest =
+        read_execution_request(&api, request, deadline, "INVALID_BUILD_REQUEST").await?;
+    if let Some(candidate) = request.shared_suffix_candidate_hash {
+        if !valid_candidate_hash(&candidate) {
+            return Err(failure(err("INVALID_BUILD_REQUEST")));
+        }
+        let Json(evidence) = run_simulation(
+            &api,
+            &id,
+            deadline,
+            SimulationRequest {
+                shared_suffix_candidate_hash: Some(candidate),
+                ..Default::default()
+            },
+        )
+        .await?;
+        if evidence["verification"]["success"] != true
+            || evidence["costs"]["callerApproval"]["status"] != "SUFFICIENT"
+        {
+            return Err(failure(err("SIMULATION_FAILED")));
+        }
+        let mut response = json!({
+            "quoteId": evidence["quoteId"], "quoteViewId": evidence["quoteViewId"],
+            "planHash": evidence["planHash"], "snapshotRef": evidence["snapshotRef"],
+            "sharedSuffixCandidateHash": evidence["sharedSuffixCandidateHash"],
+            "bindingHash": evidence["bindingHash"], "bundleHash": evidence["bundleHash"],
+            "simulationEvidenceHash": xone_domain::hash(&evidence).map_err(failure)?,
+            "transaction": evidence["transaction"],
+            "transactionContext": evidence["transactionContext"], "costs": evidence["costs"],
+            "authority": evidence["authority"], "verified": false, "ready": false,
+            "blockers": ["LIVE_STATE_AND_COMPLETE_CHAIN_FEE_VALIDATION_REQUIRED"],
+            "requiresSignature": true, "signed": false, "submitted": false,
+        });
+        response["buildHash"] = xone_domain::hash(&response).map_err(failure)?.into();
+        return Ok(Json(response));
+    }
     if let Some(response) = v4_execution::build(&api, &id).await.map_err(failure)? {
         return Ok(Json(response));
     }
@@ -1459,17 +1505,20 @@ struct SimulationRequest {
     #[serde(default, rename = "sharedSuffixCandidateHash")]
     shared_suffix_candidate_hash: Option<String>,
 }
-async fn simulate_transaction(
-    State(api): State<Api>,
-    headers: HeaderMap,
-    Path(id): Path<String>,
+
+fn valid_candidate_hash(candidate: &str) -> bool {
+    candidate.len() == 64
+        && candidate
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+}
+
+async fn read_execution_request<T: Default + serde::de::DeserializeOwned>(
+    api: &Api,
     request: axum::extract::Request,
-) -> std::result::Result<Json<Value>, HttpError> {
-    let started = Instant::now();
-    api.authorize(&headers).map_err(failure)?;
-    api.rate_limit().map_err(failure)?;
-    let deadline =
-        started + Duration::from_millis(api.config.config.simulation.timeout_ms.min(60_000));
+    deadline: Instant,
+    invalid: &str,
+) -> std::result::Result<T, HttpError> {
     let body = tokio::time::timeout_at(
         deadline.into(),
         axum::body::to_bytes(request.into_body(), api.config.config.api.max_body_bytes),
@@ -1481,16 +1530,29 @@ async fn simulate_transaction(
             "request",
         ))
     })?
-    .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?;
-    let simulation_request = if body.is_empty() {
-        SimulationRequest::default()
-    } else {
-        if body.iter().find(|byte| !byte.is_ascii_whitespace()) != Some(&b'{') {
-            return Err(failure(err("INVALID_SIMULATION_REQUEST")));
-        }
-        serde_json::from_slice::<SimulationRequest>(&body)
-            .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?
-    };
+    .map_err(|_| failure(err(invalid)))?;
+    if body.is_empty() {
+        return Ok(T::default());
+    }
+    if body.iter().find(|byte| !byte.is_ascii_whitespace()) != Some(&b'{') {
+        return Err(failure(err(invalid)));
+    }
+    serde_json::from_slice(&body).map_err(|_| failure(err(invalid)))
+}
+
+async fn simulate_transaction(
+    State(api): State<Api>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    request: axum::extract::Request,
+) -> std::result::Result<Json<Value>, HttpError> {
+    let started = Instant::now();
+    api.authorize(&headers).map_err(failure)?;
+    api.rate_limit().map_err(failure)?;
+    let deadline =
+        started + Duration::from_millis(api.config.config.simulation.timeout_ms.min(60_000));
+    let simulation_request: SimulationRequest =
+        read_execution_request(&api, request, deadline, "INVALID_SIMULATION_REQUEST").await?;
     if simulation_request.signed_evm_transaction.is_none() && simulation_request.check_evm_receipt
         || simulation_request.signed_evm_transaction.is_some()
             && simulation_request.signed_op_transaction.is_some()
@@ -1502,10 +1564,7 @@ async fn simulate_transaction(
             .shared_suffix_candidate_hash
             .as_ref()
             .is_some_and(|candidate| {
-                candidate.len() != 64
-                    || !candidate
-                        .bytes()
-                        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+                !valid_candidate_hash(candidate)
                     || simulation_request.check_evm_receipt
                     || simulation_request.check_evm_simulation
                     || simulation_request.signed_evm_transaction.is_some()
@@ -1514,7 +1573,16 @@ async fn simulate_transaction(
     {
         return Err(failure(err("INVALID_SIMULATION_REQUEST")));
     }
-    let is_exact_out = api.exact_out_execution(&id).map_err(failure)?;
+    run_simulation(&api, &id, deadline, simulation_request).await
+}
+
+async fn run_simulation(
+    api: &Api,
+    id: &str,
+    deadline: Instant,
+    simulation_request: SimulationRequest,
+) -> std::result::Result<Json<Value>, HttpError> {
+    let is_exact_out = api.exact_out_execution(id).map_err(failure)?;
     let backend = api
         .local_simulation
         .clone()
@@ -1526,7 +1594,7 @@ async fn simulate_transaction(
             .map_err(|_| failure(err("CACHE_LOCK")))?;
         local_simulation::Selection::ExactOut(
             cache
-                .get(&id)
+                .get(id)
                 .cloned()
                 .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?,
         )
@@ -1534,7 +1602,7 @@ async fn simulate_transaction(
         let cache = api.cache.lock().map_err(|_| failure(err("CACHE_LOCK")))?;
         local_simulation::Selection::ExactIn(
             cache
-                .get(&id)
+                .get(id)
                 .cloned()
                 .ok_or_else(|| failure(err("UNKNOWN_QUOTE")))?,
         )
@@ -1580,7 +1648,7 @@ async fn simulate_transaction(
     };
     let executed = match (executed, receipt_backend) {
         (Ok(mut response), Some(backend)) => evm_receipt::compare(
-            &api,
+            api,
             backend.fixture(),
             cached.context(),
             &response,
@@ -1595,7 +1663,7 @@ async fn simulate_transaction(
     };
     let executed = match (executed, native_backend) {
         (Ok(mut response), Some(backend)) => evm_receipt::compare_simulation(
-            &api,
+            api,
             backend.fixture(),
             cached.context(),
             &response,
@@ -1623,10 +1691,10 @@ async fn simulate_transaction(
     };
     match cached {
         local_simulation::Selection::ExactIn(cached) => {
-            publish_simulation(&api, &id, &cached, response)
+            publish_simulation(api, id, &cached, response)
         }
         local_simulation::Selection::ExactOut(cached) => {
-            publish_exact_out_simulation(&api, &id, &cached, response)
+            publish_exact_out_simulation(api, id, &cached, response)
         }
     }
 }

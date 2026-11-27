@@ -22,6 +22,8 @@ POST /v1/quote 接收camelCase字段：chainKey、kind=EXACT_IN、sellToken、bu
 
 VERIFIED返回INDEPENDENT_SIMULATION_UNAVAILABLE（422）；POST /v1/quotes/{id}/build在先校验有效期/重组后拒绝缺少独立仿真的计划。GET /internal/quotes/{id}/evidence可查看计划与版本证据。不能将该接口用于真实资金可执行报价。
 
+配置标准 V2 共享后缀执行器时，`POST /v1/quotes/{id}/build` 可接收报价 `quality.sharedSuffix.candidateHash` 对应的 `sharedSuffixCandidateHash`。服务按报价快照重放选中的 ExactIn 或 ExactOut 候选，校验授权和成交后返回绑定报价、候选、仿真证据和 calldata 的未签名交易模板。模板的权威为 `PROVIDED_LOCAL_STATE`，`ready` 和 `verified` 均为 `false`。
+
 内部状态源由本项目配置的journal.source_urls指定。开发源使用同一个内部测试凭据；生产多租户/隔离凭据和Kafka尚未接通。跨项目联调工具会自动生成临时凭据。
 
 ## 范围与证据

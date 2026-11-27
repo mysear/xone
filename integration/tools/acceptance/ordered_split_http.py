@@ -294,6 +294,7 @@ def shared_suffix_scenario(binary, bank, report, output):
     info_path = output / 'ready.json'
     env = {key: value for key, value in os.environ.items() if not key.startswith('XONE_')}
     env['XONE_SHARED_SUFFIX_BANK'] = str(bank)
+    env['XONE_QUOTE_TTL_MS'] = '10000'
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with (output / 'process.log').open('w') as log:
         process = subprocess.Popen([binary, info_path], cwd=ROOT, env=env, stdout=log, stderr=log)
@@ -340,9 +341,31 @@ def shared_suffix_scenario(binary, bank, report, output):
             status, invalid = post(path, {'sharedSuffixCandidateHash': '0' * 64})
             require(status == 422 and invalid['error'] == 'EXECUTION_SHARED_SUFFIX_HASH_MISMATCH',
                     str(invalid))
+            build_path = f"/v1/quotes/{quote['quoteId']}/build"
+            build_request = {'sharedSuffixCandidateHash': candidate['candidateHash']}
+            status, built = post(build_path, build_request)
+            require(status == 200, str(built))
+            for field in ('quoteId', 'quoteViewId', 'planHash', 'snapshotRef', 'sharedSuffixCandidateHash',
+                          'bindingHash', 'bundleHash', 'transaction', 'transactionContext', 'costs', 'authority'):
+                require(built[field] == replay[field], 'build evidence mismatch for ' + field)
+            require(built['requiresSignature'] and not any(built[key] for key in ('signed', 'submitted', 'ready', 'verified')),
+                    'build authority or signing status')
+            require(built['simulationEvidenceHash'] == digest(replay) and
+                    built['buildHash'] == digest({key: value for key, value in built.items() if key != 'buildHash'}),
+                    'build or simulation evidence hash mismatch')
+            status, invalid = post(build_path, {'sharedSuffixCandidateHash': '0' * 64})
+            require(status == 422 and invalid['error'] == 'EXECUTION_SHARED_SUFFIX_HASH_MISMATCH', str(invalid))
+            status, invalid = post(build_path, {})
+            default_error = 'EXECUTION_ADAPTER_UNSUPPORTED' if exact_out else 'INDEPENDENT_SIMULATION_UNAVAILABLE'
+            require(status == 422 and invalid['error'] == default_error, str(invalid))
+            expires = quote['validity']['expiresAtMs'] / 1000
+            time.sleep(max(0, expires - time.time()) + .05)
+            status, invalid = post(build_path, build_request)
+            require(status == 409 and invalid['error'] == 'QUOTE_EXPIRED', str(invalid))
             (output / 'quote.json').write_text(json.dumps(quote) + '\n')
             (output / 'simulation.json').write_text(json.dumps(replay) + '\n')
-            (output / 'report.json').write_text(json.dumps(dict(passed=True, scenarios=2)) + '\n')
+            (output / 'build.json').write_text(json.dumps(built) + '\n')
+            (output / 'report.json').write_text(json.dumps(dict(passed=True, scenarios=6)) + '\n')
         finally:
             process.terminate()
             process.wait(timeout=10)

@@ -310,7 +310,9 @@ async fn main() {
         config.config.simulation.candidate_cost_max_plans = max.parse().unwrap();
     }
     config.config.api.quote_timeout_ms = 15000;
-    config.config.routing.quote_ttl_ms = 60000;
+    config.config.routing.quote_ttl_ms = std::env::var("XONE_QUOTE_TTL_MS")
+        .map(|value| value.parse().unwrap())
+        .unwrap_or(60000);
     config.config.routing.max_splits = 1;
     for split in bundle
         .split_executor
