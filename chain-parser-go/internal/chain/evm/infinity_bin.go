@@ -25,6 +25,11 @@ func (a *Adapter) readInfinityBin(ctx context.Context, p config.PoolConfig, anch
 	if v == nil || p.Protocol != "pancake-infinity-bin" || v.TokenPolicy != "standard" || v.ExpectedVaultCodeSHA256 != infinityBinVaultSHA256 || v.MaxBins == 0 || v.MaxBins > 1024 || v.MaxTreeWords == 0 || v.MaxTreeWords > 1024 {
 		return fail("INFINITY_BIN_CONFIG")
 	}
+	identity := v.SnapshotIdentity()
+	if e := identity.ValidateIdentity(p.Token0, p.Token1); e != nil {
+		return domain.Pool{}, e
+	}
+	s := &identity
 	runtime, e := a.verifyCode(ctx, v.Manager, v.ExpectedManagerCodeSHA256, anchor)
 	if e != nil {
 		return domain.Pool{}, e
@@ -95,17 +100,11 @@ func (a *Adapter) readInfinityBin(ctx context.Context, p config.PoolConfig, anch
 	if registered.Sign() == 0 {
 		return fail("INFINITY_BIN_APP_UNREGISTERED")
 	}
-	maxStep, e := scalar(v.Manager, "maxBinStep()", "", 16)
-	if e != nil {
-		return domain.Pool{}, e
-	}
-	// This owner limit applies only to initialization, not existing-pool swap.
-	_ = maxStep
 	key, e := call(v.Manager, singletonSelector("poolIdToPoolKey(bytes32)")+id, 6)
 	if e != nil {
 		return domain.Pool{}, e
 	}
-	expected := []string{p.Token0, p.Token1, domain.SingletonZeroAddress, v.Manager}
+	expected := []string{p.Token0, p.Token1, s.Hooks, v.Manager}
 	for i, want := range expected {
 		n, e := wordUint(key[i*32:(i+1)*32], 160)
 		if e != nil || fmt.Sprintf("0x%040x", n) != want {
@@ -113,32 +112,45 @@ func (a *Adapter) readInfinityBin(ctx context.Context, p config.PoolConfig, anch
 		}
 	}
 	fee, e := wordUint(key[128:160], 24)
-	if e != nil || fee.Uint64() != uint64(v.LPFee) {
+	if e != nil || fee.Uint64() != uint64(s.KeyFee()) {
 		return fail("INFINITY_BIN_KEY_FEE")
 	}
-	parameters := fmt.Sprintf("0x%064x", new(big.Int).Lsh(new(big.Int).SetUint64(uint64(v.BinStep)), 16))
-	if "0x"+hex.EncodeToString(key[160:]) != parameters {
+	if "0x"+hex.EncodeToString(key[160:]) != s.Parameters {
 		return fail("INFINITY_BIN_KEY_PARAMETERS")
 	}
-	s := &domain.InfinityBinState{Manager: v.Manager, ManagerCodeSHA256: v.ExpectedManagerCodeSHA256, Vault: v.Vault, VaultCodeSHA256: v.ExpectedVaultCodeSHA256, PoolID: v.PoolID, Hooks: domain.SingletonZeroAddress, Parameters: parameters, Token0CodeSHA256: v.ExpectedToken0CodeSHA256, Token1CodeSHA256: v.ExpectedToken1CodeSHA256, BinStep: v.BinStep, LPFee: v.LPFee, MaxBins: v.MaxBins, MaxTreeWords: v.MaxTreeWords, MaxSteps: v.MaxSteps, TreeLevel1: []domain.InfinityBinTreeWord{}, TreeLevel2: []domain.InfinityBinTreeWord{}, Bins: []domain.InfinityBinEntry{}, BlockNumber: block.Number, Timestamp: block.TimestampMS / 1000, BlockHash: block.Hash}
+	if s.HookModel == domain.InfinitySettlementHookModel {
+		bitmap, e := scalar(s.Hooks, "getHooksRegistrationBitmap()", "", 16)
+		if e != nil || bitmap.Uint64() != 0xcc0 {
+			return fail("INFINITY_BIN_HOOK_BITMAP")
+		}
+		if e := a.verifyInfinityHookCode(ctx, anchor, s.Hooks, v.Manager, v.Vault); e != nil {
+			return domain.Pool{}, e
+		}
+	}
+	s.TreeLevel1 = []domain.InfinityBinTreeWord{}
+	s.TreeLevel2 = []domain.InfinityBinTreeWord{}
+	s.Bins = []domain.InfinityBinEntry{}
+	s.BlockNumber, s.Timestamp, s.BlockHash = block.Number, block.TimestampMS/1000, block.Hash
 	for i, token := range []string{p.Token0, p.Token1} {
 		expected := v.ExpectedToken0CodeSHA256
 		if i == 1 {
 			expected = v.ExpectedToken1CodeSHA256
 		}
-		code, e := a.verifyCode(ctx, token, expected, anchor)
-		if e != nil {
-			return domain.Pool{}, e
-		}
-		if isStandardClone(code) {
-			return fail("INFINITY_BIN_TOKEN_PROXY")
-		}
-		decimals, e := scalar(token, "decimals()", "", 8)
-		if e != nil {
-			return domain.Pool{}, e
-		}
-		if decimals.Uint64() > 18 {
-			return fail("INFINITY_BIN_TOKEN_DECIMALS")
+		if token != domain.SingletonZeroAddress {
+			code, e := a.verifyCode(ctx, token, expected, anchor)
+			if e != nil {
+				return domain.Pool{}, e
+			}
+			if isStandardClone(code) {
+				return fail("INFINITY_BIN_TOKEN_PROXY")
+			}
+			decimals, e := scalar(token, "decimals()", "", 8)
+			if e != nil {
+				return domain.Pool{}, e
+			}
+			if decimals.Uint64() > 18 {
+				return fail("INFINITY_BIN_TOKEN_DECIMALS")
+			}
 		}
 		reserve, e := scalar(v.Vault, "reservesOfApp(address,address)", addressWord(v.Manager)+addressWord(token), 256)
 		if e != nil {
@@ -176,7 +188,8 @@ func (a *Adapter) readInfinityBin(ctx context.Context, p config.PoolConfig, anch
 	protocol := new(big.Int).And(new(big.Int).Rsh(new(big.Int).Set(packed), 24), mask).Uint64()
 	s.ProtocolFee0 = uint32(protocol & 4095)
 	s.ProtocolFee1 = uint32(protocol >> 12)
-	if uint32(new(big.Int).Rsh(new(big.Int).Set(packed), 48).Uint64()) != v.LPFee {
+	s.LPFee = uint32(new(big.Int).Rsh(new(big.Int).Set(packed), 48).Uint64())
+	if s.LPFee > 100000 || s.HookModel == "" && s.LPFee != v.LPFee {
 		return fail("INFINITY_BIN_LP_FEE_MISMATCH")
 	}
 	slot0, e := call(v.Manager, singletonSelector("getSlot0(bytes32)")+id, 3)
@@ -337,6 +350,6 @@ func (a *Adapter) readInfinityBin(ctx context.Context, p config.PoolConfig, anch
 		}
 	}
 	profile, _ := domain.Protocol(p.Protocol)
-	result := domain.Pool{InfinityBin: s, ChainKey: a.Chain.Key, PoolID: p.ID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: "0", Reserve1: "0", FeeNumerator: p.FeeNumerator, FeeDenominator: p.FeeDenominator, AdapterVersion: profile.AdapterVersion, TokenBehavior: "standard"}
+	result := domain.Pool{InfinityBin: s, ChainKey: a.Chain.Key, PoolID: p.ID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: "0", Reserve1: "0", FeeNumerator: uint64(s.LPFee), FeeDenominator: p.FeeDenominator, AdapterVersion: profile.AdapterVersion, TokenBehavior: "standard"}
 	return result, result.Validate()
 }

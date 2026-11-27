@@ -1,3 +1,4 @@
+use crate::singleton::{DYNAMIC_FEE_FLAG, INFINITY_SETTLEMENT_HOOK_MODEL, ZERO_ADDRESS};
 use crate::{err, wire, Amount, Pool, Result};
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
@@ -31,6 +32,8 @@ pub struct InfinityBinState {
     pub vault_code_sha256: String,
     pub pool_id: String,
     pub hooks: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub hook_model: String,
     pub parameters: String,
     pub token0_code_sha256: String,
     pub token1_code_sha256: String,
@@ -61,6 +64,21 @@ fn nonzero_address(s: &str) -> bool {
     crate::protocols::validate_address(s).is_ok() && s != crate::singleton::ZERO_ADDRESS
 }
 impl InfinityBinState {
+    pub fn key_fee(&self) -> u32 {
+        if self.hook_model == INFINITY_SETTLEMENT_HOOK_MODEL {
+            DYNAMIC_FEE_FLAG
+        } else {
+            self.lp_fee
+        }
+    }
+    pub fn key_parameters(bin_step: u32, hook_model: &str) -> String {
+        let permissions = if hook_model == INFINITY_SETTLEMENT_HOOK_MODEL {
+            0xcc0
+        } else {
+            0
+        };
+        format!("0x{:064x}", (u64::from(bin_step) << 16) | permissions)
+    }
     pub fn key_id(&self, token0: &str, token1: &str) -> Result<String> {
         let word = |v: &str| -> Result<Vec<u8>> {
             let b = hex::decode(
@@ -80,7 +98,7 @@ impl InfinityBinState {
         encoded.extend(word(&self.hooks)?);
         encoded.extend(word(&self.manager)?);
         let mut fee = [0; 32];
-        fee[28..].copy_from_slice(&self.lp_fee.to_be_bytes());
+        fee[28..].copy_from_slice(&self.key_fee().to_be_bytes());
         encoded.extend(fee);
         encoded.extend(word(&self.parameters)?);
         let mut output = [0; 32];
@@ -105,25 +123,31 @@ impl InfinityBinState {
         if !nonzero_address(&self.manager)
             || !nonzero_address(&self.vault)
             || self.manager == self.vault
-            || !nonzero_address(&p.token0)
+            || crate::protocols::validate_address(&p.token0).is_err()
             || !nonzero_address(&p.token1)
             || p.token0 >= p.token1
             || [&self.manager, &self.vault]
                 .iter()
                 .any(|a| **a == p.token0 || **a == p.token1)
-            || self.hooks != crate::singleton::ZERO_ADDRESS
+            || !(self.hook_model.is_empty() && self.hooks == ZERO_ADDRESS
+                || self.hook_model == INFINITY_SETTLEMENT_HOOK_MODEL
+                    && nonzero_address(&self.hooks))
         {
             return Err(err("INFINITY_BIN_IDENTITY"));
         }
         for d in [
             &self.manager_code_sha256,
             &self.vault_code_sha256,
-            &self.token0_code_sha256,
             &self.token1_code_sha256,
         ] {
             if !digest(d) {
                 return Err(err("INFINITY_BIN_CODE_DIGEST"));
             }
+        }
+        if !(p.token0 == ZERO_ADDRESS && self.token0_code_sha256.is_empty()
+            || p.token0 != ZERO_ADDRESS && digest(&self.token0_code_sha256))
+        {
+            return Err(err("INFINITY_BIN_CODE_DIGEST"));
         }
         if !(1..=100).contains(&self.bin_step)
             || self.active_id == 0
@@ -137,7 +161,7 @@ impl InfinityBinState {
         {
             return Err(err("INFINITY_BIN_PARAMETERS"));
         }
-        if self.parameters != format!("0x{:064x}", self.bin_step << 16)
+        if self.parameters != Self::key_parameters(self.bin_step, &self.hook_model)
             || self.key_id(&p.token0, &p.token1)? != self.pool_id
             || p.pool_id != format!("{}/{}", self.manager, self.pool_id)
         {
@@ -257,8 +281,13 @@ impl InfinityBinState {
             vault_code_sha256: raw(&self.vault_code_sha256)?,
             pool_id: raw(&self.pool_id)?,
             hooks: self.hooks.clone(),
+            hook_model: self.hook_model.clone(),
             parameters: raw(&self.parameters)?,
-            token0_code_sha256: raw(&self.token0_code_sha256)?,
+            token0_code_sha256: if self.token0_code_sha256.is_empty() {
+                Vec::new()
+            } else {
+                raw(&self.token0_code_sha256)?
+            },
             token1_code_sha256: raw(&self.token1_code_sha256)?,
             block_hash: raw(&self.block_hash)?,
             bin_step: self.bin_step,
@@ -337,8 +366,13 @@ impl InfinityBinState {
             vault_code_sha256: raw(s.vault_code_sha256, false)?,
             pool_id: raw(s.pool_id, true)?,
             hooks: s.hooks,
+            hook_model: s.hook_model,
             parameters: raw(s.parameters, true)?,
-            token0_code_sha256: raw(s.token0_code_sha256, false)?,
+            token0_code_sha256: if s.token0_code_sha256.is_empty() {
+                String::new()
+            } else {
+                raw(s.token0_code_sha256, false)?
+            },
             token1_code_sha256: raw(s.token1_code_sha256, false)?,
             block_hash: raw(s.block_hash, true)?,
             bin_step: s.bin_step,

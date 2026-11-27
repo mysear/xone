@@ -11,6 +11,7 @@ const references = path.join(root, 'integration/tools/reference');
 const manifest = require(path.join(references, 'singleton-cl/source-metadata.json'));
 const hashes = new Map(manifest.files.map(file => [file.local, file.sha256]));
 const solc = require(path.join(runtime, 'node_modules/solc'));
+const {compile: compileInfinityBin} = require('./infinity-bin-service-compile.cjs');
 assert.match(solc.version(), /^0\.8\.26\+/);
 
 function readPinned(name) {
@@ -37,7 +38,6 @@ const input = {
         [infinityHarness]: {content: fs.readFileSync(path.join(references, 'singleton-advanced', infinityHarness), 'utf8')},
         [vault]: {content: readPinned(vault)},
         [clManager]: {content: readPinned(clManager)},
-        [binManager]: {content: readPinned(binManager)},
     },
     settings: {
         optimizer: {enabled: true, runs: 200},
@@ -62,6 +62,7 @@ const [hookManagerReferences] = Object.values(hookRuntime.immutableReferences);
 const executorRuntime = build.contracts[executor].V4SingleSwap.evm.deployedBytecode;
 assert.equal(Object.keys(executorRuntime.immutableReferences).length, 1);
 const [executorManagerReferences] = Object.values(executorRuntime.immutableReferences);
+const {out: binBuild} = compileInfinityBin();
 fs.writeFileSync(output, JSON.stringify({
     manager: code(manager, 'PoolManager'),
     harness: code(harness, 'V4ManagerSettlement'),
@@ -75,7 +76,8 @@ fs.writeFileSync(output, JSON.stringify({
         vault: code(vault, 'Vault'),
         vaultRuntime: build.contracts[vault].Vault.evm.deployedBytecode.object,
         clManager: code(clManager, 'CLPoolManager'),
-        binManager: code(binManager, 'BinPoolManager'),
+        binManager: binBuild.contracts[binManager].BinPoolManager.evm.bytecode.object,
+        binVault: binBuild.contracts[vault].Vault.evm.bytecode.object,
         harness: code(infinityHarness, 'InfinityManagerSettlement'),
         hookRuntime: build.contracts[infinityHarness].InfinitySettlementHook.evm.deployedBytecode,
     },

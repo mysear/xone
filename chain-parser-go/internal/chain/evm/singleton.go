@@ -114,9 +114,7 @@ func (a *Adapter) verifyInfinitySettlementHook(ctx context.Context, anchor map[s
 	default:
 		return errors.New("SINGLETON_HOOK_VAULT_CODE")
 	}
-	if err := a.verifySingletonHookRuntime(ctx, anchor, hook, 1354, "b19fdab8fb2b4ef318403ac9001afeaa4c89ebe1efbd1ede4e20a6e7b73482d8",
-		singletonHookImmutable{manager, []int{844, 1121}, "SINGLETON_HOOK_MANAGER_MISMATCH"},
-		singletonHookImmutable{vault, []int{929, 1169}, "SINGLETON_HOOK_VAULT_MISMATCH"}); err != nil {
+	if err := a.verifyInfinityHookCode(ctx, anchor, hook, manager, vault); err != nil {
 		return err
 	}
 	data := singletonSelector("isAppRegistered(address)") + strings.Repeat("0", 24) + manager[2:]
@@ -129,6 +127,12 @@ func (a *Adapter) verifyInfinitySettlementHook(ctx context.Context, anchor map[s
 		return errors.New("SINGLETON_HOOK_VAULT_UNREGISTERED")
 	}
 	return nil
+}
+
+func (a *Adapter) verifyInfinityHookCode(ctx context.Context, anchor map[string]any, hook, manager, vault string) error {
+	return a.verifySingletonHookRuntime(ctx, anchor, hook, 1354, "b19fdab8fb2b4ef318403ac9001afeaa4c89ebe1efbd1ede4e20a6e7b73482d8",
+		singletonHookImmutable{manager, []int{844, 1121}, "SINGLETON_HOOK_MANAGER_MISMATCH"},
+		singletonHookImmutable{vault, []int{929, 1169}, "SINGLETON_HOOK_VAULT_MISMATCH"})
 }
 
 func (a *Adapter) readSingletonCL(ctx context.Context, p config.PoolConfig, anchor map[string]any) (domain.Pool, error) {

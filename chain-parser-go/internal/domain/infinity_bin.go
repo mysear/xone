@@ -25,6 +25,7 @@ type InfinityBinState struct {
 	VaultCodeSHA256   string                `json:"vault_code_sha256"`
 	PoolID            string                `json:"pool_id"`
 	Hooks             string                `json:"hooks"`
+	HookModel         string                `json:"hook_model,omitempty"`
 	Parameters        string                `json:"parameters"`
 	Token0CodeSHA256  string                `json:"token0_code_sha256"`
 	Token1CodeSHA256  string                `json:"token1_code_sha256"`
@@ -52,22 +53,44 @@ type InfinityBinState struct {
 	BlockHash     string `json:"block_hash"`
 }
 
+func (s InfinityBinState) KeyFee() uint32 {
+	if s.HookModel == InfinitySettlementHookModel {
+		return SingletonDynamicFeeFlag
+	}
+	return s.LPFee
+}
+
+func (s InfinityBinState) KeyParameters() string {
+	parameters := s.BinStep << 16
+	if s.HookModel == InfinitySettlementHookModel {
+		parameters |= 0xcc0
+	}
+	return "0x" + hex.EncodeToString(new(big.Int).SetUint64(uint64(parameters)).FillBytes(make([]byte, 32)))
+}
+
+func (s InfinityBinState) validHooks() bool {
+	if s.HookModel == "" {
+		return s.Hooks == SingletonZeroAddress
+	}
+	return s.HookModel == InfinitySettlementHookModel && s.Hooks != SingletonZeroAddress && ValidateEVMAddress(s.Hooks) == nil
+}
+
 // KeyID returns the raw bytes32 key hash used by the Infinity bin manager.
 func (s InfinityBinState) KeyID(token0, token1 string) (string, error) {
-	if ValidateEVMAddress(s.Manager) != nil || s.Manager == SingletonZeroAddress || ValidateEVMAddress(token0) != nil || ValidateEVMAddress(token1) != nil || token0 == SingletonZeroAddress || token0 >= token1 || s.Manager == token0 || s.Manager == token1 || s.BinStep < 1 || s.BinStep > 100 || s.LPFee > 100000 || s.Hooks != SingletonZeroAddress {
+	if ValidateEVMAddress(s.Manager) != nil || s.Manager == SingletonZeroAddress || ValidateEVMAddress(token0) != nil || ValidateEVMAddress(token1) != nil || token0 >= token1 || s.Manager == token0 || s.Manager == token1 || s.BinStep < 1 || s.BinStep > 100 || s.LPFee > 100000 || !s.validHooks() {
 		return "", errors.New("INFINITY_BIN_KEY_UNSUPPORTED")
 	}
-	parameters := new(big.Int).SetUint64(uint64(s.BinStep) << 16).FillBytes(make([]byte, 32))
-	if s.Parameters != "0x"+hex.EncodeToString(parameters) {
+	if s.Parameters != s.KeyParameters() {
 		return "", errors.New("INFINITY_BIN_PARAMETERS")
 	}
 	key := make([]byte, 0, 192)
-	for _, address := range []string{token0, token1, SingletonZeroAddress, s.Manager} {
+	for _, address := range []string{token0, token1, s.Hooks, s.Manager} {
 		raw, _ := hex.DecodeString(address[2:])
 		key = append(key, make([]byte, 12)...)
 		key = append(key, raw...)
 	}
-	key = append(key, new(big.Int).SetUint64(uint64(s.LPFee)).FillBytes(make([]byte, 32))...)
+	key = append(key, new(big.Int).SetUint64(uint64(s.KeyFee())).FillBytes(make([]byte, 32))...)
+	parameters, _ := hex.DecodeString(s.Parameters[2:])
 	key = append(key, parameters...)
 	hash := sha3.NewLegacyKeccak256()
 	_, _ = hash.Write(key)
@@ -76,7 +99,9 @@ func (s InfinityBinState) KeyID(token0, token1 string) (string, error) {
 
 // ValidateIdentity is shared with config validation; it does not require a bank or bins.
 func (s InfinityBinState) ValidateIdentity(token0, token1 string) error {
-	if ValidateEVMIdentity(s.Manager, s.ManagerCodeSHA256) != nil || s.Manager == SingletonZeroAddress || ValidateEVMIdentity(s.Vault, s.VaultCodeSHA256) != nil || s.Vault == SingletonZeroAddress || s.Vault == s.Manager || s.Vault == token0 || s.Vault == token1 || ValidateEVMIdentity(token0, s.Token0CodeSHA256) != nil || ValidateEVMIdentity(token1, s.Token1CodeSHA256) != nil {
+	token0Valid := token0 == SingletonZeroAddress && s.Token0CodeSHA256 == "" ||
+		token0 != SingletonZeroAddress && ValidateEVMIdentity(token0, s.Token0CodeSHA256) == nil
+	if ValidateEVMIdentity(s.Manager, s.ManagerCodeSHA256) != nil || s.Manager == SingletonZeroAddress || ValidateEVMIdentity(s.Vault, s.VaultCodeSHA256) != nil || s.Vault == SingletonZeroAddress || s.Vault == s.Manager || s.Vault == token0 || s.Vault == token1 || !token0Valid || ValidateEVMIdentity(token1, s.Token1CodeSHA256) != nil {
 		return errors.New("INFINITY_BIN_IDENTITY")
 	}
 	id, err := s.KeyID(token0, token1)
@@ -105,7 +130,7 @@ func (s InfinityBinState) validateWire() error {
 	if err := s.validateLimits(); err != nil {
 		return err
 	}
-	if ValidateEVMIdentity(s.Manager, s.ManagerCodeSHA256) != nil || s.Manager == SingletonZeroAddress || ValidateEVMIdentity(s.Vault, s.VaultCodeSHA256) != nil || s.Vault == SingletonZeroAddress || s.Vault == s.Manager || ValidateEVMIdentity(s.Manager, s.Token0CodeSHA256) != nil || ValidateEVMIdentity(s.Manager, s.Token1CodeSHA256) != nil || s.Hooks != SingletonZeroAddress || !infinityBinHash(s.PoolID) || s.Parameters != "0x"+hex.EncodeToString(new(big.Int).SetUint64(uint64(s.BinStep)<<16).FillBytes(make([]byte, 32))) {
+	if ValidateEVMIdentity(s.Manager, s.ManagerCodeSHA256) != nil || s.Manager == SingletonZeroAddress || ValidateEVMIdentity(s.Vault, s.VaultCodeSHA256) != nil || s.Vault == SingletonZeroAddress || s.Vault == s.Manager || s.Token0CodeSHA256 != "" && ValidateEVMIdentity(s.Manager, s.Token0CodeSHA256) != nil || ValidateEVMIdentity(s.Manager, s.Token1CodeSHA256) != nil || !s.validHooks() || !infinityBinHash(s.PoolID) || s.Parameters != s.KeyParameters() {
 		return errors.New("INFINITY_BIN_IDENTITY")
 	}
 	if s.Timestamp == 0 || s.Timestamp > ^uint64(0)/1000 || !infinityBinHash(s.BlockHash) || s.BlockHash == "0x"+strings.Repeat("0", 64) {

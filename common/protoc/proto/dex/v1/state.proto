@@ -411,6 +411,7 @@ message InfinityBinState {
  Amount protocol_fees0=24; Amount protocol_fees1=25;
  uint64 block_number=26; uint64 timestamp=27; bytes block_hash=28;
  InfinityBinEntry detached_active=29;
+ string hook_model=30;
 }
 
 // Packed words for the explicit scheduled profile. Source observations are

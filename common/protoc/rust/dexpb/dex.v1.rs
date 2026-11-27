@@ -1172,6 +1172,8 @@ pub struct InfinityBinState {
     pub block_hash: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "29")]
     pub detached_active: ::core::option::Option<InfinityBinEntry>,
+    #[prost(string, tag = "30")]
+    pub hook_model: ::prost::alloc::string::String,
 }
 /// Packed words for the explicit scheduled profile. Source observations are
 /// checked against the original getters; computed weights are never normalized.

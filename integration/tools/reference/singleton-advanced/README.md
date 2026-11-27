@@ -31,6 +31,18 @@ Set `XONE_INFINITY_HOOK_QUOTES` before running the simulation test to export res
 
 An Infinity CL pool may set `singleton_advanced.hook_model` to `infinity-settlement-hook-v1` for this exact dynamic-fee hook. The collector checks the permission bitmap, both sets of hook immutables, the Vault runtime and Manager registration at the pool snapshot's canonical block. HTTP ExactIn and ExactOut match all eight CL swaps in the replay. Set the two fixture paths above and run the HTTP test with the `settlement_hook_http` filter. For the collector checks, run the Go EVM tests with the `SettlementHookRuntimeAtCanonicalBlock` filter.
 
+Infinity Bin uses `infinity_bin.hooks` with `infinity_bin.hook_model` set to `infinity-settlement-hook-v1`. The build uses the Bin Manager and Vault compiler settings pinned by the collector. Eight Bin swaps cross into a neighboring bin and reconcile the full reserve state. The Go collector reads a recorded ERC-20 and native poststate, including the original Manager getter responses. Its Protobuf output can be passed directly to the Rust HTTP tests using the same directory.
+
+```sh
+export XONE_INFINITY_HOOK_QUOTES=/tmp/xone-infinity-hook-quotes.json
+export XONE_INFINITY_BIN_WIRE_DIR=$(mktemp -d)
+cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-simulation \
+  --test v4_manager_settlement -- --ignored
+(cd chain-parser-go && go test ./internal/chain/evm -run SettlementHookRuntimeAtCanonicalBlock)
+cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-quote-api \
+  --test singleton_exact_out settlement_hook_http -- --ignored
+```
+
 ## Bounded library reference
 
 This slice is explicitly separate from legacy singleton admission. The core protocol names inside `SingletonAdvancedState` remain `uniswap-v4` and `pancake-infinity-cl`; central Pool profiles may use their `-advanced` names. Shared registry/config/wire dispatch is owned by main.

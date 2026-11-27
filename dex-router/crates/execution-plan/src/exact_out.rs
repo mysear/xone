@@ -123,7 +123,7 @@ pub fn build(
             && (route.edges.len() != 1
                 || !matches!(
                     route.edges[0].protocol.as_str(),
-                    "uniswap-v4-advanced" | "pancake-infinity-cl-advanced"
+                    "uniswap-v4-advanced" | "pancake-infinity-cl-advanced" | "pancake-infinity-bin"
                 ))
         {
             return Err(err("EXACT_OUT_INVALID_PLAN"));

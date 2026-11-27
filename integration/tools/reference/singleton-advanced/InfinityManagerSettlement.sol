@@ -17,7 +17,12 @@ import {BalanceDelta, BalanceDeltaLibrary} from "infinity/src/types/BalanceDelta
 import {BeforeSwapDelta, toBeforeSwapDelta} from "infinity/src/types/BeforeSwapDelta.sol";
 import {Currency, CurrencyLibrary} from "infinity/src/types/Currency.sol";
 import {PoolKey} from "infinity/src/types/PoolKey.sol";
+import {PoolId} from "infinity/src/types/PoolId.sol";
 import {SettlementToken} from "V4ManagerSettlement.sol";
+
+contract InfinitySettlementToken is SettlementToken {
+    uint8 public constant decimals = 18;
+}
 
 contract InfinitySettlementHook {
     uint16 public constant getHooksRegistrationBitmap = 0xcc0;
@@ -80,6 +85,22 @@ contract InfinityManagerSettlement is ILockCallback {
     uint24 private constant ACTIVE_BIN = 1 << 23;
     int128 private constant AMOUNT = 1_000_000;
 
+    struct SwapResult {
+        address token0;
+        address token1;
+        address hook;
+        int128 delta0;
+        int128 delta1;
+        uint160 state;
+        int24 tick;
+        bytes32[3] binsBefore;
+        uint256[3] shares;
+        bytes32[3] binsAfter;
+        uint256[2] appBefore;
+        uint256[2] appAfter;
+        bytes32 poolId;
+    }
+
     constructor(IVault vault_) {
         vault = vault_;
     }
@@ -87,10 +108,10 @@ contract InfinityManagerSettlement is ILockCallback {
     receive() external payable {}
 
     function run(IPoolManager manager, bool bin, bool native, bool zero, bool exactIn, bool omit)
-        external payable returns (address, address, address, int128, int128, uint160, int24)
+        external payable returns (SwapResult memory result)
     {
-        address token0 = native ? address(0) : address(new SettlementToken());
-        address token1 = address(new SettlementToken());
+        address token0 = native ? address(0) : address(new InfinitySettlementToken());
+        address token1 = address(new InfinitySettlementToken());
         if (token0 > token1) (token0, token1) = (token1, token0);
         IHooks hook = IHooks(address(new InfinitySettlementHook(vault, manager)));
         uint256 spacing = bin ? 25 : 60;
@@ -102,6 +123,7 @@ contract InfinityManagerSettlement is ILockCallback {
         initialize(control, bin);
         lock(key, bin, 0, zero, address(this), false);
         lock(control, bin, 0, zero, address(this), false);
+        if (bin) (result.binsBefore, result.shares) = readBins(key);
 
         int128 specified = exactIn ? -AMOUNT : AMOUNT;
         BalanceDelta core = lock(control, bin, specified + 7, zero, address(this), false);
@@ -110,8 +132,8 @@ contract InfinityManagerSettlement is ILockCallback {
         uint256[2] memory payerBefore = balances(currencies, address(this));
         uint256[2] memory hookBefore = balances(currencies, address(hook));
         uint256[2] memory receiverBefore = balances(currencies, RECIPIENT);
-        uint256[2] memory appBefore = [vault.reservesOfApp(address(manager), currencies[0]),
-                                       vault.reservesOfApp(address(manager), currencies[1])];
+        result.appBefore = [vault.reservesOfApp(address(manager), currencies[0]),
+                            vault.reservesOfApp(address(manager), currencies[1])];
         BalanceDelta swap = lock(key, bin, specified, zero, RECIPIENT, omit);
         int128[2] memory hookFees = exactIn == zero ? [int128(7), int128(11)] : [int128(11), int128(7)];
         require((exactIn ? -(zero ? swap.amount0() : swap.amount1()) : (zero ? swap.amount1() : swap.amount0())) == AMOUNT);
@@ -122,14 +144,17 @@ contract InfinityManagerSettlement is ILockCallback {
             require(net == poolDelta - hookFees[i], "caller vs app delta");
             require(currency.balanceOf(address(hook)) == hookBefore[i] + uint128(hookFees[i]), "hook balance");
             require(int256(currency.balanceOf(address(vault))) + poolDelta == int256(vaultBefore[i]), "vault balance");
-            require(int256(vault.reservesOfApp(address(manager), currency)) + poolDelta == int256(appBefore[i]), "app reserves");
+            result.appAfter[i] = vault.reservesOfApp(address(manager), currency);
+            require(int256(result.appAfter[i]) + poolDelta == int256(result.appBefore[i]), "app reserves");
             require(int256(currency.balanceOf(address(this))) == int256(payerBefore[i]) + (net < 0 ? net : int128(0)), "payer balance");
             require(currency.balanceOf(RECIPIENT) == receiverBefore[i] + (net > 0 ? uint128(net) : 0), "receiver balance");
         }
-        (uint160 state, int24 tick) = checkState(key, control, bin);
+        (result.state, result.tick, result.binsAfter) = checkState(key, control, bin);
         require(vault.getLocker() == address(0) && vault.getUnsettledDeltasCount() == 0 && vault.getAppDeficitCount() == 0,
                 "final Vault transient state");
-        return (token0, token1, address(hook), swap.amount0(), swap.amount1(), state, tick);
+        (result.token0, result.token1, result.hook) = (token0, token1, address(hook));
+        (result.delta0, result.delta1) = (swap.amount0(), swap.amount1());
+        result.poolId = PoolId.unwrap(key.toId());
     }
 
     function initialize(PoolKey memory key, bool bin) private {
@@ -137,22 +162,33 @@ contract InfinityManagerSettlement is ILockCallback {
         else ICLPoolManager(address(key.poolManager)).initialize(key, uint160(1 << 96));
     }
 
-    function checkState(PoolKey memory key, PoolKey memory control, bool bin) private view returns (uint160, int24) {
+    function checkState(PoolKey memory key, PoolKey memory control, bool bin)
+        private view returns (uint160, int24, bytes32[3] memory)
+    {
         if (bin) {
             IBinPoolManager manager = IBinPoolManager(address(key.poolManager));
             (uint24 id,, uint24 lpFee) = manager.getSlot0(key.toId());
             (uint24 controlId,,) = manager.getSlot0(control.toId());
-            require(id == controlId && lpFee == 0, "bin slot0");
-            (uint128 x, uint128 y,,) = manager.getBin(key.toId(), id);
-            (uint128 xControl, uint128 yControl,,) = manager.getBin(control.toId(), id);
-            require(x == xControl && y == yControl, "bin reserves");
-            return (uint160(id), 0);
+            require(id != ACTIVE_BIN && id == controlId && lpFee == 0, "bin slot0");
+            (bytes32[3] memory reserves,) = readBins(key);
+            (bytes32[3] memory controlReserves,) = readBins(control);
+            for (uint256 i; i < 3; ++i) require(reserves[i] == controlReserves[i], "bin reserves");
+            return (uint160(id), 0, reserves);
         }
         ICLPoolManager manager = ICLPoolManager(address(key.poolManager));
         (uint160 price, int24 tick,, uint24 lpFee) = manager.getSlot0(key.toId());
         (uint160 controlPrice, int24 controlTick,,) = manager.getSlot0(control.toId());
         require(price != uint160(1 << 96) && price == controlPrice && tick == controlTick && lpFee == 0, "CL slot0");
-        return (price, tick);
+        bytes32[3] memory empty;
+        return (price, tick, empty);
+    }
+
+    function readBins(PoolKey memory key) private view returns (bytes32[3] memory reserves, uint256[3] memory shares) {
+        IBinPoolManager manager = IBinPoolManager(address(key.poolManager));
+        for (uint24 i; i < 3; ++i) {
+            (uint128 x, uint128 y,, uint256 totalShares) = manager.getBin(key.toId(), ACTIVE_BIN - 1 + i);
+            (reserves[i], shares[i]) = (x.encode(y), totalShares);
+        }
     }
 
     function lock(PoolKey memory key, bool bin, int128 specified, bool zero, address recipient, bool omit)
@@ -173,9 +209,11 @@ contract InfinityManagerSettlement is ILockCallback {
         if (bin) {
             IBinPoolManager manager = IBinPoolManager(address(key.poolManager));
             if (specified == 0) {
-                bytes32[] memory config = new bytes32[](1);
-                config[0] = LiquidityConfigurations.encodeParams(1e18, 1e18, ACTIVE_BIN);
-                (delta,) = manager.mint(key, IBinPoolManager.MintParams(config, uint128(1e12).encode(1e12), 0), "");
+                bytes32[] memory config = new bytes32[](3);
+                config[0] = LiquidityConfigurations.encodeParams(0, 9e17, ACTIVE_BIN - 1);
+                config[1] = LiquidityConfigurations.encodeParams(1e17, 1e17, ACTIVE_BIN);
+                config[2] = LiquidityConfigurations.encodeParams(9e17, 0, ACTIVE_BIN + 1);
+                (delta,) = manager.mint(key, IBinPoolManager.MintParams(config, uint128(5e6).encode(5e6), 0), "");
             } else {
                 delta = manager.swap(key, zero, specified, abi.encode(omit));
             }

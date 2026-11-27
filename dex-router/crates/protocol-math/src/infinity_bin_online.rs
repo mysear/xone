@@ -1,6 +1,7 @@
-//! Static, zero-hook Bin manager state; no unlock/settlement execution claim.
+//! Bin manager swaps with complete tree state and Vault app-reserve accounting.
 use crate::{
     infinity_bin_multi::{BinReserves, MultiBinState},
+    singleton::{SETTLEMENT_HOOK_FEE, SETTLEMENT_HOOK_SPECIFIED, SETTLEMENT_HOOK_UNSPECIFIED},
     Swap,
 };
 use num_bigint::BigUint;
@@ -18,10 +19,30 @@ fn quote(pool: &Pool, amount: &Amount, left: bool, exact_out: bool) -> Result<Sw
         .infinity_bin
         .as_ref()
         .ok_or_else(|| err("INFINITY_BIN_STATE_REQUIRED"))?;
+    let hooked = !s.hook_model.is_empty();
+    let signed_limit = BigUint::one() << 127usize;
+    if hooked && !exact_out && amount.0 > signed_limit {
+        return Err(err("INFINITY_BIN_INT128_RANGE"));
+    }
+    let core_amount = if !hooked {
+        amount.clone()
+    } else if exact_out {
+        Amount::checked(&amount.0 + SETTLEMENT_HOOK_SPECIFIED)?
+    } else {
+        let fee = BigUint::from(SETTLEMENT_HOOK_SPECIFIED);
+        if amount.0 <= fee {
+            return Err(err("SINGLETON_HOOK_INPUT_TOO_SMALL"));
+        }
+        Amount::checked(&amount.0 - fee)?
+    };
     let native = MultiBinState {
         active_id: s.active_id,
         bin_step: s.bin_step as u16,
-        lp_fee: s.lp_fee,
+        lp_fee: if hooked {
+            SETTLEMENT_HOOK_FEE
+        } else {
+            s.lp_fee
+        },
         protocol_fee0: s.protocol_fee0,
         protocol_fee1: s.protocol_fee1,
         max_steps: s.max_steps,
@@ -48,22 +69,22 @@ fn quote(pool: &Pool, amount: &Amount, left: bool, exact_out: bool) -> Result<Sw
     let q = if exact_out {
         crate::infinity_bin_exact_out::quote_exact_out_with_active(
             &native,
-            amount,
+            &core_amount,
             left,
             detached.as_ref(),
         )?
     } else {
         crate::infinity_bin_multi::quote_exact_in_with_active(
             &native,
-            amount,
+            &core_amount,
             left,
             detached.as_ref(),
         )?
     };
     if (if exact_out {
-        q.amount_out != *amount
+        q.amount_out != core_amount
     } else {
-        q.consumed_in != *amount
+        q.consumed_in != core_amount
     }) || !q.remaining_in.0.is_zero()
     {
         return Err(err("INFINITY_BIN_PARTIAL_FILL"));
@@ -115,9 +136,24 @@ fn quote(pool: &Pool, amount: &Amount, left: bool, exact_out: bool) -> Result<Sw
             Amount::checked((&s.protocol_fees1.0 + &q.protocol_amount.0) % &modulus)?;
     }
     next_pool.validate()?;
+    let (consumed_in, amount_out) = if !hooked {
+        (q.consumed_in, q.amount_out)
+    } else if exact_out {
+        let input = Amount::checked(&q.consumed_in.0 + SETTLEMENT_HOOK_UNSPECIFIED)?;
+        if input.0 > signed_limit {
+            return Err(err("INFINITY_BIN_INT128_RANGE"));
+        }
+        (input, amount.clone())
+    } else {
+        let delta = BigUint::from(SETTLEMENT_HOOK_UNSPECIFIED);
+        if q.amount_out.0 <= delta {
+            return Err(err("SINGLETON_HOOK_OUTPUT_TOO_SMALL"));
+        }
+        (amount.clone(), Amount::checked(q.amount_out.0 - delta)?)
+    };
     Ok(Swap {
-        amount_out: q.amount_out,
-        consumed_in: input.clone(),
+        amount_out,
+        consumed_in,
         remaining_in: Amount::zero(),
         next_pool,
     })

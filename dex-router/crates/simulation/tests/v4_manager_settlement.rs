@@ -8,6 +8,7 @@ use revm::{
 use serde::Deserialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 
 #[derive(Deserialize)]
 struct Build {
@@ -23,6 +24,7 @@ struct InfinityBuild {
     vault: String,
     cl_manager: String,
     bin_manager: String,
+    bin_vault: String,
     harness: String,
 }
 
@@ -67,6 +69,95 @@ fn deploy(db: &mut InMemoryDB, bytecode: &str, argument: impl Into<Option<Addres
     }
 }
 
+fn record_bin_bank(
+    db: &mut InMemoryDB,
+    manager: Address,
+    vault: Address,
+    hook: Address,
+    currencies: [Address; 2],
+    pool_id: [u8; 32],
+) -> serde_json::Value {
+    let accounts = [manager, vault, hook, currencies[0], currencies[1]];
+    let codes: BTreeMap<_, _> = accounts
+        .into_iter()
+        .filter(|address| *address != Address::ZERO)
+        .map(|address| {
+            let code = &db.contracts[&db.accounts[&address].info.code_hash];
+            (
+                format!("{address:#x}"),
+                format!("0x{}", hex::encode(code.original_bytes())),
+            )
+        })
+        .collect();
+    let mut calls = BTreeMap::<String, BTreeMap<String, String>>::new();
+    let mut read = |address, signature, words: &[[u8; 32]]| {
+        let mut calldata = selector(signature).to_vec();
+        calldata.extend(words.iter().flatten().copied());
+        let key = format!("0x{}", hex::encode(&calldata));
+        match transact(db, TxKind::Call(address), calldata, 0) {
+            ExecutionResult::Success {
+                output: Output::Call(data),
+                ..
+            } => {
+                let previous = calls
+                    .entry(format!("{address:#x}"))
+                    .or_default()
+                    .insert(key, format!("0x{}", hex::encode(data)));
+                assert!(previous.is_none());
+            }
+            failure => panic!("{signature}: {failure:?}"),
+        }
+    };
+    read(manager, "vault()", &[]);
+    read(manager, "paused()", &[]);
+    read(vault, "isAppRegistered(address)", &[address_word(manager)]);
+    read(manager, "poolIdToPoolKey(bytes32)", &[pool_id]);
+    read(hook, "getHooksRegistrationBitmap()", &[]);
+    for currency in currencies {
+        if currency != Address::ZERO {
+            read(currency, "decimals()", &[]);
+        }
+        let currency = address_word(currency);
+        read(
+            vault,
+            "reservesOfApp(address,address)",
+            &[address_word(manager), currency],
+        );
+        read(manager, "protocolFeesAccrued(address)", &[currency]);
+    }
+    read(manager, "getSlot0(bytes32)", &[pool_id]);
+    let word = |n: u32| U256::from(n).to_be_bytes::<32>();
+    let mapping = |key: [u8; 32], slot: [u8; 32]| keccak256([key, slot].concat()).0;
+    let pool_base = U256::from_be_bytes(mapping(pool_id, word(5)));
+    let slot = |n: u32| (pool_base + U256::from(n)).to_be_bytes::<32>();
+    for n in [0, 4] {
+        read(manager, "extsload(bytes32)", &[slot(n)]);
+    }
+    for (offset, indices) in [(5, [127, 128]), (6, [32767, 32768])] {
+        for index in indices {
+            read(
+                manager,
+                "extsload(bytes32)",
+                &[mapping(word(index), slot(offset))],
+            );
+        }
+    }
+    for id in 8_388_607..=8_388_609 {
+        read(manager, "getBin(bytes32,uint24)", &[pool_id, word(id)]);
+        for n in [1, 2] {
+            read(manager, "extsload(bytes32)", &[mapping(word(id), slot(n))]);
+        }
+        for direction in [0, 1] {
+            read(
+                manager,
+                "getNextNonEmptyBin(bytes32,bool,uint24)",
+                &[pool_id, word(direction), word(id)],
+            );
+        }
+    }
+    json!({"code": codes, "calls": calls})
+}
+
 #[test]
 #[ignore = "requires the pinned Cancun Infinity CL/Bin/Vault build"]
 fn original_infinity_managers_settle_hook_deltas_through_vault() {
@@ -80,14 +171,16 @@ fn original_infinity_managers_settle_hook_deltas_through_vault() {
             ..Default::default()
         },
     );
-    let vault = deploy(&mut db, &build.infinity.vault, None);
-    let harness = deploy(&mut db, &build.infinity.harness, vault);
     let mut cases = Vec::new();
-    for (bin, code) in [
-        (false, &build.infinity.cl_manager),
-        (true, &build.infinity.bin_manager),
+    for (bin, manager_code, vault_code) in [
+        (false, &build.infinity.cl_manager, &build.infinity.vault),
+        (true, &build.infinity.bin_manager, &build.infinity.bin_vault),
     ] {
-        let manager = deploy(&mut db, code, vault);
+        let vault = deploy(&mut db, vault_code, None);
+        let vault_code = &db.contracts[&db.accounts[&vault].info.code_hash];
+        let vault_digest = hex::encode(Sha256::digest(vault_code.original_bytes()));
+        let harness = deploy(&mut db, &build.infinity.harness, vault);
+        let manager = deploy(&mut db, manager_code, vault);
         let manager_code = &db.contracts[&db.accounts[&manager].info.code_hash];
         let manager_digest = hex::encode(Sha256::digest(manager_code.original_bytes()));
         let mut register = selector("registerApp(address)").to_vec();
@@ -113,7 +206,7 @@ fn original_infinity_managers_settle_hook_deltas_through_vault() {
                         );
                     };
                     let words: Vec<_> = raw.chunks_exact(32).collect();
-                    assert_eq!(words.len(), 7);
+                    assert_eq!(words.len(), 21);
                     let delta0 = i128::from_be_bytes(words[3][16..].try_into().unwrap());
                     let delta1 = i128::from_be_bytes(words[4][16..].try_into().unwrap());
                     let (input, output) = if zero {
@@ -123,14 +216,34 @@ fn original_infinity_managers_settle_hook_deltas_through_vault() {
                     };
                     let hook = Address::from_slice(&words[2][12..]);
                     let hook_code = &db.contracts[&db.accounts[&hook].info.code_hash];
+                    let hook_code = format!("0x{}", hex::encode(hook_code.original_bytes()));
+                    let currencies = [
+                        Address::from_slice(&words[0][12..]),
+                        Address::from_slice(&words[1][12..]),
+                    ];
+                    let pool_id = words[20].try_into().unwrap();
+                    let bank = (bin && zero && exact_in).then(|| {
+                        record_bin_bank(&mut db, manager, vault, hook, currencies, pool_id)
+                    });
+                    let bins = |offset: usize| {
+                        (0..3).map(|i| json!({
+                            "id": 8_388_607 + i,
+                            "reserve0": u128::from_be_bytes(words[offset + i][16..].try_into().unwrap()).to_string(),
+                            "reserve1": u128::from_be_bytes(words[offset + i][..16].try_into().unwrap()).to_string(),
+                            "total_shares": U256::from_be_slice(words[10 + i]).to_string(),
+                        })).collect::<Vec<_>>()
+                    };
                     cases.push(json!({
                         "currency0": format!("0x{}", hex::encode(&words[0][12..])),
                         "currency1": format!("0x{}", hex::encode(&words[1][12..])),
                         "manager": format!("{manager:#x}"),
                         "managerCodeSha256": manager_digest,
                         "vault": format!("{vault:#x}"),
+                        "vaultCodeSha256": vault_digest,
                         "hook": format!("{hook:#x}"),
-                        "hookCode": format!("0x{}", hex::encode(hook_code.original_bytes())),
+                        "hookCode": hook_code,
+                        "poolId": format!("0x{}", hex::encode(pool_id)),
+                        "rpcBankAfter": bank,
                         "bin": bin,
                         "zeroForOne": zero,
                         "exactIn": exact_in,
@@ -138,6 +251,12 @@ fn original_infinity_managers_settle_hook_deltas_through_vault() {
                         "output": output.to_string(),
                         "stateAfter": U256::from_be_slice(words[5]).to_string(),
                         "tickAfter": i32::from_be_bytes(words[6][28..].try_into().unwrap()),
+                        "binsBefore": bin.then(|| bins(7)),
+                        "binsAfter": bin.then(|| bins(13)),
+                        "appReserve0Before": U256::from_be_slice(words[16]).to_string(),
+                        "appReserve1Before": U256::from_be_slice(words[17]).to_string(),
+                        "appReserve0After": U256::from_be_slice(words[18]).to_string(),
+                        "appReserve1After": U256::from_be_slice(words[19]).to_string(),
                     }));
                     *data.last_mut().unwrap() = 1;
                     let rejected = transact(&mut db, TxKind::Call(harness), data, value);
