@@ -629,6 +629,19 @@ impl Api {
                     selected_output: &plan.allocation.gross_buy_amount,
                 },
             )?;
+            let shared_suffix =
+                xone_optimizer::shared_v2::quote_suffix(&worker_view.pools, &plan.allocation)
+                    .map(|candidate| {
+                        let candidate_hash =
+                            hash(&("xone-shared-v2-suffix/1", &plan.plan_hash, &candidate))?;
+                        Ok(json!({
+                            "scope": "SNAPSHOT_SHARED_V2_SUFFIX_REPLAY",
+                            "basisPlanHash": plan.plan_hash,
+                            "candidateHash": candidate_hash,
+                            "candidate": candidate,
+                        }))
+                    })
+                    .transpose()?;
             let candidate_search = json!({
                 "strategy": search_strategy,
                 "maxHops": search_budget.max_hops,
@@ -650,6 +663,7 @@ impl Api {
                 cost_ranking,
                 candidate_search,
                 objective_bound,
+                shared_suffix,
             ))
         });
         let remaining = deadline.saturating_duration_since(Instant::now());
@@ -663,6 +677,7 @@ impl Api {
             cost_ranking,
             candidate_search,
             objective_bound,
+            shared_suffix,
         ) = tokio::time::timeout(remaining, task)
             .await
             .map_err(|_| err("BUDGET_EXHAUSTED"))?
@@ -681,6 +696,9 @@ impl Api {
         response["quality"]["candidateSearch"] = candidate_search;
         if let Some(bound) = objective_bound {
             response["quality"]["objectiveBound"] = json!(bound);
+        }
+        if let Some(candidate) = shared_suffix {
+            response["quality"]["sharedSuffix"] = candidate;
         }
         if let Some(ranking) = cost_ranking {
             if expires <= now_ms() {

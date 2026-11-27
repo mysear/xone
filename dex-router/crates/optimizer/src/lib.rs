@@ -4,6 +4,7 @@ pub mod constant_product_bound;
 pub mod cost_scoring;
 pub mod exact_out;
 mod search;
+pub mod shared_v2;
 pub use search::{
     optimize_with_costs, optimize_with_limits, OptimizationLimits, OptimizationResult, MAX_SPLITS,
 };
