@@ -28,7 +28,7 @@ The capture is a finalized `getMultipleAccounts` response in the order defined b
 
 ## Signed swap replay
 
-The Quote API test target contains `orca_dual_token2022_wallet_wire_matches_independent_http_simulation`. Supply the same bank and runtime manifest described below to run normal quote, preparation and independent simulation for both directions. The test compares signed and unsigned settlement amounts, fees and account digests. It checks RPC validity at the last valid block height and rejects an expired height, unknown blockhash, stale RPC slot and corrupted wallet signature in each direction.
+The Quote API test target contains `orca_dual_token2022_wallet_wire_matches_independent_http_simulation`. Supply the same bank and runtime manifest described below to run normal quote, preparation and independent simulation for both directions. The test compares signed and unsigned settlement amounts, fees and account digests. It derives the expected writable and read-only accounts from the preparation instructions and compares them to `messageAccountLocks` on both responses. It checks RPC validity at the last valid block height and rejects an expired height, unknown blockhash, stale RPC slot and corrupted wallet signature in each direction.
 
 ## Position reward collection
 

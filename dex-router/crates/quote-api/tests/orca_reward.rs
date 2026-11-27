@@ -239,9 +239,34 @@ async fn orca_dual_token2022_wallet_wire_matches_independent_http_simulation() {
             "feeLamports",
             "postAccountsHash",
             "bankSha256",
+            "messageAccountLocks",
         ] {
             assert_eq!(signed[key], unsigned[key], "{key}");
         }
+        let mut account_metas = std::collections::BTreeMap::from([(caller, true)]);
+        for instruction in prep["instructions"].as_array().unwrap() {
+            let program = instruction["programId"].as_str().unwrap();
+            account_metas.entry(program).or_insert(false);
+            for meta in instruction["accounts"].as_array().unwrap() {
+                let writable = account_metas
+                    .entry(meta["pubkey"].as_str().unwrap())
+                    .or_insert(false);
+                *writable |= meta["isWritable"].as_bool().unwrap();
+            }
+        }
+        let mut writable = vec![caller];
+        let mut readonly = Vec::new();
+        for (key, writes) in account_metas {
+            if !writes {
+                readonly.push(key);
+            } else if key != caller {
+                writable.push(key);
+            }
+        }
+        assert_eq!(
+            signed["messageAccountLocks"],
+            json!({"writable":writable,"readonly":readonly})
+        );
         let mut tampered = STANDARD.decode(signed_wire.trim()).unwrap();
         tampered[1] ^= 1;
         let (status, error) = claim(

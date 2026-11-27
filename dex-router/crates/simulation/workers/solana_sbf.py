@@ -311,7 +311,16 @@ def main():
                 and signed_wire[65:]==wire[65:],'SBF_SIGNED_MESSAGE_MISMATCH')
         wire=signed_wire
     tx=Transaction.from_bytes(wire)
-    require(tx.message.header.num_required_signatures==1 and str(tx.message.account_keys[0])==request['caller'],'SBF_CALLER_SIGNER')
+    tx.sanitize()
+    header = tx.message.header
+    keys = list(map(str, tx.message.account_keys))
+    require(header.num_required_signatures == 1 and header.num_readonly_signed_accounts == 0
+            and keys[0] == request['caller'], 'SBF_CALLER_SIGNER')
+    require(len(keys) == len(set(keys)), 'SBF_ACCOUNT_LOADED_TWICE')
+    writable_end = len(keys) - header.num_readonly_unsigned_accounts
+    writable_keys = set(keys[:writable_end])
+    readonly_keys = set(keys[writable_end:])
+    account_locks = dict(writable=keys[:writable_end], readonly=keys[writable_end:])
     require(bytes(tx.message)==base64.b64decode(preparation['messageBase64'],validate=True),'SBF_MESSAGE_BINDING')
     if signed is not None:
         require(str(tx.message.recent_blockhash)==preparation['recentBlockhash'],'SBF_BLOCKHASH_MISMATCH')
@@ -431,9 +440,9 @@ def main():
                             'SBF_ORCA_REWARD_ARRAY_BINDING')
                     validate_orca_array(model, arrays[address], bank['accounts'], Pubkey)
         else:
-            oracle_index=list(map(str,tx.message.account_keys)).index(state['oracle']);h=tx.message.header
-            writable=oracle_index<(h.num_required_signatures-h.num_readonly_signed_accounts if oracle_index<h.num_required_signatures else len(tx.message.account_keys)-h.num_readonly_unsigned_accounts)
-            require(writable==(state.get('adaptive')is not None),'SBF_ORCA_ORACLE_PRIVILEGE')
+            oracle = state['oracle']
+            expected_locks = writable_keys if state.get('adaptive') is not None else readonly_keys
+            require(oracle in expected_locks, 'SBF_ORCA_ORACLE_PRIVILEGE')
         require(int.from_bytes(clock_data[16:24],'little')==state['bank_epoch'],'SBF_ORCA_EPOCH_MISMATCH')
     elif target in [PUMP_AMM,PUMP]:
         require(state['user']==request['caller']==request['recipient'],'SBF_PUMP_USER_MISMATCH')
@@ -485,7 +494,7 @@ def main():
         require(hashlib.sha256(payload).hexdigest()==expected,'SBF_BANK_PROGRAM_MISMATCH')
         svm.add_program_with_loader(Pubkey.from_string(pid),payload,Pubkey.from_string(LOADER))
     if bank.get('rpcCapture'):
-        accounts=bank['accounts'];absent=set(bank['absentAccounts']);keys=list(map(str,tx.message.account_keys))
+        accounts=bank['accounts'];absent=set(bank['absentAccounts'])
         require(set(keys)<=set(accounts)|absent,'SBF_CAPTURE_ACCOUNT_MISSING')
         require(not(set(accounts)&absent),'SBF_CAPTURE_ACCOUNT_CONTRADICTION')
         for key in absent:require(svm.get_account(Pubkey.from_string(key))is None,'SBF_CAPTURE_ABSENT_RUNTIME_CONFLICT')
@@ -505,7 +514,7 @@ def main():
     clock=raw(bank['accounts'][CLOCK]);require(len(clock)==40,'SBF_CLOCK_LAYOUT')
     svm.set_clock(Clock(slot=int.from_bytes(clock[:8],'little'),epoch_start_timestamp=int.from_bytes(clock[8:16],'little',signed=True),epoch=int.from_bytes(clock[16:24],'little'),leader_schedule_epoch=int.from_bytes(clock[24:32],'little'),unix_timestamp=int.from_bytes(clock[32:40],'little',signed=True)))
     a=bank['accounts'][CLOCK];svm.set_account(Pubkey.from_string(CLOCK),Account(a['lamports'],raw(a),Pubkey.from_string(a['owner']),a['executable'],0))
-    keys=list(map(str,tx.message.account_keys));before={key:svm.get_account(Pubkey.from_string(key))for key in keys}
+    before={key:svm.get_account(Pubkey.from_string(key))for key in keys}
     result=svm.simulate_transaction(tx);native=json.loads(result.to_json())
     for key,a in before.items():
         current=svm.get_account(Pubkey.from_string(key))
@@ -513,13 +522,21 @@ def main():
     if native.get('err')is not None:
         return dict(protocol=PROTOCOL,success=False,error='SBF_TRANSACTION_FAILED',nativeError=native['err'],unitsConsumed=native['meta']['compute_units_consumed'],sourceBankUnchanged=True)
     post={str(key):value for key,value in result.post_accounts()}
+    require(post.keys() <= before.keys(), 'SBF_POST_ACCOUNT_NOT_IN_MESSAGE')
+    for key in readonly_keys & post.keys():
+        require(before[key] is not None and bytes(post[key]) == bytes(before[key]),
+                'SBF_READONLY_ACCOUNT_CHANGED')
     def account(key):
         a=post.get(key)if key in post else svm.get_account(Pubkey.from_string(key))
         return None if a is None or (a.lamports==0 and len(a.data)==0)else a
     if claim:
-        return verify_reward_claim(request,preparation,before,account,native)
+        evidence = verify_reward_claim(request,preparation,before,account,native)
+        evidence['messageAccountLocks'] = account_locks
+        return evidence
     if rayclmm_claim:
-        return verify_rayclmm_claim(request,preparation,before,account,native)
+        evidence = verify_rayclmm_claim(request,preparation,before,account,native)
+        evidence['messageAccountLocks'] = account_locks
+        return evidence
     caller=request['caller'];source=preparation['sourceTokenAccount'];destination=preparation['destinationTokenAccount']
     def amount(a,mint,owner,program):
         require(a is not None and not a.executable and str(a.owner)==program and len(a.data)>=165,'SBF_TOKEN_ACCOUNT')
@@ -603,6 +620,7 @@ def main():
     evidence = dict(protocol=PROTOCOL,success=True,actualInput=str(paid),actualOutput=str(received),feeLamports=str(fee),payerLamportDelta=str(native_after.lamports-native_before),unitsConsumed=native['meta']['compute_units_consumed'],maxComputeUnits=limit,sourceBankUnchanged=True,transactionSha256=hashlib.sha256(wire).hexdigest(),postAccounts=account_evidence,postAccountsHash=hashlib.sha256(json.dumps(account_evidence,sort_keys=True,separators=(',',':')).encode()).hexdigest(),independentProductionVerification=False,signed=signed is not None,submitted=False)
     if signed is not None:
         evidence['walletSignature'] = str(tx.signatures[0])
+    evidence['messageAccountLocks'] = account_locks
     return evidence
 
 if __name__=='__main__':
