@@ -1,3 +1,6 @@
+#[path = "support/owner_baseline.rs"]
+mod owner_baseline;
+
 use std::sync::{Arc, Mutex};
 use xone_solana_ingest::{history_queue::*, store::Store};
 static NEXT_HISTORY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -33,15 +36,13 @@ fn baseline(
     head: u64,
     gaps: Vec<xone_domain::Gap>,
 ) {
-    let mut s: xone_domain::Snapshot =
-        serde_json::from_str(include_str!("../../../test/fixtures/solana/baseline.json")).unwrap();
+    let mut s = owner_baseline::snapshot(1_000);
     s.reference.online_generation = generation;
     s.reference.journal_seq = generation;
     s.reference.canonical_epoch = epoch;
     s.reference.block.number_or_slot = head;
-    s.reference.block.timestamp_ms = 1000;
     if scope == "scope-b" {
-        s.pools.truncate(1);
+        s.pools[0].pool_id = bs58::encode([21; 32]).into_string();
     }
     s.reference.scope_hash = xone_domain::scope_hash(&s.pools).unwrap();
     s.history_gaps = gaps;
