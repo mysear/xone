@@ -26,9 +26,11 @@ The capture is a finalized `getMultipleAccounts` response in the order defined b
 | Token-2022 | 460497271 | `15a2e615a42e20f31714bbaaee43002ae6f1cda2e8d7118243117ab3c1342e2d` |
 | Memo | Immutable | `f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954` |
 
-## Position reward collection
+## Signed swap replay
 
-The Quote API test target also contains `orca_dual_token2022_wallet_wire_matches_independent_http_simulation`. Supply the same bank and runtime manifest described below to run normal quote, preparation and independent simulation for both directions. The test compares signed and unsigned settlement amounts, fees and account digests, then repeats each request with a corrupted wallet signature.
+The Quote API test target contains `orca_dual_token2022_wallet_wire_matches_independent_http_simulation`. Supply the same bank and runtime manifest described below to run normal quote, preparation and independent simulation for both directions. The test compares signed and unsigned settlement amounts, fees and account digests. It checks RPC validity at the last valid block height and rejects an expired height, unknown blockhash, stale RPC slot and corrupted wallet signature in each direction.
+
+## Position reward collection
 
 `POST /v1/chains/{chain}/pools/{pool}/prepare-orca-reward` resolves an initialized reward slot from the installed pool view. The `claim` body supplies `authority`, `position`, `positionTokenAccount`, `recipient`, `rewardAccount`, `rewardIndex` and `rewardTokenProgram`. Set `simulate` to `true` to verify the unsigned transaction with the configured RPC-capture SBF engine.
 

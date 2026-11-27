@@ -404,11 +404,19 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
             1000
         }),
         "isBlockhashValid" => {
-            json!({"context":{"slot":if mode.starts_with("preflight_") || mode=="simulation_mismatch" {slot+1}else{slot}},"value":mode!="expire_after_send"||b.transactions.lock().unwrap().is_empty()})
+            let observed = match mode.as_str() {
+                "preflight_advancing" | "preflight_fee_stale" => {
+                    assert_eq!(q["params"][1]["minContextSlot"], slot + 1);
+                    slot + 2
+                }
+                mode if mode.starts_with("preflight_") || mode == "simulation_mismatch" => slot + 1,
+                _ => slot,
+            };
+            json!({"context":{"slot":observed},"value":mode!="expire_after_send"||b.transactions.lock().unwrap().is_empty()})
         }
         "sendTransaction" => {
             if mode == "preflight_advancing" {
-                assert_eq!(q["params"][1]["minContextSlot"], slot + 4);
+                assert_eq!(q["params"][1]["minContextSlot"], slot + 5);
             }
             let encoded = q["params"][0].as_str().unwrap();
             let wire = STANDARD.decode(encoded).unwrap();
@@ -534,8 +542,8 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
             );
             let mut response: Value = serde_json::from_slice(&output.stdout).unwrap();
             if mode == "preflight_advancing" {
-                assert_eq!(q["params"][1]["minContextSlot"], slot + 3);
-                response["context"]["slot"] = (slot + 4).into();
+                assert_eq!(q["params"][1]["minContextSlot"], slot + 4);
+                response["context"]["slot"] = (slot + 5).into();
             }
             if mode == "simulation_mismatch" {
                 response["context"]["slot"] = (slot + 1).into();
@@ -654,8 +662,8 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                 })
                 .collect::<Vec<_>>();
             let observed = if mode == "preflight_advancing" {
-                assert_eq!(q["params"][1]["minContextSlot"], slot + 2);
-                slot + 3
+                assert_eq!(q["params"][1]["minContextSlot"], slot + 3);
+                slot + 4
             } else if mode == "preflight_account_stale" {
                 slot - 1
             } else if mode == "preflight_simulation_stale" || mode == "simulation_mismatch" {
@@ -669,17 +677,17 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
             json!({"context":{"slot":slot},"value":{"blockhash":d["blockhash"],"lastValidBlockHeight":999999999}})
         }
         "getFeeForMessage" => {
-            if mode == "preflight_advancing" {
-                assert_eq!(q["params"][1]["minContextSlot"], slot + 1);
+            if matches!(mode.as_str(), "preflight_advancing" | "preflight_fee_stale") {
+                assert_eq!(q["params"][1]["minContextSlot"], slot + 2);
             }
             let observed = match mode.as_str() {
                 "fee_context_ahead" => slot + 1,
-                "preflight_advancing" => slot + 2,
+                "preflight_advancing" => slot + 3,
                 "preflight_account_stale"
                 | "preflight_simulation_stale"
                 | "preflight_fee_changed"
                 | "simulation_mismatch" => slot + 1,
-                "preflight_fee_stale" => slot - 1,
+                "preflight_fee_stale" => slot + 1,
                 _ => slot,
             };
             let mut response = json!({"context":{"slot":observed},"value":if mode=="expired_blockhash"{Value::Null}else if mode=="preflight_fee_changed"{json!(5001)}else{json!(5000)}});

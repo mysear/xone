@@ -8,7 +8,7 @@ use axum::{
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 use xone_domain::{
     hash, meteora, scope_hash, spl_token_2022, BlockRef, Pool, Snapshot, SnapshotRef,
@@ -21,6 +21,29 @@ use xone_simulation::solana_sbf::Engine as SbfEngine;
 const TOKEN: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const GENESIS: &str = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 const AUTH: &str = "xone-orca-reward-test";
+
+#[derive(Clone, Copy)]
+enum BlockhashRpc {
+    Valid,
+    Expired,
+    Unknown,
+    Stale,
+}
+
+#[derive(Clone)]
+struct BankRpc {
+    case: Arc<Value>,
+    blockhash: Arc<Mutex<BlockhashRpc>>,
+}
+
+impl BankRpc {
+    fn new(case: Value) -> Self {
+        Self {
+            case: Arc::new(case),
+            blockhash: Arc::new(Mutex::new(BlockhashRpc::Valid)),
+        }
+    }
+}
 
 fn api(pool: Pool, rpc: String, blockhash: &str, manifest: &str) -> Api {
     let mut config = xone_config::load(
@@ -148,9 +171,10 @@ async fn orca_dual_token2022_wallet_wire_matches_independent_http_simulation() {
             token_account(buy, recipient, 155, spl_token_2022::PROGRAM, &case["rent"]);
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        let bank_rpc = BankRpc::new(case);
         let mock = Router::new()
             .route("/", post(rpc))
-            .with_state(Arc::new(case));
+            .with_state(bank_rpc.clone());
         let server = tokio::spawn(async move { axum::serve(listener, mock).await.unwrap() });
         let api = api(
             pool.clone(),
@@ -181,6 +205,7 @@ async fn orca_dual_token2022_wallet_wire_matches_independent_http_simulation() {
         let (status, unsigned) = claim(&api, &path, &Value::Null).await;
         assert_eq!(status, 200, "{unsigned}");
         assert_eq!(unsigned["signed"], false);
+        assert!(unsigned.get("blockhashValidity").is_none());
         let python = std::env::var("XONE_SBF_PYTHON").unwrap_or_else(|_| "python3.11".into());
         let signer = std::process::Command::new(python)
             .env("PYTHONPATH", concat!(env!("CARGO_MANIFEST_DIR"), "/../../../integration/artifacts/local/r01-solana-rebuild/python"))
@@ -202,6 +227,12 @@ async fn orca_dual_token2022_wallet_wire_matches_independent_http_simulation() {
         .await;
         assert_eq!(status, 200, "{signed}");
         assert_eq!(signed["signed"], true);
+        let slot = prep["costs"]["feeObservedSlot"].as_u64().unwrap();
+        assert_eq!(
+            signed["blockhashValidity"],
+            json!({"authority":"CONFIRMED_RPC_OBSERVATION","recentBlockhash":prep["recentBlockhash"],
+                "minimumContextSlot":slot,"observedSlot":slot+1,"blockHeight":1000,"lastValidBlockHeight":1000})
+        );
         for key in [
             "actualInput",
             "actualOutput",
@@ -221,15 +252,52 @@ async fn orca_dual_token2022_wallet_wire_matches_independent_http_simulation() {
         .await;
         assert_ne!(status, 200);
         assert_eq!(error["error"], "WALLET_SIGNATURE_INVALID", "{error}");
+        for (mode, expected) in [
+            (BlockhashRpc::Expired, "PREPARATION_BLOCKHASH_EXPIRED"),
+            (BlockhashRpc::Unknown, "PREPARATION_BLOCKHASH_EXPIRED"),
+            (BlockhashRpc::Stale, "PREPARATION_STALE_RPC"),
+        ] {
+            *bank_rpc.blockhash.lock().unwrap() = mode;
+            let (status, error) = claim(
+                &api,
+                &path,
+                &json!({"signedTransaction":signed_wire.trim()}),
+            )
+            .await;
+            assert_ne!(status, 200);
+            assert_eq!(error["error"], expected, "{error}");
+        }
         server.abort();
     }
 }
 
-async fn rpc(State(case): State<Arc<Value>>, Json(call): Json<Value>) -> Json<Value> {
+async fn rpc(State(bank): State<BankRpc>, Json(call): Json<Value>) -> Json<Value> {
+    let case = &bank.case;
     let params = &call["params"];
-    let slot = &case["pool"]["orca_whirlpool"]["bank_slot"];
+    let slot = case["pool"]["orca_whirlpool"]["bank_slot"]
+        .as_u64()
+        .unwrap();
+    let blockhash = *bank.blockhash.lock().unwrap();
     let result = match call["method"].as_str().unwrap() {
         "getGenesisHash" => json!(GENESIS),
+        "getBlockHeight" => {
+            assert_eq!(params[0]["minContextSlot"], slot);
+            json!(if matches!(blockhash, BlockhashRpc::Expired) {
+                1001
+            } else {
+                1000
+            })
+        }
+        "isBlockhashValid" => {
+            assert_eq!(params[0], case["blockhash"]);
+            assert_eq!(params[1]["minContextSlot"], slot);
+            let observed_slot = if matches!(blockhash, BlockhashRpc::Stale) {
+                slot - 1
+            } else {
+                slot + 1
+            };
+            json!({"context":{"slot":observed_slot},"value":!matches!(blockhash, BlockhashRpc::Unknown)})
+        }
         "getMultipleAccounts" => {
             let values: Vec<_> = params[0]
                 .as_array()
@@ -389,7 +457,7 @@ async fn replay_rewards(update: bool) {
             let url = format!("http://{}", listener.local_addr().unwrap());
             let app = Router::new()
                 .route("/", post(rpc))
-                .with_state(Arc::new(case));
+                .with_state(BankRpc::new(case));
             let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
             let path = format!(
                 "/v1/chains/{}/pools/{}/prepare-orca-reward",

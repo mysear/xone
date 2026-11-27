@@ -83,7 +83,7 @@ pub(super) async fn rpc(api: &Api, chain: &str, method: &str, params: Value) -> 
         .cloned()
         .ok_or_else(|| err("TRANSACTION_RPC_INVALID"))
 }
-async fn genesis(api: &Api, chain: &str, expected: &str) -> Result<()> {
+pub(super) async fn genesis(api: &Api, chain: &str, expected: &str) -> Result<()> {
     if rpc(api, chain, "getGenesisHash", json!([])).await?.as_str() != Some(expected) {
         return Err(err("PREPARATION_WRONG_CHAIN"));
     }
@@ -172,6 +172,65 @@ fn minimum_preflight_slot(prepared: &Value) -> Result<u64> {
         .ok_or_else(|| err("TRANSACTION_FEE_CONTEXT_INVALID"))?;
     Ok(fee)
 }
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct BlockhashObservation<'a> {
+    authority: &'static str,
+    recent_blockhash: &'a str,
+    minimum_context_slot: u64,
+    observed_slot: u64,
+    block_height: u64,
+    last_valid_block_height: u64,
+}
+
+pub(super) async fn observe_blockhash<'a>(
+    api: &Api,
+    p: &'a solana_simulation::Prepared,
+) -> Result<BlockhashObservation<'a>> {
+    let chain = &p.context.chain_key;
+    let last = p.result["lastValidBlockHeight"]
+        .as_u64()
+        .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
+    let slot = minimum_preflight_slot(&p.result)?;
+    let height = rpc(
+        api,
+        chain,
+        "getBlockHeight",
+        json!([{"commitment":"confirmed","minContextSlot":slot}]),
+    )
+    .await?
+    .as_u64()
+    .ok_or_else(|| err("TRANSACTION_RPC_INVALID"))?;
+    if height > last {
+        return Err(err("PREPARATION_BLOCKHASH_EXPIRED"));
+    }
+    let blockhash = p.result["recentBlockhash"]
+        .as_str()
+        .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
+    let valid = rpc(
+        api,
+        chain,
+        "isBlockhashValid",
+        json!([blockhash,{"commitment":"confirmed","minContextSlot":slot}]),
+    )
+    .await?;
+    let observed = valid["context"]["slot"]
+        .as_u64()
+        .filter(|value| *value >= slot)
+        .ok_or_else(|| err("PREPARATION_STALE_RPC"))?;
+    if valid["value"] != true {
+        return Err(err("PREPARATION_BLOCKHASH_EXPIRED"));
+    }
+    Ok(BlockhashObservation {
+        authority: "CONFIRMED_RPC_OBSERVATION",
+        recent_blockhash: blockhash,
+        minimum_context_slot: slot,
+        observed_slot: observed,
+        block_height: height,
+        last_valid_block_height: last,
+    })
+}
+
 async fn preflight(
     api: &Api,
     p: &solana_simulation::Prepared,
@@ -187,40 +246,13 @@ async fn preflight(
     let message_sha256 = format!("{:x}", Sha256::digest(message));
     let chain = &p.context.chain_key;
     genesis(api, chain, expected_genesis).await?;
-    let last = p.result["lastValidBlockHeight"]
-        .as_u64()
-        .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
-    let height = rpc(
-        api,
-        chain,
-        "getBlockHeight",
-        json!([{"commitment":"confirmed"}]),
-    )
-    .await?
-    .as_u64()
-    .ok_or_else(|| err("TRANSACTION_RPC_INVALID"))?;
-    if height > last {
-        return Err(err("PREPARATION_BLOCKHASH_EXPIRED"));
-    }
-    let blockhash = p.result["recentBlockhash"]
-        .as_str()
-        .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
-    let slot = minimum_preflight_slot(&p.result)?;
-    let valid = rpc(
-        api,
-        chain,
-        "isBlockhashValid",
-        json!([blockhash,{"commitment":"confirmed","minContextSlot":slot}]),
-    )
-    .await?;
-    if valid["value"] != true || valid["context"]["slot"].as_u64().is_none_or(|v| v < slot) {
-        return Err(err("PREPARATION_BLOCKHASH_EXPIRED"));
-    }
+    let blockhash = observe_blockhash(api, p).await?;
+    let observed_blockhash_slot = blockhash.observed_slot;
     let fee = rpc(
         api,
         chain,
         "getFeeForMessage",
-        json!([p.result["messageBase64"],{"commitment":"confirmed","minContextSlot":slot}]),
+        json!([p.result["messageBase64"],{"commitment":"confirmed","minContextSlot":observed_blockhash_slot}]),
     )
     .await?;
     let cost = fee["value"]
@@ -228,7 +260,7 @@ async fn preflight(
         .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
     let fee_slot = fee["context"]["slot"]
         .as_u64()
-        .filter(|n| *n >= slot)
+        .filter(|n| *n >= observed_blockhash_slot)
         .ok_or_else(|| err("PREPARATION_STALE_RPC"))?;
     if p.result["feeLamports"].as_str() != Some(cost.to_string().as_str()) {
         return Err(err("PREPARATION_FEE_CHANGED"));
@@ -270,7 +302,7 @@ async fn preflight(
         minimum_send_slot: simulated_slot,
         witness: json!({"modelVersion":"xone-solana-fee-preflight/1","sourceAuthority":"SUBMISSION_RPC_OBSERVATION","sameBankClaimed":false,"historicalBankVerified":false,"independentProductionVerification":false,
             "feeMessageSha256":message_sha256,"transactionSha256":format!("{:x}",Sha256::digest(raw)),"preparationHash":p.result["preparationHash"],"chainKey":chain,"genesisHash":expected_genesis,"feeCommitment":"confirmed","feeResultHashEncoding":"CANONICAL_DECODED_RESULT_SHA256","networkFeeNative":cost.to_string(),"nativeUnit":"LAMPORTS",
-            "preparationMinimumContextSlot":slot,"feeObservedSlot":fee_slot,"accountObservedSlot":observed,"simulationObservedSlot":simulated_slot,
+            "preparationMinimumContextSlot":blockhash.minimum_context_slot,"blockhashValidity":blockhash,"feeObservedSlot":fee_slot,"accountObservedSlot":observed,"simulationObservedSlot":simulated_slot,
             "minimumSendContextSlot":simulated_slot,"observedAtMs":now_ms(),"feeResultHash":hash(&fee)?}),
     })
 }

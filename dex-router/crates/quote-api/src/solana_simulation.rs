@@ -183,6 +183,15 @@ pub(crate) async fn simulate(
             .await
     }
     .map_err(failure)?;
+    if request.signed_transaction.is_some() {
+        transaction_lifecycle::genesis(&api, &p.context.chain_key, &chain.genesis_hash)
+            .await
+            .map_err(failure)?;
+        let observation = transaction_lifecycle::observe_blockhash(&api, &p)
+            .await
+            .map_err(failure)?;
+        evidence["blockhashValidity"] = json!(observation);
+    }
     let cost_source = if engine.uses_rpc_capture() {
         native_economics::Source::CapturedSbf
     } else {

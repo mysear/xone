@@ -397,7 +397,9 @@
 5. 多交易块按交易索引读取目标交易前后的状态，核对发送方 nonce、到账余额、gas 和有序日志。24 个由 Geth v1.16.7 出块的三交易样本通过，目标交换位于中间，后续交易再次使用同一发送方。错误 gas、日志、余额、重组及节点忽略交易索引分别通过 24 组拒绝验收。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 6. Cancun 固定回放支持 EIP-4788，用户交易执行前应用父信标块根。校验固定系统合约代码及环形缓冲区槽位，节点回执比对同时检查区块头、H 上代码与 H+1 两个槽位。24 组 Geth 样本通过，错误区块根和错误存储证据分别通过 24 组拒绝。13 项仿真 crate 单测通过，6 项需要留存原版 OP 语料的测试保持忽略。
 7. Solana SBF 入口现接受可选 `signedTransaction`，复用严格 Ed25519 wire 验证，要求消息、付款人、签名哈希和准备阶段 blockhash 一致，并在 LiteSVM 开启签名校验。签名证据返回 `walletSignature`、交易及消息摘要，未签名证据仍作为提交门禁。现有固定 bank 的正常签名和回执联测继续按完整钱包生命周期验收。
-8. Orca 双 Token-2022 受控 bank 已通过两组正常 HTTP 报价、准备和部署程序签名回放，覆盖正向 ExactIn、反向 ExactOut、Token CPI 后状态和两组篡改签名拒绝。ExactOut 计划统一使用共享 Orca 协议判断，保留旧客户端以 JSON null 请求未签名仿真的行为。下一轮验证版本化 bank、账户锁、blockhash 有效期及实际回执。 [复验说明](integration/tools/ci/orca-token2022-execution.md)
+8. Orca 双 Token-2022 受控 bank 已通过两组正常 HTTP 报价、准备和部署程序签名回放，覆盖正向 ExactIn、反向 ExactOut、Token CPI 后状态和两组篡改签名拒绝。ExactOut 计划统一使用共享 Orca 协议判断，保留旧客户端以 JSON null 请求未签名仿真的行为。 [复验说明](integration/tools/ci/orca-token2022-execution.md)
+9. 签名仿真与提交预检共用 confirmed RPC blockhash 检查，分别约束区块高度和 RPC slot。签名响应与提交预检记录包含有效性观测，后续费用读取继承 blockhash 观测的 slot 下界。Orca 两组签名 HTTP 回放通过有效期边界，以及过期、未知和陈旧 slot 的六组拒绝。Orca 奖励 HTTP 联测同时通过。钱包提交回归目标的编译依赖尚缺 `dex-router/test/fixtures/evm/baseline.json`。
+10. 下一轮核对版本化 bank 和交易读写账户锁，使用验证节点实际出块验收钱包签名、交易回执和前后余额。
 
 ### I7 真实来源和恢复
 

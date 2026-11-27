@@ -223,16 +223,17 @@ async fn wallet_submission_requires_signature_evidence_confirmation_and_durable_
         if mode == "ready" {
             let slot = p["observedSlot"].as_u64().unwrap();
             assert_eq!(fee_witness["preparationMinimumContextSlot"], slot + 1);
-            assert_eq!(fee_witness["feeObservedSlot"], slot + 2);
-            assert_eq!(fee_witness["accountObservedSlot"], slot + 3);
-            assert_eq!(fee_witness["simulationObservedSlot"], slot + 4);
-            assert_eq!(fee_witness["minimumSendContextSlot"], slot + 4);
+            assert_eq!(fee_witness["blockhashValidity"]["observedSlot"], slot + 2);
+            assert_eq!(fee_witness["feeObservedSlot"], slot + 3);
+            assert_eq!(fee_witness["accountObservedSlot"], slot + 4);
+            assert_eq!(fee_witness["simulationObservedSlot"], slot + 5);
+            assert_eq!(fee_witness["minimumSendContextSlot"], slot + 5);
             let trace = bank.requests.lock().unwrap().clone();
             let sent = trace
                 .iter()
                 .find(|q| q["method"] == "sendTransaction")
                 .unwrap();
-            assert_eq!(sent["params"][1]["minContextSlot"], slot + 4);
+            assert_eq!(sent["params"][1]["minContextSlot"], slot + 5);
         }
         assert_eq!(
             receipt["state"],
