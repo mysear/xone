@@ -61,6 +61,14 @@ impl Rpc {
         ch: &Chain,
         recorder: Option<&Recorder>,
     ) -> Result<Snapshot> {
+        self.select_current_baseline(ch, recorder, |_| Ok(())).await
+    }
+    pub(crate) async fn select_current_baseline(
+        &self,
+        ch: &Chain,
+        recorder: Option<&Recorder>,
+        admit: impl Fn(&Snapshot) -> Result<()>,
+    ) -> Result<Snapshot> {
         check_confirmation(ch)?;
         let mut last = err("NO_HEALTHY_PROVIDER");
         for url in &ch.rpc_urls {
@@ -75,6 +83,10 @@ impl Rpc {
             };
             match reader.baseline_at(ch).await {
                 Ok(snapshot) => {
+                    if let Err(error) = admit(&snapshot) {
+                        last = error;
+                        continue;
+                    }
                     if let BaselineInput::Network {
                         recorder: Some(recorder),
                         sequences,

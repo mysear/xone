@@ -18,7 +18,7 @@ struct Provider {
     resume: Arc<tokio::sync::Semaphore>,
     genesis: String,
     hash: String,
-    timestamp: u64,
+    timestamp: Arc<AtomicU64>,
     accounts: Arc<BTreeMap<String, Value>>,
 }
 
@@ -53,6 +53,7 @@ async fn rpc_reply(State(p): State<Provider>, Json(q): Json<Value>) -> axum::res
                         let mut clock =
                             STANDARD.decode(value["data"][0].as_str().unwrap()).unwrap();
                         orca_support::put64(&mut clock, 0, slot);
+                        orca_support::put64(&mut clock, 32, p.timestamp.load(Ordering::Acquire));
                         value["data"][0] = json!(STANDARD.encode(clock));
                     }
                     value
@@ -67,7 +68,7 @@ async fn rpc_reply(State(p): State<Provider>, Json(q): Json<Value>) -> axum::res
                 101 => (orca_support::key(78), p.hash.clone()),
                 _ => panic!("unknown fixture block {height}"),
             };
-            json!({"blockTime":p.timestamp,"blockhash":hash,"previousBlockhash":parent,"parentSlot":height-1})
+            json!({"blockTime":p.timestamp.load(Ordering::Acquire),"blockhash":hash,"previousBlockhash":parent,"parentSlot":height-1})
         }
         _ => panic!("unexpected RPC method: {q}"),
     };
@@ -106,7 +107,7 @@ async fn provider(
         resume: Arc::new(tokio::sync::Semaphore::new(0)),
         genesis: format!("genesis-{label}"),
         hash: orca_support::key(hash),
-        timestamp,
+        timestamp: Arc::new(AtomicU64::new(timestamp)),
         accounts: Arc::new(accounts),
     };
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -304,6 +305,56 @@ async fn rust_partial_startup_isolates_rpc_failure_in_both_orders_and_tick_recov
             drop(parser);
             std::fs::remove_dir_all(path).unwrap();
         }
+    }
+}
+
+#[tokio::test]
+async fn head_first_skips_stale_rpc_baselines_and_rejects_all_stale() {
+    for all_stale in [false, true] {
+        let (mut chain, primary, primary_task) = provider("baseline-age", 0, 70).await;
+        let (backup_chain, backup, backup_task) = provider("baseline-age", 0, 72).await;
+        chain.rpc_urls.extend(backup_chain.rpc_urls);
+        let old = now_ms() / 1000 - 3600;
+        primary.timestamp.store(old, Ordering::Release);
+        if all_stale {
+            backup.timestamp.store(old, Ordering::Release);
+        }
+        let (mut cfg, path) = configuration(vec![chain.clone()]);
+        cfg.config.startup.max_baseline_age_ms = 30_000;
+        let (wal_path, limits) = configured_wal(&cfg, &chain.key);
+        let parser = Parser::new(cfg).unwrap();
+        let result = parser.start().await;
+        if all_stale {
+            assert_eq!(result.unwrap_err().0, "BASELINE_TOO_OLD");
+            assert_eq!(
+                chain_status(&parser, &chain.key).await,
+                StatusCode::SERVICE_UNAVAILABLE
+            );
+        } else {
+            result.unwrap();
+            let snapshot = parser.current(&chain.key).unwrap();
+            assert_eq!(snapshot.reference.block.hash, backup.hash);
+            assert_eq!(chain_status(&parser, &chain.key).await, StatusCode::OK);
+        }
+        assert_eq!(primary.genesis_calls.load(Ordering::Acquire), 1);
+        assert_eq!(backup.genesis_calls.load(Ordering::Acquire), 1);
+        parser.close().await;
+        primary_task.abort();
+        backup_task.abort();
+        drop(parser);
+        let wal = SourceWal::open_read_only(&wal_path, &chain.key, limits).unwrap();
+        assert_eq!(
+            wal.status()["baseline_reads"],
+            if all_stale { 0 } else { 1 }
+        );
+        drop(wal);
+        if !all_stale {
+            let (snapshot, _, _) = crate::rpc::replay_baseline(&wal_path, &chain, limits, None)
+                .await
+                .unwrap();
+            assert_eq!(snapshot.reference.block.hash, backup.hash);
+        }
+        std::fs::remove_dir_all(path).unwrap();
     }
 }
 

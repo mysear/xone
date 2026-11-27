@@ -243,6 +243,16 @@ impl Parser {
             return Err(err("STREAM_RECOVERY_OWNS_CHAIN"));
         }
         self.recover_revocation(chain).await?;
+        let check_freshness = |snapshot: &Snapshot| {
+            let timestamp = snapshot.reference.block.timestamp_ms;
+            let now = now_ms();
+            if timestamp > now.saturating_add(30_000)
+                || now.saturating_sub(timestamp) > self.config.config.startup.max_baseline_age_ms
+            {
+                return Err(err("BASELINE_TOO_OLD"));
+            }
+            Ok(())
+        };
         let snapshot: Snapshot = if let Some(source) = &self.source {
             source(chain)?
         } else {
@@ -252,7 +262,7 @@ impl Parser {
                 _ = stop.wait_for(|closed| *closed) => return Err(err("PARSER_ALREADY_STARTED_OR_CLOSED")),
                 result = tokio::time::timeout(
                     Duration::from_millis(self.config.config.journal.request_timeout_ms),
-                    self.rpc.current_baseline_recorded(chain, self.source_wals.get(&chain.key)),
+                    self.rpc.select_current_baseline(chain, self.source_wals.get(&chain.key), check_freshness),
                 ) => result.map_err(|_| err("BASELINE_DEADLINE"))??,
             }
         };
@@ -264,13 +274,7 @@ impl Parser {
         if snapshot.pools.is_empty() {
             return Err(err("EMPTY_POOL_SCOPE"));
         }
-        let timestamp = snapshot.reference.block.timestamp_ms;
-        let now = now_ms();
-        if timestamp > now + 30000
-            || now.saturating_sub(timestamp) > self.config.config.startup.max_baseline_age_ms
-        {
-            return Err(err("BASELINE_TOO_OLD"));
-        }
+        check_freshness(&snapshot)?;
         self.commit_snapshot(chain, snapshot, startup, None).await?;
         Ok(())
     }
