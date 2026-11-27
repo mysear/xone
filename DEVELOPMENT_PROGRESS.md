@@ -6009,3 +6009,9 @@ Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口�
 新增 `multi_asset::quote_meta_underlying_exact_in` 与 `quote_meta_underlying_exact_out`，从已验证的 Meta `Pool` 快照提取 Meta 内部/admin 余额和可选 base pool 状态，统一调用三路径组合内核。缺少 `base_pool_state` 或使用非 Meta profile 时返回明确错误，避免将 Meta virtual price 误当作完整 base 状态。
 
 协议数学编译和七项 Meta underlying 自包含回归通过。入口尚未接入上层 token 路由和交易准备，在线 token 转账、base LP allowance、真实 receipt 与生产 VERIFIED 仍未完成。
+
+## R03 隔离中间件与恢复迭代（2026-11-27，阶段268，P0-1）
+
+R03 验收基础设施在本机缺少 PostgreSQL 13 或 Kafka 安装时自动切换到隔离 Docker 实例。Kafka 容器使用内部 `localhost:9092` 与宿主机映射端口的双监听器，避免容器内 topic 管理命令获得宿主机地址后无法建立元数据连接。Rust `normal_yellowstone` 构建固定使用仓库锁定 protobuf 工具链和 macOS SDK 头文件。
+
+`python3 integration/tools/acceptance/r03_authority_process.py` 通过，覆盖受控 tonic 流、WAL、manifest、owner 发布、撤销、重启、Fence 和 HEAD_FIRST 恢复。R03 history runtime 7 项测试通过。该批次的受控来源、真实本机 PostgreSQL/Kafka 和公开历史 bank 完整性仍分别记录，真实同源 Yellowstone、连续断线和生产故障域继续按 R01–R04 验收。
