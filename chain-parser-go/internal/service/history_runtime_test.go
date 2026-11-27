@@ -22,6 +22,25 @@ import (
 func runtimeHistoryBatch(n uint64) domain.FactBatch {
 	return domain.FactBatch{SchemaVersion: 1, DecoderVersion: "uniswap-v2/1", Blocks: []domain.FactBlock{{Block: domain.BlockRef{ChainKey: "evm:31337", Number: n, Hash: "0x" + strings.Repeat("aa", 32), ParentHash: "0x" + strings.Repeat("aa", 32), TimestampMS: 1}}}}
 }
+func historySnapshotSource(_ context.Context, chain config.Chain) (domain.Snapshot, error) {
+	block := runtimeHistoryBatch(100).Blocks[0].Block
+	block.ChainKey = chain.Key
+	block.TimestampMS = uint64(time.Now().UnixMilli())
+	pools := []domain.Pool{{
+		ChainKey: chain.Key, PoolID: "0x" + strings.Repeat("03", 20),
+		Token0: "0x" + strings.Repeat("01", 20), Token1: "0x" + strings.Repeat("02", 20),
+		Protocol: "uniswap-v2", AdapterVersion: "uniswap-v2/1", TokenBehavior: "standard",
+		Reserve0: "1000000", Reserve1: "2000000", FeeNumerator: 3, FeeDenominator: 1000,
+	}}
+	snapshot, err := domain.NewCurrentStateBaseline(block, pools, chain.Owner, chain.Assignment, 0)
+	if err != nil {
+		return domain.Snapshot{}, err
+	}
+	snapshot.Reference.WriterEpoch = 1
+	snapshot.Reference.OnlineGeneration = 1
+	snapshot.Reference.JournalSeq = 1
+	return snapshot, nil
+}
 func runtimeHistoryQueue(t *testing.T) *reducer.HistoryQueue {
 	t.Helper()
 	s, e := reducer.Open(t.TempDir(), "chain-parser-go", 1, 128)
@@ -71,7 +90,7 @@ func TestHistoryRuntimePauseCancelRetryDoesNotChangeOnline(t *testing.T) {
 		t.Fatal(e)
 	}
 	cfg.Config.State.Path = t.TempDir()
-	s, e := NewWithSource(cfg, testSnapshotSource(t))
+	s, e := NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -158,7 +177,7 @@ func TestHistoryRuntimeNormalSourceIsolatedAndIdentityChecked(t *testing.T) {
 	cfg.Config.State.Path = t.TempDir()
 	cfg.Config.History = config.History{Enabled: true, Namespace: "history", MaxShare: .15}
 	cfg.Config.Chains[0].RPCURLs = []string{server.URL}
-	s, e := NewWithSource(cfg, testSnapshotSource(t))
+	s, e := NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -294,7 +313,7 @@ func TestHistoryRuntimeNormalPublicSourceSuccessBudgetAndPrivateStateForbidden(t
 	}))
 	defer server.Close()
 	cfg.Config.Chains[0].RPCURLs = []string{server.URL}
-	s, e := NewWithSource(cfg, testSnapshotSource(t))
+	s, e := NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -342,7 +361,7 @@ func TestHistoryRuntimePausedBeforeOnlineFirstScope(t *testing.T) {
 		t.Fatal(e)
 	}
 	cfg.Config.State.Path = t.TempDir()
-	s, e := NewWithSource(cfg, testSnapshotSource(t))
+	s, e := NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -412,7 +431,7 @@ func TestHistoryReviewNormalFactoryScopeReopenInvalidatesEmptyFacts(t *testing.T
 	}
 	cfg.Config.State.Path = t.TempDir()
 	cfg.Config.Chains[0].Pools = []config.PoolConfig{{ID: "0x" + strings.Repeat("aa", 20), Protocol: "uniswap-v2", Token0: "0x" + strings.Repeat("11", 20), Token1: "0x" + strings.Repeat("22", 20), FeeNumerator: 3, FeeDenominator: 1000}}
-	s, e := NewWithSource(cfg, testSnapshotSource(t))
+	s, e := NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -437,7 +456,7 @@ func TestHistoryReviewNormalFactoryScopeReopenInvalidatesEmptyFacts(t *testing.T
 	added := config.PoolConfig{ID: "0x" + strings.Repeat("aa", 20), Protocol: "uniswap-v2", Token0: "0x" + strings.Repeat("11", 20), Token1: "0x" + strings.Repeat("22", 20), FeeNumerator: 3, FeeDenominator: 1000}
 	added.ID = "0x" + strings.Repeat("bb", 20)
 	cfg.Config.Chains[0].Pools = append(cfg.Config.Chains[0].Pools, added)
-	s, e = NewWithSource(cfg, testSnapshotSource(t))
+	s, e = NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -516,7 +535,7 @@ func TestHistoryReview32RecordNormalSourceSixStepsHaveNoActivePins(t *testing.T)
 	}))
 	defer server.Close()
 	cfg.Config.Chains[0].RPCURLs = []string{server.URL}
-	s, e := NewWithSource(cfg, testSnapshotSource(t))
+	s, e := NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -649,7 +668,7 @@ func TestHistoryReviewUpdateScopeCancelsOldSourceWithoutOwnerNetworkLock(t *test
 	defer server.Close()
 	defer close(releaseServer)
 	cfg.Config.Chains[0].RPCURLs = []string{server.URL}
-	s, e := NewWithSource(cfg, testSnapshotSource(t))
+	s, e := NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -702,7 +721,7 @@ func TestHistoryReviewDisabledNormalScopeCanBeUpdatedWithoutRPC(t *testing.T) {
 	cfg.Config.State.Path = t.TempDir()
 	cfg.Config.History.Enabled = false
 	cfg.Config.History.MaxShare = 0
-	s, e := NewWithSource(cfg, testSnapshotSource(t))
+	s, e := NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -794,7 +813,7 @@ func TestHistoryReviewScopedRebuildPreservesExactDataset(t *testing.T) {
 		t.Fatal(e)
 	}
 	cfg.Config.State.Path = t.TempDir()
-	s, e := NewWithSource(cfg, testSnapshotSource(t))
+	s, e := NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}

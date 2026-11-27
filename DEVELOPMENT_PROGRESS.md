@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R04.3 Go 历史隔离回归（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|补洞队列、历史 owner 凭据和重组回归使用测试内构造的 V2 快照。Go service 与 reducer 定向 race 检查通过，覆盖在线先就绪、历史缺口独立登记、队列重开、历史权限和重组范围更新|真实来源与长期资源占用仍需验收。 [历史生命周期测试](chain-parser-go/internal/service/history_lifecycle_test.go)|
 |I7-R04.2 Go 备用进程接管（2026-11-28）|§18.6、§18.7、§23.14|LOCAL_SCOPE_VERIFIED|两个独立 Go 进程使用各自的本地状态目录，连接实际 PostgreSQL 16 和 Kafka 4.2。主进程持有租约时，备用进程未发布状态。停止主进程后，备用进程以新 writer epoch 在高度 400 发布第 2 代，3,732 毫秒恢复合格范围，3,911 毫秒恢复冷启动副本的首个 INDICATIVE 报价。持续运行的报价副本亦收敛到该引用|同台机器的受控 RPC 联测，跨故障域和首个 VERIFIED 报价待验收。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
 |I7-R04.3 Go 历史队列重复绑定容量（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|回到已有 dataset/revision 后，重复事实及候选共用已持久字节。冲突内容被拒绝，归档 manifest 只按大小净变化计费。八轮绑定往返及 Pebble 重开后容量与覆盖保持一致。队列定向 race 检查和五项运行时检查通过|依赖 EVM baseline fixture 的既有测试仍缺输入。真实长期容量、留存和跨故障域验收继续推进。 [历史队列测试](chain-parser-go/internal/reducer/history_queue_test.go)|
 |I7-R04.2 长停机演练资源隔离（2026-11-28）|§23.14、§28.26|LOCAL_SCOPE_VERIFIED|留存联测只创建所需 Kafka topic。验收支持明确选择本机 Kafka 和 JDK，限制 broker 与 CLI 堆内存，容器按固定运行名称管理。实际 PostgreSQL 16、Kafka 4.2 和正常 owner/报价进程的计时烟测通过，实测停机 20,009 毫秒，重启 owner 后 4,276 毫秒收到首个 INDICATIVE 报价|本机受控单池和实际中间件。长停机场景分别记录实际结果。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
@@ -468,6 +469,7 @@
 #### 下一迭代目标（I7 R04.2，2026-11-28）
 
 - 1 小时、1 天和 30 天实际停机演练已分别于 2026-11-28 02:43:31、02:57:32 和 03:15:22（UTC+8）开始计时。重启后核对同时停机时长、Kafka 低水位与恢复游标、首个合格范围、目标范围和历史缺口。分别记录首个可用报价和首个 VERIFIED 报价的耗时。
+- 复验报价副本在 Kafka 读取中断后如何恢复。覆盖普通范围恢复、已有撤销或重组屏障继续读取，以及恢复源全部不可用时的就绪状态。
 - 用独立故障域的可信 peer 和当前源复验主来源离线时的基线选择，覆盖过期快照、错误链、撤销和可信源全部不可用。验证 history 队列启动、失败与长期容量，以及故障或历史补齐期间在线水位与报价可用性。
 
 ### I8 路由与费用

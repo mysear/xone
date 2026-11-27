@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 	"xone/chain-parser-go/internal/config"
-	"xone/chain-parser-go/internal/domain"
 )
 
 func TestNormalHistoryLifecycleRegistersGapsWithoutBlockingFirstScope(t *testing.T) {
@@ -15,12 +13,7 @@ func TestNormalHistoryLifecycleRegistersGapsWithoutBlockingFirstScope(t *testing
 		t.Fatal(e)
 	}
 	cfg.Config.State.Path = t.TempDir()
-	source := func(ctx context.Context, ch config.Chain) (domain.Snapshot, error) {
-		snapshot, e := testSnapshotSource(t)(ctx, ch)
-		snapshot.Reference.Block.TimestampMS = uint64(time.Now().UnixMilli())
-		return snapshot, e
-	}
-	service, e := NewWithSource(cfg, source)
+	service, e := NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}

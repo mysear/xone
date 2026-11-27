@@ -46,7 +46,7 @@ func forkService(t *testing.T) (*Service, config.Chain, domain.Snapshot, *forkFi
 		t.Fatal(e)
 	}
 	cfg.Config.State.Path = t.TempDir()
-	s, e := NewWithSource(cfg, testSnapshotSource(t))
+	s, e := NewWithSource(cfg, historySnapshotSource)
 	if e != nil {
 		t.Fatal(e)
 	}

@@ -17,6 +17,24 @@ import (
 func historyBatch(height uint64) domain.FactBatch {
 	return domain.FactBatch{SchemaVersion: 1, DecoderVersion: "uniswap-v2/1", Blocks: []domain.FactBlock{{Block: domain.BlockRef{ChainKey: "evm:31337", Number: height, Hash: "0x" + strings.Repeat("ab", 32), ParentHash: "0x" + strings.Repeat("ab", 32), TimestampMS: 1000}}}}
 }
+func historyBaseline(t *testing.T) domain.Snapshot {
+	t.Helper()
+	block := historyBatch(100).Blocks[0].Block
+	pools := []domain.Pool{{
+		ChainKey: block.ChainKey, PoolID: "0x" + strings.Repeat("03", 20),
+		Token0: "0x" + strings.Repeat("01", 20), Token1: "0x" + strings.Repeat("02", 20),
+		Protocol: "uniswap-v2", AdapterVersion: "uniswap-v2/1", TokenBehavior: "standard",
+		Reserve0: "1000000", Reserve1: "2000000", FeeNumerator: 3, FeeDenominator: 1000,
+	}}
+	snapshot, err := domain.NewCurrentStateBaseline(block, pools, "chain-parser-go", 1, block.Number)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Reference.WriterEpoch = 1
+	snapshot.Reference.OnlineGeneration = 1
+	snapshot.Reference.JournalSeq = 1
+	return snapshot
+}
 func historyQueue(t *testing.T, s *Store, maxJobs int) *HistoryQueue {
 	t.Helper()
 	q, e := s.OpenHistoryQueue(HistoryQueueOptions{Chain: "evm:31337", DatasetID: strings.Repeat("de", 32), MaxJobs: maxJobs})
@@ -179,7 +197,7 @@ func TestHistoryQueueOnlyHistoryAndBoundedFacts(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer s.Close()
-	snap := baseline(t)
+	snap := historyBaseline(t)
 	if e = s.InstallBaseline(snap); e != nil {
 		t.Fatal(e)
 	}
@@ -217,7 +235,7 @@ func TestHistoryQueueRecoversBaselineDeclarationWithoutStartupReplay(t *testing.
 	if e != nil {
 		t.Fatal(e)
 	}
-	snap := baseline(t)
+	snap := historyBaseline(t)
 	snap.HistoryGaps = []domain.Gap{{From: 1, To: snap.Reference.Block.Number - 1, Reason: "HEAD_FIRST_HISTORY_DECOUPLED"}}
 	if e = s.InstallBaseline(snap); e != nil {
 		t.Fatal(e)
@@ -322,7 +340,7 @@ func TestHistoryQueueRejectsBrokenBaselineAnchorAndAdjacentBlocks(t *testing.T) 
 	defer s.Close()
 	q := historyQueue(t, s, 8)
 	ctx := context.Background()
-	snap := baseline(t)
+	snap := historyBaseline(t)
 	snap.Reference.Block.Number = 3
 	snap.Reference.Block.Hash = historyBatch(3).Blocks[0].Block.Hash
 	snap.Reference.Block.ParentHash = "0x" + strings.Repeat("cd", 32)
@@ -374,7 +392,7 @@ func TestHistoryQueueSuccessfulOldFactsDoNotChangeOnline(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer s.Close()
-	snap := baseline(t)
+	snap := historyBaseline(t)
 	if e = s.InstallBaseline(snap); e != nil {
 		t.Fatal(e)
 	}
@@ -429,7 +447,7 @@ func TestHistoryReviewCanonicalRevisionInvalidatesDoneAndClaim(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer s.Close()
-	a := baseline(t)
+	a := historyBaseline(t)
 	a.HistoryGaps = []domain.Gap{{From: 1, To: 2}}
 	if e = s.InstallBaseline(a); e != nil {
 		t.Fatal(e)
@@ -476,7 +494,7 @@ func TestHistoryReviewCommitRechecksOwnerCanonicalBeforeEnqueueHook(t *testing.T
 		t.Fatal(e)
 	}
 	defer s.Close()
-	a := baseline(t)
+	a := historyBaseline(t)
 	a.HistoryGaps = []domain.Gap{{From: 1, To: 1}}
 	if e = s.InstallBaseline(a); e != nil {
 		t.Fatal(e)
@@ -659,7 +677,7 @@ func TestHistoryReviewBaselineHIsIndependentAndNeverSnapshotFactProof(t *testing
 	if e != nil {
 		t.Fatal(e)
 	}
-	snap := baseline(t)
+	snap := historyBaseline(t)
 	snap.HistoryGaps = nil
 	if e = s.InstallBaseline(snap); e != nil {
 		t.Fatal(e)

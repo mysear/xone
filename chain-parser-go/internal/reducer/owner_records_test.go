@@ -79,7 +79,7 @@ func TestHistoryReplayReceiptHasNoOnlinePublicationCapability(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer store.Close()
-	snap := baseline(t)
+	snap := historyBaseline(t)
 	records := map[string]json.RawMessage{"history-replay/attempt": json.RawMessage(`{"history":true}`)}
 	if e = store.CommitHistoryOwnerRecords(snap, records, nil); e != nil {
 		t.Fatal(e)
@@ -216,7 +216,7 @@ func TestHistoryOwnerRecordsAfterCloseReturnReopenRequiredWithoutPanic(t *testin
 	if e = store.Close(); e != nil {
 		t.Fatal(e)
 	}
-	if e = store.CommitHistoryOwnerRecords(baseline(t), map[string]json.RawMessage{"history-replay/late-worker": json.RawMessage(`{}`)}, nil); !errors.Is(e, ErrOwnerReopenRequired) {
+	if e = store.CommitHistoryOwnerRecords(historyBaseline(t), map[string]json.RawMessage{"history-replay/late-worker": json.RawMessage(`{}`)}, nil); !errors.Is(e, ErrOwnerReopenRequired) {
 		t.Fatal("closed store did not reject history receipt", e)
 	}
 }
