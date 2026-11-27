@@ -82,6 +82,29 @@ fn publish(producer: &mut KafkaProducer, kind: &str, snapshot: Snapshot) -> Boot
     }
 }
 
+async fn publish_begin(producer: &FutureProducer, topic: &str, snapshot: Snapshot) {
+    let frames = encode(
+        &Unit {
+            kind: "ONLINE_BASELINE_COMMIT".into(),
+            snapshot,
+            normalized_facts: None,
+        },
+        1024,
+    )
+    .unwrap();
+    let bytes = encode_frame(&frames[0]).unwrap();
+    producer
+        .send(
+            FutureRecord::to(topic)
+                .partition(0)
+                .key(CHAIN)
+                .payload(&bytes),
+            TIMEOUT,
+        )
+        .await
+        .unwrap();
+}
+
 async fn get(api: &Api, uri: &str) -> (StatusCode, String) {
     let response = api
         .handler()
@@ -180,26 +203,7 @@ async fn expired_cursor_waits_for_current_owner_checkpoint() {
     assert_unready(&api).await;
 
     let raw_producer: FutureProducer = kafka.create().unwrap();
-    let incomplete = encode(
-        &Unit {
-            kind: "ONLINE_BASELINE_COMMIT".into(),
-            snapshot: snapshot(6),
-            normalized_facts: None,
-        },
-        1024,
-    )
-    .unwrap();
-    let bytes = encode_frame(&incomplete[0]).unwrap();
-    raw_producer
-        .send(
-            FutureRecord::to(&topic)
-                .partition(0)
-                .key(CHAIN)
-                .payload(&bytes),
-            TIMEOUT,
-        )
-        .await
-        .unwrap();
+    publish_begin(&raw_producer, &topic, snapshot(6)).await;
     assert_unready(&api).await;
 
     let mut current = snapshot(7);
@@ -278,5 +282,29 @@ async fn expired_cursor_waits_for_current_owner_checkpoint() {
     })
     .await
     .expect("live journal continued from the owner checkpoint");
+
+    // The owner response can still be in flight when the journal moves.
+    let catching_up = Api::new(api.config.as_ref().clone()).unwrap();
+    catching_up.sync_sources().await;
+    assert_eq!(
+        catching_up.replica.view(CHAIN).unwrap().reference,
+        next.snapshot.reference
+    );
+    let mut revoked = next.snapshot;
+    revoked.reference.journal_seq += 1;
+    let revoked = publish(&mut producer, "ONLINE_SCOPE_REVOKED", revoked);
+    assert_unready(&Api::new(api.config.as_ref().clone()).unwrap()).await;
+    let mut reorg = revoked.snapshot;
+    reorg.reference.journal_seq += 1;
+    reorg.reference.canonical_epoch += 1;
+    publish(&mut producer, "REORG_BEGIN", reorg);
+    assert_unready(&Api::new(api.config.as_ref().clone()).unwrap()).await;
+
+    let mut fresh = snapshot(11);
+    fresh.reference.canonical_epoch = 2;
+    let fresh = publish(&mut producer, "ONLINE_BASELINE_COMMIT", fresh);
+    *owner.write().unwrap() = encode_bootstrap(&fresh).unwrap();
+    publish_begin(&raw_producer, &topic, snapshot(12)).await;
+    assert_unready(&Api::new(api.config.as_ref().clone()).unwrap()).await;
     server.abort();
 }

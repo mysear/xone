@@ -268,7 +268,15 @@ impl Api {
                     return Err(err("CHECKPOINT_REPLAY_INCOMPLETE"));
                 }
                 staged.view(&chain_key)?;
-                Ok::<_, xone_domain::Error>((final_boot, reader))
+                drop(staged);
+                super::align_kafka_reader(
+                    &cfg,
+                    &chain_key,
+                    final_boot,
+                    reader,
+                    deadline,
+                    k.max_tail_records - frames,
+                )
             })
             .await
             .map_err(|_| err("CHECKPOINT_REPLAY_TASK"))??;

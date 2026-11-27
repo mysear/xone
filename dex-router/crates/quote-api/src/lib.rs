@@ -116,6 +116,98 @@ fn drain_kafka_units(
     }
     Ok(complete)
 }
+
+fn apply_kafka_unit(replica: &Replica, chain: &str, unit: Unit) -> Result<()> {
+    if unit.snapshot.reference.block.chain_key != chain {
+        return Err(err("JOURNAL_CHAIN_MISMATCH"));
+    }
+    if unit.kind == "ONLINE_BASELINE_COMMIT" {
+        return replica.install_baseline(unit.snapshot);
+    }
+    replica.apply(Record {
+        reference: unit.snapshot.reference,
+        kind: unit.kind,
+        normalized_facts: unit.normalized_facts,
+        record_id: String::new(),
+        payload_hash: hash(&unit.snapshot.pools)?,
+        pools: unit.snapshot.pools,
+    })
+}
+
+fn align_kafka_checkpoint(
+    cfg: &ConfigSnapshot,
+    chain: &str,
+    boot: Bootstrap,
+) -> Result<(Bootstrap, Reader)> {
+    let kafka = &cfg.config.journal.kafka;
+    let timeout = Duration::from_millis(cfg.config.journal.request_timeout_ms);
+    let deadline = Instant::now() + timeout;
+    let reader = Reader::open(
+        &kafka.brokers,
+        &format!("quote.{}.{}", chain, kafka.replica_id),
+        &boot.cursor,
+        cfg.config.journal.max_payload_bytes,
+        kafka.max_tail_records,
+        timeout,
+    )?;
+    align_kafka_reader(cfg, chain, boot, reader, deadline, kafka.max_tail_records)
+}
+
+fn align_kafka_reader(
+    cfg: &ConfigSnapshot,
+    chain: &str,
+    boot: Bootstrap,
+    mut reader: Reader,
+    deadline: Instant,
+    max_frames: usize,
+) -> Result<(Bootstrap, Reader)> {
+    reader.last_sequence = boot.snapshot.reference.journal_seq;
+    if reader.reached_startup_watermark()? {
+        return Ok((boot, reader));
+    }
+
+    let staged = Replica::new(
+        cfg.config
+            .chains
+            .iter()
+            .map(|c| (c.key.clone(), c.owner_service.clone(), c.assignment_version))
+            .collect(),
+    );
+    staged.restore_owner_checkpoint(boot.snapshot)?;
+    let mut frames = 0;
+    while !reader.reached_startup_watermark()? || !reader.at_committed_boundary() {
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or_else(|| err("KAFKA_STARTUP_REPLAY_DEADLINE"))?;
+        let before = reader.cursor();
+        let unit = reader.poll(remaining.min(Duration::from_millis(50)))?;
+        if reader.cursor() != before {
+            frames += 1;
+            if frames > max_frames {
+                return Err(err("KAFKA_STARTUP_REPLAY_FRAME_LIMIT"));
+            }
+        }
+        if let Some(unit) = unit {
+            apply_kafka_unit(&staged, chain, unit)?;
+        }
+    }
+    let view = staged.view(chain)?;
+    let snapshot = Snapshot {
+        reference: view.reference.clone(),
+        pools: view.pools.clone(),
+        source: view.source.clone(),
+        history_gaps: view.history_gaps.clone(),
+    };
+    Ok((
+        Bootstrap {
+            cursor: reader.cursor(),
+            snapshot,
+        },
+        reader,
+    ))
+}
+
 #[derive(Clone)]
 struct Cached {
     view: Arc<QuoteView>,
@@ -717,22 +809,7 @@ impl Api {
                     let mut ok = true;
                     for (u, cursor) in units {
                         let reference = u.snapshot.reference.clone();
-                        let result = if u.snapshot.reference.block.chain_key != chain.key {
-                            Err(err("JOURNAL_CHAIN_MISMATCH"))
-                        } else if u.kind == "ONLINE_BASELINE_COMMIT" {
-                            self.replica.install_baseline(u.snapshot)
-                        } else {
-                            let record = Record {
-                                reference: u.snapshot.reference,
-                                kind: u.kind,
-                                normalized_facts: u.normalized_facts,
-                                record_id: String::new(),
-                                payload_hash: hash(&u.snapshot.pools).unwrap_or_default(),
-                                pools: u.snapshot.pools,
-                            };
-                            self.replica.apply(record)
-                        };
-                        if let Err(e) = result {
+                        if let Err(e) = apply_kafka_unit(&self.replica, &chain.key, u) {
                             ok = false;
                             self.logger.event(
                                 "error",
@@ -825,15 +902,14 @@ impl Api {
     }
     async fn restore_kafka(&self, source: &str, chain: &str) -> Result<()> {
         if self.config.config.journal.checkpoint_store.is_some() {
-            match self.replay_remote_checkpoint(source, chain).await {
-                Ok((boot, reader)) => {
-                    return self.activate_recovery(
-                        chain,
-                        boot,
-                        reader,
-                        "REMOTE_CHECKPOINT_BOUNDED_REPLAY",
-                    )
-                }
+            let replay = self
+                .replay_remote_checkpoint(source, chain)
+                .await
+                .and_then(|(boot, reader)| {
+                    self.activate_recovery(chain, boot, reader, "REMOTE_CHECKPOINT_BOUNDED_REPLAY")
+                });
+            match replay {
+                Ok(()) => return Ok(()),
                 Err(error) => self.logger.event(
                     "debug",
                     "remote_checkpoint_replay_unavailable",
@@ -873,34 +949,12 @@ impl Api {
         {
             return Err(err("BOOTSTRAP_CURSOR_IDENTITY"));
         }
-        let now = now_ms();
-        if boot.snapshot.reference.block.timestamp_ms > now.saturating_add(30_000)
-            || now.saturating_sub(boot.snapshot.reference.block.timestamp_ms)
-                > self.config.config.startup.max_baseline_age_ms
-        {
-            return Err(err("BASELINE_TOO_OLD"));
-        }
         let cfg = self.config.clone();
-        let cursor = boot.cursor.clone();
         let chain_key = chain.to_owned();
-        let seq = boot.snapshot.reference.journal_seq;
-        let reader = tokio::task::spawn_blocking(move || {
-            let k = &cfg.config.journal.kafka;
-            // An out-of-window cursor needs a new owner-issued checkpoint.
-            // Journal tail units can represent revocation or an open reorg.
-            let mut reader = Reader::open(
-                &k.brokers,
-                &format!("quote.{}.{}", chain_key, k.replica_id),
-                &cursor,
-                cfg.config.journal.max_payload_bytes,
-                k.max_tail_records,
-                Duration::from_millis(cfg.config.journal.request_timeout_ms),
-            )?;
-            reader.last_sequence = seq;
-            Ok::<_, xone_domain::Error>(reader)
-        })
-        .await
-        .map_err(|_| err("KAFKA_READER_TASK"))??;
+        let (boot, reader) =
+            tokio::task::spawn_blocking(move || align_kafka_checkpoint(&cfg, &chain_key, boot))
+                .await
+                .map_err(|_| err("KAFKA_READER_TASK"))??;
         self.activate_recovery(chain, boot, reader, recovery_source)
     }
     fn activate_recovery(
@@ -910,6 +964,13 @@ impl Api {
         reader: Reader,
         recovery_source: &str,
     ) -> Result<()> {
+        let now = now_ms();
+        let timestamp = boot.snapshot.reference.block.timestamp_ms;
+        if timestamp > now.saturating_add(30_000)
+            || now.saturating_sub(timestamp) > self.config.config.startup.max_baseline_age_ms
+        {
+            return Err(err("BASELINE_TOO_OLD"));
+        }
         let mut applied = self
             .applied_cursors
             .lock()

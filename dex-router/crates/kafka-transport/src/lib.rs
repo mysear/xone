@@ -360,6 +360,7 @@ pub struct Reader {
     topic: String,
     assembler: Assembler,
     next_offset: i64,
+    startup_high: i64,
     max_tail: i64,
     pub last_sequence: u64,
 }
@@ -382,6 +383,7 @@ impl Reader {
             .set("enable.auto.commit", "false")
             .set("enable.auto.offset.store", "false")
             .set("enable.partition.eof", "true")
+            .set("auto.offset.reset", "error")
             .set("allow.auto.create.topics", "false")
             .set("fetch.message.max.bytes", max_bytes.to_string())
             .create()
@@ -405,6 +407,7 @@ impl Reader {
             topic: cursor.topic.clone(),
             assembler: Assembler::new(max_bytes),
             next_offset: cursor.offset,
+            startup_high: high,
             max_tail: max_tail as i64,
             last_sequence: 0,
         })
@@ -452,6 +455,20 @@ impl Reader {
     }
     pub fn at_committed_boundary(&self) -> bool {
         !self.assembler.in_progress()
+    }
+    /// The application cursor advances on journal frames only. Kafka's
+    /// position also includes transaction control records and aborted batches.
+    pub fn reached_startup_watermark(&self) -> Result<bool> {
+        if self.next_offset >= self.startup_high {
+            return Ok(true);
+        }
+        let position = self
+            .consumer
+            .position()
+            .map_err(|_| err("KAFKA_POSITION"))?;
+        Ok(position
+            .find_partition(&self.topic, 0)
+            .is_some_and(|p| matches!(p.offset(), Offset::Offset(n) if n >= self.startup_high)))
     }
     pub fn check_lag(&self, timeout: Duration) -> Result<()> {
         let (low, high) = self
