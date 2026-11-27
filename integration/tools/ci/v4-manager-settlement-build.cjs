@@ -73,6 +73,7 @@ fs.writeFileSync(output, JSON.stringify({
     hookManagerReferences,
     infinity: {
         vault: code(vault, 'Vault'),
+        vaultRuntime: build.contracts[vault].Vault.evm.deployedBytecode.object,
         clManager: code(clManager, 'CLPoolManager'),
         binManager: code(binManager, 'BinPoolManager'),
         harness: code(infinityHarness, 'InfinityManagerSettlement'),

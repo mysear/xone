@@ -374,9 +374,9 @@
 - `uniswap-v4-advanced` 与 `pancake-infinity-cl-advanced` 的无 swap 回调快照接入 ExactOut。路由绑定 manager，计划校验仅允许高级 CL 单池路由使用原生币，报价应用快照中的 LP 费和方向性协议费。用原程序的 CL 语料投影为动态费与原生币快照，核对输入、目标输出和报价后状态。4 组正常 HTTP 报价通过，覆盖两个协议和双向原生币，旧版 644 组输入与回滚以及连续和多池回归通过。能力目录升至 `/31`。
 - 已接入 `v4-settlement-hook-v1` 的固定区块收集、Go/Rust Protobuf 和正常 HTTP 报价。收集器核对 hook 权限、编译产物及两处不可变的 PoolManager 地址。8 组原 PoolManager 双向 ExactIn、ExactOut、ERC-20 与原生币交易的报价、价格及 tick 后状态一致，另通过 8 组原程序回滚。能力目录为 `xone-protocol-capabilities/32`。 [复验说明](integration/tools/reference/singleton-advanced/README.md#v4-poolmanager-hook-and-native-settlement)
 - V4 单池执行合约通过原 PoolManager 的 8 组 ERC-20 与原生币双向 ExactIn、ExactOut，核对实际收款、授权额度、原生币退款和 8 组滑点回滚。正常 HTTP build 按计划绑定执行合约，固定区块核对合约、manager 与代币身份，8 组模板及 8 组执行合约字节码变更拒绝通过。签名、独立执行和真实回执继续按 I6 验收。
-- 补齐 Infinity CL 已知 hook 的覆盖费、差额和原生币结算。
+- Infinity CL 已知 hook 的报价通过 8 组原版 Manager/Vault 回放，覆盖双向 ExactIn、ExactOut、原生币和 ERC-20。Go 固定块收集核对 hook 位图及其 Manager/Vault 依赖，Rust 核对成交金额、价格和 tick。能力目录为 `xone-protocol-capabilities/33`。
 - 固定版本的 Infinity CL Manager、Bin Manager 与 Vault 已通过 16 组双向 ExactIn、ExactOut、ERC-20 与原生币交易，核对 hook、付款方、接收方、Vault、应用储备和结算锁。另通过 16 组 `CurrencyNotSettled` 回滚。继续把快照、hook 身份和报价接入正常服务。 [复验说明](integration/tools/reference/singleton-advanced/README.md#infinity-manager-and-vault-settlement)
-- 完成 Infinity Bin 动态、hook、native 组合，以及 Manager、Vault、transient storage 和完整结算状态。
+- 接入 Infinity Bin 动态费、hook 和原生币组合的快照、路由与报价，覆盖跨 bin 后状态并复验 Manager、Vault、transient storage 和完整结算状态。
 - unknown hook 继续保持拒绝。
 
 ### I6 独立执行与真实收款差

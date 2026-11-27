@@ -347,6 +347,7 @@ impl ConcentratedState {
 /// Explicit capability boundary; legacy Pool/SingletonCLState admission is unchanged.
 pub const DYNAMIC_FEE_FLAG: u32 = 0x800000;
 pub const V4_SETTLEMENT_HOOK_MODEL: &str = "v4-settlement-hook-v1";
+pub const INFINITY_SETTLEMENT_HOOK_MODEL: &str = "infinity-settlement-hook-v1";
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct SingletonAdvancedState {
@@ -455,7 +456,7 @@ impl SingletonAdvancedState {
         } else {
             let b = bytes32(&s.parameters)?;
             let flags = u16::from_be_bytes([b[30], b[31]]);
-            if flags & 0xcc0 != 0 {
+            if self.hook_model.is_empty() && flags & 0xcc0 != 0 {
                 return Err(err("SINGLETON_HOOK_EXECUTION_REQUIRED"));
             }
             if flags & (1 << 12) != 0 && flags & (1 << 3) == 0
@@ -468,14 +469,13 @@ impl SingletonAdvancedState {
         if s.hooks == ZERO_ADDRESS && (self.key_fee == DYNAMIC_FEE_FLAG || flags != 0) {
             return Err(err("SINGLETON_HOOK_PERMISSIONS"));
         }
-        if !self.hook_model.is_empty() {
-            if self.hook_model != V4_SETTLEMENT_HOOK_MODEL
-                || self.protocol != "uniswap-v4"
-                || flags != 0xcc
-                || self.key_fee != DYNAMIC_FEE_FLAG
-            {
-                return Err(err("SINGLETON_HOOK_MODEL"));
-            }
+        let known_model = matches!(
+            (self.hook_model.as_str(), self.protocol.as_str(), flags),
+            (V4_SETTLEMENT_HOOK_MODEL, "uniswap-v4", 0xcc)
+                | (INFINITY_SETTLEMENT_HOOK_MODEL, "pancake-infinity-cl", 0xcc0)
+        );
+        if !self.hook_model.is_empty() && (!known_model || self.key_fee != DYNAMIC_FEE_FLAG) {
+            return Err(err("SINGLETON_HOOK_MODEL"));
         }
         Ok(())
     }

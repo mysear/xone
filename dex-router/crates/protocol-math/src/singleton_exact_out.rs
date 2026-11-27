@@ -1,13 +1,13 @@
 //! Output-driven singleton CL swaps. The native delta sign differs from V3.
 use super::{
-    amount0_delta, amount1_delta, ceil_div, cross_liquidity, next_tick, V4_SETTLEMENT_FEE,
-    V4_SPECIFIED_DELTA, V4_UNSPECIFIED_DELTA,
+    amount0_delta, amount1_delta, ceil_div, cross_liquidity, next_tick, SETTLEMENT_HOOK_FEE,
+    SETTLEMENT_HOOK_SPECIFIED, SETTLEMENT_HOOK_UNSPECIFIED,
 };
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use xone_domain::{
     err,
-    singleton::{ConcentratedState, SingletonCLState, V4_SETTLEMENT_HOOK_MODEL},
+    singleton::{ConcentratedState, SingletonCLState},
     v3::{parse_liquidity_net, sqrt_ratio_at_tick, tick_at_sqrt_ratio, MAX_TICK, MIN_TICK},
     Amount, Pool, Result,
 };
@@ -68,19 +68,19 @@ pub fn quote_exact_out(
     let hooked = pool
         .singleton_advanced
         .as_ref()
-        .is_some_and(|state| state.hook_model == V4_SETTLEMENT_HOOK_MODEL);
+        .is_some_and(|state| !state.hook_model.is_empty());
     let (lp_fee, core_output) = if hooked {
-        let target = Amount::checked(&output.0 + V4_SPECIFIED_DELTA)?;
+        let target = Amount::checked(&output.0 + SETTLEMENT_HOOK_SPECIFIED)?;
         if target.0.bits() > 127 {
             return Err(err("SINGLETON_OUTPUT_INT256_RANGE"));
         }
-        (V4_SETTLEMENT_FEE, target)
+        (SETTLEMENT_HOOK_FEE, target)
     } else {
         (snapshot.lp_fee, output.clone())
     };
     let (core, mut input) = quote_core_exact_out(snapshot, lp_fee, &core_output, zero)?;
     if hooked {
-        input.0 += V4_UNSPECIFIED_DELTA;
+        input.0 += SETTLEMENT_HOOK_UNSPECIFIED;
         if input.0 > (BigUint::one() << 127usize) {
             return Err(err("SINGLETON_INPUT_INT256_RANGE"));
         }

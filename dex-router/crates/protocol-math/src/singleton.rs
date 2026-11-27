@@ -2,7 +2,7 @@
 use crate::Swap;
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
-use xone_domain::singleton::{ConcentratedState, SingletonAdvancedState, V4_SETTLEMENT_HOOK_MODEL};
+use xone_domain::singleton::{ConcentratedState, SingletonAdvancedState};
 use xone_domain::{
     err,
     v3::{parse_liquidity_net, sqrt_ratio_at_tick, tick_at_sqrt_ratio, MAX_TICK, MIN_TICK},
@@ -144,9 +144,9 @@ pub struct SingletonAdvancedSwap {
 }
 
 // These are the constants of the bytecode identity admitted by the collector.
-pub(super) const V4_SETTLEMENT_FEE: u32 = 17_000;
-pub(super) const V4_SPECIFIED_DELTA: u32 = 7;
-pub(super) const V4_UNSPECIFIED_DELTA: u32 = 11;
+pub(super) const SETTLEMENT_HOOK_FEE: u32 = 17_000;
+pub(super) const SETTLEMENT_HOOK_SPECIFIED: u32 = 7;
+pub(super) const SETTLEMENT_HOOK_UNSPECIFIED: u32 = 11;
 
 pub fn quote_advanced_exact_in(
     state: &SingletonAdvancedState,
@@ -160,20 +160,20 @@ pub fn quote_advanced_exact_in(
     if input.0 > (BigUint::one() << 127usize) {
         return Err(err("SINGLETON_INPUT_INT256_RANGE"));
     }
-    let hooked = state.hook_model == V4_SETTLEMENT_HOOK_MODEL;
+    let hooked = !state.hook_model.is_empty();
     let (lp_fee, core_input) = if hooked {
-        let delta = BigUint::from(V4_SPECIFIED_DELTA);
+        let delta = BigUint::from(SETTLEMENT_HOOK_SPECIFIED);
         if input.0 <= delta {
             return Err(err("SINGLETON_HOOK_INPUT_TOO_SMALL"));
         }
-        (V4_SETTLEMENT_FEE, Amount::checked(&input.0 - delta)?)
+        (SETTLEMENT_HOOK_FEE, Amount::checked(&input.0 - delta)?)
     } else {
         (state.snapshot.lp_fee, input.clone())
     };
     let (core, mut output, protocol_amount, swap_fee) =
         quote_core(&state.snapshot, lp_fee, &core_input, zero, true)?;
     if hooked {
-        let delta = BigUint::from(V4_UNSPECIFIED_DELTA);
+        let delta = BigUint::from(SETTLEMENT_HOOK_UNSPECIFIED);
         if output <= delta {
             return Err(err("SINGLETON_HOOK_OUTPUT_TOO_SMALL"));
         }

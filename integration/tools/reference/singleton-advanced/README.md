@@ -29,6 +29,8 @@ The same build command compiles the original Infinity CL Manager, Bin Manager an
 
 Set `XONE_INFINITY_HOOK_QUOTES` before running the simulation test to export results for cross-language and HTTP quote checks.
 
+An Infinity CL pool may set `singleton_advanced.hook_model` to `infinity-settlement-hook-v1` for this exact dynamic-fee hook. The collector checks the permission bitmap, both sets of hook immutables, the Vault runtime and Manager registration at the pool snapshot's canonical block. HTTP ExactIn and ExactOut match all eight CL swaps in the replay. Set the two fixture paths above and run the HTTP test with the `settlement_hook_http` filter. For the collector checks, run the Go EVM tests with the `SettlementHookRuntimeAtCanonicalBlock` filter.
+
 ## Bounded library reference
 
 This slice is explicitly separate from legacy singleton admission. The core protocol names inside `SingletonAdvancedState` remain `uniswap-v4` and `pancake-infinity-cl`; central Pool profiles may use their `-advanced` names. Shared registry/config/wire dispatch is owned by main.

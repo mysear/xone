@@ -221,3 +221,107 @@ func TestSingletonAdvancedReadFrozenDynamicNativeSnapshot(t *testing.T) {
 		})
 	}
 }
+
+func TestInfinitySettlementHookRuntimeAtCanonicalBlock(t *testing.T) {
+	buildPath := os.Getenv("XONE_V4_MANAGER_SETTLEMENT_BUILD")
+	quotesPath := os.Getenv("XONE_INFINITY_HOOK_QUOTES")
+	if buildPath == "" || quotesPath == "" {
+		t.Skip("requires pinned Cancun build and Infinity hook replay")
+	}
+	var build struct {
+		Infinity struct {
+			VaultRuntime string `json:"vaultRuntime"`
+		} `json:"infinity"`
+	}
+	var cases []struct {
+		Manager  string `json:"manager"`
+		Vault    string `json:"vault"`
+		Hook     string `json:"hook"`
+		HookCode string `json:"hookCode"`
+	}
+	for _, file := range []struct {
+		path   string
+		target any
+	}{{buildPath, &build}, {quotesPath, &cases}} {
+		raw, err := os.ReadFile(file.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(raw, file.target); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(cases) != 16 {
+		t.Fatal("incomplete Infinity replay")
+	}
+	item := cases[0]
+	block := "0x" + strings.Repeat("ab", 32)
+	for _, suffix := range []string{"valid", "different-vault", "unregistered"} {
+		t.Run(suffix, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var req struct {
+					ID     json.RawMessage   `json:"id"`
+					Method string            `json:"method"`
+					Params []json.RawMessage `json:"params"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					t.Error(err)
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				var anchor map[string]any
+				if err := json.Unmarshal(req.Params[1], &anchor); err != nil || anchor["blockHash"] != block || anchor["requireCanonical"] != true {
+					t.Error("unanchored Infinity hook dependency")
+				}
+				var result string
+				switch req.Method {
+				case "eth_getCode":
+					var address string
+					_ = json.Unmarshal(req.Params[0], &address)
+					switch address {
+					case item.Vault:
+						result = "0x" + build.Infinity.VaultRuntime
+						if suffix == "different-vault" {
+							result = "0x00"
+						}
+					case item.Hook:
+						result = item.HookCode
+					default:
+						t.Error("unexpected Infinity runtime lookup")
+					}
+				case "eth_call":
+					var call map[string]string
+					_ = json.Unmarshal(req.Params[0], &call)
+					switch call["to"] {
+					case item.Manager:
+						if call["data"] != singletonSelector("vault()") {
+							t.Error("unexpected manager getter")
+						}
+						result = "0x" + strings.Repeat("0", 24) + item.Vault[2:]
+					case item.Vault:
+						if call["data"] != singletonSelector("isAppRegistered(address)")+strings.Repeat("0", 24)+item.Manager[2:] {
+							t.Error("unexpected Vault getter")
+						}
+						registered := "1"
+						if suffix == "unregistered" {
+							registered = "0"
+						}
+						result = "0x" + strings.Repeat("0", 63) + registered
+					default:
+						t.Error("unexpected Infinity getter")
+					}
+				default:
+					t.Error("unexpected Infinity RPC method")
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
+			}))
+			defer server.Close()
+			adapter := Adapter{Client: rpc.New([]string{server.URL}, time.Second, 1<<20)}
+			err := adapter.verifyInfinitySettlementHook(context.Background(), map[string]any{"blockHash": block, "requireCanonical": true}, item.Hook, item.Manager)
+			expected := map[string]string{"different-vault": "SINGLETON_HOOK_VAULT_CODE", "unregistered": "SINGLETON_HOOK_VAULT_UNREGISTERED"}[suffix]
+			if expected == "" && err != nil || expected != "" && (err == nil || err.Error() != expected) {
+				t.Fatalf("got %v, want %q", err, expected)
+			}
+		})
+	}
+}

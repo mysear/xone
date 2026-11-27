@@ -291,8 +291,6 @@ async fn singleton_http_advanced_native_output_in_both_directions() {
 #[tokio::test]
 #[ignore = "requires the original Cancun PoolManager quote results"]
 async fn v4_settlement_hook_http_matches_original_pool_manager() {
-    use xone_domain::singleton::{SingletonAdvancedState, V4_SETTLEMENT_HOOK_MODEL};
-
     let path = std::env::var_os("XONE_V4_HOOK_QUOTES").unwrap();
     let fixture: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let cases = fixture["cases"].as_array().unwrap();
@@ -376,48 +374,13 @@ async fn v4_settlement_hook_http_matches_original_pool_manager() {
     for case in cases {
         let zero = case["zeroForOne"].as_bool().unwrap();
         let exact_in = case["exactIn"].as_bool().unwrap();
-        let mut state: SingletonAdvancedState = serde_json::from_value(json!({
-            "protocol": "uniswap-v4",
-            "currency0": case["currency0"],
-            "currency1": case["currency1"],
-            "key_fee": 0x800000,
-            "snapshot_block_hash": snapshot.reference.block.hash,
-            "hook_model": V4_SETTLEMENT_HOOK_MODEL,
-            "snapshot": {
-                "manager": case["manager"],
-                "manager_code_sha256": case["managerCodeSha256"],
-                "pool_id": "",
-                "lp_fee": 0,
-                "protocol_fee0": 0,
-                "protocol_fee1": 0,
-                "hooks": case["hook"],
-                "parameters": "",
-                "core": {
-                    "sqrt_price_x96": "79228162514264337593543950336",
-                    "tick": 0, "liquidity": "1000000000000", "tick_spacing": 60, "max_steps": 8,
-                    "tick_words": [{"word_pos": -1, "bitmap": "28948022309329048855892746252171976963317496166410141009864396001978282409984"}, {"word_pos": 0, "bitmap": "4"}],
-                    "ticks": [{"tick": -120, "liquidity_gross": "1000000000000", "liquidity_net": "1000000000000"}, {"tick": 120, "liquidity_gross": "1000000000000", "liquidity_net": "-1000000000000"}],
-                },
-            },
-        })).unwrap();
-        state.snapshot.pool_id = state.key_id().unwrap();
-        assert_eq!(
-            SingletonAdvancedState::from_proto(state.to_proto().unwrap()).unwrap(),
-            state
+        let pool = settlement_hook_pool(
+            case,
+            "uniswap-v4",
+            xone_domain::singleton::V4_SETTLEMENT_HOOK_MODEL,
+            "",
+            &snapshot.reference.block.hash,
         );
-        let protocol = "uniswap-v4-advanced";
-        let pool: Pool = serde_json::from_value(json!({
-            "chain_key": "evm:31337",
-            "pool_id": format!("{}/{}", state.snapshot.manager, state.snapshot.pool_id),
-            "protocol": protocol,
-            "token0": state.currency0,
-            "token1": state.currency1,
-            "reserve0": "0", "reserve1": "0", "fee_numerator": 0, "fee_denominator": 1_000_000,
-            "adapter_version": xone_domain::protocols::protocol(protocol).unwrap().adapter,
-            "token_behavior": "standard",
-            "singleton_advanced": state,
-        }))
-        .unwrap();
         let i = usize::from(!zero);
         let pair = tokens(&pool, i, 1 - i);
         let input: xone_domain::Amount = case["input"].as_str().unwrap().parse().unwrap();
@@ -487,6 +450,123 @@ async fn v4_settlement_hook_http_matches_original_pool_manager() {
         corrupt.store(false, std::sync::atomic::Ordering::Relaxed);
     }
     server.abort();
+}
+
+fn settlement_hook_pool(
+    case: &Value,
+    protocol: &str,
+    model: &str,
+    parameters: &str,
+    block_hash: &str,
+) -> Pool {
+    use xone_domain::singleton::SingletonAdvancedState;
+    let mut state: SingletonAdvancedState = serde_json::from_value(json!({
+        "protocol": protocol,
+        "currency0": case["currency0"],
+        "currency1": case["currency1"],
+        "key_fee": 0x800000,
+        "snapshot_block_hash": block_hash,
+        "hook_model": model,
+        "snapshot": {
+            "manager": case["manager"],
+            "manager_code_sha256": case["managerCodeSha256"],
+            "pool_id": "",
+            "lp_fee": 0,
+            "protocol_fee0": 0,
+            "protocol_fee1": 0,
+            "hooks": case["hook"],
+            "parameters": parameters,
+            "core": {
+                "sqrt_price_x96": "79228162514264337593543950336",
+                "tick": 0, "liquidity": "1000000000000", "tick_spacing": 60, "max_steps": 8,
+                "tick_words": [{"word_pos": -1, "bitmap": "28948022309329048855892746252171976963317496166410141009864396001978282409984"}, {"word_pos": 0, "bitmap": "4"}],
+                "ticks": [{"tick": -120, "liquidity_gross": "1000000000000", "liquidity_net": "1000000000000"}, {"tick": 120, "liquidity_gross": "1000000000000", "liquidity_net": "-1000000000000"}],
+            },
+        },
+    })).unwrap();
+    state.snapshot.pool_id = state.key_id().unwrap();
+    assert_eq!(
+        SingletonAdvancedState::from_proto(state.to_proto().unwrap()).unwrap(),
+        state
+    );
+    let protocol = format!("{protocol}-advanced");
+    serde_json::from_value(json!({
+        "chain_key": "evm:31337",
+        "pool_id": format!("{}/{}", state.snapshot.manager, state.snapshot.pool_id),
+        "protocol": protocol,
+        "token0": state.currency0,
+        "token1": state.currency1,
+        "reserve0": "0", "reserve1": "0", "fee_numerator": 0, "fee_denominator": 1_000_000,
+        "adapter_version": xone_domain::protocols::protocol(&protocol).unwrap().adapter,
+        "token_behavior": "standard",
+        "singleton_advanced": state,
+    }))
+    .unwrap()
+}
+
+#[tokio::test]
+#[ignore = "requires the original Cancun Infinity Manager/Vault replay"]
+async fn infinity_cl_settlement_hook_http_matches_original_manager() {
+    use xone_domain::singleton::INFINITY_SETTLEMENT_HOOK_MODEL;
+    let path = std::env::var_os("XONE_INFINITY_HOOK_QUOTES").unwrap();
+    let cases: Vec<Value> = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let (api, mut snapshot) = setup();
+    let mut checked = 0;
+    for case in cases.iter().filter(|case| case["bin"] == false) {
+        let parameters = format!("0x{:064x}", (60u32 << 16) | 0xcc0);
+        let pool = settlement_hook_pool(
+            case,
+            "pancake-infinity-cl",
+            INFINITY_SETTLEMENT_HOOK_MODEL,
+            &parameters,
+            &snapshot.reference.block.hash,
+        );
+        let zero = case["zeroForOne"].as_bool().unwrap();
+        let exact_in = case["exactIn"].as_bool().unwrap();
+        let i = usize::from(!zero);
+        let pair = tokens(&pool, i, 1 - i);
+        let input = case["input"].as_str().unwrap().parse().unwrap();
+        let output = case["output"].as_str().unwrap().parse().unwrap();
+        let next = if exact_in {
+            let swap = xone_protocol_math::quote_exact_in(&pool, &input, zero).unwrap();
+            assert_eq!(swap.amount_out, output);
+            swap.next_pool
+        } else {
+            let swap =
+                xone_protocol_math::exact_out::quote_exact_out(&pool, &output, zero).unwrap();
+            assert_eq!(swap.amount_in, input);
+            swap.next_pool
+        };
+        let core = next.singleton_advanced.unwrap().snapshot.core;
+        assert_eq!(core.sqrt_price_x96.to_string(), case["stateAfter"]);
+        assert_eq!(i64::from(core.tick), case["tickAfter"]);
+        install(&api, &mut snapshot, vec![pool]);
+        let (status, quote) = if exact_in {
+            call(&api, "/v1/quote", json!({
+                "chainKey":"evm:31337","kind":"EXACT_IN","sellToken":pair[0],"buyToken":pair[1],
+                "sellAmount":case["input"],"caller":"0x000000000000000000000000000000000000dead",
+                "recipient":"0x000000000000000000000000000000000000beef","slippageBps":0,
+                "verification":"FAST"
+            })).await
+        } else {
+            call(
+                &api,
+                "/v1/quote-exact-out",
+                request(&pair, &case["output"], json!(MAX)),
+            )
+            .await
+        };
+        assert_eq!(status, StatusCode::OK, "{case}: {quote}");
+        assert_eq!(quote["grossBuyAmount"], case["output"]);
+        let sell_field = if exact_in {
+            "consumedIn"
+        } else {
+            "requiredSellAmount"
+        };
+        assert_eq!(quote[sell_field], case["input"]);
+        checked += 1;
+    }
+    assert_eq!(checked, 8);
 }
 
 #[tokio::test]

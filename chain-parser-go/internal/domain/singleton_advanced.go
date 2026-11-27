@@ -11,6 +11,7 @@ import (
 
 const SingletonDynamicFeeFlag uint32 = 0x800000
 const V4SettlementHookModel = "v4-settlement-hook-v1"
+const InfinitySettlementHookModel = "infinity-settlement-hook-v1"
 
 // SingletonAdvancedState is deliberately separate from legacy Pool admission.
 // KeyFee is immutable; Snapshot.LPFee is the observed slot0 fee at SnapshotBlockHash.
@@ -116,7 +117,7 @@ func (v SingletonAdvancedState) ValidateIdentity() error {
 	} else {
 		p, _ := singletonAdvancedBytes32(s.Parameters)
 		flags = uint16(p[30])<<8 | uint16(p[31])
-		if flags&0xcc0 != 0 {
+		if v.HookModel == "" && flags&0xcc0 != 0 {
 			return errors.New("SINGLETON_HOOK_EXECUTION_REQUIRED")
 		}
 		if flags&(1<<12) != 0 && flags&(1<<3) == 0 || flags&(1<<13) != 0 && flags&(1<<5) == 0 {
@@ -126,10 +127,10 @@ func (v SingletonAdvancedState) ValidateIdentity() error {
 	if s.Hooks == SingletonZeroAddress && (v.KeyFee == SingletonDynamicFeeFlag || flags != 0) {
 		return errors.New("SINGLETON_HOOK_PERMISSIONS")
 	}
-	if v.HookModel != "" {
-		if v.HookModel != V4SettlementHookModel || v.Protocol != "uniswap-v4" || flags != 0xcc || v.KeyFee != SingletonDynamicFeeFlag {
-			return errors.New("SINGLETON_HOOK_MODEL")
-		}
+	v4 := v.HookModel == V4SettlementHookModel && v.Protocol == "uniswap-v4" && flags == 0xcc
+	infinity := v.HookModel == InfinitySettlementHookModel && v.Protocol == "pancake-infinity-cl" && flags == 0xcc0
+	if v.HookModel != "" && (!(v4 || infinity) || v.KeyFee != SingletonDynamicFeeFlag) {
+		return errors.New("SINGLETON_HOOK_MODEL")
 	}
 	return nil
 }

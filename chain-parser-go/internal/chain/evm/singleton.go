@@ -47,30 +47,86 @@ func singletonMappingSlot(key, slot []byte) []byte {
 	return singletonKeccak(encoded)
 }
 
-func (a *Adapter) verifyV4SettlementHook(ctx context.Context, anchor map[string]any, hook, manager string) error {
+type singletonHookImmutable struct {
+	address  string
+	offsets  []int
+	mismatch string
+}
+
+func (a *Adapter) verifySingletonHookRuntime(ctx context.Context, anchor map[string]any, hook string, size int, expected string, immutables ...singletonHookImmutable) error {
 	var code string
 	if err := a.Client.Call(ctx, "eth_getCode", []any{hook, anchor}, &code); err != nil {
 		return fmt.Errorf("SINGLETON_HOOK_CODE: %w", err)
 	}
-	if !singletonHex(code, 901) {
+	if !singletonHex(code, size) {
 		return errors.New("SINGLETON_HOOK_CODE_IDENTITY")
 	}
 	runtime, _ := hex.DecodeString(code[2:])
-	address, _ := hex.DecodeString(manager[2:])
-	var managerWord [32]byte
-	copy(managerWord[12:], address)
-	// SettlementHook compiled by integration/tools/ci/v4-manager-settlement-build.cjs.
-	// Verify both compiler-declared immutable words before hashing the template.
-	for _, offset := range [...]int{146, 459} {
-		word := runtime[offset : offset+32]
-		if !bytes.Equal(word, managerWord[:]) {
-			return errors.New("SINGLETON_HOOK_MANAGER_MISMATCH")
+	for _, immutable := range immutables {
+		address, _ := hex.DecodeString(immutable.address[2:])
+		var expectedWord [32]byte
+		copy(expectedWord[12:], address)
+		for _, offset := range immutable.offsets {
+			word := runtime[offset : offset+32]
+			if !bytes.Equal(word, expectedWord[:]) {
+				return errors.New(immutable.mismatch)
+			}
+			clear(word)
 		}
-		clear(word)
 	}
 	digest := sha256.Sum256(runtime)
-	if hex.EncodeToString(digest[:]) != "713061d76fed7f5ec294ea9d743f8b803b8f085e0d13deaa2a99f28262aaca3f" {
+	if hex.EncodeToString(digest[:]) != expected {
 		return errors.New("SINGLETON_HOOK_CODE_IDENTITY")
+	}
+	return nil
+}
+
+// Runtime templates and immutable offsets come from v4-manager-settlement-build.cjs.
+func (a *Adapter) verifyV4SettlementHook(ctx context.Context, anchor map[string]any, hook, manager string) error {
+	return a.verifySingletonHookRuntime(ctx, anchor, hook, 901, "713061d76fed7f5ec294ea9d743f8b803b8f085e0d13deaa2a99f28262aaca3f",
+		singletonHookImmutable{manager, []int{146, 459}, "SINGLETON_HOOK_MANAGER_MISMATCH"})
+}
+
+func (a *Adapter) verifyInfinitySettlementHook(ctx context.Context, anchor map[string]any, hook, manager string) error {
+	raw, err := a.stableCall(ctx, manager, singletonSelector("vault()"), anchor, 1)
+	if err != nil {
+		return fmt.Errorf("SINGLETON_HOOK_VAULT: %w", err)
+	}
+	address, err := wordUint(raw, 160)
+	if err != nil || address.Sign() == 0 {
+		return errors.New("SINGLETON_HOOK_VAULT_INVALID")
+	}
+	vault := fmt.Sprintf("0x%040x", address)
+	var code string
+	if err := a.Client.Call(ctx, "eth_getCode", []any{vault, anchor}, &code); err != nil {
+		return fmt.Errorf("SINGLETON_HOOK_VAULT: %w", err)
+	}
+	if !strings.HasPrefix(code, "0x") || len(code) > 2+2*24576 {
+		return errors.New("SINGLETON_HOOK_VAULT_CODE")
+	}
+	runtime, err := hex.DecodeString(code[2:])
+	if err != nil {
+		return errors.New("SINGLETON_HOOK_VAULT_CODE")
+	}
+	digest := sha256.Sum256(runtime)
+	switch hex.EncodeToString(digest[:]) {
+	case "3accc3af412dcad7df29e86a12bb9e0426356695f5eddb189c0c55b272abb6a0", infinityBinVaultSHA256:
+	default:
+		return errors.New("SINGLETON_HOOK_VAULT_CODE")
+	}
+	if err := a.verifySingletonHookRuntime(ctx, anchor, hook, 1354, "b19fdab8fb2b4ef318403ac9001afeaa4c89ebe1efbd1ede4e20a6e7b73482d8",
+		singletonHookImmutable{manager, []int{844, 1121}, "SINGLETON_HOOK_MANAGER_MISMATCH"},
+		singletonHookImmutable{vault, []int{929, 1169}, "SINGLETON_HOOK_VAULT_MISMATCH"}); err != nil {
+		return err
+	}
+	data := singletonSelector("isAppRegistered(address)") + strings.Repeat("0", 24) + manager[2:]
+	raw, err = a.stableCall(ctx, vault, data, anchor, 1)
+	if err != nil {
+		return fmt.Errorf("SINGLETON_HOOK_VAULT: %w", err)
+	}
+	registered, err := wordUint(raw, 1)
+	if err != nil || registered.Sign() == 0 {
+		return errors.New("SINGLETON_HOOK_VAULT_UNREGISTERED")
 	}
 	return nil
 }
@@ -168,6 +224,11 @@ func (a *Adapter) readSingletonCLSnapshot(ctx context.Context, p config.PoolConf
 	}
 	if advanced != nil && advanced.HookModel == domain.V4SettlementHookModel {
 		if err := a.verifyV4SettlementHook(ctx, anchor, hooks, v.Manager); err != nil {
+			return domain.Pool{}, err
+		}
+	}
+	if advanced != nil && advanced.HookModel == domain.InfinitySettlementHookModel {
+		if err := a.verifyInfinitySettlementHook(ctx, anchor, hooks, v.Manager); err != nil {
 			return domain.Pool{}, err
 		}
 	}
