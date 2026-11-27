@@ -93,8 +93,9 @@ impl Api {
             None
         };
         let price_identity = cost_backend.as_ref().and_then(|b| b.price_identity());
+        let search_strategy = xone_routing::exact_out::SEARCH_STRATEGY;
         let mut identity = json!({"request": request, "view_id": view.view_id,
-            "policy": self.config.economic_hash, "engine": ENGINE});
+            "policy": self.config.economic_hash, "engine": ENGINE, "candidate_search": search_strategy});
         if let Some(price) = price_identity {
             identity["candidate_price_book"] = json!(price);
         }
@@ -319,9 +320,12 @@ impl Api {
                 "optimalityClaim": "MINIMUM_RAW_INPUT_WITHIN_EVALUATED_ORDERED_GRID",
                 "pathPolicy": path_policy,
                 "candidateSearch": {
+                    "strategy": search_strategy,
                     "maxHops": request.constraints.as_ref().map_or(self.config.config.routing.max_hops, |c| c.max_hops),
                     "maxCandidates": self.config.config.routing.max_candidates,
                     "maxExpansions": self.config.config.routing.max_expansions,
+                    "maxLabelsPerTokenPerHop": candidates.max_labels_per_token,
+                    "droppedLabels": candidates.dropped_labels,
                     "probeParts": if self.config.config.routing.max_splits > 1 { self.config.config.routing.split_parts } else { 1 }
                 },
                 "allocationSearch": {"evaluations": optimized.evaluations, "exhaustiveWithinGrid": optimized.grid_exhaustive,

@@ -9,6 +9,8 @@ use std::{
 };
 use xone_domain::{err, Amount, Pool, Result};
 
+pub const SEARCH_STRATEGY: &str = "REVERSE_TOKEN_BEAM_V1";
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExactOutPathQuote {
@@ -34,6 +36,15 @@ pub struct ExactOutSearchResult {
     pub budget_exhausted: bool,
     pub expansions: usize,
     pub evaluations: usize,
+    pub max_labels_per_token: usize,
+    pub dropped_labels: usize,
+}
+
+fn compare_input_rates(a: &ExactOutPathQuote, b: &ExactOutPathQuote) -> std::cmp::Ordering {
+    (&a.amount_in.0 * &b.output_target().0)
+        .cmp(&(&b.amount_in.0 * &a.output_target().0))
+        .then_with(|| b.output_target().cmp(a.output_target()))
+        .then_with(|| a.edges.len().cmp(&b.edges.len()))
 }
 
 fn validate_funds(pools: &BTreeMap<String, Pool>, funds: Funds<'_>) -> Result<()> {
@@ -596,6 +607,10 @@ pub fn search(
     }
     let probe = Amount((&output.0 / budget.split_parts).max(num_bigint::BigUint::one()));
     let mut queue = VecDeque::from([(buy.to_owned(), Vec::<Edge>::new(), vec![buy.to_owned()])]);
+    let mut next_tokens = Vec::new();
+    let mut next_labels = BTreeMap::<String, Vec<ExactOutPathQuote>>::new();
+    let mut dropped_labels = 0;
+    let label_limit = budget.max_candidates.max(4);
     let (mut candidates, mut expansions, mut evaluations, mut exhausted, mut fallback) =
         (Vec::new(), 0, 0, false, None::<ExactOutPathQuote>);
     while let Some((token, edges, tokens)) = queue.pop_front() {
@@ -605,9 +620,6 @@ pub fn search(
             .is_some_and(|c| c.cancel.load(Ordering::Relaxed) || Instant::now() >= c.deadline)
         {
             return Err(err("BUDGET_EXHAUSTED"));
-        }
-        if edges.len() >= budget.max_hops {
-            continue;
         }
         for (from, edge) in incoming.get(&token).into_iter().flatten() {
             if execution
@@ -627,13 +639,18 @@ pub fn search(
             }
             let mut next_edges = vec![edge.clone()];
             next_edges.extend(edges.iter().cloned());
+            if from != sell && next_edges.len() == budget.max_hops {
+                continue;
+            }
             let mut trial = state.clone();
             evaluations += 1;
             let proposed = evaluate_path(&mut trial, &next_edges, &probe, funds).ok();
             // Pair settlement can reject the split-sized probe even when the
             // whole target is feasible. This also matters for a partial suffix:
             // dropping it here would hide valid multi-hop full-order paths.
-            let full = if from == sell || proposed.is_none() {
+            let full = if &probe == output {
+                proposed.clone()
+            } else if from == sell || proposed.is_none() {
                 let mut full_state = state.clone();
                 evaluations += 1;
                 evaluate_path(&mut full_state, &next_edges, output, funds).ok()
@@ -652,14 +669,37 @@ pub fn search(
                 if let Some(candidate) = proposed.or(full) {
                     candidates.push(candidate);
                 }
-            } else if proposed.is_some() || full.is_some() {
-                let mut next_tokens = vec![from.clone()];
-                next_tokens.extend(tokens.iter().cloned());
-                queue.push_back((from.clone(), next_edges, next_tokens));
+            } else if let Some(label) = proposed.or(full) {
+                let labels = next_labels.entry(from.clone()).or_insert_with(|| {
+                    next_tokens.push(from.clone());
+                    Vec::new()
+                });
+                // Rate comparisons are meaningful within this token and hop count.
+                let position = labels
+                    .partition_point(|existing| !compare_input_rates(existing, &label).is_gt());
+                if position < label_limit {
+                    labels.insert(position, label);
+                    if labels.len() > label_limit {
+                        labels.pop();
+                        dropped_labels += 1;
+                    }
+                } else {
+                    dropped_labels += 1;
+                }
             }
         }
         if exhausted {
             break;
+        }
+        if queue.is_empty() {
+            for token in next_tokens.drain(..) {
+                let labels = next_labels.remove(&token).unwrap_or_default();
+                queue.extend(
+                    labels
+                        .into_iter()
+                        .map(|path| (token.clone(), path.edges, path.tokens)),
+                );
+            }
         }
     }
     if execution
@@ -669,30 +709,15 @@ pub fn search(
     {
         return Err(err("BUDGET_EXHAUSTED"));
     }
-    candidates.sort_by(|a, b| {
-        a.amount_in
-            .0
-            .cmp(&b.amount_in.0)
-            .then_with(|| a.edges.len().cmp(&b.edges.len()))
-    });
+    candidates.sort_by(compare_input_rates);
     if candidates.len() > budget.max_candidates {
         exhausted = true;
     }
     candidates.truncate(budget.max_candidates);
     if let Some(full) = fallback {
-        if let Some(existing) = candidates.iter_mut().find(|p| {
-            p.edges
-                .iter()
-                .map(|e| (&e.pool_id, e.zero_for_one))
-                .eq(full.edges.iter().map(|e| (&e.pool_id, e.zero_for_one)))
-        }) {
+        if let Some(existing) = candidates.iter_mut().find(|p| p.edges == full.edges) {
             *existing = full;
-        } else if !candidates.iter().any(|p| {
-            p.edges
-                .iter()
-                .map(|e| (&e.pool_id, e.zero_for_one))
-                .eq(full.edges.iter().map(|e| (&e.pool_id, e.zero_for_one)))
-        }) {
+        } else {
             if candidates.len() == budget.max_candidates {
                 candidates.pop();
             }
@@ -702,9 +727,11 @@ pub fn search(
     Ok(ExactOutSearchResult {
         candidates,
         excluded_pools: excluded,
-        budget_exhausted: exhausted,
+        budget_exhausted: exhausted || dropped_labels > 0,
         expansions,
         evaluations,
+        max_labels_per_token: label_limit,
+        dropped_labels,
     })
 }
 
