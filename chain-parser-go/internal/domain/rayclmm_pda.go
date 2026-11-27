@@ -10,7 +10,11 @@ import (
 // These public seeds use Solana's SHA-256 and compressed Edwards-Y rejection.
 // Variable-time modular arithmetic here handles only public addresses, never keys.
 func rayCLMMPDA(seeds [][]byte) (string, uint32, error) {
-	program, err := decode58(RayCLMMProgram)
+	return solanaPDA(RayCLMMProgram, seeds)
+}
+
+func solanaPDA(programID string, seeds [][]byte) (string, uint32, error) {
+	program, err := decode58(programID)
 	if err != nil {
 		return "", 0, err
 	}

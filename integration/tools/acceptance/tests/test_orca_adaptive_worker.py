@@ -42,4 +42,39 @@ class AdaptiveOracleWorker(unittest.TestCase):
     if change=='short':b.pop()
     else:b.append(0)
     with self.assertRaisesRegex(ValueError,'SBF_ORCA_ORACLE_RESERVED_WIDTH'):self.worker.validate_orca(p,a,self.P)
+class SparseArrayWorker(unittest.TestCase):
+    def test_bank_requires_the_empty_system_account_at_the_derived_pda(self):
+        spec = importlib.util.spec_from_file_location(
+            'orca_sparse_worker', ROOT / 'dex-router/crates/simulation/workers/solana_sbf.py',
+        )
+        worker = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(worker)
+        pubkey = native_imports()[1]
+        from orca_adaptive_dynamic_fixture import corpus, pool
+
+        scenario = corpus()['scenarios'][0]
+        bank = scenario['banks'][0]
+        model = pool(scenario['config'], bank['native_state'])
+        state = model['orca_whirlpool']
+        start = state['tick_arrays'][-1]['start_tick_index'] + 88 * state['tick_spacing']
+        address, _ = pubkey.find_program_address(
+            [b'tick_array', bytes(pubkey.from_string(model['pool_id'])), str(start).encode()],
+            pubkey.from_string(worker.ORCA),
+        )
+        sparse = dict(address=str(address), start_tick_index=start, layout='sparse',
+                      initialized_bitmap='0', ticks=[])
+        state['tick_arrays'].append(sparse)
+        observed = dict(owner=worker.SYSTEM, executable=False, lamports=1_000_000,
+                        data=['', 'base64'])
+        accounts = dict(bank['accounts'], **{str(address): observed})
+        worker.validate_orca(model, accounts, pubkey)
+        for invalid in [None, dict(observed, owner=worker.ORCA),
+                        dict(observed, executable=True), dict(observed, data=['AQ==', 'base64'])]:
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, 'SBF_ORCA_SPARSE_ARRAY_MISMATCH'):
+                worker.validate_orca(model, dict(accounts, **{str(address): invalid}), pubkey)
+        sparse['address'] = state['tick_arrays'][0]['address']
+        with self.assertRaisesRegex(ValueError, 'SBF_ORCA_SPARSE_ARRAY_MISMATCH'):
+            worker.validate_orca(model, accounts, pubkey)
+
+
 if __name__=='__main__':unittest.main()

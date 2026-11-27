@@ -173,12 +173,33 @@ async fn adaptive_dynamic_normal_rpc_requests_and_decodes_supplemental_arrays() 
     }
     let (snapshot, calls) = normal_rpc(bank.clone(), &case, false).await;
     let wanted = serde_json::from_value::<xone_domain::Pool>(case["pool"].clone()).unwrap();
-    assert_eq!(snapshot.unwrap().pools, vec![wanted]);
+    assert_eq!(snapshot.unwrap().pools, vec![wanted.clone()]);
     let requested = calls[1]["params"][0].as_array().unwrap();
     assert!(extra_accounts.iter().all(|key| requested.contains(&json!(key))));
 
-    bank["accounts"][&extra_accounts[3]] = Value::Null;
-    assert!(normal_rpc(bank, &case, false).await.0.is_err());
+    let address = &extra_accounts[3];
+    bank["accounts"][address] = json!({
+        "owner": "11111111111111111111111111111111",
+        "data": ["", "base64"],
+        "lamports": 1_000_000,
+        "executable": false,
+        "space": 0
+    });
+    let mut wanted = wanted;
+    wanted.orca_whirlpool.as_mut().unwrap().tick_arrays[6].layout = "sparse".into();
+    let (snapshot, _) = normal_rpc(bank.clone(), &case, false).await;
+    assert_eq!(snapshot.unwrap().pools, vec![wanted]);
+
+    for invalid in [
+        json!({"owner": "11111111111111111111111111111111",
+               "data": ["AQ==", "base64"], "lamports": 1_000_000, "executable": false}),
+        json!({"owner": "11111111111111111111111111111111",
+               "data": ["", "base64"], "lamports": 1_000_000, "executable": true}),
+        Value::Null,
+    ] {
+        bank["accounts"][address] = invalid;
+        assert!(normal_rpc(bank.clone(), &case, false).await.0.is_err());
+    }
 }
 
 #[tokio::test]

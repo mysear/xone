@@ -215,7 +215,8 @@ impl OrcaWhirlpoolState {
             let start = i64::from(a.start_tick_index);
             crate::raydium::validate_pubkey(&a.address)?;
             if !seen.insert(&a.address)
-                || !["fixed", "dynamic"].contains(&a.layout.as_str())
+                || !["fixed", "dynamic", "sparse"].contains(&a.layout.as_str())
+                || a.layout == "sparse" && (!a.initialized_bitmap.0.is_zero() || !a.ticks.is_empty())
                 || start % span != 0
                 || start < min_start
                 || start > i64::from(MAX_TICK)
@@ -277,6 +278,17 @@ impl OrcaWhirlpoolState {
         if let Some(a) = &self.adaptive {
             if a.whirlpool != p.pool_id {
                 return Err(err("ORCA_ADAPTIVE_WHIRLPOOL_BINDING"));
+            }
+        }
+        for array in self.tick_arrays.iter().filter(|a| a.layout == "sparse") {
+            let pool = crate::raydium::validate_pubkey(&p.pool_id)?;
+            if p.protocol != crate::orca_adaptive_state::DYNAMIC_PROFILE
+                || array.address != crate::meteora::pda(
+                    &[b"tick_array", &pool, array.start_tick_index.to_string().as_bytes()],
+                    PROGRAM_ID,
+                )?
+            {
+                return Err(err("ORCA_SPARSE_ARRAY_IDENTITY"));
             }
         }
         if crate::validate_chain(&p.chain_key).is_err()

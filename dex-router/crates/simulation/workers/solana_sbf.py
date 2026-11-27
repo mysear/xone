@@ -62,6 +62,19 @@ def validate_orca(model,accounts,Pubkey):
     for side in [0,1]:
         a=accounts[state[f'vault{side}']];require(a['owner']==TOKEN and not a['executable']and len(raw(a))==165 and int.from_bytes(raw(a)[64:72],'little')==state[f'raw_vault{side}'],'SBF_ORCA_VAULT_MISMATCH')
     for a in state['tick_arrays']:
+        if a['layout'] == 'sparse':
+            pool = bytes(Pubkey.from_string(model['pool_id']))
+            seed = str(a['start_tick_index']).encode()
+            address, _ = Pubkey.find_program_address([b'tick_array', pool, seed], Pubkey.from_string(ORCA))
+            observed = accounts.get(str(address))
+            require(
+                model['protocol'] == 'orca-whirlpools-adaptive-dynamic'
+                and a['address'] == str(address) and int(a['initialized_bitmap']) == 0 and not a['ticks']
+                and observed is not None and observed['owner'] == SYSTEM
+                and not observed['executable'] and raw(observed) == b'',
+                'SBF_ORCA_SPARSE_ARRAY_MISMATCH',
+            )
+            continue
         dynamic=a['layout']=='dynamic';b=bytearray(hashlib.sha256(('account:'+('DynamicTickArray'if dynamic else'TickArray')).encode()).digest()[:8]+int(a['start_tick_index']).to_bytes(4,'little',signed=True))
         if dynamic:b+=bytes(Pubkey.from_string(model['pool_id']))+int(a['initialized_bitmap']).to_bytes(16,'little')
         ticks={t['tick']:t for t in a['ticks']}

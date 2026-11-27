@@ -125,6 +125,16 @@ fn adaptive_dynamic_uses_only_three_directional_arrays_for_exact_in_and_out() {
             selected.tick_arrays = state.tick_arrays[indices.clone()].to_vec();
             let expected = quote(&selected, params).unwrap();
             let mut actual = quote(&state, params).unwrap();
+            let mut sparse = state.clone();
+            let supplemental = if left { 1 } else { 5 };
+            sparse.tick_arrays[supplemental].layout = "sparse".into();
+            let mut sparse_result = quote(&sparse, params).unwrap();
+            assert_eq!(sparse_result.next_state.tick_arrays[supplemental].layout, "sparse");
+            sparse_result.next_state.tick_arrays[supplemental].layout = "dynamic".into();
+            assert_eq!(
+                serde_json::to_value(&sparse_result).unwrap(),
+                serde_json::to_value(&actual).unwrap()
+            );
             assert_eq!(actual.next_state.sqrt_price_x64, params.sqrt_price_limit);
             actual.next_state.tick_arrays = actual.next_state.tick_arrays[indices].to_vec();
             assert_eq!(

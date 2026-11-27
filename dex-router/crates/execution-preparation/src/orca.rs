@@ -362,7 +362,11 @@ pub(super) async fn resolve(
         {
             return Err(bad());
         }
-        raw(&bank, &a.address, o::PROGRAM_ID, &array_bytes(p, a)?)?;
+        if a.layout == "sparse" {
+            raw(&bank, &a.address, SYSTEM, &[])?;
+        } else {
+            raw(&bank, &a.address, o::PROGRAM_ID, &array_bytes(p, a)?)?;
+        }
     }
     let span = i64::from(state.tick_spacing) * 88;
     let current = (i64::from(state.tick_current_index)

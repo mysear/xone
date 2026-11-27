@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
@@ -78,10 +79,18 @@ func TestOrcaAdaptiveDynamicIndependentWire(t *testing.T) {
 	}
 	p := s.Pools[0]
 	arrays := &p.OrcaWhirlpool.TickArrays
+	start := (*arrays)[len(*arrays)-1].StartTickIndex + 88*int32(p.OrcaWhirlpool.TickSpacing)
+	pool, e := decode58(p.PoolID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	address, _, e := solanaPDA(OrcaProgram, [][]byte{[]byte("tick_array"), pool, []byte(strconv.Itoa(int(start)))})
+	if e != nil {
+		t.Fatal(e)
+	}
 	*arrays = append(*arrays, OrcaTickArray{
-		Address:        "SysvarRent111111111111111111111111111111111",
-		StartTickIndex: (*arrays)[len(*arrays)-1].StartTickIndex + 88*int32(p.OrcaWhirlpool.TickSpacing),
-		Layout:         "dynamic", InitializedBitmap: "0", Ticks: []OrcaTick{},
+		Address: address, StartTickIndex: start, Layout: "sparse",
+		InitializedBitmap: "0", Ticks: []OrcaTick{},
 	})
 	if e := p.Validate(); e != nil {
 		t.Fatal("four contiguous arrays", e)
@@ -94,7 +103,13 @@ func TestOrcaAdaptiveDynamicIndependentWire(t *testing.T) {
 	if e != nil || !reflect.DeepEqual(s, restored) {
 		t.Fatal("supplemental array wire mismatch", e)
 	}
-	(*arrays)[len(*arrays)-1].StartTickIndex += 88 * int32(p.OrcaWhirlpool.TickSpacing)
+	sparse := &(*arrays)[len(*arrays)-1]
+	sparse.Address = "SysvarRent111111111111111111111111111111111"
+	if p.Validate() == nil {
+		t.Fatal("forged sparse array PDA accepted")
+	}
+	sparse.Address = address
+	sparse.StartTickIndex += 88 * int32(p.OrcaWhirlpool.TickSpacing)
 	if p.Validate() == nil {
 		t.Fatal("gap in supplemental arrays accepted")
 	}

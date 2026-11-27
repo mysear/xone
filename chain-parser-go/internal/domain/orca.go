@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
+	"strconv"
 	"strings"
 )
 
@@ -135,13 +136,16 @@ func (s OrcaWhirlpoolState) validateWire() error {
 	minStart *= span
 	for i, a := range s.TickArrays {
 		start := int64(a.StartTickIndex)
-		if ValidateSolanaPubkey(a.Address) != nil || seen[a.Address] || a.Layout != "fixed" && a.Layout != "dynamic" || start%span != 0 || start < minStart || start > int64(OrcaMaxTick) || i > 0 && start != int64(s.TickArrays[i-1].StartTickIndex)+span {
+		if ValidateSolanaPubkey(a.Address) != nil || seen[a.Address] || a.Layout != "fixed" && a.Layout != "dynamic" && a.Layout != "sparse" || start%span != 0 || start < minStart || start > int64(OrcaMaxTick) || i > 0 && start != int64(s.TickArrays[i-1].StartTickIndex)+span {
 			return errors.New("ORCA_ARRAY_SEQUENCE")
 		}
 		seen[a.Address] = true
 		bitmap, e := ParseAmount(a.InitializedBitmap.String())
 		if e != nil || bitmap.Big().BitLen() > 88 {
 			return errors.New("ORCA_ARRAY_BITMAP")
+		}
+		if a.Layout == "sparse" && (bitmap.Big().Sign() != 0 || len(a.Ticks) != 0) {
+			return errors.New("ORCA_SPARSE_ARRAY_DATA")
 		}
 		expected := []int32{}
 		for bit := 0; bit < 88; bit++ {
@@ -216,6 +220,16 @@ func (s OrcaWhirlpoolState) Validate(p Pool) error {
 	for _, a := range s.TickArrays {
 		if seen[a.Address] {
 			return errors.New("ORCA_ACCOUNT_ALIAS")
+		}
+		if a.Layout == "sparse" {
+			pool, err := decode58(p.PoolID)
+			if err != nil {
+				return err
+			}
+			address, _, err := solanaPDA(OrcaProgram, [][]byte{[]byte("tick_array"), pool, []byte(strconv.FormatInt(int64(a.StartTickIndex), 10))})
+			if err != nil || a.Address != address || p.Protocol != "orca-whirlpools-adaptive-dynamic" {
+				return errors.New("ORCA_SPARSE_ARRAY_IDENTITY")
+			}
 		}
 	}
 	return nil

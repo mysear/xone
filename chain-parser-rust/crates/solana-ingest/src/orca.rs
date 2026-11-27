@@ -53,10 +53,10 @@ pub fn oracle_address(p: &PoolConfig) -> Result<String> {
     Ok(pda(&[b"oracle", &pubkey(&p.id)?], &pubkey(PROGRAM_ID)?)?.0)
 }
 
-/// Only the already-declared Oracle PDA may have the RPC's null/system-empty
-/// representation. Raydium's stricter account decoding remains unchanged.
+/// A static Oracle can be absent. A sparse array must have an explicit
+/// system-owned observation in the bank.
 pub fn decode_rpc_account(id: &str, oracle: &str, v: &Value) -> Result<RpcAccount> {
-    if id != oracle {
+    if id != oracle && v["owner"].as_str() != Some(SYSTEM) {
         return RpcAccount::decode(v);
     }
     if v.is_null() {
@@ -82,7 +82,11 @@ pub fn decode_rpc_account(id: &str, oracle: &str, v: &Value) -> Result<RpcAccoun
         || v["executable"].as_bool() != Some(false)
         || !data.is_empty()
     {
-        return Err(err("ORCA_INITIALIZED_OR_ADAPTIVE_ORACLE_UNSUPPORTED"));
+        return Err(err(if id == oracle {
+            "ORCA_INITIALIZED_OR_ADAPTIVE_ORACLE_UNSUPPORTED"
+        } else {
+            "ORCA_SYSTEM_ACCOUNT_NOT_EMPTY"
+        }));
     }
     Ok(RpcAccount {
         owner: SYSTEM.into(),
@@ -454,14 +458,21 @@ pub fn decode_orca_whirlpool(
         .iter()
         .zip(&ids[11..])
         .map(|(start, address)| {
-            decode_array(
-                address,
-                get(accounts, address)?,
-                &p.id,
-                *start,
-                spacing,
-                rewards,
-            )
+            let account = get(accounts, address)?;
+            if adaptive_dynamic
+                && account.owner == SYSTEM
+                && !account.executable
+                && account.data.is_empty()
+            {
+                return Ok(OrcaTickArray {
+                    address: address.clone(),
+                    start_tick_index: *start,
+                    layout: "sparse".into(),
+                    initialized_bitmap: Amount::zero(),
+                    ticks: Vec::new(),
+                });
+            }
+            decode_array(address, account, &p.id, *start, spacing, rewards)
         })
         .collect::<Result<Vec<_>>>()?;
     let fee = u16_at(state, 45);

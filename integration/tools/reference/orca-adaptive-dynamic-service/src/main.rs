@@ -241,3 +241,57 @@ fn run()->R<()>{
     }Ok(())
 }
 fn main(){if let Err(e)=run(){eprintln!("native service refused: {e}");std::process::exit(1);}}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ::whirlpool::util::SparseSwapTickSequenceBuilder;
+
+    #[test]
+    fn original_builder_uses_empty_pdas_from_supplemental_accounts() {
+        let (config, bank) = initial(0).unwrap();
+        let Loaded { pool, oracle, .. } = load(&config, &bank).unwrap();
+        let pool_key = pk(&config["id"]).unwrap();
+        let system = anchor_lang::system_program::ID;
+        let span = 88 * i32::from(pool.tick_spacing);
+        let mut pool_bytes = pack(&pool).unwrap();
+        let mut pool_lamports = 10_000_000;
+        let pool_info = AccountInfo::new(
+            &pool_key, false, true, &mut pool_lamports, &mut pool_bytes, &ID, false, 0,
+        );
+        let pool_account = Account::<Whirlpool>::try_from(&pool_info).unwrap();
+        let fee = Some(AdaptiveFeeInfo {
+            constants: oracle.adaptive_fee_constants,
+            variables: oracle.adaptive_fee_variables,
+        });
+
+        for direction in [-1, 1] {
+            let left = direction < 0;
+            let mut arrays: Vec<_> = (-3..=3)
+                .map(|offset| (array_address(pool_key, offset * span).0, 1_000_000, []))
+                .collect();
+            let infos: Vec<_> = arrays.iter_mut().map(|(address, lamports, data)| {
+                AccountInfo::new(address, false, true, lamports, data, &system, false, 0)
+            }).collect();
+            let (primary, supplemental) = if left {
+                (&infos[3..6], &infos[..3])
+            } else {
+                (&infos[1..4], &infos[4..])
+            };
+            let full = SparseSwapTickSequenceBuilder::new(primary.to_vec(), Some(supplemental.to_vec()));
+            let short = SparseSwapTickSequenceBuilder::new(primary.to_vec(), None);
+            let mut sequence = full.try_build(&pool_account, left).unwrap();
+            let mut short_sequence = short.try_build(&pool_account, left).unwrap();
+            for (exact_in, amount) in [(true, 470_000), (false, 350_000)] {
+                let limit = if left { 4295048016 } else { 79226673515401279992447579055 };
+                let result = swap_manager::swap(
+                    &pool, &mut sequence, amount, limit, exact_in, left, BASE_TIME + 1, &fee,
+                ).unwrap();
+                assert!(result.next_tick_index.abs() > span);
+                assert!(swap_manager::swap(
+                    &pool, &mut short_sequence, amount, limit, exact_in, left, BASE_TIME + 1, &fee,
+                ).is_err());
+            }
+        }
+    }
+}

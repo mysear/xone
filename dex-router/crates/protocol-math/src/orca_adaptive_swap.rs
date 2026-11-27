@@ -234,7 +234,8 @@ fn validate(
     let spacing = i32::from(state.tick_spacing);
     let span = 88 * spacing;
     for (i, a) in state.tick_arrays.iter().enumerate() {
-        if a.layout != "fixed" && !(allow_dynamic && a.layout == "dynamic") {
+        let sparse = a.layout == "sparse" && a.initialized_bitmap == 0 && a.ticks.is_empty();
+        if a.layout != "fixed" && !(allow_dynamic && (a.layout == "dynamic" || sparse)) {
             return Err(err("ORCA_ADAPTIVE_SWAP_ARRAY_LAYOUT_UNSUPPORTED"));
         }
         let valid_start = a.start_tick_index == MIN_TICK.div_euclid(span) * span
