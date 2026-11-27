@@ -224,10 +224,15 @@ fn edge_tokens<'a>(p: &'a Pool, e: &Edge) -> Result<(&'a str, &'a str)> {
             .iter()
             .position(|a| a.token == e.to)
             .ok_or_else(|| err("MULTI_ASSET_OUTPUT_TOKEN"))?;
-        if p.protocol == "balancer-v2-composable-regular"
+        if (p.protocol == "balancer-v2-composable-regular"
+            || xone_protocol_math::managed_v2_pool::supports_regular_exact_out(&p.protocol))
             && (state.assets[i].token == p.pool_id || state.assets[j].token == p.pool_id)
         {
-            return Err(err("BALANCER_COMPOSABLE_BPT_REQUIRES_SUPPLY"));
+            return Err(err(if p.protocol == "balancer-v2-composable-regular" {
+                "BALANCER_COMPOSABLE_BPT_REQUIRES_SUPPLY"
+            } else {
+                "MANAGED_V2_BPT_EXACT_OUT_UNSUPPORTED"
+            }));
         }
         if i == j || e.zero_for_one != (i == 0 && j == 1) {
             return Err(err("EXACT_OUT_PATH_PROTOCOL"));
@@ -290,18 +295,22 @@ pub fn evaluate_path(
         pool.validate()?;
         // The callback-funded CL templates have only been admitted for one
         // physical pool. It cannot silently become a V2 or mixed multi-hop route.
-        if (matches!(
-            pool.protocol.as_str(),
-            "pancake-infinity-bin"
-                | "uniswap-v4"
-                | "pancake-infinity-cl"
-                | "balancer-v2-stable2"
-                | "balancer-v2-weighted2-equal"
-                | "balancer-v2-weighted2-static"
-                | "balancer-v2-weighted-multi"
-                | "balancer-v2-managed-snapshot"
-                | "balancer-v2-composable-regular"
-        ) || xone_protocol_math::raydium_clmm::supports_profile(&pool.protocol)
+        let single_pool_evm =
+            matches!(
+                pool.protocol.as_str(),
+                "pancake-infinity-bin"
+                    | "uniswap-v4"
+                    | "pancake-infinity-cl"
+                    | "balancer-v2-stable2"
+                    | "balancer-v2-weighted2-equal"
+                    | "balancer-v2-weighted2-static"
+                    | "balancer-v2-weighted-multi"
+                    | "balancer-v2-managed-snapshot"
+                    | "balancer-v2-managed-fees"
+                    | "balancer-v2-composable-regular"
+            ) || xone_protocol_math::managed_v2_pool::supports_regular_exact_out(&pool.protocol);
+        if (single_pool_evm
+            || xone_protocol_math::raydium_clmm::supports_profile(&pool.protocol)
             || xone_protocol_math::orca::supports_profile(&pool.protocol)
             || matches!(
                 pool.protocol.as_str(),
@@ -323,47 +332,34 @@ pub fn evaluate_path(
             ))
             && edges.len() != 1
         {
-            return Err(err(
+            return Err(err(if single_pool_evm {
                 if matches!(
                     pool.protocol.as_str(),
-                    "pancake-infinity-bin"
-                        | "uniswap-v4"
-                        | "pancake-infinity-cl"
-                        | "balancer-v2-stable2"
-                        | "balancer-v2-weighted2-equal"
-                        | "balancer-v2-weighted2-static"
-                        | "balancer-v2-weighted-multi"
-                        | "balancer-v2-managed-snapshot"
-                        | "balancer-v2-composable-regular"
+                    "uniswap-v4" | "pancake-infinity-cl" | "pancake-infinity-bin"
                 ) {
-                    if matches!(
-                        pool.protocol.as_str(),
-                        "uniswap-v4" | "pancake-infinity-cl" | "pancake-infinity-bin"
-                    ) {
-                        "EXACT_OUT_SINGLETON_SINGLE_POOL_ONLY"
-                    } else {
-                        "EXACT_OUT_BALANCER_SINGLE_POOL_ONLY"
-                    }
-                } else if xone_protocol_math::raydium_clmm::supports_profile(&pool.protocol) {
-                    "EXACT_OUT_RAYCLMM_SINGLE_POOL_ONLY"
-                } else if xone_protocol_math::orca::supports_profile(&pool.protocol) {
-                    "EXACT_OUT_ORCA_SINGLE_POOL_ONLY"
-                } else if pool.protocol == xone_domain::pancake_bsc_lm::PROFILE {
-                    "EXACT_OUT_BSC4_SINGLE_POOL_ONLY"
-                } else if pool.protocol == xone_domain::slipstream_context::PROFILE {
-                    "EXACT_OUT_SLIPSTREAM_SINGLE_POOL_ONLY"
-                } else if xone_domain::pump::supports_curve_profile(&pool.protocol) {
-                    "EXACT_OUT_PUMP_SINGLE_POOL_ONLY"
-                } else if pool.protocol == xone_domain::raydium::PROFILE {
-                    "EXACT_OUT_RAYDIUM_SINGLE_POOL_ONLY"
-                } else if xone_domain::meteora::supports_profile(&pool.protocol) {
-                    "EXACT_OUT_METEORA_SINGLE_POOL_ONLY"
-                } else if pool.protocol == xone_domain::lfj::PROFILE {
-                    "EXACT_OUT_LFJ_SINGLE_POOL_ONLY"
+                    "EXACT_OUT_SINGLETON_SINGLE_POOL_ONLY"
                 } else {
-                    "EXACT_OUT_LM_SINGLE_POOL_ONLY"
-                },
-            ));
+                    "EXACT_OUT_BALANCER_SINGLE_POOL_ONLY"
+                }
+            } else if xone_protocol_math::raydium_clmm::supports_profile(&pool.protocol) {
+                "EXACT_OUT_RAYCLMM_SINGLE_POOL_ONLY"
+            } else if xone_protocol_math::orca::supports_profile(&pool.protocol) {
+                "EXACT_OUT_ORCA_SINGLE_POOL_ONLY"
+            } else if pool.protocol == xone_domain::pancake_bsc_lm::PROFILE {
+                "EXACT_OUT_BSC4_SINGLE_POOL_ONLY"
+            } else if pool.protocol == xone_domain::slipstream_context::PROFILE {
+                "EXACT_OUT_SLIPSTREAM_SINGLE_POOL_ONLY"
+            } else if xone_domain::pump::supports_curve_profile(&pool.protocol) {
+                "EXACT_OUT_PUMP_SINGLE_POOL_ONLY"
+            } else if pool.protocol == xone_domain::raydium::PROFILE {
+                "EXACT_OUT_RAYDIUM_SINGLE_POOL_ONLY"
+            } else if xone_domain::meteora::supports_profile(&pool.protocol) {
+                "EXACT_OUT_METEORA_SINGLE_POOL_ONLY"
+            } else if pool.protocol == xone_domain::lfj::PROFILE {
+                "EXACT_OUT_LFJ_SINGLE_POOL_ONLY"
+            } else {
+                "EXACT_OUT_LM_SINGLE_POOL_ONLY"
+            }));
         }
         if let Some(pump) = &pool.pump {
             if funds.sender != pump.user || funds.recipient != pump.user {
@@ -465,6 +461,7 @@ pub fn evaluate_path(
             amounts[i + 1] = q.amount_out;
         }
         crate::propagate_bin_currency(&mut candidate, &q.next_pool);
+        crate::shared_vault::propagate(&mut candidate, &q.next_pool)?;
         candidate.insert(edge.pool_id.clone(), q.next_pool);
     }
     let result = ExactOutPathQuote {
@@ -532,6 +529,9 @@ pub fn search(
             let p = state
                 .get(&edge.pool_id)
                 .ok_or_else(|| err("MISSING_POOL"))?;
+            if !xone_protocol_math::exact_out::supports_pair(p, from, &edge.to) {
+                continue;
+            }
             let (source, target) = edge_tokens(p, edge)?;
             if source != from {
                 return Err(err("EXACT_OUT_GRAPH_TOKEN_BINDING"));

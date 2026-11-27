@@ -467,6 +467,9 @@ pub fn quote_exact_out_tokens(
     token_in: &str,
     token_out: &str,
 ) -> Result<Swap> {
+    if crate::managed_v2_pool::supports_regular_exact_out(&pool.protocol) {
+        return crate::managed_v2_pool::quote_exact_out_tokens(pool, output, token_in, token_out);
+    }
     pool.validate()?;
     if !matches!(
         pool.protocol.as_str(),

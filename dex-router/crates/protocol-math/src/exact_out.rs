@@ -15,23 +15,25 @@ pub struct ExactOutSwap {
 /// Each admitted profile has an independent exact-output kernel and original-program oracle.
 /// Execution preparation is advertised separately by the capability catalog.
 pub fn supports_protocol(protocol: &str) -> bool {
-    if matches!(
-        protocol,
-        "pancake-infinity-bin"
-            | "uniswap-v4"
-            | "pancake-infinity-cl"
-            | "balancer-v2-stable2"
-            | "balancer-v2-weighted2-equal"
-            | "balancer-v2-weighted2-static"
-            | "balancer-v2-weighted-multi"
-            | "balancer-v2-managed-snapshot"
-            | "balancer-v2-managed-fees"
-            | "balancer-v2-composable-regular"
-            | "curve-plain3-basic"
-            | "curve-plain4-basic"
-            | "curve-metausd-direct"
-            | "curve-stableswap-ng"
-    ) {
+    if crate::managed_v2_pool::supports_regular_exact_out(protocol)
+        || matches!(
+            protocol,
+            "pancake-infinity-bin"
+                | "uniswap-v4"
+                | "pancake-infinity-cl"
+                | "balancer-v2-stable2"
+                | "balancer-v2-weighted2-equal"
+                | "balancer-v2-weighted2-static"
+                | "balancer-v2-weighted-multi"
+                | "balancer-v2-managed-snapshot"
+                | "balancer-v2-managed-fees"
+                | "balancer-v2-composable-regular"
+                | "curve-plain3-basic"
+                | "curve-plain4-basic"
+                | "curve-metausd-direct"
+                | "curve-stableswap-ng"
+        )
+    {
         return true;
     }
     if crate::orca::supports_profile(protocol)
@@ -59,6 +61,13 @@ pub fn supports_protocol(protocol: &str) -> bool {
             | xone_domain::pump_amm::PROFILE
             | xone_domain::pump_amm::BOOST_PROFILE
     )
+}
+
+pub fn supports_pair(pool: &Pool, token_in: &str, token_out: &str) -> bool {
+    supports_protocol(&pool.protocol)
+        && (!(pool.protocol == "balancer-v2-composable-regular"
+            || crate::managed_v2_pool::supports_regular_exact_out(&pool.protocol))
+            || (token_in != pool.pool_id && token_out != pool.pool_id))
 }
 
 /// Contextual profiles bind tx.origin to the explicitly admitted request caller.
@@ -171,7 +180,8 @@ pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<Exact
             next_pool,
         });
     }
-    if pool.protocol == "balancer-v2-weighted-multi"
+    if crate::managed_v2_pool::supports_regular_exact_out(&pool.protocol)
+        || pool.protocol == "balancer-v2-weighted-multi"
         || pool.protocol == "balancer-v2-managed-snapshot"
         || pool.protocol == "balancer-v2-managed-fees"
         || pool.protocol == "balancer-v2-composable-regular"

@@ -1459,7 +1459,7 @@ async fn quote_options(
                 if let Some(edges) = by_pool.get(pool.pool_id.as_str()) {
                     for (from, edge) in edges {
                         let mut modes = vec!["EXACT_IN"];
-                        if xone_protocol_math::exact_out::supports_protocol(&pool.protocol) {
+                        if xone_protocol_math::exact_out::supports_pair(pool, from, &edge.to) {
                             modes.push("EXACT_OUT");
                         }
                         tokens.insert((*from).clone());

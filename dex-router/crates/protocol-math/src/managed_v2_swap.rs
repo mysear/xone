@@ -1,4 +1,4 @@
-//! Actual 20230411 ManagedPool regular TOKEN-to-TOKEN GIVEN_IN arithmetic.
+//! Published 20230411 ManagedPool regular token-to-token arithmetic.
 //! Fee is applied after upscaling, unlike the retained historical profiles.
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
@@ -11,13 +11,19 @@ pub struct WeightedInputs<'a> {
     pub scales: &'a [BigUint],
     pub fee: &'a BigUint,
 }
+#[derive(Clone, Copy)]
+pub(crate) enum SwapAmount<'a> {
+    In(&'a BigUint),
+    Out(&'a BigUint),
+}
+
 #[derive(Clone, Debug)]
 pub struct RegularCalculation<'a> {
     pub amount_out: BigUint,
     pub scaled_amount_out: BigUint,
     pub gross_input_scaled: BigUint,
     state: WeightedInputs<'a>,
-    input: &'a BigUint,
+    input: BigUint,
     index_in: usize,
     index_out: usize,
 }
@@ -30,12 +36,13 @@ impl RegularCalculation<'_> {
             return Err(err("MANAGED_V2_INSUFFICIENT_VAULT_CASH"));
         }
         let mut next = state.cash.to_vec();
-        next[self.index_in] = checked(&next[self.index_in] + self.input)?;
+        next[self.index_in] = checked(&next[self.index_in] + &self.input)?;
         if checked(&next[self.index_in] + &state.managed[self.index_in])?.bits() > 112 {
             return Err(err("MANAGED_V2_VAULT_UINT112"));
         }
         next[self.index_out] -= &self.amount_out;
         Ok(RegularQuote {
+            amount_in: self.input,
             amount_out: self.amount_out,
             next_cash: next,
             next_managed: state.managed.to_vec(),
@@ -44,6 +51,7 @@ impl RegularCalculation<'_> {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RegularQuote {
+    pub amount_in: BigUint,
     pub amount_out: BigUint,
     pub next_cash: Vec<BigUint>,
     pub next_managed: Vec<BigUint>,
@@ -75,32 +83,29 @@ pub fn quote_regular(
     index_in: usize,
     index_out: usize,
 ) -> Result<RegularQuote> {
-    quote_inner(state, input, index_in, index_out, true)
-}
-/// Only the exact raw projection may bypass the old whole-vector sum guard.
-/// Selected weights still enter the original integer ratio and LogExp kernel.
-pub(crate) fn quote_scheduled(
-    state: WeightedInputs<'_>,
-    schedule: &xone_domain::managed_v2_schedule::ManagedV2Schedule,
-    timestamp: u64,
-    view: &xone_domain::managed_v2_schedule::ManagedV2ScheduleView,
-    input: &BigUint,
-    index_in: usize,
-    index_out: usize,
-) -> Result<RegularQuote> {
-    let calculation =
-        calculate_scheduled(state, schedule, timestamp, view, input, index_in, index_out)?;
+    let calculation = calculate_regular(state, input, index_in, index_out)?;
     if calculation.amount_out.is_zero() {
         return Err(err("INSUFFICIENT_OUTPUT"));
     }
     calculation.settle()
 }
+
+pub fn quote_regular_exact_out(
+    state: WeightedInputs<'_>,
+    output: &BigUint,
+    index_in: usize,
+    index_out: usize,
+) -> Result<RegularQuote> {
+    calculate_inner(state, SwapAmount::Out(output), index_in, index_out, true)?.settle()
+}
+
+/// The raw schedule projection authenticates compressed weights and current fee.
 pub(crate) fn calculate_scheduled<'a>(
     state: WeightedInputs<'a>,
     schedule: &xone_domain::managed_v2_schedule::ManagedV2Schedule,
     timestamp: u64,
     view: &xone_domain::managed_v2_schedule::ManagedV2ScheduleView,
-    input: &'a BigUint,
+    amount: SwapAmount<'_>,
     index_in: usize,
     index_out: usize,
 ) -> Result<RegularCalculation<'a>> {
@@ -122,32 +127,19 @@ pub(crate) fn calculate_scheduled<'a>(
     {
         return Err(err("MANAGED_V2_SCHEDULE_GETTER_MISMATCH"));
     }
-    calculate_inner(state, input, index_in, index_out, false)
+    calculate_inner(state, amount, index_in, index_out, false)
 }
 pub fn calculate_regular<'a>(
     state: WeightedInputs<'a>,
-    input: &'a BigUint,
-    index_in: usize,
-    index_out: usize,
-) -> Result<RegularCalculation<'a>> {
-    calculate_inner(state, input, index_in, index_out, true)
-}
-fn quote_inner(
-    state: WeightedInputs<'_>,
     input: &BigUint,
     index_in: usize,
     index_out: usize,
-    require_exact_sum: bool,
-) -> Result<RegularQuote> {
-    let calculation = calculate_inner(state, input, index_in, index_out, require_exact_sum)?;
-    if calculation.amount_out.is_zero() {
-        return Err(err("INSUFFICIENT_OUTPUT"));
-    }
-    calculation.settle()
+) -> Result<RegularCalculation<'a>> {
+    calculate_inner(state, SwapAmount::In(input), index_in, index_out, true)
 }
 fn calculate_inner<'a>(
     state: WeightedInputs<'a>,
-    input: &'a BigUint,
+    amount: SwapAmount<'_>,
     index_in: usize,
     index_out: usize,
     require_exact_sum: bool,
@@ -175,11 +167,15 @@ fn calculate_inner<'a>(
             return Err(err("MANAGED_V2_SCALING_FACTOR"));
         }
     }
-    if state.fee > &one || input.bits() > 256 {
+    let (target, zero_error) = match amount {
+        SwapAmount::In(input) => (input, "ZERO_INPUT"),
+        SwapAmount::Out(output) => (output, "EXACT_OUT_ZERO_OUTPUT"),
+    };
+    if state.fee > &one || target.bits() > 256 {
         return Err(err("MANAGED_V2_SWAP_PARAMETERS"));
     }
-    if input.is_zero() {
-        return Err(err("ZERO_INPUT"));
+    if target.is_zero() {
+        return Err(err(zero_error));
     }
     let mut totals = Vec::with_capacity(count);
     for (cash, managed) in state.cash.iter().zip(state.managed) {
@@ -194,22 +190,48 @@ fn calculate_inner<'a>(
     }
     let balance_in = mul(&totals[index_in], &state.scales[index_in])? / &one;
     let balance_out = mul(&totals[index_out], &state.scales[index_out])? / &one;
-    let gross_scaled = mul(input, &state.scales[index_in])? / &one;
-    let net_scaled = mul(&gross_scaled, &(&one - state.fee))? / &one;
-    if net_scaled > mul(&balance_in, &BigUint::from(300_000_000_000_000_000u64))? / &one {
-        return Err(err("MANAGED_V2_MAX_IN_RATIO"));
-    }
-    let denominator = checked(&balance_in + &net_scaled)?;
-    let base = up(mul(&balance_in, &one)?, &denominator)?;
-    let exponent = mul(&state.weights[index_in], &one)? / &state.weights[index_out];
-    let power = crate::balancer_log_exp::pow_up(&base, &exponent)?;
-    let complement = if power >= one {
-        BigUint::zero()
-    } else {
-        &one - power
+    let fee_complement = &one - state.fee;
+    let max_ratio = BigUint::from(300_000_000_000_000_000u64);
+    let (input, amount_out, gross_scaled, scaled_out) = match amount {
+        SwapAmount::In(input) => {
+            let gross = mul(input, &state.scales[index_in])? / &one;
+            let net = mul(&gross, &fee_complement)? / &one;
+            if net > mul(&balance_in, &max_ratio)? / &one {
+                return Err(err("MANAGED_V2_MAX_IN_RATIO"));
+            }
+            let denominator = checked(&balance_in + &net)?;
+            let base = up(mul(&balance_in, &one)?, &denominator)?;
+            let exponent = mul(&state.weights[index_in], &one)? / &state.weights[index_out];
+            let power = crate::balancer_log_exp::pow_up(&base, &exponent)?;
+            let complement = if power >= one {
+                BigUint::zero()
+            } else {
+                &one - power
+            };
+            let scaled = mul(&balance_out, &complement)? / &one;
+            let output = mul(&scaled, &one)? / &state.scales[index_out];
+            (input.clone(), output, gross, scaled)
+        }
+        SwapAmount::Out(output) => {
+            let scaled = mul(output, &state.scales[index_out])? / &one;
+            if scaled > mul(&balance_out, &max_ratio)? / &one {
+                return Err(err("MANAGED_V2_MAX_OUT_RATIO"));
+            }
+            let base = up(mul(&balance_out, &one)?, &(&balance_out - &scaled))?;
+            let exponent = up(
+                mul(&state.weights[index_out], &one)?,
+                &state.weights[index_in],
+            )?;
+            let power = crate::balancer_log_exp::pow_up(&base, &exponent)?;
+            if power < one {
+                return Err(err("MANAGED_V2_WEIGHTED_POWER"));
+            }
+            let net = up(mul(&balance_in, &(power - &one))?, &one)?;
+            let gross = up(mul(&net, &one)?, &fee_complement)?;
+            let input = up(mul(&gross, &one)?, &state.scales[index_in])?;
+            (input, output.clone(), gross, scaled)
+        }
     };
-    let scaled_out = mul(&balance_out, &complement)? / &one;
-    let amount_out = mul(&scaled_out, &one)? / &state.scales[index_out];
     if amount_out >= totals[index_out] {
         return Err(err("INSUFFICIENT_OUTPUT"));
     }

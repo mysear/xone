@@ -1,10 +1,11 @@
 //! Full pricing-state adapter for the published ManagedPool V2 AUM profile.
 use crate::{
     managed_v2_aum::{collect_aum, view_aum, AumAccrual, AumCollectionInput},
-    managed_v2_swap::{quote_regular, quote_scheduled, WeightedInputs},
+    managed_v2_swap::{quote_regular, quote_regular_exact_out, SwapAmount, WeightedInputs},
     Swap,
 };
 use num_bigint::BigUint;
+use num_traits::Zero;
 use xone_domain::{
     err,
     managed_v2_state::{BalancerManagedV2State, ManagedV2ExecutionContext, PROTOCOL},
@@ -160,11 +161,59 @@ pub fn quote_exact_in_tokens(
         current_context(m).timestamp,
     )
 }
+
+pub fn supports_regular_exact_out(protocol: &str) -> bool {
+    matches!(
+        protocol,
+        PROTOCOL
+            | xone_domain::managed_v2_schedule::PROTOCOL
+            | xone_domain::managed_v2_circuit_state::PROTOCOL
+    )
+}
+
+pub fn quote_exact_out_tokens(
+    pool: &Pool,
+    output: &Amount,
+    token_in: &str,
+    token_out: &str,
+) -> Result<Swap> {
+    if !supports_regular_exact_out(&pool.protocol) {
+        return Err(err("EXACT_OUT_PROTOCOL_UNSUPPORTED"));
+    }
+    let m = state(pool)?;
+    let context = current_context(m);
+    quote_swap_at(
+        pool,
+        SwapAmount::Out(&output.0),
+        token_in,
+        token_out,
+        context.block_number,
+        context.timestamp,
+    )
+}
 /// Explicit context for original-node differential replay. Source bank metadata
 /// stays H; this output is a derived transition, not a canonical Snapshot.
 pub fn quote_at(
     pool: &Pool,
     input: &Amount,
+    token_in: &str,
+    token_out: &str,
+    execution_block: u64,
+    execution_timestamp: u64,
+) -> Result<Swap> {
+    quote_swap_at(
+        pool,
+        SwapAmount::In(&input.0),
+        token_in,
+        token_out,
+        execution_block,
+        execution_timestamp,
+    )
+}
+
+fn quote_swap_at(
+    pool: &Pool,
+    amount: SwapAmount<'_>,
     token_in: &str,
     token_out: &str,
     execution_block: u64,
@@ -219,43 +268,38 @@ pub fn quote_at(
         scales: &scales,
         fee: &fee,
     };
-    let q = if m.circuit_breakers.is_some() {
-        let raw = m
-            .schedule
-            .as_ref()
-            .ok_or_else(|| err("MANAGED_V2_SCHEDULE_REQUIRED"))?;
+    let q = if let Some(raw) = &m.schedule {
         let view = raw.at(execution_timestamp)?;
         let calculation = crate::managed_v2_swap::calculate_scheduled(
             inputs,
             raw,
             execution_timestamp,
             &view,
-            &input.0,
+            amount,
             i,
             j,
         )?;
-        crate::managed_v2_breaker::check_regular(
-            pool,
-            i,
-            j,
-            &calculation.gross_input_scaled,
-            &calculation.scaled_amount_out,
-        )?;
+        if m.circuit_breakers.is_some() {
+            crate::managed_v2_breaker::check_regular(
+                pool,
+                i,
+                j,
+                &calculation.gross_input_scaled,
+                &calculation.scaled_amount_out,
+            )?;
+        } else if calculation.amount_out.is_zero() {
+            return Err(err("INSUFFICIENT_OUTPUT"));
+        }
         calculation.settle()?
-    } else if m.schedule.is_some() {
-        // state(pool) checks raw token identities against the ordered assets.
-        let raw = m
-            .schedule
-            .as_ref()
-            .ok_or_else(|| err("MANAGED_V2_SCHEDULE_REQUIRED"))?;
-        let view = raw.at(execution_timestamp)?;
-        quote_scheduled(inputs, raw, execution_timestamp, &view, &input.0, i, j)?
     } else {
-        quote_regular(inputs, &input.0, i, j)?
+        match amount {
+            SwapAmount::In(input) => quote_regular(inputs, input, i, j)?,
+            SwapAmount::Out(output) => quote_regular_exact_out(inputs, output, i, j)?,
+        }
     };
     // ERC20 transfers affect the Vault's global wallet, independently of this
     // pool's registered cash/managed ledger. Input includes the full swap fee.
-    let wallet_in = add_wallet_balance(&m.token_info[i].vault_actual_balance, &input.0)?;
+    let wallet_in = add_wallet_balance(&m.token_info[i].vault_actual_balance, &q.amount_in)?;
     if m.token_info[j].vault_actual_balance.0 < q.amount_out {
         return Err(err("MANAGED_V2_INSUFFICIENT_VAULT_WALLET"));
     }
@@ -285,7 +329,7 @@ pub fn quote_at(
     next.validate()?;
     Ok(Swap {
         amount_out: Amount(q.amount_out),
-        consumed_in: input.clone(),
+        consumed_in: Amount(q.amount_in),
         remaining_in: Amount::zero(),
         next_pool: next,
     })

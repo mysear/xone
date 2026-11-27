@@ -8,6 +8,18 @@ use xone_domain::{err, hash, v2_swap, Amount, Result, SnapshotRef};
 use xone_optimizer::exact_out::ExactOutAllocation;
 
 pub const ENGINE: &str = "xone-router-exact-out/0.1";
+
+fn managed_pool(protocol: &str) -> bool {
+    matches!(
+        protocol,
+        "balancer-v2-managed-snapshot"
+            | "balancer-v2-managed-fees"
+            | xone_domain::managed_v2_state::PROTOCOL
+            | xone_domain::managed_v2_schedule::PROTOCOL
+            | xone_domain::managed_v2_circuit_state::PROTOCOL
+    )
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExactOutPlan {
@@ -122,84 +134,86 @@ pub fn build(
                 .zip(&route.tokens[1..])
                 .enumerate()
                 .any(|(index, (edge, to))| {
-                    !matches!(
-                        edge.protocol.as_str(),
-                        v2_swap::PROFILE
-                            | "pancake-infinity-bin"
-                            | "uniswap-v4"
-                            | "pancake-infinity-cl"
-                            | "balancer-v2-stable2"
-                            | "balancer-v2-weighted2-equal"
-                            | "balancer-v2-weighted2-static"
-                            | "balancer-v2-weighted-multi"
-                            | "balancer-v2-managed-snapshot"
-                            | "balancer-v2-composable-regular"
-                            | "uniswap-v3"
-                            | "pancake-v3"
-                            | xone_domain::pancake_bsc_lm::PROFILE
-                            | xone_domain::pancake_lm::PROFILE
-                            | xone_domain::slipstream_context::PROFILE
-                            | xone_domain::lfj::PROFILE
-                            | xone_domain::meteora::PROFILE
-                            | xone_domain::meteora_token2022::PROFILE
-                            | xone_domain::meteora::REWARDS_PROFILE
-                            | xone_domain::meteora::BITMAP_PROFILE
-                            | xone_domain::meteora::ORDERS_PROFILE
-                            | xone_domain::meteora::ONLY_Y_PROFILE
-                            | xone_domain::pump::PROFILE
-                            | xone_domain::pump::MIGRATION_PROFILE
-                            | xone_domain::pump_amm::PROFILE
-                            | xone_domain::pump_amm::BOOST_PROFILE
-                            | xone_domain::raydium::PROFILE
-                            | "raydium-clmm-static"
-                            | "raydium-clmm-rewards"
-                            | "raydium-clmm-token-fee"
-                            | "raydium-clmm-bitmap"
-                            | "raydium-clmm-custom-seed"
-                            | "raydium-clmm-dynamic"
-                            | "orca-whirlpools-static"
-                            | "orca-whirlpools-rewards"
-                            | xone_domain::orca_adaptive_state::PROFILE
-                            | xone_domain::orca_adaptive_state::REWARDS_PROFILE
-                            | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
-                    ) || (matches!(
-                        edge.protocol.as_str(),
-                        xone_domain::pancake_bsc_lm::PROFILE
-                            | "pancake-infinity-bin"
-                            | "uniswap-v4"
-                            | "pancake-infinity-cl"
-                            | "balancer-v2-stable2"
-                            | "balancer-v2-weighted2-equal"
-                            | "balancer-v2-weighted2-static"
-                            | "balancer-v2-weighted-multi"
-                            | "balancer-v2-managed-snapshot"
-                            | "balancer-v2-composable-regular"
-                            | xone_domain::pancake_lm::PROFILE
-                            | xone_domain::slipstream_context::PROFILE
-                            | xone_domain::lfj::PROFILE
-                            | xone_domain::meteora::PROFILE
-                            | xone_domain::meteora_token2022::PROFILE
-                            | xone_domain::meteora::REWARDS_PROFILE
-                            | xone_domain::meteora::BITMAP_PROFILE
-                            | xone_domain::meteora::ORDERS_PROFILE
-                            | xone_domain::meteora::ONLY_Y_PROFILE
-                            | xone_domain::pump::PROFILE
-                            | xone_domain::pump::MIGRATION_PROFILE
-                            | xone_domain::pump_amm::PROFILE
-                            | xone_domain::pump_amm::BOOST_PROFILE
-                            | xone_domain::raydium::PROFILE
-                            | "raydium-clmm-static"
-                            | "raydium-clmm-rewards"
-                            | "raydium-clmm-token-fee"
-                            | "raydium-clmm-bitmap"
-                            | "raydium-clmm-custom-seed"
-                            | "raydium-clmm-dynamic"
-                            | "orca-whirlpools-static"
-                            | "orca-whirlpools-rewards"
-                            | xone_domain::orca_adaptive_state::PROFILE
-                            | xone_domain::orca_adaptive_state::REWARDS_PROFILE
-                            | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
-                    ) && route.edges.len() != 1)
+                    !(managed_pool(&edge.protocol)
+                        || matches!(
+                            edge.protocol.as_str(),
+                            v2_swap::PROFILE
+                                | "pancake-infinity-bin"
+                                | "uniswap-v4"
+                                | "pancake-infinity-cl"
+                                | "balancer-v2-stable2"
+                                | "balancer-v2-weighted2-equal"
+                                | "balancer-v2-weighted2-static"
+                                | "balancer-v2-weighted-multi"
+                                | "balancer-v2-composable-regular"
+                                | "uniswap-v3"
+                                | "pancake-v3"
+                                | xone_domain::pancake_bsc_lm::PROFILE
+                                | xone_domain::pancake_lm::PROFILE
+                                | xone_domain::slipstream_context::PROFILE
+                                | xone_domain::lfj::PROFILE
+                                | xone_domain::meteora::PROFILE
+                                | xone_domain::meteora_token2022::PROFILE
+                                | xone_domain::meteora::REWARDS_PROFILE
+                                | xone_domain::meteora::BITMAP_PROFILE
+                                | xone_domain::meteora::ORDERS_PROFILE
+                                | xone_domain::meteora::ONLY_Y_PROFILE
+                                | xone_domain::pump::PROFILE
+                                | xone_domain::pump::MIGRATION_PROFILE
+                                | xone_domain::pump_amm::PROFILE
+                                | xone_domain::pump_amm::BOOST_PROFILE
+                                | xone_domain::raydium::PROFILE
+                                | "raydium-clmm-static"
+                                | "raydium-clmm-rewards"
+                                | "raydium-clmm-token-fee"
+                                | "raydium-clmm-bitmap"
+                                | "raydium-clmm-custom-seed"
+                                | "raydium-clmm-dynamic"
+                                | "orca-whirlpools-static"
+                                | "orca-whirlpools-rewards"
+                                | xone_domain::orca_adaptive_state::PROFILE
+                                | xone_domain::orca_adaptive_state::REWARDS_PROFILE
+                                | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
+                        ))
+                        || ((managed_pool(&edge.protocol)
+                            || matches!(
+                                edge.protocol.as_str(),
+                                xone_domain::pancake_bsc_lm::PROFILE
+                                    | "pancake-infinity-bin"
+                                    | "uniswap-v4"
+                                    | "pancake-infinity-cl"
+                                    | "balancer-v2-stable2"
+                                    | "balancer-v2-weighted2-equal"
+                                    | "balancer-v2-weighted2-static"
+                                    | "balancer-v2-weighted-multi"
+                                    | "balancer-v2-composable-regular"
+                                    | xone_domain::pancake_lm::PROFILE
+                                    | xone_domain::slipstream_context::PROFILE
+                                    | xone_domain::lfj::PROFILE
+                                    | xone_domain::meteora::PROFILE
+                                    | xone_domain::meteora_token2022::PROFILE
+                                    | xone_domain::meteora::REWARDS_PROFILE
+                                    | xone_domain::meteora::BITMAP_PROFILE
+                                    | xone_domain::meteora::ORDERS_PROFILE
+                                    | xone_domain::meteora::ONLY_Y_PROFILE
+                                    | xone_domain::pump::PROFILE
+                                    | xone_domain::pump::MIGRATION_PROFILE
+                                    | xone_domain::pump_amm::PROFILE
+                                    | xone_domain::pump_amm::BOOST_PROFILE
+                                    | xone_domain::raydium::PROFILE
+                                    | "raydium-clmm-static"
+                                    | "raydium-clmm-rewards"
+                                    | "raydium-clmm-token-fee"
+                                    | "raydium-clmm-bitmap"
+                                    | "raydium-clmm-custom-seed"
+                                    | "raydium-clmm-dynamic"
+                                    | "orca-whirlpools-static"
+                                    | "orca-whirlpools-rewards"
+                                    | xone_domain::orca_adaptive_state::PROFILE
+                                    | xone_domain::orca_adaptive_state::REWARDS_PROFILE
+                                    | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
+                            ))
+                            && route.edges.len() != 1)
                         || (solana
                             != (xone_domain::meteora::supports_profile(&edge.protocol)
                                 || xone_domain::pump::supports_curve_profile(&edge.protocol)
@@ -208,7 +222,7 @@ pub fn build(
                                 || orca_profile(&edge.protocol)
                                 || rayclmm_profile(&edge.protocol)))
                         || (if edge.protocol == "balancer-v2-weighted-multi"
-                            || edge.protocol == "balancer-v2-managed-snapshot"
+                            || managed_pool(&edge.protocol)
                             || edge.protocol == "balancer-v2-composable-regular"
                         {
                             edge.from_token.as_deref() != Some(route.tokens[index].as_str())
@@ -221,7 +235,7 @@ pub fn build(
             return Err(err("EXACT_OUT_INVALID_PLAN"));
         }
         for edge in &route.edges {
-            if edge.protocol == "balancer-v2-composable-regular"
+            if (edge.protocol == "balancer-v2-composable-regular" || managed_pool(&edge.protocol))
                 && route.tokens.contains(&edge.pool_id)
             {
                 return Err(err("EXACT_OUT_INVALID_PLAN"));

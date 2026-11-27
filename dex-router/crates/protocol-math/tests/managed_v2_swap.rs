@@ -1,5 +1,5 @@
 use num_bigint::BigUint;
-use xone_protocol_math::managed_v2_swap::{quote_regular, WeightedInputs};
+use xone_protocol_math::managed_v2_swap::{quote_regular, quote_regular_exact_out, WeightedInputs};
 fn n(s: &str) -> BigUint {
     BigUint::parse_bytes(s.as_bytes(), 10).unwrap()
 }
@@ -65,6 +65,47 @@ fn fee_after_upscale_preserves_fractional_raw_input_for_low_precision_token() {
         )
         .is_err(),
         "historical raw-fee version must not silently change"
+    );
+}
+
+#[test]
+fn exact_output_adds_fee_before_rounding_input_to_raw_units() {
+    let cash = [n("1000000"), n("2000000000000000000")];
+    let managed = [n("0"), n("0")];
+    let weights = [n("500000000000000000"), n("500000000000000000")];
+    let scales = [n("1000000000000000000000000000000"), one()];
+    let fee = n("10000000000000000");
+    let state = WeightedInputs {
+        cash: &cash,
+        managed: &managed,
+        weights: &weights,
+        scales: &scales,
+        fee: &fee,
+    };
+    // Pinned original ExternalWeightedMath gives 990000000000 scaled net.
+    let quote = quote_regular_exact_out(state, &n("1979998039800"), 0, 1).unwrap();
+    assert_eq!(quote.amount_in, n("1"));
+    assert_eq!(quote.next_cash, [n("1000001"), n("1999998020001960200")]);
+    assert!(quote_regular_exact_out(state, &n("600000000000000000"), 0, 1).is_ok());
+    assert_eq!(
+        quote_regular_exact_out(state, &n("600000000000000001"), 0, 1)
+            .unwrap_err()
+            .0,
+        "MANAGED_V2_MAX_OUT_RATIO"
+    );
+    let mut low_cash = cash.clone();
+    low_cash[1] = n("1");
+    let illiquid = [n("0"), &cash[1] - &low_cash[1]];
+    let state = WeightedInputs {
+        cash: &low_cash,
+        managed: &illiquid,
+        ..state
+    };
+    assert_eq!(
+        quote_regular_exact_out(state, &n("1979998039800"), 0, 1)
+            .unwrap_err()
+            .0,
+        "MANAGED_V2_INSUFFICIENT_VAULT_CASH"
     );
 }
 #[test]

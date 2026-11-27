@@ -6,20 +6,8 @@ fn a(s: &str) -> Amount {
     s.parse().unwrap()
 }
 fn fixture() -> Pool {
-    let address = |i: u8| format!("0x{i:040x}");
-    let code = "a".repeat(64);
-    let template = "b".repeat(64);
-    let roles = [
-        "circuit-breaker-lib",
-        "managed-pool-add-remove-token-lib",
-        "managed-pool-amm-lib",
-        "external-weighted-math",
-        "recovery-mode-helper",
-    ];
-    let deps=roles.iter().enumerate().map(|(i,role)|json!({"role":role,"address":address(100+i as u8),"code_sha256":code,"template_sha256":template})).collect::<Vec<_>>();
-    // Synthetic pricing state with original observed AUM monetary values; not
-    // a claim that these synthetic addresses/templates were actually deployed.
-    serde_json::from_value(json!({"chain_key":"evm:31337","pool_id":address(70),"protocol":"balancer-v2-managed-aum","adapter_version":"balancer-v2/20230411-managed-aum-3","token0":address(1),"token1":address(2),"reserve0":"10000000000000000000000","reserve1":"20000000000000000000000","fee_numerator":10000000000000000u64,"fee_denominator":1000000000000000000u64,"token_behavior":"standard","multi_asset":{"code_sha256":code,"vault":address(71),"vault_code_sha256":code,"pool_id":format!("{}0001{}",address(70),"0".repeat(20)),"assets":[{"token":address(1),"balance":"10000000000000000000000","scaling":"1000000000000000000","code_sha256":code},{"token":address(2),"balance":"20000000000000000000000","scaling":"1000000000000000000","code_sha256":code}],"weights":["800000000000000000","200000000000000000"],"amplification":"0","admin_fee":0,"managed_v2":{"timestamp":1769817600,"block_number":100,"block_hash":format!("0x{}","a".repeat(64)),"factory":address(80),"factory_code_sha256":code,"pool_runtime_template_sha256":template,"fee_provider":address(81),"fee_provider_code_sha256":code,"protocol_collector":address(82),"protocol_collector_code_sha256":code,"dependencies":deps,"total_supply":"2596148429267413814265248164610048","virtual_supply":"22973967099940240610944","actual_supply":"22993040547096687469068","pending_aum":"19073447156446858124","vault_bpt_cash":"2596148429244439847165307923999104","vault_bpt_managed":"0","vault_bpt_actual_balance":"2596148429244439847165307923999104","bpt_index":0,"manager":address(83),"manager_bpt_balance":"0","protocol_collector_bpt_balance":"0","management_aum_fee":"10000000000000000","last_collection_timestamp":1767225600,"provider_fee_id":"3","live_provider_aum_percentage":"700000000000000000","cached_protocol_aum_percentage":"300000000000000000","swaps_enabled":true,"paused":false,"vault_paused":false,"vault_pause_window_end":0,"vault_buffer_period_end":0,"recovery_mode":false,"allowlist_enabled":false,"pause_window_end":0,"buffer_period_end":0,"gradual_weight_end":0,"gradual_fee_end":0,"token_info":[{"cash":"10000000000000000000000","managed":"0","vault_actual_balance":"10000000000000000000000","asset_manager":address(0),"last_change_block":99,"circuit_breaker_enabled":false},{"cash":"20000000000000000000000","managed":"0","vault_actual_balance":"20000000000000000000000","asset_manager":address(0),"last_change_block":99,"circuit_breaker_enabled":false}]}}})).unwrap()
+    // Synthetic identities with original observed AUM monetary values.
+    serde_json::from_str(include_str!("fixtures/managed_v2_aum.json")).unwrap()
 }
 #[test]
 fn normal_dispatch_updates_cash_but_does_not_mint_bpt_or_collect_aum() {
@@ -59,6 +47,86 @@ fn normal_dispatch_updates_cash_but_does_not_mint_bpt_or_collect_aum() {
     assert_eq!(m.token_info[1].cash, a("19227220499620802060000"));
     assert_eq!(m.token_info[0].last_change_block, 100);
 }
+
+#[test]
+fn exact_out_dispatch_updates_vault_cash_and_wallets_and_preserves_aum() {
+    use xone_protocol_math::exact_out::quote_exact_out;
+    let pool = fixture();
+    let target = a("772779500379197940000");
+    let quote = quote_exact_out(&pool, &target, true).unwrap();
+    // ExternalWeightedMath from the pinned 20230411 CircuitBreakerLib job.
+    assert_eq!(quote.amount_in, a("100000000000102010102"));
+    assert_eq!(quote.amount_out, target);
+    let state = pool
+        .multi_asset
+        .as_ref()
+        .unwrap()
+        .managed_v2
+        .as_ref()
+        .unwrap();
+    let next = quote
+        .next_pool
+        .multi_asset
+        .as_ref()
+        .unwrap()
+        .managed_v2
+        .as_ref()
+        .unwrap();
+    assert_eq!(next.pending_aum, state.pending_aum);
+    assert_eq!(next.total_supply, state.total_supply);
+    assert_eq!(next.actual_supply, state.actual_supply);
+    assert_eq!(next.virtual_supply, state.virtual_supply);
+    assert_eq!(next.manager_bpt_balance, state.manager_bpt_balance);
+    assert_eq!(
+        next.protocol_collector_bpt_balance,
+        state.protocol_collector_bpt_balance
+    );
+    assert_eq!(
+        next.last_collection_timestamp,
+        state.last_collection_timestamp
+    );
+    assert_eq!(next.token_info[0].cash, a("10100000000000102010102"));
+    assert_eq!(next.token_info[1].cash, a("19227220499620802060000"));
+    for info in &next.token_info {
+        assert_eq!(info.cash, info.vault_actual_balance);
+        assert_eq!(info.last_change_block, state.block_number);
+    }
+    let reverse = quote_exact_out(&quote.next_pool, &a("25000000000000000000"), false).unwrap();
+    assert_eq!(
+        reverse.next_pool.reserve0.0,
+        &quote.next_pool.reserve0.0 - a("25000000000000000000").0
+    );
+    assert_eq!(
+        reverse.next_pool.reserve1.0,
+        &quote.next_pool.reserve1.0 + reverse.amount_in.0
+    );
+}
+#[test]
+fn published_vault_given_out_matches_both_continuous_swap_transitions() {
+    use xone_protocol_math::managed_v2_pool::{quote_exact_out_tokens, reclock};
+
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/managed_v2_vault_exact_out.json")).unwrap();
+    let cases = fixture["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 2);
+    let mut pool: Pool = serde_json::from_value(fixture["source"].clone()).unwrap();
+    for case in cases {
+        let clock = case["execution_block"].as_u64().unwrap();
+        let timestamp = case["execution_timestamp"].as_u64().unwrap();
+        let expected: Pool = serde_json::from_value(case["after"].clone()).unwrap();
+        let assets = &pool.multi_asset.as_ref().unwrap().assets;
+        let token_in = &assets[case["index_in"].as_u64().unwrap() as usize].token;
+        let token_out = &assets[case["index_out"].as_u64().unwrap() as usize].token;
+        let target = a(case["output"].as_str().unwrap());
+        let current = reclock(&pool, clock, timestamp).unwrap();
+        let quote = quote_exact_out_tokens(&current, &target, token_in, token_out).unwrap();
+        assert_eq!(quote.consumed_in, a(case["input"].as_str().unwrap()));
+        assert_eq!(quote.amount_out, target);
+        assert_eq!(quote.next_pool, expected, "{}", case["name"]);
+        pool = quote.next_pool;
+    }
+}
+
 #[test]
 fn ordinary_swap_rejects_inconsistent_aum_view_and_live_flags_without_touching_source() {
     for bad in 0..4 {

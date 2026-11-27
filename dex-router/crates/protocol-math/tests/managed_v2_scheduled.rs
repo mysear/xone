@@ -7,7 +7,9 @@ use xone_domain::{
     Amount, Pool,
 };
 use xone_protocol_math::{
-    managed_v2_pool::{collect_at, quote_at, quote_exact_in_tokens, reclock},
+    managed_v2_pool::{
+        collect_at, quote_at, quote_exact_in_tokens, quote_exact_out_tokens, reclock,
+    },
     managed_v2_swap::{quote_regular, WeightedInputs},
 };
 const ONE: u64 = 1_000_000_000_000_000_000;
@@ -21,15 +23,7 @@ fn a(s: &str) -> Amount {
     s.parse().unwrap()
 }
 fn fixture() -> Pool {
-    let bank: Value = serde_json::from_slice(
-        &std::fs::read(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../test/contracts/managed-v2-aum-wire.json"
-        ))
-        .unwrap(),
-    )
-    .unwrap();
-    let mut p: Pool = serde_json::from_value(bank["original_fields"].clone()).unwrap();
+    let mut p: Pool = serde_json::from_str(include_str!("fixtures/managed_v2_aum.json")).unwrap();
     let t = m(&p).timestamp;
     p.protocol = PROTOCOL.into();
     p.adapter_version = ADAPTER_VERSION.into();
@@ -133,6 +127,26 @@ fn scheduled_dispatch_uses_raw_selected_weights_without_sum_normalization() {
         1
     )
     .is_err());
+}
+
+#[test]
+fn scheduled_exact_out_uses_current_fee_and_keeps_raw_weights() {
+    let source = fixture();
+    let time = m(&source).timestamp;
+    let block = m(&source).block_number + 1;
+    let midpoint = reclock(&source, block, time + 60).unwrap();
+    let target = a("1000000000000000000");
+    let early = quote_exact_out_tokens(&source, &target, &source.token0, &source.token1).unwrap();
+    let active =
+        quote_exact_out_tokens(&midpoint, &target, &source.token0, &source.token1).unwrap();
+    assert!(active.consumed_in > early.consumed_in);
+    assert_eq!(active.amount_out, target);
+    assert_eq!(m(&active.next_pool).schedule, m(&source).schedule);
+    assert_eq!(active.next_pool.fee_numerator, 2 * ONE / 100);
+    assert_eq!(
+        active.next_pool.multi_asset.as_ref().unwrap().weights,
+        midpoint.multi_asset.as_ref().unwrap().weights
+    );
 }
 #[test]
 fn future_reclock_projects_views_and_preserves_source_and_ledgers() {
