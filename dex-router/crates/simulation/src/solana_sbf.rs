@@ -366,7 +366,9 @@ impl Engine {
         {
             return Err(err("SBF_PREPARATION_INVALID"));
         }
-        let claim = preparation["operation"] == "ORCA_COLLECT_REWARD";
+        let orca_claim = preparation["operation"] == "ORCA_COLLECT_REWARD";
+        let rayclmm_claim = preparation["operation"] == "RAYCLMM_COLLECT_POSITION";
+        let claim = orca_claim || rayclmm_claim;
         if claim
             && (capture.is_none()
                 || preparation["authority"] != caller
@@ -374,14 +376,18 @@ impl Engine {
         {
             return Err(err("SBF_PREPARATION_INVALID"));
         }
-        let source = preparation[if claim {
+        let source = preparation[if rayclmm_claim {
+            "position"
+        } else if orca_claim {
             "rewardVault"
         } else {
             "sourceTokenAccount"
         }]
         .as_str()
         .ok_or_else(|| err("SBF_PREPARATION_INVALID"))?;
-        let destination = preparation[if claim {
+        let destination = preparation[if rayclmm_claim {
+            "position"
+        } else if orca_claim {
             "rewardAccount"
         } else {
             "destinationTokenAccount"
@@ -567,7 +573,12 @@ impl Engine {
                 .as_str()
                 .unwrap_or("SBF_WORKER_RESPONSE")));
         }
-        let quantities_match = if claim {
+        let quantities_match = if rayclmm_claim {
+            ["fees", "rewards", "postAccounts"]
+                .iter()
+                .zip(["fees", "rewards", "expectedPostAccounts"])
+                .all(|(actual, expected)| result[*actual] == preparation[expected])
+        } else if orca_claim {
             [
                 "grossReward",
                 "netReward",

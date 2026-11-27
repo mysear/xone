@@ -67,6 +67,21 @@ XONE_RAYCLMM_ORDER_MANIFEST=/tmp/rayclmm-order-manifest.json \
 
 The 24 cases cover both directions, both amount modes, three fee modes, and partial or drained orders. Each checks user settlement, post-account hashes for the pool, both vaults and the order array, the immutable captured bank, and exclusion of a historical-only array from transaction accounts. Each also checks rejection of changed order bytes and the original program error and rollback for a threshold tightened by one unit.
 
+### Deployed position settlement replay
+
+Build a controlled position bank from the order bank and use the same pinned runtime manifest.
+
+```sh
+python3.11 integration/tools/ci/rayclmm-reward-execution-bank.py \
+  /tmp/rayclmm-order-bank.json /tmp/rayclmm-reward-bank.json
+XONE_RAYCLMM_REWARD_BANK=/tmp/rayclmm-reward-bank.json \
+XONE_RAYCLMM_ORDER_MANIFEST=/tmp/rayclmm-order-manifest.json \
+  cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-quote-api \
+  --test rayclmm_limit_orders http_reward -- --ignored
+```
+
+`POST /v1/chains/{chain}/pools/{pool}/prepare-rayclmm-reward` accepts a `claim` containing the authority, position PDA, position token account, recipient, two fee accounts and reward accounts in on-chain reward index order. Set `simulate` to bind the prepared transaction to independent SBF replay. The controlled cases settle accrued fees, active and ended rewards, empty and partially funded reward vaults, and Token-2022 reward transfer fees. The test checks the complete projected state of the pool, position, vaults and recipient accounts, plus unsigned execution and source bank preservation. Two HTTP rejection checks are run per case, and four cases independently reproduce a frozen recipient Token-2022 CPI failure.
+
 `source-metadata.json` records every file and both retained codeload archives. `rayclmm-reference-fetch.py` compares all **105 upstream files** and **120 parity-common files** against both the manifest and exact archive bytes; it also checks for extra or missing source files.
 
 - Upstream archive SHA-256: `13841cd1cddf0fc906970f70f8a639cb595e484c8ff260176aec0009cc561727`.

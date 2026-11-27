@@ -347,11 +347,15 @@
 - 双向 ExactIn、ExactOut 和三种收费模式已通过 216 组原 `swap_internal` 差分、12 笔 HTTP 报价及经典静态原程序回归。验证 180 笔成交的完整状态，含 34 次清空 bitmap 位，并核对 36 组拒绝。 [原程序差分](integration/tools/reference/raydium-clmm/README.md)
 - 公开部署程序在受控 bank 上通过 24 组 HTTP 无签名准备和独立 SwapV2 回放，覆盖部分成交与清空、用户 Token CPI 收付、两个 vault、订单 tick 和池 bitmap 后状态。另有 24 组限额回滚和 24 组订单账户变更拒绝。能力目录升至 `/29`，签名提交与真实回执待验收。 [复验说明](integration/tools/reference/raydium-clmm/README.md#deployed-swapv2-limit-order-replay)
 
-#### 下一轮迭代目标（I4 Raydium CLMM 奖励领取）
+#### Raydium CLMM 头寸费用与奖励领取验收
 
-- 使用 `DecreaseLiquidityV2` 的零流动性变动入口结算头寸费用与奖励。绑定 Position PDA、头寸 NFT、上下界 tick 同 bank 证明和按索引排列的奖励 vault、mint、收款账户。
-- 验收奖励累计、已领取账本、部分到账、Token-2022 转账费和失败回滚。通过正常 HTTP 准备及公开部署程序独立 SBF 核对用户余额和 Position、vault、池状态。
-- 在奖励领取验收后，按 I4 继续验证动态费、扩展 bitmap、订单及奖励的组合，再进入 I5。
+- 通过正常 HTTP 入口准备零流动性变动的 `DecreaseLiquidityV2`。在同一 finalized bank 绑定 Position PDA、头寸 NFT、上下界 tick、奖励 vault、mint 和收款账户。
+- 公开部署程序在受控 bank 通过 5 组独立 SBF 回放，覆盖活跃奖励累计、结束后奖励领取、部分与空 vault、费用或奖励关闭时的结算、Token-2022 到账净额与 withheld。逐笔核对用户、vault、Position 和池的后状态。另有 10 组无效 NFT 或奖励账户顺序拒绝，以及 4 组冻结 Token-2022 收款账户的 CPI 回滚。 [复验说明](integration/tools/reference/raydium-clmm/README.md#deployed-position-settlement-replay)
+
+#### 下一轮迭代目标（I4 Solana 高级组合）
+
+- 通过同一 profile 验证 Raydium 动态费、扩展 bitmap、限价订单及奖励累计的组合，逐层覆盖配置、普通 RPC、Protobuf、报价、无签名准备和 SBF。
+- 验收 Orca 更新奖励后领取的组合，复验稀疏数组和 Token-2022 资金路径。签名收款回执继续按 I6 验收。
 
 ### I5 V4/Infinity
 

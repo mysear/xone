@@ -30,6 +30,17 @@ def require(condition,code):
 
 def raw(account):return base64.b64decode(account['data'][0],validate=True)
 
+def verify_post_accounts(witnesses, account, code):
+    actual = []
+    for expected in witnesses:
+        after = account(expected['address'])
+        require(after is not None and not after.executable, code)
+        witness = dict(address=expected['address'], owner=str(after.owner),
+                       lamports=str(after.lamports), dataSha256=hashlib.sha256(after.data).hexdigest())
+        require(witness == expected, code)
+        actual.append(witness)
+    return actual
+
 def verify_reward_claim(request, preparation, before, account, native):
     position = preparation['position']
     vault = preparation['rewardVault']
@@ -38,14 +49,7 @@ def verify_reward_claim(request, preparation, before, account, native):
     witnesses = preparation['expectedPostAccounts']
     require([w['address'] for w in witnesses] == [position, vault, destination],
             'SBF_ORCA_REWARD_POST_STATE')
-    actual = []
-    for expected in witnesses:
-        after = account(expected['address'])
-        require(after is not None and not after.executable, 'SBF_ORCA_REWARD_POST_STATE')
-        witness = dict(address=expected['address'], owner=str(after.owner),
-                       lamports=str(after.lamports), dataSha256=hashlib.sha256(after.data).hexdigest())
-        require(witness == expected, 'SBF_ORCA_REWARD_POST_STATE')
-        actual.append(witness)
+    actual = verify_post_accounts(witnesses, account, 'SBF_ORCA_REWARD_POST_STATE')
 
     def read_amount(data, offset):
         return int.from_bytes(data[offset:offset + 8], 'little')
@@ -66,6 +70,35 @@ def verify_reward_claim(request, preparation, before, account, native):
                 grossReward=str(gross), netReward=str(net), remainingRewardOwed=str(remaining),
                 transferFee=str(gross - net), feeLamports=str(fee),
                 unitsConsumed=native['meta']['compute_units_consumed'], postAccounts=actual,
+                independentProductionVerification=False, signed=False, submitted=False)
+
+def verify_rayclmm_claim(request, preparation, before, account, native):
+    transfers = preparation['fees'] + preparation['rewards']
+    balances = {}
+    for transfer in transfers:
+        gross, net = int(transfer['gross']), int(transfer['net'])
+        require(gross >= net >= 0 and gross - net == int(transfer['transferFee']),
+                'SBF_RAYCLMM_POSITION_BALANCE')
+        for address, delta in [(transfer['vault'], -gross), (transfer['account'], net)]:
+            balances[address] = balances.get(address, 0) + delta
+    for address, delta in balances.items():
+        initial, final = before[address], account(address)
+        require(initial is not None and final is not None and
+                int.from_bytes(final.data[64:72], 'little') -
+                int.from_bytes(initial.data[64:72], 'little') == delta,
+                'SBF_RAYCLMM_POSITION_BALANCE')
+    witnesses = preparation['expectedPostAccounts']
+    require([w['address'] for w in witnesses] ==
+            sorted(set(balances) | {preparation['position'], preparation['poolId']}),
+            'SBF_RAYCLMM_POSITION_POST_STATE')
+    actual = verify_post_accounts(witnesses, account, 'SBF_RAYCLMM_POSITION_POST_STATE')
+    caller = request['caller']
+    fee = native['meta']['fee']
+    require(fee == int(preparation['feeLamports']) and
+            before[caller].lamports - account(caller).lamports == fee, 'SBF_FEE_RENT_BINDING')
+    return dict(protocol=PROTOCOL, success=True, sourceBankUnchanged=True,
+                fees=preparation['fees'], rewards=preparation['rewards'], feeLamports=str(fee),
+                postAccounts=actual, unitsConsumed=native['meta']['compute_units_consumed'],
                 independentProductionVerification=False, signed=False, submitted=False)
 
 def encode_adaptive_oracle(state,Pubkey):
@@ -231,6 +264,7 @@ def main():
     require(request['protocol']==PROTOCOL,'SBF_WORKER_PROTOCOL')
     preparation=request['preparation'];bank=request['bank'];limit=request['maxComputeUnits']
     claim=preparation.get('operation')=='ORCA_COLLECT_REWARD'
+    rayclmm_claim=preparation.get('operation')=='RAYCLMM_COLLECT_POSITION'
     reward_program=preparation.get('rewardTokenProgram') if claim else None
     wire=base64.b64decode(preparation['unsignedTransaction'],validate=True)
     require(len(wire)<=1232 and wire[:1]==b'\x01' and wire[1:65]==bytes(64),'SBF_UNSIGNED_REQUIRED')
@@ -253,6 +287,10 @@ def main():
     if claim:
         require(programs == {ORCA, COMPUTE_BUDGET} and len(tx.message.instructions) == 2,
                 'SBF_ORCA_REWARD_INSTRUCTION')
+    if rayclmm_claim:
+        require(target==RAYCLMM and bank.get('rpcCapture')
+                and programs=={RAYCLMM,COMPUTE_BUDGET} and len(tx.message.instructions)==2,
+                'SBF_RAYCLMM_POSITION_INSTRUCTION')
     require(target in programs and programs<=({SYSTEM,TOKEN,TOKEN22,target,'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'}|({COMPUTE_BUDGET}if target in[ORCA,RAYCLMM] else set())|({MEMO}if target==RAYCLMM else set())),'SBF_PROGRAM_ALLOWLIST')
     if target in[ORCA,RAYCLMM]:
         limits=[ix for ix in tx.message.instructions if str(tx.message.account_keys[ix.program_id_index])==COMPUTE_BUDGET]
@@ -276,6 +314,26 @@ def main():
     elif target==RAYCLMM:
         validate_rayclmm(model,bank['accounts'],Pubkey)
         require(int.from_bytes(clock_data[16:24],'little')==state['bank_epoch'],'SBF_RAYCLMM_EPOCH')
+        if rayclmm_claim:
+            pool = model['pool_id']
+            fees = preparation['fees']
+            rewards = [r for r in state['reward_infos'] if r['token_mint'] != SYSTEM]
+            reward_transfers = preparation['rewards']
+            require(preparation['poolId']==pool and len(fees)==2 and len(rewards)==len(reward_transfers),
+                    'SBF_RAYCLMM_POSITION_CONTEXT')
+            metas = [request['caller'], preparation['positionTokenAccount'],
+                     preparation['position'], pool, pool, state['vault0'], state['vault1'],
+                     preparation['lowerTickArray'], preparation['upperTickArray'],
+                     fees[0]['account'], fees[1]['account'], TOKEN, TOKEN22, MEMO,
+                     model['token0'], model['token1']]
+            for reward, transfer in zip(rewards, reward_transfers):
+                require(reward['token_vault']==transfer['vault'], 'SBF_RAYCLMM_POSITION_CONTEXT')
+                metas.extend([reward['token_vault'], transfer['account'], reward['token_mint']])
+            ix = next(ix for ix in tx.message.instructions
+                      if str(tx.message.account_keys[ix.program_id_index])==RAYCLMM)
+            data = hashlib.sha256(b'global:decrease_liquidity_v2').digest()[:8] + bytes(32)
+            require(bytes(ix.data)==data and [str(tx.message.account_keys[i]) for i in ix.accounts]==metas,
+                    'SBF_RAYCLMM_POSITION_INSTRUCTION')
     elif target==ORCA:
         validate_orca(model,bank['accounts'],Pubkey,claim)
         if claim:
@@ -383,6 +441,8 @@ def main():
         return None if a is None or (a.lamports==0 and len(a.data)==0)else a
     if claim:
         return verify_reward_claim(request,preparation,before,account,native)
+    if rayclmm_claim:
+        return verify_rayclmm_claim(request,preparation,before,account,native)
     caller=request['caller'];source=preparation['sourceTokenAccount'];destination=preparation['destinationTokenAccount']
     def amount(a,mint,owner,program):
         require(a is not None and not a.executable and str(a.owner)==program and len(a.data)>=165,'SBF_TOKEN_ACCOUNT')

@@ -19,6 +19,7 @@ pub mod orca_reward;
 mod pump_amm;
 mod pump_curve;
 mod rayclmm;
+pub mod rayclmm_reward;
 mod raydium;
 mod solana_native_cost;
 use std::sync::{Arc, Mutex};

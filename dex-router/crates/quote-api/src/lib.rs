@@ -282,6 +282,10 @@ impl Api {
                 post(preparation::prepare_orca_reward),
             )
             .route(
+                "/v1/chains/{chain}/pools/{pool}/prepare-rayclmm-reward",
+                post(preparation::prepare_rayclmm_reward),
+            )
+            .route(
                 "/v1/quotes/{id}/prepare-evm",
                 post(evm_preparation::prepare),
             )
@@ -1039,6 +1043,19 @@ fn failure(e: xone_domain::Error) -> HttpError {
         | "PREPARATION_RPC_NOT_CONFIGURED"
         | "PREPARATION_SINGLE_POOL_ONLY"
         | "PREPARATION_ACCOUNT_INVALID"
+        | "RAYCLMM_POSITION_INVALID"
+        | "RAYCLMM_POSITION_PAYER_INVALID"
+        | "RAYCLMM_POSITION_POOL_IDENTITY"
+        | "RAYCLMM_POSITION_TICKS"
+        | "RAYCLMM_POSITION_NOT_APPROVED"
+        | "RAYCLMM_POSITION_FEE_OVERFLOW"
+        | "RAYCLMM_POSITION_OWED_OVERFLOW"
+        | "RAYCLMM_POSITION_REWARD_LEDGER"
+        | "RAYCLMM_POSITION_SETTLEMENT_BALANCE"
+        | "RAYCLMM_REWARD_ACCOUNT_COUNT"
+        | "RAYCLMM_REWARD_ACCOUNT_INVALID"
+        | "RAYCLMM_REWARD_MINT_UNSUPPORTED"
+        | "RAYCLMM_REWARD_VAULT_INVALID"
         | "PREPARATION_TRANSACTION_TOO_LARGE"
         | "PREPARATION_CREATE_REQUIRES_ATA"
         | "PREPARATION_CREATE_TOKEN2022_UNSUPPORTED"

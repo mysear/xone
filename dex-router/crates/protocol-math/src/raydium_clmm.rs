@@ -1,6 +1,8 @@
 //! Pure Raydium CLMM 6d7a0f82 Q64 exact-input/output math with token-selected fees.
 #[path = "rayclmm_dynamic.rs"]
 mod dynamic;
+#[path = "rayclmm_position.rs"]
+pub mod position;
 use crate::Swap;
 use num_bigint::BigUint;
 use num_traits::Zero;

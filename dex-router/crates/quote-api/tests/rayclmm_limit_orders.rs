@@ -173,6 +173,50 @@ async fn rpc(State(bank): State<Arc<RpcBank>>, Json(call): Json<Value>) -> Json<
     Json(json!({"jsonrpc":"2.0","id":call["id"],"result":result}))
 }
 
+async fn deployed_api(
+    bank: &Value,
+    case: &Value,
+    pool: &Pool,
+    manifest: &str,
+) -> (Api, Arc<RpcBank>, tokio::task::JoinHandle<()>) {
+    let mut accounts = case["accounts"].clone();
+    accounts
+        .as_object_mut()
+        .unwrap()
+        .extend(bank["shared_accounts"].as_object().unwrap().clone());
+    let rpc_bank = Arc::new(RpcBank {
+        accounts: Mutex::new(accounts),
+        slot: pool.raydium_clmm.as_ref().unwrap().bank_slot,
+        genesis: bank["genesis"].clone(),
+        blockhash: bank["blockhash"].clone(),
+    });
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = Router::new()
+        .route("/", post(rpc))
+        .with_state(rpc_bank.clone());
+    let task = tokio::spawn(async move { axum::serve(listener, server).await.unwrap() });
+    let mut config = xone_config::load(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../../config/config-test.yaml"),
+        "dex-router",
+    )
+    .unwrap();
+    config.token = AUTH.into();
+    config.config.routing.max_splits = 1;
+    config.config.routing.max_state_age_ms = 315360000000;
+    config.config.chains[1].key = pool.chain_key.clone();
+    config.config.chains[1].rpc_urls = vec![format!("http://{address}")];
+    config.config.chains[1].genesis_hash = bank["genesis"].as_str().unwrap().into();
+    config.config.api.solana_runtime_manifest = manifest.into();
+    let api = install(
+        config,
+        pool,
+        bank["genesis"].as_str().unwrap(),
+        bank["blockhash"].as_str().unwrap(),
+    );
+    (api, rpc_bank, task)
+}
+
 fn run_worker(manifest: &Value, input: &Value) -> Value {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut child = Command::new(manifest["python_executable"]["path"].as_str().unwrap())
@@ -206,41 +250,7 @@ async fn http_preparation_and_independent_deployed_swap_v2() {
     for case in bank["cases"].as_array().unwrap() {
         let pool: Pool = serde_json::from_value(case["pool"].clone()).unwrap();
         let state = pool.raydium_clmm.as_ref().unwrap();
-        let mut accounts = case["accounts"].clone();
-        accounts
-            .as_object_mut()
-            .unwrap()
-            .extend(bank["shared_accounts"].as_object().unwrap().clone());
-        let rpc_bank = Arc::new(RpcBank {
-            accounts: Mutex::new(accounts),
-            slot: state.bank_slot,
-            genesis: bank["genesis"].clone(),
-            blockhash: bank["blockhash"].clone(),
-        });
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let server = Router::new()
-            .route("/", post(rpc))
-            .with_state(rpc_bank.clone());
-        let task = tokio::spawn(async move { axum::serve(listener, server).await.unwrap() });
-        let mut config = xone_config::load(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/../../config/config-test.yaml"),
-            "dex-router",
-        )
-        .unwrap();
-        config.token = AUTH.into();
-        config.config.routing.max_splits = 1;
-        config.config.routing.max_state_age_ms = 315360000000;
-        config.config.chains[1].key = pool.chain_key.clone();
-        config.config.chains[1].rpc_urls = vec![format!("http://{address}")];
-        config.config.chains[1].genesis_hash = bank["genesis"].as_str().unwrap().into();
-        config.config.api.solana_runtime_manifest = manifest.clone();
-        let api = install(
-            config,
-            &pool,
-            bank["genesis"].as_str().unwrap(),
-            bank["blockhash"].as_str().unwrap(),
-        );
+        let (api, rpc_bank, task) = deployed_api(&bank, case, &pool, &manifest).await;
         let (endpoint, request) = quote_request(&pool, case, &bank["caller"], &bank["recipient"]);
         let (status, quote) = call(&api, endpoint, &request).await;
         assert_eq!(status, StatusCode::OK, "{quote}");
@@ -346,6 +356,87 @@ async fn http_preparation_and_independent_deployed_swap_v2() {
         let (status, rejected) = call(&api, &prepare_path, &options).await;
         assert_eq!(status, StatusCode::CONFLICT, "{rejected}");
         assert_eq!(rejected["error"], "QUOTE_STATE_CHANGED");
+        task.abort();
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires the controlled deployed Raydium reward bank and pinned SBF runtime"]
+async fn http_reward_settlement_and_independent_deployed_decrease_v2() {
+    let bank: Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("XONE_RAYCLMM_REWARD_BANK").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let manifest = std::env::var("XONE_RAYCLMM_ORDER_MANIFEST").unwrap();
+    let runtime: Value = serde_json::from_slice(&std::fs::read(&manifest).unwrap()).unwrap();
+    for case in bank["cases"].as_array().unwrap() {
+        let pool: Pool = serde_json::from_value(case["pool"].clone()).unwrap();
+        let (api, rpc_bank, task) = deployed_api(&bank, case, &pool, &manifest).await;
+        let path = format!(
+            "/v1/chains/{}/pools/{}/prepare-rayclmm-reward",
+            pool.chain_key, pool.pool_id
+        );
+        let request = json!({"claim":case["claim"],"simulate":true});
+        let (status, result) = call(&api, &path, &request).await;
+        assert_eq!(status, StatusCode::OK, "{result}");
+        let prepared = &result["preparation"];
+        let independent = &result["independentSimulation"];
+        for name in ["fees", "rewards"] {
+            let actual = independent[name].as_array().unwrap();
+            let expected = case["expected"][name].as_array().unwrap();
+            assert_eq!(actual.len(), expected.len());
+            for (transfer, amount) in actual.iter().zip(expected) {
+                assert_eq!(transfer["gross"], amount.to_string());
+            }
+        }
+        assert_eq!(
+            independent["rewards"][1]["transferFee"],
+            case["expected"]["fee_on_reward1"].to_string()
+        );
+        assert_eq!(
+            independent["bankSha256"],
+            prepared["accountSnapshot"]["snapshotHash"]
+        );
+        assert_eq!(independent["sourceBankUnchanged"], true);
+        assert_eq!(
+            independent["postAccounts"],
+            prepared["expectedPostAccounts"]
+        );
+        let mut invalid = request.clone();
+        invalid["claim"]["rewardAccounts"]
+            .as_array_mut()
+            .unwrap()
+            .swap(0, 1);
+        let (status, _) = call(&api, &path, &invalid).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        let mut invalid = request.clone();
+        invalid["claim"]["positionTokenAccount"] = case["claim"]["feeAccounts"][0].clone();
+        let (status, rejected) = call(&api, &path, &invalid).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{rejected}");
+        assert_eq!(rejected["error"], "RAYCLMM_POSITION_INVALID");
+        if case["expected"]["fee_on_reward1"] != 0 {
+            let mut accounts = rpc_bank.accounts.lock().unwrap().clone();
+            let destination = case["claim"]["rewardAccounts"][1].as_str().unwrap();
+            let data = &mut accounts[destination]["data"][0];
+            let mut bytes = STANDARD.decode(data.as_str().unwrap()).unwrap();
+            bytes[108] = 2;
+            *data = STANDARD.encode(bytes).into();
+            let failed = run_worker(
+                &runtime,
+                &json!({
+                    "protocol":"xone-local-sbf/1",
+                    "bank":{"pool":pool,"accounts":accounts,"absentAccounts":[],"rpcCapture":true},
+                    "preparation":prepared,"caller":bank["caller"],"recipient":bank["recipient"],
+                    "maxComputeUnits":1_400_000
+                }),
+            );
+            assert_eq!(failed["error"], "SBF_TRANSACTION_FAILED", "{failed}");
+            assert_eq!(
+                failed["nativeError"],
+                json!({"InstructionError":[1,{"Custom":17}]})
+            );
+            assert_eq!(failed["sourceBankUnchanged"], true);
+        }
         task.abort();
     }
 }

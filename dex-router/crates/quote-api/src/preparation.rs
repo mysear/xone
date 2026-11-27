@@ -13,6 +13,99 @@ pub(super) struct OrcaRewardRequest {
     simulate: bool,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct RayclmmRewardRequest {
+    claim: xone_execution_preparation::rayclmm_reward::ClaimRequest,
+    #[serde(default)]
+    simulate: bool,
+}
+
+pub(super) async fn prepare_rayclmm_reward(
+    State(api): State<Api>,
+    headers: HeaderMap,
+    Path((chain_key, pool_id)): Path<(String, String)>,
+    Json(request): Json<RayclmmRewardRequest>,
+) -> std::result::Result<Json<Value>, HttpError> {
+    api.authorize(&headers).map_err(failure)?;
+    api.rate_limit().map_err(failure)?;
+    let _permit = api
+        .permits
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| failure(err("RATE_LIMITED")))?;
+    let view = api.replica.view(&chain_key).map_err(failure)?;
+    api.check_view(&view).map_err(failure)?;
+    let pool = view
+        .pools
+        .iter()
+        .find(|pool| pool.pool_id == pool_id && pool.protocol == "raydium-clmm-rewards")
+        .ok_or_else(|| failure(err("EXECUTION_ADAPTER_UNSUPPORTED")))?;
+    let chain = api
+        .config
+        .config
+        .chains
+        .iter()
+        .find(|chain| chain.key == chain_key)
+        .ok_or_else(|| failure(err("UNKNOWN_CHAIN")))?;
+    let config = SolanaRpcConfig {
+        url: chain
+            .rpc_urls
+            .first()
+            .cloned()
+            .ok_or_else(|| failure(err("PREPARATION_RPC_NOT_CONFIGURED")))?,
+        genesis_hash: chain.genesis_hash.clone(),
+    };
+    let deadline = Duration::from_millis(api.config.config.api.quote_timeout_ms.clamp(1000, 15000));
+    let prepared = tokio::time::timeout(
+        deadline,
+        xone_execution_preparation::rayclmm_reward::prepare(&config, pool, &request.claim),
+    )
+    .await
+    .map_err(|_| failure(err("PREPARATION_RPC_TIMEOUT")))?
+    .map_err(failure)?;
+    let mut result = prepared.result;
+    result["snapshotRef"] = serde_json::to_value(&view.reference).map_err(|_| failure(bad()))?;
+    result["quoteViewId"] = view.view_id.clone().into();
+    result
+        .as_object_mut()
+        .ok_or_else(|| failure(bad()))?
+        .remove("preparationHash");
+    result["preparationHash"] = hash(&result).map_err(failure)?.into();
+    let simulation = if request.simulate {
+        let engine = api
+            .solana_sbf
+            .as_ref()
+            .filter(|engine| {
+                engine.uses_rpc_capture() && engine.available(pool, &config.genesis_hash)
+            })
+            .ok_or_else(|| failure(err("INDEPENDENT_SIMULATION_UNAVAILABLE")))?;
+        let capture = serde_json::to_value(prepared.accounts.ok_or_else(|| failure(bad()))?)
+            .map_err(|_| failure(bad()))?;
+        engine
+            .simulate_captured(
+                pool,
+                &request.claim.authority,
+                &request.claim.recipient,
+                &pool.token0,
+                &pool.token1,
+                &result,
+                &capture,
+            )
+            .await
+            .map_err(failure)?
+    } else {
+        Value::Null
+    };
+    api.check_view(&view).map_err(failure)?;
+    if api.replica.view(&chain_key).map_err(failure)?.view_id != view.view_id {
+        return Err(failure(err("QUOTE_STATE_CHANGED")));
+    }
+    Ok(Json(
+        json!({"preparation":result,"independentSimulation":simulation}),
+    ))
+}
+
 pub(super) async fn prepare_orca_reward(
     State(api): State<Api>,
     headers: HeaderMap,

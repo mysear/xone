@@ -1,13 +1,13 @@
 //! Pinned classic SPL CLMM models with declared extension, seed and fee state.
 use super::*;
 use xone_domain::raydium_clmm as r;
-const TOKEN22: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+pub(super) const TOKEN22: &str = xone_domain::spl_token_2022::PROGRAM;
 // Explicitly admitted ancillary programs. Token2022 assets remain unsupported.
 const LEGACY_TOKEN22_CODE: &str =
     "495e9d7680dd555cb126a6a8e5464af5be9b01f02f2cd70634352722d22e3cad";
-const BUDGET: &str = "ComputeBudget111111111111111111111111111111";
-const COMPUTE_LIMIT: u32 = 1_400_000;
-fn owned<'a>(
+pub(super) const BUDGET: &str = "ComputeBudget111111111111111111111111111111";
+pub(super) const COMPUTE_LIMIT: u32 = 1_400_000;
+pub(super) fn owned<'a>(
     bank: &'a BTreeMap<String, Option<Account>>,
     key: &str,
     owner: &str,
@@ -36,7 +36,7 @@ fn key(b: &mut [u8], offset: usize, value: &str) -> Result<()> {
     }
     Ok(())
 }
-fn bump(seeds: &[&[u8]], program: &str, address: &str) -> Result<u8> {
+pub(super) fn bump(seeds: &[&[u8]], program: &str, address: &str) -> Result<u8> {
     let target = m::pubkey(address)?;
     for value in (0..=255u8).rev() {
         let mut h = Sha256::new();
@@ -53,7 +53,7 @@ fn bump(seeds: &[&[u8]], program: &str, address: &str) -> Result<u8> {
     }
     Err(bad())
 }
-fn pool_bytes(p: &Pool, observed: &[u8]) -> Result<Vec<u8>> {
+pub(super) fn pool_bytes(p: &Pool, observed: &[u8]) -> Result<Vec<u8>> {
     let s = p.raydium_clmm.as_ref().ok_or_else(bad)?;
     let mut b = observed.to_vec();
     if b.len() != 1544
@@ -147,7 +147,7 @@ fn pool_bytes(p: &Pool, observed: &[u8]) -> Result<Vec<u8>> {
     }
     Ok(b)
 }
-fn array_bytes(p: &Pool, a: &r::RaydiumCLMMArray, observed: &[u8]) -> Result<Vec<u8>> {
+pub(super) fn array_bytes(p: &Pool, a: &r::RaydiumCLMMArray, observed: &[u8]) -> Result<Vec<u8>> {
     let s = p.raydium_clmm.as_ref().ok_or_else(bad)?;
     let mut b = observed.to_vec();
     if b.len() != 10240 || b[10133..].iter().any(|v| *v != 0) {
@@ -219,6 +219,41 @@ fn observation_bytes(p: &Pool) -> Result<Vec<u8>> {
     }
     Ok(b)
 }
+pub(super) fn validate_programs(
+    bank: &BTreeMap<String, Option<Account>>,
+    state: &r::RaydiumCLMMState,
+    token22_programdata: &str,
+) -> Result<()> {
+    let slot = state.bank_slot;
+    code(
+        bank,
+        r::PROGRAM_ID,
+        &state.program_code_sha256,
+        slot,
+        Some(state.deployed_slot),
+    )?;
+    code(bank, TOKEN, &state.token_program_code_sha256, slot, None)?;
+    let deployment = get(bank, token22_programdata)?
+        .data
+        .get(4..12)
+        .map(|data| m::u64_at(data, 0));
+    let (digest, deployed_slot) = if deployment == Some(OBSERVED_TOKEN22_SLOT) {
+        (OBSERVED_TOKEN22_CODE, deployment)
+    } else {
+        (LEGACY_TOKEN22_CODE, None)
+    };
+    code(bank, TOKEN22, digest, slot, deployed_slot)?;
+    code(bank, MEMO, MEMO_CODE, slot, None)?;
+    let budget = get(bank, BUDGET)?;
+    if !budget.executable
+        || budget.owner != "NativeLoader1111111111111111111111111111111"
+        || budget.data != b"compute_budget_program"
+    {
+        return Err(err("PREPARATION_PROGRAM_CHANGED"));
+    }
+    Ok(())
+}
+
 pub(super) async fn resolve(
     config: &SolanaRpcConfig,
     s: &SolanaQuote,
@@ -301,32 +336,10 @@ pub(super) async fn resolve(
         .zip(values)
         .map(|(id, v)| Ok((id.clone(), account(v)?)))
         .collect::<Result<BTreeMap<_, _>>>()?;
-    code(
-        &bank,
-        r::PROGRAM_ID,
-        &state.program_code_sha256,
-        slot,
-        Some(state.deployed_slot),
-    )?;
-    code(&bank, TOKEN, &state.token_program_code_sha256, slot, None)?;
-    let deployment = get(&bank, &token22_programdata)?
-        .data
-        .get(4..12)
-        .map(|bytes| m::u64_at(bytes, 0));
-    let (digest, deployed_slot) = if deployment == Some(OBSERVED_TOKEN22_SLOT) {
-        (OBSERVED_TOKEN22_CODE, deployment)
-    } else {
-        (LEGACY_TOKEN22_CODE, None)
-    };
-    code(&bank, TOKEN22, digest, slot, deployed_slot)?;
-    code(&bank, MEMO, MEMO_CODE, slot, None)?;
-    let budget = get(&bank, BUDGET)?;
-    if !budget.executable
-        || budget.owner != "NativeLoader1111111111111111111111111111111"
-        || budget.data != b"compute_budget_program"
-    {
-        return Err(err("PREPARATION_PROGRAM_CHANGED"));
+    if slot != state.bank_slot {
+        return Err(err("QUOTE_CLOCK_CHANGED"));
     }
+    validate_programs(&bank, state, &token22_programdata)?;
     if using_funding {
         code(&bank, ASSOCIATED, ASSOCIATED_CODE, slot, None)?;
         let a = get(&bank, SYSTEM)?;
@@ -390,8 +403,7 @@ pub(super) async fn resolve(
         "Sysvar1111111111111111111111111111111111111",
         40,
     )?;
-    if slot != state.bank_slot
-        || m::u64_at(clock, 0) != slot
+    if m::u64_at(clock, 0) != slot
         || m::u64_at(clock, 16) != state.bank_epoch
         || m::u64_at(clock, 32) != state.bank_unix_timestamp
     {
