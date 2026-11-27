@@ -6015,3 +6015,7 @@ Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口�
 R03 验收基础设施在本机缺少 PostgreSQL 13 或 Kafka 安装时自动切换到隔离 Docker 实例。Kafka 容器使用内部 `localhost:9092` 与宿主机映射端口的双监听器，避免容器内 topic 管理命令获得宿主机地址后无法建立元数据连接。Rust `normal_yellowstone` 构建固定使用仓库锁定 protobuf 工具链和 macOS SDK 头文件。
 
 `python3 integration/tools/acceptance/r03_authority_process.py` 通过，覆盖受控 tonic 流、WAL、manifest、owner 发布、撤销、重启、Fence 和 HEAD_FIRST 恢复。R03 history runtime 7 项测试通过。该批次的受控来源、真实本机 PostgreSQL/Kafka 和公开历史 bank 完整性仍分别记录，真实同源 Yellowstone、连续断线和生产故障域继续按 R01–R04 验收。
+
+## Curve Meta underlying 正常 API 与恢复联验（2026-11-27，阶段269，P0-2）
+
+使用四个固定 protobuf 快照和三笔连续 underlying 交换，`xone-quote-api` 的正常 HTTP ExactIn/ExactOut 入口、Meta/base 后状态差分、快照推进和冷启动恢复均通过。验证命令为 `cargo +1.90.0 test --locked -p xone-quote-api --test curve_meta_underlying_wire`，结果为 1 项通过。该范围仍依赖显式 base pool 状态和固定 bank，真实链收款、allowance、独立执行与生产 VERIFIED 继续关闭。
