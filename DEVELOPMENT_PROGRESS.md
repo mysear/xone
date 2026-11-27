@@ -400,7 +400,8 @@
 8. Orca 双 Token-2022 受控 bank 已通过两组正常 HTTP 报价、准备和部署程序签名回放，覆盖正向 ExactIn、反向 ExactOut、Token CPI 后状态和两组篡改签名拒绝。ExactOut 计划统一使用共享 Orca 协议判断，保留旧客户端以 JSON null 请求未签名仿真的行为。 [复验说明](integration/tools/ci/orca-token2022-execution.md)
 9. 签名仿真与提交预检共用 confirmed RPC blockhash 检查，分别约束区块高度和 RPC slot。签名响应与提交预检记录包含有效性观测，后续费用读取继承 blockhash 观测的 slot 下界。Orca 两组签名 HTTP 回放通过有效期边界，以及过期、未知和陈旧 slot 的六组拒绝。Orca 奖励 HTTP 联测同时通过。钱包提交回归目标的编译依赖尚缺 `dex-router/test/fixtures/evm/baseline.json`。
 10. SBF worker 对交易做结构校验，拒绝重复账户键，按 legacy 消息头生成并返回读写账户集合，检查只读账户的回放后状态与原状态一致。Orca 双 Token-2022 两组签名及未签名回放与准备指令的账户权限逐项一致，两个奖励收取 HTTP 目标同时通过。
-11. 下一轮核对版本化 bank，并使用验证节点实际出块验收钱包签名、交易回执和前后余额。
+11. 本地 Agave v3.1.14 实际出块验收通过。Orca adaptive classic SPL ExactIn 经正常 HTTP 报价、准备、独立签名回放和提交，finalized 区块包含同一签名，实收、实付、网络费和付款人 lamport 差与独立回放一致，重开日志后回执相同。旧费用 slot 和签名仿真证据替代原提交证据均被拒绝。 [复验说明](integration/tools/ci/orca-token2022-execution.md#local-validator-receipt)
+12. 下一轮将版本化 bank 的身份与账户版本接入仿真证据，并补齐实际回执的上下文校验。
 
 ### I7 真实来源和恢复
 

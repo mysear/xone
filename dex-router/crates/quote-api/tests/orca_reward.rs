@@ -34,6 +34,7 @@ enum BlockhashRpc {
 struct BankRpc {
     case: Arc<Value>,
     blockhash: Arc<Mutex<BlockhashRpc>>,
+    validator: Option<String>,
 }
 
 impl BankRpc {
@@ -41,11 +42,35 @@ impl BankRpc {
         Self {
             case: Arc::new(case),
             blockhash: Arc::new(Mutex::new(BlockhashRpc::Valid)),
+            validator: None,
         }
     }
 }
 
 fn api(pool: Pool, rpc: String, blockhash: &str, manifest: &str) -> Api {
+    let block = bank_block(&pool, GENESIS, blockhash);
+    configured_api(pool, rpc, GENESIS, block, manifest, None)
+}
+
+fn bank_block(pool: &Pool, hash: &str, parent_hash: &str) -> BlockRef {
+    let state = pool.orca_whirlpool.as_ref().unwrap();
+    BlockRef {
+        chain_key: pool.chain_key.clone(),
+        number_or_slot: state.bank_slot,
+        hash: hash.into(),
+        parent_hash: parent_hash.into(),
+        timestamp_ms: state.bank_unix_timestamp * 1000,
+    }
+}
+
+fn configured_api(
+    pool: Pool,
+    rpc: String,
+    genesis: &str,
+    block: BlockRef,
+    manifest: &str,
+    receipt_journal: Option<&std::path::Path>,
+) -> Api {
     let mut config = xone_config::load(
         concat!(env!("CARGO_MANIFEST_DIR"), "/../../config/config-test.yaml"),
         "dex-router",
@@ -56,20 +81,19 @@ fn api(pool: Pool, rpc: String, blockhash: &str, manifest: &str) -> Api {
     config.config.routing.max_state_age_ms = 315360000000;
     config.config.routing.quote_ttl_ms = 60000;
     config.config.api.solana_runtime_manifest = manifest.into();
+    if let Some(journal) = receipt_journal {
+        config.config.api.transaction_submission_enabled = true;
+        config.config.api.transaction_submission_chains = vec![pool.chain_key.clone()];
+        config.config.api.transaction_max_pending = 2;
+        config.config.api.transaction_receipt_journal = journal.to_str().unwrap().into();
+    }
     let chain = &mut config.config.chains[1];
     chain.key = pool.chain_key.clone();
-    chain.genesis_hash = GENESIS.into();
+    chain.genesis_hash = genesis.into();
     chain.rpc_urls = vec![rpc];
-    let state = pool.orca_whirlpool.as_ref().unwrap();
     let snapshot = Snapshot {
         reference: SnapshotRef {
-            block: BlockRef {
-                chain_key: chain.key.clone(),
-                number_or_slot: state.bank_slot,
-                hash: GENESIS.into(),
-                parent_hash: blockhash.into(),
-                timestamp_ms: state.bank_unix_timestamp * 1000,
-            },
+            block,
             canonical_epoch: 1,
             journal_seq: 1,
             schema_version: SCHEMA_VERSION,
@@ -90,13 +114,21 @@ fn api(pool: Pool, rpc: String, blockhash: &str, manifest: &str) -> Api {
 }
 
 async fn claim(api: &Api, path: &str, request: &Value) -> (StatusCode, Value) {
+    api_call(api, Request::post(path), Body::from(request.to_string())).await
+}
+
+async fn api_call(
+    api: &Api,
+    request: axum::http::request::Builder,
+    body: Body,
+) -> (StatusCode, Value) {
     let response = api
         .handler()
         .oneshot(
-            Request::post(path)
+            request
                 .header("authorization", format!("Bearer {AUTH}"))
                 .header("content-type", "application/json")
-                .body(Body::from(request.to_string()))
+                .body(body)
                 .unwrap(),
         )
         .await
@@ -117,6 +149,23 @@ fn token_account(mint: &str, owner: &str, amount: u64, program: &str, rent: &Val
         data.extend(13u64.to_le_bytes());
     }
     json!({"owner":program,"executable":false,"lamports":rent[data.len().to_string()],"data":[STANDARD.encode(data),"base64"]})
+}
+
+fn sign(preparation: &Value) -> String {
+    let python = std::env::var("XONE_SBF_PYTHON").unwrap_or_else(|_| "python3.11".into());
+    let signer = std::process::Command::new(python)
+        .env("PYTHONPATH", concat!(env!("CARGO_MANIFEST_DIR"), "/../../../integration/artifacts/local/r01-solana-rebuild/python"))
+        .arg("-c")
+        .arg("import base64,hashlib,sys; from solders.keypair import Keypair; from solders.transaction import Transaction; tx=Transaction.from_bytes(base64.b64decode(sys.argv[1])); key=Keypair.from_seed(hashlib.sha256(b'XONE Orca SwapV2 execution test').digest()); tx.sign([key],tx.message.recent_blockhash); print(base64.b64encode(bytes(tx)).decode())")
+        .arg(preparation["unsignedTransaction"].as_str().unwrap())
+        .output()
+        .unwrap();
+    assert!(
+        signer.status.success(),
+        "{}",
+        String::from_utf8_lossy(&signer.stderr)
+    );
+    String::from_utf8(signer.stdout).unwrap().trim().to_owned()
 }
 
 #[tokio::test]
@@ -206,19 +255,7 @@ async fn orca_dual_token2022_wallet_wire_matches_independent_http_simulation() {
         assert_eq!(status, 200, "{unsigned}");
         assert_eq!(unsigned["signed"], false);
         assert!(unsigned.get("blockhashValidity").is_none());
-        let python = std::env::var("XONE_SBF_PYTHON").unwrap_or_else(|_| "python3.11".into());
-        let signer = std::process::Command::new(python)
-            .env("PYTHONPATH", concat!(env!("CARGO_MANIFEST_DIR"), "/../../../integration/artifacts/local/r01-solana-rebuild/python"))
-            .arg("-c")
-            .arg("import base64,hashlib,sys; from solders.keypair import Keypair; from solders.transaction import Transaction; tx=Transaction.from_bytes(base64.b64decode(sys.argv[1])); key=Keypair.from_seed(hashlib.sha256(b'XONE Orca SwapV2 execution test').digest()); tx.sign([key],tx.message.recent_blockhash); print(base64.b64encode(bytes(tx)).decode())")
-            .arg(prep["unsignedTransaction"].as_str().unwrap())
-            .output().unwrap();
-        assert!(
-            signer.status.success(),
-            "{}",
-            String::from_utf8_lossy(&signer.stderr)
-        );
-        let signed_wire = String::from_utf8(signer.stdout).unwrap();
+        let signed_wire = sign(&prep);
         let (status, signed) = claim(
             &api,
             &path,
@@ -303,7 +340,21 @@ async fn rpc(State(bank): State<BankRpc>, Json(call): Json<Value>) -> Json<Value
         .as_u64()
         .unwrap();
     let blockhash = *bank.blockhash.lock().unwrap();
-    let result = match call["method"].as_str().unwrap() {
+    let method = call["method"].as_str().unwrap();
+    if let Some(url) = &bank.validator {
+        if method != "getMultipleAccounts" || params[1]["commitment"] != "finalized" {
+            let mut response = validator_rpc(url, &call).await;
+            if method == "getFeeForMessage"
+                && params[1]["commitment"] == "confirmed"
+                && matches!(blockhash, BlockhashRpc::Stale)
+            {
+                let floor = params[1]["minContextSlot"].as_u64().unwrap();
+                response["result"]["context"]["slot"] = (floor - 1).into();
+            }
+            return Json(response);
+        }
+    }
+    let result = match method {
         "getGenesisHash" => json!(GENESIS),
         "getBlockHeight" => {
             assert_eq!(params[0]["minContextSlot"], slot);
@@ -340,6 +391,166 @@ async fn rpc(State(bank): State<BankRpc>, Json(call): Json<Value>) -> Json<Value
         other => panic!("unexpected RPC method {other}"),
     };
     Json(json!({"jsonrpc":"2.0","id":call["id"],"result":result}))
+}
+
+async fn validator_rpc(url: &str, call: &Value) -> Value {
+    reqwest::Client::new()
+        .post(url)
+        .json(call)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+#[ignore = "requires a local Agave validator seeded with the Orca classic SPL bank"]
+async fn orca_signed_swap_finalizes_on_agave_and_matches_sbf() {
+    let validator = std::env::var("XONE_ORCA_VALIDATOR_URL").unwrap();
+    let url = reqwest::Url::parse(&validator).unwrap();
+    assert_eq!(url.scheme(), "http");
+    assert_eq!(url.host_str(), Some("127.0.0.1"));
+    let path = std::env::var("XONE_ORCA_VALIDATOR_BANK").unwrap();
+    let case: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let manifest = std::env::var("XONE_ORCA_VALIDATOR_MANIFEST").unwrap();
+    let pool: Pool = serde_json::from_value(case["pool"].clone()).unwrap();
+    let journal = tempfile::tempdir().unwrap();
+    let mut bank_rpc = BankRpc::new(case);
+    bank_rpc.validator = Some(validator.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    let mock = Router::new()
+        .route("/", post(rpc))
+        .with_state(bank_rpc.clone());
+    let server = tokio::spawn(async move { axum::serve(listener, mock).await.unwrap() });
+    let case = &bank_rpc.case;
+    let genesis = case["genesis"].as_str().unwrap();
+    let head = bank_block(
+        &pool,
+        case["blockhash"].as_str().unwrap(),
+        case["previousBlockhash"].as_str().unwrap(),
+    );
+    let journal_path = journal.path().join("receipts.ndjson");
+    let api = configured_api(
+        pool.clone(),
+        endpoint.clone(),
+        genesis,
+        head.clone(),
+        &manifest,
+        Some(&journal_path),
+    );
+    let (status, quote) = claim(
+        &api,
+        "/v1/quote",
+        &json!({
+            "chainKey":pool.chain_key,"sellToken":pool.token0,"buyToken":pool.token1,
+            "caller":case["caller"],"recipient":case["recipient"],"sellAmount":"5000",
+            "slippageBps":50,"verification":"FAST","kind":"EXACT_IN"
+        }),
+    )
+    .await;
+    assert_eq!(status, 200, "{quote}");
+    let id = quote["quoteId"].as_str().unwrap();
+    let (status, prep) = claim(&api, &format!("/v1/quotes/{id}/prepare"), &json!({})).await;
+    assert_eq!(status, 200, "{prep}");
+    assert_eq!(prep["ready"], true, "{prep}");
+    let key = prep["preparationHash"].as_str().unwrap();
+    let prefix = format!("/v1/quotes/{id}/preparations/{key}");
+    let simulation = format!("{prefix}/simulate-independent");
+    let (status, unsigned) = claim(&api, &simulation, &Value::Null).await;
+    assert_eq!(status, 200, "{unsigned}");
+    let wire = sign(&prep);
+    let (status, signed) = claim(&api, &simulation, &json!({"signedTransaction":wire})).await;
+    assert_eq!(status, 200, "{signed}");
+    let submit = format!("{prefix}/submit");
+    let mut payload = json!({
+        "signedTransaction":wire,"evidenceHash":signed["evidenceHash"],"confirm":true
+    });
+    let (status, rejected) = claim(&api, &submit, &payload).await;
+    assert_ne!(status, 200);
+    assert_eq!(rejected["error"], "INDEPENDENT_SIMULATION_REQUIRED");
+    payload["evidenceHash"] = unsigned["evidenceHash"].clone();
+    *bank_rpc.blockhash.lock().unwrap() = BlockhashRpc::Stale;
+    let (status, rejected) = claim(&api, &submit, &payload).await;
+    assert_ne!(status, 200);
+    assert_eq!(rejected["error"], "PREPARATION_STALE_RPC");
+    assert_eq!(std::fs::metadata(&journal_path).unwrap().len(), 0);
+    *bank_rpc.blockhash.lock().unwrap() = BlockhashRpc::Valid;
+    let (status, submission) = claim(&api, &submit, &payload).await;
+    assert_eq!(status, 200, "{submission}");
+    assert_eq!(submission["state"], "SUBMITTED", "{submission}");
+    assert_eq!(submission["signature"], signed["walletSignature"]);
+    let fee = &submission["feePreflight"];
+    let slots = [
+        &fee["preparationMinimumContextSlot"],
+        &fee["blockhashValidity"]["observedSlot"],
+        &fee["feeObservedSlot"],
+        &fee["accountObservedSlot"],
+        &fee["simulationObservedSlot"],
+        &fee["minimumSendContextSlot"],
+    ];
+    assert!(slots
+        .windows(2)
+        .all(|pair| pair[0].as_u64().unwrap() <= pair[1].as_u64().unwrap()));
+    let path = format!(
+        "/v1/transactions/{}",
+        submission["signature"].as_str().unwrap()
+    );
+    let receipt = tokio::time::timeout(std::time::Duration::from_secs(45), async {
+        loop {
+            let (status, receipt) = api_call(&api, Request::get(&path), Body::empty()).await;
+            assert_eq!(status, 200, "{receipt}");
+            match receipt["state"].as_str().unwrap() {
+                "FINALIZED" => break receipt,
+                "UNKNOWN" | "PROCESSED" | "CONFIRMED" | "RECEIPT_PENDING" => {}
+                _ => panic!("{receipt}"),
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(receipt["slot"].as_u64().unwrap() >= fee["minimumSendContextSlot"].as_u64().unwrap());
+    for key in [
+        "actualInput",
+        "actualOutput",
+        "feeLamports",
+        "payerLamportDelta",
+        "transactionSha256",
+    ] {
+        assert_eq!(receipt["settlement"][key], signed[key], "{key}: {receipt}");
+    }
+    let block = validator_rpc(
+        &validator,
+        &json!({"jsonrpc":"2.0","id":1,"method":"getBlock",
+            "params":[receipt["slot"],{"commitment":"finalized","transactionDetails":"signatures"}]
+        }),
+    )
+    .await;
+    assert!(
+        block["result"]["signatures"]
+            .as_array()
+            .unwrap()
+            .contains(&receipt["signature"]),
+        "{block}"
+    );
+    drop(api);
+    let reopened = configured_api(
+        pool,
+        endpoint,
+        genesis,
+        head,
+        &manifest,
+        Some(&journal_path),
+    );
+    let (status, recovered) = api_call(&reopened, Request::get(&path), Body::empty()).await;
+    assert_eq!(status, 200, "{recovered}");
+    assert_eq!(recovered, receipt);
+    server.abort();
 }
 
 #[tokio::test]

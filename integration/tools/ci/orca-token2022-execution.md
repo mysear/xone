@@ -46,5 +46,34 @@ python3.11 integration/tools/ci/solana-sbf-runtime-manifests.py --rpc-capture \
 XONE_ORCA_TOKEN2022_BANK=/tmp/orca-token2022-execution-bank.json \
 XONE_ORCA_SBF_MANIFEST=/tmp/orca-sbf-manifest.json \
   cargo +1.90.0 test --manifest-path dex-router/Cargo.toml \
-  -p xone-quote-api --test orca_reward -- --ignored
+  -p xone-quote-api --test orca_reward -- --ignored --skip orca_signed_swap_finalizes_on_agave
+```
+
+## Local validator receipt
+
+The local Agave v3.1.14 test captures classic SPL Orca accounts at a finalized slot and verifies both deployed program digests. Preparation uses the captured account response. Blockhash, current preflight, submission and receipt calls use the running validator. The finalized block must contain the signed swap. The receipt's paid amount, received amount, fee and payer balance delta must equal those from independent SBF execution. The test injects a stale fee context before sending, checks the original simulation evidence requirement, and reopens the journal after finalization.
+
+Use a fresh directory for each validator run. The first command prints the funded test wallet. Keep the validator running while invoking the commands in the second block.
+
+```sh
+WORK=/tmp/orca-validator-bank
+PAYER=$(python3.11 integration/tools/ci/orca-validator-bank.py seed \
+  /tmp/orca-token2022-execution-bank.json "$WORK")
+solana-test-validator --ledger "$WORK/ledger" --account-dir "$WORK/accounts" \
+  --bind-address 127.0.0.1 --rpc-port 19206 --faucet-port 19208 \
+  --gossip-port 19209 --mint "$PAYER"
+```
+
+After the validator reports a positive finalized slot, run the test.
+
+```sh
+WORK=/tmp/orca-validator-bank
+RPC=http://127.0.0.1:19206
+GENESIS=$(python3.11 integration/tools/ci/orca-validator-bank.py capture "$WORK" "$RPC")
+python3.11 integration/tools/ci/solana-sbf-runtime-manifests.py --rpc-capture \
+  solana:mainnet-beta "$GENESIS" "$WORK/manifest.json"
+XONE_ORCA_VALIDATOR_URL="$RPC" XONE_ORCA_VALIDATOR_BANK="$WORK/captured.json" \
+XONE_ORCA_VALIDATOR_MANIFEST="$WORK/manifest.json" \
+  cargo +1.90.0 test --locked --manifest-path dex-router/Cargo.toml \
+  -p xone-quote-api --test orca_reward orca_signed_swap_finalizes_on_agave -- --ignored
 ```
