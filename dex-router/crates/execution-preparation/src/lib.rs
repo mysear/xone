@@ -408,33 +408,12 @@ fn token(a: &Account, mint: &str, owner: &str, token: &str) -> Result<u64> {
 // Only TransferFeeAmount and the ImmutableOwner added by the canonical ATA
 // program are admitted. No unknown/duplicate/padded extension may be ignored.
 fn withheld(a: &Account) -> Result<u64> {
-    if a.owner != xone_domain::meteora_token2022::PROGRAM
-        || !matches!(a.data.len(), 178 | 182)
-        || a.data[165] != 2
-    {
+    if a.owner != xone_domain::meteora_token2022::PROGRAM {
         return Err(bad());
     }
-    let mut cursor = 166;
-    let mut fee = None;
-    let mut immutable = false;
-    while cursor < a.data.len() {
-        let header = a.data.get(cursor..cursor + 4).ok_or_else(bad)?;
-        let kind = u16::from_le_bytes(header[..2].try_into().map_err(|_| bad())?);
-        let size = usize::from(u16::from_le_bytes(
-            header[2..].try_into().map_err(|_| bad())?,
-        ));
-        cursor += 4;
-        let value = a.data.get(cursor..cursor + size).ok_or_else(bad)?;
-        match (kind, size) {
-            (2, 8) if fee.is_none() => {
-                fee = Some(u64::from_le_bytes(value.try_into().map_err(|_| bad())?));
-            }
-            (7, 0) if !immutable => immutable = true,
-            _ => return Err(bad()),
-        }
-        cursor += size;
-    }
-    fee.ok_or_else(bad)
+    xone_domain::spl_token_2022::TransferFeeAccount::unpack(&a.data)
+        .map(|account| account.withheld)
+        .map_err(|_| bad())
 }
 async fn resolve(
     config: &SolanaRpcConfig,

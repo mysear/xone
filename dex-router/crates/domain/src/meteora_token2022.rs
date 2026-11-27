@@ -1,7 +1,8 @@
 //! Fixed Token-2022 executable, TransferFeeConfig and TransferFeeAmount only.
 use crate::{
     err,
-    meteora::{bytes, pda, pubkey, u16_at, u64_at, MeteoraState},
+    meteora::{bytes, pda, pubkey, u64_at, MeteoraState},
+    spl_token_2022::{TransferFee, TransferFeeAccount},
     wire, Result,
 };
 use serde::{Deserialize, Serialize};
@@ -34,17 +35,8 @@ impl Token2022State {
         }
         let m = bytes(&self.mint_data, 278)?;
         let v = bytes(&self.vault_data, 178)?;
-        if m[45] != 1
-            || m[82..165].iter().any(|b| *b != 0)
-            || m[165] != 1
-            || u16_at(&m, 166) != 1
-            || u16_at(&m, 168) != 108
-            || u16_at(&m, 258) > 10000
-            || u16_at(&m, 276) > 10000
-            || u64_at(&m, 242) > u64_at(&m, 260)
-            || v[165] != 2
-            || u16_at(&v, 166) != 2
-            || u16_at(&v, 168) != 8
+        if TransferFee::from_mint(&m, self.bank_epoch).is_err()
+            || TransferFeeAccount::unpack(&v).is_err()
             || u64_at(&v, 64) != s.raw_vault0
         {
             return Err(err("METEORA_TOKEN2022_TLV"));
@@ -52,43 +44,19 @@ impl Token2022State {
         Ok(())
     }
     pub fn fee(&self, amount: u64) -> Result<u64> {
-        let m = bytes(&self.mint_data, 278)?;
-        let o = if self.bank_epoch >= u64_at(&m, 260) {
-            260
-        } else {
-            242
-        };
-        let bps = u16_at(&m, o + 16);
-        let cap = u64_at(&m, o + 8);
-        u64::try_from(
-            (u128::from(amount) * u128::from(bps))
-                .div_ceil(10000)
-                .min(u128::from(cap)),
-        )
-        .map_err(|_| err("METEORA_TOKEN2022_FEE"))
+        Ok(self.transfer_fee()?.fee(amount))
     }
     pub fn gross(&self, net: u64) -> Result<u64> {
-        let m = bytes(&self.mint_data, 278)?;
-        let o = if self.bank_epoch >= u64_at(&m, 260) {
-            260
-        } else {
-            242
-        };
-        let bps = u16_at(&m, o + 16);
-        let cap = u64_at(&m, o + 8);
-        let fee = if bps == 10000 {
-            u128::from(cap)
-        } else {
-            (u128::from(net) * u128::from(bps))
-                .div_ceil(10000 - u128::from(bps))
-                .min(u128::from(cap))
-        };
-        let gross =
-            u64::try_from(u128::from(net) + fee).map_err(|_| err("METEORA_TOKEN2022_FEE"))?;
-        if gross.checked_sub(self.fee(gross)?) != Some(net) {
-            return Err(err("METEORA_TOKEN2022_FEE_INVERSE"));
-        }
-        Ok(gross)
+        self.transfer_fee()?
+            .gross(net)
+            .map_err(|error| match error.0.as_str() {
+                "TOKEN2022_FEE_INVERSE" => err("METEORA_TOKEN2022_FEE_INVERSE"),
+                _ => err("METEORA_TOKEN2022_FEE"),
+            })
+    }
+    fn transfer_fee(&self) -> Result<TransferFee> {
+        TransferFee::from_mint(&bytes(&self.mint_data, 278)?, self.bank_epoch)
+            .map_err(|_| err("METEORA_TOKEN2022_TLV"))
     }
     pub fn to_proto(&self) -> Result<wire::MeteoraToken2022State> {
         Ok(wire::MeteoraToken2022State {

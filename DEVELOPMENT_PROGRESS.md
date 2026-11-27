@@ -327,6 +327,12 @@
 - 为每个版本提供独立状态、wire、解析、数学、SBF/CPI 和账户余额差验证。
 - Yellowstone、版本化 bank、fork 和补洞继续作为独立门禁。
 
+#### 本轮迭代目标（I4-T2022，2026-11-27）
+
+- 将 Token-2022 `TransferFeeConfig` 的 epoch 选择、百分比向上取整、最大手续费封顶和 ExactOut 逆向手续费计算收敛为单一实现。
+- 将 Token-2022 账户的 `TransferFeeAmount` 与可选 `ImmutableOwner` TLV 校验复用到报价域模型和 Solana 交易准备，未知、重复、截断和填充扩展拒绝。
+- 通过既有固定 bank 回放、domain 边界测试和执行准备回归后提交。由于仓库当前缺失历史 `meteora-token2022.json` 与 `evm/baseline.json` fixture，本轮保留定向测试通过和全量测试阻塞证据，不将 I4 标记为完成。
+
 ### I5 V4/Infinity
 
 - 完成 hook 自定义会计、覆盖费和 native currency 结算。

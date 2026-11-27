@@ -85,6 +85,7 @@ pub mod raydium;
 pub mod raydium_clmm;
 pub mod singleton;
 mod singleton_pool;
+pub mod spl_token_2022;
 pub mod stable;
 pub mod v2_swap;
 pub mod v3;
