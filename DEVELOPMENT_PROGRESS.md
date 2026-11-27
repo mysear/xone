@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R04.2 Docker 检查点网络分区（2026-11-28）|§9.23、§18.7、§23.14、§28.26|LOCAL_SCOPE_VERIFIED|Go owner、两个报价容器和实际 PostgreSQL/Kafka 联验。断开 owner 链路后，冷副本通过 peer 在 978 毫秒恢复合格范围，980 毫秒返回 INDICATIVE。断开两条检查点链路时冷副本返回 503。恢复 owner 链路后，227 毫秒取得合格范围，229 毫秒返回相同快照报价。Kafka 网络持续连通|单宿主机隔离网络与受控 EVM RPC 已验收。生产独立故障域与长停机演练继续验收。 [复验工具](integration/tools/acceptance/r04_network_partition.py)|
 |I7-R04.2 peer 来源选择与拒绝（2026-11-28）|§9.23、§18.7、§23.14|LOCAL_SCOPE_VERIFIED|并发请求配置的 peer，串行核验 Kafka 提交并激活已对齐的范围。实际 Kafka 上四项恢复集成通过，覆盖首个 peer 挂起、过期、错链、owner 离线和撤销。正常 Go owner 和双报价进程复验在 347 毫秒恢复合格范围、350 毫秒返回 INDICATIVE，正常撤销及全部来源离线时返回 503|本机 PostgreSQL 和 Kafka 联验已完成。生产独立故障域、长期容量、真实同源流仍待验收。 [Kafka 集成](dex-router/crates/quote-api/tests/kafka_retention.rs)|
 |I7-R04.2 Cancun 按请求读取仿真状态（2026-11-28）|§9.25、§14、§23.14|LOCAL_SCOPE_VERIFIED|启用 `simulation.evm_cancun_verified_rpc_state` 后，按报价快照读取规范 H 和 H+1 区块头，验证模板声明的账户和存储证明，以链上余额、nonce 和存储值构建本次隔离 REVM 输入。正常 Go owner、PostgreSQL 和 Kafka 联验使用高度 1 的旧模板，在高度 2 恢复后 1,141 毫秒取得 VERIFIED，消耗 gas 209,487，到账 982,981。缺少 PoolManager 存储的模板返回 HTTP 422，9 项配置测试通过|目前支持 Cancun 单池 ERC-20，要求已有 H+1 及配置的账户、代码和存储位置。生产故障域、自动发现完整读取集合、其他执行范围待验收。 [复验工具](integration/tools/acceptance/r04_verified_recovery_process.py)|
 |I7-R04.2 VERIFIED 缓存与构建的区块复查（2026-11-28）|§10、§14、§15|LOCAL_SCOPE_VERIFIED|按报价证据复查源块和执行块，并重新计算区块头哈希。Geth 24 组 HTTP 回放覆盖缓存命中、源块和执行块改变后拒绝报价，以及执行块改变后拒绝构建|动态读取的证据继续按同一路径复查。 [复验工具](dex-router/crates/quote-api/examples/singleton_replay.rs)|
@@ -490,7 +491,7 @@
 
 #### 网络分区与历史容量迭代目标（I7 R04.2–R04.3，2026-11-28）
 
-- 在单宿主机 Docker 上分别断开 owner 和 peer 的检查点网络，保留 Kafka 通路。冷副本应先通过认证 peer 恢复同一快照，全部来源隔离时返回 HTTP 503，恢复 owner 链路后通过 owner 和 Kafka 取得原快照。记录首个合格范围、首个报价和镜像 ID。
+- 单宿主机 Docker 检查点分区验收已通过。构建 Linux release 镜像时补齐了 Kafka 客户端的 CMake 依赖。验收报告保留镜像 ID、恢复来源对应的首个合格范围和报价时间，以及两条链路均断开时的 503。
 - 按实际停机时长继续运行 1 天和 30 天演练。1 天演练最早于 2026-11-29 02:57:32（UTC+8）恢复，30 天演练最早于 2026-12-28 03:15:22（UTC+8）恢复。分别核对 Kafka 低水位、恢复游标、历史缺口和报价输出。
 - Go 历史队列已通过 2,592,000 块缺口的本地容量测试。8 轮持久写入共覆盖 256 块，达到字节上限后拒绝第 257 块并保留重试原因。再次打开 Pebble 后历史进度、容量和重试原因一致，在线基线继续推进。历史队列与分支复核定向 race 测试通过。
 - Rust 历史队列改用受控 bank 构造当前快照，完整 11 项集成测试可直接运行。已覆盖单作业长缺口、字节配额、任务重新领取、RocksDB 重启、历史覆盖保留和来源身份撤销。真实同源 Yellowstone 流和历史 bank 状态完整性继续验收。

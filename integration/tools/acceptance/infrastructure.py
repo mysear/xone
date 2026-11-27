@@ -47,8 +47,9 @@ def command(args, **kwargs):
 
 
 class Infrastructure:
-    def __init__(self, topics=DEFAULT_TOPICS):
+    def __init__(self, topics=DEFAULT_TOPICS, kafka_network=None):
         self.topics = tuple(topics)
+        self.kafka_network = kafka_network
         self.kafka = None
         self.kafka_container = None
         self.log = None
@@ -111,15 +112,21 @@ class Infrastructure:
 
     def start_kafka_docker(self):
         self.kafka_container = f"{self.path.name}-kafka"
+        network = []
+        internal = "localhost"
+        if self.kafka_network:
+            network = ["--network", self.kafka_network, "--network-alias", "recovery-kafka"]
+            internal = "recovery-kafka"
         self.docker([
             "run", "--rm", "-d", "--name", self.kafka_container,
+            *network,
             "-p", f"127.0.0.1:{self.kafka_port}:9094",
             "-e", f"KAFKA_HEAP_OPTS={KAFKA_BROKER_HEAP}",
             "-e", "KAFKA_NODE_ID=1", "-e", "KAFKA_PROCESS_ROLES=broker,controller",
             "-e", "KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093",
             "-e", "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT",
             "-e", "KAFKA_LISTENERS=CONTROLLER://:9093,INTERNAL://:9092,EXTERNAL://:9094",
-            "-e", f"KAFKA_ADVERTISED_LISTENERS=INTERNAL://localhost:9092,EXTERNAL://127.0.0.1:{self.kafka_port}",
+            "-e", f"KAFKA_ADVERTISED_LISTENERS=INTERNAL://{internal}:9092,EXTERNAL://127.0.0.1:{self.kafka_port}",
             "-e", "KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER",
             "-e", "KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL",
             "-e", "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1",
@@ -155,19 +162,7 @@ class Infrastructure:
             env=dict(self.env, KAFKA_HEAP_OPTS=KAFKA_TOOL_HEAP),
         )
 
-    def start(self):
-        if all((PG / name).is_file() for name in ("initdb", "pg_ctl", "psql")):
-            command([PG / "initdb", "-D", self.path / "pg", "-U", "xone_test", "-A", "trust", "--no-locale", "-E", "UTF8"])
-            command([PG / "pg_ctl", "-D", self.path / "pg", "-l", self.path / "postgres.log", "-o", f"-h 127.0.0.1 -p {self.pgport} -k {self.path}", "-w", "start"])
-            self.pg_started = True
-            self.dsn = f"postgresql://xone_test@127.0.0.1:{self.pgport}/postgres?sslmode=disable"
-            self.dsnfile = self.path / "postgres-dsn"
-            self.dsnfile.write_text(self.dsn)
-            self.dsnfile.chmod(0o600)
-            command([PG / "psql", self.dsn, "-v", "ON_ERROR_STOP=1", "-f", ROOT / "integration/postgres/schema.sql"])
-        else:
-            self.start_postgres_docker()
-
+    def start_kafka_native(self):
         config = self.path / "kafka.properties"
         config.write_text(f"""process.roles=broker,controller
 node.id=1
@@ -188,13 +183,28 @@ transaction.state.log.min.isr=1
 group.initial.rebalance.delay.ms=0
 log.retention.hours=1
 """)
-        if (KAFKA / "bin/kafka-storage.sh").is_file():
-            cluster = command([KAFKA / "bin/kafka-storage.sh", "random-uuid"], env=self.env).strip()
-            command([KAFKA / "bin/kafka-storage.sh", "format", "-t", cluster, "-c", config], env=self.env)
-            self.log = open(self.path / "kafka.log", "w")
-            self.kafka = subprocess.Popen([str(KAFKA / "bin/kafka-server-start.sh"), str(config)], env=self.env, stdout=self.log, stderr=subprocess.STDOUT)
-            self.wait_port(self.kafka_port)
-            self.broker = f"127.0.0.1:{self.kafka_port}"
+        cluster = command([KAFKA / "bin/kafka-storage.sh", "random-uuid"], env=self.env).strip()
+        command([KAFKA / "bin/kafka-storage.sh", "format", "-t", cluster, "-c", config], env=self.env)
+        self.log = open(self.path / "kafka.log", "w")
+        self.kafka = subprocess.Popen([str(KAFKA / "bin/kafka-server-start.sh"), str(config)], env=self.env, stdout=self.log, stderr=subprocess.STDOUT)
+        self.wait_port(self.kafka_port)
+        self.broker = f"127.0.0.1:{self.kafka_port}"
+
+    def start(self):
+        if all((PG / name).is_file() for name in ("initdb", "pg_ctl", "psql")):
+            command([PG / "initdb", "-D", self.path / "pg", "-U", "xone_test", "-A", "trust", "--no-locale", "-E", "UTF8"])
+            command([PG / "pg_ctl", "-D", self.path / "pg", "-l", self.path / "postgres.log", "-o", f"-h 127.0.0.1 -p {self.pgport} -k {self.path}", "-w", "start"])
+            self.pg_started = True
+            self.dsn = f"postgresql://xone_test@127.0.0.1:{self.pgport}/postgres?sslmode=disable"
+            self.dsnfile = self.path / "postgres-dsn"
+            self.dsnfile.write_text(self.dsn)
+            self.dsnfile.chmod(0o600)
+            command([PG / "psql", self.dsn, "-v", "ON_ERROR_STOP=1", "-f", ROOT / "integration/postgres/schema.sql"])
+        else:
+            self.start_postgres_docker()
+
+        if not self.kafka_network and (KAFKA / "bin/kafka-storage.sh").is_file():
+            self.start_kafka_native()
         else:
             self.start_kafka_docker()
         for topic in self.topics:
