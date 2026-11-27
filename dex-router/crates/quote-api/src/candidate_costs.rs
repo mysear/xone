@@ -17,7 +17,7 @@ use std::{
 use xone_config::ConfigSnapshot;
 use xone_domain::{err, Amount, Result};
 use xone_execution_plan::{exact_out::ExactOutPlan, Context, Plan};
-use xone_optimizer::cost_scoring::CostRanking;
+use xone_optimizer::cost_scoring::{fee_adjusted_objective, CostRanking};
 use xone_state_replica::QuoteView;
 
 pub(crate) struct Model {
@@ -244,16 +244,13 @@ pub(crate) fn disclose(
         .ok_or_else(bad)?;
     let exact_out = quote["kind"] == "EXACT_OUT";
     let cost = audited_cost(execution, binding, context, input, output, exact_out)?;
+    let economics = &execution["costs"]["transactionEconomics"];
     if ranking["priceBookHash"].is_string()
-        && ranking["priceBookHash"] != execution["costs"]["transactionEconomics"]["priceBookHash"]
+        && (ranking["priceBookHash"] != economics["priceBookHash"]
+            || ranking["publicationRevision"].as_u64()
+                != Some(economics["publicationRevision"].as_u64().unwrap_or(0)))
     {
         return Err(bad());
-    }
-    if ranking["costAdjustmentApplied"] == true {
-        let cost = cost.ok_or_else(bad)?.to_string();
-        if ranking["optimizer"]["selected_cost_token_units"].as_str() != Some(cost.as_str()) {
-            return Err(bad());
-        }
     }
     let original = quote["costs"].clone();
     let mut costs = execution["costs"].clone();
@@ -287,6 +284,26 @@ pub(crate) fn disclose(
     costs["selectedPlanHash"] = plan_hash.into();
     costs["completeQuoteCosts"] = false.into();
     costs["quoteRankingApplied"] = ranking["costAdjustmentApplied"].clone();
+    if ranking["costAdjustmentApplied"] == true {
+        let cost = cost.ok_or_else(bad)?;
+        let (amount, token) = if exact_out {
+            (input, &context.sell_token)
+        } else {
+            (output, &context.buy_token)
+        };
+        let objective = fee_adjusted_objective(amount, &cost, exact_out).to_string();
+        if ranking["optimizer"]["selected_cost_token_units"] != cost.to_string()
+            || ranking["optimizer"]["signed_objective_token_units"] != objective
+        {
+            return Err(bad());
+        }
+        costs["rankingObjective"] = json!({
+            "token": token,
+            "signedAmountAtoms": objective,
+            "feeAtoms": cost,
+            "chainFeeCompleteness": costs["chainFeeCompleteness"],
+        });
+    }
     costs["tokenValuationStatus"] = if costs["transactionEconomics"]["buyTokenFee"].is_string()
         || costs["transactionEconomics"]["sellTokenFee"].is_string()
     {
@@ -458,9 +475,11 @@ mod tests {
         c["netSellAmountEstimate"] = Value::Null;
         c["deductedFromQuoteOutput"] = false.into();
         c["feeBreakdown"] = json!([{"kind":"EVM_EXECUTION","amountNative":"3"}]);
+        let amount = if exact { "12" } else { "10" }.parse().unwrap();
+        let score = fee_adjusted_objective(&amount, &fee.parse().unwrap(), exact).to_string();
         let ranking = json!({"selectedPlanHash":"plan","selectedExecution":execution,
             "candidateExecutions":{"plan":execution},"costAdjustmentApplied":true,
-            "optimizer":{"selected_cost_token_units":fee}});
+            "optimizer":{"selected_cost_token_units":fee,"signed_objective_token_units":score}});
         let quote = json!({"kind":if exact {"EXACT_OUT"} else {"EXACT_IN"},"planHash":"plan",
             "quoteViewId":"view","snapshotRef":{"block":"source"},
             "costs":crate::cost_fallback::costs(&"7".parse().unwrap())});
@@ -504,6 +523,19 @@ mod tests {
                 assert_eq!(costs["sourceEvidence"]["quoteViewId"], "view");
                 assert_eq!(costs["sourceEvidence"]["snapshotRef"], quote["snapshotRef"]);
                 assert_eq!(costs["completeQuoteCosts"], false);
+                assert_eq!(
+                    costs["rankingObjective"]["token"],
+                    if exact { "sell" } else { "buy" }
+                );
+                assert_eq!(costs["rankingObjective"]["feeAtoms"], fee);
+                assert_eq!(
+                    costs["rankingObjective"]["signedAmountAtoms"],
+                    ranking["optimizer"]["signed_objective_token_units"]
+                );
+                assert_eq!(
+                    costs["rankingObjective"]["chainFeeCompleteness"],
+                    "LOCAL_EVM_ONLY"
+                );
                 assert_eq!(costs["sourceEvidence"]["productionVerified"], false);
                 assert_eq!(costs["ignoredConfiguredActivationCostBuyToken"], "7");
                 assert_eq!(costs["proposalActivationCostBuyToken"], "0");
@@ -585,12 +617,14 @@ mod tests {
             "output",
             "kind",
             "score",
+            "objective",
             "unknown-score",
             "unknown-fee",
             "total",
             "net",
             "deducted",
             "price-book",
+            "publication-revision",
         ] {
             let (context, mut ranking, mut quote) = disclosure_record(false, "4");
             match mode {
@@ -611,6 +645,7 @@ mod tests {
                 }
                 "kind" => ranking["selectedExecution"]["quoteKind"] = "EXACT_OUT".into(),
                 "score" => ranking["optimizer"]["selected_cost_token_units"] = "5".into(),
+                "objective" => ranking["optimizer"]["signed_objective_token_units"] = "7".into(),
                 "unknown-score" => ranking["optimizer"]["selected_cost_token_units"] = Value::Null,
                 "unknown-fee" => {
                     ranking["selectedExecution"]["costs"]["transactionEconomics"]["buyTokenFee"] =
@@ -621,6 +656,14 @@ mod tests {
                 }
                 "net" => ranking["selectedExecution"]["costs"]["netBuyAmountEstimate"] = "6".into(),
                 "price-book" => ranking["priceBookHash"] = "other-book".into(),
+                "publication-revision" => {
+                    ranking["priceBookHash"] = "book".into();
+                    ranking["publicationRevision"] = 8.into();
+                    let economics =
+                        &mut ranking["selectedExecution"]["costs"]["transactionEconomics"];
+                    economics["priceBookHash"] = "book".into();
+                    economics["publicationRevision"] = 7.into();
+                }
                 _ => ranking["selectedExecution"]["costs"]["deductedFromQuoteOutput"] = true.into(),
             }
             if mode != "map" {

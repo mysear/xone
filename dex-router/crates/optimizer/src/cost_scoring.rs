@@ -30,6 +30,17 @@ pub struct CostOptimization<T> {
     pub ranking: CostRanking,
 }
 
+/// Score a settled amount against the fee valued in that same token's atoms.
+pub fn fee_adjusted_objective(amount: &Amount, cost: &Amount, exact_out: bool) -> BigInt {
+    let amount = BigInt::from(amount.0.clone());
+    let cost = BigInt::from(cost.0.clone());
+    if exact_out {
+        amount + cost
+    } else {
+        amount - cost
+    }
+}
+
 pub(crate) trait Candidate: Clone {
     const OBJECTIVE: &'static str;
     const FALLBACK_OBJECTIVE: &'static str;
@@ -41,7 +52,7 @@ impl Candidate for Allocation {
     const OBJECTIVE: &'static str = "MAXIMUM_OUTPUT_MINUS_CANDIDATE_COST";
     const FALLBACK_OBJECTIVE: &'static str = "MAXIMUM_GROSS_BUY_AMOUNT";
     fn objective(&self, cost: &Amount) -> BigInt {
-        BigInt::from(self.gross_buy_amount.0.clone()) - BigInt::from(cost.0.clone())
+        fee_adjusted_objective(&self.gross_buy_amount, cost, false)
     }
     fn compare_score(a: &BigInt, b: &BigInt) -> Ordering {
         a.cmp(b)
@@ -54,7 +65,7 @@ impl Candidate for ExactOutAllocation {
     const OBJECTIVE: &'static str = "MINIMUM_INPUT_PLUS_CANDIDATE_COST";
     const FALLBACK_OBJECTIVE: &'static str = "MINIMUM_REQUIRED_SELL_AMOUNT";
     fn objective(&self, cost: &Amount) -> BigInt {
-        BigInt::from(self.required_input.0.clone()) + BigInt::from(cost.0.clone())
+        fee_adjusted_objective(&self.required_input, cost, true)
     }
     fn compare_score(a: &BigInt, b: &BigInt) -> Ordering {
         b.cmp(a)

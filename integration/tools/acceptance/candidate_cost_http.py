@@ -73,18 +73,26 @@ def run(binary, output, corpus, *, exact=False, mode='priced', limit=16, legacy=
                     if fee<2**256:
                         require(economics[side+'TokenFee']==str(fee),'Native conversion differs from independent integer arithmetic')
                         score=int(outcome['actual_input_consumed'])+fee if exact else int(outcome['actual_buy_amount'])-fee
-                        scored.append((score,h))
+                        scored.append((score,h,fee))
                 # ABI tail deadline must be the final quote deadline, never renewed.
                 calldata=execution['transaction']['data'];words=[calldata[10+i:10+i+64] for i in range(0,len(calldata)-10,64)]
                 require(int(words[4],16)==q['validity']['expiresAtMs']//1000,'Candidate/final deadline detached')
                 records.append(dict(id=output.name+'-'+h,plan_hash=h,fixture=json.loads(info_path.with_suffix('.state.json').read_bytes())['fixture'],execution=execution,sell_token=request['sellToken'],buy_token=request['buyToken'],recipient=request['recipient']))
             if applied:
                 chosen=(min if exact else max)(scored)[1]
-                require(chosen==q['planHash'] and optimizer['signed_objective_token_units']==str(next(v for v,h in scored if h==chosen)),'Normal API did not optimize measured candidate economics')
+                score, _, fee = next(row for row in scored if row[1] == chosen)
+                require(chosen==q['planHash'] and optimizer['signed_objective_token_units']==str(score),'Normal API did not optimize measured candidate economics')
+                require(costs['rankingObjective'] == {
+                    'token': request['sellToken' if exact else 'buyToken'],
+                    'signedAmountAtoms': str(score),
+                    'feeAtoms': str(fee),
+                    'chainFeeCompleteness': 'LOCAL_EVM_ONLY',
+                }, 'Published objective differs from independently valued settlement')
                 # Costly two-hop route has better raw amounts; priced costs prefer direct.
                 if mode=='priced':require(len(q['routes'][0]['edges'] if exact else q['routes'][0]['path']['edges'])==1,'Fees did not reverse raw route preference')
                 if mode=='underflow' and not exact:require(int(optimizer['signed_objective_token_units'])<0,'Negative objectives were clamped')
             else:
+                require('rankingObjective' not in costs, 'Gross fallback disclosed an adjusted objective')
                 require(len(q['routes'][0]['edges'] if exact else q['routes'][0]['path']['edges'])==2,'Uniform raw fallback dropped an unpriced candidate')
             status,cached=call(endpoint,request);require(status==200 and cached==q,'Cached candidate quote changed')
             status,evidence=call('/internal/quotes/'+q['quoteId']+'/evidence');require(status==200 and evidence['quote']==q and evidence['execution_plan']['plan_hash']==q['planHash'],'Selected quote cache/evidence binding lost')
