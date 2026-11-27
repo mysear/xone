@@ -5,12 +5,15 @@ use tokio::io::AsyncReadExt;
 use xone_domain::singleton::ZERO_ADDRESS;
 use xone_simulation::evm_fixture::StorageEntry;
 
-pub(super) async fn serve(args: impl Iterator<Item = OsString>) {
-    let [geth, case, directory]: [OsString; 3] = args
-        .collect::<Vec<_>>()
-        .try_into()
-        .expect("Geth, case, directory");
-    let directory = PathBuf::from(directory);
+pub(super) async fn serve(mut args: impl Iterator<Item = OsString>) {
+    let geth = args.next().expect("Geth executable");
+    let case = args.next().expect("replay case");
+    let directory = PathBuf::from(args.next().expect("fixture directory"));
+    let stalled_simulation_marker = args.next().map(|flag| {
+        assert_eq!(flag, "--stall-first-simulation");
+        directory.join("stalled-simulation")
+    });
+    assert!(args.next().is_none(), "unexpected fixture arguments");
     let case: Value = serde_json::from_slice(&std::fs::read(case).unwrap()).unwrap();
     let mut bundle: LocalSimulationBundle = serde_json::from_value(case["bundle"].clone()).unwrap();
     let mut reference: SnapshotRef = serde_json::from_value(case["snapshot"].clone()).unwrap();
@@ -56,7 +59,7 @@ pub(super) async fn serve(args: impl Iterator<Item = OsString>) {
     let staged = manifest_path.with_extension("tmp");
     std::fs::write(&staged, serde_json::to_vec(&manifest).unwrap()).unwrap();
     std::fs::rename(staged, manifest_path).unwrap();
-    axum::serve(listener, mined.recovery_router())
+    axum::serve(listener, mined.recovery_router(stalled_simulation_marker))
         .with_graceful_shutdown(async {
             let _ = tokio::io::stdin().read_u8().await;
         })

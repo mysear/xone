@@ -5,6 +5,7 @@ use super::{
 use std::{
     collections::BTreeMap,
     ffi::OsStr,
+    path::PathBuf,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, Mutex,
@@ -503,14 +504,17 @@ impl Mined {
     }
 
     pub(super) fn router(&self) -> axum::Router {
-        self.proxy(false)
+        self.proxy(false, None)
     }
 
-    pub(super) fn recovery_router(&self) -> axum::Router {
-        self.proxy(true)
+    pub(super) fn recovery_router(
+        &self,
+        stalled_simulation_marker: Option<PathBuf>,
+    ) -> axum::Router {
+        self.proxy(true, stalled_simulation_marker)
     }
 
-    fn proxy(&self, pin_safe: bool) -> axum::Router {
+    fn proxy(&self, pin_safe: bool, stalled_simulation_marker: Option<PathBuf>) -> axum::Router {
         let node = self.node.clone();
         let fault = self.fault.clone();
         let execution_reads = self.execution_reads.clone();
@@ -527,12 +531,22 @@ impl Mined {
                 let alternate_prefix = alternate_prefix.clone();
                 let source_parent = source_parent.clone();
                 let execution_hash = execution_hash.clone();
+                let stalled_simulation_marker = stalled_simulation_marker.clone();
                 let (node, fault, execution_reads) = (
                     node.clone(),
                     *fault.lock().unwrap(),
                     execution_reads.clone(),
                 );
                 async move {
+                    if let Some(marker) =
+                        stalled_simulation_marker.filter(|_| request["method"] == "eth_simulateV1")
+                    {
+                        match std::fs::OpenOptions::new().write(true).create_new(true).open(marker) {
+                            Ok(_) => tokio::time::sleep(Duration::from_secs(20)).await,
+                            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                            Err(error) => panic!("could not record stalled native simulation: {error}"),
+                        }
+                    }
                     if pin_safe
                         && request["method"] == "eth_getBlockByNumber"
                         && request["params"][0] == "safe"

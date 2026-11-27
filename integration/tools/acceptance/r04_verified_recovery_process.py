@@ -94,17 +94,21 @@ def make_config(name, directory, token, listen, owner, infra, fixture):
     return save_config(directory / 'config', config)
 
 
-def run(replay, geth, case):
+def run(replay, geth, case, check_timeout):
     output = ROOT / 'integration/artifacts/local'
     output.mkdir(parents=True, exist_ok=True)
-    report_path = output / 'r04-verified-recovery-normal-process.json'
+    scenario = 'timeout' if check_timeout else 'normal-process'
+    report_path = output / f'r04-verified-recovery-{scenario}.json'
     sources, binaries = source_hash(), binary_fingerprint()
     with ExitStack() as stack:
         infra = stack.enter_context(Infrastructure(topics=(TOPIC,)))
         directory = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='xone-r04-verified-')))
         fixture_log = stack.enter_context((output / 'r04-verified-geth.log').open('wb'))
+        command = [str(replay), '--serve-recovery-fixture', str(geth), str(case), str(directory)]
+        if check_timeout:
+            command.append('--stall-first-simulation')
         server = subprocess.Popen(
-            [str(replay), '--serve-recovery-fixture', str(geth), str(case), str(directory)],
+            command,
             stdin=subprocess.PIPE, stdout=fixture_log, stderr=subprocess.STDOUT,
         )
 
@@ -153,6 +157,20 @@ def run(replay, geth, case):
         status, fast = http(quote_url, token, fast_request)
         fast_ms = int((time.monotonic() - started) * 1000)
         require(status == 200 and fast['verification']['level'] == 'INDICATIVE', (status, fast))
+        chain_status_url = router + '/internal/chains/' + chain + '/status'
+        timeout_probe = None
+        if check_timeout:
+            attempt = time.monotonic()
+            status, refused = http(quote_url, token, fixture['quote'], timeout=18)
+            elapsed_ms = int((time.monotonic() - attempt) * 1000)
+            require(status == 504 and refused['error'] == 'BUDGET_EXHAUSTED', (status, refused))
+            require((directory / 'stalled-simulation').is_file(), 'native simulation did not start')
+            status, observed = http(chain_status_url, token)
+            require(status == 200, observed)
+            timing = observed['recovery']
+            require(timing['first_verified_quote_ms'] is None
+                    and timing['first_verified_quote_generation'] is None, timing)
+            timeout_probe = {'elapsed_ms': elapsed_ms, 'error': refused['error'], 'recovery': timing}
         status, verified = http(quote_url, token, fixture['quote'], timeout=18)
         verified_ms = int((time.monotonic() - started) * 1000)
         require(status == 200 and verified['verification']['level'] == 'VERIFIED'
@@ -161,7 +179,7 @@ def run(replay, geth, case):
                 and verified['snapshotRef']['block'] == fixture['reference']['block'], 'snapshot changed')
         require(verified['grossBuyAmount'] == fast['grossBuyAmount'] == fixture['expectedOutput'],
                 'independent quote output mismatch')
-        status, observed = http(router + '/internal/chains/' + chain + '/status', token)
+        status, observed = http(chain_status_url, token)
         require(status == 200, observed)
         timing = observed['recovery']
         require(timing['first_verified_quote_ms'] >= timing['first_successful_quote_ms']
@@ -175,7 +193,9 @@ def run(replay, geth, case):
                 and native['settlement']['actualBuyAmount'] == fixture['expectedOutput'], native)
         require(source_hash() == sources and binary_fingerprint() == binaries, 'inputs changed during run')
         report = {
-            'passed': True, 'state': 'LOCAL_VERIFIED_RECOVERY_PROCESS_SCOPE_VERIFIED',
+            'passed': True,
+            'state': ('LOCAL_VERIFIED_RECOVERY_TIMEOUT_SCOPE_VERIFIED' if check_timeout
+                      else 'LOCAL_VERIFIED_RECOVERY_PROCESS_SCOPE_VERIFIED'),
             'authority': 'controlled Cancun Geth with PostgreSQL, Kafka and normal service binaries',
             'source_tree_sha256': sources, 'binary_sha256': binaries,
             'fixture_sha256': hashlib.sha256(case.read_bytes()).hexdigest(),
@@ -184,6 +204,8 @@ def run(replay, geth, case):
             'first_verified_quote_ms': verified_ms, 'router_startup_timing': timing,
             'verified_amount': verified['grossBuyAmount'], 'native_evidence': native,
         }
+        if timeout_probe is not None:
+            report['timeout_probe'] = timeout_probe
         write_result(report_path, report)
         print(json.dumps(report))
 
@@ -192,5 +214,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('replay', 'geth', 'case'):
         parser.add_argument(name, type=lambda path: Path(path).resolve(strict=True))
+    parser.add_argument('--check-timeout', action='store_true',
+                        help='stall the first native simulation and verify recovery on retry')
     args = parser.parse_args()
-    run(args.replay, args.geth, args.case)
+    run(args.replay, args.geth, args.case, args.check_timeout)
