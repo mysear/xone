@@ -4,7 +4,7 @@ use super::{
 };
 use alloy_primitives::{Bytes, B256, U256};
 use alloy_trie::{proof::verify_proof, Nibbles, TrieAccount};
-use xone_simulation::evm_fixture::{FixtureAccount, FixtureState};
+use xone_simulation::evm_fixture::{FixtureState, StorageEntry, BEACON_ROOTS_ADDRESS};
 
 fn mismatch() -> xone_domain::Error {
     err("EVM_NODE_RECEIPT_SOURCE_STATE_MISMATCH")
@@ -27,44 +27,33 @@ fn nodes(value: &Value) -> Result<Vec<Bytes>> {
         .collect()
 }
 
-fn verify_account(root: B256, fixture: &FixtureAccount, proof: &Value) -> Result<()> {
+fn verify_account(root: B256, owner: &str, exists: bool, proof: &Value) -> Result<TrieAccount> {
+    if proof["address"] != owner {
+        return Err(mismatch());
+    }
     let address = receipt_bytes::<20>(&proof["address"])?;
-    if proof["address"] != fixture.address
-        || quantity_u64(&proof["nonce"])? != fixture.nonce
-        || quantity(&proof["balance"])? != fixture.balance
-    {
-        return Err(mismatch());
-    }
-    let account_proof = nodes(&proof["accountProof"])?;
-    let storage_root = B256::from(receipt_bytes::<32>(&proof["storageHash"])?);
-    let storage = proof["storageProof"].as_array().ok_or_else(mismatch)?;
-    if storage.len() != fixture.storage.len() {
-        return Err(mismatch());
-    }
-    let expected = if fixture.exists {
-        let code = fixture.code.strip_prefix("0x").ok_or_else(mismatch)?;
-        let code_hash: B256 = keccak256(&hex::decode(code).map_err(|_| mismatch())?).into();
-        if receipt_bytes::<32>(&proof["codeHash"])? != code_hash.0 {
-            return Err(mismatch());
-        }
-        let balance = fixture.balance.to_be_bytes()?;
-        Some(alloy_rlp::encode(TrieAccount {
-            nonce: fixture.nonce,
-            balance: U256::from_be_bytes(balance),
-            storage_root,
-            code_hash,
-        }))
-    } else {
-        None
+    let account = TrieAccount {
+        nonce: quantity_u64(&proof["nonce"])?,
+        balance: U256::from_be_bytes(quantity(&proof["balance"])?.to_be_bytes()?),
+        storage_root: receipt_bytes::<32>(&proof["storageHash"])?.into(),
+        code_hash: receipt_bytes::<32>(&proof["codeHash"])?.into(),
     };
     verify_proof(
         root,
         Nibbles::unpack(keccak256(&address)),
-        expected,
-        &account_proof,
+        exists.then(|| alloy_rlp::encode(account)),
+        &nodes(&proof["accountProof"])?,
     )
     .map_err(|_| mismatch())?;
-    for (entry, proof) in fixture.storage.iter().zip(storage) {
+    Ok(account)
+}
+
+fn verify_storage(storage_root: B256, entries: &[StorageEntry], proof: &Value) -> Result<()> {
+    let storage = proof["storageProof"].as_array().ok_or_else(mismatch)?;
+    if storage.len() != entries.len() {
+        return Err(mismatch());
+    }
+    for (entry, proof) in entries.iter().zip(storage) {
         let slot = receipt_bytes::<32>(&json!(entry.slot))?;
         let value = receipt_bytes::<32>(&json!(entry.value))?;
         if receipt_bytes::<32>(&proof["key"])? != slot
@@ -82,6 +71,63 @@ fn verify_account(root: B256, fixture: &FixtureAccount, proof: &Value) -> Result
         .map_err(|_| mismatch())?;
     }
     Ok(())
+}
+
+pub(super) async fn verify_beacon_storage(
+    api: &Api,
+    chain: &str,
+    block: &Value,
+    fixture: &FixtureState,
+    beacon_root: &str,
+) -> Result<()> {
+    let mismatch = || err("EVM_NODE_RECEIPT_BEACON_STATE_MISMATCH");
+    let env = &fixture.execution_environment;
+    let account = fixture
+        .accounts
+        .iter()
+        .find(|row| row.address == BEACON_ROOTS_ADDRESS)
+        .ok_or_else(mismatch)?;
+    if account.code == "0x" {
+        return Ok(());
+    }
+    let [timestamp_slot, root_slot] = env
+        .beacon_root_slots()
+        .map_err(|_| mismatch())?
+        .ok_or_else(mismatch)?;
+    let entries = [
+        StorageEntry {
+            slot: format!("0x{timestamp_slot:064x}"),
+            value: format!("0x{:064x}", env.timestamp),
+        },
+        StorageEntry {
+            slot: format!("0x{root_slot:064x}"),
+            value: beacon_root.into(),
+        },
+    ];
+    let anchor = json!({"blockHash":block["hash"],"requireCanonical":true});
+    let proof = rpc(
+        api,
+        chain,
+        "eth_getProof",
+        json!([
+            BEACON_ROOTS_ADDRESS,
+            [&entries[0].slot, &entries[1].slot],
+            anchor
+        ]),
+    )
+    .await?;
+    let state_root = receipt_bytes::<32>(&block["stateRoot"])?.into();
+    let bad = |_| mismatch();
+    let proved = verify_account(state_root, BEACON_ROOTS_ADDRESS, true, &proof).map_err(bad)?;
+    if proved.code_hash.0 != code_hash(&account.code)? {
+        return Err(mismatch());
+    }
+    verify_storage(proved.storage_root, &entries, &proof).map_err(bad)
+}
+
+fn code_hash(value: &str) -> Result<[u8; 32]> {
+    let code = value.strip_prefix("0x").ok_or_else(mismatch)?;
+    Ok(keccak256(&hex::decode(code).map_err(|_| mismatch())?))
 }
 
 pub(super) async fn verify(api: &Api, chain: &str, fixture: &FixtureState) -> Result<Value> {
@@ -113,7 +159,14 @@ pub(super) async fn verify(api: &Api, chain: &str, fixture: &FixtureState) -> Re
             json!([account.address, slots, block]),
         )
         .await?;
-        verify_account(root, account, &proof)?;
+        let proved = verify_account(root, &account.address, account.exists, &proof)?;
+        if proved.nonce != account.nonce
+            || proved.balance != U256::from_be_bytes(account.balance.to_be_bytes()?)
+            || (account.exists && proved.code_hash.0 != code_hash(&account.code)?)
+        {
+            return Err(mismatch());
+        }
+        verify_storage(proved.storage_root, &account.storage, &proof)?;
     }
     Ok(source["stateRoot"].clone())
 }

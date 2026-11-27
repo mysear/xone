@@ -59,6 +59,7 @@ pub(super) enum Fault {
     IgnoreTraceIndex,
     BeaconRoot,
     BeaconStorage,
+    BeaconStorageProof,
     WithdrawalsList,
     WithdrawalsAmount,
     WithdrawalsRoot,
@@ -72,6 +73,8 @@ pub(super) struct Mined {
     pub(super) receipts_root: String,
     pub(super) transactions_root: String,
     pub(super) source_state_root: String,
+    pub(super) execution_state_root: String,
+    execution_hash: String,
     source_parent: String,
     pub(super) withdrawals_root: Option<String>,
     payer: String,
@@ -445,6 +448,8 @@ impl Node {
             receipts_root: field(&execution, "receiptsRoot"),
             transactions_root: field(&execution, "transactionsRoot"),
             source_state_root: field(&source, "stateRoot"),
+            execution_state_root: field(&execution, "stateRoot"),
+            execution_hash: env.block_hash.clone(),
             source_parent: field(&source, "parentHash"),
             withdrawals_root,
             payer: field(&case["context"], "caller"),
@@ -491,12 +496,14 @@ impl Mined {
         let index = self.transaction_index as usize;
         let alternate_prefix = self.alternate_prefix.clone();
         let source_parent = self.source_parent.clone();
+        let execution_hash = self.execution_hash.clone();
         axum::Router::new().route(
             "/",
             axum::routing::post(move |axum::Json(mut request): axum::Json<Value>| {
                 let payer = payer.clone();
                 let alternate_prefix = alternate_prefix.clone();
                 let source_parent = source_parent.clone();
+                let execution_hash = execution_hash.clone();
                 let (node, fault, execution_reads) = (
                     node.clone(),
                     *fault.lock().unwrap(),
@@ -624,8 +631,17 @@ impl Mined {
                             result["parentBeaconBlockRoot"] =
                                 format!("0x{}", "01".repeat(32)).into();
                         }
-                        (Some(Fault::BeaconStorage), "eth_getStorageAt") => {
-                            *result = format!("0x{}", "02".repeat(32)).into();
+                        (Some(Fault::BeaconStorage), "eth_getProof")
+                            if request["params"][2]["blockHash"] == execution_hash =>
+                        {
+                            result["storageProof"][1]["value"] = "0x1".into();
+                        }
+                        (Some(Fault::BeaconStorageProof), "eth_getProof")
+                            if request["params"][2]["blockHash"] == execution_hash =>
+                        {
+                            let proof = result["storageProof"][1]["proof"].as_array_mut().unwrap();
+                            assert!(!proof.is_empty());
+                            proof.clear();
                         }
                         (Some(Fault::WithdrawalsList), "eth_getBlockByNumber")
                             if request["params"][0] == EXECUTION_HEIGHT =>

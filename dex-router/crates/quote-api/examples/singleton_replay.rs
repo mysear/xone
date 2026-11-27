@@ -279,6 +279,10 @@ async fn assert_replay(
             mined.source_state_root
         );
         assert_eq!(
+            observed["nodeReceipt"]["executionStateRoot"],
+            mined.execution_state_root
+        );
+        assert_eq!(
             observed["nodeReceipt"]["transactionHash"],
             signed["transactionHash"]
         );
@@ -333,6 +337,7 @@ async fn assert_replay(
                 node::Fault::IgnoreTraceIndex,
                 node::Fault::BeaconRoot,
                 node::Fault::BeaconStorage,
+                node::Fault::BeaconStorageProof,
                 node::Fault::WithdrawalsList,
                 node::Fault::WithdrawalsAmount,
                 node::Fault::WithdrawalsRoot,
@@ -356,6 +361,9 @@ async fn assert_replay(
                     "EVM_NODE_RECEIPT_SOURCE_STATE_MISMATCH"
                 }
                 node::Fault::AncestorMissing => "EVM_NODE_RECEIPT_ANCESTOR_MISMATCH",
+                node::Fault::BeaconStorage | node::Fault::BeaconStorageProof => {
+                    "EVM_NODE_RECEIPT_BEACON_STATE_MISMATCH"
+                }
                 _ => "EVM_NODE_RECEIPT_MISMATCH",
             };
             assert_eq!(rejected["error"], expected);
