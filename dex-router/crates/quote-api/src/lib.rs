@@ -1451,6 +1451,8 @@ struct SimulationRequest {
     check_evm_receipt: bool,
     #[serde(default, rename = "checkEvmSimulation")]
     check_evm_simulation: bool,
+    #[serde(default, rename = "sharedSuffixCandidateHash")]
+    shared_suffix_candidate_hash: Option<String>,
 }
 async fn simulate_transaction(
     State(api): State<Api>,
@@ -1491,6 +1493,19 @@ async fn simulate_transaction(
             && (simulation_request.check_evm_receipt
                 || simulation_request.signed_evm_transaction.is_some()
                 || simulation_request.signed_op_transaction.is_some())
+        || simulation_request
+            .shared_suffix_candidate_hash
+            .as_ref()
+            .is_some_and(|candidate| {
+                candidate.len() != 64
+                    || !candidate
+                        .bytes()
+                        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+                    || simulation_request.check_evm_receipt
+                    || simulation_request.check_evm_simulation
+                    || simulation_request.signed_evm_transaction.is_some()
+                    || simulation_request.signed_op_transaction.is_some()
+            })
     {
         return Err(failure(err("INVALID_SIMULATION_REQUEST")));
     }
@@ -1532,7 +1547,20 @@ async fn simulate_transaction(
     let native_backend = simulation_request
         .check_evm_simulation
         .then(|| backend.clone());
-    let executed = if let Some(signed) = simulation_request.signed_evm_transaction {
+    let executed = if let Some(candidate) = simulation_request.shared_suffix_candidate_hash {
+        backend
+            .execute_shared_suffix(
+                api.config.clone(),
+                cached.clone(),
+                deadline,
+                candidate.clone(),
+            )
+            .await
+            .map(|mut response| {
+                response["sharedSuffixCandidateHash"] = candidate.into();
+                response
+            })
+    } else if let Some(signed) = simulation_request.signed_evm_transaction {
         backend
             .execute_signed_evm(api.config.clone(), cached.clone(), deadline, signed)
             .await
@@ -1631,7 +1659,13 @@ fn publish_simulation(
                 return Err(failure(err("EVM_PREPARATION_REPLACED")));
             }
         }
-        current.simulation_evidence = Some(response.clone());
+        if let Some(candidate) = response.get("sharedSuffixCandidateHash") {
+            if current.response["quality"]["sharedSuffix"]["candidateHash"] != *candidate {
+                return Err(failure(err("EXECUTION_SHARED_SUFFIX_HASH_MISMATCH")));
+            }
+        } else {
+            current.simulation_evidence = Some(response.clone());
+        }
     }
     if response["verification"]["success"] == true {
         api.metrics

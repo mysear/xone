@@ -363,6 +363,9 @@ pub(super) fn bind(
     seq: Option<&xone_simulation::evm_fixture::WrapSequence>,
 ) -> Result<Option<Commitment>> {
     let bad = || err("SIMULATION_WRAP_SOURCE");
+    if req.shared_suffix.is_some() && seq.is_none() {
+        return Ok(None);
+    }
     if req.singleton.is_some() && source.is_none() && seq.is_none() {
         return Ok(None);
     }

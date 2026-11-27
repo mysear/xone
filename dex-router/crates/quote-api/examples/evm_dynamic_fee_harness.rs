@@ -58,9 +58,14 @@ async fn main() {
         reference.adapter_set_hash = hash(&vec![xone_domain::v2_swap::ADAPTER]).unwrap();
     }
     let mut split_executor = None;
+    let mut shared_suffix_executor = None;
     let mut approval_replay = None;
     let mut wrap_replay = None;
-    if let Ok(path) = std::env::var("XONE_SPLIT_BANK") {
+    let shared = std::env::var("XONE_SHARED_SUFFIX_BANK").ok();
+    if let Some(path) = shared
+        .clone()
+        .or_else(|| std::env::var("XONE_SPLIT_BANK").ok())
+    {
         let report: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
         let mut binding = report["binding"].clone();
         let mut bank = &report["executionBank"];
@@ -117,7 +122,11 @@ async fn main() {
         let ex: xone_execution_plan::ordered_v2::SplitExecutor =
             serde_json::from_value(binding["executor"].clone()).unwrap();
         rpc.executor = ex.router.clone();
-        split_executor = Some(ex);
+        if shared.is_some() {
+            shared_suffix_executor = Some(ex);
+        } else {
+            split_executor = Some(ex);
+        }
         reference.block = serde_json::from_value(binding["block"].clone()).unwrap();
         pools = serde_json::from_value(binding["pools"].clone()).unwrap();
         reference.scope_hash = xone_domain::scope_hash(&pools).unwrap();
@@ -138,7 +147,7 @@ async fn main() {
             .unwrap()
             .parse()
             .unwrap();
-        buy_amount = binding["cases"][2]["output"]
+        buy_amount = binding["cases"][if shared.is_some() { 0 } else { 2 }]["output"]
             .as_str()
             .unwrap()
             .parse()
@@ -177,11 +186,12 @@ async fn main() {
         rpc_task = Some(task);
     }
     let max_fee = original_tx.gas_price.clone();
-    let use_split_bank = split_executor.is_some();
+    let use_split_bank = split_executor.is_some() || shared_suffix_executor.is_some();
     let mut bundle = LocalSimulationBundle {
         wrap_replay,
         approval_replay,
         split_executor,
+        shared_suffix_executor,
         schema_version: 1,
         op_attributes_calldata: None,
         executor: Some(rpc.executor.clone()),
@@ -234,6 +244,7 @@ async fn main() {
             wrap_replay: None,
             approval_replay: None,
             split_executor: None,
+            shared_suffix_executor: None,
             schema_version: 1,
             fixture: source.fixture,
             executor: Some(executor.clone()),
@@ -301,7 +312,11 @@ async fn main() {
     config.config.api.quote_timeout_ms = 15000;
     config.config.routing.quote_ttl_ms = 60000;
     config.config.routing.max_splits = 1;
-    if let Some(split) = &bundle.split_executor {
+    for split in bundle
+        .split_executor
+        .iter()
+        .chain(bundle.shared_suffix_executor.iter())
+    {
         config
             .config
             .simulation

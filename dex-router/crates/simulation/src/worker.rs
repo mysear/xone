@@ -52,6 +52,8 @@ pub struct LocalSimulationBundle {
     pub approval_replay: Option<LocalApprovalReplay>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub split_executor: Option<xone_execution_plan::ordered_v2::SplitExecutor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shared_suffix_executor: Option<xone_execution_plan::ordered_v2::SplitExecutor>,
     pub schema_version: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub op_attributes_calldata: Option<String>,

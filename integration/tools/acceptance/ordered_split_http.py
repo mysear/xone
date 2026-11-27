@@ -253,7 +253,61 @@ def audit_approval(rows, bank, mode, exact, quote, selected):
     require(selected is not None and quote['costs']['approvalNative'] == selected['costs']['approvalNative'], 'selected approval disclosure')
 
 
-if __name__ == '__main__':
+def shared_suffix_scenario(binary, bank, report, output):
+    output.mkdir(parents=True)
+    info_path = output / 'ready.json'
+    env = {key: value for key, value in os.environ.items() if not key.startswith('XONE_')}
+    env['XONE_SHARED_SUFFIX_BANK'] = str(bank)
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with (output / 'process.log').open('w') as log:
+        process = subprocess.Popen([binary, info_path], cwd=ROOT, env=env, stdout=log, stderr=log)
+        try:
+            start = time.monotonic()
+            while not info_path.is_file():
+                require(process.poll() is None and time.monotonic() - start < 30, 'shared suffix startup')
+                time.sleep(.05)
+            info = json.loads(info_path.read_bytes())
+
+            def post(path, body):
+                request = urllib.request.Request(info['api'] + path, data=json.dumps(body).encode(),
+                    headers={'Authorization': 'Bearer ' + info['token'], 'Content-Type': 'application/json'})
+                try:
+                    with opener.open(request, timeout=65) as response:
+                        return response.status, json.load(response)
+                except urllib.error.HTTPError as error:
+                    return error.code, json.load(error)
+
+            status, quote = post('/v1/quote', info['request'])
+            require(status == 200, str(quote))
+            audit_shared_suffix(quote, report['binding']['pools'])
+            candidate = quote['quality']['sharedSuffix']
+            path = f"/v1/quotes/{quote['quoteId']}/simulate"
+            status, replay = post(path, {'sharedSuffixCandidateHash': candidate['candidateHash']})
+            require(status == 200 and replay['verification']['success'], str(replay))
+            outcome = replay['outcome']
+            require(replay['planHash'] == quote['planHash']
+                    and replay['sharedSuffixCandidateHash'] == candidate['candidateHash']
+                    and replay['transaction']['to'] == report['binding']['executor']['target']
+                    and outcome['actual_buy_amount'] == candidate['candidate']['buyAmount']
+                    and outcome['actual_input_consumed'] == quote['sellAmount'], 'candidate replay mismatch')
+            require(replay['authority'] == 'PROVIDED_LOCAL_STATE' and not replay['verified']
+                    and replay['costs']['callerApproval']['status'] == 'SUFFICIENT',
+                    'candidate evidence scope or allowance')
+            status, invalid = post(path, {'sharedSuffixCandidateHash': '0' * 64})
+            require(status == 422 and invalid['error'] == 'EXECUTION_SHARED_SUFFIX_HASH_MISMATCH',
+                    str(invalid))
+            (output / 'quote.json').write_text(json.dumps(quote) + '\n')
+            (output / 'simulation.json').write_text(json.dumps(replay) + '\n')
+            (output / 'report.json').write_text(json.dumps(dict(passed=True, scenarios=2)) + '\n')
+        finally:
+            process.terminate()
+            process.wait(timeout=10)
+
+
+if __name__ == '__main__' and sys.argv[1:2] == ['--shared-suffix']:
+    binary, bank, output = map(lambda arg: Path(arg).resolve(), sys.argv[2:])
+    shared_suffix_scenario(binary, bank, json.loads(bank.read_bytes()), output)
+elif __name__ == '__main__':
     wrapping = sys.argv[1:2] == ['--wrap']
     binary, bank, output = map(lambda arg: Path(arg).resolve(), sys.argv[2:] if wrapping else sys.argv[1:])
     report = json.loads(bank.read_bytes())

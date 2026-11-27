@@ -33,8 +33,9 @@ use xone_simulation::{
     revm_backend::StateImage,
     worker::{
         executable_sha256, LocalSimulationBundle, SignedEvmTransaction, SingletonOrder,
-        WorkerOpUser, WorkerPreparation, WorkerRequest, WorkerResponse, WorkerSingleton,
-        WorkerSplit, MAX_WORKER_INPUT_BYTES, MAX_WORKER_OUTPUT_BYTES, WORKER_PROTOCOL,
+        WorkerOpUser, WorkerPreparation, WorkerRequest, WorkerResponse, WorkerSharedSuffix,
+        WorkerSingleton, WorkerSplit, MAX_WORKER_INPUT_BYTES, MAX_WORKER_OUTPUT_BYTES,
+        WORKER_PROTOCOL,
     },
     worker_op::OpReceiptCommitment,
 };
@@ -291,7 +292,9 @@ impl PreparedExecution {
             })
             .unwrap_or(&request.fixture.execution_environment)
             .clone();
-        let template_bound = if let Some(s) = &request.split {
+        let template_bound = if let Some(shared) = &request.shared_suffix {
+            Some(json!(shared.bound))
+        } else if let Some(s) = &request.split {
             Some(
                 if let (Some(wrap), Some(seq)) = (wrap_seq, &s.approval_sequence) {
                     json!(["ordered-wrap-approval-sequence/1", s.bound, wrap, seq])
@@ -319,24 +322,34 @@ impl PreparedExecution {
         } else {
             None
         };
-        let approval = match (&request.bound, &request.exact_out_bound, &request.split) {
-            (Some(b), None, None) => Some((
+        let approval = match (
+            &request.bound,
+            &request.exact_out_bound,
+            &request.split,
+            &request.shared_suffix,
+        ) {
+            (Some(b), None, None, None) => Some((
                 &b.plan.context,
                 &b.plan.allocation.sell_amount,
                 &b.transaction.to,
             )),
-            (None, Some(b), None) => Some((
+            (None, Some(b), None, None) => Some((
                 &b.plan.context,
                 &b.plan.allocation.required_input,
                 &b.transaction.to,
             )),
-            (None, None, Some(s)) => {
+            (None, None, Some(s), None) => {
                 let (ctx, input) = match &s.bound.plan {
                     SplitPlan::ExactIn(p) => (&p.context, &p.allocation.sell_amount),
                     SplitPlan::ExactOut(p) => (&p.context, &p.allocation.required_input),
                 };
                 Some((ctx, input, &s.bound.transaction.to))
             }
+            (None, None, None, Some(shared)) => Some((
+                &shared.bound.basis_plan.context,
+                &shared.bound.basis_plan.allocation.sell_amount,
+                &shared.bound.transaction.to,
+            )),
             _ => None,
         }
         .map(|(ctx, input, to)| crate::evm_approval::Requirement {
@@ -345,7 +358,16 @@ impl PreparedExecution {
             spender: to.clone(),
             input: input.clone(),
         });
-        let split_executor = request.split.as_ref().map(|s| s.expected_executor.clone());
+        let split_executor = request
+            .split
+            .as_ref()
+            .map(|s| s.expected_executor.clone())
+            .or_else(|| {
+                request
+                    .shared_suffix
+                    .as_ref()
+                    .map(|s| s.expected_executor.clone())
+            });
         let mut singleton_commitment = None;
         let (binding_hash, transaction, executor, quote_kind) = if let Some(singleton) =
             &request.singleton
@@ -354,6 +376,7 @@ impl PreparedExecution {
             if request.bound.is_some()
                 || request.exact_out_bound.is_some()
                 || request.split.is_some()
+                || request.shared_suffix.is_some()
                 || request.prepared.is_some()
                 || request.op_user.is_some()
                 || request.direct_wrap.is_some()
@@ -379,17 +402,22 @@ impl PreparedExecution {
                 "manager":bound.manager,"manager_code_sha256":bound.manager_code_sha256,"infinity":bound.infinity});
             (bound.binding_hash, bound.transaction, executor, kind)
         } else {
-            match (request.bound, request.exact_out_bound, request.split) {
-                (Some(b), None, None) => {
+            match (
+                request.bound,
+                request.exact_out_bound,
+                request.split,
+                request.shared_suffix,
+            ) {
+                (Some(b), None, None, None) => {
                     (b.binding_hash, b.transaction, json!(b.executor), "EXACT_IN")
                 }
-                (None, Some(b), None) => (
+                (None, Some(b), None, None) => (
                     b.binding_hash,
                     b.transaction,
                     json!(b.executor),
                     "EXACT_OUT",
                 ),
-                (None, None, Some(s)) if request.prepared.is_none() && op.is_none() => {
+                (None, None, Some(s), None) if request.prepared.is_none() && op.is_none() => {
                     let kind = match s.bound.plan {
                         SplitPlan::ExactIn(_) => "EXACT_IN",
                         SplitPlan::ExactOut(_) => "EXACT_OUT",
@@ -401,6 +429,12 @@ impl PreparedExecution {
                         kind,
                     )
                 }
+                (None, None, None, Some(shared)) if request.prepared.is_none() && op.is_none() => (
+                    shared.bound.binding_hash,
+                    shared.bound.transaction,
+                    json!(shared.expected_executor.router),
+                    "EXACT_IN",
+                ),
                 _ => return Err(Failure::new("SIMULATION_WORKER_BINDING", "prepare")),
             }
         };
@@ -540,6 +574,7 @@ impl LocalSimulation {
         if bundle.fixture.execution_environment.fork == "cancun" {
             if bundle.executor.is_some()
                 || bundle.split_executor.is_some()
+                || bundle.shared_suffix_executor.is_some()
                 || bundle.wrap_replay.is_some()
                 || bundle.approval_replay.is_some()
                 || bundle.op_attributes_calldata.is_some()
@@ -553,7 +588,19 @@ impl LocalSimulation {
         {
             return Err(err("EXECUTION_TARGET_NOT_ALLOWED"));
         }
-        if let Some(split) = &bundle.split_executor {
+        if bundle
+            .split_executor
+            .as_ref()
+            .zip(bundle.shared_suffix_executor.as_ref())
+            .is_some_and(|(ordered, shared)| ordered.target == shared.target)
+        {
+            return Err(err("SIMULATION_SPLIT_EXECUTOR_MISMATCH"));
+        }
+        for split in bundle
+            .split_executor
+            .iter()
+            .chain(bundle.shared_suffix_executor.iter())
+        {
             let router = bundle
                 .executor
                 .as_ref()
@@ -787,6 +834,7 @@ impl LocalSimulation {
                 &cached,
                 None,
                 None,
+                None,
                 config.config.simulation.timeout_ms.min(60_000),
             )?;
             let (transaction, binding) = match (&request.bound, &request.exact_out_bound) {
@@ -875,6 +923,7 @@ impl LocalSimulation {
         cached: &Selection,
         prepared: Option<WorkerPreparation>,
         signed: Option<SignedOpRequest>,
+        shared_candidate_hash: Option<&str>,
         timeout_ms: u64,
     ) -> std::result::Result<WorkerRequest, Failure> {
         if let Some(expected) =
@@ -908,47 +957,80 @@ impl LocalSimulation {
             .then(|| singleton_order(config, cached))
             .transpose()
             .map_err(|e| Failure::new(&e.0, "binding"))?;
-        let split = self
-            .split_binding(cached, allowed)
-            .map_err(|e| Failure::new(&e.0, "binding"))?;
-        let (bound, exact_out_bound) = if split.is_some() || singleton.is_some() {
-            if prepared.is_some() || signed.is_some() || self.has_op_source() {
-                return Err(Failure::new("EXECUTION_ADAPTER_UNSUPPORTED", "binding"));
-            }
-            (None, None)
+        let shared_suffix = shared_candidate_hash
+            .map(|expected| {
+                let invalid = || Failure::new("EXECUTION_SHARED_SUFFIX_UNAVAILABLE", "binding");
+                let Selection::ExactIn(c) = cached else {
+                    return Err(invalid());
+                };
+                let executor = self
+                    .bundle
+                    .shared_suffix_executor
+                    .as_ref()
+                    .ok_or_else(invalid)?;
+                let bound =
+                    ordered_v2::shared_suffix::bind(&c.plan, &c.view.pools, executor, allowed)
+                        .map_err(|e| Failure::new(&e.0, "binding"))?;
+                if bound.candidate_hash != expected
+                    || c.response["quality"]["sharedSuffix"]["candidateHash"].as_str()
+                        != Some(expected)
+                {
+                    return Err(Failure::new(
+                        "EXECUTION_SHARED_SUFFIX_HASH_MISMATCH",
+                        "binding",
+                    ));
+                }
+                Ok(WorkerSharedSuffix {
+                    bound,
+                    expected_executor: executor.clone(),
+                })
+            })
+            .transpose()?;
+        let split = if shared_suffix.is_none() {
+            self.split_binding(cached, allowed)
+                .map_err(|e| Failure::new(&e.0, "binding"))?
         } else {
-            let executor = self
-                .bundle
-                .executor
-                .as_ref()
-                .ok_or_else(|| Failure::new("EXECUTION_ADAPTER_UNSUPPORTED", "binding"))?;
-            match &cached {
-                Selection::ExactIn(c) => (
-                    Some(
-                        xone_execution_plan::bind_v2_execution(
-                            &c.plan,
-                            &c.view.pools,
-                            executor,
-                            allowed,
-                        )
-                        .map_err(|e| Failure::new(&e.0, "binding"))?,
-                    ),
-                    None,
-                ),
-                Selection::ExactOut(c) => (
-                    None,
-                    Some(
-                        xone_execution_plan::bind_v2_exact_out_execution(
-                            &c.plan,
-                            &c.view.pools,
-                            executor,
-                            allowed,
-                        )
-                        .map_err(|e| Failure::new(&e.0, "binding"))?,
-                    ),
-                ),
-            }
+            None
         };
+        let (bound, exact_out_bound) =
+            if split.is_some() || singleton.is_some() || shared_suffix.is_some() {
+                if prepared.is_some() || signed.is_some() || self.has_op_source() {
+                    return Err(Failure::new("EXECUTION_ADAPTER_UNSUPPORTED", "binding"));
+                }
+                (None, None)
+            } else {
+                let executor = self
+                    .bundle
+                    .executor
+                    .as_ref()
+                    .ok_or_else(|| Failure::new("EXECUTION_ADAPTER_UNSUPPORTED", "binding"))?;
+                match &cached {
+                    Selection::ExactIn(c) => (
+                        Some(
+                            xone_execution_plan::bind_v2_execution(
+                                &c.plan,
+                                &c.view.pools,
+                                executor,
+                                allowed,
+                            )
+                            .map_err(|e| Failure::new(&e.0, "binding"))?,
+                        ),
+                        None,
+                    ),
+                    Selection::ExactOut(c) => (
+                        None,
+                        Some(
+                            xone_execution_plan::bind_v2_exact_out_execution(
+                                &c.plan,
+                                &c.view.pools,
+                                executor,
+                                allowed,
+                            )
+                            .map_err(|e| Failure::new(&e.0, "binding"))?,
+                        ),
+                    ),
+                }
+            };
         let genesis = config
             .config
             .chains
@@ -983,7 +1065,11 @@ impl LocalSimulation {
                 ))
             }
         };
-        let wrap_model = self.wrap_model(cached, split.is_some());
+        let wrap_model = if shared_suffix.is_none() {
+            self.wrap_model(cached, split.is_some())
+        } else {
+            None
+        };
         let direct_wrap = wrap_model
             .filter(|_| split.is_none())
             .map(|m| m.sequence.clone());
@@ -1024,7 +1110,7 @@ impl LocalSimulation {
             direct_wrap,
             op_user,
             split,
-            shared_suffix: None,
+            shared_suffix,
             protocol: WORKER_PROTOCOL.into(),
             bound,
             exact_out_bound,
@@ -1059,6 +1145,28 @@ impl LocalSimulation {
         self.execute_inner(config, cached, deadline, Some(prepared), None)
             .await
     }
+    pub async fn execute_shared_suffix(
+        self: Arc<Self>,
+        config: Arc<ConfigSnapshot>,
+        cached: Selection,
+        deadline: Instant,
+        candidate_hash: String,
+    ) -> std::result::Result<Value, Failure> {
+        let state = self
+            .pin_prices()
+            .map_err(|e| Failure::new(&e.0, "transaction_economics"))?;
+        state
+            .execute_pinned(
+                config,
+                cached,
+                deadline,
+                None,
+                None,
+                None,
+                Some(candidate_hash),
+            )
+            .await
+    }
     pub async fn execute_signed_op(
         self: Arc<Self>,
         config: Arc<ConfigSnapshot>,
@@ -1080,7 +1188,7 @@ impl LocalSimulation {
             .pin_prices()
             .map_err(|e| Failure::new(&e.0, "transaction_economics"))?;
         state
-            .execute_pinned(config, cached, deadline, None, None, Some(signed))
+            .execute_pinned(config, cached, deadline, None, None, Some(signed), None)
             .await
     }
     async fn execute_inner(
@@ -1098,9 +1206,10 @@ impl LocalSimulation {
                 .map_err(|e| Failure::new(&e.0, "transaction_economics"))?
         };
         state
-            .execute_pinned(config, cached, deadline, prepared, signed, None)
+            .execute_pinned(config, cached, deadline, prepared, signed, None, None)
             .await
     }
+    #[allow(clippy::too_many_arguments)]
     async fn execute_pinned(
         self: Arc<Self>,
         config: Arc<ConfigSnapshot>,
@@ -1109,6 +1218,7 @@ impl LocalSimulation {
         prepared: Option<WorkerPreparation>,
         signed: Option<SignedOpRequest>,
         signed_evm: Option<SignedEvmTransaction>,
+        shared_candidate_hash: Option<String>,
     ) -> std::result::Result<Value, Failure> {
         if self.bundle.op_attributes_calldata.is_some() != signed.is_some()
             || (signed.is_some() && prepared.is_some())
@@ -1135,8 +1245,14 @@ impl LocalSimulation {
             let economic_context = cached.context().clone();
             let timeout_ms = config.config.simulation.timeout_ms.min(60_000);
             let prepared = tokio::task::spawn_blocking(move || {
-                let mut request =
-                    state.worker_request(&config, &cached, prepared, signed, timeout_ms)?;
+                let mut request = state.worker_request(
+                    &config,
+                    &cached,
+                    prepared,
+                    signed,
+                    shared_candidate_hash.as_deref(),
+                    timeout_ms,
+                )?;
                 if let Some(signed) = signed_evm {
                     request
                         .singleton
