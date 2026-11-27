@@ -269,6 +269,7 @@ impl Api {
                     "balancer-v2-weighted2-static":"SINGLE_POOL_IMMUTABLE_VAULT_GIVEN_OUT",
                     "balancer-v2-weighted-multi":"SINGLE_POOL_FULL_VECTOR_IMMUTABLE_VAULT_GIVEN_OUT",
                     "balancer-v2-managed-snapshot":"SINGLE_POOL_MANAGED_WEIGHTED_VAULT_GIVEN_OUT",
+                    "balancer-v2-managed-fees":"SINGLE_POOL_MANAGED_WEIGHTED_BPT_FEE_GIVEN_OUT",
                     "balancer-v2-composable-regular":"SINGLE_POOL_COMPOSABLE_UNDERLYING_GIVEN_OUT",
                     "pancake-v3":"SIMPLE_PATH_SINGLE_FACTORY_EXTERNAL_CALLBACK_FUNDING",
                     "raydium-clmm-static":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT_SELECTED_FEE_TOKEN",
