@@ -184,7 +184,7 @@ async fn main() {
         split_executor,
         schema_version: 1,
         op_attributes_calldata: None,
-        executor: rpc.executor.clone(),
+        executor: Some(rpc.executor.clone()),
         fixture,
         transaction_context: TransactionContext {
             max_priority_fee_per_gas: if use_split_bank {
@@ -236,7 +236,7 @@ async fn main() {
             split_executor: None,
             schema_version: 1,
             fixture: source.fixture,
-            executor: executor.clone(),
+            executor: Some(executor.clone()),
             transaction_context: source.transaction_context,
             op_attributes_calldata: Some(source.op_user.unwrap().attributes_calldata),
         };

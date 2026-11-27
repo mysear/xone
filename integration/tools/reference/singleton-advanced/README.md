@@ -51,6 +51,20 @@ cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-quote-api \
   --test singleton_exact_out settlement_hook_http -- --ignored
 ```
 
+## Quote API fixed-state replay
+
+Set the existing `simulation.backend` to `revm-fixture` and configure an allowed singleton executor. The Cancun bundle contains a `fixture` with `execution_environment.excess_blob_gas` and a `transaction_context`. The executor identity comes from the same per-chain V4 or per-manager Infinity configuration as the build endpoint. The route `POST /v1/quotes/{id}/simulate` replay occurs in the configured service worker. It returns the bound transaction, measured balances, refunds, gas and a receipt with `PROVIDED_LOCAL_STATE` authority.
+
+```sh
+export XONE_SINGLETON_REPLAY_DIR=$(mktemp -d)
+cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-simulation \
+  --test v4_manager_settlement -- --ignored
+cargo +1.90.0 run --manifest-path dex-router/Cargo.toml -p xone-quote-api \
+  --example singleton_replay -- "$XONE_SINGLETON_REPLAY_DIR"
+```
+
+The example runs 24 HTTP quote, build and simulation cases, then removes Manager storage for each case and checks worker rejection.
+
 ## Bounded library reference
 
 This slice is explicitly separate from legacy singleton admission. The core protocol names inside `SingletonAdvancedState` remain `uniswap-v4` and `pancake-infinity-cl`; central Pool profiles may use their `-advanced` names. Shared registry/config/wire dispatch is owned by main.

@@ -11,7 +11,7 @@ use revm::primitives::{
 use revm::Database;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-pub use singleton::{simulate_singleton, SingletonPlan};
+pub use singleton::{simulate_singleton, SingletonPlan, SINGLETON_SIMULATOR_VERSION};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{atomic::Ordering, Arc},
@@ -593,9 +593,9 @@ pub struct SimulationOutcome {
     pub matches_plan: bool,
     pub balances: BalanceMeasurements,
     pub actual_input_consumed: Amount,
-    /// No prefunding transfer is performed; an unused ExactOut maximum stays with the caller.
+    /// Native prefunding returned to the caller after a successful swap.
     pub refund: Amount,
-    /// ExactOut maximum budget that stayed with the caller; not a transfer refund.
+    /// ExactOut input limit minus measured input. Includes any native refund.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unused_input_budget: Option<Amount>,
     pub actual_buy_amount: Amount,

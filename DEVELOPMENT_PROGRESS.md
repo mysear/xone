@@ -391,7 +391,7 @@
 #### 当前迭代目标（I6）
 
 1. Cancun 内核支持普通调用和同环境余额观察。按 EIP-4844 校验固定区块的 excess blob gas 与派生 blob 基础费，拒绝不支持的 blob 交易。26 项 REVM 执行测试和 10 项 StrictDB 测试通过，覆盖交易间瞬态存储清空、异常头拒绝及 Shanghai 回归。
-2. V4、Infinity CL 与 Infinity Bin 单池计划已接入固定 H/H+1 状态回放。24 组原版合约交易核对了实际付款、收款、原生币退款、gas 和 nonce。另有 24 组限额回滚、24 组缺失 Manager 存储和 24 组 hook 字节码变更拒绝。三类池共用既有 REVM 执行预算及费用观测。下一步是接入 Quote API worker。 [复验说明](integration/tools/reference/singleton-advanced/README.md#infinity-manager-and-vault-settlement)
+2. V4、Infinity CL 与 Infinity Bin 单池计划已接入固定 H/H+1 状态回放和正常 Quote API worker。24 组原版合约交易核对了实际付款、收款、原生币退款、gas 和 nonce。另有 24 组限额回滚、24 组缺失 Manager 存储和 24 组 hook 字节码变更拒绝。普通 HTTP 验收覆盖全部 24 组报价、构建与 worker 回放，以及 24 组缺失存储拒绝。构建和回放的交易字节与绑定摘要一致，响应标记为本地状态证据。Quote API 全量单测编译仍受既有 V2 和价格发布 fixture 缺失影响。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 3. 将 EVM 签名交易与计划、链费和真实回执绑定。补齐设计所需的链规则和费用数据，验证回执与实际收款差的一致性。
 4. 用版本化 Solana bank 完成 SBF、Token CPI、账户锁、有效 blockhash、签名与回执验收，再核对生产执行能力门禁。
 

@@ -124,8 +124,9 @@ impl Source {
         allowance_root[31] = 4;
         let owner_slot = mapping_slot(caller, allowance_root)?;
         let mut allowances = std::collections::BTreeMap::new();
-        for spender in std::iter::once(&bundle.executor.target)
-            .chain(bundle.split_executor.iter().map(|e| &e.target))
+        let router = &bundle.executor.as_ref().ok_or_else(bad)?.target;
+        for spender in
+            std::iter::once(router).chain(bundle.split_executor.iter().map(|e| &e.target))
         {
             allowances.insert(
                 spender.clone(),
@@ -161,7 +162,7 @@ impl Source {
                     m
                 });
         Ok(Some(Self {
-            router: bundle.executor.target.clone(),
+            router: router.clone(),
             batch: bundle.split_executor.as_ref().map(|e| e.target.clone()),
             direct_combined,
             combined,
@@ -362,6 +363,9 @@ pub(super) fn bind(
     seq: Option<&xone_simulation::evm_fixture::WrapSequence>,
 ) -> Result<Option<Commitment>> {
     let bad = || err("SIMULATION_WRAP_SOURCE");
+    if req.singleton.is_some() && source.is_none() && seq.is_none() {
+        return Ok(None);
+    }
     let (ctx, input) = match (&req.bound, &req.exact_out_bound, &req.split) {
         (Some(b), None, None) => (&b.plan.context, &b.plan.allocation.sell_amount),
         (None, Some(b), None) => (&b.plan.context, &b.plan.allocation.required_input),

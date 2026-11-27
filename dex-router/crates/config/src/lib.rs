@@ -1,7 +1,7 @@
 mod checkpoint_store;
 pub use checkpoint_store::{CheckpointBudget, CheckpointRetention, CheckpointStore};
 mod evm_preparation;
-pub use evm_preparation::EvmPreparationConfig;
+pub use evm_preparation::{EvmPreparationConfig, InfinityExecutionConfig, V4ExecutionConfig};
 mod lfj;
 mod meteora;
 mod pancake_bsc_lm;

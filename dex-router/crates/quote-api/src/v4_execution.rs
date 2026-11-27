@@ -4,11 +4,10 @@ use xone_execution_plan::v4_single::{self, Executor, INFINITY_BIN, INFINITY_CL};
 
 const PROFILE: &str = "uniswap-v4-advanced";
 
-fn configuration<'a>(
-    api: &'a Api,
+pub(super) fn configuration<'a>(
+    api: &'a xone_config::Api,
     pool: &xone_domain::Pool,
 ) -> Option<(Executor<'a>, &'a std::collections::BTreeMap<String, String>)> {
-    let api = &api.config.config.api;
     let (config, vault) = match pool.protocol.as_str() {
         PROFILE => (api.v4_execution.get(&pool.chain_key)?, None),
         INFINITY_BIN | INFINITY_CL => {
@@ -59,7 +58,7 @@ fn configuration<'a>(
 }
 
 pub(super) fn configured(api: &Api, pool: &xone_domain::Pool) -> bool {
-    configuration(api, pool).is_some()
+    configuration(&api.config.config.api, pool).is_some()
 }
 
 pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
@@ -93,7 +92,7 @@ pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
                 .pools
                 .iter()
                 .find(|pool| pool.pool_id == edge.pool_id)
-                .and_then(|pool| configuration(api, pool))
+                .and_then(|pool| configuration(&api.config.config.api, pool))
             else {
                 return Ok(None);
             };
@@ -120,7 +119,7 @@ pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
                 .pools
                 .iter()
                 .find(|pool| pool.pool_id == edge.pool_id)
-                .and_then(|pool| configuration(api, pool))
+                .and_then(|pool| configuration(&api.config.config.api, pool))
             else {
                 return Ok(None);
             };

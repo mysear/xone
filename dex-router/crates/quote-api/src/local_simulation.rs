@@ -19,17 +19,21 @@ use tokio::{
 };
 use xone_config::ConfigSnapshot;
 use xone_domain::{err, hash, Amount, Result};
+#[cfg(test)]
+use xone_execution_plan::ExecutorIdentity;
 use xone_execution_plan::{
     ordered_v2::{self, SplitPlan},
-    ExecutorIdentity, Transaction,
+    Transaction,
 };
 use xone_simulation::{
-    evm_fixture::{NativeFeeMeasurements, SimulationBudget, TransactionContext},
+    evm_fixture::{
+        NativeFeeMeasurements, SimulationBudget, TransactionContext, SINGLETON_SIMULATOR_VERSION,
+    },
     revm_backend::StateImage,
     worker::{
-        executable_sha256, LocalSimulationBundle, WorkerOpUser, WorkerPreparation, WorkerRequest,
-        WorkerResponse, WorkerSplit, MAX_WORKER_INPUT_BYTES, MAX_WORKER_OUTPUT_BYTES,
-        WORKER_PROTOCOL,
+        executable_sha256, LocalSimulationBundle, SingletonOrder, WorkerOpUser, WorkerPreparation,
+        WorkerRequest, WorkerResponse, WorkerSingleton, WorkerSplit, MAX_WORKER_INPUT_BYTES,
+        MAX_WORKER_OUTPUT_BYTES, WORKER_PROTOCOL,
     },
     worker_op::OpReceiptCommitment,
 };
@@ -112,6 +116,68 @@ impl Selection {
         }
     }
 }
+fn singleton_order(config: &ConfigSnapshot, cached: &Selection) -> Result<WorkerSingleton> {
+    let unsupported = || err("EXECUTION_ADAPTER_UNSUPPORTED");
+    let (pool_id, plan) = match cached {
+        Selection::ExactIn(c) => {
+            let [route] = c.plan.allocation.routes.as_slice() else {
+                return Err(unsupported());
+            };
+            let [edge] = route.path.edges.as_slice() else {
+                return Err(unsupported());
+            };
+            (
+                &edge.pool_id,
+                SingletonOrder::ExactIn(Box::new(c.plan.clone())),
+            )
+        }
+        Selection::ExactOut(c) => {
+            let [route] = c.plan.allocation.routes.as_slice() else {
+                return Err(unsupported());
+            };
+            let [edge] = route.edges.as_slice() else {
+                return Err(unsupported());
+            };
+            (
+                &edge.pool_id,
+                SingletonOrder::ExactOut(Box::new(c.plan.clone())),
+            )
+        }
+    };
+    let pool = cached
+        .view()
+        .pools
+        .iter()
+        .find(|pool| pool.pool_id == *pool_id)
+        .ok_or_else(unsupported)?;
+    let (executor, token_digests) =
+        crate::v4_execution::configuration(&config.config.api, pool).ok_or_else(unsupported)?;
+    if !config
+        .config
+        .simulation
+        .allowed_targets
+        .iter()
+        .any(|target| target == executor.address)
+    {
+        return Err(err("EXECUTION_TARGET_NOT_ALLOWED"));
+    }
+    Ok(WorkerSingleton {
+        plan,
+        executor: executor.address.into(),
+        executor_code_sha256: executor.code_sha256.into(),
+        infinity_vault: executor
+            .infinity_vault
+            .map(|(address, digest)| (address.into(), digest.into())),
+        token_digests: [&pool.token0, &pool.token1]
+            .into_iter()
+            .filter_map(|token| {
+                token_digests
+                    .get(token)
+                    .map(|digest| (token.clone(), digest.clone()))
+            })
+            .collect(),
+    })
+}
 pub(crate) struct LocalSimulation {
     wrap_source: Option<Arc<crate::wrapped_funding::Source>>,
     bundle: Arc<LocalSimulationBundle>,
@@ -132,6 +198,7 @@ pub(crate) struct LocalSimulation {
 // These small values are taken from the exact request serialized to child stdin.
 // Keeping them together also makes the reported fee context unambiguous.
 struct ExecutionCommitment {
+    singleton: Option<SingletonCommitment>,
     wrap: Option<crate::wrapped_funding::Commitment>,
     op: Option<OpReceiptCommitment>,
     binding_hash: String,
@@ -143,11 +210,16 @@ struct ExecutionCommitment {
     execution_coinbase: String,
     caller_native_before: Option<Amount>,
     coinbase_native_before: Option<Amount>,
-    executor: ExecutorIdentity,
+    executor: Value,
     approval: Option<crate::evm_approval::Requirement>,
     approval_sequence: Option<crate::approval_sequence::Commitment>,
     split_receipt: Option<Value>,
     split_executor: Option<ordered_v2::SplitExecutor>,
+}
+struct SingletonCommitment {
+    context: xone_execution_plan::Context,
+    fixture_hash: String,
+    budget: SimulationBudget,
 }
 struct PreparedExecution {
     input: Vec<u8>,
@@ -270,10 +342,45 @@ impl PreparedExecution {
             input: input.clone(),
         });
         let split_executor = request.split.as_ref().map(|s| s.expected_executor.clone());
-        let (binding_hash, transaction, executor, quote_kind) =
+        let mut singleton_commitment = None;
+        let (binding_hash, transaction, executor, quote_kind) = if let Some(singleton) =
+            &request.singleton
+        {
+            let invalid = || Failure::new("SIMULATION_WORKER_BINDING", "singleton");
+            if request.bound.is_some()
+                || request.exact_out_bound.is_some()
+                || request.split.is_some()
+                || request.prepared.is_some()
+                || request.op_user.is_some()
+                || request.direct_wrap.is_some()
+                || !request.allowed_targets.contains(&singleton.executor)
+            {
+                return Err(invalid());
+            }
+            let bound = singleton.bind(&request.pools).map_err(|_| invalid())?;
+            let (context, kind) = match &singleton.plan {
+                SingletonOrder::ExactIn(plan) => (&plan.context, "EXACT_IN"),
+                SingletonOrder::ExactOut(plan) => (&plan.context, "EXACT_OUT"),
+            };
+            singleton_commitment = Some(SingletonCommitment {
+                context: context.clone(),
+                fixture_hash: hash(&request.fixture).map_err(|_| invalid())?,
+                budget: request.budget.clone(),
+            });
+            let executor = json!({"target":bound.transaction.to,"code_sha256":bound.executor_code_sha256,
+                "manager":bound.manager,"manager_code_sha256":bound.manager_code_sha256,"infinity":bound.infinity});
+            (bound.binding_hash, bound.transaction, executor, kind)
+        } else {
             match (request.bound, request.exact_out_bound, request.split) {
-                (Some(b), None, None) => (b.binding_hash, b.transaction, b.executor, "EXACT_IN"),
-                (None, Some(b), None) => (b.binding_hash, b.transaction, b.executor, "EXACT_OUT"),
+                (Some(b), None, None) => {
+                    (b.binding_hash, b.transaction, json!(b.executor), "EXACT_IN")
+                }
+                (None, Some(b), None) => (
+                    b.binding_hash,
+                    b.transaction,
+                    json!(b.executor),
+                    "EXACT_OUT",
+                ),
                 (None, None, Some(s)) if request.prepared.is_none() && op.is_none() => {
                     let kind = match s.bound.plan {
                         SplitPlan::ExactIn(_) => "EXACT_IN",
@@ -282,12 +389,13 @@ impl PreparedExecution {
                     (
                         s.bound.binding_hash,
                         s.bound.transaction,
-                        s.expected_executor.router,
+                        json!(s.expected_executor.router),
                         kind,
                     )
                 }
                 _ => return Err(Failure::new("SIMULATION_WORKER_BINDING", "prepare")),
-            };
+            }
+        };
         let balance = |owner: &str| {
             request
                 .fixture
@@ -308,6 +416,7 @@ impl PreparedExecution {
             input: output.0,
             commitment: ExecutionCommitment {
                 op,
+                singleton: singleton_commitment,
                 binding_hash,
                 transaction,
                 executor,
@@ -392,12 +501,29 @@ impl LocalSimulation {
         {
             return Err(err("SIMULATION_STATE_CHAIN_MISMATCH"));
         }
-        if !sim.allowed_targets.contains(&bundle.executor.target) {
+        if bundle.fixture.execution_environment.fork == "cancun" {
+            if bundle.executor.is_some()
+                || bundle.split_executor.is_some()
+                || bundle.wrap_replay.is_some()
+                || bundle.approval_replay.is_some()
+                || bundle.op_attributes_calldata.is_some()
+            {
+                return Err(err("SIMULATION_STATE_EXECUTOR_MODE"));
+            }
+        } else if !bundle
+            .executor
+            .as_ref()
+            .is_some_and(|executor| sim.allowed_targets.contains(&executor.target))
+        {
             return Err(err("EXECUTION_TARGET_NOT_ALLOWED"));
         }
         if let Some(split) = &bundle.split_executor {
+            let router = bundle
+                .executor
+                .as_ref()
+                .ok_or_else(|| err("SIMULATION_SPLIT_EXECUTOR_MISMATCH"))?;
             if bundle.op_attributes_calldata.is_some()
-                || hash(&split.router)? != hash(&bundle.executor)?
+                || hash(&split.router)? != hash(router)?
                 || !sim.allowed_targets.contains(&split.target)
             {
                 return Err(err("SIMULATION_SPLIT_EXECUTOR_MISMATCH"));
@@ -519,6 +645,11 @@ impl LocalSimulation {
         cached: &Selection,
     ) -> Result<String> {
         let allowed = &config.config.simulation.allowed_targets;
+        if self.bundle.fixture.execution_environment.fork == "cancun" {
+            return Ok(singleton_order(config, cached)?
+                .bind(&cached.view().pools)?
+                .binding_hash);
+        }
         if let Some(split) = self.split_binding(cached, allowed)? {
             return Ok(split.bound.binding_hash);
         }
@@ -526,14 +657,20 @@ impl LocalSimulation {
             Selection::ExactIn(c) => Ok(xone_execution_plan::bind_v2_execution(
                 &c.plan,
                 &c.view.pools,
-                &self.bundle.executor,
+                self.bundle
+                    .executor
+                    .as_ref()
+                    .ok_or_else(|| err("EXECUTION_ADAPTER_UNSUPPORTED"))?,
                 allowed,
             )?
             .binding_hash),
             Selection::ExactOut(c) => Ok(xone_execution_plan::bind_v2_exact_out_execution(
                 &c.plan,
                 &c.view.pools,
-                &self.bundle.executor,
+                self.bundle
+                    .executor
+                    .as_ref()
+                    .ok_or_else(|| err("EXECUTION_ADAPTER_UNSUPPORTED"))?,
                 allowed,
             )?
             .binding_hash),
@@ -726,22 +863,36 @@ impl LocalSimulation {
             }
         }
         let allowed = &config.config.simulation.allowed_targets;
+        let singleton = self
+            .bundle
+            .fixture
+            .execution_environment
+            .fork
+            .eq("cancun")
+            .then(|| singleton_order(config, cached))
+            .transpose()
+            .map_err(|e| Failure::new(&e.0, "binding"))?;
         let split = self
             .split_binding(cached, allowed)
             .map_err(|e| Failure::new(&e.0, "binding"))?;
-        let (bound, exact_out_bound) = if split.is_some() {
+        let (bound, exact_out_bound) = if split.is_some() || singleton.is_some() {
             if prepared.is_some() || signed.is_some() || self.has_op_source() {
                 return Err(Failure::new("EXECUTION_ADAPTER_UNSUPPORTED", "binding"));
             }
             (None, None)
         } else {
+            let executor = self
+                .bundle
+                .executor
+                .as_ref()
+                .ok_or_else(|| Failure::new("EXECUTION_ADAPTER_UNSUPPORTED", "binding"))?;
             match &cached {
                 Selection::ExactIn(c) => (
                     Some(
                         xone_execution_plan::bind_v2_execution(
                             &c.plan,
                             &c.view.pools,
-                            &self.bundle.executor,
+                            executor,
                             allowed,
                         )
                         .map_err(|e| Failure::new(&e.0, "binding"))?,
@@ -754,7 +905,7 @@ impl LocalSimulation {
                         xone_execution_plan::bind_v2_exact_out_execution(
                             &c.plan,
                             &c.view.pools,
-                            &self.bundle.executor,
+                            executor,
                             allowed,
                         )
                         .map_err(|e| Failure::new(&e.0, "binding"))?,
@@ -833,6 +984,7 @@ impl LocalSimulation {
                 .unwrap_or_else(|| self.bundle.transaction_context.clone())
         };
         let request = WorkerRequest {
+            singleton,
             direct_wrap,
             op_user,
             split,
@@ -1137,6 +1289,28 @@ fn diagnostic_response(
             return Err(bad());
         }
     }
+    if let Some(singleton) = &commitment.singleton {
+        let invalid = || Failure::new("SIMULATION_WORKER_BINDING", "singleton_receipt");
+        let mut typed: xone_simulation::evm_fixture::SimulationOutcome =
+            serde_json::from_value(outcome.clone()).map_err(|_| invalid())?;
+        let receipt = std::mem::take(&mut typed.receipt_hash);
+        let expected = hash(&(
+            &commitment.binding_hash,
+            &commitment.transaction_context,
+            &singleton.budget,
+            &typed,
+        ))
+        .map_err(|_| invalid())?;
+        if receipt != expected
+            || typed.source_fixture_hash != singleton.fixture_hash
+            || typed.simulator_version != SINGLETON_SIMULATOR_VERSION
+            || typed.execution.sender_nonce_before != commitment.transaction_context.nonce
+            || typed.execution.sender_nonce_before.checked_add(1)
+                != Some(typed.execution.sender_nonce_after)
+        {
+            return Err(invalid());
+        }
+    }
     let gas = outcome["execution"]["gas_used"]
         .as_u64()
         .ok_or_else(|| Failure::new("SIMULATION_WORKER_PROTOCOL", "receipt"))?;
@@ -1241,7 +1415,7 @@ fn diagnostic_response(
             hex::decode(&value[2..])
                 .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_balances"))
         };
-        if commitment.transaction.value != Amount::zero() {
+        if commitment.singleton.is_none() && commitment.transaction.value != Amount::zero() {
             return Err(Failure::new(
                 "SIMULATION_WORKER_PROTOCOL",
                 "native_fee_balances",
@@ -1249,22 +1423,71 @@ fn diagnostic_response(
         }
         let same =
             account(&commitment.transaction.from)? == account(&commitment.execution_coinbase)?;
+        let mut balances = xone_execution_preparation::evm_native_cost::NativeBalances {
+            payer_before: native.caller_before,
+            payer_after: native.caller_after,
+            beneficiary_before: native.coinbase_before,
+            beneficiary_after: native.coinbase_after,
+        };
+        if let Some(singleton) = &commitment.singleton {
+            use xone_domain::singleton::ZERO_ADDRESS;
+            let invalid =
+                || Failure::new("SIMULATION_WORKER_PROTOCOL", "singleton_native_balances");
+            let maximum =
+                Amount::checked(&model.gas_limit_reserve.0 + &commitment.transaction.value.0)
+                    .map_err(|_| invalid())?;
+            if balances.payer_before < maximum {
+                return Err(invalid());
+            }
+            if singleton.context.sell_token == ZERO_ADDRESS {
+                let spent: Amount =
+                    serde_json::from_value(outcome["actual_input_consumed"].clone())
+                        .map_err(|_| invalid())?;
+                if spent > commitment.transaction.value {
+                    return Err(invalid());
+                }
+                balances.payer_after =
+                    Amount::checked(&balances.payer_after.0 + &spent.0).map_err(|_| invalid())?;
+                if same {
+                    balances.beneficiary_after =
+                        Amount::checked(&balances.beneficiary_after.0 + &spent.0)
+                            .map_err(|_| invalid())?;
+                }
+            }
+            if singleton.context.buy_token == ZERO_ADDRESS {
+                let bought: Amount = serde_json::from_value(outcome["actual_buy_amount"].clone())
+                    .map_err(|_| invalid())?;
+                let recipient = account(&singleton.context.recipient)?;
+                for (owner, after) in [
+                    (&commitment.transaction.from, &mut balances.payer_after),
+                    (
+                        &commitment.execution_coinbase,
+                        &mut balances.beneficiary_after,
+                    ),
+                ] {
+                    if account(owner)? == recipient {
+                        if *after < bought {
+                            return Err(invalid());
+                        }
+                        *after = Amount::checked(&after.0 - &bought.0).map_err(|_| invalid())?;
+                    }
+                }
+            }
+        }
         let payer_cost = xone_execution_preparation::evm_native_cost::audited_payer_cost(
-            &model,
-            &xone_execution_preparation::evm_native_cost::NativeBalances {
-                payer_before: native.caller_before,
-                payer_after: native.caller_after,
-                beneficiary_before: native.coinbase_before,
-                beneficiary_after: native.coinbase_after,
-            },
-            same,
+            &model, &balances, same,
         )
         .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_balances"))?;
         payer_net_debit = serde_json::to_value(&payer_cost.net_native_debit)
             .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_balances"))?;
         returned_priority = serde_json::to_value(&payer_cost.priority_returned_to_payer)
             .map_err(|_| Failure::new("SIMULATION_WORKER_PROTOCOL", "native_fee_balances"))?;
-        balance_reconciliation = json!({"status":"MATCHED","scope":"ZERO_VALUE_BOUND_ERC20_TRANSACTION",
+        let scope = if commitment.singleton.is_some() {
+            "BOUND_SINGLETON_TRANSACTION_AFTER_SWAP_TRANSFERS"
+        } else {
+            "ZERO_VALUE_BOUND_ERC20_TRANSACTION"
+        };
+        balance_reconciliation = json!({"status":"MATCHED","scope":scope,
             "caller":commitment.transaction.from,"coinbase":commitment.execution_coinbase,"sameAccount":same});
     }
     let mut costs = json!({
@@ -1766,6 +1989,7 @@ mod tests {
     fn diagnostic_commitment(gas_price: &str) -> ExecutionCommitment {
         ExecutionCommitment {
             op: None,
+            singleton: None,
             binding_hash: "binding".into(),
             quote_kind: "EXACT_IN",
             expected_preparation: None,
@@ -1792,13 +2016,13 @@ mod tests {
             wrap: None,
             split_receipt: None,
             split_executor: None,
-            executor: ExecutorIdentity {
+            executor: json!(ExecutorIdentity {
                 target: "0x0000000000000000000000000000000000000022".into(),
                 code_sha256: "ab".repeat(32),
                 factory: "0x0000000000000000000000000000000000000033".into(),
                 factory_code_sha256: "cd".repeat(32),
                 adapter_version: "uniswap-v2-router02/1.1.0-beta.0".into(),
-            },
+            }),
         }
     }
     #[test]
@@ -2252,11 +2476,12 @@ mod tests {
         let bound = xone_execution_plan::bind_v2_execution(
             &cached.plan,
             &cached.view.pools,
-            &backend.bundle.executor,
+            backend.bundle.executor.as_ref().unwrap(),
             &api.config.config.simulation.allowed_targets,
         )
         .unwrap();
         let request = WorkerRequest {
+            singleton: None,
             direct_wrap: None,
             op_user: None,
             split: None,
@@ -2475,11 +2700,12 @@ mod tests {
         let bound = xone_execution_plan::bind_v2_exact_out_execution(
             &cached.plan,
             &cached.view.pools,
-            &backend.bundle.executor,
+            backend.bundle.executor.as_ref().unwrap(),
             &api.config.config.simulation.allowed_targets,
         )
         .unwrap();
         let request = WorkerRequest {
+            singleton: None,
             direct_wrap: None,
             op_user: None,
             split: None,
@@ -2513,7 +2739,7 @@ mod tests {
         let legacy = xone_execution_plan::bind_v2_execution(
             &other_cached.plan,
             &other_cached.view.pools,
-            &other_backend.bundle.executor,
+            other_backend.bundle.executor.as_ref().unwrap(),
             &other.config.config.simulation.allowed_targets,
         )
         .unwrap();
@@ -2639,7 +2865,7 @@ mod tests {
             snapshot_hash: hash(&cached.plan.snapshot).unwrap(),
             caller: cached.plan.context.caller.clone(),
             sell_token: cached.plan.context.sell_token.clone(),
-            spender: backend.bundle.executor.target.clone(),
+            spender: backend.bundle.executor.as_ref().unwrap().target.clone(),
             pending_nonce: backend.bundle.transaction_context.nonce,
             native_balance: "1".parse().unwrap(),
             token_balance: "1".parse().unwrap(),

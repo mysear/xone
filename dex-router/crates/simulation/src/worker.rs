@@ -11,12 +11,16 @@ use crate::revm_backend::ExecutionControl;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::BTreeMap,
     io::{Read, Write},
     sync::Arc,
     time::{Duration, Instant},
 };
 use xone_domain::{err, Pool, Result};
-use xone_execution_plan::{BoundEvmExactOutExecution, BoundEvmExecution, ExecutorIdentity};
+use xone_execution_plan::{
+    exact_out::ExactOutPlan, v4_single, BoundEvmExactOutExecution, BoundEvmExecution,
+    ExecutorIdentity, Plan,
+};
 use xone_execution_preparation::evm::{
     ExactOutPreparation, FeeContext, FundingObservation, Preparation,
 };
@@ -52,7 +56,8 @@ pub struct LocalSimulationBundle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub op_attributes_calldata: Option<String>,
     pub fixture: FixtureState,
-    pub executor: ExecutorIdentity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executor: Option<ExecutorIdentity>,
     pub transaction_context: TransactionContext,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -186,6 +191,8 @@ pub fn historical_op_fork(
 #[serde(deny_unknown_fields)]
 pub struct WorkerRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub singleton: Option<WorkerSingleton>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direct_wrap: Option<evm_fixture::WrapSequence>,
     pub protocol: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -205,6 +212,41 @@ pub struct WorkerRequest {
     pub budget: SimulationBudget,
     pub expected_genesis_hash: String,
     pub timeout_ms: u64,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkerSingleton {
+    pub plan: SingletonOrder,
+    pub executor: String,
+    pub executor_code_sha256: String,
+    pub infinity_vault: Option<(String, String)>,
+    pub token_digests: BTreeMap<String, String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum SingletonOrder {
+    ExactIn(Box<Plan>),
+    ExactOut(Box<ExactOutPlan>),
+}
+impl WorkerSingleton {
+    fn executor(&self) -> v4_single::Executor<'_> {
+        v4_single::Executor {
+            address: &self.executor,
+            code_sha256: &self.executor_code_sha256,
+            infinity_vault: self
+                .infinity_vault
+                .as_ref()
+                .map(|(address, digest)| (address.as_str(), digest.as_str())),
+        }
+    }
+    fn plan(&self) -> evm_fixture::SingletonPlan<'_> {
+        match &self.plan {
+            SingletonOrder::ExactIn(plan) => evm_fixture::SingletonPlan::ExactIn(plan),
+            SingletonOrder::ExactOut(plan) => evm_fixture::SingletonPlan::ExactOut(plan),
+        }
+    }
+    pub fn bind(&self, pools: &[Pool]) -> Result<v4_single::BoundV4Swap> {
+        self.plan().bind(pools, self.executor())
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -293,7 +335,29 @@ pub fn run_stdio() -> Result<()> {
     } else {
         None
     };
-    let result = if let Some(wrap) = &request.direct_wrap {
+    let result = if let Some(singleton) = &request.singleton {
+        if request.direct_wrap.is_some()
+            || request.split.is_some()
+            || request.bound.is_some()
+            || request.exact_out_bound.is_some()
+            || request.prepared.is_some()
+            || request.op_user.is_some()
+            || !request.allowed_targets.contains(&singleton.executor)
+        {
+            return Err(err("SIMULATION_WORKER_BINDING"));
+        }
+        evm_fixture::simulate_singleton(
+            singleton.plan(),
+            &request.pools,
+            singleton.executor(),
+            &singleton.token_digests,
+            &request.fixture,
+            &request.transaction_context,
+            &request.budget,
+            control,
+        )
+        .map(Completed::Plain)
+    } else if let Some(wrap) = &request.direct_wrap {
         if request.prepared.is_some() || request.split.is_some() || op_context.is_some() {
             return Err(err("SIMULATION_WORKER_BINDING"));
         }

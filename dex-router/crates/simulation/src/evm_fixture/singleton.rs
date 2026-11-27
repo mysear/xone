@@ -2,10 +2,24 @@ use super::*;
 use xone_domain::singleton::ZERO_ADDRESS;
 use xone_execution_plan::{exact_out::ExactOutPlan, v4_single, Plan};
 
+pub const SINGLETON_SIMULATOR_VERSION: &str = "provided-local-state/singleton-cancun-v1";
+
 #[derive(Clone, Copy)]
 pub enum SingletonPlan<'a> {
     ExactIn(&'a Plan),
     ExactOut(&'a ExactOutPlan),
+}
+impl SingletonPlan<'_> {
+    pub(crate) fn bind(
+        &self,
+        pools: &[Pool],
+        executor: v4_single::Executor<'_>,
+    ) -> xone_domain::Result<v4_single::BoundV4Swap> {
+        match self {
+            Self::ExactIn(plan) => v4_single::bind_exact_in(plan, pools, executor),
+            Self::ExactOut(plan) => v4_single::bind_exact_out(plan, pools, executor),
+        }
+    }
 }
 
 /// Rebind a single-pool quote and replay its transaction against supplied H state.
@@ -22,11 +36,11 @@ pub fn simulate_singleton(
     control: core::ExecutionControl,
 ) -> Result<SimulationOutcome> {
     let binding_error = |e: xone_domain::Error| failure(SimulationBindingMismatch, "singleton", e);
-    let (context, snapshot, bound, pool_id, quoted_input, quoted_output, exact_out) = match plan {
+    let bound = plan.bind(pools, executor).map_err(binding_error)?;
+    let (context, snapshot, pool_id, quoted_input, quoted_output, exact_out) = match plan {
         SingletonPlan::ExactIn(p) => (
             &p.context,
             &p.snapshot,
-            v4_single::bind_exact_in(p, pools, executor).map_err(binding_error)?,
             &p.allocation.routes[0].path.edges[0].pool_id,
             &p.allocation.sell_amount,
             &p.allocation.gross_buy_amount,
@@ -35,7 +49,6 @@ pub fn simulate_singleton(
         SingletonPlan::ExactOut(p) => (
             &p.context,
             &p.snapshot,
-            v4_single::bind_exact_out(p, pools, executor).map_err(binding_error)?,
             &p.allocation.routes[0].edges[0].pool_id,
             &p.allocation.required_input,
             &p.allocation.target_output,
@@ -262,7 +275,7 @@ pub fn simulate_singleton(
         observations: std::mem::take(&mut runner.observations),
         usage: runner.usage.clone(),
         source_fixture_hash: canonical_hash(fixture)?,
-        simulator_version: "provided-local-state/singleton-cancun-v1".into(),
+        simulator_version: SINGLETON_SIMULATOR_VERSION.into(),
         receipt_hash: String::new(),
     };
     outcome.receipt_hash = canonical_hash(&(&bound.binding_hash, tx, budget, &outcome))?;

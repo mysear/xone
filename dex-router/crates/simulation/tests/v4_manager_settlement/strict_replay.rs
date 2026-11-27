@@ -485,6 +485,26 @@ pub(super) fn verify(
                                 == matches!(venue, Venue::Infinity { bin: true, .. })
                     })
                     .unwrap();
+                if let Some(dir) = std::env::var_os("XONE_SINGLETON_REPLAY_DIR") {
+                    let path = std::path::Path::new(&dir).join(format!(
+                        "{}-{native}-{direction}-{exact_in}.json",
+                        pool.protocol
+                    ));
+                    std::fs::write(
+                        path,
+                        serde_json::to_vec(&json!({
+                            "snapshot": snapshot, "pool": pool, "context": context,
+                            "quoteKind": if exact_in { "EXACT_IN" } else { "EXACT_OUT" },
+                            "executor": executor_address, "executorCodeSha256": executor_digest,
+                            "vault": vault, "tokenDigests": token_digests,
+                            "bundle": {"schema_version":1,"fixture":bank,"transaction_context":tx},
+                            "input": expected["input"], "output": expected["output"],
+                        "gas": original.gas_used(), "calldata": bound.transaction.data,
+                        }))
+                        .unwrap(),
+                    )
+                    .unwrap();
+                }
                 assert_eq!(result.execution.status, EvmStatus::Success);
                 assert_eq!(result.execution.gas_used, original.gas_used());
                 assert_eq!(json!(result.actual_input_consumed), expected["input"]);
