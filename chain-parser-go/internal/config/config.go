@@ -787,6 +787,11 @@ func (c Config) Validate(expected string) error {
 					if v.TokenPolicy != "standard-base-lp" || v.ExpectedImplementation == "" {
 						return invalid()
 					}
+					if v.EnableUnderlying && (ch.Key != "evm:1" || len(v.Tokens) != 2 ||
+						v.ExpectedBasePoolCodeSHA256 != domain.CurveMetaBaseRuntimeSHA256 ||
+						v.Tokens[1].ExpectedCodeSHA256 != domain.CurveMetaBaseLPRuntimeSHA256) {
+						return invalid()
+					}
 					for _, other := range ch.Pools {
 						if other.ID == domain.CurveMetaBasePool {
 							return invalid()

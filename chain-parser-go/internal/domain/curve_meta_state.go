@@ -5,12 +5,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
+	"reflect"
 	"strings"
 )
 
 const CurveMetaRuntimeSHA256 = "c5351fd332fdf0f04486a838b2bceba15d7a45965e3df61e9a0ccedc674d450d"
 const CurveMetaBasePool = "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7"
 const CurveMetaBaseLP = "0x6c3f90f043a72fa612cbac8115ee7e52bde6e490"
+const CurveMetaBaseRuntimeSHA256 = "eb09f8e03f107e5355ad85ec428609a1d8cb47bc30509c80455a2c8a108cac0d"
+const CurveMetaBaseLPRuntimeSHA256 = "bb95e5787fa843002128fbe09575a115700650f4bca6efb51e70da316497438f"
 
 type CurveMetaBasePoolState struct {
 	Balances      []Amount `json:"balances"`
@@ -22,7 +25,7 @@ type CurveMetaBasePoolState struct {
 	TotalSupply   Amount   `json:"total_supply"`
 }
 
-// CurveMetaState preserves physical balances and the explicitly read-only base.
+// CurveMetaState preserves physical balances and the observed base dependency.
 type CurveMetaState struct {
 	Implementation           string                  `json:"implementation"`
 	ImplementationCodeSHA256 string                  `json:"implementation_code_sha256"`
@@ -46,7 +49,7 @@ func (p Pool) validateCurveMeta() error {
 	if s.CurveNG != nil || s.ManagedFees != nil || len(s.Assets) != 2 || len(s.Weights) != 0 || s.Vault != "" || s.VaultCodeSHA256 != "" || s.PoolID != "" || len(m.StoredBalances) != 2 || len(m.AdminBalances) != 2 || s.Assets[1].Token != CurveMetaBaseLP || s.Assets[1].Scaling != "1000000000000000000" || m.BasePool != CurveMetaBasePool || p.PoolID == m.BasePool || !validDigest(m.BasePoolCodeSHA256) || m.Timestamp == 0 || m.Timestamp > ^uint64(0)/1000 || len(m.BlockHash) != 66 || !strings.HasPrefix(m.BlockHash, "0x") || !validDigest(m.BlockHash[2:]) || strings.Trim(m.BlockHash[2:], "0") == "" {
 		return errors.New("CURVE_META_PARAMETERS")
 	}
-	if b := m.BasePoolState; b != nil && (len(b.Balances) != 3 || len(b.AdminBalances) != 3 || len(b.Rates) != 3 || b.Fee < 4000000 || b.Fee > 100000000 || b.AdminFee != 5000000000 || b.TotalSupply.Big().Sign() == 0 || b.Amplification.Big().Cmp(big.NewInt(100)) < 0 || b.Amplification.Big().Cmp(big.NewInt(100000000)) >= 0) {
+	if b := m.BasePoolState; b != nil && !b.valid() {
 		return errors.New("CURVE_META_BASE_POOL_STATE")
 	}
 	amp, e := ParseAmount(string(s.Amplification))
@@ -83,6 +86,34 @@ func (p Pool) validateCurveMeta() error {
 	return nil
 }
 
+func (b *CurveMetaBasePoolState) valid() bool {
+	if len(b.Balances) != 3 || len(b.AdminBalances) != 3 || len(b.Rates) != 3 ||
+		b.Fee > 5000000000 || b.AdminFee > 10000000000 {
+		return false
+	}
+	amp, err := ParseAmount(string(b.Amplification))
+	if err != nil || amp.Big().Cmp(big.NewInt(100)) < 0 || amp.Big().Cmp(big.NewInt(100000000)) >= 0 {
+		return false
+	}
+	supply, err := ParseAmount(string(b.TotalSupply))
+	if err != nil || supply.Big().Sign() == 0 {
+		return false
+	}
+	for i := range b.Balances {
+		if _, err := ParseAmount(string(b.Balances[i])); err != nil {
+			return false
+		}
+		if _, err := ParseAmount(string(b.AdminBalances[i])); err != nil {
+			return false
+		}
+		rate, err := ParseAmount(string(b.Rates[i]))
+		if err != nil || rate.Big().Sign() == 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // A base virtual price remains valid through local swaps only when the base
 // pool itself cannot be mutated by the same quote plan.
 func ValidateCurveMetaDependencies(pools []Pool) error {
@@ -91,6 +122,7 @@ func ValidateCurveMetaDependencies(pools []Pool) error {
 		ids[p.PoolID] = true
 	}
 	var observed *CurveMetaState
+	var observedBase *CurveMetaBasePoolState
 	var lpCode string
 	for _, p := range pools {
 		if p.MultiAsset == nil || p.MultiAsset.CurveMeta == nil {
@@ -107,6 +139,12 @@ func ValidateCurveMetaDependencies(pools []Pool) error {
 			return errors.New("CURVE_META_DEPENDENCY_CONFLICT")
 		}
 		observed = m
+		if m.BasePoolState != nil {
+			if observedBase != nil && !reflect.DeepEqual(observedBase, m.BasePoolState) {
+				return errors.New("CURVE_META_DEPENDENCY_CONFLICT")
+			}
+			observedBase = m.BasePoolState
+		}
 		lpCode = p.MultiAsset.Assets[1].CodeSHA256
 	}
 	return nil

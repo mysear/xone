@@ -18,6 +18,11 @@ func (a *Adapter) readCurveMeta(ctx context.Context, p config.PoolConfig, anchor
 	if p.Protocol != "curve-metausd-direct" || v == nil || v.TokenPolicy != "standard-base-lp" || len(v.Tokens) != 2 || v.Tokens[1].Token != domain.CurveMetaBaseLP || v.ExpectedImplementation == "" || v.ExpectedImplementationCodeSHA256 != domain.CurveMetaRuntimeSHA256 || v.ExpectedBasePoolCodeSHA256 == "" || v.ExpectedVault != "" || v.ExpectedVaultCodeSHA256 != "" || v.PoolID != "" || block.TimestampMS == 0 || block.TimestampMS%1000 != 0 {
 		return fail("CURVE_META_CONFIG")
 	}
+	if v.EnableUnderlying && (a.Chain.Key != "evm:1" ||
+		v.ExpectedBasePoolCodeSHA256 != domain.CurveMetaBaseRuntimeSHA256 ||
+		v.Tokens[1].ExpectedCodeSHA256 != domain.CurveMetaBaseLPRuntimeSHA256) {
+		return fail("CURVE_META_BASE_IDENTITY")
+	}
 	code, e := a.verifyCode(ctx, p.ID, v.ExpectedCodeSHA256, anchor)
 	if e != nil {
 		return domain.Pool{}, e
@@ -54,39 +59,10 @@ func (a *Adapter) readCurveMeta(ctx context.Context, p config.PoolConfig, anchor
 	}
 	m := &domain.CurveMetaState{Implementation: v.ExpectedImplementation, ImplementationCodeSHA256: v.ExpectedImplementationCodeSHA256, BasePool: domain.CurveMetaBasePool, BasePoolCodeSHA256: v.ExpectedBasePoolCodeSHA256, StoredBalances: make([]domain.Amount, 2), AdminBalances: make([]domain.Amount, 2), Timestamp: block.TimestampMS / 1000, BlockNumber: block.Number, BlockHash: block.Hash}
 	if v.EnableUnderlying {
-		base := &domain.CurveMetaBasePoolState{Balances: make([]domain.Amount, 3), AdminBalances: make([]domain.Amount, 3), Rates: []domain.Amount{"1000000000000000000", "1000000000000000000", "1000000000000000000"}, Fee: 0, AdminFee: 0}
-		for i := 0; i < 3; i++ {
-			base.Balances[i], e = amount(m.BasePool, selectorBalances+fmt.Sprintf("%064x", i))
-			if e != nil {
-				return domain.Pool{}, e
-			}
-			base.AdminBalances[i], e = amount(m.BasePool, "0xe2e7d264"+fmt.Sprintf("%064x", i))
-			if e != nil {
-				return domain.Pool{}, e
-			}
-		}
-		base.Amplification, e = amount(m.BasePool, selectorAPrecise)
+		m.BasePoolState, e = a.readCurveMetaBasePool(ctx, anchor, amount)
 		if e != nil {
 			return domain.Pool{}, e
 		}
-		feeAmount, e := amount(m.BasePool, selectorFee)
-		if e != nil {
-			return domain.Pool{}, e
-		}
-		adminFeeAmount, e := amount(m.BasePool, selectorAdminFee)
-		if e != nil {
-			return domain.Pool{}, e
-		}
-		base.TotalSupply, e = amount(m.BasePool, "0x18160ddd")
-		if e != nil {
-			return domain.Pool{}, e
-		}
-		if !feeAmount.Big().IsUint64() || !adminFeeAmount.Big().IsUint64() {
-			return fail("CURVE_META_BASE_FEE_WIDTH")
-		}
-		base.Fee = feeAmount.Big().Uint64()
-		base.AdminFee = adminFeeAmount.Big().Uint64()
-		m.BasePoolState = base
 	}
 	m.BaseVirtualPrice, e = amount(m.BasePool, "0xbb7b8b80")
 	if e != nil {
@@ -164,4 +140,71 @@ func (a *Adapter) readCurveMeta(ctx context.Context, p config.PoolConfig, anchor
 	s.AdminFee = admin.Big().Uint64()
 	pool := domain.Pool{MultiAsset: s, ChainKey: a.Chain.Key, PoolID: p.ID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: s.Assets[0].Balance, Reserve1: s.Assets[1].Balance, FeeNumerator: fee.Big().Uint64(), FeeDenominator: 10000000000, AdapterVersion: "curve-metausd-direct/5272fd2b-fixed-base-1", TokenBehavior: "standard"}
 	return pool, pool.Validate()
+}
+
+// The pinned 3pool runtime uses its own A precision and a separate LP token.
+func (a *Adapter) readCurveMetaBasePool(ctx context.Context, anchor map[string]any, amount func(string, string) (domain.Amount, error)) (*domain.CurveMetaBasePoolState, error) {
+	pool := domain.CurveMetaBasePool
+	// The Vyper storage layout places the LP token at slot 5 and is_killed at slot 15.
+	for _, field := range []struct{ slot, want string }{
+		{"0x5", "0x" + strings.Repeat("0", 24) + domain.CurveMetaBaseLP[2:]},
+		{"0xf", "0x" + strings.Repeat("0", 64)},
+	} {
+		var got string
+		if err := a.Client.Call(ctx, "eth_getStorageAt", []any{pool, field.slot, anchor}, &got); err != nil {
+			return nil, err
+		}
+		if got != field.want {
+			return nil, errors.New("CURVE_META_BASE_STORAGE")
+		}
+	}
+	base := &domain.CurveMetaBasePoolState{
+		Balances: make([]domain.Amount, 3), AdminBalances: make([]domain.Amount, 3),
+		Rates: []domain.Amount{"1000000000000000000", "1000000000000000000000000000000", "1000000000000000000000000000000"},
+	}
+	for i, token := range []string{
+		"0x6b175474e89094c44da98b954eedeac495271d0f",
+		"0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+		"0xdac17f958d2ee523a2206206994597c13d831ec7",
+	} {
+		index := fmt.Sprintf("%064x", i)
+		coin, err := a.stableCall(ctx, pool, selectorCoins+index, anchor, 1)
+		if err != nil {
+			return nil, err
+		}
+		if "0x"+hex.EncodeToString(coin) != "0x"+strings.Repeat("0", 24)+token[2:] {
+			return nil, errors.New("CURVE_META_BASE_COIN_ORDER")
+		}
+		base.Balances[i], err = amount(pool, selectorBalances+index)
+		if err != nil {
+			return nil, err
+		}
+		base.AdminBalances[i], err = amount(pool, "0xe2e7d264"+index) // admin_balances(uint256)
+		if err != nil {
+			return nil, err
+		}
+	}
+	amp, err := amount(pool, "0xf446c1d0") // A()
+	if err != nil {
+		return nil, err
+	}
+	base.Amplification = domain.Amount(new(big.Int).Mul(amp.Big(), big.NewInt(100)).String())
+	fee, err := amount(pool, selectorFee)
+	if err != nil {
+		return nil, err
+	}
+	admin, err := amount(pool, selectorAdminFee)
+	if err != nil {
+		return nil, err
+	}
+	if !fee.Big().IsUint64() || !admin.Big().IsUint64() {
+		return nil, errors.New("CURVE_META_BASE_FEE_WIDTH")
+	}
+	base.Fee = fee.Big().Uint64()
+	base.AdminFee = admin.Big().Uint64()
+	base.TotalSupply, err = amount(domain.CurveMetaBaseLP, "0x18160ddd") // totalSupply()
+	if err != nil {
+		return nil, err
+	}
+	return base, nil
 }

@@ -6,6 +6,10 @@ use sha2::{Digest, Sha256};
 pub const RUNTIME_SHA256: &str = "c5351fd332fdf0f04486a838b2bceba15d7a45965e3df61e9a0ccedc674d450d";
 pub const BASE_POOL: &str = "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7";
 pub const BASE_LP: &str = "0x6c3f90f043a72fa612cbac8115ee7e52bde6e490";
+pub const BASE_RUNTIME_SHA256: &str =
+    "eb09f8e03f107e5355ad85ec428609a1d8cb47bc30509c80455a2c8a108cac0d";
+pub const BASE_LP_RUNTIME_SHA256: &str =
+    "bb95e5787fa843002128fbe09575a115700650f4bca6efb51e70da316497438f";
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct CurveMetaBasePoolState {
@@ -60,10 +64,11 @@ impl Pool {
                     || b.rates.len() != 3
                     || b.amplification.0 < BigUint::from(100u64)
                     || b.amplification.0 >= BigUint::from(100_000_000u64)
-                    || !(4_000_000..=100_000_000).contains(&b.fee)
-                    || b.admin_fee != 5_000_000_000
+                    || b.fee > 5_000_000_000
+                    || b.admin_fee > 10_000_000_000
                     || b.total_supply.0.is_zero()
-                    || b.rates.iter().any(|r| r.0.is_zero())
+                    || b.total_supply.0.bits() > 256
+                    || b.rates.iter().any(|r| r.0.is_zero() || r.0.bits() > 256)
                     || b.balances.iter().any(|v| v.0.bits() > 256)
                     || b.admin_balances.iter().any(|v| v.0.bits() > 256)
             })
@@ -132,6 +137,7 @@ pub fn validate_meta_dependencies<'a>(pools: impl IntoIterator<Item = &'a Pool>)
         .map(|p| p.pool_id.as_str())
         .collect::<std::collections::BTreeSet<_>>();
     let mut observed: Option<(&CurveMetaState, &str)> = None;
+    let mut observed_base = None;
     for p in rows {
         let Some(s) = p.multi_asset.as_ref() else {
             continue;
@@ -159,6 +165,12 @@ pub fn validate_meta_dependencies<'a>(pools: impl IntoIterator<Item = &'a Pool>)
             }
         }
         observed = Some((m, code));
+        if let Some(base) = &m.base_pool_state {
+            if observed_base.is_some_and(|prior| prior != base) {
+                return Err(err("CURVE_META_DEPENDENCY_CONFLICT"));
+            }
+            observed_base = Some(base);
+        }
     }
     Ok(())
 }

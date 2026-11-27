@@ -313,7 +313,8 @@
 
 ### I3 Curve Meta underlying
 
-- 将完整 base pool 快照接入正常解析和服务入口。
+- Go Meta 解析入口已读取以太坊 3pool 的完整 base 状态。按固定 runtime 核对 LP 合约、池停用状态和币序，读取 18/6/6 位缩放、`A()`、fee、admin balances 和独立 LP 总供给。区块 21,057,112 的同一组状态通过 dRPC 与 Tenderly，Go/Rust wire 和现有 underlying 数学专项通过。
+- 同区块多个 Meta 快照必须对完整 base 状态一致。Go 快照克隆独立复制 base 向量。
 - 传播 underlying deposit/withdraw 后的 base balances、admin balances 和 LP supply。
 - 校验 Meta 与 base 的共享依赖一致性，补齐 ExactIn/ExactOut、连续交易、wire 和恢复验证。
 - 真实 base 部署与完整执行单独验收。

@@ -1313,6 +1313,18 @@ impl Config {
                     {
                         return Err(fail());
                     }
+                    if v.enable_underlying
+                        && (p.protocol != "curve-metausd-direct"
+                            || c.key != "evm:1"
+                            || v.expected_base_pool_code_sha256
+                                != xone_domain::curve_meta_state::BASE_RUNTIME_SHA256
+                            || !v.tokens.get(1).is_some_and(|token| {
+                                token.expected_code_sha256
+                                    == xone_domain::curve_meta_state::BASE_LP_RUNTIME_SHA256
+                            }))
+                    {
+                        return Err(fail());
+                    }
                     let n = v.tokens.len();
                     if !(2..=38).contains(&n) {
                         return Err(fail());

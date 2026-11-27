@@ -301,6 +301,13 @@ func (p Pool) Clone() Pool {
 			meta := *c.CurveMeta
 			meta.StoredBalances = append([]Amount{}, meta.StoredBalances...)
 			meta.AdminBalances = append([]Amount{}, meta.AdminBalances...)
+			if meta.BasePoolState != nil {
+				base := *meta.BasePoolState
+				base.Balances = append([]Amount{}, base.Balances...)
+				base.AdminBalances = append([]Amount{}, base.AdminBalances...)
+				base.Rates = append([]Amount{}, base.Rates...)
+				meta.BasePoolState = &base
+			}
 			c.CurveMeta = &meta
 		}
 		if c.CurveNG != nil {
