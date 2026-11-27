@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R03 真实中间件流恢复基础（2026-11-27）|§7、§18、§28.22；WP04、WP05、WP07、WP20、WP24|LOCAL_SCOPE_VERIFIED|隔离 Docker PostgreSQL/Kafka 回退、Kafka 内外双监听器、固定 protobuf/SDK 构建环境和真实 normal Yellowstone 发布、撤销、重启、Fence、HEAD_FIRST 场景已接入；R03 history runtime 7 项测试通过|证据为受控 tonic 来源与本机真实中间件，真实同源 Yellowstone、版本化历史 bank 完整性、连续断线和生产故障域仍待验收|
 |I4-T2022 Token-2022 扩展与转账费收敛（本轮）|§7.3、§8.12、§11.3、§12.2、§12.5、§12.11–12.14；WP02、WP05、WP11、WP20、WP25|PARTIAL_LOCAL|新增共享 `spl_token_2022` 域模块，统一 epoch 费率选择、向上取整、最大手续费、ExactOut 逆解和 `TransferFeeAmount`/`ImmutableOwner` TLV 校验；Meteora 报价域与 Solana 交易准备复用同一解析逻辑|两套 Rust domain 边界测试、格式检查和 dex-router check 通过；固定 bank/协议数学全量回放因缺失 `meteora-token2022.json` fixture 阻塞，执行准备测试因缺失 `evm/baseline.json` 阻塞；Orca adaptive Token-2022、稀疏数组、奖励领取及 Raydium CLMM 订单仍待后续优先级完成|
 |I4-Orca adaptive 补充数组窗口（本轮）|§7.3、§8.12、§11.3、§12.2、§12.5、§12.11–12.14；WP02、WP04、WP05、WP11、WP20、WP25|PARTIAL_LOCAL|动态 adaptive profile 接受 3–7 个按 PDA/bitmap 校验的连续数组，并表示同 bank 内明确观测到的 system-owned 空 PDA。双向 ExactIn/ExactOut 各选最多三个方向数组。Go/Rust 校验稀疏 PDA，交易准备与 SBF worker 检查同一账户的 owner 和数据|101 个经典交换用例和 20 个 bank 回放、Go/Rust Protobuf、Go/Rust 配置和 Rust 普通 RPC 专项通过。稀疏分支通过原程序 builder 双向 ExactIn/ExactOut、七数组 RPC 正负例、执行准备编译及 worker 的账户证明校验。显式空 PDA 与缺失依赖分开处理。扩展窗口原 SBF/CPI 余额差、Token-2022 和奖励领取仍待验收|
 |I4-Orca adaptive Token-2022 SwapV2|§7.3、§8.12、§11.3、§12.2、§12.5、§12.11–12.14；WP02、WP04、WP05、WP11、WP20、WP25|LOCAL_SCOPE_VERIFIED|绑定同 bank 的 Token-2022 程序、mint、vault、Memo 和 epoch。任一侧或两侧支持 TransferFeeConfig，双向 ExactIn/ExactOut 使用用户毛投入和净收款。SwapV2 复用 SPL/WSOL 资金准备及 ATA 创建，独立 worker 验证用户余额、withheld 与两个 vault 后状态。能力目录为 `xone-protocol-capabilities/27`|Go/Rust wire、普通 RPC 和数学专项通过。公开部署程序在受控 bank 上通过 24 组交易和 24 组阈值回滚，覆盖 epoch 切换、稀疏数组和预注资 ATA。签名提交与回执继续按 I6 验收。|
@@ -453,7 +454,7 @@
 - 完成 ClickHouse 事实、版本表、shadow 发布和 FINAL 查询。
 - 完成 RFQ、多 solver、外部来源竞争和收益分布。
 
-当前活动目标为 I6，先将 V4/Infinity 单池构建接入 Cancun 固定状态回放，再验收签名和实际回执。I1 至 I3 的上述报价范围已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。I1 的 e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的 Managed 主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
+当前活动目标为 I7，先完成 R01 真实部署身份、代码、升级槽与历史块绑定，再继续 R02–R04 的真实来源和恢复联验。I1 至 I3 的上述报价范围已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。I1 的 e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的 Managed 主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
 
 <a id="work-packages"></a>
 
