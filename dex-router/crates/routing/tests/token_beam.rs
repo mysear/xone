@@ -106,3 +106,62 @@ fn exact_out_beam_retains_parallel_suffixes_and_prioritizes_best_within_budget()
         assert_eq!(path.edges, expected.edges);
     }
 }
+
+#[test]
+fn exact_in_beam_prioritizes_the_best_full_order_prefix_after_parallel_pool_pruning() {
+    let mut pools = Vec::new();
+    for id in 10..=15 {
+        pools.push(pool(id, SELL, MID, 1_000_000 + u64::from(id) * 50_000));
+    }
+    pools.push(pool(16, MID, BUY, 1_000_000));
+    let graph = Graph::build(&pools).unwrap();
+    let state: BTreeMap<_, _> = pools
+        .iter()
+        .map(|pool| (pool.pool_id.clone(), pool.clone()))
+        .collect();
+    let input = "1000".parse().unwrap();
+    let suffix = graph.adjacency[MID]
+        .iter()
+        .find(|edge| edge.to == BUY)
+        .unwrap();
+    let mut oracle = graph.adjacency[SELL]
+        .iter()
+        .map(|prefix| {
+            let path = [prefix.clone(), suffix.clone()];
+            let output =
+                xone_routing::evaluate_path_with_funds(&mut state.clone(), &path, &input, FUNDS)
+                    .unwrap();
+            (output, path)
+        })
+        .collect::<Vec<_>>();
+    oracle.sort_by(|a, b| b.0.cmp(&a.0));
+    let result = xone_routing::search_bounded_with_funds(
+        &graph,
+        &pools,
+        SELL,
+        BUY,
+        &input,
+        Budget {
+            split_parts: 1,
+            max_hops: 2,
+            max_candidates: 2,
+            max_expansions: 20,
+        },
+        SearchExecution {
+            control: None,
+            funds: Some(FUNDS),
+        },
+    )
+    .unwrap();
+    assert!(result.budget_exhausted);
+    assert_eq!(result.max_labels_per_token, 4);
+    assert_eq!(result.dropped_labels, 2);
+    assert_eq!(result.prefix_evaluations, 6);
+    assert_eq!(result.expansions, 20);
+    assert_eq!(result.candidates.len(), 2);
+    for (path, (output, edges)) in result.candidates.iter().zip(oracle) {
+        assert_eq!(path.edges, edges);
+        assert_eq!(path.amount_in, input);
+        assert_eq!(path.amount_out, output);
+    }
+}

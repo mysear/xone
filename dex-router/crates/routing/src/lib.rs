@@ -256,6 +256,22 @@ pub struct SearchResult {
     pub budget_exhausted: bool,
     pub expansions: usize,
     pub evaluations: usize,
+    pub prefix_evaluations: usize,
+    pub max_labels_per_token: usize,
+    pub dropped_labels: usize,
+}
+pub const EXACT_IN_SEARCH_STRATEGY: &str = "FORWARD_TOKEN_BEAM_V1";
+
+struct PathPrefix {
+    tokens: Vec<String>,
+    edges: Vec<Edge>,
+}
+
+fn compare_output_rates(
+    (out_a, in_a): (&Amount, &Amount),
+    (out_b, in_b): (&Amount, &Amount),
+) -> std::cmp::Ordering {
+    (&out_b.0 * &in_a.0).cmp(&(&out_a.0 * &in_b.0))
 }
 /// Funds of an indicative sequential path. Intermediate credits return to
 /// sender; only the final hop credits recipient. No execution approval implied.
@@ -658,7 +674,16 @@ pub fn search_bounded_with_funds(
         .iter()
         .map(|p| (p.pool_id.clone(), p.clone()))
         .collect::<BTreeMap<_, _>>();
-    let mut queue = VecDeque::from([(vec![sell.to_owned()], Vec::<Edge>::new())]);
+    let mut queue = VecDeque::from([PathPrefix {
+        tokens: vec![sell.to_owned()],
+        edges: Vec::new(),
+    }]);
+    let mut next_tokens_by_order = Vec::new();
+    let mut prefixes = BTreeMap::<String, Vec<PathPrefix>>::new();
+    let label_limit = budget.max_candidates.max(4);
+    let mut dropped_labels = 0;
+    let mut prefix_evaluations = 0;
+    let mut prefix_budget_exhausted = false;
     let mut found = Vec::new();
     let mut expansions = 0;
     let mut exhausted = false;
@@ -670,15 +695,12 @@ pub fn search_bounded_with_funds(
             probes.push(amount);
         }
     }
-    while let Some((tokens, edges)) = queue.pop_front() {
+    while let Some(PathPrefix { tokens, edges }) = queue.pop_front() {
         if control
             .as_ref()
             .is_some_and(|c| c.cancel.load(Ordering::Relaxed) || Instant::now() >= c.deadline)
         {
             return Err(err("BUDGET_EXHAUSTED"));
-        }
-        if edges.len() >= budget.max_hops {
-            continue;
         }
         for e in graph
             .adjacency
@@ -781,18 +803,83 @@ pub fn search_bounded_with_funds(
                 if let (Some(path), Some((output, input))) = (candidate, rate) {
                     found.push((path, output, input));
                 }
-            } else {
-                queue.push_back((next_tokens, next));
+            } else if next.len() < budget.max_hops {
+                prefixes
+                    .entry(e.to.clone())
+                    .or_insert_with(|| {
+                        next_tokens_by_order.push(e.to.clone());
+                        Vec::new()
+                    })
+                    .push(PathPrefix {
+                        tokens: next_tokens,
+                        edges: next,
+                    });
             }
         }
         if exhausted {
             break;
         }
+        if queue.is_empty() {
+            for token in next_tokens_by_order.drain(..) {
+                let labels = prefixes.remove(&token).unwrap_or_default();
+                if labels.len() <= 1 {
+                    queue.extend(labels);
+                    continue;
+                }
+                let prefix_funds = funds.map(|funds| Funds {
+                    sender: funds.sender,
+                    recipient: funds.sender,
+                });
+                let mut scored = Vec::with_capacity(labels.len());
+                for prefix in labels {
+                    let mut rate: Option<(Amount, &Amount)> = None;
+                    for amount in &probes {
+                        if control.as_ref().is_some_and(|c| {
+                            c.cancel.load(Ordering::Relaxed) || Instant::now() >= c.deadline
+                        }) {
+                            return Err(err("BUDGET_EXHAUSTED"));
+                        }
+                        if prefix_evaluations >= budget.max_expansions {
+                            prefix_budget_exhausted = true;
+                            break;
+                        }
+                        prefix_evaluations += 1;
+                        if let Ok(output) = evaluate_path_context(
+                            &mut base.clone(),
+                            &prefix.edges,
+                            amount,
+                            prefix_funds,
+                        ) {
+                            if rate.as_ref().is_none_or(|(out, input)| {
+                                compare_output_rates((&output, amount), (out, input)).is_lt()
+                            }) {
+                                rate = Some((output, amount));
+                            }
+                            if *amount != *input {
+                                break;
+                            }
+                        }
+                    }
+                    scored.push((prefix, rate));
+                }
+                scored.sort_by(|a, b| match (&a.1, &b.1) {
+                    (Some((out_a, in_a)), Some((out_b, in_b))) => {
+                        compare_output_rates((out_a, in_a), (out_b, in_b))
+                    }
+                    _ => b.1.is_some().cmp(&a.1.is_some()),
+                });
+                dropped_labels += scored.len().saturating_sub(label_limit);
+                queue.extend(
+                    scored
+                        .into_iter()
+                        .take(label_limit)
+                        .map(|(prefix, _)| prefix),
+                );
+            }
+        }
     }
     found.sort_by(|a, b| {
-        (&b.1 .0 * &a.2 .0)
-            .cmp(&(&a.1 .0 * &b.2 .0))
-            .then_with(|| a.0.tokens.cmp(&b.0.tokens))
+        compare_output_rates((&a.1, &a.2), (&b.1, &b.2)).then_with(|| a.0.tokens.cmp(&b.0.tokens))
     });
     if found.len() > budget.max_candidates {
         // Small-capacity probes may have a better average rate while being
@@ -821,9 +908,12 @@ pub fn search_bounded_with_funds(
     }
     Ok(SearchResult {
         candidates: found.into_iter().map(|p| p.0).collect(),
-        budget_exhausted: exhausted,
+        budget_exhausted: exhausted || prefix_budget_exhausted || dropped_labels > 0,
         expansions,
         evaluations,
+        prefix_evaluations,
+        max_labels_per_token: label_limit,
+        dropped_labels,
     })
 }
 

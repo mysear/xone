@@ -446,7 +446,9 @@ impl Api {
             None
         };
         let price_identity = cost_backend.as_ref().and_then(|b| b.price_identity());
-        let mut identity = json!({"request":request,"view_id":view.view_id,"policy":self.config.economic_hash,"engine":"xone-router/0.1"});
+        let search_strategy = xone_routing::EXACT_IN_SEARCH_STRATEGY;
+        let mut identity = json!({"request":request,"view_id":view.view_id,"policy":self.config.economic_hash,
+            "engine":"xone-router/0.1","candidate_search":search_strategy});
         if let Some(price) = price_identity {
             identity["candidate_price_book"] = json!(price);
         }
@@ -524,22 +526,23 @@ impl Api {
                 sender: &req.caller,
                 recipient: &req.recipient,
             };
+            let search_budget = xone_routing::Budget {
+                split_parts: if routing.max_splits > 1 {
+                    routing.split_parts
+                } else {
+                    1
+                },
+                max_hops,
+                max_candidates: routing.max_candidates,
+                max_expansions: routing.max_expansions,
+            };
             let candidates = xone_routing::search_bounded_with_funds(
                 &worker_view.graph,
                 &worker_view.pools,
                 &req.sell_token,
                 &req.buy_token,
                 &req.sell_amount,
-                xone_routing::Budget {
-                    split_parts: if routing.max_splits > 1 {
-                        routing.split_parts
-                    } else {
-                        1
-                    },
-                    max_hops,
-                    max_candidates: routing.max_candidates,
-                    max_expansions: routing.max_expansions,
-                },
+                search_budget,
                 xone_routing::SearchExecution {
                     control: Some(xone_routing::SearchControl {
                         cancel: &cancelled,
@@ -615,6 +618,17 @@ impl Api {
                 &worker_view.reference,
                 &policy,
             )?;
+            let candidate_search = json!({
+                "strategy": search_strategy,
+                "maxHops": search_budget.max_hops,
+                "maxCandidates": search_budget.max_candidates,
+                "maxExpansions": search_budget.max_expansions,
+                "probeParts": search_budget.split_parts,
+                "maxLabelsPerTokenPerHop": candidates.max_labels_per_token,
+                "droppedLabels": candidates.dropped_labels,
+                "prefixEvaluations": candidates.prefix_evaluations,
+                "pathEvaluations": candidates.evaluations,
+            });
             Ok((
                 plan,
                 candidates.budget_exhausted || optimized.budget_exhausted,
@@ -623,6 +637,7 @@ impl Api {
                 optimized.evaluations,
                 optimized.grid_exhaustive,
                 cost_ranking,
+                candidate_search,
             ))
         });
         let remaining = deadline.saturating_duration_since(Instant::now());
@@ -634,6 +649,7 @@ impl Api {
             optimizer_evaluations,
             grid_exhaustive,
             cost_ranking,
+            candidate_search,
         ) = tokio::time::timeout(remaining, task)
             .await
             .map_err(|_| err("BUDGET_EXHAUSTED"))?
@@ -649,6 +665,7 @@ impl Api {
                 .flat_map(|r| r.path.edges.iter().map(|e| e.pool_id.as_str())),
         )?;
         let mut response = json!({"kind":"EXACT_IN","protocolViewIds":protocol_view_ids,"quoteId":quote_id,"requestHash":request_hash,"chainKey":request.chain_key,"snapshotRef":view.reference,"ownerService":view.reference.owner_service,"onlineGeneration":view.reference.online_generation,"scopeHash":view.reference.scope_hash,"quoteViewId":view.view_id,"graphVersion":view.graph_version,"engineVersion":"xone-router/0.1","economicPolicyHash":self.config.economic_hash,"configRelease":self.config.release,"sellAmount":request.sell_amount,"consumedIn":plan.allocation.sell_amount,"refund":plan.allocation.refund,"grossBuyAmount":plan.allocation.gross_buy_amount,"minBuyAmount":plan.min_buy_amount,"netBuyAmountEstimate":Value::Null,"costs":cost_fallback::costs(&self.config.config.routing.route_activation_cost),"routes":plan.allocation.routes,"planHash":plan.plan_hash,"verification":{"level":"INDICATIVE","success":false,"reason":"INDEPENDENT_SIMULATION_UNAVAILABLE"},"validity":{"expiresAtMs":expires,"canonicalEpoch":view.reference.canonical_epoch},"quality":{"costRanking":cost_fallback::ranking(false),"budgetExhausted":exhausted,"candidateScope":view.pools.iter().filter(|p|!view.graph.excluded_pools.contains_key(&p.pool_id)).map(|p|p.pool_id.clone()).collect::<Vec<_>>(),"excludedPools":view.graph.excluded_pools,"source":view.source,"historyIndependent":true,"historyGaps":view.history_gaps,"optimalityClaim":"HEURISTIC_WITHIN_SCOPE","allocationSearch":{"evaluations":optimizer_evaluations,"exhaustiveWithinGrid":grid_exhaustive,"gridParts":self.config.config.routing.split_parts,"maxSplits":self.config.config.routing.max_splits},"expansions":expansions}});
+        response["quality"]["candidateSearch"] = candidate_search;
         if let Some(ranking) = cost_ranking {
             if expires <= now_ms() {
                 return Err(err("QUOTE_EXPIRED"));
