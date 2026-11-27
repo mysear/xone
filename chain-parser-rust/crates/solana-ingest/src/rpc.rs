@@ -134,6 +134,7 @@ fn check_confirmation(ch: &Chain) -> Result<()> {
                 | "orca-whirlpools-adaptive"
                 | "orca-whirlpools-adaptive-rewards"
                 | "orca-whirlpools-adaptive-dynamic"
+                | xone_domain::orca_token_2022::PROFILE
         )
     }) && ch.confirmation_tag != "finalized"
     {
@@ -392,12 +393,14 @@ impl BaselineReader<'_> {
                 | "orca-whirlpools-rewards"
                 | "orca-whirlpools-adaptive"
                 | "orca-whirlpools-adaptive-rewards"
-                | "orca-whirlpools-adaptive-dynamic" => {
+                | "orca-whirlpools-adaptive-dynamic"
+                | xone_domain::orca_token_2022::PROFILE => {
                     if matches!(
                         p.protocol.as_str(),
                         "orca-whirlpools-adaptive"
                             | "orca-whirlpools-adaptive-rewards"
                             | "orca-whirlpools-adaptive-dynamic"
+                            | xone_domain::orca_token_2022::PROFILE
                     ) {
                         adaptive_oracles.insert(crate::orca::oracle_address(p)?);
                     }
@@ -534,6 +537,7 @@ impl BaselineReader<'_> {
                     || p.protocol == "orca-whirlpools-adaptive"
                     || p.protocol == "orca-whirlpools-adaptive-rewards"
                     || p.protocol == "orca-whirlpools-adaptive-dynamic"
+                    || p.protocol == xone_domain::orca_token_2022::PROFILE
                 {
                     crate::orca::decode_orca_whirlpool(ch, p, &orca_accounts, slot)?
                 } else if matches!(
@@ -858,7 +862,8 @@ pub fn required_scope(ch: &Chain) -> Result<BTreeSet<String>> {
             | "orca-whirlpools-rewards"
             | "orca-whirlpools-adaptive"
             | "orca-whirlpools-adaptive-rewards"
-            | "orca-whirlpools-adaptive-dynamic" => ids.extend(crate::orca::required_accounts(p)?),
+            | "orca-whirlpools-adaptive-dynamic"
+            | xone_domain::orca_token_2022::PROFILE => ids.extend(crate::orca::required_accounts(p)?),
             "raydium-cpmm-creator" => ids.extend(crate::raydium::required_accounts(p)?),
             "raydium-cpmm"
                 if p.program_id == CPMM_PROGRAM
@@ -938,7 +943,8 @@ pub fn snapshot_from_bank(
             | "orca-whirlpools-rewards"
             | "orca-whirlpools-adaptive"
             | "orca-whirlpools-adaptive-rewards"
-            | "orca-whirlpools-adaptive-dynamic" => {
+            | "orca-whirlpools-adaptive-dynamic"
+            | xone_domain::orca_token_2022::PROFILE => {
                 let oracle = crate::orca::oracle_address(p)?;
                 let adaptive = p.protocol.contains("adaptive");
                 let a = crate::orca::required_accounts(p)?

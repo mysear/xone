@@ -56,6 +56,8 @@ pub struct OrcaTickArray {
 pub struct OrcaWhirlpoolState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub adaptive: Option<crate::orca_adaptive_state::OrcaAdaptiveState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_2022: Option<crate::orca_token_2022::OrcaToken2022State>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub reward_infos: Vec<OrcaRewardInfo>,
     pub program_id: String,
@@ -141,6 +143,9 @@ impl OrcaWhirlpoolState {
         Ok(())
     }
     fn validate_wire(&self) -> Result<()> {
+        if let Some(tokens) = &self.token_2022 {
+            tokens.validate(self, None)?;
+        }
         self.validate_reward_state()?;
         if self.program_id != PROGRAM_ID
             || self.programdata != PROGRAM_DATA
@@ -216,7 +221,8 @@ impl OrcaWhirlpoolState {
             crate::raydium::validate_pubkey(&a.address)?;
             if !seen.insert(&a.address)
                 || !["fixed", "dynamic", "sparse"].contains(&a.layout.as_str())
-                || a.layout == "sparse" && (!a.initialized_bitmap.0.is_zero() || !a.ticks.is_empty())
+                || a.layout == "sparse"
+                    && (!a.initialized_bitmap.0.is_zero() || !a.ticks.is_empty())
                 || start % span != 0
                 || start < min_start
                 || start > i64::from(MAX_TICK)
@@ -268,10 +274,17 @@ impl OrcaWhirlpoolState {
     }
     pub fn validate(&self, p: &Pool) -> Result<()> {
         self.validate_wire()?;
+        if (p.protocol == crate::orca_token_2022::PROFILE) != self.token_2022.is_some() {
+            return Err(err("ORCA_TOKEN2022_PROFILE"));
+        }
+        if let Some(tokens) = &self.token_2022 {
+            tokens.validate(self, Some(p))?;
+        }
         if matches!(
             p.protocol.as_str(),
             crate::orca_adaptive_state::PROFILE | crate::orca_adaptive_state::REWARDS_PROFILE
-        ) && (self.tick_arrays.len() != 3 || self.tick_arrays.iter().any(|a| a.layout != "fixed"))
+        ) && (self.tick_arrays.len() != 3
+            || self.tick_arrays.iter().any(|a| a.layout != "fixed"))
         {
             return Err(err("ORCA_ADAPTIVE_COMBINATION_UNSUPPORTED"));
         }
@@ -282,9 +295,16 @@ impl OrcaWhirlpoolState {
         }
         for array in self.tick_arrays.iter().filter(|a| a.layout == "sparse") {
             let pool = crate::raydium::validate_pubkey(&p.pool_id)?;
-            if p.protocol != crate::orca_adaptive_state::DYNAMIC_PROFILE
-                || array.address != crate::meteora::pda(
-                    &[b"tick_array", &pool, array.start_tick_index.to_string().as_bytes()],
+            if !matches!(
+                p.protocol.as_str(),
+                crate::orca_adaptive_state::DYNAMIC_PROFILE | crate::orca_token_2022::PROFILE
+            ) || array.address
+                != crate::meteora::pda(
+                    &[
+                        b"tick_array",
+                        &pool,
+                        array.start_tick_index.to_string().as_bytes(),
+                    ],
                     PROGRAM_ID,
                 )?
             {
@@ -310,6 +330,9 @@ impl OrcaWhirlpoolState {
                     && self.adaptive.is_some())
                 || (p.protocol == crate::orca_adaptive_state::DYNAMIC_PROFILE
                     && p.adapter_version == crate::orca_adaptive_state::DYNAMIC_ADAPTER
+                    && self.adaptive.is_some())
+                || (p.protocol == crate::orca_token_2022::PROFILE
+                    && p.adapter_version == crate::orca_token_2022::ADAPTER
                     && self.adaptive.is_some()))
             || p.token_behavior != "standard"
             || p.fee_denominator != 1000000
@@ -348,6 +371,11 @@ impl OrcaWhirlpoolState {
         {
             return Err(err("ORCA_MINT_ORDER"));
         }
+        if let Some(tokens) = &self.token_2022 {
+            if !seen.insert(crate::spl_token_2022::PROGRAM) || !seen.insert(&tokens.programdata) {
+                return Err(err("ORCA_ACCOUNT_ALIAS"));
+            }
+        }
         for a in &self.tick_arrays {
             if seen.contains(a.address.as_str()) {
                 return Err(err("ORCA_ACCOUNT_ALIAS"));
@@ -364,6 +392,11 @@ impl OrcaWhirlpoolState {
         };
         Ok(wire::OrcaWhirlpoolState {
             adaptive: self.adaptive.as_ref().map(|a| a.to_proto()),
+            token_2022: self
+                .token_2022
+                .as_ref()
+                .map(|tokens| tokens.to_proto())
+                .transpose()?,
             reward_infos: self
                 .reward_infos
                 .iter()
@@ -457,6 +490,9 @@ impl OrcaWhirlpoolState {
             adaptive: s
                 .adaptive
                 .map(crate::orca_adaptive_state::OrcaAdaptiveState::from_proto),
+            token_2022: s
+                .token_2022
+                .map(crate::orca_token_2022::OrcaToken2022State::from_proto),
             reward_infos: s
                 .reward_infos
                 .into_iter()

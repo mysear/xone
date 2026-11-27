@@ -145,7 +145,9 @@ async fn adaptive_dynamic_normal_rpc_requests_and_decodes_supplemental_arrays() 
         .as_str()
         .unwrap();
     let mut account = bank["accounts"][template].clone();
-    let mut bytes = STANDARD.decode(account["data"][0].as_str().unwrap()).unwrap();
+    let mut bytes = STANDARD
+        .decode(account["data"][0].as_str().unwrap())
+        .unwrap();
     bytes.resize(60 + 88, 0);
     bytes[44..].fill(0);
     account["space"] = json!(bytes.len());
@@ -167,15 +169,19 @@ async fn adaptive_dynamic_normal_rpc_requests_and_decodes_supplemental_arrays() 
         case["pool"]["orca_whirlpool"]["tick_arrays"]
             .as_array_mut()
             .unwrap()
-            .push(json!({"address": key, "start_tick_index": start, "layout": "dynamic",
-                        "initialized_bitmap": "0", "ticks": []}));
+            .push(
+                json!({"address": key, "start_tick_index": start, "layout": "dynamic",
+                        "initialized_bitmap": "0", "ticks": []}),
+            );
         extra_accounts.push(key);
     }
     let (snapshot, calls) = normal_rpc(bank.clone(), &case, false).await;
     let wanted = serde_json::from_value::<xone_domain::Pool>(case["pool"].clone()).unwrap();
     assert_eq!(snapshot.unwrap().pools, vec![wanted.clone()]);
     let requested = calls[1]["params"][0].as_array().unwrap();
-    assert!(extra_accounts.iter().all(|key| requested.contains(&json!(key))));
+    assert!(extra_accounts
+        .iter()
+        .all(|key| requested.contains(&json!(key))));
 
     let address = &extra_accounts[3];
     bank["accounts"][address] = json!({
@@ -200,6 +206,75 @@ async fn adaptive_dynamic_normal_rpc_requests_and_decodes_supplemental_arrays() 
         bank["accounts"][address] = invalid;
         assert!(normal_rpc(bank.clone(), &case, false).await.0.is_err());
     }
+}
+
+#[tokio::test]
+async fn adaptive_token2022_normal_rpc_binds_program_mints_and_vaults() {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use xone_domain::spl_token_2022::{PROGRAM, PROGRAMDATA};
+
+    let native: Value = serde_json::from_str(include_str!(
+        "../../../test/contracts/orca-adaptive-dynamic-service.json"
+    ))
+    .unwrap();
+    let expected: Value = serde_json::from_str(include_str!(
+        "../../../test/contracts/orca-adaptive-dynamic-pools.json"
+    ))
+    .unwrap();
+    let wire: Value = serde_json::from_str(include_str!(
+        "../../../test/contracts/orca-adaptive-token2022-wire.json"
+    ))
+    .unwrap();
+    let mut bank = native["scenarios"][0]["banks"][0].clone();
+    let mut case = expected["cases"][0].clone();
+    case["pool"] = wire["snapshot"]["pools"][0].clone();
+    let pool = &case["pool"];
+    let tokens = &pool["orca_whirlpool"]["token_2022"];
+    let loader = "BPFLoaderUpgradeab1e11111111111111111111111";
+    let account = |owner, executable, data: &[u8]| {
+        json!({
+            "owner": owner, "executable": executable, "lamports": 10_000_000,
+            "data": [STANDARD.encode(data), "base64"],
+        })
+    };
+    let mut program = vec![2, 0, 0, 0];
+    program.extend(bs58::decode(PROGRAMDATA).into_vec().unwrap());
+    bank["accounts"][PROGRAM] = account(loader, true, &program);
+    let mut programdata = vec![0u8; 45];
+    programdata[0] = 3;
+    programdata[4..12].copy_from_slice(&300u64.to_le_bytes());
+    programdata.extend(b"\x7fELFsynthetic Token-2022 proof");
+    bank["accounts"][PROGRAMDATA] = account(loader, false, &programdata);
+    for i in 0..2 {
+        let asset = &tokens[&format!("token{i}")];
+        let mint = pool[&format!("token{i}")].as_str().unwrap();
+        let vault = pool["orca_whirlpool"][&format!("vault{i}")]
+            .as_str()
+            .unwrap();
+        for (key, field) in [(mint, "mint_data"), (vault, "vault_data")] {
+            let data = hex::decode(asset[field].as_str().unwrap()).unwrap();
+            bank["accounts"][key] = account(PROGRAM, false, &data);
+        }
+    }
+    let config = json!({
+        "programdata": PROGRAMDATA, "deployed_slot": 300,
+        "code_sha256": tokens["program_code_sha256"]
+    });
+    case["config"]["protocol"] = pool["protocol"].clone();
+    case["config"]["orca_whirlpool"]["token_2022"] = config;
+    let (snapshot, calls) = normal_rpc(bank.clone(), &case, false).await;
+    let wanted = serde_json::from_value::<xone_domain::Pool>(case["pool"].clone()).unwrap();
+    assert_eq!(snapshot.unwrap().pools, vec![wanted]);
+    let requested = calls[1]["params"][0].as_array().unwrap();
+    assert!(requested.contains(&json!(PROGRAM)));
+    assert!(requested.contains(&json!(PROGRAMDATA)));
+
+    let mut changed = bank.clone();
+    changed["accounts"][PROGRAMDATA]["data"][0] = json!(STANDARD.encode([0; 46]));
+    assert!(normal_rpc(changed, &case, false).await.0.is_err());
+    bank["accounts"][case["pool"]["orca_whirlpool"]["vault0"].as_str().unwrap()]["owner"] =
+        json!(xone_domain::raydium::TOKEN_PROGRAM);
+    assert!(normal_rpc(bank, &case, false).await.0.is_err());
 }
 
 #[tokio::test]

@@ -129,7 +129,10 @@ fn adaptive_dynamic_uses_only_three_directional_arrays_for_exact_in_and_out() {
             let supplemental = if left { 1 } else { 5 };
             sparse.tick_arrays[supplemental].layout = "sparse".into();
             let mut sparse_result = quote(&sparse, params).unwrap();
-            assert_eq!(sparse_result.next_state.tick_arrays[supplemental].layout, "sparse");
+            assert_eq!(
+                sparse_result.next_state.tick_arrays[supplemental].layout,
+                "sparse"
+            );
             sparse_result.next_state.tick_arrays[supplemental].layout = "dynamic".into();
             assert_eq!(
                 serde_json::to_value(&sparse_result).unwrap(),
@@ -152,6 +155,85 @@ fn adaptive_dynamic_uses_only_three_directional_arrays_for_exact_in_and_out() {
 }
 
 use xone_domain::{Amount, Pool};
+
+#[test]
+fn adaptive_token2022_quotes_user_and_vault_amounts_in_both_directions() {
+    use xone_domain::spl_token_2022::TransferFeeAccount;
+    use xone_protocol_math::{capabilities, exact_out, quote_exact_in};
+
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../test/contracts/orca-adaptive-token2022-wire.json"
+    ))
+    .unwrap();
+    let pool: Pool = serde_json::from_value(fixture["snapshot"]["pools"][0].clone()).unwrap();
+    let model = capabilities::describe(&pool).unwrap();
+    assert_eq!(model.quote_modes, ["EXACT_IN", "EXACT_OUT"]);
+    assert!(!model.execution_preparation);
+    let mut classic = pool.clone();
+    classic.protocol = xone_domain::orca_adaptive_state::DYNAMIC_PROFILE.into();
+    classic.adapter_version = xone_domain::orca_adaptive_state::DYNAMIC_ADAPTER.into();
+    classic.orca_whirlpool.as_mut().unwrap().token_2022 = None;
+
+    let uint = |v: u64| Amount::checked(v.into()).unwrap();
+    for (left, fee_in, fee_out, gross_target) in [(true, 20, 100u64, 3093), (false, 100, 20, 3020)]
+    {
+        let classic_quote = quote_exact_in(&classic, &uint(5000 - fee_in), left).unwrap();
+        let quote = quote_exact_in(&pool, &uint(5000), left).unwrap();
+        assert_eq!(quote.consumed_in, uint(5000));
+        assert_eq!(quote.amount_out.0, classic_quote.amount_out.0 - fee_out);
+        let classic_out = exact_out::quote_exact_out(&classic, &uint(gross_target), left).unwrap();
+        let exact_out = exact_out::quote_exact_out(&pool, &uint(3000), left).unwrap();
+        let gross_input_fee = if left {
+            20
+        } else {
+            let net = u64::try_from(&classic_out.amount_in.0).unwrap();
+            (net * 300).div_ceil(9700).min(100)
+        };
+        assert_eq!(
+            exact_out.amount_in.0,
+            classic_out.amount_in.0 + gross_input_fee
+        );
+        assert_eq!(exact_out.amount_out, uint(3000));
+        let next = quote.next_pool.orca_whirlpool.unwrap();
+        let expected = classic_quote.next_pool.orca_whirlpool.unwrap();
+        assert_eq!(
+            (next.raw_vault0, next.raw_vault1),
+            (expected.raw_vault0, expected.raw_vault1)
+        );
+        assert_eq!(next.adaptive, expected.adaptive);
+        let token = next.token_2022.unwrap();
+        for (i, asset) in [token.token0, token.token1].into_iter().enumerate() {
+            let vault = hex::decode(asset.unwrap().vault_data).unwrap();
+            let fee = if (i == 0) == left { fee_in } else { 0 };
+            assert_eq!(
+                TransferFeeAccount::unpack(&vault).unwrap().withheld,
+                17 + i as u64 + fee
+            );
+        }
+    }
+
+    let output = uint(3000);
+    let before = exact_out::quote_exact_out(&pool, &output, true).unwrap();
+    let mut later = pool.clone();
+    later.orca_whirlpool.as_mut().unwrap().bank_epoch += 1;
+    let after = exact_out::quote_exact_out(&later, &output, true).unwrap();
+    assert!(after.amount_in < before.amount_in);
+    later
+        .orca_whirlpool
+        .as_mut()
+        .unwrap()
+        .token_2022
+        .as_mut()
+        .unwrap()
+        .token0 = None;
+    assert!(
+        exact_out::quote_exact_out(&later, &output, true)
+            .unwrap()
+            .amount_in
+            < after.amount_in
+    );
+}
+
 #[test]
 fn adaptive_dynamic_original_normal_dispatch_all_twenty_banks_and_full_sequences() {
     let f: serde_json::Value = serde_json::from_str(include_str!(

@@ -19,6 +19,7 @@ pub const NAMES: &[&str] = &[
     "raydium-clmm-token-fee",
     "raydium-clmm-static",
     "orca-whirlpools-adaptive-dynamic",
+    crate::orca_token_2022::PROFILE,
     "orca-whirlpools-adaptive-rewards",
     "orca-whirlpools-adaptive",
     "orca-whirlpools-rewards",
@@ -128,6 +129,14 @@ pub fn protocol(name: &str) -> Option<Profile> {
         "orca-whirlpools-adaptive-dynamic" => (
             "orca",
             "orca-whirlpools/cc683ec9-spl-adaptive-dynamic-1",
+            0,
+            1000000,
+            0,
+            true,
+        ),
+        crate::orca_token_2022::PROFILE => (
+            "orca",
+            crate::orca_token_2022::ADAPTER,
             0,
             1000000,
             0,

@@ -15,7 +15,8 @@ use xone_config::{Chain, PoolConfig};
 use xone_domain::{
     err,
     orca::{OrcaRewardInfo, OrcaTick, OrcaTickArray, OrcaWhirlpoolState},
-    Amount, Pool, Result,
+    orca_token_2022::{self, OrcaToken2022Asset, OrcaToken2022State},
+    spl_token_2022, Amount, Pool, Result,
 };
 
 pub const PROGRAM_ID: &str = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
@@ -104,6 +105,7 @@ pub fn required_accounts(p: &PoolConfig) -> Result<Vec<String>> {
             | "orca-whirlpools-adaptive"
             | "orca-whirlpools-adaptive-rewards"
             | "orca-whirlpools-adaptive-dynamic"
+            | orca_token_2022::PROFILE
     ) || p.program_id != PROGRAM_ID
         || p.accounts.len() != 6
         || p.accounts[0] != p.id
@@ -123,6 +125,9 @@ pub fn required_accounts(p: &PoolConfig) -> Result<Vec<String>> {
         .ok_or_else(|| err("ORCA_CONFIG_REQUIRED"))?;
     check_digest(&cfg.expected_program_code_sha256)?;
     check_digest(&cfg.expected_token_program_code_sha256)?;
+    if (p.protocol == orca_token_2022::PROFILE) != cfg.token_2022.is_some() {
+        return Err(err("ORCA_TOKEN2022_PROFILE"));
+    }
     let array_count = cfg.tick_array_starts.len();
     if !(1..=8192).contains(&cfg.max_steps)
         || !(3..=7).contains(&array_count)
@@ -177,6 +182,19 @@ pub fn required_accounts(p: &PoolConfig) -> Result<Vec<String>> {
         );
     }
     crate::token_program::append_dependency(&mut ids, cfg.token_program_upgrade.as_ref())?;
+    if let Some(token) = &cfg.token_2022 {
+        check_digest(&token.code_sha256)?;
+        let upgrade = xone_config::TokenProgramUpgradeConfig {
+            programdata: token.programdata.clone(),
+            deployed_slot: token.deployed_slot,
+        };
+        ids.push(spl_token_2022::PROGRAM.into());
+        crate::token_program::append_dependency_for(
+            &mut ids,
+            spl_token_2022::PROGRAM,
+            Some(&upgrade),
+        )?;
+    }
     let mut seen = BTreeSet::new();
     for id in &ids {
         pubkey(id)?;
@@ -315,6 +333,19 @@ pub fn decode_orca_whirlpool(
         cfg.token_program_upgrade.as_ref(),
         bank_slot,
     )?;
+    if let Some(token) = &cfg.token_2022 {
+        let upgrade = xone_config::TokenProgramUpgradeConfig {
+            programdata: token.programdata.clone(),
+            deployed_slot: token.deployed_slot,
+        };
+        crate::token_program::verify_program(
+            accounts,
+            spl_token_2022::PROGRAM,
+            &token.code_sha256,
+            Some(&upgrade),
+            bank_slot,
+        )?;
+    }
     let clock = owned_data(accounts, CLOCK, SYSVAR_OWNER, 40)?;
     if u64_at(clock, 0) != bank_slot {
         return Err(err("CLOCK_CONTEXT_MISMATCH"));
@@ -325,7 +356,10 @@ pub fn decode_orca_whirlpool(
     let oracle = oracle_address(p)?;
     let oa = get(accounts, &oracle)?;
     let adaptive_rewards = p.protocol == "orca-whirlpools-adaptive-rewards";
-    let adaptive_dynamic = p.protocol == "orca-whirlpools-adaptive-dynamic";
+    let adaptive_dynamic = matches!(
+        p.protocol.as_str(),
+        "orca-whirlpools-adaptive-dynamic" | orca_token_2022::PROFILE
+    );
     let adaptive_profile =
         p.protocol == "orca-whirlpools-adaptive" || adaptive_rewards || adaptive_dynamic;
     let adaptive = if adaptive_profile {
@@ -413,10 +447,30 @@ pub fn decode_orca_whirlpool(
     // not config/vault PDAs. Bind their keys through the pool and SPL authority.
     let mut raw = [0; 2];
     let mut decimals = [0; 2];
+    let mut token_2022_assets = [None, None];
     for i in 0..2 {
         let mint_key = &p.accounts[4 + i];
-        let mint = owned_data(accounts, mint_key, TOKEN_PROGRAM, 82)?;
-        let vault = owned_data(accounts, &p.accounts[1 + i], TOKEN_PROGRAM, 165)?;
+        let mint_account = get(accounts, mint_key)?;
+        let vault_account = get(accounts, &p.accounts[1 + i])?;
+        let mint = &mint_account.data;
+        let vault = &vault_account.data;
+        let token_2022 = cfg.token_2022.is_some() && mint_account.owner == spl_token_2022::PROGRAM;
+        if mint_account.executable
+            || vault_account.executable
+            || vault_account.owner != mint_account.owner
+        {
+            return Err(err("ACCOUNT_OWNER_OR_LAYOUT"));
+        }
+        if token_2022 {
+            spl_token_2022::TransferFee::from_mint(mint, u64_at(clock, 16))?;
+            spl_token_2022::TransferFeeAccount::unpack(vault)?;
+            token_2022_assets[i] = Some(OrcaToken2022Asset {
+                mint_data: hex::encode(mint),
+                vault_data: hex::encode(vault),
+            });
+        } else if mint_account.owner != TOKEN_PROGRAM || mint.len() != 82 || vault.len() != 165 {
+            return Err(err("ACCOUNT_OWNER_OR_LAYOUT"));
+        }
         let mint_offset = if i == 0 { 101 } else { 181 };
         let vault_offset = if i == 0 { 133 } else { 213 };
         if key_at(state, mint_offset) != *mint_key
@@ -441,8 +495,9 @@ pub fn decode_orca_whirlpool(
         decimals[i] = u32::from(mint[44]);
         if mint_key == NATIVE_MINT {
             if mint[44] != 9
+                || token_2022
                 || tag_at(vault, 109) != 1
-                || get(accounts, &p.accounts[1 + i])?
+                || vault_account
                     .lamports
                     .checked_sub(u64_at(vault, 113))
                     .is_none_or(|backing| backing < raw[i])
@@ -476,8 +531,16 @@ pub fn decode_orca_whirlpool(
         })
         .collect::<Result<Vec<_>>>()?;
     let fee = u16_at(state, 45);
+    let [token0, token1] = token_2022_assets;
     let s = OrcaWhirlpoolState {
         adaptive,
+        token_2022: cfg.token_2022.as_ref().map(|token| OrcaToken2022State {
+            programdata: token.programdata.clone(),
+            deployed_slot: token.deployed_slot,
+            program_code_sha256: token.code_sha256.clone(),
+            token0,
+            token1,
+        }),
         reward_infos,
         program_id: PROGRAM_ID.into(),
         programdata: cfg.expected_programdata.clone(),
@@ -538,7 +601,9 @@ pub fn decode_orca_whirlpool(
         reserve1: Amount::zero(),
         fee_numerator: fee.into(),
         fee_denominator: 1_000_000,
-        adapter_version: if adaptive_dynamic {
+        adapter_version: if p.protocol == orca_token_2022::PROFILE {
+            orca_token_2022::ADAPTER
+        } else if adaptive_dynamic {
             "orca-whirlpools/cc683ec9-spl-adaptive-dynamic-1"
         } else if adaptive_rewards {
             "orca-whirlpools/cc683ec9-spl-adaptive-rewards-1"

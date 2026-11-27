@@ -5,7 +5,7 @@ import hashlib,json,subprocess
 ROOT=Path(__file__).resolve().parents[3]
 AMOUNTS={'reserve0','reserve1','sqrt_price_x64','liquidity','fee_growth_global0','fee_growth_global1','initialized_bitmap','liquidity_gross','fee_growth_outside0','fee_growth_outside1','emissions_per_second_x64','growth_global_x64','reward_growths_outside'}
 BYTES={'extension','constants_reserved','variables_reserved','reserved'}
-DIGESTS={'scope_hash','adapter_set_hash','program_code_sha256','token_program_code_sha256'}
+DIGESTS={'scope_hash','adapter_set_hash','program_code_sha256','token_program_code_sha256','mint_data','vault_data'}
 ALPHABET='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 def pubkey(text):
  n=0

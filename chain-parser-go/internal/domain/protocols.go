@@ -33,6 +33,8 @@ func Protocol(name string) (ProtocolProfile, bool) {
 		return ProtocolProfile{Family: "rayclmm", AdapterVersion: "raydium-clmm/6d7a0f82-spl-token-fee-1", FeeDenominator: 1000000, RequireIdentity: true}, true
 	case "raydium-clmm-static":
 		return ProtocolProfile{Family: "rayclmm", AdapterVersion: "raydium-clmm/6d7a0f82-spl-static-1", FeeDenominator: 1000000, RequireIdentity: true}, true
+	case OrcaToken2022Profile:
+		return ProtocolProfile{Family: "orca", AdapterVersion: orcaToken2022Adapter, FeeDenominator: 1000000, RequireIdentity: true}, true
 	case "orca-whirlpools-adaptive-dynamic":
 		return ProtocolProfile{Family: "orca", AdapterVersion: "orca-whirlpools/cc683ec9-spl-adaptive-dynamic-1", FeeDenominator: 1000000, RequireIdentity: true}, true
 	case "orca-whirlpools-adaptive-rewards":

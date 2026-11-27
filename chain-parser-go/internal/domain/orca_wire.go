@@ -19,6 +19,16 @@ func OrcaWhirlpoolToProto(s *OrcaWhirlpoolState) (*pb.OrcaWhirlpoolState, error)
 	out := &pb.OrcaWhirlpoolState{
 		ProgramId: s.ProgramID, Programdata: s.Programdata, ProgramCodeSha256: raw(s.ProgramCodeSHA256), DeployedSlot: s.DeployedSlot, TokenProgramCodeSha256: raw(s.TokenProgramCodeSHA256), WhirlpoolsConfig: s.WhirlpoolsConfig, WhirlpoolBump: s.WhirlpoolBump, Oracle: s.Oracle, Vault0: s.Vault0, Vault1: s.Vault1, RawVault0: s.RawVault0, RawVault1: s.RawVault1, Mint0Decimals: s.Mint0Decimals, Mint1Decimals: s.Mint1Decimals, BankSlot: s.BankSlot, BankUnixTimestamp: s.BankUnixTimestamp, BankEpoch: s.BankEpoch, FeeTierIndex: s.FeeTierIndex, FeeRate: s.FeeRate, ProtocolFeeRate: s.ProtocolFeeRate, SqrtPriceX64: amount(s.SqrtPriceX64), TickCurrentIndex: s.TickCurrentIndex, Liquidity: amount(s.Liquidity), TickSpacing: s.TickSpacing, ProtocolFeeOwed0: s.ProtocolFeeOwed0, ProtocolFeeOwed1: s.ProtocolFeeOwed1, FeeGrowthGlobal0: amount(s.FeeGrowthGlobal0), FeeGrowthGlobal1: amount(s.FeeGrowthGlobal1), RewardLastUpdatedTimestamp: s.RewardLastUpdatedTimestamp, MaxSteps: s.MaxSteps}
 	out.Adaptive = orcaAdaptiveToProto(s.Adaptive)
+	if t := s.Token2022; t != nil {
+		asset := func(a *OrcaToken2022Asset) *pb.OrcaToken2022Asset {
+			if a == nil {
+				return nil
+			}
+			return &pb.OrcaToken2022Asset{MintData: raw(a.MintData), VaultData: raw(a.VaultData)}
+		}
+		out.Token_2022 = &pb.OrcaToken2022State{Programdata: t.Programdata, DeployedSlot: t.DeployedSlot,
+			ProgramCodeSha256: raw(t.ProgramCodeSHA256), Token0: asset(t.Token0), Token1: asset(t.Token1)}
+	}
 	for _, r := range s.RewardInfos {
 		extension := make([]byte, len(r.Extension))
 		for i, v := range r.Extension {
@@ -53,6 +63,16 @@ func OrcaWhirlpoolFromProto(s *pb.OrcaWhirlpoolState) (*OrcaWhirlpoolState, erro
 	out := &OrcaWhirlpoolState{
 		ProgramID: s.ProgramId, Programdata: s.Programdata, ProgramCodeSHA256: hex.EncodeToString(s.ProgramCodeSha256), DeployedSlot: s.DeployedSlot, TokenProgramCodeSHA256: hex.EncodeToString(s.TokenProgramCodeSha256), WhirlpoolsConfig: s.WhirlpoolsConfig, WhirlpoolBump: s.WhirlpoolBump, Oracle: s.Oracle, Vault0: s.Vault0, Vault1: s.Vault1, RawVault0: s.RawVault0, RawVault1: s.RawVault1, Mint0Decimals: s.Mint0Decimals, Mint1Decimals: s.Mint1Decimals, BankSlot: s.BankSlot, BankUnixTimestamp: s.BankUnixTimestamp, BankEpoch: s.BankEpoch, FeeTierIndex: s.FeeTierIndex, FeeRate: s.FeeRate, ProtocolFeeRate: s.ProtocolFeeRate, TickCurrentIndex: s.TickCurrentIndex, TickSpacing: s.TickSpacing, ProtocolFeeOwed0: s.ProtocolFeeOwed0, ProtocolFeeOwed1: s.ProtocolFeeOwed1, RewardLastUpdatedTimestamp: s.RewardLastUpdatedTimestamp, MaxSteps: s.MaxSteps}
 	out.Adaptive = orcaAdaptiveFromProto(s.Adaptive)
+	if t := s.Token_2022; t != nil {
+		asset := func(a *pb.OrcaToken2022Asset) *OrcaToken2022Asset {
+			if a == nil {
+				return nil
+			}
+			return &OrcaToken2022Asset{MintData: hex.EncodeToString(a.MintData), VaultData: hex.EncodeToString(a.VaultData)}
+		}
+		out.Token2022 = &OrcaToken2022State{Programdata: t.Programdata, DeployedSlot: t.DeployedSlot,
+			ProgramCodeSHA256: hex.EncodeToString(t.ProgramCodeSha256), Token0: asset(t.Token0), Token1: asset(t.Token1)}
+	}
 	amount := func(v *pb.Amount) (Amount, error) {
 		if v == nil {
 			return "", errors.New("ORCA_AMOUNT_REQUIRED")

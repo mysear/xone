@@ -273,6 +273,7 @@ pub fn supports_profile(protocol: &str) -> bool {
             | xone_domain::orca_adaptive_state::PROFILE
             | xone_domain::orca_adaptive_state::REWARDS_PROFILE
             | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
+            | xone_domain::orca_token_2022::PROFILE
     )
 }
 pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
@@ -294,6 +295,7 @@ fn quote_mode(pool: &Pool, input: &Amount, left: bool, exact_in: bool) -> Result
         xone_domain::orca_adaptive_state::PROFILE
             | xone_domain::orca_adaptive_state::REWARDS_PROFILE
             | xone_domain::orca_adaptive_state::DYNAMIC_PROFILE
+            | xone_domain::orca_token_2022::PROFILE
     ) {
         return if exact_in {
             crate::orca_adaptive_online::quote_exact_in(pool, input, left)

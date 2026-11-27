@@ -78,6 +78,7 @@ pub mod multi_asset;
 pub mod native_valuation;
 pub mod orca;
 pub mod orca_adaptive_state;
+pub mod orca_token_2022;
 pub mod orca_math;
 pub mod protocols;
 pub mod rayclmm_math;
@@ -413,6 +414,7 @@ impl Pool {
                 | "orca-whirlpools-adaptive"
                 | "orca-whirlpools-adaptive-rewards"
                 | "orca-whirlpools-adaptive-dynamic"
+                | crate::orca_token_2022::PROFILE
         ) {
             return self
                 .orca_whirlpool

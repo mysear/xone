@@ -283,6 +283,7 @@ impl Api {
                     "orca-whirlpools-adaptive":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
                     "orca-whirlpools-adaptive-rewards":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
                     "orca-whirlpools-adaptive-dynamic":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
+                    "orca-whirlpools-adaptive-token2022":"SINGLE_POOL_TOKEN2022_NET_EXACT_OUTPUT",
                     "lfj-lb-v21": "SINGLE_POOL_MINIMUM_TARGET_EXPLICIT_SURPLUS"});
         let quality = json!({"costRanking":cost_fallback::ranking(true),"budgetExhausted": candidates.budget_exhausted || optimized.budget_exhausted,
                 "candidateScope": view.pools.iter().filter(|p| !candidates.excluded_pools.contains_key(&p.pool_id))

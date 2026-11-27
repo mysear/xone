@@ -1,6 +1,9 @@
 /// Token-2022 transfer fees and account extensions supported by the quote model.
 use crate::{err, Result};
 
+pub const PROGRAM: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+pub const PROGRAMDATA: &str = "DoU57AYuPFu2QU514RktNPG22QhApEjnKxnBcu4BHDTY";
+
 const EXTENSION_HEADER: usize = 166;
 const FEE_BASIS_POINTS: u128 = 10_000;
 
@@ -74,6 +77,22 @@ pub struct TransferFeeAccount {
 }
 
 impl TransferFeeAccount {
+    pub fn increment_withheld(data: &mut [u8], increment: u64) -> Result<()> {
+        let withholding = Self::unpack(data)?;
+        let amount = withholding
+            .withheld
+            .checked_add(increment)
+            .ok_or_else(|| err("TOKEN2022_WITHHELD_OVERFLOW"))?;
+        // There are only two supported TLVs. ImmutableOwner has no payload.
+        let offset = if data[EXTENSION_HEADER] == 2 {
+            EXTENSION_HEADER + 4
+        } else {
+            EXTENSION_HEADER + 8
+        };
+        data[offset..offset + 8].copy_from_slice(&amount.to_le_bytes());
+        Ok(())
+    }
+
     pub fn unpack(data: &[u8]) -> Result<Self> {
         let invalid = || err("TOKEN2022_ACCOUNT_EXTENSIONS");
         if !matches!(data.len(), 178 | 182) || data[165] != 2 {

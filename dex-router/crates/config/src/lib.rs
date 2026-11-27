@@ -229,8 +229,17 @@ pub struct OrcaWhirlpoolConfig {
     pub expected_token_program_code_sha256: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token_program_upgrade: Option<TokenProgramUpgradeConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_2022: Option<OrcaToken2022Config>,
     pub tick_array_starts: Vec<i32>,
     pub max_steps: u32,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OrcaToken2022Config {
+    pub programdata: String,
+    pub deployed_slot: u64,
+    pub code_sha256: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1665,6 +1674,7 @@ impl Config {
                         || p.raydium_cpmm.is_some()
                         || !(1..=8192).contains(&v.max_steps)
                         || !(3..=7).contains(&v.tick_array_starts.len())
+                        || (p.protocol == xone_domain::orca_token_2022::PROFILE) != v.token_2022.is_some()
                         || matches!(
                             p.protocol.as_str(),
                             "orca-whirlpools-adaptive" | "orca-whirlpools-adaptive-rewards"
@@ -1678,6 +1688,7 @@ impl Config {
                         "orca-whirlpools-adaptive"
                             | "orca-whirlpools-adaptive-rewards"
                             | "orca-whirlpools-adaptive-dynamic"
+                            | xone_domain::orca_token_2022::PROFILE
                     ) {
                         let starts = &v.tick_array_starts;
                         let span = i64::from(starts[1]) - i64::from(starts[0]);
@@ -1706,6 +1717,18 @@ impl Config {
                     ]) {
                         xone_domain::raydium::validate_pubkey(key)?;
                         if !keys.insert(key) {
+                            return Err(fail());
+                        }
+                    }
+                    if let Some(token) = &v.token_2022 {
+                        if token.programdata != xone_domain::spl_token_2022::PROGRAMDATA
+                            || token.deployed_slot == 0
+                            || token.code_sha256.len() != 64
+                            || token.code_sha256 != token.code_sha256.to_ascii_lowercase()
+                            || hex::decode(&token.code_sha256).is_err()
+                            || !keys.insert(token.programdata.as_str())
+                            || !keys.insert(xone_domain::spl_token_2022::PROGRAM)
+                        {
                             return Err(fail());
                         }
                     }

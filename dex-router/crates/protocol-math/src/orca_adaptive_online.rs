@@ -67,7 +67,10 @@ pub fn quote_exact_out(pool: &Pool, output: &Amount, left: bool) -> Result<Swap>
 }
 fn quote_mode(pool: &Pool, input: &Amount, left: bool, exact_in: bool) -> Result<Swap> {
     pool.validate()?;
-    let with_dynamic = pool.protocol == xone_domain::orca_adaptive_state::DYNAMIC_PROFILE;
+    let with_dynamic = matches!(
+        pool.protocol.as_str(),
+        xone_domain::orca_adaptive_state::DYNAMIC_PROFILE | xone_domain::orca_token_2022::PROFILE
+    );
     let with_rewards = pool.protocol == xone_domain::orca_adaptive_state::REWARDS_PROFILE;
     if pool.protocol != xone_domain::orca_adaptive_state::PROFILE && !with_rewards && !with_dynamic
     {
@@ -81,6 +84,27 @@ fn quote_mode(pool: &Pool, input: &Amount, left: bool, exact_in: bool) -> Result
     if amount == 0 {
         return Err(err("ZERO_INPUT"));
     }
+    let (input_fee, output_fee) = if let Some(tokens) = &s.token_2022 {
+        let fees = |asset: Option<&xone_domain::orca_token_2022::OrcaToken2022Asset>| {
+            asset
+                .map(|asset| asset.transfer_fee(s.bank_epoch))
+                .transpose()
+        };
+        let fee0 = fees(tokens.token0.as_ref())?;
+        let fee1 = fees(tokens.token1.as_ref())?;
+        if left {
+            (fee0, fee1)
+        } else {
+            (fee1, fee0)
+        }
+    } else {
+        (None, None)
+    };
+    let pool_amount = if exact_in {
+        amount - input_fee.map_or(0, |fee| fee.fee(amount))
+    } else {
+        output_fee.map_or(Ok(amount), |fee| fee.gross(amount))?
+    };
     let whirlpool = xone_domain::raydium::validate_pubkey(&pool.pool_id)?;
     let rewards = s
         .reward_infos
@@ -170,18 +194,28 @@ fn quote_mode(pool: &Pool, input: &Amount, left: bool, exact_in: bool) -> Result
     let q = quote(
         &state,
         AdaptiveExactInParams {
-            amount,
+            amount: pool_amount,
             a_to_b: left,
             sqrt_price_limit: 0,
             timestamp: s.bank_unix_timestamp,
             max_steps: s.max_steps,
         },
     )?;
-    if q.amount_remaining != 0 || (if exact_in { q.amount_in } else { q.amount_out }) != amount {
+    if q.amount_remaining != 0 || (if exact_in { q.amount_in } else { q.amount_out }) != pool_amount
+    {
         return Err(err("ORCA_ADAPTIVE_PARTIAL_FILL_UNSUPPORTED"));
     }
-    if q.amount_out == 0 {
+    let user_input = if exact_in {
+        amount
+    } else {
+        input_fee.map_or(Ok(q.amount_in), |fee| fee.gross(q.amount_in))?
+    };
+    let user_output = q.amount_out - output_fee.map_or(0, |fee| fee.fee(q.amount_out));
+    if user_output == 0 {
         return Err(err("INSUFFICIENT_OUTPUT"));
+    }
+    if !exact_in && user_output != amount {
+        return Err(err("ORCA_TOKEN2022_FEE_INVERSE"));
     }
     let mut next_pool = pool.clone();
     let next = next_pool
@@ -206,6 +240,15 @@ fn quote_mode(pool: &Pool, input: &Amount, left: bool, exact_in: bool) -> Result
             .raw_vault0
             .checked_sub(q.amount_out)
             .ok_or_else(|| err("ORCA_INSUFFICIENT_VAULT"))?;
+    }
+    if let Some(tokens) = &mut next.token_2022 {
+        let withheld = user_input - q.amount_in;
+        if let Some(asset) = &mut tokens.token0 {
+            asset.update_vault(next.raw_vault0, if left { withheld } else { 0 })?;
+        }
+        if let Some(asset) = &mut tokens.token1 {
+            asset.update_vault(next.raw_vault1, if left { 0 } else { withheld })?;
+        }
     }
     let ns = q.next_state;
     next.sqrt_price_x64 = Amount::checked(ns.sqrt_price_x64.into())?;
@@ -254,8 +297,8 @@ fn quote_mode(pool: &Pool, input: &Amount, left: bool, exact_in: bool) -> Result
     a.variables_reserved = v.reserved.to_vec();
     next_pool.validate()?;
     Ok(Swap {
-        amount_out: Amount::checked(q.amount_out.into())?,
-        consumed_in: Amount::checked(q.amount_in.into())?,
+        amount_out: Amount::checked(user_output.into())?,
+        consumed_in: Amount::checked(user_input.into())?,
         remaining_in: Amount::zero(),
         next_pool,
     })

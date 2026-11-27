@@ -105,10 +105,20 @@ use prost::Message;
 use xone_domain::{wire, Snapshot};
 #[test]
 fn adaptive_dynamic_independent_wire_preserves_full_snapshot() {
-    let f: serde_json::Value = serde_json::from_str(include_str!(
+    assert_independent_wire(include_str!(
         "../../../test/contracts/orca-adaptive-dynamic-wire.json"
-    ))
-    .unwrap();
+    ));
+}
+
+#[test]
+fn adaptive_token2022_independent_wire_preserves_mint_and_vault_bytes() {
+    assert_independent_wire(include_str!(
+        "../../../test/contracts/orca-adaptive-token2022-wire.json"
+    ));
+}
+
+fn assert_independent_wire(fixture: &str) {
+    let f: serde_json::Value = serde_json::from_str(fixture).unwrap();
     let expected: Snapshot = serde_json::from_value(f["snapshot"].clone()).unwrap();
     let w = wire::OnlineSnapshot::decode(
         hex::decode(f["protobuf_hex"].as_str().unwrap())

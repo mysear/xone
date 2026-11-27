@@ -211,6 +211,18 @@ func (p Pool) Clone() Pool {
 	}
 	if p.OrcaWhirlpool != nil {
 		c := *p.OrcaWhirlpool
+		if c.Token2022 != nil {
+			tokens := *c.Token2022
+			if tokens.Token0 != nil {
+				asset := *tokens.Token0
+				tokens.Token0 = &asset
+			}
+			if tokens.Token1 != nil {
+				asset := *tokens.Token1
+				tokens.Token1 = &asset
+			}
+			c.Token2022 = &tokens
+		}
 		if c.Adaptive != nil {
 			a := *c.Adaptive
 			a.ConstantsReserved = append([]uint32(nil), a.ConstantsReserved...)

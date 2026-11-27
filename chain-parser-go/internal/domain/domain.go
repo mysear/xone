@@ -219,7 +219,7 @@ func (p Pool) Validate() error {
 	if p.RaydiumCLMM != nil {
 		return errors.New("RAYCLMM_PROTOCOL_MISMATCH")
 	}
-	if p.Protocol == "orca-whirlpools-static" || p.Protocol == "orca-whirlpools-rewards" || p.Protocol == "orca-whirlpools-adaptive" || p.Protocol == "orca-whirlpools-adaptive-rewards" || p.Protocol == "orca-whirlpools-adaptive-dynamic" {
+	if p.Protocol == "orca-whirlpools-static" || p.Protocol == "orca-whirlpools-rewards" || p.Protocol == "orca-whirlpools-adaptive" || p.Protocol == "orca-whirlpools-adaptive-rewards" || p.Protocol == "orca-whirlpools-adaptive-dynamic" || p.Protocol == OrcaToken2022Profile {
 		if p.OrcaWhirlpool == nil {
 			return errors.New("ORCA_STATE_REQUIRED")
 		}

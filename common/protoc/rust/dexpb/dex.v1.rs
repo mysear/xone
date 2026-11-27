@@ -277,6 +277,26 @@ pub struct OrcaTickArray {
     #[prost(message, repeated, tag = "5")]
     pub ticks: ::prost::alloc::vec::Vec<OrcaTick>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct OrcaToken2022Asset {
+    #[prost(bytes = "vec", tag = "1")]
+    pub mint_data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub vault_data: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct OrcaToken2022State {
+    #[prost(string, tag = "1")]
+    pub programdata: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "2")]
+    pub deployed_slot: u64,
+    #[prost(bytes = "vec", tag = "3")]
+    pub program_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "4")]
+    pub token0: ::core::option::Option<OrcaToken2022Asset>,
+    #[prost(message, optional, tag = "5")]
+    pub token1: ::core::option::Option<OrcaToken2022Asset>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OrcaWhirlpoolState {
     #[prost(string, tag = "1")]
@@ -345,6 +365,8 @@ pub struct OrcaWhirlpoolState {
     pub reward_infos: ::prost::alloc::vec::Vec<OrcaRewardInfo>,
     #[prost(message, optional, tag = "51")]
     pub adaptive: ::core::option::Option<OrcaAdaptiveState>,
+    #[prost(message, optional, tag = "52")]
+    pub token_2022: ::core::option::Option<OrcaToken2022State>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RaydiumClmmTick {

@@ -44,7 +44,55 @@ func TestOrcaAdaptiveDynamicMixedWireAndOldProfileIsolation(t *testing.T) {
 	}
 }
 func TestOrcaAdaptiveDynamicIndependentWire(t *testing.T) {
-	b, e := os.ReadFile("../../test/contracts/orca-adaptive-dynamic-wire.json")
+	s := assertOrcaIndependentWire(t, "orca-adaptive-dynamic-wire.json")
+	p := s.Pools[0]
+	arrays := &p.OrcaWhirlpool.TickArrays
+	start := (*arrays)[len(*arrays)-1].StartTickIndex + 88*int32(p.OrcaWhirlpool.TickSpacing)
+	pool, e := decode58(p.PoolID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	address, _, e := solanaPDA(OrcaProgram, [][]byte{[]byte("tick_array"), pool, []byte(strconv.Itoa(int(start)))})
+	if e != nil {
+		t.Fatal(e)
+	}
+	*arrays = append(*arrays, OrcaTickArray{
+		Address: address, StartTickIndex: start, Layout: "sparse",
+		InitializedBitmap: "0", Ticks: []OrcaTick{},
+	})
+	w, e := SnapshotToProto(s)
+	if e != nil {
+		t.Fatal(e)
+	}
+	restored, e := SnapshotFromProto(w)
+	if e != nil || !reflect.DeepEqual(s, restored) {
+		t.Fatal("supplemental array wire mismatch", e)
+	}
+	sparse := &(*arrays)[len(*arrays)-1]
+	sparse.Address = "SysvarRent111111111111111111111111111111111"
+	if p.Validate() == nil {
+		t.Fatal("forged sparse array PDA accepted")
+	}
+	sparse.Address = address
+	sparse.StartTickIndex += 88 * int32(p.OrcaWhirlpool.TickSpacing)
+	if p.Validate() == nil {
+		t.Fatal("gap in supplemental arrays accepted")
+	}
+}
+
+func TestOrcaAdaptiveToken2022IndependentWire(t *testing.T) {
+	s := assertOrcaIndependentWire(t, "orca-adaptive-token2022-wire.json")
+	p := s.Pools[0]
+	clone := p.Clone()
+	clone.OrcaWhirlpool.Token2022.Token0.VaultData = ""
+	if clone.Validate() == nil || p.Validate() != nil {
+		t.Fatal("invalid vault bytes or state clone alias")
+	}
+}
+
+func assertOrcaIndependentWire(t *testing.T, name string) Snapshot {
+	t.Helper()
+	b, e := os.ReadFile("../../test/contracts/" + name)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -77,42 +125,7 @@ func TestOrcaAdaptiveDynamicIndependentWire(t *testing.T) {
 	if !reflect.DeepEqual(s, f.Snapshot) {
 		t.Fatal("independent snapshot mismatch")
 	}
-	p := s.Pools[0]
-	arrays := &p.OrcaWhirlpool.TickArrays
-	start := (*arrays)[len(*arrays)-1].StartTickIndex + 88*int32(p.OrcaWhirlpool.TickSpacing)
-	pool, e := decode58(p.PoolID)
-	if e != nil {
-		t.Fatal(e)
-	}
-	address, _, e := solanaPDA(OrcaProgram, [][]byte{[]byte("tick_array"), pool, []byte(strconv.Itoa(int(start)))})
-	if e != nil {
-		t.Fatal(e)
-	}
-	*arrays = append(*arrays, OrcaTickArray{
-		Address: address, StartTickIndex: start, Layout: "sparse",
-		InitializedBitmap: "0", Ticks: []OrcaTick{},
-	})
-	if e := p.Validate(); e != nil {
-		t.Fatal("four contiguous arrays", e)
-	}
-	w, e = SnapshotToProto(s)
-	if e != nil {
-		t.Fatal(e)
-	}
-	restored, e := SnapshotFromProto(w)
-	if e != nil || !reflect.DeepEqual(s, restored) {
-		t.Fatal("supplemental array wire mismatch", e)
-	}
-	sparse := &(*arrays)[len(*arrays)-1]
-	sparse.Address = "SysvarRent111111111111111111111111111111111"
-	if p.Validate() == nil {
-		t.Fatal("forged sparse array PDA accepted")
-	}
-	sparse.Address = address
-	sparse.StartTickIndex += 88 * int32(p.OrcaWhirlpool.TickSpacing)
-	if p.Validate() == nil {
-		t.Fatal("gap in supplemental arrays accepted")
-	}
+	return s
 }
 
 func TestOrcaAdaptiveDynamicRejectsIncompleteBitmapOracleAndAdapter(t *testing.T) {

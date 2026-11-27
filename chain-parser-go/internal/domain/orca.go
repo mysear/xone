@@ -34,42 +34,48 @@ type OrcaTickArray struct {
 	Ticks             []OrcaTick `json:"ticks"`
 }
 type OrcaWhirlpoolState struct {
-	Adaptive                   *OrcaAdaptiveState `json:"adaptive,omitempty"`
-	RewardInfos                []OrcaRewardInfo   `json:"reward_infos,omitempty"`
-	ProgramID                  string             `json:"program_id"`
-	Programdata                string             `json:"programdata"`
-	ProgramCodeSHA256          string             `json:"program_code_sha256"`
-	DeployedSlot               uint64             `json:"deployed_slot"`
-	TokenProgramCodeSHA256     string             `json:"token_program_code_sha256"`
-	WhirlpoolsConfig           string             `json:"whirlpools_config"`
-	WhirlpoolBump              uint32             `json:"whirlpool_bump"`
-	Oracle                     string             `json:"oracle"`
-	Vault0                     string             `json:"vault0"`
-	Vault1                     string             `json:"vault1"`
-	RawVault0                  uint64             `json:"raw_vault0"`
-	RawVault1                  uint64             `json:"raw_vault1"`
-	Mint0Decimals              uint32             `json:"mint0_decimals"`
-	Mint1Decimals              uint32             `json:"mint1_decimals"`
-	BankSlot                   uint64             `json:"bank_slot"`
-	BankUnixTimestamp          uint64             `json:"bank_unix_timestamp"`
-	BankEpoch                  uint64             `json:"bank_epoch"`
-	FeeTierIndex               uint32             `json:"fee_tier_index"`
-	FeeRate                    uint32             `json:"fee_rate"`
-	ProtocolFeeRate            uint32             `json:"protocol_fee_rate"`
-	SqrtPriceX64               Amount             `json:"sqrt_price_x64"`
-	TickCurrentIndex           int32              `json:"tick_current_index"`
-	Liquidity                  Amount             `json:"liquidity"`
-	TickSpacing                uint32             `json:"tick_spacing"`
-	ProtocolFeeOwed0           uint64             `json:"protocol_fee_owed0"`
-	ProtocolFeeOwed1           uint64             `json:"protocol_fee_owed1"`
-	FeeGrowthGlobal0           Amount             `json:"fee_growth_global0"`
-	FeeGrowthGlobal1           Amount             `json:"fee_growth_global1"`
-	RewardLastUpdatedTimestamp uint64             `json:"reward_last_updated_timestamp"`
-	TickArrays                 []OrcaTickArray    `json:"tick_arrays"`
-	MaxSteps                   uint32             `json:"max_steps"`
+	Token2022                  *OrcaToken2022State `json:"token_2022,omitempty"`
+	Adaptive                   *OrcaAdaptiveState  `json:"adaptive,omitempty"`
+	RewardInfos                []OrcaRewardInfo    `json:"reward_infos,omitempty"`
+	ProgramID                  string              `json:"program_id"`
+	Programdata                string              `json:"programdata"`
+	ProgramCodeSHA256          string              `json:"program_code_sha256"`
+	DeployedSlot               uint64              `json:"deployed_slot"`
+	TokenProgramCodeSHA256     string              `json:"token_program_code_sha256"`
+	WhirlpoolsConfig           string              `json:"whirlpools_config"`
+	WhirlpoolBump              uint32              `json:"whirlpool_bump"`
+	Oracle                     string              `json:"oracle"`
+	Vault0                     string              `json:"vault0"`
+	Vault1                     string              `json:"vault1"`
+	RawVault0                  uint64              `json:"raw_vault0"`
+	RawVault1                  uint64              `json:"raw_vault1"`
+	Mint0Decimals              uint32              `json:"mint0_decimals"`
+	Mint1Decimals              uint32              `json:"mint1_decimals"`
+	BankSlot                   uint64              `json:"bank_slot"`
+	BankUnixTimestamp          uint64              `json:"bank_unix_timestamp"`
+	BankEpoch                  uint64              `json:"bank_epoch"`
+	FeeTierIndex               uint32              `json:"fee_tier_index"`
+	FeeRate                    uint32              `json:"fee_rate"`
+	ProtocolFeeRate            uint32              `json:"protocol_fee_rate"`
+	SqrtPriceX64               Amount              `json:"sqrt_price_x64"`
+	TickCurrentIndex           int32               `json:"tick_current_index"`
+	Liquidity                  Amount              `json:"liquidity"`
+	TickSpacing                uint32              `json:"tick_spacing"`
+	ProtocolFeeOwed0           uint64              `json:"protocol_fee_owed0"`
+	ProtocolFeeOwed1           uint64              `json:"protocol_fee_owed1"`
+	FeeGrowthGlobal0           Amount              `json:"fee_growth_global0"`
+	FeeGrowthGlobal1           Amount              `json:"fee_growth_global1"`
+	RewardLastUpdatedTimestamp uint64              `json:"reward_last_updated_timestamp"`
+	TickArrays                 []OrcaTickArray     `json:"tick_arrays"`
+	MaxSteps                   uint32              `json:"max_steps"`
 }
 
 func (s OrcaWhirlpoolState) validateWire() error {
+	if s.Token2022 != nil {
+		if err := s.Token2022.validate(s, nil); err != nil {
+			return err
+		}
+	}
 	if e := s.validateRewardState(); e != nil {
 		return e
 	}
@@ -184,6 +190,14 @@ func (s OrcaWhirlpoolState) validateWire() error {
 	return nil
 }
 func (s OrcaWhirlpoolState) Validate(p Pool) error {
+	if (p.Protocol == OrcaToken2022Profile) != (s.Token2022 != nil) {
+		return errors.New("ORCA_TOKEN2022_PROFILE")
+	}
+	if s.Token2022 != nil {
+		if err := s.Token2022.validate(s, &p); err != nil {
+			return err
+		}
+	}
 	if p.Protocol == "orca-whirlpools-adaptive" || p.Protocol == "orca-whirlpools-adaptive-rewards" {
 		if len(s.TickArrays) != 3 {
 			return errors.New("ORCA_ADAPTIVE_ARRAY_COUNT")
@@ -204,11 +218,26 @@ func (s OrcaWhirlpoolState) Validate(p Pool) error {
 	if e := s.validateWire(); e != nil {
 		return e
 	}
-	if !strings.HasPrefix(p.ChainKey, "solana:") || ValidateChain(p.ChainKey) != nil || !((p.Protocol == "orca-whirlpools-static" && p.AdapterVersion == "orca-whirlpools/cc683ec9-spl-static-1" && len(s.RewardInfos) == 0 && s.Adaptive == nil) || (p.Protocol == "orca-whirlpools-rewards" && p.AdapterVersion == "orca-whirlpools/cc683ec9-spl-rewards-1" && len(s.RewardInfos) == 3 && s.Adaptive == nil) || (p.Protocol == "orca-whirlpools-adaptive" && p.AdapterVersion == "orca-whirlpools/cc683ec9-spl-adaptive-1" && s.Adaptive != nil && s.Adaptive.Whirlpool == p.PoolID) || (p.Protocol == "orca-whirlpools-adaptive-rewards" && p.AdapterVersion == "orca-whirlpools/cc683ec9-spl-adaptive-rewards-1" && s.Adaptive != nil && s.Adaptive.Whirlpool == p.PoolID) || (p.Protocol == "orca-whirlpools-adaptive-dynamic" && p.AdapterVersion == "orca-whirlpools/cc683ec9-spl-adaptive-dynamic-1" && s.Adaptive != nil && s.Adaptive.Whirlpool == p.PoolID)) || p.FeeNumerator != uint64(s.FeeRate) || p.FeeDenominator != 1000000 || p.Reserve0 != "0" || p.Reserve1 != "0" || p.TokenBehavior != "standard" || p.V2 != nil || p.V3 != nil || p.Stable != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil {
+	profile, known := Protocol(p.Protocol)
+	validState := s.Adaptive != nil && s.Adaptive.Whirlpool == p.PoolID
+	switch p.Protocol {
+	case "orca-whirlpools-static":
+		validState = len(s.RewardInfos) == 0 && s.Adaptive == nil
+	case "orca-whirlpools-rewards":
+		validState = len(s.RewardInfos) == 3 && s.Adaptive == nil
+	}
+	if !strings.HasPrefix(p.ChainKey, "solana:") || ValidateChain(p.ChainKey) != nil || !known ||
+		profile.Family != "orca" || p.AdapterVersion != profile.AdapterVersion || !validState ||
+		p.FeeNumerator != uint64(s.FeeRate) || p.FeeDenominator != 1000000 || p.Reserve0 != "0" || p.Reserve1 != "0" ||
+		p.TokenBehavior != "standard" || p.V2 != nil || p.V3 != nil || p.Stable != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil {
 		return errors.New("ORCA_POOL_IDENTITY")
 	}
 	seen := map[string]bool{}
-	for _, key := range []string{p.PoolID, p.Token0, p.Token1, s.ProgramID, s.Programdata, s.WhirlpoolsConfig, s.Oracle, s.Vault0, s.Vault1, RaydiumTokenProgram, SolanaClock} {
+	keys := []string{p.PoolID, p.Token0, p.Token1, s.ProgramID, s.Programdata, s.WhirlpoolsConfig, s.Oracle, s.Vault0, s.Vault1, RaydiumTokenProgram, SolanaClock}
+	if s.Token2022 != nil {
+		keys = append(keys, SPLToken2022Program, s.Token2022.Programdata)
+	}
+	for _, key := range keys {
 		if ValidateSolanaPubkey(key) != nil || seen[key] {
 			return errors.New("ORCA_ACCOUNT_ALIAS")
 		}
@@ -227,7 +256,7 @@ func (s OrcaWhirlpoolState) Validate(p Pool) error {
 				return err
 			}
 			address, _, err := solanaPDA(OrcaProgram, [][]byte{[]byte("tick_array"), pool, []byte(strconv.FormatInt(int64(a.StartTickIndex), 10))})
-			if err != nil || a.Address != address || p.Protocol != "orca-whirlpools-adaptive-dynamic" {
+			if err != nil || a.Address != address || p.Protocol != "orca-whirlpools-adaptive-dynamic" && p.Protocol != OrcaToken2022Profile {
 				return errors.New("ORCA_SPARSE_ARRAY_IDENTITY")
 			}
 		}

@@ -81,6 +81,17 @@ message RaydiumCPMMState {
 }
 message OrcaTick { sint32 tick = 1; Amount liquidity_gross = 2; bytes liquidity_net_i128_be = 3; Amount fee_growth_outside0 = 4; Amount fee_growth_outside1 = 5; repeated Amount reward_growths_outside = 20; reserved 6 to 19; }
 message OrcaTickArray { string address = 1; sint32 start_tick_index = 2; string layout = 3; Amount initialized_bitmap = 4; repeated OrcaTick ticks = 5; reserved 6 to 19; }
+message OrcaToken2022Asset {
+ bytes mint_data = 1;
+ bytes vault_data = 2;
+}
+message OrcaToken2022State {
+ string programdata = 1;
+ uint64 deployed_slot = 2;
+ bytes program_code_sha256 = 3;
+ OrcaToken2022Asset token0 = 4;
+ OrcaToken2022Asset token1 = 5;
+}
 message OrcaWhirlpoolState {
  string program_id = 1;
  string programdata = 2;
@@ -115,6 +126,7 @@ message OrcaWhirlpoolState {
  uint32 max_steps = 31;
  repeated OrcaRewardInfo reward_infos = 50;
  OrcaAdaptiveState adaptive = 51;
+ OrcaToken2022State token_2022 = 52;
  reserved 32 to 49;
 }
 message RaydiumCLMMTick { sint32 tick = 1; Amount liquidity_gross = 2; bytes liquidity_net_i128_be = 3; Amount fee_growth_outside0 = 4; Amount fee_growth_outside1 = 5; repeated Amount reward_growths_outside = 20; reserved 6 to 19; }

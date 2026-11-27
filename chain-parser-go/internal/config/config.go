@@ -178,12 +178,18 @@ type RaydiumCPMMConfig struct {
 	ExpectedTokenProgramCodeSHA256 string `json:"expected_token_program_code_sha256"`
 }
 type OrcaWhirlpoolConfig struct {
-	ExpectedProgramdata            string  `json:"expected_programdata"`
-	ExpectedProgramCodeSHA256      string  `json:"expected_program_code_sha256"`
-	ExpectedDeployedSlot           uint64  `json:"expected_deployed_slot"`
-	ExpectedTokenProgramCodeSHA256 string  `json:"expected_token_program_code_sha256"`
-	TickArrayStarts                []int32 `json:"tick_array_starts"`
-	MaxSteps                       uint32  `json:"max_steps"`
+	ExpectedProgramdata            string               `json:"expected_programdata"`
+	ExpectedProgramCodeSHA256      string               `json:"expected_program_code_sha256"`
+	ExpectedDeployedSlot           uint64               `json:"expected_deployed_slot"`
+	ExpectedTokenProgramCodeSHA256 string               `json:"expected_token_program_code_sha256"`
+	TickArrayStarts                []int32              `json:"tick_array_starts"`
+	MaxSteps                       uint32               `json:"max_steps"`
+	Token2022                      *OrcaToken2022Config `json:"token_2022,omitempty"`
+}
+type OrcaToken2022Config struct {
+	Programdata  string `json:"programdata"`
+	DeployedSlot uint64 `json:"deployed_slot"`
+	CodeSHA256   string `json:"code_sha256"`
 }
 type RaydiumCLMMConfig struct {
 	ExpectedProgramdata            string  `json:"expected_programdata"`
@@ -955,8 +961,12 @@ func (c Config) Validate(expected string) error {
 				if v == nil || v.ExpectedProgramdata != domain.OrcaProgramData || !strings.HasPrefix(ch.Key, "solana:") || ch.Confirmation != "finalized" || p.ProgramID != domain.OrcaProgram || len(p.Accounts) != 6 || p.Accounts[0] != p.ID || p.Accounts[4] != p.Token0 || p.Accounts[5] != p.Token1 || p.FeeDenominator != 1000000 || p.FeeNumerator > 60000 || p.V2 != nil || p.V3 != nil || p.Stable != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil || v.MaxSteps == 0 || v.MaxSteps > 8192 || len(v.TickArrayStarts) < 3 || len(v.TickArrayStarts) > 7 {
 					return invalid()
 				}
-				if p.Protocol == "orca-whirlpools-adaptive" || p.Protocol == "orca-whirlpools-adaptive-rewards" || p.Protocol == "orca-whirlpools-adaptive-dynamic" {
-					if p.Protocol != "orca-whirlpools-adaptive-dynamic" && len(v.TickArrayStarts) != 3 {
+				token2022 := p.Protocol == domain.OrcaToken2022Profile
+				if token2022 != (v.Token2022 != nil) {
+					return invalid()
+				}
+				if p.Protocol == "orca-whirlpools-adaptive" || p.Protocol == "orca-whirlpools-adaptive-rewards" || p.Protocol == "orca-whirlpools-adaptive-dynamic" || token2022 {
+					if !token2022 && p.Protocol != "orca-whirlpools-adaptive-dynamic" && len(v.TickArrayStarts) != 3 {
 						return invalid()
 					}
 					span := int64(v.TickArrayStarts[1]) - int64(v.TickArrayStarts[0])
@@ -981,7 +991,16 @@ func (c Config) Validate(expected string) error {
 					}
 				}
 				keys := map[string]bool{}
-				for _, key := range append(append([]string{}, p.Accounts...), p.ProgramID, v.ExpectedProgramdata, domain.RaydiumTokenProgram, domain.SolanaClock) {
+				accounts := append(append([]string{}, p.Accounts...), p.ProgramID, v.ExpectedProgramdata, domain.RaydiumTokenProgram, domain.SolanaClock)
+				if t := v.Token2022; t != nil {
+					code, err := hex.DecodeString(t.CodeSHA256)
+					if t.Programdata != domain.SPLToken2022Programdata || t.DeployedSlot == 0 ||
+						err != nil || len(code) != 32 || t.CodeSHA256 != strings.ToLower(t.CodeSHA256) {
+						return invalid()
+					}
+					accounts = append(accounts, t.Programdata, domain.SPLToken2022Program)
+				}
+				for _, key := range accounts {
 					if domain.ValidateSolanaPubkey(key) != nil || keys[key] {
 						return invalid()
 					}
