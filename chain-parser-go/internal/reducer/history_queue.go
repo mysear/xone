@@ -164,9 +164,6 @@ func (s *Store) OpenHistoryQueue(o HistoryQueueOptions) (*HistoryQueue, error) {
 	if e != nil {
 		return nil, e
 	}
-	if len(d.Jobs) > o.MaxJobs || d.Bytes > o.MaxBytes {
-		return nil, ErrHistoryCapacity
-	}
 	batch := s.db.NewBatch()
 	defer batch.Close()
 	if e = q.bind(&d, o.DatasetID, batch); e != nil {
@@ -235,7 +232,7 @@ func (q *HistoryQueue) load(fence bool) (historyQueueDisk, error) {
 }
 
 func validateHistoryDisk(d historyQueueDisk, options HistoryQueueOptions) error {
-	if len(d.Jobs) > options.MaxJobs || d.Bytes < 0 || d.FactBlocks < 0 {
+	if len(d.Jobs) > options.MaxJobs {
 		return ErrHistoryState
 	}
 	if d.Version == 2 && (!validHistoryID(d.DatasetID) || !validHistoryID(d.Revision)) {
@@ -286,9 +283,6 @@ func (q *HistoryQueue) bind(d *historyQueueDisk, dataset string, b *pebble.Batch
 			if e != nil {
 				return e
 			}
-			if len(old) > q.options.MaxBytes-d.Bytes {
-				return ErrHistoryCapacity
-			}
 			oldDataset, oldRevision := d.DatasetID, d.Revision
 			if oldDataset == "" {
 				oldDataset = "legacy-unscoped-v1"
@@ -296,10 +290,25 @@ func (q *HistoryQueue) bind(d *historyQueueDisk, dataset string, b *pebble.Batch
 			if oldRevision == "" {
 				oldRevision = "legacy-height-only"
 			}
-			if e = b.Set([]byte("history/manifests/"+oldDataset+"/"+oldRevision), old, nil); e != nil {
+			key := []byte("history/manifests/" + oldDataset + "/" + oldRevision)
+			priorSize := 0
+			if prior, closer, err := q.store.db.Get(key); err == nil {
+				priorSize = len(prior)
+				closer.Close()
+			} else if !errors.Is(err, pebble.ErrNotFound) {
+				return err
+			}
+			if priorSize > d.Bytes {
+				return ErrHistoryState
+			}
+			additional := len(old) - priorSize
+			if additional > q.options.MaxBytes-d.Bytes {
+				return ErrHistoryCapacity
+			}
+			if e = b.Set(key, old, nil); e != nil {
 				return e
 			}
-			d.Bytes += len(old)
+			d.Bytes += additional
 		}
 		for i := range d.Jobs {
 			j := &d.Jobs[i]
@@ -573,6 +582,29 @@ func historyCandidateKey(dataset, revision string, n uint64) []byte {
 	return []byte(fmt.Sprintf("history/catalog/%s/%s/%020d", dataset, revision, n))
 }
 func historyReceiptKey(group string) []byte { return []byte("history/raw-receipts/" + group) }
+
+// A dataset and canonical revision own one value per key. Returning to a
+// previously used dataset can replay its facts without charging their bytes
+// again or allowing an old proof to start referring to different bytes.
+func (q *HistoryQueue) stageHistoryValue(b *pebble.Batch, key, value []byte, conflict string) (bool, error) {
+	old, closer, err := q.store.db.Get(key)
+	if err == nil {
+		same := bytes.Equal(old, value)
+		closer.Close()
+		if !same {
+			return false, errors.New(conflict)
+		}
+		return false, nil
+	}
+	if !errors.Is(err, pebble.ErrNotFound) {
+		return false, err
+	}
+	if err = b.Set(key, value, nil); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (q *HistoryQueue) Complete(ctx context.Context, c HistoryClaim, f domain.FactBatch, candidates []HistoryCandidate, groups ...HistoryRawGroup) error {
 	if e := ctx.Err(); e != nil {
 		return e
@@ -659,30 +691,28 @@ func (q *HistoryQueue) Complete(ctx context.Context, c HistoryClaim, f domain.Fa
 	if e = q.checkNeighbors(d, block); e != nil {
 		return e
 	}
-	if size > q.options.MaxBytes-d.Bytes {
-		return ErrHistoryCapacity
-	}
 	b := q.store.db.NewBatch()
 	defer b.Close()
-	if e = b.Set(historyFactKey(d.DatasetID, d.Revision, c.Height), facts, nil); e != nil {
+	addedBytes := 0
+	if added, e := q.stageHistoryValue(b, historyFactKey(d.DatasetID, d.Revision, c.Height), facts, "HISTORY_FACT_CONFLICT"); e != nil {
 		return e
+	} else if added {
+		addedBytes += len(facts)
 	}
-	if e = b.Set(historyCandidateKey(d.DatasetID, d.Revision, c.Height), catalog, nil); e != nil {
+	if added, e := q.stageHistoryValue(b, historyCandidateKey(d.DatasetID, d.Revision, c.Height), catalog, "HISTORY_CANDIDATE_CONFLICT"); e != nil {
 		return e
+	} else if added {
+		addedBytes += len(catalog)
 	}
 	if len(rawProof) > 0 {
-		if old, closer, err := q.store.db.Get(historyReceiptKey(proof.Group)); err == nil {
-			same := bytes.Equal(old, rawProof)
-			closer.Close()
-			if !same {
-				return errors.New("HISTORY_RAW_RECEIPT_CONFLICT")
-			}
-		} else if !errors.Is(err, pebble.ErrNotFound) {
-			return err
-		}
-		if e = b.Set(historyReceiptKey(proof.Group), rawProof, nil); e != nil {
+		if added, e := q.stageHistoryValue(b, historyReceiptKey(proof.Group), rawProof, "HISTORY_RAW_RECEIPT_CONFLICT"); e != nil {
 			return e
+		} else if added {
+			addedBytes += len(rawProof) + 256
 		}
+	}
+	if addedBytes > q.options.MaxBytes-d.Bytes {
+		return ErrHistoryCapacity
 	}
 	j.LastHash = block.Hash
 	j.Token = ""
@@ -692,7 +722,7 @@ func (q *HistoryQueue) Complete(ctx context.Context, c HistoryClaim, f domain.Fa
 	j.Done = j.Next == j.To
 	j.Next++
 	d.FactBlocks++
-	d.Bytes += size
+	d.Bytes += addedBytes
 	return q.save(ctx, d, b)
 }
 func (q *HistoryQueue) Retry(ctx context.Context, c HistoryClaim, at time.Time, code string) error {

@@ -569,6 +569,90 @@ func TestHistoryReviewDatasetRebindRevokesClaimAndPreservesOldOwnership(t *testi
 		t.Fatal("old dataset exposed as current", e)
 	}
 }
+
+func TestHistoryQueueRepeatedDatasetBindingRetainsOneCopy(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	s, err := Open(dir, "chain-parser-go", 1, 128)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { s.Close() }()
+	q := historyQueue(t, s, 8)
+	if err := q.Enqueue(ctx, []domain.Gap{{From: 1, To: 1}}); err != nil {
+		t.Fatal(err)
+	}
+	current, err := q.Status(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := domain.Hash("another immutable history dataset")
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts := historyBatch(1)
+	candidates := []HistoryCandidate{{PoolID: "pool", Protocol: "uniswap-v2"}}
+	claim, err := q.Claim(ctx, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Complete(ctx, claim, facts, candidates); err != nil {
+		t.Fatal(err)
+	}
+	var settledBytes int
+	for cycle := 0; cycle < 8; cycle++ {
+		for _, dataset := range []string{other, current.DatasetID} {
+			if err := q.BindDataset(ctx, dataset, s.DurableRef()); err != nil {
+				t.Fatal(err)
+			}
+		}
+		before, err := q.Status(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		claim, err := q.Claim(ctx, time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		conflictingFacts := historyBatch(1)
+		conflictingFacts.Blocks[0].Block.TimestampMS++
+		if err := q.Complete(ctx, claim, conflictingFacts, candidates); err == nil || err.Error() != "HISTORY_FACT_CONFLICT" {
+			t.Fatalf("conflicting facts: %v", err)
+		}
+		if err := q.Complete(ctx, claim, facts, []HistoryCandidate{{PoolID: "different", Protocol: "uniswap-v2"}}); err == nil || err.Error() != "HISTORY_CANDIDATE_CONFLICT" {
+			t.Fatalf("conflicting candidates: %v", err)
+		}
+		if err := q.Complete(ctx, claim, facts, candidates); err != nil {
+			t.Fatal(err)
+		}
+		after, err := q.Status(ctx)
+		if err != nil || after.Bytes != before.Bytes || after.FactBlocks != 1 || !after.Complete {
+			t.Fatalf("replay changed capacity or coverage: before %v, after %v, error %v", before.Bytes, after, err)
+		}
+		if cycle == 1 {
+			settledBytes = after.Bytes
+		} else if cycle > 1 && after.Bytes != settledBytes {
+			t.Fatalf("dataset switching grew storage from %v to %v", settledBytes, after.Bytes)
+		}
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err = Open(dir, "chain-parser-go", 1, 128)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q = historyQueue(t, s, 8)
+	reopened, err := q.Status(ctx)
+	if err != nil || reopened.Bytes != settledBytes || !reopened.Complete {
+		t.Fatalf("persisted capacity or coverage: %v, error %v", reopened, err)
+	}
+	stored, err := q.FactsAt(ctx, current.DatasetID, current.Revision, 1)
+	if err != nil || stored.Blocks[0].Block != facts.Blocks[0].Block {
+		t.Fatalf("committed facts changed after replay: %v, error %v", stored, err)
+	}
+}
+
 func TestHistoryReviewBaselineHIsIndependentAndNeverSnapshotFactProof(t *testing.T) {
 	dir := t.TempDir()
 	s, e := Open(dir, "chain-parser-go", 1, 128)
