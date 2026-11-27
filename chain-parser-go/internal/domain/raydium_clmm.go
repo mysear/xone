@@ -9,6 +9,8 @@ import (
 
 const RayCLMMProgramData = "HzD2cCXXT3UQNjMMY6kDv9w6gZ9qquSdfoGXrLL3LXx"
 const RayCLMMProgram = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"
+const RayCLMMLimitOrdersProfile = "raydium-clmm-limit-orders"
+const RayCLMMLimitOrdersAdapter = "raydium-clmm/6d7a0f82-spl-limit-orders-1"
 
 type RaydiumCLMMRewardInfo struct {
 	RewardState           uint32 `json:"reward_state"`
@@ -23,13 +25,21 @@ type RaydiumCLMMRewardInfo struct {
 	Authority             string `json:"authority"`
 	RewardGrowthGlobalX64 Amount `json:"reward_growth_global_x64"`
 }
+type RaydiumCLMMLimitOrders struct {
+	OrderPhase                uint64 `json:"order_phase"`
+	OrdersAmount              uint64 `json:"orders_amount"`
+	PartFilledOrdersRemaining uint64 `json:"part_filled_orders_remaining"`
+	UnfilledRatioX64          Amount `json:"unfilled_ratio_x64"`
+}
+
 type RaydiumCLMMTick struct {
-	RewardGrowthsOutside []Amount `json:"reward_growths_outside,omitempty"`
-	Tick                 int32    `json:"tick"`
-	LiquidityGross       Amount   `json:"liquidity_gross"`
-	LiquidityNet         string   `json:"liquidity_net"`
-	FeeGrowthOutside0    Amount   `json:"fee_growth_outside0"`
-	FeeGrowthOutside1    Amount   `json:"fee_growth_outside1"`
+	LimitOrders          *RaydiumCLMMLimitOrders `json:"limit_orders,omitempty"`
+	RewardGrowthsOutside []Amount                `json:"reward_growths_outside,omitempty"`
+	Tick                 int32                   `json:"tick"`
+	LiquidityGross       Amount                  `json:"liquidity_gross"`
+	LiquidityNet         string                  `json:"liquidity_net"`
+	FeeGrowthOutside0    Amount                  `json:"fee_growth_outside0"`
+	FeeGrowthOutside1    Amount                  `json:"fee_growth_outside1"`
 }
 type RaydiumCLMMArray struct {
 	Address        string            `json:"address"`
@@ -176,9 +186,7 @@ func (s RaydiumCLMMState) validateWire() error {
 		if e != nil {
 			return e
 		}
-		if active != (len(a.Ticks) > 0) {
-			return errors.New("RAYCLMM_BITMAP_PROOF")
-		}
+		initialized := false
 		if len(a.Ticks) > 60 {
 			return errors.New("RAYCLMM_TICK_LIMIT")
 		}
@@ -187,8 +195,18 @@ func (s RaydiumCLMMState) validateWire() error {
 				return errors.New("RAYCLMM_TICK_INDEX")
 			}
 			gross, e := width(t.LiquidityGross)
-			if e != nil || gross.Sign() == 0 {
+			if e != nil || gross.Sign() == 0 && t.LimitOrders == nil {
 				return errors.New("RAYCLMM_TICK_GROSS")
+			}
+			initialized = initialized || gross.Sign() != 0
+			if orders := t.LimitOrders; orders != nil {
+				ratio, e := width(orders.UnfilledRatioX64)
+				if e != nil || ratio.Cmp(new(big.Int).Lsh(big.NewInt(1), 64)) > 0 ||
+					orders.OrdersAmount > ^uint64(0)-orders.PartFilledOrdersRemaining ||
+					orders.PartFilledOrdersRemaining != 0 && orders.OrderPhase == 0 {
+					return errors.New("RAYCLMM_LIMIT_ORDER_STATE")
+				}
+				initialized = initialized || orders.OrdersAmount != 0 || orders.PartFilledOrdersRemaining != 0
 			}
 			net, e := ParseLiquidityNet(t.LiquidityNet)
 			if e != nil || new(big.Int).Abs(net).Cmp(gross) > 0 {
@@ -200,6 +218,9 @@ func (s RaydiumCLMMState) validateWire() error {
 				}
 			}
 		}
+		if active != initialized {
+			return errors.New("RAYCLMM_BITMAP_PROOF")
+		}
 	}
 	low := int64(s.TickArrays[0].StartTickIndex)
 	high := int64(s.TickArrays[len(s.TickArrays)-1].StartTickIndex) + span
@@ -209,6 +230,15 @@ func (s RaydiumCLMMState) validateWire() error {
 	return nil
 }
 func (s RaydiumCLMMState) Validate(p Pool) error {
+	if p.Protocol != RayCLMMLimitOrdersProfile {
+		for _, a := range s.TickArrays {
+			for _, tick := range a.Ticks {
+				if tick.LimitOrders != nil {
+					return errors.New("RAYCLMM_LIMIT_ORDER_PROFILE")
+				}
+			}
+		}
+	}
 	if (p.Protocol == "raydium-clmm-rewards") != (len(s.RewardInfos) == 3) {
 		return errors.New("RAYCLMM_REWARD_PROFILE")
 	}
@@ -224,7 +254,7 @@ func (s RaydiumCLMMState) Validate(p Pool) error {
 	if (p.Protocol == "raydium-clmm-dynamic") != (s.DynamicFee != nil) {
 		return errors.New("RAYCLMM_DYNAMIC_PROFILE")
 	}
-	if ValidateChain(p.ChainKey) != nil || !strings.HasPrefix(p.ChainKey, "solana:") || !((p.Protocol == "raydium-clmm-static" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-static-1" && s.CollectFeeOn == 0) || (p.Protocol == "raydium-clmm-token-fee" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-token-fee-1" && (s.CollectFeeOn == 1 || s.CollectFeeOn == 2)) || (p.Protocol == "raydium-clmm-bitmap" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-bitmap-1") || (p.Protocol == "raydium-clmm-custom-seed" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-custom-seed-1") || (p.Protocol == "raydium-clmm-dynamic" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-dynamic-1") || (p.Protocol == "raydium-clmm-rewards" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-rewards-1")) || p.FeeNumerator != uint64(s.TradeFeeRate) || p.FeeDenominator != 1000000 || p.Reserve0 != "0" || p.Reserve1 != "0" || p.TokenBehavior != "standard" || p.V2 != nil || p.V3 != nil || p.Stable != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil || p.OrcaWhirlpool != nil {
+	if ValidateChain(p.ChainKey) != nil || !strings.HasPrefix(p.ChainKey, "solana:") || !((p.Protocol == "raydium-clmm-static" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-static-1" && s.CollectFeeOn == 0) || (p.Protocol == "raydium-clmm-token-fee" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-token-fee-1" && (s.CollectFeeOn == 1 || s.CollectFeeOn == 2)) || (p.Protocol == "raydium-clmm-bitmap" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-bitmap-1") || (p.Protocol == "raydium-clmm-custom-seed" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-custom-seed-1") || (p.Protocol == "raydium-clmm-dynamic" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-dynamic-1") || (p.Protocol == "raydium-clmm-rewards" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-rewards-1") || (p.Protocol == RayCLMMLimitOrdersProfile && p.AdapterVersion == RayCLMMLimitOrdersAdapter)) || p.FeeNumerator != uint64(s.TradeFeeRate) || p.FeeDenominator != 1000000 || p.Reserve0 != "0" || p.Reserve1 != "0" || p.TokenBehavior != "standard" || p.V2 != nil || p.V3 != nil || p.Stable != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil || p.OrcaWhirlpool != nil {
 		return errors.New("RAYCLMM_POOL_IDENTITY")
 	}
 	seen := map[string]bool{}

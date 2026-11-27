@@ -397,6 +397,7 @@ impl Pool {
             || self.protocol == "raydium-clmm-bitmap"
             || self.protocol == "raydium-clmm-custom-seed"
             || self.protocol == "raydium-clmm-dynamic"
+            || self.protocol == raydium_clmm::LIMIT_ORDERS_PROFILE
         {
             return self
                 .raydium_clmm

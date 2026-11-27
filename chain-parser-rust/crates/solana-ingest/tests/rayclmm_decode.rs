@@ -659,6 +659,56 @@ fn token_fee_profile_reads_actual_fee_byte_and_keeps_old_admission_closed() {
 }
 
 #[tokio::test]
+async fn limit_orders_rpc_preserves_active_and_drained_ticks() {
+    use xone_domain::raydium_clmm::{RaydiumCLMMState, LIMIT_ORDERS_PROFILE};
+
+    let mut f = Fixture::new();
+    let active = f.array(1);
+    active[44 + 4..44 + 68].fill(0);
+    put64(active, 44 + 116, 9);
+    put64(active, 44 + 124, 40);
+    put64(active, 44 + 132, 50);
+    put128(active, 44 + 140, 1 << 63);
+    let drained = f.array(2);
+    drained[44..48].copy_from_slice(&60i32.to_le_bytes());
+    put64(drained, 44 + 116, 12);
+    assert_eq!(f.decode().unwrap_err().0, "RAYCLMM_TICK_STATE_UNSUPPORTED");
+
+    f.pool.protocol = LIMIT_ORDERS_PROFILE.into();
+    let expected = f.decode().unwrap();
+    let (snapshot, calls) = run_rpc(f, false).await;
+    let snapshot = snapshot.unwrap();
+    assert_eq!(snapshot.pools, vec![expected]);
+    assert_eq!(calls[1]["params"][1]["commitment"], "finalized");
+    let state = snapshot.pools[0].raydium_clmm.as_ref().unwrap();
+    let tick = &state.tick_arrays[1].ticks[0];
+    assert!(tick.is_initialized());
+    let orders = tick.limit_orders.as_ref().unwrap();
+    assert_eq!(orders.order_phase, 9);
+    assert_eq!(orders.orders_amount, 40);
+    assert_eq!(orders.part_filled_orders_remaining, 50);
+    assert_eq!(orders.unfilled_ratio_x64.0, (1u128 << 63).into());
+    let drained = &state.tick_arrays[2].ticks[0];
+    assert!(!drained.is_initialized());
+    assert_eq!(drained.limit_orders.as_ref().unwrap().order_phase, 12);
+    assert_eq!(
+        &RaydiumCLMMState::from_proto(state.to_proto().unwrap()).unwrap(),
+        state
+    );
+
+    let mut invalid = state.clone();
+    invalid.tick_arrays[1].ticks[0]
+        .limit_orders
+        .as_mut()
+        .unwrap()
+        .orders_amount = u64::MAX;
+    assert_eq!(
+        invalid.to_proto().unwrap_err().0,
+        "RAYCLMM_LIMIT_ORDER_STATE"
+    );
+}
+
+#[tokio::test]
 async fn token_fee_rpc_preserves_fee_mode_in_finalized_atomic_bank() {
     for mode in [1u8, 2] {
         let mut f = Fixture::new();

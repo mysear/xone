@@ -129,7 +129,13 @@ message OrcaWhirlpoolState {
  OrcaToken2022State token_2022 = 52;
  reserved 32 to 49;
 }
-message RaydiumCLMMTick { sint32 tick = 1; Amount liquidity_gross = 2; bytes liquidity_net_i128_be = 3; Amount fee_growth_outside0 = 4; Amount fee_growth_outside1 = 5; repeated Amount reward_growths_outside = 20; reserved 6 to 19; }
+message RaydiumCLMMLimitOrders {
+  uint64 order_phase = 1;
+  uint64 orders_amount = 2;
+  uint64 part_filled_orders_remaining = 3;
+  Amount unfilled_ratio_x64 = 4;
+}
+message RaydiumCLMMTick { sint32 tick = 1; Amount liquidity_gross = 2; bytes liquidity_net_i128_be = 3; Amount fee_growth_outside0 = 4; Amount fee_growth_outside1 = 5; repeated Amount reward_growths_outside = 20; RaydiumCLMMLimitOrders limit_orders = 21; reserved 6 to 19; }
 message RaydiumCLMMArray { string address = 1; sint32 start_tick_index = 2; uint64 recent_epoch = 3; repeated RaydiumCLMMTick ticks = 4; reserved 5 to 19; }
 message RaydiumCLMMObservation { uint32 block_timestamp = 1; sint64 tick_cumulative = 2; reserved 3 to 19; }
 message RaydiumCLMMBitmapExtension { string address = 1; repeated fixed64 positive = 2; repeated fixed64 negative = 3; reserved 4 to 19; }

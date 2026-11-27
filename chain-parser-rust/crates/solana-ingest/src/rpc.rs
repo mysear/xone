@@ -113,6 +113,7 @@ fn check_confirmation(ch: &Chain) -> Result<()> {
                 | "raydium-clmm-custom-seed"
                 | "raydium-clmm-rewards"
                 | "raydium-clmm-dynamic"
+                | xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE
         )
     }) && ch.confirmation_tag != "finalized"
     {
@@ -386,7 +387,8 @@ impl BaselineReader<'_> {
                 | "raydium-clmm-bitmap"
                 | "raydium-clmm-custom-seed"
                 | "raydium-clmm-rewards"
-                | "raydium-clmm-dynamic" => {
+                | "raydium-clmm-dynamic"
+                | xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE => {
                     clmm_ids.extend(crate::raydium_clmm::required_accounts(p)?);
                 }
                 "orca-whirlpools-static"
@@ -530,6 +532,7 @@ impl BaselineReader<'_> {
                         | "raydium-clmm-custom-seed"
                         | "raydium-clmm-rewards"
                         | "raydium-clmm-dynamic"
+                        | xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE
                 ) {
                     crate::raydium_clmm::decode_raydium_clmm(ch, p, &clmm_accounts, slot)?
                 } else if p.protocol == "orca-whirlpools-static"
@@ -857,7 +860,10 @@ pub fn required_scope(ch: &Chain) -> Result<BTreeSet<String>> {
             | "raydium-clmm-bitmap"
             | "raydium-clmm-custom-seed"
             | "raydium-clmm-rewards"
-            | "raydium-clmm-dynamic" => ids.extend(crate::raydium_clmm::required_accounts(p)?),
+            | "raydium-clmm-dynamic"
+            | xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE => {
+                ids.extend(crate::raydium_clmm::required_accounts(p)?)
+            }
             "orca-whirlpools-static"
             | "orca-whirlpools-rewards"
             | "orca-whirlpools-adaptive"
@@ -919,7 +925,8 @@ pub fn snapshot_from_bank(
             | "raydium-clmm-bitmap"
             | "raydium-clmm-custom-seed"
             | "raydium-clmm-rewards"
-            | "raydium-clmm-dynamic" => {
+            | "raydium-clmm-dynamic"
+            | xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE => {
                 let a = crate::raydium_clmm::required_accounts(p)?
                     .into_iter()
                     .map(|k| {

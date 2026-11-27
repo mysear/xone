@@ -38,7 +38,7 @@ func TestRayCLMMIndependentBitmapObservationAndWire(t *testing.T) {
 	}
 	c := p.Clone()
 	c.RaydiumCLMM.Bitmap[0] = 1
-	c.RaydiumCLMM.TickArrays[0].Ticks[0].LiquidityNet = "0"
+	c.RaydiumCLMM.TickArrays[0].Ticks[0].LiquidityNet += "1"
 	c.RaydiumCLMM.Observations[0].TickCumulative = 1
 	if c.RaydiumCLMM.Bitmap[0] == p.RaydiumCLMM.Bitmap[0] || c.RaydiumCLMM.TickArrays[0].Ticks[0].LiquidityNet == p.RaydiumCLMM.TickArrays[0].Ticks[0].LiquidityNet || c.RaydiumCLMM.Observations[0].TickCumulative == p.RaydiumCLMM.Observations[0].TickCumulative {
 		t.Fatal("CLMM deep clone alias")
@@ -73,6 +73,37 @@ func TestRayCLMMRejectsUnprovenOrMixedState(t *testing.T) {
 				t.Fatal("unsafe CLMM accepted", mode)
 			}
 		})
+	}
+}
+
+func TestRayCLMMLimitOrderStateWireAndClone(t *testing.T) {
+	p := rayclmmTestPool(t)
+	tick := &p.RaydiumCLMM.TickArrays[0].Ticks[0]
+	tick.LiquidityGross = "0"
+	tick.LiquidityNet = "0"
+	tick.LimitOrders = &RaydiumCLMMLimitOrders{
+		OrderPhase: 9, OrdersAmount: 40, PartFilledOrdersRemaining: 50,
+		UnfilledRatioX64: "9223372036854775808",
+	}
+	if err := p.Validate(); err == nil || err.Error() != "RAYCLMM_LIMIT_ORDER_PROFILE" {
+		t.Fatalf("legacy profile accepted order state: %v", err)
+	}
+	p.Protocol, p.AdapterVersion = RayCLMMLimitOrdersProfile, RayCLMMLimitOrdersAdapter
+	if err := p.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	w, err := RaydiumCLMMToProto(p.RaydiumCLMM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := RaydiumCLMMFromProto(w)
+	if err != nil || *state.TickArrays[0].Ticks[0].LimitOrders != *tick.LimitOrders {
+		t.Fatalf("order wire mismatch: %v", err)
+	}
+	clone := p.Clone()
+	clone.RaydiumCLMM.TickArrays[0].Ticks[0].LimitOrders.OrdersAmount = ^uint64(0)
+	if err := clone.Validate(); err == nil || err.Error() != "RAYCLMM_LIMIT_ORDER_STATE" || tick.LimitOrders.OrdersAmount != 40 {
+		t.Fatalf("overflow accepted or clone aliases source: %v, %v", err, tick.LimitOrders)
 	}
 }
 func TestRayCLMMQ64UsesOriginalDifferentTickMap(t *testing.T) {

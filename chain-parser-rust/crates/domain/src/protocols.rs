@@ -12,6 +12,7 @@ pub struct Profile {
 /// Complete explicitly registered model names, independent of currently loaded pools.
 pub const NAMES: &[&str] = &[
     crate::v2_swap::PROFILE,
+    crate::raydium_clmm::LIMIT_ORDERS_PROFILE,
     "raydium-clmm-rewards",
     "raydium-clmm-dynamic",
     "raydium-clmm-custom-seed",
@@ -78,6 +79,9 @@ pub const NAMES: &[&str] = &[
 pub fn protocol(name: &str) -> Option<Profile> {
     let (family, adapter, n, d, bits, identity) = match name {
         crate::v2_swap::PROFILE => ("v2", crate::v2_swap::ADAPTER, 3, 1000, 0, true),
+        crate::raydium_clmm::LIMIT_ORDERS_PROFILE => (
+            "rayclmm", crate::raydium_clmm::LIMIT_ORDERS_ADAPTER, 0, 1000000, 0, true,
+        ),
         "raydium-clmm-rewards" => (
             "rayclmm",
             "raydium-clmm/6d7a0f82-spl-rewards-1",

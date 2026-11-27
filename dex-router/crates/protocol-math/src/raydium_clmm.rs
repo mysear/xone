@@ -427,6 +427,9 @@ pub fn quote_exact_out(pool: &Pool, output: &Amount, left: bool) -> Result<Swap>
     Ok(q)
 }
 fn quote_mode(pool: &Pool, input: &Amount, left: bool, exact_in: bool) -> Result<Swap> {
+    if !supports_profile(&pool.protocol) {
+        return Err(err("RAYCLMM_SWAP_PROFILE_UNSUPPORTED"));
+    }
     pool.validate()?;
     let amount = as_u64(input.0.clone())?;
     if amount == 0 {

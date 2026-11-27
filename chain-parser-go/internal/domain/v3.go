@@ -205,6 +205,10 @@ func (p Pool) Clone() Pool {
 			c.TickArrays[i].Ticks = append([]RaydiumCLMMTick{}, c.TickArrays[i].Ticks...)
 			for j := range c.TickArrays[i].Ticks {
 				c.TickArrays[i].Ticks[j].RewardGrowthsOutside = append([]Amount(nil), c.TickArrays[i].Ticks[j].RewardGrowthsOutside...)
+				if orders := c.TickArrays[i].Ticks[j].LimitOrders; orders != nil {
+					cloned := *orders
+					c.TickArrays[i].Ticks[j].LimitOrders = &cloned
+				}
 			}
 		}
 		p.RaydiumCLMM = &c

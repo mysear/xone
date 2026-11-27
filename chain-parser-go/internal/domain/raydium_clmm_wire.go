@@ -39,7 +39,15 @@ func RaydiumCLMMToProto(s *RaydiumCLMMState) (*pb.RaydiumCLMMState, error) {
 			for i, v := range t.RewardGrowthsOutside {
 				growth[i] = amount(v)
 			}
-			outArray.Ticks = append(outArray.Ticks, &pb.RaydiumCLMMTick{RewardGrowthsOutside: growth, Tick: t.Tick, LiquidityGross: amount(t.LiquidityGross), LiquidityNetI128Be: net.FillBytes(make([]byte, 16)), FeeGrowthOutside0: amount(t.FeeGrowthOutside0), FeeGrowthOutside1: amount(t.FeeGrowthOutside1)})
+			tick := &pb.RaydiumCLMMTick{RewardGrowthsOutside: growth, Tick: t.Tick, LiquidityGross: amount(t.LiquidityGross), LiquidityNetI128Be: net.FillBytes(make([]byte, 16)), FeeGrowthOutside0: amount(t.FeeGrowthOutside0), FeeGrowthOutside1: amount(t.FeeGrowthOutside1)}
+			if o := t.LimitOrders; o != nil {
+				tick.LimitOrders = &pb.RaydiumCLMMLimitOrders{
+					OrderPhase: o.OrderPhase, OrdersAmount: o.OrdersAmount,
+					PartFilledOrdersRemaining: o.PartFilledOrdersRemaining,
+					UnfilledRatioX64:          amount(o.UnfilledRatioX64),
+				}
+			}
+			outArray.Ticks = append(outArray.Ticks, tick)
 		}
 		out.TickArrays = append(out.TickArrays, outArray)
 	}
@@ -136,7 +144,19 @@ func RaydiumCLMMFromProto(s *pb.RaydiumCLMMState) (*RaydiumCLMMState, error) {
 					return nil, e
 				}
 			}
-			array.Ticks = append(array.Ticks, RaydiumCLMMTick{RewardGrowthsOutside: growth, Tick: t.Tick, LiquidityGross: gross, LiquidityNet: net.String(), FeeGrowthOutside0: f0, FeeGrowthOutside1: f1})
+			tick := RaydiumCLMMTick{RewardGrowthsOutside: growth, Tick: t.Tick, LiquidityGross: gross, LiquidityNet: net.String(), FeeGrowthOutside0: f0, FeeGrowthOutside1: f1}
+			if o := t.LimitOrders; o != nil {
+				ratio, e := amount(o.UnfilledRatioX64)
+				if e != nil {
+					return nil, e
+				}
+				tick.LimitOrders = &RaydiumCLMMLimitOrders{
+					OrderPhase: o.OrderPhase, OrdersAmount: o.OrdersAmount,
+					PartFilledOrdersRemaining: o.PartFilledOrdersRemaining,
+					UnfilledRatioX64:          ratio,
+				}
+			}
+			array.Ticks = append(array.Ticks, tick)
 		}
 		out.TickArrays = append(out.TickArrays, array)
 	}

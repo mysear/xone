@@ -210,7 +210,7 @@ func (p Pool) Validate() error {
 	if p.Weighted != nil {
 		return errors.New("WEIGHTED_PROTOCOL_MISMATCH")
 	}
-	if p.Protocol == "raydium-clmm-rewards" || p.Protocol == "raydium-clmm-static" || p.Protocol == "raydium-clmm-token-fee" || p.Protocol == "raydium-clmm-bitmap" || p.Protocol == "raydium-clmm-custom-seed" || p.Protocol == "raydium-clmm-dynamic" {
+	if p.Protocol == "raydium-clmm-rewards" || p.Protocol == "raydium-clmm-static" || p.Protocol == "raydium-clmm-token-fee" || p.Protocol == "raydium-clmm-bitmap" || p.Protocol == "raydium-clmm-custom-seed" || p.Protocol == "raydium-clmm-dynamic" || p.Protocol == RayCLMMLimitOrdersProfile {
 		if p.RaydiumCLMM == nil {
 			return errors.New("RAYCLMM_STATE_REQUIRED")
 		}

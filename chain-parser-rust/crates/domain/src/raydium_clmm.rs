@@ -18,6 +18,8 @@ pub const PROGRAM_DATA: &str = "HzD2cCXXT3UQNjMMY6kDv9w6gZ9qquSdfoGXrLL3LXx";
 pub const PROGRAM_ID: &str = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK";
 pub const MIN_TICK: i32 = -443636;
 pub const MAX_TICK: i32 = 443636;
+pub const LIMIT_ORDERS_PROFILE: &str = "raydium-clmm-limit-orders";
+pub const LIMIT_ORDERS_ADAPTER: &str = "raydium-clmm/6d7a0f82-spl-limit-orders-1";
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct RaydiumCLMMRewardInfo {
@@ -40,7 +42,35 @@ impl RaydiumCLMMRewardInfo {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+pub struct RaydiumCLMMLimitOrders {
+    pub order_phase: u64,
+    pub orders_amount: u64,
+    pub part_filled_orders_remaining: u64,
+    pub unfilled_ratio_x64: Amount,
+}
+impl RaydiumCLMMLimitOrders {
+    pub fn has_orders(&self) -> bool {
+        self.orders_amount != 0 || self.part_filled_orders_remaining != 0
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self
+            .orders_amount
+            .checked_add(self.part_filled_orders_remaining)
+            .is_none()
+            || self.unfilled_ratio_x64.0 > BigUint::from(1u128 << 64)
+            || self.part_filled_orders_remaining != 0 && self.order_phase == 0
+        {
+            return Err(err("RAYCLMM_LIMIT_ORDER_STATE"));
+        }
+        Ok(())
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct RaydiumCLMMTick {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit_orders: Option<RaydiumCLMMLimitOrders>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub reward_growths_outside: Vec<Amount>,
     pub tick: i32,
@@ -48,6 +78,15 @@ pub struct RaydiumCLMMTick {
     pub liquidity_net: String,
     pub fee_growth_outside0: Amount,
     pub fee_growth_outside1: Amount,
+}
+impl RaydiumCLMMTick {
+    pub fn is_initialized(&self) -> bool {
+        !self.liquidity_gross.0.is_zero()
+            || self
+                .limit_orders
+                .as_ref()
+                .is_some_and(RaydiumCLMMLimitOrders::has_orders)
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -307,7 +346,7 @@ impl RaydiumCLMMState {
                 return Err(err("RAYCLMM_ARRAY_SEQUENCE"));
             }
             let active = self.array_initialized(index as i32)?;
-            if active == a.ticks.is_empty() {
+            if active != a.ticks.iter().any(RaydiumCLMMTick::is_initialized) {
                 return Err(err("RAYCLMM_BITMAP_PROOF"));
             }
             if a.ticks.len() > 60 {
@@ -323,8 +362,11 @@ impl RaydiumCLMMState {
                     return Err(err("RAYCLMM_TICK_INDEX"));
                 }
                 let gross = wide(&t.liquidity_gross)?;
-                if gross.is_zero() {
+                if gross.is_zero() && t.limit_orders.is_none() {
                     return Err(err("RAYCLMM_TICK_GROSS"));
+                }
+                if let Some(orders) = &t.limit_orders {
+                    orders.validate()?;
                 }
                 let net = crate::v3::parse_liquidity_net(&t.liquidity_net)?;
                 if BigUint::from(net.unsigned_abs()) > *gross {
@@ -348,6 +390,15 @@ impl RaydiumCLMMState {
     }
     pub fn validate(&self, p: &Pool) -> Result<()> {
         self.validate_wire()?;
+        if p.protocol != LIMIT_ORDERS_PROFILE
+            && self
+                .tick_arrays
+                .iter()
+                .flat_map(|a| &a.ticks)
+                .any(|t| t.limit_orders.is_some())
+        {
+            return Err(err("RAYCLMM_LIMIT_ORDER_PROFILE"));
+        }
         if (p.protocol == "raydium-clmm-rewards") != (self.reward_infos.len() == 3) {
             return Err(err("RAYCLMM_REWARD_PROFILE"));
         }
@@ -380,6 +431,8 @@ impl RaydiumCLMMState {
                     && p.adapter_version == "raydium-clmm/6d7a0f82-spl-custom-seed-1")
                 || (p.protocol == "raydium-clmm-dynamic"
                     && p.adapter_version == "raydium-clmm/6d7a0f82-spl-dynamic-1")
+                || (p.protocol == LIMIT_ORDERS_PROFILE
+                    && p.adapter_version == LIMIT_ORDERS_ADAPTER)
                 || (p.protocol == "raydium-clmm-rewards"
                     && p.adapter_version == "raydium-clmm/6d7a0f82-spl-rewards-1"
                     && self.collect_fee_on == 0))
@@ -527,6 +580,21 @@ impl RaydiumCLMMState {
                             .iter()
                             .map(|t| {
                                 Ok(wire::RaydiumClmmTick {
+                                    limit_orders: t
+                                        .limit_orders
+                                        .as_ref()
+                                        .map(|orders| {
+                                            Ok(wire::RaydiumClmmLimitOrders {
+                                                order_phase: orders.order_phase,
+                                                orders_amount: orders.orders_amount,
+                                                part_filled_orders_remaining: orders
+                                                    .part_filled_orders_remaining,
+                                                unfilled_ratio_x64: Some(amount(
+                                                    &orders.unfilled_ratio_x64,
+                                                )?),
+                                            })
+                                        })
+                                        .transpose()?,
                                     reward_growths_outside: t
                                         .reward_growths_outside
                                         .iter()
@@ -657,6 +725,20 @@ impl RaydiumCLMMState {
                                     .try_into()
                                     .map_err(|_| err("RAYCLMM_NET_WIDTH"))?;
                                 Ok(RaydiumCLMMTick {
+                                    limit_orders: t
+                                        .limit_orders
+                                        .map(|orders| {
+                                            Ok(RaydiumCLMMLimitOrders {
+                                                order_phase: orders.order_phase,
+                                                orders_amount: orders.orders_amount,
+                                                part_filled_orders_remaining: orders
+                                                    .part_filled_orders_remaining,
+                                                unfilled_ratio_x64: amount(
+                                                    orders.unfilled_ratio_x64,
+                                                )?,
+                                            })
+                                        })
+                                        .transpose()?,
                                     reward_growths_outside: t
                                         .reward_growths_outside
                                         .into_iter()

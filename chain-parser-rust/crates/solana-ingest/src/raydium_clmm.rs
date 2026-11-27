@@ -7,8 +7,9 @@ use crate::rpc::TOKEN_PROGRAM;
 use std::collections::{BTreeMap, BTreeSet};
 use xone_config::{Chain, PoolConfig};
 use xone_domain::raydium_clmm::{
-    RaydiumCLMMArray, RaydiumCLMMBitmapExtension, RaydiumCLMMDynamicFee, RaydiumCLMMObservation,
-    RaydiumCLMMRewardInfo, RaydiumCLMMState, RaydiumCLMMTick,
+    RaydiumCLMMArray, RaydiumCLMMBitmapExtension, RaydiumCLMMDynamicFee, RaydiumCLMMLimitOrders,
+    RaydiumCLMMObservation, RaydiumCLMMRewardInfo, RaydiumCLMMState, RaydiumCLMMTick,
+    LIMIT_ORDERS_PROFILE,
 };
 use xone_domain::{err, Amount, Pool, Result};
 
@@ -65,6 +66,7 @@ pub fn required_accounts(p: &PoolConfig) -> Result<Vec<String>> {
             | "raydium-clmm-bitmap"
             | "raydium-clmm-custom-seed"
             | "raydium-clmm-dynamic"
+            | LIMIT_ORDERS_PROFILE
     ) || p.program_id != PROGRAM_ID
         || p.accounts.len() != 7
         || p.accounts[0] != p.id
@@ -440,6 +442,7 @@ pub fn decode_raydium_clmm(
             bank_epoch,
             active,
             rewards,
+            p.protocol == LIMIT_ORDERS_PROFILE,
         )?);
     }
     let pool = Pool {
@@ -537,6 +540,7 @@ fn decode_array(
     bank_epoch: u64,
     active: bool,
     rewards: bool,
+    limit_orders: bool,
 ) -> Result<RaydiumCLMMArray> {
     let d = owned_data(accounts, address, PROGRAM_ID, ARRAY_LEN)?;
     discriminator(d, [192, 155, 85, 205, 49, 249, 129, 42])?;
@@ -551,15 +555,27 @@ fn decode_array(
     for (i, t) in d[44..10124].chunks_exact(TICK_LEN).enumerate() {
         // Source order_phase[116..124] is a historical cohort counter. With no
         // outstanding quantities, match_limit_order returns before using it.
-        // Active orders, partial-fill ratio and unknown padding stay unsupported.
-        if (!rewards && !zero(&t[68..116])) || !zero(&t[124..]) {
+        if (!rewards && !zero(&t[68..116]))
+            || !zero(&t[156..])
+            || !limit_orders && !zero(&t[124..156])
+        {
             return Err(err("RAYCLMM_TICK_STATE_UNSUPPORTED"));
         }
+        let orders = if limit_orders && !zero(&t[116..156]) {
+            Some(RaydiumCLMMLimitOrders {
+                order_phase: u64_at(t, 116),
+                orders_amount: u64_at(t, 124),
+                part_filled_orders_remaining: u64_at(t, 132),
+                unfilled_ratio_x64: amount(t, 140)?,
+            })
+        } else {
+            None
+        };
         let gross = u128_at(t, 20);
         let tick = i32_at(t, 0);
         let expected = i64::from(start) + i as i64 * i64::from(spacing);
         // Cleared ticks retain their index. Never-initialized slots have a default zero index.
-        if gross == 0 {
+        if gross == 0 && orders.is_none() {
             if !zero(&t[4..116]) || tick != 0 && i64::from(tick) != expected {
                 return Err(err("RAYCLMM_TICK_STATE_UNSUPPORTED"));
             }
@@ -573,6 +589,7 @@ fn decode_array(
             return Err(err("RAYCLMM_TICK_NET"));
         }
         ticks.push(RaydiumCLMMTick {
+            limit_orders: orders,
             reward_growths_outside: if rewards {
                 (0..3)
                     .map(|i| amount(t, 68 + 16 * i))
@@ -587,7 +604,8 @@ fn decode_array(
             fee_growth_outside1: amount(t, 52)?,
         });
     }
-    if ticks.len() != usize::from(d[10124]) || active == ticks.is_empty() {
+    let initialized = ticks.iter().filter(|t| t.is_initialized()).count();
+    if initialized != usize::from(d[10124]) || active != (initialized != 0) {
         return Err(err("RAYCLMM_BITMAP_PROOF"));
     }
     Ok(RaydiumCLMMArray {

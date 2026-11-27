@@ -368,6 +368,17 @@ pub struct OrcaWhirlpoolState {
     #[prost(message, optional, tag = "52")]
     pub token_2022: ::core::option::Option<OrcaToken2022State>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RaydiumClmmLimitOrders {
+    #[prost(uint64, tag = "1")]
+    pub order_phase: u64,
+    #[prost(uint64, tag = "2")]
+    pub orders_amount: u64,
+    #[prost(uint64, tag = "3")]
+    pub part_filled_orders_remaining: u64,
+    #[prost(message, optional, tag = "4")]
+    pub unfilled_ratio_x64: ::core::option::Option<Amount>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RaydiumClmmTick {
     #[prost(sint32, tag = "1")]
@@ -382,6 +393,8 @@ pub struct RaydiumClmmTick {
     pub fee_growth_outside1: ::core::option::Option<Amount>,
     #[prost(message, repeated, tag = "20")]
     pub reward_growths_outside: ::prost::alloc::vec::Vec<Amount>,
+    #[prost(message, optional, tag = "21")]
+    pub limit_orders: ::core::option::Option<RaydiumClmmLimitOrders>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RaydiumClmmArray {
