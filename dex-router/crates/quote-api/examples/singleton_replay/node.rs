@@ -503,6 +503,14 @@ impl Mined {
     }
 
     pub(super) fn router(&self) -> axum::Router {
+        self.proxy(false)
+    }
+
+    pub(super) fn recovery_router(&self) -> axum::Router {
+        self.proxy(true)
+    }
+
+    fn proxy(&self, pin_safe: bool) -> axum::Router {
         let node = self.node.clone();
         let fault = self.fault.clone();
         let execution_reads = self.execution_reads.clone();
@@ -525,6 +533,12 @@ impl Mined {
                     execution_reads.clone(),
                 );
                 async move {
+                    if pin_safe
+                        && request["method"] == "eth_getBlockByNumber"
+                        && request["params"][0] == "safe"
+                    {
+                        request["params"][0] = SOURCE_HEIGHT.into();
+                    }
                     if fault == Some(Fault::IgnoreTraceIndex)
                         && request["method"] == "debug_traceCall"
                     {

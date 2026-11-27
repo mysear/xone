@@ -6,12 +6,18 @@ use xone_simulation::worker::LocalSimulationBundle;
 
 #[path = "singleton_replay/node.rs"]
 mod node;
+#[path = "singleton_replay/recovery.rs"]
+mod recovery;
 
 #[tokio::main]
 async fn main() {
     let path = std::env::args_os().nth(1).expect("replay case directory");
     if path == "--evm-simulation-worker" {
         xone_simulation::worker::run_stdio().unwrap();
+        return;
+    }
+    if path == "--serve-recovery-fixture" {
+        recovery::serve(std::env::args_os().skip(2)).await;
         return;
     }
     let dir = Path::new(&path);
