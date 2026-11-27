@@ -135,18 +135,25 @@ pub(super) async fn verify(api: &Api, chain: &str, fixture: &FixtureState) -> Re
     let source = rpc(
         api,
         chain,
-        "eth_getBlockByHash",
-        json!([anchor.block_hash, false]),
+        "eth_getBlockByNumber",
+        json!([format!("0x{:x}", anchor.block_number), false]),
     )
     .await?;
-    if source["hash"] != anchor.block_hash
-        || source["parentHash"] != anchor.parent_hash
+    if source["hash"] != anchor.block_hash {
+        return Err(err("EVM_NODE_RECEIPT_REORGED"));
+    }
+    if source["parentHash"] != anchor.parent_hash
         || quantity_u64(&source["number"])? != anchor.block_number
         || quantity_u64(&source["timestamp"])? != anchor.timestamp
     {
         return Err(mismatch());
     }
     verify_execution_header(&source, header_fork(&source))?;
+    if let Some(expected) = &anchor.base_fee_per_gas {
+        if &quantity(&source["baseFeePerGas"])? != expected {
+            return Err(mismatch());
+        }
+    }
     super::ancestors::verify(api, chain, fixture, &source).await?;
     let root = B256::from(receipt_bytes::<32>(&source["stateRoot"])?);
     let block = json!({"blockHash":anchor.block_hash,"requireCanonical":true});

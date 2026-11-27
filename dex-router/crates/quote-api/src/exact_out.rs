@@ -111,7 +111,7 @@ impl Api {
                 if let Some(backend) = &cost_backend {
                     backend.check_current_prices()?;
                 }
-                self.observe_successful_quote(&c.view);
+                self.observe_successful_quote(&c.view, &c.response);
                 return Ok(c.response.clone());
             }
         }
@@ -382,7 +382,7 @@ impl Api {
         }
         self.logger.event("info", "exact_out_quote_completed", json!({"quote_id": quote_id,
             "chain_key": request.chain_key, "quote_view_id": view.view_id, "verification": "INDICATIVE"}));
-        self.observe_successful_quote(&view);
+        self.observe_successful_quote(&view, &response);
         Ok(response)
     }
     pub(super) fn exact_out_execution(&self, id: &str) -> Result<bool> {

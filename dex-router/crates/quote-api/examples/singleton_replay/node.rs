@@ -24,6 +24,7 @@ pub(super) enum Executable<'a> {
 }
 
 const PREFIX_SENDER: &str = "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf";
+const SOURCE_HEIGHT: &str = "0x2";
 const EXECUTION_HEIGHT: &str = "0x3";
 const BEACON_ROOTS_CODE: &str = "0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500";
 
@@ -48,6 +49,7 @@ pub(super) enum Fault {
     TransactionMissing,
     TransactionWire,
     TransactionBody,
+    SourceReorg,
     SourceRoot,
     SourceProofMissing,
     SourceStorage,
@@ -264,7 +266,7 @@ impl Node {
         self.seal(now - 1).await;
         self.seal(now).await;
         let source = self
-            .rpc("eth_getBlockByNumber", json!(["0x2", false]))
+            .rpc("eth_getBlockByNumber", json!([SOURCE_HEIGHT, false]))
             .await;
         let anchor = &mut bundle.fixture.state_anchor;
         anchor.genesis_hash = field(&genesis, "hash");
@@ -272,6 +274,12 @@ impl Node {
         anchor.parent_hash = field(&source, "parentHash");
         anchor.timestamp = number(&source["timestamp"]);
         anchor.block_number = number(&source["number"]);
+        anchor.base_fee_per_gas = Some(
+            number(&source["baseFeePerGas"])
+                .to_string()
+                .parse()
+                .unwrap(),
+        );
         bundle.fixture.block_hashes = vec![FixtureBlockHash {
             number: 0,
             hash: anchor.genesis_hash.clone(),
@@ -563,7 +571,14 @@ impl Mined {
                         {
                             *result = alternate_prefix.as_ref().unwrap()["signedWire"].clone();
                         }
-                        (Some(Fault::SourceRoot), "eth_getBlockByHash") => {
+                        (Some(Fault::SourceReorg), "eth_getBlockByNumber")
+                            if request["params"][0] == SOURCE_HEIGHT =>
+                        {
+                            *result = Value::Null;
+                        }
+                        (Some(Fault::SourceRoot), "eth_getBlockByNumber")
+                            if request["params"][0] == SOURCE_HEIGHT =>
+                        {
                             result["stateRoot"] = format!("0x{}", "01".repeat(32)).into();
                         }
                         (Some(Fault::AncestorMissing), "eth_getBlockByHash")

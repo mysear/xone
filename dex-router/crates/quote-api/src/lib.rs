@@ -462,7 +462,7 @@ impl Api {
                 if let Some(backend) = &cost_backend {
                     backend.check_current_prices()?;
                 }
-                self.observe_successful_quote(&c.view);
+                self.observe_successful_quote(&c.view, &c.response);
                 return Ok(c.response.clone());
             }
         }
@@ -675,7 +675,7 @@ impl Api {
         );
         drop(cache);
         self.logger.event("info","quote_completed",json!({"quote_id":quote_id,"chain_key":request.chain_key,"quote_view_id":view.view_id,"graph_version":view.graph_version,"canonical_epoch":view.reference.canonical_epoch,"online_generation":view.reference.online_generation,"economic_policy_hash":self.config.economic_hash,"verification":"INDICATIVE"}));
-        self.observe_successful_quote(&view);
+        self.observe_successful_quote(&view, &response);
         Ok(response)
     }
     pub async fn reload_native_prices(&self) -> Result<Value> {

@@ -7,6 +7,8 @@ pub(crate) struct ScopeRecoveryTiming {
     first_snapshot_ms: Option<u64>,
     first_quote_ms: Option<u64>,
     first_quote_generation: Option<u64>,
+    first_verified_quote_ms: Option<u64>,
+    first_verified_quote_generation: Option<u64>,
     latest_generation: u64,
     last_qualified_pools: usize,
 }
@@ -40,13 +42,22 @@ impl Api {
             }
         }
     }
-    pub(crate) fn observe_successful_quote(&self, view: &QuoteView) {
+    pub(crate) fn observe_successful_quote(&self, view: &QuoteView, response: &Value) {
         self.observe_qualified_view(view);
         if let Ok(mut all) = self.metrics.recovery.lock() {
             if let Some(timing) = all.get_mut(&view.reference.block.chain_key) {
+                let elapsed = self.recovery_elapsed_ms();
+                let generation = view.reference.online_generation;
                 if timing.first_quote_ms.is_none() {
-                    timing.first_quote_ms = Some(self.recovery_elapsed_ms());
-                    timing.first_quote_generation = Some(view.reference.online_generation);
+                    timing.first_quote_ms = Some(elapsed);
+                    timing.first_quote_generation = Some(generation);
+                }
+                if timing.first_verified_quote_ms.is_none()
+                    && response["verification"]["level"] == "VERIFIED"
+                    && response["verification"]["success"] == true
+                {
+                    timing.first_verified_quote_ms = Some(elapsed);
+                    timing.first_verified_quote_generation = Some(generation);
                 }
             }
         }
@@ -62,10 +73,28 @@ impl Api {
         }
     }
     pub(crate) fn recovery_status(&self, chain: &str) -> Value {
-        self.metrics.recovery.lock().ok().and_then(|all| all.get(chain).cloned()).map_or_else(
-            || json!({"observed":false}),
-            |timing| json!({"observed":true,"first_qualified_snapshot_ms":timing.first_snapshot_ms,"first_successful_quote_ms":timing.first_quote_ms,"first_quote_generation":timing.first_quote_generation,"online_generation":timing.latest_generation,"last_qualified_pool_count":timing.last_qualified_pools,"history_blocks_readiness":false,"timing_origin":"quote_api_created"}),
-        )
+        self.metrics
+            .recovery
+            .lock()
+            .ok()
+            .and_then(|all| all.get(chain).cloned())
+            .map_or_else(
+                || json!({"observed":false}),
+                |timing| {
+                    json!({
+                        "observed":true,
+                        "first_qualified_snapshot_ms":timing.first_snapshot_ms,
+                        "first_successful_quote_ms":timing.first_quote_ms,
+                        "first_quote_generation":timing.first_quote_generation,
+                        "first_verified_quote_ms":timing.first_verified_quote_ms,
+                        "first_verified_quote_generation":timing.first_verified_quote_generation,
+                        "online_generation":timing.latest_generation,
+                        "last_qualified_pool_count":timing.last_qualified_pools,
+                        "history_blocks_readiness":false,
+                        "timing_origin":"quote_api_created",
+                    })
+                },
+            )
     }
     pub(crate) fn recovery_prometheus(&self) -> String {
         let mut result = String::new();
@@ -82,6 +111,13 @@ impl Api {
                     let _ = writeln!(
                         result,
                         "xone_first_successful_quote_seconds{{chain={chain:?}}} {:.3}",
+                        ms as f64 / 1000.0
+                    );
+                }
+                if let Some(ms) = timing.first_verified_quote_ms {
+                    let _ = writeln!(
+                        result,
+                        "xone_startup_to_first_verified_quote_seconds{{chain={chain:?}}} {:.3}",
                         ms as f64 / 1000.0
                     );
                 }

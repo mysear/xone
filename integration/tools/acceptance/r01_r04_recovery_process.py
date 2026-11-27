@@ -448,6 +448,17 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False, peer_re
                     require(verified['snapshotRef'] == quoted['snapshotRef'] and verified['grossBuyAmount'] == expected_amount,
                             'VERIFIED quote did not match the recovered scope and expected amount')
                     verified_ms = int((time.monotonic() - started) * 1000)
+                recovery_status, recovered = http(base('router1') + '/internal/chains/evm:31337/status', token)
+                require(recovery_status == 200, 'recovered router status unavailable')
+                recovery = recovered['recovery']
+                require(recovery['first_successful_quote_ms'] is not None, 'router missed first available quote')
+                if verified_ms is None:
+                    require(recovery['first_verified_quote_ms'] is None and recovery['first_verified_quote_generation'] is None,
+                            'router counted an unverified quote as verified')
+                else:
+                    require(recovery['first_verified_quote_ms'] >= recovery['first_successful_quote_ms']
+                            and recovery['first_verified_quote_generation'] == quoted['onlineGeneration'],
+                            'router verification timing does not match the recovered generation')
                 restored = owner_cursor(base('go'), token)
                 owner = status('go')
                 gaps = owner['history_gaps']
@@ -480,6 +491,7 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False, peer_re
                     'first_qualified_scope_ms': scope_ms, 'first_successful_quote_ms': quote_ms,
                     'quote_verification': quoted['verification']['level'],
                     'first_verified_quote_ms': verified_ms,
+                    'router_startup_timing': recovery,
                     'verified_quote_attempt': {'http_status': verified_status, 'error': verified.get('error')},
                 }
                 if retention_only:

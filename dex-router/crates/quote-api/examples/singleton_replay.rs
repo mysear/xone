@@ -307,6 +307,7 @@ async fn assert_replay(
             node::Fault::ReceiptBloom,
             node::Fault::TransactionMissing,
             node::Fault::TransactionWire,
+            node::Fault::SourceReorg,
             node::Fault::SourceRoot,
             node::Fault::SourceProofMissing,
             node::Fault::SourceStorage,
@@ -353,7 +354,7 @@ async fn assert_replay(
             assert_eq!(status, 422, "{fault:?}: {rejected}");
             assert_eq!(rejected["phase"], "node_receipt", "{fault:?}: {rejected}");
             let expected = match fault {
-                node::Fault::Reorg => "EVM_NODE_RECEIPT_REORGED",
+                node::Fault::Reorg | node::Fault::SourceReorg => "EVM_NODE_RECEIPT_REORGED",
                 node::Fault::WithdrawalBalance => {
                     "EVM_NODE_RECEIPT_PRE_WITHDRAWAL_STATE_UNAVAILABLE"
                 }
