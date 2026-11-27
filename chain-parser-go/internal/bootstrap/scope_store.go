@@ -484,13 +484,13 @@ func (s *FileScopeStore) capacity(d scopeDisk, except string, j ScopeJob, b Scop
 		if id == except || entry.Job.Phase.Terminal() {
 			continue
 		}
-		if entry.Job.ReservedBytes > maxBytes-bytes {
+		if bytes > maxBytes || entry.Job.ReservedBytes > maxBytes-bytes {
 			return ErrBudget
 		}
 		bytes += entry.Job.ReservedBytes
 		jobs++
 	}
-	if jobs >= maxJobs || j.ReservedBytes > maxBytes-bytes {
+	if bytes > maxBytes || jobs >= maxJobs || j.ReservedBytes > maxBytes-bytes {
 		return ErrBudget
 	}
 	return nil
@@ -768,7 +768,7 @@ func OpenFileHistoryStore(root, chain string, b FileHistoryLimits) (*FileHistory
 		var bytes uint64
 		seen := map[uint64]bool{}
 		for _, r := range d.Records {
-			if r.ChainKey != chain || r.Namespace != "history_replay" || seen[r.Cursor] || len(r.Payload) == 0 || uint64(len(r.Payload)) > b.MaxBytes-bytes {
+			if r.ChainKey != chain || r.Namespace != "history_replay" || seen[r.Cursor] || len(r.Payload) == 0 || bytes > b.MaxBytes || uint64(len(r.Payload)) > b.MaxBytes-bytes {
 				file.close()
 				return nil, ErrScopeStoreCorrupt
 			}

@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R04 持久范围预算与历史隔离边界（2026-11-28）|§9、§18、§28.26；WP08、WP09、WP20、WP24|LOCAL_SCOPE_VERIFIED|修复在线 scope 保留容量和 history replay 重启加载的无符号预算下溢，损坏聚合和超限历史记录现在在进入恢复或 READY 前封闭；新增两项定向回归并通过 Go bootstrap 全包|缺失的历史 receipt fixture 仍阻塞集成 retention 验收；真实长停机、公开历史 bank 和生产故障域仍待完成|
 |I7-R03 真实中间件流恢复基础（2026-11-27）|§7、§18、§28.22；WP04、WP05、WP07、WP20、WP24|LOCAL_SCOPE_VERIFIED|隔离 Docker PostgreSQL/Kafka 回退、Kafka 内外双监听器、固定 protobuf/SDK 构建环境和真实 normal Yellowstone 发布、撤销、重启、Fence、HEAD_FIRST 场景已接入；R03 history runtime 7 项测试通过|证据为受控 tonic 来源与本机真实中间件，真实同源 Yellowstone、版本化历史 bank 完整性、连续断线和生产故障域仍待验收|
 |I4-T2022 Token-2022 扩展与转账费收敛（本轮）|§7.3、§8.12、§11.3、§12.2、§12.5、§12.11–12.14；WP02、WP05、WP11、WP20、WP25|PARTIAL_LOCAL|新增共享 `spl_token_2022` 域模块，统一 epoch 费率选择、向上取整、最大手续费、ExactOut 逆解和 `TransferFeeAmount`/`ImmutableOwner` TLV 校验；Meteora 报价域与 Solana 交易准备复用同一解析逻辑|两套 Rust domain 边界测试、格式检查和 dex-router check 通过；固定 bank/协议数学全量回放因缺失 `meteora-token2022.json` fixture 阻塞，执行准备测试因缺失 `evm/baseline.json` 阻塞；Orca adaptive Token-2022、稀疏数组、奖励领取及 Raydium CLMM 订单仍待后续优先级完成|
 |I4-Orca adaptive 补充数组窗口（本轮）|§7.3、§8.12、§11.3、§12.2、§12.5、§12.11–12.14；WP02、WP04、WP05、WP11、WP20、WP25|PARTIAL_LOCAL|动态 adaptive profile 接受 3–7 个按 PDA/bitmap 校验的连续数组，并表示同 bank 内明确观测到的 system-owned 空 PDA。双向 ExactIn/ExactOut 各选最多三个方向数组。Go/Rust 校验稀疏 PDA，交易准备与 SBF worker 检查同一账户的 owner 和数据|101 个经典交换用例和 20 个 bank 回放、Go/Rust Protobuf、Go/Rust 配置和 Rust 普通 RPC 专项通过。稀疏分支通过原程序 builder 双向 ExactIn/ExactOut、七数组 RPC 正负例、执行准备编译及 worker 的账户证明校验。显式空 PDA 与缺失依赖分开处理。扩展窗口原 SBF/CPI 余额差、Token-2022 和奖励领取仍待验收|
@@ -435,6 +436,12 @@
 - 用固定 protobuf 工具链、macOS SDK 头文件和独立编译日志构建 `normal_yellowstone`，执行真实 PostgreSQL/Kafka 下的发布、撤销、重启、Fence 和 HEAD_FIRST 恢复场景。
 - 本轮目标已通过 `python3 integration/tools/acceptance/r03_authority_process.py`，报告状态为 `LOCAL_AUTHORITY_PROCESS_SCOPE_VERIFIED`。该结果覆盖受控 tonic 来源与真实本机中间件，真实同源 Yellowstone、历史 bank 完整性和生产故障域仍按 R01–R04 继续验收。
 
+#### 当前迭代目标（R04 恢复预算边界，2026-11-28）
+
+- 持久在线 scope 的保留作业聚合在预算已经超限或状态损坏时必须立即返回 `ErrBudget`，不能依赖无符号减法得到可用余量。
+- history replay 重启加载按累计 payload 字节检查上限，超限记录返回 `ErrScopeStoreCorrupt`，不进入后续回放或调度。
+- 通过 Go bootstrap 全包和新增边界回归后，提交本轮代码并继续推进 R04.2 的真实长停机、peer 选择和 retention 证据。
+
 ### I8 路由与费用
 
 - 接入实际 gas、L1 数据费和原生费换算，使用净输出评分。
@@ -454,7 +461,7 @@
 - 完成 ClickHouse 事实、版本表、shadow 发布和 FINAL 查询。
 - 完成 RFQ、多 solver、外部来源竞争和收益分布。
 
-当前活动目标为 I7，先完成 R01 真实部署身份、代码、升级槽与历史块绑定，再继续 R02–R04 的真实来源和恢复联验。I1 至 I3 的上述报价范围已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。I1 的 e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的 Managed 主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
+当前活动目标为 I7 R04.2，先完成真实长停机、可信 baseline/peer 选择和 retention 隔离，再继续 R01、R02、R03 的真实来源资格与生产故障域联验。I1 至 I3 的上述报价范围已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。I1 的 e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的 Managed 主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
 
 <a id="work-packages"></a>
 

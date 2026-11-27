@@ -84,6 +84,46 @@ func TestFileScopeRestartRequiresFreshRecovery(t *testing.T) {
 		t.Fatal("restart trusted old ready", src.order)
 	}
 }
+
+func TestFileScopeCapacityRejectsCorruptAggregateBeforeSubtraction(t *testing.T) {
+	store := &FileScopeStore{limits: FileScopeLimits{MaxJobs: 2, MaxAccountBytes: 8}}
+	disk := scopeDisk{Jobs: map[string]storedScopeJob{
+		"old": {Job: ScopeJob{ReservedBytes: 9, Phase: LiveBuffering}},
+	}}
+	if err := store.capacity(disk, "", ScopeJob{ReservedBytes: 1}, ScopeLimits{MaxJobs: 2, MaxAccountBytes: 8}); !errors.Is(err, ErrBudget) {
+		t.Fatalf("corrupt aggregate bypassed capacity budget: %v", err)
+	}
+}
+
+func TestFileHistoryRestartRejectsRecordsBeyondConfiguredBudget(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "history")
+	limits := FileHistoryLimits{MaxRecords: 4, MaxBytes: 4, MaxSnapshotBytes: 1 << 20}
+	store, err := OpenFileHistoryStore(root, "evm:31337", limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	records := historyDisk{Chain: "evm:31337", Records: []HistoryRecord{{
+		ChainKey: "evm:31337", Namespace: "history_replay", Cursor: 1, Payload: []byte("oversized"),
+	}}}
+	payload, err := json.Marshal(records)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope, err := json.Marshal(scopeEnvelope{Format: "xone-history-replay-v1", Checksum: digestScopeBytes(payload), Payload: string(payload)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(root, "state.json"), envelope, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = OpenFileHistoryStore(root, "evm:31337", limits); !errors.Is(err, ErrScopeStoreCorrupt) {
+		t.Fatalf("oversized retained history accepted: %v", err)
+	}
+}
+
 func TestFileScopeLockChecksumAndBoundaries(t *testing.T) {
 	_, store, _, req, now, root, limits := fileScopeFixture(t)
 	if _, e := OpenFileScopeStore(root, req.Fence, limits, func() uint64 { return *now }); !errors.Is(e, ErrScopeStoreLocked) {
