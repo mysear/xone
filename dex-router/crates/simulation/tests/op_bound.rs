@@ -632,6 +632,7 @@ fn signed_worker_request(c: &Case) -> xone_simulation::worker::WorkerRequest {
         direct_wrap: None,
         protocol: WORKER_PROTOCOL.into(),
         split: None,
+        shared_suffix: None,
         bound: if c.exact.is_some() {
             None
         } else {

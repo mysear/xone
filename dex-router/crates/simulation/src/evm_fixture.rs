@@ -21,6 +21,7 @@ use std::{
 };
 pub use wrap::{WrapReceipt, WrapSequence};
 use xone_domain::{Amount, Pool};
+use xone_execution_plan::ordered_v2::shared_suffix::{self, BoundSharedSuffix};
 use xone_execution_plan::ordered_v2::{self, BoundSplit, SplitExecutor, SplitPlan};
 use xone_execution_plan::{
     validate_bound_exact_out_execution, validate_bound_execution, BoundEvmExactOutExecution,
@@ -1537,6 +1538,30 @@ pub fn simulate_bound_split(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn simulate_bound_shared_suffix(
+    bound: &BoundSharedSuffix,
+    expected: &SplitExecutor,
+    pools: &[Pool],
+    allowed: &[String],
+    fixture: &FixtureState,
+    tx: &TransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+) -> Result<SimulationOutcome> {
+    simulate_execution(
+        BoundSource::SharedSuffix(bound, expected),
+        pools,
+        allowed,
+        fixture,
+        tx,
+        budget,
+        control,
+        None,
+        None,
+    )
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ApprovalReceipt {
@@ -1574,6 +1599,7 @@ pub struct ApprovalSequence {
 enum BoundSource<'a> {
     ExactIn(&'a BoundEvmExecution, Option<&'a WrapSequence>),
     ExactOut(&'a BoundEvmExactOutExecution, Option<&'a WrapSequence>),
+    SharedSuffix(&'a BoundSharedSuffix, &'a SplitExecutor),
     Split(
         &'a BoundSplit,
         &'a SplitExecutor,
@@ -1590,6 +1616,7 @@ impl Serialize for BoundSource<'_> {
             Self::ExactIn(b, None) => b.serialize(serializer),
             Self::ExactIn(b, Some(w)) => ("ordered-wrap-sequence/1", b, w).serialize(serializer),
             Self::ExactOut(b, None) => b.serialize(serializer),
+            Self::SharedSuffix(b, _) => b.serialize(serializer),
             Self::ExactOut(b, Some(w)) => ("ordered-wrap-sequence/1", b, w).serialize(serializer),
             Self::Split(b, _, None, None) => b.serialize(serializer),
             Self::Split(b, _, Some(seq), Some(wrap)) => {
@@ -1628,6 +1655,21 @@ impl BoundSource<'_> {
                 executor: &b.executor,
                 touched_pool_ids: b.touched_pool_ids.iter().collect(),
             },
+            Self::SharedSuffix(b, executor) => {
+                let mut seen = BTreeSet::new();
+                BoundView {
+                    context: &b.basis_plan.context,
+                    snapshot: &b.basis_plan.snapshot,
+                    transaction: &b.transaction,
+                    executor: &executor.router,
+                    touched_pool_ids: b
+                        .step_pools
+                        .iter()
+                        .flatten()
+                        .filter(|id| seen.insert(*id))
+                        .collect(),
+                }
+            }
             Self::Split(b, e, _, _) => {
                 let (context, snapshot) = match &b.plan {
                     SplitPlan::ExactIn(p) => (&p.context, &p.snapshot),
@@ -1653,6 +1695,7 @@ impl BoundSource<'_> {
         match self {
             Self::ExactIn(b, _) => validate_bound_execution(b, pools, allowed),
             Self::ExactOut(b, _) => validate_bound_exact_out_execution(b, pools, allowed),
+            Self::SharedSuffix(b, e) => shared_suffix::validate(b, pools, e, allowed),
             Self::Split(b, e, _, _) => ordered_v2::validate(b, pools, e, allowed),
         }
     }
@@ -1719,6 +1762,7 @@ fn simulate_execution(
             ))
         }
         BoundSource::Split(_, _, seq, wrap) => (seq, wrap),
+        BoundSource::SharedSuffix(_, _) => (None, None),
         BoundSource::ExactIn(_, wrap) | BoundSource::ExactOut(_, wrap) => {
             (wrap.and_then(|w| w.router_approval.as_ref()), wrap)
         }
@@ -1890,6 +1934,7 @@ fn simulate_execution(
     let input = match source {
         BoundSource::ExactIn(b, _) => &b.plan.allocation.sell_amount,
         BoundSource::ExactOut(b, _) => &b.plan.allocation.required_input,
+        BoundSource::SharedSuffix(b, _) => &b.basis_plan.allocation.sell_amount,
         BoundSource::Split(b, _, _, _) => match &b.plan {
             SplitPlan::ExactIn(p) => &p.allocation.sell_amount,
             SplitPlan::ExactOut(p) => &p.allocation.required_input,
@@ -1916,7 +1961,7 @@ fn simulate_execution(
         runner.tx = next_tx;
     }
     let allowance_phase = match source {
-        BoundSource::Split(_, e, _, _) => {
+        BoundSource::Split(_, e, _, _) | BoundSource::SharedSuffix(_, e) => {
             code_check(&image, &e.target, &e.code_sha256)?;
             runner.expect_address(image.clone(), &e.target, "router()", &[], &e.router.target)?;
             Some("split_caller_allowance_before")
@@ -1970,6 +2015,24 @@ fn simulate_execution(
         &context.recipient,
         "recipient_buy_before",
     )?;
+    let shared_balances = if let BoundSource::SharedSuffix(b, e) = source {
+        Some((
+            runner.balance(
+                image.clone(),
+                &context.sell_token,
+                &e.target,
+                "shared_sell_before",
+            )?,
+            runner.balance(
+                image.clone(),
+                &b.join_token,
+                &e.target,
+                "shared_join_before",
+            )?,
+        ))
+    } else {
+        None
+    };
     if let Some(observed) = funding {
         let allowance = runner.probe(
             image.clone(),
@@ -2107,23 +2170,26 @@ fn simulate_execution(
             )
         })?;
     enum Amounts<'a> {
-        In(&'a xone_execution_plan::Plan),
+        In(&'a Amount, &'a Amount),
         Out(&'a xone_execution_plan::exact_out::ExactOutPlan),
     }
     let amounts = match source {
-        BoundSource::ExactIn(b, _) => Amounts::In(&b.plan),
+        BoundSource::ExactIn(b, _) => {
+            Amounts::In(&b.plan.allocation.gross_buy_amount, &b.plan.min_buy_amount)
+        }
         BoundSource::ExactOut(b, _) => Amounts::Out(&b.plan),
+        BoundSource::SharedSuffix(b, _) => Amounts::In(&b.buy_amount, &b.min_buy_amount),
         BoundSource::Split(b, _, _, _) => match &b.plan {
-            SplitPlan::ExactIn(p) => Amounts::In(p),
+            SplitPlan::ExactIn(p) => Amounts::In(&p.allocation.gross_buy_amount, &p.min_buy_amount),
             SplitPlan::ExactOut(p) => Amounts::Out(p),
         },
     };
-    let (matches_plan, unused_input_budget) = match amounts {
-        Amounts::In(p) => (
+    let (mut matches_plan, unused_input_budget) = match amounts {
+        Amounts::In(output, minimum) => (
             status == EvmStatus::Success
-                && spent == amount(&p.allocation.sell_amount)?
-                && bought == amount(&p.allocation.gross_buy_amount)?
-                && bought >= amount(&p.min_buy_amount)?,
+                && spent == amount(input)?
+                && bought == amount(output)?
+                && bought >= amount(minimum)?,
             None,
         ),
         Amounts::Out(p) => {
@@ -2143,6 +2209,30 @@ fn simulate_execution(
             )
         }
     };
+    if let (BoundSource::SharedSuffix(b, e), Some((sell, join))) = (source, shared_balances) {
+        let sell_after = runner.balance(
+            post.clone(),
+            &context.sell_token,
+            &e.target,
+            "shared_sell_after",
+        )?;
+        let join_after =
+            runner.balance(post.clone(), &b.join_token, &e.target, "shared_join_after")?;
+        let topic = keccak256("Swap(address,uint256,uint256,uint256,uint256,address)");
+        let swaps = actual
+            .result
+            .logs()
+            .iter()
+            .filter(|log| log.data.topics().first() == Some(&topic))
+            .map(|log| log.address);
+        let expected = b
+            .step_pools
+            .iter()
+            .flatten()
+            .map(|id| address(id))
+            .collect::<Result<Vec<_>>>()?;
+        matches_plan &= sell_after == sell && join_after == join && swaps.eq(expected);
+    }
     let native_fees = op
         .is_none()
         .then(|| runner.native_fees(&image, &post, actual.result.gas_used()))

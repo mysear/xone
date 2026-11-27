@@ -198,6 +198,8 @@ pub struct WorkerRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub split: Option<WorkerSplit>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shared_suffix: Option<WorkerSharedSuffix>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bound: Option<BoundEvmExecution>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exact_out_bound: Option<BoundEvmExactOutExecution>,
@@ -212,6 +214,12 @@ pub struct WorkerRequest {
     pub budget: SimulationBudget,
     pub expected_genesis_hash: String,
     pub timeout_ms: u64,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkerSharedSuffix {
+    pub bound: xone_execution_plan::ordered_v2::shared_suffix::BoundSharedSuffix,
+    pub expected_executor: xone_execution_plan::ordered_v2::SplitExecutor,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -383,7 +391,29 @@ pub fn run_stdio() -> Result<()> {
     } else {
         None
     };
-    let result = if let Some(singleton) = &request.singleton {
+    let result = if let Some(shared) = &request.shared_suffix {
+        if request.singleton.is_some()
+            || request.direct_wrap.is_some()
+            || request.split.is_some()
+            || request.bound.is_some()
+            || request.exact_out_bound.is_some()
+            || request.prepared.is_some()
+            || op_context.is_some()
+        {
+            return Err(err("SIMULATION_WORKER_BINDING"));
+        }
+        evm_fixture::simulate_bound_shared_suffix(
+            &shared.bound,
+            &shared.expected_executor,
+            &request.pools,
+            &request.allowed_targets,
+            &request.fixture,
+            &request.transaction_context,
+            &request.budget,
+            control,
+        )
+        .map(Completed::Plain)
+    } else if let Some(singleton) = &request.singleton {
         if request.direct_wrap.is_some()
             || request.split.is_some()
             || request.bound.is_some()

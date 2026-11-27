@@ -178,15 +178,23 @@ fn original_twelve_path_receipts_match_all_native_accounts_and_declared_storage(
 #[test]
 #[ignore = "requires current original ordered split H/H+1 banks"]
 fn eight_ordered_split_receipts_match_all_logs_and_declared_poststate() {
-    let report: Value = serde_json::from_slice(
-        &std::fs::read(std::env::var("XONE_ORDERED_V2_REPORT").unwrap()).unwrap(),
-    )
-    .unwrap();
+    replay_split_bank("XONE_ORDERED_V2_REPORT", 8, |i| i % 2 == 0);
+}
+
+#[test]
+#[ignore = "requires independently mined original shared suffix bank"]
+fn shared_suffix_receipts_match_all_logs_and_declared_poststate() {
+    replay_split_bank("XONE_SHARED_SUFFIX_REPORT", 2, |_| true);
+}
+
+fn replay_split_bank(env: &str, expected_runs: usize, succeeds: impl Fn(usize) -> bool) {
+    let bytes = std::fs::read(std::env::var(env).unwrap()).unwrap();
+    let report: Value = serde_json::from_slice(&bytes).unwrap();
     let bank = &report["executionBank"];
     let runs = bank["runs"].as_array().unwrap();
-    assert_eq!(runs.len(), 8);
+    assert_eq!(runs.len(), expected_runs);
     for (i, r) in runs.iter().enumerate() {
-        let success = i % 2 == 0;
+        let success = succeeds(i);
         assert_eq!(r["status"], u64::from(success));
         let c = serde_json::json!({"id":i,"fixture":{"schema_version":1,"state_anchor":bank["state_anchor"],"accounts":bank["accounts"],"block_hashes":[],"execution_environment":r["execution_environment"]},"transaction_context":r["transaction_context"],"transaction":r,"expected":{"gas_used":r["gasUsed"],"post_accounts":r["post_accounts"]}});
         compare_mined(&c, success, Some(&r["logs"]));

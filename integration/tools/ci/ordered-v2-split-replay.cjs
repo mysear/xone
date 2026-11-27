@@ -76,6 +76,7 @@ async function replay(transport, captureBank, wrapped, shared) {
   const binding = {pools,block:{chain_key:'evm:1337',number_or_slot:base.number,hash:base.hash,parent_hash:base.parentHash,timestamp_ms:base.timestamp*1000},
     executor:{target:lower(batch.address),code_sha256:await runtime(batch.address),router:{target:lower(router.address),code_sha256:await runtime(router.address),factory:lower(factory.address),factory_code_sha256:factoryHash,adapter_version:'uniswap-v2-router02/1.1.0-beta.0'}},
     caller:lower(caller),recipient:lower(recipient),deadlineMs:deadline*1000,cases:[]};
+  const bank = captureBank ? await splitBank(provider,base,{caller,recipient,batch,router,factory,weth,tokens,pairs,shared}) : null;
   if (shared) {
     const join = tokens[2];
     const suffix = [join.address, buy.address];
@@ -103,12 +104,14 @@ async function replay(transport, captureBank, wrapped, shared) {
       await restore();
 
       const execute = (cap, minimum, expiry = deadline) =>
-        batch.executeExactIn(recipient, cap, minimum, expiry, prefixes, suffix, {gasLimit: 3000000});
+        batch.executeExactIn(recipient, cap, minimum, expiry, prefixes, suffix,
+          {gasLimit: 3000000, maxFeePerGas: 2000000000, maxPriorityFeePerGas: 100000000});
       const receipt = await mined(execute(input, output));
       assert.deepEqual(await state(), expected);
       assert.deepEqual(await balances(), joinBefore);
       const swaps = receipt.logs.filter(l => l.topics[0] === pairs[0].interface.getEventTopic('Swap')).map(l => l.address);
       assert.deepEqual(swaps, (reverse ? [2, 0, 1, 3] : [0, 1, 2, 3]).map(i => pairs[i].address));
+      if (bank) await bank.record(receipt);
       binding.cases.push({
         exactOut: false, reverse, input: String(input), output: String(output), joined: String(joined),
         legs: prefixes.map(([n, route]) => ({amount: String(n), tokens: [...route, buy.address].map(lower)})),
@@ -129,9 +132,8 @@ async function replay(transport, captureBank, wrapped, shared) {
         await restore();
       }
     }
-    return {authority: 'LOCAL_ORIGINAL_ROUTER_DIFFERENTIAL', compiler: solc.version(), binding};
+    return {authority: 'LOCAL_ORIGINAL_ROUTER_DIFFERENTIAL', compiler: solc.version(), binding, executionBank: bank?.result};
   }
-  const bank = captureBank ? await splitBank(provider,base,{caller,recipient,batch,router,factory,weth,tokens,pairs}) : null;
   const cases=[];
   for (const exactOut of [false,true]) for (const reverse of [false,true]) {
     const legs = [[unit('110'),[0,1,2,3]],[unit('70'),[0,2,3]]].map(([amount,ids]) => [amount,ids.map(i=>tokens[i].address)]);
@@ -281,12 +283,13 @@ async function replay(transport, captureBank, wrapped, shared) {
     normalQuoteConnected:false,completeNetCost:false,cases,binding,executionBank:bank?.result};
 }
 
-async function splitBank(provider,base,{caller,recipient,batch,router,factory,weth,tokens,pairs}) {
+async function splitBank(provider,base,{caller,recipient,batch,router,factory,weth,tokens,pairs,shared}) {
   const lower = a => a.toLowerCase();
   const addr = v => lower(v.address ?? v);
   const word = n => ethers.utils.hexZeroPad(n === '0x' ? '0x00' : ethers.BigNumber.from(n).toHexString(),32);
   const mapping = (key,slot) => ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(['address','bytes32'],[addr(key),word(slot)]));
   const slots = new Map([caller,recipient,batch,router,factory,weth,base.miner,...tokens,...pairs].map(x=>[addr(x),new Set()]));
+  if (shared) slots.get(addr(batch)).add(word(0));
   for (const p of pairs) for(let i=0;i<=12;i++) slots.get(addr(p)).add(word(i));
   for (const t of tokens) {
     const rows=slots.get(addr(t));
@@ -323,10 +326,10 @@ async function splitBank(provider,base,{caller,recipient,batch,router,factory,we
 }
 async function main() {
   const wrapped = process.argv[3] === '--wrap-bank';
-  const shared = process.argv[3] === '--shared-suffix';
+  const shared = ['--shared-suffix', '--shared-suffix-bank'].includes(process.argv[3]);
   const transport=ganache.provider({logging:{quiet:true},wallet:wrapped ? {deterministic:true,defaultBalance:100000} : {deterministic:true},chain:{hardfork:'shanghai',time:new Date('2026-11-17Z')},miner:{timestampIncrement:1}});
   try {
-    const captureBank=wrapped || process.argv[3]==='--bank';
+    const captureBank=wrapped || process.argv[3]==='--bank' || process.argv[3]==='--shared-suffix-bank';
     const report=await replay(transport,captureBank,wrapped,shared);
     if (!wrapped && !shared) assert.equal(hash(JSON.stringify(report.binding)),'544d55501ed280378a67b9ab45b77a4cef8e0cd1bafeee2ba48f1ffbd60732be','Mined binding corpus changed');
     report.passed = true;

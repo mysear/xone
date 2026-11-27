@@ -298,10 +298,8 @@ fn split_worker_replays_four_mined_plans_and_rejects_inconsistent_sources() {
         let allowed = [e.target.clone(), e.router.target.clone()];
         let b = bind(&p, &pools, &e, &allowed).unwrap();
         let r = &bank["runs"][2 * i];
-        let request = json!({"protocol":"xone-local-evm-worker/1","split":{"bound":b,"expected_executor":e},"pools":pools,"allowed_targets":allowed,
-            "fixture":{"schema_version":1,"state_anchor":bank["state_anchor"],"execution_environment":r["execution_environment"],"accounts":bank["accounts"],"block_hashes":[]},
-            "expected_genesis_hash":bank["state_anchor"]["genesis_hash"],"transaction_context":r["transaction_context"],"timeout_ms":15000,
-            "budget":{"max_fixture_json_bytes":16000000,"max_accounts":256,"max_storage_slots":65536,"max_code_bytes":8000000,"max_image_bytes":16000000,"max_reads":32000,"max_read_bytes":32000000,"max_instructions":4000000,"max_input_bytes":131072,"max_total_input_bytes":1000000,"max_transaction_gas":15000000,"probe_gas_limit":200000,"max_total_gas":15000000,"max_memory_bytes":64000000,"max_output_bytes":1000000}});
+        let mut request = bank_worker_request(bank, r, &pools, &allowed);
+        request["split"] = json!({"bound":b,"expected_executor":e});
         let response = invoke(&request);
         assert!(response["error"].is_null(), "{}", response["error"]);
         let outcome = &response["outcome"];
@@ -357,6 +355,63 @@ fn split_worker_replays_four_mined_plans_and_rejects_inconsistent_sources() {
                 }
             }
         }
+    }
+}
+
+fn bank_worker_request(bank: &Value, run: &Value, pools: &[Pool], allowed: &[String]) -> Value {
+    serde_json::json!({
+        "protocol":"xone-local-evm-worker/1",
+        "pools":pools,
+        "allowed_targets":allowed,
+        "fixture":{
+            "schema_version":1,
+            "state_anchor":bank["state_anchor"],
+            "execution_environment":run["execution_environment"],
+            "accounts":bank["accounts"],
+            "block_hashes":[]
+        },
+        "expected_genesis_hash":bank["state_anchor"]["genesis_hash"],
+        "transaction_context":run["transaction_context"],
+        "timeout_ms":15000,
+        "budget":{"max_fixture_json_bytes":16000000,"max_accounts":256,"max_storage_slots":65536,"max_code_bytes":8000000,"max_image_bytes":16000000,"max_reads":32000,"max_read_bytes":32000000,"max_instructions":4000000,"max_input_bytes":131072,"max_total_input_bytes":1000000,"max_transaction_gas":15000000,"probe_gas_limit":200000,"max_total_gas":15000000,"max_memory_bytes":64000000,"max_output_bytes":1000000}
+    })
+}
+
+#[test]
+#[ignore = "requires independently mined shared suffix bank and built stdio worker"]
+fn shared_suffix_worker_replays_both_mined_plans() {
+    let path = std::env::var("XONE_SHARED_SUFFIX_REPORT").unwrap();
+    let report: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let bank = &report["executionBank"];
+    let worker = std::env::var("XONE_SPLIT_WORKER").unwrap();
+    for (i, run) in bank["runs"].as_array().unwrap().iter().enumerate() {
+        let (SplitPlan::ExactIn(plan), pools, executor, c) =
+            fixture_from_bank(&report["binding"], i)
+        else {
+            panic!("expected shared suffix ExactIn");
+        };
+        let allowed = [executor.target.clone(), executor.router.target.clone()];
+        let bound = shared_suffix::bind(&plan, &pools, &executor, &allowed).unwrap();
+        let mut request = bank_worker_request(bank, run, &pools, &allowed);
+        request["shared_suffix"] = serde_json::json!({"bound":bound,"expected_executor":executor});
+        let response = invoke(&worker, &request);
+        assert!(response["error"].is_null(), "{}", response["error"]);
+        let outcome = &response["outcome"];
+        assert_eq!(outcome["matches_plan"], true);
+        assert_eq!(outcome["actual_input_consumed"], c["input"]);
+        assert_eq!(outcome["actual_buy_amount"], c["output"]);
+        assert_eq!(outcome["execution"]["gas_used"].to_string(), run["gasUsed"]);
+        assert_eq!(
+            outcome["native_fees"]["effective_gas_price"],
+            run["effectiveGasPrice"]
+        );
+        let accounts = request["fixture"]["accounts"].as_array_mut().unwrap();
+        accounts
+            .iter_mut()
+            .find(|a| a["address"] == executor.target)
+            .unwrap()["code"] = "0x00".into();
+        let rejected = invoke(&worker, &request);
+        assert_eq!(rejected["error"]["phase"], "runtime_code");
     }
 }
 
