@@ -6008,7 +6008,7 @@ Go RPC 包 race 检查、RPC/EVM/service 定向回归及 Python 3.13 的窗口�
 
 新增 `multi_asset::quote_meta_underlying_exact_in` 与 `quote_meta_underlying_exact_out`，从已验证的 Meta `Pool` 快照提取 Meta 内部/admin 余额和可选 base pool 状态，统一调用三路径组合内核。缺少 `base_pool_state` 或使用非 Meta profile 时返回明确错误，避免将 Meta virtual price 误当作完整 base 状态。
 
-协议数学编译和七项 Meta underlying 自包含回归通过。入口尚未接入上层 token 路由和交易准备，在线 token 转账、base LP allowance、真实 receipt 与生产 VERIFIED 仍未完成。
+协议数学编译和七项 Meta underlying 自包含回归通过。上层 token 路由和正常 Quote API 已接入并通过固定 protobuf 快照回归，交易准备仍缺在线 token 转账、base LP allowance、真实 receipt 与生产 VERIFIED。
 
 ## R03 隔离中间件与恢复迭代（2026-11-27，阶段268，P0-1）
 
