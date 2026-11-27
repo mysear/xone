@@ -1,4 +1,7 @@
-use super::{json, sign_transaction, LocalSimulationBundle, Path, Pool, SnapshotRef, Value};
+use super::{
+    json, sign_transaction, sign_transaction_with_key, LocalSimulationBundle, Path, Pool,
+    SnapshotRef, Value,
+};
 use std::{
     collections::BTreeMap,
     ffi::OsStr,
@@ -8,11 +11,24 @@ use std::{
     },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
 use xone_domain::{singleton::ZERO_ADDRESS, Amount};
+
+#[derive(Clone, Copy)]
+pub(super) enum Executable<'a> {
+    Anvil(&'a OsStr),
+    Geth(&'a OsStr),
+}
+
+const PREFIX_SENDER: &str = "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf";
 
 pub(super) struct Node {
     endpoint: String,
     client: reqwest::Client,
+    control: Option<(
+        tokio::process::ChildStdin,
+        Lines<BufReader<tokio::process::ChildStdout>>,
+    )>,
     _process: tokio::process::Child,
 }
 
@@ -22,12 +38,14 @@ pub(super) enum Fault {
     Logs,
     Balance,
     Reorg,
+    IgnoreTraceIndex,
 }
 
 pub(super) struct Mined {
     node: Arc<Node>,
     deadline: u64,
     pub(super) signed: Value,
+    transaction_index: u64,
     fault: Arc<Mutex<Option<Fault>>>,
     execution_reads: Arc<AtomicUsize>,
 }
@@ -46,13 +64,13 @@ fn field(value: &Value, key: &str) -> String {
 
 impl Node {
     pub(super) async fn start(
-        executable: &OsStr,
+        executable: Executable<'_>,
         dir: &Path,
         bundle: &LocalSimulationBundle,
         now: u64,
     ) -> Self {
         let env = &bundle.fixture.execution_environment;
-        let alloc = bundle
+        let mut alloc = bundle
             .fixture
             .accounts
             .iter()
@@ -63,7 +81,7 @@ impl Node {
                     .map(|entry| (&entry.slot, &entry.value))
                     .collect::<BTreeMap<_, _>>();
                 (
-                    &account.address,
+                    account.address.clone(),
                     json!({
                         "balance": hex_quantity(&account.balance),
                         "nonce": format!("0x{:x}", account.nonce),
@@ -72,12 +90,18 @@ impl Node {
                 )
             })
             .collect::<BTreeMap<_, _>>();
+        if matches!(executable, Executable::Geth(_)) {
+            alloc.insert(
+                PREFIX_SENDER.into(),
+                json!({"balance":"0x1000000000000000000"}),
+            );
+        }
         let genesis = json!({
             "config": {
                 "chainId": env.chain_id, "homesteadBlock": 0, "eip150Block": 0,
                 "eip155Block": 0, "eip158Block": 0, "byzantiumBlock": 0,
                 "constantinopleBlock": 0, "petersburgBlock": 0, "istanbulBlock": 0,
-                "berlinBlock": 0, "londonBlock": 0, "terminalTotalDifficulty": 0,
+                "berlinBlock": 0, "londonBlock": 0, "mergeNetsplitBlock": 0, "terminalTotalDifficulty": 0,
                 "shanghaiTime": 0, "cancunTime": 0,
             },
             "timestamp": format!("0x{:x}", now - 1),
@@ -90,28 +114,47 @@ impl Node {
         let port = socket.local_addr().unwrap().port();
         drop(socket);
         let log = std::fs::File::create(dir.join("anvil.log")).unwrap();
-        let process = tokio::process::Command::new(executable)
-            .args(["--host", "127.0.0.1", "--port", &port.to_string()])
-            .args([
-                "--hardfork",
-                "cancun",
-                "--no-mining",
-                "--accounts",
-                "0",
-                "--init",
-            ])
-            .arg(genesis_path)
-            .stdout(log.try_clone().unwrap())
-            .stderr(log)
-            .kill_on_drop(true)
-            .spawn()
-            .unwrap();
+        let mut command = match executable {
+            Executable::Anvil(bin) => {
+                let mut command = tokio::process::Command::new(bin);
+                command
+                    .args(["--host", "127.0.0.1", "--port", &port.to_string()])
+                    .args([
+                        "--hardfork",
+                        "cancun",
+                        "--no-mining",
+                        "--accounts",
+                        "0",
+                        "--init",
+                    ])
+                    .arg(genesis_path)
+                    .stdout(log.try_clone().unwrap());
+                command
+            }
+            Executable::Geth(bin) => {
+                let mut command = tokio::process::Command::new(bin);
+                command
+                    .arg(genesis_path)
+                    .arg(port.to_string())
+                    .stdin(std::process::Stdio::piped())
+                    .stdout(std::process::Stdio::piped());
+                command
+            }
+        };
+        let mut process = command.stderr(log).kill_on_drop(true).spawn().unwrap();
+        let control = process.stdin.take().map(|stdin| {
+            (
+                stdin,
+                BufReader::new(process.stdout.take().unwrap()).lines(),
+            )
+        });
         let node = Self {
             endpoint: format!("http://127.0.0.1:{port}"),
             client: reqwest::Client::builder()
                 .timeout(Duration::from_secs(5))
                 .build()
                 .unwrap(),
+            control,
             _process: process,
         };
         let request = json!({"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]});
@@ -123,7 +166,7 @@ impl Node {
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
         panic!(
-            "Anvil failed to start: {}",
+            "Receipt node failed to start: {}",
             std::fs::read_to_string(dir.join("anvil.log")).unwrap()
         );
     }
@@ -148,8 +191,24 @@ impl Node {
         result["result"].clone()
     }
 
+    async fn seal(&mut self, timestamp: u64) {
+        if let Some((stdin, stdout)) = &mut self.control {
+            stdin.write_all(b"mine\n").await.unwrap();
+            let block = tokio::time::timeout(Duration::from_secs(10), stdout.next_line())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            assert!(block.starts_with("0x"), "{block}");
+        } else {
+            self.rpc("evm_setNextBlockTimestamp", json!([timestamp]))
+                .await;
+            self.rpc("evm_mine", json!([])).await;
+        }
+    }
+
     pub(super) async fn mine(
-        self,
+        mut self,
         case: &Value,
         bundle: &mut LocalSimulationBundle,
         reference: &mut SnapshotRef,
@@ -159,8 +218,7 @@ impl Node {
         let genesis = self
             .rpc("eth_getBlockByNumber", json!(["0x0", false]))
             .await;
-        self.rpc("evm_setNextBlockTimestamp", json!([now])).await;
-        self.rpc("evm_mine", json!([])).await;
+        self.seal(now).await;
         let source = self
             .rpc("eth_getBlockByNumber", json!(["0x1", false]))
             .await;
@@ -197,25 +255,52 @@ impl Node {
             bundle,
             bundle.transaction_context.nonce,
         );
+        if self.control.is_some() {
+            let mut prefix_context = bundle.clone();
+            prefix_context.transaction_context.max_priority_fee_per_gas =
+                Some("4".parse().unwrap());
+            let prefix = sign_transaction_with_key(
+                &json!({"to":"0x00000000000000000000000000000000000000ff","data":"0x","value":"1"}),
+                &prefix_context,
+                0,
+                2,
+            );
+            self.rpc("eth_sendRawTransaction", json!([prefix["signedWire"]]))
+                .await;
+        }
         let tx = self
             .rpc("eth_sendRawTransaction", json!([signed["signedWire"]]))
             .await;
         assert_eq!(tx, signed["transactionHash"]);
-        self.rpc("evm_setNextBlockTimestamp", json!([now + 1]))
+        let transaction_index = if self.control.is_some() {
+            let suffix = sign_transaction(
+                &json!({"to":case["context"]["recipient"],"data":"0x","value":"1"}),
+                bundle,
+                bundle.transaction_context.nonce + 1,
+            );
+            self.rpc("eth_sendRawTransaction", json!([suffix["signedWire"]]))
+                .await;
+            1
+        } else {
+            self.rpc(
+                "anvil_setNextBlockBaseFeePerGas",
+                json!([hex_quantity(&bundle.fixture.execution_environment.base_fee)]),
+            )
             .await;
-        let env = &mut bundle.fixture.execution_environment;
-        self.rpc(
-            "anvil_setNextBlockBaseFeePerGas",
-            json!([hex_quantity(&env.base_fee)]),
-        )
-        .await;
-        self.rpc("evm_mine", json!([])).await;
+            0
+        };
+        self.seal(now + 1).await;
         let execution = self
             .rpc("eth_getBlockByNumber", json!(["0x2", false]))
             .await;
-        assert_eq!(execution["transactions"], json!([tx]));
+        assert_eq!(
+            execution["transactions"].as_array().unwrap().len(),
+            if transaction_index == 0 { 1 } else { 3 }
+        );
+        assert_eq!(execution["transactions"][transaction_index as usize], tx);
         let receipt = self.rpc("eth_getTransactionReceipt", json!([tx])).await;
         assert_eq!(receipt["status"], "0x1", "{receipt}");
+        let env = &mut bundle.fixture.execution_environment;
         env.block_hash = field(&execution, "hash");
         env.parent_hash = field(&execution, "parentHash");
         env.prevrandao = field(&execution, "mixHash");
@@ -223,11 +308,16 @@ impl Node {
         env.timestamp = number(&execution["timestamp"]);
         env.block_number = number(&execution["number"]);
         env.gas_limit = number(&execution["gasLimit"]);
+        env.base_fee = number(&execution["baseFeePerGas"])
+            .to_string()
+            .parse()
+            .unwrap();
         env.excess_blob_gas = Some(number(&execution["excessBlobGas"]));
         Mined {
             node: Arc::new(self),
             deadline,
             signed,
+            transaction_index,
             fault: Arc::new(Mutex::new(None)),
             execution_reads: Arc::new(AtomicUsize::new(0)),
         }
@@ -235,6 +325,17 @@ impl Node {
 }
 
 impl Mined {
+    pub(super) fn transaction_index(&self) -> u64 {
+        self.transaction_index
+    }
+
+    pub(super) fn scope(&self) -> &'static str {
+        if self.transaction_index == 0 {
+            "SINGLE_TRANSACTION_BLOCK"
+        } else {
+            "TRANSACTION_INDEX"
+        }
+    }
     pub(super) fn quote_ttl_ms(&self) -> u64 {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         // Allow the quote handler most of a second to encode the mined deadline.
@@ -252,14 +353,25 @@ impl Mined {
         let execution_reads = self.execution_reads.clone();
         axum::Router::new().route(
             "/",
-            axum::routing::post(move |axum::Json(request): axum::Json<Value>| {
+            axum::routing::post(move |axum::Json(mut request): axum::Json<Value>| {
                 let (node, fault, execution_reads) = (
                     node.clone(),
                     *fault.lock().unwrap(),
                     execution_reads.clone(),
                 );
                 async move {
+                    if fault == Some(Fault::IgnoreTraceIndex)
+                        && request["method"] == "debug_traceCall"
+                    {
+                        request["params"][2]
+                            .as_object_mut()
+                            .unwrap()
+                            .remove("txIndex");
+                    }
                     let mut response = node.forward(&request).await.unwrap();
+                    if let Some(error) = response.get("error") {
+                        eprintln!("{}: {error}", request["method"]);
+                    }
                     let result = &mut response["result"];
                     match (fault, request["method"].as_str().unwrap()) {
                         (Some(Fault::Gas), "eth_getTransactionReceipt") => {
@@ -270,6 +382,11 @@ impl Mined {
                             result["logs"][0]["data"] = "0x".into();
                         }
                         (Some(Fault::Balance), "eth_getBalance") => *result = "0x1".into(),
+                        (Some(Fault::Balance), "debug_traceCall")
+                            if request["params"][2]["tracer"] == "callTracer" =>
+                        {
+                            result["output"] = format!("0x{:064x}", 1).into();
+                        }
                         (Some(Fault::Balance), "eth_call")
                             if request["params"][0]["data"]
                                 .as_str()

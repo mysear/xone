@@ -16,6 +16,12 @@ async fn main() {
     }
     let dir = Path::new(&path);
     let anvil = std::env::var_os("XONE_SINGLETON_ANVIL");
+    let geth = std::env::var_os("XONE_SINGLETON_GETH");
+    assert!(anvil.is_none() || geth.is_none(), "select one receipt node");
+    let node = anvil
+        .as_deref()
+        .map(node::Executable::Anvil)
+        .or_else(|| geth.as_deref().map(node::Executable::Geth));
     let temporary = tempfile::tempdir().unwrap();
     let mut count = 0;
     for entry in std::fs::read_dir(dir).unwrap() {
@@ -24,13 +30,15 @@ async fn main() {
             continue;
         }
         let case: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        assert_replay(&case, temporary.path(), false, anvil.as_deref()).await;
+        assert_replay(&case, temporary.path(), false, node).await;
         assert_replay(&case, temporary.path(), true, None).await;
         count += 1;
     }
     assert_eq!(count, 24);
     println!("{count} unsigned and {count} signed HTTP replays passed, with {count} missing-state and {count} nonce rejections");
-    if anvil.is_some() {
+    if geth.is_some() {
+        println!("{count} Geth transaction-index receipts passed, with wrong gas, logs, balance, reorg and ignored transaction index rejection");
+    } else if anvil.is_some() {
         println!("{count} mined Cancun receipts passed, with wrong gas, logs, balance and reorg rejection per receipt");
     }
 }
@@ -39,7 +47,7 @@ async fn assert_replay(
     case: &Value,
     dir: &Path,
     incomplete: bool,
-    anvil: Option<&std::ffi::OsStr>,
+    node: Option<node::Executable<'_>>,
 ) {
     use axum::{body::Body, http::Request};
     use tower::ServiceExt;
@@ -53,7 +61,7 @@ async fn assert_replay(
     bundle.fixture.state_anchor.timestamp = now;
     bundle.fixture.execution_environment.timestamp = now + 1;
     reference.block.timestamp_ms = now * 1000;
-    let mined = match anvil {
+    let mined = match node {
         Some(executable) => {
             let node = node::Node::start(executable, dir, &bundle, now).await;
             Some(
@@ -239,6 +247,11 @@ async fn assert_replay(
             observed["nodeReceipt"]["authority"],
             "CANONICAL_RPC_OBSERVED"
         );
+        assert_eq!(observed["nodeReceipt"]["scope"], mined.scope());
+        assert_eq!(
+            observed["nodeReceipt"]["transactionIndex"],
+            mined.transaction_index()
+        );
         assert_eq!(observed["nodeReceipt"]["success"], true);
         assert_eq!(
             observed["nodeReceipt"]["transactionHash"],
@@ -250,12 +263,16 @@ async fn assert_replay(
         );
         assert_eq!(observed["nodeReceipt"]["actualBuyAmount"], case["output"]);
         assert_eq!(observed["verified"], false);
-        for fault in [
+        let mut faults = vec![
             node::Fault::Gas,
             node::Fault::Logs,
             node::Fault::Balance,
             node::Fault::Reorg,
-        ] {
+        ];
+        if mined.transaction_index() != 0 {
+            faults.push(node::Fault::IgnoreTraceIndex);
+        }
+        for fault in faults {
             mined.inject(fault);
             let (status, rejected) =
                 call(format!("{path}/simulate"), receipt_request.clone()).await;
@@ -280,6 +297,16 @@ async fn assert_replay(
 }
 
 fn sign_transaction(transaction: &Value, bundle: &LocalSimulationBundle, nonce: u64) -> Value {
+    // The fixture funds the public test account derived from scalar 1.
+    sign_transaction_with_key(transaction, bundle, nonce, 1)
+}
+
+fn sign_transaction_with_key(
+    transaction: &Value,
+    bundle: &LocalSimulationBundle,
+    nonce: u64,
+    scalar: u8,
+) -> Value {
     use secp256k1::{Message, Secp256k1, SecretKey};
     use tiny_keccak::{Hasher, Keccak};
 
@@ -330,9 +357,8 @@ fn sign_transaction(transaction: &Value, bundle: &LocalSimulationBundle, nonce: 
     ]
     .concat();
     let envelope = |body: &[u8]| [vec![2], encode(body, true)].concat();
-    // The isolated replay bank funds the public test account derived from scalar 1.
     let mut key = [0; 32];
-    key[31] = 1;
+    key[31] = scalar;
     let signature = Secp256k1::new().sign_ecdsa_recoverable(
         &Message::from_digest(hash(&envelope(&body))),
         &SecretKey::from_slice(&key).unwrap(),

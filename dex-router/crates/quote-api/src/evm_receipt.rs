@@ -60,21 +60,26 @@ async fn observe(
     {
         return Err(bad());
     }
-    // Exclude beneficiary rewards, withdrawals and other transactions when
-    // attributing whole-block balance changes to the signed swap.
-    if block["transactions"] != json!([tx])
+    let transactions = block["transactions"].as_array().ok_or_else(bad)?;
+    let index = usize::try_from(quantity_u64(&receipt["transactionIndex"])?).map_err(|_| bad())?;
+    let next = index.checked_add(1).ok_or_else(bad)?;
+    let cumulative = quantity_u64(&receipt["cumulativeGasUsed"])?;
+    let block_gas = quantity_u64(&block["gasUsed"])?;
+    // Whole-block observations require a post-merge block without withdrawals.
+    if transactions.get(index) != Some(&json!(tx))
         || block["difficulty"] != "0x0"
         || block["uncles"] != json!([])
         || block["withdrawals"] != json!([])
         || receipt["transactionHash"] != *tx
         || receipt["blockHash"] != env.block_hash
         || receipt["blockNumber"] != height
-        || receipt["transactionIndex"] != "0x0"
         || receipt["from"] != replay["transaction"]["from"]
         || receipt["to"] != replay["transaction"]["to"]
         || receipt["gasUsed"] != format!("0x{:x}", local.execution.gas_used)
-        || receipt["cumulativeGasUsed"] != receipt["gasUsed"]
-        || block["gasUsed"] != receipt["gasUsed"]
+        || cumulative < local.execution.gas_used
+        || cumulative > block_gas
+        || (index == 0 && cumulative != local.execution.gas_used)
+        || (next == transactions.len() && cumulative != block_gas)
         || receipt["status"]
             != if local.execution.status == EvmStatus::Success {
                 "0x1"
@@ -90,17 +95,24 @@ async fn observe(
     {
         return Err(bad());
     }
-    let logs = receipt["logs"]
-        .as_array()
-        .ok_or_else(bad)?
+    let logs = receipt["logs"].as_array().ok_or_else(bad)?;
+    let log_start = logs
+        .first()
+        .map(|log| quantity_u64(&log["logIndex"]))
+        .transpose()?
+        .unwrap_or(0);
+    if index == 0 && log_start != 0 {
+        return Err(bad());
+    }
+    let logs = logs
         .iter()
         .enumerate()
-        .map(|(index, log)| {
+        .map(|(offset, log)| {
             if log["blockHash"] != env.block_hash
                 || log["transactionHash"] != *tx
                 || log["blockNumber"] != height
-                || log["transactionIndex"] != "0x0"
-                || log["logIndex"] != format!("0x{index:x}")
+                || log["transactionIndex"] != receipt["transactionIndex"]
+                || log_start.checked_add(offset as u64) != Some(quantity_u64(&log["logIndex"])?)
                 || log["removed"] != false
             {
                 return Err(bad());
@@ -113,17 +125,38 @@ async fn observe(
     }
     let source = &fixture.state_anchor.block_hash;
     let execution = &env.block_hash;
+    let single = transactions.len() == 1;
+    let before = if single {
+        BalancePoint::Block(source)
+    } else {
+        BalancePoint::Transaction(execution, index)
+    };
+    let after = if next == transactions.len() {
+        BalancePoint::Block(execution)
+    } else {
+        BalancePoint::Transaction(execution, next)
+    };
+    if !single {
+        let caller = fixture
+            .accounts
+            .iter()
+            .find(|account| account.address == context.caller)
+            .ok_or_else(bad)?;
+        let (nonce_before, nonce_after) = tokio::try_join!(
+            nonce(api, chain, &context.caller, before),
+            nonce(api, chain, &context.caller, after),
+        )?;
+        // An included transaction increments its sender nonce even on revert.
+        // This also rejects a tracer that silently ignores the transaction index.
+        if nonce_before != caller.nonce || Some(nonce_after) != caller.nonce.checked_add(1) {
+            return Err(bad());
+        }
+    }
     let (sell_before, sell_after, buy_before, buy_after) = tokio::try_join!(
-        balance(api, chain, &context.sell_token, &context.caller, source),
-        balance(api, chain, &context.sell_token, &context.caller, execution),
-        balance(api, chain, &context.buy_token, &context.recipient, source),
-        balance(
-            api,
-            chain,
-            &context.buy_token,
-            &context.recipient,
-            execution
-        ),
+        balance(api, context, &context.sell_token, &context.caller, before),
+        balance(api, context, &context.sell_token, &context.caller, after),
+        balance(api, context, &context.buy_token, &context.recipient, before),
+        balance(api, context, &context.buy_token, &context.recipient, after),
     )?;
     if sell_before != local.balances.caller_sell_before
         || sell_after != local.balances.caller_sell_after
@@ -137,9 +170,10 @@ async fn observe(
         return Err(err("EVM_NODE_RECEIPT_REORGED"));
     }
     let mut evidence = json!({
-        "authority":"CANONICAL_RPC_OBSERVED","scope":"SINGLE_TRANSACTION_BLOCK",
+        "authority":"CANONICAL_RPC_OBSERVED",
+        "scope":if single {"SINGLE_TRANSACTION_BLOCK"} else {"TRANSACTION_INDEX"},
         "transactionHash":tx,"sourceBlockHash":source,"blockHash":execution,
-        "transactionIndex":0,"success":local.execution.status == EvmStatus::Success,
+        "transactionIndex":index,"success":local.execution.status == EvmStatus::Success,
         "gasUsed":local.execution.gas_used,"logsHash":local.execution.logs_hash,
         "localReceiptHash":local.receipt_hash,"actualInputConsumed":local.actual_input_consumed,
         "actualBuyAmount":local.actual_buy_amount,"balances":local.balances,
@@ -148,19 +182,101 @@ async fn observe(
     Ok(evidence)
 }
 
-async fn balance(api: &Api, chain: &str, token: &str, owner: &str, block: &str) -> Result<Amount> {
-    let anchor = json!({"blockHash":block,"requireCanonical":true});
-    if token == ZERO_ADDRESS {
-        return quantity(&rpc(api, chain, "eth_getBalance", json!([owner, anchor])).await?);
+#[derive(Clone, Copy)]
+enum BalancePoint<'a> {
+    Block(&'a str),
+    Transaction(&'a str, usize),
+}
+
+async fn trace_account(
+    api: &Api,
+    chain: &str,
+    owner: &str,
+    block: &str,
+    index: usize,
+) -> Result<Value> {
+    let result = rpc(
+        api, chain, "debug_traceCall",
+        json!([
+            {"to":owner,"gas":"0x5208"}, {"blockHash":block,"requireCanonical":true},
+            {"tracer":"prestateTracer","tracerConfig":{"disableCode":true,"disableStorage":true,"includeEmpty":true},"txIndex":format!("0x{index:x}")},
+        ]),
+    ).await?;
+    result
+        .get(owner)
+        .filter(|v| v.is_object())
+        .cloned()
+        .ok_or_else(|| err("EVM_NODE_RECEIPT_BALANCE"))
+}
+
+async fn nonce(api: &Api, chain: &str, owner: &str, point: BalancePoint<'_>) -> Result<u64> {
+    match point {
+        BalancePoint::Block(block) => quantity_u64(
+            &rpc(
+                api,
+                chain,
+                "eth_getTransactionCount",
+                json!([owner, {"blockHash":block,"requireCanonical":true}]),
+            )
+            .await?,
+        ),
+        BalancePoint::Transaction(block, index) => {
+            let account = trace_account(api, chain, owner, block, index).await?;
+            match account.get("nonce") {
+                Some(value) => value
+                    .as_u64()
+                    .ok_or_else(|| err("EVM_NODE_RECEIPT_QUANTITY")),
+                None => Ok(0),
+            }
+        }
     }
-    let data = format!("0x70a08231000000000000000000000000{}", &owner[2..]);
-    let value = rpc(
-        api,
-        chain,
-        "eth_call",
-        json!([{"to":token,"data":data},anchor]),
-    )
-    .await?;
+}
+
+async fn balance(
+    api: &Api,
+    context: &Context,
+    token: &str,
+    owner: &str,
+    point: BalancePoint<'_>,
+) -> Result<Amount> {
+    let chain = &context.chain_key;
+    let native = token == ZERO_ADDRESS;
+    let method = if native { "eth_getBalance" } else { "eth_call" };
+    let call = if native {
+        json!(owner)
+    } else {
+        let data = format!("0x70a08231000000000000000000000000{}", &owner[2..]);
+        json!({"from":context.caller,"to":token,"data":data,"gas":"0x30d40"})
+    };
+    let value = match point {
+        BalancePoint::Block(block) => {
+            let value = rpc(
+                api,
+                chain,
+                method,
+                json!([call, {"blockHash":block,"requireCanonical":true}]),
+            )
+            .await?;
+            if native {
+                return quantity(&value);
+            }
+            value
+        }
+        BalancePoint::Transaction(block, index) if native => {
+            let account = trace_account(api, chain, owner, block, index).await?;
+            return quantity(&account["balance"]);
+        }
+        BalancePoint::Transaction(block, index) => {
+            let trace = rpc(api, chain, "debug_traceCall", json!([
+                call, {"blockHash":block,"requireCanonical":true},
+                {"tracer":"callTracer","tracerConfig":{"onlyTopCall":true},"txIndex":format!("0x{index:x}")},
+            ])).await?;
+            if trace.get("error").is_some() {
+                return Err(err("EVM_NODE_RECEIPT_BALANCE"));
+            }
+            trace["output"].clone()
+        }
+    };
     let raw = value
         .as_str()
         .and_then(|v| v.strip_prefix("0x"))
@@ -168,6 +284,10 @@ async fn balance(api: &Api, chain: &str, token: &str, owner: &str, block: &str) 
         .ok_or_else(|| err("EVM_NODE_RECEIPT_BALANCE"))?;
     let bytes = hex::decode(raw).map_err(|_| err("EVM_NODE_RECEIPT_BALANCE"))?;
     Amount::from_be_bytes(&bytes)
+}
+
+fn quantity_u64(value: &Value) -> Result<u64> {
+    u64::try_from(quantity(value)?.0).map_err(|_| err("EVM_NODE_RECEIPT_QUANTITY"))
 }
 
 fn quantity(value: &Value) -> Result<Amount> {

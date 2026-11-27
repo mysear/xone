@@ -67,12 +67,22 @@ The example runs 24 HTTP quote, build and simulation cases, then removes Manager
 
 The simulation endpoint also accepts `signedEvmTransaction` containing `transactionHash` and `signedWire` as lowercase hex strings with the `0x` prefix. It authenticates the external wallet signature and matches the decoded transaction to the build and the configured transaction context. The worker returns `LOCAL_SIGNED_EVM_EXECUTED` and includes the signed hash in the local receipt. The example signs and replays all 24 build results and checks 24 nonce mismatches.
 
-Set `checkEvmReceipt` to `true` alongside `signedEvmTransaction` to compare the replay with the first configured RPC node. This checks the signed transaction in the canonical H+1 block, including receipt status, gas, ordered logs and balances at H and H+1. The current scope requires a post-merge single-transaction block with empty withdrawals so that the swap can be isolated in the balance differences. The resulting `nodeReceipt` records `CANONICAL_RPC_OBSERVED` authority and the response retains `verified: false`.
+Set `checkEvmReceipt` to `true` alongside `signedEvmTransaction` to compare the replay with the first configured RPC node. This checks the signed transaction in the canonical H+1 block, including receipt status, gas, ordered logs and balances. Use a post-merge block with empty withdrawals. Single-transaction blocks use balances at H and H+1. Multi-transaction blocks require Geth-compatible `debug_traceCall` with `txIndex`, `callTracer` and `prestateTracer` to read the state immediately before and after the target transaction. The handler checks the sender nonce at both points and matches replayed absolute balances. The resulting `nodeReceipt` records `CANONICAL_RPC_OBSERVED` authority and the response retains `verified: false`.
 
 Repeat the example with an Anvil 1.4.4 executable to run the same 24 cases against mined Cancun blocks. The test starts a loopback node for each case, mines the signed transaction, and verifies rejection when the proxy changes the receipt gas, logs, balance, or final canonical block read.
 
 ```sh
 XONE_SINGLETON_ANVIL="$(command -v anvil)" \
+  cargo +1.90.0 run --locked --manifest-path dex-router/Cargo.toml -p xone-quote-api \
+  --example singleton_replay -- "$XONE_SINGLETON_REPLAY_DIR"
+```
+
+Use the pinned Geth harness to mine three transactions per block and verify the middle transaction. The final transaction uses the same signer and changes the end-of-block settlement balances. The harness also verifies rejection if a proxy removes the trace transaction index.
+
+```sh
+receipt_node="$(mktemp -d)/singleton-receipt-node"
+(cd integration/tools/reference/singleton-advanced/receipt-node && go build -mod=readonly -o "$receipt_node" .)
+XONE_SINGLETON_GETH="$receipt_node" \
   cargo +1.90.0 run --locked --manifest-path dex-router/Cargo.toml -p xone-quote-api \
   --example singleton_replay -- "$XONE_SINGLETON_REPLAY_DIR"
 ```
