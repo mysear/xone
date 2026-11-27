@@ -260,9 +260,27 @@ impl Api {
                 &worker_view.reference,
                 &policy,
             )?;
-            Ok((commitment, candidates, optimized, expires, cost_ranking))
+            let objective_bound = xone_optimizer::constant_product_bound::evaluate(
+                &worker_view.pools,
+                candidates
+                    .candidates
+                    .iter()
+                    .map(|path| path.edges.as_slice()),
+                xone_optimizer::constant_product_bound::Objective::ExactOut {
+                    output: &req.buy_amount,
+                    selected_input: &commitment.allocation.required_input,
+                },
+            )?;
+            Ok((
+                commitment,
+                candidates,
+                optimized,
+                expires,
+                cost_ranking,
+                objective_bound,
+            ))
         });
-        let (plan, candidates, optimized, expires, cost_ranking) =
+        let (plan, candidates, optimized, expires, cost_ranking, objective_bound) =
             tokio::time::timeout(deadline.saturating_duration_since(Instant::now()), task)
                 .await
                 .map_err(|_| err("BUDGET_EXHAUSTED"))?
@@ -312,7 +330,7 @@ impl Api {
                     "orca-whirlpools-adaptive-dynamic":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
                     "orca-whirlpools-adaptive-token2022":"SINGLE_POOL_TOKEN2022_NET_EXACT_OUTPUT",
                     "lfj-lb-v21": "SINGLE_POOL_MINIMUM_TARGET_EXPLICIT_SURPLUS"});
-        let quality = json!({"costRanking":cost_fallback::ranking(true),"budgetExhausted": candidates.budget_exhausted || optimized.budget_exhausted,
+        let mut quality = json!({"costRanking":cost_fallback::ranking(true),"budgetExhausted": candidates.budget_exhausted || optimized.budget_exhausted,
                 "candidateScope": view.pools.iter().filter(|p| !candidates.excluded_pools.contains_key(&p.pool_id))
                     .map(|p| p.pool_id.clone()).collect::<Vec<_>>(),
                 "excludedPools": candidates.excluded_pools, "source": view.source, "historyIndependent": true,
@@ -332,6 +350,9 @@ impl Api {
                     "gridParts": self.config.config.routing.split_parts, "maxSplits": self.config.config.routing.max_splits,
                     "eachCandidateAtMostOnce": true},
                 "expansions": candidates.expansions, "pathEvaluations": candidates.evaluations});
+        if let Some(bound) = objective_bound {
+            quality["objectiveBound"] = json!(bound);
+        }
         let protocol_view_ids = view.protocol_bindings(
             plan.allocation
                 .routes

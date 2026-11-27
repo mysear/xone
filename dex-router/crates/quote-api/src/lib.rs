@@ -618,6 +618,17 @@ impl Api {
                 &worker_view.reference,
                 &policy,
             )?;
+            let objective_bound = xone_optimizer::constant_product_bound::evaluate(
+                &worker_view.pools,
+                candidates
+                    .candidates
+                    .iter()
+                    .map(|path| path.edges.as_slice()),
+                xone_optimizer::constant_product_bound::Objective::ExactIn {
+                    input: &req.sell_amount,
+                    selected_output: &plan.allocation.gross_buy_amount,
+                },
+            )?;
             let candidate_search = json!({
                 "strategy": search_strategy,
                 "maxHops": search_budget.max_hops,
@@ -638,6 +649,7 @@ impl Api {
                 optimized.grid_exhaustive,
                 cost_ranking,
                 candidate_search,
+                objective_bound,
             ))
         });
         let remaining = deadline.saturating_duration_since(Instant::now());
@@ -650,6 +662,7 @@ impl Api {
             grid_exhaustive,
             cost_ranking,
             candidate_search,
+            objective_bound,
         ) = tokio::time::timeout(remaining, task)
             .await
             .map_err(|_| err("BUDGET_EXHAUSTED"))?
@@ -666,6 +679,9 @@ impl Api {
         )?;
         let mut response = json!({"kind":"EXACT_IN","protocolViewIds":protocol_view_ids,"quoteId":quote_id,"requestHash":request_hash,"chainKey":request.chain_key,"snapshotRef":view.reference,"ownerService":view.reference.owner_service,"onlineGeneration":view.reference.online_generation,"scopeHash":view.reference.scope_hash,"quoteViewId":view.view_id,"graphVersion":view.graph_version,"engineVersion":"xone-router/0.1","economicPolicyHash":self.config.economic_hash,"configRelease":self.config.release,"sellAmount":request.sell_amount,"consumedIn":plan.allocation.sell_amount,"refund":plan.allocation.refund,"grossBuyAmount":plan.allocation.gross_buy_amount,"minBuyAmount":plan.min_buy_amount,"netBuyAmountEstimate":Value::Null,"costs":cost_fallback::costs(&self.config.config.routing.route_activation_cost),"routes":plan.allocation.routes,"planHash":plan.plan_hash,"verification":{"level":"INDICATIVE","success":false,"reason":"INDEPENDENT_SIMULATION_UNAVAILABLE"},"validity":{"expiresAtMs":expires,"canonicalEpoch":view.reference.canonical_epoch},"quality":{"costRanking":cost_fallback::ranking(false),"budgetExhausted":exhausted,"candidateScope":view.pools.iter().filter(|p|!view.graph.excluded_pools.contains_key(&p.pool_id)).map(|p|p.pool_id.clone()).collect::<Vec<_>>(),"excludedPools":view.graph.excluded_pools,"source":view.source,"historyIndependent":true,"historyGaps":view.history_gaps,"optimalityClaim":"HEURISTIC_WITHIN_SCOPE","allocationSearch":{"evaluations":optimizer_evaluations,"exhaustiveWithinGrid":grid_exhaustive,"gridParts":self.config.config.routing.split_parts,"maxSplits":self.config.config.routing.max_splits},"expansions":expansions}});
         response["quality"]["candidateSearch"] = candidate_search;
+        if let Some(bound) = objective_bound {
+            response["quality"]["objectiveBound"] = json!(bound);
+        }
         if let Some(ranking) = cost_ranking {
             if expires <= now_ms() {
                 return Err(err("QUOTE_EXPIRED"));

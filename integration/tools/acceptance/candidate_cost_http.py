@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Normal per-candidate local worker ranking with independent original execution."""
 import copy
+from fractions import Fraction
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,43 @@ import urllib.request
 from evm_dynamic_fee_http import ROOT, require, sha
 from native_valuation_http import prepare
 from native_valuation_vectors import sign
+
+
+def assert_objective_bound(quote, request, pools, exact):
+    sell, buy = request['sellToken'], request['buyToken']
+
+    def rates(token, visited, rate):
+        if token == buy:
+            yield rate
+            return
+        if len(visited) == 4:
+            return
+        for pool in pools:
+            if pool['token0'] == token:
+                target, debit, credit = pool['token1'], pool['reserve0'], pool['reserve1']
+            elif pool['token1'] == token:
+                target, debit, credit = pool['token0'], pool['reserve1'], pool['reserve0']
+            else:
+                continue
+            if target not in visited:
+                yield from rates(target, visited | {target},
+                                 rate * Fraction(997 * int(credit), 1000 * int(debit)))
+
+    path_rates = list(rates(sell, {sell}, Fraction(1)))
+    require(len(path_rates) == 2, 'Bound test graph changed')
+    best = max(path_rates)
+    if exact:
+        target = int(quote['buyAmount']) / best
+        limit = -(-target.numerator // target.denominator)
+        gap = int(quote['requiredSellAmount']) - limit
+    else:
+        limit = int(int(quote['sellAmount']) * best)
+        gap = limit - int(quote['grossBuyAmount'])
+    require(gap >= 0 and quote['quality']['objectiveBound'] == dict(
+        scope='RETAINED_STANDARD_V2_PATHS_AT_SNAPSHOT',
+        objective='REQUIRED_INPUT_LOWER_BOUND' if exact else 'GROSS_OUTPUT_UPPER_BOUND',
+        candidatePaths=len(path_rates), limitAtoms=str(limit), gapAtoms=str(gap),
+    ), 'Quote bound differs from independent rational enumeration')
 
 
 def run(binary, output, corpus, *, exact=False, mode='priced', limit=16, legacy=False):
@@ -43,6 +81,7 @@ def run(binary, output, corpus, *, exact=False, mode='priced', limit=16, legacy=
             request=info['exactOutRequest'] if exact else info['request'];endpoint='/v1/quote-exact-out' if exact else '/v1/quote'
             start=time.monotonic();status,q=call(endpoint,request);elapsed=time.monotonic()-start
             require(status==200,'Candidate quote failed: '+json.dumps(q));ranking=q['quality']['costRanking'];optimizer=ranking['optimizer']
+            assert_objective_bound(q, request, source['pools'], exact)
             require(ranking['selectedPlanHash']==q['planHash'] and ranking['scope']=='LOCAL_EVM_TRANSACTION_EXECUTION_FEES_ONLY' and ranking['productionVerified'] is False and ranking['completeQuoteCostRanking'] is False,'Candidate scope overclaimed')
             require(q['verification']['level']=='INDICATIVE' and q['verification']['success'] is False and q['netSellAmountEstimate' if exact else 'netBuyAmountEstimate'] is None,'Local cost promoted production/full net')
             require(optimizer['evaluated_candidates']==2 and ranking['simulationAttempts']==min(limit,2) and len(ranking['candidateExecutions'])==min(limit,2),'Candidate set/plan budget changed')

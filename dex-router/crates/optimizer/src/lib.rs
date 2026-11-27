@@ -1,5 +1,6 @@
 use num_bigint::BigUint;
 use num_traits::Zero;
+pub mod constant_product_bound;
 pub mod cost_scoring;
 pub mod exact_out;
 mod search;
