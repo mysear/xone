@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Normal binaries with local PG/Kafka, controlled height gaps and retention loss.
 
-The default suite advances synthetic heights. The retention-only scenario can
-keep both services stopped for a measured wall-clock interval.
+The default suite advances synthetic heights. The single-pool scenarios
+exercise measured downtime or a separate Go standby taking the writer lease.
 """
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -171,7 +171,25 @@ def raw_options(path, payload):
         'max_request_bytes':8192, 'max_pins_per_capture':4096,
         'decoder_version':'staged-state/public-adapter-v1'}
 
-def run(retention_only=False, offline_seconds=0):
+def finish_report(report, target, router, token):
+    request = urllib.request.Request(router + '/metrics', headers={'Authorization': 'Bearer ' + token})
+    with urllib.request.urlopen(request, timeout=3) as response:
+        metrics = response.read(65536).decode()
+    require('xone_first_successful_quote_seconds' in metrics, 'normal quote recovery metric missing')
+    report['metrics_observation'] = metrics[:4096]
+    require(source_hash() == report['source_tree_sha256'], 'core source changed during recovery process run')
+    require(binary_fingerprint() == report['binary_sha256'], 'normal binaries changed during recovery process run')
+    report.update(passed=True, state='LOCAL_RECOVERY_PROCESS_SCOPE_VERIFIED', completed_at_unix_ms=int(time.time() * 1000))
+    write_result(target, report)
+    print(json.dumps({
+        'passed': True,
+        'cases': len(report['cases']),
+        **{key: report[key] for key in ('retention', 'standby') if key in report},
+        'all_requested_features_complete': False,
+    }))
+    return report
+
+def run(retention_only=False, offline_seconds=0, standby_takeover=False):
     OUT.mkdir(exist_ok=True)
     report={'schema_version':1, 'state':'RUNNING', 'passed':False,
         'all_requested_features_complete':False, 'production_ready':False,
@@ -180,12 +198,12 @@ def run(retention_only=False, offline_seconds=0):
         'hours_are_height_gap_equivalents':True, 'cases':[],
         'binary_sha256':binary_fingerprint(),
         'runner_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
-    if retention_only:
+    if retention_only or standby_takeover:
         report_name = (
             f'r04-retention-{offline_seconds}s-wallclock.json'
             if offline_seconds else 'r04-retention-normal-process.json'
         )
-        target = OUT / report_name
+        target = OUT / ('r04-standby-takeover-normal-process.json' if standby_takeover else report_name)
         chain = RetentionChain()
         servers = [chain.provider(stale=True), chain.provider()]
         pools = [RETENTION_POOL]
@@ -205,21 +223,26 @@ def run(retention_only=False, offline_seconds=0):
         with Infrastructure(topics=(TOPIC,)) as infra, tempfile.TemporaryDirectory(prefix='xone-r01-r04-rto-') as directory:
             root=Path(directory);token=secrets.token_urlsafe(32)
             names={'go':'chain-parser-go','router1':'dex-router','router2':'dex-router'}
+            if standby_takeover:
+                names['standby'] = 'chain-parser-go'
             ports={alias:port()for alias in names};configs={}
             def base(alias):return f'http://127.0.0.1:{ports[alias]}'
             for alias,name in names.items():
                 cfg=config_for(name,root/alias,token,ports[alias])
                 cfg['chains']=[c for c in cfg['chains']if c['key']=='evm:31337']
-                cfg['journal'].update(transport='kafka',source_urls=[base('go')],poll_interval_ms=100,request_timeout_ms=15000)
+                source_urls = [base('go')]
+                if standby_takeover:
+                    source_urls.append(base('standby'))
+                cfg['journal'].update(transport='kafka',source_urls=source_urls,poll_interval_ms=100,request_timeout_ms=15000)
                 cfg['journal']['kafka'].update(brokers=[infra.broker],topics={'evm:31337':TOPIC},replica_id=alias,transaction_timeout_ms=4000)
                 cfg['control'].update(backend='disabled'if name=='dex-router'else'postgres',dsn_file=''if name=='dex-router'else str(infra.dsnfile),instance_id=alias,lease_ttl_ms=30000,renewal_ms=1000,min_commit_remaining_ms=7000)
                 cfg['startup'].update(max_baseline_age_ms=180000,max_tail_blocks=128)
                 cfg['history']['enabled']=False
-                if alias=='go':
+                if name == 'chain-parser-go':
                     cfg['chains'][0].update(genesis_hash=GENESIS,confirmation_tag='latest',auto_reorg_window=4,rpc_urls=[f'http://127.0.0.1:{s.server_port}'for s in servers],pools=pools)
                     payload=cfg['journal']['max_payload_bytes']
                     cfg['journal']['raw_evidence']={'max_bytes':512*1024**2,'max_records':100000,'max_record_bytes':payload*4+16384}
-                    cfg['journal']['raw_maintenance']=raw_options(root/'cold-evidence',payload)
+                    cfg['journal']['raw_maintenance']=raw_options(root/alias/'cold-evidence',payload)
                 else:
                     cfg['routing'].update(max_state_age_ms=180000,quote_ttl_ms=60000)
                 configs[alias]=save_config(root/alias/'config',cfg)
@@ -247,6 +270,52 @@ def run(retention_only=False, offline_seconds=0):
                 start('go');wait(base('go')+'/health/ready')
                 for alias in ['router1','router2']:start(alias);wait(base(alias)+'/health/live');wait_scope(base(alias),token,'evm:31337')
                 old=quote('router1')
+                if standby_takeover:
+                    start('standby')
+                    wait(base('standby') + '/health/live')
+                    require(http(base('standby') + '/health/ready')[0] == 503, 'standby published without the lease')
+                    previous = old['snapshotRef']
+                    stop('router2')
+                    started = time.monotonic()
+                    stop('go')
+                    chain.head += 300
+                    chain.timestamp = int(time.time())
+                    wait(base('standby') + '/health/ready')
+                    deadline = time.monotonic() + 25
+                    standby_status = status('standby')
+                    while standby_status.get('snapshot_ref', {}).get('block', {}).get('number_or_slot') != chain.head:
+                        require(time.monotonic() < deadline, 'standby did not select the current head')
+                        time.sleep(0.05)
+                        standby_status = status('standby')
+                    scope_ms = int((time.monotonic() - started) * 1000)
+                    owner = standby_status['snapshot_ref']
+                    require(owner['writer_epoch'] > previous['writer_epoch'], 'standby did not acquire a new writer epoch')
+                    require(owner['online_generation'] > previous['online_generation'], 'standby did not publish a new generation')
+                    start('router2')
+                    wait(base('router2') + '/health/live')
+                    wait_scope(base('router2'), token, 'evm:31337')
+                    restored = quote('router2')
+                    quote_ms = int((time.monotonic() - started) * 1000)
+                    require(restored['snapshotRef'] == owner, 'cold quote did not recover from standby')
+                    gaps = standby_status['history_gaps']
+                    require(gaps and restored['quality']['historyGaps'] == gaps, 'takeover hid the history gap')
+                    deadline = time.monotonic() + 25
+                    while status('router1').get('snapshot_ref') != owner:
+                        require(time.monotonic() < deadline, 'running replica did not follow the standby journal')
+                        time.sleep(0.05)
+                    live = quote('router1')
+                    require(live['snapshotRef'] == owner, 'running quote replica did not converge on standby')
+                    report['standby'] = {
+                        'previous_writer_epoch': previous['writer_epoch'],
+                        'writer_epoch': owner['writer_epoch'],
+                        'generation': owner['online_generation'],
+                        'current_height': chain.head,
+                        'history_gaps': gaps,
+                        'first_qualified_scope_ms': scope_ms,
+                        'first_successful_quote_ms': quote_ms,
+                        'quote_verification': restored['verification']['level'],
+                    }
+                    return finish_report(report, target, base('router2'), token)
                 cases = [] if retention_only else [(1, False), (24, False), (720, False), (720, True)]
                 for hours,empty in cases:
                     stop('go')
@@ -334,15 +403,7 @@ def run(retention_only=False, offline_seconds=0):
                     require(chain.stale_head_reads >= 2, 'primary staleness was not presented')
                     report['retention']['stale_primary_head_reads'] = chain.stale_head_reads
                 write_result(target, report)
-                request=urllib.request.Request(base('router1')+'/metrics',headers={'Authorization':'Bearer '+token})
-                with urllib.request.urlopen(request,timeout=3)as response:metrics=response.read(65536).decode()
-                require('xone_first_successful_quote_seconds' in metrics,'normal quote recovery metric missing')
-                report['metrics_observation']=metrics[:4096]
-                require(source_hash()==report['source_tree_sha256'],'core source changed during recovery process run')
-                require(binary_fingerprint()==report['binary_sha256'],'normal binaries changed during recovery process run')
-                report.update(passed=True,state='LOCAL_RECOVERY_PROCESS_SCOPE_VERIFIED',completed_at_unix_ms=int(time.time()*1000))
-                write_result(target,report);print(json.dumps({'passed':True,'cases':len(report['cases']),'retention':report['retention'],'all_requested_features_complete':False}))
-                return report
+                return finish_report(report, target, base('router1'), token)
             finally:
                 for alias in list(processes):stop(alias)
     except BaseException as error:
@@ -357,10 +418,12 @@ def run(retention_only=False, offline_seconds=0):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--retention-only', action='store_true', help='run the single-pool retention scenario')
+    scenario = parser.add_mutually_exclusive_group()
+    scenario.add_argument('--retention-only', action='store_true', help='run the single-pool retention scenario')
+    scenario.add_argument('--standby-takeover', action='store_true', help='exercise single-pool takeover by a separate Go owner')
     parser.add_argument('--offline-seconds', type=int, default=0,
                         help='minimum time both owner and quote processes must stay stopped')
     args = parser.parse_args()
     if args.offline_seconds < 0 or (args.offline_seconds and not args.retention_only):
         parser.error('--offline-seconds requires --retention-only and a nonnegative value')
-    run(args.retention_only, args.offline_seconds)
+    run(args.retention_only, args.offline_seconds, args.standby_takeover)

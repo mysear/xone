@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R04.2 Go 备用进程接管（2026-11-28）|§18.6、§18.7、§23.14|LOCAL_SCOPE_VERIFIED|两个独立 Go 进程使用各自的本地状态目录，连接实际 PostgreSQL 16 和 Kafka 4.2。主进程持有租约时，备用进程未发布状态。停止主进程后，备用进程以新 writer epoch 在高度 400 发布第 2 代，3,732 毫秒恢复合格范围，3,911 毫秒恢复冷启动副本的首个 INDICATIVE 报价。持续运行的报价副本亦收敛到该引用|同台机器的受控 RPC 联测，跨故障域和首个 VERIFIED 报价待验收。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
 |I7-R04.3 Go 历史队列重复绑定容量（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|回到已有 dataset/revision 后，重复事实及候选共用已持久字节。冲突内容被拒绝，归档 manifest 只按大小净变化计费。八轮绑定往返及 Pebble 重开后容量与覆盖保持一致。队列定向 race 检查和五项运行时检查通过|依赖 EVM baseline fixture 的既有测试仍缺输入。真实长期容量、留存和跨故障域验收继续推进。 [历史队列测试](chain-parser-go/internal/reducer/history_queue_test.go)|
 |I7-R04.2 长停机演练资源隔离（2026-11-28）|§23.14、§28.26|LOCAL_SCOPE_VERIFIED|留存联测只创建所需 Kafka topic。验收支持明确选择本机 Kafka 和 JDK，限制 broker 与 CLI 堆内存，容器按固定运行名称管理。实际 PostgreSQL 16、Kafka 4.2 和正常 owner/报价进程的计时烟测通过，实测停机 20,009 毫秒，重启 owner 后 4,276 毫秒收到首个 INDICATIVE 报价|本机受控单池和实际中间件。长停机场景分别记录实际结果。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
 |I7-R04.2 报价副本按链恢复（2026-11-28）|§18.7、§23.14、§28.26|LOCAL_SCOPE_VERIFIED|正常报价进程为每条链独立轮询来源，Kafka 读取期间释放全局读取器表锁。实际 Kafka 4.2 回归确认 Solana 基线请求挂起时 EVM 可恢复首个报价并应用下一块；同一测试集的过期游标、远端检查点与撤销回归均通过|受控 HTTP owner 和本机 Kafka，生产故障域仍待验收。 [Kafka 回归](dex-router/crates/quote-api/tests/kafka_retention.rs)|
@@ -462,6 +463,7 @@
 - Solana 正常 HEAD_FIRST 路径按配置的新鲜度约束选择 RPC 基线。双端点回归验证后续新鲜基线恢复、全源陈旧时保持不可用，以及获选基线的离线重放。
 - EVM 普通 RPC 路径已通过备用源身份、时间和固定高度锚点的定向测试。两端点留存联测覆盖陈旧主源、备用源恢复、历史缺口披露和后续区块同步。
 - 正常报价进程的 Kafka 恢复已在双链场景验证。Solana 来源挂起时，EVM 独立完成启动、报价和后续块同步。
+- Go 备用 owner 已在实际 PostgreSQL/Kafka 上取得新 writer epoch，提供冷启动检查点。运行中的报价副本通过 Kafka 收敛到新代次。
 
 #### 下一迭代目标（I7 R04.2，2026-11-28）
 
