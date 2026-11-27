@@ -290,12 +290,8 @@ async fn remote_checkpoint_failure_can_select_current_owner_bootstrap_without_ac
         s.mode = "corrupt".into();
         s.fallback = Some(xone_kafka_transport::encode_bootstrap(&expected).unwrap());
     }
-    let (got, source) = f
-        .api
-        .recovery_bootstrap(&f.owner, "evm:31337")
-        .await
-        .unwrap();
-    assert_eq!(source, "OWNER_CHECKPOINT_AND_KAFKA");
+    assert!(f.api.remote_bootstrap(&f.owner, "evm:31337").await.is_err());
+    let got = f.api.owner_bootstrap(&f.owner, "evm:31337").await.unwrap();
     assert_eq!(got.cursor, expected.cursor);
     assert!(f.api.replica.view("evm:31337").is_err());
 }

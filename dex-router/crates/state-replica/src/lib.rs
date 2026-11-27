@@ -7,7 +7,7 @@ use std::{
         Arc, RwLock,
     },
 };
-use xone_domain::{err, hash, Pool, Record, Result, Snapshot, SnapshotRef};
+use xone_domain::{err, hash, Gap, Pool, Record, Result, Snapshot, SnapshotRef};
 use xone_routing::Graph;
 #[derive(Clone, Debug)]
 pub struct QuoteView {
@@ -17,6 +17,7 @@ pub struct QuoteView {
     pub graph_version: u64,
     pub view_id: String,
     pub source: String,
+    pub history_gaps: Vec<Gap>,
     pub protocol_views: BTreeMap<String, ProtocolQuoteView>,
     valid: Arc<AtomicBool>,
 }
@@ -203,6 +204,7 @@ impl Replica {
             graph_version,
             view_id,
             source: s.source,
+            history_gaps: s.history_gaps,
             valid,
         });
         if let Some(old) = previous {
@@ -236,7 +238,7 @@ impl Replica {
             reference: r.reference.clone(),
             pools: r.pools.clone(),
             source: old.source.clone(),
-            history_gaps: Vec::new(),
+            history_gaps: old.history_gaps.clone(),
         };
         self.validate(&snapshot)?;
         if r.reference.writer_epoch < old.reference.writer_epoch {
@@ -383,6 +385,7 @@ impl Replica {
             graph_version,
             view_id,
             source: old.source.clone(),
+            history_gaps: snapshot.history_gaps,
             valid,
         });
         reorgs.remove(&r.reference.block.chain_key);

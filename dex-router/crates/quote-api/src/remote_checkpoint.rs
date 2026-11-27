@@ -144,28 +144,11 @@ impl Api {
         .await
         .map_err(|_| err("CHECKPOINT_DOWNLOAD_DEADLINE"))?
     }
-    pub(crate) async fn recovery_bootstrap(
-        &self,
-        source: &str,
-        chain: &str,
-    ) -> Result<(Bootstrap, &'static str)> {
-        if self.config.config.journal.checkpoint_store.is_some() {
-            match self.remote_bootstrap(source, chain).await {
-                Ok(boot) => return Ok((boot, "REMOTE_CHECKPOINT_AND_KAFKA")),
-                Err(error) => self.logger.event(
-                    "debug",
-                    "remote_checkpoint_unavailable",
-                    serde_json::json!({"chain_key":chain,"error_code":error.0}),
-                ),
-            }
-        }
+    pub(crate) async fn owner_bootstrap(&self, source: &str, chain: &str) -> Result<Bootstrap> {
         let raw = self
             .fetch_raw(&format!("{source}/internal/chains/{chain}/bootstrap"))
             .await?;
-        Ok((
-            xone_kafka_transport::decode_bootstrap(&raw)?,
-            "OWNER_CHECKPOINT_AND_KAFKA",
-        ))
+        xone_kafka_transport::decode_bootstrap(&raw)
     }
 }
 

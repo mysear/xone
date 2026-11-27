@@ -44,7 +44,7 @@ use tower_http::cors::CorsLayer;
 use xone_config::ConfigSnapshot;
 use xone_domain::{err, hash, Amount, Record, Result, Snapshot};
 use xone_execution_plan::{Context, Plan};
-use xone_kafka_transport::{tail, Bootstrap, Cursor, Reader, Unit};
+use xone_kafka_transport::{Bootstrap, Cursor, Reader, Unit};
 use xone_observability::{now_ms, Logger};
 use xone_state_replica::{QuoteView, Replica};
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -67,28 +67,6 @@ pub struct QuoteRequest {
     pub constraints: Option<Constraints>,
 }
 
-fn reanchor_bootstrap(
-    original: &Bootstrap,
-    latest: Option<Unit>,
-    cursor: Cursor,
-    chain: &str,
-    max_age_ms: u64,
-    now_ms: u64,
-) -> Result<Bootstrap> {
-    let snapshot = latest
-        .map(|unit| unit.snapshot)
-        .unwrap_or_else(|| original.snapshot.clone());
-    if snapshot.reference.block.chain_key != chain
-        || snapshot.reference.journal_seq < original.snapshot.reference.journal_seq
-        || snapshot.reference.block.timestamp_ms > now_ms.saturating_add(30_000)
-        || now_ms.saturating_sub(snapshot.reference.block.timestamp_ms) > max_age_ms
-        || cursor.partition != 0
-        || cursor.offset < 0
-    {
-        return Err(err("KAFKA_REANCHOR_REQUIRED"));
-    }
-    Ok(Bootstrap { snapshot, cursor })
-}
 impl QuoteRequest {
     pub fn validate(&self) -> Result<()> {
         if self.kind != "EXACT_IN" {
@@ -119,14 +97,14 @@ impl QuoteRequest {
 // while draining a bounded number of frames; only complete units carry an
 // applied checkpoint into Replica.
 struct KafkaPollStep {
-    unit: Option<xone_kafka_transport::Unit>,
+    unit: Option<Unit>,
     cursor: Cursor,
     progressed: bool,
 }
 fn drain_kafka_units(
     max_frames: usize,
     mut poll: impl FnMut() -> Result<KafkaPollStep>,
-) -> Result<Vec<(xone_kafka_transport::Unit, Cursor)>> {
+) -> Result<Vec<(Unit, Cursor)>> {
     let mut complete = Vec::new();
     for _ in 0..max_frames {
         let step = poll()?;
@@ -553,7 +531,7 @@ impl Api {
                 .iter()
                 .flat_map(|r| r.path.edges.iter().map(|e| e.pool_id.as_str())),
         )?;
-        let mut response = json!({"kind":"EXACT_IN","protocolViewIds":protocol_view_ids,"quoteId":quote_id,"requestHash":request_hash,"chainKey":request.chain_key,"snapshotRef":view.reference,"ownerService":view.reference.owner_service,"onlineGeneration":view.reference.online_generation,"scopeHash":view.reference.scope_hash,"quoteViewId":view.view_id,"graphVersion":view.graph_version,"engineVersion":"xone-router/0.1","economicPolicyHash":self.config.economic_hash,"configRelease":self.config.release,"sellAmount":request.sell_amount,"consumedIn":plan.allocation.sell_amount,"refund":plan.allocation.refund,"grossBuyAmount":plan.allocation.gross_buy_amount,"minBuyAmount":plan.min_buy_amount,"netBuyAmountEstimate":Value::Null,"costs":cost_fallback::costs(&self.config.config.routing.route_activation_cost),"routes":plan.allocation.routes,"planHash":plan.plan_hash,"verification":{"level":"INDICATIVE","success":false,"reason":"INDEPENDENT_SIMULATION_UNAVAILABLE"},"validity":{"expiresAtMs":expires,"canonicalEpoch":view.reference.canonical_epoch},"quality":{"costRanking":cost_fallback::ranking(false),"budgetExhausted":exhausted,"candidateScope":view.pools.iter().filter(|p|!view.graph.excluded_pools.contains_key(&p.pool_id)).map(|p|p.pool_id.clone()).collect::<Vec<_>>(),"excludedPools":view.graph.excluded_pools,"source":view.source,"historyIndependent":true,"optimalityClaim":"HEURISTIC_WITHIN_SCOPE","allocationSearch":{"evaluations":optimizer_evaluations,"exhaustiveWithinGrid":grid_exhaustive,"gridParts":self.config.config.routing.split_parts,"maxSplits":self.config.config.routing.max_splits},"expansions":expansions}});
+        let mut response = json!({"kind":"EXACT_IN","protocolViewIds":protocol_view_ids,"quoteId":quote_id,"requestHash":request_hash,"chainKey":request.chain_key,"snapshotRef":view.reference,"ownerService":view.reference.owner_service,"onlineGeneration":view.reference.online_generation,"scopeHash":view.reference.scope_hash,"quoteViewId":view.view_id,"graphVersion":view.graph_version,"engineVersion":"xone-router/0.1","economicPolicyHash":self.config.economic_hash,"configRelease":self.config.release,"sellAmount":request.sell_amount,"consumedIn":plan.allocation.sell_amount,"refund":plan.allocation.refund,"grossBuyAmount":plan.allocation.gross_buy_amount,"minBuyAmount":plan.min_buy_amount,"netBuyAmountEstimate":Value::Null,"costs":cost_fallback::costs(&self.config.config.routing.route_activation_cost),"routes":plan.allocation.routes,"planHash":plan.plan_hash,"verification":{"level":"INDICATIVE","success":false,"reason":"INDEPENDENT_SIMULATION_UNAVAILABLE"},"validity":{"expiresAtMs":expires,"canonicalEpoch":view.reference.canonical_epoch},"quality":{"costRanking":cost_fallback::ranking(false),"budgetExhausted":exhausted,"candidateScope":view.pools.iter().filter(|p|!view.graph.excluded_pools.contains_key(&p.pool_id)).map(|p|p.pool_id.clone()).collect::<Vec<_>>(),"excludedPools":view.graph.excluded_pools,"source":view.source,"historyIndependent":true,"historyGaps":view.history_gaps,"optimalityClaim":"HEURISTIC_WITHIN_SCOPE","allocationSearch":{"evaluations":optimizer_evaluations,"exhaustiveWithinGrid":grid_exhaustive,"gridParts":self.config.config.routing.split_parts,"maxSplits":self.config.config.routing.max_splits},"expansions":expansions}});
         if let Some(ranking) = cost_ranking {
             if expires <= now_ms() {
                 return Err(err("QUOTE_EXPIRED"));
@@ -862,8 +840,32 @@ impl Api {
                     json!({"chain_key":chain,"error_code":error.0}),
                 ),
             }
+            let result = match self.remote_bootstrap(source, chain).await {
+                Ok(boot) => {
+                    self.restore_kafka_checkpoint(chain, boot, "REMOTE_CHECKPOINT_AND_KAFKA")
+                        .await
+                }
+                Err(error) => Err(error),
+            };
+            match result {
+                Ok(()) => return Ok(()),
+                Err(error) => self.logger.event(
+                    "debug",
+                    "remote_checkpoint_unavailable",
+                    json!({"chain_key":chain,"error_code":error.0}),
+                ),
+            }
         }
-        let (boot, recovery_source) = self.recovery_bootstrap(source, chain).await?;
+        let boot = self.owner_bootstrap(source, chain).await?;
+        self.restore_kafka_checkpoint(chain, boot, "OWNER_CHECKPOINT_AND_KAFKA")
+            .await
+    }
+    async fn restore_kafka_checkpoint(
+        &self,
+        chain: &str,
+        boot: Bootstrap,
+        recovery_source: &str,
+    ) -> Result<()> {
         if boot.snapshot.reference.block.chain_key != chain
             || self.config.config.journal.kafka.topics.get(chain) != Some(&boot.cursor.topic)
             || boot.cursor.partition != 0
@@ -871,8 +873,9 @@ impl Api {
         {
             return Err(err("BOOTSTRAP_CURSOR_IDENTITY"));
         }
-        if boot.snapshot.reference.block.timestamp_ms > now_ms() + 30000
-            || now_ms().saturating_sub(boot.snapshot.reference.block.timestamp_ms)
+        let now = now_ms();
+        if boot.snapshot.reference.block.timestamp_ms > now.saturating_add(30_000)
+            || now.saturating_sub(boot.snapshot.reference.block.timestamp_ms)
                 > self.config.config.startup.max_baseline_age_ms
         {
             return Err(err("BASELINE_TOO_OLD"));
@@ -881,51 +884,20 @@ impl Api {
         let cursor = boot.cursor.clone();
         let chain_key = chain.to_owned();
         let seq = boot.snapshot.reference.journal_seq;
-        let initial_boot = boot.clone();
-        let (boot, reader) = tokio::task::spawn_blocking(move || {
+        let reader = tokio::task::spawn_blocking(move || {
             let k = &cfg.config.journal.kafka;
-            let open = Reader::open(
+            // An out-of-window cursor needs a new owner-issued checkpoint.
+            // Journal tail units can represent revocation or an open reorg.
+            let mut reader = Reader::open(
                 &k.brokers,
                 &format!("quote.{}.{}", chain_key, k.replica_id),
                 &cursor,
                 cfg.config.journal.max_payload_bytes,
                 k.max_tail_records,
                 Duration::from_millis(cfg.config.journal.request_timeout_ms),
-            );
-            match open {
-                Ok(mut reader) => {
-                    reader.last_sequence = seq;
-                    Ok((initial_boot, reader))
-                }
-                Err(error) if error.0 == "KAFKA_REANCHOR_REQUIRED" => {
-                    let (latest, tail_cursor) = tail(
-                        &k.brokers,
-                        &cursor.topic,
-                        cfg.config.journal.max_payload_bytes,
-                        k.max_tail_records,
-                        Duration::from_millis(cfg.config.journal.request_timeout_ms),
-                    )?;
-                    let boot = reanchor_bootstrap(
-                        &initial_boot,
-                        latest,
-                        tail_cursor.clone(),
-                        &chain_key,
-                        cfg.config.startup.max_baseline_age_ms,
-                        now_ms(),
-                    )?;
-                    let mut reader = Reader::open(
-                        &k.brokers,
-                        &format!("quote.{}.{}", chain_key, k.replica_id),
-                        &tail_cursor,
-                        cfg.config.journal.max_payload_bytes,
-                        k.max_tail_records,
-                        Duration::from_millis(cfg.config.journal.request_timeout_ms),
-                    )?;
-                    reader.last_sequence = boot.snapshot.reference.journal_seq;
-                    Ok((boot, reader))
-                }
-                Err(error) => Err(error),
-            }
+            )?;
+            reader.last_sequence = seq;
+            Ok::<_, xone_domain::Error>(reader)
         })
         .await
         .map_err(|_| err("KAFKA_READER_TASK"))??;
@@ -934,7 +906,7 @@ impl Api {
     fn activate_recovery(
         &self,
         chain: &str,
-        boot: xone_kafka_transport::Bootstrap,
+        boot: Bootstrap,
         reader: Reader,
         recovery_source: &str,
     ) -> Result<()> {
@@ -2050,106 +2022,5 @@ mod source_auth_tests {
         let result = api.fetch_raw(&format!("{source}/a/internal/test")).await;
         server.abort();
         assert_eq!(result.unwrap(), b"source-ok");
-    }
-}
-
-#[cfg(test)]
-mod kafka_reanchor_tests {
-    use super::*;
-    use xone_domain::{BlockRef, SnapshotRef, SCHEMA_VERSION};
-
-    fn bootstrap(chain: &str, sequence: u64, timestamp_ms: u64) -> Bootstrap {
-        Bootstrap {
-            snapshot: Snapshot {
-                reference: SnapshotRef {
-                    block: BlockRef {
-                        chain_key: chain.into(),
-                        number_or_slot: sequence,
-                        hash: format!("hash-{sequence}"),
-                        parent_hash: "parent".into(),
-                        timestamp_ms,
-                    },
-                    canonical_epoch: 1,
-                    journal_seq: sequence,
-                    schema_version: SCHEMA_VERSION,
-                    adapter_set_hash: "adapter".into(),
-                    online_generation: 1,
-                    scope_hash: "scope".into(),
-                    writer_epoch: 1,
-                    owner_service: "owner".into(),
-                    owner_assignment_version: 1,
-                },
-                pools: vec![],
-                source: "test".into(),
-                history_gaps: vec![],
-            },
-            cursor: Cursor {
-                topic: "topic".into(),
-                partition: 0,
-                offset: sequence as i64,
-            },
-        }
-    }
-
-    #[test]
-    fn stale_cursor_reanchors_to_fresh_tail_unit() {
-        let original = bootstrap("evm:31337", 4, 900_000);
-        let latest = Unit {
-            normalized_facts: None,
-            kind: "ONLINE_BASELINE_COMMIT".into(),
-            snapshot: bootstrap("evm:31337", 8, 999_500).snapshot,
-        };
-        let result = reanchor_bootstrap(
-            &original,
-            Some(latest),
-            Cursor {
-                topic: "topic".into(),
-                partition: 0,
-                offset: 18,
-            },
-            "evm:31337",
-            1_000,
-            1_000_000,
-        )
-        .unwrap();
-        assert_eq!(result.snapshot.reference.journal_seq, 8);
-        assert_eq!(result.cursor.offset, 18);
-    }
-
-    #[test]
-    fn stale_or_cross_chain_tail_cannot_reanchor() {
-        let original = bootstrap("evm:31337", 4, 999_000);
-        let stale = Unit {
-            normalized_facts: None,
-            kind: "ONLINE_BASELINE_COMMIT".into(),
-            snapshot: bootstrap("evm:31337", 5, 900_000).snapshot,
-        };
-        assert_eq!(
-            reanchor_bootstrap(
-                &original,
-                Some(stale),
-                original.cursor.clone(),
-                "evm:31337",
-                1_000,
-                1_000_000,
-            )
-            .unwrap_err()
-            .0,
-            "KAFKA_REANCHOR_REQUIRED"
-        );
-        let wrong_chain = Unit {
-            normalized_facts: None,
-            kind: "ONLINE_BASELINE_COMMIT".into(),
-            snapshot: bootstrap("evm:1", 8, 999_500).snapshot,
-        };
-        assert!(reanchor_bootstrap(
-            &original,
-            Some(wrong_chain),
-            original.cursor.clone(),
-            "evm:31337",
-            1_000,
-            1_000_000,
-        )
-        .is_err());
     }
 }

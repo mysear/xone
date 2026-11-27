@@ -296,6 +296,7 @@ impl Api {
                 "candidateScope": view.pools.iter().filter(|p| !candidates.excluded_pools.contains_key(&p.pool_id))
                     .map(|p| p.pool_id.clone()).collect::<Vec<_>>(),
                 "excludedPools": candidates.excluded_pools, "source": view.source, "historyIndependent": true,
+                "historyGaps": view.history_gaps,
                 "optimalityClaim": "MINIMUM_RAW_INPUT_WITHIN_EVALUATED_ORDERED_GRID",
                 "pathPolicy": path_policy,
                 "candidateSearch": {

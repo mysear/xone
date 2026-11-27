@@ -3921,6 +3921,7 @@ dependencies = [
  "libc",
  "num-traits",
  "prost",
+ "rdkafka",
  "reqwest",
  "secp256k1",
  "serde",
