@@ -17,7 +17,7 @@ function original(name) {
   assert.equal(hash(bytes), pins.find(p => p.path === file).sha256);
   return JSON.parse(bytes);
 }
-async function replay(transport, captureBank, wrapped, shared, sharedExactOut) {
+async function replay(transport, captureBank, wrapped, shared, sharedExactOut, compareShared) {
   assert.equal(solc.version(), '0.8.26+commit.8a97fa7a.Emscripten.clang');
   const sources = {'OrderedV2Split.sol': {content: src}};
   const contract = shared ? 'SharedV2Suffix' : 'OrderedV2Split';
@@ -33,6 +33,9 @@ async function replay(transport, captureBank, wrapped, shared, sharedExactOut) {
   const weth = await deploy(original('periphery/build/WETH9'));
   const router = await deploy(original('periphery/build/UniswapV2Router02'), factory.address, weth.address);
   const batch = await deploy(build.contracts[`${contract}.sol`][contract], router.address);
+  const ordered = compareShared
+    ? await deploy(build.contracts['OrderedV2Split.sol'].OrderedV2Split, router.address)
+    : null;
   const token = original('periphery/build/ERC20'), pair = original('core/build/UniswapV2Pair');
   const unit = ethers.utils.parseEther, max = ethers.constants.MaxUint256;
   const mined = async tx => (await tx).wait();
@@ -51,6 +54,7 @@ async function replay(transport, captureBank, wrapped, shared, sharedExactOut) {
   const sell=tokens[0], buy=tokens[3];
   await mined(sell.approve(router.address,max));
   const approval=await mined(sell.approve(batch.address,max));
+  if (ordered) await mined(sell.approve(ordered.address, max));
   if (shared) {
     await mined(tokens[2].approve(router.address, max));
     await mined(tokens[2].transfer(batch.address, 23));
@@ -76,7 +80,9 @@ async function replay(transport, captureBank, wrapped, shared, sharedExactOut) {
   const binding = {pools,block:{chain_key:'evm:1337',number_or_slot:base.number,hash:base.hash,parent_hash:base.parentHash,timestamp_ms:base.timestamp*1000},
     executor:{target:lower(batch.address),code_sha256:await runtime(batch.address),router:{target:lower(router.address),code_sha256:await runtime(router.address),factory:lower(factory.address),factory_code_sha256:factoryHash,adapter_version:'uniswap-v2-router02/1.1.0-beta.0'}},
     caller:lower(caller),recipient:lower(recipient),deadlineMs:deadline*1000,cases:[]};
-  const bank = captureBank ? await splitBank(provider,base,{caller,recipient,batch,router,factory,weth,tokens,pairs,shared}) : null;
+  if (ordered) binding.orderedExecutor = {...binding.executor,
+    target:lower(ordered.address), code_sha256:await runtime(ordered.address)};
+  const bank = captureBank ? await splitBank(provider,base,{caller,recipient,batch,router,factory,weth,tokens,pairs,shared,ordered}) : null;
   if (shared) {
     const join = tokens[2];
     const suffix = [join.address, buy.address];
@@ -295,12 +301,13 @@ async function replay(transport, captureBank, wrapped, shared, sharedExactOut) {
     normalQuoteConnected:false,completeNetCost:false,cases,binding,executionBank:bank?.result};
 }
 
-async function splitBank(provider,base,{caller,recipient,batch,router,factory,weth,tokens,pairs,shared}) {
+async function splitBank(provider,base,{caller,recipient,batch,router,factory,weth,tokens,pairs,shared,ordered}) {
   const lower = a => a.toLowerCase();
   const addr = v => lower(v.address ?? v);
   const word = n => ethers.utils.hexZeroPad(n === '0x' ? '0x00' : ethers.BigNumber.from(n).toHexString(),32);
   const mapping = (key,slot) => ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(['address','bytes32'],[addr(key),word(slot)]));
   const slots = new Map([caller,recipient,batch,router,factory,weth,base.miner,...tokens,...pairs].map(x=>[addr(x),new Set()]));
+  if (ordered) slots.set(addr(ordered), new Set());
   if (shared) slots.get(addr(batch)).add(word(0));
   for (const p of pairs) for(let i=0;i<=12;i++) slots.get(addr(p)).add(word(i));
   for (const t of tokens) {
@@ -309,8 +316,10 @@ async function splitBank(provider,base,{caller,recipient,batch,router,factory,we
     const balanceSlot = isWrapped ? 3 : 1, allowanceSlot = isWrapped ? 4 : 2;
     for(const owner of slots.keys()) rows.add(mapping(owner,balanceSlot));
     // Direct and batch candidates execute against the same pre-transaction bank.
-    rows.add(mapping(router,mapping(caller,allowanceSlot)));
-    rows.add(mapping(batch,mapping(caller,allowanceSlot))); rows.add(mapping(router,mapping(batch,allowanceSlot)));
+    for (const executor of [router, batch, ordered].filter(Boolean)) {
+      rows.add(mapping(executor,mapping(caller,allowanceSlot)));
+      if (executor !== router) rows.add(mapping(router,mapping(executor,allowanceSlot)));
+    }
   }
   for(const t of tokens) for(const u of tokens) if(t!==u) slots.get(addr(factory)).add(mapping(u,mapping(t,2)));
   async function accounts(n) {
@@ -338,12 +347,13 @@ async function splitBank(provider,base,{caller,recipient,batch,router,factory,we
 }
 async function main() {
   const wrapped = process.argv[3] === '--wrap-bank';
-  const sharedExactOut = process.argv[3] === '--shared-suffix-exact-out-bank';
-  const shared = sharedExactOut || ['--shared-suffix', '--shared-suffix-bank'].includes(process.argv[3]);
+  const compareShared = ['--compare-shared-exact-in', '--compare-shared-exact-out'].includes(process.argv[3]);
+  const sharedExactOut = ['--shared-suffix-exact-out-bank', '--compare-shared-exact-out'].includes(process.argv[3]);
+  const shared = compareShared || sharedExactOut || ['--shared-suffix', '--shared-suffix-bank'].includes(process.argv[3]);
   const transport=ganache.provider({logging:{quiet:true},wallet:wrapped ? {deterministic:true,defaultBalance:100000} : {deterministic:true},chain:{hardfork:'shanghai',time:new Date('2026-11-17Z')},miner:{timestampIncrement:1}});
   try {
-    const captureBank=wrapped || sharedExactOut || process.argv[3]==='--bank' || process.argv[3]==='--shared-suffix-bank';
-    const report=await replay(transport,captureBank,wrapped,shared,sharedExactOut);
+    const captureBank=wrapped || sharedExactOut || compareShared || process.argv[3]==='--bank' || process.argv[3]==='--shared-suffix-bank';
+    const report=await replay(transport,captureBank,wrapped,shared,sharedExactOut,compareShared);
     if (!wrapped && !shared) assert.equal(hash(JSON.stringify(report.binding)),'544d55501ed280378a67b9ab45b77a4cef8e0cd1bafeee2ba48f1ffbd60732be','Mined binding corpus changed');
     report.passed = true;
     if (process.argv[2]) fs.writeFileSync(process.argv[2],JSON.stringify(report,null,2)+'\n',{flag:'wx'});

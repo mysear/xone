@@ -211,6 +211,150 @@ async fn await_execution(
     }
 }
 
+pub(crate) async fn compare_shared_suffix(
+    config: &Arc<ConfigSnapshot>,
+    backend: &Arc<LocalSimulation>,
+    selected: Selection,
+    deadline: Instant,
+) -> Result<Option<Value>> {
+    let quote = selected.response();
+    let candidate = &quote["quality"]["sharedSuffix"];
+    let Some(candidate_hash) = candidate["candidateHash"].as_str() else {
+        return Ok(None);
+    };
+    let ranking = &quote["quality"]["costRanking"];
+    let ordered = &ranking["selectedExecution"];
+    let status = |code| json!({"status":code,"candidateHash":candidate_hash,"attempts":0});
+    if ordered["verification"]["success"] != true {
+        return Ok(Some(status("ORDERED_EXECUTION_UNAVAILABLE")));
+    }
+    if ranking["simulationAttempts"].as_u64().unwrap_or(u64::MAX)
+        >= config.config.simulation.candidate_cost_max_plans as u64
+        || Instant::now() >= deadline
+    {
+        return Ok(Some(status("SIMULATION_BUDGET_EXHAUSTED")));
+    }
+    let binding = match backend.shared_suffix_binding(config, &selected, candidate_hash) {
+        Ok(Some(binding)) => binding,
+        Ok(None) => return Ok(Some(status("SHARED_SUFFIX_EXECUTOR_UNAVAILABLE"))),
+        Err(e) if e.0 == "EXECUTION_ADAPTER_UNSUPPORTED" => {
+            return Ok(Some(status("SHARED_SUFFIX_EXECUTOR_UNAVAILABLE")));
+        }
+        Err(e) => return Err(e),
+    };
+    if ordered["costs"]["scope"] != "DECLARED_LOCAL_EVM_TRANSACTION" {
+        return Ok(Some(status("ORDERED_FEE_SCOPE_UNSUPPORTED")));
+    }
+    let context = selected.context();
+    let (ordered_input, ordered_output, exact_out) = match &selected {
+        Selection::ExactIn(q) => (
+            &q.plan.allocation.sell_amount,
+            &q.plan.allocation.gross_buy_amount,
+            false,
+        ),
+        Selection::ExactOut(q) => (
+            &q.plan.allocation.required_input,
+            q.plan.allocation.gross_output(),
+            true,
+        ),
+    };
+    let hash = backend.candidate_binding(config, &selected)?;
+    let Some(ordered_fee) = audited_cost(
+        ordered,
+        &hash,
+        context,
+        ordered_input,
+        ordered_output,
+        exact_out,
+    )?
+    else {
+        return Ok(Some(status("ORDERED_VALUATION_UNAVAILABLE")));
+    };
+    let execution_deadline = deadline.min(
+        Instant::now() + Duration::from_millis(config.config.simulation.timeout_ms.min(60_000)),
+    );
+    let shared = match backend
+        .clone()
+        .execute_shared_suffix(
+            config.clone(),
+            selected.clone(),
+            execution_deadline,
+            candidate_hash.into(),
+        )
+        .await
+    {
+        Ok(shared) => shared,
+        Err(failure) => {
+            return Ok(Some(
+                json!({"status":"SHARED_SUFFIX_EXECUTION_UNAVAILABLE","reason":failure.code,"candidateHash":candidate_hash,"attempts":1}),
+            ))
+        }
+    };
+    let bound = &binding.bound;
+    let Some(shared_fee) = audited_cost(
+        &shared,
+        &bound.binding_hash,
+        context,
+        &bound.sell_amount,
+        &bound.buy_amount,
+        exact_out,
+    )?
+    else {
+        return Ok(Some(
+            json!({"status":"SHARED_SUFFIX_VALUATION_UNAVAILABLE","candidateHash":candidate_hash,"attempts":1}),
+        ));
+    };
+    let economics = &shared["costs"]["transactionEconomics"];
+    let ordered_economics = &ordered["costs"]["transactionEconomics"];
+    if !ranking["priceBookHash"].is_string()
+        || !valuation_matches(ranking, economics)
+        || !valuation_matches(ranking, ordered_economics)
+    {
+        return Err(err("CANDIDATE_COST_VALUATION_BINDING"));
+    }
+    let ordered_objective = fee_adjusted_objective(
+        if exact_out {
+            ordered_input
+        } else {
+            ordered_output
+        },
+        &ordered_fee,
+        exact_out,
+    );
+    let shared_objective = fee_adjusted_objective(
+        if exact_out {
+            &bound.sell_amount
+        } else {
+            &bound.buy_amount
+        },
+        &shared_fee,
+        exact_out,
+    );
+    let preferred = if shared_objective == ordered_objective {
+        "TIED"
+    } else if (shared_objective < ordered_objective) == exact_out {
+        "SHARED_SUFFIX"
+    } else {
+        "ORDERED_SPLIT"
+    };
+    Ok(Some(json!({
+        "status":"COMPARED", "candidateHash":candidate_hash, "basisPlanHash":quote["planHash"],
+        "scope":"LOCAL_EVM_EXECUTION_FEES", "appliedToQuote":false, "attempts":1,
+        "preferred":preferred, "priceBookHash":ranking["priceBookHash"],
+        "publicationRevision":ranking["publicationRevision"],
+        "ordered":{"bindingHash":hash,"input":ordered_input,"output":ordered_output,
+            "feeAtoms":ordered_fee,"objectiveAtoms":ordered_objective.to_string()},
+        "shared":{"bindingHash":bound.binding_hash,"input":bound.sell_amount,"output":bound.buy_amount,
+            "feeAtoms":shared_fee,"objectiveAtoms":shared_objective.to_string(),"execution":shared},
+    })))
+}
+
+fn valuation_matches(ranking: &Value, economics: &Value) -> bool {
+    ranking["priceBookHash"] == economics["priceBookHash"]
+        && ranking["publicationRevision"].as_u64()
+            == Some(economics["publicationRevision"].as_u64().unwrap_or(0))
+}
+
 /// Publish only the selected, successfully executed plan's partial costs. The
 /// map identity and parent-audited amounts are checked again at publication.
 pub(crate) fn disclose(
@@ -245,11 +389,7 @@ pub(crate) fn disclose(
     let exact_out = quote["kind"] == "EXACT_OUT";
     let cost = audited_cost(execution, binding, context, input, output, exact_out)?;
     let economics = &execution["costs"]["transactionEconomics"];
-    if ranking["priceBookHash"].is_string()
-        && (ranking["priceBookHash"] != economics["priceBookHash"]
-            || ranking["publicationRevision"].as_u64()
-                != Some(economics["publicationRevision"].as_u64().unwrap_or(0)))
-    {
+    if ranking["priceBookHash"].is_string() && !valuation_matches(ranking, economics) {
         return Err(bad());
     }
     let original = quote["costs"].clone();

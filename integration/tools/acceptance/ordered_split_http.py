@@ -289,12 +289,23 @@ def audit_approval(rows, bank, mode, exact, quote, selected):
     require(selected is not None and quote['costs']['approvalNative'] == selected['costs']['approvalNative'], 'selected approval disclosure')
 
 
-def shared_suffix_scenario(binary, bank, report, output):
+def shared_suffix_scenario(binary, bank, report, output, mode='priced'):
     output.mkdir(parents=True)
     info_path = output / 'ready.json'
     env = {key: value for key, value in os.environ.items() if not key.startswith('XONE_')}
     env['XONE_SHARED_SUFFIX_BANK'] = str(bank)
-    env['XONE_QUOTE_TTL_MS'] = '10000'
+    ttl_ms = 10000
+    compare = 'orderedExecutor' in report['binding']
+    if compare:
+        tokens = report['binding']['cases'][0]['legs'][0]['tokens']
+        config, _, _ = prepare(output / 'prices', 'stale' if mode == 'stale' else 'priced', source=dict(
+            state_anchor=report['executionBank']['state_anchor'], token_in=tokens[0], token_out=tokens[-1]))
+        env.update(XONE_NATIVE_VALUATION_CONFIG=str(config),
+                   XONE_CANDIDATE_COST_MAX_PLANS='4' if mode == 'budget' else '16')
+        if mode == 'missing-executor':
+            env['XONE_SHARED_SUFFIX_NO_EXECUTOR'] = '1'
+        ttl_ms = 20000
+    env['XONE_QUOTE_TTL_MS'] = str(ttl_ms)
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with (output / 'process.log').open('w') as log:
         process = subprocess.Popen([binary, info_path], cwd=ROOT, env=env, stdout=log, stderr=log)
@@ -320,6 +331,43 @@ def shared_suffix_scenario(binary, bank, report, output):
             require(status == 200, str(quote))
             audit_shared_suffix(quote, report['binding']['pools'], exact_out)
             candidate = quote['quality']['sharedSuffix']
+            if compare:
+                ranking = quote['quality']['costRanking']
+                comparison = ranking['sharedSuffixComparison']
+                if mode != 'priced':
+                    expected = {
+                        'budget': 'SIMULATION_BUDGET_EXHAUSTED',
+                        'stale': 'ORDERED_VALUATION_UNAVAILABLE',
+                        'missing-executor': 'SHARED_SUFFIX_EXECUTOR_UNAVAILABLE',
+                    }[mode]
+                    require(comparison == dict(status=expected, candidateHash=candidate['candidateHash'], attempts=0),
+                            str(comparison))
+                    (output / 'quote.json').write_text(json.dumps(quote) + '\n')
+                    return
+                require(comparison['status'] == 'COMPARED' and not comparison['appliedToQuote'], str(comparison))
+                require(comparison['candidateHash'] == candidate['candidateHash'] and
+                        comparison['basisPlanHash'] == quote['planHash'] and
+                        comparison['priceBookHash'] == ranking['priceBookHash'] and
+                        comparison['publicationRevision'] == ranking['publicationRevision'] and
+                        ranking['simulationAttempts'] + comparison['attempts'] <= ranking['maxSimulationPlans'],
+                        'candidate comparison identity or budget')
+                executions = (ranking['selectedExecution'], comparison['shared']['execution'])
+                objectives = []
+                for name, execution in zip(('ordered', 'shared'), executions):
+                    row = comparison[name]
+                    actual = execution['outcome']
+                    network = int(execution['costs']['payerNetNativeDebit'])
+                    fee = (network + 2) // 3 if exact_out else (network * 3 + 1) // 2
+                    objective = int(actual['actual_input_consumed']) + fee if exact_out else int(actual['actual_buy_amount']) - fee
+                    require(row['bindingHash'] == execution['bindingHash'] and
+                            int(row['feeAtoms']) == fee and int(row['objectiveAtoms']) == objective and
+                            row['input'] == actual['actual_input_consumed'] and row['output'] == actual['actual_buy_amount'],
+                            'candidate comparison fee or amount mismatch')
+                    objectives.append(objective)
+                ordered_objective, shared_objective = objectives
+                preferred = ('TIED' if ordered_objective == shared_objective else 'SHARED_SUFFIX'
+                             if (shared_objective < ordered_objective) == exact_out else 'ORDERED_SPLIT')
+                require(comparison['preferred'] == preferred, 'candidate comparison did not select the best objective')
             path = f"/v1/quotes/{quote['quoteId']}/simulate"
             status, replay = post(path, {'sharedSuffixCandidateHash': candidate['candidateHash']})
             require(status == 200 and replay['verification']['success'], str(replay))
@@ -365,7 +413,7 @@ def shared_suffix_scenario(binary, bank, report, output):
             (output / 'quote.json').write_text(json.dumps(quote) + '\n')
             (output / 'simulation.json').write_text(json.dumps(replay) + '\n')
             (output / 'build.json').write_text(json.dumps(built) + '\n')
-            (output / 'report.json').write_text(json.dumps(dict(passed=True, scenarios=6)) + '\n')
+            (output / 'report.json').write_text(json.dumps(dict(passed=True, scenarios=7 if compare else 6)) + '\n')
         finally:
             process.terminate()
             process.wait(timeout=10)
@@ -373,7 +421,12 @@ def shared_suffix_scenario(binary, bank, report, output):
 
 if __name__ == '__main__' and sys.argv[1:2] == ['--shared-suffix']:
     binary, bank, output = map(lambda arg: Path(arg).resolve(), sys.argv[2:])
-    shared_suffix_scenario(binary, bank, json.loads(bank.read_bytes()), output)
+    report = json.loads(bank.read_bytes())
+    shared_suffix_scenario(binary, bank, report, output)
+    if 'orderedExecutor' in report['binding']:
+        for mode in ['budget', 'stale', 'missing-executor']:
+            shared_suffix_scenario(binary, bank, report, output / mode, mode)
+        (output / 'report.json').write_text(json.dumps(dict(passed=True, scenarios=10)) + '\n')
 elif __name__ == '__main__':
     wrapping = sys.argv[1:2] == ['--wrap']
     binary, bank, output = map(lambda arg: Path(arg).resolve(), sys.argv[2:] if wrapping else sys.argv[1:])

@@ -124,6 +124,9 @@ async fn main() {
         rpc.executor = ex.router.clone();
         if shared.is_some() {
             shared_suffix_executor = Some(ex);
+            if let Some(ordered) = binding.get("orderedExecutor") {
+                split_executor = Some(serde_json::from_value(ordered.clone()).unwrap());
+            }
         } else {
             split_executor = Some(ex);
         }
@@ -254,6 +257,9 @@ async fn main() {
     }
     if std::env::var_os("XONE_SPLIT_NO_EXECUTOR").is_some() {
         bundle.split_executor = None;
+    }
+    if std::env::var_os("XONE_SHARED_SUFFIX_NO_EXECUTOR").is_some() {
+        bundle.shared_suffix_executor = None;
     }
     std::fs::write(&bundle_path, serde_json::to_vec(&bundle).unwrap()).unwrap();
     let mut config = xone_config::load(

@@ -424,11 +424,21 @@ impl Api {
             cached.response["verification"] = verification;
             cached.quote_verification_evidence = Some(evidence);
         }
+        if let Some(backend) = &cost_backend {
+            if let Some(comparison) = candidate_costs::compare_shared_suffix(
+                &self.config,
+                backend,
+                cached.clone().into(),
+                deadline,
+            )
+            .await?
+            {
+                cached.response["quality"]["costRanking"]["sharedSuffixComparison"] = comparison;
+            }
+            backend.check_current_prices()?;
+        }
         let response = cached.response.clone();
         {
-            if let Some(backend) = &cost_backend {
-                backend.check_current_prices()?;
-            }
             let mut cache = self.exact_out_cache.lock().map_err(|_| err("CACHE_LOCK"))?;
             self.check_view(&view)?;
             if expires <= now_ms() {

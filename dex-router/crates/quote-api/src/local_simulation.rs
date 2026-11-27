@@ -763,6 +763,37 @@ impl LocalSimulation {
         }
     }
 
+    pub(crate) fn shared_suffix_binding(
+        &self,
+        config: &ConfigSnapshot,
+        cached: &Selection,
+        candidate_hash: &str,
+    ) -> Result<Option<WorkerSharedSuffix>> {
+        let Some(executor) = &self.bundle.shared_suffix_executor else {
+            return Ok(None);
+        };
+        let plan = match cached {
+            Selection::ExactIn(c) => SplitPlan::ExactIn(c.plan.clone()),
+            Selection::ExactOut(c) => SplitPlan::ExactOut(c.plan.clone()),
+        };
+        let bound = ordered_v2::shared_suffix::bind(
+            &plan,
+            &cached.view().pools,
+            executor,
+            &config.config.simulation.allowed_targets,
+        )?;
+        if bound.candidate_hash != candidate_hash
+            || cached.response()["quality"]["sharedSuffix"]["candidateHash"].as_str()
+                != Some(candidate_hash)
+        {
+            return Err(err("EXECUTION_SHARED_SUFFIX_HASH_MISMATCH"));
+        }
+        Ok(Some(WorkerSharedSuffix {
+            bound,
+            expected_executor: executor.clone(),
+        }))
+    }
+
     pub(crate) fn has_op_source(&self) -> bool {
         self.bundle.op_attributes_calldata.is_some()
     }
@@ -773,6 +804,9 @@ impl LocalSimulation {
             .map(|p| (p.book_hash(), p.revision()))
     }
     pub(crate) fn pin_prices(self: &Arc<Self>) -> Result<Arc<Self>> {
+        if self.prices_pinned {
+            return Ok(self.clone());
+        }
         let Some(store) = &self.valuation_store else {
             return Ok(self.clone());
         };
@@ -962,32 +996,9 @@ impl LocalSimulation {
             .map_err(|e| Failure::new(&e.0, "binding"))?;
         let shared_suffix = shared_candidate_hash
             .map(|expected| {
-                let invalid = || Failure::new("EXECUTION_SHARED_SUFFIX_UNAVAILABLE", "binding");
-                let plan = match cached {
-                    Selection::ExactIn(c) => SplitPlan::ExactIn(c.plan.clone()),
-                    Selection::ExactOut(c) => SplitPlan::ExactOut(c.plan.clone()),
-                };
-                let executor = self
-                    .bundle
-                    .shared_suffix_executor
-                    .as_ref()
-                    .ok_or_else(invalid)?;
-                let bound =
-                    ordered_v2::shared_suffix::bind(&plan, &cached.view().pools, executor, allowed)
-                        .map_err(|e| Failure::new(&e.0, "binding"))?;
-                if bound.candidate_hash != expected
-                    || cached.response()["quality"]["sharedSuffix"]["candidateHash"].as_str()
-                        != Some(expected)
-                {
-                    return Err(Failure::new(
-                        "EXECUTION_SHARED_SUFFIX_HASH_MISMATCH",
-                        "binding",
-                    ));
-                }
-                Ok(WorkerSharedSuffix {
-                    bound,
-                    expected_executor: executor.clone(),
-                })
+                self.shared_suffix_binding(config, cached, expected)
+                    .map_err(|e| Failure::new(&e.0, "binding"))?
+                    .ok_or_else(|| Failure::new("EXECUTION_SHARED_SUFFIX_UNAVAILABLE", "binding"))
             })
             .transpose()?;
         let split = if shared_suffix.is_none() {
