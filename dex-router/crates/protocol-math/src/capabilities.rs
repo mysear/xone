@@ -1,7 +1,7 @@
 //! Versioned capabilities describe admitted kernels, not live RPC/account readiness.
 use serde::{Deserialize, Serialize};
 use xone_domain::{Pool, Result};
-pub const VERSION: &str = "xone-protocol-capabilities/27";
+pub const VERSION: &str = "xone-protocol-capabilities/28";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolCapabilities {
@@ -48,9 +48,8 @@ pub fn catalog() -> std::collections::BTreeMap<String, ProtocolCapabilities> {
 fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> ProtocolCapabilities {
     let profile = xone_domain::protocols::protocol(protocol);
     let exact_out = crate::exact_out::supports_protocol(protocol);
-    let quote_supported = profile.is_some_and(|p| {
-        p.family != "rayclmm" || crate::raydium_clmm::supports_profile(protocol)
-    });
+    let quote_supported = profile
+        .is_some_and(|p| p.family != "rayclmm" || crate::raydium_clmm::supports_profile(protocol));
     let mut quote_modes = if quote_supported {
         vec!["EXACT_IN".into()]
     } else {

@@ -34,6 +34,7 @@ fn main() {
         "generate-bitmap" => generate_bitmap(),
         "generate" => generate(),
         "generate-token-fee" => generate_token_fee(),
+        "generate-orders" => raydium_clmm_reference::generate_orders(),
         "tick-vectors" => tick_vectors(),
         "quote" => {
             let mut text = String::new();

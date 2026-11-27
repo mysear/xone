@@ -26,6 +26,15 @@ Successful quotes return `{ "amount_out": "...", "next_pool": <full Pool> }`; er
 
 ## Source and dependency integrity
 
+`generate-orders` emits 216 cases covering both directions, both amount modes, all three fee modes, and order-only or liquidity-bearing ticks. The harness calls the original `swap_internal` and records consumed input, user output, and the complete post-pool state. Run the differential and HTTP tests against the same corpus from the repository root after building the reference.
+
+```sh
+/tmp/xone-raydium-clmm/target2/debug/raydium-clmm-reference generate-orders > /tmp/rayclmm-orders.json
+XONE_RAYCLMM_ORDER_CORPUS=/tmp/rayclmm-orders.json \
+  cargo +1.90.0 test --manifest-path dex-router/Cargo.toml \
+  -p xone-protocol-math -p xone-quote-api --test rayclmm_limit_orders -- --ignored
+```
+
 `source-metadata.json` records every file and both retained codeload archives. `rayclmm-reference-fetch.py` compares all **105 upstream files** and **120 parity-common files** against both the manifest and exact archive bytes; it also checks for extra or missing source files.
 
 - Upstream archive SHA-256: `13841cd1cddf0fc906970f70f8a639cb595e484c8ff260176aec0009cc561727`.

@@ -344,7 +344,7 @@
 #### 下一轮迭代目标（I4 Raydium CLMM）
 
 - `raydium-clmm-limit-orders` 已接入 `6d7a0f82` TickState 的订单阶段、待撮合数量、部分成交余量和剩余比例。Rust 正常 finalized RPC 验证了只有订单的活跃 tick 和已清空 tick 的历史阶段。26 项解析测试、Go/Rust Protobuf 往返和生成一致性检查通过。能力目录待撮合验收后开放报价。
-- 验收双向 ExactIn、ExactOut、部分成交、队列切换、仅订单 tick 初始化及清空、与流动性共同跨 tick、费用和 vault 后状态。用原程序差分和 SBF 验证 Token CPI 收付、限额失败和回滚。
+- 双向 ExactIn、ExactOut 和三种收费模式已通过 216 组原 `swap_internal` 差分、12 笔 HTTP 报价及经典静态原程序回归。验证 180 笔成交的完整状态，含 34 次清空 bitmap 位，并核对 36 组拒绝。报价能力目录升至 `/28`。下一步在同 bank 生成无签名交易，并用 SBF 验证 Token CPI 收付、限额失败和回滚。 [复验说明](integration/tools/reference/raydium-clmm/README.md)
 - 验收奖励领取与高级组合，覆盖 Position 和奖励 vault 绑定、累计奖励账本、Token-2022 净额及其与动态费、扩展 bitmap、订单的组合。
 
 ### I5 V4/Infinity

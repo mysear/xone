@@ -13,6 +13,8 @@ pub const PROFILE: &str = "raydium-clmm-static";
 pub const ADAPTER: &str = "raydium-clmm/6d7a0f82-spl-static-1";
 pub const TOKEN_FEE_PROFILE: &str = "raydium-clmm-token-fee";
 pub const TOKEN_FEE_ADAPTER: &str = "raydium-clmm/6d7a0f82-spl-token-fee-1";
+const ORDERS_PROFILE: &str = "raydium-clmm-limit-orders";
+const ORDERS_ADAPTER: &str = "raydium-clmm/6d7a0f82-spl-limit-orders-1";
 mod dynamic;
 pub use dynamic::*;
 mod seed;
@@ -45,7 +47,17 @@ fn pda(seeds: &[&[u8]], program: &Pubkey) -> (String, u8) {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
+pub struct LimitOrders {
+    order_phase: u64,
+    orders_amount: u64,
+    part_filled_orders_remaining: u64,
+    unfilled_ratio_x64: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct Tick {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit_orders: Option<LimitOrders>,
     pub tick: i32,
     pub liquidity_gross: String,
     pub liquidity_net: String,
@@ -216,6 +228,7 @@ pub fn base_pool() -> Pool {
         let ticks = (0..60)
             .step_by(20)
             .map(|i| Tick {
+                limit_orders: None,
                 tick: start + i,
                 liquidity_gross: "1000000000000".into(),
                 liquidity_net: "0".into(),
@@ -353,7 +366,6 @@ fn original_states(p: &Pool) -> (AmmConfig, PoolState, Vec<TickArrayState>, Obse
             out.pool_id = pk(&p.pool_id);
             out.start_tick_index = a.start_tick_index;
             out.recent_epoch = a.recent_epoch;
-            out.initialized_tick_count = a.ticks.len() as u8;
             for t in &a.ticks {
                 let index = ((t.tick - a.start_tick_index) / s.tick_spacing as i32) as usize;
                 out.ticks[index] = TickState {
@@ -364,6 +376,15 @@ fn original_states(p: &Pool) -> (AmmConfig, PoolState, Vec<TickArrayState>, Obse
                     fee_growth_outside_1_x64: t.fee_growth_outside1.parse().unwrap(),
                     ..TickState::default()
                 };
+                if let Some(orders) = &t.limit_orders {
+                    out.ticks[index].order_phase = orders.order_phase;
+                    out.ticks[index].orders_amount = orders.orders_amount;
+                    out.ticks[index].part_filled_orders_remaining =
+                        orders.part_filled_orders_remaining;
+                    out.ticks[index].unfilled_ratio_x64 =
+                        orders.unfilled_ratio_x64.parse().unwrap();
+                }
+                out.initialized_tick_count += u8::from(out.ticks[index].is_initialized());
             }
             assert_eq!(out.key().to_string(), a.address);
             out
@@ -402,8 +423,16 @@ fn extract(p: &Pool, state: PoolState, arrays: Vec<TickArrayState>, obs: Observa
         a.ticks = raw
             .ticks
             .into_iter()
-            .filter(|t| t.liquidity_gross != 0)
+            .filter(|t| t.is_initialized() || (p.protocol == ORDERS_PROFILE && t.order_phase != 0))
             .map(|t| Tick {
+                limit_orders: (p.protocol == ORDERS_PROFILE
+                    && (t.order_phase != 0 || t.has_limit_orders() || t.unfilled_ratio_x64 != 0))
+                    .then(|| LimitOrders {
+                        order_phase: t.order_phase,
+                        orders_amount: t.orders_amount,
+                        part_filled_orders_remaining: t.part_filled_orders_remaining,
+                        unfilled_ratio_x64: { t.unfilled_ratio_x64 }.to_string(),
+                    }),
                 tick: t.tick,
                 liquidity_gross: { t.liquidity_gross }.to_string(),
                 liquidity_net: { t.liquidity_net }.to_string(),
@@ -435,7 +464,9 @@ fn bounded(p: &Pool) -> std::result::Result<(), String> {
         p.adapter_version.as_str(),
         s.collect_fee_on,
     ) {
-        (PROFILE, ADAPTER, 0) | (TOKEN_FEE_PROFILE, TOKEN_FEE_ADAPTER, 1 | 2)
+        (PROFILE, ADAPTER, 0)
+        | (TOKEN_FEE_PROFILE, TOKEN_FEE_ADAPTER, 1 | 2)
+        | (ORDERS_PROFILE, ORDERS_ADAPTER, 0..=2)
             if s.seed_index == 0 && s.bitmap_extension.is_none() => {}
         (BITMAP_PROFILE, BITMAP_ADAPTER, 0..=2)
             if s.seed_index == 0 && s.bitmap_extension.is_some() =>
@@ -498,13 +529,28 @@ fn bounded(p: &Pool) -> std::result::Result<(), String> {
             return Err("base array window".into());
         }
         let initialized = array_initialized(p, a.start_tick_index)?;
-        if initialized != !a.ticks.is_empty() {
+        if initialized
+            != a.ticks.iter().any(|t| {
+                t.liquidity_gross != "0"
+                    || t.limit_orders.as_ref().is_some_and(|orders| {
+                        orders.orders_amount != 0 || orders.part_filled_orders_remaining != 0
+                    })
+            })
+        {
             return Err("bitmap proof".into());
         }
     }
     Ok(())
 }
 pub fn quote(p: &Pool, input: &str, zero_for_one: bool) -> std::result::Result<Quote, String> {
+    quote_amount(p, input, zero_for_one, true)
+}
+fn quote_amount(
+    p: &Pool,
+    input: &str,
+    zero_for_one: bool,
+    exact_in: bool,
+) -> std::result::Result<Quote, String> {
     bounded(p)?;
     let amount: u64 = input.parse::<u64>().map_err(|e| e.to_string())?;
     let _lock = NATIVE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
@@ -556,7 +602,7 @@ pub fn quote(p: &Pool, input: &str, zero_for_one: bool) -> std::result::Result<Q
                 amount,
                 limit,
                 zero_for_one,
-                true,
+                exact_in,
                 raydium_clmm::states::oracle::block_timestamp(),
             )
             .map_err(|e| e.to_string())?;
@@ -566,8 +612,10 @@ pub fn quote(p: &Pool, input: &str, zero_for_one: bool) -> std::result::Result<Q
             } else {
                 (result.amount_1, result.amount_0)
             };
-            if used != amount || used == 0 || output == 0 {
-                return Err("entrypoint requires nonzero output and full input".into());
+            if (if exact_in { used } else { output }) != amount || used == 0 || output == 0 {
+                return Err(
+                    "entrypoint requires nonzero settlement and full specified amount".into(),
+                );
             }
             let mut next = extract(
                 p,
@@ -605,6 +653,70 @@ fn expected(p: &Pool, input: u64, d: bool) -> Value {
         Ok(q) => json!({"amount_out":q.amount_out.to_string(),"next_pool":q.pool}),
         Err(_) => json!({"reverted":true}),
     }
+}
+
+pub fn generate_orders() -> Value {
+    let mut cases = Vec::new();
+    for left in [false, true] {
+        for fee_mode in 0..=2 {
+            for order_only in [false, true] {
+                let mut pool = base_pool();
+                pool.protocol = ORDERS_PROFILE.into();
+                pool.adapter_version = ORDERS_ADAPTER.into();
+                let state = &mut pool.raydium_clmm;
+                state.collect_fee_on = fee_mode;
+                state.sqrt_price_x64 = (1u128 << 64).to_string();
+                state.tick_current = if left { 0 } else { -1 };
+                let array = state
+                    .tick_arrays
+                    .iter_mut()
+                    .find(|a| a.start_tick_index == 0)
+                    .unwrap();
+                if order_only {
+                    array.ticks.retain(|t| t.tick == 0);
+                    array.ticks[0].liquidity_gross = "0".into();
+                } else {
+                    array.ticks[0].liquidity_net = "1000".into();
+                }
+                array.ticks[0].limit_orders = Some(LimitOrders {
+                    order_phase: 9,
+                    orders_amount: 10_000,
+                    part_filled_orders_remaining: 2_000,
+                    unfilled_ratio_x64: (1u128 << 63).to_string(),
+                });
+                for exact_in in [false, true] {
+                    for amount in [
+                        1u64,
+                        100,
+                        2_000,
+                        2_100,
+                        11_999,
+                        12_000,
+                        13_000,
+                        100_000,
+                        u64::MAX,
+                    ] {
+                        let result = quote_amount(&pool, &amount.to_string(), left, exact_in);
+                        let expected = match result {
+                            Ok(quote) => {
+                                let (before, after) =
+                                    (&pool.raydium_clmm, &quote.pool.raydium_clmm);
+                                let consumed = if left {
+                                    after.raw_vault0 - before.raw_vault0
+                                } else {
+                                    after.raw_vault1 - before.raw_vault1
+                                };
+                                json!({"consumed":consumed.to_string(),"output":quote.amount_out.to_string(),"next_pool":quote.pool})
+                            }
+                            Err(error) => json!({"reverted":true,"reason":error}),
+                        };
+                        cases.push(json!({"pool":pool,"left":left,"order_only":order_only,"exact_in":exact_in,"amount":amount.to_string(),"expected":expected}));
+                    }
+                }
+            }
+        }
+    }
+    json!({"revision":REVISION,"cases":cases})
 }
 fn account(owner: &str, executable: bool, data: Vec<u8>) -> Value {
     let b64 = STANDARD.encode(&data);
