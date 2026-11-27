@@ -413,6 +413,9 @@ func (s *Service) targetScopeChain(chain config.Chain, requested []string) (conf
 	for _, id := range previous {
 		if _, ok := known[id]; ok {
 			wanted[id] = true
+			if len(requested) == 0 && len(wanted) == 32 {
+				break
+			}
 		}
 	}
 	for _, id := range requested {
