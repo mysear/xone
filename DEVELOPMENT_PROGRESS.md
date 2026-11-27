@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R04.3 历史队列重启校验（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|Rust 在解析前限制持久队列原始字节，校验覆盖区间、作业游标和租约。在线基线提交保留损坏记录供核对。3 项持久状态回归及 7 项正常 history runtime 测试通过|旧 `history_queue` 集成套件缺少 `chain-parser-rust/test/fixtures/solana/baseline.json`，长期容量和留存验收仍待完成|
 |I7-R04 持久范围预算与历史隔离边界（2026-11-28）|§9、§18、§28.26；WP08、WP09、WP20、WP24|LOCAL_SCOPE_VERIFIED|修复在线 scope 保留容量和 history replay 重启加载的无符号预算下溢，损坏聚合和超限历史记录现在在进入恢复或 READY 前封闭；冷启动从历史目录最多恢复 32 个仍有效的池身份，额外池继续通过显式 scope 请求扩容；Rust history queue 重启读取也按作业、队列、记录和字节预算封闭；新增两项 Go 边界回归，Go bootstrap 全包及 Rust history runtime 7 项通过|缺失的历史 receipt fixture 仍阻塞集成 retention 验收；真实长停机、公开历史 bank 和生产故障域仍待完成|
 |I7-R03 真实中间件流恢复基础（2026-11-27）|§7、§18、§28.22；WP04、WP05、WP07、WP20、WP24|LOCAL_SCOPE_VERIFIED|隔离 Docker PostgreSQL/Kafka 回退、Kafka 内外双监听器、固定 protobuf/SDK 构建环境和真实 normal Yellowstone 发布、撤销、重启、Fence、HEAD_FIRST 场景已接入；R03 history runtime 7 项测试通过|证据为受控 tonic 来源与本机真实中间件，真实同源 Yellowstone、版本化历史 bank 完整性、连续断线和生产故障域仍待验收|
 |I4-T2022 Token-2022 扩展与转账费收敛（本轮）|§7.3、§8.12、§11.3、§12.2、§12.5、§12.11–12.14；WP02、WP05、WP11、WP20、WP25|PARTIAL_LOCAL|新增共享 `spl_token_2022` 域模块，统一 epoch 费率选择、向上取整、最大手续费、ExactOut 逆解和 `TransferFeeAmount`/`ImmutableOwner` TLV 校验；Meteora 报价域与 Solana 交易准备复用同一解析逻辑|两套 Rust domain 边界测试、格式检查和 dex-router check 通过；固定 bank/协议数学全量回放因缺失 `meteora-token2022.json` fixture 阻塞，执行准备测试因缺失 `evm/baseline.json` 阻塞；Orca adaptive Token-2022、稀疏数组、奖励领取及 Raydium CLMM 订单仍待后续优先级完成|
@@ -443,6 +444,11 @@
 - 冷启动从上次在线目录最多恢复 32 个仍存在于当前目录的池身份，额外池只能经带代次条件的 `ensure-pool-scope` 请求加入。
 - Rust history queue 的持久状态读取同样检查作业数量、序列化队列大小、已记录条数和历史字节计数，超限统一返回 `HISTORY_RECONCILE_REQUIRED`。
 - 通过 Go bootstrap 全包和新增边界回归后，提交本轮代码并继续推进 R04.2 的真实长停机、peer 选择和 retention 证据。
+
+#### 下一迭代目标（I7 R04.2，2026-11-28）
+
+- 在 Solana 正常 HEAD_FIRST 路径中按配置的新鲜度约束选择当前基线。首个端点返回陈旧基线时，继续检查后续端点并记录获选基线。
+- 用本地双端点验证新鲜基线恢复、全源陈旧拒绝和在线就绪状态。按 §23.14 继续验收可信 peer、过期 Kafka offset 和 1 小时、1 天、30 天停机恢复。
 
 ### I8 路由与费用
 

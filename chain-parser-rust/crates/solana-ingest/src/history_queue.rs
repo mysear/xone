@@ -221,31 +221,84 @@ pub struct HistoryStatus {
     pub limits: HistoryLimits,
 }
 fn read(db: &Store) -> Result<Option<State>> {
-    let Some(bytes) = db.db.get(KEY).map_err(|_| err("HISTORY_READ"))? else {
+    let Some(bytes) = db.db.get_pinned(KEY).map_err(|_| err("HISTORY_READ"))? else {
         return Ok(None);
     };
-    let state: State =
-        serde_json::from_slice(&bytes).map_err(|_| err("HISTORY_RECONCILE_REQUIRED"))?;
-    if state.version != 1 {
+    let limits = db.history_registration.as_ref().map(|r| &r.limits);
+    if limits.is_some_and(|l| bytes.len() > l.max_queue_bytes) {
         return Err(err("HISTORY_RECONCILE_REQUIRED"));
     }
-    if let Some(registration) = db.history_registration.as_ref() {
-        let limits = &registration.limits;
-        if state.jobs.len() > limits.max_jobs
-            || state.records > limits.max_records
-            || state.bytes > limits.max_history_bytes
-            || serde_json::to_vec(&state)
-                .map_err(|_| err("HISTORY_RECONCILE_REQUIRED"))?
-                .len()
-                > limits.max_queue_bytes
-        {
-            return Err(err("HISTORY_RECONCILE_REQUIRED"));
-        }
+    let state: State =
+        serde_json::from_slice(&bytes).map_err(|_| err("HISTORY_RECONCILE_REQUIRED"))?;
+    validate_state(&state)?;
+    if limits.is_some_and(|l| {
+        state.jobs.len() > l.max_jobs
+            || state.records > l.max_records
+            || state.bytes > l.max_history_bytes
+    }) {
+        return Err(err("HISTORY_RECONCILE_REQUIRED"));
     }
     Ok(Some(state))
 }
 
+fn validate_state(state: &State) -> Result<()> {
+    if state.version != 1
+        || state.dataset.chain_key.is_empty()
+        || state.dataset.genesis_hash.is_empty()
+        || state.dataset.scope_hash.is_empty()
+        || state.dataset.decoder_hash.is_empty()
+        || state.dataset.source_fingerprint.is_empty()
+        || state.epoch.is_empty()
+        || state.online_source_epoch.is_empty()
+        || state.head.hash.is_empty()
+        || state.head.parent_hash.is_empty()
+        || state.tail_from > state.head.slot
+        || (state.records == 0 && state.bytes != 0)
+        || (state.records != 0 && state.bytes == 0)
+        || state.covered.len() as u64 > state.records
+    {
+        return Err(err("HISTORY_RECONCILE_REQUIRED"));
+    }
+    let mut covered_to = None;
+    for range in &state.covered {
+        if range.from > range.to
+            || range.to >= state.head.slot
+            || covered_to.is_some_and(|previous| range.from <= previous)
+        {
+            return Err(err("HISTORY_RECONCILE_REQUIRED"));
+        }
+        covered_to = Some(range.to);
+    }
+    for (id, job) in &state.jobs {
+        if id.is_empty()
+            || job.id != *id
+            || job.from > job.to
+            || job.to >= state.head.slot
+            || job.to >= job.bound_head.slot
+            || job.bound_head.slot > state.head.slot
+            || job
+                .next
+                .is_some_and(|next| !(job.from..=job.to).contains(&next))
+            || (job.phase == HistoryPhase::Complete) != job.next.is_none()
+        {
+            return Err(err("HISTORY_RECONCILE_REQUIRED"));
+        }
+        let valid_lease = if job.phase == HistoryPhase::Running {
+            job.attempt > 0
+                && job.lease_until_ms > 0
+                && job.claim_head.as_ref() == Some(&job.bound_head)
+        } else {
+            job.lease_until_ms == 0 && job.claim_head.is_none()
+        };
+        if !valid_lease {
+            return Err(err("HISTORY_RECONCILE_REQUIRED"));
+        }
+    }
+    Ok(())
+}
+
 fn encode(s: &State, limits: &HistoryLimits) -> Result<Vec<u8>> {
+    validate_state(s)?;
     let b = serde_json::to_vec(s).map_err(|_| err("HISTORY_ENCODING"))?;
     if s.jobs.len() > limits.max_jobs || b.len() > limits.max_queue_bytes {
         return Err(err("HISTORY_QUEUE_BUDGET"));
@@ -394,10 +447,7 @@ pub(crate) fn stage_snapshot(db: &Store, snapshot: &Snapshot, kind: &str, batch:
     };
     let previous = match read(db) {
         Ok(state) => state,
-        Err(_) => {
-            batch.put(KEY, b"null");
-            return;
-        }
+        Err(_) => return,
     };
     let dataset = HistoryDataset {
         chain_key: reg.chain_key.clone(),
@@ -627,7 +677,7 @@ impl HistoryQueue {
     }
     fn state(&self, db: &Store) -> Result<State> {
         let s = read(db)?.ok_or_else(|| err("HISTORY_WAITING_BASELINE"))?;
-        if s.version != 1 || s.dataset.chain_key != self.registration.chain_key {
+        if s.dataset.chain_key != self.registration.chain_key {
             return Err(err("HISTORY_IDENTITY"));
         }
         Ok(s)
@@ -943,5 +993,156 @@ impl HistoryQueue {
             return Err(err("HISTORY_STALE_CLAIM"));
         }
         write(&mut db, batch)
+    }
+}
+
+#[cfg(test)]
+mod state_tests {
+    use super::*;
+
+    fn state() -> State {
+        let head = HistoryHead {
+            slot: 10,
+            hash: "head".into(),
+            parent_hash: "parent".into(),
+            timestamp_ms: 1,
+        };
+        let dataset = HistoryDataset {
+            chain_key: "solana:test".into(),
+            genesis_hash: "genesis".into(),
+            scope_hash: "scope".into(),
+            decoder_hash: "decoder".into(),
+            source_fingerprint: "source".into(),
+        };
+        let id = String::from("job");
+        let mut jobs = BTreeMap::new();
+        jobs.insert(
+            id.clone(),
+            HistoryJob {
+                id,
+                from: 1,
+                to: 2,
+                next: Some(1),
+                phase: HistoryPhase::Pending,
+                attempt: 0,
+                lease_until_ms: 0,
+                due_ms: 0,
+                last_error: String::new(),
+                claim_head: None,
+                bound_head: head.clone(),
+            },
+        );
+        State {
+            version: 1,
+            dataset,
+            canonical_revision: 1,
+            owner_canonical_epoch: 1,
+            online_source_epoch: "online".into(),
+            epoch: "epoch".into(),
+            session: 1,
+            head,
+            generation: 1,
+            paused: false,
+            revoked: false,
+            enabled: true,
+            jobs,
+            covered: vec![],
+            tail_from: 1,
+            gap_sync_pending: false,
+            records: 0,
+            bytes: 0,
+            last_error: String::new(),
+            source_status: "READY".into(),
+        }
+    }
+
+    #[test]
+    fn persisted_state_rejects_overlapping_coverage() {
+        let mut s = state();
+        s.records = 2;
+        s.bytes = 2;
+        s.covered = vec![
+            Gap {
+                from: 1,
+                to: 3,
+                reason: "a".into(),
+            },
+            Gap {
+                from: 3,
+                to: 4,
+                reason: "b".into(),
+            },
+        ];
+        assert_eq!(
+            validate_state(&s).unwrap_err().0,
+            "HISTORY_RECONCILE_REQUIRED"
+        );
+    }
+
+    #[test]
+    fn persisted_state_rejects_unleased_running_job() {
+        let mut s = state();
+        s.jobs.values_mut().next().unwrap().phase = HistoryPhase::Running;
+        assert_eq!(
+            validate_state(&s).unwrap_err().0,
+            "HISTORY_RECONCILE_REQUIRED"
+        );
+    }
+
+    #[test]
+    fn oversized_or_invalid_queue_remains_isolated_during_online_recovery() {
+        for oversized in [false, true] {
+            let path = std::env::temp_dir().join(format!(
+                "xone-history-queue-recovery-{}-{oversized}",
+                std::process::id()
+            ));
+            let snapshot = crate::owner_baseline::snapshot(1_000);
+            let registration = HistoryRegistration::new(
+                &snapshot.reference.block.chain_key,
+                "test-genesis",
+                "http://127.0.0.1:1",
+                true,
+                HistoryLimits {
+                    max_queue_bytes: 4096,
+                    ..HistoryLimits::default()
+                },
+            )
+            .unwrap();
+            let open = || {
+                Store::open(
+                    &path,
+                    &snapshot.reference.owner_service,
+                    snapshot.reference.owner_assignment_version,
+                )
+                .unwrap()
+            };
+            let mut bad_state = state();
+            if !oversized {
+                bad_state.jobs.values_mut().next().unwrap().next = Some(3);
+            }
+            let mut raw = serde_json::to_vec(&bad_state).unwrap();
+            if oversized {
+                raw.resize(4097, b' ');
+            }
+            {
+                let store = open();
+                store.db.put(KEY, &raw).unwrap();
+            }
+            let db = Arc::new(Mutex::new(open()));
+            let queue = HistoryQueue::open(db.clone(), registration).unwrap();
+            assert_eq!(queue.status().unwrap_err().0, "HISTORY_RECONCILE_REQUIRED");
+            assert_eq!(
+                queue.claim(1000).unwrap_err().0,
+                "HISTORY_RECONCILE_REQUIRED"
+            );
+            let mut store = db.lock().unwrap();
+            store.publish_baseline(snapshot.clone()).unwrap();
+            assert_eq!(store.current(), Some(snapshot));
+            assert_eq!(store.db.get(KEY).unwrap().unwrap(), raw);
+            drop(store);
+            drop(queue);
+            drop(db);
+            std::fs::remove_dir_all(path).unwrap();
+        }
     }
 }
