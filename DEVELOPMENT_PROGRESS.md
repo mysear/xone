@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|Balancer Managed 非零 swap-share 费用接入（本轮）|§12.2、§12.11、§12.14；WP11、WP16|PARTIAL_LOCAL|将已完成的原 ManagedPool 非零协议/管理费 BPT 铸币数学接入 `balancer-v2-managed-fees` ExactIn 正常多资产入口，传播 total supply、owner 和 protocol collector 余额，并保留同收款方合并语义|`cargo check -p xone-protocol-math` 通过；完整历史 fixture 测试仍受用户已删除 `test/contracts` 输入影响；ExactOut 费用逆解、可部署版本真实来源、完整执行与生产资格仍未完成|
 |Curve MetaUSD direct ExactOut（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|补齐有界单调整数逆解、零目标和不可达目标拒绝、Meta 直接兑换完整 stored/admin balance 后状态，并接入 multi-asset 与 ExactOut 能力目录|自包含 `curve_meta_exact_out_standalone` 两项回归通过；Meta underlying、真实 base LP 链路和生产执行资格仍待完成|
 |Curve StableSwap NG ExactOut（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|补齐固定 rate NG 完整 oracle/admin-fee 后状态逆解、零目标和不可达目标拒绝，接入 multi-asset 与 ExactOut 能力目录|自包含 `curve_ng_exact_out_standalone` 两项回归通过；特殊 Token、外部 rate provider、真实来源和生产执行资格仍待完成|
 |Curve Plain3/Plain4 ExactOut 边界收敛（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|源整数溢出或流动性不足时统一返回不可达目标，3/4 资产后状态反解回归通过|自包含 `curve_plain_exact_out_standalone` 两项回归通过；真实部署来源和执行资格仍待完成|
@@ -268,7 +269,7 @@
 |Curve Crypto完整交换状态与服务接入|§7.3/11.3/12.2/12.9/12.11/12.14；WP02–05、WP09、WP11–13、WP25|LOCAL_SCOPE_VERIFIED|固定d7d04cd9原池及原V4 LP、价格调整/admin mint/gulp、完整状态/wire、固定块解析及普通报价分派已实现|原参考60案例及30场景/双副本60请求、完整live protobuf、五类来源故障撤销/更高generation恢复、Solana保活、router重启及VERIFIED/build拒绝通过；settled A/gamma范围，见[本批计划](#plan-2026-11-02-priority-extensions)|
 |Orca adaptive完整交换与Infinity跨Bin内核|§12.2/12.5/12.11/12.14；WP02、WP03、WP05、WP11、WP14、WP20、WP25|PARTIAL_LOCAL|Orca逐group费率/时间/波动及完整fixed-array exact-in内核；Infinity完整初始化树的多bin遍历、费用/储备/active后状态与原子失败|原程序/原BinPool差分已实现并定向测试；Orca经典SPL/fixed-array/未初始化奖励的完整adaptive exact-in内核已补；Orca完整Oracle/限定在线profile已在[后续服务批次](#plan-2026-11-02-orca-adaptive-online)验收；Bin manager/tree来源与静态零hook在线profile已在后续Bin服务批次完成限定验收，见[原内核批次](#plan-2026-11-02-priority-extensions)|
 |MetaUSD标准meta/3CRV直接兑换|原§7.3、§11.3、§12.2/12.9/12.11/12.14 / WP02–05、WP09、WP11–13、WP25|LOCAL_SCOPE_VERIFIED|独立clone/原实现准入、固定区块完整余额与base VP依赖、直接兑换及共享池重算、双副本恢复完成|4个实际初始化原clone/32交换与8探针；正式4组服务流程通过；underlying/真实base部署与完整执行仍未完成，见[本批计划](#plan-2026-11-01-metausd-direct)|
-|Managed非零BPT费用参考与状态契约|原§7.3、§11.3、§12.2/12.11/12.14 / WP02–05、WP11、WP13、WP25|PARTIAL_LOCAL|原回调费用/铸币完整后状态、同收款方合并、独立wire和固定区块依赖组件已实现|旧源码runtime超EIP170，正常配置/parser及公共报价保持拒绝；实际可部署版本服务闭环未完成，见[本批计划](#plan-2026-11-01-managed-bpt-fees)|
+|Managed非零BPT费用参考与状态契约|原§7.3、§11.3、§12.2/12.11/12.14 / WP02–05、WP11、WP13、WP25|PARTIAL_LOCAL|原回调费用/铸币完整后状态、同收款方合并、独立wire和固定区块依赖组件已实现，并接入 `balancer-v2-managed-fees` 的 ExactIn 多资产入口|旧源码runtime超EIP170，正常配置/parser及公共报价仍受部署版本门禁限制；ExactOut费用逆解、实际可部署版本服务闭环未完成，见[本批计划](#plan-2026-11-01-managed-bpt-fees)|
 |Curve NG标准资产完整服务链路|原§7.3、§11.3、§12.2/12.9/12.11/12.14 / WP02–05、WP09、WP11–13、WP25|LOCAL_SCOPE_VERIFIED|独立版本2–8币固定区块读取、完整余额与EMA、原合约差分、共享池连续兑换及双副本恢复通过|147次原交换、112次双副本报价、三组正式流程与两阶段审查；特殊Token/外部rate和其他Curve模型仍未完成，见[本批计划](#plan-2026-11-01-curve-ng-full-state)|
 |进度文档精简|原§28 / WP01|LOCAL_SCOPE_VERIFIED|已删除嵌入JSON、设计原文和重复归档，改为普通表格；检查脚本直接读取表格|28项文档/映射及25项验收辅助测试通过；历史批次明确链接，独立审查问题已关闭|
 |EVM区块receipt与日志完整性|原§7.3 / WP04、WP05|LOCAL_SCOPE_VERIFIED|结构、关联、去重和全块日志连续顺序校验完成；19类异常、Go全check/race及审查通过|新旧27份范围回归全部通过；不新增DEX数学支持，后续已补多源与RPC声明root局部核验；独立可信区块头仍待补|

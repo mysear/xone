@@ -116,6 +116,7 @@ pub fn quote_exact_in_tokens(
         .map(|a| a.scaling.0.clone())
         .collect::<Vec<_>>();
     let fee = BigUint::from(pool.fee_numerator);
+    let mut managed_fee_state = None;
     let (out, next) = match pool.protocol.as_str() {
         "balancer-v2-weighted-multi" => {
             let weights = s.weights.iter().map(|w| w.0.clone()).collect::<Vec<_>>();
@@ -134,6 +135,32 @@ pub fn quote_exact_in_tokens(
             let q = crate::balancer_multi::quote_managed_snapshot(
                 &balances, &weights, &scales, &fee, &input.0, i, j, &guards,
             )?;
+            (q.amount_out, q.next_balances)
+        }
+        "balancer-v2-managed-fees" => {
+            let weights = s.weights.iter().map(|w| w.0.clone()).collect::<Vec<_>>();
+            let fees = s
+                .managed_fees
+                .as_ref()
+                .ok_or_else(|| err("MANAGED_FEE_STATE_REQUIRED"))?;
+            let q = crate::balancer_managed_fees::quote_exact_in(
+                &balances,
+                &weights,
+                &scales,
+                &fee,
+                &input.0,
+                i,
+                j,
+                &crate::balancer_managed_fees::ManagedFeeState {
+                    total_supply: fees.total_supply.0.clone(),
+                    protocol_swap_fee: fees.protocol_swap_fee.0.clone(),
+                    management_swap_fee: fees.management_swap_fee.0.clone(),
+                    owner_balance: fees.owner_balance.0.clone(),
+                    protocol_collector_balance: fees.protocol_collector_balance.0.clone(),
+                    same_recipient: fees.owner == fees.protocol_collector,
+                },
+            )?;
+            managed_fee_state = Some(q.next_state);
             (q.amount_out, q.next_balances)
         }
         "balancer-v2-composable-regular" => {
@@ -410,6 +437,16 @@ pub fn quote_exact_in_tokens(
         .ok_or_else(|| err("MULTI_ASSET_STATE_REQUIRED"))?;
     for (asset, balance) in state.assets.iter_mut().zip(next) {
         asset.balance = Amount::checked(balance)?;
+    }
+    if let Some(next_fee_state) = managed_fee_state {
+        let fees = state
+            .managed_fees
+            .as_mut()
+            .ok_or_else(|| err("MANAGED_FEE_STATE_REQUIRED"))?;
+        fees.total_supply = Amount::checked(next_fee_state.total_supply)?;
+        fees.owner_balance = Amount::checked(next_fee_state.owner_balance)?;
+        fees.protocol_collector_balance =
+            Amount::checked(next_fee_state.protocol_collector_balance)?;
     }
     next_pool.reserve0 = state.assets[0].balance.clone();
     next_pool.reserve1 = state.assets[1].balance.clone();
