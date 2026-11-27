@@ -45,9 +45,12 @@ class RetentionChain:
     def __init__(self):
         self.head = 100
         self.timestamp = int(time.time())
+        self.stale_height = 90
+        self.stale_timestamp = self.timestamp - 600
+        self.stale_head_reads = 0
         self.issued_headers = set()
 
-    def provider(self):
+    def provider(self, stale=False):
         chain = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -61,13 +64,19 @@ class RetentionChain:
                 if method == 'eth_chainId':
                     result = '0x7a69'
                 elif method == 'eth_getBlockByNumber':
-                    number = chain.head if params[0] == 'latest' else int(params[0], 16)
+                    if params[0] == 'latest':
+                        number = chain.stale_height if stale else chain.head
+                        if stale:
+                            chain.stale_head_reads += 1
+                    else:
+                        number = int(params[0], 16)
                     block_hash = GENESIS if number == 0 else f'0x{number:064x}'
                     chain.issued_headers.add(block_hash)
                     result = {
                         'number': hex(number), 'hash': block_hash,
                         'parentHash': GENESIS if number <= 1 else f'0x{number - 1:064x}',
-                        'timestamp': hex(chain.timestamp), 'transactions': [],
+                        'timestamp': hex(chain.stale_timestamp if number == chain.stale_height else chain.timestamp),
+                        'transactions': [],
                         'receiptsRoot': EMPTY_RECEIPTS_ROOT,
                     }
                 elif method == 'eth_call':
@@ -178,7 +187,7 @@ def run(retention_only=False, offline_seconds=0):
         )
         target = OUT / report_name
         chain = RetentionChain()
-        servers = [chain.provider(), chain.provider()]
+        servers = [chain.provider(stale=True), chain.provider()]
         pools = [RETENTION_POOL]
         expected_amount = str(10000 * 997 * 1000000 // (1000000 * 1000 + 10000 * 997))
         report['authority'] = 'controlled single-pool RPC with empty blocks; actual PG/Kafka and normal Go/quote binaries'
@@ -293,6 +302,8 @@ def run(retention_only=False, offline_seconds=0):
                 owner = status('go')
                 gaps = owner['history_gaps']
                 require(restored > low_after, (restored, low_after))
+                require(owner['snapshot_ref']['block']['number_or_slot'] == chain.head,
+                        'owner did not choose the current source')
                 require(quoted['onlineGeneration'] > old['onlineGeneration'], 'retention restart reused a generation')
                 require(quoted['snapshotRef'] == owner['snapshot_ref'], 'quote did not bind the owner reference')
                 require(gaps and quoted['quality']['historyGaps'] == gaps, 'owner history gap missing from quote')
@@ -319,6 +330,9 @@ def run(retention_only=False, offline_seconds=0):
                     'first_qualified_scope_ms': scope_ms, 'first_successful_quote_ms': quote_ms,
                     'quote_verification': quoted['verification']['level'],
                 }
+                if retention_only:
+                    require(chain.stale_head_reads >= 2, 'primary staleness was not presented')
+                    report['retention']['stale_primary_head_reads'] = chain.stale_head_reads
                 write_result(target, report)
                 request=urllib.request.Request(base('router1')+'/metrics',headers={'Authorization':'Bearer '+token})
                 with urllib.request.urlopen(request,timeout=3)as response:metrics=response.read(65536).decode()

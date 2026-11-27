@@ -11,19 +11,17 @@ import (
 	"testing"
 	"time"
 	"xone/chain-parser-go/internal/chain/evm"
-	"xone/chain-parser-go/internal/config"
 	"xone/chain-parser-go/internal/rpc"
 )
 
 func TestLiveHeadFreshnessRejectsBeforePoolReadsAndRevokesScope(t *testing.T) {
 	for _, mode := range []string{"future", "stale"} {
 		t.Run(mode, func(t *testing.T) {
-			cfg, err := config.Load("../../config/config-test.yaml", "chain-parser-go")
-			if err != nil {
-				t.Fatal(err)
-			}
-			cfg.Config.State.Path = t.TempDir()
-			s, err := NewWithSource(cfg, testSnapshotSource(t))
+			cfg := startupIsolationConfig(t)
+			ch, _ := startupRPCChain(t, cfg.Config.Chains[0], 31337, "")
+			cfg.Config.Chains[0] = ch
+			cfg.Config.Startup.MaxAge = 60_000
+			s, err := New(cfg)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -31,9 +29,6 @@ func TestLiveHeadFreshnessRejectsBeforePoolReadsAndRevokesScope(t *testing.T) {
 			if err = s.Start(context.Background()); err != nil {
 				t.Fatal(err)
 			}
-			s.source = nil
-			s.cfg.Config.Startup.MaxAge = 60_000
-			ch := cfg.Config.Chains[0]
 			original, ready := s.stores[ch.Key].Current()
 			if !ready {
 				t.Fatal("missing baseline")
@@ -64,7 +59,7 @@ func TestLiveHeadFreshnessRejectsBeforePoolReadsAndRevokesScope(t *testing.T) {
 				json.NewEncoder(w).Encode(response)
 			}))
 			defer server.Close()
-			s.adapters[ch.Key] = &evm.Adapter{Client: rpc.New([]string{server.URL}, time.Second, 1<<20), Chain: ch}
+			s.adapters[ch.Key] = &evm.Adapter{Client: rpc.New([]string{server.URL}, time.Second, 1<<20), Chain: ch, OnlineMaxAgeMS: cfg.Config.Startup.MaxAge}
 			if err = s.syncChain(context.Background(), ch); err == nil || err.Error() != expected {
 				t.Fatalf("bad live clock admitted or checked too late: %v, poolReads=%d", err, poolReads.Load())
 			}

@@ -197,8 +197,26 @@ func (a *Adapter) Block(ctx context.Context, tag string) (RawBlock, error) {
 	if a.Chain.BlockIntegrity != "" {
 		return a.ethereumBlock(ctx, tag)
 	}
+	ctx, cancel := context.WithTimeout(ctx, a.Client.HTTP.Timeout)
+	defer cancel()
+	b, providerID, err := a.plainBlock(ctx, tag)
+	if err != nil || a.OnlineMaxAgeMS == 0 || !movingHeadTag(tag) {
+		return b, err
+	}
+	ref, err := blockReference(a.Chain.Key, b)
+	if err != nil {
+		return b, err
+	}
+	err = bootstrap.CheckTimestampMS(ref.TimestampMS, uint64(time.Now().UnixMilli()), a.OnlineMaxAgeMS)
+	if err != bootstrap.ErrBaselineTooOld {
+		return b, err
+	}
+	return a.selectFreshPlainHead(ctx, tag, providerID, ref)
+}
+
+func (a *Adapter) plainBlock(ctx context.Context, tag string) (RawBlock, string, error) {
 	var b RawBlock
-	e := a.Client.Call(ctx, "eth_getBlockByNumber", []any{tag, false}, &b)
+	providerID, e := a.Client.CallWithProvider(ctx, "eth_getBlockByNumber", []any{tag, false}, &b)
 	if e == nil && (b.Hash == "" || b.ParentHash == "") {
 		e = errors.New("BLOCK_IDENTITY")
 	}
@@ -221,7 +239,7 @@ func (a *Adapter) Block(ctx context.Context, tag string) (RawBlock, error) {
 		}
 		e = validateBlockTransactions(b)
 	}
-	return b, e
+	return b, providerID, e
 }
 func (a *Adapter) ReadState(ctx context.Context, tag string, complete bool) (domain.BlockRef, []domain.Pool, error) {
 	b, p, _, e := a.readState(ctx, tag, complete)
