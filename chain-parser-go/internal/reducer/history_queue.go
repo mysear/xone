@@ -25,6 +25,7 @@ var (
 	ErrHistoryIdle     = errors.New("HISTORY_IDLE")
 	ErrHistoryRevision = errors.New("HISTORY_CANONICAL_REVISION_CHANGED")
 	ErrHistoryDataset  = errors.New("HISTORY_DATASET_SCOPE_CHANGED")
+	ErrHistoryState    = errors.New("HISTORY_QUEUE_STATE")
 )
 var historyQueueKey = []byte("history/jobs/v1")
 
@@ -112,6 +113,13 @@ func historyDigest(raw []byte) string { h, _ := domain.Hash(json.RawMessage(raw)
 func validHistoryID(id string) bool {
 	b, e := hex.DecodeString(id)
 	return e == nil && len(b) == 32 && id == strings.ToLower(id)
+}
+func validHistoryToken(token string) bool {
+	if len(token) != 32 || token != strings.ToLower(token) {
+		return false
+	}
+	_, err := hex.DecodeString(token)
+	return err == nil
 }
 func (q *HistoryQueue) revision() string {
 	id, _ := domain.Hash(struct {
@@ -214,10 +222,57 @@ func (q *HistoryQueue) load(fence bool) (historyQueueDisk, error) {
 	if len(b) > 4<<20 || json.Unmarshal(b, &d) != nil || (d.Version != 1 && d.Version != 2) || d.Chain != q.options.Chain || d.Owner != q.store.owner || d.Assignment > q.store.assignment || d.Bytes < 0 {
 		return d, errors.New("HISTORY_QUEUE_IDENTITY")
 	}
+	if e := validateHistoryDisk(d, q.options); e != nil {
+		return d, e
+	}
+	if uint64(d.Bytes) > uint64(q.options.MaxBytes) {
+		return d, ErrHistoryCapacity
+	}
 	if fence && (d.Epoch != q.epoch || d.Assignment != q.store.assignment) {
 		return d, ErrHistoryClaim
 	}
 	return d, nil
+}
+
+func validateHistoryDisk(d historyQueueDisk, options HistoryQueueOptions) error {
+	if len(d.Jobs) > options.MaxJobs || d.Bytes < 0 || d.FactBlocks < 0 {
+		return ErrHistoryState
+	}
+	if d.Version == 2 && (!validHistoryID(d.DatasetID) || !validHistoryID(d.Revision)) {
+		return ErrHistoryState
+	}
+	var previousTo uint64
+	var havePrevious bool
+	var completed uint64
+	for _, job := range d.Jobs {
+		if job.From > job.To || job.To == math.MaxUint64 || (havePrevious && job.From <= previousTo) || job.Next < job.From || job.Next > job.To+1 {
+			return ErrHistoryState
+		}
+		if job.Done != (job.Next > job.To) {
+			return ErrHistoryState
+		}
+		if job.Baseline.ChainKey != "" && job.Baseline.ChainKey != d.Chain {
+			return ErrHistoryState
+		}
+		if job.Token != "" {
+			if !validHistoryToken(job.Token) || job.Until.IsZero() || job.Done {
+				return ErrHistoryState
+			}
+		} else if !job.Until.IsZero() {
+			return ErrHistoryState
+		}
+		increment := job.Next - job.From
+		if math.MaxUint64-completed < increment {
+			return ErrHistoryState
+		}
+		completed += increment
+		previousTo = job.To
+		havePrevious = true
+	}
+	if completed != d.FactBlocks {
+		return ErrHistoryState
+	}
+	return nil
 }
 
 // bind runs under Store.mu, in the same batch as enqueue/claim or an explicit

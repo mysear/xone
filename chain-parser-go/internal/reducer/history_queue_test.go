@@ -2,6 +2,7 @@ package reducer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/cockroachdb/pebble"
 	"os"
@@ -130,6 +131,46 @@ func TestHistoryQueueOverlapCapacityCancelRetryAndFencing(t *testing.T) {
 	status, e := q2.Status(ctx)
 	if e != nil || status.Jobs[0].Attempts != 1 || status.Jobs[0].LastError != "SOURCE_UNAVAILABLE" {
 		t.Fatal(status, e)
+	}
+}
+
+func TestHistoryQueueRejectsCorruptPersistedJobState(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(dir, "chain-parser-go", 1, 128)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := historyQueue(t, s, 8)
+	if err := q.Enqueue(context.Background(), []domain.Gap{{From: 1, To: 2}}); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	s, err = Open(dir, "chain-parser-go", 1, 128)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	corrupt := historyQueueDisk{
+		Version: 2, Chain: "evm:31337", Owner: "chain-parser-go", Assignment: 1,
+		DatasetID: strings.Repeat("de", 32), Revision: strings.Repeat("ab", 32), OwnerScope: "scope",
+		Jobs: []HistoryJob{{From: 1, To: 2, Next: 4, Reason: "corrupt"}},
+	}
+	raw, err := json.Marshal(corrupt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.Set(historyQueueKey, raw, pebble.Sync); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	s, err = Open(dir, "chain-parser-go", 1, 128)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	_, err = s.OpenHistoryQueue(HistoryQueueOptions{Chain: "evm:31337", DatasetID: strings.Repeat("de", 32), MaxJobs: 8})
+	if !errors.Is(err, ErrHistoryState) {
+		t.Fatalf("corrupt persisted job accepted: %v", err)
 	}
 }
 func TestHistoryQueueOnlyHistoryAndBoundedFacts(t *testing.T) {
