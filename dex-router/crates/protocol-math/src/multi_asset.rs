@@ -655,11 +655,7 @@ pub fn quote_exact_out_tokens(
         )?;
         managed_fee_state = Some(q.next_state);
         crate::balancer_multi::MultiExactOutQuote {
-            amount_in: q
-                .next_balances
-                .get(i)
-                .ok_or_else(|| err("MULTI_ASSET_POST_STATE_LENGTH"))?
-                - &balances[i],
+            amount_in: q.amount_in,
             next_balances: q.next_balances,
         }
     } else if pool.protocol == "curve-metausd-direct" {

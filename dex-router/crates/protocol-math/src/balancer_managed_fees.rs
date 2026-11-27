@@ -22,6 +22,7 @@ pub struct ManagedFeeState {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ManagedFeeQuote {
+    pub amount_in: BigUint,
     pub amount_out: BigUint,
     pub next_balances: Vec<BigUint>,
     pub next_state: ManagedFeeState,
@@ -231,6 +232,7 @@ pub fn quote_exact_in(
         }
     }
     Ok(ManagedFeeQuote {
+        amount_in: input.clone(),
         amount_out,
         next_balances,
         next_state,
