@@ -68,7 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
-|Balancer Managed 非零 swap-share 费用接入（本轮）|§12.2、§12.11、§12.14；WP11、WP16|PARTIAL_LOCAL|将原 ManagedPool 非零协议/管理费 BPT 铸币数学接入 `balancer-v2-managed-fees` 的 ExactIn/限定 ExactOut 多资产入口，传播 total supply、owner 和 protocol collector 余额，并保留同收款方合并语义|`cargo check -p xone-protocol-math` 通过；完整历史 fixture 测试仍受用户已删除 `test/contracts` 输入影响；ExactOut 原始回调差分、可部署版本真实来源、完整执行与生产资格仍未完成|
+|Balancer Managed 非零 swap-share 费用接入（本轮）|§12.2、§12.11、§12.14；WP11、WP16|PARTIAL_LOCAL|将原 ManagedPool 非零协议/管理费 BPT 铸币数学接入 `balancer-v2-managed-fees` 的 ExactIn/限定 ExactOut 多资产入口，接通顶层 ExactOut 分派与能力路径说明，传播 total supply、owner 和 protocol collector 余额，并保留同收款方合并语义|`cargo check -p xone-protocol-math` 通过；完整历史 fixture 测试仍受用户已删除 `test/contracts` 输入影响；Quote API 全量编译受本机 `rdkafka-sys` C++ 标准库头文件缺失阻断；ExactOut 原始回调差分、可部署版本真实来源、完整执行与生产资格仍未完成|
 |Curve MetaUSD direct ExactOut（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|补齐有界单调整数逆解、零目标和不可达目标拒绝、Meta 直接兑换完整 stored/admin balance 后状态，并接入 multi-asset 与 ExactOut 能力目录|自包含 `curve_meta_exact_out_standalone` 两项回归通过；Meta underlying、真实 base LP 链路和生产执行资格仍待完成|
 |Curve StableSwap NG ExactOut（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|补齐固定 rate NG 完整 oracle/admin-fee 后状态逆解、零目标和不可达目标拒绝，接入 multi-asset 与 ExactOut 能力目录|自包含 `curve_ng_exact_out_standalone` 两项回归通过；特殊 Token、外部 rate provider、真实来源和生产执行资格仍待完成|
 |Curve Plain3/Plain4 ExactOut 边界收敛（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|源整数溢出或流动性不足时统一返回不可达目标，3/4 资产后状态反解回归通过|自包含 `curve_plain_exact_out_standalone` 两项回归通过；真实部署来源和执行资格仍待完成|
