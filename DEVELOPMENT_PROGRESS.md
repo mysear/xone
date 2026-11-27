@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I8 OP 已签名交易费用证据（2026-11-28）|§13.1、§14、§15.3；WP13、WP16|LOCAL_SCOPE_VERIFIED|签名执行返回 gas 费、L1 数据费、operator fee、总收费和付款人实际净扣款。费用证据绑定签名信封、交易哈希、回执和来源状态。Regolith 至 Karst 的 36 组正常 HTTP 执行与原版客户端逐笔对比，216 个无效请求被拒绝|报价阶段仍缺少实际签名信封，需要继续完成候选费用覆盖。 [OP HTTP 复验](integration/tools/acceptance/op_api_http.py)|
 |I8 候选费用排序结果（2026-11-28）|§13.1、§15.3；WP13、WP16|LOCAL_SCOPE_VERIFIED|ExactIn 和 ExactOut 在发布报价时复算按已审计费用调整的排序值，校验计划、原子单位金额、价格簿及发布代次。费用参与排序时返回币种、带符号原子单位值和费用范围。16 组正常 HTTP 场景与 30 次原版交易重放通过，覆盖负值、超宽输入、预算截断和缺少有效估值|结果标记为 `LOCAL_EVM_ONLY`，完整链费净额待验收。本机库测试编译缺少生成语料。 [HTTP 复验](integration/tools/acceptance/candidate_cost_http.py)|
 |I7-R03 Yellowstone 回放保留边界（2026-11-28）|§9.23、§18.7、§23.14|LOCAL_SCOPE_VERIFIED|正常 finalized 流在有历史游标时查询同连接的 `SubscribeReplayInfo`。当所需 slot 早于服务端保留窗口时直接订阅 HEAD_FIRST。流状态记录实际请求和服务端声明的最早回放 slot。44 项定向测试通过。正常 Parser、RocksDB 和实际 PostgreSQL/Kafka 复验覆盖范围发布、撤销、重启、fencing 及有界历史缺口|gRPC 来源为受控服务。真实 Yellowstone 连续流和同源历史 bank 验收待完成。 [传输入口](chain-parser-rust/crates/solana-ingest/src/yellowstone.rs)|
 |I7-R04.2 Docker 检查点网络分区（2026-11-28）|§9.23、§18.7、§23.14、§28.26|LOCAL_SCOPE_VERIFIED|Go owner、两个报价容器和实际 PostgreSQL/Kafka 联验。断开 owner 链路后，冷副本通过 peer 在 978 毫秒恢复合格范围，980 毫秒返回 INDICATIVE。断开两条检查点链路时冷副本返回 503。恢复 owner 链路后，227 毫秒取得合格范围，229 毫秒返回相同快照报价。Kafka 网络持续连通|单宿主机隔离网络与受控 EVM RPC 已验收。生产独立故障域与长停机演练继续验收。 [复验工具](integration/tools/acceptance/r04_network_partition.py)|
@@ -503,7 +504,7 @@
 #### 迭代目标（2026-11-28）
 
 1. 在候选计划的固定快照上核对实际 gas、L1 数据费和可用的原生费估值，再按可核对的净额比较路线。用签名交易执行结果验证 OP 费用，并检验证据缺失时的费用状态。
-   - 已在正常报价发布时复核并披露经授权估值的 EVM 排序值。下一步补齐候选计划的链费覆盖与 OP 签名执行绑定。
+   - 已在正常报价发布时复核并披露经授权估值的 EVM 排序值，OP 已签名执行的链费与原版客户端一致。下一步将候选链费覆盖纳入费用完整性验收。
 2. 扩展共享 DAG 和 beam 多标签搜索。用小图穷举对比路线、上界和最优性差距，覆盖拆分、合并及共享池热状态。
 3. 接通多池 ExactOut 和拆单执行。在正常报价及构建入口校验精确到账、最大输入、限制回滚、完整费用和快照绑定。
 

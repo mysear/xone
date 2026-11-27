@@ -1286,6 +1286,9 @@ fn op_diagnostic_response(
             "feeBreakdown":[{"kind":"OP_EXECUTION","amountNative":fees["execution_fee"],"parts":{
                 "baseFeeToVaultNative":fees["base_fee_to_vault"],"priorityFeeNative":fees["priority_fee_to_beneficiary"]}},
                 {"kind":"OP_L1_DATA","amountNative":fees["l1_data_fee"]},{"kind":"OP_OPERATOR","amountNative":fees["operator_fee"]}],
+            "sourceEvidence":{"kind":"AUDITED_SIGNED_OP_TRANSACTION","transactionHash":audit.transaction_hash,
+                "receiptHash":outcome["receipt_hash"],"sourceFixtureHash":outcome["source_fixture_hash"],
+                "signedEnvelopeSha256":fees["encoded_transaction_sha256"],"rollupAttributesSha256":fees["attributes_sha256"]},
             "balanceReconciliation":{"status":"MATCHED","scope":"SIGNED_ZERO_VALUE_FEE_ONLY_TRANSACTION","source":"RETAINED_BUNDLE_FEE_ACCOUNTS"},
             "maximumFundingAdmission":"SOURCE_BALANCE_COVERS_SIGNED_OP_MAXIMUM_FUNDING",
             "parentFeeAuditReads":audit.fees.telemetry.reads.reads,"parentFeeAuditReadBytes":audit.fees.telemetry.reads.bytes,
@@ -1300,7 +1303,9 @@ fn op_diagnostic_response(
         "executor":commitment.executor,"authority":"PROVIDED_LOCAL_STATE",
         "verification":{"level":"LOCAL_SIGNED_HISTORICAL_OP_EXECUTED","success":success,"verified":false},"verified":false,
         "outcome":outcome,"fees":{"evmGasUsed":gas,"gasPriceWei":fees["effective_gas_price"],
-            "evmFeeWei":fees["execution_fee"],"chainFeeCompleteness":"SIGNED_LOCAL_HISTORICAL_OP_TRANSACTION"},
+            "evmFeeWei":fees["execution_fee"],"l1DataFeeWei":fees["l1_data_fee"],
+            "operatorFeeWei":fees["operator_fee"],"totalChargedWei":payer.gross_charge,
+            "payerNetDebitWei":payer.net_native_debit,"chainFeeCompleteness":"SIGNED_LOCAL_HISTORICAL_OP_TRANSACTION"},
         "costs":costs}),
     )
 }

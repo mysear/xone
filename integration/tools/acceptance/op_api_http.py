@@ -4,6 +4,7 @@
 Both signing and the independent full Router transition use the pinned original
 client. All network requests target the local harness; no transaction is sent.
 """
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -219,6 +220,24 @@ def run(binary, sources, runners, output, maximum_groups=None, *, scoped_karst=F
                         require(fee['l1_data_fee'] == reference['l1_fee'] and fee['operator_fee'] == reference['operator_fee'], 'Normal OP L1/operator fee differs from original client')
                         require(int(fee['execution_fee']) + int(fee['l1_data_fee']) + int(fee['operator_fee']) == int(fee['gross_charge']), 'Normal OP gross charge is not conserved')
                         require(costs['nativeKnownSubtotal'] == fee['gross_charge'] and costs['payerNetNativeDebit'] == fees['payer_cost']['net_native_debit'], 'Parent costs differ from audited source')
+                        require(costs['sourceEvidence'] == dict(
+                            kind='AUDITED_SIGNED_OP_TRANSACTION',
+                            transactionHash=signed['transactionHash'],
+                            receiptHash=outcome['receipt_hash'],
+                            sourceFixtureHash=outcome['source_fixture_hash'],
+                            signedEnvelopeSha256=hashlib.sha256(bytes.fromhex(reference_input['signed_wire'])).hexdigest(),
+                            rollupAttributesSha256=hashlib.sha256(bytes.fromhex(request['op_user']['attributes_calldata'].removeprefix('0x'))).hexdigest(),
+                        ), 'Published fees detached from signed envelope or audited receipt')
+                        require(simulation['fees'] == dict(
+                            evmGasUsed=reference['gas_used'],
+                            gasPriceWei=fee['effective_gas_price'],
+                            evmFeeWei=fee['execution_fee'],
+                            l1DataFeeWei=reference['l1_fee'],
+                            operatorFeeWei=reference['operator_fee'],
+                            totalChargedWei=fee['gross_charge'],
+                            payerNetDebitWei=fees['payer_cost']['net_native_debit'],
+                            chainFeeCompleteness='SIGNED_LOCAL_HISTORICAL_OP_TRANSACTION',
+                        ), 'Signed transaction fee total differs from audited execution')
                         require(costs['parentFeeAuditReads'] > 0 and costs['totalUsage']['reads'] == outcome['usage']['reads'] + costs['parentFeeAuditReads'], 'Parent source reads omitted from aggregate budget')
                         require(costs['totalUsage']['read_bytes'] == outcome['usage']['read_bytes'] + costs['parentFeeAuditReadBytes'], 'Parent source bytes omitted from aggregate budget')
                         require(all(costs[key] is None for key in ['totalNativeEstimate', 'approvalNative', 'netBuyAmountEstimate', 'netSellAmountEstimate']), 'Unknown quote economic cost fabricated')

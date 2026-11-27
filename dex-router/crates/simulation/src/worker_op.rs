@@ -12,6 +12,7 @@ pub struct OpReceiptCommitment {
     budget: SimulationBudget,
 }
 pub struct OpReceiptAudit {
+    pub transaction_hash: String,
     pub fees: core::AuditedOpFeeMeasurements,
     pub total_usage: BudgetUsage,
 }
@@ -164,6 +165,10 @@ impl OpReceiptCommitment {
             .read_bytes
             .checked_add(fees.telemetry.reads.bytes)
             .ok_or_else(bad)?;
-        Ok(OpReceiptAudit { fees, total_usage })
+        Ok(OpReceiptAudit {
+            transaction_hash: format!("{:#x}", self.request.transaction.transaction_hash()),
+            fees,
+            total_usage,
+        })
     }
 }
