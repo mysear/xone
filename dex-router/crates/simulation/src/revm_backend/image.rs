@@ -80,4 +80,7 @@ impl StateImage {
     pub fn data(&self) -> &ImageData {
         &self.data
     }
+    pub(crate) fn data_mut(&mut self) -> &mut ImageData {
+        &mut self.data
+    }
 }

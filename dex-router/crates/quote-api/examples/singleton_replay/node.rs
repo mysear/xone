@@ -13,6 +13,7 @@ use std::{
 };
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
 use xone_domain::{singleton::ZERO_ADDRESS, Amount};
+use xone_simulation::evm_fixture::{FixtureAccount, StorageEntry, BEACON_ROOTS_ADDRESS};
 
 #[derive(Clone, Copy)]
 pub(super) enum Executable<'a> {
@@ -21,6 +22,7 @@ pub(super) enum Executable<'a> {
 }
 
 const PREFIX_SENDER: &str = "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf";
+const BEACON_ROOTS_CODE: &str = "0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500";
 
 pub(super) struct Node {
     endpoint: String,
@@ -39,6 +41,8 @@ pub(super) enum Fault {
     Balance,
     Reorg,
     IgnoreTraceIndex,
+    BeaconRoot,
+    BeaconStorage,
 }
 
 pub(super) struct Mined {
@@ -94,6 +98,10 @@ impl Node {
             alloc.insert(
                 PREFIX_SENDER.into(),
                 json!({"balance":"0x1000000000000000000"}),
+            );
+            alloc.insert(
+                BEACON_ROOTS_ADDRESS.into(),
+                json!({"balance":"0x0","nonce":"0x1","code":BEACON_ROOTS_CODE}),
             );
         }
         let genesis = json!({
@@ -313,6 +321,31 @@ impl Node {
             .parse()
             .unwrap();
         env.excess_blob_gas = Some(number(&execution["excessBlobGas"]));
+        if self.control.is_some() {
+            env.parent_beacon_block_root = Some(field(&execution, "parentBeaconBlockRoot"));
+            let source_anchor = json!({"blockHash":source["hash"],"requireCanonical":true});
+            let mut slots = Vec::new();
+            for slot in env.beacon_root_slots().unwrap().unwrap() {
+                let value = self
+                    .rpc(
+                        "eth_getStorageAt",
+                        json!([BEACON_ROOTS_ADDRESS, format!("0x{slot:x}"), source_anchor,]),
+                    )
+                    .await;
+                slots.push(StorageEntry {
+                    slot: format!("0x{slot:064x}"),
+                    value: value.as_str().unwrap().into(),
+                });
+            }
+            bundle.fixture.accounts.push(FixtureAccount {
+                address: BEACON_ROOTS_ADDRESS.into(),
+                exists: true,
+                balance: Amount::zero(),
+                nonce: 1,
+                code: BEACON_ROOTS_CODE.into(),
+                storage: slots,
+            });
+        }
         Mined {
             node: Arc::new(self),
             deadline,
@@ -400,6 +433,15 @@ impl Mined {
                                 && execution_reads.fetch_add(1, Ordering::Relaxed) == 1 =>
                         {
                             result["hash"] = format!("0x{}", "01".repeat(32)).into();
+                        }
+                        (Some(Fault::BeaconRoot), "eth_getBlockByNumber")
+                            if request["params"][0] == "0x2" =>
+                        {
+                            result["parentBeaconBlockRoot"] =
+                                format!("0x{}", "01".repeat(32)).into();
+                        }
+                        (Some(Fault::BeaconStorage), "eth_getStorageAt") => {
+                            *result = format!("0x{}", "02".repeat(32)).into();
                         }
                         _ => {}
                     }

@@ -12,6 +12,7 @@ use revm::Database;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 pub(crate) use singleton::simulate_singleton_transaction;
+pub use singleton::BEACON_ROOTS_ADDRESS;
 pub use singleton::{simulate_singleton, SingletonPlan, SINGLETON_SIMULATOR_VERSION};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -54,8 +55,26 @@ pub struct ExecutionEnvironment {
     pub prevrandao: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub excess_blob_gas: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_beacon_block_root: Option<String>,
 }
 impl ExecutionEnvironment {
+    pub fn beacon_root_slots(&self) -> Result<Option<[u64; 2]>> {
+        let Some(root) = self.parent_beacon_block_root.as_deref() else {
+            return Ok(None);
+        };
+        if self.fork != "cancun" {
+            return Err(failure(
+                SimulationEnvironmentMismatch,
+                "environment",
+                "parent beacon block root requires Cancun",
+            ));
+        }
+        hex_length(root, Some(32))?;
+        let index = self.timestamp % 8191;
+        Ok(Some([index, index + 8191]))
+    }
+
     fn cancun_blobs(&self) -> Result<Option<BlobExcessGasAndPrice>> {
         match (self.fork.as_str(), self.excess_blob_gas) {
             ("cancun", Some(excess)) => core::execute::cancun_blob_context(excess)
@@ -327,6 +346,7 @@ impl FixtureState {
         address(&self.execution_environment.coinbase)?;
         amount(&self.execution_environment.base_fee)?;
         self.execution_environment.cancun_blobs()?;
+        self.execution_environment.beacon_root_slots()?;
         let mut slots = 0;
         let mut codes = 0;
         let mut image_bytes = 0;

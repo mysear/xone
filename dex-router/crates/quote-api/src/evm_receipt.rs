@@ -2,7 +2,9 @@ use super::{err, hash, json, Api, Instant, Result, Value};
 use crate::{local_simulation::Failure, transaction_lifecycle::rpc};
 use xone_domain::{singleton::ZERO_ADDRESS, Amount};
 use xone_execution_plan::Context;
-use xone_simulation::evm_fixture::{EvmStatus, FixtureState, SimulationOutcome};
+use xone_simulation::evm_fixture::{
+    EvmStatus, FixtureState, SimulationOutcome, BEACON_ROOTS_ADDRESS,
+};
 
 pub(super) async fn compare(
     api: &Api,
@@ -125,6 +127,42 @@ async fn observe(
     }
     let source = &fixture.state_anchor.block_hash;
     let execution = &env.block_hash;
+    if let Some(root) = &env.parent_beacon_block_root {
+        if block["parentBeaconBlockRoot"] != *root {
+            return Err(bad());
+        }
+        let account = fixture
+            .accounts
+            .iter()
+            .find(|row| row.address == BEACON_ROOTS_ADDRESS)
+            .ok_or_else(bad)?;
+        let source_anchor = json!({"blockHash":source,"requireCanonical":true});
+        if request("eth_getCode", json!([BEACON_ROOTS_ADDRESS, source_anchor])).await?
+            != account.code
+        {
+            return Err(bad());
+        }
+        if account.code != "0x" {
+            let [timestamp_slot, root_slot] = env
+                .beacon_root_slots()
+                .map_err(|_| bad())?
+                .ok_or_else(bad)?;
+            let storage = |slot| {
+                request(
+                    "eth_getStorageAt",
+                    json!([
+                        BEACON_ROOTS_ADDRESS, format!("0x{slot:x}"),
+                        {"blockHash":execution,"requireCanonical":true},
+                    ]),
+                )
+            };
+            let (stored_timestamp, stored_root) =
+                tokio::try_join!(storage(timestamp_slot), storage(root_slot))?;
+            if stored_timestamp != format!("0x{:064x}", env.timestamp) || stored_root != *root {
+                return Err(bad());
+            }
+        }
+    }
     let single = transactions.len() == 1;
     let before = if single {
         BalancePoint::Block(source)
@@ -178,6 +216,9 @@ async fn observe(
         "localReceiptHash":local.receipt_hash,"actualInputConsumed":local.actual_input_consumed,
         "actualBuyAmount":local.actual_buy_amount,"balances":local.balances,
     });
+    if let Some(root) = &env.parent_beacon_block_root {
+        evidence["parentBeaconBlockRoot"] = root.clone().into();
+    }
     evidence["evidenceHash"] = hash(&evidence)?.into();
     Ok(evidence)
 }

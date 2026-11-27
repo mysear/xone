@@ -79,6 +79,8 @@ XONE_SINGLETON_ANVIL="$(command -v anvil)" \
 
 Use the pinned Geth harness to mine three transactions per block and verify the middle transaction. The final transaction uses the same signer and changes the end-of-block settlement balances. The harness also verifies rejection if a proxy removes the trace transaction index.
 
+The Geth cases include the EIP-4788 beacon roots contract. When the execution environment includes `parent_beacon_block_root`, the worker applies the ring buffer writes before executing the swap. The receipt check compares the block header root, source contract code and resulting storage with the node. The harness injects a wrong header root and wrong storage to check rejection.
+
 ```sh
 receipt_node="$(mktemp -d)/singleton-receipt-node"
 (cd integration/tools/reference/singleton-advanced/receipt-node && go build -mod=readonly -o "$receipt_node" .)

@@ -395,7 +395,8 @@
 3. V4、Infinity CL 与 Infinity Bin 的仿真入口接受钱包提供的 EVM 签名字节。worker 复用 EIP-155、EIP-2930 和 EIP-1559 验签，核对交易哈希、发件人、链、nonce、费用、calldata 和金额，并把交易哈希写入本地回放回执。通过 24 组钱包签名 HTTP 回放和 24 组有效签名但 nonce 错配拒绝。
 4. `checkEvmReceipt` 将签名回放与固定 H/H+1 的节点回执、gas、有序日志和前后余额比对。Anvil 1.4.4 Cancun 节点实际出块的 24 组 HTTP 样本通过，另分别通过 24 组错误 gas、日志、余额和重组注入拒绝。当前证据范围为无提款的单交易块，来源标记 `CANONICAL_RPC_OBSERVED`。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 5. 多交易块按交易索引读取目标交易前后的状态，核对发送方 nonce、到账余额、gas 和有序日志。24 个由 Geth v1.16.7 出块的三交易样本通过，目标交换位于中间，后续交易再次使用同一发送方。错误 gas、日志、余额、重组及节点忽略交易索引分别通过 24 组拒绝验收。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
-6. EVM 接续验收区块系统交易及更多链规则与 L1 数据费。Solana 同阶段验收版本化 bank、SBF、Token CPI、账户锁、有效 blockhash、签名和实际回执，再逐链复核生产执行能力条件。
+6. Cancun 固定回放支持 EIP-4788，用户交易执行前应用父信标块根。校验固定系统合约代码及环形缓冲区槽位，节点回执比对同时检查区块头、H 上代码与 H+1 两个槽位。24 组 Geth 样本通过，错误区块根和错误存储证据分别通过 24 组拒绝。13 项仿真 crate 单测通过，6 项需要留存原版 OP 语料的测试保持忽略。
+7. EVM 接续验收更多链规则与 L1 数据费。Solana 同阶段验收版本化 bank、SBF、Token CPI、账户锁、有效 blockhash、签名和实际回执，再逐链复核生产执行能力条件。
 
 ### I7 真实来源和恢复
 
