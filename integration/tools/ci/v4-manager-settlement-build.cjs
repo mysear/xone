@@ -23,11 +23,13 @@ function readPinned(name) {
 
 const manager = 'v4/src/PoolManager.sol';
 const harness = 'V4ManagerSettlement.sol';
+const executor = 'V4SingleSwap.sol';
 const input = {
     language: 'Solidity',
     sources: {
         [manager]: {content: readPinned(manager)},
         [harness]: {content: fs.readFileSync(path.join(references, 'singleton-advanced', harness), 'utf8')},
+        [executor]: {content: fs.readFileSync(path.join(root, 'dex-router/evm', executor), 'utf8')},
     },
     settings: {
         optimizer: {enabled: true, runs: 200},
@@ -53,6 +55,7 @@ fs.writeFileSync(output, JSON.stringify({
     manager: code(manager, 'PoolManager'),
     harness: code(harness, 'V4ManagerSettlement'),
     hook: code(harness, 'SettlementHook'),
+    executor: code(executor, executor.split('.')[0]),
     hookRuntime: hookRuntime.object,
     hookManagerReferences,
 }) + '\n');

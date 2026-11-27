@@ -14,6 +14,7 @@ struct Build {
     manager: String,
     harness: String,
     hook: String,
+    executor: String,
 }
 
 fn address_word(address: Address) -> [u8; 32] {
@@ -71,6 +72,13 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
     );
     let manager = deploy(&mut db, &build.manager, caller);
     let harness = deploy(&mut db, &build.harness, manager);
+    let executor = deploy(&mut db, &build.executor, manager);
+    let mut callback = selector("unlockCallback(bytes)").to_vec();
+    callback.extend_from_slice(&U256::from(32).to_be_bytes::<32>());
+    callback.extend_from_slice(&[0; 32]);
+    let rejected = transact(&mut db, TxKind::Call(executor), callback, 0);
+    assert!(matches!(rejected, ExecutionResult::Revert { output, .. }
+        if output.as_ref() == selector("UnauthorizedCallback()")));
     let mut hook_initcode = hex::decode(build.hook).unwrap();
     hook_initcode.extend_from_slice(&address_word(manager));
     let hash = keccak256(hook_initcode);
@@ -92,10 +100,12 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
     for native in [false, true] {
         for zero_for_one in [false, true] {
             for exact_in in [false, true] {
-                let mut data = selector("run(bool,bool,bool,bool)").to_vec();
+                let mut data = selector("run(bool,bool,bool,bool,address)").to_vec();
                 for value in [native, zero_for_one, exact_in, false] {
                     data.extend_from_slice(&U256::from(u8::from(value)).to_be_bytes::<32>());
                 }
+                let failure_flag = data.len() - 1;
+                data.extend_from_slice(&address_word(Address::ZERO));
                 let value = if native { 10_000_000_000_000 } else { 0 };
                 let result = transact(&mut db, TxKind::Call(harness), data.clone(), value);
                 assert!(
@@ -103,13 +113,13 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
                     "native={native} zero_for_one={zero_for_one} exact_in={exact_in}: {result:?}"
                 );
                 let ExecutionResult::Success {
-                    output: Output::Call(output),
+                    output: Output::Call(raw),
                     ..
                 } = result
                 else {
                     unreachable!("successful call")
                 };
-                let words: Vec<&[u8]> = output.chunks_exact(32).collect();
+                let words: Vec<&[u8]> = raw.chunks_exact(32).collect();
                 assert_eq!(words.len(), 6);
                 let delta0 = i128::from_be_bytes(words[2][16..].try_into().unwrap());
                 let delta1 = i128::from_be_bytes(words[3][16..].try_into().unwrap());
@@ -131,10 +141,26 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
                     "priceAfter": U256::from_be_slice(words[4]).to_string(),
                     "tickAfter": i32::from_be_bytes(words[5][28..].try_into().unwrap()),
                 }));
-                *data.last_mut().unwrap() = 1;
-                let rejected = transact(&mut db, TxKind::Call(harness), data, value);
+                data[failure_flag] = 1;
+                let rejected = transact(&mut db, TxKind::Call(harness), data.clone(), value);
                 assert!(matches!(rejected, ExecutionResult::Revert { output, .. }
                     if output.as_ref() == selector("CurrencyNotSettled()")));
+                data[failure_flag] = 0;
+                data[failure_flag + 1..].copy_from_slice(&address_word(executor));
+                let executed = transact(&mut db, TxKind::Call(harness), data.clone(), value);
+                assert!(
+                    matches!(&executed, ExecutionResult::Success {
+                    output: Output::Call(actual), ..
+                } if actual[64..] == raw[64..]),
+                    "{executed:?}"
+                );
+                data[failure_flag] = 1;
+                let rejected = transact(&mut db, TxKind::Call(harness), data, value);
+                assert!(
+                    matches!(&rejected, ExecutionResult::Revert { output, .. }
+                    if output.as_ref() == selector("AmountMismatch()")),
+                    "{rejected:?}"
+                );
             }
         }
     }

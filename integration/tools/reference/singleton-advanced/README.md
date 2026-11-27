@@ -6,6 +6,8 @@ The Cancun test deploys the pinned Uniswap V4 PoolManager from verified source. 
 
 Set `singleton_advanced.hook_model` to `v4-settlement-hook-v1` for this exact hook on a dynamic-fee V4 pool. The Go collector verifies the runtime bytecode and both immutable manager references at the same canonical block as the pool snapshot. Rust prices the fixed 17,000 ppm override and the 7-unit specified and 11-unit unspecified deltas. The pricing model assumes hook data encodes the boolean `false` as a 32-byte ABI word. Execution preparation remains pending. Other swap-callback runtimes require a separate verified model.
 
+The reference test also deploys `dex-router/evm/V4SingleSwap.sol`. The executor reconciles the caller's ERC-20 debit and the recipient's balance increase. Native ExactOut refunds unused input to the payer after the manager has locked again. The test compares all eight combinations with direct manager calls, checks the tight-limit reverts, and rejects callbacks from other accounts.
+
 ```sh
 python3 integration/tools/ci/singleton-reference-fetch.py
 npm ci --ignore-scripts --prefix integration/.runtime/singleton-reference

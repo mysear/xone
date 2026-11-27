@@ -8,15 +8,17 @@ import {LPFeeLibrary} from "v4/src/libraries/LPFeeLibrary.sol";
 import {StateLibrary} from "v4/src/libraries/StateLibrary.sol";
 import {TickMath} from "v4/src/libraries/TickMath.sol";
 import {TransientStateLibrary} from "v4/src/libraries/TransientStateLibrary.sol";
-import {BalanceDelta, BalanceDeltaLibrary} from "v4/src/types/BalanceDelta.sol";
+import {BalanceDelta, BalanceDeltaLibrary, toBalanceDelta} from "v4/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, toBeforeSwapDelta} from "v4/src/types/BeforeSwapDelta.sol";
 import {Currency, CurrencyLibrary} from "v4/src/types/Currency.sol";
 import {PoolIdLibrary} from "v4/src/types/PoolId.sol";
 import {PoolKey} from "v4/src/types/PoolKey.sol";
 import {ModifyLiquidityParams, SwapParams} from "v4/src/types/PoolOperation.sol";
+import {V4SingleSwap} from "V4SingleSwap.sol";
 
 contract SettlementToken {
     mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
 
     constructor() {
         balanceOf[msg.sender] = 1e24;
@@ -24,6 +26,17 @@ contract SettlementToken {
 
     function transfer(address to, uint256 amount) external returns (bool) {
         balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) external {
+        allowance[msg.sender][spender] = amount;
+    }
+
+    function transferFrom(address payer, address to, uint256 amount) external returns (bool) {
+        allowance[payer][msg.sender] -= amount;
+        balanceOf[payer] -= amount;
         balanceOf[to] += amount;
         return true;
     }
@@ -86,7 +99,7 @@ contract V4ManagerSettlement is IUnlockCallback {
         require(uint160(address(hook)) & 0x3fff == 0xcc);
     }
 
-    function run(bool nativeCurrency, bool zeroForOne, bool exactIn, bool omitHookSettlement)
+    function run(bool nativeCurrency, bool zeroForOne, bool exactIn, bool failure, V4SingleSwap executor)
         external payable returns (address, address, int128, int128, uint160, int24)
     {
         address token0 = nativeCurrency ? address(0) : address(new SettlementToken());
@@ -108,13 +121,13 @@ contract V4ManagerSettlement is IUnlockCallback {
         uint256[2] memory callerBefore = balances(key, address(this));
         uint256[2] memory hookBefore = balances(key, address(hook));
         uint256[2] memory receiverBefore = balances(key, RECIPIENT);
-        BalanceDelta swap = BalanceDelta.wrap(abi.decode(manager.unlock(
-            abi.encode(key, specified, zeroForOne, RECIPIENT, omitHookSettlement)
-        ), (int256)));
-
         bool specifiedIs0 = exactIn == zeroForOne;
         int128[2] memory hookFees = specifiedIs0 ? [int128(7), int128(11)] : [int128(11), int128(7)];
-        require(swap.amount0() == core.amount0() - hookFees[0] && swap.amount1() == core.amount1() - hookFees[1], "swap deltas");
+        BalanceDelta expected = toBalanceDelta(core.amount0() - hookFees[0], core.amount1() - hookFees[1]);
+        BalanceDelta swap = address(executor) == address(0)
+            ? BalanceDelta.wrap(abi.decode(manager.unlock(abi.encode(key, specified, zeroForOne, RECIPIENT, failure)), (int256)))
+            : executeSwap(executor, key, zeroForOne, exactIn, expected, failure);
+        require(BalanceDelta.unwrap(swap) == BalanceDelta.unwrap(expected), "swap deltas");
         require((exactIn ? -(zeroForOne ? swap.amount0() : swap.amount1()) : (zeroForOne ? swap.amount1() : swap.amount0())) == AMOUNT, "specified amount");
         for (uint256 i; i < 2; ++i) {
             Currency currency = i == 0 ? key.currency0 : key.currency1;
@@ -135,6 +148,27 @@ contract V4ManagerSettlement is IUnlockCallback {
         require(hookedPrice != price && hookedPrice == controlPrice && hookedTick == controlTick && liveFee == 0, "pool state");
         require(!manager.isUnlocked() && manager.getNonzeroDeltaCount() == 0, "final lock state");
         return (token0, token1, swap.amount0(), swap.amount1(), hookedPrice, hookedTick);
+    }
+
+    function executeSwap(V4SingleSwap executor, PoolKey memory key, bool zeroForOne, bool exactIn,
+                         BalanceDelta expected, bool tightLimit) private returns (BalanceDelta) {
+        uint128 paid = uint128(-(zeroForOne ? expected.amount0() : expected.amount1()));
+        uint128 received = uint128(zeroForOne ? expected.amount1() : expected.amount0());
+        Currency input = zeroForOne ? key.currency0 : key.currency1;
+        uint128 inputLimit = exactIn ? paid : (tightLimit ? paid - 1 : paid + 1000);
+        uint128 outputLimit = received + (exactIn && tightLimit ? 1 : 0);
+        uint256 value = input.isAddressZero() ? inputLimit : 0;
+        SettlementToken token = SettlementToken(Currency.unwrap(input));
+        if (!input.isAddressZero()) token.approve(address(executor), inputLimit);
+        (uint128 actualIn, uint128 actualOut) = executor.execute{value: value}(
+            V4SingleSwap.Order(key, zeroForOne, !exactIn, inputLimit, outputLimit, RECIPIENT, block.timestamp)
+        );
+        require(address(executor).balance == 0, "no retained native funding");
+        if (!input.isAddressZero()) {
+            require(token.allowance(address(this), address(executor)) == inputLimit - actualIn, "unused ERC20 allowance");
+        }
+        return zeroForOne ? toBalanceDelta(-int128(actualIn), int128(actualOut))
+                          : toBalanceDelta(int128(actualOut), -int128(actualIn));
     }
 
     function balances(PoolKey memory key, address owner) private view returns (uint256[2] memory) {
