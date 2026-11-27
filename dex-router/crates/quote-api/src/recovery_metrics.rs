@@ -53,11 +53,12 @@ impl Api {
     }
     pub(crate) fn observe_ready_views(&self) {
         for chain in &self.config.config.chains {
-            if let Ok(view) = self.replica.view(&chain.key) {
-                // This is the normal freshness/epoch/view check, not a claim
-                // that any route or simulation has successfully executed.
-                let _ = self.check_view(&view);
-            }
+            self.observe_ready_view(&chain.key);
+        }
+    }
+    pub(crate) fn observe_ready_view(&self, chain: &str) {
+        if let Ok(view) = self.replica.view(chain) {
+            let _ = self.check_view(&view);
         }
     }
     pub(crate) fn recovery_status(&self, chain: &str) -> Value {

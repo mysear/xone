@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R04.2 报价副本按链恢复（2026-11-28）|§18.7、§23.14、§28.26|LOCAL_SCOPE_VERIFIED|正常报价进程为每条链独立轮询来源，Kafka 读取期间释放全局读取器表锁。实际 Kafka 4.2 回归确认 Solana 基线请求挂起时 EVM 可恢复首个报价并应用下一块；同一测试集的过期游标、远端检查点与撤销回归均通过|受控 HTTP owner 和本机 Kafka，生产故障域仍待验收。 [Kafka 回归](dex-router/crates/quote-api/tests/kafka_retention.rs)|
 |I7-R04.2 EVM 当前基线切换（2026-11-28）|§18.7、§23.14、§28.26|LOCAL_SCOPE_VERIFIED|普通 EVM RPC 的移动头遇到陈旧主源时，按链 ID、创世块、时间和固定高度锚点校验备用源。正常 Go owner 和报价进程在隔离 PostgreSQL/Kafka 上通过留存恢复，旧游标 3 低于低水位 8，主源返回 6 次陈旧头，备用源恢复至高度 400、游标 11，3,993 毫秒得到首个合格范围，3,997 毫秒得到首个 FAST 请求的 INDICATIVE 报价，随后同步高度 401 并保留历史缺口 101–399|受控 RPC 与实际本机中间件。独立故障域、长期停机和首个 VERIFIED 报价待验收。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
 |I7-R04.2 Solana 当前基线切换（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|HEAD_FIRST 在接受 RPC 基线前检查时间，遇到陈旧基线继续检查后续端点。WAL 保留原始响应，离线重放只选择通过检查的基线。启动隔离套件 9 项通过|2 项需要独立 PostgreSQL/Kafka 的测试未运行。真实可信 peer 和实际长停机验收继续推进|
 |I7-R04.2 Kafka 冷启动重锚定（2026-11-28）|§18.7、§23.14、§28.10、§28.26；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|实际 Kafka DeleteRecords 使低水位从 0 推进至 8，旧游标 3 失效。空尾部、撤销、重组开始、不完整批次和无 owner 背书的基线均保持不可用。收到 owner 当前快照及其提交游标后，空内存报价副本首个合格范围 70 毫秒、首个 FAST 报价 73 毫秒。历史缺口在报价中披露并在正常区块更新后保留|使用受控 owner HTTP 和隔离单 broker。真实停机、跨故障域及首个 VERIFIED 报价仍待验收。 [回归测试](dex-router/crates/quote-api/tests/kafka_retention.rs)|
@@ -458,6 +459,7 @@
 
 - Solana 正常 HEAD_FIRST 路径按配置的新鲜度约束选择 RPC 基线。双端点回归验证后续新鲜基线恢复、全源陈旧时保持不可用，以及获选基线的离线重放。
 - EVM 普通 RPC 路径已通过备用源身份、时间和固定高度锚点的定向测试。两端点留存联测覆盖陈旧主源、备用源恢复、历史缺口披露和后续区块同步。
+- 正常报价进程的 Kafka 恢复已在双链场景验证。Solana 来源挂起时，EVM 独立完成启动、报价和后续块同步。
 
 #### 下一迭代目标（I7 R04.2，2026-11-28）
 

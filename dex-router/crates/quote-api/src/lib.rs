@@ -746,121 +746,113 @@ impl Api {
         Ok(())
     }
     pub async fn sync_sources(&self) {
-        if self.config.config.journal.transport == "kafka" {
-            self.sync_kafka().await;
-            self.observe_ready_views();
-            return;
-        }
-
         for chain in &self.config.config.chains {
-            let mut synchronized = false;
-            for source in &self.config.config.journal.source_urls {
-                match self.sync_source(source, &chain.key).await {
-                    Ok(()) => {
-                        synchronized = true;
-                        break;
-                    }
-                    Err(e) => {
-                        self.logger.event(
-                            "debug",
-                            "state_source_unavailable",
-                            json!({"chain_key":chain.key,"error_code":e.0}),
-                        );
-                    }
-                }
-            }
-            if !synchronized {
-                self.replica.suspend(&chain.key);
-            }
+            self.sync_chain(&chain.key).await;
         }
-        self.observe_ready_views();
     }
-    async fn sync_kafka(&self) {
-        for chain in &self.config.config.chains {
-            let key = chain.key.clone();
-            let readers = self.readers.clone();
-            let max = self.config.config.journal.kafka.max_tail_records;
-            let timeout = Duration::from_millis(self.config.config.journal.request_timeout_ms);
-            let poll = tokio::task::spawn_blocking(
-                move || -> Result<Option<Vec<(xone_kafka_transport::Unit, Cursor)>>> {
-                    let mut readers = readers.lock().map_err(|_| err("READER_LOCK"))?;
-                    let Some(reader) = readers.get_mut(&key) else {
-                        return Ok(None);
-                    };
-                    reader.check_lag(timeout)?;
-                    let units = drain_kafka_units(max, || {
-                        let before = reader.cursor();
-                        let unit = reader.poll(Duration::ZERO)?;
-                        let cursor = reader.cursor();
-                        Ok(KafkaPollStep {
-                            unit,
-                            progressed: cursor != before,
-                            cursor,
-                        })
-                    })?;
-                    Ok(Some(units))
-                },
-            )
-            .await;
-            let mut restored = false;
-            let mut can_resume_cursor = true;
-            match poll {
-                Ok(Ok(Some(units))) => {
-                    let mut ok = true;
-                    for (u, cursor) in units {
-                        let reference = u.snapshot.reference.clone();
-                        if let Err(e) = apply_kafka_unit(&self.replica, &chain.key, u) {
-                            ok = false;
-                            self.logger.event(
-                                "error",
-                                "journal_apply_failed",
-                                json!({"chain_key":chain.key,"error_code":e.0}),
-                            );
-                            break;
-                        }
-                        if let Ok(mut applied) = self.applied_cursors.lock() {
-                            applied.insert(chain.key.clone(), (reference, cursor));
-                        } else {
-                            ok = false;
-                            break;
-                        }
-                    }
-                    if ok {
-                        restored = true;
-                    } else {
-                        can_resume_cursor = false;
-                        self.replica.suspend(&chain.key);
-                        if let Ok(mut readers) = self.readers.lock() {
-                            readers.remove(&chain.key);
-                        }
-                    }
-                }
-                Ok(Ok(None)) => {}
-                _ => {
-                    self.replica.suspend(&chain.key);
-                    if let Ok(mut readers) = self.readers.lock() {
-                        readers.remove(&chain.key);
-                    }
-                }
-            }
-            if restored {
-                continue;
-            }
-            if can_resume_cursor && self.resume_applied_kafka(&chain.key).await.is_ok() {
-                continue;
-            }
-            for source in &self.config.config.journal.source_urls {
-                let result = self.restore_kafka(source, &chain.key).await;
-                if result.is_ok() {
-                    break;
-                }
-                if let Err(e) = result {
+    async fn sync_chain(&self, chain: &str) {
+        if self.config.config.journal.transport == "kafka" {
+            self.sync_kafka(chain).await;
+        } else {
+            self.sync_http(chain).await;
+        }
+        self.observe_ready_view(chain);
+    }
+    async fn sync_http(&self, chain: &str) {
+        for source in &self.config.config.journal.source_urls {
+            match self.sync_source(source, chain).await {
+                Ok(()) => return,
+                Err(e) => {
                     self.logger.event(
                         "debug",
-                        "kafka_restore_source_unavailable",
-                        json!({"chain_key":chain.key,"error_code":e.0}),
+                        "state_source_unavailable",
+                        json!({"chain_key":chain,"error_code":e.0}),
                     );
                 }
+            }
+        }
+        self.replica.suspend(chain);
+    }
+    async fn sync_kafka(&self, chain: &str) {
+        let key = chain.to_owned();
+        let readers = self.readers.clone();
+        let max = self.config.config.journal.kafka.max_tail_records;
+        let timeout = Duration::from_millis(self.config.config.journal.request_timeout_ms);
+        let poll = tokio::task::spawn_blocking(
+            move || -> Result<Option<Vec<(xone_kafka_transport::Unit, Cursor)>>> {
+                let reader = readers.lock().map_err(|_| err("READER_LOCK"))?.remove(&key);
+                let Some(mut reader) = reader else {
+                    return Ok(None);
+                };
+                reader.check_lag(timeout)?;
+                let units = drain_kafka_units(max, || {
+                    let before = reader.cursor();
+                    let unit = reader.poll(Duration::ZERO)?;
+                    let cursor = reader.cursor();
+                    Ok(KafkaPollStep {
+                        unit,
+                        progressed: cursor != before,
+                        cursor,
+                    })
+                })?;
+                readers
+                    .lock()
+                    .map_err(|_| err("READER_LOCK"))?
+                    .insert(key, reader);
+                Ok(Some(units))
+            },
+        )
+        .await;
+        let mut restored = false;
+        let mut can_resume_cursor = true;
+        match poll {
+            Ok(Ok(Some(units))) => {
+                let mut ok = true;
+                for (u, cursor) in units {
+                    let reference = u.snapshot.reference.clone();
+                    if let Err(e) = apply_kafka_unit(&self.replica, chain, u) {
+                        ok = false;
+                        self.logger.event(
+                            "error",
+                            "journal_apply_failed",
+                            json!({"chain_key":chain,"error_code":e.0}),
+                        );
+                        break;
+                    }
+                    if let Ok(mut applied) = self.applied_cursors.lock() {
+                        applied.insert(chain.to_owned(), (reference, cursor));
+                    } else {
+                        ok = false;
+                        break;
+                    }
+                }
+                if ok {
+                    restored = true;
+                } else {
+                    can_resume_cursor = false;
+                    self.replica.suspend(chain);
+                    if let Ok(mut readers) = self.readers.lock() {
+                        readers.remove(chain);
+                    }
+                }
+            }
+            Ok(Ok(None)) => {}
+            _ => self.replica.suspend(chain),
+        }
+        if restored {
+            return;
+        }
+        if can_resume_cursor && self.resume_applied_kafka(chain).await.is_ok() {
+            return;
+        }
+        for source in &self.config.config.journal.source_urls {
+            match self.restore_kafka(source, chain).await {
+                Ok(()) => return,
+                Err(e) => self.logger.event(
+                    "debug",
+                    "kafka_restore_source_unavailable",
+                    json!({"chain_key":chain,"error_code":e.0}),
+                ),
             }
         }
     }
@@ -902,12 +894,17 @@ impl Api {
     }
     async fn restore_kafka(&self, source: &str, chain: &str) -> Result<()> {
         if self.config.config.journal.checkpoint_store.is_some() {
-            let replay = self
-                .replay_remote_checkpoint(source, chain)
-                .await
-                .and_then(|(boot, reader)| {
-                    self.activate_recovery(chain, boot, reader, "REMOTE_CHECKPOINT_BOUNDED_REPLAY")
-                });
+            let replay =
+                self.replay_remote_checkpoint(source, chain)
+                    .await
+                    .and_then(|(boot, reader)| {
+                        self.activate_recovery(
+                            chain,
+                            boot,
+                            reader,
+                            "REMOTE_CHECKPOINT_BOUNDED_REPLAY",
+                        )
+                    });
             match replay {
                 Ok(()) => return Ok(()),
                 Err(error) => self.logger.event(
@@ -1409,7 +1406,9 @@ async fn simulate_transaction(
     api.metrics
         .simulation_started
         .fetch_add(1, Ordering::Relaxed);
-    let receipt_backend = simulation_request.check_evm_receipt.then(|| backend.clone());
+    let receipt_backend = simulation_request
+        .check_evm_receipt
+        .then(|| backend.clone());
     let executed = if let Some(signed) = simulation_request.signed_evm_transaction {
         backend
             .execute_signed_evm(api.config.clone(), cached.clone(), deadline, signed)
@@ -1424,14 +1423,18 @@ async fn simulate_transaction(
             .await
     };
     let executed = match (executed, receipt_backend) {
-        (Ok(mut response), Some(backend)) => {
-            evm_receipt::compare(&api, backend.fixture(), cached.context(), &response, deadline)
-                .await
-                .map(|observed| {
-                    response["nodeReceipt"] = observed;
-                    response
-                })
-        }
+        (Ok(mut response), Some(backend)) => evm_receipt::compare(
+            &api,
+            backend.fixture(),
+            cached.context(),
+            &response,
+            deadline,
+        )
+        .await
+        .map(|observed| {
+            response["nodeReceipt"] = observed;
+            response
+        }),
         (executed, _) => executed,
     };
     let response = match executed {
@@ -1807,19 +1810,24 @@ pub(crate) async fn serve(
     listener: tokio::net::TcpListener,
     signal: impl std::future::Future<Output = ()> + Send + 'static,
 ) -> Result<()> {
-    let sync = api.clone();
-    let task = tokio::spawn(async move {
-        let mut ticker = tokio::time::interval(Duration::from_millis(
-            sync.config.config.journal.poll_interval_ms,
-        ));
-        loop {
-            ticker.tick().await;
-            sync.sync_sources().await;
-        }
-    });
+    let mut tasks = cache_gc::BackgroundTasks(Vec::new());
+    let poll_interval = Duration::from_millis(api.config.config.journal.poll_interval_ms);
+    for chain in &api.config.config.chains {
+        let sync = api.clone();
+        let key = chain.key.clone();
+        tasks.0.push(tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(poll_interval);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticker.tick().await;
+                sync.sync_chain(&key).await;
+            }
+        }));
+    }
     let maintenance = api.clone();
-    let maintenance_task = tokio::spawn(async move { maintenance.maintain_cached_views().await });
-    let mut tasks = cache_gc::BackgroundTasks(vec![task, maintenance_task]);
+    tasks.0.push(tokio::spawn(async move {
+        maintenance.maintain_cached_views().await
+    }));
     let result = axum::serve(listener, api.handler())
         .with_graceful_shutdown(signal)
         .await;

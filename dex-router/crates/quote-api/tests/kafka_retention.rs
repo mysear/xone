@@ -142,6 +142,7 @@ async fn kafka_producer(label: &str) -> (ClientConfig, String, String, KafkaProd
     let topic = format!("quote-{label}-{}-{}", std::process::id(), now_ms());
     let kafka = ClientConfig::new()
         .set("bootstrap.servers", &broker)
+        .set("allow.auto.create.topics", "false")
         .clone();
     let admin: AdminClient<DefaultClientContext> = kafka.create().unwrap();
     let admin_options = AdminOptions::new().request_timeout(Some(TIMEOUT));
@@ -156,6 +157,24 @@ async fn kafka_producer(label: &str) -> (ClientConfig, String, String, KafkaProd
         .for_each(|result| {
             result.unwrap();
         });
+    tokio::time::timeout(TIMEOUT, async {
+        loop {
+            let ready = admin
+                .inner()
+                .fetch_metadata(Some(&topic), Duration::from_millis(250))
+                .is_ok_and(|metadata| {
+                    metadata.topics().iter().any(|t| {
+                        t.name() == topic && t.partitions().iter().any(|p| p.leader() >= 0)
+                    })
+                });
+            if ready {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("test topic leader did not become available");
     let producer = KafkaProducer::open(
         std::slice::from_ref(&broker),
         &topic,
@@ -177,6 +196,102 @@ fn config(broker: String, topic: String, source: String) -> xone_config::ConfigS
     cfg.config.journal.source_urls = vec![source];
     cfg.config.startup.max_baseline_age_ms = 60_000;
     cfg
+}
+
+#[tokio::test]
+#[ignore = "requires an isolated Kafka broker in XONE_TEST_KAFKA_BROKER"]
+async fn slow_chain_bootstrap_does_not_delay_healthy_chain_quotes_or_updates() {
+    const SLOW_CHAIN: &str = "solana:localnet";
+    let (_, broker, topic, mut producer) = kafka_producer("chain-isolation").await;
+    let current = publish(&mut producer, "ONLINE_BASELINE_COMMIT", snapshot(1));
+    let owner_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let source = format!("http://{}", owner_listener.local_addr().unwrap());
+    let slow_requested = Arc::new(tokio::sync::Notify::new());
+    let slow_signal = slow_requested.clone();
+    let bootstrap = encode_bootstrap(&current).unwrap();
+    let owner = Router::new()
+        .route(
+            "/internal/chains/solana:localnet/bootstrap",
+            routing::get(move || {
+                let slow_signal = slow_signal.clone();
+                async move {
+                    slow_signal.notify_one();
+                    std::future::pending::<StatusCode>().await
+                }
+            }),
+        )
+        .route(
+            "/internal/chains/evm:31337/bootstrap",
+            routing::get(move || async move { bootstrap }),
+        );
+    let owner_task = tokio::spawn(async move { axum::serve(owner_listener, owner).await.unwrap() });
+
+    let mut cfg = config(broker, topic.clone(), source);
+    let all_chains = xone_config::load("../../config/config-test.yaml", "dex-router")
+        .unwrap()
+        .config
+        .chains;
+    let slow_chain = all_chains
+        .into_iter()
+        .find(|c| c.key == SLOW_CHAIN)
+        .unwrap();
+    cfg.config.chains.insert(0, slow_chain);
+    cfg.config
+        .journal
+        .kafka
+        .topics
+        .insert(SLOW_CHAIN.into(), format!("{topic}-slow"));
+    cfg.config.journal.request_timeout_ms = 30_000;
+    cfg.config.journal.poll_interval_ms = 100;
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    cfg.config.api.listen = listener.local_addr().unwrap().to_string();
+    drop(listener);
+    let quote_url = format!("http://{}/v1/quote", cfg.config.api.listen);
+    let token = cfg.token.clone();
+    let api_task = tokio::spawn(xone_quote_api::run(cfg));
+
+    tokio::time::timeout(TIMEOUT, slow_requested.notified())
+        .await
+        .expect("slow owner request did not start");
+    let pool = &current.snapshot.pools[0];
+    let body = json!({
+        "chainKey": CHAIN, "kind": "EXACT_IN",
+        "sellToken": pool.token0, "buyToken": pool.token1, "sellAmount": "1000",
+        "caller": pool.token0, "recipient": pool.token0,
+        "slippageBps": 50, "verification": "FAST"
+    });
+    let client = reqwest::Client::new();
+    let wait_for_quote = |sequence: u64| {
+        let (client, quote_url, token, body) = (&client, &quote_url, &token, &body);
+        async move {
+            tokio::time::timeout(TIMEOUT, async {
+                loop {
+                    if let Ok(response) = client
+                        .post(quote_url)
+                        .bearer_auth(token)
+                        .json(body)
+                        .send()
+                        .await
+                    {
+                        if let Ok(response) = response.error_for_status() {
+                            let quote: Value = response.json().await.unwrap();
+                            if quote["snapshotRef"]["journal_seq"] == sequence {
+                                return;
+                            }
+                        }
+                    }
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                }
+            })
+            .await
+            .expect("healthy chain did not quote while the slow chain was recovering");
+        }
+    };
+    wait_for_quote(current.snapshot.reference.journal_seq).await;
+    let next = append_block(&mut producer, &current);
+    wait_for_quote(next.snapshot.reference.journal_seq).await;
+    api_task.abort();
+    owner_task.abort();
 }
 
 #[tokio::test]
