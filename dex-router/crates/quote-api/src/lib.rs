@@ -466,11 +466,18 @@ impl Api {
             cache
                 .values()
                 .find(|c| c.request_hash == request_hash)
-                .map(|c| (c.view.clone(), c.expires, c.response.clone()))
+                .map(|c| {
+                    (
+                        c.view.clone(),
+                        c.expires,
+                        c.response.clone(),
+                        c.quote_verification_evidence.clone(),
+                    )
+                })
         };
-        if let Some((cached_view, expires, response)) = existing {
-            if let Some(backend) = &verified_backend {
-                self.recheck_verified_quote(backend, &cached_view, expires, deadline)
+        if let Some((cached_view, expires, response, evidence)) = existing {
+            if verified_backend.is_some() {
+                self.recheck_verified_quote(evidence.as_ref(), &cached_view, expires, deadline)
                     .await?;
             }
             self.check_view(&cached_view)?;

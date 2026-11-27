@@ -182,12 +182,8 @@ pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
         if evidence["nodeSimulation"]["bindingHash"] != bound.binding_hash {
             return Err(err("SIMULATION_FAILED"));
         }
-        let backend = api
-            .local_simulation
-            .as_ref()
-            .ok_or_else(|| err("INDEPENDENT_SIMULATION_UNAVAILABLE"))?;
         let deadline = started + Duration::from_millis(api.config.config.api.quote_timeout_ms);
-        api.recheck_verified_quote(backend, view, expires, deadline)
+        api.recheck_verified_quote(Some(evidence), view, expires, deadline)
             .await?;
     }
     check()?;

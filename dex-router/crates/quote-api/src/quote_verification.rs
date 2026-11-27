@@ -88,13 +88,20 @@ impl Api {
 
     pub(super) async fn recheck_verified_quote(
         &self,
-        backend: &local_simulation::LocalSimulation,
+        evidence: Option<&Value>,
         view: &QuoteView,
         expires: u64,
         deadline: Instant,
     ) -> Result<()> {
         self.check_verified_view(view, expires)?;
-        evm_receipt::recheck_simulation_context(self, backend.fixture(), deadline)
+        let source = &view.reference.block;
+        let evidence = evidence.ok_or_else(|| err("SIMULATION_FAILED"))?;
+        let native = &evidence["nodeSimulation"];
+        let execution_hash = native["executionContextBlockHash"]
+            .as_str()
+            .filter(|_| native["sourceBlockHash"] == source.hash)
+            .ok_or_else(|| err("SIMULATION_FAILED"))?;
+        evm_receipt::recheck_simulation_context(self, source, execution_hash, deadline)
             .await
             .map_err(verification_error)?;
         self.check_verified_view(view, expires)

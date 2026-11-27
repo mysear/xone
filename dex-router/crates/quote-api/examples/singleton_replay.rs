@@ -262,6 +262,10 @@ async fn assert_replay(
             let (status, build) = call(format!("/v1/quotes/{verified_id}/build"), json!({})).await;
             assert_eq!(status, 200, "{build}");
             assert_eq!(build["independentExecutionVerified"], true);
+            mined.inject(node::Fault::SourceReorg);
+            let (status, rejected) = call(path.into(), request.clone()).await;
+            assert_eq!(status, 409, "{rejected}");
+            assert_eq!(rejected["error"], "SNAPSHOT_REORGED");
             mined.inject(node::Fault::SimulationAnchorChanged);
             let (status, rejected) = call(path.into(), request).await;
             assert_eq!(status, 409, "{rejected}");

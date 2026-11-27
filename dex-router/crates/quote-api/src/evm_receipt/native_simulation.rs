@@ -5,6 +5,7 @@ use super::{
 };
 use crate::local_simulation::Failure;
 use xone_domain::singleton::ZERO_ADDRESS;
+use xone_domain::BlockRef;
 use xone_execution_plan::{Context, Transaction};
 use xone_simulation::evm_fixture::{
     EvmStatus, FixtureState, SimulationOutcome, TransactionContext,
@@ -30,7 +31,8 @@ pub(crate) async fn compare(
 
 pub(crate) async fn recheck(
     api: &Api,
-    fixture: &FixtureState,
+    source: &BlockRef,
+    execution_hash: &str,
     deadline: Instant,
 ) -> std::result::Result<(), Failure> {
     let _permit = api
@@ -38,26 +40,54 @@ pub(crate) async fn recheck(
         .clone()
         .try_acquire_owned()
         .map_err(|_| Failure::new("SIMULATION_BUSY", "node_simulation"))?;
-    tokio::time::timeout_at(deadline.into(), check_canonical(api, fixture))
+    let canonical = async {
+        let (source_header, ()) = tokio::try_join!(
+            rpc(
+                api,
+                &source.chain_key,
+                "eth_getBlockByNumber",
+                json!([format!("0x{:x}", source.number_or_slot), false]),
+            ),
+            check_canonical(
+                api,
+                &source.chain_key,
+                source.number_or_slot,
+                &source.hash,
+                execution_hash
+            ),
+        )?;
+        if source_header["hash"] != source.hash {
+            return Err(err("EVM_NODE_SIMULATION_REORGED"));
+        }
+        verify_execution_header(&source_header, super::header_fork(&source_header))
+    };
+    tokio::time::timeout_at(deadline.into(), canonical)
         .await
         .map_err(|_| Failure::new("SIMULATION_TIMEOUT", "node_simulation"))?
         .map_err(|error| Failure::new(&error.0, "node_simulation"))
 }
 
-async fn check_canonical(api: &Api, fixture: &FixtureState) -> Result<()> {
-    let env = &fixture.execution_environment;
+async fn check_canonical(
+    api: &Api,
+    chain: &str,
+    source_height: u64,
+    source_hash: &str,
+    execution_hash: &str,
+) -> Result<()> {
+    let height = source_height
+        .checked_add(1)
+        .ok_or_else(|| err("EVM_NODE_SIMULATION_UNSUPPORTED"))?;
     let current = rpc(
         api,
-        &fixture.state_anchor.chain_key,
+        chain,
         "eth_getBlockByNumber",
-        json!([format!("0x{:x}", env.block_number), false]),
+        json!([format!("0x{height:x}"), false]),
     )
     .await?;
-    if current["hash"] != env.block_hash || current["parentHash"] != fixture.state_anchor.block_hash
-    {
+    if current["hash"] != execution_hash || current["parentHash"] != source_hash {
         return Err(err("EVM_NODE_SIMULATION_REORGED"));
     }
-    Ok(())
+    verify_execution_header(&current, "cancun")
 }
 
 async fn observe(
@@ -176,7 +206,14 @@ async fn observe(
             "recipientBuyBefore":buy_before,"recipientBuyAfter":buy_after,
             "actualInputConsumed":local.actual_input_consumed,"actualBuyAmount":local.actual_buy_amount});
     }
-    check_canonical(api, fixture).await?;
+    check_canonical(
+        api,
+        chain,
+        source.block_number,
+        &source.block_hash,
+        &env.block_hash,
+    )
+    .await?;
     let mut evidence = json!({
         "authority":"CANONICAL_RPC_SIMULATED","sourceBlockHash":source.block_hash,
         "sourceStateRoot":state_root,"executionContextBlockHash":env.block_hash,
