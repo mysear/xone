@@ -2,6 +2,8 @@ use super::{err, hash, json, Api, Instant, Result, Value};
 use crate::{local_simulation::Failure, transaction_lifecycle::rpc};
 use alloy_rlp::{Encodable, Header, RlpEncodable};
 use alloy_trie::root::ordered_trie_root;
+use num_traits::CheckedSub;
+use std::collections::BTreeMap;
 use tiny_keccak::{Hasher, Keccak};
 use xone_domain::{singleton::ZERO_ADDRESS, Amount};
 use xone_execution_plan::Context;
@@ -205,10 +207,6 @@ async fn observe(
     {
         return Err(bad());
     }
-    // Whole-block balances include withdrawals applied after the last transaction.
-    if !withdrawals.is_empty() && next == transactions.len() {
-        return Err(bad());
-    }
     let logs = receipt["logs"].as_array().ok_or_else(bad)?;
     let log_start = logs
         .first()
@@ -276,13 +274,18 @@ async fn observe(
         }
     }
     let single = transactions.len() == 1;
-    let before = if single {
-        BalancePoint::Block(source)
+    let pre_withdrawals = if !withdrawals.is_empty() && next == transactions.len() {
+        Some(reverse_withdrawals(api, chain, execution, &withdrawals).await?)
+    } else {
+        None
+    };
+    let before = if single && pre_withdrawals.is_none() {
+        BalancePoint::Block(source, None)
     } else {
         BalancePoint::Transaction(execution, index)
     };
     let after = if next == transactions.len() {
-        BalancePoint::Block(execution)
+        BalancePoint::Block(execution, pre_withdrawals.as_ref())
     } else {
         BalancePoint::Transaction(execution, next)
     };
@@ -312,7 +315,13 @@ async fn observe(
     }
     let mut evidence = json!({
         "authority":"CANONICAL_RPC_OBSERVED",
-        "scope":if single {"SINGLE_TRANSACTION_BLOCK"} else {"TRANSACTION_INDEX"},
+        "scope": if pre_withdrawals.is_some() {
+            "TRANSACTION_BEFORE_WITHDRAWALS"
+        } else if single {
+            "SINGLE_TRANSACTION_BLOCK"
+        } else {
+            "TRANSACTION_INDEX"
+        },
         "transactionHash":tx,"sourceBlockHash":source,"blockHash":execution,
         "transactionIndex":index,"success":local.execution.status == EvmStatus::Success,
         "gasUsed":local.execution.gas_used,"logsHash":local.execution.logs_hash,
@@ -332,8 +341,56 @@ async fn observe(
 
 #[derive(Clone, Copy)]
 enum BalancePoint<'a> {
-    Block(&'a str),
+    Block(&'a str, Option<&'a Value>),
     Transaction(&'a str, usize),
+}
+
+async fn reverse_withdrawals(
+    api: &Api,
+    chain: &str,
+    block: &str,
+    withdrawals: &[Withdrawal],
+) -> Result<Value> {
+    let unavailable = || err("EVM_NODE_RECEIPT_PRE_WITHDRAWAL_STATE_UNAVAILABLE");
+    let mut credits = BTreeMap::<[u8; 20], u128>::new();
+    for withdrawal in withdrawals {
+        // Geth disables a precompile when any state override targets its address.
+        if (withdrawal.address[..19] == [0; 19] && (1..=10).contains(&withdrawal.address[19]))
+            || withdrawal.amount == 0
+        {
+            return Err(unavailable());
+        }
+        *credits.entry(withdrawal.address).or_default() +=
+            u128::from(withdrawal.amount) * 1_000_000_000;
+    }
+    let anchor = json!({"blockHash":block,"requireCanonical":true});
+    let mut overrides = serde_json::Map::new();
+    for (address, credit) in credits {
+        let owner = format!("0x{}", hex::encode(address));
+        let get = |method| rpc(api, chain, method, json!([owner, anchor]));
+        let after = quantity(&get("eth_getBalance").await?)?;
+        let before = after
+            .0
+            .checked_sub(&credit.into())
+            .ok_or_else(unavailable)?;
+        if before.bits() == 0 {
+            let (nonce, code) =
+                tokio::try_join!(get("eth_getTransactionCount"), get("eth_getCode"))?;
+            let code = code
+                .as_str()
+                .and_then(|value| value.strip_prefix("0x"))
+                .filter(|value| {
+                    value.len() % 2 == 0 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+                })
+                .ok_or_else(unavailable)?;
+            // A balance override cannot remove an account created only by the withdrawal.
+            if quantity_u64(&nonce)? == 0 && code.is_empty() {
+                return Err(unavailable());
+            }
+        }
+        overrides.insert(owner, json!({"balance":format!("0x{before:x}")}));
+    }
+    Ok(Value::Object(overrides))
 }
 
 async fn trace_account(
@@ -366,7 +423,7 @@ async fn settlement_balances(
     let owner = &context.caller;
     let chain = &context.chain_key;
     let (payer, nonce) = match point {
-        BalancePoint::Block(block) => {
+        BalancePoint::Block(block, _) => {
             let count = rpc(
                 api,
                 chain,
@@ -429,18 +486,19 @@ async fn balance(
         json!({"from":context.caller,"to":token,"data":data,"gas":"0x30d40"})
     };
     let value = match point {
-        BalancePoint::Block(block) => {
-            let value = rpc(
-                api,
-                chain,
-                method,
-                json!([call, {"blockHash":block,"requireCanonical":true}]),
-            )
-            .await?;
+        BalancePoint::Block(block, overrides) => {
+            let at = json!({"blockHash":block,"requireCanonical":true});
             if native {
-                return quantity(&value);
+                if let Some(amount) = overrides.and_then(|values| values.get(owner)) {
+                    return quantity(&amount["balance"]);
+                }
+                return quantity(&rpc(api, chain, method, json!([call, at])).await?);
             }
-            value
+            let params = match overrides {
+                Some(overrides) => json!([call, at, overrides]),
+                None => json!([call, at]),
+            };
+            rpc(api, chain, method, params).await?
         }
         BalancePoint::Transaction(block, index) if native => {
             let account = trace_account(api, chain, owner, block, index).await?;

@@ -18,7 +18,7 @@ use xone_simulation::evm_fixture::{FixtureAccount, StorageEntry, BEACON_ROOTS_AD
 #[derive(Clone, Copy)]
 pub(super) enum Executable<'a> {
     Anvil(&'a OsStr),
-    Geth(&'a OsStr),
+    Geth(&'a OsStr, bool),
 }
 
 const PREFIX_SENDER: &str = "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf";
@@ -32,6 +32,7 @@ pub(super) struct Node {
         Lines<BufReader<tokio::process::ChildStdout>>,
     )>,
     _process: tokio::process::Child,
+    final_target: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -47,6 +48,7 @@ pub(super) enum Fault {
     WithdrawalsList,
     WithdrawalsAmount,
     WithdrawalsRoot,
+    WithdrawalBalance,
 }
 
 pub(super) struct Mined {
@@ -56,6 +58,7 @@ pub(super) struct Mined {
     pub(super) withdrawals_root: Option<String>,
     payer: String,
     transaction_index: u64,
+    final_target: bool,
     fault: Arc<Mutex<Option<Fault>>>,
     execution_reads: Arc<AtomicUsize>,
 }
@@ -100,7 +103,7 @@ impl Node {
                 )
             })
             .collect::<BTreeMap<_, _>>();
-        if matches!(executable, Executable::Geth(_)) {
+        if matches!(executable, Executable::Geth(..)) {
             alloc.insert(
                 PREFIX_SENDER.into(),
                 json!({"balance":"0x1000000000000000000"}),
@@ -145,7 +148,7 @@ impl Node {
                     .stdout(log.try_clone().unwrap());
                 command
             }
-            Executable::Geth(bin) => {
+            Executable::Geth(bin, _) => {
                 let mut command = tokio::process::Command::new(bin);
                 command
                     .arg(genesis_path)
@@ -170,6 +173,7 @@ impl Node {
                 .unwrap(),
             control,
             _process: process,
+            final_target: matches!(executable, Executable::Geth(_, true)),
         };
         let request = json!({"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]});
         for _ in 0..100 {
@@ -287,19 +291,38 @@ impl Node {
             .await;
         assert_eq!(tx, signed["transactionHash"]);
         let transaction_index = if self.control.is_some() {
-            let suffix = sign_transaction(
-                &json!({"to":case["context"]["recipient"],"data":"0x","value":"1"}),
-                bundle,
-                bundle.transaction_context.nonce + 1,
-            );
-            self.rpc("eth_sendRawTransaction", json!([suffix["signedWire"]]))
-                .await;
+            let recipient = &case["context"]["recipient"];
+            let caller = &case["context"]["caller"];
+            let withdrawal_owner = if self.final_target {
+                caller
+            } else {
+                let suffix = sign_transaction(
+                    &json!({"to":recipient,"data":"0x","value":"1"}),
+                    bundle,
+                    bundle.transaction_context.nonce + 1,
+                );
+                self.rpc("eth_sendRawTransaction", json!([suffix["signedWire"]]))
+                    .await;
+                recipient
+            };
             self.rpc(
                 "dev_addWithdrawal",
                 json!([{"index":"0x0","validatorIndex":"0x0",
-                    "address":case["context"]["recipient"],"amount":"0x1"}]),
+                    "address":withdrawal_owner,"amount":"0x1"}]),
             )
             .await;
+            if self.final_target {
+                let second_owner = if case["context"]["buy_token"] == ZERO_ADDRESS {
+                    recipient
+                } else {
+                    caller
+                };
+                self.rpc(
+                    "dev_addWithdrawal",
+                    json!([{"index":"0x1","validatorIndex":"0x1","address":second_owner,"amount":"0x2"}]),
+                )
+                .await;
+            }
             1
         } else {
             self.rpc(
@@ -315,13 +338,24 @@ impl Node {
             .await;
         assert_eq!(
             execution["transactions"].as_array().unwrap().len(),
-            if transaction_index == 0 { 1 } else { 3 }
+            if self.final_target {
+                2
+            } else if transaction_index == 0 {
+                1
+            } else {
+                3
+            }
         );
         assert_eq!(execution["transactions"][transaction_index as usize], tx);
         let withdrawals = execution["withdrawals"].as_array().unwrap();
         let withdrawals_root = if self.control.is_some() {
-            assert_eq!(withdrawals.len(), 1);
-            assert_eq!(withdrawals[0]["address"], case["context"]["recipient"]);
+            let owner = if self.final_target {
+                "caller"
+            } else {
+                "recipient"
+            };
+            assert_eq!(withdrawals.len(), if self.final_target { 2 } else { 1 });
+            assert_eq!(withdrawals[0]["address"], case["context"][owner]);
             assert_eq!(withdrawals[0]["amount"], "0x1");
             Some(field(&execution, "withdrawalsRoot"))
         } else {
@@ -368,6 +402,7 @@ impl Node {
                 storage: slots,
             });
         }
+        let final_target = self.final_target;
         Mined {
             node: Arc::new(self),
             deadline,
@@ -375,6 +410,7 @@ impl Node {
             withdrawals_root,
             payer: field(&case["context"], "caller"),
             transaction_index,
+            final_target,
             fault: Arc::new(Mutex::new(None)),
             execution_reads: Arc::new(AtomicUsize::new(0)),
         }
@@ -387,7 +423,9 @@ impl Mined {
     }
 
     pub(super) fn scope(&self) -> &'static str {
-        if self.transaction_index == 0 {
+        if self.final_target {
+            "TRANSACTION_BEFORE_WITHDRAWALS"
+        } else if self.transaction_index == 0 {
             "SINGLE_TRANSACTION_BLOCK"
         } else {
             "TRANSACTION_INDEX"
@@ -409,6 +447,7 @@ impl Mined {
         let fault = self.fault.clone();
         let execution_reads = self.execution_reads.clone();
         let payer = self.payer.clone();
+        let final_target = self.final_target;
         axum::Router::new().route(
             "/",
             axum::routing::post(move |axum::Json(mut request): axum::Json<Value>| {
@@ -440,8 +479,15 @@ impl Mined {
                             assert!(!result["logs"].as_array().unwrap().is_empty());
                             result["logs"][0]["data"] = "0x".into();
                         }
-                        (Some(Fault::Balance), "eth_getBalance") => *result = "0x1".into(),
+                        (Some(Fault::Balance), "eth_getBalance") if !final_target => {
+                            *result = "0x1".into();
+                        }
                         (Some(Fault::PayerBalance), "eth_getBalance")
+                            if request["params"][0] == payer =>
+                        {
+                            *result = "0x12345678900000000".into();
+                        }
+                        (Some(Fault::WithdrawalBalance), "eth_getBalance")
                             if request["params"][0] == payer =>
                         {
                             *result = "0x1".into();

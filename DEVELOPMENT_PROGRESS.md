@@ -404,13 +404,14 @@
 12. 回执查询继承耐久提交预检的最小 slot，校验 RPC 上下文与返回的交易 slot。查询不到签名时按同一下界检查区块高度。Agave 联测注入陈旧状态响应，API 拒绝且日志字节一致，随后正常完成 finalized 回执。
 13. Yellowstone owner 在已提交的同一 bank 上提供账户写入 slot、bank ID、write version 和数据摘要。SBF 仿真按完整 SnapshotRef 与来源凭证匹配 owner，逐项核对与准备 capture 重叠的账户并保留捕获的 rent epoch。正常解析服务通过 bank 账户版本读取、错误分叉和撤销后拒绝。两组 Orca HTTP 仿真通过有效证明，以及错误写入 bank、错误摘要拒绝。解析四个目标串行通过 63 项，首次并行运行有一项恢复测试报 `SCOPE_STORE_CONFLICT`，串行复验通过。
 14. Solana 准备统一使用 blockhash 和消息费用读取逻辑，要求账户、blockhash、费用、可选 RPC 仿真的观测 slot 依次不下降。准备结果新增 `blockhashObservedSlot`，提交预检与费用验收保留对历史准备记录的支持。三项 Orca 受控 HTTP 联测通过，覆盖两组陈旧费用响应拒绝。三项费用证据验收及启用 RPC 仿真的 Agave 签名提交和 finalized 回执联测通过。
-15. EVM 节点回执支持含提款区块中的非末笔交易，按交易索引读取提款执行前的目标交易前后余额。提款列表与空提款根不一致时拒绝。Geth v1.16.7 的 24 个三交易区块均包含给收款地址的提款，24 个中间交易回执及隐藏提款列表的拒绝均通过。Anvil 1.4.4 的 24 个单交易空提款块回归通过。含提款区块的末笔交易仍缺交易后状态观测。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
+15. EVM 节点回执支持含提款区块中的非末笔交易，按交易索引读取提款执行前的目标交易前后余额。提款列表与空提款根不一致时拒绝。Geth v1.16.7 的 24 个三交易区块均包含给收款地址的提款，24 个中间交易回执及隐藏提款列表的拒绝均通过。Anvil 1.4.4 的 24 个单交易空提款块回归通过。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 16. EVM 节点回执同时核对付款人原生币的前后余额和 nonce，覆盖双 ERC-20 交换。交易索引查询复用同一账户跟踪结果，付款人也是原生币结算账户时复用同一余额。24 个 Geth 和 24 个 Anvil 回执通过，两组各 24 个仅篡改付款人原生余额的反例均被拒绝。
 17. OP 原版签名费用语料已从固定摘要的 op-geth 源码重建。覆盖 Regolith 至 Isthmus 的 448 个场景和 1337 次状态转换，严格执行与费用审计的 7 项 Rust 联测通过。原冻结 V2 文件缺失，重建的 24 组 V2 bank 通过独立验证器，文件摘要与旧冻结值不同。
 18. 正常 OP HTTP 签名验收新增 `op_api_http.py --export-validated-sources BANK TRACES EXECUTION_VECTORS OUTPUT`，复核重建 V2 bank 及原始跟踪文件后按摘要绑定导出。Regolith 至 Isthmus 的 Legacy 和 EIP-1559 各覆盖 ExactIn、ExactOut，共 28 个正常报价、构建及签名执行与原版 op-geth 的 gas、L1 数据费、operator fee、费用账户及收款差一致，168 个无效请求被拒绝。验收范围为本地历史状态。 [复验工具](integration/tools/acceptance/op_api_http.py)
 19. 重建 Jovian 的 64 个原版费用场景，并从固定源码、依赖和 Rust 1.99.0 构建 Karst 原版执行器。验收工具支持导出两个规则的输入，HTTP 验收不再重复写入同一份报价、构建、签名和仿真文件。Regolith 至 Karst 合计 36 个正常签名执行和 216 个拒绝场景通过，其中 Jovian、Karst 各有 4 个正常场景。 [OP HTTP 复验](integration/tools/acceptance/op_api_http.py) · [Karst 原版执行器](integration/tools/acceptance/karst_execution_vectors.py)
 20. EVM 回执按原始顺序重算提款 trie 根，再按已声明的 Ethereum 分叉重建区块头并核对区块哈希。Geth 和 Anvil 的 48 个回执通过。提款列表缺失、金额篡改及同步伪造空列表与空根各 24 组均被拒绝。
-21. 下一轮补齐含提款区块末笔交易的状态核对。基于绑定的提款列表还原提款前的付款和收款余额，验证节点 token 读取使用同一状态，对无法精确还原的状态拒绝出具回执证据。
+21. 含提款区块的末笔 EVM 回执按交易索引读取交易前状态，按已绑定的提款列表还原交易后的原生币余额，并把同一组余额覆盖传给 ERC-20 读取。Geth 的 24 个末笔交易回执通过，覆盖同地址累计提款、原生币收款人提款和余额不足以还原时的 24 组拒绝。Geth 中间交易与 Anvil 空提款块各 24 组回归通过。证据范围为 `TRANSACTION_BEFORE_WITHDRAWALS`。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
+22. 下一轮复验 Solana 钱包生命周期的提交分支。恢复原版 Meteora Token-2022 回放输入，清理测试启动对无关 EVM 快照和浏览器专用池的依赖，核对确切签名字节、提交不确定性、过期、回执失配与日志恢复。
 
 ### I7 真实来源和恢复
 

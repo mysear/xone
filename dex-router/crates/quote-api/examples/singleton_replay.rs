@@ -17,11 +17,23 @@ async fn main() {
     let dir = Path::new(&path);
     let anvil = std::env::var_os("XONE_SINGLETON_ANVIL");
     let geth = std::env::var_os("XONE_SINGLETON_GETH");
-    assert!(anvil.is_none() || geth.is_none(), "select one receipt node");
+    let geth_last = std::env::var_os("XONE_SINGLETON_GETH_LAST");
+    assert!(
+        [&anvil, &geth, &geth_last].into_iter().flatten().count() <= 1,
+        "select one receipt node"
+    );
     let node = anvil
         .as_deref()
         .map(node::Executable::Anvil)
-        .or_else(|| geth.as_deref().map(node::Executable::Geth));
+        .or_else(|| {
+            geth.as_deref()
+                .map(|path| node::Executable::Geth(path, false))
+        })
+        .or_else(|| {
+            geth_last
+                .as_deref()
+                .map(|path| node::Executable::Geth(path, true))
+        });
     let temporary = tempfile::tempdir().unwrap();
     let mut count = 0;
     for entry in std::fs::read_dir(dir).unwrap() {
@@ -36,7 +48,11 @@ async fn main() {
     }
     assert_eq!(count, 24);
     println!("{count} unsigned and {count} signed HTTP replays passed, with {count} missing-state and {count} nonce rejections");
-    if geth.is_some() {
+    if geth_last.is_some() {
+        println!(
+            "{count} Geth final-transaction receipts passed with withdrawal credits reconciled"
+        );
+    } else if geth.is_some() {
         println!("{count} Geth transaction-index receipts in blocks with withdrawals passed, with gas, log, balance, reorg, transaction index, beacon root, beacon storage and withdrawal list rejection cases");
     } else if anvil.is_some() {
         println!("{count} mined Cancun receipts passed, with wrong gas, logs, balance and reorg rejection per receipt");
@@ -302,16 +318,21 @@ async fn assert_replay(
                 node::Fault::WithdrawalsRoot,
             ]);
         }
+        if mined.scope() == "TRANSACTION_BEFORE_WITHDRAWALS" {
+            faults.push(node::Fault::WithdrawalBalance);
+        }
         for fault in faults {
             mined.inject(fault);
             let (status, rejected) =
                 call(format!("{path}/simulate"), receipt_request.clone()).await;
             assert_eq!(status, 422, "{fault:?}: {rejected}");
             assert_eq!(rejected["phase"], "node_receipt", "{fault:?}: {rejected}");
-            let expected = if fault == node::Fault::Reorg {
-                "EVM_NODE_RECEIPT_REORGED"
-            } else {
-                "EVM_NODE_RECEIPT_MISMATCH"
+            let expected = match fault {
+                node::Fault::Reorg => "EVM_NODE_RECEIPT_REORGED",
+                node::Fault::WithdrawalBalance => {
+                    "EVM_NODE_RECEIPT_PRE_WITHDRAWAL_STATE_UNAVAILABLE"
+                }
+                _ => "EVM_NODE_RECEIPT_MISMATCH",
             };
             assert_eq!(rejected["error"], expected);
         }
