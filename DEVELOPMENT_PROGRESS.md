@@ -296,7 +296,7 @@
 ### I1 Managed fee 完整闭环
 
 - 旧版 ExactIn/ExactOut 原始回调差分已通过，覆盖非零协议费、管理费、同收款方合并、溢出回滚及连续交易。
-- BPT supply、owner 与协议收款方后状态已通过 Rust Protobuf 往返校验。跨语言 wire 联验待完成。
+- 旧版 BPT supply、owner 与协议收款方后状态已通过 Rust Protobuf 往返校验。20230411 AUM 原 Vault 的三个连续状态已通过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价联验。
 - 接入可部署 ManagedPool 版本的真实来源、parser、wire、API 和连续状态。
 - 退出标准是原始案例、序列案例、跨语言 wire 和正常 API 全部通过。
 
@@ -359,7 +359,7 @@
 - 完成 ClickHouse 事实、版本表、shadow 发布和 FINAL 查询。
 - 完成 RFQ、多 solver、外部来源竞争和收益分布。
 
-当前活动目标为 I1。e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版的普通代币对 ExactOut 已接入 AUM、scheduled 和 breaker 单池报价，能力目录为 `xone-protocol-capabilities/23`。连续两笔反向原 Vault `GIVEN_OUT` 本地交易与 Rust 的输入、输出、全部注册余额、Vault 钱包和 BPT/AUM 状态一致。仓库保留精简状态投影，原始回放使用哈希校验的发布 build-info 和标准限制的本地 EVM。活动费率与权重使用受控测试，HTTP 使用受控快照。真实部署、Go/Rust wire 至服务、scheduled 与 breaker 原始 ExactOut 回放仍待验收。生产准入与 `VERIFIED` 报价关闭。
+当前活动目标为 I1。e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版的普通代币对 ExactOut 已接入 AUM、scheduled 和 breaker 单池报价，能力目录为 `xone-protocol-capabilities/23`。连续两笔反向原 Vault `GIVEN_OUT` 本地交易与 Rust 的输入、输出、全部注册余额、Vault 钱包和 BPT/AUM 状态一致。原始回放使用哈希校验的发布 build-info 和标准限制的本地 EVM。Go 使用记录的固定块 RPC getter 与代码生成三个连续快照，Rust 解码后通过副本连续提交与 HTTP 报价验证两笔交易。真实部署验收、scheduled 与 breaker 原始 ExactOut 回放仍待完成。生产准入与 `VERIFIED` 报价关闭。
 
 <a id="work-packages"></a>
 

@@ -33,6 +33,7 @@ xone-kafka-transport = { path = "../kafka-transport" }
 libc = "=0.2.191"
 
 [dev-dependencies]
+prost.workspace = true
 tempfile = "=3.27.0"
 tower = { version = "0.5", features = ["util"] }
 

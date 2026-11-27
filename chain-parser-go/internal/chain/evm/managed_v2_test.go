@@ -161,7 +161,11 @@ func managedNativeFixture(t *testing.T, index int, mutate func(*managedTestState
 }
 func managedNativeFixtureAt(t *testing.T, index int, source managedBankRef, mutate func(*managedTestState)) (Adapter, *managedTestState) {
 	t.Helper()
-	b := managedLoadBank(t)
+	return managedNativeFixtureFromBank(t, managedLoadBank(t), index, source, mutate)
+}
+
+func managedNativeFixtureFromBank(t *testing.T, b managedBank, index int, source managedBankRef, mutate func(*managedTestState)) (Adapter, *managedTestState) {
+	t.Helper()
 	scenario := b.Scenarios[index]
 	var snap managedBankSnapshot
 	if source.Ref == "" {
@@ -197,7 +201,11 @@ func managedNativeFixtureAt(t *testing.T, index int, source managedBankRef, muta
 		calls[g.To+g.Data] = g.Result
 	}
 	m := &config.ManagedV2PoolConfig{ExpectedFactory: ids["ManagedPoolFactory"], ExpectedFactoryCodeSHA256: managedDigest(codes[ids["ManagedPoolFactory"]]), ExpectedPoolRuntimeTemplateSHA256: managedV2Templates["ManagedPool"].SHA256, ExpectedFeeProvider: ids["ProtocolFeePercentagesProvider"], ExpectedFeeProviderCodeSHA256: managedDigest(codes[ids["ProtocolFeePercentagesProvider"]]), ExpectedProtocolCollector: ids["ProtocolFeesCollector"], ExpectedProtocolCollectorCodeSHA256: managedDigest(codes[ids["ProtocolFeesCollector"]]), ExpectedManager: scenario.Configuration.Owner, ExpectedProviderFeeID: domain.Amount(snap.State.ProviderID), ExpectedManagementAUMFee: domain.Amount(snap.State.Annual)}
-	for role, name := range managedV2Roles {
+	for _, role := range []string{
+		"circuit-breaker-lib", "managed-pool-add-remove-token-lib",
+		"managed-pool-amm-lib", "external-weighted-math", "recovery-mode-helper",
+	} {
+		name := managedV2Roles[role]
 		addr := ids[name]
 		m.Dependencies = append(m.Dependencies, domain.ManagedV2Dependency{Role: role, Address: addr, CodeSHA256: managedDigest(codes[addr]), TemplateSHA256: managedV2Templates[name].SHA256})
 	}

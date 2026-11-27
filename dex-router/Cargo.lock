@@ -3812,6 +3812,7 @@ dependencies = [
  "hex",
  "libc",
  "num-traits",
+ "prost",
  "reqwest",
  "serde",
  "serde_json",
