@@ -40,7 +40,10 @@ def verify(document):
     require(c['sourceAuthority'] == 'PREPARATION_RPC_OBSERVATION' and c['historicalBankVerified'] is False, 'RPC fee promoted beyond source authority')
     require(c['planHash'] == p['planHash'] == q['planHash'] and c['quoteViewId'] == q['quoteViewId'], 'Cost plan binding changed')
     require(c['accountSnapshotHash'] == p['accountSnapshot']['snapshotHash'], 'Account source binding changed')
-    require(c['accountObservedSlot'] == c['feeMinimumContextSlot'] == p['observedSlot'] and c['feeObservedSlot'] >= p['observedSlot'], 'Fee/account slot policy violated')
+    blockhash_slot = p.get('blockhashObservedSlot', p['observedSlot'])
+    require(c['accountObservedSlot'] == p['observedSlot']
+            and p['observedSlot'] <= blockhash_slot == c['feeMinimumContextSlot'] <= c['feeObservedSlot'],
+            'Fee/account slot policy violated')
     require(c['feeContextPolicy'] == 'MIN_CONTEXT_SLOT_NOT_SAME_BANK', 'Fee context incorrectly asserts same bank')
     require(c['validity']['recentBlockhash'] == p['recentBlockhash'] and c['validity']['lastValidBlockHeight'] == p['lastValidBlockHeight'], 'Fee validity changed')
     fee, rent, refund, wrap, funding = [amount(p[key]) for key in ['feeLamports', 'rentLamports', 'rentRefundLamports', 'wrapLamports', 'totalFundingLamports']]

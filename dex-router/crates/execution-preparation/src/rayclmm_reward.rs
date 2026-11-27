@@ -465,38 +465,11 @@ pub async fn prepare(
             data_base64: STANDARD.encode(data),
         },
     ];
-    let latest = rpc
-        .call(
-            "getLatestBlockhash",
-            json!([{"commitment":"finalized","minContextSlot":slot}]),
-        )
-        .await?;
-    if latest["context"]["slot"]
-        .as_u64()
-        .is_none_or(|observed| observed < slot)
-    {
-        return Err(bad());
-    }
-    let blockhash = latest["value"]["blockhash"].as_str().ok_or_else(bad)?;
-    let expiry = latest["value"]["lastValidBlockHeight"]
-        .as_u64()
-        .ok_or_else(bad)?;
+    let recent_blockhash = rpc.latest_blockhash(slot).await?;
+    let blockhash = recent_blockhash.hash.as_str();
+    let expiry = recent_blockhash.last_valid_block_height;
     let message = compile_message_many(&request.authority, blockhash, &instructions)?;
-    let fee = rpc
-        .call(
-            "getFeeForMessage",
-            json!([STANDARD.encode(&message),{"commitment":"finalized","minContextSlot":slot}]),
-        )
-        .await?;
-    if fee["context"]["slot"]
-        .as_u64()
-        .is_none_or(|observed| observed < slot)
-    {
-        return Err(bad());
-    }
-    let fee = fee["value"]
-        .as_u64()
-        .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
+    let (fee, fee_slot) = rpc.message_fee(&message, &recent_blockhash).await?;
     if payer.lamports < fee {
         return Err(err("INSUFFICIENT_FEE_BALANCE"));
     }
@@ -515,6 +488,7 @@ pub async fn prepare(
         "lowerTickArray":lower_array.address,"upperTickArray":upper_array.address,
         "feeLamports":fee.to_string(),"computeUnitLimit":rayclmm::COMPUTE_LIMIT,
         "recentBlockhash":blockhash,"lastValidBlockHeight":expiry,"requiredSigners":[request.authority],
+        "blockhashObservedSlot":recent_blockhash.observed_slot,"feeObservedSlot":fee_slot,
         "instructions":instructions,"messageBase64":STANDARD.encode(&message),
         "unsignedTransaction":STANDARD.encode(unsigned_packet(&message)?),"accountSnapshot":snapshot.summary()?,
     });

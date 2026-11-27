@@ -157,10 +157,17 @@ fn minimum_preflight_slot(prepared: &Value) -> Result<u64> {
     if prepared.get("costs").is_none() {
         return Ok(observed);
     }
+    let blockhash_slot = match prepared.get("blockhashObservedSlot") {
+        Some(value) => value
+            .as_u64()
+            .filter(|slot| *slot >= observed)
+            .ok_or_else(|| err("TRANSACTION_FEE_CONTEXT_INVALID"))?,
+        None => observed,
+    };
     let cost = &prepared["costs"];
     if cost["modelVersion"] != "xone-solana-native-cost/1"
         || cost["status"] != "MESSAGE_BOUND_RPC_ESTIMATE"
-        || cost["feeMinimumContextSlot"] != observed
+        || cost["feeMinimumContextSlot"] != blockhash_slot
         || cost["accountObservedSlot"] != observed
         || cost["networkFeeNative"] != prepared["feeLamports"]
     {
@@ -168,7 +175,7 @@ fn minimum_preflight_slot(prepared: &Value) -> Result<u64> {
     }
     let fee = cost["feeObservedSlot"]
         .as_u64()
-        .filter(|n| *n >= observed)
+        .filter(|n| *n >= blockhash_slot)
         .ok_or_else(|| err("TRANSACTION_FEE_CONTEXT_INVALID"))?;
     Ok(fee)
 }

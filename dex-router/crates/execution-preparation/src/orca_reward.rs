@@ -494,35 +494,11 @@ pub async fn prepare(
         accounts,
         data_base64: STANDARD.encode(data),
     });
-    let latest = rpc
-        .call(
-            "getLatestBlockhash",
-            json!([{"commitment":"finalized","minContextSlot":slot}]),
-        )
-        .await?;
-    if latest["context"]["slot"].as_u64().is_none_or(|v| v < slot) {
-        return Err(bad());
-    }
-    let blockhash = latest["value"]["blockhash"].as_str().ok_or_else(bad)?;
-    let expiry = latest["value"]["lastValidBlockHeight"]
-        .as_u64()
-        .ok_or_else(bad)?;
+    let recent_blockhash = rpc.latest_blockhash(slot).await?;
+    let blockhash = recent_blockhash.hash.as_str();
+    let expiry = recent_blockhash.last_valid_block_height;
     let message = compile_message_many(&request.authority, blockhash, &instructions)?;
-    let fee_reply = rpc
-        .call(
-            "getFeeForMessage",
-            json!([STANDARD.encode(&message),{"commitment":"finalized","minContextSlot":slot}]),
-        )
-        .await?;
-    if fee_reply["context"]["slot"]
-        .as_u64()
-        .is_none_or(|v| v < slot)
-    {
-        return Err(bad());
-    }
-    let fee_lamports = fee_reply["value"]
-        .as_u64()
-        .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
+    let (fee_lamports, fee_slot) = rpc.message_fee(&message, &recent_blockhash).await?;
     if payer.lamports < fee_lamports {
         return Err(err("INSUFFICIENT_FEE_BALANCE"));
     }
@@ -550,6 +526,7 @@ pub async fn prepare(
             {"address":request.reward_account,"owner":request.reward_token_program,"dataSha256":format!("{:x}",Sha256::digest(destination_after)),"lamports":destination_lamports.to_string()}
         ],
         "recentBlockhash":blockhash,"lastValidBlockHeight":expiry,"requiredSigners":[request.authority],
+        "blockhashObservedSlot":recent_blockhash.observed_slot,"feeObservedSlot":fee_slot,
         "instructions":instructions,"messageBase64":STANDARD.encode(message),"unsignedTransaction":STANDARD.encode(packet),
         "accountSnapshot":snapshot.summary()?,
     });

@@ -222,7 +222,55 @@ struct Rpc {
     chain_key: String,
     genesis_hash: String,
 }
+struct RecentBlockhash {
+    hash: String,
+    observed_slot: u64,
+    last_valid_block_height: u64,
+}
 impl Rpc {
+    async fn latest_blockhash(&self, minimum_slot: u64) -> Result<RecentBlockhash> {
+        let response = self
+            .call(
+                "getLatestBlockhash",
+                json!([{"commitment":"finalized","minContextSlot":minimum_slot}]),
+            )
+            .await?;
+        let observed_slot = response["context"]["slot"].as_u64().ok_or_else(bad)?;
+        if observed_slot < minimum_slot {
+            return Err(err("PREPARATION_STALE_RPC"));
+        }
+        let value = &response["value"];
+        Ok(RecentBlockhash {
+            hash: value["blockhash"].as_str().ok_or_else(bad)?.into(),
+            observed_slot,
+            last_valid_block_height: value["lastValidBlockHeight"].as_u64().ok_or_else(bad)?,
+        })
+    }
+
+    async fn message_fee(&self, message: &[u8], blockhash: &RecentBlockhash) -> Result<(u64, u64)> {
+        let params = json!([STANDARD.encode(message),
+            {"commitment":"finalized","minContextSlot":blockhash.observed_slot}]);
+        let response = self.call("getFeeForMessage", params.clone()).await?;
+        let observation = solana_native_cost::FeeObservation::read(&params, &response)?;
+        if observation.observed_slot < blockhash.observed_slot {
+            return Err(err("PREPARATION_STALE_RPC"));
+        }
+        let fee = observation
+            .fee
+            .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
+        let slot = observation.observed_slot;
+        let mut capture = self
+            .capture
+            .1
+            .lock()
+            .map_err(|_| err("PREPARATION_CAPTURE_LOCK"))?;
+        if capture.is_some() {
+            return Err(err("PREPARATION_CAPTURE_MULTIPLE_FEE_QUOTES"));
+        }
+        *capture = Some(observation);
+        Ok((fee, slot))
+    }
+
     async fn call(&self, method: &str, params: Value) -> Result<Value> {
         let response = self
             .client
@@ -284,18 +332,6 @@ impl Rpc {
                 return Err(err("PREPARATION_CAPTURE_MULTIPLE_BANKS"));
             }
             *capture = Some(snapshot);
-        }
-        if method == "getFeeForMessage" {
-            let observation = solana_native_cost::FeeObservation::read(&params, &value)?;
-            let mut captured = self
-                .capture
-                .1
-                .lock()
-                .map_err(|_| err("PREPARATION_CAPTURE_LOCK"))?;
-            if captured.is_some() {
-                return Err(err("PREPARATION_CAPTURE_MULTIPLE_FEE_QUOTES"));
-            }
-            *captured = Some(observation);
         }
         Ok(value)
     }
@@ -827,19 +863,9 @@ async fn resolve(
     if !blockers.is_empty() {
         return Ok(result);
     }
-    let block = rpc
-        .call(
-            "getLatestBlockhash",
-            json!([{"commitment":"finalized","minContextSlot":slot}]),
-        )
-        .await?;
-    if block["context"]["slot"].as_u64().ok_or_else(bad)? < slot {
-        return Err(err("PREPARATION_STALE_RPC"));
-    }
-    let blockhash = block["value"]["blockhash"].as_str().ok_or_else(bad)?;
-    let last = block["value"]["lastValidBlockHeight"]
-        .as_u64()
-        .ok_or_else(bad)?;
+    let recent_blockhash = rpc.latest_blockhash(slot).await?;
+    let blockhash = recent_blockhash.hash.as_str();
+    let last = recent_blockhash.last_valid_block_height;
     let mut metas = vec![];
     for (key, signer, writable) in [
         (p.pool_id.clone(), false, true),
@@ -947,18 +973,7 @@ async fn resolve(
         )?);
     }
     let msg = compile_message_many(&s.context.caller, blockhash, &instructions)?;
-    let fee = rpc
-        .call(
-            "getFeeForMessage",
-            json!([STANDARD.encode(&msg),{"commitment":"finalized","minContextSlot":slot}]),
-        )
-        .await?;
-    if fee["context"]["slot"].as_u64().ok_or_else(bad)? < slot {
-        return Err(err("PREPARATION_STALE_RPC"));
-    }
-    let cost = fee["value"]
-        .as_u64()
-        .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
+    let (cost, fee_slot) = rpc.message_fee(&msg, &recent_blockhash).await?;
     let funding = cost
         .checked_add(rent)
         .and_then(|n| n.checked_add(wrap))
@@ -977,6 +992,7 @@ async fn resolve(
     result["ready"] = true.into();
     result["feeLamports"] = cost.to_string().into();
     result["recentBlockhash"] = blockhash.into();
+    result["blockhashObservedSlot"] = recent_blockhash.observed_slot.into();
     result["lastValidBlockHeight"] = last.into();
     result["instructions"] = json!(instructions);
     result["totalFundingLamports"] = funding.to_string().into();
@@ -1001,10 +1017,10 @@ async fn resolve(
         if temporary.is_some() {
             addresses.push(s.context.caller.clone());
         }
-        let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&transaction),{"encoding":"base64","commitment":"finalized","minContextSlot":slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":addresses}}])).await?;
+        let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&transaction),{"encoding":"base64","commitment":"finalized","minContextSlot":fee_slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":addresses}}])).await?;
         let simulation_slot = response["context"]["slot"]
             .as_u64()
-            .filter(|n| *n >= slot)
+            .filter(|n| *n >= fee_slot)
             .ok_or_else(bad)?;
         let value = &response["value"];
         if value.get("err") != Some(&Value::Null) {

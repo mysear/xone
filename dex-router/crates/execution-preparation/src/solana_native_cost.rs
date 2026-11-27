@@ -63,6 +63,9 @@ pub(crate) fn attach(
     let invalid = || err("PREPARATION_NATIVE_COST_MISMATCH");
     let source = accounts.ok_or_else(invalid)?;
     let fee = observation.ok_or_else(invalid)?;
+    let blockhash_slot = result["blockhashObservedSlot"]
+        .as_u64()
+        .ok_or_else(invalid)?;
     let message = STANDARD
         .decode(result["messageBase64"].as_str().ok_or_else(invalid)?)
         .map_err(|_| invalid())?;
@@ -75,8 +78,9 @@ pub(crate) fn attach(
         || packet[1..65].iter().any(|v| *v != 0)
         || packet[65..] != message
         || message != fee.message
-        || fee.minimum_slot != source.observed_slot
-        || fee.observed_slot < source.observed_slot
+        || blockhash_slot < source.observed_slot
+        || fee.minimum_slot != blockhash_slot
+        || fee.observed_slot < blockhash_slot
         || source.chain_key != s.context.chain_key
         || source.observed_slot != result["observedSlot"].as_u64().ok_or_else(invalid)?
     {
@@ -211,7 +215,7 @@ mod tests {
             &json!({"context":{"slot":11},"value":5000}),
         )
         .unwrap();
-        let result = json!({"ready":true,"messageBase64":STANDARD.encode(&message),"unsignedTransaction":STANDARD.encode(unsigned_packet(&message).unwrap()),"observedSlot":10,"feeLamports":"5000","rentLamports":"2039280","rentRefundLamports":"2039280","wrapLamports":"100000","payerLamports":"10000000","totalFundingLamports":"2144280","preparationHash":"old"});
+        let result = json!({"ready":true,"messageBase64":STANDARD.encode(&message),"unsignedTransaction":STANDARD.encode(unsigned_packet(&message).unwrap()),"observedSlot":10,"blockhashObservedSlot":10,"feeLamports":"5000","rentLamports":"2039280","rentRefundLamports":"2039280","wrapLamports":"100000","payerLamports":"10000000","totalFundingLamports":"2144280","preparationHash":"old"});
         (s, account, obs, result)
     }
     #[test]

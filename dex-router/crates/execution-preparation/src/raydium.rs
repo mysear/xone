@@ -257,19 +257,9 @@ pub(super) async fn resolve(
     {
         return Ok(funding.result);
     }
-    let latest = rpc
-        .call(
-            "getLatestBlockhash",
-            json!([{"commitment":"finalized","minContextSlot":slot}]),
-        )
-        .await?;
-    if latest["context"]["slot"].as_u64().ok_or_else(bad)? < slot {
-        return Err(err("PREPARATION_STALE_RPC"));
-    }
-    let blockhash = latest["value"]["blockhash"].as_str().ok_or_else(bad)?;
-    let last = latest["value"]["lastValidBlockHeight"]
-        .as_u64()
-        .ok_or_else(bad)?;
+    let recent_blockhash = rpc.latest_blockhash(slot).await?;
+    let blockhash = recent_blockhash.hash.as_str();
+    let last = recent_blockhash.last_valid_block_height;
     let instruction_name = if s.exact {
         "global:swap_base_output"
     } else {
@@ -307,18 +297,7 @@ pub(super) async fn resolve(
     });
     instructions.extend(std::mem::take(&mut funding.suffix));
     let message = compile_message_many(&s.context.caller, blockhash, &instructions)?;
-    let fee = rpc
-        .call(
-            "getFeeForMessage",
-            json!([STANDARD.encode(&message),{"commitment":"finalized","minContextSlot":slot}]),
-        )
-        .await?;
-    if fee["context"]["slot"].as_u64().ok_or_else(bad)? < slot {
-        return Err(err("PREPARATION_STALE_RPC"));
-    }
-    let cost = fee["value"]
-        .as_u64()
-        .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
+    let (cost, fee_slot) = rpc.message_fee(&message, &recent_blockhash).await?;
     if !funding.finish(s, &request, cost)? {
         return Ok(funding.result);
     }
@@ -326,13 +305,14 @@ pub(super) async fn resolve(
     let wire = unsigned_packet(&message)?;
     result["ready"] = true.into();
     result["recentBlockhash"] = blockhash.into();
+    result["blockhashObservedSlot"] = recent_blockhash.observed_slot.into();
     result["lastValidBlockHeight"] = last.into();
     result["instructions"] = json!(instructions);
     if request.simulate {
-        let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&wire),{"encoding":"base64","commitment":"finalized","minContextSlot":slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":[source,destination,s.context.caller]}}])).await?;
+        let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&wire),{"encoding":"base64","commitment":"finalized","minContextSlot":fee_slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":[source,destination,s.context.caller]}}])).await?;
         let observed = response["context"]["slot"]
             .as_u64()
-            .filter(|n| *n >= slot)
+            .filter(|n| *n >= fee_slot)
             .ok_or_else(bad)?;
         let v = &response["value"];
         if v.get("err") != Some(&Value::Null) {

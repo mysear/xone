@@ -203,19 +203,9 @@ pub(super) async fn resolve(
     if !blockers.is_empty() {
         return Ok(result);
     }
-    let block = rpc
-        .call(
-            "getLatestBlockhash",
-            json!([{"commitment":"finalized","minContextSlot":slot}]),
-        )
-        .await?;
-    if block["context"]["slot"].as_u64().ok_or_else(bad)? < slot {
-        return Err(err("PREPARATION_STALE_RPC"));
-    }
-    let blockhash = block["value"]["blockhash"].as_str().ok_or_else(bad)?;
-    let last = block["value"]["lastValidBlockHeight"]
-        .as_u64()
-        .ok_or_else(bad)?;
+    let recent_blockhash = rpc.latest_blockhash(slot).await?;
+    let blockhash = recent_blockhash.hash.as_str();
+    let last = recent_blockhash.last_valid_block_height;
     let mut metas = vec![
         meta(&global, false, false),
         meta(&state.fee_recipient, false, true),
@@ -277,18 +267,7 @@ pub(super) async fn resolve(
         data_base64: STANDARD.encode(data),
     });
     let message = compile_message_many(&state.user, blockhash, &instructions)?;
-    let fee = rpc
-        .call(
-            "getFeeForMessage",
-            json!([STANDARD.encode(&message),{"commitment":"finalized","minContextSlot":slot}]),
-        )
-        .await?;
-    if fee["context"]["slot"].as_u64().ok_or_else(bad)? < slot {
-        return Err(err("PREPARATION_STALE_RPC"));
-    }
-    let cost = fee["value"]
-        .as_u64()
-        .ok_or_else(|| err("PREPARATION_BLOCKHASH_EXPIRED"))?;
+    let (cost, fee_slot) = rpc.message_fee(&message, &recent_blockhash).await?;
     let funding = cost
         .checked_add(rent)
         .and_then(|n| n.checked_add(if s.zero { 0 } else { required }))
@@ -305,6 +284,7 @@ pub(super) async fn resolve(
     result["ready"] = true.into();
     result["instructions"] = json!(instructions);
     result["recentBlockhash"] = blockhash.into();
+    result["blockhashObservedSlot"] = recent_blockhash.observed_slot.into();
     result["lastValidBlockHeight"] = last.into();
     result["feeLamports"] = cost.to_string().into();
     result["totalFundingLamports"] = funding.to_string().into();
@@ -316,10 +296,10 @@ pub(super) async fn resolve(
     .to_string()
     .into();
     if request.simulate {
-        let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&wire),{"encoding":"base64","commitment":"finalized","minContextSlot":slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":[src,dst,state.user]}}])).await?;
+        let response=rpc.call("simulateTransaction",json!([STANDARD.encode(&wire),{"encoding":"base64","commitment":"finalized","minContextSlot":fee_slot,"sigVerify":false,"replaceRecentBlockhash":false,"accounts":{"encoding":"base64","addresses":[src,dst,state.user]}}])).await?;
         let observed = response["context"]["slot"]
             .as_u64()
-            .filter(|n| *n >= slot)
+            .filter(|n| *n >= fee_slot)
             .ok_or_else(bad)?;
         let v = &response["value"];
         if v.get("err") != Some(&Value::Null) {

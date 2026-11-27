@@ -28,6 +28,7 @@ enum BlockhashRpc {
     Expired,
     Unknown,
     Stale,
+    StalePreparationFee,
 }
 
 #[derive(Clone)]
@@ -279,9 +280,18 @@ async fn orca_dual_token2022_wallet_wire_matches_independent_http_simulation() {
         let (status, quote) = claim(&api, quote_path, &request).await;
         assert_eq!(status, 200, "{quote}");
         let id = quote["quoteId"].as_str().unwrap();
-        let (status, prep) = claim(&api, &format!("/v1/quotes/{id}/prepare"), &json!({})).await;
+        let prepare = format!("/v1/quotes/{id}/prepare");
+        *bank_rpc.blockhash.lock().unwrap() = BlockhashRpc::StalePreparationFee;
+        let (status, rejected) = claim(&api, &prepare, &json!({})).await;
+        assert_ne!(status, 200, "{rejected}");
+        assert_eq!(rejected["error"], "PREPARATION_STALE_RPC");
+        *bank_rpc.blockhash.lock().unwrap() = BlockhashRpc::Valid;
+        let (status, prep) = claim(&api, &prepare, &json!({})).await;
         assert_eq!(status, 200, "{prep}");
         assert_eq!(prep["ready"], true, "{prep}");
+        assert_eq!(prep["blockhashObservedSlot"], state.bank_slot + 1);
+        assert_eq!(prep["costs"]["feeMinimumContextSlot"], state.bank_slot + 1);
+        assert_eq!(prep["costs"]["feeObservedSlot"], state.bank_slot + 2);
         let key = prep["preparationHash"].as_str().unwrap();
         let path = format!("/v1/quotes/{id}/preparations/{key}/simulate-independent");
         let (status, unsigned) = claim(&api, &path, &Value::Null).await;
@@ -411,7 +421,7 @@ async fn rpc(State(bank): State<BankRpc>, Json(call): Json<Value>) -> Json<Value
     let result = match method {
         "getGenesisHash" => json!(GENESIS),
         "getBlockHeight" => {
-            assert_eq!(params[0]["minContextSlot"], slot);
+            assert_eq!(params[0]["minContextSlot"], slot + 2);
             json!(if matches!(blockhash, BlockhashRpc::Expired) {
                 1001
             } else {
@@ -420,11 +430,11 @@ async fn rpc(State(bank): State<BankRpc>, Json(call): Json<Value>) -> Json<Value
         }
         "isBlockhashValid" => {
             assert_eq!(params[0], case["blockhash"]);
-            assert_eq!(params[1]["minContextSlot"], slot);
+            assert_eq!(params[1]["minContextSlot"], slot + 2);
             let observed_slot = if matches!(blockhash, BlockhashRpc::Stale) {
                 slot - 1
             } else {
-                slot + 1
+                slot + 3
             };
             json!({"context":{"slot":observed_slot},"value":!matches!(blockhash, BlockhashRpc::Unknown)})
         }
@@ -438,9 +448,17 @@ async fn rpc(State(bank): State<BankRpc>, Json(call): Json<Value>) -> Json<Value
             json!({"context":{"slot":slot},"value":values})
         }
         "getLatestBlockhash" => {
-            json!({"context":{"slot":slot},"value":{"blockhash":case["blockhash"],"lastValidBlockHeight":1000}})
+            json!({"context":{"slot":slot+1},"value":{"blockhash":case["blockhash"],"lastValidBlockHeight":1000}})
         }
-        "getFeeForMessage" => json!({"context":{"slot":slot},"value":5000}),
+        "getFeeForMessage" => {
+            assert_eq!(params[1]["minContextSlot"], slot + 1);
+            let fee_slot = if matches!(blockhash, BlockhashRpc::StalePreparationFee) {
+                slot
+            } else {
+                slot + 2
+            };
+            json!({"context":{"slot":fee_slot},"value":5000})
+        }
         "getMinimumBalanceForRentExemption" => case["rent"][params[0].to_string()].clone(),
         other => panic!("unexpected RPC method {other}"),
     };
@@ -510,9 +528,18 @@ async fn orca_signed_swap_finalizes_on_agave_and_matches_sbf() {
     .await;
     assert_eq!(status, 200, "{quote}");
     let id = quote["quoteId"].as_str().unwrap();
-    let (status, prep) = claim(&api, &format!("/v1/quotes/{id}/prepare"), &json!({})).await;
+    let (status, prep) = claim(
+        &api,
+        &format!("/v1/quotes/{id}/prepare"),
+        &json!({"simulate":true}),
+    )
+    .await;
     assert_eq!(status, 200, "{prep}");
     assert_eq!(prep["ready"], true, "{prep}");
+    assert!(
+        prep["simulation"]["observedSlot"].as_u64().unwrap()
+            >= prep["costs"]["feeObservedSlot"].as_u64().unwrap()
+    );
     let key = prep["preparationHash"].as_str().unwrap();
     let prefix = format!("/v1/quotes/{id}/preparations/{key}");
     let simulation = format!("{prefix}/simulate-independent");
