@@ -70,6 +70,7 @@
 |---|---|---|---|---|
 |I7-R04.2 Solana 当前基线切换（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|HEAD_FIRST 在接受 RPC 基线前检查时间，遇到陈旧基线继续检查后续端点。WAL 保留原始响应，离线重放只选择通过检查的基线。启动隔离套件 9 项通过|2 项需要独立 PostgreSQL/Kafka 的测试未运行。真实可信 peer 和实际长停机验收继续推进|
 |I7-R04.2 Kafka 冷启动重锚定（2026-11-28）|§18.7、§23.14、§28.10、§28.26；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|实际 Kafka DeleteRecords 使低水位从 0 推进至 8，旧游标 3 失效。空尾部、撤销、重组开始、不完整批次和无 owner 背书的基线均保持不可用。收到 owner 当前快照及其提交游标后，空内存报价副本首个合格范围 70 毫秒、首个 FAST 报价 73 毫秒。历史缺口在报价中披露并在正常区块更新后保留|使用受控 owner HTTP 和隔离单 broker。真实停机、跨故障域及首个 VERIFIED 报价仍待验收。 [回归测试](dex-router/crates/quote-api/tests/kafka_retention.rs)|
+|I7-R04.2 正常进程 Kafka 留存丢失恢复（2026-11-28）|§18.7、§23.14、§28.26；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|正常 Go owner 和报价进程在独立 PostgreSQL/Kafka 上重启。低水位从 0 推进至 8，游标 3 失效。无 owner 时冷副本返回 503。owner 在高度 400 发布第 2 代、游标 11，约 3.40 秒恢复首个合格范围和 FAST 报价，随后同步到高度 401 并继续披露 101–399 的历史缺口|受控单池 RPC、空区块和等效高度差。历史任务暂停。跨故障域和实际长停机待验证。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
 |I7-R04.3 Go history 状态封闭（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|Go history queue reload 现在校验作业区间排序、游标、完成计数、租约 token、基线链身份和累计容量。损坏持久状态返回 `HISTORY_QUEUE_STATE`，不进入 claim/status/replay。新增损坏作业重启回归，history queue 可用子集通过|Go reducer 中依赖已删除 `evm/baseline.json` 的既有历史测试仍失败，真实长期容量和 retention 证据待独立环境|
 |I7-R04.2 实际 PG/Kafka owner 恢复（2026-11-28）|§18、§23.14、§28.10、§28.26；WP07、WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|`r03_authority_process.py` 使用实际 PostgreSQL、Kafka 和 normal Rust Parser 通过 publish、revoke、restart、fence 及 1 小时、1 天、720 小时等效 gap、空 owner KV 四组场景。四组均从 `from_slot=null` 开始，发送 2 帧，首个合格 scope 约 1.19–1.81 秒|场景使用受控公开 tonic source 和等效时间推进，`wallclock_downtime_simulated=false`。真实停机、正常 owner 与报价进程的 retention 联测及跨故障域 peer 仍待验收|
 |I7-R04.3 历史队列重启校验（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|Rust 在解析前限制持久队列原始字节，校验覆盖区间、作业游标和租约。在线基线提交保留损坏记录供核对。3 项持久状态回归及 7 项正常 history runtime 测试通过|旧 `history_queue` 集成套件缺少 `chain-parser-rust/test/fixtures/solana/baseline.json`，长期容量和留存验收仍待完成|
@@ -455,7 +456,7 @@
 
 #### 下一迭代目标（I7 R04.2，2026-11-28）
 
-- 在正常 Go owner、报价进程和独立 PG/Kafka 上复验 §23.14 的旧游标丢失场景。记录 broker 低水位、owner 新代次和日志游标、空内存副本的首个合格范围与首个报价、历史缺口及后续日志同步。
+- 复验报价冷启动时 owner 当前检查点与后续 Kafka 有限窗口的对齐，覆盖检查点之后出现的撤销、重组开始及不完整批次。合格范围应在日志屏障通过后发布。
 - 用独立故障域的可信 peer 和当前源复验主来源离线时的基线选择，覆盖过期快照、错误链和撤销。继续记录 1 小时、1 天、30 天实际停机的恢复时长及历史缺口。
 
 ### I8 路由与费用
