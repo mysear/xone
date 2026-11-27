@@ -258,10 +258,12 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False):
                 stream=logs.pop(alias,None)
                 if stream:stream.close()
             def status(alias):return http(base(alias)+'/internal/chains/evm:31337/status',token)[1]
-            def quote(alias, expected=200):
+            def request_quote(alias, verification):
                 pool = pools[0]
-                body={'chainKey':'evm:31337','kind':'EXACT_IN','sellToken':pool['token0'],'buyToken':pool['token1'],'sellAmount':'10000','caller':pool['token0'],'recipient':pool['token1'],'slippageBps':50,'verification':'FAST'}
-                code,value=http(base(alias)+'/v1/quote',token,body)
+                body={'chainKey':'evm:31337','kind':'EXACT_IN','sellToken':pool['token0'],'buyToken':pool['token1'],'sellAmount':'10000','caller':pool['token0'],'recipient':pool['token1'],'slippageBps':50,'verification':verification}
+                return http(base(alias)+'/v1/quote',token,body)
+            def quote(alias, expected=200):
+                code,value=request_quote(alias, 'FAST')
                 require(code==expected,(alias,code,value))
                 if expected == 200:
                     require(value['grossBuyAmount'] == expected_amount, value)
@@ -367,6 +369,14 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False):
                 scope_ms = int((time.monotonic() - started) * 1000)
                 quoted = quote('router1')
                 quote_ms = int((time.monotonic() - started) * 1000)
+                verified_status, verified = request_quote('router1', 'VERIFIED')
+                verified_ms = None
+                if verified_status == 200:
+                    require(verified['verification']['level'] == 'VERIFIED' and verified['verification']['success'] is True,
+                            'VERIFIED request returned without successful independent verification')
+                    require(verified['snapshotRef'] == quoted['snapshotRef'] and verified['grossBuyAmount'] == expected_amount,
+                            'VERIFIED quote did not match the recovered scope and expected amount')
+                    verified_ms = int((time.monotonic() - started) * 1000)
                 restored = owner_cursor(base('go'), token)
                 owner = status('go')
                 gaps = owner['history_gaps']
@@ -398,6 +408,8 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False):
                     'observed_offline_ms': observed_offline_ms,
                     'first_qualified_scope_ms': scope_ms, 'first_successful_quote_ms': quote_ms,
                     'quote_verification': quoted['verification']['level'],
+                    'first_verified_quote_ms': verified_ms,
+                    'verified_quote_attempt': {'http_status': verified_status, 'error': verified.get('error')},
                 }
                 if retention_only:
                     require(chain.stale_head_reads >= 2, 'primary staleness was not presented')

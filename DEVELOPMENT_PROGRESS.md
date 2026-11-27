@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R04.2 留存恢复的独立报价探针（2026-11-28）|§9.26、§23.14、§28.26|LOCAL_SCOPE_VERIFIED|留存演练分别请求 FAST 和 VERIFIED。正常进程联验实测停机 20,008 毫秒，重启 owner 后 4,439 毫秒完成范围恢复，4,442 毫秒得到 INDICATIVE 报价。VERIFIED 请求返回 HTTP 422，错误为 `INDEPENDENT_SIMULATION_UNAVAILABLE`|首个 VERIFIED 报价耗时为空，独立报价路径仍需验收。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
 |I7-R04.2 Kafka 中断后恢复已应用范围（2026-11-28）|§9.23、§18.7、§23.14|LOCAL_SCOPE_VERIFIED|从同一报价副本已应用的快照和游标对齐当前 Kafka 水位后恢复报价。中断前已应用的重组屏障继续等候提交。应用失败时清除本地恢复游标并请求来源检查点。隔离 Kafka 4.2 上两项定向测试和三项集成测试通过|读取中断由测试重置读取器并暂停视图。独立故障域仍需联验。 [报价恢复](dex-router/crates/quote-api/src/lib.rs)|
 |I7-R04.3 Go 历史隔离回归（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|补洞队列、历史 owner 凭据和重组回归使用测试内构造的 V2 快照。Go service 与 reducer 定向 race 检查通过，覆盖在线先就绪、历史缺口独立登记、队列重开、历史权限和重组范围更新|真实来源与长期资源占用仍需验收。 [历史生命周期测试](chain-parser-go/internal/service/history_lifecycle_test.go)|
 |I7-R04.2 Go 备用进程接管（2026-11-28）|§18.6、§18.7、§23.14|LOCAL_SCOPE_VERIFIED|两个独立 Go 进程使用各自的本地状态目录，连接实际 PostgreSQL 16 和 Kafka 4.2。主进程持有租约时，备用进程未发布状态。停止主进程后，备用进程以新 writer epoch 在高度 400 发布第 2 代，3,732 毫秒恢复合格范围，3,911 毫秒恢复冷启动副本的首个 INDICATIVE 报价。持续运行的报价副本亦收敛到该引用|同台机器的受控 RPC 联测，跨故障域和首个 VERIFIED 报价待验收。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
