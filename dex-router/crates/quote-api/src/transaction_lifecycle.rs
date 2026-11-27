@@ -97,6 +97,9 @@ fn signed(
 ) -> Result<(solana_simulation::Prepared, SignedTransaction, Vec<u8>)> {
     let p = solana_simulation::selected(api, id, preparation)?;
     policy(api, &p.context.chain_key)?;
+    if !xone_protocol_math::capabilities::describe(&p.pool)?.wallet_submission {
+        return Err(err("TRANSACTION_SUBMISSION_DISABLED"));
+    }
     let engine = api
         .solana_sbf
         .as_ref()

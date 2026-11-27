@@ -22,7 +22,8 @@ SYSTEM='11111111111111111111111111111111'
 LOADER='BPFLoaderUpgradeab1e11111111111111111111111'
 IMMUTABLE='BPFLoader2111111111111111111111111111111111'
 CLOCK='SysvarC1ock11111111111111111111111111111111'
-ORCA_PROFILES=('orca-whirlpools-static','orca-whirlpools-rewards','orca-whirlpools-adaptive','orca-whirlpools-adaptive-rewards','orca-whirlpools-adaptive-dynamic')
+ORCA_TOKEN22='orca-whirlpools-adaptive-token2022'
+ORCA_PROFILES=('orca-whirlpools-static','orca-whirlpools-rewards','orca-whirlpools-adaptive','orca-whirlpools-adaptive-rewards','orca-whirlpools-adaptive-dynamic',ORCA_TOKEN22)
 
 def require(condition,code):
     if not condition:raise ValueError(code)
@@ -59,8 +60,18 @@ def validate_orca(model,accounts,Pubkey):
     else:
         require(adaptive['whirlpool']==model['pool_id'],'SBF_ORCA_ORACLE_BINDING')
         require(oracle is not None and oracle['owner']==ORCA and not oracle['executable']and len(raw(oracle))==254 and raw(oracle)==encode_adaptive_oracle(adaptive,Pubkey),'SBF_ORCA_ORACLE_MISMATCH')
+    token_state=state.get('token_2022')
+    require((token_state is not None)==(model['protocol']==ORCA_TOKEN22),'SBF_ORCA_PROFILE')
     for side in [0,1]:
-        a=accounts[state[f'vault{side}']];require(a['owner']==TOKEN and not a['executable']and len(raw(a))==165 and int.from_bytes(raw(a)[64:72],'little')==state[f'raw_vault{side}'],'SBF_ORCA_VAULT_MISMATCH')
+        a=accounts[state[f'vault{side}']]
+        asset=(token_state or {}).get(f'token{side}')
+        if asset is not None:
+            mint=accounts[model[f'token{side}']]
+            require(mint['owner']==TOKEN22 and not mint['executable'] and raw(mint).hex()==asset['mint_data'],'SBF_ORCA_MINT_MISMATCH')
+            require(a['owner']==TOKEN22 and not a['executable'] and raw(a).hex()==asset['vault_data'],'SBF_ORCA_VAULT_MISMATCH')
+        else:
+            data=raw(a)
+            require(a['owner']==TOKEN and not a['executable'] and len(data)==165 and int.from_bytes(data[64:72],'little')==state[f'raw_vault{side}'],'SBF_ORCA_VAULT_MISMATCH')
     for a in state['tick_arrays']:
         if a['layout'] == 'sparse':
             pool = bytes(Pubkey.from_string(model['pool_id']))
@@ -68,7 +79,7 @@ def validate_orca(model,accounts,Pubkey):
             address, _ = Pubkey.find_program_address([b'tick_array', pool, seed], Pubkey.from_string(ORCA))
             observed = accounts.get(str(address))
             require(
-                model['protocol'] == 'orca-whirlpools-adaptive-dynamic'
+                model['protocol'] in ('orca-whirlpools-adaptive-dynamic', ORCA_TOKEN22)
                 and a['address'] == str(address) and int(a['initialized_bitmap']) == 0 and not a['ticks']
                 and observed is not None and observed['owner'] == SYSTEM
                 and not observed['executable'] and raw(observed) == b'',
@@ -92,7 +103,7 @@ def validate_orca(model,accounts,Pubkey):
 RAYCLMM='CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK'
 MEMO='MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'
 RAY_TOKEN22_CODE='495e9d7680dd555cb126a6a8e5464af5be9b01f02f2cd70634352722d22e3cad'
-RAY_MEMO_CODE='f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954'
+MEMO_CODE='f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954'
 RAYCLMM_PROFILES=('raydium-clmm-static','raydium-clmm-rewards','raydium-clmm-token-fee','raydium-clmm-bitmap','raydium-clmm-custom-seed','raydium-clmm-dynamic')
 def validate_rayclmm(model,accounts,Pubkey):
     require(model['protocol']in RAYCLMM_PROFILES,'SBF_RAYCLMM_PROFILE');s=model['raydium_clmm'];require((s.get('dynamic_fee')is not None)==(model['protocol']=='raydium-clmm-dynamic')and(s.get('bitmap_extension')is not None)==(model['protocol']in['raydium-clmm-bitmap','raydium-clmm-custom-seed','raydium-clmm-dynamic'])and(model['protocol']=='raydium-clmm-dynamic'or((s.get('seed_index',0)>0)==(model['protocol']=='raydium-clmm-custom-seed'))),'SBF_RAYCLMM_PROFILE');a=accounts[model['pool_id']];data=raw(a);require(a['owner']==RAYCLMM and not a['executable']and len(data)==1544,'SBF_RAYCLMM_POOL_LAYOUT');b=bytearray(data)
@@ -224,13 +235,17 @@ def main():
         for side in [0,1]:require(int.from_bytes(account_bytes(state[f'vault{side}'])[64:72],'little')==state[f'raw_vault{side}'],'SBF_BANK_VAULT_MISMATCH')
         require(int.from_bytes(clock_data[16:24],'little')==state['bank_epoch'],'SBF_BANK_EPOCH_MISMATCH')
     dependencies={target,TOKEN}
-    if target==RAYCLMM:dependencies.update([TOKEN22,MEMO])
+    orca_token22=model['protocol']==ORCA_TOKEN22
+    if target==RAYCLMM or orca_token22:dependencies.update([TOKEN22,MEMO])
     if target in [PUMP_AMM,PUMP]:dependencies.add(FEE)
-    if bank['pool'].get('meteora',{}).get('token2022')is not None:dependencies.add(TOKEN22)
+    token22_state=state.get('token_2022') if orca_token22 else state.get('token2022')
+    if token22_state is not None:dependencies.add(TOKEN22)
     for pid in sorted(dependencies):
         a=bank['accounts'][pid];data=raw(a)
-        if target==RAYCLMM and pid==MEMO:
-            require(a['executable']is True and a['owner']==IMMUTABLE and hashlib.sha256(data).hexdigest()==RAY_MEMO_CODE,'SBF_RAYCLMM_MEMO_CODE');svm.add_program_with_loader(Pubkey.from_string(pid),data,Pubkey.from_string(IMMUTABLE));continue
+        if pid==MEMO:
+            require(a['executable']is True and a['owner']==IMMUTABLE and hashlib.sha256(data).hexdigest()==MEMO_CODE,'SBF_RAYCLMM_MEMO_CODE' if target==RAYCLMM else 'SBF_ORCA_MEMO_CODE')
+            svm.add_program_with_loader(Pubkey.from_string(pid),data,Pubkey.from_string(IMMUTABLE))
+            continue
         require(a['executable']is True and a['owner']==LOADER and len(data)==36 and data[:4]==b'\x02\0\0\0','SBF_PROGRAM_LAYOUT')
         pd=str(Pubkey.from_bytes(data[4:36]));programdata=bank['accounts'][pd]
         require(programdata['owner']==LOADER and programdata['executable']is False and raw(programdata)[:4]==b'\x03\0\0\0','SBF_PROGRAMDATA_LAYOUT')
@@ -239,9 +254,10 @@ def main():
         require(deployment<=expected_slot,'SBF_BANK_DEPLOYMENT_MISMATCH')
         if pid==target:require(deployment==state['deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
         if pid==FEE:require(deployment==state['fee_deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
-        if pid==TOKEN22 and target!=RAYCLMM:require(deployment==state['token2022']['deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
+        if pid==TOKEN22 and target!=RAYCLMM:
+            require(pd==token22_state['programdata'] and deployment==token22_state['deployed_slot'],'SBF_BANK_DEPLOYMENT_MISMATCH')
         payload=raw(programdata)[45:]
-        expected=RAY_TOKEN22_CODE if target==RAYCLMM and pid==TOKEN22 else state['program_code_sha256'] if pid==target else state['fee_program_code_sha256']if pid==FEE else state['token2022']['program_code_sha256'] if pid==TOKEN22 else state['token_program_code_sha256']
+        expected=RAY_TOKEN22_CODE if target==RAYCLMM and pid==TOKEN22 else state['program_code_sha256'] if pid==target else state['fee_program_code_sha256']if pid==FEE else token22_state['program_code_sha256'] if pid==TOKEN22 else state['token_program_code_sha256']
         require(hashlib.sha256(payload).hexdigest()==expected,'SBF_BANK_PROGRAM_MISMATCH')
         svm.add_program_with_loader(Pubkey.from_string(pid),payload,Pubkey.from_string(LOADER))
     if bank.get('rpcCapture'):
@@ -327,7 +343,7 @@ def main():
     require(paid==int(preparation['quotedInput'])and received==int(preparation['quotedOutput']),'SBF_AMOUNT_MISMATCH')
     require(native_after.lamports-native_before==int(preparation['expectedPayerLamportDelta']),'SBF_NATIVE_BALANCE_MISMATCH')
     def withheld(a):
-        if a is None:return 0
+        if a is None or (str(a.owner)==SYSTEM and not a.executable and not a.data):return 0
         data=a.data;require(len(data)in [178,182]and data[165]==2,'SBF_TOKEN2022_LAYOUT');cursor=166;found=None;seen=set()
         while cursor<len(data):
             kind=int.from_bytes(data[cursor:cursor+2],'little');size=int.from_bytes(data[cursor+2:cursor+4],'little');cursor+=4
@@ -337,6 +353,22 @@ def main():
         require(found is not None,'SBF_TOKEN2022_FEE_REQUIRED');return found
     if source_program==TOKEN22:require(withheld(account(source))==withheld(source_before),'SBF_SOURCE_WITHHELD_MISMATCH')
     if dest_program==TOKEN22:require(withheld(account(destination))-withheld(destination_before)==int(preparation['expectedDestinationTransferFee']),'SBF_DESTINATION_WITHHELD_MISMATCH')
+    if orca_token22:
+        vaults=preparation['expectedOrcaVaults']
+        require(len(vaults)==2,'SBF_ORCA_VAULT_POST_STATE')
+        for side, expected in enumerate(vaults):
+            key=state[f'vault{side}']
+            expected_bytes=expected['token2022Data']
+            asset=token22_state.get(f'token{side}')
+            require((expected_bytes is not None)==(asset is not None),'SBF_ORCA_VAULT_POST_STATE')
+            if expected_bytes is None:
+                data=bytearray(before[key].data)
+                data[64:72]=int(expected['amount']).to_bytes(8,'little')
+                expected_bytes=data.hex()
+            vault=account(key)
+            program=TOKEN22 if expected['token2022Data'] is not None else TOKEN
+            balance=amount(vault,model[f'token{side}'],model['pool_id'],program)
+            require(balance==int(expected['amount']) and vault.data.hex()==expected_bytes,'SBF_ORCA_VAULT_POST_STATE')
     account_evidence=[]
     for key in sorted(post):
         a=post[key];account_evidence.append(dict(address=key,owner=str(a.owner),lamports=str(a.lamports),executable=a.executable,dataSha256=hashlib.sha256(a.data).hexdigest(),dataBytes=len(a.data)))

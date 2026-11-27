@@ -13,6 +13,9 @@ pub fn supports_classic_profile(protocol: &str) -> bool {
             | crate::orca_adaptive_state::DYNAMIC_PROFILE
     )
 }
+pub fn supports_swap_profile(protocol: &str) -> bool {
+    supports_classic_profile(protocol) || protocol == crate::orca_token_2022::PROFILE
+}
 pub const PROGRAM_DATA: &str = "CtXfPzz36dH5Ws4UYKZvrQ1Xqzn42ecDW6y8NKuiN8nD";
 pub const PROGRAM_ID: &str = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 pub const MIN_TICK: i32 = -443636;

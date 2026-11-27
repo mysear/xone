@@ -41,6 +41,7 @@ const ASSOCIATED: &str = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
 const ASSOCIATED_CODE: &str = "6804554e69fd3a58caa191dc4a58f4c67223d30ca28ab8987f39fc18d2f7374d";
 const RENT: &str = "SysvarRent111111111111111111111111111111111";
 const MEMO: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
+const MEMO_CODE: &str = "f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954";
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolanaRequest {
@@ -126,7 +127,7 @@ pub async fn prepare_solana_captured(
 ) -> Result<SolanaPreparation> {
     s.pool.validate()?;
     if !m::supports_profile(&s.pool.protocol)
-        && !xone_domain::orca::supports_classic_profile(&s.pool.protocol)
+        && !xone_domain::orca::supports_swap_profile(&s.pool.protocol)
         && !xone_domain::raydium_clmm::supports_classic_profile(&s.pool.protocol)
         && s.pool.protocol != xone_domain::raydium::PROFILE
         && !xone_domain::pump_amm::supports_profile(&s.pool.protocol)
@@ -430,7 +431,7 @@ async fn resolve(
     if xone_domain::raydium_clmm::supports_classic_profile(&s.pool.protocol) {
         return rayclmm::resolve(config, s, request, capture).await;
     }
-    if xone_domain::orca::supports_classic_profile(&s.pool.protocol) {
+    if xone_domain::orca::supports_swap_profile(&s.pool.protocol) {
         return orca::resolve(config, s, request, capture).await;
     }
     if s.pool.protocol == xone_domain::raydium::PROFILE {
@@ -1134,7 +1135,7 @@ fn before_token_balance(
 ) -> Result<u64> {
     match before {
         None => Ok(0),
-        Some(a) if creating && empty_system(a) && program == TOKEN => {
+        Some(a) if creating && empty_system(a) => {
             token(after, mint, owner, program)?;
             Ok(if mint == xone_domain::pump_amm::WSOL {
                 a.lamports.saturating_sub(m::u64_at(&after.data, 113))
@@ -1342,6 +1343,7 @@ pub fn verify_simulated_settlement(
         && withheld(&account(&after[1])?.ok_or_else(bad)?)?
             != before_destination
                 .as_ref()
+                .filter(|a| !(prepared["accountCreation"] == true && empty_system(a)))
                 .map(withheld)
                 .transpose()?
                 .unwrap_or(0)

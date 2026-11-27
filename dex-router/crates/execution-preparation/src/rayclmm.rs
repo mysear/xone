@@ -4,7 +4,6 @@ use xone_domain::raydium_clmm as r;
 const TOKEN22: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 // Explicitly admitted ancillary programs. Token2022 assets remain unsupported.
 const TOKEN22_CODE: &str = "495e9d7680dd555cb126a6a8e5464af5be9b01f02f2cd70634352722d22e3cad";
-const MEMO_CODE: &str = "f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954";
 const BUDGET: &str = "ComputeBudget111111111111111111111111111111";
 const COMPUTE_LIMIT: u32 = 1_400_000;
 fn supported(protocol: &str) -> bool {

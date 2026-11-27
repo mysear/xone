@@ -1,6 +1,7 @@
-//! Classic SPL legacy Whirlpool swaps with full static/adaptive Oracle state.
+//! Whirlpool swap preparation against a captured bank.
 use super::*;
 use xone_domain::orca as o;
+use xone_domain::spl_token_2022::PROGRAM as TOKEN22;
 const COMPUTE_BUDGET: &str = "ComputeBudget111111111111111111111111111111";
 const COMPUTE_LIMIT: u32 = 1_400_000;
 fn owned<'a>(
@@ -164,15 +165,18 @@ pub(super) async fn resolve(
 ) -> Result<Value> {
     let p = &s.pool;
     let state = p.orca_whirlpool.as_ref().ok_or_else(bad)?;
-    if !o::supports_classic_profile(&p.protocol) {
-        return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
-    }
+    let token_state = state.token_2022.as_ref();
+    let asset0 = token_state.and_then(|t| t.token0.as_ref());
+    let asset1 = token_state.and_then(|t| t.token1.as_ref());
+    let program0 = if asset0.is_some() { TOKEN22 } else { TOKEN };
+    let program1 = if asset1.is_some() { TOKEN22 } else { TOKEN };
     let (input, output) = if s.zero {
-        (&p.token0, &p.token1)
+        ((p.token0.as_str(), program0), (p.token1.as_str(), program1))
     } else {
-        (&p.token1, &p.token0)
+        ((p.token1.as_str(), program1), (p.token0.as_str(), program0))
     };
-    let addresses = classic_funding::Addresses::new(s, &request, input, output)?;
+    let addresses = classic_funding::Addresses::with_programs(s, &request, input, output)?;
+    let token2022 = token_state.is_some();
     let using_funding = request.create_destination_ata
         || request.wrap_source_sol
         || request.refund_wrapped_source
@@ -198,6 +202,9 @@ pub(super) async fn resolve(
         COMPUTE_BUDGET.into(),
     ];
     ids.extend(state.tick_arrays.iter().map(|a| a.address.clone()));
+    if let Some(t) = token_state {
+        ids.extend([TOKEN22.into(), t.programdata.clone(), MEMO.into()]);
+    }
     if using_funding {
         ids.extend([
             SYSTEM.into(),
@@ -242,6 +249,19 @@ pub(super) async fn resolve(
         Some(state.deployed_slot),
     )?;
     code(&bank, TOKEN, &state.token_program_code_sha256, slot, None)?;
+    if let Some(t) = token_state {
+        if get(&bank, TOKEN22)?.owner != LOADER || get(&bank, MEMO)?.owner != IMMUTABLE {
+            return Err(err("PREPARATION_PROGRAM_CHANGED"));
+        }
+        code(
+            &bank,
+            TOKEN22,
+            &t.program_code_sha256,
+            slot,
+            Some(t.deployed_slot),
+        )?;
+        code(&bank, MEMO, MEMO_CODE, slot, None)?;
+    }
     let budget = get(&bank, COMPUTE_BUDGET)?;
     if !budget.executable
         || budget.owner != "NativeLoader1111111111111111111111111111111"
@@ -305,20 +325,37 @@ pub(super) async fn resolve(
     {
         return Err(err("QUOTE_CLOCK_CHANGED"));
     }
-    for (mint, vault, expected, decimals) in [
+    for (mint, vault, expected, decimals, asset) in [
         (
             &p.token0,
             &state.vault0,
             state.raw_vault0,
             state.mint0_decimals,
+            asset0,
         ),
         (
             &p.token1,
             &state.vault1,
             state.raw_vault1,
             state.mint1_decimals,
+            asset1,
         ),
     ] {
+        if let Some(asset) = asset {
+            raw(
+                &bank,
+                mint,
+                TOKEN22,
+                &hex::decode(&asset.mint_data).map_err(|_| bad())?,
+            )?;
+            raw(
+                &bank,
+                vault,
+                TOKEN22,
+                &hex::decode(&asset.vault_data).map_err(|_| bad())?,
+            )?;
+            continue;
+        }
         let mint_raw = owned(&bank, mint, TOKEN, 82)?;
         if mint_raw[45] != 1
             || u32::from(mint_raw[44]) != decimals
@@ -403,6 +440,31 @@ pub(super) async fn resolve(
     let required = if s.exact { s.limit } else { s.amount };
     let mut funding =
         classic_funding::prepare(&rpc, &bank, s, &request, &addresses, required).await?;
+    if token2022 {
+        let q = if s.exact {
+            xone_protocol_math::orca::quote_exact_out(p, &Amount(s.amount.into()), s.zero)?
+        } else {
+            xone_protocol_math::orca::quote_exact_in(p, &Amount(s.amount.into()), s.zero)?
+        };
+        if q.amount_out != Amount(s.expected_output.into())
+            || q.consumed_in != Amount(s.expected_input.into())
+        {
+            return Err(err("PREPARATION_QUOTE_INVALID"));
+        }
+        let next = q.next_pool.orca_whirlpool.as_ref().ok_or_else(bad)?;
+        let (before, after) = if s.zero {
+            (state.raw_vault1, next.raw_vault1)
+        } else {
+            (state.raw_vault0, next.raw_vault0)
+        };
+        let gross = before.checked_sub(after).ok_or_else(bad)?;
+        let fee = gross.checked_sub(s.expected_output).ok_or_else(bad)?;
+        funding.result["expectedDestinationTransferFee"] = fee.to_string().into();
+        funding.result["expectedOrcaVaults"] = json!([
+            {"amount":next.raw_vault0.to_string(),"token2022Data":next.token_2022.as_ref().and_then(|t| t.token0.as_ref()).map(|a|&a.vault_data)},
+            {"amount":next.raw_vault1.to_string(),"token2022Data":next.token_2022.as_ref().and_then(|t| t.token1.as_ref()).map(|a|&a.vault_data)},
+        ]);
+    }
     funding.result["observedSlot"] = slot.into();
     if !funding.result["blockers"]
         .as_array()
@@ -424,7 +486,12 @@ pub(super) async fn resolve(
     let last = latest["value"]["lastValidBlockHeight"]
         .as_u64()
         .ok_or_else(bad)?;
-    let mut data = Sha256::digest(b"global:swap")[..8].to_vec();
+    let discriminator = if token2022 {
+        &b"global:swap_v2"[..]
+    } else {
+        &b"global:swap"[..]
+    };
+    let mut data = Sha256::digest(discriminator)[..8].to_vec();
     data.extend(s.amount.to_le_bytes());
     data.extend(s.limit.to_le_bytes());
     let limit: u128 = if s.zero {
@@ -434,20 +501,39 @@ pub(super) async fn resolve(
     };
     data.extend(limit.to_le_bytes());
     data.extend([u8::from(!s.exact), u8::from(s.zero)]);
+    if token2022 {
+        data.push(0);
+    }
     let (account0, account1) = if s.zero {
         (&addresses.source, &addresses.destination)
     } else {
         (&addresses.destination, &addresses.source)
     };
-    let mut metas = vec![
-        meta(TOKEN, false, false),
-        meta(&s.context.caller, true, false),
-        meta(&p.pool_id, false, true),
-        meta(account0, false, true),
-        meta(&state.vault0, false, true),
-        meta(account1, false, true),
-        meta(&state.vault1, false, true),
-    ];
+    let mut metas = if token2022 {
+        vec![
+            meta(program0, false, false),
+            meta(program1, false, false),
+            meta(MEMO, false, false),
+            meta(&s.context.caller, true, false),
+            meta(&p.pool_id, false, true),
+            meta(&p.token0, false, false),
+            meta(&p.token1, false, false),
+            meta(account0, false, true),
+            meta(&state.vault0, false, true),
+            meta(account1, false, true),
+            meta(&state.vault1, false, true),
+        ]
+    } else {
+        vec![
+            meta(TOKEN, false, false),
+            meta(&s.context.caller, true, false),
+            meta(&p.pool_id, false, true),
+            meta(account0, false, true),
+            meta(&state.vault0, false, true),
+            meta(account1, false, true),
+            meta(&state.vault1, false, true),
+        ]
+    };
     metas.extend(arrays.iter().map(|a| meta(a, false, true)));
     metas.push(meta(&state.oracle, false, state.adaptive.is_some()));
     let mut limit_data = vec![2];

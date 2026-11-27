@@ -1497,7 +1497,8 @@ async fn quote_options(
                         .solana_sbf
                         .as_ref()
                         .is_some_and(|engine| engine.available(pool, &configured.genesis_hash));
-                let wallet_submission = local_sbf
+                let wallet_submission = capability.wallet_submission
+                    && local_sbf
                     && api.config.config.api.transaction_submission_enabled
                     && api.receipts.is_some()
                     && api

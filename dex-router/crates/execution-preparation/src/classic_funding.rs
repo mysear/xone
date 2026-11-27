@@ -1,4 +1,4 @@
-//! Classic SPL account creation and explicit native SOL/WSOL funding only.
+//! SPL account funding and explicit native SOL/WSOL settlement.
 use super::*;
 use xone_execution_plan::solana_wsol as w;
 pub(super) struct Addresses {
@@ -6,12 +6,23 @@ pub(super) struct Addresses {
     pub destination: String,
     source_ata: String,
     destination_ata: String,
+    source_program: &'static str,
+    destination_program: &'static str,
     pub temporary: Option<String>,
     seed: Option<String>,
 }
 impl Addresses {
     pub fn new(s: &SolanaQuote, r: &SolanaRequest, input: &str, output: &str) -> Result<Self> {
-        if r.wrap_source_sol && input != w::WSOL {
+        Self::with_programs(s, r, (input, TOKEN), (output, TOKEN))
+    }
+
+    pub fn with_programs(
+        s: &SolanaQuote,
+        r: &SolanaRequest,
+        (input, source_program): (&str, &'static str),
+        (output, destination_program): (&str, &'static str),
+    ) -> Result<Self> {
+        if r.wrap_source_sol && (input != w::WSOL || source_program != TOKEN) {
             return Err(err("PREPARATION_WRAP_REQUIRES_WSOL"));
         }
         if r.refund_wrapped_source && (!r.wrap_source_sol || r.source_token_account.is_some()) {
@@ -19,6 +30,7 @@ impl Addresses {
         }
         if r.unwrap_destination_sol
             && (output != w::WSOL
+                || destination_program != TOKEN
                 || s.context.caller != s.context.recipient
                 || r.destination_token_account.is_some()
                 || r.create_destination_ata)
@@ -36,8 +48,8 @@ impl Addresses {
             .as_ref()
             .map(|v| w::address(&s.context.caller, v))
             .transpose()?;
-        let source_ata = ata(&s.context.caller, input, TOKEN)?;
-        let destination_ata = ata(&s.context.recipient, output, TOKEN)?;
+        let source_ata = ata(&s.context.caller, input, source_program)?;
+        let destination_ata = ata(&s.context.recipient, output, destination_program)?;
         let source = if r.refund_wrapped_source {
             temporary.clone().ok_or_else(bad)?
         } else {
@@ -63,6 +75,8 @@ impl Addresses {
             destination,
             source_ata,
             destination_ata,
+            source_program,
+            destination_program,
             temporary,
             seed,
         })
@@ -80,6 +94,16 @@ fn uninitialized(a: Option<&Account>, address: &str, canonical: &str) -> bool {
     a.is_none()
         || (address == canonical
             && a.is_some_and(|v| v.owner == SYSTEM && !v.executable && v.data.is_empty()))
+}
+async fn minimum_rent(rpc: &Rpc, size: u64) -> Result<u64> {
+    rpc.call(
+        "getMinimumBalanceForRentExemption",
+        json!([size,{"commitment":"finalized"}]),
+    )
+    .await?
+    .as_u64()
+    .filter(|v| *v > 0)
+    .ok_or_else(bad)
 }
 pub(super) async fn prepare(
     rpc: &Rpc,
@@ -119,30 +143,41 @@ pub(super) async fn prepare(
     } else {
         0
     };
-    let minimum = if create_source || create_destination || a.temporary.is_some() {
-        rpc.call(
-            "getMinimumBalanceForRentExemption",
-            json!([165,{"commitment":"finalized"}]),
-        )
-        .await?
-        .as_u64()
-        .filter(|v| *v > 0)
-        .ok_or_else(bad)?
+    let destination_ata_size = if a.destination_program == TOKEN {
+        165
+    } else {
+        182
+    };
+    let classic_rent = if create_source
+        || a.temporary.is_some()
+        || (create_destination && destination_ata_size == 165)
+    {
+        minimum_rent(rpc, 165).await?
     } else {
         0
     };
+    let destination_minimum = if create_destination && destination_ata_size != 165 {
+        minimum_rent(rpc, destination_ata_size).await?
+    } else {
+        classic_rent
+    };
     let source_balance = if source_pending {
         if create_source && input == w::WSOL {
-            source_prefund.saturating_sub(minimum)
+            source_prefund.saturating_sub(classic_rent)
         } else {
             0
         }
     } else {
-        token(source.ok_or_else(bad)?, input, &s.context.caller, TOKEN)?
+        token(
+            source.ok_or_else(bad)?,
+            input,
+            &s.context.caller,
+            a.source_program,
+        )?
     };
     let destination_balance = if destination_pending {
         if create_destination && output == w::WSOL {
-            destination_prefund.saturating_sub(minimum)
+            destination_prefund.saturating_sub(destination_minimum)
         } else {
             0
         }
@@ -151,7 +186,7 @@ pub(super) async fn prepare(
             destination.ok_or_else(bad)?,
             output,
             &s.context.recipient,
-            TOKEN,
+            a.destination_program,
         )?
     };
     let wrap = if r.wrap_source_sol {
@@ -160,16 +195,20 @@ pub(super) async fn prepare(
         0
     };
     let source_rent = if create_source {
-        minimum.saturating_sub(source_prefund)
+        classic_rent.saturating_sub(source_prefund)
     } else {
         0
     };
     let destination_rent = if create_destination || r.unwrap_destination_sol {
-        minimum.saturating_sub(destination_prefund)
+        destination_minimum.saturating_sub(destination_prefund)
     } else {
         0
     };
-    let temporary_rent = if a.temporary.is_some() { minimum } else { 0 };
+    let temporary_rent = if a.temporary.is_some() {
+        classic_rent
+    } else {
+        0
+    };
     let rent = source_rent.checked_add(destination_rent).ok_or_else(bad)?;
     let payer = get(bank, &s.context.caller)?;
     if payer.owner != SYSTEM || payer.executable || !payer.data.is_empty() {
@@ -195,7 +234,7 @@ pub(super) async fn prepare(
     } else {
         0
     };
-    let result = json!({"quoteId":s.quote_view_id,"quoteViewId":s.quote_view_id,"snapshotRef":s.snapshot,"planHash":s.plan_hash,"ready":false,"blockers":blockers,"sourceTokenAccount":a.source,"destinationTokenAccount":a.destination,"sourceTokenProgram":TOKEN,"destinationTokenProgram":TOKEN,"destinationAccountSize":165,"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":create_destination,"sourceAccountCreation":create_source,"rentLamports":rent.to_string(),"sourceRentLamports":source_rent.to_string(),"destinationRentLamports":destination_rent.to_string(),"sourceMinimumRentLamports":if create_source {minimum}else{0}.to_string(),"destinationMinimumRentLamports":if create_destination {minimum}else{0}.to_string(),"sourcePrefundedLamports":source_prefund.to_string(),"destinationPrefundedLamports":destination_prefund.to_string(),"rentRefundLamports":temporary_rent.to_string(),"wrapLamports":wrap.to_string(),"expectedNativeRefundLamports":refund.to_string(),"expectedResidualWsol":if input==w::WSOL {source_balance.checked_add(wrap).map(|v|v.saturating_sub(s.expected_input)).ok_or_else(bad)?} else {0}.to_string(),"expectedDestinationInitialTokenBalance":destination_balance.to_string(),"expectedDestinationTransferFee":"0","refundWrappedSource":r.refund_wrapped_source,"unwrapDestinationSol":r.unwrap_destination_sol,"sourceWsolRetained":r.wrap_source_sol && !r.refund_wrapped_source,"temporaryWsolAccount":a.temporary,"temporarySeed":a.seed,"settlementAsset":if r.unwrap_destination_sol {xone_domain::pump::NATIVE_SOL}else{output},"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
+    let result = json!({"quoteId":s.quote_view_id,"quoteViewId":s.quote_view_id,"snapshotRef":s.snapshot,"planHash":s.plan_hash,"ready":false,"blockers":blockers,"sourceTokenAccount":a.source,"destinationTokenAccount":a.destination,"sourceTokenProgram":a.source_program,"destinationTokenProgram":a.destination_program,"destinationAccountSize":destination_ata_size,"requiredInput":required.to_string(),"quotedInput":s.expected_input.to_string(),"quotedOutput":s.expected_output.to_string(),"accountCreation":create_destination,"sourceAccountCreation":create_source,"rentLamports":rent.to_string(),"sourceRentLamports":source_rent.to_string(),"destinationRentLamports":destination_rent.to_string(),"sourceMinimumRentLamports":if create_source {classic_rent}else{0}.to_string(),"destinationMinimumRentLamports":if create_destination {destination_minimum}else{0}.to_string(),"sourcePrefundedLamports":source_prefund.to_string(),"destinationPrefundedLamports":destination_prefund.to_string(),"rentRefundLamports":temporary_rent.to_string(),"wrapLamports":wrap.to_string(),"expectedNativeRefundLamports":refund.to_string(),"expectedResidualWsol":if input==w::WSOL {source_balance.checked_add(wrap).map(|v|v.saturating_sub(s.expected_input)).ok_or_else(bad)?} else {0}.to_string(),"expectedDestinationInitialTokenBalance":destination_balance.to_string(),"expectedDestinationTransferFee":"0","refundWrappedSource":r.refund_wrapped_source,"unwrapDestinationSol":r.unwrap_destination_sol,"sourceWsolRetained":r.wrap_source_sol && !r.refund_wrapped_source,"temporaryWsolAccount":a.temporary,"temporarySeed":a.seed,"settlementAsset":if r.unwrap_destination_sol {xone_domain::pump::NATIVE_SOL}else{output},"payerLamports":payer.lamports.to_string(),"simulationRequired":true,"signed":false,"submitted":false,"unsignedTransaction":Value::Null});
     let mut prefix = Vec::new();
     let mut suffix = Vec::new();
     if let Some(seed) = &a.seed {
@@ -208,7 +247,7 @@ pub(super) async fn prepare(
             &a.source,
             &s.context.caller,
             input,
-            TOKEN,
+            a.source_program,
         ));
     }
     if wrap > 0 {
@@ -234,7 +273,7 @@ pub(super) async fn prepare(
             &a.destination,
             &s.context.recipient,
             output,
-            TOKEN,
+            a.destination_program,
         ));
     }
     Ok(Funding {

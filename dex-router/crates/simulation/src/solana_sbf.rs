@@ -255,7 +255,7 @@ impl Engine {
             if pool.chain_key != manifest.chain_key
                 || !(xone_domain::meteora::supports_profile(&pool.protocol)
                     || xone_domain::raydium_clmm::supports_classic_profile(&pool.protocol)
-                    || xone_domain::orca::supports_classic_profile(&pool.protocol)
+                    || xone_domain::orca::supports_swap_profile(&pool.protocol)
                     || pool.protocol == xone_domain::raydium::PROFILE
                     || xone_domain::pump_amm::supports_profile(&pool.protocol)
                     || pool.protocol == xone_domain::pump::PROFILE)
@@ -282,14 +282,14 @@ impl Engine {
     pub fn available(&self, pool: &Pool, genesis: &str) -> bool {
         self.manifest.chain_key == pool.chain_key
             && self.manifest.genesis_hash == genesis
-            && (!(xone_domain::orca::supports_classic_profile(&pool.protocol)
+            && (!(xone_domain::orca::supports_swap_profile(&pool.protocol)
                 || xone_domain::raydium_clmm::supports_classic_profile(&pool.protocol))
                 || self.manifest.max_compute_units >= 1_400_000)
             && (self.banks.iter().any(|b| b.pool == *pool)
                 || (self.manifest.rpc_capture
                     && (xone_domain::meteora::supports_profile(&pool.protocol)
                         || xone_domain::raydium_clmm::supports_classic_profile(&pool.protocol)
-                        || xone_domain::orca::supports_classic_profile(&pool.protocol)
+                        || xone_domain::orca::supports_swap_profile(&pool.protocol)
                         || pool.protocol == xone_domain::raydium::PROFILE
                         || xone_domain::pump_amm::supports_profile(&pool.protocol)
                         || pool.protocol == xone_domain::pump::PROFILE)))

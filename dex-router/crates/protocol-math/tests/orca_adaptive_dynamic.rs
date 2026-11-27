@@ -168,7 +168,8 @@ fn adaptive_token2022_quotes_user_and_vault_amounts_in_both_directions() {
     let pool: Pool = serde_json::from_value(fixture["snapshot"]["pools"][0].clone()).unwrap();
     let model = capabilities::describe(&pool).unwrap();
     assert_eq!(model.quote_modes, ["EXACT_IN", "EXACT_OUT"]);
-    assert!(!model.execution_preparation);
+    assert!(model.execution_preparation && model.independent_simulation);
+    assert!(!model.wallet_submission);
     let mut classic = pool.clone();
     classic.protocol = xone_domain::orca_adaptive_state::DYNAMIC_PROFILE.into();
     classic.adapter_version = xone_domain::orca_adaptive_state::DYNAMIC_ADAPTER.into();

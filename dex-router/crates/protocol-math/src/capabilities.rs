@@ -1,7 +1,7 @@
 //! Versioned capabilities describe admitted kernels, not live RPC/account readiness.
 use serde::{Deserialize, Serialize};
 use xone_domain::{Pool, Result};
-pub const VERSION: &str = "xone-protocol-capabilities/26";
+pub const VERSION: &str = "xone-protocol-capabilities/27";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolCapabilities {
@@ -57,7 +57,7 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
         quote_modes.push("EXACT_OUT".into());
     }
     let meteora = xone_domain::meteora::supports_profile(protocol);
-    let prepared = xone_domain::orca::supports_classic_profile(protocol)
+    let prepared = xone_domain::orca::supports_swap_profile(protocol)
         || xone_domain::raydium_clmm::supports_classic_profile(protocol)
         || meteora
         || protocol == xone_domain::raydium::PROFILE
@@ -101,12 +101,7 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
         execution_route_scope: prepared.then(|| "SINGLE_POOL_SINGLE_ROUTE".into()),
         unsigned_transaction: prepared,
         rpc_simulation: prepared,
-        account_creation: xone_domain::orca::supports_classic_profile(protocol)
-            || xone_domain::raydium_clmm::supports_classic_profile(protocol)
-            || meteora
-            || protocol == xone_domain::raydium::PROFILE
-            || xone_domain::pump_amm::supports_profile(protocol)
-            || protocol == xone_domain::pump::PROFILE,
+        account_creation: prepared,
         native_funding: xone_domain::orca::supports_classic_profile(protocol)
             || xone_domain::raydium_clmm::supports_classic_profile(protocol)
             || meteora
@@ -114,7 +109,7 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
             || xone_domain::pump_amm::supports_profile(protocol),
         native_sol_trading: protocol == xone_domain::pump::PROFILE,
         independent_simulation: prepared,
-        wallet_submission: prepared,
+        wallet_submission: prepared && protocol != xone_domain::orca_token_2022::PROFILE,
         independent_production_verification: false,
         production_ready: false,
         execution_blocker: if profile.is_none() {

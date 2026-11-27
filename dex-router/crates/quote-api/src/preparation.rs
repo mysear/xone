@@ -99,7 +99,7 @@ fn selected(
         .cloned()
         .ok_or_else(bad)?;
     if !(m::supports_profile(&pool.protocol)
-        || xone_domain::orca::supports_classic_profile(&pool.protocol)
+        || xone_domain::orca::supports_swap_profile(&pool.protocol)
         || xone_domain::raydium_clmm::supports_classic_profile(&pool.protocol)
         || pool.protocol == xone_domain::raydium::PROFILE
         || xone_domain::pump_amm::supports_profile(&pool.protocol)
