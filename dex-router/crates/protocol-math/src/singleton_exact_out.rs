@@ -1,10 +1,13 @@
 //! Output-driven singleton CL swaps. The native delta sign differs from V3.
-use super::{amount0_delta, amount1_delta, ceil_div, cross_liquidity, next_tick};
+use super::{
+    amount0_delta, amount1_delta, ceil_div, cross_liquidity, next_tick, V4_SETTLEMENT_FEE,
+    V4_SPECIFIED_DELTA, V4_UNSPECIFIED_DELTA,
+};
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use xone_domain::{
     err,
-    singleton::{ConcentratedState, SingletonCLState},
+    singleton::{ConcentratedState, SingletonCLState, V4_SETTLEMENT_HOOK_MODEL},
     v3::{parse_liquidity_net, sqrt_ratio_at_tick, tick_at_sqrt_ratio, MAX_TICK, MIN_TICK},
     Amount, Pool, Result,
 };
@@ -62,7 +65,26 @@ pub fn quote_exact_out(
                 .map(|state| &state.snapshot)
         })
         .ok_or_else(|| err("SINGLETON_STATE_REQUIRED"))?;
-    let (core, input) = quote_core_exact_out(snapshot, output, zero)?;
+    let hooked = pool
+        .singleton_advanced
+        .as_ref()
+        .is_some_and(|state| state.hook_model == V4_SETTLEMENT_HOOK_MODEL);
+    let (lp_fee, core_output) = if hooked {
+        let target = Amount::checked(&output.0 + V4_SPECIFIED_DELTA)?;
+        if target.0.bits() > 127 {
+            return Err(err("SINGLETON_OUTPUT_INT256_RANGE"));
+        }
+        (V4_SETTLEMENT_FEE, target)
+    } else {
+        (snapshot.lp_fee, output.clone())
+    };
+    let (core, mut input) = quote_core_exact_out(snapshot, lp_fee, &core_output, zero)?;
+    if hooked {
+        input.0 += V4_UNSPECIFIED_DELTA;
+        if input.0 > (BigUint::one() << 127usize) {
+            return Err(err("SINGLETON_INPUT_INT256_RANGE"));
+        }
+    }
     let mut next_pool = pool.clone();
     if let Some(advanced) = &mut next_pool.singleton_advanced {
         advanced.snapshot.core = core;
@@ -93,6 +115,7 @@ pub fn supports_exact_out(protocol: &str) -> bool {
 
 fn quote_core_exact_out(
     singleton: &SingletonCLState,
+    lp_fee: u32,
     output: &Amount,
     zero: bool,
 ) -> Result<(ConcentratedState, Amount)> {
@@ -107,8 +130,8 @@ fn quote_core_exact_out(
     } else {
         singleton.protocol_fee1
     };
-    let combined = u64::from(protocol_fee) + u64::from(singleton.lp_fee)
-        - u64::from(protocol_fee) * u64::from(singleton.lp_fee) / 1_000_000;
+    let combined = u64::from(protocol_fee) + u64::from(lp_fee)
+        - u64::from(protocol_fee) * u64::from(lp_fee) / 1_000_000;
     if combined >= 1_000_000 {
         return Err(err("SINGLETON_NO_OUTPUT_FEE"));
     }

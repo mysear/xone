@@ -33,7 +33,7 @@ func SingletonAdvancedToProto(s *SingletonAdvancedState) (*pb.SingletonAdvancedS
 	if e != nil {
 		return nil, e
 	}
-	return &pb.SingletonAdvancedState{Protocol: s.Protocol, Currency0: s.Currency0, Currency1: s.Currency1, KeyFee: s.KeyFee, SnapshotBlockHash: hash, Snapshot: snapshot}, nil
+	return &pb.SingletonAdvancedState{Protocol: s.Protocol, Currency0: s.Currency0, Currency1: s.Currency1, KeyFee: s.KeyFee, SnapshotBlockHash: hash, Snapshot: snapshot, HookModel: s.HookModel}, nil
 }
 func SingletonAdvancedFromProto(s *pb.SingletonAdvancedState) (*SingletonAdvancedState, error) {
 	if s == nil {
@@ -46,6 +46,6 @@ func SingletonAdvancedFromProto(s *pb.SingletonAdvancedState) (*SingletonAdvance
 	if e != nil {
 		return nil, e
 	}
-	out := &SingletonAdvancedState{Protocol: s.Protocol, Currency0: s.Currency0, Currency1: s.Currency1, KeyFee: s.KeyFee, SnapshotBlockHash: "0x" + hex.EncodeToString(s.SnapshotBlockHash), Snapshot: *snapshot}
+	out := &SingletonAdvancedState{Protocol: s.Protocol, Currency0: s.Currency0, Currency1: s.Currency1, KeyFee: s.KeyFee, SnapshotBlockHash: "0x" + hex.EncodeToString(s.SnapshotBlockHash), Snapshot: *snapshot, HookModel: s.HookModel}
 	return out, out.Validate()
 }

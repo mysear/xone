@@ -35,7 +35,7 @@ const input = {
         evmVersion: 'cancun',
         metadata: {bytecodeHash: 'none', appendCBOR: false},
         remappings: ['solmate/=v4/lib/solmate/'],
-        outputSelection: {'*': {'*': ['evm.bytecode.object']}},
+        outputSelection: {'*': {'*': ['evm.bytecode.object', 'evm.deployedBytecode']}},
     },
 };
 const build = JSON.parse(solc.compile(JSON.stringify(input), {
@@ -46,8 +46,13 @@ assert.equal(errors.length, 0, errors.map(error => error.formattedMessage).join(
 const code = (source, name) => build.contracts[source][name].evm.bytecode.object;
 const output = process.argv[2];
 assert(output, 'Usage: node v4-manager-settlement-build.cjs <output.json>');
+const hookRuntime = build.contracts[harness].SettlementHook.evm.deployedBytecode;
+assert.equal(Object.keys(hookRuntime.immutableReferences).length, 1);
+const [hookManagerReferences] = Object.values(hookRuntime.immutableReferences);
 fs.writeFileSync(output, JSON.stringify({
     manager: code(manager, 'PoolManager'),
     harness: code(harness, 'V4ManagerSettlement'),
     hook: code(harness, 'SettlementHook'),
+    hookRuntime: hookRuntime.object,
+    hookManagerReferences,
 }) + '\n');

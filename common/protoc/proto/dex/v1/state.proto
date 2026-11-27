@@ -319,7 +319,7 @@ message RaydiumCLMMRewardInfo {
  string token_mint=8;string token_vault=9;string authority=10;Amount reward_growth_global_x64=11;
 }
 
-message SingletonAdvancedState {string protocol=1;string currency0=2;string currency1=3;uint32 key_fee=4;bytes snapshot_block_hash=5;SingletonCLState snapshot=6;}
+message SingletonAdvancedState {string protocol=1;string currency0=2;string currency1=3;uint32 key_fee=4;bytes snapshot_block_hash=5;SingletonCLState snapshot=6;string hook_model=7;}
 
 // Original StableSwapNG 3332cd44 standard-token exchange bookkeeping.
 message CurveNGState {

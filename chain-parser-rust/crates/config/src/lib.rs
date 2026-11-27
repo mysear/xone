@@ -331,6 +331,7 @@ config_struct!(SingletonAdvancedPoolConfig {
     tick_spacing: i32,
     hooks: String,
     parameters: String,
+    hook_model: Option<String>,
     tick_word_radius: u32,
     max_initialized_ticks: u32,
     max_steps: u32
@@ -1222,6 +1223,7 @@ impl Config {
                         currency1: v.currency1.clone(),
                         key_fee: v.key_fee,
                         snapshot_block_hash: format!("0x{}", "1".repeat(64)),
+                        hook_model: v.hook_model.clone().unwrap_or_default(),
                         snapshot: xone_domain::singleton::SingletonCLState {
                             manager: v.manager.clone(),
                             manager_code_sha256: v.expected_manager_code_sha256.clone(),

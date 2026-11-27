@@ -3,12 +3,14 @@ package domain
 import (
 	"encoding/hex"
 	"errors"
-	"golang.org/x/crypto/sha3"
 	"math/big"
 	"strings"
+
+	"golang.org/x/crypto/sha3"
 )
 
 const SingletonDynamicFeeFlag uint32 = 0x800000
+const V4SettlementHookModel = "v4-settlement-hook-v1"
 
 // SingletonAdvancedState is deliberately separate from legacy Pool admission.
 // KeyFee is immutable; Snapshot.LPFee is the observed slot0 fee at SnapshotBlockHash.
@@ -19,6 +21,7 @@ type SingletonAdvancedState struct {
 	KeyFee            uint32           `json:"key_fee"`
 	SnapshotBlockHash string           `json:"snapshot_block_hash"`
 	Snapshot          SingletonCLState `json:"snapshot"`
+	HookModel         string           `json:"hook_model,omitempty"`
 }
 
 func singletonAdvancedBytes32(v string) ([]byte, error) {
@@ -104,7 +107,7 @@ func (v SingletonAdvancedState) ValidateIdentity() error {
 	if v.Protocol == "uniswap-v4" {
 		hook, _ := hex.DecodeString(s.Hooks[2:])
 		flags = (uint16(hook[18])<<8 | uint16(hook[19])) & 0x3fff
-		if flags&0xcc != 0 {
+		if v.HookModel == "" && flags&0xcc != 0 {
 			return errors.New("SINGLETON_HOOK_EXECUTION_REQUIRED")
 		}
 		if flags&2 != 0 && flags&(1<<10) == 0 || flags&1 != 0 && flags&(1<<8) == 0 || s.Hooks != SingletonZeroAddress && flags == 0 && v.KeyFee != SingletonDynamicFeeFlag {
@@ -122,6 +125,11 @@ func (v SingletonAdvancedState) ValidateIdentity() error {
 	}
 	if s.Hooks == SingletonZeroAddress && (v.KeyFee == SingletonDynamicFeeFlag || flags != 0) {
 		return errors.New("SINGLETON_HOOK_PERMISSIONS")
+	}
+	if v.HookModel != "" {
+		if v.HookModel != V4SettlementHookModel || v.Protocol != "uniswap-v4" || flags != 0xcc || v.KeyFee != SingletonDynamicFeeFlag {
+			return errors.New("SINGLETON_HOOK_MODEL")
+		}
 	}
 	return nil
 }

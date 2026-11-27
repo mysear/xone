@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,86 @@ import (
 	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/rpc"
 )
+
+func TestV4SettlementHookRuntimeAtCanonicalBlock(t *testing.T) {
+	path := os.Getenv("XONE_V4_MANAGER_SETTLEMENT_BUILD")
+	if path == "" {
+		t.Skip("requires the pinned Cancun SettlementHook build")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var build struct {
+		HookRuntime           string `json:"hookRuntime"`
+		HookManagerReferences []struct {
+			Start  int `json:"start"`
+			Length int `json:"length"`
+		} `json:"hookManagerReferences"`
+	}
+	if err := json.Unmarshal(raw, &build); err != nil {
+		t.Fatal(err)
+	}
+	managerBytes := strings.Repeat("a1", 20)
+	manager := "0x" + managerBytes
+	hook := "0x" + strings.Repeat("00", 18) + "00cc"
+	block := "0x" + strings.Repeat("ab", 32)
+	runtime, err := hex.DecodeString(build.HookRuntime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ref := range build.HookManagerReferences {
+		word, _ := hex.DecodeString(strings.Repeat("00", 12) + managerBytes)
+		copy(runtime[ref.Start:ref.Start+ref.Length], word)
+	}
+	for _, test := range []struct {
+		name   string
+		mutate func([]byte)
+		want   string
+	}{
+		{name: "approved"},
+		{name: "different-runtime", mutate: func(code []byte) { code[0] ^= 1 }, want: "SINGLETON_HOOK_CODE_IDENTITY"},
+		{name: "different-manager", mutate: func(code []byte) {
+			ref := build.HookManagerReferences[0]
+			code[ref.Start+ref.Length-1] ^= 1
+		}, want: "SINGLETON_HOOK_MANAGER_MISMATCH"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			code := append([]byte(nil), runtime...)
+			if test.mutate != nil {
+				test.mutate(code)
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var req struct {
+					ID     json.RawMessage   `json:"id"`
+					Method string            `json:"method"`
+					Params []json.RawMessage `json:"params"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					t.Error(err)
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				if req.Method != "eth_getCode" || len(req.Params) != 2 || string(req.Params[0]) != "\""+hook+"\"" {
+					t.Error("unexpected hook RPC request")
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				var anchor map[string]any
+				if err := json.Unmarshal(req.Params[1], &anchor); err != nil || anchor["blockHash"] != block || anchor["requireCanonical"] != true {
+					t.Error("hook code read without canonical block hash")
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": "0x" + hex.EncodeToString(code)})
+			}))
+			defer server.Close()
+			adapter := Adapter{Client: rpc.New([]string{server.URL}, time.Second, 1<<20)}
+			err := adapter.verifyV4SettlementHook(context.Background(), map[string]any{"blockHash": block, "requireCanonical": true}, hook, manager)
+			if test.want == "" && err != nil || test.want != "" && (err == nil || err.Error() != test.want) {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+		})
+	}
+}
 
 func TestSingletonAdvancedReadFrozenDynamicNativeSnapshot(t *testing.T) {
 	raw, err := os.ReadFile("../../../test/contracts/singleton-advanced-quotes.json")

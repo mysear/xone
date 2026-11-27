@@ -290,12 +290,7 @@ func (a *Adapter) readState(ctx context.Context, tag string, completeBlock bool)
 			if v == nil {
 				return ref, nil, nil, errors.New("SINGLETON_ADVANCED_CONFIG_REQUIRED")
 			}
-			state := domain.SingletonAdvancedState{Protocol: v.Protocol, Currency0: v.Currency0, Currency1: v.Currency1, KeyFee: v.KeyFee, SnapshotBlockHash: b.Hash, Snapshot: domain.SingletonCLState{Manager: v.Manager, ManagerCodeSHA256: v.ExpectedManagerCodeSHA256, PoolID: v.PoolID, LPFee: func() uint32 {
-				if v.KeyFee == domain.SingletonDynamicFeeFlag {
-					return 0
-				}
-				return v.KeyFee
-			}(), Hooks: v.Hooks, Parameters: v.Parameters, Core: domain.ConcentratedState{TickSpacing: v.TickSpacing}}}
+			state := v.StateAt(b.Hash)
 			observed, err := stateReader.ReadSingletonAdvanced(ctx, SingletonAdvancedReadConfig{State: state, TickWordRadius: v.TickWordRadius, MaxInitializedTicks: v.MaxInitializedTicks, MaxSteps: v.MaxSteps})
 			e = err
 			if e == nil {

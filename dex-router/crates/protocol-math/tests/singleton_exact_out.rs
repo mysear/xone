@@ -119,6 +119,7 @@ fn advanced_singleton_uses_live_fee_and_preserves_native_pool_key() {
         };
         snapshot.hooks = "0x0000000000000000000000000000000000010000".into();
         let mut advanced = SingletonAdvancedState {
+            hook_model: String::new(),
             protocol: pool.protocol.clone(),
             currency0: ZERO_ADDRESS.into(),
             currency1: pool.token1.clone(),

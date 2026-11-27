@@ -892,6 +892,8 @@ pub struct SingletonAdvancedState {
     pub snapshot_block_hash: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "6")]
     pub snapshot: ::core::option::Option<SingletonClState>,
+    #[prost(string, tag = "7")]
+    pub hook_model: ::prost::alloc::string::String,
 }
 /// Original StableSwapNG 3332cd44 standard-token exchange bookkeeping.
 #[derive(Clone, PartialEq, ::prost::Message)]

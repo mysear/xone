@@ -1,9 +1,8 @@
-//! Static, zero-hook V4 / Infinity CL amount state. Independent protocol state,
-//! directional protocol/LP fee composition and signed BalanceDelta bounds.
+//! V4 and Infinity CL swaps with directional protocol fees and signed BalanceDelta bounds.
 use crate::Swap;
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
-use xone_domain::singleton::ConcentratedState;
+use xone_domain::singleton::{ConcentratedState, SingletonAdvancedState, V4_SETTLEMENT_HOOK_MODEL};
 use xone_domain::{
     err,
     v3::{parse_liquidity_net, sqrt_ratio_at_tick, tick_at_sqrt_ratio, MAX_TICK, MIN_TICK},
@@ -117,7 +116,7 @@ pub fn quote_exact_in(pool: &Pool, input: &Amount, zero: bool) -> Result<Swap> {
         .singleton_cl
         .as_ref()
         .ok_or_else(|| err("SINGLETON_STATE_REQUIRED"))?;
-    let (core, output, _, _) = quote_core(singleton, input, zero, false)?;
+    let (core, output, _, _) = quote_core(singleton, singleton.lp_fee, input, zero, false)?;
     let mut next_pool = pool.clone();
     next_pool
         .singleton_cl
@@ -143,8 +142,14 @@ pub struct SingletonAdvancedSwap {
     pub protocol_amount: Amount,
     pub next_state: xone_domain::singleton::SingletonAdvancedState,
 }
+
+// These are the constants of the bytecode identity admitted by the collector.
+pub(super) const V4_SETTLEMENT_FEE: u32 = 17_000;
+pub(super) const V4_SPECIFIED_DELTA: u32 = 7;
+pub(super) const V4_UNSPECIFIED_DELTA: u32 = 11;
+
 pub fn quote_advanced_exact_in(
-    state: &xone_domain::singleton::SingletonAdvancedState,
+    state: &SingletonAdvancedState,
     input: &Amount,
     zero: bool,
 ) -> Result<SingletonAdvancedSwap> {
@@ -155,7 +160,25 @@ pub fn quote_advanced_exact_in(
     if input.0 > (BigUint::one() << 127usize) {
         return Err(err("SINGLETON_INPUT_INT256_RANGE"));
     }
-    let (core, output, protocol_amount, swap_fee) = quote_core(&state.snapshot, input, zero, true)?;
+    let hooked = state.hook_model == V4_SETTLEMENT_HOOK_MODEL;
+    let (lp_fee, core_input) = if hooked {
+        let delta = BigUint::from(V4_SPECIFIED_DELTA);
+        if input.0 <= delta {
+            return Err(err("SINGLETON_HOOK_INPUT_TOO_SMALL"));
+        }
+        (V4_SETTLEMENT_FEE, Amount::checked(&input.0 - delta)?)
+    } else {
+        (state.snapshot.lp_fee, input.clone())
+    };
+    let (core, mut output, protocol_amount, swap_fee) =
+        quote_core(&state.snapshot, lp_fee, &core_input, zero, true)?;
+    if hooked {
+        let delta = BigUint::from(V4_UNSPECIFIED_DELTA);
+        if output <= delta {
+            return Err(err("SINGLETON_HOOK_OUTPUT_TOO_SMALL"));
+        }
+        output -= delta;
+    }
     let mut next_state = state.clone();
     next_state.snapshot.core = core;
     next_state.validate()?;
@@ -170,6 +193,7 @@ pub fn quote_advanced_exact_in(
 }
 fn quote_core(
     singleton: &xone_domain::singleton::SingletonCLState,
+    lp_fee: u32,
     input: &Amount,
     zero: bool,
     advanced: bool,
@@ -187,8 +211,8 @@ fn quote_core(
     } else {
         singleton.protocol_fee1
     };
-    let combined = u64::from(protocol_fee) + u64::from(singleton.lp_fee)
-        - u64::from(protocol_fee) * u64::from(singleton.lp_fee) / 1_000_000;
+    let combined = u64::from(protocol_fee) + u64::from(lp_fee)
+        - u64::from(protocol_fee) * u64::from(lp_fee) / 1_000_000;
     if combined > 1_000_000 || !advanced && combined == 1_000_000 {
         return Err(err("SINGLETON_NO_OUTPUT_FEE"));
     }

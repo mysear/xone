@@ -255,6 +255,7 @@ async fn singleton_http_advanced_native_output_in_both_directions() {
                 currency1: pool.token1.clone(),
                 key_fee: DYNAMIC_FEE_FLAG,
                 snapshot_block_hash: snapshot.reference.block.hash.clone(),
+                hook_model: String::new(),
                 snapshot: core,
             };
             advanced.snapshot.pool_id = advanced.key_id().unwrap();
@@ -283,6 +284,104 @@ async fn singleton_http_advanced_native_output_in_both_directions() {
         }
     }
 }
+#[tokio::test]
+#[ignore = "requires the original Cancun PoolManager quote results"]
+async fn v4_settlement_hook_http_matches_original_pool_manager() {
+    use xone_domain::singleton::{SingletonAdvancedState, V4_SETTLEMENT_HOOK_MODEL};
+
+    let path = std::env::var_os("XONE_V4_HOOK_QUOTES").unwrap();
+    let cases: Vec<Value> = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    assert_eq!(cases.len(), 8);
+    let (api, mut snapshot) = setup();
+    for case in cases {
+        let zero = case["zeroForOne"].as_bool().unwrap();
+        let exact_in = case["exactIn"].as_bool().unwrap();
+        let mut state: SingletonAdvancedState = serde_json::from_value(json!({
+            "protocol": "uniswap-v4",
+            "currency0": case["currency0"],
+            "currency1": case["currency1"],
+            "key_fee": 0x800000,
+            "snapshot_block_hash": snapshot.reference.block.hash,
+            "hook_model": V4_SETTLEMENT_HOOK_MODEL,
+            "snapshot": {
+                "manager": case["manager"],
+                "manager_code_sha256": case["managerCodeSha256"],
+                "pool_id": "",
+                "lp_fee": 0,
+                "protocol_fee0": 0,
+                "protocol_fee1": 0,
+                "hooks": case["hook"],
+                "parameters": "",
+                "core": {
+                    "sqrt_price_x96": "79228162514264337593543950336",
+                    "tick": 0, "liquidity": "1000000000000", "tick_spacing": 60, "max_steps": 8,
+                    "tick_words": [{"word_pos": -1, "bitmap": "28948022309329048855892746252171976963317496166410141009864396001978282409984"}, {"word_pos": 0, "bitmap": "4"}],
+                    "ticks": [{"tick": -120, "liquidity_gross": "1000000000000", "liquidity_net": "1000000000000"}, {"tick": 120, "liquidity_gross": "1000000000000", "liquidity_net": "-1000000000000"}],
+                },
+            },
+        })).unwrap();
+        state.snapshot.pool_id = state.key_id().unwrap();
+        assert_eq!(
+            SingletonAdvancedState::from_proto(state.to_proto().unwrap()).unwrap(),
+            state
+        );
+        let protocol = "uniswap-v4-advanced";
+        let pool: Pool = serde_json::from_value(json!({
+            "chain_key": "evm:31337",
+            "pool_id": format!("{}/{}", state.snapshot.manager, state.snapshot.pool_id),
+            "protocol": protocol,
+            "token0": state.currency0,
+            "token1": state.currency1,
+            "reserve0": "0", "reserve1": "0", "fee_numerator": 0, "fee_denominator": 1_000_000,
+            "adapter_version": xone_domain::protocols::protocol(protocol).unwrap().adapter,
+            "token_behavior": "standard",
+            "singleton_advanced": state,
+        }))
+        .unwrap();
+        let i = usize::from(!zero);
+        let pair = tokens(&pool, i, 1 - i);
+        let input = case["input"].as_str().unwrap().parse().unwrap();
+        let output = case["output"].as_str().unwrap().parse().unwrap();
+        let next = if exact_in {
+            let quote = xone_protocol_math::quote_exact_in(&pool, &input, zero).unwrap();
+            assert_eq!(quote.amount_out, output);
+            quote.next_pool
+        } else {
+            let quote =
+                xone_protocol_math::exact_out::quote_exact_out(&pool, &output, zero).unwrap();
+            assert_eq!(quote.amount_in, input);
+            quote.next_pool
+        };
+        let core = next.singleton_advanced.unwrap().snapshot.core;
+        assert_eq!(core.sqrt_price_x96.to_string(), case["priceAfter"]);
+        assert_eq!(i64::from(core.tick), case["tickAfter"]);
+        install(&api, &mut snapshot, vec![pool]);
+        let (status, quote) = if exact_in {
+            call(&api, "/v1/quote", json!({
+                "chainKey":"evm:31337","kind":"EXACT_IN","sellToken":pair[0],"buyToken":pair[1],
+                "sellAmount":case["input"],"caller":"0x000000000000000000000000000000000000dead",
+                "recipient":"0x000000000000000000000000000000000000beef","slippageBps":0,
+                "verification":"FAST"
+            })).await
+        } else {
+            call(
+                &api,
+                "/v1/quote-exact-out",
+                request(&pair, &case["output"], json!(MAX)),
+            )
+            .await
+        };
+        assert_eq!(status, StatusCode::OK, "{case}: {quote}");
+        assert_eq!(quote["grossBuyAmount"], case["output"]);
+        let sell_field = if exact_in {
+            "consumedIn"
+        } else {
+            "requiredSellAmount"
+        };
+        assert_eq!(quote[sell_field], case["input"]);
+    }
+}
+
 #[tokio::test]
 async fn singleton_http_capacity_grid_and_old_view_revocation() {
     let f = corpus();

@@ -6,6 +6,8 @@ use revm::{
     Evm,
 };
 use serde::Deserialize;
+use serde_json::json;
+use sha2::{Digest, Sha256};
 
 #[derive(Deserialize)]
 struct Build {
@@ -69,9 +71,9 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
     );
     let manager = deploy(&mut db, &build.manager, caller);
     let harness = deploy(&mut db, &build.harness, manager);
-    let mut hook = hex::decode(build.hook).unwrap();
-    hook.extend_from_slice(&address_word(manager));
-    let hash = keccak256(hook);
+    let mut hook_initcode = hex::decode(build.hook).unwrap();
+    hook_initcode.extend_from_slice(&address_word(manager));
+    let hash = keccak256(hook_initcode);
     let salt = (0..1_000_000u64)
         .map(|salt| U256::from(salt).to_be_bytes::<32>())
         .find(|salt| {
@@ -82,7 +84,11 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
     let mut data = selector("installHook(bytes32)").to_vec();
     data.extend_from_slice(&salt);
     assert!(transact(&mut db, TxKind::Call(harness), data, 0).is_success());
+    let hook = harness.create2(salt, hash);
+    let manager_code = &db.contracts[&db.accounts[&manager].info.code_hash];
+    let manager_sha256 = hex::encode(Sha256::digest(manager_code.original_bytes()));
 
+    let mut cases = Vec::new();
     for native in [false, true] {
         for zero_for_one in [false, true] {
             for exact_in in [false, true] {
@@ -96,11 +102,43 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
                     result.is_success(),
                     "native={native} zero_for_one={zero_for_one} exact_in={exact_in}: {result:?}"
                 );
+                let ExecutionResult::Success {
+                    output: Output::Call(output),
+                    ..
+                } = result
+                else {
+                    unreachable!("successful call")
+                };
+                let words: Vec<&[u8]> = output.chunks_exact(32).collect();
+                assert_eq!(words.len(), 6);
+                let delta0 = i128::from_be_bytes(words[2][16..].try_into().unwrap());
+                let delta1 = i128::from_be_bytes(words[3][16..].try_into().unwrap());
+                let (input, output) = if zero_for_one {
+                    (-delta0, delta1)
+                } else {
+                    (-delta1, delta0)
+                };
+                cases.push(json!({
+                    "currency0": format!("0x{}", hex::encode(&words[0][12..])),
+                    "currency1": format!("0x{}", hex::encode(&words[1][12..])),
+                    "manager": format!("{manager:#x}"),
+                    "managerCodeSha256": manager_sha256,
+                    "hook": format!("{hook:#x}"),
+                    "zeroForOne": zero_for_one,
+                    "exactIn": exact_in,
+                    "input": input.to_string(),
+                    "output": output.to_string(),
+                    "priceAfter": U256::from_be_slice(words[4]).to_string(),
+                    "tickAfter": i32::from_be_bytes(words[5][28..].try_into().unwrap()),
+                }));
                 *data.last_mut().unwrap() = 1;
                 let rejected = transact(&mut db, TxKind::Call(harness), data, value);
                 assert!(matches!(rejected, ExecutionResult::Revert { output, .. }
                     if output.as_ref() == selector("CurrencyNotSettled()")));
             }
         }
+    }
+    if let Some(path) = std::env::var_os("XONE_V4_HOOK_QUOTES") {
+        std::fs::write(path, serde_json::to_vec_pretty(&cases).unwrap()).unwrap();
     }
 }

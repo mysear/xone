@@ -346,6 +346,7 @@ impl ConcentratedState {
 
 /// Explicit capability boundary; legacy Pool/SingletonCLState admission is unchanged.
 pub const DYNAMIC_FEE_FLAG: u32 = 0x800000;
+pub const V4_SETTLEMENT_HOOK_MODEL: &str = "v4-settlement-hook-v1";
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct SingletonAdvancedState {
@@ -355,6 +356,8 @@ pub struct SingletonAdvancedState {
     pub key_fee: u32,
     pub snapshot_block_hash: String,
     pub snapshot: SingletonCLState,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub hook_model: String,
 }
 impl SingletonAdvancedState {
     pub fn key_id(&self) -> Result<String> {
@@ -439,7 +442,7 @@ impl SingletonAdvancedState {
         let flags = if self.protocol == "uniswap-v4" {
             let b = hex::decode(&s.hooks[2..]).map_err(|_| err("SINGLETON_ADDRESS"))?;
             let flags = u16::from_be_bytes([b[18], b[19]]) & 0x3fff;
-            if flags & 0xcc != 0 {
+            if self.hook_model.is_empty() && flags & 0xcc != 0 {
                 return Err(err("SINGLETON_HOOK_EXECUTION_REQUIRED"));
             }
             if flags & 2 != 0 && flags & (1 << 10) == 0
@@ -465,6 +468,15 @@ impl SingletonAdvancedState {
         if s.hooks == ZERO_ADDRESS && (self.key_fee == DYNAMIC_FEE_FLAG || flags != 0) {
             return Err(err("SINGLETON_HOOK_PERMISSIONS"));
         }
+        if !self.hook_model.is_empty() {
+            if self.hook_model != V4_SETTLEMENT_HOOK_MODEL
+                || self.protocol != "uniswap-v4"
+                || flags != 0xcc
+                || self.key_fee != DYNAMIC_FEE_FLAG
+            {
+                return Err(err("SINGLETON_HOOK_MODEL"));
+            }
+        }
         Ok(())
     }
 }
@@ -481,6 +493,7 @@ impl SingletonAdvancedState {
             currency1: self.currency1.clone(),
             key_fee: self.key_fee,
             snapshot_block_hash: bytes32(&self.snapshot_block_hash)?,
+            hook_model: self.hook_model.clone(),
             snapshot: Some(wire::SingletonClState {
                 manager: s.manager.clone(),
                 manager_code_sha256: hex::decode(&s.manager_code_sha256)
@@ -518,6 +531,7 @@ impl SingletonAdvancedState {
             currency1: value.currency1,
             key_fee: value.key_fee,
             snapshot_block_hash: format!("0x{}", hex::encode(value.snapshot_block_hash)),
+            hook_model: value.hook_model,
             snapshot: SingletonCLState {
                 manager: s.manager,
                 manager_code_sha256: hex::encode(s.manager_code_sha256),

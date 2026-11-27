@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -44,6 +45,34 @@ func singletonMappingSlot(key, slot []byte) []byte {
 	encoded = append(encoded, key...)
 	encoded = append(encoded, slot...)
 	return singletonKeccak(encoded)
+}
+
+func (a *Adapter) verifyV4SettlementHook(ctx context.Context, anchor map[string]any, hook, manager string) error {
+	var code string
+	if err := a.Client.Call(ctx, "eth_getCode", []any{hook, anchor}, &code); err != nil {
+		return fmt.Errorf("SINGLETON_HOOK_CODE: %w", err)
+	}
+	if !singletonHex(code, 901) {
+		return errors.New("SINGLETON_HOOK_CODE_IDENTITY")
+	}
+	runtime, _ := hex.DecodeString(code[2:])
+	address, _ := hex.DecodeString(manager[2:])
+	var managerWord [32]byte
+	copy(managerWord[12:], address)
+	// SettlementHook compiled by integration/tools/ci/v4-manager-settlement-build.cjs.
+	// Verify both compiler-declared immutable words before hashing the template.
+	for _, offset := range [...]int{146, 459} {
+		word := runtime[offset : offset+32]
+		if !bytes.Equal(word, managerWord[:]) {
+			return errors.New("SINGLETON_HOOK_MANAGER_MISMATCH")
+		}
+		clear(word)
+	}
+	digest := sha256.Sum256(runtime)
+	if hex.EncodeToString(digest[:]) != "713061d76fed7f5ec294ea9d743f8b803b8f085e0d13deaa2a99f28262aaca3f" {
+		return errors.New("SINGLETON_HOOK_CODE_IDENTITY")
+	}
+	return nil
 }
 
 func (a *Adapter) readSingletonCL(ctx context.Context, p config.PoolConfig, anchor map[string]any) (domain.Pool, error) {
@@ -136,6 +165,11 @@ func (a *Adapter) readSingletonCLSnapshot(ctx context.Context, p config.PoolConf
 	}
 	if isStandardClone(runtime) {
 		return fail("SINGLETON_MANAGER_PROXY_UNSUPPORTED")
+	}
+	if advanced != nil && advanced.HookModel == domain.V4SettlementHookModel {
+		if err := a.verifyV4SettlementHook(ctx, anchor, hooks, v.Manager); err != nil {
+			return domain.Pool{}, err
+		}
 	}
 
 	call := func(data string, words int) ([]byte, error) {

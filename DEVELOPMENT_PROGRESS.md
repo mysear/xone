@@ -372,8 +372,8 @@
 
 - 原版 Uniswap V4 PoolManager 在 Cancun 通过 8 组双向 ExactIn、ExactOut、ERC-20 与 native 组合。受控 hook 使用 beforeSwap 覆盖费，以及 beforeSwap 和 afterSwap 的会计差额。逐笔核对调用方、hook、manager 和接收账户余额，另有 8 组未结算 hook 差额的原程序回滚。 [复验说明](integration/tools/reference/singleton-advanced/README.md#v4-poolmanager-hook-and-native-settlement)
 - `uniswap-v4-advanced` 与 `pancake-infinity-cl-advanced` 的无 swap 回调快照接入 ExactOut。路由绑定 manager，计划校验仅允许高级 CL 单池路由使用原生币，报价应用快照中的 LP 费和方向性协议费。用原程序的 CL 语料投影为动态费与原生币快照，核对输入、目标输出和报价后状态。4 组正常 HTTP 报价通过，覆盖两个协议和双向原生币，旧版 644 组输入与回滚以及连续和多池回归通过。能力目录升至 `/31`。
-- 下一轮接入可验证 hook 状态与金额逻辑，通过正常报价入口核对原程序结果，然后完成正式执行准备。并行保留 Infinity Bin 原版 Manager 和 Vault 结算的复验入口。
-- 完成 hook 自定义会计、覆盖费和 native currency 结算。
+- 已接入 `v4-settlement-hook-v1` 的固定区块收集、Go/Rust Protobuf 和正常 HTTP 报价。收集器核对 hook 权限、编译产物及两处不可变的 PoolManager 地址。8 组原 PoolManager 双向 ExactIn、ExactOut、ERC-20 与原生币交易的报价、价格及 tick 后状态一致，另通过 8 组原程序回滚。能力目录为 `xone-protocol-capabilities/32`。 [复验说明](integration/tools/reference/singleton-advanced/README.md#v4-poolmanager-hook-and-native-settlement)
+- 补齐 V4 已知 hook 的执行准备以及 Infinity CL 已知 hook 的覆盖费、差额和原生币结算。
 - 完成 Infinity Bin 动态、hook、native 组合，以及 Manager、Vault、transient storage 和完整结算状态。
 - unknown hook 继续保持拒绝。
 

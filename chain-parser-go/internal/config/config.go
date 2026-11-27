@@ -232,10 +232,28 @@ type SingletonAdvancedPoolConfig struct {
 	TickSpacing               int32  `json:"tick_spacing"`
 	Hooks                     string `json:"hooks"`
 	Parameters                string `json:"parameters"`
+	HookModel                 string `json:"hook_model,omitempty"`
 	TickWordRadius            uint32 `json:"tick_word_radius"`
 	MaxInitializedTicks       uint32 `json:"max_initialized_ticks"`
 	MaxSteps                  uint32 `json:"max_steps"`
 }
+
+func (v SingletonAdvancedPoolConfig) StateAt(blockHash string) domain.SingletonAdvancedState {
+	lpFee := v.KeyFee
+	if lpFee == domain.SingletonDynamicFeeFlag {
+		lpFee = 0
+	}
+	return domain.SingletonAdvancedState{
+		Protocol: v.Protocol, Currency0: v.Currency0, Currency1: v.Currency1,
+		KeyFee: v.KeyFee, SnapshotBlockHash: blockHash, HookModel: v.HookModel,
+		Snapshot: domain.SingletonCLState{
+			Manager: v.Manager, ManagerCodeSHA256: v.ExpectedManagerCodeSHA256, PoolID: v.PoolID,
+			LPFee: lpFee, Hooks: v.Hooks, Parameters: v.Parameters,
+			Core: domain.ConcentratedState{TickSpacing: v.TickSpacing},
+		},
+	}
+}
+
 type PoolConfig struct {
 	PancakeBscLm      *PancakeBscLmConfig          `json:"pancake_bsc_lm,omitempty"`
 	PancakeLm         *PancakeLmConfig             `json:"pancake_lm,omitempty"`
@@ -750,12 +768,7 @@ func (c Config) Validate(expected string) error {
 				if v == nil || p.MultiAsset != nil || p.Weighted != nil || p.SingletonCL != nil || p.Stable != nil || p.V2 != nil || p.V3 != nil || p.OrcaWhirlpool != nil || p.RaydiumCLMM != nil || p.RaydiumCPMM != nil || !strings.HasPrefix(ch.Key, "evm:") || p.Protocol != v.Protocol+"-advanced" || p.ID != v.Manager+"/"+v.PoolID || p.Token0 != v.Currency0 || p.Token1 != v.Currency1 || p.FeeDenominator != 1000000 || p.FeeNumerator != uint64(v.KeyFee) || v.TickWordRadius > 16 || v.MaxInitializedTicks == 0 || v.MaxInitializedTicks > 4096 || v.MaxSteps == 0 || v.MaxSteps > 8192 {
 					return invalid()
 				}
-				state := domain.SingletonAdvancedState{Protocol: v.Protocol, Currency0: v.Currency0, Currency1: v.Currency1, KeyFee: v.KeyFee, SnapshotBlockHash: "0x" + strings.Repeat("1", 64), Snapshot: domain.SingletonCLState{Manager: v.Manager, ManagerCodeSHA256: v.ExpectedManagerCodeSHA256, PoolID: v.PoolID, LPFee: func() uint32 {
-					if v.KeyFee == domain.SingletonDynamicFeeFlag {
-						return 0
-					}
-					return v.KeyFee
-				}(), Hooks: v.Hooks, Parameters: v.Parameters, Core: domain.ConcentratedState{TickSpacing: v.TickSpacing}}}
+				state := v.StateAt("0x" + strings.Repeat("1", 64))
 				if state.ValidateIdentity() != nil {
 					return invalid()
 				}

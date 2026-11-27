@@ -86,7 +86,9 @@ contract V4ManagerSettlement is IUnlockCallback {
         require(uint160(address(hook)) & 0x3fff == 0xcc);
     }
 
-    function run(bool nativeCurrency, bool zeroForOne, bool exactIn, bool omitHookSettlement) external payable {
+    function run(bool nativeCurrency, bool zeroForOne, bool exactIn, bool omitHookSettlement)
+        external payable returns (address, address, int128, int128, uint160, int24)
+    {
         address token0 = nativeCurrency ? address(0) : address(new SettlementToken());
         address token1 = address(new SettlementToken());
         if (token0 > token1) (token0, token1) = (token1, token0);
@@ -132,6 +134,7 @@ contract V4ManagerSettlement is IUnlockCallback {
         (uint160 controlPrice, int24 controlTick, , ) = manager.getSlot0(control.toId());
         require(hookedPrice != price && hookedPrice == controlPrice && hookedTick == controlTick && liveFee == 0, "pool state");
         require(!manager.isUnlocked() && manager.getNonzeroDeltaCount() == 0, "final lock state");
+        return (token0, token1, swap.amount0(), swap.amount1(), hookedPrice, hookedTick);
     }
 
     function balances(PoolKey memory key, address owner) private view returns (uint256[2] memory) {

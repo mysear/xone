@@ -4,13 +4,19 @@
 
 The Cancun test deploys the pinned Uniswap V4 PoolManager from verified source. A controlled CREATE2 hook sets the exact beforeSwap, afterSwap and delta-return permission bits. The harness checks both amount modes, both directions and both currency modes against a matched PoolManager control pool. It reconciles caller, receiver, hook and manager balances, compares price and tick after the swap, and checks final lock state. Omitting part of the hook settlement triggers the original `CurrencyNotSettled` revert for each case.
 
+Set `singleton_advanced.hook_model` to `v4-settlement-hook-v1` for this exact hook on a dynamic-fee V4 pool. The Go collector verifies the runtime bytecode and both immutable manager references at the same canonical block as the pool snapshot. Rust prices the fixed 17,000 ppm override and the 7-unit specified and 11-unit unspecified deltas. The pricing model assumes hook data encodes the boolean `false` as a 32-byte ABI word. Execution preparation remains pending. Other swap-callback runtimes require a separate verified model.
+
 ```sh
 python3 integration/tools/ci/singleton-reference-fetch.py
 npm ci --ignore-scripts --prefix integration/.runtime/singleton-reference
 node integration/tools/ci/v4-manager-settlement-build.cjs /tmp/xone-v4-manager-settlement.json
-XONE_V4_MANAGER_SETTLEMENT_BUILD=/tmp/xone-v4-manager-settlement.json \
-  cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-simulation \
+export XONE_V4_MANAGER_SETTLEMENT_BUILD=/tmp/xone-v4-manager-settlement.json
+export XONE_V4_HOOK_QUOTES=/tmp/xone-v4-hook-quotes.json
+cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-simulation \
   --test v4_manager_settlement -- --ignored
+cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-quote-api \
+  --test singleton_exact_out v4_settlement_hook_http -- --ignored
+(cd chain-parser-go && go test ./internal/chain/evm -run TestV4SettlementHookRuntimeAtCanonicalBlock)
 ```
 
 ## Bounded library reference
