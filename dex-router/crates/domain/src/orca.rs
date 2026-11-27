@@ -163,10 +163,7 @@ impl OrcaWhirlpoolState {
         }
         if let Some(a) = &self.adaptive {
             a.validate(self)?;
-            if self.fee_tier_index == self.tick_spacing
-                || self.tick_arrays.len() != 3
-                || self.reward_infos.len() != 3
-            {
+            if self.fee_tier_index == self.tick_spacing || self.reward_infos.len() != 3 {
                 return Err(err("ORCA_ADAPTIVE_COMBINATION_UNSUPPORTED"));
             }
         }
@@ -276,6 +273,18 @@ impl OrcaWhirlpoolState {
         ) && self.tick_arrays.iter().any(|a| a.layout != "fixed")
         {
             return Err(err("ORCA_ADAPTIVE_COMBINATION_UNSUPPORTED"));
+        }
+        if matches!(
+            p.protocol.as_str(),
+            crate::orca_adaptive_state::PROFILE | crate::orca_adaptive_state::REWARDS_PROFILE
+        ) && self.tick_arrays.len() != 3
+        {
+            return Err(err("ORCA_ADAPTIVE_COMBINATION_UNSUPPORTED"));
+        }
+        if p.protocol == crate::orca_adaptive_state::DYNAMIC_PROFILE
+            && !(3..=7).contains(&self.tick_arrays.len())
+        {
+            return Err(err("ORCA_ADAPTIVE_ARRAY_WINDOW"));
         }
         if let Some(a) = &self.adaptive {
             if a.whirlpool != p.pool_id {

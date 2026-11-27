@@ -65,6 +65,35 @@ fn adaptive_dynamic_kernel_requires_three_complete_arrays_and_known_layouts() {
     }
 }
 
+#[test]
+fn adaptive_dynamic_accepts_supplemental_arrays_without_changing_quote() {
+    let (state, params) = kernel();
+    let reference = quote_exact_in_dynamic(&state, params).unwrap();
+    let mut expanded = state.clone();
+    let span = 88 * i32::from(expanded.tick_spacing);
+    let template = expanded.tick_arrays.last().unwrap().clone();
+    for offset in 1..=4 {
+        let mut array = template.clone();
+        array.start_tick_index += span * offset;
+        array.initialized_bitmap = 0;
+        array.ticks.clear();
+        expanded.tick_arrays.push(array);
+    }
+    let result = quote_exact_in_dynamic(&expanded, params).unwrap();
+    assert_eq!(result.amount_in, reference.amount_in);
+    assert_eq!(result.amount_out, reference.amount_out);
+    assert_eq!(result.amount_remaining, reference.amount_remaining);
+    assert_eq!(result.lp_fee, reference.lp_fee);
+    assert_eq!(result.protocol_fee, reference.protocol_fee);
+    assert_eq!(
+        result.next_state.tick_arrays[..3],
+        reference.next_state.tick_arrays[..3]
+    );
+    assert!(result.next_state.tick_arrays[3..]
+        .iter()
+        .all(|array| array.initialized_bitmap == 0 && array.ticks.is_empty()));
+}
+
 use xone_domain::{Amount, Pool};
 #[test]
 fn adaptive_dynamic_original_normal_dispatch_all_twenty_banks_and_full_sequences() {

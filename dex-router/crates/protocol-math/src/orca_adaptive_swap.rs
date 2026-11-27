@@ -221,8 +221,9 @@ fn validate(
         return Err(err("ORCA_ADAPTIVE_SWAP_TICK_PRICE"));
     }
     if state.tick_arrays.is_empty()
-        || state.tick_arrays.len() > 3
-        || (allow_rewards || allow_dynamic) && state.tick_arrays.len() != 3
+        || state.tick_arrays.len() > 7
+        || allow_rewards && state.tick_arrays.len() != 3
+        || allow_dynamic && !(3..=7).contains(&state.tick_arrays.len())
     {
         return Err(err("ORCA_ADAPTIVE_SWAP_ARRAY_PROOF"));
     }

@@ -341,7 +341,12 @@ pub fn decode_orca_whirlpool(
     let tier = u16_at(state, 43);
     if spacing == 0
         || (!adaptive_profile && tier != spacing)
-        || (adaptive_profile && (tier == spacing || cfg.tick_array_starts.len() != 3))
+        || (adaptive_profile && tier == spacing)
+        || (p.protocol == "orca-whirlpools-adaptive"
+            || p.protocol == "orca-whirlpools-adaptive-rewards")
+            && cfg.tick_array_starts.len() != 3
+        || p.protocol == "orca-whirlpools-adaptive-dynamic"
+            && !(3..=7).contains(&cfg.tick_array_starts.len())
     {
         return Err(err("ORCA_ADAPTIVE_FEE_UNSUPPORTED"));
     }

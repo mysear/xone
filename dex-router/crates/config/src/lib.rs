@@ -1670,7 +1670,12 @@ impl Config {
                             "orca-whirlpools-adaptive"
                                 | "orca-whirlpools-adaptive-rewards"
                                 | "orca-whirlpools-adaptive-dynamic"
-                        ) && v.tick_array_starts.len() != 3
+                        ) && ((matches!(
+                            p.protocol.as_str(),
+                            "orca-whirlpools-adaptive" | "orca-whirlpools-adaptive-rewards"
+                        ) && v.tick_array_starts.len() != 3)
+                            || (p.protocol == "orca-whirlpools-adaptive-dynamic"
+                                && !(3..=7).contains(&v.tick_array_starts.len())))
                         || v.tick_array_starts.windows(2).any(|x| x[1] <= x[0])
                     {
                         return Err(fail());
