@@ -27,6 +27,59 @@ pub struct CachedRate {
     pub old: BigUint,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TokenRateCache {
+    pub rate: CachedRate,
+    pub duration: u32,
+    pub expires: u32,
+}
+
+/// Prepares the caches and effective scales used by the pool swap callback.
+/// The caller supplies provider data bound to the same state and execution time.
+/// All changes are returned together. A failed calculation leaves inputs intact.
+pub fn refresh_token_rate_caches(
+    decimal_scales: &[BigUint],
+    caches: &[Option<TokenRateCache>],
+    bpt_index: usize,
+    timestamp: u64,
+    mut provider_rate: impl FnMut(usize) -> Result<BigUint>,
+) -> Result<(Vec<Option<TokenRateCache>>, Vec<BigUint>)> {
+    let one = BigUint::from(ONE);
+    if !(3..=6).contains(&caches.len())
+        || caches.len() != decimal_scales.len()
+        || bpt_index >= caches.len()
+    {
+        return Err(err("BALANCER_COMPOSABLE_LENGTH"));
+    }
+    if caches[bpt_index].is_some() || decimal_scales[bpt_index] != one {
+        return Err(err("BALANCER_COMPOSABLE_BPT_STATE"));
+    }
+    let mut next = caches.to_vec();
+    let mut effective = Vec::with_capacity(caches.len());
+    for (index, (cache, scale)) in next.iter_mut().zip(decimal_scales).enumerate() {
+        let Some(cache) = cache else {
+            effective.push(checked(scale.clone())?);
+            continue;
+        };
+        if timestamp > u64::from(cache.expires) {
+            let current = provider_rate(index)?;
+            if current.bits() > 96 {
+                return Err(err("BALANCER_COMPOSABLE_RATE_WIDTH"));
+            }
+            cache.expires = timestamp
+                .checked_add(u64::from(cache.duration))
+                .and_then(|expires| u32::try_from(expires).ok())
+                .ok_or_else(|| err("BALANCER_COMPOSABLE_CACHE_EXPIRY"))?;
+            cache.rate.current = current;
+        }
+        if cache.rate.current.bits() > 96 || cache.rate.old.bits() > 96 {
+            return Err(err("BALANCER_COMPOSABLE_RATE_WIDTH"));
+        }
+        effective.push(md(&checked(scale.clone())?, &cache.rate.current)?);
+    }
+    Ok((next, effective))
+}
+
 pub enum YieldFeePolicy<'a> {
     /// Per-token exemptions at the pinned ComposableStable source revision.
     PerToken(&'a [bool]),

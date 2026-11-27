@@ -4,6 +4,8 @@
 
 The reference executes consecutive BPT joins and exits in both swap modes while amplification is changing. It records actual transfers, registered balances, both protocol fee mints and the updated join/exit baseline. It also checks that a failed limit check rolls back the balances, supply and fee recipient state.
 
+Regular swaps before and after rate expiry record the cache entries and effective scaling factors. Failed swaps verify that automatic cache refreshes roll back with the Vault transaction.
+
 Use the build-info JSON files from these directories and the dependencies from `integration/.runtime/stable-reference`.
 
 | File | Directory in the archive |

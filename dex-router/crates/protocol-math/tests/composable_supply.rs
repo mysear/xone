@@ -1,7 +1,8 @@
 use num_bigint::BigUint;
 use serde::Deserialize;
 use xone_protocol_math::balancer_composable::{
-    quote_bpt_swap, supply_view, BptSwapKind, CachedRate, SupplyInput, YieldFeePolicy,
+    quote_bpt_swap, refresh_token_rate_caches, supply_view, BptSwapKind, CachedRate, SupplyInput,
+    TokenRateCache, YieldFeePolicy,
 };
 
 #[derive(Deserialize)]
@@ -9,6 +10,7 @@ struct Corpus {
     cases: Vec<Case>,
     bpt_swaps: Vec<Swap>,
     rejected_joins: usize,
+    refreshes: Vec<Refresh>,
 }
 
 #[derive(Deserialize)]
@@ -50,6 +52,40 @@ struct Swap {
     mint_after_swap: String,
 }
 
+#[derive(Deserialize)]
+struct Cache {
+    current: String,
+    old: String,
+    duration: u32,
+    expires: u32,
+}
+
+impl Cache {
+    fn parsed(&self) -> TokenRateCache {
+        TokenRateCache {
+            rate: CachedRate {
+                current: amount(&self.current),
+                old: amount(&self.old),
+            },
+            duration: self.duration,
+            expires: self.expires,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct Refresh {
+    name: String,
+    before: Vec<Option<Cache>>,
+    after: Vec<Option<Cache>>,
+    bpt: usize,
+    decimals: Vec<String>,
+    called: Vec<usize>,
+    timestamp: u64,
+    provider_rates: Vec<Option<String>>,
+    scales: Vec<String>,
+}
+
 fn amount(value: &str) -> BigUint {
     value.parse().unwrap()
 }
@@ -87,6 +123,71 @@ impl Case {
 
 fn corpus() -> Corpus {
     serde_json::from_str(include_str!("fixtures/composable-v6-supply.json")).unwrap()
+}
+
+#[test]
+fn v6_rate_cache_refresh_matches_original_vault() {
+    let refreshes = corpus().refreshes;
+    assert_eq!(refreshes.len(), 4);
+    for case in refreshes {
+        let original = case
+            .before
+            .iter()
+            .map(|cache| cache.as_ref().map(Cache::parsed))
+            .collect::<Vec<_>>();
+        let decimal_scales = case.decimals.iter().map(|v| amount(v)).collect::<Vec<_>>();
+        let mut called = Vec::new();
+        let (caches, scales) =
+            refresh_token_rate_caches(&decimal_scales, &original, case.bpt, case.timestamp, |i| {
+                called.push(i);
+                Ok(amount(case.provider_rates[i].as_ref().unwrap()))
+            })
+            .unwrap_or_else(|e| panic!("{}: {e}", case.name));
+        assert_eq!(called, case.called, "{}", case.name);
+        assert_eq!(
+            caches,
+            case.after
+                .iter()
+                .map(|cache| cache.as_ref().map(Cache::parsed))
+                .collect::<Vec<_>>(),
+            "{}",
+            case.name
+        );
+        assert_eq!(
+            scales,
+            case.scales.iter().map(|v| amount(v)).collect::<Vec<_>>(),
+            "{}",
+            case.name
+        );
+        let earliest = original
+            .iter()
+            .flatten()
+            .map(|cache| cache.expires)
+            .min()
+            .unwrap();
+        let (at_expiry, _) = refresh_token_rate_caches(
+            &decimal_scales,
+            &original,
+            case.bpt,
+            u64::from(earliest),
+            |_| panic!("provider called at cache expiry"),
+        )
+        .unwrap();
+        assert_eq!(at_expiry, original);
+        let unchanged = original.clone();
+        let failure = refresh_token_rate_caches(
+            &decimal_scales,
+            &original,
+            case.bpt,
+            u64::from(u32::MAX),
+            |i| Ok(amount(case.provider_rates[i].as_ref().unwrap())),
+        )
+        .unwrap_err();
+        assert!(failure
+            .to_string()
+            .contains("BALANCER_COMPOSABLE_CACHE_EXPIRY"));
+        assert_eq!(original, unchanged);
+    }
 }
 
 #[test]

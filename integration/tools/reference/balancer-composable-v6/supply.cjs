@@ -80,6 +80,7 @@ async function main() {
     const rateArtifact = helper.contracts['Rate.sol'].Rate;
     const cases = [];
     const bptSwaps = [];
+    const refreshes = [];
     let rejectedJoins = 0;
     for (const [name, exempt, count, providerCount] of [
       ['no-rate', false, 2, 0], ['yield', false, 3, 2], ['exempt', true, 5, 5],
@@ -218,8 +219,51 @@ async function main() {
         assert.equal(BigInt(await traderIn.balanceOf(owner, atBefore)) - BigInt(await traderIn.balanceOf(owner, atAfter)), BigInt(swap.amountIn));
         assert.equal(BigInt(await traderOut.balanceOf(owner, atAfter)) - BigInt(await traderOut.balanceOf(owner, atBefore)), BigInt(swap.amountOut));
       }
+      if (rates.length) {
+        const cacheState = async (tag) => Promise.all(registered.map(async address => {
+          const index = tokens.findIndex(token => token.address === address);
+          if (!rates[index]) return null;
+          const [current, old, duration, expires] = await pool.getTokenRateCache(address, { blockTag: tag });
+          return { current: String(current), old: String(old), duration: duration.toNumber(), expires: expires.toNumber() };
+        }));
+        const providerRates = registered.map(() => null);
+        const decimals = registered.map(address => {
+          const index = tokens.findIndex(token => token.address === address);
+          return String(index === -1 ? E : E * E / units[index]);
+        });
+        for (let index = 0; index < rates.length; index++) {
+          const rate = E * BigInt(101 + index * 3) / 100n;
+          providerRates[registered.indexOf(tokens[index].address)] = String(rate);
+          await send(rates[index], 'set', rate);
+        }
+        const request = {
+          poolId, kind: 0, assetIn: tokens[0].address, assetOut: tokens[1].address,
+          amount: 37n * units[0], userData: '0x',
+        };
+        for (const step of ['before-expiry', 'after-expiry']) {
+          if (step === 'after-expiry') {
+            await chain.request({ method: 'evm_increaseTime', params: [DURATION] });
+            await chain.request({ method: 'evm_mine', params: [] });
+          }
+          const before = await cacheState('latest');
+          const failed = await vault.swap(request, funds, max, max, gas);
+          await assert.rejects(failed.wait(), error => error.receipt?.status === 0);
+          assert.deepEqual(await cacheState('latest'), before);
+          const receipt = await send(vault, 'swap', request, funds, 0, max);
+          const block = await provider.getBlock(receipt.blockNumber);
+          const tag = { blockTag: block.number };
+          const after = await cacheState(block.number);
+          const called = before.flatMap((cache, index) => cache && block.timestamp > cache.expires ? [index] : []);
+          assert.equal(called.length, step === 'after-expiry' ? rates.length : 0);
+          for (const index of called) assert.equal(after[index].expires, block.timestamp + before[index].duration);
+          refreshes.push({
+            name: `${name}/${step}`, before, after, bpt, decimals, called,
+            timestamp: block.timestamp, provider_rates: providerRates, scales: (await pool.getScalingFactors(tag)).map(String),
+          });
+        }
+      }
     }
-    fs.writeFileSync(output, JSON.stringify({ builds: pins, cases, bpt_swaps: bptSwaps, rejected_joins: rejectedJoins }, null, 2) + '\n');
+    fs.writeFileSync(output, JSON.stringify({ builds: pins, cases, bpt_swaps: bptSwaps, rejected_joins: rejectedJoins, refreshes }, null, 2) + '\n');
   } finally {
     await chain.disconnect();
   }
