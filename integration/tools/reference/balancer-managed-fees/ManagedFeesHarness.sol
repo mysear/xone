@@ -29,12 +29,21 @@ contract ManagedFeesVault {
     // Caller supplies raw balances to exercise packed Vault bounds and rollback.
     function quote(ManagedPool pool,uint256[] memory raw,uint256 input,uint256 i,uint256 j)
         external returns(uint256 out,uint256[] memory next) {
+        return _swap(pool,raw,input,i,j,IVault.SwapKind.GIVEN_IN);
+    }
+    function quoteGivenOut(ManagedPool pool,uint256[] memory raw,uint256 output,uint256 i,uint256 j)
+        external returns(uint256 input,uint256[] memory next) {
+        return _swap(pool,raw,output,i,j,IVault.SwapKind.GIVEN_OUT);
+    }
+    function _swap(ManagedPool pool,uint256[] memory raw,uint256 amount,uint256 i,uint256 j,IVault.SwapKind kind)
+        private returns(uint256 calculated,uint256[] memory next) {
         bytes32 id=pool.getPoolId(); IERC20[] memory t=tokens[id];
         bytes32[] memory packed=new bytes32[](raw.length);
         for(uint256 k=0;k<raw.length;k++) packed[k]=BalanceAllocation.toBalance(raw[k],0,block.number);
-        IPoolSwapStructs.SwapRequest memory req=IPoolSwapStructs.SwapRequest(IVault.SwapKind.GIVEN_IN,t[i],t[j],input,id,block.number,msg.sender,msg.sender,"");
-        out=pool.onSwap(req,raw[i],raw[j]);
-        packed[i]=packed[i].increaseCash(input); packed[j]=packed[j].decreaseCash(out);
+        IPoolSwapStructs.SwapRequest memory req=IPoolSwapStructs.SwapRequest(kind,t[i],t[j],amount,id,block.number,msg.sender,msg.sender,"");
+        calculated=pool.onSwap(req,raw[i],raw[j]);
+        packed[i]=packed[i].increaseCash(kind==IVault.SwapKind.GIVEN_IN?amount:calculated);
+        packed[j]=packed[j].decreaseCash(kind==IVault.SwapKind.GIVEN_IN?calculated:amount);
         next=new uint256[](raw.length);
         for(uint256 k=0;k<raw.length;k++) next[k]=packed[k].cash();
         cash[id]=next;
@@ -44,12 +53,17 @@ contract ManagedFeesVault {
 // Original private fee payer runs inside ManagedPool; this observer never mints.
 contract ManagedFeesObservation {
     using FixedPoint for uint256;
-    function observe(uint256[8] memory a) external pure returns(uint256[9] memory v) {
-        // a: raw in/out balances, weights, scales, fee, raw gross input.
+    function observe(uint256[8] memory a, bool givenOut) external pure returns(uint256[9] memory v) {
+        // a: raw in/out balances, weights, scales, fee, and raw swap target.
         v[5]=a[0].mulDown(a[4]);v[6]=a[1].mulDown(a[5]);
-        v[0]=(a[7]-a[7].mulUp(a[6])).mulDown(a[4]);
+        if (givenOut) {
+            v[2]=a[7].mulDown(a[5]);
+            v[0]=WeightedMath._calcInGivenOut(v[5],a[2],v[6],a[3],v[2]);
+        } else {
+            v[0]=(a[7]-a[7].mulUp(a[6])).mulDown(a[4]);
+            v[2]=WeightedMath._calcOutGivenIn(v[5],a[2],v[6],a[3],v[0]);
+        }
         v[1]=v[0].divUp(a[6].complement());
-        v[2]=WeightedMath._calcOutGivenIn(v[5],a[2],v[6],a[3],v[0]);
         uint256[] memory w=new uint256[](2);w[0]=a[2];w[1]=a[3];
         uint256[] memory b=new uint256[](2);b[0]=v[5];b[1]=v[6];
         v[3]=WeightedMath._calculateInvariant(w,b);

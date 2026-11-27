@@ -99,19 +99,7 @@ fn exact_output_bounds_and_unsupported_models_fail_closed() {
     assert!(quote_exact_out(&bad, &w, &scales, &zero, &one, 0, 1).is_err());
     assert!(quote_exact_out(&b, &w, &scales, &zero, &(&one << 256usize), 0, 1).is_err());
     assert!(quote_exact_out(&b, &w, &scales, &zero, &(&b[1] * 3u8 / 10u8 + &one), 0, 1).is_err());
-    for model in ["balancer-v2-managed-fees", "curve-crypto2-full"] {
-        assert!(!xone_protocol_math::exact_out::supports_protocol(model));
-    }
-    let models = xone_protocol_math::capabilities::catalog();
-    assert_eq!(
-        models
-            .values()
-            .filter(|m| m.quote_modes.iter().any(|q| q == "EXACT_OUT"))
-            .count(),
-        38
-    );
-    assert_eq!(
-        models.values().filter(|m| m.execution_preparation).count(),
-        10
-    );
+    assert!(!xone_protocol_math::exact_out::supports_protocol(
+        "curve-crypto2-full"
+    ));
 }

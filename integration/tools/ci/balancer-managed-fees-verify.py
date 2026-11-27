@@ -4,6 +4,7 @@
 This verifies bytes and recorded finite-case coverage, not deployment provenance
 or completeness of joins, exits, AUM collection, BPT routing, or all pool states.
 """
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -22,9 +23,11 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def verify(root=ROOT):
+def verify(root=ROOT, given_out=False):
     ref = root / 'integration/tools/reference/balancer-managed-fees'
-    receipt = json.loads((ref / 'generation.json').read_bytes())
+    receipt_name = 'generation-exact-out.json' if given_out else 'generation.json'
+    corpus_name = 'balancer-managed-fees-exact-out.json' if given_out else 'balancer-managed-fees.json'
+    receipt = json.loads((ref / receipt_name).read_bytes())
     require(receipt.get('passed') is True, 'generation receipt is not successful')
     require(receipt.get('revision') == REV, 'receipt revision')
     for path, digest in receipt['source_and_dependency_sha256'].items():
@@ -55,8 +58,8 @@ def verify(root=ROOT):
     for name in ['_owner', '_vault', '_poolId', '_delegatedProtocolFees', '_fixedProtocolSwapFeePercentage']:
         require(names.count(name) == 1, f'immutable name {name}')
     require(names.count('_protocolFeesCollector') == 2, 'both collector immutables')
-    corpus_bytes = (root / 'integration/test/contracts/balancer-managed-fees.json').read_bytes()
-    require(corpus_bytes == (root / 'dex-router/test/contracts/balancer-managed-fees.json').read_bytes(), 'corpus copies differ')
+    corpus_bytes = (root / 'integration/test/contracts' / corpus_name).read_bytes()
+    require(corpus_bytes == (root / 'dex-router/test/contracts' / corpus_name).read_bytes(), 'corpus copies differ')
     require(sha(corpus_bytes) == receipt['corpus_sha256'], 'corpus changed')
     corpus = json.loads(corpus_bytes)
     require(corpus['reference']['revision'] == REV, 'corpus pin')
@@ -67,6 +70,7 @@ def verify(root=ROOT):
     require({c['profile'] for c in corpus['cases']} >= {'protocol_only', 'management_only', 'both', 'zero', 'full_management', 'same_recipient'}, 'fee profiles')
     successes = reverts = scheduled = rounding = 0
     for c in corpus['cases'] + [c for s in corpus['sequences'] for c in s['steps']]:
+        require(('output' if given_out else 'input') in c, 'swap direction')
         state = c['state']
         require(0 <= int(state['protocol_swap_fee']) <= 5 * 10**17, 'original protocol cap')
         require(0 <= int(state['management_swap_fee']) <= 10**18, 'original management cap')
@@ -90,4 +94,6 @@ def verify(root=ROOT):
 
 
 if __name__ == '__main__':
-    print(json.dumps(verify(), sort_keys=True))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--given-out', action='store_true')
+    print(json.dumps(verify(given_out=parser.parse_args().given_out), sort_keys=True))

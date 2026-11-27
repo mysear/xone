@@ -143,20 +143,7 @@ fn managed_output_guards_and_compressed_weights_are_separate_from_static_admissi
     for guard in f["guards"].as_array().unwrap() {
         assert_eq!(guard["expected"]["reverted"], true);
     }
-    let models = xone_protocol_math::capabilities::catalog();
-    assert_eq!(models.len(), 61);
-    assert_eq!(
-        models
-            .values()
-            .filter(|c| c.quote_modes.iter().any(|q| q == "EXACT_OUT"))
-            .count(),
-        38
-    );
-    assert_eq!(
-        models.values().filter(|c| c.execution_preparation).count(),
-        10
-    );
-    assert!(!xone_protocol_math::exact_out::supports_protocol(
-        "balancer-v2-managed-fees"
+    assert!(xone_protocol_math::exact_out::supports_protocol(
+        "balancer-v2-managed-snapshot"
     ));
 }

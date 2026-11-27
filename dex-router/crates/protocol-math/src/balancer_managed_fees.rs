@@ -1,9 +1,10 @@
-//! Bounded regular GIVEN_IN swaps for the original Balancer ManagedPool at
+//! Bounded regular GIVEN_IN and GIVEN_OUT swaps for Balancer ManagedPool at
 //! balancer/balancer-v2-monorepo e281ff40583c39bf1d46c322334b2b13936e0e33.
-//! Reproduces ManagedPool._onSwapGivenIn/_payProtocolAndManagementFees and
+//! Reproduces the swap callbacks and ManagedPool._payProtocolAndManagementFees and
 //! WeightedMath._calculateInvariant/_calcDueProtocolSwapFeeBptAmount. Fee
 //! invariants use the selected internal scaled pair: reconstructed gross input
-//! and output before downscaling. Caller establishes pool/runtime identity,
+//! and output before downscaling in GIVEN_IN, and the fee-inclusive scaled
+//! input and scaled target in GIVEN_OUT. Caller establishes pool/runtime identity,
 //! current weights/fees, unpaused state and enabled swaps. Regular swaps do not
 //! collect AUM fees; AUM collection and joins/exits are outside this API.
 use num_bigint::BigUint;
@@ -30,14 +31,6 @@ pub struct ManagedFeeQuote {
     pub management_bpt: BigUint,
 }
 
-fn capacity_error(code: &str) -> bool {
-    matches!(
-        code,
-        "BALANCER_MANAGED_MAX_IN_RATIO"
-            | "BALANCER_MANAGED_UINT112"
-            | "BALANCER_MANAGED_SUB_OVERFLOW"
-    )
-}
 const ONE: u64 = 1_000_000_000_000_000_000;
 fn checked(n: BigUint) -> Result<BigUint> {
     if n.bits() > 256 {
@@ -88,22 +81,15 @@ fn invariant(b: [&BigUint; 2], w: [&BigUint; 2]) -> Result<BigUint> {
     Ok(inv)
 }
 
-/// 2..=38 tokens, standard decimal scales ONE*10^(18-decimals), decimals 0..18.
-/// The profile admits raw swap fees 1e12..=8e17, protocol shares 0..=5e17,
-/// and management shares 0..=ONE. Native successful zero outputs are retained.
-/// Original compressed Managed weights may have rounding drift in their sum.
-/// No state is mutated on error, including a failure after either BPT mint.
-#[allow(clippy::too_many_arguments)]
-pub fn quote_exact_in(
+fn validate_swap(
     balances: &[BigUint],
     weights: &[BigUint],
     scales: &[BigUint],
     fee: &BigUint,
-    input: &BigUint,
     i: usize,
     j: usize,
     state: &ManagedFeeState,
-) -> Result<ManagedFeeQuote> {
+) -> Result<()> {
     let one = BigUint::from(ONE);
     for v in [
         &state.total_supply,
@@ -137,7 +123,6 @@ pub fn quote_exact_in(
     if i >= count || j >= count || i == j {
         return Err(err("BALANCER_MANAGED_INDEX"));
     }
-    checked(input.clone())?;
     for k in 0..count {
         checked(weights[k].clone())?;
         if weights[k].is_zero() || weights[k] > one {
@@ -153,6 +138,27 @@ pub fn quote_exact_in(
             return Err(err("BALANCER_MANAGED_ZERO_BALANCE"));
         }
     }
+    Ok(())
+}
+
+/// 2..=38 tokens, standard decimal scales ONE*10^(18-decimals), decimals 0..18.
+/// The profile admits raw swap fees 1e12..=8e17, protocol shares 0..=5e17,
+/// and management shares 0..=ONE. Native successful zero outputs are retained.
+/// Original compressed Managed weights may have rounding drift in their sum.
+#[allow(clippy::too_many_arguments)]
+pub fn quote_exact_in(
+    balances: &[BigUint],
+    weights: &[BigUint],
+    scales: &[BigUint],
+    fee: &BigUint,
+    input: &BigUint,
+    i: usize,
+    j: usize,
+    state: &ManagedFeeState,
+) -> Result<ManagedFeeQuote> {
+    validate_swap(balances, weights, scales, fee, i, j, state)?;
+    checked(input.clone())?;
+    let one = BigUint::from(ONE);
     let bi = md(&balances[i], &scales[i])?;
     let bo = md(&balances[j], &scales[j])?;
     let net = md(&(input - mu(input, fee)?), &scales[i])?;
@@ -169,7 +175,31 @@ pub fn quote_exact_in(
     };
     let out = md(&bo, &complement)?;
     let amount_out = dd(&out, &scales[j])?;
-    if amount_out > balances[j] {
+    let gross = du(&net, &(&one - fee))?;
+    settle(
+        balances,
+        [&weights[i], &weights[j]],
+        [i, j],
+        input,
+        &amount_out,
+        [&bi, &bo],
+        [&gross, &out],
+        state,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn settle(
+    balances: &[BigUint],
+    weights: [&BigUint; 2],
+    [i, j]: [usize; 2],
+    input: &BigUint,
+    output: &BigUint,
+    [bi, bo]: [&BigUint; 2],
+    [gross, out]: [&BigUint; 2],
+    state: &ManagedFeeState,
+) -> Result<ManagedFeeQuote> {
+    if output > &balances[j] {
         return Err(err("BALANCER_MANAGED_SUB_OVERFLOW"));
     }
     // The wrapper updates raw Vault cash after the callback. Any error rolls
@@ -179,18 +209,18 @@ pub fn quote_exact_in(
     if next_balances[i].bits() > 112 {
         return Err(err("BALANCER_MANAGED_UINT112"));
     }
-    next_balances[j] = &balances[j] - &amount_out;
+    next_balances[j] = &balances[j] - output;
     let mut next_state = state.clone();
     let (mut protocol_bpt, mut management_bpt) = (BigUint::zero(), BigUint::zero());
     if !state.protocol_swap_fee.is_zero() || !state.management_swap_fee.is_zero() {
-        let gross = du(&net, &(&one - fee))?;
-        let post_in = add(&bi, &gross)?;
+        let one = BigUint::from(ONE);
+        let post_in = add(bi, gross)?;
         if out > bo {
             return Err(err("BALANCER_MANAGED_SUB_OVERFLOW"));
         }
-        let post_out = &bo - out;
-        let pre = invariant([&bi, &bo], [&weights[i], &weights[j]])?;
-        let post = invariant([&post_in, &post_out], [&weights[i], &weights[j]])?;
+        let post_out = bo - out;
+        let pre = invariant([bi, bo], weights)?;
+        let post = invariant([&post_in, &post_out], weights)?;
         let total_fee = add(
             &state.protocol_swap_fee,
             &md(
@@ -233,7 +263,7 @@ pub fn quote_exact_in(
     }
     Ok(ManagedFeeQuote {
         amount_in: input.clone(),
-        amount_out,
+        amount_out: output.clone(),
         next_balances,
         next_state,
         protocol_bpt,
@@ -241,10 +271,8 @@ pub fn quote_exact_in(
     })
 }
 
-/// Bounded GIVEN_OUT inversion for the same ManagedPool callback. The native
-/// callback computes the fee mints from the gross input, so the inversion
-/// searches gross input and returns the complete post-swap ledger from the
-/// first exact raw-output match.
+/// Native GIVEN_OUT. Pool fee accounting adds the swap fee to scaled input,
+/// while Vault settlement adds it to input only after rounding downscale up.
 #[allow(clippy::too_many_arguments)]
 pub fn quote_exact_out(
     balances: &[BigUint],
@@ -259,48 +287,36 @@ pub fn quote_exact_out(
     if output.is_zero() {
         return Err(err("EXACT_OUT_ZERO_OUTPUT"));
     }
-    let mut low = BigUint::one();
-    let mut high = BigUint::one();
-    let mut found = None;
-    for _ in 0..256 {
-        match quote_exact_in(
-            balances, weights, scales, fee, &high, index_in, index_out, state,
-        ) {
-            Ok(q) if q.amount_out >= *output => {
-                found = Some(q);
-                break;
-            }
-            Ok(_) => {
-                low = &high + BigUint::one();
-                high = &high << 1usize;
-                checked(high.clone())?;
-            }
-            Err(e) if capacity_error(&e.0) => break,
-            Err(e) => return Err(e),
-        }
+    let (i, j) = (index_in, index_out);
+    validate_swap(balances, weights, scales, fee, i, j, state)?;
+    checked(output.clone())?;
+    let one = BigUint::from(ONE);
+    let bi = md(&balances[i], &scales[i])?;
+    let bo = md(&balances[j], &scales[j])?;
+    let out = md(output, &scales[j])?;
+    if out > md(&bo, &BigUint::from(300_000_000_000_000_000u64))? {
+        return Err(err("BALANCER_MANAGED_MAX_OUT_RATIO"));
     }
-    let mut best = found.ok_or_else(|| err("BALANCER_MANAGED_EXACT_OUT_UNREACHABLE"))?;
-    while low < high {
-        let mid = (&low + &high) >> 1usize;
-        match quote_exact_in(
-            balances, weights, scales, fee, &mid, index_in, index_out, state,
-        ) {
-            Ok(q) if q.amount_out >= *output => {
-                best = q;
-                if mid.is_zero() {
-                    break;
-                }
-                high = &mid - BigUint::one();
-            }
-            Ok(_) => low = mid + BigUint::one(),
-            Err(e) if capacity_error(&e.0) => low = mid + BigUint::one(),
-            Err(e) => return Err(e),
-        }
+    let base = du(&bo, &(&bo - &out))?;
+    let exponent = du(&weights[j], &weights[i])?;
+    let power = crate::balancer_log_exp::pow_up(&base, &exponent)?;
+    if power < one {
+        return Err(err("BALANCER_MANAGED_SUB_OVERFLOW"));
     }
-    if best.amount_out != *output {
-        return Err(err("BALANCER_MANAGED_EXACT_OUT_ROUNDING"));
-    }
-    Ok(best)
+    let net = mu(&bi, &(power - &one))?;
+    let fee_complement = &one - fee;
+    let gross = du(&net, &fee_complement)?;
+    let input = du(&du(&net, &scales[i])?, &fee_complement)?;
+    settle(
+        balances,
+        [&weights[i], &weights[j]],
+        [i, j],
+        &input,
+        output,
+        [&bi, &bo],
+        [&gross, &out],
+        state,
+    )
 }
 
 #[cfg(test)]

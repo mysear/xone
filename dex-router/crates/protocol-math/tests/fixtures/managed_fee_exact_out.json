@@ -1,0 +1,745 @@
+{
+  "reference": {
+    "eip170_deployable": false,
+    "admission_status": "reference-only-over-eip170",
+    "revision": "e281ff40583c39bf1d46c322334b2b13936e0e33",
+    "solc": "0.7.6+commit.7338295f.Emscripten.clang",
+    "flow": "Unmodified original ManagedPool constructor -> original onJoinPool INIT -> original onSwap transactions -> private _payProtocolAndManagementFees; test Vault raw cash facade; independent original WeightedMath selected invariant observer",
+    "runtime_normalized_sha256": "f28868b14502b7918b9ed67eca9a84716a15fc25d03e48db2eef634e1745ddb3",
+    "source_files": 50
+  },
+  "cases": [
+    {
+      "balances": [
+        "1000000000000000000000000",
+        "2000000000000"
+      ],
+      "weights": [
+        "499999999999999685",
+        "499999999999999685"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "10000000000000000",
+      "output": "0",
+      "index_in": 0,
+      "index_out": 1,
+      "state": {
+        "total_supply": "2828427124746108291266434",
+        "protocol_swap_fee": "300000000000000000",
+        "management_swap_fee": "0",
+        "owner_balance": "2828427124746108290266434",
+        "protocol_collector_balance": "0",
+        "same_recipient": false
+      },
+      "expected": {
+        "amount_in": "0",
+        "next_balances": [
+          "1000000000000000000000000",
+          "2000000000000"
+        ],
+        "next_state": {
+          "total_supply": "2828427124746108291266434",
+          "protocol_swap_fee": "300000000000000000",
+          "management_swap_fee": "0",
+          "owner_balance": "2828427124746108290266434",
+          "protocol_collector_balance": "0",
+          "same_recipient": false
+        },
+        "protocol_bpt": "0",
+        "management_bpt": "0",
+        "transaction_hash": "0xef354c84bcde3996fcab5a058311de29d33762e03d7efdcecda92f18eff76dfb"
+      }
+    },
+    {
+      "balances": [
+        "1000000000000000000000000",
+        "2000000000000"
+      ],
+      "weights": [
+        "499999999999999685",
+        "499999999999999685"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "10000000000000000",
+      "output": "1",
+      "index_in": 0,
+      "index_out": 1,
+      "state": {
+        "total_supply": "2828427124746108291266434",
+        "protocol_swap_fee": "300000000000000000",
+        "management_swap_fee": "0",
+        "owner_balance": "2828427124746108290266434",
+        "protocol_collector_balance": "0",
+        "same_recipient": false
+      },
+      "expected": {
+        "amount_in": "505051515152",
+        "next_balances": [
+          "1000000000000505051515152",
+          "1999999999999"
+        ],
+        "next_state": {
+          "total_supply": "2828427124746110429557340",
+          "protocol_swap_fee": "300000000000000000",
+          "management_swap_fee": "0",
+          "owner_balance": "2828427124746108290266434",
+          "protocol_collector_balance": "2138290906",
+          "same_recipient": false
+        },
+        "protocol_bpt": "2138290906",
+        "management_bpt": "0",
+        "transaction_hash": "0xbaa764bfa67ec02cb0b47e15c006f341957db10b5767e12981e18fd755c89140"
+      }
+    },
+    {
+      "balances": [
+        "1000000000000000000000000",
+        "2000000000000"
+      ],
+      "weights": [
+        "499999999999999685",
+        "499999999999999685"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "10000000000000000",
+      "output": "20000000001",
+      "index_in": 0,
+      "index_out": 1,
+      "state": {
+        "total_supply": "2828427124746108291266434",
+        "protocol_swap_fee": "300000000000000000",
+        "management_swap_fee": "0",
+        "owner_balance": "2828427124746108290266434",
+        "protocol_collector_balance": "0",
+        "same_recipient": false
+      },
+      "expected": {
+        "amount_in": "10203040506586115151516",
+        "next_balances": [
+          "1010203040506586115151516",
+          "1979999999999"
+        ],
+        "next_state": {
+          "total_supply": "2828469977105460612890859",
+          "protocol_swap_fee": "300000000000000000",
+          "management_swap_fee": "0",
+          "owner_balance": "2828427124746108290266434",
+          "protocol_collector_balance": "42852359352321624425",
+          "same_recipient": false
+        },
+        "protocol_bpt": "42852359352321624425",
+        "management_bpt": "0",
+        "transaction_hash": "0x0b6d472f585e6652ea2e6230c980349c569d9086cb3f2b68e08d15c706e028a9"
+      }
+    },
+    {
+      "balances": [
+        "1000000000000000000000000",
+        "2000000000000"
+      ],
+      "weights": [
+        "499999999999999685",
+        "499999999999999685"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "10000000000000000",
+      "output": "600000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "state": {
+        "total_supply": "2828427124746108291266434",
+        "protocol_swap_fee": "300000000000000000",
+        "management_swap_fee": "0",
+        "owner_balance": "2828427124746108290266434",
+        "protocol_collector_balance": "0",
+        "same_recipient": false
+      },
+      "expected": {
+        "amount_in": "432900432900432901010102",
+        "next_balances": [
+          "1432900432900432901010102",
+          "1400000000000"
+        ],
+        "next_state": {
+          "total_supply": "2829710440872534928439998",
+          "protocol_swap_fee": "300000000000000000",
+          "management_swap_fee": "0",
+          "owner_balance": "2828427124746108290266434",
+          "protocol_collector_balance": "1283316126426637173564",
+          "same_recipient": false
+        },
+        "protocol_bpt": "1283316126426637173564",
+        "management_bpt": "0",
+        "transaction_hash": "0x30b8d0f134f6af655ffa2977acf2e5a41049bca9b4e3b5fc1ac37f5c1abdf018"
+      }
+    },
+    {
+      "balances": [
+        "1000000000000000000000000",
+        "2000000000000"
+      ],
+      "weights": [
+        "499999999999999685",
+        "499999999999999685"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "10000000000000000",
+      "output": "600000000001",
+      "index_in": 0,
+      "index_out": 1,
+      "state": {
+        "total_supply": "2828427124746108291266434",
+        "protocol_swap_fee": "300000000000000000",
+        "management_swap_fee": "0",
+        "owner_balance": "2828427124746108290266434",
+        "protocol_collector_balance": "0",
+        "same_recipient": false
+      },
+      "expected": {
+        "reverted": true,
+        "reason": "BAL#305",
+        "next_state": {
+          "total_supply": "2828427124746108291266434",
+          "protocol_swap_fee": "300000000000000000",
+          "management_swap_fee": "0",
+          "owner_balance": "2828427124746108290266434",
+          "protocol_collector_balance": "0",
+          "same_recipient": false
+        },
+        "next_balances": [
+          "1000000000000000000000000",
+          "2000000000000"
+        ],
+        "transaction_hash": "0xc8ac39a7b5e4e0f4abedeac54edd9e16621e7806c2d8d44ea52c47a54b22615f",
+        "rollback_verified": true
+      }
+    },
+    {
+      "balances": [
+        "1000000000000000000000000",
+        "2000000000000"
+      ],
+      "weights": [
+        "499999999999999685",
+        "499999999999999685"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "10000000000000000",
+      "output": "20000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "state": {
+        "total_supply": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        "protocol_swap_fee": "0",
+        "management_swap_fee": "39601",
+        "owner_balance": "2828431409118837148823235",
+        "protocol_collector_balance": "0",
+        "same_recipient": false
+      },
+      "expected": {
+        "reverted": true,
+        "reason": "BAL#000",
+        "next_state": {
+          "total_supply": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "protocol_swap_fee": "0",
+          "management_swap_fee": "39601",
+          "owner_balance": "2828431409118837148823235",
+          "protocol_collector_balance": "0",
+          "same_recipient": false
+        },
+        "next_balances": [
+          "999010098729670889563651",
+          "2002042415500"
+        ],
+        "transaction_hash": "0x2dd77377ba8362508fae7ce6ce615f40574212d8d703c694bfc410f5ff112429",
+        "rollback_verified": true
+      }
+    },
+    {
+      "balances": [
+        "999010098729670889563651",
+        "2002042415500"
+      ],
+      "weights": [
+        "499999999999999143",
+        "499999999999999143"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "10000000000000000",
+      "output": "1000000017",
+      "index_in": 0,
+      "index_out": 1,
+      "state": {
+        "total_supply": "2828442976966626125062741",
+        "protocol_swap_fee": "300000000000000000",
+        "management_swap_fee": "100000000000000000",
+        "owner_balance": "2828430123814854907471137",
+        "protocol_collector_balance": "12853151771216591604",
+        "same_recipient": false
+      },
+      "expected": {
+        "amount_in": "504287724825212486554",
+        "next_balances": [
+          "999514386454496102050205",
+          "2001042415483"
+        ],
+        "next_state": {
+          "total_supply": "2828445617000239782040368",
+          "protocol_swap_fee": "300000000000000000",
+          "management_swap_fee": "100000000000000000",
+          "owner_balance": "2828430623280673707439876",
+          "protocol_collector_balance": "14993719566073600492",
+          "same_recipient": false
+        },
+        "protocol_bpt": "2140567794857008888",
+        "management_bpt": "499465818799968739",
+        "transaction_hash": "0x03c512ac1bf46dc653d3d7ef193227df04790fb4a34a1f4b23e60c888fbb00f3"
+      }
+    },
+    {
+      "balances": [
+        "1000000000000000000000000",
+        "2000000000000"
+      ],
+      "weights": [
+        "499999999999999685",
+        "499999999999999685"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "1000000000000",
+      "output": "20000000001",
+      "index_in": 0,
+      "index_out": 1,
+      "state": {
+        "total_supply": "2828427124746108291266434",
+        "protocol_swap_fee": "0",
+        "management_swap_fee": "0",
+        "owner_balance": "2828427124746108290266434",
+        "protocol_collector_balance": "0",
+        "same_recipient": false
+      },
+      "expected": {
+        "amount_in": "10101020202540456540457",
+        "next_balances": [
+          "1010101020202540456540457",
+          "1979999999999"
+        ],
+        "next_state": {
+          "total_supply": "2828427124746108291266434",
+          "protocol_swap_fee": "0",
+          "management_swap_fee": "0",
+          "owner_balance": "2828427124746108290266434",
+          "protocol_collector_balance": "0",
+          "same_recipient": false
+        },
+        "protocol_bpt": "0",
+        "management_bpt": "0",
+        "transaction_hash": "0x2bd249a98d10de2ce7403d1fa7412cfb33135360739a675a553aa25005e04929"
+      }
+    },
+    {
+      "balances": [
+        "1000000000000000000000000",
+        "2000000000000"
+      ],
+      "weights": [
+        "499999999999999685",
+        "499999999999999685"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "800000000000000000",
+      "output": "20000000001",
+      "index_in": 0,
+      "index_out": 1,
+      "state": {
+        "total_supply": "2828427124746108291266434",
+        "protocol_swap_fee": "500000000000000000",
+        "management_swap_fee": "1000000000000000000",
+        "owner_balance": "2828427124746108290266434",
+        "protocol_collector_balance": "0",
+        "same_recipient": false
+      },
+      "expected": {
+        "amount_in": "50505050507601270000000",
+        "next_balances": [
+          "1050505050507601270000000",
+          "1979999999999"
+        ],
+        "next_state": {
+          "total_supply": "2884441020373881469598134",
+          "protocol_swap_fee": "500000000000000000",
+          "management_swap_fee": "1000000000000000000",
+          "owner_balance": "2856434072559994879432284",
+          "protocol_collector_balance": "28006947813886589165850",
+          "same_recipient": false
+        },
+        "protocol_bpt": "28006947813886589165850",
+        "management_bpt": "28006947813886589165850",
+        "transaction_hash": "0x78117a3d61058d55c62a609a13e541464fded6ee75b33e64647fc0db84dde716"
+      }
+    },
+    {
+      "balances": [
+        "5192296858534827628530496329220095",
+        "2000000000000"
+      ],
+      "weights": [
+        "499999999999999685",
+        "499999999999999685"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "800000000000000000",
+      "output": "1",
+      "index_in": 0,
+      "index_out": 1,
+      "state": {
+        "total_supply": "2845370924965946408665438",
+        "protocol_swap_fee": "500000000000000000",
+        "management_swap_fee": "1000000000000000000",
+        "owner_balance": "2836899024856027348965935",
+        "protocol_collector_balance": "8471900109919058699503",
+        "same_recipient": false
+      },
+      "expected": {
+        "reverted": true,
+        "reason": "BAL#526",
+        "next_state": {
+          "total_supply": "2845370924965946408665438",
+          "protocol_swap_fee": "500000000000000000",
+          "management_swap_fee": "1000000000000000000",
+          "owner_balance": "2836899024856027348965935",
+          "protocol_collector_balance": "8471900109919058699503",
+          "same_recipient": false
+        },
+        "next_balances": [
+          "1002995053511819130241393",
+          "2017989937318"
+        ],
+        "transaction_hash": "0x24e7235a87d67253e7c1e4e87e3e0c27b227b7d27c7b39331693b06b58d0e1c8",
+        "rollback_verified": true
+      }
+    },
+    {
+      "balances": [
+        "1000000000000000000000000",
+        "2000000000000"
+      ],
+      "weights": [
+        "499999999999999685",
+        "499999999999999685"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "10000000000000000",
+      "output": "20000000001",
+      "index_in": 0,
+      "index_out": 1,
+      "state": {
+        "total_supply": "2828427124746108291266434",
+        "protocol_swap_fee": "300000000000000000",
+        "management_swap_fee": "100000000000000000",
+        "owner_balance": "2828427124746108290266434",
+        "protocol_collector_balance": "2828427124746108290266434",
+        "same_recipient": true
+      },
+      "expected": {
+        "amount_in": "10203040506586115151516",
+        "next_balances": [
+          "1010203040506586115151516",
+          "1979999999999"
+        ],
+        "next_state": {
+          "total_supply": "2828479976176146656992095",
+          "protocol_swap_fee": "300000000000000000",
+          "management_swap_fee": "100000000000000000",
+          "owner_balance": "2828479976176146655992095",
+          "protocol_collector_balance": "2828479976176146655992095",
+          "same_recipient": true
+        },
+        "protocol_bpt": "42852510841918155952",
+        "management_bpt": "9998919196447569709",
+        "transaction_hash": "0x7da0e29ab15b3174ed819bd31cb31fadfdb3d9f2aee2b586b2ca79a0371a1fed"
+      }
+    },
+    {
+      "balances": [
+        "1000000000000000000000000",
+        "2000000000000"
+      ],
+      "weights": [
+        "499999999999999685",
+        "499999999999999685"
+      ],
+      "scales": [
+        "1000000000000000000",
+        "1000000000000000000000000000000"
+      ],
+      "fee": "10000000000000000",
+      "output": "10000000000000000000007",
+      "index_in": 1,
+      "index_out": 0,
+      "state": {
+        "total_supply": "2828427124746108291266434",
+        "protocol_swap_fee": "300000000000000000",
+        "management_swap_fee": "100000000000000000",
+        "owner_balance": "2828427124746108290266434",
+        "protocol_collector_balance": "2828427124746108290266434",
+        "same_recipient": true
+      },
+      "expected": {
+        "amount_in": "20406081014",
+        "next_balances": [
+          "989999999999999999999993",
+          "2020406081014"
+        ],
+        "next_state": {
+          "total_supply": "2828479976176144015142433",
+          "protocol_swap_fee": "300000000000000000",
+          "management_swap_fee": "100000000000000000",
+          "owner_balance": "2828479976176144014142433",
+          "protocol_collector_balance": "2828479976176144014142433",
+          "same_recipient": true
+        },
+        "protocol_bpt": "42852510839776115685",
+        "management_bpt": "9998919195947760314",
+        "transaction_hash": "0x1b30053526834e78456337219063ba1439cd97c5f0474f1e2211fc1fe716991c"
+      }
+    }
+  ],
+  "sequences": [
+    {
+      "balances": [
+        "1000000000000000000000000",
+        "2000000000000"
+      ],
+      "state": {
+        "total_supply": "2828427124746108291266434",
+        "protocol_swap_fee": "300000000000000000",
+        "management_swap_fee": "100000000000000000",
+        "owner_balance": "2828427124746108290266434",
+        "protocol_collector_balance": "2828427124746108290266434",
+        "same_recipient": true
+      },
+      "steps": [
+        {
+          "balances": [
+            "1000000000000000000000000",
+            "2000000000000"
+          ],
+          "weights": [
+            "499999999999999685",
+            "499999999999999685"
+          ],
+          "scales": [
+            "1000000000000000000",
+            "1000000000000000000000000000000"
+          ],
+          "fee": "10000000000000000",
+          "output": "1000000011",
+          "index_in": 0,
+          "index_out": 1,
+          "state": {
+            "total_supply": "2828427124746108291266434",
+            "protocol_swap_fee": "300000000000000000",
+            "management_swap_fee": "100000000000000000",
+            "owner_balance": "2828427124746108290266434",
+            "protocol_collector_balance": "2828427124746108290266434",
+            "same_recipient": true
+          },
+          "expected": {
+            "amount_in": "505303162189935353536",
+            "next_balances": [
+              "1000505303162189935353536",
+              "1998999999989"
+            ],
+            "next_state": {
+              "total_supply": "2828429767460909803972105",
+              "protocol_swap_fee": "300000000000000000",
+              "management_swap_fee": "100000000000000000",
+              "owner_balance": "2828429767460909802972105",
+              "protocol_collector_balance": "2828429767460909802972105",
+              "same_recipient": true
+            },
+            "protocol_bpt": "2142741730956247842",
+            "management_bpt": "499973070556457829",
+            "transaction_hash": "0x61bab279e5faecd85797b40767d061fe623ad00f1c1a239a39c903034e140b29"
+          }
+        },
+        {
+          "balances": [
+            "1000505303162189935353536",
+            "1998999999989"
+          ],
+          "weights": [
+            "499999999999999685",
+            "499999999999999685"
+          ],
+          "scales": [
+            "1000000000000000000",
+            "1000000000000000000000000000000"
+          ],
+          "fee": "10000000000000000",
+          "output": "1000000000000000000011",
+          "index_in": 1,
+          "index_out": 0,
+          "state": {
+            "total_supply": "2828429767460909803972105",
+            "protocol_swap_fee": "300000000000000000",
+            "management_swap_fee": "100000000000000000",
+            "owner_balance": "2828429767460909802972105",
+            "protocol_collector_balance": "2828429767460909802972105",
+            "same_recipient": true
+          },
+          "expected": {
+            "amount_in": "2020191303",
+            "next_balances": [
+              "999505303162189935353525",
+              "2001020191292"
+            ],
+            "next_state": {
+              "total_supply": "2828435050210935972169841",
+              "protocol_swap_fee": "300000000000000000",
+              "management_swap_fee": "100000000000000000",
+              "owner_balance": "2828435050210935971169841",
+              "protocol_collector_balance": "2828435050210935971169841",
+              "same_recipient": true
+            },
+            "protocol_bpt": "4283310832028268436",
+            "management_bpt": "999439194139929300",
+            "transaction_hash": "0x64cac7577a26ea3283982ba1970c4c68d4d051008387b93953eaa301ee710022"
+          }
+        },
+        {
+          "balances": [
+            "999505303162189935353525",
+            "2001020191292"
+          ],
+          "weights": [
+            "499999999999999685",
+            "499999999999999685"
+          ],
+          "scales": [
+            "1000000000000000000",
+            "1000000000000000000000000000000"
+          ],
+          "fee": "10000000000000000",
+          "output": "1000000011",
+          "index_in": 0,
+          "index_out": 1,
+          "state": {
+            "total_supply": "2828435050210935972169841",
+            "protocol_swap_fee": "300000000000000000",
+            "management_swap_fee": "100000000000000000",
+            "owner_balance": "2828435050210935971169841",
+            "protocol_collector_balance": "2828435050210935971169841",
+            "same_recipient": true
+          },
+          "expected": {
+            "amount_in": "504795567480954210137",
+            "next_balances": [
+              "1000010098729670889563662",
+              "2000020191281"
+            ],
+            "next_state": {
+              "total_supply": "2828437691585792604042152",
+              "protocol_swap_fee": "300000000000000000",
+              "management_swap_fee": "100000000000000000",
+              "owner_balance": "2828437691585792603042152",
+              "protocol_collector_balance": "2828437691585792603042152",
+              "same_recipient": true
+            },
+            "protocol_bpt": "2141655289160977550",
+            "management_bpt": "499719567470894761",
+            "transaction_hash": "0x44f477ef9bd511f25dbc10f098239e739c2e5851198c39debbcc3c521f2afb4f"
+          }
+        },
+        {
+          "balances": [
+            "1000010098729670889563662",
+            "2000020191281"
+          ],
+          "weights": [
+            "499999999999999685",
+            "499999999999999685"
+          ],
+          "scales": [
+            "1000000000000000000",
+            "1000000000000000000000000000000"
+          ],
+          "fee": "10000000000000000",
+          "output": "1000000000000000000011",
+          "index_in": 1,
+          "index_out": 0,
+          "state": {
+            "total_supply": "2828437691585792604042152",
+            "protocol_swap_fee": "300000000000000000",
+            "management_swap_fee": "100000000000000000",
+            "owner_balance": "2828437691585792603042152",
+            "protocol_collector_balance": "2828437691585792603042152",
+            "same_recipient": true
+          },
+          "expected": {
+            "amount_in": "2022224219",
+            "next_balances": [
+              "999010098729670889563651",
+              "2002042415500"
+            ],
+            "next_state": {
+              "total_supply": "2828442976966626125062741",
+              "protocol_swap_fee": "300000000000000000",
+              "management_swap_fee": "100000000000000000",
+              "owner_balance": "2828442976966626124062741",
+              "protocol_collector_balance": "2828442976966626124062741",
+              "same_recipient": true
+            },
+            "protocol_bpt": "4285443919071097776",
+            "management_bpt": "999936914449922813",
+            "transaction_hash": "0x5620ff8849056d975e3008ddde2d29d2ee458c5c10a8a06e39122e45611e1143"
+          }
+        }
+      ]
+    }
+  ],
+  "guards": [
+    {
+      "kind": "fee_mint_overflow_rollback",
+      "case_index": 5
+    },
+    {
+      "kind": "vault_uint112_rollback",
+      "case_index": 9
+    }
+  ]
+}

@@ -47,6 +47,13 @@ transaction leaves supply, recipient balances, and stored Vault cash unchanged.
 The other guard confirms rollback after raw Vault uint112 overflow. Storage
 injection is limited to this labeled negative case.
 
+The optional GIVEN_OUT corpus runs the same original pool with explicit raw
+output targets, including the 30% maximum output boundary. The callback
+computes BPT mint amounts from the fee-inclusive scaled input. The Vault
+charges the input after rounding the net input up to raw units and adding the
+swap fee. Both sequences and revert controls compare the complete cash and BPT
+ledgers.
+
 ## Reproduce and verify
 
 From the workspace root:
@@ -54,9 +61,15 @@ From the workspace root:
 ```sh
 node integration/tools/ci/balancer-managed-fees.cjs --reference-only
 python3 integration/tools/ci/balancer-managed-fees-verify.py
+node integration/tools/ci/balancer-managed-fees.cjs --reference-only --given-out
+python3 integration/tools/ci/balancer-managed-fees-verify.py --given-out
 python3 integration/tools/ci/balancer-managed-fees-test.py
 python3 -O integration/tools/ci/balancer-managed-fees-test.py
 ```
+
+Use `XONE_MANAGED_FEE_CORPUS` with the absolute path of either generated corpus
+when running the `managed_fee_exact_out_standalone` Rust test target. The
+default run uses a committed subset of original GIVEN_OUT transactions.
 
 The default generator refuses the oversized runtime unless `--reference-only`
 is explicit. The receipt is atomically invalidated before fallible dependency

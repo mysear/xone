@@ -68,7 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
-|Balancer Managed 非零 swap-share 费用接入（本轮）|§12.2、§12.11、§12.14；WP11、WP16|PARTIAL_LOCAL|将原 ManagedPool 非零协议/管理费 BPT 铸币数学接入 `balancer-v2-managed-fees` 的 ExactIn/限定 ExactOut 多资产入口，接通顶层 ExactOut 分派与能力路径说明，传播 total supply、owner 和 protocol collector 余额，并保留同收款方合并语义|`cargo check -p xone-protocol-math` 通过；完整历史 fixture 测试仍受用户已删除 `test/contracts` 输入影响；Quote API 全量编译受本机 `rdkafka-sys` C++ 标准库头文件缺失阻断；ExactOut 原始回调差分、可部署版本真实来源、完整执行与生产资格仍未完成|
+|Balancer Managed 非零 swap-share 费用接入（I1）|§12.2、§12.11、§12.14；WP11、WP16|PARTIAL_LOCAL|移除 ExactIn 二分逆解。按原 `GIVEN_OUT` 回调计算 BPT 铸币，Vault 按独立的原始金额舍入顺序结算。ExactIn 与 ExactOut 共用 BPT 账本更新|两种模式各 357 个原始案例及 120 个连续步骤通过 Rust 差分，含两类回滚。顶层分派和 Rust Protobuf 后状态回归通过，指定 SDK 头文件后 Quote API 编译通过。可部署版本的真实来源、跨语言联验和正常 API 验收仍待完成|
 |Curve MetaUSD direct ExactOut（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|补齐有界单调整数逆解、零目标和不可达目标拒绝、Meta 直接兑换完整 stored/admin balance 后状态，并接入 multi-asset 与 ExactOut 能力目录|自包含 `curve_meta_exact_out_standalone` 两项回归通过；Meta underlying、真实 base LP 链路和生产执行资格仍待完成|
 |Curve StableSwap NG ExactOut（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|补齐固定 rate NG 完整 oracle/admin-fee 后状态逆解、零目标和不可达目标拒绝，接入 multi-asset 与 ExactOut 能力目录|自包含 `curve_ng_exact_out_standalone` 两项回归通过；特殊 Token、外部 rate provider、真实来源和生产执行资格仍待完成|
 |Curve Plain3/Plain4 ExactOut 边界收敛（本轮）|§12.2、§12.11、§12.14；WP11、WP16|LOCAL_SCOPE_VERIFIED|源整数溢出或流动性不足时统一返回不可达目标，3/4 资产后状态反解回归通过|自包含 `curve_plain_exact_out_standalone` 两项回归通过；真实部署来源和执行资格仍待完成|
@@ -291,12 +291,12 @@
 
 ## 迭代目标（2026-11-27）
 
-设计方案仍未完成全部验收。本节把剩余工作拆成可连续提交、可独立验收的迭代目标，按优先级顺序执行。每个目标完成后都必须更新能力目录、正常服务入口、跨语言 wire、回归证据和本文件状态；缺少真实来源、独立后状态或执行差分时保持拒绝，不提升为生产能力。
+按开发优先级推进下列目标。每轮验证、清理本轮无效逻辑并提交推送。表中未展开的功能按设计条款和[剩余功能清单](#remaining-priorities)一并验收。
 
 ### I1 Managed fee 完整闭环
 
-- 完成 ExactIn/ExactOut 原始回调差分，覆盖非零协议费、管理费、同收款方合并和溢出回滚。
-- 传播完整 BPT supply、owner 与协议收款方后状态，补充连续交易和跨语言 wire 回归。
+- 旧版 ExactIn/ExactOut 原始回调差分已通过，覆盖非零协议费、管理费、同收款方合并、溢出回滚及连续交易。
+- BPT supply、owner 与协议收款方后状态已通过 Rust Protobuf 往返校验。跨语言 wire 联验待完成。
 - 接入可部署 ManagedPool 版本的真实来源、parser、wire、API 和连续状态。
 - 退出标准是原始案例、序列案例、跨语言 wire 和正常 API 全部通过。
 
@@ -359,7 +359,7 @@
 - 完成 ClickHouse 事实、版本表、shadow 发布和 FINAL 查询。
 - 完成 RFQ、多 solver、外部来源竞争和收益分布。
 
-当前活动目标为 I1。I1 未达到退出标准前，不宣称 Managed fee 完整闭环，也不改变生产 `VERIFIED` 和完整生产准入关闭状态。
+当前活动目标为 I1。e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版常规交换使用独立的 AUM 模型，待完成该版本的 ExactOut 和正常服务验收。生产准入与 `VERIFIED` 报价关闭。
 
 <a id="work-packages"></a>
 

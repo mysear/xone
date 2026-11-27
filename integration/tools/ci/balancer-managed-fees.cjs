@@ -2,7 +2,9 @@
 'use strict';
 const fs=require('fs'),path=require('path'),crypto=require('crypto');
 const root=path.resolve(__dirname,'../../..'),ref=path.join(root,'integration/tools/reference/balancer-managed-fees');
-const receiptPath=path.join(ref,'generation.json');
+const givenOut=process.argv.includes('--given-out');
+const receiptPath=path.join(ref,givenOut?'generation-exact-out.json':'generation.json');
+const corpusName=givenOut?'balancer-managed-fees-exact-out.json':'balancer-managed-fees.json';
 function atomic(file,value){const tmp=file+'.tmp-'+process.pid;fs.writeFileSync(tmp,JSON.stringify(value,null,2)+'\n');fs.renameSync(tmp,file);}
 // Invalidate before imports, pin parsing, source verification, compilation or EVM startup.
 atomic(receiptPath,{passed:false,state:'RUNNING',started_at_unix_ms:Date.now()});
@@ -102,17 +104,18 @@ async function main(){
    const initialized=await getState(pool,same);
    if(BigInt(initialized.total_supply)<=1000000n||initialized.owner_balance!==(BigInt(initialized.total_supply)-1000000n).toString()||(!same&&initialized.protocol_collector_balance!=='0'))throw Error('original initialization mint');
    let weights=(await pool.getNormalizedWeights()).map(String),fee=String(await pool.getSwapFeePercentage());
-   async function internal(raw,input,i,j){
-    const a=[raw[i],raw[j],weights[i],weights[j],scales[i],scales[j],fee,input].map(String),v=(await observation.observe(a)).map(String);
-    return {net_scaled:v[0],reconstructed_gross_scaled:v[1],amount_out_scaled:v[2],pre_invariant:v[3],post_invariant:v[4],pre_balances:[v[5],v[6]],post_balances:[v[7],v[8]],reconstructed_gross_differs:BigInt(v[1])!==input*scales[i]/E,pre_downscale_differs:BigInt(v[2])!==(BigInt(v[2])*E/scales[j])*scales[j]/E};
+   async function internal(raw,target,i,j,settledInput=target){
+    const a=[raw[i],raw[j],weights[i],weights[j],scales[i],scales[j],fee,target].map(String),v=(await observation.observe(a,givenOut)).map(String);
+    return {net_scaled:v[0],reconstructed_gross_scaled:v[1],amount_out_scaled:v[2],pre_invariant:v[3],post_invariant:v[4],pre_balances:[v[5],v[6]],post_balances:[v[7],v[8]],reconstructed_gross_differs:BigInt(v[1])!==settledInput*scales[i]/E,pre_downscale_differs:BigInt(v[2])!==(BigInt(v[2])*E/scales[j])*scales[j]/E};
    }
    async function run(raw,input,i,j,extra={}){
     const before=await getState(pool,same),storedBefore=(await vault.getPoolTokens(poolId))[1].map(String),block=await provider.getBlock('latest');
-    const c={profile,balances:raw.map(String),weights:[...weights],scales:scales.map(String),fee,input:String(input),index_in:i,index_out:j,state:before,pool:pool.address,vault:vault.address,owner,protocol_collector:collector,initialization_transaction:join.transactionHash,block_number:block.number,timestamp:block.timestamp,...extra};
+    const c={profile,balances:raw.map(String),weights:[...weights],scales:scales.map(String),fee,[givenOut?'output':'input']:String(input),index_in:i,index_out:j,state:before,pool:pool.address,vault:vault.address,owner,protocol_collector:collector,initialization_transaction:join.transactionHash,block_number:block.number,timestamp:block.timestamp,...extra};
+    const method=givenOut?'quoteGivenOut':'quote';
     let quote,reason;
-    try{quote=await vault.callStatic.quote(pool.address,raw.map(String),String(input),i,j,{gasLimit:25000000});}catch(e){reason=balReason(e);if(!/^BAL#[0-9]{3}$/.test(reason))throw e;}
+    try{quote=await vault.callStatic[method](pool.address,raw.map(String),String(input),i,j,{gasLimit:25000000});}catch(e){reason=balReason(e);if(!/^BAL#[0-9]{3}$/.test(reason))throw e;}
     let txReceipt;
-    try{txReceipt=await(await vault.quote(pool.address,raw.map(String),String(input),i,j,{gasLimit:25000000})).wait();}catch(e){if(!reason||!e.receipt||e.receipt.status!==0)throw e;txReceipt=e.receipt;}
+    try{txReceipt=await(await vault[method](pool.address,raw.map(String),String(input),i,j,{gasLimit:25000000})).wait();}catch(e){if(!reason||!e.receipt||e.receipt.status!==0)throw e;txReceipt=e.receipt;}
     const after=await getState(pool,same),storedAfter=(await vault.getPoolTokens(poolId))[1].map(String);
     if(reason){
      if(txReceipt.status!==0||JSON.stringify(after)!==JSON.stringify(before)||JSON.stringify(storedAfter)!==JSON.stringify(storedBefore)||txReceipt.logs.length)throw Error('revert failed atomic rollback');
@@ -128,20 +131,21 @@ async function main(){
      if(same){if(after.owner_balance!==after.protocol_collector_balance||BigInt(after.owner_balance)!==BigInt(before.owner_balance)+protocol+management)throw Error('same recipient coalescing');}
      else if(BigInt(after.owner_balance)!==BigInt(before.owner_balance)+management||BigInt(after.protocol_collector_balance)!==BigInt(before.protocol_collector_balance)+protocol)throw Error('recipient balances');
      if(JSON.stringify(storedAfter)!==JSON.stringify(quote.next.map(String)))throw Error('raw Vault balances mismatch');
-     c.internal=await internal(raw,input,i,j);
-     c.expected={amount_out:String(quote.out),next_balances:storedAfter,next_state:after,protocol_bpt:String(protocol),management_bpt:String(management),transaction_hash:txReceipt.transactionHash};
+     c.internal=await internal(raw,input,i,j,givenOut?BigInt(quote[0].toString()):input);
+     c.expected={[givenOut?'amount_in':'amount_out']:String(quote[0]),next_balances:storedAfter,next_state:after,protocol_bpt:String(protocol),management_bpt:String(management),transaction_hash:txReceipt.transactionHash};
     }
     return c;
    }
-   const i=0,j=count-1,edge=(initial[i]*3n/10n*E+(E-swapFee)-1n)/(E-swapFee);
-   for(const input of [0n,1n,2n,10n**BigInt(decimals[i])+1n,initial[i]/100n+1n,edge,edge+1n,initial[i],MAX]){
+   const i=0,j=count-1,side=givenOut?j:i;
+   const edge=givenOut?initial[j]*3n/10n:(initial[i]*3n/10n*E+(E-swapFee)-1n)/(E-swapFee);
+   for(const input of [0n,1n,2n,10n**BigInt(decimals[side])+1n,initial[side]/100n+1n,edge,edge+1n,initial[side],MAX]){
     const snap=await provider.send('evm_snapshot',[]);cases.push(await run(initial,input,i,j));if(!await provider.send('evm_revert',[snap]))throw Error('snapshot revert failed');
    }
    for(const [a,b] of [[count-1,0],[0,Math.min(1,count-1)]]){
-    const snap=await provider.send('evm_snapshot',[]);cases.push(await run(initial,initial[a]/100n+7n,a,b));if(!await provider.send('evm_revert',[snap]))throw Error('snapshot revert failed');
+    const snap=await provider.send('evm_snapshot',[]);cases.push(await run(initial,initial[givenOut?b:a]/100n+7n,a,b));if(!await provider.send('evm_revert',[snap]))throw Error('snapshot revert failed');
    }
    const seq={profile,balances:initial.map(String),weights:[...weights],scales:scales.map(String),fee,state:await getState(pool,same),steps:[]};let raw=[...initial];
-   for(let k=0;k<4;k++){const a=k%count,b=(k+1)%count,c=await run(raw,1000n*10n**BigInt(decimals[a])+11n,a,b);if(c.expected.reverted||c.expected.amount_out==='0')throw Error('sequential swap failed');seq.steps.push(c);raw=c.expected.next_balances.map(BigInt);}
+   for(let k=0;k<4;k++){const a=k%count,b=(k+1)%count,c=await run(raw,1000n*10n**BigInt(decimals[givenOut?b:a])+11n,a,b);if(c.expected.reverted||c.expected.amount_out==='0'||c.expected.amount_in==='0')throw Error('sequential swap failed');seq.steps.push(c);raw=c.expected.next_balances.map(BigInt);}
    sequences.push(seq);
    if(profile==='both'){
     const before=await provider.getBlock('latest'),start=before.timestamp+100,end=start+1000;
@@ -151,20 +155,22 @@ async function main(){
     for(const time of [start-1,start,start+333,end,end+1]){
      await provider.send('evm_setTime',[time*1000]);await provider.send('evm_mine',[]);
      weights=(await pool.getNormalizedWeights()).map(String);fee=String(await pool.getSwapFeePercentage());
-     cases.push(await run(raw,1000n*10n**BigInt(decimals[0])+17n,0,count-1,{weight_schedule:true}));raw=cases[cases.length-1].expected.next_balances.map(BigInt);
+     cases.push(await run(raw,1000n*10n**BigInt(decimals[givenOut?count-1:0])+17n,0,count-1,{weight_schedule:true}));
+     if(!cases[cases.length-1].expected.reverted)raw=cases[cases.length-1].expected.next_balances.map(BigInt);
     }
    }
    if(count===2&&profile==='management_only'){
     // Set k exactly to 1 so all preceding uint256 math succeeds and the
     // original ERC20 totalSupply addition itself overflows on management mint.
-    const snap=await provider.send('evm_snapshot',[]),obs=await internal(initial,initial[0]/100n,0,1);
+    const target=initial[givenOut?1:0]/100n;
+    const snap=await provider.send('evm_snapshot',[]),obs=await internal(initial,target,0,1);
     const growth=BigInt(obs.post_invariant)*E/BigInt(obs.pre_invariant),delta=growth-E;
     const tiny=(2n*E+delta-1n)/delta;
     await(await pool.setManagementSwapFeePercentage(String(tiny))).wait();
     const supplySlot=artifact.storageLayout.storage.find(x=>x.label==='_totalSupply');
     if(!supplySlot||supplySlot.offset!==0)throw Error('missing totalSupply layout');
     await provider.send('evm_setAccountStorageAt',[pool.address,ethers.utils.hexZeroPad(ethers.utils.hexlify(BigInt(supplySlot.slot)),32),ethers.utils.hexZeroPad(ethers.utils.hexlify(MAX),32)]);
-    const c=await run(initial,initial[0]/100n,0,1,{storage_injection:'totalSupply=max uint256; tiny fee gives k=1'});
+    const c=await run(initial,target,0,1,{storage_injection:'totalSupply=max uint256; tiny fee gives k=1'});
     if(!c.expected.reverted||c.expected.reason!=='BAL#000')throw Error('fee mint overflow expected');
     cases.push(c);guards.push({kind:'fee_mint_overflow_rollback',case_index:cases.length-1,...c.expected});
     if(!await provider.send('evm_revert',[snap]))throw Error('snapshot revert failed');
@@ -181,7 +187,7 @@ async function main(){
  for(const [p,h] of Object.entries(inputs))if(sha(fs.readFileSync(path.join(root,p)))!==h)throw Error('input changed '+p);
  const corpus={schema_version:1,reference:{eip170_deployable:metadata.eip170_deployable,admission_status:metadata.admission_status,revision:rev,solc:solc.version(),flow:'Unmodified original ManagedPool constructor -> original onJoinPool INIT -> original onSwap transactions -> private _payProtocolAndManagementFees; test Vault raw cash facade; independent original WeightedMath selected invariant observer',runtime_normalized_sha256:metadata.normalized_runtime_sha256,source_files:manifest.files.length},cases,sequences,guards};
  const text=JSON.stringify(corpus,null,2)+'\n';
- for(const svc of ['integration','dex-router']){const file=path.join(root,svc,'test/contracts/balancer-managed-fees.json');const tmp=file+'.tmp-'+process.pid;fs.writeFileSync(tmp,text);fs.renameSync(tmp,file);}
+ for(const svc of ['integration','dex-router']){const file=path.join(root,svc,'test/contracts',corpusName);const tmp=file+'.tmp-'+process.pid;fs.writeFileSync(tmp,text);fs.renameSync(tmp,file);}
  atomic(receiptPath,{passed:true,evidence_scope:'original-callback-reference-only',eip170_deployable:metadata.eip170_deployable,service_admission:false,revision:rev,finished_at_unix_ms:Date.now(),corpus_sha256:sha(text),runtime_metadata_sha256:sha(fs.readFileSync(path.join(ref,'runtime-metadata.json'))),cases:cases.length,sequences:sequences.length,steps:sequences.reduce((n,s)=>n+s.steps.length,0),guards:guards.length,source_and_dependency_sha256:inputs});
  console.log(JSON.stringify({passed:true,cases:cases.length,sequences:sequences.length,guards:guards.length,corpus_sha256:sha(text)}));
 }
