@@ -65,6 +65,7 @@ impl Model {
             response: Value::Null,
             request_hash: String::new(),
             simulation_evidence: None,
+            quote_verification_evidence: None,
             evm_preparation: None,
         });
         self.evaluate(selection, &expected_in, &expected_out, false)
@@ -79,6 +80,7 @@ impl Model {
             response: Value::Null,
             request_hash: String::new(),
             simulation_evidence: None,
+            quote_verification_evidence: None,
             evm_preparation: None,
         });
         self.evaluate(selection, &expected_in, &expected_out, true)

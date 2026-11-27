@@ -53,6 +53,9 @@ pub(super) enum Fault {
     SourceRoot,
     SourceProofMissing,
     SourceStorage,
+    SimulationGas,
+    SimulationBalance,
+    SimulationAnchorChanged,
     AncestorMissing,
     AncestorParent,
     Balance,
@@ -495,6 +498,10 @@ impl Mined {
         *self.fault.lock().unwrap() = Some(fault);
     }
 
+    pub(super) fn clear_fault(&self) {
+        *self.fault.lock().unwrap() = None;
+    }
+
     pub(super) fn router(&self) -> axum::Router {
         let node = self.node.clone();
         let fault = self.fault.clone();
@@ -532,6 +539,19 @@ impl Mined {
                     }
                     let result = &mut response["result"];
                     match (fault, request["method"].as_str().unwrap()) {
+                        (Some(Fault::SimulationGas), "eth_simulateV1") => {
+                            result[0]["calls"][0]["gasUsed"] = "0x1".into();
+                        }
+                        (Some(Fault::SimulationAnchorChanged), "eth_getBlockByNumber")
+                            if request["params"][0] == EXECUTION_HEIGHT =>
+                        {
+                            *result = Value::Null;
+                        }
+                        (Some(Fault::SimulationBalance), "eth_simulateV1")
+                            if result[0]["calls"].as_array().is_some_and(|calls| calls.len() == 2) =>
+                        {
+                            result[0]["calls"][1]["returnData"] = format!("0x{:064x}", 1).into();
+                        }
                         (Some(Fault::Gas), "eth_getBlockReceipts") => {
                             result[index]["gasUsed"] = "0x1".into();
                         }

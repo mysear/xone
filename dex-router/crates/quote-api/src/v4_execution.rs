@@ -1,4 +1,5 @@
 use super::{err, json, now_ms, Api, Result, Value};
+use std::time::{Duration, Instant};
 use xone_domain::{hash, singleton::ZERO_ADDRESS};
 use xone_execution_plan::v4_single::{self, Executor, INFINITY_BIN, INFINITY_CL};
 
@@ -62,6 +63,7 @@ pub(super) fn configured(api: &Api, pool: &xone_domain::Pool) -> bool {
 }
 
 pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
+    let started = Instant::now();
     if api.config.config.api.v4_execution.is_empty()
         && api.config.config.api.infinity_execution.is_empty()
     {
@@ -79,7 +81,7 @@ pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
         .map_err(|_| err("CACHE_LOCK"))?
         .get(id)
         .cloned();
-    let (view, context, bound, token_digests, plan_hash, kind, expires, quote) =
+    let (view, context, bound, token_digests, plan_hash, kind, expires, quote, evidence) =
         if let Some(quote) = &exact_in {
             let [route] = quote.plan.allocation.routes.as_slice() else {
                 return Ok(None);
@@ -106,6 +108,7 @@ pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
                 "EXACT_IN",
                 quote.expires,
                 &quote.response,
+                quote.quote_verification_evidence.as_ref(),
             )
         } else if let Some(quote) = &exact_out {
             let [route] = quote.plan.allocation.routes.as_slice() else {
@@ -133,6 +136,7 @@ pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
                 "EXACT_OUT",
                 quote.expires,
                 &quote.response,
+                quote.quote_verification_evidence.as_ref(),
             )
         } else {
             return Ok(None);
@@ -173,6 +177,19 @@ pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
         token_digests,
     )
     .await?;
+    drop(_permit);
+    if let Some(evidence) = evidence {
+        if evidence["nodeSimulation"]["bindingHash"] != bound.binding_hash {
+            return Err(err("SIMULATION_FAILED"));
+        }
+        let backend = api
+            .local_simulation
+            .as_ref()
+            .ok_or_else(|| err("INDEPENDENT_SIMULATION_UNAVAILABLE"))?;
+        let deadline = started + Duration::from_millis(api.config.config.api.quote_timeout_ms);
+        api.recheck_verified_quote(backend, view, expires, deadline)
+            .await?;
+    }
     check()?;
     let approval = (context.sell_token != ZERO_ADDRESS).then(|| {
         super::evm_approval::Requirement {
@@ -186,7 +203,7 @@ pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
     let mut result = json!({
         "quoteId": id, "quoteViewId": view.view_id, "quoteKind": kind, "planHash": plan_hash,
         "snapshotRef": view.reference, "binding": bound, "transaction": bound.transaction,
-        "callerApproval": approval, "independentExecutionVerified": false, "productionReady": false,
+        "callerApproval": approval, "independentExecutionVerified": evidence.is_some(), "productionReady": false,
     });
     result["buildHash"] = hash(&result)?.into();
     Ok(Some(result))

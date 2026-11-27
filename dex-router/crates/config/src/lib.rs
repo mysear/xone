@@ -124,6 +124,8 @@ config_struct!(Routing {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Simulation {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub evm_cancun_verified_chain: String,
     #[serde(default, skip_serializing_if = "simulation_zero_usize")]
     pub candidate_cost_max_plans: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -994,6 +996,16 @@ impl Config {
                 || sim.native_valuation.is_none()
                 || sim.candidate_cost_max_plans > 16
                 || r.max_splits > 2)
+        {
+            return Err(fail());
+        }
+        if !sim.evm_cancun_verified_chain.is_empty()
+            && (expected != "dex-router"
+                || sim.backend != "revm-fixture"
+                || !sim.evm_cancun_verified_chain.starts_with("evm:")
+                || !self.chains.iter().any(|chain| {
+                    chain.key == sim.evm_cancun_verified_chain && !chain.rpc_urls.is_empty()
+                }))
         {
             return Err(fail());
         }

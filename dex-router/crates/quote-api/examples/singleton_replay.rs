@@ -160,6 +160,10 @@ async fn assert_replay(
     let token = config.token.clone();
     if let Some(mined) = &mined {
         config.config.routing.quote_ttl_ms = mined.quote_ttl_ms();
+        if mined.transaction_index() != 0 {
+            config.config.simulation.evm_cancun_verified_chain = pool.chain_key.clone();
+            config.config.api.quote_timeout_ms = 15_000;
+        }
     }
     let api = xone_quote_api::Api::new(config).unwrap();
     api.replica
@@ -202,8 +206,67 @@ async fn assert_replay(
         request["maxSellAmount"] = json!("1100000");
         "/v1/quote-exact-out"
     };
-    let (status, quote) = call(path.into(), request).await;
+    let (status, quote) = call(path.into(), request.clone()).await;
     assert_eq!(status, 200, "{quote}");
+    if let Some(mined) = mined.as_ref().filter(|node| node.transaction_index() != 0) {
+        if request["sellToken"] != xone_domain::singleton::ZERO_ADDRESS
+            && request["buyToken"] != xone_domain::singleton::ZERO_ADDRESS
+        {
+            request["verification"] = "VERIFIED".into();
+            mined.inject(node::Fault::SimulationGas);
+            let (status, rejected) = call(path.into(), request.clone()).await;
+            assert_eq!(status, 422, "{rejected}");
+            assert_eq!(rejected["error"], "SIMULATION_FAILED");
+            mined.clear_fault();
+            let (status, verified) = call(path.into(), request.clone()).await;
+            assert_eq!(status, 200, "{verified}");
+            assert_eq!(verified["verification"]["level"], "VERIFIED");
+            assert_eq!(verified["verification"]["success"], true);
+            assert_eq!(verified["snapshotRef"], quote["snapshotRef"]);
+            assert_eq!(verified["grossBuyAmount"], quote["grossBuyAmount"]);
+            let status_request = Request::get(format!(
+                "/internal/chains/{}/status",
+                request["chainKey"].as_str().unwrap()
+            ))
+            .header("authorization", format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap();
+            let timing = api.handler().oneshot(status_request).await.unwrap();
+            assert_eq!(timing.status(), 200);
+            let bytes = axum::body::to_bytes(timing.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            let timing: Value = serde_json::from_slice(&bytes).unwrap();
+            assert!(
+                timing["recovery"]["first_verified_quote_ms"]
+                    .as_u64()
+                    .unwrap()
+                    >= timing["recovery"]["first_successful_quote_ms"]
+                        .as_u64()
+                        .unwrap()
+            );
+            assert_eq!(
+                timing["recovery"]["first_verified_quote_generation"],
+                verified["onlineGeneration"]
+            );
+            let (status, cached) = call(path.into(), request.clone()).await;
+            assert_eq!(status, 200, "{cached}");
+            assert_eq!(cached, verified);
+            let verified_id = verified["quoteId"].as_str().unwrap();
+            let (status, build) = call(format!("/v1/quotes/{verified_id}/build"), json!({})).await;
+            assert_eq!(status, 200, "{build}");
+            assert_eq!(build["independentExecutionVerified"], true);
+            mined.inject(node::Fault::SimulationAnchorChanged);
+            let (status, rejected) = call(path.into(), request).await;
+            assert_eq!(status, 409, "{rejected}");
+            assert_eq!(rejected["error"], "SNAPSHOT_REORGED");
+            let (status, rejected) =
+                call(format!("/v1/quotes/{verified_id}/build"), json!({})).await;
+            assert_eq!(status, 409, "{rejected}");
+            assert_eq!(rejected["error"], "SNAPSHOT_REORGED");
+            mined.clear_fault();
+        }
+    }
     let path = format!("/v1/quotes/{}", quote["quoteId"].as_str().unwrap());
     let (status, build) = call(format!("{path}/build"), json!({})).await;
     assert_eq!(status, 200, "{build}");
@@ -256,6 +319,40 @@ async fn assert_replay(
     assert_eq!(replay["outcome"]["actual_buy_amount"], case["output"]);
     if let Some(mined) = &mined {
         assert_eq!(signed, mined.signed);
+        if mined.transaction_index() != 0 {
+            let request = json!({"checkEvmSimulation":true});
+            let (status, simulated) = call(format!("{path}/simulate"), request.clone()).await;
+            assert_eq!(status, 200, "{simulated}");
+            assert_eq!(
+                simulated["nodeSimulation"]["sourceStateRoot"],
+                mined.source_state_root
+            );
+            assert_eq!(
+                simulated["nodeSimulation"]["gasUsed"],
+                replay["outcome"]["execution"]["gas_used"]
+            );
+            assert_eq!(simulated["verified"], false);
+            if context["sell_token"] != xone_domain::singleton::ZERO_ADDRESS
+                && context["buy_token"] != xone_domain::singleton::ZERO_ADDRESS
+            {
+                assert_eq!(
+                    simulated["nodeSimulation"]["settlement"]["actualInputConsumed"],
+                    case["input"]
+                );
+                assert_eq!(
+                    simulated["nodeSimulation"]["settlement"]["actualBuyAmount"],
+                    case["output"]
+                );
+                mined.inject(node::Fault::SimulationBalance);
+                let (status, rejected) = call(format!("{path}/simulate"), request.clone()).await;
+                assert_eq!(status, 422, "{rejected}");
+                assert_eq!(rejected["error"], "EVM_NODE_SIMULATION_MISMATCH");
+            }
+            mined.inject(node::Fault::SimulationGas);
+            let (status, rejected) = call(format!("{path}/simulate"), request).await;
+            assert_eq!(status, 422, "{rejected}");
+            assert_eq!(rejected["error"], "EVM_NODE_SIMULATION_MISMATCH");
+        }
         let receipt_request = json!({"signedEvmTransaction":signed,"checkEvmReceipt":true});
         let (status, observed) = call(format!("{path}/simulate"), receipt_request.clone()).await;
         assert_eq!(status, 200, "{observed}");

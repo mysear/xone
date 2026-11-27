@@ -70,14 +70,18 @@ pub(super) struct ExactOutCached {
     pub(super) expires: u64,
     pub(super) request_hash: String,
     pub(super) simulation_evidence: Option<Value>,
+    pub(super) quote_verification_evidence: Option<Value>,
     pub(super) evm_preparation: Option<evm_preparation::Prepared>,
 }
 impl Api {
     pub async fn quote_exact_out(&self, request: ExactOutRequest) -> Result<Value> {
         request.validate()?;
-        if request.verification == "VERIFIED" {
-            return Err(err("INDEPENDENT_SIMULATION_UNAVAILABLE"));
-        }
+        let verified_backend = self.verified_backend(
+            &request.verification,
+            &request.chain_key,
+            &request.sell_token,
+            &request.buy_token,
+        )?;
         let view = self.replica.view(&request.chain_key)?;
         self.check_view(&view)?;
         let cost_backend = if self.config.config.simulation.candidate_cost_max_plans > 0 {
@@ -100,20 +104,29 @@ impl Api {
             % self.flights.len();
         let started = Instant::now();
         let timeout = Duration::from_millis(self.config.config.api.quote_timeout_ms);
+        let deadline = started + timeout;
         let _flight = tokio::time::timeout(timeout, self.flights[shard].lock())
             .await
             .map_err(|_| err("BUDGET_EXHAUSTED"))?;
-        {
+        let existing = {
             let mut cache = self.exact_out_cache.lock().map_err(|_| err("CACHE_LOCK"))?;
             cache.retain(|_, c| c.expires > now_ms());
-            if let Some(c) = cache.values().find(|c| c.request_hash == request_hash) {
-                self.check_view(&c.view)?;
-                if let Some(backend) = &cost_backend {
-                    backend.check_current_prices()?;
-                }
-                self.observe_successful_quote(&c.view, &c.response);
-                return Ok(c.response.clone());
+            cache
+                .values()
+                .find(|c| c.request_hash == request_hash)
+                .map(|c| (c.view.clone(), c.expires, c.response.clone()))
+        };
+        if let Some((cached_view, expires, response)) = existing {
+            if let Some(backend) = &verified_backend {
+                self.recheck_verified_quote(backend, &cached_view, expires, deadline)
+                    .await?;
             }
+            self.check_view(&cached_view)?;
+            if let Some(backend) = &cost_backend {
+                backend.check_current_prices()?;
+            }
+            self.observe_successful_quote(&cached_view, &response);
+            return Ok(response);
         }
         let permit = self
             .permits
@@ -126,7 +139,6 @@ impl Api {
         let policy = self.config.economic_hash.clone();
         let worker_view = view.clone();
         let req = request.clone();
-        let deadline = started + timeout;
         let mut cost_model =
             (self.config.config.simulation.candidate_cost_max_plans > 0).then(|| {
                 candidate_costs::Model::new(
@@ -352,6 +364,24 @@ impl Api {
             response["quality"]["costRanking"] = ranking;
             response["quality"]["optimalityClaim"] = "LOCAL_EXECUTION_FEE_OBJECTIVE_WITHIN_EVALUATED_ORDERED_GRID_OR_UNIFORM_RAW_FALLBACK".into();
         }
+        let mut cached = ExactOutCached {
+            view: view.clone(),
+            plan,
+            response,
+            expires,
+            request_hash,
+            simulation_evidence: None,
+            quote_verification_evidence: None,
+            evm_preparation: None,
+        };
+        if let Some(backend) = verified_backend {
+            let (verification, evidence) = self
+                .verify_quote(backend, cached.clone().into(), deadline)
+                .await?;
+            cached.response["verification"] = verification;
+            cached.quote_verification_evidence = Some(evidence);
+        }
+        let response = cached.response.clone();
         {
             if let Some(backend) = &cost_backend {
                 backend.check_current_prices()?;
@@ -367,21 +397,10 @@ impl Api {
                     cache.remove(&key);
                 }
             }
-            cache.insert(
-                quote_id.clone(),
-                ExactOutCached {
-                    view: view.clone(),
-                    plan,
-                    response: response.clone(),
-                    expires,
-                    request_hash,
-                    simulation_evidence: None,
-                    evm_preparation: None,
-                },
-            );
+            cache.insert(quote_id.clone(), cached);
         }
         self.logger.event("info", "exact_out_quote_completed", json!({"quote_id": quote_id,
-            "chain_key": request.chain_key, "quote_view_id": view.view_id, "verification": "INDICATIVE"}));
+            "chain_key": request.chain_key, "quote_view_id": view.view_id, "verification": response["verification"]["level"]}));
         self.observe_successful_quote(&view, &response);
         Ok(response)
     }
@@ -408,7 +427,7 @@ impl Api {
         let c = cache.get(id).ok_or_else(|| err("UNKNOWN_QUOTE"))?;
         Ok(
             json!({"quote": c.response, "execution_plan": c.plan, "expired": c.expires <= now_ms(),
-            "snapshot_valid": c.view.is_valid(), "price_current":self.check_quote_prices(&c.response).is_ok(), "simulation_evidence": c.simulation_evidence}),
+            "snapshot_valid": c.view.is_valid(), "price_current":self.check_quote_prices(&c.response).is_ok(), "simulation_evidence": c.simulation_evidence, "quote_verification_evidence": c.quote_verification_evidence}),
         )
     }
 }

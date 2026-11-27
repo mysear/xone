@@ -20,6 +20,7 @@ mod wrapped_funding;
 pub use exact_out::ExactOutRequest;
 mod local_simulation;
 mod peer_checkpoint;
+mod quote_verification;
 mod recovery_metrics;
 use axum::{
     body::Bytes,
@@ -217,6 +218,7 @@ struct Cached {
     expires: u64,
     request_hash: String,
     simulation_evidence: Option<Value>,
+    quote_verification_evidence: Option<Value>,
     evm_preparation: Option<evm_preparation::Prepared>,
 }
 #[derive(Default)]
@@ -427,9 +429,12 @@ impl Api {
     }
     pub async fn quote(&self, request: QuoteRequest) -> Result<Value> {
         request.validate()?;
-        if request.verification == "VERIFIED" {
-            return Err(err("INDEPENDENT_SIMULATION_UNAVAILABLE"));
-        }
+        let verified_backend = self.verified_backend(
+            &request.verification,
+            &request.chain_key,
+            &request.sell_token,
+            &request.buy_token,
+        )?;
         let view = self.replica.view(&request.chain_key)?;
         self.check_view(&view)?;
         let cost_backend = if self.config.config.simulation.candidate_cost_max_plans > 0 {
@@ -451,20 +456,29 @@ impl Api {
             % self.flights.len();
         let started = Instant::now();
         let timeout = Duration::from_millis(self.config.config.api.quote_timeout_ms);
+        let deadline = started + timeout;
         let _flight = tokio::time::timeout(timeout, self.flights[shard].lock())
             .await
             .map_err(|_| err("BUDGET_EXHAUSTED"))?;
-        {
+        let existing = {
             let mut cache = self.cache.lock().map_err(|_| err("CACHE_LOCK"))?;
             cache.retain(|_, c| c.expires > now_ms());
-            if let Some(c) = cache.values().find(|c| c.request_hash == request_hash) {
-                self.check_view(&c.view)?;
-                if let Some(backend) = &cost_backend {
-                    backend.check_current_prices()?;
-                }
-                self.observe_successful_quote(&c.view, &c.response);
-                return Ok(c.response.clone());
+            cache
+                .values()
+                .find(|c| c.request_hash == request_hash)
+                .map(|c| (c.view.clone(), c.expires, c.response.clone()))
+        };
+        if let Some((cached_view, expires, response)) = existing {
+            if let Some(backend) = &verified_backend {
+                self.recheck_verified_quote(backend, &cached_view, expires, deadline)
+                    .await?;
             }
+            self.check_view(&cached_view)?;
+            if let Some(backend) = &cost_backend {
+                backend.check_current_prices()?;
+            }
+            self.observe_successful_quote(&cached_view, &response);
+            return Ok(response);
         }
         let permit = self
             .permits
@@ -477,7 +491,6 @@ impl Api {
         let policy = self.config.economic_hash.clone();
         let worker_view = view.clone();
         let req = request.clone();
-        let deadline = started + timeout;
         let mut cost_model =
             (self.config.config.simulation.candidate_cost_max_plans > 0).then(|| {
                 candidate_costs::Model::new(
@@ -647,6 +660,23 @@ impl Api {
             response["quality"]["costRanking"] = ranking;
             response["quality"]["optimalityClaim"] = "LOCAL_EXECUTION_FEE_OBJECTIVE_WITHIN_EVALUATED_ORDERED_GRID_OR_UNIFORM_RAW_FALLBACK".into();
         }
+        let mut cached = Cached {
+            view: view.clone(),
+            plan,
+            response,
+            expires,
+            request_hash,
+            simulation_evidence: None,
+            quote_verification_evidence: None,
+            evm_preparation: None,
+        };
+        if let Some(backend) = verified_backend {
+            let (verification, evidence) = self
+                .verify_quote(backend, cached.clone().into(), deadline)
+                .await?;
+            cached.response["verification"] = verification;
+            cached.quote_verification_evidence = Some(evidence);
+        }
         if let Some(backend) = &cost_backend {
             backend.check_current_prices()?;
         }
@@ -661,20 +691,10 @@ impl Api {
                 cache.remove(&k);
             }
         }
-        cache.insert(
-            quote_id.clone(),
-            Cached {
-                view: view.clone(),
-                plan,
-                response: response.clone(),
-                expires,
-                request_hash,
-                simulation_evidence: None,
-                evm_preparation: None,
-            },
-        );
+        let response = cached.response.clone();
+        cache.insert(quote_id.clone(), cached);
         drop(cache);
-        self.logger.event("info","quote_completed",json!({"quote_id":quote_id,"chain_key":request.chain_key,"quote_view_id":view.view_id,"graph_version":view.graph_version,"canonical_epoch":view.reference.canonical_epoch,"online_generation":view.reference.online_generation,"economic_policy_hash":self.config.economic_hash,"verification":"INDICATIVE"}));
+        self.logger.event("info","quote_completed",json!({"quote_id":quote_id,"chain_key":request.chain_key,"quote_view_id":view.view_id,"graph_version":view.graph_version,"canonical_epoch":view.reference.canonical_epoch,"online_generation":view.reference.online_generation,"economic_policy_hash":self.config.economic_hash,"verification":response["verification"]["level"]}));
         self.observe_successful_quote(&view, &response);
         Ok(response)
     }
@@ -1156,6 +1176,7 @@ fn failure(e: xone_domain::Error) -> HttpError {
         | "NATIVE_VALUATION_REVISION_ROLLBACK_OR_CONFLICT"
         | "PREPARATION_PROGRAM_CHANGED" => StatusCode::CONFLICT,
         "INDEPENDENT_SIMULATION_UNAVAILABLE"
+        | "SIMULATION_FAILED"
         | "EXECUTION_ADAPTER_UNSUPPORTED"
         | "PREPARATION_RPC_NOT_CONFIGURED"
         | "PREPARATION_SINGLE_POOL_ONLY"
@@ -1367,6 +1388,8 @@ struct SimulationRequest {
     signed_evm_transaction: Option<xone_simulation::worker::SignedEvmTransaction>,
     #[serde(default, rename = "checkEvmReceipt")]
     check_evm_receipt: bool,
+    #[serde(default, rename = "checkEvmSimulation")]
+    check_evm_simulation: bool,
 }
 async fn simulate_transaction(
     State(api): State<Api>,
@@ -1394,12 +1417,19 @@ async fn simulate_transaction(
     let simulation_request = if body.is_empty() {
         SimulationRequest::default()
     } else {
+        if body.iter().find(|byte| !byte.is_ascii_whitespace()) != Some(&b'{') {
+            return Err(failure(err("INVALID_SIMULATION_REQUEST")));
+        }
         serde_json::from_slice::<SimulationRequest>(&body)
             .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?
     };
     if simulation_request.signed_evm_transaction.is_none() && simulation_request.check_evm_receipt
         || simulation_request.signed_evm_transaction.is_some()
             && simulation_request.signed_op_transaction.is_some()
+        || simulation_request.check_evm_simulation
+            && (simulation_request.check_evm_receipt
+                || simulation_request.signed_evm_transaction.is_some()
+                || simulation_request.signed_op_transaction.is_some())
     {
         return Err(failure(err("INVALID_SIMULATION_REQUEST")));
     }
@@ -1438,6 +1468,9 @@ async fn simulate_transaction(
     let receipt_backend = simulation_request
         .check_evm_receipt
         .then(|| backend.clone());
+    let native_backend = simulation_request
+        .check_evm_simulation
+        .then(|| backend.clone());
     let executed = if let Some(signed) = simulation_request.signed_evm_transaction {
         backend
             .execute_signed_evm(api.config.clone(), cached.clone(), deadline, signed)
@@ -1462,6 +1495,21 @@ async fn simulate_transaction(
         .await
         .map(|observed| {
             response["nodeReceipt"] = observed;
+            response
+        }),
+        (executed, _) => executed,
+    };
+    let executed = match (executed, native_backend) {
+        (Ok(mut response), Some(backend)) => evm_receipt::compare_simulation(
+            &api,
+            backend.fixture(),
+            cached.context(),
+            &response,
+            deadline,
+        )
+        .await
+        .map(|observed| {
+            response["nodeSimulation"] = observed;
             response
         }),
         (executed, _) => executed,
@@ -1596,7 +1644,7 @@ async fn evidence(
         let cache = api.cache.lock().map_err(|_| failure(err("CACHE_LOCK")))?;
         if let Some(cached) = cache.get(&id) {
             return Ok(Json(
-                json!({"quote":cached.response,"execution_plan":cached.plan,"expired":cached.expires<=now_ms(),"snapshot_valid":cached.view.is_valid(),"price_current":api.check_quote_prices(&cached.response).is_ok(),"simulation_evidence":cached.simulation_evidence}),
+                json!({"quote":cached.response,"execution_plan":cached.plan,"expired":cached.expires<=now_ms(),"snapshot_valid":cached.view.is_valid(),"price_current":api.check_quote_prices(&cached.response).is_ok(),"simulation_evidence":cached.simulation_evidence,"quote_verification_evidence":cached.quote_verification_evidence}),
             ));
         }
     }

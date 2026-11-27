@@ -10,8 +10,12 @@ use xone_execution_plan::Context;
 use xone_simulation::evm_fixture::{EvmStatus, FixtureState, SimulationOutcome};
 
 mod ancestors;
+mod native_simulation;
 mod source_state;
 mod transactions;
+pub(super) use native_simulation::{
+    compare as compare_simulation, recheck as recheck_simulation_context,
+};
 
 #[derive(RlpEncodable)]
 struct Withdrawal {
@@ -291,29 +295,16 @@ async fn observe(
     if quantity(&chain_id)? != env.chain_id.to_string().parse::<Amount>()?
         || genesis["hash"] != fixture.state_anchor.genesis_hash
         || block["hash"] != env.block_hash
-        || block["parentHash"] != fixture.state_anchor.block_hash
-        || block["number"] != height
-        || block["timestamp"] != format!("0x{:x}", env.timestamp)
-        || block["gasLimit"] != format!("0x{:x}", env.gas_limit)
-        || block["miner"] != env.coinbase
-        || block["mixHash"] != env.prevrandao
-        || quantity(&block["baseFeePerGas"])? != env.base_fee
-        || env
-            .excess_blob_gas
-            .map(|gas| format!("0x{gas:x}"))
-            .as_deref()
-            != block["excessBlobGas"].as_str()
     {
         return Err(bad());
     }
+    check_execution_context(&block, fixture)?;
     let transactions = block["transactions"].as_array().ok_or_else(bad)?;
     let withdrawals = parse_withdrawals(&block)?;
     verify_execution_header(&block, &env.fork)?;
     let (index, receipt) = committed_receipt(&block, transactions, &receipts, tx, &env.fork)?;
     let next = index + 1;
-    if block["difficulty"] != "0x0"
-        || block["uncles"] != json!([])
-        || receipt["from"] != replay["transaction"]["from"]
+    if receipt["from"] != replay["transaction"]["from"]
         || receipt["to"] != replay["transaction"]["to"]
         || receipt["gasUsed"] != format!("0x{:x}", local.execution.gas_used)
         || receipt["status"]
@@ -410,6 +401,30 @@ async fn observe(
     }
     evidence["evidenceHash"] = hash(&evidence)?.into();
     Ok(evidence)
+}
+
+fn check_execution_context(block: &Value, fixture: &FixtureState) -> Result<()> {
+    let env = &fixture.execution_environment;
+    if block["parentHash"] != fixture.state_anchor.block_hash
+        || block["number"] != format!("0x{:x}", env.block_number)
+        || block["timestamp"] != format!("0x{:x}", env.timestamp)
+        || block["gasLimit"] != format!("0x{:x}", env.gas_limit)
+        || block["miner"] != env.coinbase
+        || block["mixHash"] != env.prevrandao
+        || block["difficulty"] != "0x0"
+        || block["uncles"] != json!([])
+        || quantity(&block["baseFeePerGas"])? != env.base_fee
+        || header_fork(block) != env.fork
+        || env.excess_blob_gas
+            != block
+                .get("excessBlobGas")
+                .filter(|value| !value.is_null())
+                .map(quantity_u64)
+                .transpose()?
+    {
+        return Err(err("EVM_NODE_RECEIPT_MISMATCH"));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy)]
@@ -555,8 +570,7 @@ async fn balance(
     let call = if native {
         json!(owner)
     } else {
-        let data = format!("0x70a08231000000000000000000000000{}", &owner[2..]);
-        json!({"from":context.caller,"to":token,"data":data,"gas":"0x30d40"})
+        balance_call(context, token, owner)
     };
     let value = match point {
         BalancePoint::Block(block, overrides) => {
@@ -588,6 +602,15 @@ async fn balance(
             trace["output"].clone()
         }
     };
+    token_balance(&value)
+}
+
+fn balance_call(context: &Context, token: &str, owner: &str) -> Value {
+    let data = format!("0x70a08231000000000000000000000000{}", &owner[2..]);
+    json!({"from":context.caller,"to":token,"data":data,"gas":"0x30d40"})
+}
+
+fn token_balance(value: &Value) -> Result<Amount> {
     let raw = value
         .as_str()
         .and_then(|v| v.strip_prefix("0x"))

@@ -1,10 +1,10 @@
 # Xone 开发进度与完成情况
 
-更新：2026-11-27。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
+更新：2026-11-28。设计基线：[XONE_SYSTEM_DESIGN.md](XONE_SYSTEM_DESIGN.md) v2.3。
 
 本文件只记录项目进度、已完成范围、剩余功能及验证结果。后续进度只更新本文件；测试原始数据、JSON报告和校验规则由集成工具维护，不再嵌入进度文档。
 
-状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。截至阶段256，26 个工作包完整验收为 0，25 个为 `PARTIAL_LOCAL`，WP22 为 `NOT_STARTED`。生产准入与 VERIFIED 报价关闭。
+状态：`PARTIAL_LOCAL`为部分实现并完成本地验证，`LOCAL_SCOPE_VERIFIED`为注明范围通过本地验收，`NOT_STARTED`为未开始；只有完整设计验收通过才可记为`ACCEPTED`。截至阶段256，26 个工作包完整验收为 0，25 个为 `PARTIAL_LOCAL`，WP22 为 `NOT_STARTED`。生产准入关闭。VERIFIED 报价已通过配置启用的 Cancun 固定块单池本地验收。
 
 优先级：区块解析和精确兑换量计算优先，分析功能低优先级。三服务各自独立，公共协议位于common。
 
@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R04.2 Cancun 固定块 VERIFIED 报价（2026-11-28）|§9.26、§14、§15、§23.14；WP15、WP16、WP24|LOCAL_SCOPE_VERIFIED|显式配置 `simulation.evm_cancun_verified_chain` 后，ExactIn 和 ExactOut 对单池 ERC-20 计划运行隔离 REVM 和 Geth `eth_simulateV1`。验证规范源块、账户及存储证明，比较成功状态、gas、日志和前后代币余额，并在缓存命中和交易构建时复查执行块。Geth 中间交易、末笔交易各通过 24 个回放场景，各含 6 个 ExactIn 和 6 个 ExactOut 的 VERIFIED 报价，覆盖 gas 和金额篡改、重组后缓存及构建拒绝、首个 VERIFIED 计时。Anvil 的 24 个签名回执和 4 项真实 Kafka 恢复回归通过|现行配置需要固定 H/H+1、受支持的单池执行器和 Cancun Geth。动态源状态、Go owner 与 Kafka 正常进程测得的首个 VERIFIED 报价、其他链与多池执行待验收。 [复验工具](dex-router/crates/quote-api/examples/singleton_replay.rs)|
 |I7-R04.2 报价进程验证计时（2026-11-28）|§9.26、§23.14、§28.26|LOCAL_SCOPE_VERIFIED|报价进程分别记录首个可用报价和首个成功 VERIFIED 报价，链状态返回对应代次。正常 Go owner、报价进程和实际 PostgreSQL/Kafka 演练停机 20,009 毫秒，重启 owner 后 4,339 毫秒收到 INDICATIVE 报价。VERIFIED 请求返回 HTTP 422，两项 VERIFIED 进程指标为空|真实独立仿真通过后的正向计时待验收。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
 |I7-R04.2 EVM 仿真源区块校验（2026-11-28）|§14.2、§23.14|LOCAL_SCOPE_VERIFIED|回执交叉校验按规范高度读取源区块，核对本地锚点声明的基础费，再验证账户和存储证明。24 个由 Anvil Cancun 节点出块的 HTTP 回归通过，包括源高度失去规范块时拒绝回执证据|正向报价仍需在同一快照绑定原生节点仿真与独立执行。 [状态验证](dex-router/crates/quote-api/src/evm_receipt/source_state.rs)|
 |I7-R04.2 Go owner 退出后的副本接力（2026-11-28）|§9.23、§18.7、§23.14|LOCAL_SCOPE_VERIFIED|正常 Go owner、两个报价进程、本机 PostgreSQL 16 和 Kafka 4.2 完成 `--peer-recovery`。正常关闭发布撤销，冷报价返回 503。owner 重新发布后模拟进程意外退出，冷副本通过健康副本及 Kafka 在 351 毫秒恢复高度 400 的第 2 代范围，在 353 毫秒返回首个 INDICATIVE 报价。游标为 11，历史缺口为 101–399。两个来源均停止后，冷报价返回 503|受控单池和本机中间件。生产故障域与 VERIFIED 报价仍需验收。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
@@ -475,7 +476,7 @@
 
 #### 下一迭代目标（I7 R04.2，2026-11-28）
 
-- 先在 EVM 已覆盖的单池执行路径接入报价级独立验证。绑定计划、调用方及收款方、快照、执行上下文和链规则，对照原生节点的成功状态、实际支出、到账与 gas。只有证据全部通过才记录首个 VERIFIED 报价。增加状态变化、验证超时和结果不一致的拒绝回归，再扩大协议范围。
+- Cancun 固定 H/H+1 已通过本地 ExactIn 和 ExactOut 的 VERIFIED 报价、缓存、构建与计时验收。下一轮用 Go owner、Kafka 和冷启动报价进程复验同一计划及快照，测量首个 VERIFIED 报价并验证状态变化和超时拒绝。随后补齐请求级动态状态读取和原生执行上下文。
 - 1 小时实际停机演练于 2026-11-28 通过。1 天和 30 天演练已分别于 2026-11-28 02:57:32 和 03:15:22（UTC+8）开始计时。重启后核对同时停机时长、Kafka 低水位与恢复游标、首个合格范围、目标范围和历史缺口。独立 VERIFIED 报价耗时仍待验收。
 - Kafka 读取器中断定向回归已通过，覆盖无新区块、一个待追赶区块、重组屏障续读和旧视图失效。生产故障域联验继续覆盖来源全部不可用的就绪状态。
 - 普通 Go owner 与两个报价进程的认证副本接力已在本机完成。下一次复验使用独立故障域，保留正常关闭撤销、意外退出与来源全部不可用三个场景。
