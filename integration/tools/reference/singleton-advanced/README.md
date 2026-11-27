@@ -33,6 +33,10 @@ An Infinity CL pool may set `singleton_advanced.hook_model` to `infinity-settlem
 
 Infinity Bin uses `infinity_bin.hooks` with `infinity_bin.hook_model` set to `infinity-settlement-hook-v1`. The build uses the Bin Manager and Vault compiler settings pinned by the collector. Eight Bin swaps cross into a neighboring bin and reconcile the full reserve state. The Go collector reads a recorded ERC-20 and native poststate, including the original Manager getter responses. Its Protobuf output can be passed directly to the Rust HTTP tests using the same directory.
 
+Configure `api.infinity_execution.<chain-key>.<manager>` with `vault`, `vault_code_sha256` and a `transaction` object containing `executor`, `executor_code_sha256` and `token_code_sha256`. Register the Manager with its Vault before deploying `dex-router/evm/InfinitySingleSwap.sol` with the Manager, Vault and CL/Bin selector. The build endpoint checks the deployed executor's immutable values and runtime, reads the Manager's Vault and registration, and checks the token runtimes at the quote block. It returns calldata, native transaction value and the approval required for ERC-20 input.
+
+The Cancun replay checks all 16 direct Manager swaps against the executor, including ERC-20 debit and allowance consumption, recipient balance increase and native ExactOut refunds. It verifies 16 tight-limit rollbacks and rejects direct calls to each executor's lock callback. The HTTP tests exercise the corresponding transaction templates and reject executor code changes. The build response reports the independent execution and production readiness flags as false.
+
 ```sh
 export XONE_INFINITY_HOOK_QUOTES=/tmp/xone-infinity-hook-quotes.json
 export XONE_INFINITY_BIN_WIRE_DIR=$(mktemp -d)

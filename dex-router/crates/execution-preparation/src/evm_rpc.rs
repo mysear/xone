@@ -13,7 +13,7 @@ use xone_execution_plan::{
     ExecutorIdentity, Transaction,
 };
 
-pub async fn verify_v4_executor(
+pub async fn verify_singleton_executor(
     url: &str,
     genesis_hash: &str,
     snapshot: &SnapshotRef,
@@ -29,7 +29,7 @@ pub async fn verify_v4_executor(
     let mut rpc = Rpc {
         client,
         url: url.into(),
-        max_calls: 10,
+        max_calls: 12,
         bytes_left: 512 * 1024,
         anchor: json!({"blockHash":snapshot.block.hash,"requireCanonical":true}),
         caller: context.caller.clone(),
@@ -49,26 +49,65 @@ pub async fn verify_v4_executor(
         let raw = rpc
             .call("eth_getCode", json!([bound.transaction.to, rpc.anchor]))
             .await?;
-        let mut runtime = data(&raw, Some(4068))?;
+        let mut runtime = data(
+            &raw,
+            Some(if bound.infinity.is_some() { 4306 } else { 4068 }),
+        )?;
         if format!("{:x}", Sha256::digest(&runtime)) != bound.executor_code_sha256 {
             return Err(err("EVM_RPC_CODE_CHANGED"));
         }
-        // Immutable references emitted by the pinned Cancun V4SingleSwap build.
         let manager =
             hex::decode(word_address(&bound.manager)?).map_err(|_| err("EVM_RPC_DATA"))?;
-        for offset in [
-            144, 813, 978, 1071, 1148, 1261, 1367, 1712, 1852, 2468, 2997, 3594,
-        ] {
-            let range = &mut runtime[offset..offset + 32];
-            if range != manager {
-                return Err(err("EVM_RPC_CONTRACT_IDENTITY"));
+        if let Some(binding) = &bound.infinity {
+            if !matches!(
+                binding.vault_code_sha256.as_str(),
+                "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e"
+                    | "3accc3af412dcad7df29e86a12bb9e0426356695f5eddb189c0c55b272abb6a0"
+            ) {
+                return Err(err("INFINITY_VAULT_RUNTIME"));
             }
-            range.fill(0);
-        }
-        if format!("{:x}", Sha256::digest(&runtime))
-            != "c30d9d986bef0e4203793330c48d953755650e9dd606e5101db9cd945b29f3e4"
-        {
-            return Err(err("V4_EXECUTOR_RUNTIME"));
+            let vault =
+                hex::decode(word_address(&binding.vault)?).map_err(|_| err("EVM_RPC_DATA"))?;
+            let mut is_bin = [0; 32];
+            is_bin[31] = u8::from(binding.is_bin);
+            normalize_executor(&mut runtime, &manager, &[839, 2197, 2507, 3774])?;
+            normalize_executor(&mut runtime, &vault, &[106, 239, 3010, 3634])?;
+            normalize_executor(&mut runtime, &is_bin, &[719, 3842])?;
+            if format!("{:x}", Sha256::digest(&runtime))
+                != "ebdd8ec95279f9439b2d06936b6fd3a0395b51fb1d44711eafe0271c331616c3"
+            {
+                return Err(err("INFINITY_EXECUTOR_RUNTIME"));
+            }
+            rpc.code(&binding.vault, &binding.vault_code_sha256, false)
+                .await?;
+            address_result(
+                &rpc.contract(&bound.manager, "0xfbfa77cf").await?,
+                &binding.vault,
+            )?;
+            let registered = rpc
+                .contract(
+                    &binding.vault,
+                    &format!("0x8403be91{}", hex::encode(&manager)),
+                )
+                .await?;
+            let mut yes = [0; 32];
+            yes[31] = 1;
+            if data(&registered, Some(32))? != yes {
+                return Err(err("INFINITY_VAULT_UNREGISTERED"));
+            }
+        } else {
+            normalize_executor(
+                &mut runtime,
+                &manager,
+                &[
+                    144, 813, 978, 1071, 1148, 1261, 1367, 1712, 1852, 2468, 2997, 3594,
+                ],
+            )?;
+            if format!("{:x}", Sha256::digest(&runtime))
+                != "c30d9d986bef0e4203793330c48d953755650e9dd606e5101db9cd945b29f3e4"
+            {
+                return Err(err("V4_EXECUTOR_RUNTIME"));
+            }
         }
         for token in [&context.sell_token, &context.buy_token] {
             if token != xone_domain::singleton::ZERO_ADDRESS {
@@ -83,6 +122,18 @@ pub async fn verify_v4_executor(
     })
     .await
     .map_err(|_| err("EVM_RPC_TIMEOUT"))?
+}
+
+// The pinned Cancun build records the byte offsets of each immutable word.
+fn normalize_executor(runtime: &mut [u8], word: &[u8], offsets: &[usize]) -> Result<()> {
+    for offset in offsets {
+        let range = &mut runtime[*offset..*offset + 32];
+        if range != word {
+            return Err(err("EVM_RPC_CONTRACT_IDENTITY"));
+        }
+        range.fill(0);
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug)]

@@ -1,26 +1,71 @@
 use super::{err, json, now_ms, Api, Result, Value};
 use xone_domain::{hash, singleton::ZERO_ADDRESS};
-use xone_execution_plan::v4_single;
+use xone_execution_plan::v4_single::{self, Executor, INFINITY_BIN, INFINITY_CL};
 
 const PROFILE: &str = "uniswap-v4-advanced";
 
-pub(super) fn configured(api: &Api, pool: &xone_domain::Pool) -> bool {
-    pool.protocol == PROFILE
-        && api
-            .config
-            .config
-            .api
-            .v4_execution
-            .get(&pool.chain_key)
-            .is_some_and(|config| {
-                [&pool.token0, &pool.token1].into_iter().all(|token| {
-                    token == ZERO_ADDRESS || config.token_code_sha256.contains_key(token)
-                })
+fn configuration<'a>(
+    api: &'a Api,
+    pool: &xone_domain::Pool,
+) -> Option<(Executor<'a>, &'a std::collections::BTreeMap<String, String>)> {
+    let api = &api.config.config.api;
+    let (config, vault) = match pool.protocol.as_str() {
+        PROFILE => (api.v4_execution.get(&pool.chain_key)?, None),
+        INFINITY_BIN | INFINITY_CL => {
+            let manager = pool.infinity_bin.as_ref().map(|s| &s.manager).or_else(|| {
+                pool.singleton_advanced
+                    .as_ref()
+                    .map(|s| &s.snapshot.manager)
+            })?;
+            let config = api.infinity_execution.get(&pool.chain_key)?.get(manager)?;
+            if pool.infinity_bin.as_ref().is_some_and(|s| {
+                s.vault != config.vault || s.vault_code_sha256 != config.vault_code_sha256
+            }) {
+                return None;
+            }
+            (
+                &config.transaction,
+                Some((config.vault.as_str(), config.vault_code_sha256.as_str())),
+            )
+        }
+        _ => return None,
+    };
+    [&pool.token0, &pool.token1]
+        .into_iter()
+        .all(|token| {
+            if token == ZERO_ADDRESS {
+                return true;
+            }
+            let Some(digest) = config.token_code_sha256.get(token) else {
+                return false;
+            };
+            pool.infinity_bin.as_ref().is_none_or(|state| {
+                digest
+                    == if token == &pool.token0 {
+                        &state.token0_code_sha256
+                    } else {
+                        &state.token1_code_sha256
+                    }
             })
+        })
+        .then_some((
+            Executor {
+                address: &config.executor,
+                code_sha256: &config.executor_code_sha256,
+                infinity_vault: vault,
+            },
+            &config.token_code_sha256,
+        ))
+}
+
+pub(super) fn configured(api: &Api, pool: &xone_domain::Pool) -> bool {
+    configuration(api, pool).is_some()
 }
 
 pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
-    if api.config.config.api.v4_execution.is_empty() {
+    if api.config.config.api.v4_execution.is_empty()
+        && api.config.config.api.infinity_execution.is_empty()
+    {
         return Ok(None);
     }
     let exact_in = api
@@ -28,66 +73,63 @@ pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
         .lock()
         .map_err(|_| err("CACHE_LOCK"))?
         .get(id)
-        .cloned()
-        .filter(|quote| {
-            quote
-                .plan
-                .allocation
-                .routes
-                .iter()
-                .any(|route| route.path.edges.iter().any(|edge| edge.protocol == PROFILE))
-        });
+        .cloned();
     let exact_out = api
         .exact_out_cache
         .lock()
         .map_err(|_| err("CACHE_LOCK"))?
         .get(id)
-        .cloned()
-        .filter(|quote| {
-            quote
-                .plan
-                .allocation
-                .routes
-                .iter()
-                .any(|route| route.edges.iter().any(|edge| edge.protocol == PROFILE))
-        });
-    let get_config = |chain: &str| api.config.config.api.v4_execution.get(chain);
-    let (view, context, bound, configuration, plan_hash, kind, expires, quote) =
+        .cloned();
+    let (view, context, bound, token_digests, plan_hash, kind, expires, quote) =
         if let Some(quote) = &exact_in {
-            let Some(config) = get_config(&quote.plan.context.chain_key) else {
+            let [route] = quote.plan.allocation.routes.as_slice() else {
                 return Ok(None);
             };
-            let bound = v4_single::bind_exact_in(
-                &quote.plan,
-                &quote.view.pools,
-                &config.executor,
-                &config.executor_code_sha256,
-            )?;
+            let [edge] = route.path.edges.as_slice() else {
+                return Ok(None);
+            };
+            let Some((executor, token_digests)) = quote
+                .view
+                .pools
+                .iter()
+                .find(|pool| pool.pool_id == edge.pool_id)
+                .and_then(|pool| configuration(api, pool))
+            else {
+                return Ok(None);
+            };
+            let bound = v4_single::bind_exact_in(&quote.plan, &quote.view.pools, executor)?;
             (
                 &quote.view,
                 &quote.plan.context,
                 bound,
-                config,
+                token_digests,
                 &quote.plan.plan_hash,
                 "EXACT_IN",
                 quote.expires,
                 &quote.response,
             )
         } else if let Some(quote) = &exact_out {
-            let Some(config) = get_config(&quote.plan.context.chain_key) else {
+            let [route] = quote.plan.allocation.routes.as_slice() else {
                 return Ok(None);
             };
-            let bound = v4_single::bind_exact_out(
-                &quote.plan,
-                &quote.view.pools,
-                &config.executor,
-                &config.executor_code_sha256,
-            )?;
+            let [edge] = route.edges.as_slice() else {
+                return Ok(None);
+            };
+            let Some((executor, token_digests)) = quote
+                .view
+                .pools
+                .iter()
+                .find(|pool| pool.pool_id == edge.pool_id)
+                .and_then(|pool| configuration(api, pool))
+            else {
+                return Ok(None);
+            };
+            let bound = v4_single::bind_exact_out(&quote.plan, &quote.view.pools, executor)?;
             (
                 &quote.view,
                 &quote.plan.context,
                 bound,
-                config,
+                token_digests,
                 &quote.plan.plan_hash,
                 "EXACT_OUT",
                 quote.expires,
@@ -123,13 +165,13 @@ pub(super) async fn build(api: &Api, id: &str) -> Result<Option<Value>> {
         .clone()
         .try_acquire_owned()
         .map_err(|_| err("RATE_LIMITED"))?;
-    xone_execution_preparation::evm_rpc::verify_v4_executor(
+    xone_execution_preparation::evm_rpc::verify_singleton_executor(
         url,
         &chain.genesis_hash,
         &view.reference,
         context,
         &bound,
-        &configuration.token_code_sha256,
+        token_digests,
     )
     .await?;
     check()?;

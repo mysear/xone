@@ -82,6 +82,9 @@ pub struct Api {
     pub evm_preparation: BTreeMap<String, EvmPreparationConfig>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub v4_execution: BTreeMap<String, evm_preparation::V4ExecutionConfig>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub infinity_execution:
+        BTreeMap<String, BTreeMap<String, evm_preparation::InfinityExecutionConfig>>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub solana_runtime_manifest: String,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -787,11 +790,35 @@ impl Config {
         }
         for (chain, execution) in &self.api.v4_execution {
             execution.validate()?;
-            if expected != "dex-router" || !chain.starts_with("evm:")
-                || !self.chains.iter().any(|c| &c.key == chain && c.rpc_urls.len() == 1
-                    && c.genesis_hash.strip_prefix("0x").is_some_and(evm_preparation::valid_digest))
+            if expected != "dex-router"
+                || !chain.starts_with("evm:")
+                || !self.chains.iter().any(|c| {
+                    &c.key == chain
+                        && c.rpc_urls.len() == 1
+                        && c.genesis_hash
+                            .strip_prefix("0x")
+                            .is_some_and(evm_preparation::valid_digest)
+                })
             {
                 return Err(err("V4_EXECUTION_CONFIG"));
+            }
+        }
+        for (chain, managers) in &self.api.infinity_execution {
+            if expected != "dex-router"
+                || !chain.starts_with("evm:")
+                || !(1..=128).contains(&managers.len())
+                || !self.chains.iter().any(|c| {
+                    &c.key == chain
+                        && c.rpc_urls.len() == 1
+                        && c.genesis_hash
+                            .strip_prefix("0x")
+                            .is_some_and(evm_preparation::valid_digest)
+                })
+            {
+                return Err(err("INFINITY_EXECUTION_CONFIG"));
+            }
+            for (manager, execution) in managers {
+                execution.validate(manager)?;
             }
         }
         let s = &self.startup;

@@ -13,11 +13,12 @@ import {LPFeeLibrary} from "infinity/src/libraries/LPFeeLibrary.sol";
 import {LiquidityConfigurations} from "infinity/src/pool-bin/libraries/math/LiquidityConfigurations.sol";
 import {PackedUint128Math} from "infinity/src/pool-bin/libraries/math/PackedUint128Math.sol";
 import {TickMath} from "infinity/src/pool-cl/libraries/TickMath.sol";
-import {BalanceDelta, BalanceDeltaLibrary} from "infinity/src/types/BalanceDelta.sol";
+import {BalanceDelta, BalanceDeltaLibrary, toBalanceDelta} from "infinity/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, toBeforeSwapDelta} from "infinity/src/types/BeforeSwapDelta.sol";
 import {Currency, CurrencyLibrary} from "infinity/src/types/Currency.sol";
 import {PoolKey} from "infinity/src/types/PoolKey.sol";
 import {PoolId} from "infinity/src/types/PoolId.sol";
+import {InfinitySingleSwap} from "InfinitySingleSwap.sol";
 import {SettlementToken} from "V4ManagerSettlement.sol";
 
 contract InfinitySettlementToken is SettlementToken {
@@ -107,7 +108,7 @@ contract InfinityManagerSettlement is ILockCallback {
 
     receive() external payable {}
 
-    function run(IPoolManager manager, bool bin, bool native, bool zero, bool exactIn, bool omit)
+    function run(IPoolManager manager, bool bin, bool native, bool zero, bool exactIn, bool omit, InfinitySingleSwap executor)
         external payable returns (SwapResult memory result)
     {
         address token0 = native ? address(0) : address(new InfinitySettlementToken());
@@ -134,7 +135,9 @@ contract InfinityManagerSettlement is ILockCallback {
         uint256[2] memory receiverBefore = balances(currencies, RECIPIENT);
         result.appBefore = [vault.reservesOfApp(address(manager), currencies[0]),
                             vault.reservesOfApp(address(manager), currencies[1])];
-        BalanceDelta swap = lock(key, bin, specified, zero, RECIPIENT, omit);
+        BalanceDelta swap = address(executor) == address(0)
+            ? lock(key, bin, specified, zero, RECIPIENT, omit)
+            : execute(executor, key, zero, exactIn, omit, core);
         int128[2] memory hookFees = exactIn == zero ? [int128(7), int128(11)] : [int128(11), int128(7)];
         require((exactIn ? -(zero ? swap.amount0() : swap.amount1()) : (zero ? swap.amount1() : swap.amount0())) == AMOUNT);
         for (uint256 i; i < 2; ++i) {
@@ -155,6 +158,23 @@ contract InfinityManagerSettlement is ILockCallback {
         (result.token0, result.token1, result.hook) = (token0, token1, address(hook));
         (result.delta0, result.delta1) = (swap.amount0(), swap.amount1());
         result.poolId = PoolId.unwrap(key.toId());
+    }
+
+    function execute(InfinitySingleSwap executor, PoolKey memory key, bool zero, bool exactIn, bool tight, BalanceDelta core)
+        private returns (BalanceDelta)
+    {
+        Currency input = zero ? key.currency0 : key.currency1;
+        uint128 requiredInput = uint128(-(zero ? core.amount0() : core.amount1())) + 11;
+        uint128 netOutput = uint128(zero ? core.amount1() : core.amount0()) - 11;
+        uint128 inputLimit = exactIn ? uint128(AMOUNT) : (tight ? requiredInput - 1 : requiredInput + 100);
+        uint128 outputLimit = exactIn ? (tight ? netOutput + 1 : netOutput) : uint128(AMOUNT);
+        if (!input.isNative()) SettlementToken(Currency.unwrap(input)).approve(address(executor), inputLimit);
+        (uint128 paid, uint128 received) = executor.execute{value: input.isNative() ? inputLimit : 0}(
+            InfinitySingleSwap.Order(key, zero, !exactIn, inputLimit, outputLimit, RECIPIENT, block.timestamp)
+        );
+        if (!input.isNative()) require(SettlementToken(Currency.unwrap(input)).allowance(address(this), address(executor)) == inputLimit - paid);
+        require(address(executor).balance == 0);
+        return zero ? toBalanceDelta(-int128(paid), int128(received)) : toBalanceDelta(int128(received), -int128(paid));
     }
 
     function initialize(PoolKey memory key, bool bin) private {

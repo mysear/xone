@@ -35,6 +35,32 @@ impl V4ExecutionConfig {
         Ok(())
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InfinityExecutionConfig {
+    pub transaction: V4ExecutionConfig,
+    pub vault: String,
+    pub vault_code_sha256: String,
+}
+
+impl InfinityExecutionConfig {
+    pub fn validate(&self, manager: &str) -> Result<()> {
+        self.transaction.validate()?;
+        for address in [manager, &self.vault] {
+            xone_domain::protocols::validate_address(address)?;
+            if address == xone_domain::singleton::ZERO_ADDRESS
+                || address == self.transaction.executor
+            {
+                return Err(err("INFINITY_EXECUTION_CONFIG"));
+            }
+        }
+        if manager == self.vault || !valid_digest(&self.vault_code_sha256) {
+            return Err(err("INFINITY_EXECUTION_CONFIG"));
+        }
+        Ok(())
+    }
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EvmPreparationConfig {

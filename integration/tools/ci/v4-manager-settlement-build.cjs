@@ -26,6 +26,7 @@ const manager = 'v4/src/PoolManager.sol';
 const harness = 'V4ManagerSettlement.sol';
 const executor = 'V4SingleSwap.sol';
 const infinityHarness = 'InfinityManagerSettlement.sol';
+const infinityExecutor = 'InfinitySingleSwap.sol';
 const vault = 'infinity/src/Vault.sol';
 const clManager = 'infinity/src/pool-cl/CLPoolManager.sol';
 const binManager = 'infinity/src/pool-bin/BinPoolManager.sol';
@@ -36,6 +37,7 @@ const input = {
         [harness]: {content: fs.readFileSync(path.join(references, 'singleton-advanced', harness), 'utf8')},
         [executor]: {content: fs.readFileSync(path.join(root, 'dex-router/evm', executor), 'utf8')},
         [infinityHarness]: {content: fs.readFileSync(path.join(references, 'singleton-advanced', infinityHarness), 'utf8')},
+        [infinityExecutor]: {content: fs.readFileSync(path.join(root, 'dex-router/evm', infinityExecutor), 'utf8')},
         [vault]: {content: readPinned(vault)},
         [clManager]: {content: readPinned(clManager)},
     },
@@ -79,6 +81,8 @@ fs.writeFileSync(output, JSON.stringify({
         binManager: binBuild.contracts[binManager].BinPoolManager.evm.bytecode.object,
         binVault: binBuild.contracts[vault].Vault.evm.bytecode.object,
         harness: code(infinityHarness, 'InfinityManagerSettlement'),
+        executor: code(infinityExecutor, 'InfinitySingleSwap'),
+        executorRuntime: build.contracts[infinityExecutor].InfinitySingleSwap.evm.deployedBytecode,
         hookRuntime: build.contracts[infinityHarness].InfinitySettlementHook.evm.deployedBytecode,
     },
 }) + '\n');

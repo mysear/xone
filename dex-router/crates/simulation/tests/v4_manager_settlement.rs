@@ -26,6 +26,7 @@ struct InfinityBuild {
     bin_manager: String,
     bin_vault: String,
     harness: String,
+    executor: String,
 }
 
 fn address_word(address: Address) -> [u8; 32] {
@@ -186,14 +187,40 @@ fn original_infinity_managers_settle_hook_deltas_through_vault() {
         let mut register = selector("registerApp(address)").to_vec();
         register.extend_from_slice(&address_word(manager));
         assert!(transact(&mut db, TxKind::Call(vault), register, 0).is_success());
+        let mut deployment = hex::decode(&build.infinity.executor).unwrap();
+        for arg in [
+            address_word(manager),
+            address_word(vault),
+            U256::from(u8::from(bin)).to_be_bytes(),
+        ] {
+            deployment.extend_from_slice(&arg);
+        }
+        let ExecutionResult::Success {
+            output: Output::Create(runtime, Some(executor)),
+            ..
+        } = transact(&mut db, TxKind::Create, deployment, 0)
+        else {
+            panic!("Infinity executor deployment failed")
+        };
+        let executor_runtime = format!("0x{}", hex::encode(&runtime));
+        let executor_digest = hex::encode(Sha256::digest(&runtime));
+        let mut callback = selector("lockAcquired(bytes)").to_vec();
+        callback.extend_from_slice(&U256::from(32).to_be_bytes::<32>());
+        callback.extend_from_slice(&[0; 32]);
+        let rejected = transact(&mut db, TxKind::Call(executor), callback, 0);
+        assert!(matches!(rejected, ExecutionResult::Revert { output, .. }
+            if output.as_ref() == selector("UnauthorizedCallback()")));
         for native in [false, true] {
             for zero in [false, true] {
                 for exact_in in [false, true] {
-                    let mut data = selector("run(address,bool,bool,bool,bool,bool)").to_vec();
+                    let mut data =
+                        selector("run(address,bool,bool,bool,bool,bool,address)").to_vec();
                     data.extend_from_slice(&address_word(manager));
                     for option in [bin, native, zero, exact_in, false] {
                         data.extend_from_slice(&U256::from(u8::from(option)).to_be_bytes::<32>());
                     }
+                    let executor_offset = data.len();
+                    data.extend_from_slice(&[0; 32]);
                     let value = if native { 10_000_000_000_000 } else { 0 };
                     let result = transact(&mut db, TxKind::Call(harness), data.clone(), value);
                     let ExecutionResult::Success {
@@ -221,6 +248,15 @@ fn original_infinity_managers_settle_hook_deltas_through_vault() {
                         Address::from_slice(&words[0][12..]),
                         Address::from_slice(&words[1][12..]),
                     ];
+                    let runtime = |address| {
+                        let code = &db.contracts[&db.accounts[&address].info.code_hash];
+                        format!("0x{}", hex::encode(code.original_bytes()))
+                    };
+                    let code = [manager, vault, currencies[0], currencies[1]]
+                        .into_iter()
+                        .filter(|address| *address != Address::ZERO)
+                        .map(|address| (format!("{address:#x}"), runtime(address)))
+                        .collect::<BTreeMap<_, _>>();
                     let pool_id = words[20].try_into().unwrap();
                     let bank = (bin && zero && exact_in).then(|| {
                         record_bin_bank(&mut db, manager, vault, hook, currencies, pool_id)
@@ -238,6 +274,10 @@ fn original_infinity_managers_settle_hook_deltas_through_vault() {
                         "currency1": format!("0x{}", hex::encode(&words[1][12..])),
                         "manager": format!("{manager:#x}"),
                         "managerCodeSha256": manager_digest,
+                        "executor": format!("{executor:#x}"),
+                        "executorCodeSha256": executor_digest,
+                        "executorRuntime": executor_runtime,
+                        "executionCode": code,
                         "vault": format!("{vault:#x}"),
                         "vaultCodeSha256": vault_digest,
                         "hook": format!("{hook:#x}"),
@@ -258,11 +298,29 @@ fn original_infinity_managers_settle_hook_deltas_through_vault() {
                         "appReserve0After": U256::from_be_slice(words[18]).to_string(),
                         "appReserve1After": U256::from_be_slice(words[19]).to_string(),
                     }));
-                    *data.last_mut().unwrap() = 1;
-                    let rejected = transact(&mut db, TxKind::Call(harness), data, value);
+                    data[executor_offset - 1] = 1;
+                    let rejected = transact(&mut db, TxKind::Call(harness), data.clone(), value);
                     assert!(
                         matches!(&rejected, ExecutionResult::Revert { output, .. }
                         if output.as_ref() == selector("CurrencyNotSettled()")),
+                        "{rejected:?}"
+                    );
+                    data[executor_offset - 1] = 0;
+                    data[executor_offset..].copy_from_slice(&address_word(executor));
+                    let result = transact(&mut db, TxKind::Call(harness), data.clone(), value);
+                    let ExecutionResult::Success {
+                        output: Output::Call(executed),
+                        ..
+                    } = result
+                    else {
+                        panic!("Infinity executor bin={bin} native={native} zero={zero} exact_in={exact_in}: {result:?}");
+                    };
+                    assert_eq!(&executed[96..512], &raw[96..512]);
+                    data[executor_offset - 1] = 1;
+                    let rejected = transact(&mut db, TxKind::Call(harness), data, value);
+                    assert!(
+                        matches!(&rejected, ExecutionResult::Revert { output, .. }
+                        if output.as_ref() == selector("AmountMismatch()")),
                         "{rejected:?}"
                     );
                 }

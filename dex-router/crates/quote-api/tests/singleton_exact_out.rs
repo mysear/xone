@@ -504,15 +504,182 @@ fn settlement_hook_pool(
     .unwrap()
 }
 
+fn infinity_runtime_digest(case: &Value, address: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let raw = case["executionCode"][address].as_str().unwrap();
+    hex::encode(Sha256::digest(hex::decode(&raw[2..]).unwrap()))
+}
+
+async fn infinity_build_api(
+    cases: &[&Value],
+) -> (
+    Api,
+    Snapshot,
+    tokio::task::JoinHandle<()>,
+    std::sync::Arc<std::sync::atomic::AtomicBool>,
+) {
+    use std::collections::BTreeMap;
+    use std::sync::{atomic::AtomicBool, Arc, Mutex};
+
+    let genesis = format!("0x{}", "56".repeat(32));
+    let header = Arc::new(Mutex::new(Value::Null));
+    let corrupt = Arc::new(AtomicBool::new(false));
+    let mut code = BTreeMap::new();
+    let mut manager_vaults = BTreeMap::new();
+    let mut executors = BTreeSet::new();
+    for case in cases {
+        let executor = case["executor"].as_str().unwrap().to_owned();
+        executors.insert(executor.clone());
+        code.insert(executor, case["executorRuntime"].clone());
+        code.extend(case["executionCode"].as_object().unwrap().clone());
+        manager_vaults.insert(
+            case["manager"].as_str().unwrap().to_owned(),
+            case["vault"].as_str().unwrap().to_owned(),
+        );
+    }
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let handler = {
+        let data = Arc::new((
+            code,
+            manager_vaults,
+            executors,
+            header.clone(),
+            genesis.clone(),
+            corrupt.clone(),
+        ));
+        axum::Router::new().route(
+            "/",
+            axum::routing::post(move |axum::Json(request): axum::Json<Value>| {
+                let data = data.clone();
+                async move {
+                    let (code, manager_vaults, executors, header, genesis, corrupt) = data.as_ref();
+                    let block = header.lock().unwrap().clone();
+                    let params = &request["params"];
+                    let result = match request["method"].as_str().unwrap() {
+                        "eth_chainId" => json!("0x7a69"),
+                        "eth_getBlockByNumber" if params[0] == "0x0" => json!({"hash": genesis}),
+                        "eth_getBlockByNumber" => block.clone(),
+                        "eth_getCode" | "eth_call" => {
+                            assert_eq!(params[1]["blockHash"], block["hash"]);
+                            assert_eq!(params[1]["requireCanonical"], true);
+                            if request["method"] == "eth_getCode" {
+                                let address = params[0].as_str().unwrap();
+                                if executors.contains(address)
+                                    && corrupt.load(std::sync::atomic::Ordering::Relaxed)
+                                {
+                                    json!("0x00")
+                                } else {
+                                    code[address].clone()
+                                }
+                            } else {
+                                let to = params[0]["to"].as_str().unwrap();
+                                let calldata = params[0]["data"].as_str().unwrap();
+                                if calldata == "0xfbfa77cf" {
+                                    json!(format!("0x{:0>64}", &manager_vaults[to][2..]))
+                                } else {
+                                    let manager = format!("0x{}", &calldata[34..]);
+                                    assert!(calldata.starts_with("0x8403be91"));
+                                    assert_eq!(manager_vaults[&manager], to);
+                                    json!(format!("0x{:064x}", 1))
+                                }
+                            }
+                        }
+                        method => panic!("unexpected Infinity build RPC method {method}"),
+                    };
+                    axum::Json(json!({"jsonrpc":"2.0","id":request["id"],"result":result}))
+                }
+            }),
+        )
+    };
+    let server = tokio::spawn(async move { axum::serve(listener, handler).await.unwrap() });
+    let (api, mut snapshot) = configure(|config| {
+        let chain = config
+            .config
+            .chains
+            .iter_mut()
+            .find(|c| c.key == "evm:31337")
+            .unwrap();
+        chain.rpc_urls = vec![url];
+        chain.genesis_hash = genesis;
+        let mut managers = BTreeMap::new();
+        for case in cases {
+            let manager = case["manager"].as_str().unwrap();
+            let token_digests: BTreeMap<_, _> = cases
+                .iter()
+                .filter(|c| c["manager"] == manager)
+                .flat_map(|c| [(c, &c["currency0"]), (c, &c["currency1"])])
+                .map(|(c, value)| (c, value.as_str().unwrap()))
+                .filter(|(_, token)| *token != xone_domain::singleton::ZERO_ADDRESS)
+                .map(|(c, token)| (token, infinity_runtime_digest(c, token)))
+                .collect();
+            managers.insert(manager.to_owned(), serde_json::from_value(json!({
+                "vault":case["vault"], "vault_code_sha256":case["vaultCodeSha256"],
+                "transaction": {"executor":case["executor"], "executor_code_sha256":case["executorCodeSha256"], "token_code_sha256":token_digests},
+            })).unwrap());
+        }
+        config
+            .config
+            .api
+            .infinity_execution
+            .insert(chain.key.clone(), managers);
+    });
+    snapshot.reference.block.timestamp_ms -= snapshot.reference.block.timestamp_ms % 1000;
+    *header.lock().unwrap() = json!({
+        "number": "0x64", "hash": snapshot.reference.block.hash, "parentHash": snapshot.reference.block.parent_hash,
+        "timestamp": format!("0x{:x}", snapshot.reference.block.timestamp_ms / 1000),
+        "stateRoot": format!("0x{}", "1".repeat(64)), "baseFeePerGas": "0x0",
+    });
+    (api, snapshot, server, corrupt)
+}
+
+async fn assert_infinity_build(
+    api: &Api,
+    case: &Value,
+    quote: &Value,
+    input_limit: &Value,
+    sell_token: &str,
+    corrupt: &std::sync::atomic::AtomicBool,
+) {
+    use std::sync::atomic::Ordering;
+    let url = format!("/v1/quotes/{}/build", quote["quoteId"].as_str().unwrap());
+    let (status, built) = call(api, &url, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{built}");
+    assert_eq!(built["transaction"]["to"], case["executor"]);
+    assert_eq!(built["binding"]["infinity"]["vault"], case["vault"]);
+    assert_eq!(built["binding"]["infinity"]["is_bin"], case["bin"]);
+    assert_eq!(built["binding"]["input_limit"], *input_limit);
+    assert_eq!(built["binding"]["output_limit"], case["output"]);
+    let data = built["transaction"]["data"].as_str().unwrap();
+    assert_eq!(data.len(), 10 + 12 * 64);
+    assert!(data.starts_with("0xaa5397ac"));
+    assert_eq!(
+        &data[10 + 3 * 64 + 24..10 + 4 * 64],
+        &case["manager"].as_str().unwrap()[2..]
+    );
+    if sell_token == xone_domain::singleton::ZERO_ADDRESS {
+        assert_eq!(built["transaction"]["value"], *input_limit);
+        assert!(built["callerApproval"].is_null());
+    } else {
+        assert_eq!(built["transaction"]["value"], "0");
+        assert!(built["callerApproval"].is_object());
+    }
+    corrupt.store(true, Ordering::Relaxed);
+    let (status, _) = call(api, &url, json!({})).await;
+    assert_ne!(status, StatusCode::OK);
+    corrupt.store(false, Ordering::Relaxed);
+}
+
 #[tokio::test]
 #[ignore = "requires the original Cancun Infinity Manager/Vault replay"]
 async fn infinity_cl_settlement_hook_http_matches_original_manager() {
     use xone_domain::singleton::INFINITY_SETTLEMENT_HOOK_MODEL;
     let path = std::env::var_os("XONE_INFINITY_HOOK_QUOTES").unwrap();
     let cases: Vec<Value> = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-    let (api, mut snapshot) = setup();
+    let cases: Vec<_> = cases.iter().filter(|case| case["bin"] == false).collect();
+    let (api, mut snapshot, server, corrupt) = infinity_build_api(&cases).await;
     let mut checked = 0;
-    for case in cases.iter().filter(|case| case["bin"] == false) {
+    for case in cases {
         let parameters = format!("0x{:064x}", (60u32 << 16) | 0xcc0);
         let pool = settlement_hook_pool(
             case,
@@ -525,7 +692,7 @@ async fn infinity_cl_settlement_hook_http_matches_original_manager() {
         let exact_in = case["exactIn"].as_bool().unwrap();
         let i = usize::from(!zero);
         let pair = tokens(&pool, i, 1 - i);
-        let input = case["input"].as_str().unwrap().parse().unwrap();
+        let input: xone_domain::Amount = case["input"].as_str().unwrap().parse().unwrap();
         let output = case["output"].as_str().unwrap().parse().unwrap();
         let next = if exact_in {
             let swap = xone_protocol_math::quote_exact_in(&pool, &input, zero).unwrap();
@@ -541,6 +708,11 @@ async fn infinity_cl_settlement_hook_http_matches_original_manager() {
         assert_eq!(core.sqrt_price_x96.to_string(), case["stateAfter"]);
         assert_eq!(i64::from(core.tick), case["tickAfter"]);
         install(&api, &mut snapshot, vec![pool]);
+        let input_limit = if exact_in {
+            json!(input)
+        } else {
+            json!((&input.0 + 100u32).to_string())
+        };
         let (status, quote) = if exact_in {
             call(&api, "/v1/quote", json!({
                 "chainKey":"evm:31337","kind":"EXACT_IN","sellToken":pair[0],"buyToken":pair[1],
@@ -549,12 +721,9 @@ async fn infinity_cl_settlement_hook_http_matches_original_manager() {
                 "verification":"FAST"
             })).await
         } else {
-            call(
-                &api,
-                "/v1/quote-exact-out",
-                request(&pair, &case["output"], json!(MAX)),
-            )
-            .await
+            let mut body = request(&pair, &case["output"], input_limit.clone());
+            body["slippageBps"] = 100.into();
+            call(&api, "/v1/quote-exact-out", body).await
         };
         assert_eq!(status, StatusCode::OK, "{case}: {quote}");
         assert_eq!(quote["grossBuyAmount"], case["output"]);
@@ -564,9 +733,11 @@ async fn infinity_cl_settlement_hook_http_matches_original_manager() {
             "requiredSellAmount"
         };
         assert_eq!(quote[sell_field], case["input"]);
+        assert_infinity_build(&api, case, &quote, &input_limit, &pair[0], &corrupt).await;
         checked += 1;
     }
     assert_eq!(checked, 8);
+    server.abort();
 }
 
 #[tokio::test]
@@ -580,21 +751,22 @@ async fn infinity_bin_settlement_hook_http_matches_original_manager() {
     };
     let path = std::env::var_os("XONE_INFINITY_HOOK_QUOTES").unwrap();
     let cases: Vec<Value> = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-    let (api, mut snapshot) = setup();
-    snapshot.reference.block.timestamp_ms -= snapshot.reference.block.timestamp_ms % 1000;
+    let cases: Vec<_> = cases.iter().filter(|case| case["bin"] == true).collect();
+    let (api, mut snapshot, server, corrupt) = infinity_build_api(&cases).await;
     let bit255 = ("1".parse::<xone_domain::Amount>().unwrap().0 << 255usize).to_string();
     let root = ("3".parse::<xone_domain::Amount>().unwrap().0 << 127usize).to_string();
     let mut checked = 0;
-    for case in cases.iter().filter(|case| case["bin"] == true) {
+    for case in cases {
         let parameters = InfinityBinState::key_parameters(25, INFINITY_SETTLEMENT_HOOK_MODEL);
-        let token_digest = "2".repeat(64);
+        let token0 = case["currency0"].as_str().unwrap();
+        let token1 = case["currency1"].as_str().unwrap();
         let mut state: InfinityBinState = serde_json::from_value(json!({
             "manager": case["manager"], "manager_code_sha256": case["managerCodeSha256"],
             "vault": case["vault"], "vault_code_sha256": case["vaultCodeSha256"],
             "pool_id": "", "hooks": case["hook"], "hook_model": INFINITY_SETTLEMENT_HOOK_MODEL,
             "parameters": parameters, "block_hash": snapshot.reference.block.hash,
-            "token0_code_sha256": if case["currency0"] == ZERO_ADDRESS { "" } else { &token_digest },
-            "token1_code_sha256": token_digest, "bin_step": 25, "active_id": 8388608,
+            "token0_code_sha256": if token0 == ZERO_ADDRESS { String::new() } else { infinity_runtime_digest(case, token0) },
+            "token1_code_sha256": infinity_runtime_digest(case, token1), "bin_step": 25, "active_id": 8388608,
             "lp_fee": 0, "protocol_fee0": 0, "protocol_fee1": 0,
             "max_bins": 8, "max_tree_words": 8, "max_steps": 8,
             "tree_level0": root,
@@ -664,6 +836,11 @@ async fn infinity_bin_settlement_hook_http_matches_original_manager() {
             }
         }
         install(&api, &mut snapshot, vec![pool]);
+        let input_limit = if exact_in {
+            json!(input)
+        } else {
+            json!((&input.0 + 100u32).to_string())
+        };
         let (status, quote) = if exact_in {
             call(&api, "/v1/quote", json!({
                 "chainKey":"evm:31337","kind":"EXACT_IN","sellToken":pair[0],"buyToken":pair[1],
@@ -672,12 +849,9 @@ async fn infinity_bin_settlement_hook_http_matches_original_manager() {
                 "verification":"FAST"
             })).await
         } else {
-            call(
-                &api,
-                "/v1/quote-exact-out",
-                request(&pair, &case["output"], json!(MAX)),
-            )
-            .await
+            let mut body = request(&pair, &case["output"], input_limit.clone());
+            body["slippageBps"] = 100.into();
+            call(&api, "/v1/quote-exact-out", body).await
         };
         assert_eq!(status, StatusCode::OK, "{case}: {quote}");
         assert_eq!(quote["grossBuyAmount"], case["output"]);
@@ -689,9 +863,11 @@ async fn infinity_bin_settlement_hook_http_matches_original_manager() {
             }],
             case["input"]
         );
+        assert_infinity_build(&api, case, &quote, &input_limit, &pair[0], &corrupt).await;
         checked += 1;
     }
     assert_eq!(checked, 8);
+    server.abort();
 }
 
 #[tokio::test]

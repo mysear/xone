@@ -377,7 +377,7 @@
 - Infinity CL 已知 hook 的报价通过 8 组原版 Manager/Vault 回放，覆盖双向 ExactIn、ExactOut、原生币和 ERC-20。Go 固定块收集核对 hook 位图及其 Manager/Vault 依赖，Rust 核对成交金额、价格和 tick。能力目录为 `xone-protocol-capabilities/33`。
 - 固定版本的 Infinity CL Manager、Bin Manager 与 Vault 已通过 16 组双向 ExactIn、ExactOut、ERC-20 与原生币交易，核对 hook、付款方、接收方、Vault、应用储备和结算锁。另通过 16 组 `CurrencyNotSettled` 回滚。继续把快照、hook 身份和报价接入正常服务。 [复验说明](integration/tools/reference/singleton-advanced/README.md#infinity-manager-and-vault-settlement)
 - Infinity Bin 已知 hook 支持动态费及原生币和 ERC-20 的双向 ExactIn、ExactOut。8 组跨 bin 成交通过原版 Manager/Vault 和正常 HTTP 报价比对，核对三个 bin 的储备、份额、活跃 ID 与 Vault 应用储备。两个固定块采集回放覆盖 ERC-20 与原生币，验证 Go → Rust Protobuf，并拒绝错误位图、字节码和未知模型。移除了报价采集中的 `maxBinStep()` 读取，能力目录为 `xone-protocol-capabilities/34`。历史静态 Bin 测试向量仍需重建后复验。 [复验说明](integration/tools/reference/singleton-advanced/README.md#infinity-manager-and-vault-settlement)
-- 完成 Infinity CL/Bin 正常 build 的交易模板与 Vault 结算回放，绑定付款方、收款方、输入上限、实际输出下限以及原生币退款。独立执行和真实回执继续按 I6 验收。
+- Infinity CL/Bin 正常 HTTP build 已通过 16 组交易模板验收，逐组验证执行合约字节码变更拒绝。固定区块核对执行合约的 Manager、Vault、池类型与代币身份。原版 Manager/Vault 回放通过 16 组实际收款、ERC-20 扣款与原生币退款，另通过 16 组超限回滚与两个未授权回调拒绝。独立执行和真实回执继续按 I6 验收。
 - unknown hook 继续保持拒绝。
 
 ### I6 独立执行与真实收款差
