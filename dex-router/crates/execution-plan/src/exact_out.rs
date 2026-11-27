@@ -148,6 +148,7 @@ pub fn build(
                                 | "balancer-v2-weighted-multi"
                                 | "balancer-v2-composable-regular"
                                 | xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL
+                                | "curve-metausd-direct"
                                 | "uniswap-v3"
                                 | "pancake-v3"
                                 | xone_domain::pancake_bsc_lm::PROFILE
@@ -190,6 +191,7 @@ pub fn build(
                                     | "balancer-v2-weighted-multi"
                                     | "balancer-v2-composable-regular"
                                     | xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL
+                                    | "curve-metausd-direct"
                                     | xone_domain::pancake_lm::PROFILE
                                     | xone_domain::slipstream_context::PROFILE
                                     | xone_domain::lfj::PROFILE
@@ -228,6 +230,7 @@ pub fn build(
                             || managed_pool(&edge.protocol)
                             || edge.protocol == "balancer-v2-composable-regular"
                             || edge.protocol == xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL
+                            || edge.protocol == "curve-metausd-direct"
                         {
                             edge.from_token.as_deref() != Some(route.tokens[index].as_str())
                         } else {
@@ -239,6 +242,9 @@ pub fn build(
             return Err(err("EXACT_OUT_INVALID_PLAN"));
         }
         for edge in &route.edges {
+            if edge.protocol == "curve-metausd-direct" && edge.pool_id != route.factory {
+                return Err(err("EXACT_OUT_INVALID_PLAN"));
+            }
             if route.tokens.contains(&edge.pool_id) {
                 match edge.protocol.as_str() {
                     xone_domain::managed_v2_bpt_state::PROTOCOL

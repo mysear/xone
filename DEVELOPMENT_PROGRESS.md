@@ -317,8 +317,8 @@
 - 同区块多个 Meta 快照必须对完整 base 状态一致。Go 快照克隆独立复制 base 向量。
 - 3pool 单币存入按原合约在各代币原始单位中计算费用和管理员份额。主网区块 21,057,318 的 USDC 存入复现了三项费用、余额、管理员余额和 LP 总供给。Meta 底层兑换使用固定块观察到的 base 虚拟价格。
 - 路由已接入 Meta 底层 ExactIn/ExactOut，并在 deposit、withdraw 和底层直兑后更新共享 base 余额、admin balances、LP supply 与虚拟价格。两池的连续路由专项覆盖双向报价、共享状态和六位币的 ExactOut 取整。
-- 补齐原合约端到端回放、跨语言 wire、HTTP 和恢复验收。
-- 真实 base 部署与完整执行单独验收。
+- 在以太坊区块 21,057,317 的本地分叉部署锁定的 MetaUSD 实现，使用原 3pool、LP 合约和三个底层代币执行连续的底层存入、取出及直接兑换。四个固定块经 Go 解析、Protobuf 和 Rust 副本重放，三笔用户余额差、完整 Meta/base 后状态、六笔 HTTP 报价与末块 checkpoint 恢复均通过。 [复验脚本](integration/tools/reference/curve-meta/underlying.cjs)
+- 完整独立执行继续按 I6 验收。
 
 ### I4 Solana 高级协议
 
@@ -366,7 +366,7 @@
 - 完成 ClickHouse 事实、版本表、shadow 发布和 FINAL 查询。
 - 完成 RFQ、多 solver、外部来源竞争和收益分布。
 
-当前活动目标为 I3。I1 和 I2 的上述报价范围已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。I1 的 e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的 Managed 主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
+当前活动目标为 I4。I1 至 I3 的上述报价范围已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。I1 的 e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的 Managed 主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
 
 <a id="work-packages"></a>
 

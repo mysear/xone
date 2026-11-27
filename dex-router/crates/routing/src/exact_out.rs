@@ -337,6 +337,7 @@ pub fn evaluate_path(
                     | "balancer-v2-managed-fees"
                     | "balancer-v2-composable-regular"
                     | xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL
+                    | "curve-metausd-direct"
             ) || xone_protocol_math::managed_v2_pool::supports_regular_exact_out(&pool.protocol);
         if (single_pool_evm
             || xone_protocol_math::raydium_clmm::supports_profile(&pool.protocol)
@@ -426,6 +427,8 @@ pub fn evaluate_path(
                 .vault
         } else if let Some(state) = &pool.weighted {
             &state.vault
+        } else if pool.protocol == "curve-metausd-direct" {
+            &pool.pool_id
         } else if let Some(state) = &pool.multi_asset {
             &state.vault
         } else if let Some(state) = &pool.v3 {
