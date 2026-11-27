@@ -2,6 +2,8 @@
 //! bank fixture. No supplier, token, live validator or mainnet access is required.
 #[path = "support/normal_bank.rs"]
 mod normal_bank;
+#[path = "support/live_validator.rs"]
+mod live_validator;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use prost::Message;
 use serde_json::{json, Value};

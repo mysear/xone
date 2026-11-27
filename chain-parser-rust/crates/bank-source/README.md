@@ -83,3 +83,27 @@ and byte window; no old receiver sequence is reused. Configure that window to
 cover the validator's finality lag plus receiver buffering. Initial manifest
 availability is not inferred from a slot notification: the Parser keeps old raw
 frames durable and waits for a qualified current manifest on the same session.
+
+## Same-process validator and parser acceptance
+
+Build `solana-test-validator` from the patched `agave-validator` package and the
+`yellowstone-grpc-geyser` library from the commit pinned in `agave-4.3.0/source-pin.json`.
+Use the pinned Rust toolchain for both builds. Start the ignored integration test
+from the repository root with absolute paths and a fresh output directory.
+
+```sh
+XONE_LIVE_YELLOWSTONE_VALIDATOR=/path/to/solana-test-validator \
+XONE_LIVE_YELLOWSTONE_PLUGIN=/path/to/libyellowstone_grpc_geyser.so \
+XONE_LIVE_YELLOWSTONE_OUTPUT=/path/to/new/run-directory \
+cargo test --locked --manifest-path chain-parser-rust/Cargo.toml \
+  -p xone-solana-ingest --test normal_yellowstone \
+  live_validator::native_validator_stream_publishes_consecutive_frozen_banks -- --ignored
+```
+
+The test creates a fresh local ledger with six pool accounts. It starts the
+patched validator and pinned plugin in one process, then runs the normal Parser
+against the loopback Yellowstone endpoint. It checks three consecutive
+published banks in one stream session, compares the native manifests with each
+published proof hash and the validator's finalized RPC history, and records
+current finalized RPC account bytes as a separate check. On macOS, use the
+plugin's `.dylib` path.
