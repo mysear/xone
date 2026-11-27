@@ -359,7 +359,7 @@
 - 完成 ClickHouse 事实、版本表、shadow 发布和 FINAL 查询。
 - 完成 RFQ、多 solver、外部来源竞争和收益分布。
 
-当前活动目标为 I1。e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版的普通代币对 ExactOut 已接入 AUM、scheduled 和 breaker 单池报价，能力目录为 `xone-protocol-capabilities/23`。连续两笔反向原 Vault `GIVEN_OUT` 本地交易与 Rust 的输入、输出、全部注册余额、Vault 钱包和 BPT/AUM 状态一致。原始回放使用哈希校验的发布 build-info 和标准限制的本地 EVM。Go 使用记录的固定块 RPC getter 与代码生成三个连续快照，Rust 解码后通过副本连续提交与 HTTP 报价验证两笔交易。原 Vault 的三币活动权重、活动费率和非零待结 AUM 另外通过四笔成功交易和一次断路器回滚，结果覆盖 6、8、18 位精度代币及连续状态。发布版 BPT 方向的 ExactOut 和真实部署验收仍待完成。生产准入与 `VERIFIED` 报价关闭。
+当前活动目标为 I1。e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut，能力目录为 `xone-protocol-capabilities/24`。原始回放使用哈希校验的发布 build-info 和标准限制的本地 EVM。Go 使用原 Vault 的固定块 getter 与代码生成三个连续快照，Rust 解码后通过副本连续提交与 HTTP 报价核对两笔普通交易。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，核对完整供给、费用收款、注册余额和钱包后状态，HTTP 使用原始状态投影核对报价。真实部署验收仍待完成。生产准入与 `VERIFIED` 报价关闭。
 
 <a id="work-packages"></a>
 

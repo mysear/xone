@@ -2,7 +2,9 @@
 use serde_json::Value;
 use std::{path::Path, sync::OnceLock};
 use xone_domain::{Amount, Pool};
-use xone_protocol_math::managed_v2_pool::{quote_bpt_exact_in_at, BptExecution};
+use xone_protocol_math::managed_v2_pool::{
+    quote_bpt_exact_in_at, quote_bpt_exact_out_at, reclock, BptExecution,
+};
 fn data() -> &'static Value {
     static BANK: OnceLock<Value> = OnceLock::new();
     BANK.get_or_init(|| {
@@ -16,6 +18,55 @@ fn data() -> &'static Value {
         .unwrap()
     })
 }
+
+#[test]
+fn published_vault_bpt_exact_out_matches_continuous_join_and_exit() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/managed_v2_bpt_exact_out.json")).unwrap();
+    let mut successes = 0;
+    let mut reverts = 0;
+    for scenario in fixture["scenarios"].as_array().unwrap() {
+        let mut pool: Pool = serde_json::from_value(scenario["source"].clone()).unwrap();
+        let actor = scenario["actor"].as_str().unwrap();
+        for case in scenario["cases"].as_array().unwrap() {
+            let assets = &pool.multi_asset.as_ref().unwrap().assets;
+            let token = |key: &str| match case[key].as_i64().unwrap() {
+                -1 => pool.pool_id.as_str(),
+                index => &assets[index as usize].token,
+            };
+            let target: Amount = case["target"].as_str().unwrap().parse().unwrap();
+            let execution = BptExecution {
+                sender: actor,
+                recipient: actor,
+                block_number: case["execution_block"].as_u64().unwrap(),
+                timestamp: case["execution_timestamp"].as_u64().unwrap(),
+            };
+            let result = quote_bpt_exact_out_at(
+                &pool,
+                &target,
+                token("index_in"),
+                token("index_out"),
+                execution,
+            );
+            let expected: Pool = serde_json::from_value(case["after"].clone()).unwrap();
+            if case["status"] == 0 {
+                assert_eq!(result.unwrap_err().0, "MANAGED_V2_CIRCUIT_BREAKER_TRIPPED");
+                pool = reclock(&pool, execution.block_number, execution.timestamp).unwrap();
+                assert_eq!(pool, expected);
+                reverts += 1;
+                continue;
+            }
+            let quote = result.unwrap_or_else(|e| panic!("{}: {e}", case["name"]));
+            assert_eq!(quote.consumed_in.to_string(), case["raw_in"]);
+            assert_eq!(quote.amount_out, target);
+            assert_eq!(quote.next_pool, expected, "{}", case["name"]);
+            pool = quote.next_pool;
+            successes += 1;
+        }
+    }
+    assert_eq!((successes, reverts), (6, 1));
+}
+
 #[test]
 fn original_bpt_swap_amounts_and_every_retained_poststate_field_match() {
     let v = data();

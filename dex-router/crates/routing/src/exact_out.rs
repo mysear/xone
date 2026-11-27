@@ -214,6 +214,25 @@ fn edge_tokens<'a>(p: &'a Pool, e: &Edge) -> Result<(&'a str, &'a str)> {
             .from_token
             .as_deref()
             .ok_or_else(|| err("MULTI_ASSET_PATH_TOKEN_REQUIRED"))?;
+        if xone_protocol_math::managed_v2_pool::supports_bpt_exact_out(&p.protocol)
+            && (from == p.pool_id || e.to == p.pool_id)
+        {
+            if e.zero_for_one {
+                return Err(err("EXACT_OUT_PATH_PROTOCOL"));
+            }
+            let join = e.to == p.pool_id;
+            let underlying = if join { from } else { &e.to };
+            let asset = state
+                .assets
+                .iter()
+                .find(|asset| asset.token == underlying)
+                .ok_or_else(|| err("EXACT_OUT_PATH_PROTOCOL"))?;
+            return Ok(if join {
+                (&asset.token, &p.pool_id)
+            } else {
+                (&p.pool_id, &asset.token)
+            });
+        }
         let i = state
             .assets
             .iter()
@@ -435,14 +454,22 @@ pub fn evaluate_path(
         let p = pools
             .get(&edges[i].pool_id)
             .ok_or_else(|| err("MISSING_POOL"))?;
-        amounts[i] = quote_edge(p, &edges[i], &amounts[i + 1], funds.sender)?.amount_in;
+        amounts[i] = quote_edge(p, &edges[i], &amounts[i + 1], funds)?.amount_in;
     }
     let mut candidate = pools.clone();
     for (i, edge) in edges.iter().enumerate() {
         let p = candidate
             .get(&edge.pool_id)
             .ok_or_else(|| err("MISSING_POOL"))?;
-        let q = quote_edge(p, edge, &amounts[i + 1], funds.sender)?;
+        let hop_funds = Funds {
+            sender: funds.sender,
+            recipient: if i + 1 == edges.len() {
+                funds.recipient
+            } else {
+                funds.sender
+            },
+        };
+        let q = quote_edge(p, edge, &amounts[i + 1], hop_funds)?;
         let surplus_template = (p.protocol == xone_domain::lfj::PROFILE
             || ((xone_domain::pump::supports_curve_profile(&p.protocol)
                 || xone_domain::pump_amm::supports_profile(&p.protocol))
@@ -462,6 +489,15 @@ pub fn evaluate_path(
         }
         crate::propagate_bin_currency(&mut candidate, &q.next_pool);
         crate::shared_vault::propagate(&mut candidate, &q.next_pool)?;
+        crate::bpt_wallets::propagate(
+            &mut candidate,
+            &q.next_pool,
+            &tokens[i],
+            &edge.to,
+            &q.amount_in,
+            &amounts[i + 1],
+            Some(hop_funds),
+        )?;
         candidate.insert(edge.pool_id.clone(), q.next_pool);
     }
     let result = ExactOutPathQuote {
@@ -660,11 +696,24 @@ fn quote_edge(
     pool: &Pool,
     edge: &Edge,
     target: &Amount,
-    origin: &str,
+    funds: Funds<'_>,
 ) -> Result<xone_protocol_math::exact_out::ExactOutSwap> {
     if pool.multi_asset.is_some() {
         let (from, to) = edge_tokens(pool, edge)?;
-        let q = xone_protocol_math::multi_asset::quote_exact_out_tokens(pool, target, from, to)?;
+        let q = if xone_protocol_math::managed_v2_pool::supports_bpt_exact_out(&pool.protocol)
+            && (from == pool.pool_id || to == pool.pool_id)
+        {
+            xone_protocol_math::managed_v2_pool::quote_bpt_exact_out(
+                pool,
+                target,
+                from,
+                to,
+                funds.sender,
+                funds.recipient,
+            )?
+        } else {
+            xone_protocol_math::multi_asset::quote_exact_out_tokens(pool, target, from, to)?
+        };
         Ok(xone_protocol_math::exact_out::ExactOutSwap {
             amount_in: q.consumed_in,
             amount_out: q.amount_out,
@@ -675,7 +724,7 @@ fn quote_edge(
             pool,
             target,
             edge.zero_for_one,
-            origin,
+            funds.sender,
         )
     }
 }

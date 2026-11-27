@@ -1,4 +1,4 @@
-//! Published 20230411 ManagedPool single-token BPT GIVEN_IN arithmetic.
+//! Published 20230411 ManagedPool single-token BPT arithmetic.
 //!
 //! Exact port of the pinned WeightedMath single-token join/exit helpers. This
 //! amount kernel does not establish source identity, collect AUM, check caller
@@ -218,5 +218,55 @@ pub fn calculate_exit_exact_in<'a>(
         amount_out,
         scaled_amount_out,
         state: s,
+    })
+}
+
+pub(crate) struct BptExactOutCalculation {
+    pub amount_in: BigUint,
+    pub scaled_underlying: BigUint,
+}
+
+pub(crate) fn calculate_exact_out(
+    state: BptSwapInputs<'_>,
+    output: &BigUint,
+    join: bool,
+) -> Result<BptExactOutCalculation> {
+    if output.is_zero() {
+        return Err(err("EXACT_OUT_ZERO_OUTPUT"));
+    }
+    let balance = validate(state, output)?;
+    let one = one();
+    let weight_complement = complement(state.weight);
+    let fee_complement = complement(state.fee);
+    if join {
+        let invariant = du(&add(state.actual_supply, output)?, state.actual_supply)?;
+        if invariant > BigUint::from(3_000_000_000_000_000_000u64) {
+            return Err(err("MANAGED_V2_BPT_MAX_INVARIANT_RATIO"));
+        }
+        let exponent = du(&one, state.weight)?;
+        let balance_ratio = crate::balancer_log_exp::pow_up(&invariant, &exponent)?;
+        let no_fee = mu(&balance, &sub(&balance_ratio, &one)?)?;
+        let taxable = mu(&no_fee, &weight_complement)?;
+        let scaled_underlying = add(&sub(&no_fee, &taxable)?, &du(&taxable, &fee_complement)?)?;
+        return Ok(BptExactOutCalculation {
+            amount_in: du(&scaled_underlying, state.scaling)?,
+            scaled_underlying,
+        });
+    }
+    let scaled_underlying = md(output, state.scaling)?;
+    let no_fee_ratio = du(&sub(&balance, &scaled_underlying)?, &balance)?;
+    let no_fee_invariant = add(&mu(&no_fee_ratio, state.weight)?, &weight_complement)?;
+    let gross = if no_fee_invariant > no_fee_ratio {
+        let non_taxable = md(&balance, &complement(&no_fee_invariant))?;
+        let taxable = sub(&scaled_underlying, &non_taxable)?;
+        add(&non_taxable, &du(&taxable, &fee_complement)?)?
+    } else {
+        scaled_underlying.clone()
+    };
+    let balance_ratio = dd(&sub(&balance, &gross)?, &balance)?;
+    let invariant = crate::balancer_log_exp::pow_down(&balance_ratio, state.weight)?;
+    Ok(BptExactOutCalculation {
+        amount_in: mu(state.actual_supply, &complement(&invariant))?,
+        scaled_underlying,
     })
 }

@@ -16,6 +16,7 @@ fn managed_pool(protocol: &str) -> bool {
             | "balancer-v2-managed-fees"
             | xone_domain::managed_v2_state::PROTOCOL
             | xone_domain::managed_v2_schedule::PROTOCOL
+            | xone_domain::managed_v2_bpt_state::PROTOCOL
             | xone_domain::managed_v2_circuit_state::PROTOCOL
     )
 }
@@ -235,10 +236,20 @@ pub fn build(
             return Err(err("EXACT_OUT_INVALID_PLAN"));
         }
         for edge in &route.edges {
-            if (edge.protocol == "balancer-v2-composable-regular" || managed_pool(&edge.protocol))
-                && route.tokens.contains(&edge.pool_id)
-            {
-                return Err(err("EXACT_OUT_INVALID_PLAN"));
+            if route.tokens.contains(&edge.pool_id) {
+                match edge.protocol.as_str() {
+                    xone_domain::managed_v2_bpt_state::PROTOCOL
+                    | xone_domain::managed_v2_circuit_state::PROTOCOL => {
+                        if edge.zero_for_one {
+                            return Err(err("EXACT_OUT_INVALID_PLAN"));
+                        }
+                    }
+                    "balancer-v2-composable-regular" => return Err(err("EXACT_OUT_INVALID_PLAN")),
+                    protocol if managed_pool(protocol) => {
+                        return Err(err("EXACT_OUT_INVALID_PLAN"));
+                    }
+                    _ => {}
+                }
             }
             if matches!(
                 edge.protocol.as_str(),

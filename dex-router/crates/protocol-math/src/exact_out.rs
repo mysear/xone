@@ -65,9 +65,10 @@ pub fn supports_protocol(protocol: &str) -> bool {
 
 pub fn supports_pair(pool: &Pool, token_in: &str, token_out: &str) -> bool {
     supports_protocol(&pool.protocol)
-        && (!(pool.protocol == "balancer-v2-composable-regular"
-            || crate::managed_v2_pool::supports_regular_exact_out(&pool.protocol))
-            || (token_in != pool.pool_id && token_out != pool.pool_id))
+        && ((token_in != pool.pool_id && token_out != pool.pool_id)
+            || (pool.protocol != "balancer-v2-composable-regular"
+                && (!crate::managed_v2_pool::supports_regular_exact_out(&pool.protocol)
+                    || crate::managed_v2_pool::supports_bpt_exact_out(&pool.protocol))))
 }
 
 /// Contextual profiles bind tx.origin to the explicitly admitted request caller.

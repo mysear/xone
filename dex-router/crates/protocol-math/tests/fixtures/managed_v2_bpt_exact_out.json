@@ -1,0 +1,1757 @@
+{
+  "bank_sha256": "c030c7cab0424b927995aab263c8e039e6baff445eb67dd34f9c9bdb8a4cf85b",
+  "scenarios": [
+    {
+      "source": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x6a8396e985ade776ea8e770770ddf0ca3d8d4034",
+        "protocol": "balancer-v2-managed-bpt",
+        "token0": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+        "token1": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+        "reserve0": "10000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 20000000000000000,
+        "fee_denominator": 1000000000000000000,
+        "adapter_version": "balancer-v2/20230411-managed-bpt-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4f7b9f20991d63e7b2cec3d9d32a5844a662e2f108201406f69a606a33500ab3",
+          "vault": "0xde09e74d4888bc4e65f589e8c13bce9f71ddf4c7",
+          "vault_code_sha256": "5f7268c0b8ef17e8dab169c8209d0637059431ede649579b88615221cb6de8d7",
+          "pool_id": "0x6a8396e985ade776ea8e770770ddf0ca3d8d4034000100000000000000000000",
+          "assets": [
+            {
+              "token": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+              "balance": "10000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+            },
+            {
+              "token": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+              "balance": "1000000000000",
+              "scaling": "10000000000000000000000000000",
+              "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+            },
+            {
+              "token": "0xcbd945e77adb65651f503723ac322591f3435cc5",
+              "balance": "10000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+            }
+          ],
+          "weights": [
+            "400000000000000000",
+            "250000000000000000",
+            "350000000000000000"
+          ],
+          "amplification": "0",
+          "admin_fee": 0,
+          "managed_v2": {
+            "timestamp": 1767225660,
+            "block_number": 33,
+            "block_hash": "0x8b9752e702e244dbccf2161d13a7ceab2d393dca4f26c91f1829beaa85b8a56d",
+            "factory": "0x00de48310d77a4d56aa400248b0b1613508f5b73",
+            "factory_code_sha256": "46a89aa48c7f4bbc55c6215c06ee9ae83e1e977c343158e921565f7236d91e9f",
+            "pool_runtime_template_sha256": "8a74983533349e21a84533eeb8eaf2cd898478b14893269af098d25753b4bd05",
+            "fee_provider": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+            "fee_provider_code_sha256": "c5755f28c7f98b771d711cd1cd239d5bf336d8d2e43dc48007fe981f6d20f25b",
+            "protocol_collector": "0xb9235f7e3611c23c00263677a6ce3ebf2b4109db",
+            "protocol_collector_code_sha256": "06ead6959b1061a48cd2215d41015913d6e9c4842d40441ae024353a7aee6b3a",
+            "dependencies": [
+              {
+                "role": "circuit-breaker-lib",
+                "address": "0x6d411e0a54382ed43f02410ce1c7a7c122afa6e1",
+                "code_sha256": "dbe8d688fe3f72037f55a4aabbc182d82220d327f91f9c9c3cd5123694934c7a",
+                "template_sha256": "4e9aa2cb6e2e0f890bd55054441c366c8f86d31d17139acdd0811855c5b13d63"
+              },
+              {
+                "role": "managed-pool-add-remove-token-lib",
+                "address": "0x5cf7f96627f3c9903763d128a1cc5d97556a6b99",
+                "code_sha256": "74b137c020e0057ffe5864a1ba9b177d3c8456b477002fba5ecb9c46b8cfa523",
+                "template_sha256": "e10d0c193d3390bd4cc9643f0b72a5c018dcbaf92e774581def293ae6e779c53"
+              },
+              {
+                "role": "managed-pool-amm-lib",
+                "address": "0xa3183498b579bd228aa2b62101c40cc1da978f24",
+                "code_sha256": "a2dcf5171b77fad268711b1ece04f445311ecbedce4fcbd62f63b2f7d991ec7c",
+                "template_sha256": "df80abe2cf8ce70eb5762e1ced2d14e24d79fb30bb81092237e6c7e8624bcf66"
+              },
+              {
+                "role": "external-weighted-math",
+                "address": "0x63f58053c9499e1104a6f6c6d2581d6d83067eeb",
+                "code_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad",
+                "template_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad"
+              },
+              {
+                "role": "recovery-mode-helper",
+                "address": "0x66a15edcc3b50a663e72f1457ffd49b9ae284ddc",
+                "code_sha256": "bd1e51d7b39a78ebddca9c98e4022b4bda93f04e52e5aa062f1aae466d0939f7",
+                "template_sha256": "3d64b4f5ed877c318d94b8fac51c05aba1bcf40d0086e956c3d822f159998d9f"
+              }
+            ],
+            "bpt_index": 0,
+            "manager": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
+            "manager_bpt_balance": "0",
+            "protocol_collector_bpt_balance": "0",
+            "management_aum_fee": "10000000000000000",
+            "last_collection_timestamp": 1767225600,
+            "provider_fee_id": "3",
+            "live_provider_aum_percentage": "300000000000000000",
+            "cached_protocol_aum_percentage": "300000000000000000",
+            "swaps_enabled": true,
+            "paused": false,
+            "vault_paused": false,
+            "vault_pause_window_end": 1775001600,
+            "vault_buffer_period_end": 1777593600,
+            "recovery_mode": false,
+            "allowlist_enabled": false,
+            "pause_window_end": 1790553600,
+            "buffer_period_end": 1793145600,
+            "gradual_weight_end": 1767225720,
+            "gradual_fee_end": 1767225720,
+            "token_info": [
+              {
+                "cash": "10000000000",
+                "managed": "0",
+                "vault_actual_balance": "10000000000",
+                "asset_manager": "0x0000000000000000000000000000000000000000",
+                "last_change_block": 29,
+                "circuit_breaker_enabled": false
+              },
+              {
+                "cash": "1000000000000",
+                "managed": "0",
+                "vault_actual_balance": "1000000000000",
+                "asset_manager": "0x0000000000000000000000000000000000000000",
+                "last_change_block": 29,
+                "circuit_breaker_enabled": false
+              },
+              {
+                "cash": "10000000000000000000000",
+                "managed": "0",
+                "vault_actual_balance": "10000000000000000000000",
+                "asset_manager": "0x0000000000000000000000000000000000000000",
+                "last_change_block": 29,
+                "circuit_breaker_enabled": false
+              }
+            ],
+            "total_supply": "2596148429267413814265248164610048",
+            "virtual_supply": "29999999999999099950107",
+            "actual_supply": "30000000576540772382173",
+            "pending_aum": "576541672432066",
+            "vault_bpt_cash": "2596148429237413814265249064659941",
+            "vault_bpt_managed": "0",
+            "vault_bpt_actual_balance": "2596148429237413814265249064659941",
+            "schedule": {
+              "pool_state_word": "65180128459005760031490850311730215050359781832906762575801542762689451112704",
+              "tokens": [
+                {
+                  "token": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+                  "state_word": "4088922426273374427045795289181218537472"
+                },
+                {
+                  "token": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+                  "state_word": "3406513018024126544957246074317682114560"
+                },
+                {
+                  "token": "0xcbd945e77adb65651f503723ac322591f3435cc5",
+                  "state_word": "9223372036854775808200000000000000000"
+                }
+              ]
+            },
+            "bpt": {
+              "join_exit_enabled": true,
+              "minimum_bpt_locked": "1000000",
+              "bpt_last_change_block": 29,
+              "allowlist_members": []
+            }
+          }
+        }
+      },
+      "actor": "0x1eff47bc3a10a45d4b230b5d10e37751fe6aa718",
+      "cases": [
+        {
+          "index_in": 0,
+          "index_out": -1,
+          "raw_in": "42229606",
+          "raw_out": "50000000000000000000",
+          "target": "50000000000000000000",
+          "status": 1,
+          "name": "bpt:join",
+          "transaction_hash": "0xf83683395bcc7855d69003f419cca5456f6fc448a264dcd6331716f7b4c6fc57",
+          "execution_block": 34,
+          "execution_timestamp": 1767225660,
+          "after": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x6a8396e985ade776ea8e770770ddf0ca3d8d4034",
+            "protocol": "balancer-v2-managed-bpt",
+            "token0": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+            "token1": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+            "reserve0": "10042229606",
+            "reserve1": "1000000000000",
+            "fee_numerator": 20000000000000000,
+            "fee_denominator": 1000000000000000000,
+            "adapter_version": "balancer-v2/20230411-managed-bpt-1",
+            "token_behavior": "standard",
+            "multi_asset": {
+              "code_sha256": "4f7b9f20991d63e7b2cec3d9d32a5844a662e2f108201406f69a606a33500ab3",
+              "vault": "0xde09e74d4888bc4e65f589e8c13bce9f71ddf4c7",
+              "vault_code_sha256": "5f7268c0b8ef17e8dab169c8209d0637059431ede649579b88615221cb6de8d7",
+              "pool_id": "0x6a8396e985ade776ea8e770770ddf0ca3d8d4034000100000000000000000000",
+              "assets": [
+                {
+                  "token": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+                  "balance": "10042229606",
+                  "scaling": "1000000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+                  "balance": "1000000000000",
+                  "scaling": "10000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0xcbd945e77adb65651f503723ac322591f3435cc5",
+                  "balance": "10000000000000000000000",
+                  "scaling": "1000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                }
+              ],
+              "weights": [
+                "400000000000000000",
+                "250000000000000000",
+                "350000000000000000"
+              ],
+              "amplification": "0",
+              "admin_fee": 0,
+              "managed_v2": {
+                "timestamp": 1767225660,
+                "block_number": 33,
+                "block_hash": "0x8b9752e702e244dbccf2161d13a7ceab2d393dca4f26c91f1829beaa85b8a56d",
+                "factory": "0x00de48310d77a4d56aa400248b0b1613508f5b73",
+                "factory_code_sha256": "46a89aa48c7f4bbc55c6215c06ee9ae83e1e977c343158e921565f7236d91e9f",
+                "pool_runtime_template_sha256": "8a74983533349e21a84533eeb8eaf2cd898478b14893269af098d25753b4bd05",
+                "fee_provider": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+                "fee_provider_code_sha256": "c5755f28c7f98b771d711cd1cd239d5bf336d8d2e43dc48007fe981f6d20f25b",
+                "protocol_collector": "0xb9235f7e3611c23c00263677a6ce3ebf2b4109db",
+                "protocol_collector_code_sha256": "06ead6959b1061a48cd2215d41015913d6e9c4842d40441ae024353a7aee6b3a",
+                "dependencies": [
+                  {
+                    "role": "circuit-breaker-lib",
+                    "address": "0x6d411e0a54382ed43f02410ce1c7a7c122afa6e1",
+                    "code_sha256": "dbe8d688fe3f72037f55a4aabbc182d82220d327f91f9c9c3cd5123694934c7a",
+                    "template_sha256": "4e9aa2cb6e2e0f890bd55054441c366c8f86d31d17139acdd0811855c5b13d63"
+                  },
+                  {
+                    "role": "managed-pool-add-remove-token-lib",
+                    "address": "0x5cf7f96627f3c9903763d128a1cc5d97556a6b99",
+                    "code_sha256": "74b137c020e0057ffe5864a1ba9b177d3c8456b477002fba5ecb9c46b8cfa523",
+                    "template_sha256": "e10d0c193d3390bd4cc9643f0b72a5c018dcbaf92e774581def293ae6e779c53"
+                  },
+                  {
+                    "role": "managed-pool-amm-lib",
+                    "address": "0xa3183498b579bd228aa2b62101c40cc1da978f24",
+                    "code_sha256": "a2dcf5171b77fad268711b1ece04f445311ecbedce4fcbd62f63b2f7d991ec7c",
+                    "template_sha256": "df80abe2cf8ce70eb5762e1ced2d14e24d79fb30bb81092237e6c7e8624bcf66"
+                  },
+                  {
+                    "role": "external-weighted-math",
+                    "address": "0x63f58053c9499e1104a6f6c6d2581d6d83067eeb",
+                    "code_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad",
+                    "template_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad"
+                  },
+                  {
+                    "role": "recovery-mode-helper",
+                    "address": "0x66a15edcc3b50a663e72f1457ffd49b9ae284ddc",
+                    "code_sha256": "bd1e51d7b39a78ebddca9c98e4022b4bda93f04e52e5aa062f1aae466d0939f7",
+                    "template_sha256": "3d64b4f5ed877c318d94b8fac51c05aba1bcf40d0086e956c3d822f159998d9f"
+                  }
+                ],
+                "bpt_index": 0,
+                "manager": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
+                "manager_bpt_balance": "403579170702446",
+                "protocol_collector_bpt_balance": "172962501729620",
+                "management_aum_fee": "10000000000000000",
+                "last_collection_timestamp": 1767225660,
+                "provider_fee_id": "3",
+                "live_provider_aum_percentage": "300000000000000000",
+                "cached_protocol_aum_percentage": "300000000000000000",
+                "swaps_enabled": true,
+                "paused": false,
+                "vault_paused": false,
+                "vault_pause_window_end": 1775001600,
+                "vault_buffer_period_end": 1777593600,
+                "recovery_mode": false,
+                "allowlist_enabled": false,
+                "pause_window_end": 1790553600,
+                "buffer_period_end": 1793145600,
+                "gradual_weight_end": 1767225720,
+                "gradual_fee_end": 1767225720,
+                "token_info": [
+                  {
+                    "cash": "10042229606",
+                    "managed": "0",
+                    "vault_actual_balance": "10042229606",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 34,
+                    "circuit_breaker_enabled": false
+                  },
+                  {
+                    "cash": "1000000000000",
+                    "managed": "0",
+                    "vault_actual_balance": "1000000000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 29,
+                    "circuit_breaker_enabled": false
+                  },
+                  {
+                    "cash": "10000000000000000000000",
+                    "managed": "0",
+                    "vault_actual_balance": "10000000000000000000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 29,
+                    "circuit_breaker_enabled": false
+                  }
+                ],
+                "total_supply": "2596148429267413814841789837042114",
+                "virtual_supply": "30050000576540772382173",
+                "actual_supply": "30050000576540772382173",
+                "pending_aum": "0",
+                "vault_bpt_cash": "2596148429237363814265249064659941",
+                "vault_bpt_managed": "0",
+                "vault_bpt_actual_balance": "2596148429237363814265249064659941",
+                "execution_context": {
+                  "block_number": 34,
+                  "timestamp": 1767225660
+                },
+                "schedule": {
+                  "pool_state_word": "65180128459005760031490850311730215050359781832906762575801542762689451112704",
+                  "tokens": [
+                    {
+                      "token": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+                      "state_word": "4088922426273374427045795289181218537472"
+                    },
+                    {
+                      "token": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+                      "state_word": "3406513018024126544957246074317682114560"
+                    },
+                    {
+                      "token": "0xcbd945e77adb65651f503723ac322591f3435cc5",
+                      "state_word": "9223372036854775808200000000000000000"
+                    }
+                  ]
+                },
+                "bpt": {
+                  "join_exit_enabled": true,
+                  "minimum_bpt_locked": "1000000",
+                  "bpt_last_change_block": 34,
+                  "allowlist_members": []
+                }
+              }
+            }
+          }
+        },
+        {
+          "index_in": -1,
+          "index_out": 1,
+          "raw_in": "381381630297457556",
+          "raw_out": "50000000",
+          "target": "50000000",
+          "status": 1,
+          "name": "bpt:exit",
+          "transaction_hash": "0x0f1bff124f8f2d7c48ce5a6dcd392f67bf06882eb9e25981d8f49c0c28f48402",
+          "execution_block": 35,
+          "execution_timestamp": 1767225660,
+          "after": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x6a8396e985ade776ea8e770770ddf0ca3d8d4034",
+            "protocol": "balancer-v2-managed-bpt",
+            "token0": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+            "token1": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+            "reserve0": "10042229606",
+            "reserve1": "999950000000",
+            "fee_numerator": 20000000000000000,
+            "fee_denominator": 1000000000000000000,
+            "adapter_version": "balancer-v2/20230411-managed-bpt-1",
+            "token_behavior": "standard",
+            "multi_asset": {
+              "code_sha256": "4f7b9f20991d63e7b2cec3d9d32a5844a662e2f108201406f69a606a33500ab3",
+              "vault": "0xde09e74d4888bc4e65f589e8c13bce9f71ddf4c7",
+              "vault_code_sha256": "5f7268c0b8ef17e8dab169c8209d0637059431ede649579b88615221cb6de8d7",
+              "pool_id": "0x6a8396e985ade776ea8e770770ddf0ca3d8d4034000100000000000000000000",
+              "assets": [
+                {
+                  "token": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+                  "balance": "10042229606",
+                  "scaling": "1000000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+                  "balance": "999950000000",
+                  "scaling": "10000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0xcbd945e77adb65651f503723ac322591f3435cc5",
+                  "balance": "10000000000000000000000",
+                  "scaling": "1000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                }
+              ],
+              "weights": [
+                "400000000000000000",
+                "250000000000000000",
+                "350000000000000000"
+              ],
+              "amplification": "0",
+              "admin_fee": 0,
+              "managed_v2": {
+                "timestamp": 1767225660,
+                "block_number": 33,
+                "block_hash": "0x8b9752e702e244dbccf2161d13a7ceab2d393dca4f26c91f1829beaa85b8a56d",
+                "factory": "0x00de48310d77a4d56aa400248b0b1613508f5b73",
+                "factory_code_sha256": "46a89aa48c7f4bbc55c6215c06ee9ae83e1e977c343158e921565f7236d91e9f",
+                "pool_runtime_template_sha256": "8a74983533349e21a84533eeb8eaf2cd898478b14893269af098d25753b4bd05",
+                "fee_provider": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+                "fee_provider_code_sha256": "c5755f28c7f98b771d711cd1cd239d5bf336d8d2e43dc48007fe981f6d20f25b",
+                "protocol_collector": "0xb9235f7e3611c23c00263677a6ce3ebf2b4109db",
+                "protocol_collector_code_sha256": "06ead6959b1061a48cd2215d41015913d6e9c4842d40441ae024353a7aee6b3a",
+                "dependencies": [
+                  {
+                    "role": "circuit-breaker-lib",
+                    "address": "0x6d411e0a54382ed43f02410ce1c7a7c122afa6e1",
+                    "code_sha256": "dbe8d688fe3f72037f55a4aabbc182d82220d327f91f9c9c3cd5123694934c7a",
+                    "template_sha256": "4e9aa2cb6e2e0f890bd55054441c366c8f86d31d17139acdd0811855c5b13d63"
+                  },
+                  {
+                    "role": "managed-pool-add-remove-token-lib",
+                    "address": "0x5cf7f96627f3c9903763d128a1cc5d97556a6b99",
+                    "code_sha256": "74b137c020e0057ffe5864a1ba9b177d3c8456b477002fba5ecb9c46b8cfa523",
+                    "template_sha256": "e10d0c193d3390bd4cc9643f0b72a5c018dcbaf92e774581def293ae6e779c53"
+                  },
+                  {
+                    "role": "managed-pool-amm-lib",
+                    "address": "0xa3183498b579bd228aa2b62101c40cc1da978f24",
+                    "code_sha256": "a2dcf5171b77fad268711b1ece04f445311ecbedce4fcbd62f63b2f7d991ec7c",
+                    "template_sha256": "df80abe2cf8ce70eb5762e1ced2d14e24d79fb30bb81092237e6c7e8624bcf66"
+                  },
+                  {
+                    "role": "external-weighted-math",
+                    "address": "0x63f58053c9499e1104a6f6c6d2581d6d83067eeb",
+                    "code_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad",
+                    "template_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad"
+                  },
+                  {
+                    "role": "recovery-mode-helper",
+                    "address": "0x66a15edcc3b50a663e72f1457ffd49b9ae284ddc",
+                    "code_sha256": "bd1e51d7b39a78ebddca9c98e4022b4bda93f04e52e5aa062f1aae466d0939f7",
+                    "template_sha256": "3d64b4f5ed877c318d94b8fac51c05aba1bcf40d0086e956c3d822f159998d9f"
+                  }
+                ],
+                "bpt_index": 0,
+                "manager": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
+                "manager_bpt_balance": "403579170702446",
+                "protocol_collector_bpt_balance": "172962501729620",
+                "management_aum_fee": "10000000000000000",
+                "last_collection_timestamp": 1767225660,
+                "provider_fee_id": "3",
+                "live_provider_aum_percentage": "300000000000000000",
+                "cached_protocol_aum_percentage": "300000000000000000",
+                "swaps_enabled": true,
+                "paused": false,
+                "vault_paused": false,
+                "vault_pause_window_end": 1775001600,
+                "vault_buffer_period_end": 1777593600,
+                "recovery_mode": false,
+                "allowlist_enabled": false,
+                "pause_window_end": 1790553600,
+                "buffer_period_end": 1793145600,
+                "gradual_weight_end": 1767225720,
+                "gradual_fee_end": 1767225720,
+                "token_info": [
+                  {
+                    "cash": "10042229606",
+                    "managed": "0",
+                    "vault_actual_balance": "10042229606",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 34,
+                    "circuit_breaker_enabled": false
+                  },
+                  {
+                    "cash": "999950000000",
+                    "managed": "0",
+                    "vault_actual_balance": "999950000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 35,
+                    "circuit_breaker_enabled": false
+                  },
+                  {
+                    "cash": "10000000000000000000000",
+                    "managed": "0",
+                    "vault_actual_balance": "10000000000000000000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 29,
+                    "circuit_breaker_enabled": false
+                  }
+                ],
+                "total_supply": "2596148429267413814841789837042114",
+                "virtual_supply": "30049619194910474924617",
+                "actual_supply": "30049619194910474924617",
+                "pending_aum": "0",
+                "vault_bpt_cash": "2596148429237364195646879362117497",
+                "vault_bpt_managed": "0",
+                "vault_bpt_actual_balance": "2596148429237364195646879362117497",
+                "execution_context": {
+                  "block_number": 35,
+                  "timestamp": 1767225660
+                },
+                "schedule": {
+                  "pool_state_word": "65180128459005760031490850311730215050359781832906762575801542762689451112704",
+                  "tokens": [
+                    {
+                      "token": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+                      "state_word": "4088922426273374427045795289181218537472"
+                    },
+                    {
+                      "token": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+                      "state_word": "3406513018024126544957246074317682114560"
+                    },
+                    {
+                      "token": "0xcbd945e77adb65651f503723ac322591f3435cc5",
+                      "state_word": "9223372036854775808200000000000000000"
+                    }
+                  ]
+                },
+                "bpt": {
+                  "join_exit_enabled": true,
+                  "minimum_bpt_locked": "1000000",
+                  "bpt_last_change_block": 35,
+                  "allowlist_members": []
+                }
+              }
+            }
+          }
+        },
+        {
+          "index_in": 2,
+          "index_out": -1,
+          "raw_in": "963450875928266541",
+          "raw_out": "1000000000000000000",
+          "target": "1000000000000000000",
+          "status": 1,
+          "name": "bpt:join-reverse",
+          "transaction_hash": "0x67cef5f3f2fd0eb499e793988c571a72fcbce192c96f3464829f045fa651548f",
+          "execution_block": 36,
+          "execution_timestamp": 1767225660,
+          "after": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x6a8396e985ade776ea8e770770ddf0ca3d8d4034",
+            "protocol": "balancer-v2-managed-bpt",
+            "token0": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+            "token1": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+            "reserve0": "10042229606",
+            "reserve1": "999950000000",
+            "fee_numerator": 20000000000000000,
+            "fee_denominator": 1000000000000000000,
+            "adapter_version": "balancer-v2/20230411-managed-bpt-1",
+            "token_behavior": "standard",
+            "multi_asset": {
+              "code_sha256": "4f7b9f20991d63e7b2cec3d9d32a5844a662e2f108201406f69a606a33500ab3",
+              "vault": "0xde09e74d4888bc4e65f589e8c13bce9f71ddf4c7",
+              "vault_code_sha256": "5f7268c0b8ef17e8dab169c8209d0637059431ede649579b88615221cb6de8d7",
+              "pool_id": "0x6a8396e985ade776ea8e770770ddf0ca3d8d4034000100000000000000000000",
+              "assets": [
+                {
+                  "token": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+                  "balance": "10042229606",
+                  "scaling": "1000000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+                  "balance": "999950000000",
+                  "scaling": "10000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0xcbd945e77adb65651f503723ac322591f3435cc5",
+                  "balance": "10000963450875928266541",
+                  "scaling": "1000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                }
+              ],
+              "weights": [
+                "400000000000000000",
+                "250000000000000000",
+                "350000000000000000"
+              ],
+              "amplification": "0",
+              "admin_fee": 0,
+              "managed_v2": {
+                "timestamp": 1767225660,
+                "block_number": 33,
+                "block_hash": "0x8b9752e702e244dbccf2161d13a7ceab2d393dca4f26c91f1829beaa85b8a56d",
+                "factory": "0x00de48310d77a4d56aa400248b0b1613508f5b73",
+                "factory_code_sha256": "46a89aa48c7f4bbc55c6215c06ee9ae83e1e977c343158e921565f7236d91e9f",
+                "pool_runtime_template_sha256": "8a74983533349e21a84533eeb8eaf2cd898478b14893269af098d25753b4bd05",
+                "fee_provider": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+                "fee_provider_code_sha256": "c5755f28c7f98b771d711cd1cd239d5bf336d8d2e43dc48007fe981f6d20f25b",
+                "protocol_collector": "0xb9235f7e3611c23c00263677a6ce3ebf2b4109db",
+                "protocol_collector_code_sha256": "06ead6959b1061a48cd2215d41015913d6e9c4842d40441ae024353a7aee6b3a",
+                "dependencies": [
+                  {
+                    "role": "circuit-breaker-lib",
+                    "address": "0x6d411e0a54382ed43f02410ce1c7a7c122afa6e1",
+                    "code_sha256": "dbe8d688fe3f72037f55a4aabbc182d82220d327f91f9c9c3cd5123694934c7a",
+                    "template_sha256": "4e9aa2cb6e2e0f890bd55054441c366c8f86d31d17139acdd0811855c5b13d63"
+                  },
+                  {
+                    "role": "managed-pool-add-remove-token-lib",
+                    "address": "0x5cf7f96627f3c9903763d128a1cc5d97556a6b99",
+                    "code_sha256": "74b137c020e0057ffe5864a1ba9b177d3c8456b477002fba5ecb9c46b8cfa523",
+                    "template_sha256": "e10d0c193d3390bd4cc9643f0b72a5c018dcbaf92e774581def293ae6e779c53"
+                  },
+                  {
+                    "role": "managed-pool-amm-lib",
+                    "address": "0xa3183498b579bd228aa2b62101c40cc1da978f24",
+                    "code_sha256": "a2dcf5171b77fad268711b1ece04f445311ecbedce4fcbd62f63b2f7d991ec7c",
+                    "template_sha256": "df80abe2cf8ce70eb5762e1ced2d14e24d79fb30bb81092237e6c7e8624bcf66"
+                  },
+                  {
+                    "role": "external-weighted-math",
+                    "address": "0x63f58053c9499e1104a6f6c6d2581d6d83067eeb",
+                    "code_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad",
+                    "template_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad"
+                  },
+                  {
+                    "role": "recovery-mode-helper",
+                    "address": "0x66a15edcc3b50a663e72f1457ffd49b9ae284ddc",
+                    "code_sha256": "bd1e51d7b39a78ebddca9c98e4022b4bda93f04e52e5aa062f1aae466d0939f7",
+                    "template_sha256": "3d64b4f5ed877c318d94b8fac51c05aba1bcf40d0086e956c3d822f159998d9f"
+                  }
+                ],
+                "bpt_index": 0,
+                "manager": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
+                "manager_bpt_balance": "403579170702446",
+                "protocol_collector_bpt_balance": "172962501729620",
+                "management_aum_fee": "10000000000000000",
+                "last_collection_timestamp": 1767225660,
+                "provider_fee_id": "3",
+                "live_provider_aum_percentage": "300000000000000000",
+                "cached_protocol_aum_percentage": "300000000000000000",
+                "swaps_enabled": true,
+                "paused": false,
+                "vault_paused": false,
+                "vault_pause_window_end": 1775001600,
+                "vault_buffer_period_end": 1777593600,
+                "recovery_mode": false,
+                "allowlist_enabled": false,
+                "pause_window_end": 1790553600,
+                "buffer_period_end": 1793145600,
+                "gradual_weight_end": 1767225720,
+                "gradual_fee_end": 1767225720,
+                "token_info": [
+                  {
+                    "cash": "10042229606",
+                    "managed": "0",
+                    "vault_actual_balance": "10042229606",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 34,
+                    "circuit_breaker_enabled": false
+                  },
+                  {
+                    "cash": "999950000000",
+                    "managed": "0",
+                    "vault_actual_balance": "999950000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 35,
+                    "circuit_breaker_enabled": false
+                  },
+                  {
+                    "cash": "10000963450875928266541",
+                    "managed": "0",
+                    "vault_actual_balance": "10000963450875928266541",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 36,
+                    "circuit_breaker_enabled": false
+                  }
+                ],
+                "total_supply": "2596148429267413814841789837042114",
+                "virtual_supply": "30050619194910474924617",
+                "actual_supply": "30050619194910474924617",
+                "pending_aum": "0",
+                "vault_bpt_cash": "2596148429237363195646879362117497",
+                "vault_bpt_managed": "0",
+                "vault_bpt_actual_balance": "2596148429237363195646879362117497",
+                "execution_context": {
+                  "block_number": 36,
+                  "timestamp": 1767225660
+                },
+                "schedule": {
+                  "pool_state_word": "65180128459005760031490850311730215050359781832906762575801542762689451112704",
+                  "tokens": [
+                    {
+                      "token": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+                      "state_word": "4088922426273374427045795289181218537472"
+                    },
+                    {
+                      "token": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+                      "state_word": "3406513018024126544957246074317682114560"
+                    },
+                    {
+                      "token": "0xcbd945e77adb65651f503723ac322591f3435cc5",
+                      "state_word": "9223372036854775808200000000000000000"
+                    }
+                  ]
+                },
+                "bpt": {
+                  "join_exit_enabled": true,
+                  "minimum_bpt_locked": "1000000",
+                  "bpt_last_change_block": 36,
+                  "allowlist_members": []
+                }
+              }
+            }
+          }
+        },
+        {
+          "index_in": -1,
+          "index_out": 0,
+          "raw_in": "1211627123421565",
+          "raw_out": "1000",
+          "target": "1000",
+          "status": 1,
+          "name": "bpt:exit-low-precision",
+          "transaction_hash": "0x45b97ad5dc60214734e4c2e35df1fff36c7180f9ffa62a275ac961fbe77814db",
+          "execution_block": 37,
+          "execution_timestamp": 1767225660,
+          "after": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x6a8396e985ade776ea8e770770ddf0ca3d8d4034",
+            "protocol": "balancer-v2-managed-bpt",
+            "token0": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+            "token1": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+            "reserve0": "10042228606",
+            "reserve1": "999950000000",
+            "fee_numerator": 20000000000000000,
+            "fee_denominator": 1000000000000000000,
+            "adapter_version": "balancer-v2/20230411-managed-bpt-1",
+            "token_behavior": "standard",
+            "multi_asset": {
+              "code_sha256": "4f7b9f20991d63e7b2cec3d9d32a5844a662e2f108201406f69a606a33500ab3",
+              "vault": "0xde09e74d4888bc4e65f589e8c13bce9f71ddf4c7",
+              "vault_code_sha256": "5f7268c0b8ef17e8dab169c8209d0637059431ede649579b88615221cb6de8d7",
+              "pool_id": "0x6a8396e985ade776ea8e770770ddf0ca3d8d4034000100000000000000000000",
+              "assets": [
+                {
+                  "token": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+                  "balance": "10042228606",
+                  "scaling": "1000000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+                  "balance": "999950000000",
+                  "scaling": "10000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0xcbd945e77adb65651f503723ac322591f3435cc5",
+                  "balance": "10000963450875928266541",
+                  "scaling": "1000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                }
+              ],
+              "weights": [
+                "400000000000000000",
+                "250000000000000000",
+                "350000000000000000"
+              ],
+              "amplification": "0",
+              "admin_fee": 0,
+              "managed_v2": {
+                "timestamp": 1767225660,
+                "block_number": 33,
+                "block_hash": "0x8b9752e702e244dbccf2161d13a7ceab2d393dca4f26c91f1829beaa85b8a56d",
+                "factory": "0x00de48310d77a4d56aa400248b0b1613508f5b73",
+                "factory_code_sha256": "46a89aa48c7f4bbc55c6215c06ee9ae83e1e977c343158e921565f7236d91e9f",
+                "pool_runtime_template_sha256": "8a74983533349e21a84533eeb8eaf2cd898478b14893269af098d25753b4bd05",
+                "fee_provider": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+                "fee_provider_code_sha256": "c5755f28c7f98b771d711cd1cd239d5bf336d8d2e43dc48007fe981f6d20f25b",
+                "protocol_collector": "0xb9235f7e3611c23c00263677a6ce3ebf2b4109db",
+                "protocol_collector_code_sha256": "06ead6959b1061a48cd2215d41015913d6e9c4842d40441ae024353a7aee6b3a",
+                "dependencies": [
+                  {
+                    "role": "circuit-breaker-lib",
+                    "address": "0x6d411e0a54382ed43f02410ce1c7a7c122afa6e1",
+                    "code_sha256": "dbe8d688fe3f72037f55a4aabbc182d82220d327f91f9c9c3cd5123694934c7a",
+                    "template_sha256": "4e9aa2cb6e2e0f890bd55054441c366c8f86d31d17139acdd0811855c5b13d63"
+                  },
+                  {
+                    "role": "managed-pool-add-remove-token-lib",
+                    "address": "0x5cf7f96627f3c9903763d128a1cc5d97556a6b99",
+                    "code_sha256": "74b137c020e0057ffe5864a1ba9b177d3c8456b477002fba5ecb9c46b8cfa523",
+                    "template_sha256": "e10d0c193d3390bd4cc9643f0b72a5c018dcbaf92e774581def293ae6e779c53"
+                  },
+                  {
+                    "role": "managed-pool-amm-lib",
+                    "address": "0xa3183498b579bd228aa2b62101c40cc1da978f24",
+                    "code_sha256": "a2dcf5171b77fad268711b1ece04f445311ecbedce4fcbd62f63b2f7d991ec7c",
+                    "template_sha256": "df80abe2cf8ce70eb5762e1ced2d14e24d79fb30bb81092237e6c7e8624bcf66"
+                  },
+                  {
+                    "role": "external-weighted-math",
+                    "address": "0x63f58053c9499e1104a6f6c6d2581d6d83067eeb",
+                    "code_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad",
+                    "template_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad"
+                  },
+                  {
+                    "role": "recovery-mode-helper",
+                    "address": "0x66a15edcc3b50a663e72f1457ffd49b9ae284ddc",
+                    "code_sha256": "bd1e51d7b39a78ebddca9c98e4022b4bda93f04e52e5aa062f1aae466d0939f7",
+                    "template_sha256": "3d64b4f5ed877c318d94b8fac51c05aba1bcf40d0086e956c3d822f159998d9f"
+                  }
+                ],
+                "bpt_index": 0,
+                "manager": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
+                "manager_bpt_balance": "403579170702446",
+                "protocol_collector_bpt_balance": "172962501729620",
+                "management_aum_fee": "10000000000000000",
+                "last_collection_timestamp": 1767225660,
+                "provider_fee_id": "3",
+                "live_provider_aum_percentage": "300000000000000000",
+                "cached_protocol_aum_percentage": "300000000000000000",
+                "swaps_enabled": true,
+                "paused": false,
+                "vault_paused": false,
+                "vault_pause_window_end": 1775001600,
+                "vault_buffer_period_end": 1777593600,
+                "recovery_mode": false,
+                "allowlist_enabled": false,
+                "pause_window_end": 1790553600,
+                "buffer_period_end": 1793145600,
+                "gradual_weight_end": 1767225720,
+                "gradual_fee_end": 1767225720,
+                "token_info": [
+                  {
+                    "cash": "10042228606",
+                    "managed": "0",
+                    "vault_actual_balance": "10042228606",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 37,
+                    "circuit_breaker_enabled": false
+                  },
+                  {
+                    "cash": "999950000000",
+                    "managed": "0",
+                    "vault_actual_balance": "999950000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 35,
+                    "circuit_breaker_enabled": false
+                  },
+                  {
+                    "cash": "10000963450875928266541",
+                    "managed": "0",
+                    "vault_actual_balance": "10000963450875928266541",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 36,
+                    "circuit_breaker_enabled": false
+                  }
+                ],
+                "total_supply": "2596148429267413814841789837042114",
+                "virtual_supply": "30050617983283351503052",
+                "actual_supply": "30050617983283351503052",
+                "pending_aum": "0",
+                "vault_bpt_cash": "2596148429237363196858506485539062",
+                "vault_bpt_managed": "0",
+                "vault_bpt_actual_balance": "2596148429237363196858506485539062",
+                "execution_context": {
+                  "block_number": 37,
+                  "timestamp": 1767225660
+                },
+                "schedule": {
+                  "pool_state_word": "65180128459005760031490850311730215050359781832906762575801542762689451112704",
+                  "tokens": [
+                    {
+                      "token": "0x510c6297cc30a058f41eb4af1bfc9953ead8b577",
+                      "state_word": "4088922426273374427045795289181218537472"
+                    },
+                    {
+                      "token": "0x7758f98c1c487e5653795470eeab6c4698be541b",
+                      "state_word": "3406513018024126544957246074317682114560"
+                    },
+                    {
+                      "token": "0xcbd945e77adb65651f503723ac322591f3435cc5",
+                      "state_word": "9223372036854775808200000000000000000"
+                    }
+                  ]
+                },
+                "bpt": {
+                  "join_exit_enabled": true,
+                  "minimum_bpt_locked": "1000000",
+                  "bpt_last_change_block": 37,
+                  "allowlist_members": []
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0b4030a10c420b1000dba8282d3ea4f6e24d968d",
+        "protocol": "balancer-v2-managed-breaker",
+        "token0": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+        "token1": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+        "reserve0": "10000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 20000000000000000,
+        "fee_denominator": 1000000000000000000,
+        "adapter_version": "balancer-v2/20230411-managed-breaker-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c4d5fcec3fe537051dc831a7c783c9e6b6995807467aa4a37d00cceb9421f338",
+          "vault": "0xde09e74d4888bc4e65f589e8c13bce9f71ddf4c7",
+          "vault_code_sha256": "5f7268c0b8ef17e8dab169c8209d0637059431ede649579b88615221cb6de8d7",
+          "pool_id": "0x0b4030a10c420b1000dba8282d3ea4f6e24d968d000100000000000000000001",
+          "assets": [
+            {
+              "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+              "balance": "10000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+            },
+            {
+              "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+              "balance": "1000000000000",
+              "scaling": "10000000000000000000000000000",
+              "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+            },
+            {
+              "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+              "balance": "10000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+            }
+          ],
+          "weights": [
+            "400000000000000000",
+            "250000000000000000",
+            "350000000000000000"
+          ],
+          "amplification": "0",
+          "admin_fee": 0,
+          "managed_v2": {
+            "timestamp": 1767225720,
+            "block_number": 59,
+            "block_hash": "0x66643cf1362c327cdc0b6870b6f56e56bd7bc4e6cc16cc93bac5545cd78ca92d",
+            "factory": "0x00de48310d77a4d56aa400248b0b1613508f5b73",
+            "factory_code_sha256": "46a89aa48c7f4bbc55c6215c06ee9ae83e1e977c343158e921565f7236d91e9f",
+            "pool_runtime_template_sha256": "8a74983533349e21a84533eeb8eaf2cd898478b14893269af098d25753b4bd05",
+            "fee_provider": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+            "fee_provider_code_sha256": "c5755f28c7f98b771d711cd1cd239d5bf336d8d2e43dc48007fe981f6d20f25b",
+            "protocol_collector": "0xb9235f7e3611c23c00263677a6ce3ebf2b4109db",
+            "protocol_collector_code_sha256": "06ead6959b1061a48cd2215d41015913d6e9c4842d40441ae024353a7aee6b3a",
+            "dependencies": [
+              {
+                "role": "circuit-breaker-lib",
+                "address": "0x6d411e0a54382ed43f02410ce1c7a7c122afa6e1",
+                "code_sha256": "dbe8d688fe3f72037f55a4aabbc182d82220d327f91f9c9c3cd5123694934c7a",
+                "template_sha256": "4e9aa2cb6e2e0f890bd55054441c366c8f86d31d17139acdd0811855c5b13d63"
+              },
+              {
+                "role": "managed-pool-add-remove-token-lib",
+                "address": "0x5cf7f96627f3c9903763d128a1cc5d97556a6b99",
+                "code_sha256": "74b137c020e0057ffe5864a1ba9b177d3c8456b477002fba5ecb9c46b8cfa523",
+                "template_sha256": "e10d0c193d3390bd4cc9643f0b72a5c018dcbaf92e774581def293ae6e779c53"
+              },
+              {
+                "role": "managed-pool-amm-lib",
+                "address": "0xa3183498b579bd228aa2b62101c40cc1da978f24",
+                "code_sha256": "a2dcf5171b77fad268711b1ece04f445311ecbedce4fcbd62f63b2f7d991ec7c",
+                "template_sha256": "df80abe2cf8ce70eb5762e1ced2d14e24d79fb30bb81092237e6c7e8624bcf66"
+              },
+              {
+                "role": "external-weighted-math",
+                "address": "0x63f58053c9499e1104a6f6c6d2581d6d83067eeb",
+                "code_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad",
+                "template_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad"
+              },
+              {
+                "role": "recovery-mode-helper",
+                "address": "0x66a15edcc3b50a663e72f1457ffd49b9ae284ddc",
+                "code_sha256": "bd1e51d7b39a78ebddca9c98e4022b4bda93f04e52e5aa062f1aae466d0939f7",
+                "template_sha256": "3d64b4f5ed877c318d94b8fac51c05aba1bcf40d0086e956c3d822f159998d9f"
+              }
+            ],
+            "bpt_index": 0,
+            "manager": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
+            "manager_bpt_balance": "0",
+            "protocol_collector_bpt_balance": "0",
+            "management_aum_fee": "10000000000000000",
+            "last_collection_timestamp": 1767225660,
+            "provider_fee_id": "3",
+            "live_provider_aum_percentage": "300000000000000000",
+            "cached_protocol_aum_percentage": "300000000000000000",
+            "swaps_enabled": true,
+            "paused": false,
+            "vault_paused": false,
+            "vault_pause_window_end": 1775001600,
+            "vault_buffer_period_end": 1777593600,
+            "recovery_mode": false,
+            "allowlist_enabled": false,
+            "pause_window_end": 1790553600,
+            "buffer_period_end": 1793145600,
+            "gradual_weight_end": 1767225780,
+            "gradual_fee_end": 1767225780,
+            "token_info": [
+              {
+                "cash": "10000000000",
+                "managed": "0",
+                "vault_actual_balance": "10000000000",
+                "asset_manager": "0x0000000000000000000000000000000000000000",
+                "last_change_block": 54,
+                "circuit_breaker_enabled": true
+              },
+              {
+                "cash": "1000000000000",
+                "managed": "0",
+                "vault_actual_balance": "1000000000000",
+                "asset_manager": "0x0000000000000000000000000000000000000000",
+                "last_change_block": 54,
+                "circuit_breaker_enabled": false
+              },
+              {
+                "cash": "10000000000000000000000",
+                "managed": "0",
+                "vault_actual_balance": "10000000000000000000000",
+                "asset_manager": "0x0000000000000000000000000000000000000000",
+                "last_change_block": 54,
+                "circuit_breaker_enabled": false
+              }
+            ],
+            "total_supply": "2596148429267413814265248164610048",
+            "virtual_supply": "29999999999999099950107",
+            "actual_supply": "30000000576540772382173",
+            "pending_aum": "576541672432066",
+            "vault_bpt_cash": "2596148429237413814265249064659941",
+            "vault_bpt_managed": "0",
+            "vault_bpt_actual_balance": "2596148429237413814265249064659941",
+            "schedule": {
+              "pool_state_word": "65180128459005760031490850311730215050359781837660452327764207662982359267644",
+              "tokens": [
+                {
+                  "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+                  "state_word": "4088922426273374427045795289181218537472"
+                },
+                {
+                  "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+                  "state_word": "3406513018024126544957246074317682114560"
+                },
+                {
+                  "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+                  "state_word": "9223372036854775808200000000000000000"
+                }
+              ]
+            },
+            "circuit_breakers": {
+              "tokens": [
+                {
+                  "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+                  "state_word": "2679786188208858602115301389063496774240788203926105292147198528957",
+                  "reference_bpt_price": "1200000023061630895000000000000",
+                  "reference_weight": "400000000000000000",
+                  "lower_percentage": "989947493091377152",
+                  "upper_percentage": "0",
+                  "lower_bpt_price_bound": "1192785552620479819000000000000",
+                  "upper_bpt_price_bound": "0"
+                },
+                {
+                  "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+                  "state_word": "0",
+                  "reference_bpt_price": "0",
+                  "reference_weight": "0",
+                  "lower_percentage": "0",
+                  "upper_percentage": "0",
+                  "lower_bpt_price_bound": "0",
+                  "upper_bpt_price_bound": "0"
+                },
+                {
+                  "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+                  "state_word": "0",
+                  "reference_bpt_price": "0",
+                  "reference_weight": "0",
+                  "lower_percentage": "0",
+                  "upper_percentage": "0",
+                  "lower_bpt_price_bound": "0",
+                  "upper_bpt_price_bound": "0"
+                }
+              ]
+            },
+            "bpt": {
+              "join_exit_enabled": true,
+              "minimum_bpt_locked": "1000000",
+              "bpt_last_change_block": 54,
+              "allowlist_members": []
+            }
+          }
+        }
+      },
+      "actor": "0x1eff47bc3a10a45d4b230b5d10e37751fe6aa718",
+      "cases": [
+        {
+          "index_in": 2,
+          "index_out": -1,
+          "raw_in": "48325437236780857654",
+          "raw_out": "50000000000000000000",
+          "target": "50000000000000000000",
+          "status": 1,
+          "name": "breaker:join",
+          "transaction_hash": "0x99a8f5eefce2af672a13151262d495897fbd291fed2ec72acf50e38faee6290a",
+          "execution_block": 60,
+          "execution_timestamp": 1767225720,
+          "after": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x0b4030a10c420b1000dba8282d3ea4f6e24d968d",
+            "protocol": "balancer-v2-managed-breaker",
+            "token0": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+            "token1": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+            "reserve0": "10000000000",
+            "reserve1": "1000000000000",
+            "fee_numerator": 20000000000000000,
+            "fee_denominator": 1000000000000000000,
+            "adapter_version": "balancer-v2/20230411-managed-breaker-1",
+            "token_behavior": "standard",
+            "multi_asset": {
+              "code_sha256": "c4d5fcec3fe537051dc831a7c783c9e6b6995807467aa4a37d00cceb9421f338",
+              "vault": "0xde09e74d4888bc4e65f589e8c13bce9f71ddf4c7",
+              "vault_code_sha256": "5f7268c0b8ef17e8dab169c8209d0637059431ede649579b88615221cb6de8d7",
+              "pool_id": "0x0b4030a10c420b1000dba8282d3ea4f6e24d968d000100000000000000000001",
+              "assets": [
+                {
+                  "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+                  "balance": "10000000000",
+                  "scaling": "1000000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+                  "balance": "1000000000000",
+                  "scaling": "10000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+                  "balance": "10048325437236780857654",
+                  "scaling": "1000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                }
+              ],
+              "weights": [
+                "400000000000000000",
+                "250000000000000000",
+                "350000000000000000"
+              ],
+              "amplification": "0",
+              "admin_fee": 0,
+              "managed_v2": {
+                "timestamp": 1767225720,
+                "block_number": 59,
+                "block_hash": "0x66643cf1362c327cdc0b6870b6f56e56bd7bc4e6cc16cc93bac5545cd78ca92d",
+                "factory": "0x00de48310d77a4d56aa400248b0b1613508f5b73",
+                "factory_code_sha256": "46a89aa48c7f4bbc55c6215c06ee9ae83e1e977c343158e921565f7236d91e9f",
+                "pool_runtime_template_sha256": "8a74983533349e21a84533eeb8eaf2cd898478b14893269af098d25753b4bd05",
+                "fee_provider": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+                "fee_provider_code_sha256": "c5755f28c7f98b771d711cd1cd239d5bf336d8d2e43dc48007fe981f6d20f25b",
+                "protocol_collector": "0xb9235f7e3611c23c00263677a6ce3ebf2b4109db",
+                "protocol_collector_code_sha256": "06ead6959b1061a48cd2215d41015913d6e9c4842d40441ae024353a7aee6b3a",
+                "dependencies": [
+                  {
+                    "role": "circuit-breaker-lib",
+                    "address": "0x6d411e0a54382ed43f02410ce1c7a7c122afa6e1",
+                    "code_sha256": "dbe8d688fe3f72037f55a4aabbc182d82220d327f91f9c9c3cd5123694934c7a",
+                    "template_sha256": "4e9aa2cb6e2e0f890bd55054441c366c8f86d31d17139acdd0811855c5b13d63"
+                  },
+                  {
+                    "role": "managed-pool-add-remove-token-lib",
+                    "address": "0x5cf7f96627f3c9903763d128a1cc5d97556a6b99",
+                    "code_sha256": "74b137c020e0057ffe5864a1ba9b177d3c8456b477002fba5ecb9c46b8cfa523",
+                    "template_sha256": "e10d0c193d3390bd4cc9643f0b72a5c018dcbaf92e774581def293ae6e779c53"
+                  },
+                  {
+                    "role": "managed-pool-amm-lib",
+                    "address": "0xa3183498b579bd228aa2b62101c40cc1da978f24",
+                    "code_sha256": "a2dcf5171b77fad268711b1ece04f445311ecbedce4fcbd62f63b2f7d991ec7c",
+                    "template_sha256": "df80abe2cf8ce70eb5762e1ced2d14e24d79fb30bb81092237e6c7e8624bcf66"
+                  },
+                  {
+                    "role": "external-weighted-math",
+                    "address": "0x63f58053c9499e1104a6f6c6d2581d6d83067eeb",
+                    "code_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad",
+                    "template_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad"
+                  },
+                  {
+                    "role": "recovery-mode-helper",
+                    "address": "0x66a15edcc3b50a663e72f1457ffd49b9ae284ddc",
+                    "code_sha256": "bd1e51d7b39a78ebddca9c98e4022b4bda93f04e52e5aa062f1aae466d0939f7",
+                    "template_sha256": "3d64b4f5ed877c318d94b8fac51c05aba1bcf40d0086e956c3d822f159998d9f"
+                  }
+                ],
+                "bpt_index": 0,
+                "manager": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
+                "manager_bpt_balance": "403579170702446",
+                "protocol_collector_bpt_balance": "172962501729620",
+                "management_aum_fee": "10000000000000000",
+                "last_collection_timestamp": 1767225720,
+                "provider_fee_id": "3",
+                "live_provider_aum_percentage": "300000000000000000",
+                "cached_protocol_aum_percentage": "300000000000000000",
+                "swaps_enabled": true,
+                "paused": false,
+                "vault_paused": false,
+                "vault_pause_window_end": 1775001600,
+                "vault_buffer_period_end": 1777593600,
+                "recovery_mode": false,
+                "allowlist_enabled": false,
+                "pause_window_end": 1790553600,
+                "buffer_period_end": 1793145600,
+                "gradual_weight_end": 1767225780,
+                "gradual_fee_end": 1767225780,
+                "token_info": [
+                  {
+                    "cash": "10000000000",
+                    "managed": "0",
+                    "vault_actual_balance": "10000000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 54,
+                    "circuit_breaker_enabled": true
+                  },
+                  {
+                    "cash": "1000000000000",
+                    "managed": "0",
+                    "vault_actual_balance": "1000000000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 54,
+                    "circuit_breaker_enabled": false
+                  },
+                  {
+                    "cash": "10048325437236780857654",
+                    "managed": "0",
+                    "vault_actual_balance": "10048325437236780857654",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 60,
+                    "circuit_breaker_enabled": false
+                  }
+                ],
+                "total_supply": "2596148429267413814841789837042114",
+                "virtual_supply": "30050000576540772382173",
+                "actual_supply": "30050000576540772382173",
+                "pending_aum": "0",
+                "vault_bpt_cash": "2596148429237363814265249064659941",
+                "vault_bpt_managed": "0",
+                "vault_bpt_actual_balance": "2596148429237363814265249064659941",
+                "execution_context": {
+                  "block_number": 60,
+                  "timestamp": 1767225720
+                },
+                "schedule": {
+                  "pool_state_word": "65180128459005760031490850311730215050359781837660452327764207662982359267644",
+                  "tokens": [
+                    {
+                      "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+                      "state_word": "4088922426273374427045795289181218537472"
+                    },
+                    {
+                      "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+                      "state_word": "3406513018024126544957246074317682114560"
+                    },
+                    {
+                      "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+                      "state_word": "9223372036854775808200000000000000000"
+                    }
+                  ]
+                },
+                "circuit_breakers": {
+                  "tokens": [
+                    {
+                      "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+                      "state_word": "2679786188208858602115301389063496774240788203926105292147198528957",
+                      "reference_bpt_price": "1200000023061630895000000000000",
+                      "reference_weight": "400000000000000000",
+                      "lower_percentage": "989947493091377152",
+                      "upper_percentage": "0",
+                      "lower_bpt_price_bound": "1192785552620479819000000000000",
+                      "upper_bpt_price_bound": "0"
+                    },
+                    {
+                      "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+                      "state_word": "0",
+                      "reference_bpt_price": "0",
+                      "reference_weight": "0",
+                      "lower_percentage": "0",
+                      "upper_percentage": "0",
+                      "lower_bpt_price_bound": "0",
+                      "upper_bpt_price_bound": "0"
+                    },
+                    {
+                      "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+                      "state_word": "0",
+                      "reference_bpt_price": "0",
+                      "reference_weight": "0",
+                      "lower_percentage": "0",
+                      "upper_percentage": "0",
+                      "lower_bpt_price_bound": "0",
+                      "upper_bpt_price_bound": "0"
+                    }
+                  ]
+                },
+                "bpt": {
+                  "join_exit_enabled": true,
+                  "minimum_bpt_locked": "1000000",
+                  "bpt_last_change_block": 60,
+                  "allowlist_members": []
+                }
+              }
+            }
+          }
+        },
+        {
+          "index_in": -1,
+          "index_out": 2,
+          "raw_in": "1060576858997830",
+          "raw_out": "1000000000000000",
+          "target": "1000000000000000",
+          "status": 1,
+          "name": "breaker:exit",
+          "transaction_hash": "0x50595f0baa2cf7cf3048e2c4786239abe7de3c9e3a61c40a3aa607adfb06815d",
+          "execution_block": 61,
+          "execution_timestamp": 1767225720,
+          "after": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x0b4030a10c420b1000dba8282d3ea4f6e24d968d",
+            "protocol": "balancer-v2-managed-breaker",
+            "token0": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+            "token1": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+            "reserve0": "10000000000",
+            "reserve1": "1000000000000",
+            "fee_numerator": 20000000000000000,
+            "fee_denominator": 1000000000000000000,
+            "adapter_version": "balancer-v2/20230411-managed-breaker-1",
+            "token_behavior": "standard",
+            "multi_asset": {
+              "code_sha256": "c4d5fcec3fe537051dc831a7c783c9e6b6995807467aa4a37d00cceb9421f338",
+              "vault": "0xde09e74d4888bc4e65f589e8c13bce9f71ddf4c7",
+              "vault_code_sha256": "5f7268c0b8ef17e8dab169c8209d0637059431ede649579b88615221cb6de8d7",
+              "pool_id": "0x0b4030a10c420b1000dba8282d3ea4f6e24d968d000100000000000000000001",
+              "assets": [
+                {
+                  "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+                  "balance": "10000000000",
+                  "scaling": "1000000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+                  "balance": "1000000000000",
+                  "scaling": "10000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+                  "balance": "10048324437236780857654",
+                  "scaling": "1000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                }
+              ],
+              "weights": [
+                "400000000000000000",
+                "250000000000000000",
+                "350000000000000000"
+              ],
+              "amplification": "0",
+              "admin_fee": 0,
+              "managed_v2": {
+                "timestamp": 1767225720,
+                "block_number": 59,
+                "block_hash": "0x66643cf1362c327cdc0b6870b6f56e56bd7bc4e6cc16cc93bac5545cd78ca92d",
+                "factory": "0x00de48310d77a4d56aa400248b0b1613508f5b73",
+                "factory_code_sha256": "46a89aa48c7f4bbc55c6215c06ee9ae83e1e977c343158e921565f7236d91e9f",
+                "pool_runtime_template_sha256": "8a74983533349e21a84533eeb8eaf2cd898478b14893269af098d25753b4bd05",
+                "fee_provider": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+                "fee_provider_code_sha256": "c5755f28c7f98b771d711cd1cd239d5bf336d8d2e43dc48007fe981f6d20f25b",
+                "protocol_collector": "0xb9235f7e3611c23c00263677a6ce3ebf2b4109db",
+                "protocol_collector_code_sha256": "06ead6959b1061a48cd2215d41015913d6e9c4842d40441ae024353a7aee6b3a",
+                "dependencies": [
+                  {
+                    "role": "circuit-breaker-lib",
+                    "address": "0x6d411e0a54382ed43f02410ce1c7a7c122afa6e1",
+                    "code_sha256": "dbe8d688fe3f72037f55a4aabbc182d82220d327f91f9c9c3cd5123694934c7a",
+                    "template_sha256": "4e9aa2cb6e2e0f890bd55054441c366c8f86d31d17139acdd0811855c5b13d63"
+                  },
+                  {
+                    "role": "managed-pool-add-remove-token-lib",
+                    "address": "0x5cf7f96627f3c9903763d128a1cc5d97556a6b99",
+                    "code_sha256": "74b137c020e0057ffe5864a1ba9b177d3c8456b477002fba5ecb9c46b8cfa523",
+                    "template_sha256": "e10d0c193d3390bd4cc9643f0b72a5c018dcbaf92e774581def293ae6e779c53"
+                  },
+                  {
+                    "role": "managed-pool-amm-lib",
+                    "address": "0xa3183498b579bd228aa2b62101c40cc1da978f24",
+                    "code_sha256": "a2dcf5171b77fad268711b1ece04f445311ecbedce4fcbd62f63b2f7d991ec7c",
+                    "template_sha256": "df80abe2cf8ce70eb5762e1ced2d14e24d79fb30bb81092237e6c7e8624bcf66"
+                  },
+                  {
+                    "role": "external-weighted-math",
+                    "address": "0x63f58053c9499e1104a6f6c6d2581d6d83067eeb",
+                    "code_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad",
+                    "template_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad"
+                  },
+                  {
+                    "role": "recovery-mode-helper",
+                    "address": "0x66a15edcc3b50a663e72f1457ffd49b9ae284ddc",
+                    "code_sha256": "bd1e51d7b39a78ebddca9c98e4022b4bda93f04e52e5aa062f1aae466d0939f7",
+                    "template_sha256": "3d64b4f5ed877c318d94b8fac51c05aba1bcf40d0086e956c3d822f159998d9f"
+                  }
+                ],
+                "bpt_index": 0,
+                "manager": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
+                "manager_bpt_balance": "403579170702446",
+                "protocol_collector_bpt_balance": "172962501729620",
+                "management_aum_fee": "10000000000000000",
+                "last_collection_timestamp": 1767225720,
+                "provider_fee_id": "3",
+                "live_provider_aum_percentage": "300000000000000000",
+                "cached_protocol_aum_percentage": "300000000000000000",
+                "swaps_enabled": true,
+                "paused": false,
+                "vault_paused": false,
+                "vault_pause_window_end": 1775001600,
+                "vault_buffer_period_end": 1777593600,
+                "recovery_mode": false,
+                "allowlist_enabled": false,
+                "pause_window_end": 1790553600,
+                "buffer_period_end": 1793145600,
+                "gradual_weight_end": 1767225780,
+                "gradual_fee_end": 1767225780,
+                "token_info": [
+                  {
+                    "cash": "10000000000",
+                    "managed": "0",
+                    "vault_actual_balance": "10000000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 54,
+                    "circuit_breaker_enabled": true
+                  },
+                  {
+                    "cash": "1000000000000",
+                    "managed": "0",
+                    "vault_actual_balance": "1000000000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 54,
+                    "circuit_breaker_enabled": false
+                  },
+                  {
+                    "cash": "10048324437236780857654",
+                    "managed": "0",
+                    "vault_actual_balance": "10048324437236780857654",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 61,
+                    "circuit_breaker_enabled": false
+                  }
+                ],
+                "total_supply": "2596148429267413814841789837042114",
+                "virtual_supply": "30049999515963913384343",
+                "actual_supply": "30049999515963913384343",
+                "pending_aum": "0",
+                "vault_bpt_cash": "2596148429237363815325825923657771",
+                "vault_bpt_managed": "0",
+                "vault_bpt_actual_balance": "2596148429237363815325825923657771",
+                "execution_context": {
+                  "block_number": 61,
+                  "timestamp": 1767225720
+                },
+                "schedule": {
+                  "pool_state_word": "65180128459005760031490850311730215050359781837660452327764207662982359267644",
+                  "tokens": [
+                    {
+                      "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+                      "state_word": "4088922426273374427045795289181218537472"
+                    },
+                    {
+                      "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+                      "state_word": "3406513018024126544957246074317682114560"
+                    },
+                    {
+                      "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+                      "state_word": "9223372036854775808200000000000000000"
+                    }
+                  ]
+                },
+                "circuit_breakers": {
+                  "tokens": [
+                    {
+                      "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+                      "state_word": "2679786188208858602115301389063496774240788203926105292147198528957",
+                      "reference_bpt_price": "1200000023061630895000000000000",
+                      "reference_weight": "400000000000000000",
+                      "lower_percentage": "989947493091377152",
+                      "upper_percentage": "0",
+                      "lower_bpt_price_bound": "1192785552620479819000000000000",
+                      "upper_bpt_price_bound": "0"
+                    },
+                    {
+                      "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+                      "state_word": "0",
+                      "reference_bpt_price": "0",
+                      "reference_weight": "0",
+                      "lower_percentage": "0",
+                      "upper_percentage": "0",
+                      "lower_bpt_price_bound": "0",
+                      "upper_bpt_price_bound": "0"
+                    },
+                    {
+                      "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+                      "state_word": "0",
+                      "reference_bpt_price": "0",
+                      "reference_weight": "0",
+                      "lower_percentage": "0",
+                      "upper_percentage": "0",
+                      "lower_bpt_price_bound": "0",
+                      "upper_bpt_price_bound": "0"
+                    }
+                  ]
+                },
+                "bpt": {
+                  "join_exit_enabled": true,
+                  "minimum_bpt_locked": "1000000",
+                  "bpt_last_change_block": 61,
+                  "allowlist_members": []
+                }
+              }
+            }
+          }
+        },
+        {
+          "index_in": 0,
+          "index_out": -1,
+          "raw_in": "0",
+          "raw_out": "0",
+          "target": "2000000000000000000000",
+          "status": 0,
+          "name": "breaker:blocked-join",
+          "transaction_hash": "0x415ae9fc36395f1c4bda457ed9f7fbb43d6705ef1925604ac0757a1c5c677925",
+          "execution_block": 62,
+          "execution_timestamp": 1767225720,
+          "after": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x0b4030a10c420b1000dba8282d3ea4f6e24d968d",
+            "protocol": "balancer-v2-managed-breaker",
+            "token0": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+            "token1": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+            "reserve0": "10000000000",
+            "reserve1": "1000000000000",
+            "fee_numerator": 20000000000000000,
+            "fee_denominator": 1000000000000000000,
+            "adapter_version": "balancer-v2/20230411-managed-breaker-1",
+            "token_behavior": "standard",
+            "multi_asset": {
+              "code_sha256": "c4d5fcec3fe537051dc831a7c783c9e6b6995807467aa4a37d00cceb9421f338",
+              "vault": "0xde09e74d4888bc4e65f589e8c13bce9f71ddf4c7",
+              "vault_code_sha256": "5f7268c0b8ef17e8dab169c8209d0637059431ede649579b88615221cb6de8d7",
+              "pool_id": "0x0b4030a10c420b1000dba8282d3ea4f6e24d968d000100000000000000000001",
+              "assets": [
+                {
+                  "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+                  "balance": "10000000000",
+                  "scaling": "1000000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+                  "balance": "1000000000000",
+                  "scaling": "10000000000000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                },
+                {
+                  "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+                  "balance": "10048324437236780857654",
+                  "scaling": "1000000000000000000",
+                  "code_sha256": "1c7d7c96ab8624c17648d51772a3e6a3ad0f048831f7ae6a7116ddeaad1c83f6"
+                }
+              ],
+              "weights": [
+                "400000000000000000",
+                "250000000000000000",
+                "350000000000000000"
+              ],
+              "amplification": "0",
+              "admin_fee": 0,
+              "managed_v2": {
+                "timestamp": 1767225720,
+                "block_number": 59,
+                "block_hash": "0x66643cf1362c327cdc0b6870b6f56e56bd7bc4e6cc16cc93bac5545cd78ca92d",
+                "factory": "0x00de48310d77a4d56aa400248b0b1613508f5b73",
+                "factory_code_sha256": "46a89aa48c7f4bbc55c6215c06ee9ae83e1e977c343158e921565f7236d91e9f",
+                "pool_runtime_template_sha256": "8a74983533349e21a84533eeb8eaf2cd898478b14893269af098d25753b4bd05",
+                "fee_provider": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+                "fee_provider_code_sha256": "c5755f28c7f98b771d711cd1cd239d5bf336d8d2e43dc48007fe981f6d20f25b",
+                "protocol_collector": "0xb9235f7e3611c23c00263677a6ce3ebf2b4109db",
+                "protocol_collector_code_sha256": "06ead6959b1061a48cd2215d41015913d6e9c4842d40441ae024353a7aee6b3a",
+                "dependencies": [
+                  {
+                    "role": "circuit-breaker-lib",
+                    "address": "0x6d411e0a54382ed43f02410ce1c7a7c122afa6e1",
+                    "code_sha256": "dbe8d688fe3f72037f55a4aabbc182d82220d327f91f9c9c3cd5123694934c7a",
+                    "template_sha256": "4e9aa2cb6e2e0f890bd55054441c366c8f86d31d17139acdd0811855c5b13d63"
+                  },
+                  {
+                    "role": "managed-pool-add-remove-token-lib",
+                    "address": "0x5cf7f96627f3c9903763d128a1cc5d97556a6b99",
+                    "code_sha256": "74b137c020e0057ffe5864a1ba9b177d3c8456b477002fba5ecb9c46b8cfa523",
+                    "template_sha256": "e10d0c193d3390bd4cc9643f0b72a5c018dcbaf92e774581def293ae6e779c53"
+                  },
+                  {
+                    "role": "managed-pool-amm-lib",
+                    "address": "0xa3183498b579bd228aa2b62101c40cc1da978f24",
+                    "code_sha256": "a2dcf5171b77fad268711b1ece04f445311ecbedce4fcbd62f63b2f7d991ec7c",
+                    "template_sha256": "df80abe2cf8ce70eb5762e1ced2d14e24d79fb30bb81092237e6c7e8624bcf66"
+                  },
+                  {
+                    "role": "external-weighted-math",
+                    "address": "0x63f58053c9499e1104a6f6c6d2581d6d83067eeb",
+                    "code_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad",
+                    "template_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad"
+                  },
+                  {
+                    "role": "recovery-mode-helper",
+                    "address": "0x66a15edcc3b50a663e72f1457ffd49b9ae284ddc",
+                    "code_sha256": "bd1e51d7b39a78ebddca9c98e4022b4bda93f04e52e5aa062f1aae466d0939f7",
+                    "template_sha256": "3d64b4f5ed877c318d94b8fac51c05aba1bcf40d0086e956c3d822f159998d9f"
+                  }
+                ],
+                "bpt_index": 0,
+                "manager": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
+                "manager_bpt_balance": "403579170702446",
+                "protocol_collector_bpt_balance": "172962501729620",
+                "management_aum_fee": "10000000000000000",
+                "last_collection_timestamp": 1767225720,
+                "provider_fee_id": "3",
+                "live_provider_aum_percentage": "300000000000000000",
+                "cached_protocol_aum_percentage": "300000000000000000",
+                "swaps_enabled": true,
+                "paused": false,
+                "vault_paused": false,
+                "vault_pause_window_end": 1775001600,
+                "vault_buffer_period_end": 1777593600,
+                "recovery_mode": false,
+                "allowlist_enabled": false,
+                "pause_window_end": 1790553600,
+                "buffer_period_end": 1793145600,
+                "gradual_weight_end": 1767225780,
+                "gradual_fee_end": 1767225780,
+                "token_info": [
+                  {
+                    "cash": "10000000000",
+                    "managed": "0",
+                    "vault_actual_balance": "10000000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 54,
+                    "circuit_breaker_enabled": true
+                  },
+                  {
+                    "cash": "1000000000000",
+                    "managed": "0",
+                    "vault_actual_balance": "1000000000000",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 54,
+                    "circuit_breaker_enabled": false
+                  },
+                  {
+                    "cash": "10048324437236780857654",
+                    "managed": "0",
+                    "vault_actual_balance": "10048324437236780857654",
+                    "asset_manager": "0x0000000000000000000000000000000000000000",
+                    "last_change_block": 61,
+                    "circuit_breaker_enabled": false
+                  }
+                ],
+                "total_supply": "2596148429267413814841789837042114",
+                "virtual_supply": "30049999515963913384343",
+                "actual_supply": "30049999515963913384343",
+                "pending_aum": "0",
+                "vault_bpt_cash": "2596148429237363815325825923657771",
+                "vault_bpt_managed": "0",
+                "vault_bpt_actual_balance": "2596148429237363815325825923657771",
+                "execution_context": {
+                  "block_number": 62,
+                  "timestamp": 1767225720
+                },
+                "schedule": {
+                  "pool_state_word": "65180128459005760031490850311730215050359781837660452327764207662982359267644",
+                  "tokens": [
+                    {
+                      "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+                      "state_word": "4088922426273374427045795289181218537472"
+                    },
+                    {
+                      "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+                      "state_word": "3406513018024126544957246074317682114560"
+                    },
+                    {
+                      "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+                      "state_word": "9223372036854775808200000000000000000"
+                    }
+                  ]
+                },
+                "circuit_breakers": {
+                  "tokens": [
+                    {
+                      "token": "0x3bb7f1a59bde3b61a0d537723e4e27d022489635",
+                      "state_word": "2679786188208858602115301389063496774240788203926105292147198528957",
+                      "reference_bpt_price": "1200000023061630895000000000000",
+                      "reference_weight": "400000000000000000",
+                      "lower_percentage": "989947493091377152",
+                      "upper_percentage": "0",
+                      "lower_bpt_price_bound": "1192785552620479819000000000000",
+                      "upper_bpt_price_bound": "0"
+                    },
+                    {
+                      "token": "0x3d3955aae5bdf9e6547a140baad4bc57fa4eba17",
+                      "state_word": "0",
+                      "reference_bpt_price": "0",
+                      "reference_weight": "0",
+                      "lower_percentage": "0",
+                      "upper_percentage": "0",
+                      "lower_bpt_price_bound": "0",
+                      "upper_bpt_price_bound": "0"
+                    },
+                    {
+                      "token": "0x9f4dcd09de62e1985807c74716dbb6768ce26892",
+                      "state_word": "0",
+                      "reference_bpt_price": "0",
+                      "reference_weight": "0",
+                      "lower_percentage": "0",
+                      "upper_percentage": "0",
+                      "lower_bpt_price_bound": "0",
+                      "upper_bpt_price_bound": "0"
+                    }
+                  ]
+                },
+                "bpt": {
+                  "join_exit_enabled": true,
+                  "minimum_bpt_locked": "1000000",
+                  "bpt_last_change_block": 61,
+                  "allowlist_members": []
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

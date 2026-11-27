@@ -165,8 +165,14 @@ pub fn quote_exact_in_tokens(
 pub fn supports_regular_exact_out(protocol: &str) -> bool {
     matches!(
         protocol,
-        PROTOCOL
-            | xone_domain::managed_v2_schedule::PROTOCOL
+        PROTOCOL | xone_domain::managed_v2_schedule::PROTOCOL
+    ) || supports_bpt_exact_out(protocol)
+}
+
+pub fn supports_bpt_exact_out(protocol: &str) -> bool {
+    matches!(
+        protocol,
+        xone_domain::managed_v2_bpt_state::PROTOCOL
             | xone_domain::managed_v2_circuit_state::PROTOCOL
     )
 }
@@ -461,10 +467,66 @@ pub fn quote_bpt_exact_in_at(
     token_out: &str,
     execution: BptExecution<'_>,
 ) -> Result<Swap> {
-    use crate::managed_v2_bpt::{quote_exit_exact_in, quote_join_exact_in, BptSwapInputs};
-    if pool.protocol != xone_domain::managed_v2_bpt_state::PROTOCOL
-        && pool.protocol != xone_domain::managed_v2_circuit_state::PROTOCOL
-    {
+    quote_bpt_at(
+        pool,
+        SwapAmount::In(&input.0),
+        token_in,
+        token_out,
+        execution,
+    )
+}
+
+pub fn quote_bpt_exact_out_at(
+    pool: &Pool,
+    output: &Amount,
+    token_in: &str,
+    token_out: &str,
+    execution: BptExecution<'_>,
+) -> Result<Swap> {
+    quote_bpt_at(
+        pool,
+        SwapAmount::Out(&output.0),
+        token_in,
+        token_out,
+        execution,
+    )
+}
+
+pub fn quote_bpt_exact_out(
+    pool: &Pool,
+    output: &Amount,
+    token_in: &str,
+    token_out: &str,
+    sender: &str,
+    recipient: &str,
+) -> Result<Swap> {
+    let context = current_context(state(pool)?);
+    quote_bpt_exact_out_at(
+        pool,
+        output,
+        token_in,
+        token_out,
+        BptExecution {
+            sender,
+            recipient,
+            block_number: context.block_number,
+            timestamp: context.timestamp,
+        },
+    )
+}
+
+fn quote_bpt_at(
+    pool: &Pool,
+    amount: SwapAmount<'_>,
+    token_in: &str,
+    token_out: &str,
+    execution: BptExecution<'_>,
+) -> Result<Swap> {
+    use crate::managed_v2_bpt::{
+        calculate_exact_out, calculate_exit_exact_in, calculate_join_exact_in, quote_exit_exact_in,
+        quote_join_exact_in, BptSwapInputs,
+    };
+    if !supports_bpt_exact_out(&pool.protocol) {
         return Err(err("MANAGED_V2_BPT_PROFILE"));
     }
     for address in [execution.sender, execution.recipient] {
@@ -523,45 +585,70 @@ pub fn quote_bpt_exact_in_at(
         fee: &fee,
         actual_supply: &m.actual_supply.0,
     };
-    let output = if m.circuit_breakers.is_some() {
-        if join {
-            let calculation = crate::managed_v2_bpt::calculate_join_exact_in(inputs, &input.0)?;
+    let (input, output) = match amount {
+        SwapAmount::Out(output) => {
+            let calculation = calculate_exact_out(inputs, output, join)?;
             crate::managed_v2_breaker::check_bpt(
                 pool,
                 i,
-                &input.0,
-                &calculation.amount_out,
-                &calculation.gross_input_scaled,
-                true,
+                &calculation.amount_in,
+                output,
+                &calculation.scaled_underlying,
+                join,
             )?;
-            calculation.settle()?
-        } else {
-            let calculation = crate::managed_v2_bpt::calculate_exit_exact_in(inputs, &input.0)?;
-            crate::managed_v2_breaker::check_bpt(
-                pool,
-                i,
-                &input.0,
-                &calculation.amount_out,
-                &calculation.scaled_amount_out,
-                false,
-            )?;
-            calculation.settle()?
+            if join {
+                let balance = &s.assets[i].balance.0 + &calculation.amount_in;
+                if balance.bits() > 112 {
+                    return Err(err("MANAGED_V2_BPT_VAULT_UINT112"));
+                }
+            } else if output > inputs.cash {
+                return Err(err("MANAGED_V2_BPT_INSUFFICIENT_REGISTERED_CASH"));
+            }
+            (calculation.amount_in, output.clone())
         }
-    } else if join {
-        quote_join_exact_in(inputs, &input.0)?
-    } else {
-        quote_exit_exact_in(inputs, &input.0)?
+        SwapAmount::In(input) => {
+            let output = if m.circuit_breakers.is_some() {
+                if join {
+                    let calculation = calculate_join_exact_in(inputs, input)?;
+                    crate::managed_v2_breaker::check_bpt(
+                        pool,
+                        i,
+                        input,
+                        &calculation.amount_out,
+                        &calculation.gross_input_scaled,
+                        true,
+                    )?;
+                    calculation.settle()?
+                } else {
+                    let calculation = calculate_exit_exact_in(inputs, input)?;
+                    crate::managed_v2_breaker::check_bpt(
+                        pool,
+                        i,
+                        input,
+                        &calculation.amount_out,
+                        &calculation.scaled_amount_out,
+                        false,
+                    )?;
+                    calculation.settle()?
+                }
+            } else if join {
+                quote_join_exact_in(inputs, input)?
+            } else {
+                quote_exit_exact_in(inputs, input)?
+            };
+            (input.clone(), output)
+        }
     };
     if join {
         m.vault_bpt_cash = subtract_balance(&m.vault_bpt_cash, &output)?;
-        m.token_info[i].cash = add_wallet_balance(&m.token_info[i].cash, &input.0)?;
+        m.token_info[i].cash = add_wallet_balance(&m.token_info[i].cash, &input)?;
         if execution.sender != s.vault {
             m.token_info[i].vault_actual_balance =
-                add_wallet_balance(&m.token_info[i].vault_actual_balance, &input.0)?;
+                add_wallet_balance(&m.token_info[i].vault_actual_balance, &input)?;
         }
         transfer_bpt_wallets(m, &s.vault, &s.vault, execution.recipient, &output)?;
     } else {
-        m.vault_bpt_cash = add_wallet_balance(&m.vault_bpt_cash, &input.0)?;
+        m.vault_bpt_cash = add_wallet_balance(&m.vault_bpt_cash, &input)?;
         if m.vault_bpt_cash.0.bits() > 112 {
             return Err(err("MANAGED_V2_BPT_VAULT_UINT112"));
         }
@@ -570,7 +657,7 @@ pub fn quote_bpt_exact_in_at(
             m.token_info[i].vault_actual_balance =
                 subtract_balance(&m.token_info[i].vault_actual_balance, &output)?;
         }
-        transfer_bpt_wallets(m, &s.vault, execution.sender, &s.vault, &input.0)?;
+        transfer_bpt_wallets(m, &s.vault, execution.sender, &s.vault, &input)?;
     }
     m.virtual_supply = subtract_balance(&m.total_supply, &m.vault_bpt_cash.0)?;
     m.actual_supply = m.virtual_supply.clone();
@@ -587,7 +674,7 @@ pub fn quote_bpt_exact_in_at(
     next.validate()?;
     Ok(Swap {
         amount_out: Amount(output),
-        consumed_in: input.clone(),
+        consumed_in: Amount(input),
         remaining_in: Amount::zero(),
         next_pool: next,
     })
