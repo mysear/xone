@@ -69,6 +69,7 @@
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
 |I7-R04.2 Solana 当前基线切换（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|HEAD_FIRST 在接受 RPC 基线前检查时间，遇到陈旧基线继续检查后续端点。WAL 保留原始响应，离线重放只选择通过检查的基线。启动隔离套件 9 项通过|2 项需要独立 PostgreSQL/Kafka 的测试未运行。真实可信 peer 和实际长停机验收继续推进|
+|I7-R04.2 Kafka 冷启动重锚定（2026-11-28）|§18.7、§23.14、§28.10、§28.26；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|报价副本遇到 Kafka 游标早于实际保留水位时，从有限尾部读取最新完整单元并绑定新的 cursor。重锚定校验链身份、序号、新鲜度和分区，失败仍保持不可用；新增纯函数回归，`cargo check -p xone-quote-api --lib` 通过|Quote API 全量测试仍受仓库缺失 EVM fixture 阻塞，实际 Kafka 删除记录和长停机演练待独立中间件环境|
 |I7-R04.3 历史队列重启校验（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|Rust 在解析前限制持久队列原始字节，校验覆盖区间、作业游标和租约。在线基线提交保留损坏记录供核对。3 项持久状态回归及 7 项正常 history runtime 测试通过|旧 `history_queue` 集成套件缺少 `chain-parser-rust/test/fixtures/solana/baseline.json`，长期容量和留存验收仍待完成|
 |I7-R04 持久范围预算与历史隔离边界（2026-11-28）|§9、§18、§28.26；WP08、WP09、WP20、WP24|LOCAL_SCOPE_VERIFIED|修复在线 scope 保留容量和 history replay 重启加载的无符号预算下溢，损坏聚合和超限历史记录现在在进入恢复或 READY 前封闭；冷启动从历史目录最多恢复 32 个仍有效的池身份，额外池继续通过显式 scope 请求扩容；Rust history queue 重启读取也按作业、队列、记录和字节预算封闭；新增两项 Go 边界回归，Go bootstrap 全包及 Rust history runtime 7 项通过|缺失的历史 receipt fixture 仍阻塞集成 retention 验收；真实长停机、公开历史 bank 和生产故障域仍待完成|
 |I7-R03 真实中间件流恢复基础（2026-11-27）|§7、§18、§28.22；WP04、WP05、WP07、WP20、WP24|LOCAL_SCOPE_VERIFIED|隔离 Docker PostgreSQL/Kafka 回退、Kafka 内外双监听器、固定 protobuf/SDK 构建环境和真实 normal Yellowstone 发布、撤销、重启、Fence、HEAD_FIRST 场景已接入；R03 history runtime 7 项测试通过|证据为受控 tonic 来源与本机真实中间件，真实同源 Yellowstone、版本化历史 bank 完整性、连续断线和生产故障域仍待验收|
@@ -452,7 +453,7 @@
 
 #### 下一迭代目标（I7 R04.2，2026-11-28）
 
-- 按 §23.14 复验 Kafka 旧 offset 超出实际保留窗口后的空盘恢复，记录首个合格 scope、首个报价及历史缺口。可信 peer 和 1 小时、1 天、30 天实际停机继续验收。
+- 按 §23.14 在独立 Kafka 中复验旧 offset 超出实际保留窗口后的空盘恢复，记录首个合格 scope、首个报价及历史缺口。可信 peer 和 1 小时、1 天、30 天实际停机继续验收。
 
 ### I8 路由与费用
 

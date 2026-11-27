@@ -44,7 +44,7 @@ use tower_http::cors::CorsLayer;
 use xone_config::ConfigSnapshot;
 use xone_domain::{err, hash, Amount, Record, Result, Snapshot};
 use xone_execution_plan::{Context, Plan};
-use xone_kafka_transport::{Cursor, Reader};
+use xone_kafka_transport::{tail, Bootstrap, Cursor, Reader, Unit};
 use xone_observability::{now_ms, Logger};
 use xone_state_replica::{QuoteView, Replica};
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -65,6 +65,29 @@ pub struct QuoteRequest {
     pub slippage_bps: u16,
     pub verification: String,
     pub constraints: Option<Constraints>,
+}
+
+fn reanchor_bootstrap(
+    original: &Bootstrap,
+    latest: Option<Unit>,
+    cursor: Cursor,
+    chain: &str,
+    max_age_ms: u64,
+    now_ms: u64,
+) -> Result<Bootstrap> {
+    let snapshot = latest
+        .map(|unit| unit.snapshot)
+        .unwrap_or_else(|| original.snapshot.clone());
+    if snapshot.reference.block.chain_key != chain
+        || snapshot.reference.journal_seq < original.snapshot.reference.journal_seq
+        || snapshot.reference.block.timestamp_ms > now_ms.saturating_add(30_000)
+        || now_ms.saturating_sub(snapshot.reference.block.timestamp_ms) > max_age_ms
+        || cursor.partition != 0
+        || cursor.offset < 0
+    {
+        return Err(err("KAFKA_REANCHOR_REQUIRED"));
+    }
+    Ok(Bootstrap { snapshot, cursor })
 }
 impl QuoteRequest {
     pub fn validate(&self) -> Result<()> {
@@ -858,18 +881,51 @@ impl Api {
         let cursor = boot.cursor.clone();
         let chain_key = chain.to_owned();
         let seq = boot.snapshot.reference.journal_seq;
-        let reader = tokio::task::spawn_blocking(move || {
+        let initial_boot = boot.clone();
+        let (boot, reader) = tokio::task::spawn_blocking(move || {
             let k = &cfg.config.journal.kafka;
-            let mut r = Reader::open(
+            let open = Reader::open(
                 &k.brokers,
                 &format!("quote.{}.{}", chain_key, k.replica_id),
                 &cursor,
                 cfg.config.journal.max_payload_bytes,
                 k.max_tail_records,
                 Duration::from_millis(cfg.config.journal.request_timeout_ms),
-            )?;
-            r.last_sequence = seq;
-            Ok::<_, xone_domain::Error>(r)
+            );
+            match open {
+                Ok(mut reader) => {
+                    reader.last_sequence = seq;
+                    Ok((initial_boot, reader))
+                }
+                Err(error) if error.0 == "KAFKA_REANCHOR_REQUIRED" => {
+                    let (latest, tail_cursor) = tail(
+                        &k.brokers,
+                        &cursor.topic,
+                        cfg.config.journal.max_payload_bytes,
+                        k.max_tail_records,
+                        Duration::from_millis(cfg.config.journal.request_timeout_ms),
+                    )?;
+                    let boot = reanchor_bootstrap(
+                        &initial_boot,
+                        latest,
+                        tail_cursor.clone(),
+                        &chain_key,
+                        cfg.config.startup.max_baseline_age_ms,
+                        now_ms(),
+                    )?;
+                    let mut reader = Reader::open(
+                        &k.brokers,
+                        &format!("quote.{}.{}", chain_key, k.replica_id),
+                        &tail_cursor,
+                        cfg.config.journal.max_payload_bytes,
+                        k.max_tail_records,
+                        Duration::from_millis(cfg.config.journal.request_timeout_ms),
+                    )?;
+                    reader.last_sequence = boot.snapshot.reference.journal_seq;
+                    Ok((boot, reader))
+                }
+                Err(error) => Err(error),
+            }
         })
         .await
         .map_err(|_| err("KAFKA_READER_TASK"))??;
@@ -1994,5 +2050,106 @@ mod source_auth_tests {
         let result = api.fetch_raw(&format!("{source}/a/internal/test")).await;
         server.abort();
         assert_eq!(result.unwrap(), b"source-ok");
+    }
+}
+
+#[cfg(test)]
+mod kafka_reanchor_tests {
+    use super::*;
+    use xone_domain::{BlockRef, SnapshotRef, SCHEMA_VERSION};
+
+    fn bootstrap(chain: &str, sequence: u64, timestamp_ms: u64) -> Bootstrap {
+        Bootstrap {
+            snapshot: Snapshot {
+                reference: SnapshotRef {
+                    block: BlockRef {
+                        chain_key: chain.into(),
+                        number_or_slot: sequence,
+                        hash: format!("hash-{sequence}"),
+                        parent_hash: "parent".into(),
+                        timestamp_ms,
+                    },
+                    canonical_epoch: 1,
+                    journal_seq: sequence,
+                    schema_version: SCHEMA_VERSION,
+                    adapter_set_hash: "adapter".into(),
+                    online_generation: 1,
+                    scope_hash: "scope".into(),
+                    writer_epoch: 1,
+                    owner_service: "owner".into(),
+                    owner_assignment_version: 1,
+                },
+                pools: vec![],
+                source: "test".into(),
+                history_gaps: vec![],
+            },
+            cursor: Cursor {
+                topic: "topic".into(),
+                partition: 0,
+                offset: sequence as i64,
+            },
+        }
+    }
+
+    #[test]
+    fn stale_cursor_reanchors_to_fresh_tail_unit() {
+        let original = bootstrap("evm:31337", 4, 900_000);
+        let latest = Unit {
+            normalized_facts: None,
+            kind: "ONLINE_BASELINE_COMMIT".into(),
+            snapshot: bootstrap("evm:31337", 8, 999_500).snapshot,
+        };
+        let result = reanchor_bootstrap(
+            &original,
+            Some(latest),
+            Cursor {
+                topic: "topic".into(),
+                partition: 0,
+                offset: 18,
+            },
+            "evm:31337",
+            1_000,
+            1_000_000,
+        )
+        .unwrap();
+        assert_eq!(result.snapshot.reference.journal_seq, 8);
+        assert_eq!(result.cursor.offset, 18);
+    }
+
+    #[test]
+    fn stale_or_cross_chain_tail_cannot_reanchor() {
+        let original = bootstrap("evm:31337", 4, 999_000);
+        let stale = Unit {
+            normalized_facts: None,
+            kind: "ONLINE_BASELINE_COMMIT".into(),
+            snapshot: bootstrap("evm:31337", 5, 900_000).snapshot,
+        };
+        assert_eq!(
+            reanchor_bootstrap(
+                &original,
+                Some(stale),
+                original.cursor.clone(),
+                "evm:31337",
+                1_000,
+                1_000_000,
+            )
+            .unwrap_err()
+            .0,
+            "KAFKA_REANCHOR_REQUIRED"
+        );
+        let wrong_chain = Unit {
+            normalized_facts: None,
+            kind: "ONLINE_BASELINE_COMMIT".into(),
+            snapshot: bootstrap("evm:1", 8, 999_500).snapshot,
+        };
+        assert!(reanchor_bootstrap(
+            &original,
+            Some(wrong_chain),
+            original.cursor.clone(),
+            "evm:31337",
+            1_000,
+            1_000_000,
+        )
+        .is_err());
     }
 }
