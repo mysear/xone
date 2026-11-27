@@ -212,6 +212,7 @@ fn original_infinity_managers_settle_hook_deltas_through_vault() {
         let rejected = transact(&mut db, TxKind::Call(executor), callback, 0);
         assert!(matches!(rejected, ExecutionResult::Revert { output, .. }
             if output.as_ref() == selector("UnauthorizedCallback()")));
+        let replay_pre = db.clone();
         for native in [false, true] {
             for zero in [false, true] {
                 for exact_in in [false, true] {
@@ -328,6 +329,14 @@ fn original_infinity_managers_settle_hook_deltas_through_vault() {
                 }
             }
         }
+        strict_replay::verify(
+            replay_pre,
+            manager,
+            harness,
+            strict_replay::Venue::Infinity { vault, bin },
+            executor,
+            &cases,
+        );
     }
     if let Some(path) = std::env::var_os("XONE_INFINITY_HOOK_QUOTES") {
         std::fs::write(path, serde_json::to_vec_pretty(&cases).unwrap()).unwrap();
@@ -450,7 +459,14 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
             }
         }
     }
-    strict_replay::verify_v4(replay_pre, manager, harness, hook, executor, &cases);
+    strict_replay::verify(
+        replay_pre,
+        manager,
+        harness,
+        strict_replay::Venue::V4 { hook },
+        executor,
+        &cases,
+    );
     if let Some(path) = std::env::var_os("XONE_V4_HOOK_QUOTES") {
         let token_code = token_code.unwrap();
         let fixture = json!({

@@ -39,6 +39,8 @@ Configure `api.infinity_execution.<chain-key>.<manager>` with `vault`, `vault_co
 
 The Cancun replay checks all 16 direct Manager swaps against the executor, including ERC-20 debit and allowance consumption, recipient balance increase and native ExactOut refunds. It verifies 16 tight-limit rollbacks and rejects direct calls to each executor's lock callback. The HTTP tests exercise the corresponding transaction templates and reject executor code changes. The build response reports the independent execution and production readiness flags as false.
 
+The StrictDB test also binds and replays all 16 Infinity CL/Bin cases from an initialized prestate. Each replay checks observed input and output, gas and sender nonce. The same matrix checks native ExactOut refunds, limit reverts, omitted Manager slots and changed hook code.
+
 ```sh
 export XONE_INFINITY_HOOK_QUOTES=/tmp/xone-infinity-hook-quotes.json
 export XONE_INFINITY_BIN_WIRE_DIR=$(mktemp -d)

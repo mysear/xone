@@ -5,7 +5,11 @@ use revm::{
 };
 use std::{collections::BTreeSet, convert::Infallible};
 use xone_domain::{
-    hash, scope_hash, singleton::SingletonAdvancedState, Amount, Pool, SnapshotRef, SCHEMA_VERSION,
+    hash,
+    infinity_bin::InfinityBinState,
+    scope_hash,
+    singleton::{SingletonAdvancedState, INFINITY_SETTLEMENT_HOOK_MODEL},
+    Amount, Pool, SnapshotRef, SCHEMA_VERSION,
 };
 use xone_execution_plan::{self as plans, v4_single, Context};
 use xone_optimizer::{
@@ -132,14 +136,30 @@ fn cl_pool(
     manager_digest: &str,
     hook: Address,
     bank_hash: &str,
+    infinity: bool,
 ) -> Pool {
+    let (protocol, profile, model, parameters) = if infinity {
+        (
+            "pancake-infinity-cl",
+            "pancake-infinity-cl-advanced",
+            INFINITY_SETTLEMENT_HOOK_MODEL,
+            format!("0x{:064x}", (60u32 << 16) | 0xcc0),
+        )
+    } else {
+        (
+            "uniswap-v4",
+            "uniswap-v4-advanced",
+            "v4-settlement-hook-v1",
+            String::new(),
+        )
+    };
     let mut state: SingletonAdvancedState = serde_json::from_value(json!({
-        "protocol":"uniswap-v4",
+        "protocol":protocol,
         "currency0":format!("{:#x}",tokens[0]),"currency1":format!("{:#x}",tokens[1]),
-        "key_fee":0x800000,"snapshot_block_hash":bank_hash,"hook_model":"v4-settlement-hook-v1",
+        "key_fee":0x800000,"snapshot_block_hash":bank_hash,"hook_model":model,
         "snapshot":{"manager":format!("{manager:#x}"),"manager_code_sha256":manager_digest,
             "pool_id":"","lp_fee":0,"protocol_fee0":0,"protocol_fee1":0,"hooks":format!("{hook:#x}"),
-            "parameters":"",
+            "parameters":parameters,
             "core":{"sqrt_price_x96":"79228162514264337593543950336","tick":0,
                 "liquidity":"1000000000000","tick_spacing":60,"max_steps":8,
                 "tick_words":[{"word_pos":-1,"bitmap":(U256::from(1)<<254usize).to_string()},
@@ -148,7 +168,6 @@ fn cl_pool(
                     {"tick":120,"liquidity_gross":"1000000000000","liquidity_net":"-1000000000000"}]}}
     })).unwrap();
     state.snapshot.pool_id = state.key_id().unwrap();
-    let profile = "uniswap-v4-advanced";
     serde_json::from_value(json!({
         "chain_key":"evm:31337","pool_id":format!("{manager:#x}/{}",state.snapshot.pool_id),
         "protocol":profile,"adapter_version":xone_domain::protocols::protocol(profile).unwrap().adapter,
@@ -158,11 +177,63 @@ fn cl_pool(
     })).unwrap()
 }
 
-pub(super) fn verify_v4(
+fn bin_pool(
+    tokens: [Address; 2],
+    manager: Address,
+    manager_digest: &str,
+    vault: (&str, &str),
+    words: &[&[u8]],
+    bank_hash: &str,
+    token_digests: &BTreeMap<String, String>,
+) -> Pool {
+    let tokens = tokens.map(|token| format!("{token:#x}"));
+    let bins: Vec<_> = (0..3)
+        .map(|i| {
+            json!({
+                "id": 8_388_607 + i,
+                "reserve0": u128::from_be_bytes(words[7+i][16..].try_into().unwrap()).to_string(),
+                "reserve1": u128::from_be_bytes(words[7+i][..16].try_into().unwrap()).to_string(),
+                "total_shares": U256::from_be_slice(words[10+i]).to_string(),
+            })
+        })
+        .collect();
+    let bit255 = (U256::from(1) << 255usize).to_string();
+    let state: InfinityBinState = serde_json::from_value(json!({
+        "manager":format!("{manager:#x}"),"manager_code_sha256":manager_digest,
+        "vault":vault.0,"vault_code_sha256":vault.1,"pool_id":format!("0x{}",hex::encode(words[20])),
+        "hooks":format!("0x{}",hex::encode(&words[2][12..])),"hook_model":INFINITY_SETTLEMENT_HOOK_MODEL,
+        "parameters":InfinityBinState::key_parameters(25,INFINITY_SETTLEMENT_HOOK_MODEL),
+        "token0_code_sha256":token_digests.get(&tokens[0]).map_or("",String::as_str),
+        "token1_code_sha256":token_digests[&tokens[1]],"bin_step":25,"active_id":8388608,
+        "lp_fee":0,"protocol_fee0":0,"protocol_fee1":0,"max_bins":8,"max_tree_words":8,"max_steps":8,
+        "tree_level0":(U256::from(3) << 127usize).to_string(),
+        "tree_level1":[{"index":127,"value":bit255},{"index":128,"value":"1"}],
+        "tree_level2":[{"index":32767,"value":bit255},{"index":32768,"value":"3"}],
+        "bins":bins,
+        "app_reserve0":U256::from_be_slice(words[16]).to_string(),
+        "app_reserve1":U256::from_be_slice(words[17]).to_string(),
+        "protocol_fees0":"0","protocol_fees1":"0","block_number":100,"timestamp":1000,"block_hash":bank_hash
+    })).unwrap();
+    assert_eq!(state.key_id(&tokens[0], &tokens[1]).unwrap(), state.pool_id);
+    serde_json::from_value(json!({
+        "chain_key":"evm:31337","pool_id":format!("{manager:#x}/{}",state.pool_id),
+        "protocol":xone_domain::infinity_bin::PROFILE,"adapter_version":xone_domain::infinity_bin::ADAPTER,
+        "token0":tokens[0],"token1":tokens[1],"reserve0":"0","reserve1":"0",
+        "fee_numerator":0,"fee_denominator":1_000_000,"token_behavior":"standard", "infinity_bin":state
+    })).unwrap()
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum Venue {
+    V4 { hook: Address },
+    Infinity { vault: Address, bin: bool },
+}
+
+pub(super) fn verify(
     mut db: InMemoryDB,
     manager: Address,
     harness: Address,
-    hook: Address,
+    venue: Venue,
     executor: Address,
     cases: &[serde_json::Value],
 ) {
@@ -178,10 +249,14 @@ pub(super) fn verify_v4(
     let manager_digest = runtime_digest(&db, manager);
     let executor_digest = runtime_digest(&db, executor);
     let executor_address = format!("{executor:#x}");
+    let vault = match venue {
+        Venue::Infinity { vault, .. } => Some((format!("{vault:#x}"), runtime_digest(&db, vault))),
+        Venue::V4 { .. } => None,
+    };
     let executor_identity = v4_single::Executor {
         address: &executor_address,
         code_sha256: &executor_digest,
-        infinity_vault: None,
+        infinity_vault: vault.as_ref().map(|(a, d)| (a.as_str(), d.as_str())),
     };
     let bank_hash = format!("{:#x}", B256::repeat_byte(0xab));
     let budget = SimulationBudget {
@@ -202,11 +277,19 @@ pub(super) fn verify_v4(
         max_output_bytes: 1024,
     };
     for native in [false, true] {
-        let prepare = [
-            selector("prepareReplay(bool)").as_slice(),
-            &U256::from(u8::from(native)).to_be_bytes::<32>(),
-        ]
-        .concat();
+        let boolean = |flag| U256::from(u8::from(flag)).to_be_bytes::<32>();
+        let prepare = match venue {
+            Venue::V4 { .. } => {
+                [selector("prepareReplay(bool)").as_slice(), &boolean(native)].concat()
+            }
+            Venue::Infinity { bin, .. } => [
+                selector("prepareReplay(address,bool,bool)").as_slice(),
+                &address_word(manager),
+                &boolean(bin),
+                &boolean(native),
+            ]
+            .concat(),
+        };
         let prepared = transact(
             &mut db,
             TxKind::Call(harness),
@@ -219,12 +302,36 @@ pub(super) fn verify_v4(
             Address::from_slice(&raw[12..32]),
             Address::from_slice(&raw[44..64]),
         ];
+        let words: Vec<_> = raw.chunks_exact(32).collect();
+        let hook = match venue {
+            Venue::V4 { hook } => hook,
+            Venue::Infinity { .. } => Address::from_slice(&words[2][12..]),
+        };
         let token_digests = tokens
             .iter()
             .filter(|&&token| token != Address::ZERO)
             .map(|&token| (format!("{token:#x}"), runtime_digest(&db, token)))
             .collect();
-        let pool = cl_pool(tokens, manager, &manager_digest, hook, &bank_hash);
+        let pool = if matches!(venue, Venue::Infinity { bin: true, .. }) {
+            bin_pool(
+                tokens,
+                manager,
+                &manager_digest,
+                executor_identity.infinity_vault.unwrap(),
+                &words,
+                &bank_hash,
+                &token_digests,
+            )
+        } else {
+            cl_pool(
+                tokens,
+                manager,
+                &manager_digest,
+                hook,
+                &bank_hash,
+                vault.is_some(),
+            )
+        };
         let pools = std::slice::from_ref(&pool);
         let snapshot: SnapshotRef = serde_json::from_value(json!({
             "block":{"chain_key":"evm:31337","number_or_slot":100,"hash":bank_hash,
@@ -374,6 +481,8 @@ pub(super) fn verify_v4(
                         (case["currency0"] == format!("{:#x}", Address::ZERO)) == native
                             && case["zeroForOne"] == direction
                             && case["exactIn"] == exact_in
+                            && case["bin"].as_bool().unwrap_or(false)
+                                == matches!(venue, Venue::Infinity { bin: true, .. })
                     })
                     .unwrap();
                 assert_eq!(result.execution.status, EvmStatus::Success);

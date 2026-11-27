@@ -111,13 +111,8 @@ contract InfinityManagerSettlement is ILockCallback {
     function run(IPoolManager manager, bool bin, bool native, bool zero, bool exactIn, bool omit, InfinitySingleSwap executor)
         external payable returns (SwapResult memory result)
     {
-        address token0 = native ? address(0) : address(new InfinitySettlementToken());
-        address token1 = address(new InfinitySettlementToken());
-        if (token0 > token1) (token0, token1) = (token1, token0);
-        IHooks hook = IHooks(address(new InfinitySettlementHook(vault, manager)));
+        PoolKey memory key = createKey(manager, bin, native);
         uint256 spacing = bin ? 25 : 60;
-        PoolKey memory key = PoolKey(Currency.wrap(token0), Currency.wrap(token1), hook, manager,
-                                    LPFeeLibrary.DYNAMIC_FEE_FLAG, bytes32((spacing << 16) | 0xcc0));
         PoolKey memory control = PoolKey(key.currency0, key.currency1, IHooks(address(0)), manager,
                                         17_000, bytes32(spacing << 16));
         initialize(key, bin);
@@ -131,7 +126,7 @@ contract InfinityManagerSettlement is ILockCallback {
         Currency[2] memory currencies = [key.currency0, key.currency1];
         uint256[2] memory vaultBefore = balances(currencies, address(vault));
         uint256[2] memory payerBefore = balances(currencies, address(this));
-        uint256[2] memory hookBefore = balances(currencies, address(hook));
+        uint256[2] memory hookBefore = balances(currencies, address(key.hooks));
         uint256[2] memory receiverBefore = balances(currencies, RECIPIENT);
         result.appBefore = [vault.reservesOfApp(address(manager), currencies[0]),
                             vault.reservesOfApp(address(manager), currencies[1])];
@@ -145,7 +140,7 @@ contract InfinityManagerSettlement is ILockCallback {
             int128 net = i == 0 ? swap.amount0() : swap.amount1();
             int128 poolDelta = i == 0 ? core.amount0() : core.amount1();
             require(net == poolDelta - hookFees[i], "caller vs app delta");
-            require(currency.balanceOf(address(hook)) == hookBefore[i] + uint128(hookFees[i]), "hook balance");
+            require(currency.balanceOf(address(key.hooks)) == hookBefore[i] + uint128(hookFees[i]), "hook balance");
             require(int256(currency.balanceOf(address(vault))) + poolDelta == int256(vaultBefore[i]), "vault balance");
             result.appAfter[i] = vault.reservesOfApp(address(manager), currency);
             require(int256(result.appAfter[i]) + poolDelta == int256(result.appBefore[i]), "app reserves");
@@ -155,9 +150,32 @@ contract InfinityManagerSettlement is ILockCallback {
         (result.state, result.tick, result.binsAfter) = checkState(key, control, bin);
         require(vault.getLocker() == address(0) && vault.getUnsettledDeltasCount() == 0 && vault.getAppDeficitCount() == 0,
                 "final Vault transient state");
-        (result.token0, result.token1, result.hook) = (token0, token1, address(hook));
+        (result.token0, result.token1, result.hook) = (Currency.unwrap(key.currency0), Currency.unwrap(key.currency1), address(key.hooks));
         (result.delta0, result.delta1) = (swap.amount0(), swap.amount1());
         result.poolId = PoolId.unwrap(key.toId());
+    }
+
+    function prepareReplay(IPoolManager manager, bool bin, bool native) external payable returns (SwapResult memory result) {
+        PoolKey memory key = createKey(manager, bin, native);
+        initialize(key, bin);
+        lock(key, bin, 0, false, address(this), false);
+        (result.token0, result.token1, result.hook) = (Currency.unwrap(key.currency0), Currency.unwrap(key.currency1), address(key.hooks));
+        if (result.token0 != address(0)) require(InfinitySettlementToken(result.token0).transfer(msg.sender, 1e15));
+        require(InfinitySettlementToken(result.token1).transfer(msg.sender, 1e15));
+        result.poolId = PoolId.unwrap(key.toId());
+        if (bin) (result.binsBefore, result.shares) = readBins(key);
+        result.appBefore = [vault.reservesOfApp(address(manager), key.currency0),
+                            vault.reservesOfApp(address(manager), key.currency1)];
+    }
+
+    function createKey(IPoolManager manager, bool bin, bool native) private returns (PoolKey memory) {
+        address token0 = native ? address(0) : address(new InfinitySettlementToken());
+        address token1 = address(new InfinitySettlementToken());
+        if (token0 > token1) (token0, token1) = (token1, token0);
+        IHooks hook = IHooks(address(new InfinitySettlementHook(vault, manager)));
+        uint256 spacing = bin ? 25 : 60;
+        return PoolKey(Currency.wrap(token0), Currency.wrap(token1), hook, manager,
+                       LPFeeLibrary.DYNAMIC_FEE_FLAG, bytes32((spacing << 16) | 0xcc0));
     }
 
     function execute(InfinitySingleSwap executor, PoolKey memory key, bool zero, bool exactIn, bool tight, BalanceDelta core)
