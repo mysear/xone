@@ -23,6 +23,7 @@ pub struct StreamStatus {
     pub replay_sufficient: bool,
     pub session_committed: bool,
     pub requested_from_slot: Option<u64>,
+    pub replay_first_available_slot: Option<u64>,
     pub catalog_identity: String,
     pub last_error: String,
 }
@@ -280,6 +281,7 @@ impl Parser {
             s.replay_records = replay_records;
             s.replay_sufficient = false;
             s.requested_from_slot = from;
+            s.replay_first_available_slot = None;
         });
         let mut retained_estimate = wal.retained_bytes() as u64;
         let writer = StreamWalWriter::open(wal, cfg.wal_ack_timeout_ms)?;
@@ -300,6 +302,11 @@ impl Parser {
                 _ = stop.changed() => { return Ok(()); }
                 result = Subscription::connect_finalized(transport, session_id, token.as_deref(), from) => { result? }
             };
+            let (from, first_available) = subscription.replay_window();
+            self.stream_update(&chain.key, |s| {
+                s.requested_from_slot = from;
+                s.replay_first_available_slot = first_available;
+            });
             let mut assembler: Option<StreamAssembler> = None;
             let mut assembly_scope = std::collections::BTreeSet::new();
             let mut proofs = BTreeMap::<BankId, VerifiedManifest>::new();

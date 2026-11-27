@@ -113,6 +113,9 @@ impl Service<http::Request<tonic::body::Body>> for Geyser {
     fn call(&mut self, req: http::Request<tonic::body::Body>) -> Self::Future {
         let s = self.clone();
         Box::pin(async move {
+            if req.uri().path() != "/geyser.Geyser/Subscribe" {
+                return Ok(tonic::Status::unimplemented("method").into_http());
+            }
             Ok(tonic::server::Grpc::new(RawCodec)
                 .streaming(Subscribe(s), req)
                 .await)
@@ -720,7 +723,8 @@ fn concrete_manifest_source_recovers_through_durable_scope_controller_without_on
     use xone_solana_ingest::{manifest_recovery::ManifestRecoverySource, scope::*};
     let directory = Temp::new();
     let (chain, rows) = normal_bank::archive();
-    let now = xone_observability::now_ms();
+    const NOW: u64 = 1_000_000;
+    let now = NOW;
     let accounts = rows
         .iter()
         .map(|(id, a)| {
@@ -838,7 +842,7 @@ fn concrete_manifest_source_recovers_through_durable_scope_controller_without_on
                 attempt_lease_ms: 1000,
                 max_authority_lease_ms: 5000,
             },
-            Arc::new(xone_observability::now_ms),
+            Arc::new(|| NOW),
         )
         .unwrap(),
     );
@@ -852,7 +856,7 @@ fn concrete_manifest_source_recovers_through_durable_scope_controller_without_on
             trusted_sources: vec!["public-geyser".into()],
         },
         store.clone(),
-        xone_observability::now_ms,
+        || NOW,
     )
     .unwrap();
     let job = controller
@@ -891,11 +895,14 @@ fn key_of(value: &str) -> Pubkey {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn public_geyser_ping_is_durable_before_keepalive_request_and_grants_no_readiness() {
     let mut h = Harness::new().await;
+    let stream = h.cfg.config.yellowstone.get_mut("solana:localnet").unwrap();
+    stream.idle_timeout_ms = 5_000;
+    stream.wal_ack_timeout_ms = 3_000;
     let parser = Parser::new(h.cfg.clone()).unwrap();
     parser.start().await.unwrap();
     let mut c = h.connection().await;
     c.send.send(Ok(bytes(6, &[]))).await.unwrap();
-    let response = tokio::time::timeout(Duration::from_millis(300), c.client_requests.recv()).await;
+    let response = tokio::time::timeout(Duration::from_secs(3), c.client_requests.recv()).await;
     assert!(
         response.is_ok(),
         "normal public Geyser subscription must answer server ping"

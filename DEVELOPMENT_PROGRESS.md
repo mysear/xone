@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R03 Yellowstone 回放保留边界（2026-11-28）|§9.23、§18.7、§23.14|LOCAL_SCOPE_VERIFIED|正常 finalized 流在有历史游标时查询同连接的 `SubscribeReplayInfo`。当所需 slot 早于服务端保留窗口时直接订阅 HEAD_FIRST。流状态记录实际请求和服务端声明的最早回放 slot。44 项定向测试通过。正常 Parser、RocksDB 和实际 PostgreSQL/Kafka 复验覆盖范围发布、撤销、重启、fencing 及有界历史缺口|gRPC 来源为受控服务。真实 Yellowstone 连续流和同源历史 bank 验收待完成。 [传输入口](chain-parser-rust/crates/solana-ingest/src/yellowstone.rs)|
 |I7-R04.2 Docker 检查点网络分区（2026-11-28）|§9.23、§18.7、§23.14、§28.26|LOCAL_SCOPE_VERIFIED|Go owner、两个报价容器和实际 PostgreSQL/Kafka 联验。断开 owner 链路后，冷副本通过 peer 在 978 毫秒恢复合格范围，980 毫秒返回 INDICATIVE。断开两条检查点链路时冷副本返回 503。恢复 owner 链路后，227 毫秒取得合格范围，229 毫秒返回相同快照报价。Kafka 网络持续连通|单宿主机隔离网络与受控 EVM RPC 已验收。生产独立故障域与长停机演练继续验收。 [复验工具](integration/tools/acceptance/r04_network_partition.py)|
 |I7-R04.2 peer 来源选择与拒绝（2026-11-28）|§9.23、§18.7、§23.14|LOCAL_SCOPE_VERIFIED|并发请求配置的 peer，串行核验 Kafka 提交并激活已对齐的范围。实际 Kafka 上四项恢复集成通过，覆盖首个 peer 挂起、过期、错链、owner 离线和撤销。正常 Go owner 和双报价进程复验在 347 毫秒恢复合格范围、350 毫秒返回 INDICATIVE，正常撤销及全部来源离线时返回 503|本机 PostgreSQL 和 Kafka 联验已完成。生产独立故障域、长期容量、真实同源流仍待验收。 [Kafka 集成](dex-router/crates/quote-api/tests/kafka_retention.rs)|
 |I7-R04.2 Cancun 按请求读取仿真状态（2026-11-28）|§9.25、§14、§23.14|LOCAL_SCOPE_VERIFIED|启用 `simulation.evm_cancun_verified_rpc_state` 后，按报价快照读取规范 H 和 H+1 区块头，验证模板声明的账户和存储证明，以链上余额、nonce 和存储值构建本次隔离 REVM 输入。正常 Go owner、PostgreSQL 和 Kafka 联验使用高度 1 的旧模板，在高度 2 恢复后 1,141 毫秒取得 VERIFIED，消耗 gas 209,487，到账 982,981。缺少 PoolManager 存储的模板返回 HTTP 422，9 项配置测试通过|目前支持 Cancun 单池 ERC-20，要求已有 H+1 及配置的账户、代码和存储位置。生产故障域、自动发现完整读取集合、其他执行范围待验收。 [复验工具](integration/tools/acceptance/r04_verified_recovery_process.py)|
@@ -497,6 +498,12 @@
 - Rust 历史队列改用受控 bank 构造当前快照，完整 11 项集成测试可直接运行。已覆盖单作业长缺口、字节配额、任务重新领取、RocksDB 重启、历史覆盖保留和来源身份撤销。真实同源 Yellowstone 流和历史 bank 状态完整性继续验收。
 
 ### I8 路由与费用
+
+#### 迭代目标（2026-11-28）
+
+1. 在候选计划的固定快照上核对实际 gas、L1 数据费和可用的原生费估值，再按可核对的净额比较路线。用签名交易执行结果验证 OP 费用，并检验证据缺失时的费用状态。
+2. 扩展共享 DAG 和 beam 多标签搜索。用小图穷举对比路线、上界和最优性差距，覆盖拆分、合并及共享池热状态。
+3. 接通多池 ExactOut 和拆单执行。在正常报价及构建入口校验精确到账、最大输入、限制回滚、完整费用和快照绑定。
 
 - 接入实际 gas、L1 数据费和原生费换算，使用净输出评分。
 - 完成通用共享 DAG、beam 多标签、严格收益上界和 gap。

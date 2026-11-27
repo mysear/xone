@@ -9,6 +9,7 @@ use prost::Message;
 use std::{collections::HashMap, time::Duration};
 use tonic::{
     codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder},
+    metadata::AsciiMetadataValue,
     transport::{Channel, ClientTlsConfig, Endpoint},
     Status,
 };
@@ -118,8 +119,50 @@ pub struct Subscription {
     sequence: u64,
     idle: Duration,
     max_frame_bytes: usize,
+    requested_from_slot: Option<u64>,
+    replay_first_available_slot: Option<u64>,
 }
+
+#[derive(Message)]
+struct ReplayInfo {
+    #[prost(uint64, optional, tag = "1")]
+    first_available: Option<u64>,
+}
+
+async fn replay_first_available_slot(
+    channel: Channel,
+    token: Option<&AsciiMetadataValue>,
+    timeout_ms: u64,
+) -> Option<u64> {
+    let mut request = tonic::Request::new(Vec::new());
+    if let Some(token) = token {
+        request.metadata_mut().insert("x-token", token.clone());
+    }
+    let mut client = tonic::client::Grpc::new(channel)
+        .max_decoding_message_size(1024)
+        .max_encoding_message_size(1024);
+    let path =
+        tonic::codegen::http::uri::PathAndQuery::from_static("/geyser.Geyser/SubscribeReplayInfo");
+    let bytes = tokio::time::timeout(Duration::from_millis(timeout_ms.min(1_000)), async {
+        client.ready().await.ok()?;
+        Some(
+            client
+                .unary(request, path, RawCodec)
+                .await
+                .ok()?
+                .into_inner(),
+        )
+    })
+    .await
+    .ok()??;
+    ReplayInfo::decode(bytes.as_slice()).ok()?.first_available
+}
+
 impl Subscription {
+    pub(crate) fn replay_window(&self) -> (Option<u64>, Option<u64>) {
+        (self.requested_from_slot, self.replay_first_available_slot)
+    }
+
     pub async fn connect(
         config: TransportConfig,
         session_id: String,
@@ -149,6 +192,10 @@ impl Subscription {
         if session_id.is_empty() || session_id.len() > 128 {
             return Err(err("YELLOWSTONE_SESSION"));
         }
+        let auth_token = auth_token
+            .map(str::parse::<AsciiMetadataValue>)
+            .transpose()
+            .map_err(|_| err("YELLOWSTONE_AUTH_FORMAT"))?;
         let mut endpoint = Endpoint::from_shared(config.endpoint.clone())
             .map_err(|_| err("YELLOWSTONE_ENDPOINT"))?
             .connect_timeout(Duration::from_millis(config.connect_timeout_ms));
@@ -164,7 +211,20 @@ impl Subscription {
         .await
         .map_err(|_| err("YELLOWSTONE_CONNECT_DEADLINE"))?
         .map_err(|_| err("YELLOWSTONE_CONNECT"))?;
-        Self::subscribe(
+        let first_available = if finalized_only && from_slot.is_some() {
+            replay_first_available_slot(
+                channel.clone(),
+                auth_token.as_ref(),
+                config.connect_timeout_ms,
+            )
+            .await
+        } else {
+            None
+        };
+        // Older providers can omit this advisory RPC. The stream still must
+        // establish continuity independently of the advertised retention floor.
+        let from_slot = from_slot.filter(|slot| first_available.is_none_or(|first| first <= *slot));
+        let mut subscription = Self::subscribe(
             channel,
             config,
             session_id,
@@ -172,13 +232,15 @@ impl Subscription {
             from_slot,
             finalized_only,
         )
-        .await
+        .await?;
+        subscription.replay_first_available_slot = first_available;
+        Ok(subscription)
     }
     async fn subscribe(
         channel: Channel,
         config: TransportConfig,
         session_id: String,
-        auth_token: Option<&str>,
+        auth_token: Option<AsciiMetadataValue>,
         from_slot: Option<u64>,
         finalized_only: bool,
     ) -> Result<Self> {
@@ -216,10 +278,7 @@ impl Subscription {
             session_id.parse().map_err(|_| err("YELLOWSTONE_SESSION"))?,
         );
         if let Some(token) = auth_token {
-            req.metadata_mut().insert(
-                "x-token",
-                token.parse().map_err(|_| err("YELLOWSTONE_AUTH_FORMAT"))?,
-            );
+            req.metadata_mut().insert("x-token", token);
         }
         let mut client = tonic::client::Grpc::new(channel)
             .max_decoding_message_size(config.max_frame_bytes)
@@ -246,6 +305,8 @@ impl Subscription {
             sequence: 0,
             idle: Duration::from_millis(config.idle_timeout_ms),
             max_frame_bytes: config.max_frame_bytes,
+            requested_from_slot: from_slot,
+            replay_first_available_slot: None,
         })
     }
     /// Respond only after the strict projection of this durable receipt. The

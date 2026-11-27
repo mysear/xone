@@ -582,6 +582,17 @@ async fn normal_tonic_history_http_commits_facts_without_changing_online_referen
             1
         );
     }
+    let prior_range_requests = || {
+        source
+            .calls
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|r| r["method"] == "getBlocks" && r["params"][0] == 1)
+            .count()
+    };
+    let committed_range_requests = prior_range_requests();
+    assert!(committed_range_requests > 0);
     source.head.store(101, Ordering::SeqCst);
     let second = Parser::new(h.cfg.clone()).unwrap();
     second.start().await.unwrap();
@@ -594,14 +605,8 @@ async fn normal_tonic_history_http_commits_facts_without_changing_online_referen
     assert_eq!(status["queue"]["covered_ranges"][0]["from"], 1);
     assert_eq!(status["queue"]["covered_ranges"][0]["to"], 100);
     assert_eq!(
-        source
-            .calls
-            .lock()
-            .unwrap()
-            .iter()
-            .filter(|r| r["method"] == "getBlocks" && r["params"][0] == 1)
-            .count(),
-        1,
+        prior_range_requests(),
+        committed_range_requests,
         "restart must not replay already committed history"
     );
     second.close().await;

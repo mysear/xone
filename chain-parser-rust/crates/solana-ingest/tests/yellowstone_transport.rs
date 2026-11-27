@@ -99,7 +99,28 @@ type Frames = tokio::sync::mpsc::Receiver<Result<Vec<u8>, tonic::Status>>;
 struct Geyser {
     frames: Arc<Mutex<Option<Frames>>>,
     observed: Arc<Mutex<Option<SubscribeRequest>>>,
+    replay_floor: Option<u64>,
 }
+
+struct ReplayInfo(Option<u64>);
+
+impl tonic::server::UnaryService<Vec<u8>> for ReplayInfo {
+    type Response = Vec<u8>;
+    type Future = std::future::Ready<Result<tonic::Response<Vec<u8>>, tonic::Status>>;
+
+    fn call(&mut self, request: tonic::Request<Vec<u8>>) -> Self::Future {
+        assert!(request.get_ref().is_empty());
+        assert_eq!(request.metadata().get("x-token").unwrap(), "private-token");
+        if let Some(slot) = self.0 {
+            let mut bytes = vec![0x08];
+            prost::encoding::encode_varint(slot, &mut bytes);
+            std::future::ready(Ok(tonic::Response::new(bytes)))
+        } else {
+            std::future::ready(Err(tonic::Status::unimplemented("replay info")))
+        }
+    }
+}
+
 struct Subscribe(Geyser);
 impl tonic::server::StreamingService<Vec<u8>> for Subscribe {
     type Response = Vec<u8>;
@@ -144,7 +165,14 @@ impl Service<http::Request<tonic::body::Body>> for Geyser {
         let service = self.clone();
         Box::pin(async move {
             let mut grpc = tonic::server::Grpc::new(RawCodec);
-            Ok(grpc.streaming(Subscribe(service), request).await)
+            let response = match request.uri().path() {
+                "/geyser.Geyser/SubscribeReplayInfo" => {
+                    grpc.unary(ReplayInfo(service.replay_floor), request).await
+                }
+                "/geyser.Geyser/Subscribe" => grpc.streaming(Subscribe(service), request).await,
+                _ => tonic::Status::unimplemented("method").into_http(),
+            };
+            Ok(response)
         })
     }
 }
@@ -160,6 +188,10 @@ struct Fixture {
 }
 impl Fixture {
     async fn start() -> Self {
+        Self::start_with_replay_floor(None).await
+    }
+
+    async fn start_with_replay_floor(replay_floor: Option<u64>) -> Self {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let (frames, receiver) = tokio::sync::mpsc::channel(1);
@@ -167,6 +199,7 @@ impl Fixture {
         let service = Geyser {
             frames: Arc::new(Mutex::new(Some(receiver))),
             observed: observed.clone(),
+            replay_floor,
         };
         let (stop, shutdown) = tokio::sync::oneshot::channel::<()>();
         let server = tokio::spawn(async move {
@@ -209,6 +242,27 @@ impl Fixture {
             .await
             .unwrap()
             .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn finalized_subscription_skips_replay_only_when_advertised_floor_excludes_it() {
+    for (floor, expected) in [(Some(43), None), (Some(42), Some(42)), (None, Some(42))] {
+        let fixture = Fixture::start_with_replay_floor(floor).await;
+        let subscription = Subscription::connect_finalized(
+            fixture.config.clone(),
+            "new-session".into(),
+            Some("private-token"),
+            Some(42),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            fixture.observed.lock().unwrap().as_ref().unwrap().from_slot,
+            expected
+        );
+        drop(subscription);
+        fixture.finish().await;
     }
 }
 impl Drop for Fixture {
