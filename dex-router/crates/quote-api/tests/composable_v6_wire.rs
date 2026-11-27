@@ -23,6 +23,11 @@ async fn composable_v6_go_snapshots_drive_bpt_quotes() {
         include_bytes!("fixtures/composable_v6_snapshot_2.pb").as_slice(),
         include_bytes!("fixtures/composable_v6_snapshot_3.pb").as_slice(),
         include_bytes!("fixtures/composable_v6_snapshot_4.pb").as_slice(),
+        include_bytes!("fixtures/composable_v6_snapshot_5.pb").as_slice(),
+        include_bytes!("fixtures/composable_v6_snapshot_6.pb").as_slice(),
+        include_bytes!("fixtures/composable_v6_snapshot_7.pb").as_slice(),
+        include_bytes!("fixtures/composable_v6_snapshot_8.pb").as_slice(),
+        include_bytes!("fixtures/composable_v6_snapshot_9.pb").as_slice(),
     ]
     .map(|bytes| snapshot_from_proto(OnlineSnapshot::decode(bytes).unwrap()).unwrap());
     let mut config = xone_config::load(
@@ -34,13 +39,16 @@ async fn composable_v6_go_snapshots_drive_bpt_quotes() {
     config.config.routing.max_state_age_ms = 315_360_000_000;
     config.config.routing.max_hops = 1;
     config.config.routing.max_splits = 1;
-    let api = Api::new(config).unwrap();
+    let cases = reference["bpt_swaps"].as_array().unwrap();
+    for (snapshots, cases) in snapshots.chunks_exact(5).zip(cases.chunks_exact(4)) {
+        test_pool(Api::new(config.clone()).unwrap(), snapshots, cases).await;
+    }
+}
+
+async fn test_pool(api: Api, snapshots: &[xone_domain::Snapshot], cases: &[Value]) {
     api.replica.install_baseline(snapshots[0].clone()).unwrap();
 
-    for (index, case) in reference["bpt_swaps"].as_array().unwrap()[..4]
-        .iter()
-        .enumerate()
-    {
+    for (index, case) in cases.iter().enumerate() {
         let previous = &snapshots[index];
         let pool = &previous.pools[0];
         let assets = &pool.multi_asset.as_ref().unwrap().assets;
@@ -48,13 +56,29 @@ async fn composable_v6_go_snapshots_drive_bpt_quotes() {
         let buy = &assets[case["j"].as_u64().unwrap() as usize].token;
         let amount: Amount = case["amount"].as_str().unwrap().parse().unwrap();
         let given_out = case["kind"] == 1;
-        let modeled = if given_out {
+        let mut modeled = if given_out {
             quote_exact_out_tokens(pool, &amount, sell, buy)
         } else {
             quote_exact_in_tokens(pool, &amount, sell, buy)
         }
         .unwrap();
-        assert_eq!(modeled.next_pool, snapshots[index + 1].pools[0]);
+        let observed = &snapshots[index + 1];
+        let rates = modeled
+            .next_pool
+            .multi_asset
+            .as_mut()
+            .unwrap()
+            .composable_v6
+            .as_mut()
+            .unwrap();
+        if rates.rate_snapshot_timestamp.is_some() {
+            assert_eq!(
+                rates.rate_snapshot_timestamp,
+                Some(previous.reference.block.timestamp_ms / 1000)
+            );
+            rates.rate_snapshot_timestamp = Some(observed.reference.block.timestamp_ms / 1000);
+        }
+        assert_eq!(modeled.next_pool, observed.pools[0]);
         assert_eq!(json!(modeled.consumed_in), case["amount_in"]);
         assert_eq!(json!(modeled.amount_out), case["amount_out"]);
 
@@ -84,7 +108,6 @@ async fn composable_v6_go_snapshots_drive_bpt_quotes() {
             assert_eq!(quote["grossBuyAmount"], case["amount_out"]);
             assert_eq!(quote["snapshotRef"], json!(previous.reference));
         }
-        let observed = &snapshots[index + 1];
         api.replica
             .apply(Record {
                 reference: observed.reference.clone(),

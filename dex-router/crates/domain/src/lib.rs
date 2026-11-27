@@ -601,6 +601,16 @@ impl Snapshot {
         let mut seen = BTreeSet::new();
         validate_pool_dependencies(self.pools.iter())?;
         for p in &self.pools {
+            if let Some(stamp) = p
+                .multi_asset
+                .as_ref()
+                .and_then(|s| s.composable_v6.as_ref())
+                .and_then(|v| v.rate_snapshot_timestamp)
+            {
+                if stamp.checked_mul(1000) != Some(r.block.timestamp_ms) {
+                    return Err(err("COMPOSABLE_V6_RATE_SNAPSHOT_CLOCK"));
+                }
+            }
             if let Some(v) = p.v2.as_ref().and_then(|v| v.swap.as_ref()) {
                 if v.bank_block_number != r.block.number_or_slot
                     || v.bank_block_hash != r.block.hash

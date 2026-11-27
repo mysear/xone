@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/hex"
 	"errors"
 	"math/big"
 	pb "xone/common/protoc/golang/dexpb"
@@ -8,16 +9,66 @@ import (
 
 const ComposableV6Protocol = "balancer-v2-composable-v6"
 const ComposableV6Adapter = ComposableV6Protocol + "/no-rates-1"
+const ComposableV6CachedRatesAdapter = ComposableV6Protocol + "/cached-rates-1"
+
+type BalancerComposableV6RateCache struct {
+	TokenIndex         uint32 `json:"token_index"`
+	Provider           string `json:"provider"`
+	ProviderCodeSHA256 string `json:"provider_code_sha256"`
+	Current            Amount `json:"current"`
+	Old                Amount `json:"old"`
+	Duration           uint32 `json:"duration"`
+	Expires            uint32 `json:"expires"`
+}
 
 type BalancerComposableV6State struct {
-	TotalSupply           Amount `json:"total_supply"`
-	LastJoinExitAmp       Amount `json:"last_join_exit_amp"`
-	LastJoinExitInvariant Amount `json:"last_join_exit_invariant"`
-	ProtocolSwapFee       Amount `json:"protocol_swap_fee"`
-	ProtocolYieldFee      Amount `json:"protocol_yield_fee"`
-	FeeCollector          string `json:"fee_collector"`
-	CollectorBPT          Amount `json:"collector_bpt"`
-	YieldExempt           bool   `json:"yield_exempt"`
+	TotalSupply           Amount                          `json:"total_supply"`
+	LastJoinExitAmp       Amount                          `json:"last_join_exit_amp"`
+	LastJoinExitInvariant Amount                          `json:"last_join_exit_invariant"`
+	ProtocolSwapFee       Amount                          `json:"protocol_swap_fee"`
+	ProtocolYieldFee      Amount                          `json:"protocol_yield_fee"`
+	FeeCollector          string                          `json:"fee_collector"`
+	CollectorBPT          Amount                          `json:"collector_bpt"`
+	YieldExempt           bool                            `json:"yield_exempt"`
+	RateCaches            []BalancerComposableV6RateCache `json:"rate_caches,omitempty"`
+	RateSnapshotTimestamp *uint64                         `json:"rate_snapshot_timestamp,omitempty"`
+}
+
+func (s *BalancerComposableV6State) validRates(assets []MultiAsset, pool, adapter string) bool {
+	if adapter == ComposableV6Adapter {
+		return len(s.RateCaches) == 0 && s.RateSnapshotTimestamp == nil
+	}
+	if adapter != ComposableV6CachedRatesAdapter || len(s.RateCaches) == 0 || s.RateSnapshotTimestamp == nil || *s.RateSnapshotTimestamp == 0 {
+		return false
+	}
+	last := -1
+	for _, rate := range s.RateCaches {
+		i := int(rate.TokenIndex)
+		if i <= last || i >= len(assets) || assets[i].Token == pool || ValidateEVMIdentity(rate.Provider, rate.ProviderCodeSHA256) != nil || rate.Provider == pool || uint64(rate.Expires) < *s.RateSnapshotTimestamp {
+			return false
+		}
+		current, err := ParseAmount(string(rate.Current))
+		old, oldErr := ParseAmount(string(rate.Old))
+		if err != nil || oldErr != nil || current.Big().Sign() == 0 || old.Big().Sign() == 0 || current.Big().BitLen() > 96 || old.Big().BitLen() > 96 {
+			return false
+		}
+		var rem big.Int
+		factor, _ := new(big.Int).QuoRem(assets[i].Scaling.Big(), current.Big(), &rem)
+		if rem.Sign() != 0 || !power10Between(Amount(factor.String()), 0, 18) {
+			return false
+		}
+		last = i
+	}
+	return true
+}
+
+func (s *BalancerComposableV6State) hasRate(i int) bool {
+	for _, rate := range s.RateCaches {
+		if int(rate.TokenIndex) == i {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *BalancerComposableV6State) amountFields() []*Amount {
@@ -56,11 +107,33 @@ func composableV6ToProto(s *BalancerComposableV6State) (*pb.BalancerComposableV6
 		values[i] = &pb.Amount{Uint256Be: encoded}
 	}
 	exempt := s.YieldExempt
-	return &pb.BalancerComposableV6State{
+	out := &pb.BalancerComposableV6State{
 		TotalSupply: values[0], LastJoinExitAmp: values[1], LastJoinExitInvariant: values[2],
 		ProtocolSwapFee: values[3], ProtocolYieldFee: values[4], FeeCollector: s.FeeCollector,
 		CollectorBpt: values[5], YieldExempt: &exempt,
-	}, nil
+	}
+	if s.RateSnapshotTimestamp != nil {
+		stamp := *s.RateSnapshotTimestamp
+		out.RateSnapshotTimestamp = &stamp
+	}
+	for _, rate := range s.RateCaches {
+		digest, err := hex.DecodeString(rate.ProviderCodeSHA256)
+		if err != nil || len(digest) != 32 {
+			return nil, errors.New("COMPOSABLE_V6_RATE_PROVIDER_IDENTITY")
+		}
+		current, err := rate.Current.Bytes()
+		if err != nil {
+			return nil, err
+		}
+		old, err := rate.Old.Bytes()
+		if err != nil {
+			return nil, err
+		}
+		duration, expires := rate.Duration, rate.Expires
+		out.RateCaches = append(out.RateCaches, &pb.BalancerComposableV6RateCache{TokenIndex: rate.TokenIndex, Provider: rate.Provider, ProviderCodeSha256: digest,
+			Current: &pb.Amount{Uint256Be: current}, Old: &pb.Amount{Uint256Be: old}, Duration: &duration, Expires: &expires})
+	}
+	return out, nil
 }
 
 func composableV6FromProto(p *pb.BalancerComposableV6State) (*BalancerComposableV6State, error) {
@@ -81,6 +154,25 @@ func composableV6FromProto(p *pb.BalancerComposableV6State) (*BalancerComposable
 			return nil, err
 		}
 		*fields[i] = decoded
+	}
+	if p.RateSnapshotTimestamp != nil {
+		stamp := *p.RateSnapshotTimestamp
+		s.RateSnapshotTimestamp = &stamp
+	}
+	for _, rate := range p.RateCaches {
+		if rate == nil || rate.Current == nil || rate.Old == nil || rate.Duration == nil || rate.Expires == nil || len(rate.ProviderCodeSha256) != 32 {
+			return nil, errors.New("COMPOSABLE_V6_RATE_CACHE_REQUIRED")
+		}
+		current, err := AmountFromBytes(rate.Current.Uint256Be)
+		if err != nil {
+			return nil, err
+		}
+		old, err := AmountFromBytes(rate.Old.Uint256Be)
+		if err != nil {
+			return nil, err
+		}
+		s.RateCaches = append(s.RateCaches, BalancerComposableV6RateCache{TokenIndex: rate.TokenIndex, Provider: rate.Provider, ProviderCodeSHA256: hex.EncodeToString(rate.ProviderCodeSha256),
+			Current: current, Old: old, Duration: *rate.Duration, Expires: *rate.Expires})
 	}
 	return s, nil
 }

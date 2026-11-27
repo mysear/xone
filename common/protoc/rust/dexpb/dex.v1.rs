@@ -763,7 +763,7 @@ pub struct MultiAssetState {
     #[prost(message, optional, tag = "14")]
     pub composable_v6: ::core::option::Option<BalancerComposableV6State>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BalancerComposableV6State {
     #[prost(message, optional, tag = "1")]
     pub total_supply: ::core::option::Option<Amount>,
@@ -781,6 +781,27 @@ pub struct BalancerComposableV6State {
     pub collector_bpt: ::core::option::Option<Amount>,
     #[prost(bool, optional, tag = "8")]
     pub yield_exempt: ::core::option::Option<bool>,
+    #[prost(message, repeated, tag = "9")]
+    pub rate_caches: ::prost::alloc::vec::Vec<BalancerComposableV6RateCache>,
+    #[prost(uint64, optional, tag = "10")]
+    pub rate_snapshot_timestamp: ::core::option::Option<u64>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BalancerComposableV6RateCache {
+    #[prost(uint32, tag = "1")]
+    pub token_index: u32,
+    #[prost(string, tag = "2")]
+    pub provider: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "3")]
+    pub provider_code_sha256: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "4")]
+    pub current: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "5")]
+    pub old: ::core::option::Option<Amount>,
+    #[prost(uint32, optional, tag = "6")]
+    pub duration: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "7")]
+    pub expires: ::core::option::Option<u32>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct OrcaRewardInfo {

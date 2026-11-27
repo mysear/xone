@@ -403,6 +403,12 @@ func (s Snapshot) Validate(owner string, assignment uint64) error {
 		return e
 	}
 	for _, p := range s.Pools {
+		if m := p.MultiAsset; m != nil && m.ComposableV6 != nil && m.ComposableV6.RateSnapshotTimestamp != nil {
+			stamp := *m.ComposableV6.RateSnapshotTimestamp
+			if stamp > ^uint64(0)/1000 || stamp*1000 != r.Block.TimestampMS {
+				return errors.New("COMPOSABLE_V6_RATE_SNAPSHOT_CLOCK")
+			}
+		}
 		if p.V2 != nil && p.V2.Swap != nil {
 			v := p.V2.Swap
 			if v.BankBlockNumber != r.Block.Number || v.BankBlockHash != r.Block.Hash || v.BankUnixTimestamp > ^uint64(0)/1000 || v.BankUnixTimestamp*1000 != r.Block.TimestampMS {

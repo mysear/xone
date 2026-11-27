@@ -70,3 +70,32 @@ func readComposableV6(call func(string, string, int) ([]byte, error), pool, vaul
 	}
 	return state, nil
 }
+
+func readComposableV6Cache(call func(string, string, int) ([]byte, error), pool, token string, index uint32, provider, digest string, timestamp uint64) (domain.BalancerComposableV6RateCache, error) {
+	var cache domain.BalancerComposableV6RateCache
+	data, err := call(pool, "0x7f1260d1"+strings.Repeat("0", 24)+token[2:], 4)
+	if err != nil {
+		return cache, err
+	}
+	current, err := wordUint(data[:32], 96)
+	if err != nil {
+		return cache, err
+	}
+	old, err := wordUint(data[32:64], 96)
+	if err != nil {
+		return cache, err
+	}
+	duration, err := wordUint(data[64:96], 32)
+	if err != nil {
+		return cache, err
+	}
+	expires, err := wordUint(data[96:], 32)
+	if err != nil {
+		return cache, err
+	}
+	if timestamp > expires.Uint64() {
+		return cache, errors.New("COMPOSABLE_V6_RATE_CACHE_EXPIRED")
+	}
+	return domain.BalancerComposableV6RateCache{TokenIndex: index, Provider: provider, ProviderCodeSHA256: digest,
+		Current: domain.Amount(current.String()), Old: domain.Amount(old.String()), Duration: uint32(duration.Uint64()), Expires: uint32(expires.Uint64())}, nil
+}

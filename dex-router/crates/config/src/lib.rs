@@ -253,10 +253,16 @@ config_struct!(WeightedPoolConfig {
     expected_token1_code_sha256: String,
     token_policy: String
 });
-config_struct!(MultiTokenConfig {
-    token: String,
-    expected_code_sha256: String
-});
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MultiTokenConfig {
+    pub token: String,
+    pub expected_code_sha256: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub rate_provider: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub rate_provider_code_sha256: String,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MultiAssetConfig {
@@ -1387,6 +1393,27 @@ impl Config {
                     }
                     .parse()?;
                     let crypto_gamma: Amount = "10000000000".parse()?;
+                    let mut rate_caches = Vec::new();
+                    for (index, token) in v.tokens.iter().enumerate() {
+                        if token.rate_provider.is_empty()
+                            && token.rate_provider_code_sha256.is_empty()
+                        {
+                            continue;
+                        }
+                        if !v6 {
+                            return Err(fail());
+                        }
+                        rate_caches.push(xone_domain::multi_asset::BalancerComposableV6RateCache {
+                            token_index: index as u32,
+                            provider: token.rate_provider.clone(),
+                            provider_code_sha256: token.rate_provider_code_sha256.clone(),
+                            current: "1000000000000000000".parse()?,
+                            old: "1000000000000000000".parse()?,
+                            duration: 0,
+                            expires: 1,
+                        });
+                    }
+                    let has_rates = !rate_caches.is_empty();
                     let state = xone_domain::multi_asset::MultiAssetState {
                         composable_v6: if v6 {
                             Some(xone_domain::multi_asset::BalancerComposableV6State {
@@ -1398,6 +1425,8 @@ impl Config {
                                 fee_collector: format!("0x{}", "1".repeat(40)),
                                 collector_bpt: Amount::zero(),
                                 yield_exempt: false,
+                                rate_snapshot_timestamp: has_rates.then_some(1),
+                                rate_caches,
                             })
                         } else {
                             None
@@ -1503,7 +1532,11 @@ impl Config {
                         reserve1: xone_domain::Amount::zero(),
                         fee_numerator: p.fee_numerator,
                         fee_denominator: p.fee_denominator,
-                        adapter_version: profile.adapter.into(),
+                        adapter_version: if has_rates {
+                            xone_domain::multi_asset::COMPOSABLE_V6_CACHED_ADAPTER.into()
+                        } else {
+                            profile.adapter.into()
+                        },
                         token_behavior: "standard".into(),
                     };
                     pool.validate()?;

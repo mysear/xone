@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,14 +47,18 @@ func TestComposableV6OriginalVaultSnapshotWire(t *testing.T) {
 				LastInvariant   domain.Amount `json:"last_post_join_exit_invariant"`
 				SwapFee         domain.Amount `json:"swap_fee"`
 				YieldFee        domain.Amount `json:"yield_fee"`
+				Rates           []*struct {
+					Current domain.Amount `json:"current"`
+					Old     domain.Amount `json:"old"`
+				}
 			}
 		}
 	}
 	if err = json.NewDecoder(zipped).Decode(&source); err != nil {
 		t.Fatal(err)
 	}
-	if len(source.Snapshots) != 5 {
-		t.Fatal("expected five snapshots of the same pool")
+	if len(source.Snapshots) != 10 {
+		t.Fatal("expected five snapshots for each pool")
 	}
 	for index, snapshot := range source.Snapshots {
 		t.Run(fmt.Sprint(index), func(t *testing.T) {
@@ -121,12 +126,21 @@ func TestComposableV6OriginalVaultSnapshotWire(t *testing.T) {
 					t.Fatalf("unexpected registered asset %d: %+v", i, asset)
 				}
 			}
+			for _, cache := range v6.RateCaches {
+				observed := snapshot.Amounts.Rates[cache.TokenIndex]
+				if observed == nil || cache.Current != observed.Current || cache.Old != observed.Old {
+					t.Fatalf("unexpected rate cache: %+v", cache)
+				}
+			}
+			if (index >= 5 && len(v6.RateCaches) != 2) || (index < 5 && len(v6.RateCaches) != 0) {
+				t.Fatalf("unexpected rate cache count: %d", len(v6.RateCaches))
+			}
 			baseline, err := domain.NewCurrentStateBaseline(block, pools, "chain-parser-go", 1, block.Number)
 			if err != nil {
 				t.Fatal(err)
 			}
 			baseline.Source = "LOCAL_COMPOSABLE_V6_VAULT_REPLAY"
-			baseline.Reference.JournalSeq = uint64(index) + 1
+			baseline.Reference.JournalSeq = uint64(index%5) + 1
 			baseline.Reference.WriterEpoch = 1
 			baseline.Reference.OnlineGeneration = 1
 			wire, err := domain.SnapshotToProto(baseline)
@@ -152,6 +166,28 @@ func TestComposableV6OriginalVaultSnapshotWire(t *testing.T) {
 			wire.Pools[0].MultiAsset.ComposableV6.YieldExempt = nil
 			if _, err := domain.MultiAssetFromProto(wire.Pools[0].MultiAsset); err == nil {
 				t.Fatal("accepted missing yield exemption observation")
+			}
+			if index >= 5 {
+				invalid := pools[0].Clone()
+				invalid.MultiAsset.ComposableV6.RateCaches[0].Expires = 1
+				if invalid.Validate() == nil || pools[0].Validate() != nil {
+					t.Fatal("expired cache admission or aliased clone")
+				}
+				baseline.Reference.Block.TimestampMS += 1000
+				if err := baseline.Validate("chain-parser-go", 1); err == nil || err.Error() != "COMPOSABLE_V6_RATE_SNAPSHOT_CLOCK" {
+					t.Fatalf("unbound cache snapshot: %v", err)
+				}
+				token := &snapshot.Config.MultiAsset.Tokens[v6.RateCaches[0].TokenIndex]
+				provider := token.RateProvider
+				token.RateProvider = snapshot.Config.ID
+				if _, _, err := adapter.ReadState(context.Background(), snapshot.Header["number"].(string), false); err == nil {
+					t.Fatal("accepted a mismatched provider address")
+				}
+				token.RateProvider = provider
+				token.RateProviderCodeSHA256 = strings.Repeat("f", 64)
+				if _, _, err := adapter.ReadState(context.Background(), snapshot.Header["number"].(string), false); err == nil {
+					t.Fatal("accepted a mismatched provider runtime digest")
+				}
 			}
 		})
 	}

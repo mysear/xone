@@ -278,6 +278,18 @@ message BalancerComposableV6State {
  string fee_collector = 6;
  Amount collector_bpt = 7;
  optional bool yield_exempt = 8;
+ repeated BalancerComposableV6RateCache rate_caches = 9;
+ optional uint64 rate_snapshot_timestamp = 10;
+}
+
+message BalancerComposableV6RateCache {
+ uint32 token_index = 1;
+ string provider = 2;
+ bytes provider_code_sha256 = 3;
+ Amount current = 4;
+ Amount old = 5;
+ optional uint32 duration = 6;
+ optional uint32 expires = 7;
 }
 
 message OrcaRewardInfo {string mint=1;string vault=2;bytes extension=3;Amount emissions_per_second_x64=4;Amount growth_global_x64=5;}

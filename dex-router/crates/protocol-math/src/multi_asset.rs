@@ -15,7 +15,7 @@ fn quote_composable_v6_bpt(
     scales: &[BigUint],
     kind: crate::balancer_composable::BptSwapKind,
 ) -> Result<Swap> {
-    use crate::balancer_composable::{quote_bpt_swap, SupplyInput, YieldFeePolicy};
+    use crate::balancer_composable::{quote_bpt_swap, CachedRate, SupplyInput, YieldFeePolicy};
     let mut next_pool = pool.clone();
     let state = next_pool
         .multi_asset
@@ -25,7 +25,13 @@ fn quote_composable_v6_bpt(
         .composable_v6
         .as_mut()
         .ok_or_else(|| err("COMPOSABLE_V6_SUPPLY_STATE"))?;
-    let rates = vec![None; balances.len()];
+    let mut rates = vec![None; balances.len()];
+    for cache in &v6.rate_caches {
+        rates[cache.token_index as usize] = Some(CachedRate {
+            current: cache.current.0.clone(),
+            old: cache.old.0.clone(),
+        });
+    }
     let input = SupplyInput {
         balances,
         scales,
@@ -55,6 +61,12 @@ fn quote_composable_v6_bpt(
     v6.total_supply = Amount::checked(out.next_total_supply)?;
     v6.last_join_exit_amp = Amount::checked(out.last_join_exit_amp)?;
     v6.last_join_exit_invariant = Amount::checked(out.last_join_exit_invariant)?;
+    for cache in &mut v6.rate_caches {
+        let next = out.next_rates[cache.token_index as usize]
+            .as_ref()
+            .ok_or_else(|| err("COMPOSABLE_V6_RATE_STATE"))?;
+        cache.old = Amount(next.old.clone());
+    }
     v6.collector_bpt = Amount::checked(
         &v6.collector_bpt.0 + out.protocol_bpt_before_swap + out.protocol_bpt_after_swap,
     )?;

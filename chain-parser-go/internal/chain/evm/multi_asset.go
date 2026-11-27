@@ -12,7 +12,7 @@ import (
 )
 
 // One fixed EIP-1898 context owns the entire physical multi-token balance vector.
-func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, anchor map[string]any, blockNumber uint64) (domain.Pool, error) {
+func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, anchor map[string]any, block domain.BlockRef) (domain.Pool, error) {
 	if p.Protocol == "balancer-v2-managed-fees" {
 		return domain.Pool{}, errors.New("MANAGED_FEE_RUNTIME_UNAVAILABLE")
 	}
@@ -64,6 +64,8 @@ func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, ancho
 		s.Assets[i] = domain.MultiAsset{Token: t.Token, Balance: "0", Scaling: "0", CodeSHA256: t.ExpectedCodeSHA256}
 	}
 	var fee *big.Int
+	var caches []domain.BalancerComposableV6RateCache
+	adapterVersion := profile.AdapterVersion
 	if weighted {
 		if len(v.PoolID) != 66 {
 			return fail()
@@ -150,10 +152,29 @@ func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, ancho
 			if len(providers) != 64+32*n || new(big.Int).SetBytes(providers[:32]).Cmp(big.NewInt(32)) != 0 || new(big.Int).SetBytes(providers[32:64]).Cmp(big.NewInt(int64(n))) != 0 {
 				return fail()
 			}
-			for _, v := range providers[64:] {
-				if v != 0 {
+			for i, token := range v.Tokens {
+				provider, err := address(providers[64+i*32 : 96+i*32])
+				if err != nil {
 					return fail()
 				}
+				if provider == "0x"+strings.Repeat("0", 40) && token.RateProvider == "" && token.RateProviderCodeSHA256 == "" {
+					continue
+				}
+				if !composableV6 || i == int(bpt.Uint64()) || provider != token.RateProvider || domain.ValidateEVMIdentity(provider, token.RateProviderCodeSHA256) != nil {
+					return fail()
+				}
+				providerCode, err := a.verifyCode(ctx, provider, token.RateProviderCodeSHA256, anchor)
+				if err != nil {
+					return domain.Pool{}, err
+				}
+				if isStandardClone(providerCode) {
+					return fail()
+				}
+				cache, err := readComposableV6Cache(call, p.ID, token.Token, uint32(i), provider, token.RateProviderCodeSHA256, block.TimestampMS/1000)
+				if err != nil {
+					return domain.Pool{}, err
+				}
+				caches = append(caches, cache)
 			}
 			amp, e := call(p.ID, selectorAmplification, 3)
 			if e != nil {
@@ -187,7 +208,17 @@ func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, ancho
 			if e != nil {
 				return domain.Pool{}, e
 			}
-			if !d.IsUint64() || d.Uint64() > 18 || scales[i].Big().Cmp(new(big.Int).Exp(big.NewInt(10), big.NewInt(36-int64(d.Uint64())), nil)) != 0 {
+			if !d.IsUint64() || d.Uint64() > 18 {
+				return fail()
+			}
+			expected := new(big.Int).Exp(big.NewInt(10), big.NewInt(36-int64(d.Uint64())), nil)
+			for _, cache := range caches {
+				if int(cache.TokenIndex) == i {
+					expected.Div(expected.Mul(expected, cache.Current.Big()), big.NewInt(1000000000000000000))
+					break
+				}
+			}
+			if scales[i].Big().Cmp(expected) != 0 {
 				return fail()
 			}
 			s.Assets[i].Scaling = scales[i]
@@ -201,7 +232,7 @@ func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, ancho
 			return fail()
 		}
 		last, e := wordUint(b[64:96], 64)
-		if e != nil || last.Uint64() > blockNumber {
+		if e != nil || last.Uint64() > block.Number {
 			return fail()
 		}
 		for i, t := range v.Tokens {
@@ -231,6 +262,12 @@ func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, ancho
 			s.ComposableV6, e = readComposableV6(call, p.ID, v.ExpectedVault)
 			if e != nil {
 				return domain.Pool{}, e
+			}
+			if len(caches) != 0 {
+				stamp := block.TimestampMS / 1000
+				s.ComposableV6.RateCaches = caches
+				s.ComposableV6.RateSnapshotTimestamp = &stamp
+				adapterVersion = domain.ComposableV6CachedRatesAdapter
 			}
 		}
 	} else {
@@ -281,6 +318,6 @@ func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, ancho
 	if fee == nil || !fee.IsUint64() {
 		return fail()
 	}
-	pool := domain.Pool{MultiAsset: s, ChainKey: a.Chain.Key, PoolID: p.ID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: s.Assets[0].Balance, Reserve1: s.Assets[1].Balance, FeeNumerator: fee.Uint64(), FeeDenominator: profile.FeeDenominator, AdapterVersion: profile.AdapterVersion, TokenBehavior: "standard"}
+	pool := domain.Pool{MultiAsset: s, ChainKey: a.Chain.Key, PoolID: p.ID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: s.Assets[0].Balance, Reserve1: s.Assets[1].Balance, FeeNumerator: fee.Uint64(), FeeDenominator: profile.FeeDenominator, AdapterVersion: adapterVersion, TokenBehavior: "standard"}
 	return pool, pool.Validate()
 }

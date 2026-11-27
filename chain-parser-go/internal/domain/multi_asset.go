@@ -49,18 +49,25 @@ func (p Pool) validateMultiAsset() error {
 	if s.Weights == nil || s.Assets == nil {
 		return errors.New("MULTI_ASSET_ARRAY_REQUIRED")
 	}
-	if ValidateChain(p.ChainKey) != nil || !strings.HasPrefix(p.ChainKey, "evm:") || ValidateEVMAddress(p.PoolID) != nil || p.AdapterVersion != profile.AdapterVersion || p.TokenBehavior != "standard" || !validDigest(s.CodeSHA256) || len(s.Assets) < 2 || len(s.Assets) > 38 || p.FeeDenominator != profile.FeeDenominator || p.FeeNumerator >= p.FeeDenominator {
+	if ValidateChain(p.ChainKey) != nil || !strings.HasPrefix(p.ChainKey, "evm:") || ValidateEVMAddress(p.PoolID) != nil || (p.AdapterVersion != profile.AdapterVersion && !(v6 && p.AdapterVersion == ComposableV6CachedRatesAdapter)) || p.TokenBehavior != "standard" || !validDigest(s.CodeSHA256) || len(s.Assets) < 2 || len(s.Assets) > 38 || p.FeeDenominator != profile.FeeDenominator || p.FeeNumerator >= p.FeeDenominator {
 		return errors.New("MULTI_ASSET_IDENTITY")
 	}
 	seen := map[string]bool{}
-	for _, a := range s.Assets {
-		if ValidateEVMAddress(a.Token) != nil || seen[a.Token] || (a.Token == p.PoolID && !composable) || !validDigest(a.CodeSHA256) || !power10Between(a.Scaling, 18, 36) {
+	for i, a := range s.Assets {
+		hasProvider := v6 && s.ComposableV6.hasRate(i)
+		if ValidateEVMAddress(a.Token) != nil || seen[a.Token] || (a.Token == p.PoolID && !composable) || !validDigest(a.CodeSHA256) || (!hasProvider && !power10Between(a.Scaling, 18, 36)) {
 			return errors.New("MULTI_ASSET_TOKEN")
+		}
+		if _, err := ParseAmount(string(a.Scaling)); err != nil {
+			return err
 		}
 		seen[a.Token] = true
 		if _, e := ParseAmount(string(a.Balance)); e != nil {
 			return e
 		}
+	}
+	if v6 && !s.ComposableV6.validRates(s.Assets, p.PoolID, p.AdapterVersion) {
+		return errors.New("COMPOSABLE_V6_RATE_STATE")
 	}
 	if p.Token0 != s.Assets[0].Token || p.Token1 != s.Assets[1].Token || p.Reserve0 != s.Assets[0].Balance || p.Reserve1 != s.Assets[1].Balance {
 		return errors.New("MULTI_ASSET_DUPLICATE_FIELDS")

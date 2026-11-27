@@ -252,6 +252,11 @@ func (p Pool) Clone() Pool {
 		c := *p.MultiAsset
 		if c.ComposableV6 != nil {
 			v6 := *c.ComposableV6
+			v6.RateCaches = append([]BalancerComposableV6RateCache(nil), v6.RateCaches...)
+			if v6.RateSnapshotTimestamp != nil {
+				stamp := *v6.RateSnapshotTimestamp
+				v6.RateSnapshotTimestamp = &stamp
+			}
 			c.ComposableV6 = &v6
 		}
 		if c.ManagedV2 != nil {

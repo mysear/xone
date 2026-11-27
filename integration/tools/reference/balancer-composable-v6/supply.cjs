@@ -162,9 +162,11 @@ async function main() {
         for (const method of ['getPool', 'getPoolTokens']) await record(vault, method, [poolId]);
         for (const address of registered) {
           await record(vault, 'getPoolTokenInfo', [poolId, address]);
-          await record(address === pool.address ? pool : tokens.find(token => token.address === address), 'decimals');
+          const i = tokens.findIndex(token => token.address === address);
+          await record(i < 0 ? pool : tokens[i], 'decimals');
+          if (rates[i]) await record(pool, 'getTokenRateCache', [address]);
         }
-        const addresses = [...registered, vault.address].map(addr => addr.toLowerCase());
+        const addresses = [...registered, vault.address, ...rates.map(rate => rate.address)].map(addr => addr.toLowerCase());
         for (const address of addresses) {
           const code = await provider.getCode(address, state.block);
           assert.equal(code, wireCodes[address] ?? code);
@@ -180,7 +182,11 @@ async function main() {
           multi_asset: {
             expected_code_sha256: hash(p), expected_vault: v, expected_vault_code_sha256: hash(v),
             pool_id: poolId, token_policy: 'standard-with-own-bpt',
-            tokens: assets.map(token => ({ token, expected_code_sha256: hash(token) })),
+            tokens: assets.map(token => {
+              const index = tokens.findIndex(asset => asset.address.toLowerCase() === token);
+              const rate = rates[index]?.address.toLowerCase();
+              return { token, expected_code_sha256: hash(token), ...(rate ? { rate_provider: rate, rate_provider_code_sha256: hash(rate) } : {}) };
+            }),
           },
         };
         wireSnapshots.push({ header, calls, config, amounts: state, collector_bpt: String(await pool.balanceOf(collector.address, { blockTag: state.block })) });
@@ -211,7 +217,7 @@ async function main() {
         }
       }
       const block = await provider.getBlock('latest');
-      if (rates.length) await send(pool, 'startAmplificationParameterUpdate', 350, block.timestamp + 2 * 86400);
+      if (name === 'exempt') await send(pool, 'startAmplificationParameterUpdate', 350, block.timestamp + 2 * 86400);
       await chain.request({ method: 'evm_increaseTime', params: [600] });
       await chain.request({ method: 'evm_mine', params: [] });
       const funds = { sender: owner, recipient: owner, fromInternalBalance: false, toInternalBalance: false };
@@ -244,8 +250,8 @@ async function main() {
         const receipt = await send(vault, 'swap', request, funds, kind === 0 ? 0 : max, max);
         const [amp] = await pool.getAmplificationParameter({ blockTag: receipt.blockNumber });
         const after = await capture(`${step}/after`);
-        if (wireOutput && name === 'no-rate') {
-          if (wireSnapshots.length === 0) await wireSnapshot(before);
+        if (wireOutput && name !== 'exempt') {
+          if (step === 'join-exact-out') await wireSnapshot(before);
           await wireSnapshot(after);
         }
         const swap = receipt.events.find(event => event.event === 'Swap').args;

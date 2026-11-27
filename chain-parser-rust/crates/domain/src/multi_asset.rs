@@ -8,6 +8,19 @@ use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 pub const COMPOSABLE_V6_PROTOCOL: &str = "balancer-v2-composable-v6";
 pub const COMPOSABLE_V6_ADAPTER: &str = "balancer-v2-composable-v6/no-rates-1";
+pub const COMPOSABLE_V6_CACHED_ADAPTER: &str = "balancer-v2-composable-v6/cached-rates-1";
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BalancerComposableV6RateCache {
+    pub token_index: u32,
+    pub provider: String,
+    pub provider_code_sha256: String,
+    pub current: Amount,
+    pub old: Amount,
+    pub duration: u32,
+    pub expires: u32,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -20,9 +33,50 @@ pub struct BalancerComposableV6State {
     pub fee_collector: String,
     pub collector_bpt: Amount,
     pub yield_exempt: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rate_caches: Vec<BalancerComposableV6RateCache>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_snapshot_timestamp: Option<u64>,
 }
 
 impl BalancerComposableV6State {
+    fn valid_rates(&self, assets: &[MultiAsset], pool: &str, adapter: &str) -> Result<()> {
+        if adapter == COMPOSABLE_V6_ADAPTER
+            && self.rate_caches.is_empty()
+            && self.rate_snapshot_timestamp.is_none()
+        {
+            return Ok(());
+        }
+        let fail = || err("COMPOSABLE_V6_RATE_STATE");
+        let timestamp = self
+            .rate_snapshot_timestamp
+            .filter(|&stamp| stamp > 0)
+            .ok_or_else(fail)?;
+        if adapter != COMPOSABLE_V6_CACHED_ADAPTER || self.rate_caches.is_empty() {
+            return Err(fail());
+        }
+        let mut previous = None;
+        for rate in &self.rate_caches {
+            let asset = assets.get(rate.token_index as usize).ok_or_else(fail)?;
+            validate_identity(&rate.provider, &rate.provider_code_sha256)?;
+            if previous.is_some_and(|i| i >= rate.token_index)
+                || asset.token == pool
+                || rate.provider == pool
+                || u64::from(rate.expires) < timestamp
+                || rate.current.0.is_zero()
+                || rate.old.0.is_zero()
+                || rate.current.0.bits() > 96
+                || rate.old.0.bits() > 96
+                || !(0..=18)
+                    .any(|n| asset.scaling.0 == &rate.current.0 * BigUint::from(10u8).pow(n))
+            {
+                return Err(fail());
+            }
+            previous = Some(rate.token_index);
+        }
+        Ok(())
+    }
+
     fn valid(&self, vault_bpt: &Amount) -> Result<()> {
         validate_address(&self.fee_collector)?;
         let one = BigUint::from(1_000_000_000_000_000_000u64);
@@ -121,7 +175,8 @@ impl Pool {
         crate::validate_chain(&self.chain_key)?;
         validate_address(&self.pool_id)?;
         if !self.chain_key.starts_with("evm:")
-            || self.adapter_version != profile.adapter
+            || (self.adapter_version != profile.adapter
+                && !(v6 && self.adapter_version == COMPOSABLE_V6_CACHED_ADAPTER))
             || self.token_behavior != "standard"
             || !digest(&s.code_sha256)
             || !(2..=38).contains(&s.assets.len())
@@ -131,13 +186,18 @@ impl Pool {
             return Err(err("MULTI_ASSET_IDENTITY"));
         }
         let mut seen = std::collections::BTreeSet::new();
-        for a in &s.assets {
+        for (index, a) in s.assets.iter().enumerate() {
+            let has_provider = s.composable_v6.as_ref().is_some_and(|v6| {
+                v6.rate_caches
+                    .iter()
+                    .any(|rate| rate.token_index as usize == index)
+            });
             validate_address(&a.token)?;
             if a.balance.0.bits() > 256
                 || !seen.insert(&a.token)
                 || (a.token == self.pool_id && !composable)
                 || !digest(&a.code_sha256)
-                || !(18..=36).any(|n| a.scaling.0 == BigUint::from(10u8).pow(n))
+                || (!has_provider && !(18..=36).any(|n| a.scaling.0 == BigUint::from(10u8).pow(n)))
             {
                 return Err(err("MULTI_ASSET_TOKEN"));
             }
@@ -249,6 +309,7 @@ impl Pool {
                     return Err(err("COMPOSABLE_PARAMETERS"));
                 }
                 if let Some(v6) = &s.composable_v6 {
+                    v6.valid_rates(&s.assets, &self.pool_id, &self.adapter_version)?;
                     let bpt = s
                         .assets
                         .iter()
@@ -310,6 +371,22 @@ impl MultiAssetState {
                         fee_collector: v.fee_collector.clone(),
                         collector_bpt: amount(&v.collector_bpt)?,
                         yield_exempt: Some(v.yield_exempt),
+                        rate_snapshot_timestamp: v.rate_snapshot_timestamp,
+                        rate_caches: v
+                            .rate_caches
+                            .iter()
+                            .map(|cache| {
+                                Ok::<_, crate::Error>(wire::BalancerComposableV6RateCache {
+                                    token_index: cache.token_index,
+                                    provider: cache.provider.clone(),
+                                    provider_code_sha256: raw(&cache.provider_code_sha256, false)?,
+                                    current: amount(&cache.current)?,
+                                    old: amount(&cache.old)?,
+                                    duration: Some(cache.duration),
+                                    expires: Some(cache.expires),
+                                })
+                            })
+                            .collect::<Result<_>>()?,
                     })
                 })
                 .transpose()?,
@@ -383,6 +460,23 @@ impl MultiAssetState {
                         yield_exempt: v
                             .yield_exempt
                             .ok_or_else(|| err("COMPOSABLE_V6_EXEMPTION_REQUIRED"))?,
+                        rate_snapshot_timestamp: v.rate_snapshot_timestamp,
+                        rate_caches: v
+                            .rate_caches
+                            .into_iter()
+                            .map(|cache| {
+                                let missing = || err("COMPOSABLE_V6_RATE_CACHE_REQUIRED");
+                                Ok::<_, crate::Error>(BalancerComposableV6RateCache {
+                                    token_index: cache.token_index,
+                                    provider: cache.provider,
+                                    provider_code_sha256: bytes(cache.provider_code_sha256, false)?,
+                                    current: amount(cache.current)?,
+                                    old: amount(cache.old)?,
+                                    duration: cache.duration.ok_or_else(missing)?,
+                                    expires: cache.expires.ok_or_else(missing)?,
+                                })
+                            })
+                            .collect::<Result<_>>()?,
                     })
                 })
                 .transpose()?,

@@ -319,7 +319,7 @@ func (a *Adapter) readState(ctx context.Context, tag string, completeBlock bool)
 		} else if p.Protocol == domain.ManagedV2Protocol || p.Protocol == domain.ManagedV2ScheduledProtocol || p.Protocol == domain.ManagedV2BptProtocol || p.Protocol == domain.ManagedV2BreakerProtocol {
 			pool, e = stateReader.readManagedV2(ctx, p, anchor, ref)
 		} else if profile.Family == "multi" {
-			pool, e = stateReader.readMultiAsset(ctx, p, anchor, ref.Number)
+			pool, e = stateReader.readMultiAsset(ctx, p, anchor, ref)
 		} else if profile.Family == "singleton" {
 			pool, e = stateReader.readSingletonCL(ctx, p, anchor)
 		} else if profile.Family == "weighted" {

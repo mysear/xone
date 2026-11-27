@@ -194,8 +194,10 @@ type RaydiumCLMMConfig struct {
 	MaxSteps                       uint32  `json:"max_steps"`
 }
 type MultiTokenConfig struct {
-	Token              string `json:"token"`
-	ExpectedCodeSHA256 string `json:"expected_code_sha256"`
+	Token                  string `json:"token"`
+	ExpectedCodeSHA256     string `json:"expected_code_sha256"`
+	RateProvider           string `json:"rate_provider,omitempty"`
+	RateProviderCodeSHA256 string `json:"rate_provider_code_sha256,omitempty"`
 }
 type MultiAssetConfig struct {
 	ManagedV2                        *ManagedV2PoolConfig `json:"managed_v2,omitempty"`
@@ -791,6 +793,7 @@ func (c Config) Validate(expected string) error {
 					}
 				}
 				state := &domain.MultiAssetState{CodeSHA256: v.ExpectedCodeSHA256, Vault: v.ExpectedVault, VaultCodeSHA256: v.ExpectedVaultCodeSHA256, PoolID: v.PoolID, Assets: []domain.MultiAsset{}, Weights: []domain.Amount{}, Amplification: "10000", AdminFee: 5000000000}
+				adapterVersion := profile.AdapterVersion
 				for _, a := range v.Tokens {
 					state.Assets = append(state.Assets, domain.MultiAsset{Token: a.Token, Balance: "0", Scaling: "1000000000000000000", CodeSHA256: a.ExpectedCodeSHA256})
 				}
@@ -868,7 +871,22 @@ func (c Config) Validate(expected string) error {
 					}
 					state.CurveNG = &domain.CurveNGState{StoredBalances: stored, AdminBalances: admin, LastPricesPacked: prices, LastDPacked: "0", MALastTime: "0", MAExpTime: 1, DMaTime: 1, Timestamp: 1, BlockNumber: 1, BlockHash: "0x" + strings.Repeat("1", 64), OffpegFeeMultiplier: "10000000000"}
 				}
-				model := domain.Pool{MultiAsset: state, ChainKey: ch.Key, PoolID: p.ID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: "0", Reserve1: "0", FeeNumerator: p.FeeNumerator, FeeDenominator: p.FeeDenominator, AdapterVersion: profile.AdapterVersion, TokenBehavior: "standard"}
+				for i, token := range v.Tokens {
+					if token.RateProvider == "" && token.RateProviderCodeSHA256 == "" {
+						continue
+					}
+					if state.ComposableV6 == nil || domain.ValidateEVMIdentity(token.RateProvider, token.RateProviderCodeSHA256) != nil {
+						return invalid()
+					}
+					adapterVersion = domain.ComposableV6CachedRatesAdapter
+					stamp := uint64(1)
+					state.ComposableV6.RateSnapshotTimestamp = &stamp
+					state.ComposableV6.RateCaches = append(state.ComposableV6.RateCaches, domain.BalancerComposableV6RateCache{
+						TokenIndex: uint32(i), Provider: token.RateProvider, ProviderCodeSHA256: token.RateProviderCodeSHA256,
+						Current: "1000000000000000000", Old: "1000000000000000000", Expires: 1,
+					})
+				}
+				model := domain.Pool{MultiAsset: state, ChainKey: ch.Key, PoolID: p.ID, Protocol: p.Protocol, Token0: p.Token0, Token1: p.Token1, Reserve0: "0", Reserve1: "0", FeeNumerator: p.FeeNumerator, FeeDenominator: p.FeeDenominator, AdapterVersion: adapterVersion, TokenBehavior: "standard"}
 				if model.Validate() != nil {
 					return invalid()
 				}

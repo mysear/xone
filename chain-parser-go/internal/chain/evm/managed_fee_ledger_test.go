@@ -152,7 +152,7 @@ func TestManagedFeeLedgerUsesOneBlockHashAndCoalescesRecipients(t *testing.T) {
 func TestManagedReferenceRuntimeCannotEnterNormalParser(t *testing.T) {
 	// Even direct Adapter use cannot bypass the normal configuration rejection.
 	a := Adapter{}
-	_, e := a.readMultiAsset(context.Background(), config.PoolConfig{Protocol: "balancer-v2-managed-fees"}, nil, 100)
+	_, e := a.readMultiAsset(context.Background(), config.PoolConfig{Protocol: "balancer-v2-managed-fees"}, nil, domain.BlockRef{Number: 100})
 	if e == nil || e.Error() != "MANAGED_FEE_RUNTIME_UNAVAILABLE" {
 		t.Fatal("reference-only runtime entered online parser", e)
 	}
