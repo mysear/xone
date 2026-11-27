@@ -229,6 +229,90 @@ func TestHistoryQueueOnlyHistoryAndBoundedFacts(t *testing.T) {
 	}
 }
 
+func TestHistoryQueueLongGapCapacityPreservesOnlineProgress(t *testing.T) {
+	const gapEnd = 2_592_000
+	const retainedBlocks = 256
+	const writeCycles = 8
+	ctx := context.Background()
+	dir := t.TempDir()
+	snapshot := historyBaseline(t)
+	snapshot.Reference.Block.Number = gapEnd + 1
+	snapshot.HistoryGaps = []domain.Gap{{From: 1, To: gapEnd, Reason: "HEAD_FIRST_HISTORY_DECOUPLED"}}
+	options := HistoryQueueOptions{
+		Chain: "evm:31337", DatasetID: strings.Repeat("de", 32), MaxJobs: writeCycles + 2,
+	}
+	for height := uint64(1); height <= retainedBlocks; height++ {
+		data, err := json.Marshal(historyBatch(height))
+		if err != nil {
+			t.Fatal(err)
+		}
+		options.MaxBytes += len(data) + len("null")
+	}
+
+	for cycle := 0; cycle <= writeCycles; cycle++ {
+		func() {
+			store, err := Open(dir, "chain-parser-go", 1, 128)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer store.Close()
+			if cycle != 0 {
+				if store.DurableRef() != snapshot.Reference {
+					t.Fatal("online reference changed after reopen", store.DurableRef())
+				}
+				snapshot.Reference.Block.Number++
+				snapshot.Reference.OnlineGeneration++
+				snapshot.Reference.JournalSeq++
+			}
+			if err = store.InstallBaseline(snapshot); err != nil {
+				t.Fatal(err)
+			}
+			queue, err := store.OpenHistoryQueue(options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			from := uint64(cycle*retainedBlocks/writeCycles + 1)
+			through := min(from+retainedBlocks/writeCycles-1, retainedBlocks)
+			for height := from; height <= through; height++ {
+				claim, err := queue.Claim(ctx, time.Now())
+				if err != nil || claim.Height != height {
+					t.Fatal(claim, err)
+				}
+				if err = queue.Complete(ctx, claim, historyBatch(height), nil); err != nil {
+					t.Fatal(height, err)
+				}
+			}
+			if cycle == writeCycles-1 {
+				claim, err := queue.Claim(ctx, time.Now())
+				if err != nil || claim.Height != retainedBlocks+1 {
+					t.Fatal(claim, err)
+				}
+				if err = queue.Complete(ctx, claim, historyBatch(claim.Height), nil); !errors.Is(err, ErrHistoryCapacity) {
+					t.Fatal("expected aggregate capacity rejection", err)
+				}
+				if err = queue.Retry(ctx, claim, time.Now().Add(time.Hour), "HISTORY_CAPACITY_RETRY"); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = queue.Facts(ctx, claim.Height); !errors.Is(err, pebble.ErrNotFound) {
+					t.Fatal("rejected facts should be absent", err)
+				}
+			}
+			status, err := queue.Status(ctx)
+			if err != nil || status.FactBlocks != through || len(status.Covered) != 1 || status.Covered[0].To != through ||
+				len(status.Gaps) == 0 || status.Gaps[0].From != through+1 || status.Gaps[0].To != gapEnd {
+				t.Fatal(status, err)
+			}
+			if through == retainedBlocks && (status.Bytes != options.MaxBytes || status.Gaps[0].Reason != "HISTORY_CAPACITY_RETRY") {
+				t.Fatal("capacity state changed", status)
+			}
+			online, ready := store.Current()
+			if !ready || online.Reference != snapshot.Reference || online.Pools[0].Reserve0 != snapshot.Pools[0].Reserve0 {
+				t.Fatal("history affected the online baseline", online.Reference, ready)
+			}
+		}()
+	}
+}
+
 func TestHistoryQueueRecoversBaselineDeclarationWithoutStartupReplay(t *testing.T) {
 	dir := t.TempDir()
 	s, e := Open(dir, "chain-parser-go", 1, 128)
