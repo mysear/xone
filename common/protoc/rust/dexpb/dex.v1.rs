@@ -802,6 +802,8 @@ pub struct BalancerComposableV6RateCache {
     pub duration: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag = "7")]
     pub expires: ::core::option::Option<u32>,
+    #[prost(message, optional, tag = "8")]
+    pub observed_refresh_rate: ::core::option::Option<Amount>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct OrcaRewardInfo {

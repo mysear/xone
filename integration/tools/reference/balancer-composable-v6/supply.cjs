@@ -82,6 +82,8 @@ async function main() {
     const bptSwaps = [];
     const refreshes = [];
     const wireSnapshots = [];
+    const refreshWireSnapshots = [];
+    const refreshWireSwaps = [];
     const wireCodes = {};
     let rejectedJoins = 0;
     for (const [name, exempt, count, providerCount] of [
@@ -143,7 +145,7 @@ async function main() {
           virtual_supply: String(virtual), pending_protocol_bpt: String(actual - virtual), actual_supply: String(actual),
         };
       };
-      const wireSnapshot = async (state) => {
+      const wireSnapshot = async (state, snapshots = wireSnapshots) => {
         const tag = ethers.utils.hexValue(state.block);
         const header = await chain.request({ method: 'eth_getBlockByNumber', params: [tag, false] });
         const calls = {};
@@ -164,7 +166,11 @@ async function main() {
           await record(vault, 'getPoolTokenInfo', [poolId, address]);
           const i = tokens.findIndex(token => token.address === address);
           await record(i < 0 ? pool : tokens[i], 'decimals');
-          if (rates[i]) await record(pool, 'getTokenRateCache', [address]);
+          if (rates[i]) {
+            await record(pool, 'getTokenRateCache', [address]);
+            const [, , , expires] = await pool.getTokenRateCache(address, { blockTag: tag });
+            if (Number(header.timestamp) > expires.toNumber()) await record(rates[i], 'getRate');
+          }
         }
         const addresses = [...registered, vault.address, ...rates.map(rate => rate.address)].map(addr => addr.toLowerCase());
         for (const address of addresses) {
@@ -185,11 +191,13 @@ async function main() {
             tokens: assets.map(token => {
               const index = tokens.findIndex(asset => asset.address.toLowerCase() === token);
               const rate = rates[index]?.address.toLowerCase();
-              return { token, expected_code_sha256: hash(token), ...(rate ? { rate_provider: rate, rate_provider_code_sha256: hash(rate) } : {}) };
+              return { token, expected_code_sha256: hash(token), ...(rate ? {
+                rate_provider: rate, rate_provider_code_sha256: hash(rate), rate_provider_context_independent: true,
+              } : {}) };
             }),
           },
         };
-        wireSnapshots.push({ header, calls, config, amounts: state, collector_bpt: String(await pool.balanceOf(collector.address, { blockTag: state.block })) });
+        snapshots.push({ header, calls, config, amounts: state, collector_bpt: String(await pool.balanceOf(collector.address, { blockTag: state.block })) });
       };
       cases.push(await capture('initial'));
       await send(vault, 'swap', {
@@ -303,7 +311,15 @@ async function main() {
           const failed = await vault.swap(request, funds, max, max, gas);
           await assert.rejects(failed.wait(), error => error.receipt?.status === 0);
           assert.deepEqual(await cacheState('latest'), before);
+          const wireRefresh = wireOutput && name === 'yield' && step === 'after-expiry';
+          if (wireRefresh) await wireSnapshot(await capture('refresh-exact-in/before'), refreshWireSnapshots);
           const receipt = await send(vault, 'swap', request, funds, 0, max);
+          if (wireRefresh) {
+            await wireSnapshot(await capture('refresh-exact-in/after'), refreshWireSnapshots);
+            const swap = receipt.events.find(event => event.event === 'Swap').args;
+            refreshWireSwaps.push({ kind: request.kind, amount: String(request.amount), i: registered.indexOf(request.assetIn),
+              j: registered.indexOf(request.assetOut), amount_in: String(swap.amountIn), amount_out: String(swap.amountOut) });
+          }
           const block = await provider.getBlock(receipt.blockNumber);
           const tag = { blockTag: block.number };
           const after = await cacheState(block.number);
@@ -315,10 +331,24 @@ async function main() {
             timestamp: block.timestamp, provider_rates: providerRates, scales: (await pool.getScalingFactors(tag)).map(String),
           });
         }
+        if (wireOutput && name === 'yield') {
+          await send(rates[0], 'set', E * 114n / 100n);
+          await chain.request({ method: 'evm_increaseTime', params: [DURATION] });
+          await chain.request({ method: 'evm_mine', params: [] });
+          await wireSnapshot(await capture('refresh-bpt-exact-out/before'), refreshWireSnapshots);
+          const amount = 55n * E + 13n;
+          const receipt = await send(vault, 'swap', {
+            poolId, kind: 1, assetIn: registered[tokenIndex], assetOut: registered[bpt], amount, userData: '0x',
+          }, funds, max, max);
+          await wireSnapshot(await capture('refresh-bpt-exact-out/after'), refreshWireSnapshots);
+          const swap = receipt.events.find(event => event.event === 'Swap').args;
+          refreshWireSwaps.push({ kind: 1, amount: String(amount), i: tokenIndex, j: bpt,
+            amount_in: String(swap.amountIn), amount_out: String(swap.amountOut) });
+        }
       }
     }
-    fs.writeFileSync(output, JSON.stringify({ builds: pins, cases, bpt_swaps: bptSwaps, rejected_joins: rejectedJoins, refreshes }, null, 2) + '\n');
-    if (wireOutput) fs.writeFileSync(wireOutput, JSON.stringify({ codes: wireCodes, snapshots: wireSnapshots }) + '\n');
+    fs.writeFileSync(output, JSON.stringify({ builds: pins, cases, bpt_swaps: bptSwaps, rejected_joins: rejectedJoins, refreshes, refresh_wire_swaps: refreshWireSwaps }, null, 2) + '\n');
+    if (wireOutput) fs.writeFileSync(wireOutput, JSON.stringify({ codes: wireCodes, snapshots: [...wireSnapshots, ...refreshWireSnapshots] }) + '\n');
   } finally {
     await chain.disconnect();
   }

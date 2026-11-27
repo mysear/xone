@@ -57,8 +57,8 @@ func TestComposableV6OriginalVaultSnapshotWire(t *testing.T) {
 	if err = json.NewDecoder(zipped).Decode(&source); err != nil {
 		t.Fatal(err)
 	}
-	if len(source.Snapshots) != 10 {
-		t.Fatal("expected five snapshots for each pool")
+	if len(source.Snapshots) != 14 {
+		t.Fatal("expected ten BPT snapshots and four rate refresh snapshots")
 	}
 	for index, snapshot := range source.Snapshots {
 		t.Run(fmt.Sprint(index), func(t *testing.T) {
@@ -131,6 +131,10 @@ func TestComposableV6OriginalVaultSnapshotWire(t *testing.T) {
 				if observed == nil || cache.Current != observed.Current || cache.Old != observed.Old {
 					t.Fatalf("unexpected rate cache: %+v", cache)
 				}
+				wantRefresh := index == 10 || index == 12
+				if (cache.ObservedRefreshRate != "") != wantRefresh {
+					t.Fatalf("unexpected refresh observation: %+v", cache)
+				}
 			}
 			if (index >= 5 && len(v6.RateCaches) != 2) || (index < 5 && len(v6.RateCaches) != 0) {
 				t.Fatalf("unexpected rate cache count: %d", len(v6.RateCaches))
@@ -140,7 +144,11 @@ func TestComposableV6OriginalVaultSnapshotWire(t *testing.T) {
 				t.Fatal(err)
 			}
 			baseline.Source = "LOCAL_COMPOSABLE_V6_VAULT_REPLAY"
-			baseline.Reference.JournalSeq = uint64(index%5) + 1
+			if index < 10 {
+				baseline.Reference.JournalSeq = uint64(index%5) + 1
+			} else {
+				baseline.Reference.JournalSeq = uint64(index%2) + 1
+			}
 			baseline.Reference.WriterEpoch = 1
 			baseline.Reference.OnlineGeneration = 1
 			wire, err := domain.SnapshotToProto(baseline)
@@ -169,7 +177,9 @@ func TestComposableV6OriginalVaultSnapshotWire(t *testing.T) {
 			}
 			if index >= 5 {
 				invalid := pools[0].Clone()
-				invalid.MultiAsset.ComposableV6.RateCaches[0].Expires = 1
+				stale := &invalid.MultiAsset.ComposableV6.RateCaches[0]
+				stale.Expires = 1
+				stale.ObservedRefreshRate = ""
 				if invalid.Validate() == nil || pools[0].Validate() != nil {
 					t.Fatal("expired cache admission or aliased clone")
 				}
@@ -178,6 +188,14 @@ func TestComposableV6OriginalVaultSnapshotWire(t *testing.T) {
 					t.Fatalf("unbound cache snapshot: %v", err)
 				}
 				token := &snapshot.Config.MultiAsset.Tokens[v6.RateCaches[0].TokenIndex]
+				if index == 10 || index == 12 {
+					token.RateProviderContextIndependent = false
+					if _, _, err := adapter.ReadState(context.Background(), snapshot.Header["number"].(string), false); err == nil ||
+						!strings.Contains(err.Error(), "COMPOSABLE_V6_RATE_CACHE_EXPIRED") {
+						t.Fatalf("expired provider without context-independent approval: %v", err)
+					}
+					token.RateProviderContextIndependent = true
+				}
 				provider := token.RateProvider
 				token.RateProvider = snapshot.Config.ID
 				if _, _, err := adapter.ReadState(context.Background(), snapshot.Header["number"].(string), false); err == nil {

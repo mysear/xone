@@ -157,7 +157,7 @@ func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, ancho
 				if err != nil {
 					return fail()
 				}
-				if provider == "0x"+strings.Repeat("0", 40) && token.RateProvider == "" && token.RateProviderCodeSHA256 == "" {
+				if provider == "0x"+strings.Repeat("0", 40) && token.RateProvider == "" && token.RateProviderCodeSHA256 == "" && !token.RateProviderContextIndependent {
 					continue
 				}
 				if !composableV6 || i == int(bpt.Uint64()) || provider != token.RateProvider || domain.ValidateEVMIdentity(provider, token.RateProviderCodeSHA256) != nil {
@@ -170,7 +170,7 @@ func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, ancho
 				if isStandardClone(providerCode) {
 					return fail()
 				}
-				cache, err := readComposableV6Cache(call, p.ID, token.Token, uint32(i), provider, token.RateProviderCodeSHA256, block.TimestampMS/1000)
+				cache, err := readComposableV6Cache(call, p.ID, token.Token, uint32(i), provider, token.RateProviderCodeSHA256, block.TimestampMS/1000, token.RateProviderContextIndependent)
 				if err != nil {
 					return domain.Pool{}, err
 				}

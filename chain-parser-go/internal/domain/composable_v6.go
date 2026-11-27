@@ -12,13 +12,14 @@ const ComposableV6Adapter = ComposableV6Protocol + "/no-rates-1"
 const ComposableV6CachedRatesAdapter = ComposableV6Protocol + "/cached-rates-1"
 
 type BalancerComposableV6RateCache struct {
-	TokenIndex         uint32 `json:"token_index"`
-	Provider           string `json:"provider"`
-	ProviderCodeSHA256 string `json:"provider_code_sha256"`
-	Current            Amount `json:"current"`
-	Old                Amount `json:"old"`
-	Duration           uint32 `json:"duration"`
-	Expires            uint32 `json:"expires"`
+	TokenIndex          uint32 `json:"token_index"`
+	Provider            string `json:"provider"`
+	ProviderCodeSHA256  string `json:"provider_code_sha256"`
+	Current             Amount `json:"current"`
+	Old                 Amount `json:"old"`
+	Duration            uint32 `json:"duration"`
+	Expires             uint32 `json:"expires"`
+	ObservedRefreshRate Amount `json:"observed_refresh_rate,omitempty"`
 }
 
 type BalancerComposableV6State struct {
@@ -44,7 +45,16 @@ func (s *BalancerComposableV6State) validRates(assets []MultiAsset, pool, adapte
 	last := -1
 	for _, rate := range s.RateCaches {
 		i := int(rate.TokenIndex)
-		if i <= last || i >= len(assets) || assets[i].Token == pool || ValidateEVMIdentity(rate.Provider, rate.ProviderCodeSHA256) != nil || rate.Provider == pool || uint64(rate.Expires) < *s.RateSnapshotTimestamp {
+		if i <= last || i >= len(assets) || assets[i].Token == pool || ValidateEVMIdentity(rate.Provider, rate.ProviderCodeSHA256) != nil || rate.Provider == pool {
+			return false
+		}
+		stamp := *s.RateSnapshotTimestamp
+		if stamp > uint64(rate.Expires) {
+			obs, err := ParseAmount(string(rate.ObservedRefreshRate))
+			if err != nil || obs.Big().Sign() == 0 || obs.Big().BitLen() > 96 || stamp > uint64(^uint32(0)-rate.Duration) {
+				return false
+			}
+		} else if rate.ObservedRefreshRate != "" {
 			return false
 		}
 		current, err := ParseAmount(string(rate.Current))
@@ -130,8 +140,16 @@ func composableV6ToProto(s *BalancerComposableV6State) (*pb.BalancerComposableV6
 			return nil, err
 		}
 		duration, expires := rate.Duration, rate.Expires
-		out.RateCaches = append(out.RateCaches, &pb.BalancerComposableV6RateCache{TokenIndex: rate.TokenIndex, Provider: rate.Provider, ProviderCodeSha256: digest,
-			Current: &pb.Amount{Uint256Be: current}, Old: &pb.Amount{Uint256Be: old}, Duration: &duration, Expires: &expires})
+		wire := &pb.BalancerComposableV6RateCache{TokenIndex: rate.TokenIndex, Provider: rate.Provider, ProviderCodeSha256: digest,
+			Current: &pb.Amount{Uint256Be: current}, Old: &pb.Amount{Uint256Be: old}, Duration: &duration, Expires: &expires}
+		if rate.ObservedRefreshRate != "" {
+			value, err := rate.ObservedRefreshRate.Bytes()
+			if err != nil {
+				return nil, err
+			}
+			wire.ObservedRefreshRate = &pb.Amount{Uint256Be: value}
+		}
+		out.RateCaches = append(out.RateCaches, wire)
 	}
 	return out, nil
 }
@@ -171,8 +189,15 @@ func composableV6FromProto(p *pb.BalancerComposableV6State) (*BalancerComposable
 		if err != nil {
 			return nil, err
 		}
-		s.RateCaches = append(s.RateCaches, BalancerComposableV6RateCache{TokenIndex: rate.TokenIndex, Provider: rate.Provider, ProviderCodeSHA256: hex.EncodeToString(rate.ProviderCodeSha256),
-			Current: current, Old: old, Duration: *rate.Duration, Expires: *rate.Expires})
+		cache := BalancerComposableV6RateCache{TokenIndex: rate.TokenIndex, Provider: rate.Provider, ProviderCodeSHA256: hex.EncodeToString(rate.ProviderCodeSha256),
+			Current: current, Old: old, Duration: *rate.Duration, Expires: *rate.Expires}
+		if rate.ObservedRefreshRate != nil {
+			cache.ObservedRefreshRate, err = AmountFromBytes(rate.ObservedRefreshRate.Uint256Be)
+			if err != nil {
+				return nil, err
+			}
+		}
+		s.RateCaches = append(s.RateCaches, cache)
 	}
 	return s, nil
 }

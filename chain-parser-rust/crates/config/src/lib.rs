@@ -262,6 +262,8 @@ pub struct MultiTokenConfig {
     pub rate_provider: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub rate_provider_code_sha256: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rate_provider_context_independent: bool,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1399,6 +1401,7 @@ impl Config {
                     for (index, token) in v.tokens.iter().enumerate() {
                         if token.rate_provider.is_empty()
                             && token.rate_provider_code_sha256.is_empty()
+                            && !token.rate_provider_context_independent
                         {
                             continue;
                         }
@@ -1413,6 +1416,7 @@ impl Config {
                             old: "1000000000000000000".parse()?,
                             duration: 0,
                             expires: 1,
+                            observed_refresh_rate: None,
                         });
                     }
                     let has_rates = !rate_caches.is_empty();

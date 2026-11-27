@@ -71,7 +71,7 @@ func readComposableV6(call func(string, string, int) ([]byte, error), pool, vaul
 	return state, nil
 }
 
-func readComposableV6Cache(call func(string, string, int) ([]byte, error), pool, token string, index uint32, provider, digest string, timestamp uint64) (domain.BalancerComposableV6RateCache, error) {
+func readComposableV6Cache(call func(string, string, int) ([]byte, error), pool, token string, index uint32, provider, digest string, timestamp uint64, contextIndependent bool) (domain.BalancerComposableV6RateCache, error) {
 	var cache domain.BalancerComposableV6RateCache
 	data, err := call(pool, "0x7f1260d1"+strings.Repeat("0", 24)+token[2:], 4)
 	if err != nil {
@@ -93,9 +93,24 @@ func readComposableV6Cache(call func(string, string, int) ([]byte, error), pool,
 	if err != nil {
 		return cache, err
 	}
-	if timestamp > expires.Uint64() {
-		return cache, errors.New("COMPOSABLE_V6_RATE_CACHE_EXPIRED")
+	cache = domain.BalancerComposableV6RateCache{TokenIndex: index, Provider: provider, ProviderCodeSHA256: digest,
+		Current: domain.Amount(current.String()), Old: domain.Amount(old.String()), Duration: uint32(duration.Uint64()), Expires: uint32(expires.Uint64())}
+	if timestamp > uint64(cache.Expires) {
+		if !contextIndependent {
+			return cache, errors.New("COMPOSABLE_V6_RATE_CACHE_EXPIRED")
+		}
+		if timestamp > uint64(^uint32(0)-cache.Duration) {
+			return cache, errors.New("COMPOSABLE_V6_RATE_CACHE_TIMESTAMP_OVERFLOW")
+		}
+		word, err := call(provider, "0x679aefce", 1) // getRate()
+		if err != nil {
+			return cache, err
+		}
+		rate, err := wordUint(word, 96)
+		if err != nil {
+			return cache, err
+		}
+		cache.ObservedRefreshRate = domain.Amount(rate.String())
 	}
-	return domain.BalancerComposableV6RateCache{TokenIndex: index, Provider: provider, ProviderCodeSHA256: digest,
-		Current: domain.Amount(current.String()), Old: domain.Amount(old.String()), Duration: uint32(duration.Uint64()), Expires: uint32(expires.Uint64())}, nil
+	return cache, nil
 }

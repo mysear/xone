@@ -28,6 +28,10 @@ async fn composable_v6_go_snapshots_drive_bpt_quotes() {
         include_bytes!("fixtures/composable_v6_snapshot_7.pb").as_slice(),
         include_bytes!("fixtures/composable_v6_snapshot_8.pb").as_slice(),
         include_bytes!("fixtures/composable_v6_snapshot_9.pb").as_slice(),
+        include_bytes!("fixtures/composable_v6_snapshot_10.pb").as_slice(),
+        include_bytes!("fixtures/composable_v6_snapshot_11.pb").as_slice(),
+        include_bytes!("fixtures/composable_v6_snapshot_12.pb").as_slice(),
+        include_bytes!("fixtures/composable_v6_snapshot_13.pb").as_slice(),
     ]
     .map(|bytes| snapshot_from_proto(OnlineSnapshot::decode(bytes).unwrap()).unwrap());
     let mut config = xone_config::load(
@@ -40,7 +44,12 @@ async fn composable_v6_go_snapshots_drive_bpt_quotes() {
     config.config.routing.max_hops = 1;
     config.config.routing.max_splits = 1;
     let cases = reference["bpt_swaps"].as_array().unwrap();
-    for (snapshots, cases) in snapshots.chunks_exact(5).zip(cases.chunks_exact(4)) {
+    for (snapshots, cases) in snapshots[..10].chunks_exact(5).zip(cases.chunks_exact(4)) {
+        test_pool(Api::new(config.clone()).unwrap(), snapshots, cases).await;
+    }
+    let cases = reference["refresh_wire_swaps"].as_array().unwrap();
+    assert_eq!(cases.len(), 2);
+    for (snapshots, cases) in snapshots[10..].chunks_exact(2).zip(cases.chunks_exact(1)) {
         test_pool(Api::new(config.clone()).unwrap(), snapshots, cases).await;
     }
 }
@@ -72,11 +81,28 @@ async fn test_pool(api: Api, snapshots: &[xone_domain::Snapshot], cases: &[Value
             .as_mut()
             .unwrap();
         if rates.rate_snapshot_timestamp.is_some() {
-            assert_eq!(
-                rates.rate_snapshot_timestamp,
-                Some(previous.reference.block.timestamp_ms / 1000)
-            );
-            rates.rate_snapshot_timestamp = Some(observed.reference.block.timestamp_ms / 1000);
+            let quote_time = previous.reference.block.timestamp_ms / 1000;
+            let mined_time = observed.reference.block.timestamp_ms / 1000;
+            assert_eq!(rates.rate_snapshot_timestamp, Some(quote_time));
+            rates.rate_snapshot_timestamp = Some(mined_time);
+            let previous_rates = &pool
+                .multi_asset
+                .as_ref()
+                .unwrap()
+                .composable_v6
+                .as_ref()
+                .unwrap()
+                .rate_caches;
+            for (next, prev) in rates.rate_caches.iter_mut().zip(previous_rates) {
+                if let Some(refreshed) = &prev.observed_refresh_rate {
+                    assert_eq!(&next.current, refreshed);
+                    assert_eq!(
+                        u64::from(next.expires),
+                        quote_time + u64::from(prev.duration)
+                    );
+                    next.expires = u32::try_from(mined_time + u64::from(prev.duration)).unwrap();
+                }
+            }
         }
         assert_eq!(modeled.next_pool, observed.pools[0]);
         assert_eq!(json!(modeled.consumed_in), case["amount_in"]);

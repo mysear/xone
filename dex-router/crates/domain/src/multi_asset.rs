@@ -20,6 +20,8 @@ pub struct BalancerComposableV6RateCache {
     pub old: Amount,
     pub duration: u32,
     pub expires: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_refresh_rate: Option<Amount>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -59,10 +61,16 @@ impl BalancerComposableV6State {
         for rate in &self.rate_caches {
             let asset = assets.get(rate.token_index as usize).ok_or_else(fail)?;
             validate_identity(&rate.provider, &rate.provider_code_sha256)?;
-            if previous.is_some_and(|i| i >= rate.token_index)
+            let expired = u64::from(rate.expires) < timestamp;
+            if expired != rate.observed_refresh_rate.is_some()
+                || rate.observed_refresh_rate.as_ref().is_some_and(|value| {
+                    value.0.is_zero()
+                        || value.0.bits() > 96
+                        || timestamp > u64::from(u32::MAX - rate.duration)
+                })
+                || previous.is_some_and(|i| i >= rate.token_index)
                 || asset.token == pool
                 || rate.provider == pool
-                || u64::from(rate.expires) < timestamp
                 || rate.current.0.is_zero()
                 || rate.old.0.is_zero()
                 || rate.current.0.bits() > 96
@@ -384,6 +392,12 @@ impl MultiAssetState {
                                     old: amount(&cache.old)?,
                                     duration: Some(cache.duration),
                                     expires: Some(cache.expires),
+                                    observed_refresh_rate: cache
+                                        .observed_refresh_rate
+                                        .as_ref()
+                                        .map(amount)
+                                        .transpose()?
+                                        .flatten(),
                                 })
                             })
                             .collect::<Result<_>>()?,
@@ -474,6 +488,10 @@ impl MultiAssetState {
                                     old: amount(cache.old)?,
                                     duration: cache.duration.ok_or_else(missing)?,
                                     expires: cache.expires.ok_or_else(missing)?,
+                                    observed_refresh_rate: cache
+                                        .observed_refresh_rate
+                                        .map(|rate| amount(Some(rate)))
+                                        .transpose()?,
                                 })
                             })
                             .collect::<Result<_>>()?,

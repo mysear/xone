@@ -194,10 +194,11 @@ type RaydiumCLMMConfig struct {
 	MaxSteps                       uint32  `json:"max_steps"`
 }
 type MultiTokenConfig struct {
-	Token                  string `json:"token"`
-	ExpectedCodeSHA256     string `json:"expected_code_sha256"`
-	RateProvider           string `json:"rate_provider,omitempty"`
-	RateProviderCodeSHA256 string `json:"rate_provider_code_sha256,omitempty"`
+	Token                          string `json:"token"`
+	ExpectedCodeSHA256             string `json:"expected_code_sha256"`
+	RateProvider                   string `json:"rate_provider,omitempty"`
+	RateProviderCodeSHA256         string `json:"rate_provider_code_sha256,omitempty"`
+	RateProviderContextIndependent bool   `json:"rate_provider_context_independent,omitempty"`
 }
 type MultiAssetConfig struct {
 	ManagedV2                        *ManagedV2PoolConfig `json:"managed_v2,omitempty"`
@@ -872,7 +873,7 @@ func (c Config) Validate(expected string) error {
 					state.CurveNG = &domain.CurveNGState{StoredBalances: stored, AdminBalances: admin, LastPricesPacked: prices, LastDPacked: "0", MALastTime: "0", MAExpTime: 1, DMaTime: 1, Timestamp: 1, BlockNumber: 1, BlockHash: "0x" + strings.Repeat("1", 64), OffpegFeeMultiplier: "10000000000"}
 				}
 				for i, token := range v.Tokens {
-					if token.RateProvider == "" && token.RateProviderCodeSHA256 == "" {
+					if token.RateProvider == "" && token.RateProviderCodeSHA256 == "" && !token.RateProviderContextIndependent {
 						continue
 					}
 					if state.ComposableV6 == nil || domain.ValidateEVMIdentity(token.RateProvider, token.RateProviderCodeSHA256) != nil {

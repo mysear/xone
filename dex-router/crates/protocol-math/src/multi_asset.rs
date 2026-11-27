@@ -1,8 +1,83 @@
 use crate::Swap;
 use num_bigint::BigUint;
 use num_traits::Zero;
+use std::borrow::Cow;
 use xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL;
 use xone_domain::{err, Amount, Pool, Result};
+
+fn composable_v6_callback_state(pool: &Pool) -> Result<Cow<'_, Pool>> {
+    use crate::balancer_composable::{refresh_token_rate_caches, CachedRate, TokenRateCache};
+    let Some(v6) = pool
+        .multi_asset
+        .as_ref()
+        .and_then(|s| s.composable_v6.as_ref())
+    else {
+        return Ok(Cow::Borrowed(pool));
+    };
+    if !v6
+        .rate_caches
+        .iter()
+        .any(|cache| cache.observed_refresh_rate.is_some())
+    {
+        return Ok(Cow::Borrowed(pool));
+    }
+    let mut prepared = pool.clone();
+    let state = prepared
+        .multi_asset
+        .as_mut()
+        .ok_or_else(|| err("MULTI_ASSET_STATE_REQUIRED"))?;
+    let v6 = state
+        .composable_v6
+        .as_mut()
+        .ok_or_else(|| err("COMPOSABLE_V6_RATE_STATE"))?;
+    let timestamp = v6
+        .rate_snapshot_timestamp
+        .ok_or_else(|| err("COMPOSABLE_V6_RATE_STATE"))?;
+    let bpt = state
+        .assets
+        .iter()
+        .position(|asset| asset.token == pool.pool_id)
+        .ok_or_else(|| err("COMPOSABLE_BPT_REQUIRED"))?;
+    let mut decimal_scales: Vec<_> = state
+        .assets
+        .iter()
+        .map(|asset| asset.scaling.0.clone())
+        .collect();
+    let mut caches = vec![None; state.assets.len()];
+    let mut observed = vec![None; state.assets.len()];
+    let one = BigUint::from(1_000_000_000_000_000_000u64);
+    for cache in &mut v6.rate_caches {
+        let i = cache.token_index as usize;
+        decimal_scales[i] = &decimal_scales[i] / &cache.current.0 * &one;
+        caches[i] = Some(TokenRateCache {
+            rate: CachedRate {
+                current: cache.current.0.clone(),
+                old: cache.old.0.clone(),
+            },
+            duration: cache.duration,
+            expires: cache.expires,
+        });
+        observed[i] = cache.observed_refresh_rate.take().map(|rate| rate.0);
+    }
+    let (updated, effective) =
+        refresh_token_rate_caches(&decimal_scales, &caches, bpt, timestamp, |i| {
+            observed[i]
+                .take()
+                .ok_or_else(|| err("COMPOSABLE_V6_RATE_STATE"))
+        })?;
+    for cache in &mut v6.rate_caches {
+        let i = cache.token_index as usize;
+        let updated = updated[i]
+            .as_ref()
+            .ok_or_else(|| err("COMPOSABLE_V6_RATE_STATE"))?;
+        cache.current = Amount(updated.rate.current.clone());
+        cache.expires = updated.expires;
+    }
+    for (asset, scale) in state.assets.iter_mut().zip(effective) {
+        asset.scaling = Amount(scale);
+    }
+    Ok(Cow::Owned(prepared))
+}
 
 #[allow(clippy::too_many_arguments)]
 fn quote_composable_v6_bpt(
@@ -166,6 +241,8 @@ pub fn quote_exact_in_tokens(
         return crate::managed_v2_pool::quote_exact_in_tokens(pool, input, token_in, token_out);
     }
     pool.validate()?;
+    let callback = composable_v6_callback_state(pool)?;
+    let pool = callback.as_ref();
     let s = pool
         .multi_asset
         .as_ref()
@@ -575,6 +652,8 @@ pub fn quote_exact_out_tokens(
     ) {
         return Err(err("EXACT_OUT_PROTOCOL_UNSUPPORTED"));
     }
+    let callback = composable_v6_callback_state(pool)?;
+    let pool = callback.as_ref();
     let s = pool
         .multi_asset
         .as_ref()

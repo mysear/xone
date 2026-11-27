@@ -24,6 +24,8 @@ cargo test --manifest-path dex-router/Cargo.toml -p xone-protocol-math --test co
 
 Pass a fourth argument to record the fixed-block source for both the pool without providers and the pool with two rate providers. Compress that file with `gzip -n` to `chain-parser-go/test/contracts/composable-v6-wire-source.json.gz`. The Go test `TestComposableV6OriginalVaultSnapshotWire` replays its RPC responses and writes the Go snapshots when `XONE_COMPOSABLE_V6_WIRE_OUTPUT` points to an absolute fixture directory. The `composable_v6_wire` Quote API test installs five snapshots per pool in a replica and checks four consecutive swap post-states and both ExactOut directions over HTTP for each pool.
 
+The same test replays four snapshots around two swaps with expired caches. It checks the amounts and complete post-state for an underlying ExactIn swap and a BPT ExactOut swap. It also requests the BPT quote over HTTP. The parser queries `getRate()` at the snapshot block hash if a cache has expired and its provider has `rate_provider_context_independent: true`. That declaration requires auditing the pinned provider and its dependencies for independence from the caller and from state changes earlier in the Vault callback.
+
 The Ethereum mainnet reference pins the V6 factory creation log at block 21,057,106 and the initialized Vault state at block 21,057,112. Run the normal Go parser against an Ethereum archive RPC with EIP-1898 support. Both dRPC and Tenderly have passed this check.
 
 ```sh

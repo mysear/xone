@@ -308,7 +308,7 @@
 - 无 rate provider 的 V6 池已通过五个连续状态的 Go 固定块解析、Protobuf 和 Rust 副本重放。Rust 校验四笔 BPT 交易的完整后状态，并通过 HTTP 验证两笔双向 ExactOut 报价。能力目录为 `xone-protocol-capabilities/25`。
 - 带有效 rate cache 的 V6 池已接入固定块报价。Go 按区块哈希读取 provider 地址、runtime 摘要、current/old rate、缓存时限和生效缩放，跨语言快照校验区块时间。两组共十个原 Vault 快照通过 Go 解码、Protobuf 和 Rust 副本重放，覆盖八笔 BPT 后状态及四笔 HTTP ExactOut。
 - 以太坊主网 V6 工厂创建事件（区块 21,057,106）和带 rate provider 的已初始化池（区块 21,057,112）已分别通过 dRPC 与 Tenderly 验证。Go 正常解析器校验 Vault 注册余额、缩放、rate cache、费率及 BPT 供给状态；同区块读取的实际供给为 45079866305297054。
-- 补齐缓存过期后的报价状态，覆盖普通币对、BPT 双向和连续交易。
+- 过期缓存已接入固定块报价。经配置确认 `getRate` 与调用上下文无关的 provider 在同一规范块读取刷新值，Protobuf 传递原始缓存与刷新观察，Rust 在进入普通币对或 BPT 回调前更新缓存及缩放。四个新增原 Vault 快照覆盖普通币对 ExactIn、BPT ExactOut、后状态和 HTTP ExactOut。未知 provider 的过期缓存仍会拒绝。
 - 对未证明的 rate provider、Vault 和执行组合保持明确拒绝。
 
 ### I3 Curve Meta underlying
@@ -364,7 +364,7 @@
 - 完成 ClickHouse 事实、版本表、shadow 发布和 FINAL 查询。
 - 完成 RFQ、多 solver、外部来源竞争和收益分布。
 
-当前活动目标为 I2。I1 已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut，能力目录为 `xone-protocol-capabilities/24`。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
+当前活动目标为 I3。I1 和 I2 的上述报价范围已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。I1 的 e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的 Managed 主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
 
 <a id="work-packages"></a>
 
