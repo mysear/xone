@@ -73,6 +73,7 @@
 |I7-R04.2 正常进程 Kafka 留存丢失恢复（2026-11-28）|§18.7、§23.14、§28.26；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|正常 Go owner 和报价进程在独立 PostgreSQL/Kafka 上重启。低水位从 0 推进至 8，游标 3 失效。无 owner 时冷副本返回 503。owner 在高度 400 发布第 2 代、游标 11，约 3.40 秒恢复首个合格范围和 FAST 报价，随后同步到高度 401 并继续披露 101–399 的历史缺口|受控单池 RPC、空区块和等效高度差。历史任务暂停。跨故障域和实际长停机待验证。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
 |I7-R04.2 报价冷启动对齐 Kafka 有限尾窗（2026-11-28）|§18.7、§23.14；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|到达读取器初始化时记录的 Kafka 高水位并完成当前批次后才激活报价视图。独立 Kafka 验证了检查点后的连续区块应用、撤销、重组开始及半批次拒绝。正常 Go owner 与报价进程的留存恢复复验约 3.33 秒出现首个 FAST 报价|公开远端检查点路径共用尾窗检查，原联测编译仍缺 EVM baseline fixture。跨故障域和实际长停机待验证。 [实际 Kafka 回归](dex-router/crates/quote-api/tests/kafka_retention.rs)|
 |I7-R04.2 公开检查点与多来源恢复（2026-11-28）|§18.7、§23.14；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|实际 Kafka 回归从不可达、陈旧及错误链来源切换到配置的 owner 与远端对象服务。不同凭证分别用于读取目录和快照。先重放到目录下界，再应用其后的完整区块。目录之后已发生的撤销使冷副本保持不可用|HTTP 来源使用本机受控端点。真实故障域与长期停机仍待验收。 [回归测试](dex-router/crates/quote-api/tests/kafka_retention.rs)|
+|I7-R04.2 停机计时联测入口（2026-11-28）|§23.14、§28.26；WP08、WP09、WP24|LOCAL_SCOPE_VERIFIED|正常 Go owner 与报价进程全部停止后开始计时。20 秒烟测实测同时停机 20,007 毫秒，重启 owner 后首个合格范围 3,447 毫秒，首个 FAST 报价 3,450 毫秒。留存截断、历史缺口披露及后续块同步通过|链高差由受控 RPC 推进。1 小时、1 天、30 天场景继续通过实际计时执行。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
 |I7-R04.3 Go history 状态封闭（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|Go history queue reload 现在校验作业区间排序、游标、完成计数、租约 token、基线链身份和累计容量。损坏持久状态返回 `HISTORY_QUEUE_STATE`，不进入 claim/status/replay。新增损坏作业重启回归，history queue 可用子集通过|Go reducer 中依赖已删除 `evm/baseline.json` 的既有历史测试仍失败，真实长期容量和 retention 证据待独立环境|
 |I7-R04.2 实际 PG/Kafka owner 恢复（2026-11-28）|§18、§23.14、§28.10、§28.26；WP07、WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|`r03_authority_process.py` 使用实际 PostgreSQL、Kafka 和 normal Rust Parser 通过 publish、revoke、restart、fence 及 1 小时、1 天、720 小时等效 gap、空 owner KV 四组场景。四组均从 `from_slot=null` 开始，发送 2 帧，首个合格 scope 约 1.19–1.81 秒|场景使用受控公开 tonic source 和等效时间推进，`wallclock_downtime_simulated=false`。真实停机、正常 owner 与报价进程的 retention 联测及跨故障域 peer 仍待验收|
 |I7-R04.3 历史队列重启校验（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|Rust 在解析前限制持久队列原始字节，校验覆盖区间、作业游标和租约。在线基线提交保留损坏记录供核对。3 项持久状态回归及 7 项正常 history runtime 测试通过|旧 `history_queue` 集成套件缺少 `chain-parser-rust/test/fixtures/solana/baseline.json`，长期容量和留存验收仍待完成|
@@ -458,7 +459,7 @@
 
 #### 下一迭代目标（I7 R04.2，2026-11-28）
 
-- 在正常 owner 和报价进程的留存丢失联测中加入可记录的真实停机时长，先执行 1 小时演练。记录停机期间进程状态、首个合格范围、首个报价及历史缺口。
+- 执行正常 owner 与报价进程的 1 小时停机演练。已通过 20 秒计时烟测。收集实测停机时长、首个合格范围、首个报价及历史缺口。
 - 用独立故障域的可信 peer 和当前源复验主来源离线时的基线选择，覆盖过期快照、错误链和撤销。继续记录 1 小时、1 天、30 天实际停机的恢复时长及历史缺口。
 
 ### I8 路由与费用

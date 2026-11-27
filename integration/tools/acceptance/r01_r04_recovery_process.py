@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Normal binaries with local PG/Kafka, controlled height gaps and retention loss.
 
-Hours are equivalent 12-second-block gap sizes, not real elapsed wall time.
-Persistent stale-time admission is tested separately in Go. No mainnet writes.
+The default suite advances synthetic heights. The retention-only scenario can
+keep both services stopped for a measured wall-clock interval.
 """
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -162,7 +162,7 @@ def raw_options(path, payload):
         'max_request_bytes':8192, 'max_pins_per_capture':4096,
         'decoder_version':'staged-state/public-adapter-v1'}
 
-def run(retention_only=False):
+def run(retention_only=False, offline_seconds=0):
     OUT.mkdir(exist_ok=True)
     report={'schema_version':1, 'state':'RUNNING', 'passed':False,
         'all_requested_features_complete':False, 'production_ready':False,
@@ -172,7 +172,11 @@ def run(retention_only=False):
         'binary_sha256':binary_fingerprint(),
         'runner_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
     if retention_only:
-        target = OUT / 'r04-retention-normal-process.json'
+        report_name = (
+            f'r04-retention-{offline_seconds}s-wallclock.json'
+            if offline_seconds else 'r04-retention-normal-process.json'
+        )
+        target = OUT / report_name
         chain = RetentionChain()
         servers = [chain.provider(), chain.provider()]
         pools = [RETENTION_POOL]
@@ -259,12 +263,24 @@ def run(retention_only=False):
                 old_height = chain.head
                 for alias in ['router1', 'router2', 'go']:
                     stop(alias)
+                offline_started = time.monotonic()
+                if offline_seconds:
+                    report['planned_offline_seconds'] = offline_seconds
+                    report['all_services_stopped_at_unix_ms'] = int(time.time() * 1000)
+                    report['state'] = 'SERVICES_OFFLINE'
+                    write_result(target, report)
                 low_before, low_after = expire_owner_cursor(infra, root, expired)
+                if offline_seconds:
+                    time.sleep(max(0, offline_seconds - (time.monotonic() - offline_started)))
+                observed_offline_ms = int((time.monotonic() - offline_started) * 1000)
+                require(observed_offline_ms >= offline_seconds * 1000, 'offline interval was too short')
+                report['state'] = 'RUNNING'
+                write_result(target, report)
                 start('router1')
                 wait(base('router1') + '/health/live')
                 require(http(base('router1') + '/health/ready')[0] == 503, 'cold router ready without owner')
                 quote('router1', 503)
-                chain.head += 300
+                chain.head += max(300, offline_seconds // 12)
                 chain.timestamp = int(time.time())
                 started = time.monotonic()
                 start('go')
@@ -298,6 +314,8 @@ def run(retention_only=False):
                     'followed_height': chain.head, 'history_gaps': gaps,
                     'online_generation': quoted['onlineGeneration'],
                     'history_paused': True, 'wallclock_downtime_simulated': False,
+                    'requested_offline_ms': offline_seconds * 1000,
+                    'observed_offline_ms': observed_offline_ms,
                     'first_qualified_scope_ms': scope_ms, 'first_successful_quote_ms': quote_ms,
                     'quote_verification': quoted['verification']['level'],
                 }
@@ -326,4 +344,9 @@ def run(retention_only=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--retention-only', action='store_true', help='run the single-pool retention scenario')
-    run(parser.parse_args().retention_only)
+    parser.add_argument('--offline-seconds', type=int, default=0,
+                        help='minimum time both owner and quote processes must stay stopped')
+    args = parser.parse_args()
+    if args.offline_seconds < 0 or (args.offline_seconds and not args.retention_only):
+        parser.error('--offline-seconds requires --retention-only and a nonnegative value')
+    run(args.retention_only, args.offline_seconds)
