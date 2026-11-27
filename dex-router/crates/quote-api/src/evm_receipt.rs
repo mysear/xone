@@ -11,6 +11,7 @@ use xone_simulation::evm_fixture::{
     EvmStatus, FixtureState, SimulationOutcome, BEACON_ROOTS_ADDRESS,
 };
 
+mod ancestors;
 mod source_state;
 mod transactions;
 
@@ -64,11 +65,12 @@ fn verify_execution_header(block: &Value, fork: &str) -> Result<()> {
         ("mixHash", Some(32)),
         ("nonce", Some(8)),
         ("baseFeePerGas", None),
-        ("withdrawalsRoot", Some(32)),
     ];
     match fork {
-        "shanghai" => {}
+        "london" => {}
+        "shanghai" => fields.push(("withdrawalsRoot", Some(32))),
         "cancun" => fields.extend([
+            ("withdrawalsRoot", Some(32)),
             ("blobGasUsed", None),
             ("excessBlobGas", None),
             ("parentBeaconBlockRoot", Some(32)),
@@ -111,6 +113,16 @@ fn verify_execution_header(block: &Value, fork: &str) -> Result<()> {
         return Err(bad());
     }
     Ok(())
+}
+
+fn header_fork(block: &Value) -> &'static str {
+    if !block["blobGasUsed"].is_null() {
+        "cancun"
+    } else if !block["withdrawalsRoot"].is_null() {
+        "shanghai"
+    } else {
+        "london"
+    }
 }
 
 fn keccak256(bytes: &[u8]) -> [u8; 32] {
@@ -338,12 +350,6 @@ async fn observe(
             .iter()
             .find(|row| row.address == BEACON_ROOTS_ADDRESS)
             .ok_or_else(bad)?;
-        let source_anchor = json!({"blockHash":source,"requireCanonical":true});
-        if request("eth_getCode", json!([BEACON_ROOTS_ADDRESS, source_anchor])).await?
-            != account.code
-        {
-            return Err(bad());
-        }
         if account.code != "0x" {
             let [timestamp_slot, root_slot] = env
                 .beacon_root_slots()

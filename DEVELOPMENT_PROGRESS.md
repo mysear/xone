@@ -415,7 +415,7 @@
 23. EVM 节点回执按块哈希读取全块回执，按交易顺序重算 `receiptsRoot`，检查区块内连续日志索引，并从相邻累计值核对每笔交易的 gas。Anvil 单笔、Geth 中间交易及 Geth 末笔交易各 24 个回执通过。三组分别验证缺项、gas、日志和 bloom 篡改，两组 Geth 另验证错序拒绝。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 24. EVM 回执逐笔核对签名交易原文的哈希，按声明顺序重算 `transactionsRoot`，将回执位置绑定到同块交易正文。Anvil 单笔、Geth 中间交易及 Geth 末笔交易各 24 个回执通过。三组分别检查原文缺失与哈希不符，两组 Geth 另检查有效签名字节与同步伪造交易列表和回执元数据的拒绝。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 25. EVM 回执重建来源 H 块头，验证账户存在性、nonce、余额、代码哈希和声明存储的 MPT 证明，回传 `sourceStateRoot`。本地出块夹具排除不存在的账户和零值存储。Anvil 单笔、Geth 中间交易及末笔交易各 24 个回执通过，三组均验证来源根篡改、缺失账户证明和存储值篡改的拒绝。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
-26. 下一轮核对 REVM `BLOCKHASH` 读数，沿来源块父哈希核对声明的 256 块范围及连续头，并验证不一致或缺失的中间祖先头。
+26. EVM 节点回执沿来源块父哈希核对声明的 `BLOCKHASH` 输入，检查执行块的 256 块窗口并重建经过的区块头。Anvil 单笔、Geth 中间交易和 Geth 末笔交易各通过 24 个回执，三组均拒绝缺失的中间头和篡改的父哈希。独立 REVM 的 26 项执行测试通过，其中一项直接验证历史哈希读取和窗口外返回零。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 
 ### I7 真实来源和恢复
 

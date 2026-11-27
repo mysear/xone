@@ -1,5 +1,5 @@
 use super::{
-    err, json, keccak256, quantity, quantity_u64, receipt_bytes, receipt_hex, rpc,
+    err, header_fork, json, keccak256, quantity, quantity_u64, receipt_bytes, receipt_hex, rpc,
     verify_execution_header, Api, Result, Value,
 };
 use alloy_primitives::{Bytes, B256, U256};
@@ -100,12 +100,8 @@ pub(super) async fn verify(api: &Api, chain: &str, fixture: &FixtureState) -> Re
     {
         return Err(mismatch());
     }
-    let fork = if source["blobGasUsed"].is_null() {
-        "shanghai"
-    } else {
-        "cancun"
-    };
-    verify_execution_header(&source, fork)?;
+    verify_execution_header(&source, header_fork(&source))?;
+    super::ancestors::verify(api, chain, fixture, &source).await?;
     let root = B256::from(receipt_bytes::<32>(&source["stateRoot"])?);
     let block = json!({"blockHash":anchor.block_hash,"requireCanonical":true});
     for account in &fixture.accounts {

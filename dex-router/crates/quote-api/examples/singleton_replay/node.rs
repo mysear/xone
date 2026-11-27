@@ -13,7 +13,9 @@ use std::{
 };
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
 use xone_domain::{singleton::ZERO_ADDRESS, Amount};
-use xone_simulation::evm_fixture::{FixtureAccount, StorageEntry, BEACON_ROOTS_ADDRESS};
+use xone_simulation::evm_fixture::{
+    FixtureAccount, FixtureBlockHash, StorageEntry, BEACON_ROOTS_ADDRESS,
+};
 
 #[derive(Clone, Copy)]
 pub(super) enum Executable<'a> {
@@ -22,6 +24,7 @@ pub(super) enum Executable<'a> {
 }
 
 const PREFIX_SENDER: &str = "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf";
+const EXECUTION_HEIGHT: &str = "0x3";
 const BEACON_ROOTS_CODE: &str = "0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500";
 
 pub(super) struct Node {
@@ -48,6 +51,8 @@ pub(super) enum Fault {
     SourceRoot,
     SourceProofMissing,
     SourceStorage,
+    AncestorMissing,
+    AncestorParent,
     Balance,
     PayerBalance,
     Reorg,
@@ -67,6 +72,7 @@ pub(super) struct Mined {
     pub(super) receipts_root: String,
     pub(super) transactions_root: String,
     pub(super) source_state_root: String,
+    source_parent: String,
     pub(super) withdrawals_root: Option<String>,
     payer: String,
     transaction_index: u64,
@@ -137,7 +143,7 @@ impl Node {
                 "berlinBlock": 0, "londonBlock": 0, "mergeNetsplitBlock": 0, "terminalTotalDifficulty": 0,
                 "shanghaiTime": 0, "cancunTime": 0,
             },
-            "timestamp": format!("0x{:x}", now - 1),
+            "timestamp": format!("0x{:x}", now - 2),
             "gasLimit": format!("0x{:x}", env.gas_limit), "difficulty": "0x0",
             "baseFeePerGas": hex_quantity(&env.base_fee), "alloc": alloc,
         });
@@ -252,9 +258,10 @@ impl Node {
         let genesis = self
             .rpc("eth_getBlockByNumber", json!(["0x0", false]))
             .await;
+        self.seal(now - 1).await;
         self.seal(now).await;
         let source = self
-            .rpc("eth_getBlockByNumber", json!(["0x1", false]))
+            .rpc("eth_getBlockByNumber", json!(["0x2", false]))
             .await;
         let anchor = &mut bundle.fixture.state_anchor;
         anchor.genesis_hash = field(&genesis, "hash");
@@ -262,6 +269,10 @@ impl Node {
         anchor.parent_hash = field(&source, "parentHash");
         anchor.timestamp = number(&source["timestamp"]);
         anchor.block_number = number(&source["number"]);
+        bundle.fixture.block_hashes = vec![FixtureBlockHash {
+            number: 0,
+            hash: anchor.genesis_hash.clone(),
+        }];
         reference.block.hash = anchor.block_hash.clone();
         reference.block.parent_hash = anchor.parent_hash.clone();
         reference.block.number_or_slot = anchor.block_number;
@@ -358,7 +369,7 @@ impl Node {
         };
         self.seal(now + 1).await;
         let execution = self
-            .rpc("eth_getBlockByNumber", json!(["0x2", false]))
+            .rpc("eth_getBlockByNumber", json!([EXECUTION_HEIGHT, false]))
             .await;
         assert_eq!(
             execution["transactions"].as_array().unwrap().len(),
@@ -434,6 +445,7 @@ impl Node {
             receipts_root: field(&execution, "receiptsRoot"),
             transactions_root: field(&execution, "transactionsRoot"),
             source_state_root: field(&source, "stateRoot"),
+            source_parent: field(&source, "parentHash"),
             withdrawals_root,
             payer: field(&case["context"], "caller"),
             transaction_index,
@@ -478,11 +490,13 @@ impl Mined {
         let final_target = self.final_target;
         let index = self.transaction_index as usize;
         let alternate_prefix = self.alternate_prefix.clone();
+        let source_parent = self.source_parent.clone();
         axum::Router::new().route(
             "/",
             axum::routing::post(move |axum::Json(mut request): axum::Json<Value>| {
                 let payer = payer.clone();
                 let alternate_prefix = alternate_prefix.clone();
+                let source_parent = source_parent.clone();
                 let (node, fault, execution_reads) = (
                     node.clone(),
                     *fault.lock().unwrap(),
@@ -526,7 +540,7 @@ impl Mined {
                             *result = "0x01".into();
                         }
                         (Some(Fault::TransactionBody), "eth_getBlockByNumber")
-                            if request["params"][0] == "0x2" =>
+                            if request["params"][0] == EXECUTION_HEIGHT =>
                         {
                             result["transactions"][0] =
                                 alternate_prefix.as_ref().unwrap()["transactionHash"].clone();
@@ -544,6 +558,16 @@ impl Mined {
                         }
                         (Some(Fault::SourceRoot), "eth_getBlockByHash") => {
                             result["stateRoot"] = format!("0x{}", "01".repeat(32)).into();
+                        }
+                        (Some(Fault::AncestorMissing), "eth_getBlockByHash")
+                            if request["params"][0] == source_parent =>
+                        {
+                            *result = Value::Null;
+                        }
+                        (Some(Fault::AncestorParent), "eth_getBlockByHash")
+                            if request["params"][0] == source_parent =>
+                        {
+                            result["parentHash"] = format!("0x{}", "01".repeat(32)).into();
                         }
                         (Some(Fault::SourceProofMissing), "eth_getProof") => {
                             result["accountProof"] = json!([]);
@@ -589,13 +613,13 @@ impl Mined {
                             *result = format!("0x{:064x}", 1).into();
                         }
                         (Some(Fault::Reorg), "eth_getBlockByNumber")
-                            if request["params"][0] == "0x2"
+                            if request["params"][0] == EXECUTION_HEIGHT
                                 && execution_reads.fetch_add(1, Ordering::Relaxed) == 1 =>
                         {
                             result["hash"] = format!("0x{}", "01".repeat(32)).into();
                         }
                         (Some(Fault::BeaconRoot), "eth_getBlockByNumber")
-                            if request["params"][0] == "0x2" =>
+                            if request["params"][0] == EXECUTION_HEIGHT =>
                         {
                             result["parentBeaconBlockRoot"] =
                                 format!("0x{}", "01".repeat(32)).into();
@@ -604,17 +628,17 @@ impl Mined {
                             *result = format!("0x{}", "02".repeat(32)).into();
                         }
                         (Some(Fault::WithdrawalsList), "eth_getBlockByNumber")
-                            if request["params"][0] == "0x2" =>
+                            if request["params"][0] == EXECUTION_HEIGHT =>
                         {
                             result["withdrawals"] = json!([]);
                         }
                         (Some(Fault::WithdrawalsAmount), "eth_getBlockByNumber")
-                            if request["params"][0] == "0x2" =>
+                            if request["params"][0] == EXECUTION_HEIGHT =>
                         {
                             result["withdrawals"][0]["amount"] = "0x2".into();
                         }
                         (Some(Fault::WithdrawalsRoot), "eth_getBlockByNumber")
-                            if request["params"][0] == "0x2" =>
+                            if request["params"][0] == EXECUTION_HEIGHT =>
                         {
                             result["withdrawals"] = json!([]);
                             result["withdrawalsRoot"] =

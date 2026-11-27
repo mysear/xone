@@ -306,6 +306,8 @@ async fn assert_replay(
             node::Fault::SourceRoot,
             node::Fault::SourceProofMissing,
             node::Fault::SourceStorage,
+            node::Fault::AncestorMissing,
+            node::Fault::AncestorParent,
             node::Fault::Balance,
             node::Fault::PayerBalance,
             node::Fault::Reorg,
@@ -353,6 +355,7 @@ async fn assert_replay(
                 node::Fault::SourceProofMissing | node::Fault::SourceStorage => {
                     "EVM_NODE_RECEIPT_SOURCE_STATE_MISMATCH"
                 }
+                node::Fault::AncestorMissing => "EVM_NODE_RECEIPT_ANCESTOR_MISMATCH",
                 _ => "EVM_NODE_RECEIPT_MISMATCH",
             };
             assert_eq!(rejected["error"], expected);
