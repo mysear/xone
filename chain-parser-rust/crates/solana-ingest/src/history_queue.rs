@@ -221,18 +221,28 @@ pub struct HistoryStatus {
     pub limits: HistoryLimits,
 }
 fn read(db: &Store) -> Result<Option<State>> {
-    db.db
-        .get(KEY)
-        .map_err(|_| err("HISTORY_READ"))?
-        .map(|bytes| {
-            let state: State =
-                serde_json::from_slice(&bytes).map_err(|_| err("HISTORY_RECONCILE_REQUIRED"))?;
-            if state.version != 1 {
-                return Err(err("HISTORY_RECONCILE_REQUIRED"));
-            }
-            Ok(state)
-        })
-        .transpose()
+    let Some(bytes) = db.db.get(KEY).map_err(|_| err("HISTORY_READ"))? else {
+        return Ok(None);
+    };
+    let state: State =
+        serde_json::from_slice(&bytes).map_err(|_| err("HISTORY_RECONCILE_REQUIRED"))?;
+    if state.version != 1 {
+        return Err(err("HISTORY_RECONCILE_REQUIRED"));
+    }
+    if let Some(registration) = db.history_registration.as_ref() {
+        let limits = &registration.limits;
+        if state.jobs.len() > limits.max_jobs
+            || state.records > limits.max_records
+            || state.bytes > limits.max_history_bytes
+            || serde_json::to_vec(&state)
+                .map_err(|_| err("HISTORY_RECONCILE_REQUIRED"))?
+                .len()
+                > limits.max_queue_bytes
+        {
+            return Err(err("HISTORY_RECONCILE_REQUIRED"));
+        }
+    }
+    Ok(Some(state))
 }
 
 fn encode(s: &State, limits: &HistoryLimits) -> Result<Vec<u8>> {
