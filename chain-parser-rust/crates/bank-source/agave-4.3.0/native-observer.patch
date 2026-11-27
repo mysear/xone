@@ -47,7 +47,59 @@
          if plugin_manager.plugins.is_empty() {
 --- a/runtime/src/bank.rs
 +++ b/runtime/src/bank.rs
-@@ -3120,6 +3120,34 @@
+@@ -205,7 +205,7 @@
+             Weak,
+             atomic::{
+                 AtomicBool, AtomicI64, AtomicU64,
+-                Ordering::{AcqRel, Acquire, Relaxed},
++                Ordering::{AcqRel, Acquire, Relaxed, Release},
+             },
+         },
+         time::{Duration, Instant},
+@@ -651,6 +651,7 @@
+             non_vote_transaction_count_since_restart: _,
+             transaction_error_count: _,
+             transaction_entries_count: _,
++            leader_poh_entries: _,
+             transactions_per_entry_max: _,
+             entry_bytes_consumed: _,
+             tick_height,
+@@ -907,6 +908,10 @@
+     /// The number of transaction entries in this slot
+     transaction_entries_count: AtomicU64,
+ 
++    // The leader's PoH recorder counts all entries, including ticks, before
++    // exposing the final tick to ReplayStage.
++    leader_poh_entries: AtomicU64,
++
+     /// The max number of transaction in an entry in this slot
+     transactions_per_entry_max: AtomicU64,
+ 
+@@ -1225,6 +1230,7 @@
+             non_vote_transaction_count_since_restart: AtomicU64::default(),
+             transaction_error_count: AtomicU64::default(),
+             transaction_entries_count: AtomicU64::default(),
++            leader_poh_entries: AtomicU64::default(),
+             transactions_per_entry_max: AtomicU64::default(),
+             entry_bytes_consumed: EntryBytesBudget::new(DEFAULT_MAX_ENTRY_BYTES_PER_SLOT),
+             tick_height: AtomicU64::default(),
+@@ -1498,6 +1504,7 @@
+             ),
+             transaction_error_count: AtomicU64::new(0),
+             transaction_entries_count: AtomicU64::new(0),
++            leader_poh_entries: AtomicU64::default(),
+             transactions_per_entry_max: AtomicU64::new(0),
+             entry_bytes_consumed: EntryBytesBudget::new(parent.entry_bytes_budget().slot_limit()),
+             // we will .clone_with_epoch() this soon after stake data update; so just .clone() for now
+@@ -2154,6 +2161,7 @@
+             non_vote_transaction_count_since_restart: AtomicU64::default(),
+             transaction_error_count: AtomicU64::default(),
+             transaction_entries_count: AtomicU64::default(),
++            leader_poh_entries: AtomicU64::default(),
+             transactions_per_entry_max: AtomicU64::default(),
+             entry_bytes_consumed: EntryBytesBudget::new(DEFAULT_MAX_ENTRY_BYTES_PER_SLOT),
+             tick_height: AtomicU64::new(fields.tick_height),
+@@ -3120,6 +3128,34 @@
              *hash = self.hash_internal_state();
              self.rc.accounts.accounts_db.mark_slot_frozen(self.slot());
          }
@@ -82,7 +134,51 @@
      }
  
      /// Freeze the bank and verify its computed bank hash against the expected bank hash,
-@@ -7254,6 +7282,9 @@
+@@ -3658,7 +3694,8 @@
+             "register_tick() working on a bank that is already frozen or is undergoing freezing!"
+         );
+ 
+-        if self.is_block_boundary(self.tick_height.load(Relaxed) + 1) {
++        let boundary = self.is_block_boundary(self.tick_height.load(Relaxed) + 1);
++        if boundary {
+             self.register_recent_blockhash(hash, scheduler);
+         }
+ 
+@@ -3667,7 +3704,8 @@
+         // needs to guarantee all account updates for the slot have been
+         // committed before this tick height is incremented (like the blockhash
+         // sysvar above)
+-        self.tick_height.fetch_add(1, Relaxed);
++        self.tick_height
++            .fetch_add(1, if boundary { Release } else { Relaxed });
+     }
+ 
+     #[cfg(feature = "dev-context-only-utils")]
+@@ -3681,7 +3719,7 @@
+     }
+ 
+     pub fn is_complete(&self) -> bool {
+-        self.tick_height() == self.max_tick_height()
++        self.tick_height.load(Acquire) == self.max_tick_height()
+     }
+ 
+     pub fn is_block_boundary(&self, tick_height: u64) -> bool {
+@@ -5279,6 +5317,14 @@
+         self.transaction_entries_count.load(Relaxed)
+     }
+ 
++    pub fn record_leader_poh_entry(&self) {
++        self.leader_poh_entries.fetch_add(1, Relaxed);
++    }
++
++    pub fn leader_poh_entries(&self) -> u64 {
++        self.leader_poh_entries.load(Relaxed)
++    }
++
+     pub fn transactions_per_entry_max(&self) -> u64 {
+         self.transactions_per_entry_max.load(Relaxed)
+     }
+@@ -7254,6 +7300,9 @@
  impl Drop for Bank {
      fn drop(&mut self) {
          self.clear_accounts_lt_hash_async_progress_is_at_end();
@@ -110,3 +206,44 @@
      let Some((full_snapshot_archive_info, incremental_snapshot_archive_info)) =
          get_snapshots_to_load(snapshot_config)
      else {
+--- a/poh/src/poh_recorder.rs
++++ b/poh/src/poh_recorder.rs
+@@ -395,6 +395,7 @@
+                 );
+                 self.metrics.send_entry_us += send_entry_us;
+                 send_entry_res.map_err(Box::new)?;
++                working_bank.bank.record_leader_poh_entry();
+ 
+                 return Ok(RecordSummary {
+                     remaining_hashes_in_slot,
+@@ -661,6 +662,7 @@
+             );
+ 
+             for (entry, tick_height) in &self.tick_cache[..entry_count] {
++                working_bank.bank.record_leader_poh_entry();
+                 working_bank.bank.register_tick(&entry.hash);
+ 
+                 if let Some(footer) = footer.clone()
+--- a/core/src/replay_stage.rs
++++ b/core/src/replay_stage.rs
+@@ -4269,6 +4269,11 @@
+                         .unwrap_or_default();
+                     let commission_rate_in_basis_points =
+                         bank.feature_set.snapshot().commission_rate_in_basis_points;
++                    let entries_count = if bank.should_replay_from_blockstore() {
++                        r_replay_progress.num_entries as u64
++                    } else {
++                        bank.leader_poh_entries()
++                    };
+                     block_metadata_notifier.notify_block_metadata(
+                         bank.parent_slot(),
+                         &parent_blockhash.to_string(),
+@@ -4279,7 +4284,7 @@
+                         Some(bank.clock().unix_timestamp),
+                         Some(bank.block_height()),
+                         bank.executed_transaction_count(),
+-                        r_replay_progress.num_entries as u64,
++                        entries_count,
+                         commission_rate_in_basis_points,
+                     )
+                 }

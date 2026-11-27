@@ -90,6 +90,10 @@ Build `solana-test-validator` from the patched `agave-validator` package and the
 `yellowstone-grpc-geyser` library from the commit pinned in `agave-4.3.0/source-pin.json`.
 Use the pinned Rust toolchain for both builds. Start the ignored integration test
 from the repository root with absolute paths and a fresh output directory.
+The Agave patch also counts the leader's PoH entries before the final tick
+completes the bank. Geyser uses that count for locally produced banks and the
+existing replay count for banks replayed from blockstore. Yellowstone's full
+block entry count check stays enabled on both paths.
 
 ```sh
 XONE_LIVE_YELLOWSTONE_VALIDATOR=/path/to/solana-test-validator \

@@ -38,7 +38,15 @@
     {
       "path": ".cargo/config.toml",
       "upstream_sha256": "edd80898ccf6f07afa276441a6c3a0e54770a1c77f1d5a5329a9d600f768ff99"
+    },
+    {
+      "path": "poh/src/poh_recorder.rs",
+      "upstream_sha256": "543b2aec0facd07acea2a0412ff15a99868a258ffbe8a389603904643b6bada4"
+    },
+    {
+      "path": "core/src/replay_stage.rs",
+      "upstream_sha256": "7e19ab5d282d0c1517fc8cd69a2650616fa8da3af6be831673684f0241c8a8e3"
     }
   ],
-  "patch_sha256": "85b1eefa70508f17c602426f6582db70cd613838629097c1c30da2329c0c241c"
+  "patch_sha256": "0fbe4583b9c476d0e86caaa23a222d139d193d7ffcc899a2dd2af3c7576dc89e"
 }
