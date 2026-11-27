@@ -278,6 +278,10 @@ impl Api {
             .route("/v1/quotes/{id}/build", post(build_transaction))
             .route("/v1/quotes/{id}/prepare", post(preparation::prepare))
             .route(
+                "/v1/chains/{chain}/pools/{pool}/prepare-orca-reward",
+                post(preparation::prepare_orca_reward),
+            )
+            .route(
                 "/v1/quotes/{id}/prepare-evm",
                 post(evm_preparation::prepare),
             )

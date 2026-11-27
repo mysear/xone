@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 mod classic_funding;
 mod orca;
+pub mod orca_reward;
 mod pump_amm;
 mod pump_curve;
 mod rayclmm;
@@ -40,6 +41,7 @@ const SYSTEM: &str = "11111111111111111111111111111111";
 const ASSOCIATED: &str = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
 const ASSOCIATED_CODE: &str = "6804554e69fd3a58caa191dc4a58f4c67223d30ca28ab8987f39fc18d2f7374d";
 const RENT: &str = "SysvarRent111111111111111111111111111111111";
+const SYSVAR: &str = "Sysvar1111111111111111111111111111111111111";
 const MEMO: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 const MEMO_CODE: &str = "f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954";
 #[derive(Deserialize, Default)]

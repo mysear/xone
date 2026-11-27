@@ -366,12 +366,28 @@ impl Engine {
         {
             return Err(err("SBF_PREPARATION_INVALID"));
         }
-        let source = preparation["sourceTokenAccount"]
-            .as_str()
-            .ok_or_else(|| err("SBF_PREPARATION_INVALID"))?;
-        let destination = preparation["destinationTokenAccount"]
-            .as_str()
-            .ok_or_else(|| err("SBF_PREPARATION_INVALID"))?;
+        let claim = preparation["operation"] == "ORCA_COLLECT_REWARD";
+        if claim
+            && (capture.is_none()
+                || preparation["authority"] != caller
+                || preparation["recipient"] != recipient)
+        {
+            return Err(err("SBF_PREPARATION_INVALID"));
+        }
+        let source = preparation[if claim {
+            "rewardVault"
+        } else {
+            "sourceTokenAccount"
+        }]
+        .as_str()
+        .ok_or_else(|| err("SBF_PREPARATION_INVALID"))?;
+        let destination = preparation[if claim {
+            "rewardAccount"
+        } else {
+            "destinationTokenAccount"
+        }]
+        .as_str()
+        .ok_or_else(|| err("SBF_PREPARATION_INVALID"))?;
         let captured_bank;
         let bank = if let Some(snapshot) = capture {
             pool.validate()?;
@@ -551,9 +567,20 @@ impl Engine {
                 .as_str()
                 .unwrap_or("SBF_WORKER_RESPONSE")));
         }
-        if result["actualInput"] != preparation["quotedInput"]
-            || result["actualOutput"] != preparation["quotedOutput"]
-        {
+        let quantities_match = if claim {
+            [
+                "grossReward",
+                "netReward",
+                "remainingRewardOwed",
+                "transferFee",
+            ]
+            .iter()
+            .all(|key| result[*key] == preparation[*key])
+        } else {
+            result["actualInput"] == preparation["quotedInput"]
+                && result["actualOutput"] == preparation["quotedOutput"]
+        };
+        if !quantities_match {
             return Err(err("SBF_AMOUNT_MISMATCH"));
         }
         result["level"] = if capture.is_some() {

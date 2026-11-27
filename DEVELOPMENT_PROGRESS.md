@@ -336,10 +336,16 @@
 - 将 Token-2022 账户的 `TransferFeeAmount` 与可选 `ImmutableOwner` TLV 校验复用到报价域模型和 Solana 交易准备，未知、重复、截断和填充扩展拒绝。
 - 通过既有固定 bank 回放、domain 边界测试和执行准备回归后提交。由于仓库当前缺失历史 `meteora-token2022.json` 与 `evm/baseline.json` fixture，本轮保留定向测试通过和全量测试阻塞证据，不将 I4 标记为完成。
 
-#### SwapV2 验收与下一轮目标
+#### SwapV2 与已入账奖励领取验收
 
 - Orca SwapV2 在受控 bank 上执行公开部署的 Whirlpool、SPL Token、Token-2022 和 Memo。部署账户由 PublicNode 在 finalized slot 474441254 同批读出。Whirlpool 与 Token-2022 ProgramData 分别指向部署 slot 457152296 和 460497271。公开部署字节和本地构造的池、账户及 Clock 分别保留来源记录。 [复验说明](integration/tools/ci/orca-token2022-execution.md)
-- 下一轮按位置账户原布局接入 Orca 奖励领取。验收所有者与授权账户、奖励索引、vault 不足时的部分领取、Token-2022 净额与 withheld、余额差和拒绝时的回滚。随后验收 Raydium CLMM 限价订单和奖励领取。
+- 同一受控 bank 的 HTTP 入口和独立 SBF 验证覆盖 6 组 `CollectReward` / `CollectRewardV2`。三个奖励索引分别覆盖全额、部分和空 vault，验证 NFT 所有者、单单位 delegate、Token-2022 到账净额、withheld 和 position/vault/收款账户后状态。另有 24 项 HTTP 拒绝验证和两组冻结收款账户的原 CPI 失败回放。该范围使用独立 Position PDA、已入账奖励和现有收款账户。奖励更新组合与签名回执仍待验收。 [复验说明](integration/tools/ci/orca-token2022-execution.md)
+
+#### 下一轮迭代目标（I4 Raydium CLMM）
+
+- 按 `6d7a0f82` 原始 TickState 接入订单阶段、待撮合数量、部分成交余量和剩余比例。验证 Protobuf 往返、历史无订单状态和正常固定 bank 解析。
+- 验收双向 ExactIn、ExactOut、部分成交、队列切换、仅订单 tick 初始化及清空、与流动性共同跨 tick、费用和 vault 后状态。用原程序差分和 SBF 验证 Token CPI 收付、限额失败和回滚。
+- 验收奖励领取与高级组合，覆盖 Position 和奖励 vault 绑定、累计奖励账本、Token-2022 净额及其与动态费、扩展 bitmap、订单的组合。
 
 ### I5 V4/Infinity
 

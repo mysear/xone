@@ -25,3 +25,20 @@ The capture is a finalized `getMultipleAccounts` response in the order defined b
 | SPL Token | 419472000 | `8190d3f7ceb6cb7a7a8d8924bff89f9f611e15ce1f806f2b6237f3311a98f697` |
 | Token-2022 | 460497271 | `15a2e615a42e20f31714bbaaee43002ae6f1cda2e8d7118243117ab3c1342e2d` |
 | Memo | Immutable | `f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954` |
+
+## Position reward collection
+
+`POST /v1/chains/{chain}/pools/{pool}/prepare-orca-reward` resolves an initialized reward slot from the installed pool view. The `claim` body supplies `authority`, `position`, `positionTokenAccount`, `recipient`, `rewardAccount`, `rewardIndex` and `rewardTokenProgram`. Set `simulate` to `true` to verify the unsigned transaction with the configured RPC-capture SBF engine.
+
+The API covers already accrued rewards from standalone positions and pays up to the captured vault balance into an existing account. It prepares `CollectReward` for classic SPL and `CollectRewardV2` for the supported Token-2022 `TransferFeeConfig` profile. The SBF result verifies the gross debit, user credit, remaining position balance, fee payer and post-state digests for the position, vault and destination.
+
+Use the same deployment capture and bank as the SwapV2 test.
+
+```sh
+python3.11 integration/tools/ci/solana-sbf-runtime-manifests.py --rpc-capture \
+  solana:mainnet-beta 5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d /tmp/orca-sbf-manifest.json
+XONE_ORCA_TOKEN2022_BANK=/tmp/orca-token2022-execution-bank.json \
+XONE_ORCA_SBF_MANIFEST=/tmp/orca-sbf-manifest.json \
+  cargo +1.90.0 test --manifest-path dex-router/Cargo.toml \
+  -p xone-quote-api --test orca_reward -- --ignored
+```

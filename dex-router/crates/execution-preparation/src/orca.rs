@@ -2,9 +2,9 @@
 use super::*;
 use xone_domain::orca as o;
 use xone_domain::spl_token_2022::PROGRAM as TOKEN22;
-const COMPUTE_BUDGET: &str = "ComputeBudget111111111111111111111111111111";
-const COMPUTE_LIMIT: u32 = 1_400_000;
-fn owned<'a>(
+pub(super) const COMPUTE_BUDGET: &str = "ComputeBudget111111111111111111111111111111";
+pub(super) const COMPUTE_LIMIT: u32 = 1_400_000;
+pub(super) fn owned<'a>(
     bank: &'a BTreeMap<String, Option<Account>>,
     key: &str,
     owner: &str,
@@ -33,7 +33,7 @@ fn key(bytes: &mut [u8], offset: usize, value: &str) -> Result<()> {
     }
     Ok(())
 }
-fn pool_bytes(p: &Pool, observed: &[u8]) -> Result<Vec<u8>> {
+pub(super) fn pool_bytes(p: &Pool, observed: &[u8]) -> Result<Vec<u8>> {
     let s = p.orca_whirlpool.as_ref().ok_or_else(bad)?;
     let mut b = vec![0; 653];
     b[..8].copy_from_slice(&m::discriminator("Whirlpool"));
@@ -312,12 +312,7 @@ pub(super) async fn resolve(
             return Err(err("PREPARATION_ORCA_ORACLE_UNSUPPORTED"));
         }
     }
-    let clock = owned(
-        &bank,
-        xone_domain::raydium::CLOCK,
-        "Sysvar1111111111111111111111111111111111111",
-        40,
-    )?;
+    let clock = owned(&bank, xone_domain::raydium::CLOCK, SYSVAR, 40)?;
     if slot != state.bank_slot
         || m::u64_at(clock, 0) != slot
         || m::u64_at(clock, 16) != state.bank_epoch
