@@ -28,6 +28,15 @@ pub struct ManagedFeeQuote {
     pub protocol_bpt: BigUint,
     pub management_bpt: BigUint,
 }
+
+fn capacity_error(code: &str) -> bool {
+    matches!(
+        code,
+        "BALANCER_MANAGED_MAX_IN_RATIO"
+            | "BALANCER_MANAGED_UINT112"
+            | "BALANCER_MANAGED_SUB_OVERFLOW"
+    )
+}
 const ONE: u64 = 1_000_000_000_000_000_000;
 fn checked(n: BigUint) -> Result<BigUint> {
     if n.bits() > 256 {
@@ -228,6 +237,68 @@ pub fn quote_exact_in(
         protocol_bpt,
         management_bpt,
     })
+}
+
+/// Bounded GIVEN_OUT inversion for the same ManagedPool callback. The native
+/// callback computes the fee mints from the gross input, so the inversion
+/// searches gross input and returns the complete post-swap ledger from the
+/// first exact raw-output match.
+#[allow(clippy::too_many_arguments)]
+pub fn quote_exact_out(
+    balances: &[BigUint],
+    weights: &[BigUint],
+    scales: &[BigUint],
+    fee: &BigUint,
+    output: &BigUint,
+    index_in: usize,
+    index_out: usize,
+    state: &ManagedFeeState,
+) -> Result<ManagedFeeQuote> {
+    if output.is_zero() {
+        return Err(err("EXACT_OUT_ZERO_OUTPUT"));
+    }
+    let mut low = BigUint::one();
+    let mut high = BigUint::one();
+    let mut found = None;
+    for _ in 0..256 {
+        match quote_exact_in(
+            balances, weights, scales, fee, &high, index_in, index_out, state,
+        ) {
+            Ok(q) if q.amount_out >= *output => {
+                found = Some(q);
+                break;
+            }
+            Ok(_) => {
+                low = &high + BigUint::one();
+                high = &high << 1usize;
+                checked(high.clone())?;
+            }
+            Err(e) if capacity_error(&e.0) => break,
+            Err(e) => return Err(e),
+        }
+    }
+    let mut best = found.ok_or_else(|| err("BALANCER_MANAGED_EXACT_OUT_UNREACHABLE"))?;
+    while low < high {
+        let mid = (&low + &high) >> 1usize;
+        match quote_exact_in(
+            balances, weights, scales, fee, &mid, index_in, index_out, state,
+        ) {
+            Ok(q) if q.amount_out >= *output => {
+                best = q;
+                if mid.is_zero() {
+                    break;
+                }
+                high = &mid - BigUint::one();
+            }
+            Ok(_) => low = mid + BigUint::one(),
+            Err(e) if capacity_error(&e.0) => low = mid + BigUint::one(),
+            Err(e) => return Err(e),
+        }
+    }
+    if best.amount_out != *output {
+        return Err(err("BALANCER_MANAGED_EXACT_OUT_ROUNDING"));
+    }
+    Ok(best)
 }
 
 #[cfg(test)]

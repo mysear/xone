@@ -472,6 +472,7 @@ pub fn quote_exact_out_tokens(
         pool.protocol.as_str(),
         "balancer-v2-weighted-multi"
             | "balancer-v2-managed-snapshot"
+            | "balancer-v2-managed-fees"
             | "balancer-v2-composable-regular"
             | "curve-plain3-basic"
             | "curve-plain4-basic"
@@ -575,6 +576,7 @@ pub fn quote_exact_out_tokens(
         });
     }
     let mut meta_admin_fee_amount = None;
+    let mut managed_fee_state = None;
 
     let q = if matches!(
         pool.protocol.as_str(),
@@ -629,6 +631,37 @@ pub fn quote_exact_out_tokens(
                 management_swap_fee: BigUint::zero(),
             },
         )?
+    } else if pool.protocol == "balancer-v2-managed-fees" {
+        let fees = s
+            .managed_fees
+            .as_ref()
+            .ok_or_else(|| err("MANAGED_FEE_STATE_REQUIRED"))?;
+        let q = crate::balancer_managed_fees::quote_exact_out(
+            &balances,
+            &weights,
+            &scales,
+            &BigUint::from(pool.fee_numerator),
+            &output.0,
+            i,
+            j,
+            &crate::balancer_managed_fees::ManagedFeeState {
+                total_supply: fees.total_supply.0.clone(),
+                protocol_swap_fee: fees.protocol_swap_fee.0.clone(),
+                management_swap_fee: fees.management_swap_fee.0.clone(),
+                owner_balance: fees.owner_balance.0.clone(),
+                protocol_collector_balance: fees.protocol_collector_balance.0.clone(),
+                same_recipient: fees.owner == fees.protocol_collector,
+            },
+        )?;
+        managed_fee_state = Some(q.next_state);
+        crate::balancer_multi::MultiExactOutQuote {
+            amount_in: q
+                .next_balances
+                .get(i)
+                .ok_or_else(|| err("MULTI_ASSET_POST_STATE_LENGTH"))?
+                - &balances[i],
+            next_balances: q.next_balances,
+        }
     } else if pool.protocol == "curve-metausd-direct" {
         let m = s
             .curve_meta
@@ -668,6 +701,16 @@ pub fn quote_exact_out_tokens(
         .ok_or_else(|| err("MULTI_ASSET_STATE_REQUIRED"))?;
     for (asset, balance) in next.assets.iter_mut().zip(q.next_balances) {
         asset.balance = Amount::checked(balance)?;
+    }
+    if let Some(next_fee_state) = managed_fee_state {
+        let fees = next
+            .managed_fees
+            .as_mut()
+            .ok_or_else(|| err("MANAGED_FEE_STATE_REQUIRED"))?;
+        fees.total_supply = Amount::checked(next_fee_state.total_supply)?;
+        fees.owner_balance = Amount::checked(next_fee_state.owner_balance)?;
+        fees.protocol_collector_balance =
+            Amount::checked(next_fee_state.protocol_collector_balance)?;
     }
     if let Some(admin_fee_amount) = meta_admin_fee_amount {
         let m = next
