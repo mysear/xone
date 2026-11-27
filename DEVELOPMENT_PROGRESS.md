@@ -6018,4 +6018,4 @@ R03 验收基础设施在本机缺少 PostgreSQL 13 或 Kafka 安装时自动切
 
 ## Curve Meta underlying 正常 API 与恢复联验（2026-11-27，阶段269，P0-2）
 
-使用四个固定 protobuf 快照和三笔连续 underlying 交换，`xone-quote-api` 的正常 HTTP ExactIn/ExactOut 入口、Meta/base 后状态差分、快照推进和冷启动恢复均通过。验证命令为 `cargo +1.90.0 test --locked -p xone-quote-api --test curve_meta_underlying_wire`，结果为 1 项通过。该范围仍依赖显式 base pool 状态和固定 bank，真实链收款、allowance、独立执行与生产 VERIFIED 继续关闭。
+使用四个固定 protobuf 快照和三笔连续 underlying 交换，routing 的双向共享 base 状态测试以及 `xone-quote-api` 的正常 HTTP ExactIn/ExactOut 入口、Meta/base 后状态差分、快照推进和冷启动恢复均通过。验证命令为 `cargo +1.90.0 test --locked -p xone-routing --test curve_meta_underlying` 与 `cargo +1.90.0 test --locked -p xone-quote-api --test curve_meta_underlying_wire`，各 1 项通过。该范围仍依赖显式 base pool 状态和固定 bank，真实链收款、allowance、独立执行与生产 VERIFIED 继续关闭。
