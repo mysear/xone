@@ -1,0 +1,95 @@
+{
+  "block_number": 21889949,
+  "block_hash": "0x109051700c7d9549f686addf9ac0d044f32c1879fa99ec0907e88135a252f7da",
+  "parent_hash": "0x8e0a78ba7606eabeb39f8f617191d3aaa6f8b90307ec71c7819f69c785ffae74",
+  "timestamp_ms": 1740083315000,
+  "pool": {
+    "id": "0xa3604999b3102ee4bfbeb0ae4b51f60d61cbe0a5",
+    "token0": "0x73fbd93bfda83b111ddc092aa3a4ca77fd30d380",
+    "token1": "0x7636d8722fdf7cd34232a915e48e96aa3eb386bf",
+    "protocol": "balancer-v2-managed-aum",
+    "multi_asset": {
+      "pool_id": "0xa3604999b3102ee4bfbeb0ae4b51f60d61cbe0a50001000000000000000006f3",
+      "token_policy": "standard-no-bpt",
+      "expected_vault": "0xba12222222228d8ba445958a75a0704d566bf2c8",
+      "expected_vault_code_sha256": "8b81438580d3b34c1d68a498ef9de9ee6869391280ae3b47c352cf1b363d1c11",
+      "expected_code_sha256": "5592814cc250dcfddd658f8b51c3fb5b1e3fba5df0f1c230333f87dd091e75f9",
+      "tokens": [
+        {
+          "token": "0x73fbd93bfda83b111ddc092aa3a4ca77fd30d380",
+          "expected_code_sha256": "84b656cd1b427d9958a51e52d262b7023b059fca6ba912921e1242ebe16cad12"
+        },
+        {
+          "token": "0x7636d8722fdf7cd34232a915e48e96aa3eb386bf",
+          "expected_code_sha256": "e1bbcf6ecaa600081ab02603269671d79775c90e57e38c2ecda0d19cd7de99ff"
+        },
+        {
+          "token": "0xa1f410f13b6007fca76833ee7eb58478d47bc5ef",
+          "expected_code_sha256": "bff6635f2383a9341772f09695793bb7b24a4e1cb32c56bf9f0cbde2d9a432be"
+        },
+        {
+          "token": "0xaea46a60368a7bd060eec7df8cba43b7ef41ad85",
+          "expected_code_sha256": "299d9f5f5b7ac46a86518c919e7e35cdddaebdd2a83b8b62d5586cdee8d7ccf4"
+        },
+        {
+          "token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "expected_code_sha256": "5566bf50796faf93c9b6f6adacd3b32c70bfe16b48ffc59db6cd144cbdc89739"
+        },
+        {
+          "token": "0xf0d33beda4d734c72684b5f9abbebf715d0a7935",
+          "expected_code_sha256": "c680a0e618012b7e14ac28cc2dfb70a04e9a4c859d9f535635ff8f10a782b0a6"
+        }
+      ],
+      "managed_v2": {
+        "expected_factory": "0xbf904f9f340745b4f0c4702c7b6ab1e808ea6b93",
+        "expected_factory_code_sha256": "68c19f4fbea54a52f33e1ce5cbb8b68361bef8d39be01e61cecbda2c836aaeae",
+        "expected_pool_runtime_template_sha256": "8a74983533349e21a84533eeb8eaf2cd898478b14893269af098d25753b4bd05",
+        "expected_fee_provider": "0x97207b095e4d5c9a6e4cfbfcd2c3358e03b90c4a",
+        "expected_fee_provider_code_sha256": "b578f90379c034e55138d746361464b6d80885c9f5fafcd43bef590506c28061",
+        "expected_protocol_collector": "0xce88686553686da562ce7cea497ce749da109f9f",
+        "expected_protocol_collector_code_sha256": "ee88736aa3b51d8555899efaad6a9a0222a5ce9a3885f46c8f8a7d00b57ff7ef",
+        "expected_manager": "0x3534353dc2aebe5db58ce46e0e864c7d07ae9161",
+        "expected_provider_fee_id": "3",
+        "expected_management_aum_fee": "0",
+        "dependencies": [
+          {
+            "role": "circuit-breaker-lib",
+            "address": "0x4967b3353cdf9e5c67421a3890d35f2f3bb50527",
+            "code_sha256": "bff7f0d7767c48b89f1f71c4f5c1e9b94e2fc5b718a6a8bdb62cae389cb8445b",
+            "template_sha256": "4e9aa2cb6e2e0f890bd55054441c366c8f86d31d17139acdd0811855c5b13d63"
+          },
+          {
+            "role": "managed-pool-add-remove-token-lib",
+            "address": "0x4148bf5b0688ed0a87f317c6534cb841f503349e",
+            "code_sha256": "42cc873c63821ad7a3c5efd2696bd137ce7c38855b3f7444af9ff6bc39e717f6",
+            "template_sha256": "e10d0c193d3390bd4cc9643f0b72a5c018dcbaf92e774581def293ae6e779c53"
+          },
+          {
+            "role": "managed-pool-amm-lib",
+            "address": "0xb37646acbb1a91287721b2cdbe01ba0dba5e57a2",
+            "code_sha256": "c4576babb30a39a145ec9cbe3f96311a878d4a268eae6c6546aa86663f4aa357",
+            "template_sha256": "df80abe2cf8ce70eb5762e1ced2d14e24d79fb30bb81092237e6c7e8624bcf66"
+          },
+          {
+            "role": "external-weighted-math",
+            "address": "0x3db89f0ca3b388f2bcdbccd2ff8e13c22459cf75",
+            "code_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad",
+            "template_sha256": "959fd38fb5375c685f757b85e76af1002713c8090d58abc4000be2f9514495ad"
+          },
+          {
+            "role": "recovery-mode-helper",
+            "address": "0x7827108af2fd9910ea7cf361d9b827941fa7d809",
+            "code_sha256": "5c3676bd1ba9cb7ad5949c44869bba979ffab097ec8941bcc7a0d34a1a477bb1",
+            "template_sha256": "3d64b4f5ed877c318d94b8fac51c05aba1bcf40d0086e956c3d822f159998d9f"
+          }
+        ]
+      }
+    }
+  },
+  "swaps_enabled": false,
+  "creation": {
+    "block_hash": "0x3fc580e568f529d0a4e25158ad19ea81fda5307cce0deb234aa4247b5ab8cf06",
+    "transaction_hash": "0xc1aea8303e89d316918c6cb2884f72777faa42c46312b006d5d1c33201f6bc1a",
+    "log_index": "0x89"
+  }
+}

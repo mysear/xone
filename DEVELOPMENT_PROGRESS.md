@@ -297,7 +297,7 @@
 
 - 旧版 ExactIn/ExactOut 原始回调差分已通过，覆盖非零协议费、管理费、同收款方合并、溢出回滚及连续交易。
 - 旧版 BPT supply、owner 与协议收款方后状态已通过 Rust Protobuf 往返校验。20230411 AUM 原 Vault 的三个连续状态已通过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价联验。
-- 接入可部署 ManagedPool 版本的真实来源、parser、wire、API 和连续状态。
+- 20230411 主网工厂创建日志和以太坊区块 21,889,949 的六币池状态已由 dRPC 与 Tenderly 各自读取并通过 Go 原解析器校验。历史状态的 swap 开关关闭。
 - 退出标准是原始案例、序列案例、跨语言 wire 和正常 API 全部通过。
 
 ### I2 Composable Stable 完整状态
@@ -359,7 +359,7 @@
 - 完成 ClickHouse 事实、版本表、shadow 发布和 FINAL 查询。
 - 完成 RFQ、多 solver、外部来源竞争和收益分布。
 
-当前活动目标为 I1。e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut，能力目录为 `xone-protocol-capabilities/24`。原始回放使用哈希校验的发布 build-info 和标准限制的本地 EVM。Go 使用原 Vault 的固定块 getter 与代码生成三个连续快照，Rust 解码后通过副本连续提交与 HTTP 报价核对两笔普通交易。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，核对完整供给、费用收款、注册余额和钱包后状态，HTTP 使用原始状态投影核对报价。真实部署验收仍待完成。生产准入与 `VERIFIED` 报价关闭。
+当前活动目标为 I2。I1 已通过原始回放、跨语言 wire、正常 HTTP 报价和真实部署固定块解析。e281ff40 原回调参考 runtime 为 27,545 字节，标准 EVM 部署实验确认触发 EIP-170 限制。20230411 发布版 AUM、scheduled、BPT 和 breaker 已接入普通代币对 ExactOut，BPT 和 breaker 还接入 BPT 双向单池 ExactOut，能力目录为 `xone-protocol-capabilities/24`。两笔普通交易经过 Go 固定块解析、Protobuf、Rust 副本和 HTTP 报价。三币活动权重、活动费率和非零待结 AUM 另外通过四笔普通交易和一次断路器回滚。BPT 双向通过六笔成功交易和一次断路器回滚，HTTP 使用原始状态投影核对报价。已验证的主网历史池关闭 swap，交易差分使用本地原 Vault。独立执行、实时来源和上线门禁继续按 I6、I7、I9 验收。
 
 <a id="work-packages"></a>
 
