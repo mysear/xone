@@ -148,6 +148,50 @@ fn scheduled_exact_out_uses_current_fee_and_keeps_raw_weights() {
         midpoint.multi_asset.as_ref().unwrap().weights
     );
 }
+
+#[test]
+fn published_vault_given_out_matches_active_schedules_and_breaker_rollback() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "fixtures/managed_v2_scheduled_breaker_exact_out.json"
+    ))
+    .unwrap();
+    let mut outcomes = (0, 0);
+    for scenario in fixture["scenarios"].as_array().unwrap() {
+        let mut pool: Pool = serde_json::from_value(scenario["source"].clone()).unwrap();
+        let state = m(&pool);
+        assert!(state.pending_aum > Amount::zero());
+        assert!(state.timestamp < state.gradual_weight_end);
+        assert!(state.timestamp < state.gradual_fee_end);
+        for case in scenario["cases"].as_array().unwrap() {
+            let current = reclock(
+                &pool,
+                case["execution_block"].as_u64().unwrap(),
+                case["execution_timestamp"].as_u64().unwrap(),
+            )
+            .unwrap();
+            let assets = &current.multi_asset.as_ref().unwrap().assets;
+            let token_in = &assets[case["index_in"].as_u64().unwrap() as usize].token;
+            let token_out = &assets[case["index_out"].as_u64().unwrap() as usize].token;
+            let target = a(case["target"].as_str().unwrap());
+            let result = quote_exact_out_tokens(&current, &target, token_in, token_out);
+            let expected: Pool = serde_json::from_value(case["after"].clone()).unwrap();
+            if case["status"] == 0 {
+                assert_eq!(result.unwrap_err().0, "MANAGED_V2_CIRCUIT_BREAKER_TRIPPED");
+                assert_eq!(current, expected, "{}", case["name"]);
+                pool = current;
+                outcomes.1 += 1;
+            } else {
+                let quote = result.unwrap_or_else(|e| panic!("{}: {e}", case["name"]));
+                assert_eq!(quote.consumed_in, a(case["raw_in"].as_str().unwrap()));
+                assert_eq!(quote.amount_out, target);
+                assert_eq!(quote.next_pool, expected, "{}", case["name"]);
+                pool = quote.next_pool;
+                outcomes.0 += 1;
+            }
+        }
+    }
+    assert_eq!(outcomes, (4, 1));
+}
 #[test]
 fn future_reclock_projects_views_and_preserves_source_and_ledgers() {
     let p = fixture();
@@ -221,19 +265,29 @@ fn explicit_clock_cannot_rewind_source_context_or_collection() {
     assert!(reclock(&r, b + 2, t + 110).is_err());
     assert!(m(&r).execution_context.is_some());
     assert!(r.multi_asset.as_ref().unwrap().to_proto().is_err());
-    let bank: Value = serde_json::from_slice(
-        &std::fs::read(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../test/contracts/managed-v2-aum-wire.json"
-        ))
-        .unwrap(),
-    )
-    .unwrap();
-    let mut snap: xone_domain::Snapshot = serde_json::from_value(bank["snapshot"].clone()).unwrap();
-    snap.pools = vec![r];
-    snap.reference.scope_hash = xone_domain::scope_hash(&snap.pools).unwrap();
-    snap.reference.adapter_set_hash =
-        xone_domain::hash(&vec![&snap.pools[0].adapter_version]).unwrap();
+    let snap = xone_domain::Snapshot {
+        reference: xone_domain::SnapshotRef {
+            block: xone_domain::BlockRef {
+                chain_key: r.chain_key.clone(),
+                number_or_slot: b,
+                hash: m(&r).block_hash.clone(),
+                parent_hash: format!("0x{}", "b".repeat(64)),
+                timestamp_ms: t * 1000,
+            },
+            schema_version: xone_domain::SCHEMA_VERSION,
+            canonical_epoch: 1,
+            journal_seq: 1,
+            adapter_set_hash: xone_domain::hash(&[&r.adapter_version]).unwrap(),
+            scope_hash: xone_domain::scope_hash(std::slice::from_ref(&r)).unwrap(),
+            online_generation: 1,
+            writer_epoch: 1,
+            owner_service: "chain-parser-go".into(),
+            owner_assignment_version: 1,
+        },
+        pools: vec![r],
+        source: "SYNTHETIC_MANAGED_SCHEDULED_CLOCK".into(),
+        history_gaps: vec![],
+    };
     assert!(snap
         .validate(
             &snap.reference.owner_service,
