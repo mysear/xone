@@ -19,6 +19,7 @@ mod v4_execution;
 mod wrapped_funding;
 pub use exact_out::ExactOutRequest;
 mod local_simulation;
+mod peer_checkpoint;
 mod recovery_metrics;
 use axum::{
     body::Bytes,
@@ -407,6 +408,10 @@ impl Api {
             .route("/v1/quotes/{id}/simulate", post(simulate_transaction))
             .route("/internal/quotes/{id}/evidence", get(evidence))
             .route("/internal/chains/{chain}/status", get(chain_status))
+            .route(
+                "/internal/chains/{chain}/peer-checkpoint",
+                get(peer_checkpoint::checkpoint),
+            )
             .route("/internal/config", get(config))
             .route(
                 "/internal/native-valuation/reload",
@@ -846,6 +851,9 @@ impl Api {
         if self.resume_applied_kafka(chain).await.is_ok() {
             return;
         }
+        if self.restore_peer_checkpoint(chain).await.is_ok() {
+            return;
+        }
         for source in &self.config.config.journal.source_urls {
             match self.restore_kafka(source, chain).await {
                 Ok(()) => return,
@@ -1134,6 +1142,7 @@ fn failure(e: xone_domain::Error) -> HttpError {
         "RATE_LIMITED" => StatusCode::TOO_MANY_REQUESTS,
         "CHAIN_NOT_READY"
         | "STATE_TOO_OLD"
+        | "CHECKPOINT_PEER_UNAVAILABLE"
         | "NATIVE_VALUATION_DURABLE_UNAVAILABLE"
         | "NATIVE_VALUATION_DURABLE_ACK_UNCERTAIN"
         | "PRICE_PUBLICATION_JOURNAL_COMMIT_UNCERTAIN"

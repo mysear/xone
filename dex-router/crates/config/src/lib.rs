@@ -64,6 +64,8 @@ pub struct Journal {
     pub kafka: Kafka,
     pub transport: String,
     pub source_urls: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checkpoint_peer_urls: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub source_auth_tokens: BTreeMap<String, String>,
     pub poll_interval_ms: u64,
@@ -843,6 +845,27 @@ impl Config {
             return Err(fail());
         }
         let j = &self.journal;
+        if !j.checkpoint_peer_urls.is_empty() {
+            if expected != "dex-router"
+                || j.transport != "kafka"
+                || j.checkpoint_peer_urls.len() > 8
+            {
+                return Err(err("CHECKPOINT_PEER_CONFIG_INVALID"));
+            }
+            let mut seen = std::collections::BTreeSet::new();
+            for url in &j.checkpoint_peer_urls {
+                if checkpoint_store::validate_base_url(url, j.kafka.allow_plaintext_development)
+                    .is_err()
+                    || !seen.insert(url)
+                    || !j.source_auth_tokens.get(url).is_some_and(|token| {
+                        (24..=8192).contains(&token.len())
+                            && token.bytes().all(|c| c.is_ascii_graphic())
+                    })
+                {
+                    return Err(err("CHECKPOINT_PEER_CONFIG_INVALID"));
+                }
+            }
+        }
         if let Some(store) = &j.checkpoint_store {
             store.validate()?;
             if store

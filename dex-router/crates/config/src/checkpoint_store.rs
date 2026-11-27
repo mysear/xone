@@ -91,65 +91,72 @@ impl CheckpointStore {
             retention.validate()?;
         }
         let fail = || err("CHECKPOINT_STORE_CONFIG_INVALID");
-        if self.base_url.len() > 2048
-            || self.publish_interval_ms > 3600000
+        if self.publish_interval_ms > 3600000
             || (self.publish_interval_ms > 0 && self.publish_interval_ms < 100)
         {
             return Err(fail());
         }
-        let (rest, secure) = if let Some(rest) = self.base_url.strip_prefix("https://") {
-            (rest, true)
-        } else if let Some(rest) = self.base_url.strip_prefix("http://") {
-            (rest, false)
-        } else {
-            return Err(fail());
-        };
-        if !secure && !self.allow_plaintext_development {
-            return Err(fail());
-        }
-        let mut parts = rest.split('/');
-        let authority = parts
-            .next()
-            .ok_or_else(fail)?
-            .split(':')
-            .collect::<Vec<_>>();
-        let host = authority[0];
-        if authority.len() > 2 || host.is_empty() || host.len() > 253 {
-            return Err(fail());
-        }
-        for label in host.split('.') {
-            if label.is_empty()
-                || label.len() > 63
-                || label.starts_with('-')
-                || label.ends_with('-')
-                || !label
-                    .bytes()
-                    .all(|v| v.is_ascii_lowercase() || v.is_ascii_digit() || v == b'-')
-            {
-                return Err(fail());
-            }
-        }
-        if authority.len() == 2 {
-            let port = authority[1].parse::<u16>().map_err(|_| fail())?;
-            if port == 0 || port.to_string() != authority[1] {
-                return Err(fail());
-            }
-        }
-        if !secure && host != "127.0.0.1" {
-            return Err(fail());
-        }
-        for part in parts {
-            if part.is_empty()
-                || [".", ".."].contains(&part)
-                || !part
-                    .bytes()
-                    .all(|v| v.is_ascii_alphanumeric() || b"._-".contains(&v))
-            {
-                return Err(fail());
-            }
-        }
-        Ok(())
+        validate_base_url(&self.base_url, self.allow_plaintext_development)
     }
+}
+
+pub(crate) fn validate_base_url(base_url: &str, allow_plaintext_development: bool) -> Result<()> {
+    let fail = || err("CHECKPOINT_STORE_CONFIG_INVALID");
+    if base_url.len() > 2048 {
+        return Err(fail());
+    }
+    let (rest, secure) = if let Some(rest) = base_url.strip_prefix("https://") {
+        (rest, true)
+    } else if let Some(rest) = base_url.strip_prefix("http://") {
+        (rest, false)
+    } else {
+        return Err(fail());
+    };
+    if !secure && !allow_plaintext_development {
+        return Err(fail());
+    }
+    let mut parts = rest.split('/');
+    let authority = parts
+        .next()
+        .ok_or_else(fail)?
+        .split(':')
+        .collect::<Vec<_>>();
+    let host = authority[0];
+    if authority.len() > 2 || host.is_empty() || host.len() > 253 {
+        return Err(fail());
+    }
+    for label in host.split('.') {
+        if label.is_empty()
+            || label.len() > 63
+            || label.starts_with('-')
+            || label.ends_with('-')
+            || !label
+                .bytes()
+                .all(|v| v.is_ascii_lowercase() || v.is_ascii_digit() || v == b'-')
+        {
+            return Err(fail());
+        }
+    }
+    if authority.len() == 2 {
+        let port = authority[1].parse::<u16>().map_err(|_| fail())?;
+        if port == 0 || port.to_string() != authority[1] {
+            return Err(fail());
+        }
+    }
+    if !secure && host != "127.0.0.1" {
+        return Err(fail());
+    }
+    for part in parts {
+        if part.is_empty()
+            || [".", ".."].contains(&part)
+            || !part
+                .bytes()
+                .all(|v| v.is_ascii_alphanumeric() || b"._-".contains(&v))
+        {
+            return Err(fail());
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

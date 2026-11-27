@@ -491,6 +491,42 @@ pub fn tail(
     max_records: usize,
     timeout: Duration,
 ) -> Result<(Option<Unit>, Cursor)> {
+    read_tail(brokers, topic, max_bytes, max_records, timeout, None)
+}
+
+/// Read the complete, retained transaction unit ending at an application cursor.
+pub fn checkpoint_at(
+    brokers: &[String],
+    cursor: &Cursor,
+    max_bytes: usize,
+    max_records: usize,
+    timeout: Duration,
+) -> Result<Unit> {
+    if cursor.partition != 0 || cursor.offset < 1 {
+        return Err(err("JOURNAL_CURSOR_INVALID"));
+    }
+    let (unit, actual) = read_tail(
+        brokers,
+        &cursor.topic,
+        max_bytes,
+        max_records,
+        timeout,
+        Some(cursor.offset),
+    )?;
+    if actual != *cursor {
+        return Err(err("KAFKA_CHECKPOINT_CURSOR_MISMATCH"));
+    }
+    unit.ok_or_else(|| err("KAFKA_TAIL_BASELINE_NOT_FOUND"))
+}
+
+fn read_tail(
+    brokers: &[String],
+    topic: &str,
+    max_bytes: usize,
+    max_records: usize,
+    timeout: Duration,
+    checkpoint_offset: Option<i64>,
+) -> Result<(Option<Unit>, Cursor)> {
     let consumer: BaseConsumer = ClientConfig::new()
         .set("bootstrap.servers", brokers.join(","))
         .set("group.id", "xone-owner-bootstrap-tail")
@@ -505,6 +541,10 @@ pub fn tail(
         .fetch_watermarks(topic, 0, Timeout::After(timeout))
         .map_err(|_| err("KAFKA_WATERMARKS"))?;
     let start = low.max(high - max_records as i64);
+    let end = checkpoint_offset.unwrap_or(high);
+    if checkpoint_offset.is_some() && (end <= start || end > high) {
+        return Err(err("KAFKA_REANCHOR_REQUIRED"));
+    }
     let mut list = TopicPartitionList::new();
     list.add_partition_offset(topic, 0, Offset::Offset(start))
         .map_err(|_| err("JOURNAL_CURSOR_INVALID"))?;
@@ -530,21 +570,15 @@ pub fn tail(
                 let position = consumer.position().map_err(|_| err("KAFKA_POSITION"))?;
                 if position
                     .find_partition(topic, 0)
-                    .is_some_and(|p| matches!(p.offset(),Offset::Offset(n) if n>=high))
+                    .is_some_and(|p| matches!(p.offset(),Offset::Offset(n) if n>=end))
                 {
-                    if assembler.in_progress() {
-                        return Err(err("KAFKA_INCOMPLETE_TRANSACTION_UNIT"));
-                    }
-                    if latest.is_none() {
-                        return Err(err("KAFKA_TAIL_BASELINE_NOT_FOUND"));
-                    }
-                    return Ok((latest, cursor));
+                    break;
                 }
             }
             Some(Err(_)) => return Err(err("KAFKA_TAIL_FETCH")),
             Some(Ok(m)) => {
-                if m.offset() >= high {
-                    continue;
+                if m.offset() >= end {
+                    break;
                 }
                 let f = decode_frame(m.payload().ok_or_else(|| err("KAFKA_EMPTY_RECORD"))?)?;
                 if !assembler.in_progress() && f.kind != "BEGIN" {
@@ -553,10 +587,20 @@ pub fn tail(
                 if let Some(u) = assembler.push(f)? {
                     latest = Some(u);
                     cursor.offset = m.offset() + 1;
+                    if checkpoint_offset == Some(cursor.offset) {
+                        break;
+                    }
                 }
             }
         }
     }
+    if assembler.in_progress() {
+        return Err(err("KAFKA_INCOMPLETE_TRANSACTION_UNIT"));
+    }
+    if latest.is_none() {
+        return Err(err("KAFKA_TAIL_BASELINE_NOT_FOUND"));
+    }
+    Ok((latest, cursor))
 }
 
 pub fn encode_unit(u: &Unit) -> Result<Vec<u8>> {

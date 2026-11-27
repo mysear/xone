@@ -18,13 +18,13 @@ use std::{
     time::Duration,
 };
 use tower::ServiceExt;
-use xone_domain::{Gap, Snapshot};
+use xone_domain::{Amount, Gap, Snapshot};
 use xone_kafka_transport::{
     checkpoint::{Manifest, ManifestCursor, RecoveryCatalog, RemotePublication, CODEC},
     encode, encode_bootstrap, encode_frame, Bootstrap, KafkaProducer, Unit,
 };
 use xone_observability::now_ms;
-use xone_quote_api::Api;
+use xone_quote_api::{Api, QuoteRequest};
 
 #[path = "support/evm_snapshot.rs"]
 mod evm_snapshot;
@@ -157,6 +157,106 @@ fn config(broker: String, topic: String, source: String) -> xone_config::ConfigS
     cfg.config.journal.source_urls = vec![source];
     cfg.config.startup.max_baseline_age_ms = 60_000;
     cfg
+}
+
+#[tokio::test]
+#[ignore = "requires an isolated Kafka broker in XONE_TEST_KAFKA_BROKER"]
+async fn cold_router_recovers_from_authenticated_peer_and_kafka_with_owner_offline() {
+    let (_, broker, topic, mut producer) = kafka_producer("peer-checkpoint").await;
+    let mut baseline = snapshot(1);
+    baseline.history_gaps.push(Gap {
+        from: 1,
+        to: 99,
+        reason: "HEAD_FIRST".into(),
+    });
+    let committed = publish(&mut producer, "ONLINE_BASELINE_COMMIT", baseline);
+    let raw = encode_bootstrap(&committed).unwrap();
+    let owner_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let owner = format!("http://{}", owner_listener.local_addr().unwrap());
+    let owner_app = Router::new().route(
+        "/internal/chains/evm:31337/bootstrap",
+        routing::get(move || async { raw }),
+    );
+    let owner_task =
+        tokio::spawn(async move { axum::serve(owner_listener, owner_app).await.unwrap() });
+
+    let mut cfg = config(broker, topic, owner);
+    cfg.token = "xone-isolated-peer-checkpoint".into();
+    cfg.config.api.auth_token = cfg.token.clone();
+    let peer = Api::new(cfg.clone()).unwrap();
+    peer.sync_sources().await;
+    assert_eq!(
+        peer.replica.view(CHAIN).unwrap().reference,
+        committed.snapshot.reference
+    );
+    owner_task.abort();
+    assert!(owner_task.await.unwrap_err().is_cancelled());
+
+    let peer_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let peer_url = format!("http://{}", peer_listener.local_addr().unwrap());
+    let peer_app = peer.handler();
+    let peer_task =
+        tokio::spawn(async move { axum::serve(peer_listener, peer_app).await.unwrap() });
+    let path = format!("/internal/chains/{CHAIN}/peer-checkpoint");
+    assert_eq!(get(&peer, &path).await.0, StatusCode::UNAUTHORIZED);
+    cfg.config.journal.checkpoint_peer_urls = vec![peer_url.clone()];
+    cfg.config
+        .journal
+        .source_auth_tokens
+        .insert(peer_url, cfg.token.clone());
+    cfg.config.validate("dex-router").unwrap();
+    let mut unauthenticated = cfg.config.clone();
+    unauthenticated.journal.source_auth_tokens.clear();
+    assert_eq!(
+        unauthenticated.validate("dex-router").unwrap_err().0,
+        "CHECKPOINT_PEER_CONFIG_INVALID"
+    );
+
+    let cold = Api::new(cfg.clone()).unwrap();
+    cold.sync_sources().await;
+    assert_eq!(get(&cold, "/health/ready").await.0, StatusCode::OK);
+    let restored = cold.replica.view(CHAIN).unwrap();
+    assert_eq!(restored.reference, committed.snapshot.reference);
+    assert_eq!(restored.history_gaps, committed.snapshot.history_gaps);
+    let pool = &restored.pools[0];
+    let quote = cold
+        .quote(QuoteRequest {
+            chain_key: CHAIN.into(),
+            kind: "EXACT_IN".into(),
+            sell_token: pool.token0.clone(),
+            buy_token: pool.token1.clone(),
+            sell_amount: Amount::checked(1000u32.into()).unwrap(),
+            caller: pool.token0.clone(),
+            recipient: pool.token1.clone(),
+            slippage_bps: 50,
+            verification: "FAST".into(),
+            constraints: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(quote["grossBuyAmount"], "1992");
+    assert_eq!(quote["snapshotRef"], json!(committed.snapshot.reference));
+
+    let next = append_block(&mut producer, &committed);
+    tokio::time::timeout(TIMEOUT, async {
+        while cold.replica.view(CHAIN).unwrap().reference != next.snapshot.reference {
+            cold.sync_sources().await;
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let catching_up = Api::new(cfg.clone()).unwrap();
+    catching_up.sync_sources().await;
+    assert_eq!(
+        catching_up.replica.view(CHAIN).unwrap().reference,
+        next.snapshot.reference
+    );
+    let mut revoked = next.snapshot;
+    revoked.reference.journal_seq += 1;
+    publish(&mut producer, "ONLINE_SCOPE_REVOKED", revoked);
+    assert_unready(&Api::new(cfg).unwrap()).await;
+    peer_task.abort();
 }
 
 #[tokio::test]
