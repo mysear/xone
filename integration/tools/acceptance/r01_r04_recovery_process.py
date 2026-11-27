@@ -2,7 +2,7 @@
 """Normal binaries with local PG/Kafka, controlled height gaps and retention loss.
 
 The default suite advances synthetic heights. The single-pool scenarios
-exercise measured downtime or a separate Go standby taking the writer lease.
+exercise measured downtime, owner takeover, or cold quote recovery from a peer.
 """
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -171,12 +171,15 @@ def raw_options(path, payload):
         'max_request_bytes':8192, 'max_pins_per_capture':4096,
         'decoder_version':'staged-state/public-adapter-v1'}
 
-def finish_report(report, target, router, token):
+def recovery_metrics(router, token):
     request = urllib.request.Request(router + '/metrics', headers={'Authorization': 'Bearer ' + token})
     with urllib.request.urlopen(request, timeout=3) as response:
         metrics = response.read(65536).decode()
     require('xone_first_successful_quote_seconds' in metrics, 'normal quote recovery metric missing')
-    report['metrics_observation'] = metrics[:4096]
+    return metrics[:4096]
+
+def finish_report(report, target, metrics):
+    report['metrics_observation'] = metrics
     require(source_hash() == report['source_tree_sha256'], 'core source changed during recovery process run')
     require(binary_fingerprint() == report['binary_sha256'], 'normal binaries changed during recovery process run')
     report.update(passed=True, state='LOCAL_RECOVERY_PROCESS_SCOPE_VERIFIED', completed_at_unix_ms=int(time.time() * 1000))
@@ -184,12 +187,12 @@ def finish_report(report, target, router, token):
     print(json.dumps({
         'passed': True,
         'cases': len(report['cases']),
-        **{key: report[key] for key in ('retention', 'standby') if key in report},
+        **{key: report[key] for key in ('retention', 'standby', 'peer_recovery') if key in report},
         'all_requested_features_complete': False,
     }))
     return report
 
-def run(retention_only=False, offline_seconds=0, standby_takeover=False):
+def run(retention_only=False, offline_seconds=0, standby_takeover=False, peer_recovery=False):
     OUT.mkdir(exist_ok=True)
     report={'schema_version':1, 'state':'RUNNING', 'passed':False,
         'all_requested_features_complete':False, 'production_ready':False,
@@ -198,12 +201,16 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False):
         'hours_are_height_gap_equivalents':True, 'cases':[],
         'binary_sha256':binary_fingerprint(),
         'runner_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
-    if retention_only or standby_takeover:
+    if retention_only or standby_takeover or peer_recovery:
         report_name = (
             f'r04-retention-{offline_seconds}s-wallclock.json'
             if offline_seconds else 'r04-retention-normal-process.json'
         )
-        target = OUT / ('r04-standby-takeover-normal-process.json' if standby_takeover else report_name)
+        if standby_takeover:
+            report_name = 'r04-standby-takeover-normal-process.json'
+        if peer_recovery:
+            report_name = 'r04-peer-recovery-normal-process.json'
+        target = OUT / report_name
         chain = RetentionChain()
         servers = [chain.provider(stale=True), chain.provider()]
         pools = [RETENTION_POOL]
@@ -245,14 +252,23 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False):
                     cfg['journal']['raw_maintenance']=raw_options(root/alias/'cold-evidence',payload)
                 else:
                     cfg['routing'].update(max_state_age_ms=180000,quote_ttl_ms=60000)
+                    if peer_recovery:
+                        cfg['logging']['level'] = 'debug'
+                    if peer_recovery and alias == 'router2':
+                        peer = base('router1')
+                        cfg['journal']['checkpoint_peer_urls'] = [peer]
+                        cfg['journal']['source_auth_tokens'] = {url: token for url in [*source_urls, peer]}
                 configs[alias]=save_config(root/alias/'config',cfg)
             def start(alias):
                 logs[alias]=(OUT/f'r01-r04-rto-{alias}.log').open('ab')
                 processes[alias]=subprocess.Popen(service_command(names[alias],configs[alias]),cwd=ROOT/names[alias],stdout=logs[alias],stderr=subprocess.STDOUT)
-            def stop(alias):
+            def stop(alias, crash=False):
                 p=processes.pop(alias,None)
                 if p:
-                    p.terminate()
+                    if crash:
+                        p.kill()
+                    else:
+                        p.terminate()
                     try:p.wait(timeout=15)
                     except subprocess.TimeoutExpired:p.kill();p.wait()
                 stream=logs.pop(alias,None)
@@ -272,6 +288,61 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False):
                 start('go');wait(base('go')+'/health/ready')
                 for alias in ['router1','router2']:start(alias);wait(base(alias)+'/health/live');wait_scope(base(alias),token,'evm:31337')
                 old=quote('router1')
+                if peer_recovery:
+                    path = '/internal/chains/evm:31337/peer-checkpoint'
+                    require(http(base('router1') + path)[0] == 401, 'peer checkpoint allowed anonymous access')
+                    stop('router2')
+                    stop('go')
+                    deadline = time.monotonic() + 15
+                    while http(base('router1') + path, token)[0] != 503:
+                        require(time.monotonic() < deadline, 'graceful owner stop did not revoke the peer anchor')
+                        time.sleep(0.05)
+                    start('router2')
+                    wait(base('router2') + '/health/live')
+                    quote('router2', 503)
+                    stop('router2')
+
+                    chain.head += 300
+                    chain.timestamp = int(time.time())
+                    start('go')
+                    wait(base('go') + '/health/ready')
+                    wait_scope(base('router1'), token, 'evm:31337')
+                    current = quote('router1')
+                    require(current['onlineGeneration'] > old['onlineGeneration'], 'owner restart reused a generation')
+                    code, peer_anchor = http(base('router1') + path, token)
+                    require(code == 200 and peer_anchor['reference'] == current['snapshotRef'],
+                            'live quote replica did not serve the committed anchor')
+                    stop('go', crash=True)
+                    code, remaining_peer = http(base('router1') + path, token)
+                    require(code == 200 and remaining_peer == peer_anchor,
+                            ('peer lost its anchor after owner crash', code, remaining_peer))
+                    started = time.monotonic()
+                    start('router2')
+                    wait(base('router2') + '/health/live')
+                    wait_scope(base('router2'), token, 'evm:31337')
+                    scope_ms = int((time.monotonic() - started) * 1000)
+                    restored = quote('router2')
+                    quote_ms = int((time.monotonic() - started) * 1000)
+                    require(restored['snapshotRef'] == peer_anchor['reference'], 'cold quote changed the peer anchor')
+                    gaps = current['quality']['historyGaps']
+                    require(gaps and restored['quality']['historyGaps'] == gaps, 'cold quote lost the history gap')
+                    code, restored_anchor = http(base('router2') + path, token)
+                    require(code == 200 and restored_anchor == peer_anchor, 'cold replica did not retain the committed cursor')
+                    metrics = recovery_metrics(base('router2'), token)
+                    stop('router2')
+                    stop('router1')
+                    start('router2')
+                    wait(base('router2') + '/health/live')
+                    require(http(base('router2') + '/health/ready')[0] == 503, 'cold replica ready without configured sources')
+                    quote('router2', 503)
+                    report['peer_recovery'] = {
+                        'snapshot_ref': peer_anchor['reference'], 'cursor': peer_anchor['cursor'],
+                        'history_gaps': gaps, 'first_qualified_scope_ms': scope_ms,
+                        'first_successful_quote_ms': quote_ms, 'quote_verification': restored['verification']['level'],
+                        'cold_quote_after_graceful_revocation_http_status': 503,
+                        'cold_quote_without_sources_http_status': 503,
+                    }
+                    return finish_report(report, target, metrics)
                 if standby_takeover:
                     start('standby')
                     wait(base('standby') + '/health/live')
@@ -317,7 +388,7 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False):
                         'first_successful_quote_ms': quote_ms,
                         'quote_verification': restored['verification']['level'],
                     }
-                    return finish_report(report, target, base('router2'), token)
+                    return finish_report(report, target, recovery_metrics(base('router2'), token))
                 cases = [] if retention_only else [(1, False), (24, False), (720, False), (720, True)]
                 for hours,empty in cases:
                     stop('go')
@@ -415,7 +486,7 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False):
                     require(chain.stale_head_reads >= 2, 'primary staleness was not presented')
                     report['retention']['stale_primary_head_reads'] = chain.stale_head_reads
                 write_result(target, report)
-                return finish_report(report, target, base('router1'), token)
+                return finish_report(report, target, recovery_metrics(base('router1'), token))
             finally:
                 for alias in list(processes):stop(alias)
     except BaseException as error:
@@ -433,9 +504,10 @@ if __name__ == '__main__':
     scenario = parser.add_mutually_exclusive_group()
     scenario.add_argument('--retention-only', action='store_true', help='run the single-pool retention scenario')
     scenario.add_argument('--standby-takeover', action='store_true', help='exercise single-pool takeover by a separate Go owner')
+    scenario.add_argument('--peer-recovery', action='store_true', help='recover a cold quote replica through a healthy peer and Kafka')
     parser.add_argument('--offline-seconds', type=int, default=0,
                         help='minimum time both owner and quote processes must stay stopped')
     args = parser.parse_args()
     if args.offline_seconds < 0 or (args.offline_seconds and not args.retention_only):
         parser.error('--offline-seconds requires --retention-only and a nonnegative value')
-    run(args.retention_only, args.offline_seconds, args.standby_takeover)
+    run(args.retention_only, args.offline_seconds, args.standby_takeover, args.peer_recovery)
