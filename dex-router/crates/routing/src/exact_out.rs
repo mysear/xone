@@ -419,6 +419,8 @@ pub fn evaluate_path(
             &state.manager
         } else if let Some(state) = &pool.singleton_cl {
             &state.manager
+        } else if let Some(state) = &pool.singleton_advanced {
+            &state.snapshot.manager
         } else if pool.protocol == "balancer-v2-stable2" {
             &pool
                 .stable

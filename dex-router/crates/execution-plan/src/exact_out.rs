@@ -105,14 +105,29 @@ pub fn build(
         &context.buy_token,
     ] {
         validate_chain_address(&context.chain_key, address)?;
-        if address == xone_domain::singleton::ZERO_ADDRESS {
-            return Err(err("EXACT_OUT_INVALID_PLAN"));
-        }
+    }
+    let native = [&context.sell_token, &context.buy_token]
+        .into_iter()
+        .any(|a| a == xone_domain::singleton::ZERO_ADDRESS);
+    if [&context.caller, &context.recipient]
+        .into_iter()
+        .any(|a| a == xone_domain::singleton::ZERO_ADDRESS)
+    {
+        return Err(err("EXACT_OUT_INVALID_PLAN"));
     }
     let mut input = BigUint::from(0u8);
     let mut output = BigUint::from(0u8);
     let mut targeted = BigUint::from(0u8);
     for route in &allocation.routes {
+        if native
+            && (route.edges.len() != 1
+                || !matches!(
+                    route.edges[0].protocol.as_str(),
+                    "uniswap-v4-advanced" | "pancake-infinity-cl-advanced"
+                ))
+        {
+            return Err(err("EXACT_OUT_INVALID_PLAN"));
+        }
         if route.edges.is_empty()
             || route.tokens.len() != route.edges.len() + 1
             || route.amounts.len() != route.tokens.len()
@@ -142,6 +157,8 @@ pub fn build(
                                 | "pancake-infinity-bin"
                                 | "uniswap-v4"
                                 | "pancake-infinity-cl"
+                                | "uniswap-v4-advanced"
+                                | "pancake-infinity-cl-advanced"
                                 | "balancer-v2-stable2"
                                 | "balancer-v2-weighted2-equal"
                                 | "balancer-v2-weighted2-static"
@@ -187,6 +204,8 @@ pub fn build(
                                     | "pancake-infinity-bin"
                                     | "uniswap-v4"
                                     | "pancake-infinity-cl"
+                                    | "uniswap-v4-advanced"
+                                    | "pancake-infinity-cl-advanced"
                                     | "balancer-v2-stable2"
                                     | "balancer-v2-weighted2-equal"
                                     | "balancer-v2-weighted2-static"
@@ -266,7 +285,11 @@ pub fn build(
             }
             if matches!(
                 edge.protocol.as_str(),
-                "uniswap-v4" | "pancake-infinity-cl" | "pancake-infinity-bin"
+                "uniswap-v4"
+                    | "pancake-infinity-cl"
+                    | "uniswap-v4-advanced"
+                    | "pancake-infinity-cl-advanced"
+                    | "pancake-infinity-bin"
             ) {
                 let (manager, id) = edge
                     .pool_id

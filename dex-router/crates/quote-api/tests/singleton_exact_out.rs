@@ -5,7 +5,7 @@ use axum::{
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use tower::ServiceExt;
-use xone_domain::{hash, scope_hash, Pool, Snapshot};
+use xone_domain::{hash, scope_hash, BlockRef, Pool, Snapshot, SnapshotRef, SCHEMA_VERSION};
 use xone_quote_api::Api;
 const MAX: &str = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 fn corpus() -> Value {
@@ -33,9 +33,39 @@ fn setup() -> (Api, Snapshot) {
     c.config.routing.max_expansions = 10000;
     c.config.api.requests_per_minute = 10000;
     c.config.api.quote_timeout_ms = 30000;
+    let chain = c
+        .config
+        .chains
+        .iter()
+        .find(|chain| chain.key == "evm:31337")
+        .unwrap();
+    let snapshot = Snapshot {
+        reference: SnapshotRef {
+            block: BlockRef {
+                chain_key: chain.key.clone(),
+                number_or_slot: 100,
+                hash: format!("0x{}", "ab".repeat(32)),
+                parent_hash: format!("0x{}", "cd".repeat(32)),
+                timestamp_ms: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+            },
+            canonical_epoch: 1,
+            journal_seq: 1,
+            schema_version: SCHEMA_VERSION,
+            adapter_set_hash: String::new(),
+            online_generation: 1,
+            scope_hash: String::new(),
+            writer_epoch: 1,
+            owner_service: chain.owner_service.clone(),
+            owner_assignment_version: chain.assignment_version,
+        },
+        pools: Vec::new(),
+        source: "CONTROLLED_SINGLETON_OUTPUT_CORE".into(),
+        history_gaps: Vec::new(),
+    };
     let api = Api::new(c).unwrap();
-    let snapshot: Snapshot =
-        serde_json::from_str(include_str!("../../../test/fixtures/evm/baseline.json")).unwrap();
     (api, snapshot)
 }
 fn install(api: &Api, s: &mut Snapshot, pools: Vec<Pool>) {
@@ -196,6 +226,62 @@ async fn singleton_http_full_targets_plans_views_and_limits_match_original_core(
     }
     assert_eq!((success, rejected), (424, 220));
     assert_eq!(seen.len(), 2);
+}
+
+#[tokio::test]
+async fn singleton_http_advanced_native_output_in_both_directions() {
+    use xone_domain::singleton::{SingletonAdvancedState, DYNAMIC_FEE_FLAG, ZERO_ADDRESS};
+
+    let (api, mut snapshot) = setup();
+    let fixture = corpus();
+    for protocol in ["uniswap-v4", "pancake-infinity-cl"] {
+        for zero in [true, false] {
+            let case = fixture["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|case| {
+                    case["pool"]["protocol"] == protocol
+                        && case["passed"] == true
+                        && case["zeroForOne"] == zero
+                })
+                .unwrap();
+            let mut pool: Pool = serde_json::from_value(case["pool"].clone()).unwrap();
+            let mut core = pool.singleton_cl.take().unwrap();
+            core.hooks = "0x0000000000000000000000000000000000010000".into();
+            let mut advanced = SingletonAdvancedState {
+                protocol: protocol.into(),
+                currency0: ZERO_ADDRESS.into(),
+                currency1: pool.token1.clone(),
+                key_fee: DYNAMIC_FEE_FLAG,
+                snapshot_block_hash: snapshot.reference.block.hash.clone(),
+                snapshot: core,
+            };
+            advanced.snapshot.pool_id = advanced.key_id().unwrap();
+            pool.token0 = advanced.currency0.clone();
+            pool.pool_id = format!(
+                "{}/{}",
+                advanced.snapshot.manager, advanced.snapshot.pool_id
+            );
+            pool.protocol.push_str("-advanced");
+            pool.adapter_version = xone_domain::protocols::protocol(&pool.protocol)
+                .unwrap()
+                .adapter
+                .into();
+            pool.singleton_advanced = Some(advanced);
+            install(&api, &mut snapshot, vec![pool.clone()]);
+            let index = usize::from(!zero);
+            let request = request(
+                &tokens(&pool, index, 1 - index),
+                &case["target"],
+                json!(MAX),
+            );
+            let (status, quote) = call(&api, "/v1/quote-exact-out", request).await;
+            assert_eq!(status, StatusCode::OK, "{protocol} {zero}: {quote}");
+            assert_eq!(quote["requiredSellAmount"], case["requiredInput"]);
+            assert_eq!(quote["grossBuyAmount"], case["target"]);
+        }
+    }
 }
 #[tokio::test]
 async fn singleton_http_capacity_grid_and_old_view_revocation() {

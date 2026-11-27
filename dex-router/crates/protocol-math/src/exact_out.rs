@@ -16,11 +16,10 @@ pub struct ExactOutSwap {
 /// Execution preparation is advertised separately by the capability catalog.
 pub fn supports_protocol(protocol: &str) -> bool {
     if crate::managed_v2_pool::supports_regular_exact_out(protocol)
+        || crate::singleton::supports_exact_out(protocol)
         || matches!(
             protocol,
             "pancake-infinity-bin"
-                | "uniswap-v4"
-                | "pancake-infinity-cl"
                 | "balancer-v2-stable2"
                 | "balancer-v2-weighted2-equal"
                 | "balancer-v2-weighted2-static"
@@ -104,7 +103,7 @@ pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<Exact
             next_pool: q.next_pool,
         });
     }
-    if matches!(pool.protocol.as_str(), "uniswap-v4" | "pancake-infinity-cl") {
+    if crate::singleton::supports_exact_out(&pool.protocol) {
         return crate::singleton::quote_exact_out(pool, output, zero);
     }
     if crate::orca::supports_profile(&pool.protocol) {

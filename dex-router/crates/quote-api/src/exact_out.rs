@@ -49,9 +49,12 @@ impl ExactOutRequest {
             &self.recipient,
         ] {
             plan::validate_chain_address(&self.chain_key, address)?;
-            if address == xone_domain::singleton::ZERO_ADDRESS {
-                return Err(err("INVALID_REQUEST"));
-            }
+        }
+        if [&self.caller, &self.recipient]
+            .into_iter()
+            .any(|a| a == xone_domain::singleton::ZERO_ADDRESS)
+        {
+            return Err(err("INVALID_REQUEST"));
         }
         if !["FAST", "VERIFIED"].contains(&self.verification.as_str()) {
             return Err(err("VERIFICATION_UNSUPPORTED"));
@@ -259,6 +262,8 @@ impl Api {
                     "uniswap-v4":"SINGLE_POOL_ZERO_HOOK_SINGLETON_CL_OUTPUT",
                     "pancake-infinity-bin":"SINGLE_POOL_COMPLETE_BIN_TREE_OUTPUT",
                     "pancake-infinity-cl":"SINGLE_POOL_ZERO_HOOK_SINGLETON_CL_OUTPUT",
+                    "uniswap-v4-advanced":"SINGLE_POOL_SINGLETON_CL_SNAPSHOT_OUTPUT",
+                    "pancake-infinity-cl-advanced":"SINGLE_POOL_SINGLETON_CL_SNAPSHOT_OUTPUT",
                     "balancer-v2-weighted2-equal":"SINGLE_POOL_IMMUTABLE_VAULT_GIVEN_OUT",
                     "balancer-v2-stable2":"SINGLE_POOL_STANDARD_STABLE_VAULT_GIVEN_OUT",
                     "balancer-v2-weighted2-static":"SINGLE_POOL_IMMUTABLE_VAULT_GIVEN_OUT",

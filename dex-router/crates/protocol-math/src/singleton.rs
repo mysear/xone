@@ -299,4 +299,4 @@ pub mod infinity_bin;
 
 #[path = "singleton_exact_out.rs"]
 mod output;
-pub use output::quote_exact_out;
+pub use output::{quote_exact_out, supports_exact_out};

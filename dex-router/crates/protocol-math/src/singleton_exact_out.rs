@@ -1,10 +1,10 @@
-//! Output-driven static zero-hook CL swaps. The native delta sign differs from V3.
+//! Output-driven singleton CL swaps. The native delta sign differs from V3.
 use super::{amount0_delta, amount1_delta, ceil_div, cross_liquidity, next_tick};
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use xone_domain::{
     err,
-    singleton::ConcentratedState,
+    singleton::{ConcentratedState, SingletonCLState},
     v3::{parse_liquidity_net, sqrt_ratio_at_tick, tick_at_sqrt_ratio, MAX_TICK, MIN_TICK},
     Amount, Pool, Result,
 };
@@ -44,9 +44,7 @@ pub fn quote_exact_out(
     zero: bool,
 ) -> Result<crate::exact_out::ExactOutSwap> {
     pool.validate()?;
-    if !matches!(pool.protocol.as_str(), "uniswap-v4" | "pancake-infinity-cl")
-        || pool.token_behavior != "standard"
-    {
+    if !supports_exact_out(&pool.protocol) || pool.token_behavior != "standard" {
         return Err(err("EXACT_OUT_PROTOCOL_UNSUPPORTED"));
     }
     if output.0.is_zero() {
@@ -55,10 +53,49 @@ pub fn quote_exact_out(
     if output.0.bits() > 127 {
         return Err(err("SINGLETON_OUTPUT_INT256_RANGE"));
     }
-    let singleton = pool
+    let snapshot = pool
         .singleton_cl
         .as_ref()
+        .or_else(|| {
+            pool.singleton_advanced
+                .as_ref()
+                .map(|state| &state.snapshot)
+        })
         .ok_or_else(|| err("SINGLETON_STATE_REQUIRED"))?;
+    let (core, input) = quote_core_exact_out(snapshot, output, zero)?;
+    let mut next_pool = pool.clone();
+    if let Some(advanced) = &mut next_pool.singleton_advanced {
+        advanced.snapshot.core = core;
+    } else {
+        next_pool
+            .singleton_cl
+            .as_mut()
+            .ok_or_else(|| err("SINGLETON_STATE_REQUIRED"))?
+            .core = core;
+    }
+    next_pool.validate()?;
+    Ok(crate::exact_out::ExactOutSwap {
+        amount_in: input,
+        amount_out: output.clone(),
+        next_pool,
+    })
+}
+
+pub fn supports_exact_out(protocol: &str) -> bool {
+    matches!(
+        protocol,
+        "uniswap-v4"
+            | "pancake-infinity-cl"
+            | "uniswap-v4-advanced"
+            | "pancake-infinity-cl-advanced"
+    )
+}
+
+fn quote_core_exact_out(
+    singleton: &SingletonCLState,
+    output: &Amount,
+    zero: bool,
+) -> Result<(ConcentratedState, Amount)> {
     let state = &singleton.core;
     let mut remaining = output.0.clone();
     let mut input = BigUint::zero();
@@ -150,21 +187,11 @@ pub fn quote_exact_out(
     if input.is_zero() {
         return Err(err("INSUFFICIENT_OUTPUT"));
     }
-    let mut next_pool = pool.clone();
-    let s = next_pool
-        .singleton_cl
-        .as_mut()
-        .ok_or_else(|| err("SINGLETON_STATE_REQUIRED"))?;
-    s.core = ConcentratedState {
+    let core = ConcentratedState {
         sqrt_price_x96: Amount::checked(sqrt)?,
         tick,
         liquidity: Amount::checked(liquidity)?,
         ..state.clone()
     };
-    next_pool.validate()?;
-    Ok(crate::exact_out::ExactOutSwap {
-        amount_in: Amount::checked(input)?,
-        amount_out: output.clone(),
-        next_pool,
-    })
+    Ok((core, Amount::checked(input)?))
 }
