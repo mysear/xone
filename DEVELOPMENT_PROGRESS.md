@@ -8,7 +8,7 @@
 
 优先级：区块解析和精确兑换量计算优先，分析功能低优先级。三服务各自独立，公共协议位于common。
 
-导航：[2026-11-21 全范围完成度复核](#full-design-audit-2026-11-21) · [剩余功能执行顺序](#remaining-execution-order-2026-11-18) · [最新差距复核](#design-gap-review-2026-11-18) · [本轮开发](#active-work) · [工作包](#work-packages) · [协议覆盖](#protocol-coverage) · [逐项功能](#design-traceability) · [已验证批次](#batch-history) · [剩余功能及优先级](#remaining-priorities)
+导航：[2026-11-21 全范围完成度复核](#full-design-audit-2026-11-21) · [迭代目标](#iteration-goals-2026-11-27) · [剩余功能执行顺序](#remaining-execution-order-2026-11-18) · [最新差距复核](#design-gap-review-2026-11-18) · [本轮开发](#active-work) · [工作包](#work-packages) · [协议覆盖](#protocol-coverage) · [逐项功能](#design-traceability) · [已验证批次](#batch-history) · [剩余功能及优先级](#remaining-priorities)
 
 
 <a id="full-design-audit-2026-11-21"></a>
@@ -286,6 +286,80 @@
 本批限定本地完成：Infinity Bin静态零hook完整树与普通服务接入；上一批Orca adaptive与Crypto标准settled服务保持原范围，hook/native/完整结算及其他组合未完成。原26工作包完整验收仍为0。
 
 上一批完成（限定本地范围）：R06 / §7.3、§11.3、§12.2、§12.9、§12.11、§12.14 / WP02、WP03、WP04、WP05、WP09、WP11–WP14、WP16、WP20、WP25：Balancer V2 双币不可变50/50 Weighted Pool独立解析与exact-in模型已通过该批本地验收。其他合法双币静态权重已由本轮独立版本补齐；Managed/Composable、真实部署及执行验证仍未完成。
+
+<a id="iteration-goals-2026-11-27"></a>
+
+## 迭代目标（2026-11-27）
+
+设计方案仍未完成全部验收。本节把剩余工作拆成可连续提交、可独立验收的迭代目标，按优先级顺序执行。每个目标完成后都必须更新能力目录、正常服务入口、跨语言 wire、回归证据和本文件状态；缺少真实来源、独立后状态或执行差分时保持拒绝，不提升为生产能力。
+
+### I1 Managed fee 完整闭环
+
+- 完成 ExactIn/ExactOut 原始回调差分，覆盖非零协议费、管理费、同收款方合并和溢出回滚。
+- 传播完整 BPT supply、owner 与协议收款方后状态，补充连续交易和跨语言 wire 回归。
+- 接入可部署 ManagedPool 版本的真实来源、parser、wire、API 和连续状态。
+- 退出标准是原始案例、序列案例、跨语言 wire 和正常 API 全部通过。
+
+### I2 Composable Stable 完整状态
+
+- 补齐待结协议费、实际 BPT supply、BPT join/exit、rate cache、rate provider 和 Vault 注册余额。
+- 完成完整 BPT 后状态与 ExactOut，覆盖连续交易和跨语言 wire。
+- 对未证明的 rate provider、Vault 和执行组合保持明确拒绝。
+
+### I3 Curve Meta underlying
+
+- 将完整 base pool 快照接入正常解析和服务入口。
+- 传播 underlying deposit/withdraw 后的 base balances、admin balances 和 LP supply。
+- 校验 Meta 与 base 的共享依赖一致性，补齐 ExactIn/ExactOut、连续交易、wire 和恢复验证。
+- 真实 base 部署与完整执行单独验收。
+
+### I4 Solana 高级协议
+
+- 补齐 Token2022 转账费与账户扩展，Orca adaptive Token2022、稀疏数组和奖励领取。
+- 补齐 Raydium CLMM 订单、奖励领取和高级组合。
+- 为每个版本提供独立状态、wire、解析、数学、SBF/CPI 和账户余额差验证。
+- Yellowstone、版本化 bank、fork 和补洞继续作为独立门禁。
+
+### I5 V4/Infinity
+
+- 完成 hook 自定义会计、覆盖费和 native currency 结算。
+- 完成 Infinity Bin 动态、hook、native 组合，以及 Manager、Vault、transient storage 和完整结算状态。
+- unknown hook 继续保持拒绝。
+
+### I6 独立执行与真实收款差
+
+- 补齐 EVM 固定状态 DB、链规则、REVM、gas 和 L1 fee。
+- 补齐 Solana 版本化账户、SBF、Token CPI、CU、账户锁和 blockhash。
+- 覆盖 ExactOut 退款、授权、wrap、费用和收款后状态。
+- 只有独立余额差和回执验证通过后才开放执行能力。
+
+### I7 真实来源和恢复
+
+- 完成 R01 真实部署身份、代码、升级 slot 和历史块验证。
+- 完成 R02 EVM WS/HTTP 双源、staging 有序提交、raw、DLQ 和工厂发现。
+- 完成 R03 Yellowstone 连续流、WAL、fork、补洞和乱序账户恢复。
+- 完成 R04 EnsurePoolScope、扩容、长停机恢复和历史隔离。
+
+### I8 路由与费用
+
+- 接入实际 gas、L1 数据费和原生费换算，使用净输出评分。
+- 完成通用共享 DAG、beam 多标签、严格收益上界和 gap。
+- 完成多池 ExactOut、拆单执行和费用完整性。
+
+### I9 上线前基础设施
+
+- 完成 Kafka TLS/SASL/ACL、ISR 和事务故障验证。
+- 完成 PG 故障切换、灾备和 RPO/RTO。
+- 完成 CI、SBOM、许可证、secret 和 schema 兼容检查。
+- 完成多租户额度、SLO、压测、OTel 和完整审计。
+
+### I10 低优先级分析与外部来源
+
+- 完成持久 DLQ/raw 回放。
+- 完成 ClickHouse 事实、版本表、shadow 发布和 FINAL 查询。
+- 完成 RFQ、多 solver、外部来源竞争和收益分布。
+
+当前活动目标为 I1。I1 未达到退出标准前，不宣称 Managed fee 完整闭环，也不改变生产 `VERIFIED` 和完整生产准入关闭状态。
 
 <a id="work-packages"></a>
 
