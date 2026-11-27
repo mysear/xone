@@ -28,7 +28,11 @@ fn main() {
             io::stdin().read_to_string(&mut text).unwrap();
             let v: Value = serde_json::from_str(&text).unwrap();
             let pool: Pool = serde_json::from_value(v.get("pool").unwrap_or(&v).clone()).unwrap();
-            fixture_from_bitmap(&pool)
+            if pool.raydium_clmm.bitmap_extension.is_some() {
+                fixture_from_bitmap(&pool)
+            } else {
+                raydium_clmm_reference::fixture_for(&pool)
+            }
         },
         "bitmap-vectors" => bitmap_vectors(),
         "generate-bitmap" => generate_bitmap(),

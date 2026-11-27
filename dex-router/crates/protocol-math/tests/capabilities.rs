@@ -83,7 +83,9 @@ fn capability_labels_cover_existing_versioned_fixture_models_and_reject_unknowns
         assert_eq!(c.native_sol_trading, protocol == xone_domain::pump::PROFILE);
         assert_eq!(
             c.wallet_submission,
-            c.execution_preparation && protocol != xone_domain::orca_token_2022::PROFILE
+            c.execution_preparation
+                && protocol != xone_domain::orca_token_2022::PROFILE
+                && protocol != xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE
         );
         assert_eq!(c.independent_simulation, c.execution_preparation);
         assert!(!c.independent_production_verification && !c.production_ready);

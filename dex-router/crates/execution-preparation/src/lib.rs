@@ -44,6 +44,9 @@ const RENT: &str = "SysvarRent111111111111111111111111111111111";
 const SYSVAR: &str = "Sysvar1111111111111111111111111111111111111";
 const MEMO: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 const MEMO_CODE: &str = "f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954";
+const OBSERVED_TOKEN22_SLOT: u64 = 460497271;
+const OBSERVED_TOKEN22_CODE: &str =
+    "15a2e615a42e20f31714bbaaee43002ae6f1cda2e8d7118243117ab3c1342e2d";
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolanaRequest {

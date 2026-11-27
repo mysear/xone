@@ -35,6 +35,38 @@ XONE_RAYCLMM_ORDER_CORPUS=/tmp/rayclmm-orders.json \
   -p xone-protocol-math -p xone-quote-api --test rayclmm_limit_orders -- --ignored
 ```
 
+### Deployed SwapV2 limit-order replay
+
+The controlled execution bank combines original packed account layouts with executable bytes returned by PublicNode at finalized slot 474458813. The Raydium, SPL Token and Token-2022 ProgramData deployment slots are 459932378, 419472000 and 460497271. The captured JSON-RPC response has SHA-256 `204eeb59239c0cc7408bf0bc89b87994ca03f4d16f736460de5bd91ad52aebec`. The pool, Clock and user accounts are controlled fixture state.
+
+Capture `getMultipleAccounts` with `{"encoding":"base64+zstd","commitment":"finalized"}` and these addresses in order. The generator checks the upgradeable program links and reads the deployment slot and executable hash from the decompressed bytes.
+
+```text
+CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK
+HzD2cCXXT3UQNjMMY6kDv9w6gZ9qquSdfoGXrLL3LXx
+TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+3gvYRKWyXRR9xKWe1ZjPhLY5ZJRN7KDB4rFZFGoJfFk2
+TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+DoU57AYuPFu2QU514RktNPG22QhApEjnKxnBcu4BHDTY
+MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr
+```
+
+With the reference executable and order corpus above, use the pinned solders runtime described in [the Orca replay instructions](../../ci/orca-token2022-execution.md).
+
+```sh
+python3.11 integration/tools/ci/rayclmm-limit-order-execution-bank.py \
+  /tmp/xone-raydium-clmm/target2/debug/raydium-clmm-reference \
+  /tmp/rayclmm-orders.json /tmp/rayclmm-programs.json /tmp/rayclmm-order-bank.json
+python3.11 integration/tools/ci/solana-sbf-runtime-manifests.py --rpc-capture \
+  solana:mainnet-beta 5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d /tmp/rayclmm-order-manifest.json
+XONE_RAYCLMM_ORDER_BANK=/tmp/rayclmm-order-bank.json \
+XONE_RAYCLMM_ORDER_MANIFEST=/tmp/rayclmm-order-manifest.json \
+  cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-quote-api \
+  --test rayclmm_limit_orders http_preparation -- --ignored
+```
+
+The 24 cases cover both directions, both amount modes, three fee modes, and partial or drained orders. Each checks user settlement, post-account hashes for the pool, both vaults and the order array, the immutable captured bank, and exclusion of a historical-only array from transaction accounts. Each also checks rejection of changed order bytes and the original program error and rollback for a threshold tightened by one unit.
+
 `source-metadata.json` records every file and both retained codeload archives. `rayclmm-reference-fetch.py` compares all **105 upstream files** and **120 parity-common files** against both the manifest and exact archive bytes; it also checks for extra or missing source files.
 
 - Upstream archive SHA-256: `13841cd1cddf0fc906970f70f8a639cb595e484c8ff260176aec0009cc561727`.

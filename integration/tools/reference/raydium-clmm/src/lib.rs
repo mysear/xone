@@ -745,7 +745,7 @@ fn vault_bytes(mint: &str, owner: &str, amount: u64) -> Vec<u8> {
 pub fn fixture() -> Value {
     fixture_for(&base_pool())
 }
-fn fixture_for(p: &Pool) -> Value {
+pub fn fixture_for(p: &Pool) -> Value {
     let s = &p.raydium_clmm;
     let (mut config, state, arrays, obs) = original_states(&p);
     let (_, cb) = pda(

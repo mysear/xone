@@ -7,9 +7,7 @@ use num_traits::Zero;
 use xone_domain::rayclmm_math::{
     sqrt_price_from_tick, tick_from_sqrt_price, MAX_SQRT_PRICE_X64, MIN_SQRT_PRICE_X64,
 };
-use xone_domain::raydium_clmm::{
-    RaydiumCLMMLimitOrders, RaydiumCLMMState, RaydiumCLMMTick, LIMIT_ORDERS_PROFILE,
-};
+use xone_domain::raydium_clmm::{RaydiumCLMMLimitOrders, RaydiumCLMMState, RaydiumCLMMTick};
 use xone_domain::{err, Amount, Pool, Result};
 #[derive(Debug)]
 pub struct SwapStep {
@@ -565,16 +563,7 @@ impl SwapAmounts {
 }
 
 pub fn supports_profile(protocol: &str) -> bool {
-    matches!(
-        protocol,
-        "raydium-clmm-static"
-            | "raydium-clmm-rewards"
-            | "raydium-clmm-token-fee"
-            | "raydium-clmm-bitmap"
-            | "raydium-clmm-custom-seed"
-            | "raydium-clmm-dynamic"
-            | LIMIT_ORDERS_PROFILE
-    )
+    xone_domain::raydium_clmm::supports_classic_profile(protocol)
 }
 pub fn quote_exact_in(pool: &Pool, input: &Amount, left: bool) -> Result<Swap> {
     quote_mode(pool, input, left, true)

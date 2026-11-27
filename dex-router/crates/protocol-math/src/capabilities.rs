@@ -1,7 +1,7 @@
 //! Versioned capabilities describe admitted kernels, not live RPC/account readiness.
 use serde::{Deserialize, Serialize};
 use xone_domain::{Pool, Result};
-pub const VERSION: &str = "xone-protocol-capabilities/28";
+pub const VERSION: &str = "xone-protocol-capabilities/29";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolCapabilities {
@@ -111,7 +111,12 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
             || xone_domain::pump_amm::supports_profile(protocol),
         native_sol_trading: protocol == xone_domain::pump::PROFILE,
         independent_simulation: prepared,
-        wallet_submission: prepared && protocol != xone_domain::orca_token_2022::PROFILE,
+        wallet_submission: prepared
+            && !matches!(
+                protocol,
+                xone_domain::orca_token_2022::PROFILE
+                    | xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE
+            ),
         independent_production_verification: false,
         production_ready: false,
         execution_blocker: if profile.is_none() {

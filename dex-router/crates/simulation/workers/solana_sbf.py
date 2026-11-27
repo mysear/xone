@@ -140,12 +140,15 @@ def validate_orca(model,accounts,Pubkey,claim=False):
         if not dynamic:b+=bytes(Pubkey.from_string(model['pool_id']))
         observed=accounts[a['address']];require(observed['owner']==ORCA and not observed['executable']and raw(observed)==b,'SBF_ORCA_ARRAY_MISMATCH')
 
-# Explicit original classic-token CLMM layout validation, draft not installed.
+# Original classic-token CLMM layout validation.
 RAYCLMM='CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK'
 MEMO='MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'
-RAY_TOKEN22_CODE='495e9d7680dd555cb126a6a8e5464af5be9b01f02f2cd70634352722d22e3cad'
+RAY_TOKEN22_LEGACY_CODE='495e9d7680dd555cb126a6a8e5464af5be9b01f02f2cd70634352722d22e3cad'
+RAY_TOKEN22_DEPLOYED_CODE='15a2e615a42e20f31714bbaaee43002ae6f1cda2e8d7118243117ab3c1342e2d'
+RAY_TOKEN22_DEPLOYED_SLOT=460497271
 MEMO_CODE='f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954'
-RAYCLMM_PROFILES=('raydium-clmm-static','raydium-clmm-rewards','raydium-clmm-token-fee','raydium-clmm-bitmap','raydium-clmm-custom-seed','raydium-clmm-dynamic')
+RAYCLMM_ORDERS='raydium-clmm-limit-orders'
+RAYCLMM_PROFILES=('raydium-clmm-static','raydium-clmm-rewards','raydium-clmm-token-fee','raydium-clmm-bitmap','raydium-clmm-custom-seed','raydium-clmm-dynamic',RAYCLMM_ORDERS)
 def validate_rayclmm(model,accounts,Pubkey):
     require(model['protocol']in RAYCLMM_PROFILES,'SBF_RAYCLMM_PROFILE');s=model['raydium_clmm'];require((s.get('dynamic_fee')is not None)==(model['protocol']=='raydium-clmm-dynamic')and(s.get('bitmap_extension')is not None)==(model['protocol']in['raydium-clmm-bitmap','raydium-clmm-custom-seed','raydium-clmm-dynamic'])and(model['protocol']=='raydium-clmm-dynamic'or((s.get('seed_index',0)>0)==(model['protocol']=='raydium-clmm-custom-seed'))),'SBF_RAYCLMM_PROFILE');a=accounts[model['pool_id']];data=raw(a);require(a['owner']==RAYCLMM and not a['executable']and len(data)==1544,'SBF_RAYCLMM_POOL_LAYOUT');b=bytearray(data)
     require(data[273:277]==bytes(4)and data[389]&~63==0 and data[389]&16==0 and data[393:397]==bytes(4)and not any(data[1130 if s.get('dynamic_fee')is not None else 1096:]),'SBF_RAYCLMM_VERSION')
@@ -189,15 +192,25 @@ def validate_rayclmm(model,accounts,Pubkey):
     require(d==o,'SBF_RAYCLMM_OBSERVATION_MISMATCH')
     for a in s['tick_arrays']:
         account=accounts[a['address']];d=raw(account);require(account['owner']==RAYCLMM and not account['executable']and len(d)==10240 and not any(d[10133:]),'SBF_RAYCLMM_ARRAY_LAYOUT');expected=bytearray(d);expected[:8]=hashlib.sha256(b'account:TickArrayState').digest()[:8];expected[8:40]=bytes(Pubkey.from_string(model['pool_id']));expected[40:44]=a['start_tick_index'].to_bytes(4,'little',signed=True);ticks={t['tick']:t for t in a['ticks']}
+        initialized=0
         for i in range(60):
-            off=44+i*168;index=a['start_tick_index']+i*s['tick_spacing'];t=ticks.get(index);require(not any(d[off+124:off+168]),'SBF_RAYCLMM_ORDERS')
+            off=44+i*168;index=a['start_tick_index']+i*s['tick_spacing'];t=ticks.get(index)
+            order_start=116 if model['protocol']==RAYCLMM_ORDERS else 124
+            expected[off+order_start:off+168]=bytes(168-order_start)
             if t is None:require(int.from_bytes(d[off:off+4],'little',signed=True)in[0,index],'SBF_RAYCLMM_ARRAY_LAYOUT');expected[off+4:off+116]=bytes(112)
             else:
                 expected[off:off+4]=t['tick'].to_bytes(4,'little',signed=True);expected[off+4:off+20]=int(t['liquidity_net']).to_bytes(16,'little',signed=True)
                 for delta,name in [(20,'liquidity_gross'),(36,'fee_growth_outside0'),(52,'fee_growth_outside1')]:expected[off+delta:off+delta+16]=int(t[name]).to_bytes(16,'little')
                 expected[off+68:off+116]=bytes(48)
                 for j,value in enumerate(t.get('reward_growths_outside',[])):expected[off+68+16*j:off+84+16*j]=int(value).to_bytes(16,'little')
-        expected[10124]=len(a['ticks']);expected[10125:10133]=a['recent_epoch'].to_bytes(8,'little');require(d==expected,'SBF_RAYCLMM_ARRAY_MISMATCH')
+                orders=t.get('limit_orders')
+                if orders is not None:
+                    require(model['protocol']==RAYCLMM_ORDERS,'SBF_RAYCLMM_ORDERS')
+                    for delta,name in [(116,'order_phase'),(124,'orders_amount'),(132,'part_filled_orders_remaining')]:
+                        expected[off+delta:off+delta+8]=int(orders[name]).to_bytes(8,'little')
+                    expected[off+140:off+156]=int(orders['unfilled_ratio_x64']).to_bytes(16,'little')
+                initialized+=bool(int(t['liquidity_gross']) or orders and (orders['orders_amount'] or orders['part_filled_orders_remaining']))
+        expected[10124]=initialized;expected[10125:10133]=a['recent_epoch'].to_bytes(8,'little');require(d==expected,'SBF_RAYCLMM_ARRAY_MISMATCH')
     for side in [0,1]:
         mint=model[f'token{side}'];vault=s[f'vault{side}'];a=accounts[vault];d=raw(a);require(a['owner']==TOKEN and not a['executable']and len(d)==165 and d[:32]==bytes(Pubkey.from_string(mint))and d[32:64]==bytes(Pubkey.from_string(model['pool_id']))and d[108]==1 and int.from_bytes(d[64:72],'little')==s[f'raw_vault{side}'],'SBF_RAYCLMM_VAULT')
         if mint=='So11111111111111111111111111111111111111112':require(d[109:113]==b'\1\0\0\0'and a['lamports']>=int.from_bytes(d[113:121],'little')+s[f'raw_vault{side}'],'SBF_RAYCLMM_VAULT_BACKING')
@@ -330,8 +343,10 @@ def main():
         payload=raw(programdata)[45:]
         if claim and pid==reward_program:
             expected=preparation['rewardTokenCodeSha256']
+        elif target==RAYCLMM and pid==TOKEN22:
+            expected=RAY_TOKEN22_DEPLOYED_CODE if deployment==RAY_TOKEN22_DEPLOYED_SLOT else RAY_TOKEN22_LEGACY_CODE
         else:
-            expected=RAY_TOKEN22_CODE if target==RAYCLMM and pid==TOKEN22 else state['program_code_sha256'] if pid==target else state['fee_program_code_sha256']if pid==FEE else token22_state['program_code_sha256'] if pid==TOKEN22 else state['token_program_code_sha256']
+            expected=state['program_code_sha256'] if pid==target else state['fee_program_code_sha256']if pid==FEE else token22_state['program_code_sha256'] if pid==TOKEN22 else state['token_program_code_sha256']
         require(hashlib.sha256(payload).hexdigest()==expected,'SBF_BANK_PROGRAM_MISMATCH')
         svm.add_program_with_loader(Pubkey.from_string(pid),payload,Pubkey.from_string(LOADER))
     if bank.get('rpcCapture'):

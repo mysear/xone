@@ -341,11 +341,17 @@
 - Orca SwapV2 在受控 bank 上执行公开部署的 Whirlpool、SPL Token、Token-2022 和 Memo。部署账户由 PublicNode 在 finalized slot 474441254 同批读出。Whirlpool 与 Token-2022 ProgramData 分别指向部署 slot 457152296 和 460497271。公开部署字节和本地构造的池、账户及 Clock 分别保留来源记录。 [复验说明](integration/tools/ci/orca-token2022-execution.md)
 - 同一受控 bank 的 HTTP 入口和独立 SBF 验证覆盖 6 组 `CollectReward` / `CollectRewardV2`。三个奖励索引分别覆盖全额、部分和空 vault，验证 NFT 所有者、单单位 delegate、Token-2022 到账净额、withheld 和 position/vault/收款账户后状态。另有 24 项 HTTP 拒绝验证和两组冻结收款账户的原 CPI 失败回放。该范围使用独立 Position PDA、已入账奖励和现有收款账户。奖励更新组合与签名回执仍待验收。 [复验说明](integration/tools/ci/orca-token2022-execution.md)
 
-#### 下一轮迭代目标（I4 Raydium CLMM）
+#### Raydium CLMM 限价订单验收
 
-- `raydium-clmm-limit-orders` 已接入 `6d7a0f82` TickState 的订单阶段、待撮合数量、部分成交余量和剩余比例。Rust 正常 finalized RPC 验证了只有订单的活跃 tick 和已清空 tick 的历史阶段。26 项解析测试、Go/Rust Protobuf 往返和生成一致性检查通过。能力目录待撮合验收后开放报价。
-- 双向 ExactIn、ExactOut 和三种收费模式已通过 216 组原 `swap_internal` 差分、12 笔 HTTP 报价及经典静态原程序回归。验证 180 笔成交的完整状态，含 34 次清空 bitmap 位，并核对 36 组拒绝。报价能力目录升至 `/28`。下一步在同 bank 生成无签名交易，并用 SBF 验证 Token CPI 收付、限额失败和回滚。 [复验说明](integration/tools/reference/raydium-clmm/README.md)
-- 验收奖励领取与高级组合，覆盖 Position 和奖励 vault 绑定、累计奖励账本、Token-2022 净额及其与动态费、扩展 bitmap、订单的组合。
+- `raydium-clmm-limit-orders` 已接入 `6d7a0f82` TickState 的订单阶段、待撮合数量、部分成交余量和剩余比例。Rust 正常 finalized RPC 验证了只有订单的活跃 tick 和已清空 tick 的历史阶段。26 项解析测试、Go/Rust Protobuf 往返和生成一致性检查通过。
+- 双向 ExactIn、ExactOut 和三种收费模式已通过 216 组原 `swap_internal` 差分、12 笔 HTTP 报价及经典静态原程序回归。验证 180 笔成交的完整状态，含 34 次清空 bitmap 位，并核对 36 组拒绝。 [原程序差分](integration/tools/reference/raydium-clmm/README.md)
+- 公开部署程序在受控 bank 上通过 24 组 HTTP 无签名准备和独立 SwapV2 回放，覆盖部分成交与清空、用户 Token CPI 收付、两个 vault、订单 tick 和池 bitmap 后状态。另有 24 组限额回滚和 24 组订单账户变更拒绝。能力目录升至 `/29`，签名提交与真实回执待验收。 [复验说明](integration/tools/reference/raydium-clmm/README.md#deployed-swapv2-limit-order-replay)
+
+#### 下一轮迭代目标（I4 Raydium CLMM 奖励领取）
+
+- 使用 `DecreaseLiquidityV2` 的零流动性变动入口结算头寸费用与奖励。绑定 Position PDA、头寸 NFT、上下界 tick 同 bank 证明和按索引排列的奖励 vault、mint、收款账户。
+- 验收奖励累计、已领取账本、部分到账、Token-2022 转账费和失败回滚。通过正常 HTTP 准备及公开部署程序独立 SBF 核对用户余额和 Position、vault、池状态。
+- 在奖励领取验收后，按 I4 继续验证动态费、扩展 bitmap、订单及奖励的组合，再进入 I5。
 
 ### I5 V4/Infinity
 

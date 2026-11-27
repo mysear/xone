@@ -3,20 +3,10 @@ use super::*;
 use xone_domain::raydium_clmm as r;
 const TOKEN22: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 // Explicitly admitted ancillary programs. Token2022 assets remain unsupported.
-const TOKEN22_CODE: &str = "495e9d7680dd555cb126a6a8e5464af5be9b01f02f2cd70634352722d22e3cad";
+const LEGACY_TOKEN22_CODE: &str =
+    "495e9d7680dd555cb126a6a8e5464af5be9b01f02f2cd70634352722d22e3cad";
 const BUDGET: &str = "ComputeBudget111111111111111111111111111111";
 const COMPUTE_LIMIT: u32 = 1_400_000;
-fn supported(protocol: &str) -> bool {
-    matches!(
-        protocol,
-        "raydium-clmm-static"
-            | "raydium-clmm-rewards"
-            | "raydium-clmm-token-fee"
-            | "raydium-clmm-bitmap"
-            | "raydium-clmm-custom-seed"
-            | "raydium-clmm-dynamic"
-    )
-}
 fn owned<'a>(
     bank: &'a BTreeMap<String, Option<Account>>,
     key: &str,
@@ -169,9 +159,13 @@ fn array_bytes(p: &Pool, a: &r::RaydiumCLMMArray, observed: &[u8]) -> Result<Vec
     for i in 0..60 {
         let off = 44 + i * 168;
         let index = i64::from(a.start_tick_index) + i as i64 * i64::from(s.tick_spacing);
-        if b[off + 124..off + 168].iter().any(|v| *v != 0) {
-            return Err(err("PREPARATION_RAYCLMM_ORDERS_UNSUPPORTED"));
+        if p.protocol == r::LIMIT_ORDERS_PROFILE {
+            b[off + 116..off + 156].fill(0);
+        } else {
+            // Legacy profiles omit the historical cohort counter from their snapshot.
+            b[off + 124..off + 156].fill(0);
         }
+        b[off + 156..off + 168].fill(0);
         if let Some(t) = a.ticks.iter().find(|t| i64::from(t.tick) == index) {
             b[off..off + 4].copy_from_slice(&t.tick.to_le_bytes());
             b[off + 4..off + 20].copy_from_slice(
@@ -187,6 +181,13 @@ fn array_bytes(p: &Pool, a: &r::RaydiumCLMMArray, observed: &[u8]) -> Result<Vec
             for (j, value) in t.reward_growths_outside.iter().enumerate() {
                 amount(&mut b, off + 68 + 16 * j, value)?;
             }
+            if let Some(orders) = &t.limit_orders {
+                b[off + 116..off + 124].copy_from_slice(&orders.order_phase.to_le_bytes());
+                b[off + 124..off + 132].copy_from_slice(&orders.orders_amount.to_le_bytes());
+                b[off + 132..off + 140]
+                    .copy_from_slice(&orders.part_filled_orders_remaining.to_le_bytes());
+                amount(&mut b, off + 140, &orders.unfilled_ratio_x64)?;
+            }
         } else {
             let actual = i32::from_le_bytes(b[off..off + 4].try_into().map_err(|_| bad())?);
             if actual != 0 && i64::from(actual) != index {
@@ -195,7 +196,8 @@ fn array_bytes(p: &Pool, a: &r::RaydiumCLMMArray, observed: &[u8]) -> Result<Vec
             b[off + 4..off + 116].fill(0);
         }
     }
-    b[10124] = u8::try_from(a.ticks.len()).map_err(|_| bad())?;
+    b[10124] = u8::try_from(a.ticks.iter().filter(|tick| tick.is_initialized()).count())
+        .map_err(|_| bad())?;
     b[10125..10133].copy_from_slice(&a.recent_epoch.to_le_bytes());
     Ok(b)
 }
@@ -225,9 +227,6 @@ pub(super) async fn resolve(
 ) -> Result<Value> {
     let p = &s.pool;
     let state = p.raydium_clmm.as_ref().ok_or_else(bad)?;
-    if !supported(&p.protocol) {
-        return Err(err("EXECUTION_ADAPTER_UNSUPPORTED"));
-    }
     let (input, output) = if s.zero {
         (&p.token0, &p.token1)
     } else {
@@ -238,6 +237,7 @@ pub(super) async fn resolve(
         || request.wrap_source_sol
         || request.refund_wrapped_source
         || request.unwrap_destination_sol;
+    let token22_programdata = m::pda(&[&m::pubkey(TOKEN22)?], LOADER)?;
     let mut ids = vec![
         p.pool_id.clone(),
         state.amm_config.clone(),
@@ -251,7 +251,7 @@ pub(super) async fn resolve(
         TOKEN.into(),
         m::pda(&[&m::pubkey(TOKEN)?], LOADER)?,
         TOKEN22.into(),
-        m::pda(&[&m::pubkey(TOKEN22)?], LOADER)?,
+        token22_programdata.clone(),
         MEMO.into(),
         BUDGET.into(),
         xone_domain::raydium::CLOCK.into(),
@@ -309,7 +309,16 @@ pub(super) async fn resolve(
         Some(state.deployed_slot),
     )?;
     code(&bank, TOKEN, &state.token_program_code_sha256, slot, None)?;
-    code(&bank, TOKEN22, TOKEN22_CODE, slot, None)?;
+    let deployment = get(&bank, &token22_programdata)?
+        .data
+        .get(4..12)
+        .map(|bytes| m::u64_at(bytes, 0));
+    let (digest, deployed_slot) = if deployment == Some(OBSERVED_TOKEN22_SLOT) {
+        (OBSERVED_TOKEN22_CODE, deployment)
+    } else {
+        (LEGACY_TOKEN22_CODE, None)
+    };
+    code(&bank, TOKEN22, digest, slot, deployed_slot)?;
     code(&bank, MEMO, MEMO_CODE, slot, None)?;
     let budget = get(&bank, BUDGET)?;
     if !budget.executable
@@ -486,7 +495,7 @@ pub(super) async fn resolve(
         .tick_arrays
         .iter()
         .filter(|a| {
-            !a.ticks.is_empty()
+            a.ticks.iter().any(r::RaydiumCLMMTick::is_initialized)
                 && if s.zero {
                     i64::from(a.start_tick_index) <= center
                 } else {

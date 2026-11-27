@@ -12,6 +12,7 @@ pub fn supports_classic_profile(protocol: &str) -> bool {
             | "raydium-clmm-bitmap"
             | "raydium-clmm-custom-seed"
             | "raydium-clmm-dynamic"
+            | LIMIT_ORDERS_PROFILE
     )
 }
 pub const PROGRAM_DATA: &str = "HzD2cCXXT3UQNjMMY6kDv9w6gZ9qquSdfoGXrLL3LXx";

@@ -5,9 +5,6 @@ use xone_domain::{orca as o, spl_token_2022 as token22};
 const POSITION_SIZE: usize = 216;
 const POSITION_REWARDS: usize = 144;
 const REWARD_SLOT_SIZE: usize = 24;
-const OBSERVED_TOKEN22_SLOT: u64 = 460497271;
-const OBSERVED_TOKEN22_CODE: &str =
-    "15a2e615a42e20f31714bbaaee43002ae6f1cda2e8d7118243117ab3c1342e2d";
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
