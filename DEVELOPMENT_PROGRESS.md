@@ -411,7 +411,8 @@
 19. 重建 Jovian 的 64 个原版费用场景，并从固定源码、依赖和 Rust 1.99.0 构建 Karst 原版执行器。验收工具支持导出两个规则的输入，HTTP 验收不再重复写入同一份报价、构建、签名和仿真文件。Regolith 至 Karst 合计 36 个正常签名执行和 216 个拒绝场景通过，其中 Jovian、Karst 各有 4 个正常场景。 [OP HTTP 复验](integration/tools/acceptance/op_api_http.py) · [Karst 原版执行器](integration/tools/acceptance/karst_execution_vectors.py)
 20. EVM 回执按原始顺序重算提款 trie 根，再按已声明的 Ethereum 分叉重建区块头并核对区块哈希。Geth 和 Anvil 的 48 个回执通过。提款列表缺失、金额篡改及同步伪造空列表与空根各 24 组均被拒绝。
 21. 含提款区块的末笔 EVM 回执按交易索引读取交易前状态，按已绑定的提款列表还原交易后的原生币余额，并把同一组余额覆盖传给 ERC-20 读取。Geth 的 24 个末笔交易回执通过，覆盖同地址累计提款、原生币收款人提款和余额不足以还原时的 24 组拒绝。Geth 中间交易与 Anvil 空提款块各 24 组回归通过。证据范围为 `TRANSACTION_BEFORE_WITHDRAWALS`。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
-22. 下一轮复验 Solana 钱包生命周期的提交分支。恢复原版 Meteora Token-2022 回放输入，清理测试启动对无关 EVM 快照和浏览器专用池的依赖，核对确切签名字节、提交不确定性、过期、回执失配与日志恢复。
+22. 重建 Meteora 原版 Token-2022 的 120 个场景和 168 个执行步骤，投影五个受控钱包 bank。钱包生命周期与独立 SBF HTTP 测试各一项通过。生命周期覆盖八条回执路径，并验证并发提交只发送一次、确切签名字节、费用读数 slot 顺序和日志重启恢复。Solana 测试从原 bank 构造快照，浏览器专用池由浏览器 harness 单独安装。浏览器 harness 编译通过。 [复验说明](integration/tools/reference/meteora-dlmm/harness/README.md#钱包提交与回执恢复)
+23. 下一轮将 EVM 节点回执的有序回执内容绑定到区块头的 `receiptsRoot`，并从相邻累计 gas 校验交易 gas。沿用 Geth 和 Anvil 正常 HTTP 验收，覆盖缺项、顺序错配和内容篡改。
 
 ### I7 真实来源和恢复
 

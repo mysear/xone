@@ -194,7 +194,19 @@ async fn main() {
             .unwrap();
     });
     let (rpc, rpc_task) = bank.serve().await;
-    let (mut api, snapshot) = bank.api_with_manifest(&rpc, runtime_path("meteora").as_deref());
+    let amm_fixture: Value = serde_json::from_slice(
+        &std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test/contracts/pump-amm-sell-target.json"
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    let amm_case = &amm_fixture["cases"][33];
+    let mut amm_pool: xone_domain::Pool = serde_json::from_value(amm_case["pool"].clone()).unwrap();
+    amm_pool.chain_key = "solana:amm-local".into();
+    let (mut api, snapshot) =
+        bank.api_with_browser_amm(&rpc, runtime_path("meteora").as_deref(), Some(amm_pool));
     Arc::make_mut(&mut api.config)
         .config
         .api
@@ -260,7 +272,34 @@ async fn main() {
         .merge(admin)
         .layer(middleware::from_fn_with_state(control, delay));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    std::fs::write(&args[1],serde_json::to_vec_pretty(&json!({"api":format!("http://{}",listener.local_addr().unwrap()),"token":execution_bank::AUTH,"bank":browser_bank_info(&bank.data),"wsolApi":format!("http://{wsol_addr}"),"wsolBank":browser_bank_info(&wsol.data),"token2022Api":format!("http://{token2022_addr}"),"token2022Bank":browser_bank_info(&token2022.data),"raydiumApi":format!("http://{raydium_addr}"),"raydiumBank":browser_bank_info(&raydium.data),"pumpApi":format!("http://{pump_addr}"),"pumpBank":browser_bank_info(&pump.data),"curveApi":format!("http://{curve_addr}"),"curveBank":browser_bank_info(&curve.data),"curveAtaApi":format!("http://{curve_ata_addr}"),"curveAtaBank":browser_bank_info(&curve_ata.data),"funding":funding_info,"raydiumFunding":ray_funding_info,"orcaQuotes":orca_info,"rayclmmQuotes":rayclmm_info,"v3Quotes":v3_info,"amm":browser_bank_info(&serde_json::from_slice::<Value>(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"),"/../../test/contracts/pump-amm-sell-target.json")).unwrap()).unwrap()["cases"][33])})).unwrap()).unwrap();
+    std::fs::write(
+        &args[1],
+        serde_json::to_vec_pretty(&json!({
+            "api": format!("http://{}", listener.local_addr().unwrap()),
+            "token": execution_bank::AUTH,
+            "bank": browser_bank_info(&bank.data),
+            "wsolApi": format!("http://{wsol_addr}"),
+            "wsolBank": browser_bank_info(&wsol.data),
+            "token2022Api": format!("http://{token2022_addr}"),
+            "token2022Bank": browser_bank_info(&token2022.data),
+            "raydiumApi": format!("http://{raydium_addr}"),
+            "raydiumBank": browser_bank_info(&raydium.data),
+            "pumpApi": format!("http://{pump_addr}"),
+            "pumpBank": browser_bank_info(&pump.data),
+            "curveApi": format!("http://{curve_addr}"),
+            "curveBank": browser_bank_info(&curve.data),
+            "curveAtaApi": format!("http://{curve_ata_addr}"),
+            "curveAtaBank": browser_bank_info(&curve_ata.data),
+            "funding": funding_info,
+            "raydiumFunding": ray_funding_info,
+            "orcaQuotes": orca_info,
+            "rayclmmQuotes": rayclmm_info,
+            "v3Quotes": v3_info,
+            "amm": browser_bank_info(amm_case),
+        }))
+        .unwrap(),
+    )
+    .unwrap();
     axum::serve(listener, routes)
         .with_graceful_shutdown(async {
             #[cfg(unix)]

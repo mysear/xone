@@ -54,3 +54,24 @@ make -C integration meteora-orders-exact-out-current-check
 新矩阵单独写入`meteora-orders-exact-out.json`，保留阶段52的ExactIn证据。192原始银行包含161初始成功、31拒绝和16组三步序列，共193成功步骤；161成功初始银行都有原程序最大输入减一失败对照。正常服务检查另外启动隔离PG/Kafka、Parser与双Router，将实际API计划经生产ExactOut投影器重算并在新LiteSVM回放原SBF，验证两种来源故障、恢复及Router重启。
 
 SDK部分bin按层分别反解的实现不等于此固定部署SBF的执行：实际部分bin按总目标反解，耗尽bin保留每层整数输入之和。跨层取整不足时原程序6085拒绝；报价也拒绝。bin或订单fulfilled可比目标实收多，差额保留vault dust。此策略不增加订单放置/取消、Token2022或奖励交叉、公开执行和可信公共来源能力。
+
+## 钱包提交与回执恢复
+
+在仓库根目录运行。`python3` 使用支持固定 solders 0.29.0 wheel 的解释器，本轮使用 Python 3.11。先按本页的运行时说明恢复已固定的 wheel。
+
+```sh
+python3 integration/tools/ci/meteora-reference-fetch.py --fetch
+python3 integration/tools/reference/meteora-dlmm/harness/reference.py
+python3 integration/tools/ci/meteora-mm-state.py
+python3 integration/tools/ci/meteora-orders-reference.py
+python3 integration/tools/ci/meteora-orders-exact-out-reference.py
+python3 integration/tools/ci/meteora-execution-bank.py
+python3 integration/tools/ci/meteora-token2022-reference.py
+python3 integration/tools/ci/meteora-token2022-execution-bank.py
+python3 integration/tools/ci/solana-sbf-runtime-manifests.py --token2022
+XONE_SOLANA_PYTHON_PATH="$PWD/integration/artifacts/local/r01-solana-rebuild/python" \
+  cargo +1.90.0 test --locked --manifest-path dex-router/Cargo.toml -p xone-quote-api \
+  --test transaction_lifecycle --test solana_independent
+```
+
+回执测试在受控 RPC 中执行钱包的确切签名字节，覆盖八条提交和回执恢复路径。服务重启时只保留提交日志。并发及重复请求均检查只向 RPC 发送一次。

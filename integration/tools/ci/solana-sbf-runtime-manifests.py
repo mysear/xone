@@ -11,26 +11,40 @@ def runtime_manifest(chain,genesis):
  python=Path(sys.executable).resolve()
  return dict(schema_version=1,chain_key=chain,genesis_hash=genesis,python_executable=dict(path=str(python),sha256=sha(python)),runtime_directory=str(runtime),runtime_files=files,banks=[],max_compute_units=1400000,timeout_ms=15000,concurrency=2)
 
+def write_bank_manifest(directory, name, bank, manifest):
+ directory.mkdir(parents=True, exist_ok=True)
+ bank_path = directory / (name + '-bank.json')
+ bank_path.write_text(json.dumps(bank, separators=(',', ':')) + '\n')
+ target = directory / (name + '.json')
+ manifest = dict(manifest, banks=[dict(path=str(bank_path), sha256=sha(bank_path))])
+ target.write_text(json.dumps(manifest, indent=2) + '\n')
+ return target
+
 def main():
  if len(sys.argv)==5 and sys.argv[1]=='--rpc-capture':
   manifest=runtime_manifest(sys.argv[2],sys.argv[3])
   manifest['rpc_capture']=True
   Path(sys.argv[4]).write_text(json.dumps(manifest,indent=2)+'\n')
   return
- if len(sys.argv)!=1:
-  raise SystemExit('usage: solana-sbf-runtime-manifests.py [--rpc-capture CHAIN GENESIS OUTPUT]')
- directory=ROOT/'integration/artifacts/local/local-sbf-runtime';directory.mkdir(parents=True,exist_ok=True)
+ token_only = sys.argv[1:] == ['--token2022']
+ if len(sys.argv)!=1 and not token_only:
+  raise SystemExit('usage: solana-sbf-runtime-manifests.py [--token2022 | --rpc-capture CHAIN GENESIS OUTPUT]')
+ service_directory=ROOT/'dex-router/test/contracts/sbf-runtime'
  token=json.loads((ROOT/'integration/test/contracts/meteora-token2022-execution-bank.json').read_bytes())['cases']
+ if token_only:
+  bank = token[1]
+  manifest = runtime_manifest(bank['pool']['chain_key'], bank['genesis'])
+  target = write_bank_manifest(service_directory, 'token2022', bank, manifest)
+  print(json.dumps(dict(passed=True, manifest=str(target))))
+  return
+ directory=ROOT/'integration/artifacts/local/local-sbf-runtime'
  ray=json.loads((ROOT/'integration/test/contracts/raydium-execution-bank.json').read_bytes())['cases']
  values={'meteora':json.loads((ROOT/'integration/test/contracts/meteora-execution-bank.json').read_bytes()),'wsol':json.loads((ROOT/'integration/test/contracts/meteora-wsol-bank.json').read_bytes()),'token2022':token[1],'raydium':ray[0],'raydium-reverse':ray[1]}
  manifests={}
- service_directory=ROOT/'dex-router/test/contracts/sbf-runtime';service_directory.mkdir(parents=True,exist_ok=True)
  for name,bank in values.items():
-  path=directory/(name+'-bank.json');path.write_text(json.dumps(bank,separators=(',',':'))+'\n')
   manifest=runtime_manifest(bank['pool']['chain_key'],bank['genesis'])
-  manifest['banks']=[dict(path=str(path),sha256=sha(path))]
-  target=directory/(name+'.json');target.write_text(json.dumps(manifest,indent=2)+'\n');manifests[name]=str(target)
-  service_bank=service_directory/(name+'-bank.json');service_bank.write_bytes(path.read_bytes());service_manifest=dict(manifest,banks=[dict(path=str(service_bank),sha256=sha(service_bank))]);(service_directory/(name+'.json')).write_text(json.dumps(service_manifest,indent=2)+'\n')
+  manifests[name]=str(write_bank_manifest(directory, name, bank, manifest))
+  write_bank_manifest(service_directory, name, bank, manifest)
  captured=dict(manifest,rpc_capture=True,banks=[])
  (directory/'rpc-capture.json').write_text(json.dumps(captured,indent=2)+'\n')
  (service_directory/'rpc-capture.json').write_text(json.dumps(captured,indent=2)+'\n')

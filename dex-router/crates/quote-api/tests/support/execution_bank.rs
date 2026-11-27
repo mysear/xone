@@ -6,7 +6,7 @@ use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
 };
-use xone_domain::{hash, scope_hash, Pool, Snapshot};
+use xone_domain::{hash, scope_hash, BlockRef, Pool, Snapshot, SnapshotRef, SCHEMA_VERSION};
 pub const AUTH: &str = "xone-execution-browser-test-only-2026";
 #[derive(Clone)]
 pub struct Bank {
@@ -282,6 +282,14 @@ impl Bank {
         rpc: &str,
         manifest: Option<&str>,
     ) -> (xone_quote_api::Api, Snapshot) {
+        self.api_with_browser_amm(rpc, manifest, None)
+    }
+    pub fn api_with_browser_amm(
+        &self,
+        rpc: &str,
+        manifest: Option<&str>,
+        extra_pool: Option<Pool>,
+    ) -> (xone_quote_api::Api, Snapshot) {
         let mut c = xone_config::load(
             concat!(env!("CARGO_MANIFEST_DIR"), "/../../config/config-test.yaml"),
             "dex-router",
@@ -297,9 +305,14 @@ impl Bank {
         c.config.chains[1].key = "solana:mainnet-beta".into();
         c.config.chains[1].genesis_hash = self.data["genesis"].as_str().unwrap().into();
         c.config.chains[1].rpc_urls = vec![rpc.into()];
-        let mut amm_chain = c.config.chains[1].clone();
-        amm_chain.key = "solana:amm-local".into();
-        c.config.chains.push(amm_chain);
+        let owner = &c.config.chains[1];
+        let owner_service = owner.owner_service.clone();
+        let owner_assignment_version = owner.assignment_version;
+        if let Some(pool) = &extra_pool {
+            let mut chain = owner.clone();
+            chain.key = pool.chain_key.clone();
+            c.config.chains.push(chain);
+        }
         if let Some(path) = manifest {
             c.config.api.solana_runtime_manifest = path.into();
         }
@@ -321,10 +334,6 @@ impl Bank {
         }
         let api = xone_quote_api::Api::new(c).unwrap();
         let p: Pool = serde_json::from_value(self.data["pool"].clone()).unwrap();
-        let mut s: Snapshot =
-            serde_json::from_str(include_str!("../../../../test/fixtures/evm/baseline.json"))
-                .unwrap();
-        s.reference.block.chain_key = p.chain_key.clone();
         let (slot, timestamp) = if let Some(m) = &p.meteora {
             (m.slot, m.timestamp)
         } else if let Some(r) = p.orca_whirlpool.as_ref() {
@@ -337,34 +346,41 @@ impl Bank {
             let r = p.pump.as_ref().unwrap();
             (r.slot, r.timestamp)
         };
-        s.reference.block.number_or_slot = slot;
-        s.reference.block.timestamp_ms = timestamp * 1000;
-        s.reference.block.hash = self.data["genesis"].as_str().unwrap().into();
-        s.reference.block.parent_hash = self.data["blockhash"].as_str().unwrap().into();
-        s.reference.owner_service = "chain-parser-rust".into();
-        s.pools = vec![p];
-        s.source = "CONTROLLED_ORIGINAL_SBF_EXECUTION_BANK".into();
-        s.reference.scope_hash = scope_hash(&s.pools).unwrap();
-        s.reference.adapter_set_hash = hash(&vec![s.pools[0].adapter_version.clone()]).unwrap();
+        let s = Snapshot {
+            reference: SnapshotRef {
+                block: BlockRef {
+                    chain_key: p.chain_key.clone(),
+                    number_or_slot: slot,
+                    timestamp_ms: timestamp * 1000,
+                    hash: self.data["genesis"].as_str().unwrap().into(),
+                    parent_hash: self.data["blockhash"].as_str().unwrap().into(),
+                },
+                canonical_epoch: 1,
+                journal_seq: 1,
+                schema_version: SCHEMA_VERSION,
+                online_generation: 1,
+                writer_epoch: 1,
+                owner_service,
+                owner_assignment_version,
+                scope_hash: scope_hash(std::slice::from_ref(&p)).unwrap(),
+                adapter_set_hash: hash(&[&p.adapter_version]).unwrap(),
+            },
+            pools: vec![p],
+            source: "CONTROLLED_ORIGINAL_SBF_EXECUTION_BANK".into(),
+            history_gaps: vec![],
+        };
         api.replica.install_baseline(s.clone()).unwrap();
-        let f: Value = serde_json::from_slice(
-            &std::fs::read(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../test/contracts/pump-amm-sell-target.json"
-            ))
-            .unwrap(),
-        )
-        .unwrap();
-        let mut amm = s.clone();
-        let mut p: Pool = serde_json::from_value(f["cases"][33]["pool"].clone()).unwrap();
-        p.chain_key = "solana:amm-local".into();
-        amm.reference.block.chain_key = p.chain_key.clone();
-        amm.reference.block.number_or_slot = p.pump.as_ref().unwrap().slot;
-        amm.reference.block.timestamp_ms = p.pump.as_ref().unwrap().timestamp * 1000;
-        amm.pools = vec![p];
-        amm.reference.scope_hash = scope_hash(&amm.pools).unwrap();
-        amm.reference.adapter_set_hash = hash(&vec![amm.pools[0].adapter_version.clone()]).unwrap();
-        api.replica.install_baseline(amm).unwrap();
+        if let Some(pool) = extra_pool {
+            let mut extra_snapshot = s.clone();
+            let state = pool.pump.as_ref().unwrap();
+            extra_snapshot.reference.block.chain_key = pool.chain_key.clone();
+            extra_snapshot.reference.block.number_or_slot = state.slot;
+            extra_snapshot.reference.block.timestamp_ms = state.timestamp * 1000;
+            extra_snapshot.reference.scope_hash = scope_hash(std::slice::from_ref(&pool)).unwrap();
+            extra_snapshot.reference.adapter_set_hash = hash(&[&pool.adapter_version]).unwrap();
+            extra_snapshot.pools = vec![pool];
+            api.replica.install_baseline(extra_snapshot).unwrap();
+        }
         (api, s)
     }
     pub fn request(&self) -> Value {
