@@ -4,6 +4,7 @@ mod candidate_costs;
 mod cost_fallback;
 mod evm_approval;
 mod evm_preparation;
+mod evm_receipt;
 mod exact_out;
 mod execution_receipts;
 mod failure_fees;
@@ -1242,13 +1243,15 @@ fn simulation_failure(error: local_simulation::Failure) -> HttpError {
         Json(json!({"error":error.code,"phase":error.phase,"usage":error.usage})),
     )
 }
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SimulationRequest {
     #[serde(default, rename = "signedOpTransaction")]
     signed_op_transaction: Option<local_simulation::SignedOpRequest>,
     #[serde(default, rename = "signedEvmTransaction")]
     signed_evm_transaction: Option<xone_simulation::worker::SignedEvmTransaction>,
+    #[serde(default, rename = "checkEvmReceipt")]
+    check_evm_receipt: bool,
 }
 async fn simulate_transaction(
     State(api): State<Api>,
@@ -1274,14 +1277,17 @@ async fn simulate_transaction(
     })?
     .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?;
     let simulation_request = if body.is_empty() {
-        SimulationRequest {
-            signed_op_transaction: None,
-            signed_evm_transaction: None,
-        }
+        SimulationRequest::default()
     } else {
         serde_json::from_slice::<SimulationRequest>(&body)
             .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?
     };
+    if simulation_request.signed_evm_transaction.is_none() && simulation_request.check_evm_receipt
+        || simulation_request.signed_evm_transaction.is_some()
+            && simulation_request.signed_op_transaction.is_some()
+    {
+        return Err(failure(err("INVALID_SIMULATION_REQUEST")));
+    }
     let is_exact_out = api.exact_out_execution(&id).map_err(failure)?;
     let backend = api
         .local_simulation
@@ -1314,10 +1320,8 @@ async fn simulate_transaction(
     api.metrics
         .simulation_started
         .fetch_add(1, Ordering::Relaxed);
+    let receipt_backend = simulation_request.check_evm_receipt.then(|| backend.clone());
     let executed = if let Some(signed) = simulation_request.signed_evm_transaction {
-        if simulation_request.signed_op_transaction.is_some() {
-            return Err(failure(err("INVALID_SIMULATION_REQUEST")));
-        }
         backend
             .execute_signed_evm(api.config.clone(), cached.clone(), deadline, signed)
             .await
@@ -1329,6 +1333,17 @@ async fn simulate_transaction(
         backend
             .execute(api.config.clone(), cached.clone(), deadline)
             .await
+    };
+    let executed = match (executed, receipt_backend) {
+        (Ok(mut response), Some(backend)) => {
+            evm_receipt::compare(&api, backend.fixture(), cached.context(), &response, deadline)
+                .await
+                .map(|observed| {
+                    response["nodeReceipt"] = observed;
+                    response
+                })
+        }
+        (executed, _) => executed,
     };
     let response = match executed {
         Ok(response) => response,

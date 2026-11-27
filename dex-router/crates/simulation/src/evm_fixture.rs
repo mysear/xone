@@ -550,6 +550,8 @@ pub struct BalanceMeasurements {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EvmReceipt {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub logs_hash: Option<String>,
     pub status: EvmStatus,
     pub gas_used: u64,
     pub gas_refunded: u64,
@@ -2139,6 +2141,7 @@ fn simulate_execution(
         authority: DataAuthority::ProvidedLocalState,
         plan_validation: "BOUND_REVALIDATED".into(),
         execution: EvmReceipt {
+            logs_hash: None,
             status,
             gas_used: actual.result.gas_used(),
             gas_refunded,

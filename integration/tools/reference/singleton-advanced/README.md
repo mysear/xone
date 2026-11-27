@@ -67,6 +67,16 @@ The example runs 24 HTTP quote, build and simulation cases, then removes Manager
 
 The simulation endpoint also accepts `signedEvmTransaction` containing `transactionHash` and `signedWire` as lowercase hex strings with the `0x` prefix. It authenticates the external wallet signature and matches the decoded transaction to the build and the configured transaction context. The worker returns `LOCAL_SIGNED_EVM_EXECUTED` and includes the signed hash in the local receipt. The example signs and replays all 24 build results and checks 24 nonce mismatches.
 
+Set `checkEvmReceipt` to `true` alongside `signedEvmTransaction` to compare the replay with the first configured RPC node. This checks the signed transaction in the canonical H+1 block, including receipt status, gas, ordered logs and balances at H and H+1. The current scope requires a post-merge single-transaction block with empty withdrawals so that the swap can be isolated in the balance differences. The resulting `nodeReceipt` records `CANONICAL_RPC_OBSERVED` authority and the response retains `verified: false`.
+
+Repeat the example with an Anvil 1.4.4 executable to run the same 24 cases against mined Cancun blocks. The test starts a loopback node for each case, mines the signed transaction, and verifies rejection when the proxy changes the receipt gas, logs, balance, or final canonical block read.
+
+```sh
+XONE_SINGLETON_ANVIL="$(command -v anvil)" \
+  cargo +1.90.0 run --locked --manifest-path dex-router/Cargo.toml -p xone-quote-api \
+  --example singleton_replay -- "$XONE_SINGLETON_REPLAY_DIR"
+```
+
 ## Bounded library reference
 
 This slice is explicitly separate from legacy singleton admission. The core protocol names inside `SingletonAdvancedState` remain `uniswap-v4` and `pancake-infinity-cl`; central Pool profiles may use their `-advanced` names. Shared registry/config/wire dispatch is owned by main.

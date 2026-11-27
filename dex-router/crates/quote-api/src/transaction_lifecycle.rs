@@ -34,7 +34,7 @@ fn policy(api: &Api, chain: &str) -> Result<()> {
     }
     Ok(())
 }
-async fn rpc(api: &Api, chain: &str, method: &str, params: Value) -> Result<Value> {
+pub(super) async fn rpc(api: &Api, chain: &str, method: &str, params: Value) -> Result<Value> {
     let configured = api
         .config
         .config
@@ -75,7 +75,7 @@ async fn rpc(api: &Api, chain: &str, method: &str, params: Value) -> Result<Valu
     }
     let value: Value =
         serde_json::from_slice(&bytes).map_err(|_| err("TRANSACTION_RPC_INVALID"))?;
-    if value["id"] != 1 || value.get("error").is_some() {
+    if value["jsonrpc"] != "2.0" || value["id"] != 1 || value.get("error").is_some() {
         return Err(err("TRANSACTION_RPC_INVALID"));
     }
     value

@@ -444,6 +444,9 @@ impl PreparedExecution {
 }
 
 impl LocalSimulation {
+    pub(crate) fn fixture(&self) -> &xone_simulation::evm_fixture::FixtureState {
+        &self.bundle.fixture
+    }
     pub(crate) fn matches_snapshot(
         &self,
         reference: &xone_domain::SnapshotRef,

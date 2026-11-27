@@ -254,6 +254,13 @@ pub(crate) fn simulate_singleton_transaction(
         ExecutionResult::Halt { reason, .. } => (EvmStatus::Halt, 0, Some(format!("{reason:?}"))),
     };
     let returned = actual.result.output().map_or(&[][..], |b| b.as_ref());
+    let logs = actual.result.logs().iter().map(|log| {
+        serde_json::json!({
+            "address": format!("{:#x}", log.address),
+            "topics": log.data.topics().iter().map(|topic| format!("{topic:#x}")).collect::<Vec<_>>(),
+            "data": format!("0x{}", hex::encode(log.data.data.as_ref())),
+        })
+    }).collect::<Vec<_>>();
     let success = status == EvmStatus::Success;
     let unused = amount(&bound.input_limit)?
         .checked_sub(spent)
@@ -281,6 +288,7 @@ pub(crate) fn simulate_singleton_transaction(
         authority: DataAuthority::ProvidedLocalState,
         plan_validation: "BOUND_REVALIDATED".into(),
         execution: EvmReceipt {
+            logs_hash: Some(canonical_hash(&logs)?),
             status,
             gas_used,
             gas_refunded,

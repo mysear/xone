@@ -4,6 +4,9 @@ use std::{collections::BTreeMap, path::Path};
 use xone_domain::{Pool, Snapshot, SnapshotRef};
 use xone_simulation::worker::LocalSimulationBundle;
 
+#[path = "singleton_replay/node.rs"]
+mod node;
+
 #[tokio::main]
 async fn main() {
     let path = std::env::args_os().nth(1).expect("replay case directory");
@@ -12,6 +15,7 @@ async fn main() {
         return;
     }
     let dir = Path::new(&path);
+    let anvil = std::env::var_os("XONE_SINGLETON_ANVIL");
     let temporary = tempfile::tempdir().unwrap();
     let mut count = 0;
     for entry in std::fs::read_dir(dir).unwrap() {
@@ -20,15 +24,23 @@ async fn main() {
             continue;
         }
         let case: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        assert_replay(&case, temporary.path(), false).await;
-        assert_replay(&case, temporary.path(), true).await;
+        assert_replay(&case, temporary.path(), false, anvil.as_deref()).await;
+        assert_replay(&case, temporary.path(), true, None).await;
         count += 1;
     }
     assert_eq!(count, 24);
     println!("{count} unsigned and {count} signed HTTP replays passed, with {count} missing-state and {count} nonce rejections");
+    if anvil.is_some() {
+        println!("{count} mined Cancun receipts passed, with wrong gas, logs, balance and reorg rejection per receipt");
+    }
 }
 
-async fn assert_replay(case: &Value, dir: &Path, incomplete: bool) {
+async fn assert_replay(
+    case: &Value,
+    dir: &Path,
+    incomplete: bool,
+    anvil: Option<&std::ffi::OsStr>,
+) {
     use axum::{body::Body, http::Request};
     use tower::ServiceExt;
     let mut bundle: LocalSimulationBundle = serde_json::from_value(case["bundle"].clone()).unwrap();
@@ -41,8 +53,18 @@ async fn assert_replay(case: &Value, dir: &Path, incomplete: bool) {
     bundle.fixture.state_anchor.timestamp = now;
     bundle.fixture.execution_environment.timestamp = now + 1;
     reference.block.timestamp_ms = now * 1000;
+    let mined = match anvil {
+        Some(executable) => {
+            let node = node::Node::start(executable, dir, &bundle, now).await;
+            Some(
+                node.mine(case, &mut bundle, &mut reference, &mut pool, now)
+                    .await,
+            )
+        }
+        None => None,
+    };
     if let Some(state) = &mut pool.infinity_bin {
-        state.timestamp = now;
+        state.timestamp = bundle.fixture.state_anchor.timestamp;
     }
     let manager = pool.pool_id.split_once('/').unwrap().0.to_owned();
     if incomplete {
@@ -70,7 +92,10 @@ async fn assert_replay(case: &Value, dir: &Path, incomplete: bool) {
     config.config.chains[0].genesis_hash = bundle.fixture.state_anchor.genesis_hash.clone();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     config.config.chains[0].rpc_urls = vec![format!("http://{}", listener.local_addr().unwrap())];
-    let rpc = replay_rpc(&bundle, &reference, &case["vault"]);
+    let rpc = match &mined {
+        Some(mined) => mined.router(),
+        None => replay_rpc(&bundle, &reference, &case["vault"]),
+    };
     let rpc_task = tokio::spawn(async move { axum::serve(listener, rpc).await.unwrap() });
     let transaction = xone_config::V4ExecutionConfig {
         executor: case["executor"].as_str().unwrap().into(),
@@ -109,6 +134,9 @@ async fn assert_replay(case: &Value, dir: &Path, incomplete: bool) {
         );
     }
     let token = config.token.clone();
+    if let Some(mined) = &mined {
+        config.config.routing.quote_ttl_ms = mined.quote_ttl_ms();
+    }
     let api = xone_quote_api::Api::new(config).unwrap();
     api.replica
         .install_baseline(Snapshot {
@@ -202,6 +230,45 @@ async fn assert_replay(case: &Value, dir: &Path, incomplete: bool) {
     );
     assert_eq!(replay["outcome"]["actual_input_consumed"], case["input"]);
     assert_eq!(replay["outcome"]["actual_buy_amount"], case["output"]);
+    if let Some(mined) = &mined {
+        assert_eq!(signed, mined.signed);
+        let receipt_request = json!({"signedEvmTransaction":signed,"checkEvmReceipt":true});
+        let (status, observed) = call(format!("{path}/simulate"), receipt_request.clone()).await;
+        assert_eq!(status, 200, "{observed}");
+        assert_eq!(
+            observed["nodeReceipt"]["authority"],
+            "CANONICAL_RPC_OBSERVED"
+        );
+        assert_eq!(observed["nodeReceipt"]["success"], true);
+        assert_eq!(
+            observed["nodeReceipt"]["transactionHash"],
+            signed["transactionHash"]
+        );
+        assert_eq!(
+            observed["nodeReceipt"]["actualInputConsumed"],
+            case["input"]
+        );
+        assert_eq!(observed["nodeReceipt"]["actualBuyAmount"], case["output"]);
+        assert_eq!(observed["verified"], false);
+        for fault in [
+            node::Fault::Gas,
+            node::Fault::Logs,
+            node::Fault::Balance,
+            node::Fault::Reorg,
+        ] {
+            mined.inject(fault);
+            let (status, rejected) =
+                call(format!("{path}/simulate"), receipt_request.clone()).await;
+            assert_eq!(status, 422, "{fault:?}: {rejected}");
+            assert_eq!(rejected["phase"], "node_receipt", "{fault:?}: {rejected}");
+            let expected = if fault == node::Fault::Reorg {
+                "EVM_NODE_RECEIPT_REORGED"
+            } else {
+                "EVM_NODE_RECEIPT_MISMATCH"
+            };
+            assert_eq!(rejected["error"], expected);
+        }
+    }
     let (status, rejected) = call(
         format!("{path}/simulate"),
         json!({"signedEvmTransaction":sign(nonce+1)}),
