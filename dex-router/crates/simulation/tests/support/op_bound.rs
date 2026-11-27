@@ -9,15 +9,23 @@ use xone_simulation::evm_fixture::*;
 pub fn corpus() -> &'static Value {
     static BANK: OnceLock<Value> = OnceLock::new();
     BANK.get_or_init(|| {
-        let bytes = std::fs::read(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../test/contracts/v2-complete.json"
-        ))
-        .unwrap();
-        assert_eq!(
-            hex::encode(Sha256::digest(&bytes)),
-            "63e8260ea53bec9cc9226f7e64e01b463af04a30d7afb773415134e591f494ee"
-        );
+        let (path, expected_sha) = match std::env::var_os("XONE_OP_VALIDATED_V2_BANK") {
+            Some(path) => (
+                path,
+                std::env::var("XONE_OP_VALIDATED_V2_BANK_SHA256")
+                    .expect("validated V2 bank digest required"),
+            ),
+            None => (
+                concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../../test/contracts/v2-complete.json"
+                )
+                .into(),
+                "63e8260ea53bec9cc9226f7e64e01b463af04a30d7afb773415134e591f494ee".into(),
+            ),
+        };
+        let bytes = std::fs::read(&path).unwrap();
+        assert_eq!(hex::encode(Sha256::digest(&bytes)), expected_sha);
         serde_json::from_slice(&bytes).unwrap()
     })
 }

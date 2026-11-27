@@ -55,6 +55,35 @@ def write(path, value):
     path.write_text(json.dumps(value, indent=2) + '\n')
 
 
+def export_validated_sources(bank, traces, execution_vectors, sources):
+    """Export OP cases from independently validated, regenerated V2 evidence."""
+    bank, traces, execution_vectors, sources = (
+        Path(path).resolve() for path in (bank, traces, execution_vectors, sources)
+    )
+    bank_sha = digest(bank)
+    vectors_sha = digest(execution_vectors)
+    validator = ROOT / 'integration/tools/reference/v2-complete/validate.cjs'
+    subprocess.run([
+        'node', '-e',
+        "const [validator, bank, traceDir] = process.argv.slice(1);"
+        "require(validator).validate(JSON.parse(require('fs').readFileSync(bank)), {traceDir});",
+        str(validator), str(bank), str(traces),
+    ], cwd=ROOT, check=True, timeout=120)
+    require(digest(bank) == bank_sha, 'V2 bank changed during independent validation')
+    env = dict(
+        os.environ, XONE_OP_VALIDATED_V2_BANK=str(bank),
+        XONE_OP_VALIDATED_V2_BANK_SHA256=bank_sha,
+        XONE_OP_EXECUTION_VECTORS=str(execution_vectors), XONE_OP_API_INPUTS=str(sources),
+    )
+    subprocess.run([
+        'cargo', '+1.90.0', 'test', '--locked', '--manifest-path', 'dex-router/Cargo.toml',
+        '-p', 'xone-simulation', '--test', 'op_bound',
+        'export_original_op_bound_inputs_for_normal_op_api_sources', '--', '--ignored',
+    ], cwd=ROOT, env=env, check=True, timeout=240)
+    require(digest(execution_vectors) == vectors_sha, 'Original execution vectors changed during export')
+    return dict(bank_sha256=bank_sha, execution_vectors_sha256=vectors_sha, sources_sha256=digest(sources))
+
+
 def run(binary, sources, runners, output, maximum_groups=None, *, scoped_karst=False, valuation_configs=None, candidate_cost_max_plans=None):
     binary = Path(binary).resolve(strict=True)
     output = Path(output).resolve()
@@ -189,9 +218,13 @@ def run(binary, sources, runners, output, maximum_groups=None, *, scoped_karst=F
 
 if __name__ == '__main__':
     import sys
-    require(len(sys.argv) in [6,8], 'Expected HARNESS SOURCES SIGNER TRANSITION OUTPUT [--karst-transition RUNNER]')
-    runners=dict(signer=Path(sys.argv[3]),transition=Path(sys.argv[4]))
-    if len(sys.argv)==8:
-        require(sys.argv[6]=='--karst-transition','Unknown OP HTTP runner option');runners['karst_transition']=Path(sys.argv[7])
-    else: require(len(sys.argv)==6,'Unexpected OP HTTP arguments')
-    run(Path(sys.argv[1]), Path(sys.argv[2]), runners, Path(sys.argv[5]))
+    if sys.argv[1:2] == ['--export-validated-sources']:
+        require(len(sys.argv) == 6, 'Expected --export-validated-sources BANK TRACES EXECUTION_VECTORS OUTPUT')
+        print(json.dumps(export_validated_sources(*sys.argv[2:])))
+    else:
+        require(len(sys.argv) in [6, 8], 'Expected HARNESS SOURCES SIGNER TRANSITION OUTPUT [--karst-transition RUNNER]')
+        runners = dict(signer=Path(sys.argv[3]), transition=Path(sys.argv[4]))
+        if len(sys.argv) == 8:
+            require(sys.argv[6] == '--karst-transition', 'Unknown OP HTTP runner option')
+            runners['karst_transition'] = Path(sys.argv[7])
+        run(Path(sys.argv[1]), Path(sys.argv[2]), runners, Path(sys.argv[5]))

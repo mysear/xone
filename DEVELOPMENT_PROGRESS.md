@@ -406,7 +406,9 @@
 14. Solana 准备统一使用 blockhash 和消息费用读取逻辑，要求账户、blockhash、费用、可选 RPC 仿真的观测 slot 依次不下降。准备结果新增 `blockhashObservedSlot`，提交预检与费用验收保留对历史准备记录的支持。三项 Orca 受控 HTTP 联测通过，覆盖两组陈旧费用响应拒绝。三项费用证据验收及启用 RPC 仿真的 Agave 签名提交和 finalized 回执联测通过。
 15. EVM 节点回执支持含提款区块中的非末笔交易，按交易索引读取提款执行前的目标交易前后余额。提款列表与空提款根不一致时拒绝。Geth v1.16.7 的 24 个三交易区块均包含给收款地址的提款，24 个中间交易回执及隐藏提款列表的拒绝均通过。Anvil 1.4.4 的 24 个单交易空提款块回归通过。含提款区块的末笔交易仍缺交易后状态观测。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 16. EVM 节点回执同时核对付款人原生币的前后余额和 nonce，覆盖双 ERC-20 交换。交易索引查询复用同一账户跟踪结果，付款人也是原生币结算账户时复用同一余额。24 个 Geth 和 24 个 Anvil 回执通过，两组各 24 个仅篡改付款人原生余额的反例均被拒绝。
-17. OP 原版签名费用语料已从固定摘要的 op-geth 源码重建。覆盖 Regolith 至 Isthmus 的 448 个场景和 1337 次状态转换，严格执行与费用审计的 7 项 Rust 联测通过。下一轮补齐正常 HTTP 签名交易复验，核对执行费、L1 数据费及付款人和收款人状态差。原冻结 V2 文件缺失，重建的 24 组 V2 bank 通过独立验证器但文件摘要与旧冻结值不同。
+17. OP 原版签名费用语料已从固定摘要的 op-geth 源码重建。覆盖 Regolith 至 Isthmus 的 448 个场景和 1337 次状态转换，严格执行与费用审计的 7 项 Rust 联测通过。原冻结 V2 文件缺失，重建的 24 组 V2 bank 通过独立验证器，文件摘要与旧冻结值不同。
+18. 正常 OP HTTP 签名验收新增 `op_api_http.py --export-validated-sources BANK TRACES EXECUTION_VECTORS OUTPUT`，复核重建 V2 bank 及原始跟踪文件后按摘要绑定导出。Regolith 至 Isthmus 的 Legacy 和 EIP-1559 各覆盖 ExactIn、ExactOut，共 28 个正常报价、构建及签名执行与原版 op-geth 的 gas、L1 数据费、operator fee、费用账户及收款差一致，168 个无效请求被拒绝。验收范围为本地历史状态。 [复验工具](integration/tools/acceptance/op_api_http.py)
+19. 下一轮复核 Jovian、Karst 原始客户端验收输入与普通 HTTP 分派，补齐受支持规则的费用和真实余额差证据。继续补齐含提款区块末笔交易的独立交易后状态。
 
 ### I7 真实来源和恢复
 
