@@ -38,6 +38,7 @@ async fn observe(
     let local: SimulationOutcome =
         serde_json::from_value(replay["outcome"].clone()).map_err(|_| bad())?;
     let tx = local.signed_transaction_hash.as_ref().ok_or_else(bad)?;
+    let fees = local.native_fees.as_ref().ok_or_else(bad)?;
     let chain = &context.chain_key;
     let request = |method, params| rpc(api, chain, method, params);
     let height = format!("0x{:x}", env.block_number);
@@ -98,12 +99,7 @@ async fn observe(
             } else {
                 "0x0"
             }
-        || quantity(&receipt["effectiveGasPrice"])?
-            != local
-                .native_fees
-                .as_ref()
-                .ok_or_else(bad)?
-                .effective_gas_price
+        || quantity(&receipt["effectiveGasPrice"])? != fees.effective_gas_price
     {
         return Err(bad());
     }
@@ -184,29 +180,20 @@ async fn observe(
     } else {
         BalancePoint::Transaction(execution, next)
     };
-    if !single {
-        let caller = fixture
-            .accounts
-            .iter()
-            .find(|account| account.address == context.caller)
-            .ok_or_else(bad)?;
-        let (nonce_before, nonce_after) = tokio::try_join!(
-            nonce(api, chain, &context.caller, before),
-            nonce(api, chain, &context.caller, after),
-        )?;
-        // An included transaction increments its sender nonce even on revert.
-        // This also rejects a tracer that silently ignores the transaction index.
-        if nonce_before != caller.nonce || Some(nonce_after) != caller.nonce.checked_add(1) {
-            return Err(bad());
-        }
-    }
-    let (sell_before, sell_after, buy_before, buy_after) = tokio::try_join!(
-        balance(api, context, &context.sell_token, &context.caller, before),
-        balance(api, context, &context.sell_token, &context.caller, after),
-        balance(api, context, &context.buy_token, &context.recipient, before),
-        balance(api, context, &context.buy_token, &context.recipient, after),
+    let nonce = fixture
+        .accounts
+        .iter()
+        .find(|account| account.address == context.caller)
+        .ok_or_else(bad)?
+        .nonce;
+    let next_nonce = nonce.checked_add(1).ok_or_else(bad)?;
+    let ((payer_before, sell_before, buy_before), (payer_after, sell_after, buy_after)) = tokio::try_join!(
+        settlement_balances(api, context, before, nonce),
+        settlement_balances(api, context, after, next_nonce),
     )?;
-    if sell_before != local.balances.caller_sell_before
+    if payer_before != fees.caller_before
+        || payer_after != fees.caller_after
+        || sell_before != local.balances.caller_sell_before
         || sell_after != local.balances.caller_sell_after
         || buy_before != local.balances.recipient_buy_before
         || buy_after != local.balances.recipient_buy_after
@@ -223,6 +210,7 @@ async fn observe(
         "transactionHash":tx,"sourceBlockHash":source,"blockHash":execution,
         "transactionIndex":index,"success":local.execution.status == EvmStatus::Success,
         "gasUsed":local.execution.gas_used,"logsHash":local.execution.logs_hash,
+        "payerNativeBefore":payer_before,"payerNativeAfter":payer_after,
         "localReceiptHash":local.receipt_hash,"actualInputConsumed":local.actual_input_consumed,
         "actualBuyAmount":local.actual_buy_amount,"balances":local.balances,
     });
@@ -263,27 +251,59 @@ async fn trace_account(
         .ok_or_else(|| err("EVM_NODE_RECEIPT_BALANCE"))
 }
 
-async fn nonce(api: &Api, chain: &str, owner: &str, point: BalancePoint<'_>) -> Result<u64> {
-    match point {
-        BalancePoint::Block(block) => quantity_u64(
-            &rpc(
+async fn settlement_balances(
+    api: &Api,
+    context: &Context,
+    point: BalancePoint<'_>,
+    expected_nonce: u64,
+) -> Result<(Amount, Amount, Amount)> {
+    let owner = &context.caller;
+    let chain = &context.chain_key;
+    let (payer, nonce) = match point {
+        BalancePoint::Block(block) => {
+            let count = rpc(
                 api,
                 chain,
                 "eth_getTransactionCount",
                 json!([owner, {"blockHash":block,"requireCanonical":true}]),
-            )
-            .await?,
-        ),
+            );
+            let (payer, nonce) =
+                tokio::try_join!(balance(api, context, ZERO_ADDRESS, owner, point), count)?;
+            (payer, quantity_u64(&nonce)?)
+        }
         BalancePoint::Transaction(block, index) => {
             let account = trace_account(api, chain, owner, block, index).await?;
-            match account.get("nonce") {
+            let nonce = match account.get("nonce") {
                 Some(value) => value
                     .as_u64()
                     .ok_or_else(|| err("EVM_NODE_RECEIPT_QUANTITY")),
                 None => Ok(0),
-            }
+            }?;
+            (quantity(&account["balance"])?, nonce)
         }
+    };
+    // An included transaction increments its sender nonce even on revert.
+    // This also rejects a tracer that silently ignores the transaction index.
+    if nonce != expected_nonce {
+        return Err(err("EVM_NODE_RECEIPT_MISMATCH"));
     }
+    let (sell, buy) = tokio::try_join!(
+        async {
+            if context.sell_token == ZERO_ADDRESS {
+                Ok(payer.clone())
+            } else {
+                balance(api, context, &context.sell_token, owner, point).await
+            }
+        },
+        async {
+            if context.buy_token == ZERO_ADDRESS && context.recipient == *owner {
+                Ok(payer.clone())
+            } else {
+                balance(api, context, &context.buy_token, &context.recipient, point).await
+            }
+        },
+    )?;
+    Ok((payer, sell, buy))
 }
 
 async fn balance(

@@ -69,6 +69,8 @@ The simulation endpoint also accepts `signedEvmTransaction` containing `transact
 
 Set `checkEvmReceipt` to `true` alongside `signedEvmTransaction` to compare the replay with the first configured RPC node. This checks the signed transaction in the canonical H+1 block, including receipt status, gas, ordered logs and balances. Single-transaction blocks use balances at H and H+1. Multi-transaction blocks require Geth-compatible `debug_traceCall` with `txIndex`, `callTracer` and `prestateTracer` to read the state immediately before and after the target transaction. The handler checks the sender nonce at both points and matches replayed absolute balances. When the block contains withdrawals, the target must have a following transaction so both observations precede the withdrawals. The resulting `nodeReceipt` records `CANONICAL_RPC_OBSERVED` authority and the observed `withdrawalsRoot` for a nonempty withdrawal list. The response retains `verified: false`.
 
+The handler compares the payer's absolute native balances with the replay, including for ERC-20 to ERC-20 swaps. The node evidence includes `payerNativeBefore` and `payerNativeAfter`. The Anvil and Geth harnesses each check rejection when the proxy changes only the payer's native balance.
+
 Repeat the example with an Anvil 1.4.4 executable to run the same 24 cases against mined Cancun blocks. The test starts a loopback node for each case, mines the signed transaction, and verifies rejection when the proxy changes the receipt gas, logs, balance, or final canonical block read.
 
 ```sh

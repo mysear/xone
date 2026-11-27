@@ -262,11 +262,20 @@ async fn assert_replay(
             case["input"]
         );
         assert_eq!(observed["nodeReceipt"]["actualBuyAmount"], case["output"]);
+        assert_eq!(
+            observed["nodeReceipt"]["payerNativeBefore"],
+            observed["outcome"]["native_fees"]["caller_before"]
+        );
+        assert_eq!(
+            observed["nodeReceipt"]["payerNativeAfter"],
+            observed["outcome"]["native_fees"]["caller_after"]
+        );
         assert_eq!(observed["verified"], false);
         let mut faults = vec![
             node::Fault::Gas,
             node::Fault::Logs,
             node::Fault::Balance,
+            node::Fault::PayerBalance,
             node::Fault::Reorg,
         ];
         if mined.transaction_index() != 0 {

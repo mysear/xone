@@ -39,6 +39,7 @@ pub(super) enum Fault {
     Gas,
     Logs,
     Balance,
+    PayerBalance,
     Reorg,
     IgnoreTraceIndex,
     BeaconRoot,
@@ -51,6 +52,7 @@ pub(super) struct Mined {
     deadline: u64,
     pub(super) signed: Value,
     pub(super) withdrawals_root: Option<String>,
+    payer: String,
     transaction_index: u64,
     fault: Arc<Mutex<Option<Fault>>>,
     execution_reads: Arc<AtomicUsize>,
@@ -369,6 +371,7 @@ impl Node {
             deadline,
             signed,
             withdrawals_root,
+            payer: field(&case["context"], "caller"),
             transaction_index,
             fault: Arc::new(Mutex::new(None)),
             execution_reads: Arc::new(AtomicUsize::new(0)),
@@ -403,9 +406,11 @@ impl Mined {
         let node = self.node.clone();
         let fault = self.fault.clone();
         let execution_reads = self.execution_reads.clone();
+        let payer = self.payer.clone();
         axum::Router::new().route(
             "/",
             axum::routing::post(move |axum::Json(mut request): axum::Json<Value>| {
+                let payer = payer.clone();
                 let (node, fault, execution_reads) = (
                     node.clone(),
                     *fault.lock().unwrap(),
@@ -434,6 +439,17 @@ impl Mined {
                             result["logs"][0]["data"] = "0x".into();
                         }
                         (Some(Fault::Balance), "eth_getBalance") => *result = "0x1".into(),
+                        (Some(Fault::PayerBalance), "eth_getBalance")
+                            if request["params"][0] == payer =>
+                        {
+                            *result = "0x1".into();
+                        }
+                        (Some(Fault::PayerBalance), "debug_traceCall")
+                            if request["params"][0]["to"] == payer
+                                && request["params"][2]["tracer"] == "prestateTracer" =>
+                        {
+                            result[&payer]["balance"] = "0x1".into();
+                        }
                         (Some(Fault::Balance), "debug_traceCall")
                             if request["params"][2]["tracer"] == "callTracer" =>
                         {
