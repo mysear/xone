@@ -13,19 +13,20 @@ type MultiAsset struct {
 	CodeSHA256 string `json:"code_sha256"`
 }
 type MultiAssetState struct {
-	ManagedV2       *BalancerManagedV2State `json:"managed_v2,omitempty"`
-	CurveCrypto     *CurveCryptoState       `json:"curve_crypto,omitempty"`
-	CurveMeta       *CurveMetaState         `json:"curve_meta,omitempty"`
-	ManagedFees     *BalancerManagedState   `json:"managed_fees,omitempty"`
-	CurveNG         *CurveNGState           `json:"curve_ng,omitempty"`
-	CodeSHA256      string                  `json:"code_sha256"`
-	Vault           string                  `json:"vault"`
-	VaultCodeSHA256 string                  `json:"vault_code_sha256"`
-	PoolID          string                  `json:"pool_id"`
-	Assets          []MultiAsset            `json:"assets"`
-	Weights         []Amount                `json:"weights"`
-	Amplification   Amount                  `json:"amplification"`
-	AdminFee        uint64                  `json:"admin_fee"`
+	ComposableV6    *BalancerComposableV6State `json:"composable_v6,omitempty"`
+	ManagedV2       *BalancerManagedV2State    `json:"managed_v2,omitempty"`
+	CurveCrypto     *CurveCryptoState          `json:"curve_crypto,omitempty"`
+	CurveMeta       *CurveMetaState            `json:"curve_meta,omitempty"`
+	ManagedFees     *BalancerManagedState      `json:"managed_fees,omitempty"`
+	CurveNG         *CurveNGState              `json:"curve_ng,omitempty"`
+	CodeSHA256      string                     `json:"code_sha256"`
+	Vault           string                     `json:"vault"`
+	VaultCodeSHA256 string                     `json:"vault_code_sha256"`
+	PoolID          string                     `json:"pool_id"`
+	Assets          []MultiAsset               `json:"assets"`
+	Weights         []Amount                   `json:"weights"`
+	Amplification   Amount                     `json:"amplification"`
+	AdminFee        uint64                     `json:"admin_fee"`
 }
 
 func (p Pool) validateMultiAsset() error {
@@ -33,6 +34,11 @@ func (p Pool) validateMultiAsset() error {
 	profile, ok := Protocol(p.Protocol)
 	if !ok || s == nil || p.Weighted != nil || p.Stable != nil || p.V2 != nil || p.V3 != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil || p.OrcaWhirlpool != nil || p.RaydiumCLMM != nil {
 		return errors.New("MULTI_ASSET_STATE_REQUIRED")
+	}
+	v6 := p.Protocol == ComposableV6Protocol
+	composable := p.Protocol == "balancer-v2-composable-regular" || v6
+	if v6 != (s.ComposableV6 != nil) {
+		return errors.New("COMPOSABLE_V6_PROFILE_MISMATCH")
 	}
 	if p.Protocol == ManagedV2Protocol || p.Protocol == ManagedV2ScheduledProtocol || p.Protocol == ManagedV2BptProtocol || p.Protocol == ManagedV2BreakerProtocol {
 		return p.validateManagedV2()
@@ -48,7 +54,7 @@ func (p Pool) validateMultiAsset() error {
 	}
 	seen := map[string]bool{}
 	for _, a := range s.Assets {
-		if ValidateEVMAddress(a.Token) != nil || seen[a.Token] || (a.Token == p.PoolID && p.Protocol != "balancer-v2-composable-regular") || !validDigest(a.CodeSHA256) || !power10Between(a.Scaling, 18, 36) {
+		if ValidateEVMAddress(a.Token) != nil || seen[a.Token] || (a.Token == p.PoolID && !composable) || !validDigest(a.CodeSHA256) || !power10Between(a.Scaling, 18, 36) {
 			return errors.New("MULTI_ASSET_TOKEN")
 		}
 		seen[a.Token] = true
@@ -91,7 +97,6 @@ func (p Pool) validateMultiAsset() error {
 		if p.Protocol == "balancer-v2-managed-fees" {
 			maxFee = 800000000000000000
 		}
-		composable := p.Protocol == "balancer-v2-composable-regular"
 		if !managed && !composable && (len(s.Assets) < 3 || len(s.Assets) > 20) {
 			return errors.New("MULTI_WEIGHTED_ASSETS")
 		}
@@ -129,6 +134,9 @@ func (p Pool) validateMultiAsset() error {
 				bpt++
 				if a.Scaling != "1000000000000000000" {
 					return errors.New("COMPOSABLE_BPT_SCALE")
+				}
+				if v6 && !s.ComposableV6.valid(a.Balance) {
+					return errors.New("COMPOSABLE_V6_SUPPLY_STATE")
 				}
 			}
 		}

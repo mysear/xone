@@ -250,12 +250,7 @@ impl Api {
             hash(&json!({"request_hash": request_hash,
             "plan_hash": plan.plan_hash, "expires": expires}))?
         );
-        let quality = json!({"costRanking":cost_fallback::ranking(true),"budgetExhausted": candidates.budget_exhausted || optimized.budget_exhausted,
-                "candidateScope": view.pools.iter().filter(|p| !candidates.excluded_pools.contains_key(&p.pool_id))
-                    .map(|p| p.pool_id.clone()).collect::<Vec<_>>(),
-                "excludedPools": candidates.excluded_pools, "source": view.source, "historyIndependent": true,
-                "optimalityClaim": "MINIMUM_RAW_INPUT_WITHIN_EVALUATED_ORDERED_GRID",
-                "pathPolicy": {"uniswap-v2-complete": "SIMPLE_PATH_SINGLE_FACTORY",
+        let path_policy = json!({"uniswap-v2-complete": "SIMPLE_PATH_SINGLE_FACTORY",
                     "pancake-v3-bsc-lm-v4": "SINGLE_POOL_EXTERNAL_CALLBACK_FUNDING",
                     "pancake-v3-lm-context": "SINGLE_POOL_EXTERNAL_CALLBACK_FUNDING",
                     "aerodrome-slipstream-context": "SINGLE_POOL_ORIGIN_BOUND_EXTERNAL_CALLBACK_FUNDING",
@@ -275,6 +270,7 @@ impl Api {
                     "balancer-v2-managed-bpt":"SINGLE_POOL_MANAGED_V2_BPT_AND_UNDERLYING_GIVEN_OUT",
                     "balancer-v2-managed-breaker":"SINGLE_POOL_MANAGED_V2_BPT_AND_UNDERLYING_GIVEN_OUT",
                     "balancer-v2-composable-regular":"SINGLE_POOL_COMPOSABLE_UNDERLYING_GIVEN_OUT",
+                    "balancer-v2-composable-v6":"SINGLE_POOL_COMPOSABLE_V6_BPT_AND_UNDERLYING_GIVEN_OUT",
                     "pancake-v3":"SIMPLE_PATH_SINGLE_FACTORY_EXTERNAL_CALLBACK_FUNDING",
                     "raydium-clmm-static":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT_SELECTED_FEE_TOKEN",
                     "raydium-clmm-rewards":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT_SELECTED_FEE_TOKEN",
@@ -287,7 +283,13 @@ impl Api {
                     "orca-whirlpools-adaptive":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
                     "orca-whirlpools-adaptive-rewards":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
                     "orca-whirlpools-adaptive-dynamic":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
-                    "lfj-lb-v21": "SINGLE_POOL_MINIMUM_TARGET_EXPLICIT_SURPLUS"},
+                    "lfj-lb-v21": "SINGLE_POOL_MINIMUM_TARGET_EXPLICIT_SURPLUS"});
+        let quality = json!({"costRanking":cost_fallback::ranking(true),"budgetExhausted": candidates.budget_exhausted || optimized.budget_exhausted,
+                "candidateScope": view.pools.iter().filter(|p| !candidates.excluded_pools.contains_key(&p.pool_id))
+                    .map(|p| p.pool_id.clone()).collect::<Vec<_>>(),
+                "excludedPools": candidates.excluded_pools, "source": view.source, "historyIndependent": true,
+                "optimalityClaim": "MINIMUM_RAW_INPUT_WITHIN_EVALUATED_ORDERED_GRID",
+                "pathPolicy": path_policy,
                 "candidateSearch": {
                     "maxHops": request.constraints.as_ref().map_or(self.config.config.routing.max_hops, |c| c.max_hops),
                     "maxCandidates": self.config.config.routing.max_candidates,

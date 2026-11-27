@@ -758,7 +758,8 @@ func (c Config) Validate(expected string) error {
 			}
 			if known && profile.Family == "multi" {
 				v := p.MultiAsset
-				if v == nil || (v.TokenPolicy != "standard-no-bpt" && !(p.Protocol == domain.ManagedV2BptProtocol && v.TokenPolicy == "standard-bpt") && !(p.Protocol == domain.ManagedV2BreakerProtocol && v.TokenPolicy == "standard-breaker-bpt") && !(p.Protocol == "balancer-v2-composable-regular" && v.TokenPolicy == "standard-with-own-bpt") && !(p.Protocol == "curve-metausd-direct" && v.TokenPolicy == "standard-base-lp")) || p.Weighted != nil || p.Stable != nil || p.V2 != nil || p.V3 != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil || p.OrcaWhirlpool != nil || p.RaydiumCLMM != nil || p.ProgramID != "" || len(p.Accounts) != 0 {
+				composable := p.Protocol == "balancer-v2-composable-regular" || p.Protocol == domain.ComposableV6Protocol
+				if v == nil || (v.TokenPolicy != "standard-no-bpt" && !(p.Protocol == domain.ManagedV2BptProtocol && v.TokenPolicy == "standard-bpt") && !(p.Protocol == domain.ManagedV2BreakerProtocol && v.TokenPolicy == "standard-breaker-bpt") && !(composable && v.TokenPolicy == "standard-with-own-bpt") && !(p.Protocol == "curve-metausd-direct" && v.TokenPolicy == "standard-base-lp")) || p.Weighted != nil || p.Stable != nil || p.V2 != nil || p.V3 != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil || p.OrcaWhirlpool != nil || p.RaydiumCLMM != nil || p.ProgramID != "" || len(p.Accounts) != 0 {
 					return invalid()
 				}
 				if isManagedV2Protocol(p.Protocol) {
@@ -812,9 +813,18 @@ func (c Config) Validate(expected string) error {
 						state.Weights = append(state.Weights, domain.Amount(weight.String()))
 						remaining.Sub(remaining, weight)
 					}
-					if p.Protocol == "balancer-v2-composable-regular" {
+					if composable {
 						state.Weights = []domain.Amount{}
 						state.Amplification = "100000"
+					}
+					if p.Protocol == domain.ComposableV6Protocol {
+						if v.TokenPolicy != "standard-with-own-bpt" {
+							return invalid()
+						}
+						state.ComposableV6 = &domain.BalancerComposableV6State{
+							TotalSupply: "1", LastJoinExitAmp: state.Amplification, LastJoinExitInvariant: "1",
+							ProtocolSwapFee: "0", ProtocolYieldFee: "0", FeeCollector: "0x" + strings.Repeat("1", 40), CollectorBPT: "0",
+						}
 					}
 				} else {
 					if v.ExpectedImplementation != "" {

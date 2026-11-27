@@ -84,6 +84,8 @@ func Protocol(name string) (ProtocolProfile, bool) {
 		return ProtocolProfile{Family: "multi", AdapterVersion: "balancer-v2-managed-snapshot/no-bpt-fees-1", FeeDenominator: 1000000000000000000, RequireIdentity: true}, true
 	case "balancer-v2-composable-regular":
 		return ProtocolProfile{Family: "multi", AdapterVersion: "balancer-v2-composable-regular/no-rates-1", FeeDenominator: 1000000000000000000, RequireIdentity: true}, true
+	case ComposableV6Protocol:
+		return ProtocolProfile{Family: "multi", AdapterVersion: ComposableV6Adapter, FeeDenominator: 1000000000000000000, RequireIdentity: true}, true
 	case "balancer-v2-weighted-multi":
 		return ProtocolProfile{Family: "multi", AdapterVersion: "balancer-v2-weighted-multi/static-1", FeeDenominator: 1000000000000000000, RequireIdentity: true}, true
 	case "curve-crypto2-ramp":

@@ -1,7 +1,73 @@
 use crate::Swap;
 use num_bigint::BigUint;
 use num_traits::Zero;
+use xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL;
 use xone_domain::{err, Amount, Pool, Result};
+
+#[allow(clippy::too_many_arguments)]
+fn quote_composable_v6_bpt(
+    pool: &Pool,
+    amount: &Amount,
+    i: usize,
+    j: usize,
+    bpt: usize,
+    balances: &[BigUint],
+    scales: &[BigUint],
+    kind: crate::balancer_composable::BptSwapKind,
+) -> Result<Swap> {
+    use crate::balancer_composable::{quote_bpt_swap, SupplyInput, YieldFeePolicy};
+    let mut next_pool = pool.clone();
+    let state = next_pool
+        .multi_asset
+        .as_mut()
+        .ok_or_else(|| err("MULTI_ASSET_STATE_REQUIRED"))?;
+    let v6 = state
+        .composable_v6
+        .as_mut()
+        .ok_or_else(|| err("COMPOSABLE_V6_SUPPLY_STATE"))?;
+    let rates = vec![None; balances.len()];
+    let input = SupplyInput {
+        balances,
+        scales,
+        bpt_index: bpt,
+        rates: &rates,
+        yield_fee_policy: YieldFeePolicy::PoolWide {
+            exempt: v6.yield_exempt,
+        },
+        total_supply: &v6.total_supply.0,
+        last_join_exit_amp: &v6.last_join_exit_amp.0,
+        last_post_join_exit_invariant: &v6.last_join_exit_invariant.0,
+        protocol_swap_fee: &v6.protocol_swap_fee.0,
+        protocol_yield_fee: &v6.protocol_yield_fee.0,
+    };
+    let out = quote_bpt_swap(
+        &input,
+        &state.amplification.0,
+        &BigUint::from(pool.fee_numerator),
+        &amount.0,
+        i,
+        j,
+        kind,
+    )?;
+    for (asset, balance) in state.assets.iter_mut().zip(out.next_balances) {
+        asset.balance = Amount::checked(balance)?;
+    }
+    v6.total_supply = Amount::checked(out.next_total_supply)?;
+    v6.last_join_exit_amp = Amount::checked(out.last_join_exit_amp)?;
+    v6.last_join_exit_invariant = Amount::checked(out.last_join_exit_invariant)?;
+    v6.collector_bpt = Amount::checked(
+        &v6.collector_bpt.0 + out.protocol_bpt_before_swap + out.protocol_bpt_after_swap,
+    )?;
+    next_pool.reserve0 = state.assets[0].balance.clone();
+    next_pool.reserve1 = state.assets[1].balance.clone();
+    next_pool.validate()?;
+    Ok(Swap {
+        amount_out: Amount::checked(out.amount_out)?,
+        consumed_in: Amount::checked(out.amount_in)?,
+        remaining_in: Amount::zero(),
+        next_pool,
+    })
+}
 
 fn meta_underlying_states(
     pool: &Pool,
@@ -163,12 +229,24 @@ pub fn quote_exact_in_tokens(
             managed_fee_state = Some(q.next_state);
             (q.amount_out, q.next_balances)
         }
-        "balancer-v2-composable-regular" => {
+        "balancer-v2-composable-regular" | COMPOSABLE_V6_PROTOCOL => {
             let bpt = s
                 .assets
                 .iter()
                 .position(|a| a.token == pool.pool_id)
                 .ok_or_else(|| err("COMPOSABLE_BPT_REQUIRED"))?;
+            if pool.protocol == COMPOSABLE_V6_PROTOCOL && (i == bpt || j == bpt) {
+                return quote_composable_v6_bpt(
+                    pool,
+                    input,
+                    i,
+                    j,
+                    bpt,
+                    &balances,
+                    &scales,
+                    crate::balancer_composable::BptSwapKind::GivenIn,
+                );
+            }
             let q = crate::balancer_composable::quote_exact_in(
                 &balances,
                 &s.amplification.0,
@@ -477,6 +555,7 @@ pub fn quote_exact_out_tokens(
             | "balancer-v2-managed-snapshot"
             | "balancer-v2-managed-fees"
             | "balancer-v2-composable-regular"
+            | COMPOSABLE_V6_PROTOCOL
             | "curve-plain3-basic"
             | "curve-plain4-basic"
             | "curve-metausd-direct"
@@ -599,12 +678,27 @@ pub fn quote_exact_out_tokens(
             amount_in: q.amount_in,
             next_balances: q.next_balances,
         }
-    } else if pool.protocol == "balancer-v2-composable-regular" {
+    } else if matches!(
+        pool.protocol.as_str(),
+        "balancer-v2-composable-regular" | COMPOSABLE_V6_PROTOCOL
+    ) {
         let bpt = s
             .assets
             .iter()
             .position(|a| a.token == pool.pool_id)
             .ok_or_else(|| err("COMPOSABLE_BPT_REQUIRED"))?;
+        if pool.protocol == COMPOSABLE_V6_PROTOCOL && (i == bpt || j == bpt) {
+            return quote_composable_v6_bpt(
+                pool,
+                output,
+                i,
+                j,
+                bpt,
+                &balances,
+                &scales,
+                crate::balancer_composable::BptSwapKind::GivenOut,
+            );
+        }
         let q = crate::balancer_composable::quote_exact_out(
             &balances,
             &s.amplification.0,

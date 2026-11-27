@@ -147,6 +147,7 @@ pub fn build(
                                 | "balancer-v2-weighted2-static"
                                 | "balancer-v2-weighted-multi"
                                 | "balancer-v2-composable-regular"
+                                | xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL
                                 | "uniswap-v3"
                                 | "pancake-v3"
                                 | xone_domain::pancake_bsc_lm::PROFILE
@@ -188,6 +189,7 @@ pub fn build(
                                     | "balancer-v2-weighted2-static"
                                     | "balancer-v2-weighted-multi"
                                     | "balancer-v2-composable-regular"
+                                    | xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL
                                     | xone_domain::pancake_lm::PROFILE
                                     | xone_domain::slipstream_context::PROFILE
                                     | xone_domain::lfj::PROFILE
@@ -225,6 +227,7 @@ pub fn build(
                         || (if edge.protocol == "balancer-v2-weighted-multi"
                             || managed_pool(&edge.protocol)
                             || edge.protocol == "balancer-v2-composable-regular"
+                            || edge.protocol == xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL
                         {
                             edge.from_token.as_deref() != Some(route.tokens[index].as_str())
                         } else {

@@ -55,7 +55,11 @@ func MultiAssetToProto(s *MultiAssetState) (*pb.MultiAssetState, error) {
 	if e != nil {
 		return nil, e
 	}
-	out := &pb.MultiAssetState{ManagedV2: v2, CurveCrypto: crypto, CurveMeta: meta, ManagedFees: managed, CurveNg: ng, CodeSha256: code, Vault: s.Vault, VaultCodeSha256: vault, PoolId: id, Amplification: amp, AdminFee: s.AdminFee}
+	v6, e := composableV6ToProto(s.ComposableV6)
+	if e != nil {
+		return nil, e
+	}
+	out := &pb.MultiAssetState{ComposableV6: v6, ManagedV2: v2, CurveCrypto: crypto, CurveMeta: meta, ManagedFees: managed, CurveNg: ng, CodeSha256: code, Vault: s.Vault, VaultCodeSha256: vault, PoolId: id, Amplification: amp, AdminFee: s.AdminFee}
 	for _, a := range s.Assets {
 		balance, e := amount(a.Balance)
 		if e != nil {
@@ -135,7 +139,11 @@ func MultiAssetFromProto(s *pb.MultiAssetState) (*MultiAssetState, error) {
 	if e != nil {
 		return nil, e
 	}
-	out := &MultiAssetState{ManagedV2: v2, CurveCrypto: crypto, CurveMeta: meta, ManagedFees: managed, CurveNG: ng, CodeSHA256: code, Vault: s.Vault, VaultCodeSHA256: vault, PoolID: id, Amplification: amp, AdminFee: s.AdminFee, Assets: []MultiAsset{}, Weights: []Amount{}}
+	v6, e := composableV6FromProto(s.ComposableV6)
+	if e != nil {
+		return nil, e
+	}
+	out := &MultiAssetState{ComposableV6: v6, ManagedV2: v2, CurveCrypto: crypto, CurveMeta: meta, ManagedFees: managed, CurveNG: ng, CodeSHA256: code, Vault: s.Vault, VaultCodeSHA256: vault, PoolID: id, Amplification: amp, AdminFee: s.AdminFee, Assets: []MultiAsset{}, Weights: []Amount{}}
 	for _, a := range s.Assets {
 		if a == nil {
 			return nil, errors.New("MULTI_ASSET_REQUIRED")

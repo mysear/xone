@@ -250,6 +250,10 @@ func (p Pool) Clone() Pool {
 	}
 	if p.MultiAsset != nil {
 		c := *p.MultiAsset
+		if c.ComposableV6 != nil {
+			v6 := *c.ComposableV6
+			c.ComposableV6 = &v6
+		}
 		if c.ManagedV2 != nil {
 			m := *c.ManagedV2
 			if m.ExecutionContext != nil {

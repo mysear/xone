@@ -266,6 +266,18 @@ message MultiAssetState {
  bytes pool_id = 4; repeated MultiAsset assets = 5; repeated Amount weights = 6;
  Amount amplification = 7; uint64 admin_fee = 8; CurveNGState curve_ng = 9;
  BalancerManagedState managed_fees = 10; CurveMetaState curve_meta = 11; CurveCryptoState curve_crypto = 12; BalancerManagedV2State managed_v2 = 13;
+ BalancerComposableV6State composable_v6 = 14;
+}
+
+message BalancerComposableV6State {
+ Amount total_supply = 1;
+ Amount last_join_exit_amp = 2;
+ Amount last_join_exit_invariant = 3;
+ Amount protocol_swap_fee = 4;
+ Amount protocol_yield_fee = 5;
+ string fee_collector = 6;
+ Amount collector_bpt = 7;
+ optional bool yield_exempt = 8;
 }
 
 message OrcaRewardInfo {string mint=1;string vault=2;bytes extension=3;Amount emissions_per_second_x64=4;Amount growth_global_x64=5;}

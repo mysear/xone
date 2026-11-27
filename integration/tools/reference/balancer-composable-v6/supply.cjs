@@ -12,7 +12,7 @@ const pins = {
   Authorizer: 'b5b296b83c0448787030d463224211e4ca75e1e3653ecc9f568516d3b430bb78',
   ProtocolFeePercentagesProvider: 'bc47c78ca2c4b64d638386f60ddfe5f2a8fe5f4919afa60590cc7c3d6d5c1b85',
 };
-const [buildDir, runtimeDir, output] = process.argv.slice(2);
+const [buildDir, runtimeDir, output, wireOutput] = process.argv.slice(2);
 const { ethers } = require(path.resolve(runtimeDir, 'node_modules/ethers'));
 const ganache = require(path.resolve(runtimeDir, 'node_modules/ganache'));
 const solc = require(path.resolve(runtimeDir, 'node_modules/solc07'));
@@ -34,7 +34,7 @@ const zero = ethers.constants.AddressZero;
 
 async function main() {
   const chain = ganache.provider({
-    chain: { hardfork: 'shanghai', time: new Date('2026-01-01T00:00:00Z') },
+    chain: { chainId: 31337, hardfork: 'shanghai', time: new Date('2026-01-01T00:00:00Z') },
     wallet: { deterministic: true },
     miner: { timestampIncrement: 1 },
     logging: { quiet: true },
@@ -81,6 +81,8 @@ async function main() {
     const cases = [];
     const bptSwaps = [];
     const refreshes = [];
+    const wireSnapshots = [];
+    const wireCodes = {};
     let rejectedJoins = 0;
     for (const [name, exempt, count, providerCount] of [
       ['no-rate', false, 2, 0], ['yield', false, 3, 2], ['exempt', true, 5, 5],
@@ -141,6 +143,48 @@ async function main() {
           virtual_supply: String(virtual), pending_protocol_bpt: String(actual - virtual), actual_supply: String(actual),
         };
       };
+      const wireSnapshot = async (state) => {
+        const tag = ethers.utils.hexValue(state.block);
+        const header = await chain.request({ method: 'eth_getBlockByNumber', params: [tag, false] });
+        const calls = {};
+        const record = async (target, method, args = []) => {
+          const to = target.address.toLowerCase();
+          const data = target.interface.encodeFunctionData(method, args);
+          calls[to + data] = await chain.request({ method: 'eth_call', params: [{ to, data }, tag] });
+        };
+        for (const method of ['getVault', 'getPoolId', 'getPausedState', 'getScalingFactors', 'getBptIndex',
+          'getRateProviders', 'getAmplificationParameter', 'getSwapFeePercentage', 'inRecoveryMode',
+          'isExemptFromYieldProtocolFee', 'getLastJoinExitData', 'totalSupply']) await record(pool, method);
+        for (const id of [0, 2]) await record(pool, 'getProtocolFeePercentageCache', [id]);
+        await record(pool, 'balanceOf', [collector.address]);
+        await record(vault, 'getPausedState');
+        await record(vault, 'getProtocolFeesCollector');
+        for (const method of ['getPool', 'getPoolTokens']) await record(vault, method, [poolId]);
+        for (const address of registered) {
+          await record(vault, 'getPoolTokenInfo', [poolId, address]);
+          await record(address === pool.address ? pool : tokens.find(token => token.address === address), 'decimals');
+        }
+        const addresses = [...registered, vault.address].map(addr => addr.toLowerCase());
+        for (const address of addresses) {
+          const code = await provider.getCode(address, state.block);
+          assert.equal(code, wireCodes[address] ?? code);
+          wireCodes[address] = code;
+        }
+        const hash = (address) => crypto.createHash('sha256').update(Buffer.from(wireCodes[address].slice(2), 'hex')).digest('hex');
+        const v = vault.address.toLowerCase();
+        const p = pool.address.toLowerCase();
+        const assets = registered.map(addr => addr.toLowerCase());
+        const config = {
+          id: p, protocol: 'balancer-v2-composable-v6', token0: assets[0], token1: assets[1],
+          fee_numerator: 10 ** 16, fee_denominator: 10 ** 18,
+          multi_asset: {
+            expected_code_sha256: hash(p), expected_vault: v, expected_vault_code_sha256: hash(v),
+            pool_id: poolId, token_policy: 'standard-with-own-bpt',
+            tokens: assets.map(token => ({ token, expected_code_sha256: hash(token) })),
+          },
+        };
+        wireSnapshots.push({ header, calls, config, amounts: state, collector_bpt: String(await pool.balanceOf(collector.address, { blockTag: state.block })) });
+      };
       cases.push(await capture('initial'));
       await send(vault, 'swap', {
         poolId, kind: 0, assetIn: tokens[0].address, assetOut: tokens[1].address,
@@ -167,7 +211,7 @@ async function main() {
         }
       }
       const block = await provider.getBlock('latest');
-      await send(pool, 'startAmplificationParameterUpdate', 350, block.timestamp + 2 * 86400);
+      if (rates.length) await send(pool, 'startAmplificationParameterUpdate', 350, block.timestamp + 2 * 86400);
       await chain.request({ method: 'evm_increaseTime', params: [600] });
       await chain.request({ method: 'evm_mine', params: [] });
       const funds = { sender: owner, recipient: owner, fromInternalBalance: false, toInternalBalance: false };
@@ -200,6 +244,10 @@ async function main() {
         const receipt = await send(vault, 'swap', request, funds, kind === 0 ? 0 : max, max);
         const [amp] = await pool.getAmplificationParameter({ blockTag: receipt.blockNumber });
         const after = await capture(`${step}/after`);
+        if (wireOutput && name === 'no-rate') {
+          if (wireSnapshots.length === 0) await wireSnapshot(before);
+          await wireSnapshot(after);
+        }
         const swap = receipt.events.find(event => event.event === 'Swap').args;
         const mints = receipt.logs.filter(log => log.address === pool.address)
           .map(log => pool.interface.parseLog(log))
@@ -264,6 +312,7 @@ async function main() {
       }
     }
     fs.writeFileSync(output, JSON.stringify({ builds: pins, cases, bpt_swaps: bptSwaps, rejected_joins: rejectedJoins, refreshes }, null, 2) + '\n');
+    if (wireOutput) fs.writeFileSync(wireOutput, JSON.stringify({ codes: wireCodes, snapshots: wireSnapshots }) + '\n');
   } finally {
     await chain.disconnect();
   }

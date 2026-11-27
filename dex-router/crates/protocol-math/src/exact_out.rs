@@ -28,6 +28,7 @@ pub fn supports_protocol(protocol: &str) -> bool {
                 | "balancer-v2-managed-snapshot"
                 | "balancer-v2-managed-fees"
                 | "balancer-v2-composable-regular"
+                | xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL
                 | "curve-plain3-basic"
                 | "curve-plain4-basic"
                 | "curve-metausd-direct"
@@ -186,6 +187,7 @@ pub fn quote_exact_out(pool: &Pool, output: &Amount, zero: bool) -> Result<Exact
         || pool.protocol == "balancer-v2-managed-snapshot"
         || pool.protocol == "balancer-v2-managed-fees"
         || pool.protocol == "balancer-v2-composable-regular"
+        || pool.protocol == xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL
         || pool.protocol == "curve-plain3-basic"
         || pool.protocol == "curve-plain4-basic"
         || pool.protocol == "curve-metausd-direct"

@@ -21,3 +21,5 @@ node integration/tools/reference/balancer-composable-v6/supply.cjs \
   dex-router/crates/protocol-math/tests/fixtures/composable-v6-supply.json
 cargo test --manifest-path dex-router/Cargo.toml -p xone-protocol-math --test composable_supply
 ```
+
+Pass a fourth argument to record the fixed-block source for the no-provider pool. Compress that file with `gzip -n` to `chain-parser-go/test/contracts/composable-v6-wire-source.json.gz`. The Go test `TestComposableV6OriginalVaultSnapshotWire` replays its RPC responses and writes the Go snapshots when `XONE_COMPOSABLE_V6_WIRE_OUTPUT` points to an absolute fixture directory. The `composable_v6_wire` Quote API test installs these snapshots in a replica, checks four consecutive swap post-states and requests both ExactOut directions over HTTP.

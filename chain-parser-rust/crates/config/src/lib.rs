@@ -1245,15 +1245,17 @@ impl Config {
                 }
                 if let Some(profile) = profile.filter(|v| v.family == "multi") {
                     let v = p.multi_asset.as_ref().ok_or_else(fail)?;
+                    let v6 = p.protocol == xone_domain::multi_asset::COMPOSABLE_V6_PROTOCOL;
+                    let composable = p.protocol == "balancer-v2-composable-regular" || v6;
                     if (v.token_policy != "standard-no-bpt"
                         && !(p.protocol == xone_domain::managed_v2_bpt_state::PROTOCOL
                             && v.token_policy == "standard-bpt")
                         && !(p.protocol == xone_domain::managed_v2_circuit_state::PROTOCOL
                             && v.token_policy == "standard-breaker-bpt")
-                        && !(p.protocol == "balancer-v2-composable-regular"
-                            && v.token_policy == "standard-with-own-bpt")
+                        && !(composable && v.token_policy == "standard-with-own-bpt")
                         && !(p.protocol == "curve-metausd-direct"
                             && v.token_policy == "standard-base-lp"))
+                        || (v6 && v.token_policy != "standard-with-own-bpt")
                         || p.weighted.is_some()
                         || p.stable.is_some()
                         || p.v2.is_some()
@@ -1310,7 +1312,6 @@ impl Config {
                         return Err(fail());
                     }
                     let weighted = p.protocol.starts_with("balancer-v2-");
-                    let composable = p.protocol == "balancer-v2-composable-regular";
                     if weighted {
                         if !v.expected_implementation.is_empty()
                             || !v.expected_implementation_code_sha256.is_empty()
@@ -1389,6 +1390,20 @@ impl Config {
                     .parse()?;
                     let crypto_gamma: Amount = "10000000000".parse()?;
                     let state = xone_domain::multi_asset::MultiAssetState {
+                        composable_v6: if v6 {
+                            Some(xone_domain::multi_asset::BalancerComposableV6State {
+                                total_supply: "1".parse()?,
+                                last_join_exit_amp: amplification.clone(),
+                                last_join_exit_invariant: "1".parse()?,
+                                protocol_swap_fee: Amount::zero(),
+                                protocol_yield_fee: Amount::zero(),
+                                fee_collector: format!("0x{}", "1".repeat(40)),
+                                collector_bpt: Amount::zero(),
+                                yield_exempt: false,
+                            })
+                        } else {
+                            None
+                        },
                         managed_v2: None,
                         curve_crypto: if matches!(
                             p.protocol.as_str(),

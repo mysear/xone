@@ -18,7 +18,9 @@ func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, ancho
 	}
 	v := p.MultiAsset
 	profile, known := domain.Protocol(p.Protocol)
-	if !known || profile.Family != "multi" || v == nil || (v.TokenPolicy != "standard-no-bpt" && !(p.Protocol == "balancer-v2-composable-regular" && v.TokenPolicy == "standard-with-own-bpt")) || len(v.Tokens) < 2 || len(v.Tokens) > 38 {
+	composableV6 := p.Protocol == domain.ComposableV6Protocol
+	composable := p.Protocol == "balancer-v2-composable-regular" || composableV6
+	if !known || profile.Family != "multi" || v == nil || (v.TokenPolicy != "standard-no-bpt" && !(composable && v.TokenPolicy == "standard-with-own-bpt")) || (composableV6 && v.TokenPolicy != "standard-with-own-bpt") || len(v.Tokens) < 2 || len(v.Tokens) > 38 {
 		return domain.Pool{}, errors.New("MULTI_ASSET_CONFIG")
 	}
 	fail := func() (domain.Pool, error) { return domain.Pool{}, errors.New("MULTI_ASSET_RPC_STATE") }
@@ -27,7 +29,6 @@ func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, ancho
 		return domain.Pool{}, e
 	}
 	weighted := strings.HasPrefix(p.Protocol, "balancer-v2-")
-	composable := p.Protocol == "balancer-v2-composable-regular"
 	managed := p.Protocol == "balancer-v2-managed-snapshot"
 	if weighted {
 		if isStandardClone(code) || v.ExpectedImplementation != "" || v.ExpectedImplementationCodeSHA256 != "" {
@@ -225,6 +226,12 @@ func (a *Adapter) readMultiAsset(ctx context.Context, p config.PoolConfig, ancho
 		fee, e = uintCall(p.ID, selectorSwapFee)
 		if e != nil {
 			return domain.Pool{}, e
+		}
+		if composableV6 {
+			s.ComposableV6, e = readComposableV6(call, p.ID, v.ExpectedVault)
+			if e != nil {
+				return domain.Pool{}, e
+			}
 		}
 	} else {
 		// This reader is exclusively for the pinned Plain3Basic/Plain4Basic layout.

@@ -6,6 +6,42 @@ use crate::{
 use num_bigint::BigUint;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
+pub const COMPOSABLE_V6_PROTOCOL: &str = "balancer-v2-composable-v6";
+pub const COMPOSABLE_V6_ADAPTER: &str = "balancer-v2-composable-v6/no-rates-1";
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BalancerComposableV6State {
+    pub total_supply: Amount,
+    pub last_join_exit_amp: Amount,
+    pub last_join_exit_invariant: Amount,
+    pub protocol_swap_fee: Amount,
+    pub protocol_yield_fee: Amount,
+    pub fee_collector: String,
+    pub collector_bpt: Amount,
+    pub yield_exempt: bool,
+}
+
+impl BalancerComposableV6State {
+    fn valid(&self, vault_bpt: &Amount) -> Result<()> {
+        validate_address(&self.fee_collector)?;
+        let one = BigUint::from(1_000_000_000_000_000_000u64);
+        if self.total_supply.0.bits() > 256
+            || self.total_supply.0 <= vault_bpt.0
+            || self.collector_bpt.0 > &self.total_supply.0 - &vault_bpt.0
+            || !(BigUint::from(1000u32)..=BigUint::from(5_000_000u32))
+                .contains(&self.last_join_exit_amp.0)
+            || self.last_join_exit_invariant.0.is_zero()
+            || self.last_join_exit_invariant.0.bits() > 233
+            || self.protocol_swap_fee.0 > one
+            || self.protocol_yield_fee.0 > one
+        {
+            return Err(err("COMPOSABLE_V6_SUPPLY_STATE"));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct MultiAsset {
@@ -17,6 +53,12 @@ pub struct MultiAsset {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct MultiAssetState {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::managed_v2_state::deserialize_present"
+    )]
+    pub composable_v6: Option<BalancerComposableV6State>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -61,6 +103,11 @@ impl Pool {
         {
             return Err(err("MULTI_ASSET_STATE_REQUIRED"));
         }
+        let v6 = self.protocol == COMPOSABLE_V6_PROTOCOL;
+        let composable = self.protocol == "balancer-v2-composable-regular" || v6;
+        if v6 != s.composable_v6.is_some() {
+            return Err(err("COMPOSABLE_V6_PROFILE_MISMATCH"));
+        }
         if self.protocol == crate::managed_v2_state::PROTOCOL
             || self.protocol == crate::managed_v2_schedule::PROTOCOL
             || self.protocol == crate::managed_v2_bpt_state::PROTOCOL
@@ -88,7 +135,7 @@ impl Pool {
             validate_address(&a.token)?;
             if a.balance.0.bits() > 256
                 || !seen.insert(&a.token)
-                || (a.token == self.pool_id && self.protocol != "balancer-v2-composable-regular")
+                || (a.token == self.pool_id && !composable)
                 || !digest(&a.code_sha256)
                 || !(18..=36).any(|n| a.scaling.0 == BigUint::from(10u8).pow(n))
             {
@@ -137,7 +184,6 @@ impl Pool {
             } else {
                 100_000_000_000_000_000
             };
-            let composable = self.protocol == "balancer-v2-composable-regular";
             if (!managed && !composable && !(3..=20).contains(&s.assets.len()))
                 || (composable && !(3..=6).contains(&s.assets.len()))
             {
@@ -202,6 +248,14 @@ impl Pool {
                 {
                     return Err(err("COMPOSABLE_PARAMETERS"));
                 }
+                if let Some(v6) = &s.composable_v6 {
+                    let bpt = s
+                        .assets
+                        .iter()
+                        .find(|asset| asset.token == self.pool_id)
+                        .ok_or_else(|| err("COMPOSABLE_BPT_REQUIRED"))?;
+                    v6.valid(&bpt.balance)?;
+                }
             } else if bpt != 0 {
                 return Err(err("MULTI_WEIGHTED_ASSETS"));
             }
@@ -243,6 +297,22 @@ impl MultiAssetState {
             }))
         };
         Ok(wire::MultiAssetState {
+            composable_v6: self
+                .composable_v6
+                .as_ref()
+                .map(|v| {
+                    Ok::<_, crate::Error>(wire::BalancerComposableV6State {
+                        total_supply: amount(&v.total_supply)?,
+                        last_join_exit_amp: amount(&v.last_join_exit_amp)?,
+                        last_join_exit_invariant: amount(&v.last_join_exit_invariant)?,
+                        protocol_swap_fee: amount(&v.protocol_swap_fee)?,
+                        protocol_yield_fee: amount(&v.protocol_yield_fee)?,
+                        fee_collector: v.fee_collector.clone(),
+                        collector_bpt: amount(&v.collector_bpt)?,
+                        yield_exempt: Some(v.yield_exempt),
+                    })
+                })
+                .transpose()?,
             managed_v2: self.managed_v2.as_ref().map(|m| m.to_proto()).transpose()?,
             curve_crypto: self
                 .curve_crypto
@@ -299,6 +369,23 @@ impl MultiAssetState {
         }
         let id = bytes(s.pool_id, true)?;
         Ok(Self {
+            composable_v6: s
+                .composable_v6
+                .map(|v| {
+                    Ok::<_, crate::Error>(BalancerComposableV6State {
+                        total_supply: amount(v.total_supply)?,
+                        last_join_exit_amp: amount(v.last_join_exit_amp)?,
+                        last_join_exit_invariant: amount(v.last_join_exit_invariant)?,
+                        protocol_swap_fee: amount(v.protocol_swap_fee)?,
+                        protocol_yield_fee: amount(v.protocol_yield_fee)?,
+                        fee_collector: v.fee_collector,
+                        collector_bpt: amount(v.collector_bpt)?,
+                        yield_exempt: v
+                            .yield_exempt
+                            .ok_or_else(|| err("COMPOSABLE_V6_EXEMPTION_REQUIRED"))?,
+                    })
+                })
+                .transpose()?,
             managed_v2: s
                 .managed_v2
                 .map(crate::managed_v2_state::BalancerManagedV2State::from_proto)

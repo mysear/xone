@@ -760,6 +760,27 @@ pub struct MultiAssetState {
     pub curve_crypto: ::core::option::Option<CurveCryptoState>,
     #[prost(message, optional, tag = "13")]
     pub managed_v2: ::core::option::Option<BalancerManagedV2State>,
+    #[prost(message, optional, tag = "14")]
+    pub composable_v6: ::core::option::Option<BalancerComposableV6State>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BalancerComposableV6State {
+    #[prost(message, optional, tag = "1")]
+    pub total_supply: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "2")]
+    pub last_join_exit_amp: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "3")]
+    pub last_join_exit_invariant: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "4")]
+    pub protocol_swap_fee: ::core::option::Option<Amount>,
+    #[prost(message, optional, tag = "5")]
+    pub protocol_yield_fee: ::core::option::Option<Amount>,
+    #[prost(string, tag = "6")]
+    pub fee_collector: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "7")]
+    pub collector_bpt: ::core::option::Option<Amount>,
+    #[prost(bool, optional, tag = "8")]
+    pub yield_exempt: ::core::option::Option<bool>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct OrcaRewardInfo {
