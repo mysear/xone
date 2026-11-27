@@ -1,13 +1,122 @@
 use super::{err, hash, json, Api, Instant, Result, Value};
 use crate::{local_simulation::Failure, transaction_lifecycle::rpc};
+use alloy_rlp::{Encodable, Header, RlpEncodable};
+use alloy_trie::root::ordered_trie_root;
+use tiny_keccak::{Hasher, Keccak};
 use xone_domain::{singleton::ZERO_ADDRESS, Amount};
 use xone_execution_plan::Context;
 use xone_simulation::evm_fixture::{
     EvmStatus, FixtureState, SimulationOutcome, BEACON_ROOTS_ADDRESS,
 };
 
-const EMPTY_WITHDRAWALS_ROOT: &str =
-    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
+#[derive(RlpEncodable)]
+struct Withdrawal {
+    index: u64,
+    validator_index: u64,
+    address: [u8; 20],
+    amount: u64,
+}
+
+fn parse_withdrawals(block: &Value) -> Result<Vec<Withdrawal>> {
+    let bad = || err("EVM_NODE_RECEIPT_MISMATCH");
+    let withdrawals = block["withdrawals"].as_array().ok_or_else(bad)?;
+    if withdrawals.len() > 16 {
+        return Err(bad());
+    }
+    let withdrawals = withdrawals
+        .iter()
+        .map(|row| {
+            let address = row["address"]
+                .as_str()
+                .and_then(|value| value.strip_prefix("0x"))
+                .ok_or_else(bad)?;
+            let mut bytes = [0; 20];
+            hex::decode_to_slice(address, &mut bytes).map_err(|_| bad())?;
+            Ok(Withdrawal {
+                index: quantity_u64(&row["index"])?,
+                validator_index: quantity_u64(&row["validatorIndex"])?,
+                address: bytes,
+                amount: quantity_u64(&row["amount"])?,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if block["withdrawalsRoot"] != format!("{:#x}", ordered_trie_root(&withdrawals)) {
+        return Err(bad());
+    }
+    Ok(withdrawals)
+}
+
+fn verify_withdrawals_header(block: &Value, fork: &str) -> Result<()> {
+    let bad = || err("EVM_NODE_RECEIPT_MISMATCH");
+    let mut fields = vec![
+        ("parentHash", Some(32)),
+        ("sha3Uncles", Some(32)),
+        ("miner", Some(20)),
+        ("stateRoot", Some(32)),
+        ("transactionsRoot", Some(32)),
+        ("receiptsRoot", Some(32)),
+        ("logsBloom", Some(256)),
+        ("difficulty", None),
+        ("number", None),
+        ("gasLimit", None),
+        ("gasUsed", None),
+        ("timestamp", None),
+        ("extraData", Some(0)),
+        ("mixHash", Some(32)),
+        ("nonce", Some(8)),
+        ("baseFeePerGas", None),
+        ("withdrawalsRoot", Some(32)),
+    ];
+    match fork {
+        "shanghai" => {}
+        "cancun" => fields.extend([
+            ("blobGasUsed", None),
+            ("excessBlobGas", None),
+            ("parentBeaconBlockRoot", Some(32)),
+        ]),
+        _ => return Err(bad()),
+    }
+    let mut payload = Vec::new();
+    for (field, length) in fields {
+        let bytes = if let Some(length) = length {
+            let value = block[field]
+                .as_str()
+                .and_then(|value| value.strip_prefix("0x"))
+                .filter(|value| {
+                    if length == 0 {
+                        value.len() <= 64
+                    } else {
+                        value.len() == length * 2
+                    }
+                })
+                .ok_or_else(bad)?;
+            hex::decode(value).map_err(|_| bad())?
+        } else {
+            let number = quantity(&block[field])?.0;
+            if number.bits() == 0 {
+                Vec::new()
+            } else {
+                number.to_bytes_be()
+            }
+        };
+        bytes.as_slice().encode(&mut payload);
+    }
+    let mut raw = Vec::new();
+    Header {
+        list: true,
+        payload_length: payload.len(),
+    }
+    .encode(&mut raw);
+    raw.extend(payload);
+    let mut hash = [0; 32];
+    let mut keccak = Keccak::v256();
+    keccak.update(&raw);
+    keccak.finalize(&mut hash);
+    if block["hash"] != format!("0x{}", hex::encode(hash)) {
+        return Err(bad());
+    }
+    Ok(())
+}
 
 pub(super) async fn compare(
     api: &Api,
@@ -71,15 +180,8 @@ async fn observe(
     let next = index.checked_add(1).ok_or_else(bad)?;
     let cumulative = quantity_u64(&receipt["cumulativeGasUsed"])?;
     let block_gas = quantity_u64(&block["gasUsed"])?;
-    let withdrawals = block["withdrawals"].as_array().ok_or_else(bad)?;
-    let withdrawals_root = block["withdrawalsRoot"].as_str().ok_or_else(bad)?;
-    // Withdrawals happen after the final transaction. A whole-block balance
-    // therefore cannot stand in for the last transaction's post-state.
-    if withdrawals.is_empty() != (withdrawals_root == EMPTY_WITHDRAWALS_ROOT)
-        || (!withdrawals.is_empty() && next == transactions.len())
-    {
-        return Err(bad());
-    }
+    let withdrawals = parse_withdrawals(&block)?;
+    verify_withdrawals_header(&block, &env.fork)?;
     if transactions.get(index) != Some(&json!(tx))
         || block["difficulty"] != "0x0"
         || block["uncles"] != json!([])
@@ -101,6 +203,10 @@ async fn observe(
             }
         || quantity(&receipt["effectiveGasPrice"])? != fees.effective_gas_price
     {
+        return Err(bad());
+    }
+    // Whole-block balances include withdrawals applied after the last transaction.
+    if !withdrawals.is_empty() && next == transactions.len() {
         return Err(bad());
     }
     let logs = receipt["logs"].as_array().ok_or_else(bad)?;
@@ -218,7 +324,7 @@ async fn observe(
         evidence["parentBeaconBlockRoot"] = root.clone().into();
     }
     if !withdrawals.is_empty() {
-        evidence["withdrawalsRoot"] = withdrawals_root.into();
+        evidence["withdrawalsRoot"] = block["withdrawalsRoot"].clone();
     }
     evidence["evidenceHash"] = hash(&evidence)?.into();
     Ok(evidence)

@@ -45,6 +45,8 @@ pub(super) enum Fault {
     BeaconRoot,
     BeaconStorage,
     WithdrawalsList,
+    WithdrawalsAmount,
+    WithdrawalsRoot,
 }
 
 pub(super) struct Mined {
@@ -482,6 +484,18 @@ impl Mined {
                             if request["params"][0] == "0x2" =>
                         {
                             result["withdrawals"] = json!([]);
+                        }
+                        (Some(Fault::WithdrawalsAmount), "eth_getBlockByNumber")
+                            if request["params"][0] == "0x2" =>
+                        {
+                            result["withdrawals"][0]["amount"] = "0x2".into();
+                        }
+                        (Some(Fault::WithdrawalsRoot), "eth_getBlockByNumber")
+                            if request["params"][0] == "0x2" =>
+                        {
+                            result["withdrawals"] = json!([]);
+                            result["withdrawalsRoot"] =
+                                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421".into();
                         }
                         _ => {}
                     }

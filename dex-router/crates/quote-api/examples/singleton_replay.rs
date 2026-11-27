@@ -298,6 +298,8 @@ async fn assert_replay(
                 node::Fault::BeaconRoot,
                 node::Fault::BeaconStorage,
                 node::Fault::WithdrawalsList,
+                node::Fault::WithdrawalsAmount,
+                node::Fault::WithdrawalsRoot,
             ]);
         }
         for fault in faults {
