@@ -307,7 +307,8 @@
 - rate cache 刷新已通过原 Vault 的四个未到期和已到期样本及四笔限额回滚。Rust 验证精确到期边界、32 位到期时间溢出和旧 rate 保留。
 - 无 rate provider 的 V6 池已通过五个连续状态的 Go 固定块解析、Protobuf 和 Rust 副本重放。Rust 校验四笔 BPT 交易的完整后状态，并通过 HTTP 验证两笔双向 ExactOut 报价。能力目录为 `xone-protocol-capabilities/25`。
 - 带有效 rate cache 的 V6 池已接入固定块报价。Go 按区块哈希读取 provider 地址、runtime 摘要、current/old rate、缓存时限和生效缩放，跨语言快照校验区块时间。两组共十个原 Vault 快照通过 Go 解码、Protobuf 和 Rust 副本重放，覆盖八笔 BPT 后状态及四笔 HTTP ExactOut。
-- 补齐缓存过期后的报价状态和独立历史来源验收，覆盖普通币对、BPT 双向和连续交易。
+- 以太坊主网 V6 工厂创建事件（区块 21,057,106）和带 rate provider 的已初始化池（区块 21,057,112）已分别通过 dRPC 与 Tenderly 验证。Go 正常解析器校验 Vault 注册余额、缩放、rate cache、费率及 BPT 供给状态；同区块读取的实际供给为 45079866305297054。
+- 补齐缓存过期后的报价状态，覆盖普通币对、BPT 双向和连续交易。
 - 对未证明的 rate provider、Vault 和执行组合保持明确拒绝。
 
 ### I3 Curve Meta underlying
