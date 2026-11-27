@@ -6,6 +6,11 @@ use sha2::{Digest, Sha256};
 pub const RUNTIME_SHA256: &str = "c5351fd332fdf0f04486a838b2bceba15d7a45965e3df61e9a0ccedc674d450d";
 pub const BASE_POOL: &str = "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7";
 pub const BASE_LP: &str = "0x6c3f90f043a72fa612cbac8115ee7e52bde6e490";
+pub const BASE_COINS: [&str; 3] = [
+    "0x6b175474e89094c44da98b954eedeac495271d0f",
+    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "0xdac17f958d2ee523a2206206994597c13d831ec7",
+];
 pub const BASE_RUNTIME_SHA256: &str =
     "eb09f8e03f107e5355ad85ec428609a1d8cb47bc30509c80455a2c8a108cac0d";
 pub const BASE_LP_RUNTIME_SHA256: &str =
@@ -40,6 +45,31 @@ fn digest(s: &str) -> bool {
     s.len() == 64 && s == s.to_ascii_lowercase() && hex::decode(s).is_ok()
 }
 impl Pool {
+    pub fn has_curve_meta_underlying(&self) -> bool {
+        self.chain_key == "evm:1"
+            && self
+                .multi_asset
+                .as_ref()
+                .and_then(|s| s.curve_meta.as_ref())
+                .is_some_and(|m| {
+                    m.base_pool_code_sha256 == BASE_RUNTIME_SHA256 && m.base_pool_state.is_some()
+                })
+            && !BASE_COINS.contains(&self.token0.as_str())
+    }
+
+    pub fn curve_meta_underlying_index(&self, token: &str) -> Option<usize> {
+        if !self.has_curve_meta_underlying() {
+            return None;
+        }
+        if token == self.token0 {
+            return Some(0);
+        }
+        BASE_COINS
+            .iter()
+            .position(|&coin| coin == token)
+            .map(|i| i + 1)
+    }
+
     pub(crate) fn validate_curve_meta(&self) -> Result<()> {
         let s = self
             .multi_asset

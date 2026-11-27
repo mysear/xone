@@ -316,8 +316,8 @@
 - Go Meta 解析入口已读取以太坊 3pool 的完整 base 状态。按固定 runtime 核对 LP 合约、池停用状态和币序，读取 18/6/6 位缩放、`A()`、fee、admin balances 和独立 LP 总供给。区块 21,057,112 的同一组状态通过 dRPC 与 Tenderly，Go/Rust wire 和现有 underlying 数学专项通过。
 - 同区块多个 Meta 快照必须对完整 base 状态一致。Go 快照克隆独立复制 base 向量。
 - 3pool 单币存入按原合约在各代币原始单位中计算费用和管理员份额。主网区块 21,057,318 的 USDC 存入复现了三项费用、余额、管理员余额和 LP 总供给。Meta 底层兑换使用固定块观察到的 base 虚拟价格。
-- 传播 underlying deposit/withdraw 后的 base balances、admin balances 和 LP supply。
-- 校验 Meta 与 base 的共享依赖一致性，补齐 ExactIn/ExactOut、连续交易、wire 和恢复验证。
+- 路由已接入 Meta 底层 ExactIn/ExactOut，并在 deposit、withdraw 和底层直兑后更新共享 base 余额、admin balances、LP supply 与虚拟价格。两池的连续路由专项覆盖双向报价、共享状态和六位币的 ExactOut 取整。
+- 补齐原合约端到端回放、跨语言 wire、HTTP 和恢复验收。
 - 真实 base 部署与完整执行单独验收。
 
 ### I4 Solana 高级协议

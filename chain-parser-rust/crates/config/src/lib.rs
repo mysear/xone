@@ -280,7 +280,7 @@ pub struct MultiAssetConfig {
     pub expected_lp_token_code_sha256: String,
     #[serde(default)]
     pub expected_base_pool_code_sha256: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub enable_underlying: bool,
     pub expected_code_sha256: String,
     #[serde(default)]

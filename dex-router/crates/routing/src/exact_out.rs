@@ -198,7 +198,7 @@ fn validate_funds(pools: &BTreeMap<String, Pool>, funds: Funds<'_>) -> Result<()
     }
     Ok(())
 }
-fn edge_tokens<'a>(p: &'a Pool, e: &Edge) -> Result<(&'a str, &'a str)> {
+fn edge_tokens<'a>(p: &'a Pool, e: &'a Edge) -> Result<(&'a str, &'a str)> {
     if !xone_protocol_math::exact_out::supports_protocol(&p.protocol)
         || e.protocol != p.protocol
         || e.pool_id != p.pool_id
@@ -214,6 +214,15 @@ fn edge_tokens<'a>(p: &'a Pool, e: &Edge) -> Result<(&'a str, &'a str)> {
             .from_token
             .as_deref()
             .ok_or_else(|| err("MULTI_ASSET_PATH_TOKEN_REQUIRED"))?;
+        if let (Some(i), Some(j)) = (
+            p.curve_meta_underlying_index(from),
+            p.curve_meta_underlying_index(&e.to),
+        ) {
+            if i == j || e.zero_for_one {
+                return Err(err("EXACT_OUT_PATH_PROTOCOL"));
+            }
+            return Ok((from, &e.to));
+        }
         if xone_protocol_math::managed_v2_pool::supports_bpt_exact_out(&p.protocol)
             && (from == p.pool_id || e.to == p.pool_id)
         {
@@ -490,6 +499,7 @@ pub fn evaluate_path(
         }
         crate::propagate_bin_currency(&mut candidate, &q.next_pool);
         crate::shared_vault::propagate(&mut candidate, &q.next_pool)?;
+        crate::propagate_curve_meta_base(&mut candidate, &q.next_pool);
         crate::bpt_wallets::propagate(
             &mut candidate,
             &q.next_pool,

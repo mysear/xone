@@ -228,6 +228,61 @@ pub fn quote_meta_underlying_exact_out(
         &balances, &admin, &rates, &amp, &fee, &admin_fee, &base, &output.0, index_in, index_out,
     )
 }
+
+fn apply_meta_underlying(
+    pool: &Pool,
+    quote: crate::curve_multi::MetaUnderlyingQuote,
+) -> Result<Swap> {
+    if quote.amount_out.is_zero() {
+        return Err(err("INSUFFICIENT_OUTPUT"));
+    }
+    let mut next_pool = pool.clone();
+    let state = next_pool
+        .multi_asset
+        .as_mut()
+        .ok_or_else(|| err("MULTI_ASSET_STATE_REQUIRED"))?;
+    let meta = state
+        .curve_meta
+        .as_mut()
+        .ok_or_else(|| err("CURVE_META_STATE_REQUIRED"))?;
+    let base = meta
+        .base_pool_state
+        .as_mut()
+        .ok_or_else(|| err("CURVE_META_BASE_POOL_STATE_REQUIRED"))?;
+    let rates: Vec<_> = base.rates.iter().map(|rate| rate.0.clone()).collect();
+    meta.base_virtual_price = Amount::checked(crate::curve_multi::base_virtual_price(
+        &quote.next_base_balances,
+        &rates,
+        &base.amplification.0,
+        &quote.next_base_total_supply,
+    )?)?;
+    base.balances = quote.next_base_balances.into_iter().map(Amount).collect();
+    base.admin_balances = quote
+        .next_base_admin_balances
+        .into_iter()
+        .map(Amount)
+        .collect();
+    base.total_supply = Amount(quote.next_base_total_supply);
+    for (index, (balance, admin)) in quote
+        .next_meta_balances
+        .into_iter()
+        .zip(quote.next_meta_admin_balances)
+        .enumerate()
+    {
+        meta.stored_balances[index] = Amount::checked(&balance + &admin)?;
+        meta.admin_balances[index] = Amount(admin);
+        state.assets[index].balance = Amount(balance);
+    }
+    next_pool.reserve0 = state.assets[0].balance.clone();
+    next_pool.reserve1 = state.assets[1].balance.clone();
+    next_pool.validate()?;
+    Ok(Swap {
+        consumed_in: Amount::checked(quote.amount_in)?,
+        amount_out: Amount::checked(quote.amount_out)?,
+        remaining_in: Amount::zero(),
+        next_pool,
+    })
+}
 /// Token-selected multi-asset swaps mutate a single full physical balance vector.
 /// Callers may not manufacture independently mutable pair projections.
 pub fn quote_exact_in_tokens(
@@ -244,6 +299,12 @@ pub fn quote_exact_in_tokens(
         return crate::managed_v2_pool::quote_exact_in_tokens(pool, input, token_in, token_out);
     }
     pool.validate()?;
+    if let (Some(i), Some(j)) = (
+        pool.curve_meta_underlying_index(token_in),
+        pool.curve_meta_underlying_index(token_out),
+    ) {
+        return apply_meta_underlying(pool, quote_meta_underlying_exact_in(pool, input, i, j)?);
+    }
     let callback = composable_v6_callback_state(pool)?;
     let pool = callback.as_ref();
     let s = pool
@@ -641,6 +702,12 @@ pub fn quote_exact_out_tokens(
         return crate::managed_v2_pool::quote_exact_out_tokens(pool, output, token_in, token_out);
     }
     pool.validate()?;
+    if let (Some(i), Some(j)) = (
+        pool.curve_meta_underlying_index(token_in),
+        pool.curve_meta_underlying_index(token_out),
+    ) {
+        return apply_meta_underlying(pool, quote_meta_underlying_exact_out(pool, output, i, j)?);
+    }
     if !matches!(
         pool.protocol.as_str(),
         "balancer-v2-weighted-multi"

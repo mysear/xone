@@ -276,6 +276,16 @@ pub struct BaseLiquidityState {
     pub total_supply: BigUint,
 }
 
+pub(crate) fn base_virtual_price(
+    balances: &[BigUint],
+    rates: &[BigUint],
+    amp: &BigUint,
+    total_supply: &BigUint,
+) -> Result<BigUint> {
+    let invariant = invariant(&normalize(balances, rates)?, amp)?;
+    div(&mul(&invariant, &u(PRECISION))?, total_supply)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MetaUnderlyingQuote {
     pub amount_in: BigUint,
@@ -452,10 +462,11 @@ pub fn quote_meta_underlying_exact_out(
     if output.is_zero() {
         return Err(err("CURVE_EXACT_OUT_ZERO"));
     }
-    let mut high = BigUint::one();
+    let mut low = BigUint::one();
+    let mut high = low.clone();
     let mut upper = None;
-    for _ in 0..=256 {
-        match quote_meta_underlying_exact_in(
+    let trial = |input: &BigUint| {
+        quote_meta_underlying_exact_in(
             meta_balances,
             meta_admin_balances,
             meta_rates,
@@ -463,55 +474,38 @@ pub fn quote_meta_underlying_exact_out(
             meta_fee,
             meta_admin_fee,
             base,
-            &high,
+            input,
             index_in,
             index_out,
-        ) {
+        )
+    };
+    for _ in 0..=256 {
+        match trial(&high) {
             Ok(q) if q.amount_out >= *output => {
                 upper = Some(high);
                 break;
             }
-            Ok(_) => high <<= 1usize,
+            Ok(_) => {}
+            Err(e) if e.0 == "CURVE_INPUT_DUST" => {}
             Err(_) => {
                 upper = Some(high);
                 break;
             }
         }
+        low = &high + BigUint::one();
+        high <<= 1usize;
     }
     let mut high = upper.ok_or_else(|| err("CURVE_EXACT_OUT_UNREACHABLE"))?;
-    let mut low = BigUint::zero();
     while low < high {
         let mid = (&low + &high) >> 1usize;
-        match quote_meta_underlying_exact_in(
-            meta_balances,
-            meta_admin_balances,
-            meta_rates,
-            meta_amp,
-            meta_fee,
-            meta_admin_fee,
-            base,
-            &mid,
-            index_in,
-            index_out,
-        ) {
+        match trial(&mid) {
             Ok(q) if q.amount_out >= *output => high = mid,
             Ok(_) => low = mid + BigUint::one(),
+            Err(e) if e.0 == "CURVE_INPUT_DUST" => low = mid + BigUint::one(),
             Err(_) => high = mid,
         }
     }
-    let quote = quote_meta_underlying_exact_in(
-        meta_balances,
-        meta_admin_balances,
-        meta_rates,
-        meta_amp,
-        meta_fee,
-        meta_admin_fee,
-        base,
-        &low,
-        index_in,
-        index_out,
-    )
-    .map_err(|_| err("CURVE_EXACT_OUT_UNREACHABLE"))?;
+    let quote = trial(&low).map_err(|_| err("CURVE_EXACT_OUT_UNREACHABLE"))?;
     if quote.amount_out != *output {
         return Err(err("CURVE_EXACT_OUT_UNREACHABLE"));
     }
@@ -555,7 +549,7 @@ pub fn quote_base_add_liquidity_one_coin(
     new_balances[index] = add(&new_balances[index], input)?;
     let d1 = invariant(&normalize(&new_balances, rates)?, amp)?;
     if d1 <= d0 {
-        return Err(err("CURVE_BASE_DEPOSIT_NO_LP"));
+        return Err(err("CURVE_INPUT_DUST"));
     }
     let n = u(balances.len() as u64);
     let base_fee = div(&mul(fee, &n)?, &mul(&u(4), &u(balances.len() as u64 - 1))?)?;
@@ -577,7 +571,7 @@ pub fn quote_base_add_liquidity_one_coin(
     let d2 = invariant(&normalize(&fee_adjusted, rates)?, amp)?;
     let minted = div(&mul(total_supply, &sub(&d2, &d0)?)?, &d0)?;
     if minted.is_zero() {
-        return Err(err("CURVE_BASE_DEPOSIT_NO_LP"));
+        return Err(err("CURVE_INPUT_DUST"));
     }
     Ok(BaseLiquidityQuote {
         amount_in: input.clone(),
@@ -615,7 +609,10 @@ pub fn quote_base_remove_liquidity_one_coin(
         burn_amount,
         index,
     )?;
-    if burn_amount.is_zero() || burn_amount >= total_supply {
+    if burn_amount.is_zero() {
+        return Err(err("CURVE_INPUT_DUST"));
+    }
+    if burn_amount >= total_supply {
         return Err(err("CURVE_BASE_INVALID_BURN"));
     }
     let xp = normalize(balances, rates)?;
@@ -641,6 +638,9 @@ pub fn quote_base_remove_liquidity_one_coin(
         reduced[i] = sub(&xp[i], &fee_xp)?;
     }
     let reduced_y = solve_y_d(amp, index, &reduced, &d1)?;
+    if reduced[index] <= reduced_y {
+        return Err(err("CURVE_INPUT_DUST"));
+    }
     let dy_xp = sub(&sub(&reduced[index], &reduced_y)?, &u(1))?;
     let dy = div(&mul(&dy_xp, &u(PRECISION))?, &rates[index])?;
     let dy0 = div(
@@ -734,6 +734,9 @@ fn quote(
     let x = add(&xp[i], &div(&mul(input, &rates[i])?, &p)?)?;
     let d = invariant(&xp, amp)?;
     let y = solve_y(i, j, &x, &xp, amp, &d)?;
+    if xp[j] <= y {
+        return Err(err("CURVE_INPUT_DUST"));
+    }
     let dy = sub(&sub(&xp[j], &y)?, &u(1))?;
     let fee_xp = div(&mul(&dy, fee)?, &fd)?;
     let amount_out = div(&mul(&sub(&dy, &fee_xp)?, &p)?, &rates[j])?;

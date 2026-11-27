@@ -39,6 +39,7 @@ struct PoolTopology {
     token_behavior: String,
     tokens: Vec<String>,
     multi_asset: bool,
+    curve_meta_underlying: bool,
 }
 impl PoolTopology {
     fn of(pool: &Pool) -> Self {
@@ -56,6 +57,7 @@ impl PoolTopology {
                 },
             ),
             multi_asset: pool.multi_asset.is_some(),
+            curve_meta_underlying: pool.has_curve_meta_underlying(),
         }
     }
     fn edges(&self, pool_id: &str) -> Vec<(String, Edge)> {
@@ -94,6 +96,17 @@ impl PoolTopology {
                             && (from == pool_id || to == pool_id))
                     {
                         push(from, to, i == 0 && j == 1);
+                    }
+                }
+            }
+            if self.curve_meta_underlying {
+                let coins = xone_domain::curve_meta_state::BASE_COINS;
+                let meta = self.tokens[0].as_str();
+                for from in coins {
+                    push(meta, from, false);
+                    push(from, meta, false);
+                    for to in coins.into_iter().filter(|&to| from != to) {
+                        push(from, to, false);
                     }
                 }
             }
@@ -527,6 +540,7 @@ fn evaluate_path_in_place(
             return Err(err("INSUFFICIENT_OUTPUT"));
         }
         shared_vault::propagate(pools, &q.next_pool)?;
+        propagate_curve_meta_base(pools, &q.next_pool);
         amount = q.amount_out;
         propagate_bin_currency(pools, &q.next_pool);
         pools.insert(e.pool_id.clone(), q.next_pool.clone());
@@ -549,6 +563,37 @@ fn evaluate_path_in_place(
         )?;
     }
     Ok(amount)
+}
+
+pub(crate) fn propagate_curve_meta_base(pools: &mut BTreeMap<String, Pool>, next_pool: &Pool) {
+    let Some(meta) = next_pool
+        .multi_asset
+        .as_ref()
+        .and_then(|s| s.curve_meta.as_ref())
+    else {
+        return;
+    };
+    let Some(base) = &meta.base_pool_state else {
+        return;
+    };
+    for pool in pools
+        .values_mut()
+        .filter(|pool| pool.pool_id != next_pool.pool_id)
+    {
+        let Some(other) = pool
+            .multi_asset
+            .as_mut()
+            .and_then(|s| s.curve_meta.as_mut())
+        else {
+            continue;
+        };
+        if other.base_pool == meta.base_pool {
+            other.base_virtual_price = meta.base_virtual_price.clone();
+            if let Some(other_state) = &mut other.base_pool_state {
+                other_state.clone_from(base);
+            }
+        }
+    }
 }
 pub fn search(
     graph: &Graph,
