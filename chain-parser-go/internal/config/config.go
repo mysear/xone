@@ -956,11 +956,11 @@ func (c Config) Validate(expected string) error {
 					return invalid()
 				}
 				if p.Protocol == "orca-whirlpools-adaptive" || p.Protocol == "orca-whirlpools-adaptive-rewards" || p.Protocol == "orca-whirlpools-adaptive-dynamic" {
-					if len(v.TickArrayStarts) != 3 {
+					if p.Protocol != "orca-whirlpools-adaptive-dynamic" && len(v.TickArrayStarts) != 3 {
 						return invalid()
 					}
 					span := int64(v.TickArrayStarts[1]) - int64(v.TickArrayStarts[0])
-					if span <= 0 || span%88 != 0 || span/88 > 65535 || int64(v.TickArrayStarts[2])-int64(v.TickArrayStarts[1]) != span {
+					if span <= 0 || span%88 != 0 || span/88 > 65535 {
 						return invalid()
 					}
 					minStart := int64(domain.OrcaMinTick) / span
@@ -968,8 +968,9 @@ func (c Config) Validate(expected string) error {
 						minStart--
 					}
 					minStart *= span
-					for _, start := range v.TickArrayStarts {
-						if int64(start)%span != 0 || int64(start) < minStart || start > domain.OrcaMaxTick {
+					for i, start := range v.TickArrayStarts {
+						if int64(start)%span != 0 || int64(start) < minStart || start > domain.OrcaMaxTick ||
+							i > 0 && int64(start)-int64(v.TickArrayStarts[i-1]) != span {
 							return invalid()
 						}
 					}

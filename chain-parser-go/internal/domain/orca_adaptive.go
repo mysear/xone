@@ -72,8 +72,5 @@ func (s OrcaWhirlpoolState) validateAdaptiveState() error {
 	if len(s.RewardInfos) != 3 {
 		return errors.New("ORCA_ADAPTIVE_REWARD_COUNT")
 	}
-	if len(s.TickArrays) != 3 {
-		return errors.New("ORCA_ADAPTIVE_ARRAY_COUNT")
-	}
 	return nil
 }

@@ -94,6 +94,53 @@ fn adaptive_dynamic_accepts_supplemental_arrays_without_changing_quote() {
         .all(|array| array.initialized_bitmap == 0 && array.ticks.is_empty()));
 }
 
+#[test]
+fn adaptive_dynamic_uses_only_three_directional_arrays_for_exact_in_and_out() {
+    use xone_domain::orca_math::sqrt_price_from_tick;
+
+    let (mut state, mut params) = kernel();
+    let span = 88 * i32::from(state.tick_spacing);
+    let empty = |start_tick_index| AdaptiveSwapTickArray {
+        start_tick_index,
+        layout: "dynamic".into(),
+        initialized_bitmap: 0,
+        ticks: vec![],
+        whirlpool: state.whirlpool,
+    };
+    state.tick_arrays.insert(0, empty(-2 * span));
+    state.tick_arrays.insert(0, empty(-3 * span));
+    state.tick_arrays.push(empty(2 * span));
+    state.tick_arrays.push(empty(3 * span));
+    params.amount = 1_000_000_000;
+    for (left, direction) in [(true, -1), (false, 1)] {
+        params.a_to_b = left;
+        for quote in [
+            quote_exact_in_dynamic as fn(&_, _) -> _,
+            quote_exact_out_dynamic,
+        ] {
+            let limit = |tick| sqrt_price_from_tick(tick).unwrap().try_into().unwrap();
+            params.sqrt_price_limit = limit((span + i32::from(state.tick_spacing)) * direction);
+            let mut selected = state.clone();
+            let indices = if left { 1..4 } else { 3..6 };
+            selected.tick_arrays = state.tick_arrays[indices.clone()].to_vec();
+            let expected = quote(&selected, params).unwrap();
+            let mut actual = quote(&state, params).unwrap();
+            assert_eq!(actual.next_state.sqrt_price_x64, params.sqrt_price_limit);
+            actual.next_state.tick_arrays = actual.next_state.tick_arrays[indices].to_vec();
+            assert_eq!(
+                serde_json::to_value(actual).unwrap(),
+                serde_json::to_value(expected).unwrap()
+            );
+
+            params.sqrt_price_limit = limit((3 * span + 1) * direction);
+            assert_eq!(
+                quote(&state, params).unwrap_err().0,
+                "ORCA_ADAPTIVE_SWAP_PROOF_EXHAUSTED"
+            );
+        }
+    }
+}
+
 use xone_domain::{Amount, Pool};
 #[test]
 fn adaptive_dynamic_original_normal_dispatch_all_twenty_banks_and_full_sequences() {

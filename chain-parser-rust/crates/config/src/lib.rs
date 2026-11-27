@@ -1667,29 +1667,24 @@ impl Config {
                         || !(3..=7).contains(&v.tick_array_starts.len())
                         || matches!(
                             p.protocol.as_str(),
-                            "orca-whirlpools-adaptive"
-                                | "orca-whirlpools-adaptive-rewards"
-                                | "orca-whirlpools-adaptive-dynamic"
-                        ) && ((matches!(
-                            p.protocol.as_str(),
                             "orca-whirlpools-adaptive" | "orca-whirlpools-adaptive-rewards"
-                        ) && v.tick_array_starts.len() != 3)
-                            || (p.protocol == "orca-whirlpools-adaptive-dynamic"
-                                && !(3..=7).contains(&v.tick_array_starts.len())))
+                        ) && v.tick_array_starts.len() != 3
                         || v.tick_array_starts.windows(2).any(|x| x[1] <= x[0])
                     {
                         return Err(fail());
                     }
                     if matches!(
                         p.protocol.as_str(),
-                        "orca-whirlpools-adaptive-rewards" | "orca-whirlpools-adaptive-dynamic"
+                        "orca-whirlpools-adaptive"
+                            | "orca-whirlpools-adaptive-rewards"
+                            | "orca-whirlpools-adaptive-dynamic"
                     ) {
                         let starts = &v.tick_array_starts;
                         let span = i64::from(starts[1]) - i64::from(starts[0]);
                         if span <= 0
                             || span % 88 != 0
                             || span / 88 > u16::MAX.into()
-                            || i64::from(starts[2]) - i64::from(starts[1]) != span
+                            || starts.windows(2).any(|w| i64::from(w[1]) - i64::from(w[0]) != span)
                             || starts.iter().any(|start| {
                                 let start = i64::from(*start);
                                 start % span != 0

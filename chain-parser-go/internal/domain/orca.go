@@ -181,6 +181,9 @@ func (s OrcaWhirlpoolState) validateWire() error {
 }
 func (s OrcaWhirlpoolState) Validate(p Pool) error {
 	if p.Protocol == "orca-whirlpools-adaptive" || p.Protocol == "orca-whirlpools-adaptive-rewards" {
+		if len(s.TickArrays) != 3 {
+			return errors.New("ORCA_ADAPTIVE_ARRAY_COUNT")
+		}
 		for _, array := range s.TickArrays {
 			if array.Layout != "fixed" {
 				return errors.New("ORCA_ADAPTIVE_ARRAY_LAYOUT")

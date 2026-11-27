@@ -270,21 +270,9 @@ impl OrcaWhirlpoolState {
         if matches!(
             p.protocol.as_str(),
             crate::orca_adaptive_state::PROFILE | crate::orca_adaptive_state::REWARDS_PROFILE
-        ) && self.tick_arrays.iter().any(|a| a.layout != "fixed")
+        ) && (self.tick_arrays.len() != 3 || self.tick_arrays.iter().any(|a| a.layout != "fixed"))
         {
             return Err(err("ORCA_ADAPTIVE_COMBINATION_UNSUPPORTED"));
-        }
-        if matches!(
-            p.protocol.as_str(),
-            crate::orca_adaptive_state::PROFILE | crate::orca_adaptive_state::REWARDS_PROFILE
-        ) && self.tick_arrays.len() != 3
-        {
-            return Err(err("ORCA_ADAPTIVE_COMBINATION_UNSUPPORTED"));
-        }
-        if p.protocol == crate::orca_adaptive_state::DYNAMIC_PROFILE
-            && !(3..=7).contains(&self.tick_arrays.len())
-        {
-            return Err(err("ORCA_ADAPTIVE_ARRAY_WINDOW"));
         }
         if let Some(a) = &self.adaptive {
             if a.whirlpool != p.pool_id {

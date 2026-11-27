@@ -119,7 +119,14 @@ pub fn required_accounts(p: &PoolConfig) -> Result<Vec<String>> {
         .ok_or_else(|| err("ORCA_CONFIG_REQUIRED"))?;
     check_digest(&cfg.expected_program_code_sha256)?;
     check_digest(&cfg.expected_token_program_code_sha256)?;
-    if !(1..=8192).contains(&cfg.max_steps) || !(3..=7).contains(&cfg.tick_array_starts.len()) {
+    let array_count = cfg.tick_array_starts.len();
+    if !(1..=8192).contains(&cfg.max_steps)
+        || !(3..=7).contains(&array_count)
+        || matches!(
+            p.protocol.as_str(),
+            "orca-whirlpools-adaptive" | "orca-whirlpools-adaptive-rewards"
+        ) && array_count != 3
+    {
         return Err(err("ORCA_ARRAY_WINDOW_OR_BUDGET"));
     }
     // Spacing is read from the pool later. Explicit starts already determine a
@@ -342,11 +349,6 @@ pub fn decode_orca_whirlpool(
     if spacing == 0
         || (!adaptive_profile && tier != spacing)
         || (adaptive_profile && tier == spacing)
-        || (p.protocol == "orca-whirlpools-adaptive"
-            || p.protocol == "orca-whirlpools-adaptive-rewards")
-            && cfg.tick_array_starts.len() != 3
-        || p.protocol == "orca-whirlpools-adaptive-dynamic"
-            && !(3..=7).contains(&cfg.tick_array_starts.len())
     {
         return Err(err("ORCA_ADAPTIVE_FEE_UNSUPPORTED"));
     }

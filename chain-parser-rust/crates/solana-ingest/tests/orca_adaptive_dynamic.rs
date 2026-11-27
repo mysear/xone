@@ -123,6 +123,64 @@ async fn normal_rpc(
     let requests = calls.lock().unwrap().clone();
     (result, requests)
 }
+
+#[tokio::test]
+async fn adaptive_dynamic_normal_rpc_requests_and_decodes_supplemental_arrays() {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use xone_config::PoolConfig;
+
+    let native: Value = serde_json::from_str(include_str!(
+        "../../../test/contracts/orca-adaptive-dynamic-service.json"
+    ))
+    .unwrap();
+    let expected: Value = serde_json::from_str(include_str!(
+        "../../../test/contracts/orca-adaptive-dynamic-pools.json"
+    ))
+    .unwrap();
+    let mut bank = native["scenarios"][0]["banks"][0].clone();
+    let mut case = expected["cases"][0].clone();
+    let original: PoolConfig = serde_json::from_value(case["config"].clone()).unwrap();
+    let original_accounts = orca::required_accounts(&original).unwrap();
+    let template = case["pool"]["orca_whirlpool"]["tick_arrays"][0]["address"]
+        .as_str()
+        .unwrap();
+    let mut account = bank["accounts"][template].clone();
+    let mut bytes = STANDARD.decode(account["data"][0].as_str().unwrap()).unwrap();
+    bytes.resize(60 + 88, 0);
+    bytes[44..].fill(0);
+    account["space"] = json!(bytes.len());
+    let mut extra_accounts = Vec::new();
+    for start in [11264i32, 16896, 22528, 28160] {
+        case["config"]["orca_whirlpool"]["tick_array_starts"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!(start));
+        let config: PoolConfig = serde_json::from_value(case["config"].clone()).unwrap();
+        let key = orca::required_accounts(&config)
+            .unwrap()
+            .into_iter()
+            .find(|key| !original_accounts.contains(key) && !extra_accounts.contains(key))
+            .unwrap();
+        bytes[8..12].copy_from_slice(&start.to_le_bytes());
+        account["data"][0] = json!(STANDARD.encode(&bytes));
+        bank["accounts"][&key] = account.clone();
+        case["pool"]["orca_whirlpool"]["tick_arrays"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"address": key, "start_tick_index": start, "layout": "dynamic",
+                        "initialized_bitmap": "0", "ticks": []}));
+        extra_accounts.push(key);
+    }
+    let (snapshot, calls) = normal_rpc(bank.clone(), &case, false).await;
+    let wanted = serde_json::from_value::<xone_domain::Pool>(case["pool"].clone()).unwrap();
+    assert_eq!(snapshot.unwrap().pools, vec![wanted]);
+    let requested = calls[1]["params"][0].as_array().unwrap();
+    assert!(extra_accounts.iter().all(|key| requested.contains(&json!(key))));
+
+    bank["accounts"][&extra_accounts[3]] = Value::Null;
+    assert!(normal_rpc(bank, &case, false).await.0.is_err());
+}
+
 #[tokio::test]
 async fn adaptive_dynamic_normal_rpc_complete_finalized_banks_and_fail_closed_oracle() {
     use base64::{engine::general_purpose::STANDARD, Engine};

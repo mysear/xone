@@ -220,11 +220,15 @@ fn validate(
     {
         return Err(err("ORCA_ADAPTIVE_SWAP_TICK_PRICE"));
     }
-    if state.tick_arrays.is_empty()
-        || state.tick_arrays.len() > 7
-        || allow_rewards && state.tick_arrays.len() != 3
-        || allow_dynamic && !(3..=7).contains(&state.tick_arrays.len())
-    {
+    let array_count = state.tick_arrays.len();
+    let valid_count = if allow_dynamic {
+        (3..=7).contains(&array_count)
+    } else if allow_rewards {
+        array_count == 3
+    } else {
+        (1..=7).contains(&array_count)
+    };
+    if !valid_count {
         return Err(err("ORCA_ADAPTIVE_SWAP_ARRAY_PROOF"));
     }
     let spacing = i32::from(state.tick_spacing);
@@ -332,7 +336,7 @@ pub fn quote_exact_in_with_rewards(
 ) -> Result<AdaptiveSwapResult> {
     quote_internal(state, p, true, false, true)
 }
-/// Classic SPL adaptive swap over exactly three complete fixed/dynamic arrays.
+/// Classic SPL adaptive swap over a window of three to seven complete fixed/dynamic arrays.
 pub fn quote_exact_in_dynamic(
     state: &AdaptiveSwapState,
     p: AdaptiveExactInParams,
@@ -412,10 +416,13 @@ fn quote_internal(
                 && state.tick_current_index < a.start_tick_index + span - shift
         })
         .ok_or_else(|| err("ORCA_ADAPTIVE_SWAP_ARRAY_SEARCH"))?;
+    // Swap selects up to three directionally contiguous accounts from the window.
+    // Keep the original fixed-kernel admission behavior for direct callers.
+    let max_arrays = if allow_dynamic { 3 } else { state.tick_arrays.len() };
     let order: Vec<usize> = if left {
-        (0..=first).rev().collect()
+        (0..=first).rev().take(max_arrays).collect()
     } else {
-        (first..state.tick_arrays.len()).collect()
+        (first..state.tick_arrays.len()).take(max_arrays).collect()
     };
     let mut next = state.clone();
     // Original whirlpool_manager accrues once using the initial liquidity. A

@@ -3,10 +3,11 @@ package domain
 import (
 	"encoding/hex"
 	"encoding/json"
-	"google.golang.org/protobuf/proto"
 	"os"
 	"reflect"
 	"testing"
+
+	"google.golang.org/protobuf/proto"
 	pb "xone/common/protoc/golang/dexpb"
 )
 
@@ -74,6 +75,28 @@ func TestOrcaAdaptiveDynamicIndependentWire(t *testing.T) {
 	}
 	if !reflect.DeepEqual(s, f.Snapshot) {
 		t.Fatal("independent snapshot mismatch")
+	}
+	p := s.Pools[0]
+	arrays := &p.OrcaWhirlpool.TickArrays
+	*arrays = append(*arrays, OrcaTickArray{
+		Address:        "SysvarRent111111111111111111111111111111111",
+		StartTickIndex: (*arrays)[len(*arrays)-1].StartTickIndex + 88*int32(p.OrcaWhirlpool.TickSpacing),
+		Layout:         "dynamic", InitializedBitmap: "0", Ticks: []OrcaTick{},
+	})
+	if e := p.Validate(); e != nil {
+		t.Fatal("four contiguous arrays", e)
+	}
+	w, e = SnapshotToProto(s)
+	if e != nil {
+		t.Fatal(e)
+	}
+	restored, e := SnapshotFromProto(w)
+	if e != nil || !reflect.DeepEqual(s, restored) {
+		t.Fatal("supplemental array wire mismatch", e)
+	}
+	(*arrays)[len(*arrays)-1].StartTickIndex += 88 * int32(p.OrcaWhirlpool.TickSpacing)
+	if p.Validate() == nil {
+		t.Fatal("gap in supplemental arrays accepted")
 	}
 }
 
