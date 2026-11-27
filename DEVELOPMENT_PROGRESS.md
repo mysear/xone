@@ -413,7 +413,8 @@
 21. 含提款区块的末笔 EVM 回执按交易索引读取交易前状态，按已绑定的提款列表还原交易后的原生币余额，并把同一组余额覆盖传给 ERC-20 读取。Geth 的 24 个末笔交易回执通过，覆盖同地址累计提款、原生币收款人提款和余额不足以还原时的 24 组拒绝。Geth 中间交易与 Anvil 空提款块各 24 组回归通过。证据范围为 `TRANSACTION_BEFORE_WITHDRAWALS`。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 22. 重建 Meteora 原版 Token-2022 的 120 个场景和 168 个执行步骤，投影五个受控钱包 bank。钱包生命周期与独立 SBF HTTP 测试各一项通过。生命周期覆盖八条回执路径，并验证并发提交只发送一次、确切签名字节、费用读数 slot 顺序和日志重启恢复。Solana 测试从原 bank 构造快照，浏览器专用池由浏览器 harness 单独安装。浏览器 harness 编译通过。 [复验说明](integration/tools/reference/meteora-dlmm/harness/README.md#钱包提交与回执恢复)
 23. EVM 节点回执按块哈希读取全块回执，按交易顺序重算 `receiptsRoot`，检查区块内连续日志索引，并从相邻累计值核对每笔交易的 gas。Anvil 单笔、Geth 中间交易及 Geth 末笔交易各 24 个回执通过。三组分别验证缺项、gas、日志和 bloom 篡改，两组 Geth 另验证错序拒绝。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
-24. 下一轮核验区块交易正文承诺。按声明顺序取得原始签名交易，逐笔校验哈希并重算 `transactionsRoot`，将回执位置绑定到同一块的交易正文。验证原文缺失、哈希不符和 RPC 伪造交易列表的拒绝。
+24. EVM 回执逐笔核对签名交易原文的哈希，按声明顺序重算 `transactionsRoot`，将回执位置绑定到同块交易正文。Anvil 单笔、Geth 中间交易及 Geth 末笔交易各 24 个回执通过。三组分别检查原文缺失与哈希不符，两组 Geth 另检查有效签名字节与同步伪造交易列表和回执元数据的拒绝。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
+25. 下一轮核对 EVM 回放输入的来源状态。按固定 H 块头验证账户存在性、nonce、余额、代码哈希和使用的存储证明，检查缺失证明、来源根错配和存储变化拒绝。
 
 ### I7 真实来源和恢复
 

@@ -11,6 +11,8 @@ use xone_simulation::evm_fixture::{
     EvmStatus, FixtureState, SimulationOutcome, BEACON_ROOTS_ADDRESS,
 };
 
+mod transactions;
+
 #[derive(RlpEncodable)]
 struct Withdrawal {
     index: u64,
@@ -104,14 +106,18 @@ fn verify_execution_header(block: &Value, fork: &str) -> Result<()> {
     }
     .encode(&mut raw);
     raw.extend(payload);
-    let mut hash = [0; 32];
-    let mut keccak = Keccak::v256();
-    keccak.update(&raw);
-    keccak.finalize(&mut hash);
-    if block["hash"] != format!("0x{}", hex::encode(hash)) {
+    if block["hash"] != format!("0x{}", hex::encode(keccak256(&raw))) {
         return Err(bad());
     }
     Ok(())
+}
+
+fn keccak256(bytes: &[u8]) -> [u8; 32] {
+    let mut hash = [0; 32];
+    let mut keccak = Keccak::v256();
+    keccak.update(bytes);
+    keccak.finalize(&mut hash);
+    hash
 }
 
 #[derive(RlpEncodable)]
@@ -164,7 +170,6 @@ fn committed_receipt<'a>(
         let kind = quantity_u64(&receipt["type"])?;
         let cumulative_gas = quantity_u64(&receipt["cumulativeGasUsed"])?;
         let gas = quantity_u64(&receipt["gasUsed"])?;
-        receipt_bytes::<32>(transaction)?;
         if receipt["transactionHash"] != *transaction
             || receipt["blockHash"] != block["hash"]
             || receipt["blockNumber"] != block["number"]
@@ -319,6 +324,7 @@ async fn observe(
     if local.execution.logs_hash.as_deref() != Some(hash(&logs)?.as_str()) {
         return Err(bad());
     }
+    transactions::verify(api, chain, &block, transactions).await?;
     let source = &fixture.state_anchor.block_hash;
     let execution = &env.block_hash;
     if let Some(root) = &env.parent_beacon_block_root {
@@ -408,7 +414,7 @@ async fn observe(
         },
         "transactionHash":tx,"sourceBlockHash":source,"blockHash":execution,
         "transactionIndex":index,"success":local.execution.status == EvmStatus::Success,
-        "receiptsRoot":block["receiptsRoot"],
+        "receiptsRoot":block["receiptsRoot"],"transactionsRoot":block["transactionsRoot"],
         "gasUsed":local.execution.gas_used,"logsHash":local.execution.logs_hash,
         "payerNativeBefore":payer_before,"payerNativeAfter":payer_after,
         "localReceiptHash":local.receipt_hash,"actualInputConsumed":local.actual_input_consumed,

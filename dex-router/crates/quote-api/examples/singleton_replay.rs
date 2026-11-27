@@ -271,6 +271,10 @@ async fn assert_replay(
         assert_eq!(observed["nodeReceipt"]["success"], true);
         assert_eq!(observed["nodeReceipt"]["receiptsRoot"], mined.receipts_root);
         assert_eq!(
+            observed["nodeReceipt"]["transactionsRoot"],
+            mined.transactions_root
+        );
+        assert_eq!(
             observed["nodeReceipt"]["transactionHash"],
             signed["transactionHash"]
         );
@@ -293,6 +297,8 @@ async fn assert_replay(
             node::Fault::Logs,
             node::Fault::ReceiptsMissing,
             node::Fault::ReceiptBloom,
+            node::Fault::TransactionMissing,
+            node::Fault::TransactionWire,
             node::Fault::Balance,
             node::Fault::PayerBalance,
             node::Fault::Reorg,
@@ -314,6 +320,7 @@ async fn assert_replay(
             );
             faults.extend([
                 node::Fault::ReceiptsOrder,
+                node::Fault::TransactionBody,
                 node::Fault::IgnoreTraceIndex,
                 node::Fault::BeaconRoot,
                 node::Fault::BeaconStorage,

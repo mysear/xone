@@ -42,6 +42,9 @@ pub(super) enum Fault {
     ReceiptsMissing,
     ReceiptsOrder,
     ReceiptBloom,
+    TransactionMissing,
+    TransactionWire,
+    TransactionBody,
     Balance,
     PayerBalance,
     Reorg,
@@ -59,10 +62,12 @@ pub(super) struct Mined {
     deadline: u64,
     pub(super) signed: Value,
     pub(super) receipts_root: String,
+    pub(super) transactions_root: String,
     pub(super) withdrawals_root: Option<String>,
     payer: String,
     transaction_index: u64,
     final_target: bool,
+    alternate_prefix: Option<Value>,
     fault: Arc<Mutex<Option<Fault>>>,
     execution_reads: Arc<AtomicUsize>,
 }
@@ -277,7 +282,7 @@ impl Node {
             bundle,
             bundle.transaction_context.nonce,
         );
-        if self.control.is_some() {
+        let alternate_prefix = if self.control.is_some() {
             let mut prefix_context = bundle.clone();
             prefix_context.transaction_context.max_priority_fee_per_gas =
                 Some("4".parse().unwrap());
@@ -289,7 +294,15 @@ impl Node {
             );
             self.rpc("eth_sendRawTransaction", json!([prefix["signedWire"]]))
                 .await;
-        }
+            Some(sign_transaction_with_key(
+                &json!({"to":"0x00000000000000000000000000000000000000ff","data":"0x","value":"2"}),
+                &prefix_context,
+                0,
+                2,
+            ))
+        } else {
+            None
+        };
         let tx = self
             .rpc("eth_sendRawTransaction", json!([signed["signedWire"]]))
             .await;
@@ -412,10 +425,12 @@ impl Node {
             deadline,
             signed,
             receipts_root: field(&execution, "receiptsRoot"),
+            transactions_root: field(&execution, "transactionsRoot"),
             withdrawals_root,
             payer: field(&case["context"], "caller"),
             transaction_index,
             final_target,
+            alternate_prefix,
             fault: Arc::new(Mutex::new(None)),
             execution_reads: Arc::new(AtomicUsize::new(0)),
         }
@@ -454,10 +469,12 @@ impl Mined {
         let payer = self.payer.clone();
         let final_target = self.final_target;
         let index = self.transaction_index as usize;
+        let alternate_prefix = self.alternate_prefix.clone();
         axum::Router::new().route(
             "/",
             axum::routing::post(move |axum::Json(mut request): axum::Json<Value>| {
                 let payer = payer.clone();
+                let alternate_prefix = alternate_prefix.clone();
                 let (node, fault, execution_reads) = (
                     node.clone(),
                     *fault.lock().unwrap(),
@@ -493,6 +510,29 @@ impl Mined {
                         }
                         (Some(Fault::ReceiptBloom), "eth_getBlockReceipts") => {
                             result[index]["logsBloom"] = format!("0x{}", "00".repeat(256)).into();
+                        }
+                        (Some(Fault::TransactionMissing), "eth_getRawTransactionByHash") => {
+                            *result = Value::Null;
+                        }
+                        (Some(Fault::TransactionWire), "eth_getRawTransactionByHash") => {
+                            *result = "0x01".into();
+                        }
+                        (Some(Fault::TransactionBody), "eth_getBlockByNumber")
+                            if request["params"][0] == "0x2" =>
+                        {
+                            result["transactions"][0] =
+                                alternate_prefix.as_ref().unwrap()["transactionHash"].clone();
+                        }
+                        (Some(Fault::TransactionBody), "eth_getBlockReceipts") => {
+                            assert!(result[0]["logs"].as_array().unwrap().is_empty());
+                            result[0]["transactionHash"] =
+                                alternate_prefix.as_ref().unwrap()["transactionHash"].clone();
+                        }
+                        (Some(Fault::TransactionBody), "eth_getRawTransactionByHash")
+                            if request["params"][0]
+                                == alternate_prefix.as_ref().unwrap()["transactionHash"] =>
+                        {
+                            *result = alternate_prefix.as_ref().unwrap()["signedWire"].clone();
                         }
                         (Some(Fault::Balance), "eth_getBalance") if !final_target => {
                             *result = "0x1".into();
