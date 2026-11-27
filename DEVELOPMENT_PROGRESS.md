@@ -414,7 +414,8 @@
 22. 重建 Meteora 原版 Token-2022 的 120 个场景和 168 个执行步骤，投影五个受控钱包 bank。钱包生命周期与独立 SBF HTTP 测试各一项通过。生命周期覆盖八条回执路径，并验证并发提交只发送一次、确切签名字节、费用读数 slot 顺序和日志重启恢复。Solana 测试从原 bank 构造快照，浏览器专用池由浏览器 harness 单独安装。浏览器 harness 编译通过。 [复验说明](integration/tools/reference/meteora-dlmm/harness/README.md#钱包提交与回执恢复)
 23. EVM 节点回执按块哈希读取全块回执，按交易顺序重算 `receiptsRoot`，检查区块内连续日志索引，并从相邻累计值核对每笔交易的 gas。Anvil 单笔、Geth 中间交易及 Geth 末笔交易各 24 个回执通过。三组分别验证缺项、gas、日志和 bloom 篡改，两组 Geth 另验证错序拒绝。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 24. EVM 回执逐笔核对签名交易原文的哈希，按声明顺序重算 `transactionsRoot`，将回执位置绑定到同块交易正文。Anvil 单笔、Geth 中间交易及 Geth 末笔交易各 24 个回执通过。三组分别检查原文缺失与哈希不符，两组 Geth 另检查有效签名字节与同步伪造交易列表和回执元数据的拒绝。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
-25. 下一轮核对 EVM 回放输入的来源状态。按固定 H 块头验证账户存在性、nonce、余额、代码哈希和使用的存储证明，检查缺失证明、来源根错配和存储变化拒绝。
+25. EVM 回执重建来源 H 块头，验证账户存在性、nonce、余额、代码哈希和声明存储的 MPT 证明，回传 `sourceStateRoot`。本地出块夹具排除不存在的账户和零值存储。Anvil 单笔、Geth 中间交易及末笔交易各 24 个回执通过，三组均验证来源根篡改、缺失账户证明和存储值篡改的拒绝。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
+26. 下一轮核对 REVM `BLOCKHASH` 读数，沿来源块父哈希核对声明的 256 块范围及连续头，并验证不一致或缺失的中间祖先头。
 
 ### I7 真实来源和恢复
 

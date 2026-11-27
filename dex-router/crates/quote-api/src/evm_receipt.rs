@@ -11,6 +11,7 @@ use xone_simulation::evm_fixture::{
     EvmStatus, FixtureState, SimulationOutcome, BEACON_ROOTS_ADDRESS,
 };
 
+mod source_state;
 mod transactions;
 
 #[derive(RlpEncodable)]
@@ -325,6 +326,7 @@ async fn observe(
         return Err(bad());
     }
     transactions::verify(api, chain, &block, transactions).await?;
+    let source_state_root = source_state::verify(api, chain, fixture).await?;
     let source = &fixture.state_anchor.block_hash;
     let execution = &env.block_hash;
     if let Some(root) = &env.parent_beacon_block_root {
@@ -412,7 +414,7 @@ async fn observe(
         } else {
             "TRANSACTION_INDEX"
         },
-        "transactionHash":tx,"sourceBlockHash":source,"blockHash":execution,
+        "transactionHash":tx,"sourceBlockHash":source,"sourceStateRoot":source_state_root,"blockHash":execution,
         "transactionIndex":index,"success":local.execution.status == EvmStatus::Success,
         "receiptsRoot":block["receiptsRoot"],"transactionsRoot":block["transactionsRoot"],
         "gasUsed":local.execution.gas_used,"logsHash":local.execution.logs_hash,

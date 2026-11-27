@@ -275,6 +275,10 @@ async fn assert_replay(
             mined.transactions_root
         );
         assert_eq!(
+            observed["nodeReceipt"]["sourceStateRoot"],
+            mined.source_state_root
+        );
+        assert_eq!(
             observed["nodeReceipt"]["transactionHash"],
             signed["transactionHash"]
         );
@@ -299,6 +303,9 @@ async fn assert_replay(
             node::Fault::ReceiptBloom,
             node::Fault::TransactionMissing,
             node::Fault::TransactionWire,
+            node::Fault::SourceRoot,
+            node::Fault::SourceProofMissing,
+            node::Fault::SourceStorage,
             node::Fault::Balance,
             node::Fault::PayerBalance,
             node::Fault::Reorg,
@@ -342,6 +349,9 @@ async fn assert_replay(
                 node::Fault::Reorg => "EVM_NODE_RECEIPT_REORGED",
                 node::Fault::WithdrawalBalance => {
                     "EVM_NODE_RECEIPT_PRE_WITHDRAWAL_STATE_UNAVAILABLE"
+                }
+                node::Fault::SourceProofMissing | node::Fault::SourceStorage => {
+                    "EVM_NODE_RECEIPT_SOURCE_STATE_MISMATCH"
                 }
                 _ => "EVM_NODE_RECEIPT_MISMATCH",
             };

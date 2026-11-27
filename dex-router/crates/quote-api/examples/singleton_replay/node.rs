@@ -45,6 +45,9 @@ pub(super) enum Fault {
     TransactionMissing,
     TransactionWire,
     TransactionBody,
+    SourceRoot,
+    SourceProofMissing,
+    SourceStorage,
     Balance,
     PayerBalance,
     Reorg,
@@ -63,6 +66,7 @@ pub(super) struct Mined {
     pub(super) signed: Value,
     pub(super) receipts_root: String,
     pub(super) transactions_root: String,
+    pub(super) source_state_root: String,
     pub(super) withdrawals_root: Option<String>,
     payer: String,
     transaction_index: u64,
@@ -92,14 +96,17 @@ impl Node {
         now: u64,
     ) -> Self {
         let env = &bundle.fixture.execution_environment;
+        let zero_word = format!("0x{:064x}", 0);
         let mut alloc = bundle
             .fixture
             .accounts
             .iter()
+            .filter(|account| account.exists)
             .map(|account| {
                 let storage = account
                     .storage
                     .iter()
+                    .filter(|entry| entry.value != zero_word)
                     .map(|entry| (&entry.slot, &entry.value))
                     .collect::<BTreeMap<_, _>>();
                 (
@@ -426,6 +433,7 @@ impl Node {
             signed,
             receipts_root: field(&execution, "receiptsRoot"),
             transactions_root: field(&execution, "transactionsRoot"),
+            source_state_root: field(&source, "stateRoot"),
             withdrawals_root,
             payer: field(&case["context"], "caller"),
             transaction_index,
@@ -533,6 +541,20 @@ impl Mined {
                                 == alternate_prefix.as_ref().unwrap()["transactionHash"] =>
                         {
                             *result = alternate_prefix.as_ref().unwrap()["signedWire"].clone();
+                        }
+                        (Some(Fault::SourceRoot), "eth_getBlockByHash") => {
+                            result["stateRoot"] = format!("0x{}", "01".repeat(32)).into();
+                        }
+                        (Some(Fault::SourceProofMissing), "eth_getProof") => {
+                            result["accountProof"] = json!([]);
+                        }
+                        (Some(Fault::SourceStorage), "eth_getProof") => {
+                            if let Some(row) = result["storageProof"]
+                                .as_array_mut()
+                                .and_then(|rows| rows.first_mut())
+                            {
+                                row["value"] = if row["value"] == "0x1" {"0x2"} else {"0x1"}.into();
+                            }
                         }
                         (Some(Fault::Balance), "eth_getBalance") if !final_target => {
                             *result = "0x1".into();
