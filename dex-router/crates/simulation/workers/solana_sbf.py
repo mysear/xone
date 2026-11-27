@@ -304,11 +304,19 @@ def main():
     reward_program=preparation.get('rewardTokenProgram') if claim else None
     wire=base64.b64decode(preparation['unsignedTransaction'],validate=True)
     require(len(wire)<=1232 and wire[:1]==b'\x01' and wire[1:65]==bytes(64),'SBF_UNSIGNED_REQUIRED')
+    signed=request.get('signedTransaction')
+    if signed is not None:
+        signed_wire=base64.b64decode(signed,validate=True)
+        require(len(signed_wire)==len(wire) and signed_wire[:1]==b'\x01'
+                and signed_wire[65:]==wire[65:],'SBF_SIGNED_MESSAGE_MISMATCH')
+        wire=signed_wire
     tx=Transaction.from_bytes(wire)
     require(tx.message.header.num_required_signatures==1 and str(tx.message.account_keys[0])==request['caller'],'SBF_CALLER_SIGNER')
     require(bytes(tx.message)==base64.b64decode(preparation['messageBase64'],validate=True),'SBF_MESSAGE_BINDING')
+    if signed is not None:
+        require(str(tx.message.recent_blockhash)==preparation['recentBlockhash'],'SBF_BLOCKHASH_MISMATCH')
     budget=ComputeBudget(True);budget.compute_unit_limit=limit
-    svm=LiteSVM().with_mainnet_features().with_compute_budget(budget).with_blockhash_check(False).with_sigverify(False)
+    svm=LiteSVM().with_mainnet_features().with_compute_budget(budget).with_blockhash_check(False).with_sigverify(signed is not None)
     # Local and preparation-RPC banks both run under explicitly pinned VM
     # features; neither a slot label nor latest account RPC proves consensus.
     # The captured blockhash is used as message bytes only. Live signed RPC
@@ -592,7 +600,10 @@ def main():
     account_evidence=[]
     for key in sorted(post):
         a=post[key];account_evidence.append(dict(address=key,owner=str(a.owner),lamports=str(a.lamports),executable=a.executable,dataSha256=hashlib.sha256(a.data).hexdigest(),dataBytes=len(a.data)))
-    return dict(protocol=PROTOCOL,success=True,actualInput=str(paid),actualOutput=str(received),feeLamports=str(fee),payerLamportDelta=str(native_after.lamports-native_before),unitsConsumed=native['meta']['compute_units_consumed'],maxComputeUnits=limit,sourceBankUnchanged=True,transactionSha256=hashlib.sha256(wire).hexdigest(),postAccounts=account_evidence,postAccountsHash=hashlib.sha256(json.dumps(account_evidence,sort_keys=True,separators=(',',':')).encode()).hexdigest(),independentProductionVerification=False,signed=False,submitted=False)
+    evidence = dict(protocol=PROTOCOL,success=True,actualInput=str(paid),actualOutput=str(received),feeLamports=str(fee),payerLamportDelta=str(native_after.lamports-native_before),unitsConsumed=native['meta']['compute_units_consumed'],maxComputeUnits=limit,sourceBankUnchanged=True,transactionSha256=hashlib.sha256(wire).hexdigest(),postAccounts=account_evidence,postAccountsHash=hashlib.sha256(json.dumps(account_evidence,sort_keys=True,separators=(',',':')).encode()).hexdigest(),independentProductionVerification=False,signed=signed is not None,submitted=False)
+    if signed is not None:
+        evidence['walletSignature'] = str(tx.signatures[0])
+    return evidence
 
 if __name__=='__main__':
     try:result=main()

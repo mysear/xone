@@ -396,7 +396,7 @@
 4. `checkEvmReceipt` 将签名回放与固定 H/H+1 的节点回执、gas、有序日志和前后余额比对。Anvil 1.4.4 Cancun 节点实际出块的 24 组 HTTP 样本通过，另分别通过 24 组错误 gas、日志、余额和重组注入拒绝。当前证据范围为无提款的单交易块，来源标记 `CANONICAL_RPC_OBSERVED`。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 5. 多交易块按交易索引读取目标交易前后的状态，核对发送方 nonce、到账余额、gas 和有序日志。24 个由 Geth v1.16.7 出块的三交易样本通过，目标交换位于中间，后续交易再次使用同一发送方。错误 gas、日志、余额、重组及节点忽略交易索引分别通过 24 组拒绝验收。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
 6. Cancun 固定回放支持 EIP-4788，用户交易执行前应用父信标块根。校验固定系统合约代码及环形缓冲区槽位，节点回执比对同时检查区块头、H 上代码与 H+1 两个槽位。24 组 Geth 样本通过，错误区块根和错误存储证据分别通过 24 组拒绝。13 项仿真 crate 单测通过，6 项需要留存原版 OP 语料的测试保持忽略。
-7. EVM 接续验收更多链规则与 L1 数据费。Solana 同阶段验收版本化 bank、SBF、Token CPI、账户锁、有效 blockhash、签名和实际回执，再逐链复核生产执行能力条件。
+7. Solana SBF 入口现接受可选 `signedTransaction`，复用严格 Ed25519 wire 验证，要求消息、付款人、签名哈希和准备阶段 blockhash 一致，并在 LiteSVM 开启签名校验。签名证据返回 `walletSignature`、交易及消息摘要，未签名证据仍作为提交门禁。现有固定 bank 的正常签名和回执联测继续按完整钱包生命周期验收。
 
 ### I7 真实来源和恢复
 

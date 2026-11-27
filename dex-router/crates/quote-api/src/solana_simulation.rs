@@ -92,10 +92,17 @@ pub(crate) fn current(api: &Api, p: &Prepared) -> Result<()> {
     }
     Ok(())
 }
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SimulationRequest {
+    signed_transaction: Option<String>,
+}
+
 pub(crate) async fn simulate(
     State(api): State<Api>,
     headers: HeaderMap,
     Path((id, preparation)): Path<(String, String)>,
+    body: Bytes,
 ) -> std::result::Result<Json<Value>, HttpError> {
     api.authorize(&headers).map_err(failure)?;
     api.rate_limit().map_err(failure)?;
@@ -104,6 +111,12 @@ pub(crate) async fn simulate(
         .clone()
         .try_acquire_owned()
         .map_err(|_| failure(err("RATE_LIMITED")))?;
+    let request = if body.is_empty() {
+        SimulationRequest::default()
+    } else {
+        serde_json::from_slice::<SimulationRequest>(&body)
+            .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?
+    };
     let p = selected(&api, &id, &preparation).map_err(failure)?;
     let engine = api
         .solana_sbf
@@ -119,13 +132,32 @@ pub(crate) async fn simulate(
     if !engine.available(&p.pool, &chain.genesis_hash) {
         return Err(failure(err("SBF_BANK_NOT_COVERED")));
     }
-    let mut evidence = if engine.uses_rpc_capture() {
+    let capture = if engine.uses_rpc_capture() {
         let captured = p
             .accounts
             .as_ref()
             .ok_or_else(|| failure(err("SBF_CAPTURE_REQUIRED")))?;
-        let value = serde_json::to_value(&**captured)
-            .map_err(|_| failure(err("SBF_CAPTURE_BINDING_INVALID")))?;
+        Some(
+            serde_json::to_value(&**captured)
+                .map_err(|_| failure(err("SBF_CAPTURE_BINDING_INVALID")))?,
+        )
+    } else {
+        None
+    };
+    let mut evidence = if let Some(signed) = &request.signed_transaction {
+        engine
+            .simulate_signed(
+                &p.pool,
+                &p.context.caller,
+                &p.context.recipient,
+                &p.context.sell_token,
+                &p.context.buy_token,
+                &p.result,
+                capture.as_ref(),
+                signed,
+            )
+            .await
+    } else if let Some(value) = &capture {
         engine
             .simulate_captured(
                 &p.pool,
@@ -134,10 +166,9 @@ pub(crate) async fn simulate(
                 &p.context.sell_token,
                 &p.context.buy_token,
                 &p.result,
-                &value,
+                value,
             )
             .await
-            .map_err(failure)?
     } else {
         engine
             .simulate(
@@ -149,8 +180,8 @@ pub(crate) async fn simulate(
                 &p.result,
             )
             .await
-            .map_err(failure)?
-    };
+    }
+    .map_err(failure)?;
     let cost_source = if engine.uses_rpc_capture() {
         native_economics::Source::CapturedSbf
     } else {
@@ -170,13 +201,17 @@ pub(crate) async fn simulate(
         .ok_or_else(|| failure(err("SBF_WORKER_RESPONSE")))?
         .remove("evidenceHash");
     evidence["evidenceHash"] = hash(&evidence).map_err(failure)?.into();
-    if let Some(cached) = api
-        .preparations
-        .lock()
-        .map_err(|_| failure(err("CACHE_LOCK")))?
-        .get_mut(&preparation)
-    {
-        cached.evidence = Some(evidence.clone());
+    // Signed simulation evidence is returned to the requester. The unsigned
+    // evidence remains the preparation commitment used by wallet submission.
+    if request.signed_transaction.is_none() {
+        if let Some(cached) = api
+            .preparations
+            .lock()
+            .map_err(|_| failure(err("CACHE_LOCK")))?
+            .get_mut(&preparation)
+        {
+            cached.evidence = Some(evidence.clone());
+        }
     }
     Ok(Json(evidence))
 }

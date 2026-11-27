@@ -1,4 +1,5 @@
 //! Isolated local-bank SBF execution. No RPC, keys, signing or broadcasting.
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -19,6 +20,7 @@ use tokio::{
     sync::Semaphore,
 };
 use xone_domain::{err, hash, Pool, Result};
+use xone_execution_plan::solana_signed::verify;
 const WORKER: &str = include_str!("../workers/solana_sbf.py");
 pub const PROTOCOL: &str = "xone-local-sbf/1";
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -306,7 +308,7 @@ impl Engine {
         buy: &str,
         preparation: &Value,
     ) -> Result<Value> {
-        self.simulate_inner(pool, caller, recipient, sell, buy, preparation, None)
+        self.simulate_inner(pool, caller, recipient, sell, buy, preparation, None, None)
             .await
     }
     #[allow(clippy::too_many_arguments)]
@@ -331,6 +333,34 @@ impl Engine {
             buy,
             preparation,
             Some(capture),
+            None,
+        )
+        .await
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub async fn simulate_signed(
+        &self,
+        pool: &Pool,
+        caller: &str,
+        recipient: &str,
+        sell: &str,
+        buy: &str,
+        preparation: &Value,
+        capture: Option<&Value>,
+        signed: &str,
+    ) -> Result<Value> {
+        if capture.is_some() && !self.manifest.rpc_capture {
+            return Err(err("SBF_CAPTURE_NOT_ENABLED"));
+        }
+        self.simulate_inner(
+            pool,
+            caller,
+            recipient,
+            sell,
+            buy,
+            preparation,
+            capture,
+            Some(signed),
         )
         .await
     }
@@ -344,6 +374,7 @@ impl Engine {
         buy: &str,
         preparation: &Value,
         capture: Option<&Value>,
+        signed: Option<&str>,
     ) -> Result<Value> {
         let _permit = self
             .permits
@@ -366,9 +397,28 @@ impl Engine {
         {
             return Err(err("SBF_PREPARATION_INVALID"));
         }
+        let signed_info = signed
+            .map(|wire| -> Result<_> {
+                let decode = |value: &str| {
+                    if value.len() > 1644 {
+                        return Err(err("SIGNED_TRANSACTION_INVALID"));
+                    }
+                    STANDARD
+                        .decode(value)
+                        .map_err(|_| err("SIGNED_TRANSACTION_INVALID"))
+                };
+                let unsigned = preparation["unsignedTransaction"]
+                    .as_str()
+                    .ok_or_else(|| err("SBF_PREPARATION_INVALID"))?;
+                verify(&decode(unsigned)?, &decode(wire)?, caller)
+            })
+            .transpose()?;
         let orca_claim = preparation["operation"] == "ORCA_COLLECT_REWARD";
         let rayclmm_claim = preparation["operation"] == "RAYCLMM_COLLECT_POSITION";
         let claim = orca_claim || rayclmm_claim;
+        if claim && signed.is_some() {
+            return Err(err("SBF_SIGNED_CLAIM_UNSUPPORTED"));
+        }
         if claim
             && (capture.is_none()
                 || preparation["authority"] != caller
@@ -469,7 +519,10 @@ impl Engine {
             }
             bank
         };
-        let request = json!({"protocol":PROTOCOL,"bank":bank.value,"preparation":preparation,"caller":caller,"recipient":recipient,"sellToken":sell,"buyToken":buy,"maxComputeUnits":self.manifest.max_compute_units});
+        let mut request = json!({"protocol":PROTOCOL,"bank":bank.value,"preparation":preparation,"caller":caller,"recipient":recipient,"sellToken":sell,"buyToken":buy,"maxComputeUnits":self.manifest.max_compute_units});
+        if let Some(signed) = signed {
+            request["signedTransaction"] = signed.into();
+        }
         let bytes = serde_json::to_vec(&request).map_err(|_| err("SBF_PREPARATION_INVALID"))?;
         if bytes.len() > 16 * 1024 * 1024 {
             return Err(err("SBF_WORKER_INPUT_LIMIT"));
@@ -600,6 +653,15 @@ impl Engine {
             "LOCAL_SBF_SIMULATED"
         }
         .into();
+        if let Some(info) = signed_info {
+            if result["signed"] != true
+                || result["walletSignature"] != info.signature
+                || result["transactionSha256"] != info.transaction_sha256
+            {
+                return Err(err("SBF_WORKER_RESPONSE"));
+            }
+            result["messageSha256"] = info.message_sha256.into();
+        }
         result["accountSource"] = if capture.is_some() {
             "PREPARATION_RPC_CAPTURE"
         } else {
