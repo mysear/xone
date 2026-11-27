@@ -1658,8 +1658,8 @@ impl BoundSource<'_> {
             Self::SharedSuffix(b, executor) => {
                 let mut seen = BTreeSet::new();
                 BoundView {
-                    context: &b.basis_plan.context,
-                    snapshot: &b.basis_plan.snapshot,
+                    context: b.context(),
+                    snapshot: b.snapshot(),
                     transaction: &b.transaction,
                     executor: &executor.router,
                     touched_pool_ids: b
@@ -1934,7 +1934,7 @@ fn simulate_execution(
     let input = match source {
         BoundSource::ExactIn(b, _) => &b.plan.allocation.sell_amount,
         BoundSource::ExactOut(b, _) => &b.plan.allocation.required_input,
-        BoundSource::SharedSuffix(b, _) => &b.basis_plan.allocation.sell_amount,
+        BoundSource::SharedSuffix(b, _) => &b.sell_amount,
         BoundSource::Split(b, _, _, _) => match &b.plan {
             SplitPlan::ExactIn(p) => &p.allocation.sell_amount,
             SplitPlan::ExactOut(p) => &p.allocation.required_input,
@@ -2171,17 +2171,22 @@ fn simulate_execution(
         })?;
     enum Amounts<'a> {
         In(&'a Amount, &'a Amount),
-        Out(&'a xone_execution_plan::exact_out::ExactOutPlan),
+        Out(&'a Amount, &'a Amount),
     }
     let amounts = match source {
         BoundSource::ExactIn(b, _) => {
             Amounts::In(&b.plan.allocation.gross_buy_amount, &b.plan.min_buy_amount)
         }
-        BoundSource::ExactOut(b, _) => Amounts::Out(&b.plan),
-        BoundSource::SharedSuffix(b, _) => Amounts::In(&b.buy_amount, &b.min_buy_amount),
+        BoundSource::ExactOut(b, _) => {
+            Amounts::Out(&b.plan.allocation.target_output, &b.plan.max_sell_amount)
+        }
+        BoundSource::SharedSuffix(b, _) => match &b.basis_plan {
+            SplitPlan::ExactIn(_) => Amounts::In(&b.buy_amount, &b.min_buy_amount),
+            SplitPlan::ExactOut(_) => Amounts::Out(&b.buy_amount, &b.max_sell_amount),
+        },
         BoundSource::Split(b, _, _, _) => match &b.plan {
             SplitPlan::ExactIn(p) => Amounts::In(&p.allocation.gross_buy_amount, &p.min_buy_amount),
-            SplitPlan::ExactOut(p) => Amounts::Out(p),
+            SplitPlan::ExactOut(p) => Amounts::Out(&p.allocation.target_output, &p.max_sell_amount),
         },
     };
     let (mut matches_plan, unused_input_budget) = match amounts {
@@ -2192,8 +2197,8 @@ fn simulate_execution(
                 && bought >= amount(minimum)?,
             None,
         ),
-        Amounts::Out(p) => {
-            let maximum = amount(&p.max_sell_amount)?;
+        Amounts::Out(output, maximum) => {
+            let maximum = amount(maximum)?;
             let unused = maximum.checked_sub(spent).ok_or_else(|| {
                 runner.error(
                     SimulationBalanceDirection,
@@ -2203,8 +2208,8 @@ fn simulate_execution(
             })?;
             (
                 status == EvmStatus::Success
-                    && spent == amount(&p.allocation.required_input)?
-                    && bought == amount(&p.allocation.target_output)?,
+                    && spent == amount(input)?
+                    && bought == amount(output)?,
                 Some(as_amount(unused)?),
             )
         }

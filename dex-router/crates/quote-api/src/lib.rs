@@ -1720,7 +1720,13 @@ fn publish_exact_out_simulation(
                 return Err(failure(err("EVM_PREPARATION_REPLACED")));
             }
         }
-        current.simulation_evidence = Some(response.clone());
+        if let Some(candidate) = response.get("sharedSuffixCandidateHash") {
+            if current.response["quality"]["sharedSuffix"]["candidateHash"] != *candidate {
+                return Err(failure(err("EXECUTION_SHARED_SUFFIX_HASH_MISMATCH")));
+            }
+        } else {
+            current.simulation_evidence = Some(response.clone());
+        }
     }
     if response["verification"]["success"] == true {
         api.metrics

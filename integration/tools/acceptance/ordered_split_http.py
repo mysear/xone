@@ -313,9 +313,11 @@ def shared_suffix_scenario(binary, bank, report, output):
                 except urllib.error.HTTPError as error:
                     return error.code, json.load(error)
 
-            status, quote = post('/v1/quote', info['request'])
+            exact_out = report['binding']['cases'][0]['exactOut']
+            endpoint, key = ('quote-exact-out', 'exactOutRequest') if exact_out else ('quote', 'request')
+            status, quote = post('/v1/' + endpoint, info[key])
             require(status == 200, str(quote))
-            audit_shared_suffix(quote, report['binding']['pools'])
+            audit_shared_suffix(quote, report['binding']['pools'], exact_out)
             candidate = quote['quality']['sharedSuffix']
             path = f"/v1/quotes/{quote['quoteId']}/simulate"
             status, replay = post(path, {'sharedSuffixCandidateHash': candidate['candidateHash']})
@@ -325,7 +327,13 @@ def shared_suffix_scenario(binary, bank, report, output):
                     and replay['sharedSuffixCandidateHash'] == candidate['candidateHash']
                     and replay['transaction']['to'] == report['binding']['executor']['target']
                     and outcome['actual_buy_amount'] == candidate['candidate']['buyAmount']
-                    and outcome['actual_input_consumed'] == quote['sellAmount'], 'candidate replay mismatch')
+                    and outcome['actual_input_consumed'] == candidate['candidate']['sellAmount'],
+                    'candidate replay mismatch')
+            if exact_out:
+                required = int(outcome['actual_input_consumed'])
+                cap = min((required * 10050 + 9999) // 10000, int(quote['inputBudget']))
+                require(int(outcome['unused_input_budget']) == cap - required and
+                        outcome['actual_buy_amount'] == quote['buyAmount'], 'ExactOut limit mismatch')
             require(replay['authority'] == 'PROVIDED_LOCAL_STATE' and not replay['verified']
                     and replay['costs']['callerApproval']['status'] == 'SUFFICIENT',
                     'candidate evidence scope or allowance')

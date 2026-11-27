@@ -399,10 +399,11 @@ pub fn build(
     }
     // Round upward, then cap by the user's hard budget. Wide intermediate math
     // permits an input close to uint256::MAX without overflowing before the cap.
-    let slippage_cap = (&input * BigUint::from(10000u32 + u32::from(context.slippage_bps))
-        + BigUint::from(9999u32))
-        / BigUint::from(10000u32);
-    let maximum = Amount::checked(slippage_cap.min(allocation.input_budget.0.clone()))?;
+    let maximum = maximum_input(
+        &allocation.required_input,
+        &allocation.input_budget,
+        context.slippage_bps,
+    )?;
     let minimum = allocation.target_output.clone();
     let commitment = hash(&serde_json::json!({"engine": ENGINE, "context": context,
         "snapshot": snapshot, "allocation": allocation, "min_buy_amount": minimum,
@@ -417,6 +418,17 @@ pub fn build(
         economic_policy_hash: policy.into(),
         plan_hash: commitment,
     })
+}
+
+pub(crate) fn maximum_input(
+    required: &Amount,
+    budget: &Amount,
+    slippage_bps: u16,
+) -> Result<Amount> {
+    let slippage_cap = (&required.0 * BigUint::from(10000u32 + u32::from(slippage_bps))
+        + BigUint::from(9999u32))
+        / BigUint::from(10000u32);
+    Amount::checked(slippage_cap.min(budget.0.clone()))
 }
 
 pub fn verify(plan: &ExactOutPlan) -> Result<()> {

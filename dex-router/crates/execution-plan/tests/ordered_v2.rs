@@ -95,18 +95,25 @@ fn fixture_from_bank(bank: &Value, i: usize) -> (SplitPlan, Vec<Pool>, SplitExec
         owner_assignment_version: 1,
     };
     let plan = if exact_out {
+        let budget = if c.get("joined").is_some() {
+            "100000000000000000000000".parse().unwrap()
+        } else {
+            serde_json::from_value(c["budget"].clone()).unwrap()
+        };
         let a = optimizer_out::evaluate_allocation(
             &pools,
             &outputs,
             &serde_json::from_value(c["output"].clone()).unwrap(),
-            &serde_json::from_value(c["budget"].clone()).unwrap(),
+            &budget,
             Funds {
                 sender: &ctx.caller,
                 recipient: &ctx.recipient,
             },
         )
         .unwrap();
-        assert_eq!(a.required_input.to_string(), c["input"]);
+        if c.get("joined").is_none() {
+            assert_eq!(a.required_input.to_string(), c["input"]);
+        }
         SplitPlan::ExactOut(exact_out::build(&ctx, &a, &snapshot, "split-policy").unwrap())
     } else {
         let a = evaluate_allocation(&pools, &inputs, &Amount::zero()).unwrap();
@@ -171,9 +178,7 @@ fn shared_suffix_binding_matches_mined_calldata_balances_and_pool_order() {
     assert_eq!(report["passed"], true);
     let bank = &report["binding"];
     for i in 0..2 {
-        let (SplitPlan::ExactIn(plan), pools, executor, c) = fixture_from_bank(bank, i) else {
-            panic!("expected ExactIn fixture");
-        };
+        let (plan, pools, executor, c) = fixture_from_bank(bank, i);
         let allowed = [executor.target.clone(), executor.router.target.clone()];
         let binding = shared_suffix::bind(&plan, &pools, &executor, &allowed).unwrap();
         assert_eq!(binding.transaction.data, c["data"]);
@@ -385,13 +390,11 @@ fn shared_suffix_worker_replays_both_mined_plans() {
     let bank = &report["executionBank"];
     let worker = std::env::var("XONE_SPLIT_WORKER").unwrap();
     for (i, run) in bank["runs"].as_array().unwrap().iter().enumerate() {
-        let (SplitPlan::ExactIn(plan), pools, executor, c) =
-            fixture_from_bank(&report["binding"], i)
-        else {
-            panic!("expected shared suffix ExactIn");
-        };
+        let (plan, pools, executor, c) = fixture_from_bank(&report["binding"], i);
         let allowed = [executor.target.clone(), executor.router.target.clone()];
         let bound = shared_suffix::bind(&plan, &pools, &executor, &allowed).unwrap();
+        assert_eq!(bound.transaction.data, run["data"]);
+        assert_eq!(bound.max_sell_amount.to_string(), c["budget"]);
         let mut request = bank_worker_request(bank, run, &pools, &allowed);
         request["shared_suffix"] = serde_json::json!({"bound":bound,"expected_executor":executor});
         let response = invoke(&worker, &request);

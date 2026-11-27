@@ -17,7 +17,7 @@ function original(name) {
   assert.equal(hash(bytes), pins.find(p => p.path === file).sha256);
   return JSON.parse(bytes);
 }
-async function replay(transport, captureBank, wrapped, shared) {
+async function replay(transport, captureBank, wrapped, shared, sharedExactOut) {
   assert.equal(solc.version(), '0.8.26+commit.8a97fa7a.Emscripten.clang');
   const sources = {'OrderedV2Split.sol': {content: src}};
   const contract = shared ? 'SharedV2Suffix' : 'OrderedV2Split';
@@ -83,48 +83,60 @@ async function replay(transport, captureBank, wrapped, shared) {
     const balances = async () => Promise.all([
       join.balanceOf(caller), join.balanceOf(batch.address), join.allowance(batch.address, router.address)
     ].map(async n => String(await n)));
-    const originalSwap = (amount, route, to) =>
-      router.swapExactTokensForTokens(amount, 0, route, to, deadline, {gasLimit: 3000000});
+    const originalSwap = (amount, route, to) => sharedExactOut
+      ? router.swapTokensForExactTokens(amount, max, route, to, deadline, {gasLimit: 3000000})
+      : router.swapExactTokensForTokens(amount, 0, route, to, deadline, {gasLimit: 3000000});
     for (const reverse of [false, true]) {
-      const prefixes = [
+      const legs = [
         [unit('110'), tokens.slice(0, 3).map(t => t.address)],
         [unit('70'), [sell.address, join.address]]
       ];
-      if (reverse) prefixes.reverse();
-      const input = unit('180');
+      if (reverse) legs.reverse();
+      const requested = unit('180');
+      let prefixes = legs;
+      if (sharedExactOut) {
+        const requiredJoin = (await router.getAmountsIn(requested, suffix))[0];
+        const first = requiredJoin.mul(legs[0][0]).div(requested);
+        prefixes = [[first, legs[0][1]], [requiredJoin.sub(first), legs[1][1]]];
+      }
       const before = await state();
       const joinBefore = await balances();
       for (const [amount, route] of prefixes) await mined(originalSwap(amount, route, caller));
       const joined = (await join.balanceOf(caller)).sub(joinBefore[0]);
-      await mined(originalSwap(joined, suffix, recipient));
+      await mined(originalSwap(sharedExactOut ? requested : joined, suffix, recipient));
       const expected = await state();
       const output = ethers.BigNumber.from(expected.balances[1]).sub(before.balances[1]);
       assert.deepEqual(await balances(), joinBefore);
-      assert.equal(String(ethers.BigNumber.from(before.balances[0]).sub(expected.balances[0])), String(input));
+      const input = ethers.BigNumber.from(before.balances[0]).sub(expected.balances[0]);
+      assert.equal(String(sharedExactOut ? output : input), String(requested));
       await restore();
 
-      const execute = (cap, minimum, expiry = deadline) =>
-        batch.executeExactIn(recipient, cap, minimum, expiry, prefixes, suffix,
+      const method = sharedExactOut ? 'executeExactOut' : 'executeExactIn';
+      const budget = sharedExactOut ? input.mul(10050).add(9999).div(10000) : input;
+      const execute = (cap, limit, expiry = deadline) =>
+        batch[method](recipient, cap, limit, expiry, prefixes, suffix,
           {gasLimit: 3000000, maxFeePerGas: 2000000000, maxPriorityFeePerGas: 100000000});
-      const receipt = await mined(execute(input, output));
+      const receipt = await mined(execute(budget, output));
       assert.deepEqual(await state(), expected);
       assert.deepEqual(await balances(), joinBefore);
       const swaps = receipt.logs.filter(l => l.topics[0] === pairs[0].interface.getEventTopic('Swap')).map(l => l.address);
       assert.deepEqual(swaps, (reverse ? [2, 0, 1, 3] : [0, 1, 2, 3]).map(i => pairs[i].address));
       if (bank) await bank.record(receipt);
       binding.cases.push({
-        exactOut: false, reverse, input: String(input), output: String(output), joined: String(joined),
-        legs: prefixes.map(([n, route]) => ({amount: String(n), tokens: [...route, buy.address].map(lower)})),
+        exactOut: sharedExactOut, reverse, input: String(input), output: String(output),
+        budget: String(budget), joined: String(joined),
+        legs: legs.map(([n, route]) => ({amount: String(n), tokens: [...route, buy.address].map(lower)})),
         poolOrder: swaps.map(lower), data: (await provider.getTransaction(receipt.transactionHash)).data,
         gasUsed: String(receipt.gasUsed)
       });
       await restore();
-      for (const [cap, minimum, expiry] of [
-        [input, output.add(1), deadline],
+      const failures = [
+        [budget, output.add(1), deadline],
         [input.sub(1), output, deadline],
-        [input.add(1), output, deadline],
-        [input, output, base.timestamp]
-      ]) {
+        [budget, output, base.timestamp]
+      ];
+      if (!sharedExactOut) failures.push([input.add(1), output, deadline]);
+      for (const [cap, minimum, expiry] of failures) {
         const failure = await execute(cap, minimum, expiry);
         await assert.rejects(failure.wait(), e => e.receipt?.status === 0 && e.receipt.logs.length === 0);
         assert.deepEqual(await state(), before);
@@ -326,15 +338,19 @@ async function splitBank(provider,base,{caller,recipient,batch,router,factory,we
 }
 async function main() {
   const wrapped = process.argv[3] === '--wrap-bank';
-  const shared = ['--shared-suffix', '--shared-suffix-bank'].includes(process.argv[3]);
+  const sharedExactOut = process.argv[3] === '--shared-suffix-exact-out-bank';
+  const shared = sharedExactOut || ['--shared-suffix', '--shared-suffix-bank'].includes(process.argv[3]);
   const transport=ganache.provider({logging:{quiet:true},wallet:wrapped ? {deterministic:true,defaultBalance:100000} : {deterministic:true},chain:{hardfork:'shanghai',time:new Date('2026-11-17Z')},miner:{timestampIncrement:1}});
   try {
-    const captureBank=wrapped || process.argv[3]==='--bank' || process.argv[3]==='--shared-suffix-bank';
-    const report=await replay(transport,captureBank,wrapped,shared);
+    const captureBank=wrapped || sharedExactOut || process.argv[3]==='--bank' || process.argv[3]==='--shared-suffix-bank';
+    const report=await replay(transport,captureBank,wrapped,shared,sharedExactOut);
     if (!wrapped && !shared) assert.equal(hash(JSON.stringify(report.binding)),'544d55501ed280378a67b9ab45b77a4cef8e0cd1bafeee2ba48f1ffbd60732be','Mined binding corpus changed');
     report.passed = true;
     if (process.argv[2]) fs.writeFileSync(process.argv[2],JSON.stringify(report,null,2)+'\n',{flag:'wx'});
     console.log(JSON.stringify(process.argv[2]?{...report,binding:undefined,executionBank:undefined}:report));
+  } catch (error) {
+    console.error(error);
+    process.exitCode = 1;
   } finally { await transport.disconnect(); }
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

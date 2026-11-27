@@ -346,8 +346,8 @@ impl PreparedExecution {
                 Some((ctx, input, &s.bound.transaction.to))
             }
             (None, None, None, Some(shared)) => Some((
-                &shared.bound.basis_plan.context,
-                &shared.bound.basis_plan.allocation.sell_amount,
+                shared.bound.context(),
+                &shared.bound.sell_amount,
                 &shared.bound.transaction.to,
             )),
             _ => None,
@@ -433,7 +433,10 @@ impl PreparedExecution {
                     shared.bound.binding_hash,
                     shared.bound.transaction,
                     json!(shared.expected_executor.router),
-                    "EXACT_IN",
+                    match &shared.bound.basis_plan {
+                        SplitPlan::ExactIn(_) => "EXACT_IN",
+                        SplitPlan::ExactOut(_) => "EXACT_OUT",
+                    },
                 ),
                 _ => return Err(Failure::new("SIMULATION_WORKER_BINDING", "prepare")),
             }
@@ -960,8 +963,9 @@ impl LocalSimulation {
         let shared_suffix = shared_candidate_hash
             .map(|expected| {
                 let invalid = || Failure::new("EXECUTION_SHARED_SUFFIX_UNAVAILABLE", "binding");
-                let Selection::ExactIn(c) = cached else {
-                    return Err(invalid());
+                let plan = match cached {
+                    Selection::ExactIn(c) => SplitPlan::ExactIn(c.plan.clone()),
+                    Selection::ExactOut(c) => SplitPlan::ExactOut(c.plan.clone()),
                 };
                 let executor = self
                     .bundle
@@ -969,10 +973,10 @@ impl LocalSimulation {
                     .as_ref()
                     .ok_or_else(invalid)?;
                 let bound =
-                    ordered_v2::shared_suffix::bind(&c.plan, &c.view.pools, executor, allowed)
+                    ordered_v2::shared_suffix::bind(&plan, &cached.view().pools, executor, allowed)
                         .map_err(|e| Failure::new(&e.0, "binding"))?;
                 if bound.candidate_hash != expected
-                    || c.response["quality"]["sharedSuffix"]["candidateHash"].as_str()
+                    || cached.response()["quality"]["sharedSuffix"]["candidateHash"].as_str()
                         != Some(expected)
                 {
                     return Err(Failure::new(

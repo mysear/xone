@@ -13,7 +13,7 @@ pub const CANDIDATE_VERSION: &str = "xone-shared-v2-suffix/1";
 pub struct FlowStep {
     pub edges: Vec<Edge>,
     pub amount_in: Amount,
-    amount_out: Amount,
+    pub amount_out: Amount,
     input_from_steps: Vec<usize>,
     pool_state_from_steps: Vec<usize>,
 }
