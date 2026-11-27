@@ -9,6 +9,8 @@ use serde::Deserialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
+#[path = "v4_manager_settlement/strict_replay.rs"]
+mod strict_replay;
 
 #[derive(Deserialize)]
 struct Build {
@@ -369,6 +371,7 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
     data.extend_from_slice(&salt);
     assert!(transact(&mut db, TxKind::Call(harness), data, 0).is_success());
     let hook = harness.create2(salt, hash);
+    let replay_pre = db.clone();
     let runtime = |db: &InMemoryDB, address| {
         db.contracts[&db.accounts[&address].info.code_hash].original_bytes()
     };
@@ -447,6 +450,7 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
             }
         }
     }
+    strict_replay::verify_v4(replay_pre, manager, harness, hook, executor, &cases);
     if let Some(path) = std::env::var_os("XONE_V4_HOOK_QUOTES") {
         let token_code = token_code.unwrap();
         let fixture = json!({

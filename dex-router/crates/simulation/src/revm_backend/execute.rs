@@ -1,7 +1,7 @@
 use super::{DbError, ExecutionControl, ExecutionLimits, StateImage, Telemetry};
 use revm::primitives::{
-    BlockEnv, EVMError, ResultAndState, SpecId, TxEnv, BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN,
-    MIN_BLOB_GASPRICE,
+    BlobExcessGasAndPrice, BlockEnv, EVMError, ResultAndState, SpecId, TxEnv,
+    BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN, MIN_BLOB_GASPRICE,
 };
 use std::sync::Arc;
 #[derive(Clone, Debug)]
@@ -301,7 +301,7 @@ fn execute_mode(
                             "missing excess blob gas",
                         ))
                     })?;
-                if cancun_blob_base_fee(blob.excess_blob_gas) != Some(blob.blob_gasprice) {
+                if cancun_blob_context(blob.excess_blob_gas).as_ref() != Some(blob) {
                     return Err(reject(ExecutionFailure::InvalidCancunContext(
                         "blob base fee mismatch",
                     )));
@@ -466,7 +466,7 @@ fn execute_mode(
 }
 
 // EIP-4844 fake_exponential with checked intermediates for untrusted header inputs.
-fn cancun_blob_base_fee(excess_blob_gas: u64) -> Option<u128> {
+pub(crate) fn cancun_blob_context(excess_blob_gas: u64) -> Option<BlobExcessGasAndPrice> {
     let numerator = u128::from(excess_blob_gas);
     let denominator = u128::from(BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN);
     let mut term = u128::from(MIN_BLOB_GASPRICE) * denominator;
@@ -477,7 +477,10 @@ fn cancun_blob_base_fee(excess_blob_gas: u64) -> Option<u128> {
         term = term.checked_mul(numerator)? / (denominator * index);
         index += 1;
     }
-    Some(sum / denominator)
+    Some(BlobExcessGasAndPrice {
+        excess_blob_gas,
+        blob_gasprice: sum / denominator,
+    })
 }
 
 use super::StrictDB;

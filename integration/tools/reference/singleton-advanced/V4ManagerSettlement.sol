@@ -102,10 +102,7 @@ contract V4ManagerSettlement is IUnlockCallback {
     function run(bool nativeCurrency, bool zeroForOne, bool exactIn, bool failure, V4SingleSwap executor)
         external payable returns (address, address, int128, int128, uint160, int24)
     {
-        address token0 = nativeCurrency ? address(0) : address(new SettlementToken());
-        address token1 = address(new SettlementToken());
-        if (token0 > token1) (token0, token1) = (token1, token0);
-        PoolKey memory key = PoolKey(Currency.wrap(token0), Currency.wrap(token1), LPFeeLibrary.DYNAMIC_FEE_FLAG, 60, hook);
+        PoolKey memory key = createKey(nativeCurrency);
         PoolKey memory control = PoolKey(key.currency0, key.currency1, 17_000, 60, IHooks(address(0)));
         uint160 price = uint160(1 << 96);
         manager.initialize(key, price);
@@ -147,7 +144,25 @@ contract V4ManagerSettlement is IUnlockCallback {
         (uint160 controlPrice, int24 controlTick, , ) = manager.getSlot0(control.toId());
         require(hookedPrice != price && hookedPrice == controlPrice && hookedTick == controlTick && liveFee == 0, "pool state");
         require(!manager.isUnlocked() && manager.getNonzeroDeltaCount() == 0, "final lock state");
-        return (token0, token1, swap.amount0(), swap.amount1(), hookedPrice, hookedTick);
+        return (Currency.unwrap(key.currency0), Currency.unwrap(key.currency1), swap.amount0(), swap.amount1(), hookedPrice, hookedTick);
+    }
+
+    function prepareReplay(bool nativeCurrency) external payable returns (address, address) {
+        PoolKey memory key = createKey(nativeCurrency);
+        manager.initialize(key, uint160(1 << 96));
+        manager.unlock(abi.encode(key, int256(0), false, address(this), false));
+        address token0 = Currency.unwrap(key.currency0);
+        address token1 = Currency.unwrap(key.currency1);
+        if (token0 != address(0)) require(SettlementToken(token0).transfer(msg.sender, 1e15));
+        require(SettlementToken(token1).transfer(msg.sender, 1e15));
+        return (token0, token1);
+    }
+
+    function createKey(bool nativeCurrency) private returns (PoolKey memory) {
+        address token0 = nativeCurrency ? address(0) : address(new SettlementToken());
+        address token1 = address(new SettlementToken());
+        if (token0 > token1) (token0, token1) = (token1, token0);
+        return PoolKey(Currency.wrap(token0), Currency.wrap(token1), LPFeeLibrary.DYNAMIC_FEE_FLAG, 60, hook);
     }
 
     function executeSwap(V4SingleSwap executor, PoolKey memory key, bool zeroForOne, bool exactIn,

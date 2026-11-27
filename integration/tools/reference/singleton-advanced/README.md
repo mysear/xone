@@ -8,6 +8,8 @@ Set `singleton_advanced.hook_model` to `v4-settlement-hook-v1` for this exact ho
 
 The reference test also deploys `dex-router/evm/V4SingleSwap.sol`. The executor reconciles the caller's ERC-20 debit and the recipient's balance increase. Native ExactOut refunds unused input to the payer after the manager has locked again. The test compares all eight combinations with direct manager calls, checks the tight-limit reverts, and rejects callbacks from other accounts.
 
+The same test records account and storage reads from the original contracts and replays the bound V4 quote on StrictDB using an H+1 Cancun environment. It compares actual payment, output, gas, nonce, native refunds and limit reverts in all eight combinations. Missing Manager slots and a changed hook runtime each reject all eight cases.
+
 For a deployed executor, set `api.v4_execution.<chain-key>` with `executor`, `executor_code_sha256`, and `token_code_sha256` keyed by each supported ERC-20 address. Configure one RPC URL and the chain's genesis hash. `POST /v1/quotes/{id}/build` checks the canonical quote block, executor and manager code, executor manager immutables, and configured token runtimes. The result contains calldata, native transaction value, and the ERC-20 approval required when selling a token. Signing, gas and nonce preparation, and independent receipt verification remain separate.
 
 ```sh

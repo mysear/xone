@@ -1,15 +1,17 @@
 //! Historical replay of PROVIDED_LOCAL_STATE, never a canonicality or VERIFIED claim.
 //! Source H and execution H+1 are distinct. Probes discard their state; only swap effects commit.
 mod approval;
+mod singleton;
 mod wrap;
 use crate::revm_backend as core;
 use revm::primitives::{
-    keccak256, AccountInfo, Address, BlockEnv, Bytes, ExecutionResult, SpecId, TxEnv, TxKind, B256,
-    U256,
+    keccak256, AccountInfo, Address, BlobExcessGasAndPrice, BlockEnv, Bytes, ExecutionResult,
+    SpecId, TxEnv, TxKind, B256, U256,
 };
 use revm::Database;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+pub use singleton::{simulate_singleton, SingletonPlan};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{atomic::Ordering, Arc},
@@ -49,6 +51,34 @@ pub struct ExecutionEnvironment {
     pub gas_limit: u64,
     pub base_fee: Amount,
     pub prevrandao: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub excess_blob_gas: Option<u64>,
+}
+impl ExecutionEnvironment {
+    fn cancun_blobs(&self) -> Result<Option<BlobExcessGasAndPrice>> {
+        match (self.fork.as_str(), self.excess_blob_gas) {
+            ("cancun", Some(excess)) => core::execute::cancun_blob_context(excess)
+                .map(Some)
+                .ok_or_else(|| {
+                    failure(
+                        SimulationEnvironmentMismatch,
+                        "environment",
+                        "invalid excess blob gas",
+                    )
+                }),
+            ("cancun", None) => Err(failure(
+                SimulationEnvironmentMismatch,
+                "environment",
+                "missing Cancun excess blob gas",
+            )),
+            (_, None) => Ok(None),
+            (_, Some(_)) => Err(failure(
+                SimulationEnvironmentMismatch,
+                "environment",
+                "unexpected excess blob gas",
+            )),
+        }
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -295,6 +325,7 @@ impl FixtureState {
         }
         address(&self.execution_environment.coinbase)?;
         amount(&self.execution_environment.base_fee)?;
+        self.execution_environment.cancun_blobs()?;
         let mut slots = 0;
         let mut codes = 0;
         let mut image_bytes = 0;
@@ -470,6 +501,7 @@ impl FixtureState {
                 "require declared fork H+1 with parent H and nondecreasing timestamp",
             ));
         }
+        env.cancun_blobs()?;
         Ok(())
     }
 }
@@ -649,6 +681,65 @@ struct Runner<'a> {
     op_fees: Option<serde_json::Value>,
 }
 impl Runner<'_> {
+    fn native_balance(
+        &self,
+        image: &core::StateImage,
+        owner: Address,
+        phase: &str,
+    ) -> Result<U256> {
+        match image.data().accounts.get(&owner) {
+            Some(Some(info)) => Ok(info.balance),
+            Some(None) => Ok(U256::ZERO),
+            None => Err(self.error(
+                SimulationObservationUnavailable,
+                phase,
+                "account not captured",
+            )),
+        }
+    }
+
+    fn native_fees(
+        &self,
+        before: &core::StateImage,
+        after: &core::StateImage,
+        gas_used: u64,
+    ) -> Result<NativeFeeMeasurements> {
+        let phase = "native_fees";
+        let base_fee = amount(&self.env.base_fee)?;
+        let max_fee = amount(&self.tx.gas_price)?;
+        let fee_budget = max_fee.checked_sub(base_fee).ok_or_else(|| {
+            self.error(
+                SimulationTransactionContext,
+                phase,
+                "fee cap below base fee",
+            )
+        })?;
+        let tip = self
+            .tx
+            .max_priority_fee_per_gas
+            .as_ref()
+            .map(amount)
+            .transpose()?;
+        let priority = tip.map_or(fee_budget, |tip| tip.min(fee_budget));
+        let price = base_fee + priority;
+        let coinbase = address(&self.env.coinbase)?;
+        let multiply = |value: U256| {
+            value
+                .checked_mul(U256::from(gas_used))
+                .ok_or_else(|| self.error(SimulationTransactionContext, phase, "fee overflow"))
+        };
+        Ok(NativeFeeMeasurements {
+            caller_before: as_amount(self.native_balance(before, self.caller_address, phase)?)?,
+            caller_after: as_amount(self.native_balance(after, self.caller_address, phase)?)?,
+            coinbase_before: as_amount(self.native_balance(before, coinbase, phase)?)?,
+            coinbase_after: as_amount(self.native_balance(after, coinbase, phase)?)?,
+            effective_gas_price: as_amount(price)?,
+            execution_fee: as_amount(multiply(price)?)?,
+            base_fee_burned: as_amount(multiply(base_fee)?)?,
+            priority_fee_paid: as_amount(multiply(priority)?)?,
+        })
+    }
+
     fn error(
         &self,
         code: SimulationErrorCode,
@@ -713,8 +804,16 @@ impl Runner<'_> {
         })?;
         let gas_limit = tx.gas_limit;
         let env = self.env;
+        let cancun_blobs = env.cancun_blobs()?;
+        let fork = if let Some(op) = self.op {
+            op.fork.spec()
+        } else if cancun_blobs.is_some() {
+            SpecId::CANCUN
+        } else {
+            SpecId::SHANGHAI
+        };
         let request = core::TransactionRequest {
-            fork: self.op.map_or(SpecId::SHANGHAI, |op| op.fork.spec()),
+            fork,
             chain_id: env.chain_id,
             block: BlockEnv {
                 number: U256::from(env.block_number),
@@ -724,10 +823,13 @@ impl Runner<'_> {
                 basefee: amount(&env.base_fee)?,
                 prevrandao: Some(B256::from(fixed::<32>(&env.prevrandao)?)),
                 // OP does not carry blobs: its Ecotone+ header uses zero excess gas.
-                blob_excess_gas_and_price: self
-                    .op
-                    .filter(|op| !matches!(op.fork, core::OpFork::Regolith | core::OpFork::Canyon))
-                    .map(|_| revm::primitives::BlobExcessGasAndPrice::new(0, false)),
+                blob_excess_gas_and_price: cancun_blobs.or_else(|| {
+                    self.op
+                        .filter(|op| {
+                            !matches!(op.fork, core::OpFork::Regolith | core::OpFork::Canyon)
+                        })
+                        .map(|_| BlobExcessGasAndPrice::new(0, false))
+                }),
                 ..BlockEnv::default()
             },
             tx,
@@ -2016,41 +2118,10 @@ fn simulate_execution(
             )
         }
     };
-    let native_fees = if op.is_some() {
-        None
-    } else {
-        let coinbase = address(&swap_env.coinbase)?;
-        let native_balance = |state: &core::StateImage, owner: Address| -> Result<U256> {
-            match state.data().accounts.get(&owner) {
-                Some(Some(info)) => Ok(info.balance),
-                Some(None) => Ok(U256::ZERO),
-                None => Err(runner.error(
-                    SimulationObservationUnavailable,
-                    "native_fees",
-                    "account not captured",
-                )),
-            }
-        };
-        let effective_tip =
-            priority_fee.map_or(max_fee - base_fee, |tip| tip.min(max_fee - base_fee));
-        let price = base_fee + effective_tip;
-        let gas = U256::from(actual.result.gas_used());
-        let multiply = |value: U256| {
-            value.checked_mul(gas).ok_or_else(|| {
-                runner.error(SimulationTransactionContext, "native_fees", "fee overflow")
-            })
-        };
-        Some(NativeFeeMeasurements {
-            caller_before: as_amount(native_balance(&image, caller)?)?,
-            caller_after: as_amount(native_balance(&post, caller)?)?,
-            coinbase_before: as_amount(native_balance(&image, coinbase)?)?,
-            coinbase_after: as_amount(native_balance(&post, coinbase)?)?,
-            effective_gas_price: as_amount(price)?,
-            execution_fee: as_amount(multiply(price)?)?,
-            base_fee_burned: as_amount(multiply(base_fee)?)?,
-            priority_fee_paid: as_amount(multiply(effective_tip)?)?,
-        })
-    };
+    let native_fees = op
+        .is_none()
+        .then(|| runner.native_fees(&image, &post, actual.result.gas_used()))
+        .transpose()?;
     let simulator_version = if op.is_some() {
         "provided-local-state/op-signed-v1"
     } else {
