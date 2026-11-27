@@ -1,8 +1,8 @@
 //! ComposableStable math at official Balancer revision
 //! e91a2b643a49856f51a648d175667c1b48cf3377 (separately pinned from Weighted).
 //! Regular swap path drops BPT before the N-token StableMath invariant/solve.
-//! BPT math is exposed only AFTER pending protocol-fee accounting; this module
-//! does not reconstruct actual supply, rate-cache refreshes or fee minting.
+//! Supply accounting at the current cached rates is shared by the supply view
+//! and the pre-join/exit fee calculation.
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use xone_domain::{err, Result};
@@ -19,6 +19,42 @@ pub struct BptMathQuote {
     pub next_underlying_balances: Vec<BigUint>,
     /// Supply after the single-token operation, on a supplied post-fee basis.
     pub next_actual_supply: BigUint,
+}
+
+#[derive(Clone, Debug)]
+pub struct CachedRate {
+    pub current: BigUint,
+    pub old: BigUint,
+}
+
+pub enum YieldFeePolicy<'a> {
+    /// Per-token exemptions at the pinned ComposableStable source revision.
+    PerToken(&'a [bool]),
+    /// Released V5 and V6 use a pool-wide exemption and bound invariant growth.
+    PoolWide { exempt: bool },
+}
+
+pub struct SupplyInput<'a> {
+    /// Raw Vault balances and effective scaling factors, in registered order.
+    pub balances: &'a [BigUint],
+    pub scales: &'a [BigUint],
+    pub bpt_index: usize,
+    /// None for BPT and for tokens without a rate provider.
+    pub rates: &'a [Option<CachedRate>],
+    pub yield_fee_policy: YieldFeePolicy<'a>,
+    pub total_supply: &'a BigUint,
+    pub last_join_exit_amp: &'a BigUint,
+    pub last_post_join_exit_invariant: &'a BigUint,
+    pub protocol_swap_fee: &'a BigUint,
+    pub protocol_yield_fee: &'a BigUint,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SupplyView {
+    pub virtual_supply: BigUint,
+    pub pending_protocol_bpt: BigUint,
+    pub actual_supply: BigUint,
+    pub invariant_at_last_join_exit_amp: BigUint,
 }
 fn checked(x: BigUint) -> Result<BigUint> {
     if x.bits() > 256 {
@@ -152,6 +188,141 @@ fn invariant(amp: &BigUint, b: &[BigUint]) -> Result<BigUint> {
         }
     }
     Err(err("BALANCER_COMPOSABLE_INVARIANT_CONVERGENCE"))
+}
+
+/// The pool's getActualSupply reads the stored caches, including expired caches.
+/// A swap callback must refresh the applicable caches before calculating this view.
+pub fn supply_view(input: &SupplyInput<'_>) -> Result<SupplyView> {
+    let SupplyInput {
+        balances,
+        scales,
+        bpt_index,
+        rates,
+        ref yield_fee_policy,
+        total_supply,
+        last_join_exit_amp,
+        last_post_join_exit_invariant,
+        protocol_swap_fee,
+        protocol_yield_fee,
+    } = *input;
+    let one = BigUint::from(ONE);
+    if !(3..=6).contains(&balances.len())
+        || scales.len() != balances.len()
+        || rates.len() != balances.len()
+        || bpt_index >= balances.len()
+    {
+        return Err(err("BALANCER_COMPOSABLE_LENGTH"));
+    }
+    if scales[bpt_index] != one || rates[bpt_index].is_some() {
+        return Err(err("BALANCER_COMPOSABLE_BPT_STATE"));
+    }
+    if balances.iter().any(|balance| balance.bits() > 112) {
+        return Err(err("BALANCER_COMPOSABLE_UINT112"));
+    }
+    if !(BigUint::from(PRECISION)..=BigUint::from(5_000_000u32)).contains(last_join_exit_amp)
+        || last_post_join_exit_invariant.bits() > 233
+        || protocol_swap_fee > &one
+        || protocol_yield_fee > &one
+    {
+        return Err(err("BALANCER_COMPOSABLE_FEE_STATE"));
+    }
+    let virtual_supply = sub(&checked(total_supply.clone())?, &balances[bpt_index])?;
+    if rates
+        .iter()
+        .flatten()
+        .any(|rate| rate.current.bits() > 96 || rate.old.bits() > 96)
+    {
+        return Err(err("BALANCER_COMPOSABLE_RATE_WIDTH"));
+    }
+    if let YieldFeePolicy::PerToken(exempt) = yield_fee_policy {
+        if exempt.len() != rates.len()
+            || exempt
+                .iter()
+                .zip(rates)
+                .any(|(&exempt, rate)| exempt && rate.is_none())
+        {
+            return Err(err("BALANCER_COMPOSABLE_YIELD_EXEMPTION"));
+        }
+    }
+    let scaled = balances
+        .iter()
+        .zip(scales)
+        .enumerate()
+        .filter(|(i, _)| *i != bpt_index)
+        .map(|(_, (balance, scale))| md(balance, &checked(scale.clone())?))
+        .collect::<Result<Vec<_>>>()?;
+    let total_invariant = invariant(last_join_exit_amp, &scaled)?;
+    let ownership = match yield_fee_policy {
+        YieldFeePolicy::PoolWide { .. } if &total_invariant <= last_post_join_exit_invariant => {
+            BigUint::zero()
+        }
+        _ => protocol_ownership(input, &scaled, &total_invariant)?,
+    };
+    let pending_protocol_bpt = down(&mul(&virtual_supply, &ownership)?, &complement(&ownership))?;
+    let actual_supply = add(&virtual_supply, &pending_protocol_bpt)?;
+    Ok(SupplyView {
+        virtual_supply,
+        pending_protocol_bpt,
+        actual_supply,
+        invariant_at_last_join_exit_amp: total_invariant,
+    })
+}
+
+fn protocol_ownership(
+    input: &SupplyInput<'_>,
+    scaled: &[BigUint],
+    total: &BigUint,
+) -> Result<BigUint> {
+    let amp = input.last_join_exit_amp;
+    let last = input.last_post_join_exit_invariant;
+    let indices = (0..input.balances.len()).filter(|&i| i != input.bpt_index);
+    let adjusted = indices
+        .clone()
+        .zip(scaled)
+        .map(|(i, balance)| match &input.rates[i] {
+            Some(rate) => down(&mul(balance, &rate.old)?, &rate.current),
+            None => Ok(balance.clone()),
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let mut swap = if adjusted == scaled {
+        total.clone()
+    } else {
+        invariant(amp, &adjusted)?
+    };
+    let non_exempt = match input.yield_fee_policy {
+        YieldFeePolicy::PoolWide { exempt } => {
+            swap = swap.min(total.clone()).max(last.clone());
+            if exempt {
+                swap.clone()
+            } else {
+                total.clone()
+            }
+        }
+        YieldFeePolicy::PerToken(exempt) => {
+            let balances = indices
+                .zip(scaled.iter().zip(&adjusted))
+                .map(|(i, (current, adjusted))| {
+                    if exempt[i] {
+                        adjusted.clone()
+                    } else {
+                        current.clone()
+                    }
+                })
+                .collect::<Vec<_>>();
+            if balances == scaled {
+                total.clone()
+            } else if balances == adjusted {
+                swap.clone()
+            } else {
+                invariant(amp, &balances)?
+            }
+        }
+    };
+    let swap_growth = &swap - (&swap).min(last);
+    let yield_growth = &non_exempt - (&non_exempt).min(&swap);
+    let swap_fee = md(&dd(&swap_growth, total)?, input.protocol_swap_fee)?;
+    let yield_fee = md(&dd(&yield_growth, total)?, input.protocol_yield_fee)?;
+    add(&swap_fee, &yield_fee)
 }
 fn token_balance(amp: &BigUint, b: &[BigUint], d: &BigUint, index: usize) -> Result<BigUint> {
     let n = BigUint::from(b.len());

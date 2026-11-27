@@ -302,6 +302,7 @@
 
 ### I2 Composable Stable 完整状态
 
+- 已实现缓存状态下的待铸协议费与实际 BPT 供给。V5/V6 的池级收益豁免与不变量增长截断有独立分支。V6 原发布工厂和 Vault 的 12 个固定块样本通过差分，覆盖 2、3、5 个底层代币、swap 费、收益费、豁免及负收益。 [差分命令](integration/tools/reference/balancer-composable-v6/README.md)
 - 补齐待结协议费、实际 BPT supply、BPT join/exit、rate cache、rate provider 和 Vault 注册余额。
 - 完成完整 BPT 后状态与 ExactOut，覆盖连续交易和跨语言 wire。
 - 对未证明的 rate provider、Vault 和执行组合保持明确拒绝。
