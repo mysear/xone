@@ -24,19 +24,27 @@ function readPinned(name) {
 const manager = 'v4/src/PoolManager.sol';
 const harness = 'V4ManagerSettlement.sol';
 const executor = 'V4SingleSwap.sol';
+const infinityHarness = 'InfinityManagerSettlement.sol';
+const vault = 'infinity/src/Vault.sol';
+const clManager = 'infinity/src/pool-cl/CLPoolManager.sol';
+const binManager = 'infinity/src/pool-bin/BinPoolManager.sol';
 const input = {
     language: 'Solidity',
     sources: {
         [manager]: {content: readPinned(manager)},
         [harness]: {content: fs.readFileSync(path.join(references, 'singleton-advanced', harness), 'utf8')},
         [executor]: {content: fs.readFileSync(path.join(root, 'dex-router/evm', executor), 'utf8')},
+        [infinityHarness]: {content: fs.readFileSync(path.join(references, 'singleton-advanced', infinityHarness), 'utf8')},
+        [vault]: {content: readPinned(vault)},
+        [clManager]: {content: readPinned(clManager)},
+        [binManager]: {content: readPinned(binManager)},
     },
     settings: {
         optimizer: {enabled: true, runs: 200},
         viaIR: true,
         evmVersion: 'cancun',
         metadata: {bytecodeHash: 'none', appendCBOR: false},
-        remappings: ['solmate/=v4/lib/solmate/'],
+        remappings: ['solmate/=v4/lib/solmate/', '@openzeppelin/=infinity/lib/openzeppelin-contracts/'],
         outputSelection: {'*': {'*': ['evm.bytecode.object', 'evm.deployedBytecode']}},
     },
 };
@@ -63,4 +71,11 @@ fs.writeFileSync(output, JSON.stringify({
     executorManagerReferences,
     hookRuntime: hookRuntime.object,
     hookManagerReferences,
+    infinity: {
+        vault: code(vault, 'Vault'),
+        clManager: code(clManager, 'CLPoolManager'),
+        binManager: code(binManager, 'BinPoolManager'),
+        harness: code(infinityHarness, 'InfinityManagerSettlement'),
+        hookRuntime: build.contracts[infinityHarness].InfinitySettlementHook.evm.deployedBytecode,
+    },
 }) + '\n');

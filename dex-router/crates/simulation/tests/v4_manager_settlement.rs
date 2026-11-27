@@ -15,6 +15,15 @@ struct Build {
     harness: String,
     hook: String,
     executor: String,
+    infinity: InfinityBuild,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct InfinityBuild {
+    vault: String,
+    cl_manager: String,
+    bin_manager: String,
+    harness: String,
 }
 
 fn address_word(address: Address) -> [u8; 32] {
@@ -44,15 +53,105 @@ fn transact(db: &mut InMemoryDB, target: TxKind, data: Vec<u8>, value: u64) -> E
         .unwrap()
 }
 
-fn deploy(db: &mut InMemoryDB, bytecode: &str, argument: Address) -> Address {
+fn deploy(db: &mut InMemoryDB, bytecode: &str, argument: impl Into<Option<Address>>) -> Address {
     let mut data = hex::decode(bytecode).unwrap();
-    data.extend_from_slice(&address_word(argument));
+    if let Some(argument) = argument.into() {
+        data.extend_from_slice(&address_word(argument));
+    }
     match transact(db, TxKind::Create, data, 0) {
         ExecutionResult::Success {
             output: Output::Create(_, Some(address)),
             ..
         } => address,
         failure => panic!("deployment failed: {failure:?}"),
+    }
+}
+
+#[test]
+#[ignore = "requires the pinned Cancun Infinity CL/Bin/Vault build"]
+fn original_infinity_managers_settle_hook_deltas_through_vault() {
+    let path = std::env::var("XONE_V4_MANAGER_SETTLEMENT_BUILD").unwrap();
+    let build: Build = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let mut db = InMemoryDB::default();
+    db.insert_account_info(
+        Address::repeat_byte(0x11),
+        AccountInfo {
+            balance: U256::from(10u128.pow(21)),
+            ..Default::default()
+        },
+    );
+    let vault = deploy(&mut db, &build.infinity.vault, None);
+    let harness = deploy(&mut db, &build.infinity.harness, vault);
+    let mut cases = Vec::new();
+    for (bin, code) in [
+        (false, &build.infinity.cl_manager),
+        (true, &build.infinity.bin_manager),
+    ] {
+        let manager = deploy(&mut db, code, vault);
+        let manager_code = &db.contracts[&db.accounts[&manager].info.code_hash];
+        let manager_digest = hex::encode(Sha256::digest(manager_code.original_bytes()));
+        let mut register = selector("registerApp(address)").to_vec();
+        register.extend_from_slice(&address_word(manager));
+        assert!(transact(&mut db, TxKind::Call(vault), register, 0).is_success());
+        for native in [false, true] {
+            for zero in [false, true] {
+                for exact_in in [false, true] {
+                    let mut data = selector("run(address,bool,bool,bool,bool,bool)").to_vec();
+                    data.extend_from_slice(&address_word(manager));
+                    for option in [bin, native, zero, exact_in, false] {
+                        data.extend_from_slice(&U256::from(u8::from(option)).to_be_bytes::<32>());
+                    }
+                    let value = if native { 10_000_000_000_000 } else { 0 };
+                    let result = transact(&mut db, TxKind::Call(harness), data.clone(), value);
+                    let ExecutionResult::Success {
+                        output: Output::Call(raw),
+                        ..
+                    } = result
+                    else {
+                        panic!(
+                            "bin={bin} native={native} zero={zero} exact in={exact_in}: {result:?}"
+                        );
+                    };
+                    let words: Vec<_> = raw.chunks_exact(32).collect();
+                    assert_eq!(words.len(), 7);
+                    let delta0 = i128::from_be_bytes(words[3][16..].try_into().unwrap());
+                    let delta1 = i128::from_be_bytes(words[4][16..].try_into().unwrap());
+                    let (input, output) = if zero {
+                        (-delta0, delta1)
+                    } else {
+                        (-delta1, delta0)
+                    };
+                    let hook = Address::from_slice(&words[2][12..]);
+                    let hook_code = &db.contracts[&db.accounts[&hook].info.code_hash];
+                    cases.push(json!({
+                        "currency0": format!("0x{}", hex::encode(&words[0][12..])),
+                        "currency1": format!("0x{}", hex::encode(&words[1][12..])),
+                        "manager": format!("{manager:#x}"),
+                        "managerCodeSha256": manager_digest,
+                        "vault": format!("{vault:#x}"),
+                        "hook": format!("{hook:#x}"),
+                        "hookCode": format!("0x{}", hex::encode(hook_code.original_bytes())),
+                        "bin": bin,
+                        "zeroForOne": zero,
+                        "exactIn": exact_in,
+                        "input": input.to_string(),
+                        "output": output.to_string(),
+                        "stateAfter": U256::from_be_slice(words[5]).to_string(),
+                        "tickAfter": i32::from_be_bytes(words[6][28..].try_into().unwrap()),
+                    }));
+                    *data.last_mut().unwrap() = 1;
+                    let rejected = transact(&mut db, TxKind::Call(harness), data, value);
+                    assert!(
+                        matches!(&rejected, ExecutionResult::Revert { output, .. }
+                        if output.as_ref() == selector("CurrencyNotSettled()")),
+                        "{rejected:?}"
+                    );
+                }
+            }
+        }
+    }
+    if let Some(path) = std::env::var_os("XONE_INFINITY_HOOK_QUOTES") {
+        std::fs::write(path, serde_json::to_vec_pretty(&cases).unwrap()).unwrap();
     }
 }
 

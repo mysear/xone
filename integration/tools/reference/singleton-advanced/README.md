@@ -23,6 +23,12 @@ cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-quote-api \
 (cd chain-parser-go && go test ./internal/chain/evm -run TestV4SettlementHookRuntimeAtCanonicalBlock)
 ```
 
+## Infinity Manager and Vault settlement
+
+The same build command compiles the original Infinity CL Manager, Bin Manager and Vault from the pinned source. The Cancun test registers both applications in the Vault. It compares 16 swaps with control pools, using dynamic keys, a 17,000 ppm fee override and nonzero deltas in the specified and unspecified currencies. It verifies caller, recipient and hook balances, Vault holdings and per-manager reserves, as well as the final lock, delta and app deficit counters. For each case it omits the specified-currency hook payment and checks the original `CurrencyNotSettled` revert.
+
+Set `XONE_INFINITY_HOOK_QUOTES` before running the simulation test to export results for cross-language and HTTP quote checks.
+
 ## Bounded library reference
 
 This slice is explicitly separate from legacy singleton admission. The core protocol names inside `SingletonAdvancedState` remain `uniswap-v4` and `pancake-infinity-cl`; central Pool profiles may use their `-advanced` names. Shared registry/config/wire dispatch is owned by main.

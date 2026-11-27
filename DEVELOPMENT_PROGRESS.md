@@ -375,6 +375,7 @@
 - 已接入 `v4-settlement-hook-v1` 的固定区块收集、Go/Rust Protobuf 和正常 HTTP 报价。收集器核对 hook 权限、编译产物及两处不可变的 PoolManager 地址。8 组原 PoolManager 双向 ExactIn、ExactOut、ERC-20 与原生币交易的报价、价格及 tick 后状态一致，另通过 8 组原程序回滚。能力目录为 `xone-protocol-capabilities/32`。 [复验说明](integration/tools/reference/singleton-advanced/README.md#v4-poolmanager-hook-and-native-settlement)
 - V4 单池执行合约通过原 PoolManager 的 8 组 ERC-20 与原生币双向 ExactIn、ExactOut，核对实际收款、授权额度、原生币退款和 8 组滑点回滚。正常 HTTP build 按计划绑定执行合约，固定区块核对合约、manager 与代币身份，8 组模板及 8 组执行合约字节码变更拒绝通过。签名、独立执行和真实回执继续按 I6 验收。
 - 补齐 Infinity CL 已知 hook 的覆盖费、差额和原生币结算。
+- 固定版本的 Infinity CL Manager、Bin Manager 与 Vault 已通过 16 组双向 ExactIn、ExactOut、ERC-20 与原生币交易，核对 hook、付款方、接收方、Vault、应用储备和结算锁。另通过 16 组 `CurrencyNotSettled` 回滚。继续把快照、hook 身份和报价接入正常服务。 [复验说明](integration/tools/reference/singleton-advanced/README.md#infinity-manager-and-vault-settlement)
 - 完成 Infinity Bin 动态、hook、native 组合，以及 Manager、Vault、transient storage 和完整结算状态。
 - unknown hook 继续保持拒绝。
 
