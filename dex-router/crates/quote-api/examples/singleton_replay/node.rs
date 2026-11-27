@@ -43,12 +43,14 @@ pub(super) enum Fault {
     IgnoreTraceIndex,
     BeaconRoot,
     BeaconStorage,
+    WithdrawalsList,
 }
 
 pub(super) struct Mined {
     node: Arc<Node>,
     deadline: u64,
     pub(super) signed: Value,
+    pub(super) withdrawals_root: Option<String>,
     transaction_index: u64,
     fault: Arc<Mutex<Option<Fault>>>,
     execution_reads: Arc<AtomicUsize>,
@@ -288,6 +290,12 @@ impl Node {
             );
             self.rpc("eth_sendRawTransaction", json!([suffix["signedWire"]]))
                 .await;
+            self.rpc(
+                "dev_addWithdrawal",
+                json!([{"index":"0x0","validatorIndex":"0x0",
+                    "address":case["context"]["recipient"],"amount":"0x1"}]),
+            )
+            .await;
             1
         } else {
             self.rpc(
@@ -306,6 +314,16 @@ impl Node {
             if transaction_index == 0 { 1 } else { 3 }
         );
         assert_eq!(execution["transactions"][transaction_index as usize], tx);
+        let withdrawals = execution["withdrawals"].as_array().unwrap();
+        let withdrawals_root = if self.control.is_some() {
+            assert_eq!(withdrawals.len(), 1);
+            assert_eq!(withdrawals[0]["address"], case["context"]["recipient"]);
+            assert_eq!(withdrawals[0]["amount"], "0x1");
+            Some(field(&execution, "withdrawalsRoot"))
+        } else {
+            assert!(withdrawals.is_empty());
+            None
+        };
         let receipt = self.rpc("eth_getTransactionReceipt", json!([tx])).await;
         assert_eq!(receipt["status"], "0x1", "{receipt}");
         let env = &mut bundle.fixture.execution_environment;
@@ -350,6 +368,7 @@ impl Node {
             node: Arc::new(self),
             deadline,
             signed,
+            withdrawals_root,
             transaction_index,
             fault: Arc::new(Mutex::new(None)),
             execution_reads: Arc::new(AtomicUsize::new(0)),
@@ -442,6 +461,11 @@ impl Mined {
                         }
                         (Some(Fault::BeaconStorage), "eth_getStorageAt") => {
                             *result = format!("0x{}", "02".repeat(32)).into();
+                        }
+                        (Some(Fault::WithdrawalsList), "eth_getBlockByNumber")
+                            if request["params"][0] == "0x2" =>
+                        {
+                            result["withdrawals"] = json!([]);
                         }
                         _ => {}
                     }

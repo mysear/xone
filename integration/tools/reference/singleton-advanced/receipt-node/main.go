@@ -42,7 +42,7 @@ func run() error {
 	config.DataDir = ""
 	config.HTTPHost = "127.0.0.1"
 	config.HTTPPort = port
-	config.HTTPModules = []string{"eth", "debug"}
+	config.HTTPModules = []string{"eth", "debug", "dev"}
 	config.IPCPath = ""
 	config.P2P = p2p.Config{NoDiscovery: true}
 	stack, err := node.New(&config)
@@ -62,14 +62,17 @@ func run() error {
 		return err
 	}
 	stack.RegisterAPIs(tracers.APIs(backend.APIBackend))
-	if err := stack.Start(); err != nil {
-		return err
-	}
-	beacon, err := catalyst.NewSimulatedBeacon(0, common.Address{}, backend)
+	// A nonzero period disables event-driven mining in the dev API. The
+	// beacon is driven by Commit below, without starting its lifecycle.
+	beacon, err := catalyst.NewSimulatedBeacon(1, common.Address{}, backend)
 	if err != nil {
 		return err
 	}
 	defer beacon.Stop()
+	catalyst.RegisterSimulatedBeaconAPIs(stack, beacon)
+	if err := stack.Start(); err != nil {
+		return err
+	}
 	if err := beacon.Fork(backend.BlockChain().GetCanonicalHash(0)); err != nil {
 		return err
 	}

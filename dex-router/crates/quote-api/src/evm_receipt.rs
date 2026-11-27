@@ -6,6 +6,9 @@ use xone_simulation::evm_fixture::{
     EvmStatus, FixtureState, SimulationOutcome, BEACON_ROOTS_ADDRESS,
 };
 
+const EMPTY_WITHDRAWALS_ROOT: &str =
+    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
+
 pub(super) async fn compare(
     api: &Api,
     fixture: &FixtureState,
@@ -67,11 +70,18 @@ async fn observe(
     let next = index.checked_add(1).ok_or_else(bad)?;
     let cumulative = quantity_u64(&receipt["cumulativeGasUsed"])?;
     let block_gas = quantity_u64(&block["gasUsed"])?;
-    // Whole-block observations require a post-merge block without withdrawals.
+    let withdrawals = block["withdrawals"].as_array().ok_or_else(bad)?;
+    let withdrawals_root = block["withdrawalsRoot"].as_str().ok_or_else(bad)?;
+    // Withdrawals happen after the final transaction. A whole-block balance
+    // therefore cannot stand in for the last transaction's post-state.
+    if withdrawals.is_empty() != (withdrawals_root == EMPTY_WITHDRAWALS_ROOT)
+        || (!withdrawals.is_empty() && next == transactions.len())
+    {
+        return Err(bad());
+    }
     if transactions.get(index) != Some(&json!(tx))
         || block["difficulty"] != "0x0"
         || block["uncles"] != json!([])
-        || block["withdrawals"] != json!([])
         || receipt["transactionHash"] != *tx
         || receipt["blockHash"] != env.block_hash
         || receipt["blockNumber"] != height
@@ -218,6 +228,9 @@ async fn observe(
     });
     if let Some(root) = &env.parent_beacon_block_root {
         evidence["parentBeaconBlockRoot"] = root.clone().into();
+    }
+    if !withdrawals.is_empty() {
+        evidence["withdrawalsRoot"] = withdrawals_root.into();
     }
     evidence["evidenceHash"] = hash(&evidence)?.into();
     Ok(evidence)

@@ -37,7 +37,7 @@ async fn main() {
     assert_eq!(count, 24);
     println!("{count} unsigned and {count} signed HTTP replays passed, with {count} missing-state and {count} nonce rejections");
     if geth.is_some() {
-        println!("{count} Geth transaction-index receipts passed, with gas, log, balance, reorg, transaction index, beacon root and beacon storage rejection cases");
+        println!("{count} Geth transaction-index receipts in blocks with withdrawals passed, with gas, log, balance, reorg, transaction index, beacon root, beacon storage and withdrawal list rejection cases");
     } else if anvil.is_some() {
         println!("{count} mined Cancun receipts passed, with wrong gas, logs, balance and reorg rejection per receipt");
     }
@@ -271,6 +271,10 @@ async fn assert_replay(
         ];
         if mined.transaction_index() != 0 {
             assert_eq!(
+                observed["nodeReceipt"]["withdrawalsRoot"],
+                mined.withdrawals_root.as_deref().unwrap()
+            );
+            assert_eq!(
                 observed["nodeReceipt"]["parentBeaconBlockRoot"],
                 bundle
                     .fixture
@@ -284,6 +288,7 @@ async fn assert_replay(
                 node::Fault::IgnoreTraceIndex,
                 node::Fault::BeaconRoot,
                 node::Fault::BeaconStorage,
+                node::Fault::WithdrawalsList,
             ]);
         }
         for fault in faults {

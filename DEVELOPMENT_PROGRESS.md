@@ -404,7 +404,8 @@
 12. 回执查询继承耐久提交预检的最小 slot，校验 RPC 上下文与返回的交易 slot。查询不到签名时按同一下界检查区块高度。Agave 联测注入陈旧状态响应，API 拒绝且日志字节一致，随后正常完成 finalized 回执。
 13. Yellowstone owner 在已提交的同一 bank 上提供账户写入 slot、bank ID、write version 和数据摘要。SBF 仿真按完整 SnapshotRef 与来源凭证匹配 owner，逐项核对与准备 capture 重叠的账户并保留捕获的 rent epoch。正常解析服务通过 bank 账户版本读取、错误分叉和撤销后拒绝。两组 Orca HTTP 仿真通过有效证明，以及错误写入 bank、错误摘要拒绝。解析四个目标串行通过 63 项，首次并行运行有一项恢复测试报 `SCOPE_STORE_CONFLICT`，串行复验通过。
 14. Solana 准备统一使用 blockhash 和消息费用读取逻辑，要求账户、blockhash、费用、可选 RPC 仿真的观测 slot 依次不下降。准备结果新增 `blockhashObservedSlot`，提交预检与费用验收保留对历史准备记录的支持。三项 Orca 受控 HTTP 联测通过，覆盖两组陈旧费用响应拒绝。三项费用证据验收及启用 RPC 仿真的 Agave 签名提交和 finalized 回执联测通过。
-15. 接续 I6 EVM 链规则和 L1 数据费验收。先核对 OP 原版交易与现有签名费用审计，再补齐节点回执的区块规则覆盖。以签名交易、执行费、L1 数据费及付款人和收款人状态差一致作为验收条件。
+15. EVM 节点回执支持含提款区块中的非末笔交易，按交易索引读取提款执行前的目标交易前后余额。提款列表与空提款根不一致时拒绝。Geth v1.16.7 的 24 个三交易区块均包含给收款地址的提款，24 个中间交易回执及隐藏提款列表的拒绝均通过。Anvil 1.4.4 的 24 个单交易空提款块回归通过。含提款区块的末笔交易仍缺交易后状态观测。 [复验说明](integration/tools/reference/singleton-advanced/README.md#quote-api-fixed-state-replay)
+16. 接续 I6 EVM 付款人原生余额和 OP L1 数据费验收。以签名交易、执行费、L1 数据费及付款人和收款人状态差一致作为验收条件。
 
 ### I7 真实来源和恢复
 
