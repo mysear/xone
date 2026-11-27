@@ -566,6 +566,10 @@ impl Parser {
             )
             .route("/internal/chains/{chain}/source-refs", get(source_refs))
             .route("/internal/chains/{chain}/baseline", get(baseline))
+            .route(
+                "/internal/chains/{chain}/execution-bank",
+                get(execution_bank),
+            )
             .route("/internal/chains/{chain}/status", get(status))
             .route(
                 "/internal/chains/{chain}/ensure-pool-scope",
@@ -777,6 +781,53 @@ async fn baseline(
     s.authorize(&headers).map_err(failure)?;
     Ok(Json(s.checked_current(&chain).await.map_err(failure)?))
 }
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExecutionBankQuery {
+    slot: u64,
+    blockhash: String,
+    keys: String,
+}
+
+async fn execution_bank(
+    State(s): State<Parser>,
+    headers: HeaderMap,
+    Path(chain): Path<String>,
+    Query(query): Query<ExecutionBankQuery>,
+) -> std::result::Result<Json<Value>, (StatusCode, Json<Value>)> {
+    s.authorize(&headers).map_err(failure)?;
+    if query.keys.len() > 4499 {
+        return Err(failure(err("BANK_SCOPE_INVALID")));
+    }
+    let keys: BTreeSet<_> = query.keys.split(',').collect();
+    if keys.len() > 100
+        || keys.iter().any(|key| {
+            key.len() > 44
+                || !bs58::decode(key)
+                    .into_vec()
+                    .is_ok_and(|bytes| bytes.len() == 32)
+        })
+    {
+        return Err(failure(err("BANK_SCOPE_INVALID")));
+    }
+    let snapshot = s.checked_current(&chain).await.map_err(failure)?;
+    if snapshot.reference.block.number_or_slot != query.slot
+        || snapshot.reference.block.hash != query.blockhash
+    {
+        return Err(failure(err("BANK_REFERENCE_CHANGED")));
+    }
+    let proof = s.stores[&chain]
+        .lock()
+        .map_err(|_| failure(err("STATE_LOCK_POISONED")))?
+        .execution_bank_accounts(&snapshot, &keys)
+        .map_err(failure)?;
+    if s.checked_current(&chain).await.map_err(failure)?.reference != snapshot.reference {
+        return Err(failure(err("BANK_REFERENCE_CHANGED")));
+    }
+    Ok(Json(proof))
+}
+
 async fn status(
     State(s): State<Parser>,
     headers: HeaderMap,

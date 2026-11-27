@@ -402,7 +402,8 @@
 10. SBF worker 对交易做结构校验，拒绝重复账户键，按 legacy 消息头生成并返回读写账户集合，检查只读账户的回放后状态与原状态一致。Orca 双 Token-2022 两组签名及未签名回放与准备指令的账户权限逐项一致，两个奖励收取 HTTP 目标同时通过。
 11. 本地 Agave v3.1.14 实际出块验收通过。Orca adaptive classic SPL ExactIn 经正常 HTTP 报价、准备、独立签名回放和提交，finalized 区块包含同一签名，实收、实付、网络费和付款人 lamport 差与独立回放一致，重开日志后回执相同。旧费用 slot 和签名仿真证据替代原提交证据均被拒绝。 [复验说明](integration/tools/ci/orca-token2022-execution.md#local-validator-receipt)
 12. 回执查询继承耐久提交预检的最小 slot，校验 RPC 上下文与返回的交易 slot。查询不到签名时按同一下界检查区块高度。Agave 联测注入陈旧状态响应，API 拒绝且日志字节一致，随后正常完成 finalized 回执。
-13. 下一轮将版本化 bank 的身份与账户版本接入仿真证据。
+13. Yellowstone owner 在已提交的同一 bank 上提供账户写入 slot、bank ID、write version 和数据摘要。SBF 仿真按完整 SnapshotRef 与来源凭证匹配 owner，逐项核对与准备 capture 重叠的账户并保留捕获的 rent epoch。正常解析服务通过 bank 账户版本读取、错误分叉和撤销后拒绝。两组 Orca HTTP 仿真通过有效证明，以及错误写入 bank、错误摘要拒绝。解析四个目标串行通过 63 项，首次并行运行有一项恢复测试报 `SCOPE_STORE_CONFLICT`，串行复验通过。
+14. 下一轮核对 Solana 准备阶段的 blockhash 与费用 slot 顺序，随后检查 EVM 链规则和 L1 费用的剩余验收缺口。
 
 ### I7 真实来源和恢复
 

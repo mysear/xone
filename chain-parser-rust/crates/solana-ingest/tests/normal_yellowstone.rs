@@ -427,6 +427,46 @@ async fn normal_public_grpc_publishes_only_complete_bank_then_revokes_and_restar
     assert_eq!(evidence.wal_cursor, 2);
     assert_eq!(evidence.session_id, c.session);
     assert_eq!(evidence.catalog_identity, h.catalog.identity().unwrap());
+    let account = &m.parent_accounts[0];
+    let proof_url = format!("{url}/internal/chains/solana:localnet/execution-bank");
+    let proof_request = |blockhash: &str| {
+        reqwest::Client::new().get(&proof_url).query(&[
+            ("slot", "100"),
+            ("blockhash", blockhash),
+            ("keys", &account.pubkey),
+        ])
+    };
+    let proof: Value = proof_request(&m.bank.blockhash)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(proof["snapshotRef"], first["reference"]);
+    assert_eq!(proof["source"], serde_json::to_value(&evidence).unwrap());
+    let digest = xone_domain::hash(&(
+        &account.owner,
+        account.lamports,
+        account.executable,
+        account.rent_epoch,
+        &account.data_base64,
+    ))
+    .unwrap();
+    assert_eq!(
+        proof["accounts"],
+        json!({&account.pubkey:{
+            "writeSlot":100,"writeBankId":200,"writeVersion":2,"accountSha256":digest,
+        }})
+    );
+    assert!(!proof_request(&m.parent.blockhash)
+        .send()
+        .await
+        .unwrap()
+        .status()
+        .is_success());
     let unit = xone_kafka_transport::Unit {
         kind: "ONLINE_BASELINE_COMMIT".into(),
         snapshot: serde_json::from_value(first.clone()).unwrap(),
@@ -474,6 +514,12 @@ async fn normal_public_grpc_publishes_only_complete_bank_then_revokes_and_restar
         !baseline(&url).await.status().is_success(),
         "EOF revokes normal owner state"
     );
+    assert!(!proof_request(&m.bank.blockhash)
+        .send()
+        .await
+        .unwrap()
+        .status()
+        .is_success());
     // The short replay request cannot cover the actual new head: reconnect must
     // explicitly discard it and acquire HEAD_FIRST rather than replay unbounded.
     c2.send.send(Ok(finalized(120))).await.unwrap();

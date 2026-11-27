@@ -971,7 +971,16 @@ impl Store {
         let l = load(self)
             .map_err(|e| err(&e.to_string()))?
             .ok_or_else(|| err("SCOPE_LEDGER_REQUIRED"))?;
-        active(self, &l, &l.fence, (self.scope_now)()).map_err(|e| err(&e.to_string()))?;
+        self.checked_scope_commit(&l, reference)?;
+        Ok(())
+    }
+
+    fn checked_scope_commit<'a>(
+        &self,
+        l: &'a Ledger,
+        reference: &SnapshotRef,
+    ) -> xone_domain::Result<&'a Commit> {
+        active(self, l, &l.fence, (self.scope_now)()).map_err(|e| err(&e.to_string()))?;
         let commit = l
             .commits
             .values()
@@ -988,7 +997,70 @@ impl Store {
         {
             return Err(err("SCOPE_COMMIT_ATTEMPT_CHANGED"));
         }
-        crate::scope::require_scope_fresh(job, (self.scope_now)()).map_err(|e| err(&e.to_string()))
+        crate::scope::require_scope_fresh(job, (self.scope_now)())
+            .map_err(|e| err(&e.to_string()))?;
+        Ok(commit)
+    }
+
+    pub(crate) fn execution_bank_accounts(
+        &self,
+        snapshot: &Snapshot,
+        keys: &std::collections::BTreeSet<&str>,
+    ) -> xone_domain::Result<serde_json::Value> {
+        let reference = &snapshot.reference;
+        let evidence: crate::service::StreamEvidence = serde_json::from_str(&snapshot.source)
+            .map_err(|_| err("SCOPE_RAW_PROVENANCE_REQUIRED"))?;
+        let ledger = load(self)
+            .map_err(|e| err(&e.to_string()))?
+            .ok_or_else(|| err("SCOPE_LEDGER_REQUIRED"))?;
+        let commit = self.checked_scope_commit(&ledger, reference)?;
+        let publication = ledger
+            .data
+            .get(&commit.proof.job_id)
+            .ok_or_else(|| err("SCOPE_COMMIT_PROOF_MISSING"))?;
+        if publication.anchor.height != reference.block.number_or_slot
+            || publication.anchor.hash != reference.block.hash
+            || commit.proof.cursor != evidence.wal_cursor
+        {
+            return Err(err("SCOPE_COMMIT_PROOF_MISSING"));
+        }
+        let mut accounts = BTreeMap::new();
+        for row in publication
+            .accounts
+            .iter()
+            .filter(|row| keys.contains(row.id.as_str()))
+        {
+            let account: crate::bank_manifest::ManifestAccount =
+                serde_json::from_slice(&row.data).map_err(|_| err("BANK_ACCOUNT_DATA"))?;
+            if row.anchor != publication.anchor || account.pubkey != row.id {
+                return Err(err("BANK_ACCOUNT_DATA"));
+            }
+            let digest = hash(&(
+                &account.owner,
+                account.lamports,
+                account.executable,
+                account.rent_epoch,
+                &account.data_base64,
+            ))?;
+            if accounts
+                .insert(
+                    row.id.clone(),
+                    serde_json::json!({
+                        "writeSlot":account.write_slot,"writeBankId":account.write_bank_id,
+                        "writeVersion":account.write_version,"accountSha256":digest,
+                    }),
+                )
+                .is_some()
+            {
+                return Err(err("BANK_ACCOUNT_DATA"));
+            }
+        }
+        if accounts.is_empty() {
+            return Err(err("BANK_SCOPE_INCOMPLETE"));
+        }
+        Ok(serde_json::json!({
+            "version":1,"snapshotRef":reference,"source":evidence,"accounts":accounts,
+        }))
     }
 }
 /// Sealed capability minted from the actual committed owner batch, not a cursor

@@ -92,6 +92,114 @@ pub(crate) fn current(api: &Api, p: &Prepared) -> Result<()> {
     }
     Ok(())
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct VersionedBankProof {
+    version: u32,
+    snapshot_ref: xone_domain::SnapshotRef,
+    source: Value,
+    accounts: BTreeMap<String, BankAccountVersion>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BankAccountVersion {
+    write_slot: u64,
+    write_bank_id: u64,
+    write_version: u64,
+    account_sha256: String,
+}
+
+fn verify_bank_proof(
+    p: &Prepared,
+    capture: &xone_execution_preparation::AccountSnapshot,
+    source: &Value,
+    proof: VersionedBankProof,
+) -> Result<Value> {
+    let bad = || err("SBF_VERSIONED_BANK_MISMATCH");
+    let bank_id = source["bank_id"].as_u64().ok_or_else(bad)?;
+    let block = &p.view.reference.block;
+    if proof.version != 1
+        || proof.snapshot_ref != p.view.reference
+        || proof.source != *source
+        || capture.observed_slot != block.number_or_slot
+        || !proof.accounts.contains_key(&p.pool.pool_id)
+    {
+        return Err(bad());
+    }
+    for (key, version) in &proof.accounts {
+        let account = capture.accounts.get(key).ok_or_else(bad)?;
+        let data = account["data"]
+            .as_array()
+            .filter(|data| data.len() == 2 && data[1] == "base64")
+            .and_then(|data| data[0].as_str())
+            .ok_or_else(bad)?;
+        let digest = hash(&(
+            account["owner"].as_str().ok_or_else(bad)?,
+            account["lamports"].as_u64().ok_or_else(bad)?,
+            account["executable"].as_bool().ok_or_else(bad)?,
+            account["rentEpoch"].as_u64().ok_or_else(bad)?,
+            data,
+        ))?;
+        if version.write_slot > block.number_or_slot
+            || (version.write_slot == block.number_or_slot && version.write_bank_id != bank_id)
+            || version.account_sha256 != digest
+        {
+            return Err(bad());
+        }
+    }
+    Ok(
+        json!({"version":proof.version,"snapshotRef":proof.snapshot_ref,
+        "source":proof.source,"accounts":proof.accounts}),
+    )
+}
+
+async fn versioned_bank(api: &Api, p: &Prepared) -> Result<Option<Value>> {
+    let Ok(source) = serde_json::from_str::<Value>(&p.view.source) else {
+        return Ok(None);
+    };
+    if source["kind"] != "YELLOWSTONE_INDEPENDENT_VERSIONED_BANK" {
+        return Ok(None);
+    }
+    let capture = p
+        .accounts
+        .as_ref()
+        .ok_or_else(|| err("SBF_CAPTURE_REQUIRED"))?;
+    let block = &p.view.reference.block;
+    let keys = capture
+        .accounts
+        .keys()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(",");
+    let mut failure = err("SBF_VERSIONED_BANK_UNAVAILABLE");
+    for base in &api.config.config.journal.source_urls {
+        let Ok(mut url) = reqwest::Url::parse(&format!(
+            "{}/internal/chains/{}/execution-bank",
+            base.trim_end_matches('/'),
+            p.context.chain_key,
+        )) else {
+            continue;
+        };
+        url.query_pairs_mut()
+            .append_pair("slot", &block.number_or_slot.to_string())
+            .append_pair("blockhash", &block.hash)
+            .append_pair("keys", &keys);
+        let Ok(response) = api.fetch(url.as_str()).await else {
+            continue;
+        };
+        let proof = serde_json::from_value(response)
+            .map_err(|_| err("SBF_VERSIONED_BANK_MISMATCH"))
+            .and_then(|proof| verify_bank_proof(p, capture, &source, proof));
+        match proof {
+            Ok(proof) => return Ok(Some(proof)),
+            Err(error) => failure = error,
+        }
+    }
+    Err(failure)
+}
+
 #[derive(Default, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SimulationRequest {
@@ -145,6 +253,10 @@ pub(crate) async fn simulate(
     } else {
         None
     };
+    let bank_proof = versioned_bank(&api, &p).await.map_err(failure)?;
+    if bank_proof.is_some() && capture.is_none() {
+        return Err(failure(err("SBF_CAPTURE_REQUIRED")));
+    }
     let mut evidence = if let Some(signed) = &request.signed_transaction {
         engine
             .simulate_signed(
@@ -183,6 +295,9 @@ pub(crate) async fn simulate(
             .await
     }
     .map_err(failure)?;
+    if let Some(proof) = bank_proof {
+        evidence["versionedBank"] = proof;
+    }
     if request.signed_transaction.is_some() {
         transaction_lifecycle::genesis(&api, &p.context.chain_key, &chain.genesis_hash)
             .await

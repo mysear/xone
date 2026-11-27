@@ -509,11 +509,14 @@ def main():
             if a['executable']and key not in dependencies:
                 builtin=svm.get_account(Pubkey.from_string(key))
                 require(builtin is not None and builtin.executable and str(builtin.owner)==a['owner']and bytes(builtin.data)==raw(a),'SBF_AMBIENT_PROGRAM_MISMATCH')
+    def captured_account(a):
+        return Account(a['lamports'], raw(a), Pubkey.from_string(a['owner']),
+                       a['executable'], a.get('rentEpoch', 0))
     for key,a in bank['accounts'].items():
-        svm.set_account(Pubkey.from_string(key),Account(a['lamports'],raw(a),Pubkey.from_string(a['owner']),a['executable'],0))
+        svm.set_account(Pubkey.from_string(key), captured_account(a))
     clock=raw(bank['accounts'][CLOCK]);require(len(clock)==40,'SBF_CLOCK_LAYOUT')
     svm.set_clock(Clock(slot=int.from_bytes(clock[:8],'little'),epoch_start_timestamp=int.from_bytes(clock[8:16],'little',signed=True),epoch=int.from_bytes(clock[16:24],'little'),leader_schedule_epoch=int.from_bytes(clock[24:32],'little'),unix_timestamp=int.from_bytes(clock[32:40],'little',signed=True)))
-    a=bank['accounts'][CLOCK];svm.set_account(Pubkey.from_string(CLOCK),Account(a['lamports'],raw(a),Pubkey.from_string(a['owner']),a['executable'],0))
+    svm.set_account(Pubkey.from_string(CLOCK), captured_account(bank['accounts'][CLOCK]))
     before={key:svm.get_account(Pubkey.from_string(key))for key in keys}
     result=svm.simulate_transaction(tx);native=json.loads(result.to_json())
     for key,a in before.items():

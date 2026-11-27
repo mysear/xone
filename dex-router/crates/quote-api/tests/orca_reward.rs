@@ -2,7 +2,7 @@ use axum::{
     body::{to_bytes, Body},
     extract::State,
     http::{Request, StatusCode},
-    routing::post,
+    routing::{get, post},
     Json, Router,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -35,6 +35,7 @@ struct BankRpc {
     case: Arc<Value>,
     blockhash: Arc<Mutex<BlockhashRpc>>,
     validator: Option<String>,
+    versioned_proof: Arc<Mutex<Value>>,
 }
 
 impl BankRpc {
@@ -43,13 +44,14 @@ impl BankRpc {
             case: Arc::new(case),
             blockhash: Arc::new(Mutex::new(BlockhashRpc::Valid)),
             validator: None,
+            versioned_proof: Default::default(),
         }
     }
 }
 
 fn api(pool: Pool, rpc: String, blockhash: &str, manifest: &str) -> Api {
     let block = bank_block(&pool, GENESIS, blockhash);
-    configured_api(pool, rpc, GENESIS, block, manifest, None)
+    configured_api(pool, rpc, GENESIS, block, manifest, None, None)
 }
 
 fn bank_block(pool: &Pool, hash: &str, parent_hash: &str) -> BlockRef {
@@ -70,6 +72,7 @@ fn configured_api(
     block: BlockRef,
     manifest: &str,
     receipt_journal: Option<&std::path::Path>,
+    owner_source: Option<&str>,
 ) -> Api {
     let mut config = xone_config::load(
         concat!(env!("CARGO_MANIFEST_DIR"), "/../../config/config-test.yaml"),
@@ -81,6 +84,9 @@ fn configured_api(
     config.config.routing.max_state_age_ms = 315360000000;
     config.config.routing.quote_ttl_ms = 60000;
     config.config.api.solana_runtime_manifest = manifest.into();
+    if owner_source.is_some() {
+        config.config.journal.source_urls = vec![rpc.clone()];
+    }
     if let Some(journal) = receipt_journal {
         config.config.api.transaction_submission_enabled = true;
         config.config.api.transaction_submission_chains = vec![pool.chain_key.clone()];
@@ -105,7 +111,9 @@ fn configured_api(
             owner_assignment_version: chain.assignment_version,
         },
         pools: vec![pool],
-        source: "CONTROLLED_ORIGINAL_SBF_EXECUTION_BANK".into(),
+        source: owner_source
+            .unwrap_or("CONTROLLED_ORIGINAL_SBF_EXECUTION_BANK")
+            .into(),
         history_gaps: vec![],
     };
     let api = Api::new(config).unwrap();
@@ -218,19 +226,44 @@ async fn orca_dual_token2022_wallet_wire_matches_independent_http_simulation() {
             token_account(sell, caller, 100000, spl_token_2022::PROGRAM, &case["rent"]);
         case["accounts"][ata(recipient, buy)] =
             token_account(buy, recipient, 155, spl_token_2022::PROGRAM, &case["rent"]);
+        let account = &mut case["accounts"][&pool.pool_id];
+        account["rentEpoch"] = json!(u64::MAX);
+        let account_hash = hash(&(
+            &account["owner"],
+            &account["lamports"],
+            &account["executable"],
+            &account["rentEpoch"],
+            &account["data"][0],
+        ))
+        .unwrap();
+        let owner_source =
+            json!({"version":1,"kind":"YELLOWSTONE_INDEPENDENT_VERSIONED_BANK","bank_id":51});
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
         let bank_rpc = BankRpc::new(case);
         let mock = Router::new()
             .route("/", post(rpc))
+            .route(
+                "/internal/chains/{chain}/execution-bank",
+                get(versioned_proof),
+            )
             .with_state(bank_rpc.clone());
         let server = tokio::spawn(async move { axum::serve(listener, mock).await.unwrap() });
-        let api = api(
+        let head = bank_block(&pool, GENESIS, bank["blockhash"].as_str().unwrap());
+        let api = configured_api(
             pool.clone(),
             endpoint,
-            bank["blockhash"].as_str().unwrap(),
+            GENESIS,
+            head,
             &manifest,
+            None,
+            Some(&owner_source.to_string()),
         );
+        let snapshot = api.replica.view(&pool.chain_key).unwrap().reference.clone();
+        let proof = json!({"version":1,"snapshotRef":snapshot,"source":owner_source,
+            "accounts":{&pool.pool_id:{"writeSlot":state.bank_slot,"writeBankId":51,
+                "writeVersion":9,"accountSha256":account_hash}}});
+        *bank_rpc.versioned_proof.lock().unwrap() = proof.clone();
         let mut request = json!({"chainKey":pool.chain_key,"sellToken":sell,"buyToken":buy,
             "caller":caller,"recipient":recipient,"slippageBps":50,"verification":"FAST"});
         let quote_path = if exact_in {
@@ -264,6 +297,8 @@ async fn orca_dual_token2022_wallet_wire_matches_independent_http_simulation() {
         .await;
         assert_eq!(status, 200, "{signed}");
         assert_eq!(signed["signed"], true);
+        assert_eq!(signed["versionedBank"], proof);
+        assert_eq!(unsigned["versionedBank"], proof);
         let slot = prep["costs"]["feeObservedSlot"].as_u64().unwrap();
         assert_eq!(
             signed["blockhashValidity"],
@@ -329,8 +364,24 @@ async fn orca_dual_token2022_wallet_wire_matches_independent_http_simulation() {
             assert_ne!(status, 200);
             assert_eq!(error["error"], expected, "{error}");
         }
+        *bank_rpc.blockhash.lock().unwrap() = BlockhashRpc::Valid;
+        bank_rpc.versioned_proof.lock().unwrap()["accounts"][&pool.pool_id]["writeBankId"] =
+            52.into();
+        let (status, error) = claim(&api, &path, &Value::Null).await;
+        assert_ne!(status, 200);
+        assert_eq!(error["error"], "SBF_VERSIONED_BANK_MISMATCH", "{error}");
+        let mut wrong_bytes = proof;
+        wrong_bytes["accounts"][&pool.pool_id]["accountSha256"] = "0".repeat(64).into();
+        *bank_rpc.versioned_proof.lock().unwrap() = wrong_bytes;
+        let (status, error) = claim(&api, &path, &Value::Null).await;
+        assert_ne!(status, 200);
+        assert_eq!(error["error"], "SBF_VERSIONED_BANK_MISMATCH", "{error}");
         server.abort();
     }
+}
+
+async fn versioned_proof(State(bank): State<BankRpc>) -> Json<Value> {
+    Json(bank.versioned_proof.lock().unwrap().clone())
 }
 
 async fn rpc(State(bank): State<BankRpc>, Json(call): Json<Value>) -> Json<Value> {
@@ -445,6 +496,7 @@ async fn orca_signed_swap_finalizes_on_agave_and_matches_sbf() {
         head.clone(),
         &manifest,
         Some(&journal_path),
+        None,
     );
     let (status, quote) = claim(
         &api,
@@ -556,6 +608,7 @@ async fn orca_signed_swap_finalizes_on_agave_and_matches_sbf() {
         head,
         &manifest,
         Some(&journal_path),
+        None,
     );
     let (status, recovered) = api_call(&reopened, Request::get(&path), Body::empty()).await;
     assert_eq!(status, 200, "{recovered}");
