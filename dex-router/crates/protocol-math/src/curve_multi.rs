@@ -8,7 +8,6 @@ use xone_domain::{err, Result};
 
 pub(crate) const PRECISION: u64 = 1_000_000_000_000_000_000;
 pub(crate) const FEE_DENOMINATOR: u64 = 10_000_000_000;
-pub(crate) const ADMIN_FEE: u64 = 5_000_000_000;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CurveQuote {
@@ -519,7 +518,7 @@ pub fn quote_meta_underlying_exact_out(
     Ok(quote)
 }
 
-/// Mirrors Plain3Basic `add_liquidity` for a one-coin deposit. The returned
+/// Mirrors the pinned 3pool `add_liquidity` for a one-coin deposit. The returned
 /// balances are the pool's internal balances after removing the admin-fee
 /// portion, and the LP amount is the exact integer amount minted by the source.
 #[allow(clippy::too_many_arguments)]
@@ -548,8 +547,7 @@ pub fn quote_base_add_liquidity_one_coin(
     if total_supply.is_zero() {
         return Err(err("CURVE_BASE_INITIAL_DEPOSIT_UNSUPPORTED"));
     }
-    let old_xp = normalize(balances, rates)?;
-    let d0 = invariant(&old_xp, amp)?;
+    let d0 = invariant(&normalize(balances, rates)?, amp)?;
     if d0.is_zero() {
         return Err(err("CURVE_BASE_EMPTY"));
     }
@@ -564,37 +562,23 @@ pub fn quote_base_add_liquidity_one_coin(
     let fd = u(FEE_DENOMINATOR);
     let mut fees = vec![u(0); balances.len()];
     let mut next_admin_balances = admin_balances.to_vec();
-    let mut fee_adjusted = normalize(&new_balances, rates)?;
+    let mut fee_adjusted = new_balances.clone();
+    let mut admin_fee_amount = u(0);
     for i in 0..balances.len() {
-        let ideal = div(&mul(&d1, &old_xp[i])?, &d0)?;
+        let ideal = div(&mul(&d1, &balances[i])?, &d0)?;
         let difference = distance(&ideal, &fee_adjusted[i]);
         fees[i] = div(&mul(&base_fee, &difference)?, &fd)?;
         let admin_part = div(&mul(&fees[i], admin_fee)?, &fd)?;
+        admin_fee_amount = add(&admin_fee_amount, &admin_part)?;
         next_admin_balances[i] = add(&next_admin_balances[i], &admin_part)?;
         fee_adjusted[i] = sub(&fee_adjusted[i], &fees[i])?;
-        let internal = sub(
-            &new_balances[i],
-            &div(&mul(&admin_part, &u(PRECISION))?, &rates[i])?,
-        )?;
-        new_balances[i] = internal;
+        new_balances[i] = sub(&new_balances[i], &admin_part)?;
     }
-    let d2 = invariant(&fee_adjusted, amp)?;
+    let d2 = invariant(&normalize(&fee_adjusted, rates)?, amp)?;
     let minted = div(&mul(total_supply, &sub(&d2, &d0)?)?, &d0)?;
     if minted.is_zero() {
         return Err(err("CURVE_BASE_DEPOSIT_NO_LP"));
     }
-    let admin_fee_amount = fees
-        .iter()
-        .zip(rates)
-        .map(|(fee_xp, rate)| {
-            div(
-                &mul(&div(&mul(fee_xp, admin_fee)?, &fd)?, &u(PRECISION))?,
-                rate,
-            )
-        })
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .try_fold(u(0), |sum, value| add(&sum, &value))?;
     Ok(BaseLiquidityQuote {
         amount_in: input.clone(),
         amount_out: minted.clone(),
@@ -606,7 +590,7 @@ pub fn quote_base_add_liquidity_one_coin(
     })
 }
 
-/// Mirrors Plain3Basic `remove_liquidity_one_coin`, including the source's
+/// Mirrors the pinned 3pool `remove_liquidity_one_coin`, including the source's
 /// reduced-xp fee calculation and the separate admin-fee balance accounting.
 #[allow(clippy::too_many_arguments)]
 pub fn quote_base_remove_liquidity_one_coin(
@@ -791,7 +775,7 @@ pub(crate) fn validate(
     if fee > &u(FEE_DENOMINATOR) {
         return Err(err("CURVE_INVALID_FEE"));
     }
-    if admin != &u(ADMIN_FEE) {
+    if admin > &u(FEE_DENOMINATOR) {
         return Err(err("CURVE_INVALID_ADMIN_FEE"));
     }
     if r.iter().any(Zero::is_zero) {

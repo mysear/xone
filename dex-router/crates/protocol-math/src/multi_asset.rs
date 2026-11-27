@@ -186,7 +186,10 @@ fn meta_underlying_states(
     Ok((
         s.assets.iter().map(|a| a.balance.0.clone()).collect(),
         m.admin_balances.iter().map(|a| a.0.clone()).collect(),
-        s.assets.iter().map(|a| a.scaling.0.clone()).collect(),
+        vec![
+            s.assets[0].scaling.0.clone(),
+            m.base_virtual_price.0.clone(),
+        ],
         s.amplification.0.clone(),
         BigUint::from(pool.fee_numerator),
         BigUint::from(s.admin_fee),

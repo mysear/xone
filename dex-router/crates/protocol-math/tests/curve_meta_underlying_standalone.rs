@@ -70,6 +70,53 @@ fn one_sided_base_deposit_mints_lp_and_tracks_admin_balance() {
 }
 
 #[test]
+fn mainnet_3pool_usdc_deposit_matches_raw_fees_and_post_state() {
+    // Ethereum blocks 21,057,317 and 21,057,318, with one 3pool AddLiquidity event.
+    let balances = [
+        "28086765629238325382913520",
+        "28487956359872",
+        "103331634741618",
+    ]
+    .map(n);
+    let admin_balances = ["5702159388109678049974", "7183458578", "6778098172"].map(n);
+    let rates = [
+        "1000000000000000000",
+        "1000000000000000000000000000000",
+        "1000000000000000000000000000000",
+    ]
+    .map(n);
+    let supply = n("154355679851216307800770291");
+    let q = curve_multi::quote_base_add_liquidity_one_coin(
+        &balances,
+        &admin_balances,
+        &rates,
+        &n("200000"),
+        &n("1000000"),
+        &n("5000000000"),
+        &supply,
+        &n("1342933528"),
+        1,
+    )
+    .unwrap();
+    assert_eq!(q.fee_amounts, ["8852533209243579", "41381", "32568"].map(n));
+    assert_eq!(
+        q.next_balances,
+        [
+            "28086765624812058778291731",
+            "28489299272710",
+            "103331634725334"
+        ]
+        .map(n)
+    );
+    assert_eq!(
+        q.next_admin_balances,
+        ["5702163814376282671763", "7183479268", "6778114456"].map(n)
+    );
+    assert_eq!(q.next_total_supply, n("154356977121339864948339069"));
+    assert_eq!(q.amount_out, q.next_total_supply - supply);
+}
+
+#[test]
 fn one_sided_base_withdrawal_burns_lp_and_preserves_supply_accounting() {
     let (balances, rates, amp, fee, admin, supply) = base_state();
     let admin_balances = vec![n("0"); 3];
