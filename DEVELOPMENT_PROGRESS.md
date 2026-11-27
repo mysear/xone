@@ -352,10 +352,16 @@
 - 通过正常 HTTP 入口准备零流动性变动的 `DecreaseLiquidityV2`。在同一 finalized bank 绑定 Position PDA、头寸 NFT、上下界 tick、奖励 vault、mint 和收款账户。
 - 公开部署程序在受控 bank 通过 5 组独立 SBF 回放，覆盖活跃奖励累计、结束后奖励领取、部分与空 vault、费用或奖励关闭时的结算、Token-2022 到账净额与 withheld。逐笔核对用户、vault、Position 和池的后状态。另有 10 组无效 NFT 或奖励账户顺序拒绝，以及 4 组冻结 Token-2022 收款账户的 CPI 回滚。 [复验说明](integration/tools/reference/raydium-clmm/README.md#deployed-position-settlement-replay)
 
-#### 下一轮迭代目标（I4 Solana 高级组合）
+#### Raydium CLMM 高级 SwapV2 组合验收
 
-- 通过同一 profile 验证 Raydium 动态费、扩展 bitmap、限价订单及奖励累计的组合，逐层覆盖配置、普通 RPC、Protobuf、报价、无签名准备和 SBF。
-- 验收 Orca 更新奖励后领取的组合，复验稀疏数组和 Token-2022 资金路径。签名收款回执继续按 I6 验收。
+- `raydium-clmm-advanced` 在一个版本中支持动态费、扩展 bitmap、限价订单和奖励累计。复用现有 Protobuf 字段和同 bank 账户验证，能力目录升至 `xone-protocol-capabilities/30`。
+- 双向 ExactIn、ExactOut 和三种收费模式通过 24 组原程序差分。复用 bitmap 位定位处理读写，修复了清空扩展数组中的最后一个订单时误写主 bitmap 的问题。6 组数组清空案例核对了扩展 bitmap 后状态。公开部署程序在受控 bank 上通过 24 组 HTTP 无签名准备及独立 SwapV2 回放，并核对 24 组限额回滚和 24 组账户变更拒绝。 [复验说明](integration/tools/reference/raydium-clmm/README.md#deployed-advanced-swapv2-replay)
+- Rust finalized RPC 解析套件 27 项通过，Go 通过 24 组原程序前后状态的 Protobuf 往返。能力目录结构测试通过。基于历史模型文件的能力测试只收集到 2 个有效模型，进度检查的 3 项失败涉及历史报告或本地链接缺失。
+
+#### 下一轮迭代目标（I4 Orca 奖励更新与领取）
+
+- 在同一 finalized bank 验证头寸和上下界 tick，按 Whirlpool 原程序更新费用和奖励后领取。用正常 HTTP 准备入口回放实际指令，核对 Whirlpool、Position、奖励 vault、收款账户和 Token-2022 withheld 后状态。
+- 覆盖普通与稀疏数组、空与部分资金奖励 vault，以及失败时的原子回滚。随后验收 Raydium 高级头寸领取的 custom seed 与扩展 bitmap 组合。签名和真实回执继续按 I6 验收。
 
 ### I5 V4/Infinity
 

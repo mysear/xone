@@ -13,6 +13,7 @@ pub struct Profile {
 pub const NAMES: &[&str] = &[
     crate::v2_swap::PROFILE,
     crate::raydium_clmm::LIMIT_ORDERS_PROFILE,
+    crate::raydium_clmm::ADVANCED_PROFILE,
     "raydium-clmm-rewards",
     "raydium-clmm-dynamic",
     "raydium-clmm-custom-seed",
@@ -81,6 +82,9 @@ pub fn protocol(name: &str) -> Option<Profile> {
         crate::v2_swap::PROFILE => ("v2", crate::v2_swap::ADAPTER, 3, 1000, 0, true),
         crate::raydium_clmm::LIMIT_ORDERS_PROFILE => (
             "rayclmm", crate::raydium_clmm::LIMIT_ORDERS_ADAPTER, 0, 1000000, 0, true,
+        ),
+        crate::raydium_clmm::ADVANCED_PROFILE => (
+            "rayclmm", crate::raydium_clmm::ADVANCED_ADAPTER, 0, 1000000, 0, true,
         ),
         "raydium-clmm-rewards" => (
             "rayclmm",

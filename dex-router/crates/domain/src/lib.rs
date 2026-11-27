@@ -391,14 +391,7 @@ impl Pool {
         if self.infinity_bin.is_some() {
             return Err(err("INFINITY_BIN_PROFILE_MISMATCH"));
         }
-        if self.protocol == "raydium-clmm-rewards"
-            || self.protocol == "raydium-clmm-static"
-            || self.protocol == "raydium-clmm-token-fee"
-            || self.protocol == "raydium-clmm-bitmap"
-            || self.protocol == "raydium-clmm-custom-seed"
-            || self.protocol == "raydium-clmm-dynamic"
-            || self.protocol == raydium_clmm::LIMIT_ORDERS_PROFILE
-        {
+        if raydium_clmm::supports_classic_profile(&self.protocol) {
             return self
                 .raydium_clmm
                 .as_ref()

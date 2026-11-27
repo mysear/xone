@@ -106,16 +106,18 @@ def main():
             continue
         pool, next_pool = case['pool'], case['expected']['next_pool']
         state, after = bind(pool), bind(next_pool)
-        # The distant array contains a historical cohort but has no active ticks.
-        for view in [state, after]:
-            array = view['tick_arrays'][0 if case['left'] else -1]
-            start = array['start_tick_index']
-            array['ticks'] = [dict(tick=start, liquidity_gross='0', liquidity_net='0',
-                                   fee_growth_outside0='0', fee_growth_outside1='0',
-                                   limit_orders=dict(order_phase=12, orders_amount=0,
-                                                     part_filled_orders_remaining=0, unfilled_ratio_x64='0'))]
-            bit = start // (60 * view['tick_spacing']) + 512
-            view['bitmap'][bit // 64] &= ~(1 << (bit % 64))
+        advanced = state.get('bitmap_extension') is not None
+        if not advanced:
+            # The distant array contains a historical cohort but has no active ticks.
+            for view in [state, after]:
+                array = view['tick_arrays'][0 if case['left'] else -1]
+                start = array['start_tick_index']
+                array['ticks'] = [dict(tick=start, liquidity_gross='0', liquidity_net='0',
+                                       fee_growth_outside0='0', fee_growth_outside1='0',
+                                       limit_orders=dict(order_phase=12, orders_amount=0,
+                                                         part_filled_orders_remaining=0, unfilled_ratio_x64='0'))]
+                bit = start // (60 * view['tick_spacing']) + 512
+                view['bitmap'][bit // 64] &= ~(1 << (bit % 64))
         accounts = {key: value for key, value in fixture(pool).items() if key not in shared}
         input_mint, output_mint = pool['token0'], pool['token1']
         if not case['left']:
@@ -123,11 +125,15 @@ def main():
         accounts[source] = token_account(input_mint, caller, 1_000_000)
         accounts[destination] = token_account(output_mint, recipient, 10)
         next_accounts = fixture(next_pool)
-        order_array = next(a['address'] for a in state['tick_arrays'] if a['start_tick_index'] == 0)
+        order_array = next(a['address'] for a in state['tick_arrays']
+                           if any(t.get('limit_orders', {}).get('orders_amount', 0) for t in a['ticks']))
         post_hashes = {
             key: sha(raw(next_accounts[key]))
             for key in [pool['pool_id'], state['vault0'], state['vault1'], order_array]
         }
+        if advanced:
+            address = state['bitmap_extension']['address']
+            post_hashes[address] = sha(raw(next_accounts[address]))
         cases.append(case | dict(accounts=accounts, post_hashes=post_hashes))
     assert len(cases) == 24
     args.output.write_text(json.dumps(dict(

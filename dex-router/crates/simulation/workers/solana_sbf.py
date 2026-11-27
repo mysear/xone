@@ -181,9 +181,24 @@ RAY_TOKEN22_DEPLOYED_CODE='15a2e615a42e20f31714bbaaee43002ae6f1cda2e8d7118243117
 RAY_TOKEN22_DEPLOYED_SLOT=460497271
 MEMO_CODE='f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954'
 RAYCLMM_ORDERS='raydium-clmm-limit-orders'
-RAYCLMM_PROFILES=('raydium-clmm-static','raydium-clmm-rewards','raydium-clmm-token-fee','raydium-clmm-bitmap','raydium-clmm-custom-seed','raydium-clmm-dynamic',RAYCLMM_ORDERS)
+RAYCLMM_ADVANCED='raydium-clmm-advanced'
+RAYCLMM_DYNAMIC_PROFILES=('raydium-clmm-dynamic',RAYCLMM_ADVANCED)
+RAYCLMM_BITMAP_PROFILES=('raydium-clmm-bitmap','raydium-clmm-custom-seed',*RAYCLMM_DYNAMIC_PROFILES)
+RAYCLMM_PROFILES=('raydium-clmm-static','raydium-clmm-rewards','raydium-clmm-token-fee',RAYCLMM_ORDERS,*RAYCLMM_BITMAP_PROFILES)
 def validate_rayclmm(model,accounts,Pubkey):
-    require(model['protocol']in RAYCLMM_PROFILES,'SBF_RAYCLMM_PROFILE');s=model['raydium_clmm'];require((s.get('dynamic_fee')is not None)==(model['protocol']=='raydium-clmm-dynamic')and(s.get('bitmap_extension')is not None)==(model['protocol']in['raydium-clmm-bitmap','raydium-clmm-custom-seed','raydium-clmm-dynamic'])and(model['protocol']=='raydium-clmm-dynamic'or((s.get('seed_index',0)>0)==(model['protocol']=='raydium-clmm-custom-seed'))),'SBF_RAYCLMM_PROFILE');a=accounts[model['pool_id']];data=raw(a);require(a['owner']==RAYCLMM and not a['executable']and len(data)==1544,'SBF_RAYCLMM_POOL_LAYOUT');b=bytearray(data)
+    profile = model['protocol']
+    require(profile in RAYCLMM_PROFILES, 'SBF_RAYCLMM_PROFILE')
+    s = model['raydium_clmm']
+    dynamic_profile = profile in RAYCLMM_DYNAMIC_PROFILES
+    order_profile = profile in (RAYCLMM_ORDERS, RAYCLMM_ADVANCED)
+    require((s.get('dynamic_fee') is not None) == dynamic_profile and
+            (s.get('bitmap_extension') is not None) == (profile in RAYCLMM_BITMAP_PROFILES) and
+            (dynamic_profile or ((s.get('seed_index',0)>0)==(profile=='raydium-clmm-custom-seed'))),
+            'SBF_RAYCLMM_PROFILE')
+    a = accounts[model['pool_id']]
+    data = raw(a)
+    require(a['owner']==RAYCLMM and not a['executable'] and len(data)==1544, 'SBF_RAYCLMM_POOL_LAYOUT')
+    b = bytearray(data)
     require(data[273:277]==bytes(4)and data[389]&~63==0 and data[389]&16==0 and data[393:397]==bytes(4)and not any(data[1130 if s.get('dynamic_fee')is not None else 1096:]),'SBF_RAYCLMM_VERSION')
     def put(offset,value,size=16,signed=False):b[offset:offset+size]=int(value).to_bytes(size,'little',signed=signed)
     def key(offset,value):b[offset:offset+32]=bytes(Pubkey.from_string(value))
@@ -194,7 +209,7 @@ def validate_rayclmm(model,accounts,Pubkey):
     put(269,s['tick_current'],4,True)
     for offset,name in [(309,'protocol_fees0'),(317,'protocol_fees1'),(1064,'fund_fees0'),(1072,'fund_fees1'),(1080,'open_time'),(1088,'recent_epoch')]:put(offset,s[name],8)
     put(390,s.get('collect_fee_on',0),1);put(391,s.get('seed_index',0),2)
-    rewards=s.get('reward_infos',[]);require((model['protocol']=='raydium-clmm-rewards')==(len(rewards)==3),'SBF_RAYCLMM_REWARDS')
+    rewards=s.get('reward_infos',[]);require((profile in ('raydium-clmm-rewards',RAYCLMM_ADVANCED))==(len(rewards)==3),'SBF_RAYCLMM_REWARDS')
     for i in range(3):
         off=397+i*169
         if rewards:
@@ -228,7 +243,7 @@ def validate_rayclmm(model,accounts,Pubkey):
         initialized=0
         for i in range(60):
             off=44+i*168;index=a['start_tick_index']+i*s['tick_spacing'];t=ticks.get(index)
-            order_start=116 if model['protocol']==RAYCLMM_ORDERS else 124
+            order_start=116 if order_profile else 124
             expected[off+order_start:off+168]=bytes(168-order_start)
             if t is None:require(int.from_bytes(d[off:off+4],'little',signed=True)in[0,index],'SBF_RAYCLMM_ARRAY_LAYOUT');expected[off+4:off+116]=bytes(112)
             else:
@@ -238,7 +253,7 @@ def validate_rayclmm(model,accounts,Pubkey):
                 for j,value in enumerate(t.get('reward_growths_outside',[])):expected[off+68+16*j:off+84+16*j]=int(value).to_bytes(16,'little')
                 orders=t.get('limit_orders')
                 if orders is not None:
-                    require(model['protocol']==RAYCLMM_ORDERS,'SBF_RAYCLMM_ORDERS')
+                    require(order_profile,'SBF_RAYCLMM_ORDERS')
                     for delta,name in [(116,'order_phase'),(124,'orders_amount'),(132,'part_filled_orders_remaining')]:
                         expected[off+delta:off+delta+8]=int(orders[name]).to_bytes(8,'little')
                     expected[off+140:off+156]=int(orders['unfilled_ratio_x64']).to_bytes(16,'little')

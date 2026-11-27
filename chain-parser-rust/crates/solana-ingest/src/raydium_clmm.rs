@@ -9,7 +9,8 @@ use xone_config::{Chain, PoolConfig};
 use xone_domain::raydium_clmm::{
     RaydiumCLMMArray, RaydiumCLMMBitmapExtension, RaydiumCLMMDynamicFee, RaydiumCLMMLimitOrders,
     RaydiumCLMMObservation, RaydiumCLMMRewardInfo, RaydiumCLMMState, RaydiumCLMMTick,
-    LIMIT_ORDERS_PROFILE,
+    supports_bitmap_extension, supports_classic_profile, supports_dynamic_fee, supports_orders,
+    supports_rewards,
 };
 use xone_domain::{err, Amount, Pool, Result};
 
@@ -58,16 +59,8 @@ fn discriminator(d: &[u8], expected: [u8; 8]) -> Result<()> {
 /// Array spacing is read from the pool/config after fetching; starts still have to form
 /// a unique, ascending arithmetic sequence before any RPC is made.
 pub fn required_accounts(p: &PoolConfig) -> Result<Vec<String>> {
-    if !matches!(
-        p.protocol.as_str(),
-        "raydium-clmm-static"
-            | "raydium-clmm-rewards"
-            | "raydium-clmm-token-fee"
-            | "raydium-clmm-bitmap"
-            | "raydium-clmm-custom-seed"
-            | "raydium-clmm-dynamic"
-            | LIMIT_ORDERS_PROFILE
-    ) || p.program_id != PROGRAM_ID
+    if !supports_classic_profile(&p.protocol)
+        || p.program_id != PROGRAM_ID
         || p.accounts.len() != 7
         || p.accounts[0] != p.id
         || p.accounts[4] != p.token0
@@ -111,10 +104,7 @@ pub fn required_accounts(p: &PoolConfig) -> Result<Vec<String>> {
         CLOCK.into(),
     ]);
     let pool = pubkey(&p.id)?;
-    let index_range = if matches!(
-        p.protocol.as_str(),
-        "raydium-clmm-bitmap" | "raydium-clmm-custom-seed" | "raydium-clmm-dynamic"
-    ) {
+    let index_range = if supports_bitmap_extension(&p.protocol) {
         -7680..=7679
     } else {
         -512..=511
@@ -131,10 +121,7 @@ pub fn required_accounts(p: &PoolConfig) -> Result<Vec<String>> {
         }
         ids.push(pda(&[b"tick_array", &pool, &start.to_be_bytes()], &program)?.0);
     }
-    if matches!(
-        p.protocol.as_str(),
-        "raydium-clmm-bitmap" | "raydium-clmm-custom-seed" | "raydium-clmm-dynamic"
-    ) {
+    if supports_bitmap_extension(&p.protocol) {
         ids.push(pda(&[BITMAP_EXTENSION_SEED, &pool], &program)?.0);
     }
     crate::token_program::append_dependency(&mut ids, cfg.token_program_upgrade.as_ref())?;
@@ -207,7 +194,7 @@ pub fn decode_raydium_clmm(
     discriminator(state, [247, 237, 227, 245, 215, 195, 222, 70])?;
     discriminator(cfg, [218, 244, 33, 104, 203, 203, 43, 111])?;
     let seed_index = u16_at(state, 391);
-    let dynamic_profile = p.protocol == "raydium-clmm-dynamic";
+    let dynamic_profile = supports_dynamic_fee(&p.protocol);
     if !dynamic_profile && (p.protocol == "raydium-clmm-custom-seed") != (seed_index > 0) {
         return Err(err("RAYCLMM_SEED_PROFILE"));
     }
@@ -227,10 +214,7 @@ pub fn decode_raydium_clmm(
     }
     if (p.protocol == "raydium-clmm-static" && state[390] != 0)
         || (p.protocol == "raydium-clmm-token-fee" && !matches!(state[390], 1 | 2))
-        || (matches!(
-            p.protocol.as_str(),
-            "raydium-clmm-bitmap" | "raydium-clmm-custom-seed" | "raydium-clmm-dynamic"
-        ) && state[390] > 2)
+        || (supports_bitmap_extension(&p.protocol) && state[390] > 2)
     {
         return Err(err("RAYCLMM_FEE_MODE_UNSUPPORTED"));
     }
@@ -244,7 +228,7 @@ pub fn decode_raydium_clmm(
     if u64_at(state, 1088) > bank_epoch {
         return Err(err("POOL_EPOCH_INVALID"));
     }
-    let rewards = p.protocol == "raydium-clmm-rewards";
+    let rewards = supports_rewards(&p.protocol);
     let mut reward_infos = Vec::new();
     for reward in state[397..904].chunks_exact(169) {
         // Legacy profiles still allow only RewardInfo::new(authority).
@@ -319,10 +303,7 @@ pub fn decode_raydium_clmm(
     let bitmap = (0..16)
         .map(|i| u64_at(state, 904 + 8 * i))
         .collect::<Vec<_>>();
-    let bitmap_extension = if matches!(
-        p.protocol.as_str(),
-        "raydium-clmm-bitmap" | "raydium-clmm-custom-seed" | "raydium-clmm-dynamic"
-    ) {
+    let bitmap_extension = if supports_bitmap_extension(&p.protocol) {
         let address = pda(&[BITMAP_EXTENSION_SEED, &pool_bytes], &program_key)?.0;
         let data = owned_data(accounts, &address, PROGRAM_ID, BITMAP_EXTENSION_LEN)?;
         discriminator(data, [60, 150, 36, 219, 97, 128, 139, 153])?;
@@ -442,7 +423,7 @@ pub fn decode_raydium_clmm(
             bank_epoch,
             active,
             rewards,
-            p.protocol == LIMIT_ORDERS_PROFILE,
+            supports_orders(&p.protocol),
         )?);
     }
     let pool = Pool {

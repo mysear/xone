@@ -279,6 +279,7 @@ impl Api {
                     "raydium-clmm-custom-seed":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT_SELECTED_FEE_TOKEN",
                     "raydium-clmm-dynamic":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT_SELECTED_FEE_TOKEN",
                     xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE:"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT_LIMIT_ORDERS",
+                    xone_domain::raydium_clmm::ADVANCED_PROFILE:"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT_DYNAMIC_LIMIT_ORDERS",
                     "orca-whirlpools-static":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
                     "orca-whirlpools-rewards":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",
                     "orca-whirlpools-adaptive":"SINGLE_POOL_CLASSIC_SPL_EXACT_OUTPUT",

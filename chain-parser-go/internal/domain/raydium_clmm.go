@@ -11,6 +11,17 @@ const RayCLMMProgramData = "HzD2cCXXT3UQNjMMY6kDv9w6gZ9qquSdfoGXrLL3LXx"
 const RayCLMMProgram = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"
 const RayCLMMLimitOrdersProfile = "raydium-clmm-limit-orders"
 const RayCLMMLimitOrdersAdapter = "raydium-clmm/6d7a0f82-spl-limit-orders-1"
+const RayCLMMAdvancedProfile = "raydium-clmm-advanced"
+const RayCLMMAdvancedAdapter = "raydium-clmm/6d7a0f82-spl-advanced-1"
+
+func RayCLMMSupportsBitmapExtension(protocol string) bool {
+	switch protocol {
+	case "raydium-clmm-bitmap", "raydium-clmm-custom-seed", "raydium-clmm-dynamic", RayCLMMAdvancedProfile:
+		return true
+	default:
+		return false
+	}
+}
 
 type RaydiumCLMMRewardInfo struct {
 	RewardState           uint32 `json:"reward_state"`
@@ -230,7 +241,8 @@ func (s RaydiumCLMMState) validateWire() error {
 	return nil
 }
 func (s RaydiumCLMMState) Validate(p Pool) error {
-	if p.Protocol != RayCLMMLimitOrdersProfile {
+	advanced := p.Protocol == RayCLMMAdvancedProfile
+	if !advanced && p.Protocol != RayCLMMLimitOrdersProfile {
 		for _, a := range s.TickArrays {
 			for _, tick := range a.Ticks {
 				if tick.LimitOrders != nil {
@@ -239,22 +251,28 @@ func (s RaydiumCLMMState) Validate(p Pool) error {
 			}
 		}
 	}
-	if (p.Protocol == "raydium-clmm-rewards") != (len(s.RewardInfos) == 3) {
+	if (advanced || p.Protocol == "raydium-clmm-rewards") != (len(s.RewardInfos) == 3) {
 		return errors.New("RAYCLMM_REWARD_PROFILE")
 	}
 	if e := s.validateWire(); e != nil {
 		return e
 	}
-	if (p.Protocol == "raydium-clmm-bitmap" || p.Protocol == "raydium-clmm-custom-seed" || p.Protocol == "raydium-clmm-dynamic") != (s.BitmapExtension != nil) {
+	if RayCLMMSupportsBitmapExtension(p.Protocol) != (s.BitmapExtension != nil) {
 		return errors.New("RAYCLMM_EXTENSION_PROFILE")
 	}
-	if p.Protocol != "raydium-clmm-dynamic" && (p.Protocol == "raydium-clmm-custom-seed") != (s.SeedIndex > 0) {
+	dynamic := advanced || p.Protocol == "raydium-clmm-dynamic"
+	if !dynamic && (p.Protocol == "raydium-clmm-custom-seed") != (s.SeedIndex > 0) {
 		return errors.New("RAYCLMM_SEED_PROFILE")
 	}
-	if (p.Protocol == "raydium-clmm-dynamic") != (s.DynamicFee != nil) {
+	if dynamic != (s.DynamicFee != nil) {
 		return errors.New("RAYCLMM_DYNAMIC_PROFILE")
 	}
-	if ValidateChain(p.ChainKey) != nil || !strings.HasPrefix(p.ChainKey, "solana:") || !((p.Protocol == "raydium-clmm-static" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-static-1" && s.CollectFeeOn == 0) || (p.Protocol == "raydium-clmm-token-fee" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-token-fee-1" && (s.CollectFeeOn == 1 || s.CollectFeeOn == 2)) || (p.Protocol == "raydium-clmm-bitmap" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-bitmap-1") || (p.Protocol == "raydium-clmm-custom-seed" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-custom-seed-1") || (p.Protocol == "raydium-clmm-dynamic" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-dynamic-1") || (p.Protocol == "raydium-clmm-rewards" && p.AdapterVersion == "raydium-clmm/6d7a0f82-spl-rewards-1") || (p.Protocol == RayCLMMLimitOrdersProfile && p.AdapterVersion == RayCLMMLimitOrdersAdapter)) || p.FeeNumerator != uint64(s.TradeFeeRate) || p.FeeDenominator != 1000000 || p.Reserve0 != "0" || p.Reserve1 != "0" || p.TokenBehavior != "standard" || p.V2 != nil || p.V3 != nil || p.Stable != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil || p.OrcaWhirlpool != nil {
+	profile, known := Protocol(p.Protocol)
+	if ValidateChain(p.ChainKey) != nil || !strings.HasPrefix(p.ChainKey, "solana:") ||
+		!known || profile.Family != "rayclmm" || profile.AdapterVersion != p.AdapterVersion ||
+		(p.Protocol == "raydium-clmm-static" && s.CollectFeeOn != 0) ||
+		(p.Protocol == "raydium-clmm-token-fee" && s.CollectFeeOn == 0) ||
+		p.FeeNumerator != uint64(s.TradeFeeRate) || p.FeeDenominator != 1000000 || p.Reserve0 != "0" || p.Reserve1 != "0" || p.TokenBehavior != "standard" || p.V2 != nil || p.V3 != nil || p.Stable != nil || p.SingletonCL != nil || p.RaydiumCPMM != nil || p.OrcaWhirlpool != nil {
 		return errors.New("RAYCLMM_POOL_IDENTITY")
 	}
 	seen := map[string]bool{}

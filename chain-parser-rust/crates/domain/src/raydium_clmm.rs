@@ -12,6 +12,8 @@ pub fn supports_classic_profile(protocol: &str) -> bool {
             | "raydium-clmm-bitmap"
             | "raydium-clmm-custom-seed"
             | "raydium-clmm-dynamic"
+            | LIMIT_ORDERS_PROFILE
+            | ADVANCED_PROFILE
     )
 }
 pub const PROGRAM_DATA: &str = "HzD2cCXXT3UQNjMMY6kDv9w6gZ9qquSdfoGXrLL3LXx";
@@ -20,6 +22,25 @@ pub const MIN_TICK: i32 = -443636;
 pub const MAX_TICK: i32 = 443636;
 pub const LIMIT_ORDERS_PROFILE: &str = "raydium-clmm-limit-orders";
 pub const LIMIT_ORDERS_ADAPTER: &str = "raydium-clmm/6d7a0f82-spl-limit-orders-1";
+pub const ADVANCED_PROFILE: &str = "raydium-clmm-advanced";
+pub const ADVANCED_ADAPTER: &str = "raydium-clmm/6d7a0f82-spl-advanced-1";
+
+pub fn supports_orders(protocol: &str) -> bool {
+    matches!(protocol, LIMIT_ORDERS_PROFILE | ADVANCED_PROFILE)
+}
+
+pub fn supports_rewards(protocol: &str) -> bool {
+    matches!(protocol, "raydium-clmm-rewards" | ADVANCED_PROFILE)
+}
+
+pub fn supports_dynamic_fee(protocol: &str) -> bool {
+    matches!(protocol, "raydium-clmm-dynamic" | ADVANCED_PROFILE)
+}
+
+pub fn supports_bitmap_extension(protocol: &str) -> bool {
+    matches!(protocol, "raydium-clmm-bitmap" | "raydium-clmm-custom-seed")
+        || supports_dynamic_fee(protocol)
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct RaydiumCLMMRewardInfo {
@@ -390,7 +411,7 @@ impl RaydiumCLMMState {
     }
     pub fn validate(&self, p: &Pool) -> Result<()> {
         self.validate_wire()?;
-        if p.protocol != LIMIT_ORDERS_PROFILE
+        if !supports_orders(&p.protocol)
             && self
                 .tick_arrays
                 .iter()
@@ -399,22 +420,18 @@ impl RaydiumCLMMState {
         {
             return Err(err("RAYCLMM_LIMIT_ORDER_PROFILE"));
         }
-        if (p.protocol == "raydium-clmm-rewards") != (self.reward_infos.len() == 3) {
+        if supports_rewards(&p.protocol) != (self.reward_infos.len() == 3) {
             return Err(err("RAYCLMM_REWARD_PROFILE"));
         }
-        if (p.protocol == "raydium-clmm-bitmap"
-            || p.protocol == "raydium-clmm-custom-seed"
-            || p.protocol == "raydium-clmm-dynamic")
-            != self.bitmap_extension.is_some()
-        {
+        if supports_bitmap_extension(&p.protocol) != self.bitmap_extension.is_some() {
             return Err(err("RAYCLMM_EXTENSION_PROFILE"));
         }
-        if p.protocol != "raydium-clmm-dynamic"
+        if !supports_dynamic_fee(&p.protocol)
             && (p.protocol == "raydium-clmm-custom-seed") != (self.seed_index > 0)
         {
             return Err(err("RAYCLMM_SEED_PROFILE"));
         }
-        if (p.protocol == "raydium-clmm-dynamic") != self.dynamic_fee.is_some() {
+        if supports_dynamic_fee(&p.protocol) != self.dynamic_fee.is_some() {
             return Err(err("RAYCLMM_DYNAMIC_PROFILE"));
         }
         if crate::validate_chain(&p.chain_key).is_err()
@@ -433,6 +450,7 @@ impl RaydiumCLMMState {
                     && p.adapter_version == "raydium-clmm/6d7a0f82-spl-dynamic-1")
                 || (p.protocol == LIMIT_ORDERS_PROFILE
                     && p.adapter_version == LIMIT_ORDERS_ADAPTER)
+                || (p.protocol == ADVANCED_PROFILE && p.adapter_version == ADVANCED_ADAPTER)
                 || (p.protocol == "raydium-clmm-rewards"
                     && p.adapter_version == "raydium-clmm/6d7a0f82-spl-rewards-1"
                     && self.collect_fee_on == 0))

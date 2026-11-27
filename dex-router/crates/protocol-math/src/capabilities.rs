@@ -1,7 +1,7 @@
 //! Versioned capabilities describe admitted kernels, not live RPC/account readiness.
 use serde::{Deserialize, Serialize};
 use xone_domain::{Pool, Result};
-pub const VERSION: &str = "xone-protocol-capabilities/29";
+pub const VERSION: &str = "xone-protocol-capabilities/30";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolCapabilities {
@@ -116,6 +116,7 @@ fn describe_model(protocol: &str, adapter: &str, token_behavior: &str) -> Protoc
                 protocol,
                 xone_domain::orca_token_2022::PROFILE
                     | xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE
+                    | xone_domain::raydium_clmm::ADVANCED_PROFILE
             ),
         independent_production_verification: false,
         production_ready: false,

@@ -780,9 +780,8 @@ fn quote_mode(pool: &Pool, input: &Amount, left: bool, exact_in: bool) -> Result
                 }
                 a.recent_epoch = state.bank_epoch;
                 if !a.ticks.iter().any(RaydiumCLMMTick::is_initialized) {
-                    // The limit-order profile uses the default bitmap.
-                    let bit = (a.start_tick_index / span + 512) as usize;
-                    state.bitmap[bit / 64] &= !(1u64 << (bit % 64));
+                    let index = a.start_tick_index / span;
+                    state.clear_array_bit(index)?;
                 }
                 tick = if left != has_orders {
                     next_tick - 1

@@ -15,6 +15,8 @@ pub const TOKEN_FEE_PROFILE: &str = "raydium-clmm-token-fee";
 pub const TOKEN_FEE_ADAPTER: &str = "raydium-clmm/6d7a0f82-spl-token-fee-1";
 const ORDERS_PROFILE: &str = "raydium-clmm-limit-orders";
 const ORDERS_ADAPTER: &str = "raydium-clmm/6d7a0f82-spl-limit-orders-1";
+const ADVANCED_PROFILE: &str = "raydium-clmm-advanced";
+const ADVANCED_ADAPTER: &str = "raydium-clmm/6d7a0f82-spl-advanced-1";
 mod dynamic;
 pub use dynamic::*;
 mod seed;
@@ -56,6 +58,8 @@ pub struct LimitOrders {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Tick {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reward_growths_outside: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit_orders: Option<LimitOrders>,
     pub tick: i32,
@@ -84,7 +88,61 @@ fn is_zero(value: &u32) -> bool {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
+pub struct Reward {
+    reward_state: u8,
+    open_time: u64,
+    end_time: u64,
+    last_update_time: u64,
+    emissions_per_second_x64: String,
+    reward_total_emitted: u64,
+    reward_claimed: u64,
+    token_mint: String,
+    token_vault: String,
+    authority: String,
+    reward_growth_global_x64: String,
+}
+
+impl From<RewardInfo> for Reward {
+    fn from(reward: RewardInfo) -> Self {
+        Self {
+            reward_state: reward.reward_state,
+            open_time: reward.open_time,
+            end_time: reward.end_time,
+            last_update_time: reward.last_update_time,
+            emissions_per_second_x64: { reward.emissions_per_second_x64 }.to_string(),
+            reward_total_emitted: reward.reward_total_emitted,
+            reward_claimed: reward.reward_claimed,
+            token_mint: reward.token_mint.to_string(),
+            token_vault: reward.token_vault.to_string(),
+            authority: reward.authority.to_string(),
+            reward_growth_global_x64: { reward.reward_growth_global_x64 }.to_string(),
+        }
+    }
+}
+
+impl Reward {
+    fn original(&self) -> RewardInfo {
+        RewardInfo {
+            reward_state: self.reward_state,
+            open_time: self.open_time,
+            end_time: self.end_time,
+            last_update_time: self.last_update_time,
+            emissions_per_second_x64: self.emissions_per_second_x64.parse().unwrap(),
+            reward_total_emitted: self.reward_total_emitted,
+            reward_claimed: self.reward_claimed,
+            token_mint: pk(&self.token_mint),
+            token_vault: pk(&self.token_vault),
+            authority: pk(&self.authority),
+            reward_growth_global_x64: self.reward_growth_global_x64.parse().unwrap(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct State {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reward_infos: Vec<Reward>,
     #[serde(default, skip_serializing_if = "is_zero")]
     pub seed_index: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -228,6 +286,7 @@ pub fn base_pool() -> Pool {
         let ticks = (0..60)
             .step_by(20)
             .map(|i| Tick {
+                reward_growths_outside: vec![],
                 limit_orders: None,
                 tick: start + i,
                 liquidity_gross: "1000000000000".into(),
@@ -266,6 +325,7 @@ pub fn base_pool() -> Pool {
         fee_denominator: 1_000_000,
         token_behavior: "standard".into(),
         raydium_clmm: State {
+            reward_infos: vec![],
             seed_index: 0,
             dynamic_fee: None,
             bitmap_extension: None,
@@ -357,6 +417,9 @@ fn original_states(p: &Pool) -> (AmmConfig, PoolState, Vec<TickArrayState>, Obse
     state.open_time = s.open_time;
     state.recent_epoch = s.recent_epoch;
     state.tick_array_bitmap = s.bitmap.clone().try_into().unwrap();
+    for (index, reward) in s.reward_infos.iter().enumerate() {
+        state.reward_infos[index] = reward.original();
+    }
     assert_eq!(state.key().to_string(), p.pool_id);
     let arrays = s
         .tick_arrays
@@ -376,6 +439,9 @@ fn original_states(p: &Pool) -> (AmmConfig, PoolState, Vec<TickArrayState>, Obse
                     fee_growth_outside_1_x64: t.fee_growth_outside1.parse().unwrap(),
                     ..TickState::default()
                 };
+                for (i, growth) in t.reward_growths_outside.iter().enumerate() {
+                    out.ticks[index].reward_growths_outside_x64[i] = growth.parse().unwrap();
+                }
                 if let Some(orders) = &t.limit_orders {
                     out.ticks[index].order_phase = orders.order_phase;
                     out.ticks[index].orders_amount = orders.orders_amount;
@@ -418,14 +484,19 @@ fn extract(p: &Pool, state: PoolState, arrays: Vec<TickArrayState>, obs: Observa
     s.fund_fees1 = state.fund_fees_token_1;
     s.recent_epoch = state.recent_epoch;
     s.bitmap = { state.tick_array_bitmap }.to_vec();
+    let advanced = p.protocol == ADVANCED_PROFILE;
+    let orders_profile = advanced || p.protocol == ORDERS_PROFILE;
+    if advanced {
+        s.reward_infos = state.reward_infos.into_iter().map(Reward::from).collect();
+    }
     for (a, raw) in s.tick_arrays.iter_mut().zip(arrays) {
         a.recent_epoch = raw.recent_epoch;
         a.ticks = raw
             .ticks
             .into_iter()
-            .filter(|t| t.is_initialized() || (p.protocol == ORDERS_PROFILE && t.order_phase != 0))
+            .filter(|t| t.is_initialized() || (orders_profile && t.order_phase != 0))
             .map(|t| Tick {
-                limit_orders: (p.protocol == ORDERS_PROFILE
+                limit_orders: (orders_profile
                     && (t.order_phase != 0 || t.has_limit_orders() || t.unfilled_ratio_x64 != 0))
                     .then(|| LimitOrders {
                         order_phase: t.order_phase,
@@ -438,6 +509,11 @@ fn extract(p: &Pool, state: PoolState, arrays: Vec<TickArrayState>, obs: Observa
                 liquidity_net: { t.liquidity_net }.to_string(),
                 fee_growth_outside0: { t.fee_growth_outside_0_x64 }.to_string(),
                 fee_growth_outside1: { t.fee_growth_outside_1_x64 }.to_string(),
+                reward_growths_outside: if advanced {
+                    t.reward_growths_outside_x64.into_iter().map(|growth| growth.to_string()).collect()
+                } else {
+                    vec![]
+                },
             })
             .collect();
     }
@@ -456,7 +532,7 @@ fn extract(p: &Pool, state: PoolState, arrays: Vec<TickArrayState>, obs: Observa
 }
 fn bounded(p: &Pool) -> std::result::Result<(), String> {
     let s = &p.raydium_clmm;
-    if p.protocol != DYNAMIC_PROFILE && s.dynamic_fee.is_some() {
+    if !matches!(p.protocol.as_str(), DYNAMIC_PROFILE | ADVANCED_PROFILE) && s.dynamic_fee.is_some() {
         return Err("dynamic fee in old profile".into());
     }
     match (
@@ -473,7 +549,7 @@ fn bounded(p: &Pool) -> std::result::Result<(), String> {
         {
             validate_extension(p)?;
         }
-        (DYNAMIC_PROFILE, DYNAMIC_ADAPTER, 0..=2) => {
+        (DYNAMIC_PROFILE, DYNAMIC_ADAPTER, 0..=2) | (ADVANCED_PROFILE, ADVANCED_ADAPTER, 0..=2) => {
             validate_seed_identity(p)?;
             validate_extension(p)?;
             validate_dynamic(p)?;
@@ -712,6 +788,74 @@ pub fn generate_orders() -> Value {
                         };
                         cases.push(json!({"pool":pool,"left":left,"order_only":order_only,"exact_in":exact_in,"amount":amount.to_string(),"expected":expected}));
                     }
+                }
+            }
+        }
+    }
+    json!({"revision":REVISION,"cases":cases})
+}
+
+pub fn generate_advanced() -> Value {
+    let mut cases = Vec::new();
+    for left in [false, true] {
+        for mode in 0..=2 {
+            let mut pool = dynamic_pool(if left { -513 } else { 512 }, mode, 1, 1, DYNAMIC_TIME_ANCHOR);
+            pool.protocol = ADVANCED_PROFILE.into();
+            pool.adapter_version = ADVANCED_ADAPTER.into();
+            let state = &mut pool.raydium_clmm;
+            let timestamp = state.bank_unix_timestamp;
+            state.reward_infos = [
+                RewardInfo {
+                    reward_state: 2,
+                    open_time: timestamp - 100,
+                    end_time: timestamp + 20,
+                    last_update_time: timestamp - 40,
+                    emissions_per_second_x64: 19u128 << 64,
+                    reward_total_emitted: 1000,
+                    reward_claimed: 100,
+                    token_mint: key("advanced reward mint"),
+                    token_vault: key("advanced reward vault"),
+                    authority: key("advanced reward authority"),
+                    reward_growth_global_x64: 500,
+                },
+                RewardInfo::default(),
+                RewardInfo::default(),
+            ].into_iter().map(Reward::from).collect();
+            let start = state.tick_current.div_euclid(60) * 60;
+            let order_tick = start + 20;
+            for array in &mut state.tick_arrays {
+                if array.start_tick_index == start {
+                    array.ticks.retain(|t| t.tick == order_tick);
+                    let tick = &mut array.ticks[0];
+                    tick.liquidity_gross = "0".into();
+                    tick.liquidity_net = "0".into();
+                    tick.limit_orders = Some(LimitOrders {
+                        order_phase: 9,
+                        orders_amount: 10_000,
+                        part_filled_orders_remaining: 2_000,
+                        unfilled_ratio_x64: (1u128 << 63).to_string(),
+                    });
+                }
+                for tick in &mut array.ticks {
+                    tick.reward_growths_outside = vec!["0".into(); 3];
+                }
+            }
+            state.tick_current = if left { order_tick } else { order_tick - 1 };
+            state.sqrt_price_x64 = tick_math::get_sqrt_price_at_tick(order_tick).unwrap().to_string();
+            for exact_in in [false, true] {
+                for amount in [2100, 13000] {
+                    let quote = quote_amount(&pool, &amount.to_string(), left, exact_in)
+                        .unwrap_or_else(|error| panic!("{left} {mode} {exact_in} {amount}: {error}"));
+                    let before = &pool.raydium_clmm;
+                    let after = &quote.pool.raydium_clmm;
+                    let consumed = if left {
+                        after.raw_vault0 - before.raw_vault0
+                    } else {
+                        after.raw_vault1 - before.raw_vault1
+                    };
+                    cases.push(json!({"pool":pool,"left":left,"order_only":true,"exact_in":exact_in,
+                        "amount":amount.to_string(),"expected":{"consumed":consumed.to_string(),
+                            "output":quote.amount_out.to_string(),"next_pool":quote.pool}}));
                 }
             }
         }

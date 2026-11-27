@@ -1604,9 +1604,7 @@ impl Config {
                     for (i, start) in v.tick_array_starts.iter().enumerate() {
                         let start = i64::from(*start);
                         if start % span != 0
-                            || (p.protocol != "raydium-clmm-bitmap"
-                                && p.protocol != "raydium-clmm-custom-seed"
-                                && p.protocol != "raydium-clmm-dynamic"
+                            || (!xone_domain::raydium_clmm::supports_bitmap_extension(&p.protocol)
                                 && !(-512..=511).contains(&(start / span)))
                             || !(-7680..=7679).contains(&(start / span))
                             || start > 443636

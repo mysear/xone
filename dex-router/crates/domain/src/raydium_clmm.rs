@@ -12,6 +12,7 @@ pub fn supports_classic_profile(protocol: &str) -> bool {
             | "raydium-clmm-bitmap"
             | "raydium-clmm-custom-seed"
             | "raydium-clmm-dynamic"
+            | ADVANCED_PROFILE
             | LIMIT_ORDERS_PROFILE
     )
 }
@@ -21,6 +22,25 @@ pub const MIN_TICK: i32 = -443636;
 pub const MAX_TICK: i32 = 443636;
 pub const LIMIT_ORDERS_PROFILE: &str = "raydium-clmm-limit-orders";
 pub const LIMIT_ORDERS_ADAPTER: &str = "raydium-clmm/6d7a0f82-spl-limit-orders-1";
+pub const ADVANCED_PROFILE: &str = "raydium-clmm-advanced";
+pub const ADVANCED_ADAPTER: &str = "raydium-clmm/6d7a0f82-spl-advanced-1";
+
+pub fn supports_orders(protocol: &str) -> bool {
+    matches!(protocol, LIMIT_ORDERS_PROFILE | ADVANCED_PROFILE)
+}
+
+pub fn supports_rewards(protocol: &str) -> bool {
+    matches!(protocol, "raydium-clmm-rewards" | ADVANCED_PROFILE)
+}
+
+pub fn supports_dynamic_fee(protocol: &str) -> bool {
+    matches!(protocol, "raydium-clmm-dynamic" | ADVANCED_PROFILE)
+}
+
+pub fn supports_bitmap_extension(protocol: &str) -> bool {
+    matches!(protocol, "raydium-clmm-bitmap" | "raydium-clmm-custom-seed")
+        || supports_dynamic_fee(protocol)
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct RaydiumCLMMRewardInfo {
@@ -391,7 +411,7 @@ impl RaydiumCLMMState {
     }
     pub fn validate(&self, p: &Pool) -> Result<()> {
         self.validate_wire()?;
-        if p.protocol != LIMIT_ORDERS_PROFILE
+        if !supports_orders(&p.protocol)
             && self
                 .tick_arrays
                 .iter()
@@ -400,22 +420,18 @@ impl RaydiumCLMMState {
         {
             return Err(err("RAYCLMM_LIMIT_ORDER_PROFILE"));
         }
-        if (p.protocol == "raydium-clmm-rewards") != (self.reward_infos.len() == 3) {
+        if supports_rewards(&p.protocol) != (self.reward_infos.len() == 3) {
             return Err(err("RAYCLMM_REWARD_PROFILE"));
         }
-        if (p.protocol == "raydium-clmm-bitmap"
-            || p.protocol == "raydium-clmm-custom-seed"
-            || p.protocol == "raydium-clmm-dynamic")
-            != self.bitmap_extension.is_some()
-        {
+        if supports_bitmap_extension(&p.protocol) != self.bitmap_extension.is_some() {
             return Err(err("RAYCLMM_EXTENSION_PROFILE"));
         }
-        if p.protocol != "raydium-clmm-dynamic"
+        if !supports_dynamic_fee(&p.protocol)
             && (p.protocol == "raydium-clmm-custom-seed") != (self.seed_index > 0)
         {
             return Err(err("RAYCLMM_SEED_PROFILE"));
         }
-        if (p.protocol == "raydium-clmm-dynamic") != self.dynamic_fee.is_some() {
+        if supports_dynamic_fee(&p.protocol) != self.dynamic_fee.is_some() {
             return Err(err("RAYCLMM_DYNAMIC_PROFILE"));
         }
         if crate::validate_chain(&p.chain_key).is_err()
@@ -434,6 +450,7 @@ impl RaydiumCLMMState {
                     && p.adapter_version == "raydium-clmm/6d7a0f82-spl-dynamic-1")
                 || (p.protocol == LIMIT_ORDERS_PROFILE
                     && p.adapter_version == LIMIT_ORDERS_ADAPTER)
+                || (p.protocol == ADVANCED_PROFILE && p.adapter_version == ADVANCED_ADAPTER)
                 || (p.protocol == "raydium-clmm-rewards"
                     && p.adapter_version == "raydium-clmm/6d7a0f82-spl-rewards-1"
                     && self.collect_fee_on == 0))
@@ -851,14 +868,12 @@ impl RaydiumCLMMState {
 }
 
 impl RaydiumCLMMState {
-    /// Original 512-bit extension ordering, including negative whole-group boundaries.
-    pub fn array_initialized(&self, index: i32) -> Result<bool> {
+    fn array_bit(&self, index: i32) -> Result<(Option<bool>, usize)> {
         if self.bitmap.len() != 16 || self.tick_spacing == 0 || self.tick_spacing > 1000 {
             return Err(err("RAYCLMM_BITMAP_WIDTH"));
         }
         if (-512..=511).contains(&index) {
-            let bit = (index + 512) as usize;
-            return Ok(self.bitmap[bit / 64] & (1u64 << (bit % 64)) != 0);
+            return Ok((None, (index + 512) as usize));
         }
         let e = self
             .bitmap_extension
@@ -870,14 +885,35 @@ impl RaydiumCLMMState {
         if !(-7680..=7679).contains(&index) {
             return Err(err("RAYCLMM_ARRAY_INDEX"));
         }
-        let (words, offset) = if index >= 512 {
-            (&e.positive, index - 512)
+        // Negative ranges are stored from -1024..=-513 outward in blocks of 512.
+        let (positive, offset) = if index >= 512 {
+            (true, index - 512)
         } else {
             let group = (-index - 1) / 512 - 1;
             let bit = index + (group + 2) * 512;
-            (&e.negative, group * 512 + bit)
+            (false, group * 512 + bit)
         };
-        let offset = offset as usize;
+        Ok((Some(positive), offset as usize))
+    }
+
+    pub fn array_initialized(&self, index: i32) -> Result<bool> {
+        let (extension, offset) = self.array_bit(index)?;
+        let words = match (&self.bitmap_extension, extension) {
+            (Some(e), Some(true)) => &e.positive,
+            (Some(e), Some(false)) => &e.negative,
+            _ => &self.bitmap,
+        };
         Ok(words[offset / 64] & (1u64 << (offset % 64)) != 0)
+    }
+
+    pub fn clear_array_bit(&mut self, index: i32) -> Result<()> {
+        let (extension, offset) = self.array_bit(index)?;
+        let words = match (&mut self.bitmap_extension, extension) {
+            (Some(e), Some(true)) => &mut e.positive,
+            (Some(e), Some(false)) => &mut e.negative,
+            _ => &mut self.bitmap,
+        };
+        words[offset / 64] &= !(1u64 << (offset % 64));
+        Ok(())
     }
 }

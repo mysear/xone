@@ -931,7 +931,7 @@ func (c Config) Validate(expected string) error {
 				}
 				for i, n := range v.TickArrayStarts {
 					start := int64(n)
-					if start%span != 0 || (p.Protocol != "raydium-clmm-bitmap" && p.Protocol != "raydium-clmm-custom-seed" && p.Protocol != "raydium-clmm-dynamic" && (start/span < -512 || start/span > 511)) || start/span < -7680 || start/span > 7679 || start > 443636 || start+span <= -443636 || i > 0 && start != int64(v.TickArrayStarts[i-1])+span {
+					if start%span != 0 || (!domain.RayCLMMSupportsBitmapExtension(p.Protocol) && (start/span < -512 || start/span > 511)) || start/span < -7680 || start/span > 7679 || start > 443636 || start+span <= -443636 || i > 0 && start != int64(v.TickArrayStarts[i-1])+span {
 						return invalid()
 					}
 				}

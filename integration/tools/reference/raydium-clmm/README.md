@@ -67,6 +67,29 @@ XONE_RAYCLMM_ORDER_MANIFEST=/tmp/rayclmm-order-manifest.json \
 
 The 24 cases cover both directions, both amount modes, three fee modes, and partial or drained orders. Each checks user settlement, post-account hashes for the pool, both vaults and the order array, the immutable captured bank, and exclusion of a historical-only array from transaction accounts. Each also checks rejection of changed order bytes and the original program error and rollback for a threshold tightened by one unit.
 
+### Deployed advanced SwapV2 replay
+
+`generate-advanced` combines dynamic fees, reward growth and active orders in the extended bitmap range. Its 24 cases cover both directions, both amount modes, and all three fee modes. Six swaps drain an order-only array and clear its extension bit. The math test compares the complete post-pool state from the original program. The HTTP test uses the same deployment capture and runtime manifest as the limit-order replay and verifies user settlement, pool and extension poststate, threshold rollback and changed-order rejection.
+
+```sh
+/tmp/xone-raydium-clmm/target2/debug/raydium-clmm-reference generate-advanced > /tmp/rayclmm-advanced.json
+python3.11 integration/tools/ci/rayclmm-limit-order-execution-bank.py \
+  /tmp/xone-raydium-clmm/target2/debug/raydium-clmm-reference \
+  /tmp/rayclmm-advanced.json /tmp/rayclmm-programs.json /tmp/rayclmm-advanced-bank.json
+XONE_RAYCLMM_ADVANCED_CORPUS=/tmp/rayclmm-advanced.json \
+  cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-protocol-math \
+  --test rayclmm_limit_orders original_advanced -- --ignored
+XONE_RAYCLMM_ADVANCED_BANK=/tmp/rayclmm-advanced-bank.json \
+XONE_RAYCLMM_ORDER_MANIFEST=/tmp/rayclmm-order-manifest.json \
+  cargo +1.90.0 test --manifest-path dex-router/Cargo.toml -p xone-quote-api \
+  --test rayclmm_limit_orders http_advanced -- --ignored
+(
+  cd chain-parser-go
+  XONE_RAYCLMM_ADVANCED_CORPUS=/tmp/rayclmm-advanced.json \
+    go test ./internal/domain -run '^TestRayCLMMAdvancedNativeCorpusWire$' -count=1
+)
+```
+
 ### Deployed position settlement replay
 
 Build a controlled position bank from the order bank and use the same pinned runtime manifest.

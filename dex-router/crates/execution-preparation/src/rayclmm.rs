@@ -159,7 +159,7 @@ pub(super) fn array_bytes(p: &Pool, a: &r::RaydiumCLMMArray, observed: &[u8]) ->
     for i in 0..60 {
         let off = 44 + i * 168;
         let index = i64::from(a.start_tick_index) + i as i64 * i64::from(s.tick_spacing);
-        if p.protocol == r::LIMIT_ORDERS_PROFILE {
+        if r::supports_orders(&p.protocol) {
             b[off + 116..off + 156].fill(0);
         } else {
             // Legacy profiles omit the historical cohort counter from their snapshot.

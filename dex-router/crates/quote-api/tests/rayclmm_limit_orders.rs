@@ -94,7 +94,7 @@ fn quote_request(
     } else {
         request["kind"] = "EXACT_OUT".into();
         request["buyAmount"] = case["amount"].clone();
-        request["maxSellAmount"] = "100000".into();
+        request["maxSellAmount"] = "1000000".into();
         "/v1/quote-exact-out"
     };
     (endpoint, request)
@@ -241,8 +241,18 @@ fn run_worker(manifest: &Value, input: &Value) -> Value {
 #[tokio::test]
 #[ignore = "requires the controlled deployed Raydium bank and pinned SBF runtime"]
 async fn http_preparation_and_independent_deployed_swap_v2() {
+    deployed_swaps("XONE_RAYCLMM_ORDER_BANK").await;
+}
+
+#[tokio::test]
+#[ignore = "requires the combined Raydium bank and pinned SBF runtime"]
+async fn http_advanced_deployed_swap_v2() {
+    deployed_swaps("XONE_RAYCLMM_ADVANCED_BANK").await;
+}
+
+async fn deployed_swaps(bank_env: &str) {
     let bank: Value = serde_json::from_slice(
-        &std::fs::read(std::env::var("XONE_RAYCLMM_ORDER_BANK").unwrap()).unwrap(),
+        &std::fs::read(std::env::var(bank_env).unwrap()).unwrap(),
     )
     .unwrap();
     let manifest = std::env::var("XONE_RAYCLMM_ORDER_MANIFEST").unwrap();
@@ -261,20 +271,16 @@ async fn http_preparation_and_independent_deployed_swap_v2() {
         assert_eq!(status, StatusCode::OK, "{prepared}");
         assert_eq!(prepared["ready"], true, "{prepared}");
         let swap = &prepared["instructions"][1];
-        let historical = if case["left"] == true {
-            state.tick_arrays.first().unwrap()
-        } else {
-            state.tick_arrays.last().unwrap()
-        };
-        assert!(swap["accounts"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|a| a["pubkey"] != historical.address));
+        for historical in state.tick_arrays.iter().filter(|array| {
+            !array.ticks.iter().any(xone_domain::raydium_clmm::RaydiumCLMMTick::is_initialized)
+        }) {
+            assert!(swap["accounts"].as_array().unwrap().iter().all(|a| a["pubkey"] != historical.address));
+        }
         let order_array = state
             .tick_arrays
             .iter()
-            .find(|a| a.start_tick_index == 0)
+            .find(|a| a.ticks.iter().any(|tick| tick.limit_orders.as_ref()
+                .is_some_and(xone_domain::raydium_clmm::RaydiumCLMMLimitOrders::has_orders)))
             .unwrap();
         let independent_path = format!(
             "/v1/quotes/{id}/preparations/{}/simulate-independent",
@@ -350,7 +356,10 @@ async fn http_preparation_and_independent_deployed_swap_v2() {
             let mut accounts = rpc_bank.accounts.lock().unwrap();
             let data = &mut accounts[&order_array.address]["data"][0];
             let mut bytes = STANDARD.decode(data.as_str().unwrap()).unwrap();
-            bytes[44 + 124] ^= 1;
+            let tick = order_array.ticks.iter().find(|tick| tick.limit_orders.as_ref()
+                .is_some_and(xone_domain::raydium_clmm::RaydiumCLMMLimitOrders::has_orders)).unwrap();
+            let offset = ((tick.tick - order_array.start_tick_index) as usize / state.tick_spacing as usize) * 168;
+            bytes[44 + offset + 124] ^= 1;
             *data = STANDARD.encode(bytes).into();
         }
         let (status, rejected) = call(&api, &prepare_path, &options).await;

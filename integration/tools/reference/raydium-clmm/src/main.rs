@@ -39,6 +39,7 @@ fn main() {
         "generate" => generate(),
         "generate-token-fee" => generate_token_fee(),
         "generate-orders" => raydium_clmm_reference::generate_orders(),
+        "generate-advanced" => raydium_clmm_reference::generate_advanced(),
         "tick-vectors" => tick_vectors(),
         "quote" => {
             let mut text = String::new();

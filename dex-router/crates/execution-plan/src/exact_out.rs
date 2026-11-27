@@ -173,6 +173,7 @@ pub fn build(
                                 | "raydium-clmm-custom-seed"
                                 | "raydium-clmm-dynamic"
                                 | xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE
+                                | xone_domain::raydium_clmm::ADVANCED_PROFILE
                                 | "orca-whirlpools-static"
                                 | "orca-whirlpools-rewards"
                                 | xone_domain::orca_adaptive_state::PROFILE
@@ -214,6 +215,7 @@ pub fn build(
                                     | "raydium-clmm-custom-seed"
                                     | "raydium-clmm-dynamic"
                                     | xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE
+                                    | xone_domain::raydium_clmm::ADVANCED_PROFILE
                                     | "orca-whirlpools-static"
                                     | "orca-whirlpools-rewards"
                                     | xone_domain::orca_adaptive_state::PROFILE
@@ -440,5 +442,6 @@ fn rayclmm_profile(protocol: &str) -> bool {
             | "raydium-clmm-custom-seed"
             | "raydium-clmm-dynamic"
             | xone_domain::raydium_clmm::LIMIT_ORDERS_PROFILE
+            | xone_domain::raydium_clmm::ADVANCED_PROFILE
     )
 }

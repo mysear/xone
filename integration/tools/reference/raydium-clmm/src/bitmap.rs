@@ -77,11 +77,11 @@ pub(super) fn validate_extension(p: &Pool) -> std::result::Result<(), String> {
                 || t.tick >= a.start_tick_index + span
                 || t.tick % spacing as i32 != 0
                 || previous.is_some_and(|x| x >= t.tick)
-                || t.liquidity_gross
+                || (p.protocol != ADVANCED_PROFILE && t.liquidity_gross
                     .parse::<u128>()
                     .ok()
                     .filter(|x| *x > 0)
-                    .is_none()
+                    .is_none())
             {
                 return Err("initialized tick proof".into());
             }
@@ -161,7 +161,7 @@ pub fn bitmap_pool(center_index: i32, mode: u32) -> Pool {
 pub fn fixture_from_bitmap(p: &Pool) -> Value {
     bounded(p).expect("valid bitmap fixture pool");
     assert!(
-        p.protocol == BITMAP_PROFILE || p.protocol == SEED_PROFILE || p.protocol == DYNAMIC_PROFILE
+        matches!(p.protocol.as_str(), BITMAP_PROFILE | SEED_PROFILE | DYNAMIC_PROFILE | ADVANCED_PROFILE)
     );
     let mut f = fixture_for(p);
     let raw = original_extension(p).unwrap();

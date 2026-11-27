@@ -659,6 +659,64 @@ fn token_fee_profile_reads_actual_fee_byte_and_keeps_old_admission_closed() {
 }
 
 #[tokio::test]
+async fn advanced_rpc_preserves_orders_dynamic_fee_rewards_and_extension() {
+    use xone_domain::raydium_clmm::{RaydiumCLMMState, ADVANCED_ADAPTER, ADVANCED_PROFILE};
+
+    let mut f = Fixture::new();
+    f.pool.protocol = ADVANCED_PROFILE.into();
+    let address = pda(
+        &[b"pool_tick_array_bitmap_extension", &bytes(&f.pool.id)],
+        PROGRAM,
+    )
+    .0;
+    let mut extension = vec![0; 1832];
+    extension[..8].copy_from_slice(&disc("TickArrayBitmapExtension"));
+    put_key(&mut extension, 8, &f.pool.id);
+    f.accounts
+        .insert(address.clone(), account(PROGRAM, extension, false));
+    let data = f.state();
+    data[1096..1098].copy_from_slice(&10u16.to_le_bytes());
+    data[1098..1100].copy_from_slice(&120u16.to_le_bytes());
+    data[1100..1102].copy_from_slice(&5000u16.to_le_bytes());
+    data[1102..1106].copy_from_slice(&10_000u32.to_le_bytes());
+    data[1106..1110].copy_from_slice(&1_000_000u32.to_le_bytes());
+    data[397] = 2;
+    put64(data, 398, 990);
+    put64(data, 406, 1500);
+    put64(data, 414, 999);
+    put128(data, 422, 1 << 64);
+    put64(data, 438, 50);
+    put64(data, 446, 5);
+    put_key(data, 454, &key(77));
+    put_key(data, 486, &key(78));
+    put_key(data, 518, &key(79));
+    let tick = f.array(1);
+    put128(tick, 44 + 68, 23);
+    put64(tick, 44 + 116, 9);
+    put64(tick, 44 + 124, 40);
+
+    let (snapshot, calls) = run_rpc(f, false).await;
+    let snapshot = snapshot.unwrap();
+    let pool = &snapshot.pools[0];
+    let state = pool.raydium_clmm.as_ref().unwrap();
+    assert_eq!(pool.adapter_version, ADVANCED_ADAPTER);
+    assert_eq!(calls[1]["params"][1]["commitment"], "finalized");
+    assert_eq!(state.bitmap_extension.as_ref().unwrap().address, address);
+    assert_eq!(
+        state.dynamic_fee.as_ref().unwrap().dynamic_fee_control,
+        10_000
+    );
+    assert_eq!(state.reward_infos[0].reward_total_emitted, 50);
+    let tick = &state.tick_arrays[1].ticks[0];
+    assert_eq!(tick.reward_growths_outside[0].0, 23u32.into());
+    assert_eq!(tick.limit_orders.as_ref().unwrap().orders_amount, 40);
+    assert_eq!(
+        &RaydiumCLMMState::from_proto(state.to_proto().unwrap()).unwrap(),
+        state
+    );
+}
+
+#[tokio::test]
 async fn limit_orders_rpc_preserves_active_and_drained_ticks() {
     use xone_domain::raydium_clmm::{RaydiumCLMMState, LIMIT_ORDERS_PROFILE};
 

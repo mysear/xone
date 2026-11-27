@@ -2,8 +2,54 @@ package domain
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 )
+
+func TestRayCLMMAdvancedNativeCorpusWire(t *testing.T) {
+	path := os.Getenv("XONE_RAYCLMM_ADVANCED_CORPUS")
+	if path == "" {
+		t.Skip("requires the original generate-advanced corpus")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var corpus struct {
+		Cases []struct {
+			Pool     Pool
+			Expected struct {
+				NextPool Pool `json:"next_pool"`
+			}
+		}
+	}
+	if err := json.Unmarshal(raw, &corpus); err != nil {
+		t.Fatal(err)
+	}
+	if len(corpus.Cases) != 24 {
+		t.Fatalf("expected 24 native cases, got %d", len(corpus.Cases))
+	}
+	for _, c := range corpus.Cases {
+		for _, pool := range []Pool{c.Pool, c.Expected.NextPool} {
+			if err := pool.Validate(); err != nil {
+				t.Fatal(err)
+			}
+			wire, err := RaydiumCLMMToProto(pool.RaydiumCLMM)
+			if err != nil {
+				t.Fatal(err)
+			}
+			state, err := RaydiumCLMMFromProto(wire)
+			if err != nil {
+				t.Fatal(err)
+			}
+			actual, _ := Hash(state)
+			expected, _ := Hash(pool.RaydiumCLMM)
+			if actual != expected {
+				t.Fatalf("advanced wire state mismatch: %s != %s", actual, expected)
+			}
+		}
+	}
+}
 
 func dynamicTestPool(t *testing.T) Pool {
 	p := seedTestPool(t, 1)

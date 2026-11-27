@@ -25,6 +25,8 @@ func Protocol(name string) (ProtocolProfile, bool) {
 		return ProtocolProfile{Family: "rayclmm", AdapterVersion: "raydium-clmm/6d7a0f82-spl-rewards-1", FeeDenominator: 1000000, RequireIdentity: true}, true
 	case RayCLMMLimitOrdersProfile:
 		return ProtocolProfile{Family: "rayclmm", AdapterVersion: RayCLMMLimitOrdersAdapter, FeeDenominator: 1000000, RequireIdentity: true}, true
+	case RayCLMMAdvancedProfile:
+		return ProtocolProfile{Family: "rayclmm", AdapterVersion: RayCLMMAdvancedAdapter, FeeDenominator: 1000000, RequireIdentity: true}, true
 	case "raydium-clmm-dynamic":
 		return ProtocolProfile{Family: "rayclmm", AdapterVersion: "raydium-clmm/6d7a0f82-spl-dynamic-1", FeeDenominator: 1000000, RequireIdentity: true}, true
 	case "raydium-clmm-custom-seed":
