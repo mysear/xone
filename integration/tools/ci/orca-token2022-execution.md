@@ -51,7 +51,7 @@ XONE_ORCA_SBF_MANIFEST=/tmp/orca-sbf-manifest.json \
 
 ## Local validator receipt
 
-The local Agave v3.1.14 test captures classic SPL Orca accounts at a finalized slot and verifies both deployed program digests. Preparation uses the captured account response. Blockhash, current preflight, submission and receipt calls use the running validator. The finalized block must contain the signed swap. The receipt's paid amount, received amount, fee and payer balance delta must equal those from independent SBF execution. The test injects a stale fee context before sending, checks the original simulation evidence requirement, and reopens the journal after finalization.
+The local Agave v3.1.14 test captures classic SPL Orca accounts at a finalized slot and verifies both deployed program digests. Preparation uses the captured account response. Blockhash, current preflight, submission and receipt calls use the running validator. The finalized block must contain the signed swap. The receipt's paid amount, received amount, fee and payer balance delta must equal those from independent SBF execution. The test injects stale fee and signature-status contexts and verifies the journal is unchanged by either rejection. It checks the original simulation evidence requirement and reopens the journal after finalization.
 
 Use a fresh directory for each validator run. The first command prints the funded test wallet. Keep the validator running while invoking the commands in the second block.
 

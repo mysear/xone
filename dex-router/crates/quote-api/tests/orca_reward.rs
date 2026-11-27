@@ -351,6 +351,9 @@ async fn rpc(State(bank): State<BankRpc>, Json(call): Json<Value>) -> Json<Value
                 let floor = params[1]["minContextSlot"].as_u64().unwrap();
                 response["result"]["context"]["slot"] = (floor - 1).into();
             }
+            if method == "getSignatureStatuses" && matches!(blockhash, BlockhashRpc::Stale) {
+                response["result"]["context"]["slot"] = 0.into();
+            }
             return Json(response);
         }
     }
@@ -500,6 +503,13 @@ async fn orca_signed_swap_finalizes_on_agave_and_matches_sbf() {
         "/v1/transactions/{}",
         submission["signature"].as_str().unwrap()
     );
+    let journal_before = std::fs::read(&journal_path).unwrap();
+    *bank_rpc.blockhash.lock().unwrap() = BlockhashRpc::Stale;
+    let (status, rejection) = api_call(&api, Request::get(&path), Body::empty()).await;
+    assert_ne!(status, 200);
+    assert_eq!(rejection["error"], "RECEIPT_STALE_RPC");
+    assert_eq!(std::fs::read(&journal_path).unwrap(), journal_before);
+    *bank_rpc.blockhash.lock().unwrap() = BlockhashRpc::Valid;
     let receipt = tokio::time::timeout(std::time::Duration::from_secs(45), async {
         loop {
             let (status, receipt) = api_call(&api, Request::get(&path), Body::empty()).await;

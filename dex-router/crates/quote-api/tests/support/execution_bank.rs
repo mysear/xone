@@ -428,7 +428,10 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
                         .unwrap()
                         .insert(signature.clone(), json!({"dropped":true}));
                 } else {
-                    let tx = wallet_worker(&b, "execute", encoded, &mode).await;
+                    let mut tx = wallet_worker(&b, "execute", encoded, &mode).await;
+                    if mode == "preflight_advancing" {
+                        tx["slot"] = (slot + 5).into();
+                    }
                     b.transactions.lock().unwrap().insert(signature.clone(), tx);
                 }
             }
@@ -442,9 +445,14 @@ async fn rpc(State(b): State<Bank>, Json(q): Json<Value>) -> Json<Value> {
         "getSignatureStatuses" => {
             let values=q["params"][0].as_array().unwrap().iter().map(|s|{
                 let ledger=b.transactions.lock().unwrap();let tx=ledger.get(s.as_str().unwrap());
-                if mode=="failure_disappeared" { Value::Null } else if let Some(tx)=tx.filter(|v|v["dropped"]!=true){json!({"slot":slot,"confirmations":Value::Null,"confirmationStatus":if mode=="submit_pending"||mode=="failure_processed"{"processed"}else if mode=="submit_confirmed"||mode=="failure_confirmed"{"confirmed"}else{"finalized"},"err":if mode=="failure_error_type"{json!(false)}else{tx["meta"]["err"].clone()}})}else{Value::Null}
+                if mode=="failure_disappeared" { Value::Null } else if let Some(tx)=tx.filter(|v|v["dropped"]!=true){json!({"slot":tx["slot"],"confirmations":Value::Null,"confirmationStatus":if mode=="submit_pending"||mode=="failure_processed"{"processed"}else if mode=="submit_confirmed"||mode=="failure_confirmed"{"confirmed"}else{"finalized"},"err":if mode=="failure_error_type"{json!(false)}else{tx["meta"]["err"].clone()}})}else{Value::Null}
             }).collect::<Vec<_>>();
-            json!({"context":{"slot":slot},"value":values})
+            let context_slot = if mode == "preflight_advancing" {
+                slot + 5
+            } else {
+                slot
+            };
+            json!({"context":{"slot":context_slot},"value":values})
         }
         "getTransaction" => {
             let mut tx = b

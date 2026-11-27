@@ -417,9 +417,16 @@ pub(crate) async fn submit(
         .map_err(failure)?;
     Ok(Json(receipt.public()))
 }
-fn p_slot(prepared: &Value) -> Result<u64> {
-    prepared["observedSlot"]
+fn receipt_minimum_slot(receipt: &Receipt) -> Result<u64> {
+    let prepared = receipt.preparation["observedSlot"]
         .as_u64()
+        .ok_or_else(|| err("RECEIPT_META_MISSING"))?;
+    let Some(witness) = &receipt.fee_preflight else {
+        return Ok(prepared);
+    };
+    witness["minimumSendContextSlot"]
+        .as_u64()
+        .filter(|slot| *slot >= prepared)
         .ok_or_else(|| err("RECEIPT_META_MISSING"))
 }
 fn amount(prepared: &Value, name: &str) -> Result<u64> {
@@ -717,6 +724,7 @@ pub(crate) async fn receipt(
     genesis(&api, &record.context.chain_key, &record.genesis_hash)
         .await
         .map_err(failure)?;
+    let minimum_slot = receipt_minimum_slot(&record).map_err(failure)?;
     let response = rpc(
         &api,
         &record.context.chain_key,
@@ -725,6 +733,10 @@ pub(crate) async fn receipt(
     )
     .await
     .map_err(failure)?;
+    let status_context_slot = response["context"]["slot"]
+        .as_u64()
+        .filter(|slot| *slot >= minimum_slot)
+        .ok_or_else(|| failure(err("RECEIPT_STALE_RPC")))?;
     let values = response["value"]
         .as_array()
         .filter(|v| v.len() == 1)
@@ -740,7 +752,7 @@ pub(crate) async fn receipt(
             &api,
             &record.context.chain_key,
             "getBlockHeight",
-            json!([{"commitment":"confirmed"}]),
+            json!([{"commitment":"confirmed","minContextSlot":minimum_slot}]),
         )
         .await
         .map_err(failure)?
@@ -765,8 +777,8 @@ pub(crate) async fn receipt(
         record.slot = Some(
             value["slot"]
                 .as_u64()
-                .filter(|n| p_slot(&record.preparation).is_ok_and(|minimum| *n >= minimum))
-                .ok_or_else(|| failure(err("TRANSACTION_RPC_INVALID")))?,
+                .filter(|slot| (minimum_slot..=status_context_slot).contains(slot))
+                .ok_or_else(|| failure(err("RECEIPT_STALE_RPC")))?,
         );
         record.error = None;
         let onchain_error = value
