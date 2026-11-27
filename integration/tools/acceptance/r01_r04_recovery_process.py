@@ -202,7 +202,7 @@ def run(retention_only=False, offline_seconds=0):
     write_result(target, report)
     processes={};logs={}
     try:
-        with Infrastructure() as infra, tempfile.TemporaryDirectory(prefix='xone-r01-r04-rto-') as directory:
+        with Infrastructure(topics=(TOPIC,)) as infra, tempfile.TemporaryDirectory(prefix='xone-r01-r04-rto-') as directory:
             root=Path(directory);token=secrets.token_urlsafe(32)
             names={'go':'chain-parser-go','router1':'dex-router','router2':'dex-router'}
             ports={alias:port()for alias in names};configs={}

@@ -68,6 +68,7 @@
 
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
+|I7-R04.2 长停机演练资源隔离（2026-11-28）|§23.14、§28.26|LOCAL_SCOPE_VERIFIED|留存联测只创建所需 Kafka topic。验收支持明确选择本机 Kafka 和 JDK，限制 broker 与 CLI 堆内存，容器按固定运行名称管理。实际 PostgreSQL 16、Kafka 4.2 和正常 owner/报价进程的计时烟测通过，实测停机 20,009 毫秒，重启 owner 后 4,276 毫秒收到首个 INDICATIVE 报价|本机受控单池和实际中间件。长停机场景分别记录实际结果。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
 |I7-R04.2 报价副本按链恢复（2026-11-28）|§18.7、§23.14、§28.26|LOCAL_SCOPE_VERIFIED|正常报价进程为每条链独立轮询来源，Kafka 读取期间释放全局读取器表锁。实际 Kafka 4.2 回归确认 Solana 基线请求挂起时 EVM 可恢复首个报价并应用下一块；同一测试集的过期游标、远端检查点与撤销回归均通过|受控 HTTP owner 和本机 Kafka，生产故障域仍待验收。 [Kafka 回归](dex-router/crates/quote-api/tests/kafka_retention.rs)|
 |I7-R04.2 EVM 当前基线切换（2026-11-28）|§18.7、§23.14、§28.26|LOCAL_SCOPE_VERIFIED|普通 EVM RPC 的移动头遇到陈旧主源时，按链 ID、创世块、时间和固定高度锚点校验备用源。正常 Go owner 和报价进程在隔离 PostgreSQL/Kafka 上通过留存恢复，旧游标 3 低于低水位 8，主源返回 6 次陈旧头，备用源恢复至高度 400、游标 11，3,993 毫秒得到首个合格范围，3,997 毫秒得到首个 FAST 请求的 INDICATIVE 报价，随后同步高度 401 并保留历史缺口 101–399|受控 RPC 与实际本机中间件。独立故障域、长期停机和首个 VERIFIED 报价待验收。 [复验工具](integration/tools/acceptance/r01_r04_recovery_process.py)|
 |I7-R04.2 Solana 当前基线切换（2026-11-28）|§18、§23.14、§28.26；WP08、WP20、WP24|LOCAL_SCOPE_VERIFIED|HEAD_FIRST 在接受 RPC 基线前检查时间，遇到陈旧基线继续检查后续端点。WAL 保留原始响应，离线重放只选择通过检查的基线。启动隔离套件 9 项通过|2 项需要独立 PostgreSQL/Kafka 的测试未运行。真实可信 peer 和实际长停机验收继续推进|
