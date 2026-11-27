@@ -12,6 +12,13 @@ use std::collections::BTreeMap;
 #[path = "v4_manager_settlement/strict_replay.rs"]
 mod strict_replay;
 
+fn payer() -> Address {
+    // Public test account derived from the scalar used by the HTTP harness.
+    "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf"
+        .parse()
+        .unwrap()
+}
+
 #[derive(Deserialize)]
 struct Build {
     manager: String,
@@ -47,7 +54,7 @@ fn transact(db: &mut InMemoryDB, target: TxKind, data: Vec<u8>, value: u64) -> E
         .with_spec_id(SpecId::CANCUN)
         .modify_block_env(|block| block.gas_limit = U256::from(30_000_000))
         .modify_tx_env(|tx| {
-            tx.caller = Address::repeat_byte(0x11);
+            tx.caller = payer();
             tx.gas_limit = 20_000_000;
             tx.transact_to = target;
             tx.data = Bytes::from(data);
@@ -168,7 +175,7 @@ fn original_infinity_managers_settle_hook_deltas_through_vault() {
     let build: Build = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let mut db = InMemoryDB::default();
     db.insert_account_info(
-        Address::repeat_byte(0x11),
+        payer(),
         AccountInfo {
             balance: U256::from(10u128.pow(21)),
             ..Default::default()
@@ -349,7 +356,7 @@ fn original_pool_manager_settles_hook_deltas_and_native_currency() {
     let path = std::env::var("XONE_V4_MANAGER_SETTLEMENT_BUILD").unwrap();
     let build: Build = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let mut db = InMemoryDB::default();
-    let caller = Address::repeat_byte(0x11);
+    let caller = payer();
     db.insert_account_info(
         caller,
         AccountInfo {

@@ -237,7 +237,7 @@ pub(super) fn verify(
     executor: Address,
     cases: &[serde_json::Value],
 ) {
-    let caller = Address::repeat_byte(0x11);
+    let caller = payer();
     let recipient = Address::with_last_byte(0xb4);
     let runtime_digest = |db: &InMemoryDB, address| {
         hex::encode(Sha256::digest(

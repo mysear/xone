@@ -35,6 +35,31 @@ pub fn simulate_singleton(
     budget: &SimulationBudget,
     control: core::ExecutionControl,
 ) -> Result<SimulationOutcome> {
+    simulate_singleton_transaction(
+        plan,
+        pools,
+        executor,
+        token_digests,
+        fixture,
+        tx,
+        budget,
+        control,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn simulate_singleton_transaction(
+    plan: SingletonPlan<'_>,
+    pools: &[Pool],
+    executor: v4_single::Executor<'_>,
+    token_digests: &BTreeMap<String, String>,
+    fixture: &FixtureState,
+    tx: &TransactionContext,
+    budget: &SimulationBudget,
+    control: core::ExecutionControl,
+    signed: Option<&crate::worker::SignedEvmTransaction>,
+) -> Result<SimulationOutcome> {
     let binding_error = |e: xone_domain::Error| failure(SimulationBindingMismatch, "singleton", e);
     let bound = plan.bind(pools, executor).map_err(binding_error)?;
     let (context, snapshot, pool_id, quoted_input, quoted_output, exact_out) = match plan {
@@ -104,13 +129,49 @@ pub fn simulate_singleton(
     }
     let caller = address(&context.caller)?;
     let recipient = address(&context.recipient)?;
+    let mut transaction = TxEnv {
+        caller,
+        transact_to: TxKind::Call(address(target)?),
+        value: amount(&bound.transaction.value)?,
+        data: Bytes::from(
+            hex::decode(&bound.transaction.data[2..])
+                .map_err(|e| failure(SimulationBindingMismatch, "transaction_input", e))?,
+        ),
+        nonce: Some(tx.nonce),
+        chain_id: Some(tx.chain_id),
+        gas_limit: tx.gas_limit,
+        gas_price: max_fee,
+        gas_priority_fee: priority,
+        ..TxEnv::default()
+    };
+    let mut input_bytes = 0;
+    if let Some(signed) = signed {
+        let (authenticated, wire_len) = signed
+            .authenticate(tx.chain_id, caller, budget)
+            .map_err(|e| failure(SimulationBindingMismatch, "singleton_signed", e))?;
+        let mut signed_env = authenticated.into_environment();
+        // Access lists are part of signed gas semantics. Compare all other fields to the template.
+        let access_list = std::mem::take(&mut signed_env.access_list);
+        if signed_env != transaction {
+            return Err(failure(
+                SimulationBindingMismatch,
+                "singleton_signed",
+                "signed transaction differs from bound quote or bank context",
+            ));
+        }
+        transaction.access_list = access_list;
+        input_bytes = wire_len as u64;
+    }
     let mut runner = Runner {
         caller_address: caller,
         budget,
         env,
         tx,
         control,
-        usage: BudgetUsage::default(),
+        usage: BudgetUsage {
+            input_bytes,
+            ..BudgetUsage::default()
+        },
         observations: Vec::new(),
         op: None,
         op_fees: None,
@@ -136,26 +197,7 @@ pub fn simulate_singleton(
         "recipient_buy_before",
     )?;
     let actual = runner
-        .run(
-            pre.clone(),
-            TxEnv {
-                caller,
-                transact_to: TxKind::Call(address(target)?),
-                value: amount(&bound.transaction.value)?,
-                data: Bytes::from(
-                    hex::decode(&bound.transaction.data[2..])
-                        .map_err(|e| failure(SimulationBindingMismatch, "transaction_input", e))?,
-                ),
-                nonce: Some(tx.nonce),
-                chain_id: Some(tx.chain_id),
-                gas_limit: tx.gas_limit,
-                gas_price: max_fee,
-                gas_priority_fee: priority,
-                ..TxEnv::default()
-            },
-            "singleton_swap",
-            false,
-        )?
+        .run(pre.clone(), transaction, "singleton_swap", false)?
         .result_and_state;
     let post = Arc::new(
         pre.apply(&actual.state)
@@ -231,6 +273,7 @@ pub fn simulate_singleton(
         ));
     }
     let mut outcome = SimulationOutcome {
+        signed_transaction_hash: signed.map(|s| s.transaction_hash.clone()),
         approval: None,
         allowance_reset: None,
         wrap: None,

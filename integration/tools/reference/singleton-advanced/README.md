@@ -65,6 +65,8 @@ cargo +1.90.0 run --manifest-path dex-router/Cargo.toml -p xone-quote-api \
 
 The example runs 24 HTTP quote, build and simulation cases, then removes Manager storage for each case and checks worker rejection.
 
+The simulation endpoint also accepts `signedEvmTransaction` containing `transactionHash` and `signedWire` as lowercase hex strings with the `0x` prefix. It authenticates the external wallet signature and matches the decoded transaction to the build and the configured transaction context. The worker returns `LOCAL_SIGNED_EVM_EXECUTED` and includes the signed hash in the local receipt. The example signs and replays all 24 build results and checks 24 nonce mismatches.
+
 ## Bounded library reference
 
 This slice is explicitly separate from legacy singleton admission. The core protocol names inside `SingletonAdvancedState` remain `uniswap-v4` and `pancake-infinity-cl`; central Pool profiles may use their `-advanced` names. Shared registry/config/wire dispatch is owned by main.

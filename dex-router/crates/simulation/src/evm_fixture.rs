@@ -11,6 +11,7 @@ use revm::primitives::{
 use revm::Database;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+pub(crate) use singleton::simulate_singleton_transaction;
 pub use singleton::{simulate_singleton, SingletonPlan, SINGLETON_SIMULATOR_VERSION};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -576,6 +577,8 @@ pub struct NativeFeeMeasurements {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SimulationOutcome {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signed_transaction_hash: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval: Option<ApprovalReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2128,6 +2131,7 @@ fn simulate_execution(
         SIMULATOR_VERSION
     };
     let mut outcome = SimulationOutcome {
+        signed_transaction_hash: None,
         wrap: wrapped,
         allowance_reset,
         approval,

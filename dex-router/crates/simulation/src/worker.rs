@@ -216,11 +216,59 @@ pub struct WorkerRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WorkerSingleton {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signed_transaction: Option<SignedEvmTransaction>,
     pub plan: SingletonOrder,
     pub executor: String,
     pub executor_code_sha256: String,
     pub infinity_vault: Option<(String, String)>,
     pub token_digests: BTreeMap<String, String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct SignedEvmTransaction {
+    pub transaction_hash: String,
+    pub signed_wire: String,
+}
+impl SignedEvmTransaction {
+    pub(crate) fn authenticate(
+        &self,
+        chain_id: u64,
+        caller: revm::primitives::Address,
+        budget: &SimulationBudget,
+    ) -> Result<(crate::op_transaction::AuthenticatedUser, usize)> {
+        let invalid = || err("SIMULATION_WORKER_SIGNED_EVM_BINDING");
+        let wire = self.signed_wire.strip_prefix("0x").ok_or_else(invalid)?;
+        let hash = self
+            .transaction_hash
+            .strip_prefix("0x")
+            .ok_or_else(invalid)?;
+        if hash.len() != 64
+            || wire.len() % 2 != 0
+            || wire.len() / 2
+                > budget
+                    .max_input_bytes
+                    .min(crate::op_transaction::MAX_WIRE_BYTES)
+            || wire.len() as u64 / 2 > budget.max_total_input_bytes
+            || !wire
+                .bytes()
+                .chain(hash.bytes())
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(invalid());
+        }
+        let wire = hex::decode(wire).map_err(|_| invalid())?;
+        let hash = hex::decode(hash).map_err(|_| invalid())?;
+        let authenticated = crate::op_transaction::authenticate_evm_user(
+            chain_id,
+            revm::primitives::B256::from_slice(&hash),
+            caller,
+            &wire,
+            budget.max_input_bytes,
+        )
+        .map_err(|_| invalid())?;
+        Ok((authenticated, wire.len()))
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum SingletonOrder {
@@ -346,7 +394,7 @@ pub fn run_stdio() -> Result<()> {
         {
             return Err(err("SIMULATION_WORKER_BINDING"));
         }
-        evm_fixture::simulate_singleton(
+        evm_fixture::simulate_singleton_transaction(
             singleton.plan(),
             &request.pools,
             singleton.executor(),
@@ -355,6 +403,7 @@ pub fn run_stdio() -> Result<()> {
             &request.transaction_context,
             &request.budget,
             control,
+            singleton.signed_transaction.as_ref(),
         )
         .map(Completed::Plain)
     } else if let Some(wrap) = &request.direct_wrap {

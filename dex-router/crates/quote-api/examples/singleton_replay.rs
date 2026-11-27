@@ -25,7 +25,7 @@ async fn main() {
         count += 1;
     }
     assert_eq!(count, 24);
-    println!("{count} HTTP replays and {count} incomplete-state rejections passed");
+    println!("{count} unsigned and {count} signed HTTP replays passed, with {count} missing-state and {count} nonce rejections");
 }
 
 async fn assert_replay(case: &Value, dir: &Path, incomplete: bool) {
@@ -156,7 +156,6 @@ async fn assert_replay(case: &Value, dir: &Path, incomplete: bool) {
     let (status, build) = call(format!("{path}/build"), json!({})).await;
     assert_eq!(status, 200, "{build}");
     let (status, replay) = call(format!("{path}/simulate"), json!({})).await;
-    rpc_task.abort();
     if incomplete {
         assert_eq!(status, 422, "{replay}");
         assert_eq!(
@@ -187,6 +186,101 @@ async fn assert_replay(case: &Value, dir: &Path, incomplete: bool) {
     );
     assert_eq!(replay["verification"]["success"], true);
     assert_eq!(replay["verified"], false);
+    let sign = |nonce| sign_transaction(&build["transaction"], &bundle, nonce);
+    let nonce = bundle.transaction_context.nonce;
+    let signed = sign(nonce);
+    let (status, replay) = call(
+        format!("{path}/simulate"),
+        json!({"signedEvmTransaction":signed}),
+    )
+    .await;
+    assert_eq!(status, 200, "{replay}");
+    assert_eq!(replay["verification"]["level"], "LOCAL_SIGNED_EVM_EXECUTED");
+    assert_eq!(
+        replay["outcome"]["signed_transaction_hash"],
+        signed["transactionHash"]
+    );
+    assert_eq!(replay["outcome"]["actual_input_consumed"], case["input"]);
+    assert_eq!(replay["outcome"]["actual_buy_amount"], case["output"]);
+    let (status, rejected) = call(
+        format!("{path}/simulate"),
+        json!({"signedEvmTransaction":sign(nonce+1)}),
+    )
+    .await;
+    assert_eq!(status, 422, "{rejected}");
+    assert_eq!(rejected["phase"], "singleton_signed");
+    rpc_task.abort();
+}
+
+fn sign_transaction(transaction: &Value, bundle: &LocalSimulationBundle, nonce: u64) -> Value {
+    use secp256k1::{Message, Secp256k1, SecretKey};
+    use tiny_keccak::{Hasher, Keccak};
+
+    fn encode(bytes: &[u8], list: bool) -> Vec<u8> {
+        if !list && bytes.len() == 1 && bytes[0] < 128 {
+            return bytes.to_vec();
+        }
+        let base = if list { 0xc0 } else { 0x80 };
+        let mut result = if bytes.len() < 56 {
+            vec![base + bytes.len() as u8]
+        } else {
+            let size = bytes.len().to_be_bytes();
+            let start = size.iter().position(|&byte| byte != 0).unwrap();
+            let mut result = vec![base + 55 + (size.len() - start) as u8];
+            result.extend_from_slice(&size[start..]);
+            result
+        };
+        result.extend_from_slice(bytes);
+        result
+    }
+    let integer = |bytes: &[u8]| {
+        let start = bytes
+            .iter()
+            .position(|&byte| byte != 0)
+            .unwrap_or(bytes.len());
+        encode(&bytes[start..], false)
+    };
+    let quantity = |amount: &xone_domain::Amount| integer(&amount.to_be_bytes().unwrap());
+    let hex_data = |field: &str| hex::decode(&transaction[field].as_str().unwrap()[2..]).unwrap();
+    let hash = |bytes: &[u8]| {
+        let mut output = [0; 32];
+        let mut keccak = Keccak::v256();
+        keccak.update(bytes);
+        keccak.finalize(&mut output);
+        output
+    };
+    let context = &bundle.transaction_context;
+    let mut body = [
+        integer(&context.chain_id.to_be_bytes()),
+        integer(&nonce.to_be_bytes()),
+        quantity(context.max_priority_fee_per_gas.as_ref().unwrap()),
+        quantity(&context.gas_price),
+        integer(&context.gas_limit.to_be_bytes()),
+        encode(&hex_data("to"), false),
+        quantity(&serde_json::from_value(transaction["value"].clone()).unwrap()),
+        encode(&hex_data("data"), false),
+        encode(&[], true),
+    ]
+    .concat();
+    let envelope = |body: &[u8]| [vec![2], encode(body, true)].concat();
+    // The isolated replay bank funds the public test account derived from scalar 1.
+    let mut key = [0; 32];
+    key[31] = 1;
+    let signature = Secp256k1::new().sign_ecdsa_recoverable(
+        &Message::from_digest(hash(&envelope(&body))),
+        &SecretKey::from_slice(&key).unwrap(),
+    );
+    let (parity, signature) = signature.serialize_compact();
+    for field in [
+        &[parity.to_i32() as u8][..],
+        &signature[..32],
+        &signature[32..],
+    ] {
+        body.extend(integer(field));
+    }
+    let wire = envelope(&body);
+    json!({"transactionHash":format!("0x{}",hex::encode(hash(&wire))),
+           "signedWire":format!("0x{}",hex::encode(wire))})
 }
 
 fn replay_rpc(

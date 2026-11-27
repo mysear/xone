@@ -31,9 +31,9 @@ use xone_simulation::{
     },
     revm_backend::StateImage,
     worker::{
-        executable_sha256, LocalSimulationBundle, SingletonOrder, WorkerOpUser, WorkerPreparation,
-        WorkerRequest, WorkerResponse, WorkerSingleton, WorkerSplit, MAX_WORKER_INPUT_BYTES,
-        MAX_WORKER_OUTPUT_BYTES, WORKER_PROTOCOL,
+        executable_sha256, LocalSimulationBundle, SignedEvmTransaction, SingletonOrder,
+        WorkerOpUser, WorkerPreparation, WorkerRequest, WorkerResponse, WorkerSingleton,
+        WorkerSplit, MAX_WORKER_INPUT_BYTES, MAX_WORKER_OUTPUT_BYTES, WORKER_PROTOCOL,
     },
     worker_op::OpReceiptCommitment,
 };
@@ -162,6 +162,7 @@ fn singleton_order(config: &ConfigSnapshot, cached: &Selection) -> Result<Worker
         return Err(err("EXECUTION_TARGET_NOT_ALLOWED"));
     }
     Ok(WorkerSingleton {
+        signed_transaction: None,
         plan,
         executor: executor.address.into(),
         executor_code_sha256: executor.code_sha256.into(),
@@ -220,6 +221,7 @@ struct SingletonCommitment {
     context: xone_execution_plan::Context,
     fixture_hash: String,
     budget: SimulationBudget,
+    signed_transaction_hash: Option<String>,
 }
 struct PreparedExecution {
     input: Vec<u8>,
@@ -366,6 +368,10 @@ impl PreparedExecution {
                 context: context.clone(),
                 fixture_hash: hash(&request.fixture).map_err(|_| invalid())?,
                 budget: request.budget.clone(),
+                signed_transaction_hash: singleton
+                    .signed_transaction
+                    .as_ref()
+                    .map(|signed| signed.transaction_hash.clone()),
             });
             let executor = json!({"target":bound.transaction.to,"code_sha256":bound.executor_code_sha256,
                 "manager":bound.manager,"manager_code_sha256":bound.manager_code_sha256,"infinity":bound.infinity});
@@ -1032,6 +1038,20 @@ impl LocalSimulation {
         self.execute_inner(config, cached, deadline, None, Some(signed))
             .await
     }
+    pub async fn execute_signed_evm(
+        self: Arc<Self>,
+        config: Arc<ConfigSnapshot>,
+        cached: Selection,
+        deadline: Instant,
+        signed: SignedEvmTransaction,
+    ) -> std::result::Result<Value, Failure> {
+        let state = self
+            .pin_prices()
+            .map_err(|e| Failure::new(&e.0, "transaction_economics"))?;
+        state
+            .execute_pinned(config, cached, deadline, None, None, Some(signed))
+            .await
+    }
     async fn execute_inner(
         self: Arc<Self>,
         config: Arc<ConfigSnapshot>,
@@ -1047,7 +1067,7 @@ impl LocalSimulation {
                 .map_err(|e| Failure::new(&e.0, "transaction_economics"))?
         };
         state
-            .execute_pinned(config, cached, deadline, prepared, signed)
+            .execute_pinned(config, cached, deadline, prepared, signed, None)
             .await
     }
     async fn execute_pinned(
@@ -1057,6 +1077,7 @@ impl LocalSimulation {
         deadline: Instant,
         prepared: Option<WorkerPreparation>,
         signed: Option<SignedOpRequest>,
+        signed_evm: Option<SignedEvmTransaction>,
     ) -> std::result::Result<Value, Failure> {
         if self.bundle.op_attributes_calldata.is_some() != signed.is_some()
             || (signed.is_some() && prepared.is_some())
@@ -1083,8 +1104,17 @@ impl LocalSimulation {
             let economic_context = cached.context().clone();
             let timeout_ms = config.config.simulation.timeout_ms.min(60_000);
             let prepared = tokio::task::spawn_blocking(move || {
-                let request =
+                let mut request =
                     state.worker_request(&config, &cached, prepared, signed, timeout_ms)?;
+                if let Some(signed) = signed_evm {
+                    request
+                        .singleton
+                        .as_mut()
+                        .ok_or_else(|| {
+                            Failure::new("EXECUTION_ADAPTER_UNSUPPORTED", "singleton_signed")
+                        })?
+                        .signed_transaction = Some(signed);
+                }
                 let prepared =
                     PreparedExecution::from_source(request, state.wrap_source.as_deref())?;
                 let identity = executable_sha256(&state.worker_path)
@@ -1304,6 +1334,7 @@ fn diagnostic_response(
         if receipt != expected
             || typed.source_fixture_hash != singleton.fixture_hash
             || typed.simulator_version != SINGLETON_SIMULATOR_VERSION
+            || typed.signed_transaction_hash != singleton.signed_transaction_hash
             || typed.execution.sender_nonce_before != commitment.transaction_context.nonce
             || typed.execution.sender_nonce_before.checked_add(1)
                 != Some(typed.execution.sender_nonce_after)
@@ -1619,9 +1650,18 @@ fn diagnostic_response(
             .map_err(|e| Failure::new(&e.0, "wrap_fees"))?;
     }
     let success = outcome["matches_plan"] == true && outcome["execution"]["status"] == "SUCCESS";
+    let level = if commitment
+        .singleton
+        .as_ref()
+        .is_some_and(|value| value.signed_transaction_hash.is_some())
+    {
+        "LOCAL_SIGNED_EVM_EXECUTED"
+    } else {
+        "LOCAL_EVM_EXECUTED"
+    };
     let mut result = json!({"quoteKind":commitment.quote_kind,"bindingHash":commitment.binding_hash,"bundleHash":bundle_hash,"workerHash":worker_hash,
         "transaction":commitment.transaction,"transactionContext":commitment.transaction_context,"executionBaseFee":commitment.execution_base_fee,"executionCoinbase":commitment.execution_coinbase,"executor":commitment.executor,
-        "verification":{"level":"LOCAL_EVM_EXECUTED","success":success,"verified":false},"verified":false,
+        "verification":{"level":level,"success":success,"verified":false},"verified":false,
         "authority":"PROVIDED_LOCAL_STATE","outcome":outcome,
         "fees":{"evmGasUsed":gas,"gasPriceWei":model.effective_gas_price,"evmFeeWei":model.execution_fee,"chainFeeCompleteness":"LOCAL_EVM_ONLY"},"costs":costs});
     if let Some(executor) = &commitment.split_executor {

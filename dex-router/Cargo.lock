@@ -3814,6 +3814,7 @@ dependencies = [
  "num-traits",
  "prost",
  "reqwest",
+ "secp256k1",
  "serde",
  "serde_json",
  "sha2",

@@ -1247,6 +1247,8 @@ fn simulation_failure(error: local_simulation::Failure) -> HttpError {
 struct SimulationRequest {
     #[serde(default, rename = "signedOpTransaction")]
     signed_op_transaction: Option<local_simulation::SignedOpRequest>,
+    #[serde(default, rename = "signedEvmTransaction")]
+    signed_evm_transaction: Option<xone_simulation::worker::SignedEvmTransaction>,
 }
 async fn simulate_transaction(
     State(api): State<Api>,
@@ -1274,6 +1276,7 @@ async fn simulate_transaction(
     let simulation_request = if body.is_empty() {
         SimulationRequest {
             signed_op_transaction: None,
+            signed_evm_transaction: None,
         }
     } else {
         serde_json::from_slice::<SimulationRequest>(&body)
@@ -1311,7 +1314,14 @@ async fn simulate_transaction(
     api.metrics
         .simulation_started
         .fetch_add(1, Ordering::Relaxed);
-    let executed = if let Some(signed) = simulation_request.signed_op_transaction {
+    let executed = if let Some(signed) = simulation_request.signed_evm_transaction {
+        if simulation_request.signed_op_transaction.is_some() {
+            return Err(failure(err("INVALID_SIMULATION_REQUEST")));
+        }
+        backend
+            .execute_signed_evm(api.config.clone(), cached.clone(), deadline, signed)
+            .await
+    } else if let Some(signed) = simulation_request.signed_op_transaction {
         backend
             .execute_signed_op(api.config.clone(), cached.clone(), deadline, signed)
             .await

@@ -1,4 +1,4 @@
-//! Authenticate regular signed OP user envelopes before constructing a VM
+//! Authenticate regular signed EVM user envelopes before constructing a VM
 //! transaction. Block/state provenance and canonicality remain separate.
 use revm::primitives::{
     alloy_primitives::B512, keccak256, AccessListItem, Address, Bytes, OptimismFields, TxEnv,
@@ -178,6 +178,25 @@ pub fn authenticate_user(
     if !matches!(chain_id, 10 | 8453) {
         return Err(err("OP_USER_CHAIN_UNSUPPORTED"));
     }
+    let mut authenticated =
+        authenticate_evm_user(chain_id, expected_hash, expected_caller, wire, max_bytes)?;
+    authenticated.env.optimism = OptimismFields {
+        enveloped_tx: Some(Bytes::copy_from_slice(wire)),
+        ..Default::default()
+    };
+    Ok(authenticated)
+}
+
+pub fn authenticate_evm_user(
+    chain_id: u64,
+    expected_hash: B256,
+    expected_caller: Address,
+    wire: &[u8],
+    max_bytes: usize,
+) -> Result<AuthenticatedUser> {
+    if chain_id == 0 {
+        return Err(err("OP_USER_SIGNATURE_CHAIN"));
+    }
     if wire.is_empty() || wire.len() > max_bytes || wire.len() > MAX_WIRE_BYTES {
         return Err(err("OP_USER_WIRE_BUDGET"));
     }
@@ -206,8 +225,11 @@ pub fn authenticate_user(
         .collect::<Vec<_>>();
     let parity = if kind == 0 {
         let v = u64_integer(fields[sig])?;
-        let protected = chain_id * 2 + 35;
-        if v != protected && v != protected + 1 {
+        let protected = chain_id
+            .checked_mul(2)
+            .and_then(|id| id.checked_add(35))
+            .ok_or_else(|| err("OP_USER_SIGNATURE_CHAIN"))?;
+        if v.checked_sub(protected).is_none_or(|parity| parity > 1) {
             return Err(err("OP_USER_SIGNATURE_CHAIN"));
         }
         unsigned.extend(rlp_chain_id(chain_id));
@@ -275,10 +297,6 @@ pub fn authenticate_user(
             .map(|i| access_list(fields[i]))
             .transpose()?
             .unwrap_or_default(),
-        optimism: OptimismFields {
-            enveloped_tx: Some(Bytes::copy_from_slice(wire)),
-            ..Default::default()
-        },
         ..Default::default()
     };
     Ok(AuthenticatedUser {

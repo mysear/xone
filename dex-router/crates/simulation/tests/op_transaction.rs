@@ -2,9 +2,32 @@
 mod support;
 use revm::primitives::{AccessListItem, Address, Bytes, TxKind, B256, U256};
 use support::*;
-use xone_simulation::op_transaction::{authenticate_user, MAX_WIRE_BYTES};
+use xone_simulation::op_transaction::{authenticate_evm_user, authenticate_user, MAX_WIRE_BYTES};
 fn accept(wire: &[u8]) -> xone_domain::Result<xone_simulation::op_transaction::AuthenticatedUser> {
     authenticate_user(10, hash(wire), payer(), wire, MAX_WIRE_BYTES)
+}
+#[test]
+fn ethereum_envelopes_bind_the_declared_chain_without_op_fields() {
+    for kind in 0..=2 {
+        let mut fields = fields(kind);
+        if kind != 0 {
+            fields[0] = number(U256::from(31337));
+        }
+        let mut wire = encoded(&signed_fields_on_chain(kind, &fields, 31337).concat(), true);
+        if kind != 0 {
+            wire.insert(0, kind);
+        }
+        let tx = authenticate_evm_user(31337, hash(&wire), payer(), &wire, wire.len()).unwrap();
+        assert_eq!(tx.environment().chain_id, Some(31337));
+        assert_eq!(tx.environment().optimism, Default::default());
+        assert_eq!(tx.transaction_type(), kind);
+        for wrong_chain in [0, 1, 10, u64::MAX] {
+            assert!(
+                authenticate_evm_user(wrong_chain, hash(&wire), payer(), &wire, wire.len())
+                    .is_err()
+            );
+        }
+    }
 }
 #[test]
 fn signed_envelopes_derive_every_vm_field_and_preserve_complete_wire() {
