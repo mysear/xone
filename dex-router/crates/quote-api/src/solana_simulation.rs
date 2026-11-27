@@ -114,8 +114,9 @@ pub(crate) async fn simulate(
     let request = if body.is_empty() {
         SimulationRequest::default()
     } else {
-        serde_json::from_slice::<SimulationRequest>(&body)
+        serde_json::from_slice::<Option<SimulationRequest>>(&body)
             .map_err(|_| failure(err("INVALID_SIMULATION_REQUEST")))?
+            .unwrap_or_default()
     };
     let p = selected(&api, &id, &preparation).map_err(failure)?;
     let engine = api

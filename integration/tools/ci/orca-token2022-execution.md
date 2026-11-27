@@ -28,6 +28,8 @@ The capture is a finalized `getMultipleAccounts` response in the order defined b
 
 ## Position reward collection
 
+The Quote API test target also contains `orca_dual_token2022_wallet_wire_matches_independent_http_simulation`. Supply the same bank and runtime manifest described below to run normal quote, preparation and independent simulation for both directions. The test compares signed and unsigned settlement amounts, fees and account digests, then repeats each request with a corrupted wallet signature.
+
 `POST /v1/chains/{chain}/pools/{pool}/prepare-orca-reward` resolves an initialized reward slot from the installed pool view. The `claim` body supplies `authority`, `position`, `positionTokenAccount`, `recipient`, `rewardAccount`, `rewardIndex` and `rewardTokenProgram`. Set `simulate` to `true` to verify the unsigned transaction with the configured RPC-capture SBF engine.
 
 The API collects rewards from standalone positions and pays up to the captured vault balance into an existing account. It prepares `CollectReward` for classic SPL and `CollectRewardV2` for the supported Token-2022 `TransferFeeConfig` profile. Set `claim.updateBeforeCollect` to `true` to prepend `UpdateFeesAndRewards` in the same transaction. Both position bounds must be in initialized tick array accounts in the installed view. The preparation binds the arrays and Clock to the same finalized slot and reports the selected reward slot's increment in `rewardUpdate.accruedReward`.
