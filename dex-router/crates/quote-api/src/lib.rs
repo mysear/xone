@@ -804,7 +804,6 @@ impl Api {
         )
         .await;
         let mut restored = false;
-        let mut can_resume_cursor = true;
         match poll {
             Ok(Ok(Some(units))) => {
                 let mut ok = true;
@@ -829,10 +828,12 @@ impl Api {
                 if ok {
                     restored = true;
                 } else {
-                    can_resume_cursor = false;
                     self.replica.suspend(chain);
                     if let Ok(mut readers) = self.readers.lock() {
                         readers.remove(chain);
+                    }
+                    if let Ok(mut applied) = self.applied_cursors.lock() {
+                        applied.remove(chain);
                     }
                 }
             }
@@ -842,7 +843,7 @@ impl Api {
         if restored {
             return;
         }
-        if can_resume_cursor && self.resume_applied_kafka(chain).await.is_ok() {
+        if self.resume_applied_kafka(chain).await.is_ok() {
             return;
         }
         for source in &self.config.config.journal.source_urls {
@@ -868,6 +869,25 @@ impl Api {
             || self.config.config.journal.kafka.topics.get(chain) != Some(&cursor.topic)
         {
             return Err(err("APPLIED_CURSOR_MISMATCH"));
+        }
+        if !self.replica.reorg_pending(chain)? {
+            let view = self.replica.diagnostic_view(chain)?;
+            if view.reference != reference {
+                return Err(err("APPLIED_CURSOR_MISMATCH"));
+            }
+            // Replay through the broker's current watermark before restoring readiness.
+            let boot = Bootstrap {
+                cursor,
+                snapshot: Snapshot {
+                    reference,
+                    pools: view.pools.clone(),
+                    source: view.source.clone(),
+                    history_gaps: view.history_gaps.clone(),
+                },
+            };
+            return self
+                .restore_kafka_checkpoint(chain, boot, "APPLIED_CHECKPOINT_AND_KAFKA")
+                .await;
         }
         let cfg = self.config.clone();
         let chain_key = chain.to_owned();
@@ -1849,17 +1869,20 @@ async fn shutdown() {
 }
 
 #[cfg(test)]
+#[path = "../tests/support/evm_snapshot.rs"]
+mod evm_snapshot;
+
+#[cfg(test)]
 mod recovery_tests {
     use super::*;
-    use xone_domain::Snapshot;
+    use crate::evm_snapshot::snapshot;
     use xone_kafka_transport::{KafkaProducer, Unit};
 
     #[test]
     fn buffered_kafka_frames_drain_through_revocation_without_publishing_partial_units() {
         use std::collections::VecDeque;
         use xone_kafka_transport::{encode, Assembler};
-        let mut snapshot: Snapshot =
-            serde_json::from_str(include_str!("../../../test/fixtures/evm/baseline.json")).unwrap();
+        let mut snapshot = snapshot(1);
         let mut frames = VecDeque::new();
         for kind in ["BLOCK_COMMIT", "BLOCK_COMMIT", "ONLINE_SCOPE_REVOKED"] {
             snapshot.reference.journal_seq += 1;
@@ -1953,8 +1976,7 @@ mod recovery_tests {
         config.config.journal.source_urls.clear();
         config.config.journal.transport = "kafka".into();
         let api = Api::new(config).unwrap();
-        let mut s: Snapshot =
-            serde_json::from_str(include_str!("../../../test/fixtures/evm/baseline.json")).unwrap();
+        let mut s = snapshot(1);
         let mut producer = KafkaProducer::open(
             std::slice::from_ref(&broker),
             "test.router-reorg",
@@ -1964,53 +1986,57 @@ mod recovery_tests {
             Duration::from_secs(5),
         )
         .unwrap();
-        let cursor = producer
-            .publish(
-                &Unit {
-                    normalized_facts: None,
-                    kind: "ONLINE_BASELINE_COMMIT".into(),
-                    snapshot: s.clone(),
-                },
-                || Ok(()),
-            )
-            .unwrap();
+        let mut publish = |kind: &str, snapshot: &Snapshot| {
+            producer
+                .publish(
+                    &Unit {
+                        normalized_facts: None,
+                        kind: kind.into(),
+                        snapshot: snapshot.clone(),
+                    },
+                    || Ok(()),
+                )
+                .unwrap()
+        };
+        let cursor = publish("ONLINE_BASELINE_COMMIT", &s);
         api.replica.install_baseline(s.clone()).unwrap();
         let old = api.replica.view("evm:31337").unwrap();
-        let mut reader = Reader::open(
-            &[broker],
-            "quote.test.router-reorg",
-            &cursor,
-            8 << 20,
-            4096,
-            Duration::from_secs(5),
-        )
-        .unwrap();
-        reader.last_sequence = s.reference.journal_seq;
-        api.readers
-            .lock()
-            .unwrap()
-            .insert("evm:31337".into(), reader);
         api.applied_cursors
             .lock()
             .unwrap()
             .insert("evm:31337".into(), (s.reference.clone(), cursor));
+        api.replica.suspend("evm:31337");
+        api.sync_kafka("evm:31337").await;
+        assert_eq!(
+            api.replica.view("evm:31337").unwrap().reference,
+            s.reference
+        );
+        assert!(!old.is_valid());
+
+        let old = api.replica.view("evm:31337").unwrap();
+        api.replica.suspend("evm:31337");
+        api.readers.lock().unwrap().remove("evm:31337");
+        s.reference.journal_seq += 1;
+        s.reference.block.number_or_slot += 1;
+        s.reference.block.parent_hash = s.reference.block.hash;
+        s.reference.block.hash = format!("0x{:064x}", s.reference.block.number_or_slot);
+        publish("BLOCK_COMMIT", &s);
+        api.sync_kafka("evm:31337").await;
+        assert_eq!(
+            api.replica.view("evm:31337").unwrap().reference,
+            s.reference
+        );
+        assert!(!old.is_valid());
+
+        let old = api.replica.view("evm:31337").unwrap();
         s.reference.journal_seq += 1;
         s.reference.canonical_epoch += 1;
-        producer
-            .publish(
-                &Unit {
-                    normalized_facts: None,
-                    kind: "REORG_BEGIN".into(),
-                    snapshot: s.clone(),
-                },
-                || Ok(()),
-            )
-            .unwrap();
+        publish("REORG_BEGIN", &s);
         let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
         while api.replica.last_reference("evm:31337").unwrap().as_ref() != Some(&s.reference)
             && tokio::time::Instant::now() < deadline
         {
-            api.sync_kafka().await;
+            api.sync_kafka("evm:31337").await;
             tokio::time::sleep(Duration::from_millis(25)).await;
         }
         assert!(!old.is_valid());
@@ -2030,20 +2056,11 @@ mod recovery_tests {
         s.reference.journal_seq += 1;
         s.reference.block.hash =
             "0x3333333333333333333333333333333333333333333333333333333333333333".into();
-        producer
-            .publish(
-                &Unit {
-                    normalized_facts: None,
-                    kind: "REORG_COMMIT".into(),
-                    snapshot: s.clone(),
-                },
-                || Ok(()),
-            )
-            .unwrap();
+        publish("REORG_COMMIT", &s);
         assert!(api.replica.restore_owner_checkpoint(s.clone()).is_err());
         let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
         while api.replica.view("evm:31337").is_err() && tokio::time::Instant::now() < deadline {
-            api.sync_kafka().await;
+            api.sync_kafka("evm:31337").await;
             tokio::time::sleep(Duration::from_millis(25)).await;
         }
         assert_eq!(
