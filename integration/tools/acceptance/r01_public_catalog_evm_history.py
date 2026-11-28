@@ -135,6 +135,29 @@ def prepare_helper_compiler():
                 pass
     read_blob(ROOT, blob)
 
+def capture_sae_successors(saved, header, call):
+    target = int(header['number'], 16)
+    require(saved['anchor']['chain_id'] == 43114 and saved['anchor']['hash'] == header['hash'],
+            'SAE_TARGET_ANCHOR')
+    parent = header
+    records = []
+    for height in range(target + 1, target + 33):
+        tag = hex(height)
+        for endpoint in saved['endpoints']:
+            ref, child = call(endpoint, 'eth_getBlockByNumber', [tag, False], 'sae-successor')
+            if (isinstance(child, dict) and child.get('number') == tag and
+                    child.get('parentHash') == parent['hash'] and isinstance(child.get('settledHeight'), str)):
+                break
+        else:
+            raise CatalogError('SAE_SUCCESSOR_HEADER_REQUIRED:' + tag)
+        records.append(ref)
+        settled = int(child['settledHeight'], 16)
+        if settled == target:
+            return records
+        require(settled < target, 'SAE_EXACT_TARGET_STATE_ROOT_MISSING')
+        parent = child
+    raise CatalogError('SAE_SUCCESSOR_WINDOW_LIMIT')
+
 def capture_catalog(chain, directory):
     saved = load_json(directory / 'anchor.json')
     target = load_json(TARGETS)['targets'][chain]
@@ -273,10 +296,11 @@ def capture(chain,directory,resume=False,catalog_path=None):
         for address,slots in sorted(accounts.items()):
             require(len(slots)<=256,'EVM_PRESTATE_STORAGE_BUDGET')
             try:
-                p=archive.request('eth_getProof',[address,sorted(slots),tag])['result'];code=archive.request('eth_getCode',[address,tag])['result']
-                require(len(p['storageProof'])==len(slots),'EVM_PROOF_SLOT_INVENTORY')
+                proof_slots = sorted({storage_trie_key(chain, slot) for slot in slots})
+                p=copy.deepcopy(archive.request('eth_getProof',[address,proof_slots,tag])['result']);code=archive.request('eth_getCode',[address,tag])['result']
+                require(len(p['storageProof'])==len(proof_slots),'EVM_PROOF_SLOT_INVENTORY')
                 for item in p['storageProof']:item['key']='0x'+item['key'][2:].zfill(64)
-                require({p['key'] for p in p['storageProof']}==set(slots),'EVM_PROOF_SLOT_KEYS');deployments.append({'address':address,'code':code,'proof':p})
+                require({p['key'] for p in p['storageProof']}==set(proof_slots),'EVM_PROOF_SLOT_KEYS');deployments.append({'address':address,'code':code,'proof':p})
             except (CatalogError,KeyError,TypeError) as error:missing.append({'address':address,'storage_slots':sorted(slots),'error':str(error)})
         evidence={'schema_version':2,'chain_id':str(plan['chain_id']),'chain':chain,'expected_block_hash':anchor['hash'],'block':header,'deployments':deployments,'missing_proofs':missing,'root_semantics':anchor['native_state_semantics']}
         write_new(directory/'prestate-evidence.json',(json.dumps(evidence,indent=2)+'\n').encode())
@@ -306,7 +330,7 @@ def replay(directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['anchor', 'catalog', 'capture', 'resume', 'replay'])
+    parser.add_argument('command', choices=['anchor', 'catalog', 'capture', 'resume', 'replay', 'settlement'])
     parser.add_argument('--chain', choices=CHAINS)
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--catalog', type=Path)
@@ -315,6 +339,8 @@ def main():
         parser.error('--chain is required for anchor, catalog and capture')
     if args.catalog and args.command != 'capture':
         parser.error('--catalog is only used by capture')
+    if args.command == 'settlement' and args.chain not in (None, 'avalanche'):
+        parser.error('settlement requires an Avalanche anchor')
     if args.command == 'anchor':
         directory = args.directory.resolve()
         require(directory.is_relative_to(OUT.resolve()), 'OWNED_EVM_DIRECTORY')
@@ -326,6 +352,16 @@ def main():
         directory = args.directory.resolve()
         require(directory.is_relative_to(OUT.resolve()), 'OWNED_EVM_DIRECTORY')
         result = capture_catalog(args.chain, directory)
+    elif args.command == 'settlement':
+        directory = args.directory.resolve()
+        require(directory.is_relative_to(OUT.resolve()), 'OWNED_EVM_DIRECTORY')
+        output = directory / 'native-successors.json'
+        require(not output.exists(), 'IMMUTABLE_SAE_SUCCESSORS_EXISTS')
+        saved = load_json(directory / 'anchor.json')
+        header = json.loads(read_blob(ROOT, saved['header']))['response']['result']
+        call, _ = evidence_recorder(directory)
+        result = {'target': saved['header'], 'successors': capture_sae_successors(saved, header, call)}
+        write_new(output, (json.dumps(result, indent=2) + '\n').encode())
     elif args.command in ('capture', 'resume'):
         result = capture(args.chain, args.directory, resume=args.command == 'resume', catalog_path=args.catalog)
     else:

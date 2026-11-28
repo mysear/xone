@@ -84,6 +84,30 @@ class MultiChainEvidenceTests(unittest.TestCase):
             fetch.assert_called_once_with('source', 'eth_chainId', [], directory / '010-chain-id.json')
             self.assertEqual(observations, [{'ref': 'new'}])
 
+    def test_sae_capture_requires_contiguous_exact_target_settlement(self):
+        import r01_public_catalog_evm_history as evm
+
+        target = {'number': '0x64', 'hash': 'target'}
+        saved = {'anchor': {'chain_id': 43114, 'hash': 'target'}, 'endpoints': ['primary', 'witness']}
+        children = {
+            '0x65': {'number': '0x65', 'hash': 'child', 'parentHash': 'target', 'settledHeight': '0x63'},
+            '0x66': {'number': '0x66', 'hash': 'settler', 'parentHash': 'child', 'settledHeight': '0x64'},
+        }
+
+        def call(endpoint, method, params, name):
+            self.assertEqual((method, name, params[1]), ('eth_getBlockByNumber', 'sae-successor', False))
+            tag = params[0]
+            return (endpoint, tag), children[tag] if endpoint == 'witness' else None
+
+        self.assertEqual(evm.capture_sae_successors(saved, target, call),
+                         [('witness', '0x65'), ('witness', '0x66')])
+        children['0x66']['settledHeight'] = '0x65'
+        with self.assertRaisesRegex(ValueError, 'SAE_EXACT_TARGET_STATE_ROOT_MISSING'):
+            evm.capture_sae_successors(saved, target, call)
+        children['0x66']['parentHash'] = 'wrong parent'
+        with self.assertRaisesRegex(ValueError, 'SAE_SUCCESSOR_HEADER_REQUIRED'):
+            evm.capture_sae_successors(saved, target, call)
+
     def test_unused_capture_header_queries_do_not_weaken_exact_replay_views(self):
         import r01_public_catalog_evm_history as evm
         expected={'a':{'transactions':{'original_count':3,'local_count':0}},'b':{'transactions':{'original_count':0,'local_count':0}}}

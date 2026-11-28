@@ -19,6 +19,8 @@ done
 
 每链的 `deployments.json` 记录官方目录、工厂及池的 runtime 摘要、升级槽与固定块 RPC 回应。用同一目录启动原池执行时，运行 `r01_public_catalog_evm_history.py capture --chain "$chain" --directory "$r01_run/$chain" --catalog "$r01_run/$chain/deployments.json"`。采集会下载和校验固定的官方 Solidity 0.8.19 编译器，离线重放复用采集时使用的编译器。
 
+Avalanche 的后继结算头可用 `r01_public_catalog_evm_history.py settlement --directory "$r01_run/avalanche"` 采集。预状态验证器读取该目录中的 `native-successors.json`，校验每个原始响应的摘要，并用精确后继结算状态根核验 Coreth 账户及存储证明。
+
 本目录是有限的真实观测集：8 链、16 个 chain/protocol、14 个经 factory 查询并读取代码的样例池，以及 3 个完整 Solana ProgramData。所有外部输入均来自无需账号、API key 的公共 HTTPS。目录中的 `version` 使用实际 runtime SHA-256；Solana 另包含解码得到的 upgrade slot。`profiles` 表示本项目代码识别的 profile，不能证明该 profile 对应当前部署源码。
 
 `manifest.json` 固定全部数据文件和本任务工具／测试的逐字节清单；默认 CLI 也检查缺失、额外文件和改动。`catalog.json` 包含逐项原始证据引用和 SHA-256，`scope.json` 固定声明范围的 chain、protocol、runtime version、地址、H/hash。缺行、重复、范围外行、错误地址或 H/hash 不能通过范围校验。`catalog-ethereum.json` / `scope-ethereum.json` 是明确较窄的 Ethereum V2 单部署验收范围，不代表整个 R01 已完成。

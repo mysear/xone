@@ -44,4 +44,47 @@ async function verifyEvidence(evidence,records){
  return {passed:true,execution_state_anchor:stateAnchor,chain:evidence.chain,chain_id:evidence.chain_id,header,accounts:proof.accounts,storage_slots:proof.storage_slots,absent_accounts:proof.absent_accounts,public_prestate_reads_bound:proof.public_prestate_reads_bound,state_root:proof.state_root,height:proof.height,native_body_transactions_verified:true,full_native_body_receipt_verified:false,authority:'secure MPT against independently hashed explicit native header root; not a generic Ethereum body/receipt verifier',consensus_verified:false};
 }
 module.exports={verifyHeader,verifyBody,verifySAEStateAnchor,verifyEvidence};
-if(require.main===module){const dir=path.resolve(process.argv[2]),e=JSON.parse(fs.readFileSync(path.join(dir,process.argv[4]||'prestate-evidence.json'))),index=JSON.parse(fs.readFileSync(path.join(dir,'rpc-index.json')));const records=index.records.map(ref=>{const bytes=fs.readFileSync(path.join(ROOT,ref.path));assert.equal(sha(bytes),ref.sha256,'TRANSCRIPT_HASH');return JSON.parse(bytes)});verifyEvidence(e,records).then(result=>{if(process.argv[3])fs.writeFileSync(process.argv[3],JSON.stringify(result,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify(result,null,2))}).catch(error=>{console.error(error.stack);process.exit(1)});}
+
+function readTranscript(ref){
+ assert(typeof ref.path==='string'&&!path.isAbsolute(ref.path)&&!ref.path.split(path.sep).includes('..'),
+        'TRANSCRIPT_PATH');
+ const file=fs.realpathSync(path.join(ROOT,ref.path));
+ const relative=path.relative(ROOT,file);
+ assert(relative&&relative!=='..'&&!relative.startsWith('..'+path.sep)&&!path.isAbsolute(relative),'TRANSCRIPT_PATH');
+ assert(fs.statSync(file).size<=32*1024*1024,'TRANSCRIPT_SIZE');
+ const bytes=fs.readFileSync(file);
+ assert.equal(sha(bytes),ref.sha256,'TRANSCRIPT_HASH');
+ return JSON.parse(bytes);
+}
+
+function readNativeSuccessors(directory,block){
+ const manifest=JSON.parse(fs.readFileSync(path.join(directory,'native-successors.json')));
+ assert(Array.isArray(manifest.successors)&&manifest.successors.length>0&&manifest.successors.length<=32,
+        'SAE_SUCCESSOR_WINDOW_BUDGET');
+ const target=readTranscript(manifest.target);
+ assert.equal(target.method,'eth_getBlockByNumber','SAE_TARGET_METHOD');
+ assert.deepEqual(target.response.result,block,'SAE_TARGET_EVIDENCE');
+ const headers=[block];
+ for(const ref of manifest.successors){
+  const wire=readTranscript(ref);
+  const tag='0x'+(BigInt(block.number)+BigInt(headers.length)).toString(16);
+  assert.equal(wire.method,'eth_getBlockByNumber','SAE_SUCCESSOR_METHOD');
+  assert.deepEqual(wire.params,[tag,false],'SAE_SUCCESSOR_REQUEST');
+  assert.equal(wire.response.result.number,tag,'SAE_SUCCESSOR_NUMBER');
+  headers.push(wire.response.result);
+ }
+ assert.equal(BigInt(headers.at(-1).settledHeight),BigInt(block.number),'SAE_EXACT_TARGET_SETTLEMENT_REQUIRED');
+ return headers;
+}
+
+async function main(){
+ const directory=path.resolve(process.argv[2]);
+ const evidence=JSON.parse(fs.readFileSync(path.join(directory,process.argv[4]||'prestate-evidence.json')));
+ const index=JSON.parse(fs.readFileSync(path.join(directory,'rpc-index.json')));
+ if(evidence.chain==='avalanche'&&!evidence.native_headers&&fs.existsSync(path.join(directory,'native-successors.json')))
+  evidence.native_headers=readNativeSuccessors(directory,evidence.block);
+ const result=await verifyEvidence(evidence,index.records.map(readTranscript));
+ if(process.argv[3])fs.writeFileSync(process.argv[3],JSON.stringify(result,null,2)+'\n',{flag:'wx'});
+ console.log(JSON.stringify(result,null,2));
+}
+if(require.main===module)main().catch(error=>{console.error(error.stack);process.exit(1)});
