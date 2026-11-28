@@ -93,6 +93,22 @@ PYTHONPATH=integration/tools/acceptance python3 -c 'from r01_public_catalog_evm_
 
 Base Slipstream 按上一节的命令重建。`slipstream_base` 使用 `evm-continuation-v2/anchor-iteration-ee66n2qk/base`，`slipstream_responses` 使用 `evm-normal-v4/base-slipstream-dependencies.hoknqrom`，`slipstream_original_capture` 使用该响应目录下的 `context-cached._mgho3yq/capture.json`。这些路径都相对于 `evidence_root`。
 
+### OP Mainnet 与 Arbitrum One 固定块报价
+
+从仓库根目录展开 `evidence/op-arbitrum-fixed-2026-11-28.tar.gz`。包内有 462 份文件，SHA-256 为 `d461ed5e2c3e698d247107f3814ff1a3cce562b7957cb3e428d093047ced31f3`。按上一节准备固定编译器。
+
+在 `evm-continuation-v2/anchor-iteration-ee66n2qk` 下分别使用 `optimism` 与 `arbitrum` 作为固定块目录。两条链均运行原池离线重放，并将各自的 `receipt-input.json` 传给 Go 的 `TestPublicCatalogFixedReceiptRoot`。状态证明验证使用 `r01_public_catalog_evm_commitments.cjs`。对 Arbitrum 额外传入空的第二参数及第三参数 `prestate-evidence-v2.json`，以读取补充证明后的状态输入。
+
+按上一节运行常规 Parser 与 Router 验收。以下路径相对于 `evidence_root`，原始报告由工具重新执行 getter 后核对。
+
+| 协议与高度 | 常规报价目录（`evm-normal-v4` 下） | Getter 报告 | 实际收款及报价原子单位 |
+|---|---|---|---:|
+| OP Mainnet Uniswap V3，160,113,647 | `optimism-uniswap-v3-160113647-indexed` | 固定块目录下的 `op-normal-indexed-probe.json` | 166,230 |
+| OP Mainnet Velodrome V2，160,113,647 | `optimism-velodrome-v2-160113647` | 固定块目录下的 `velo-normal-probe-02.json` | 165,448 |
+| Arbitrum One Uniswap V3，528,150,486 | `arbitrum-uniswap-v3-fixed-h.el56r46q` | 常规报价目录下的 `probe-01.json` | 166,253 |
+
+三条报价均返回 HTTP 200，RPC 缺项和回放外网请求均为零。Velodrome V2 的回放包含两条公共链路一致返回的 OP 高度 1 交易回执，供 Parser 启动时读取。Go 分别验证 75 笔 OP 回执和 3 笔 Arbitrum 回执。
+
 ### Avalanche Uniswap V3 固定块报价
 
 从仓库根目录展开 `evidence/avalanche-uniswap-v3-101597996.tar.gz`，SHA-256 为 `9de2500bc750f8428d89e93cda26ee3bb09741d543cba63c65774328d950e85f`。按上一节准备编译器，使用 `evm-continuation-v2/avalanche-getter-anchor.43nmhr50` 核验状态承诺并重放原池，使用其中的 `receipt-input.json` 执行 Go 回执根联验。

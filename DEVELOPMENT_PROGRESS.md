@@ -491,6 +491,7 @@
 - Base 同高度的 Slipstream Factory、Pool 实现、动态 swap 费模块和 Voter 匹配已有上下文模板。部署的 `CustomUnstakedFeeModule` 将 factory 存在槽 0。用官方 Solidity 0.7.6 重编公开输入，848 字节执行体逐字节一致，CBOR 来源摘要不同。MPT 核对了已部署完整代码、factory 和样例池的 50,000 自定义费率。Go、Rust Parser 与 Router 的上下文领域校验接受这一固定 runtime 身份。
 - Base Aerodrome Slipstream 在 63,180,533 用固定状态证明重放了 3,264 次 getter，覆盖 3,010 条预言机观测和当前 bitmap 字内的 210 个初始化 tick。常规 Go Parser 与 Rust Router 报价 166,349 原子单位，与原池收款一致，回放无未记录 RPC 请求。证明归档可由本地留存的 51 份原始证明响应、合约代码响应和原执行证据重建，覆盖 20 个账户、4,359 个存储槽和 142 次原始状态读取。链费模型和生产执行资格仍待验收。
 - Arbitrum One 在 528,150,486 经另一公共 RPC 取得缺失的 5 个账户证明。独立验证覆盖 10 个账户、23 个存储槽以及原执行的 49 次预状态读取。常规 Parser 和 Router 回放核对 264 次 getter，Uniswap V3 报价与原池收款均为 166,253 原子单位，无未记录 RPC 请求。链费模型仍待验收。
+- OP Mainnet 两项和 Arbitrum One 一项固定块验收的 462 份输入已入库。在独立检出中重算状态证明和 78 笔回执，重放三个原池和常规 Parser/Router。Velodrome V2 补齐正常 Parser 启动所需的高度 1 回执，经两端点核对。三条报价均返回 HTTP 200，原池收款与报价一致，RPC 缺项和回放外网请求均为零。 [复验证据](integration/test/source/deployment-catalog/README.md#op-mainnet-与-arbitrum-one-固定块报价)
 - Polygon 改用 finalized 高度 98,086,595。独立验证完成 9 个账户、20 个存储槽和 44 次预状态读取，Go 验证同块的 90 笔回执。Uniswap V3 原池离线重放收到 7 原子单位。常规报价还需补齐当前 bitmap 内的 tick 存储证明。
 - Polygon 将部署采集与 getter 证明采集并发执行，在 98,087,772 补齐 134 个初始化 tick 的 536 个存储键。142 次固定块 getter 执行通过证明核验。常规 Go Parser 与 Rust Router 返回 HTTP 200，报价与原池收款均为 7 原子单位，回放无未记录 RPC 请求。Go 验证同块的 52 笔回执。
 - Avalanche 改用 finalized 高度 101,595,781。后继头 101,595,787 提交该高度的状态根及回执根。独立验证完成 11 个账户、36 个 Coreth 存储槽和 65 次预状态读取，两个原池离线重放分别收到 660 和 134 原子单位。Go 的后继结算窗口回执验证通过。
