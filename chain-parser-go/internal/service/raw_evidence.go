@@ -83,7 +83,7 @@ func (r *rawRecorder) capture(ctx context.Context, provider, method string, para
 	r.mu.Lock()
 	r.recent = &ref
 	r.mu.Unlock()
-	return ctx.Err()
+	return nil
 }
 func (r *rawRecorder) last() (ingest.RawRef, bool) {
 	r.mu.Lock()

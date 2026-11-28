@@ -170,6 +170,11 @@ func maintenanceFixtureWithChain(t *testing.T, chainChange func(*config.Chain, *
 	if chainChange != nil {
 		chainChange(ch, rpcState)
 	}
+	if ch.ProviderProbe != nil {
+		// The RPC timeout also bounds the aggregate history probe. These
+		// fixtures use two endpoints and synchronous archive persistence.
+		cfg.Config.Journal.TimeoutMS = ch.ProviderProbe.TimeoutMS
+	}
 	c := config.RawMaintenanceConfig{SinkPath: t.TempDir(), SinkMaxBytes: 64 << 20, SinkMaxRecords: 10000, IntervalMS: 60000, TimeoutMS: 5000, ReplayTimeoutMS: 5000, KeepMS: 0, TargetBytes: 32 << 20, MaxScan: 32, MaxArchive: 4, MaxReclaims: 4, MaxRawBytes: 4 << 20, MaxDecodedBytes: 4 << 20, MaxPageRecords: 100, MaxRequestBytes: 8192, MaxPinsPerCapture: 64, DecoderVersion: RawStagedDecoderVersion}
 	for _, change := range changes {
 		change(&c)

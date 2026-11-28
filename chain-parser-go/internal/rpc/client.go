@@ -243,17 +243,22 @@ func fixedBlockRead(method string, params any) bool {
 }
 
 func (c *Client) VerifyEVM(ctx context.Context, chain, genesis string) error {
+	_, err := c.verifyEVM(ctx, chain, genesis)
+	return err
+}
+
+func (c *Client) verifyEVM(ctx context.Context, chain, genesis string) (map[string]bool, error) {
 	ctx, cancel := callContext(ctx, c.HTTP.Timeout)
 	defer cancel()
 	if ctx.Err() != nil {
-		return ctx.Err()
+		return nil, ctx.Err()
 	}
 	id := strings.TrimPrefix(chain, "evm:")
 	expected, ok := new(big.Int).SetString(id, 10)
 	if !ok || !strings.HasPrefix(chain, "evm:") || expected.Sign() < 0 {
-		return errors.New("INVALID_CHAIN_KEY")
+		return nil, errors.New("INVALID_CHAIN_KEY")
 	}
-	healthy := 0
+	verified := make(map[string]bool, len(c.URLs))
 	var lastIdentityError error
 	pending := map[string]bool{}
 	for _, url := range c.URLs {
@@ -265,7 +270,7 @@ func (c *Client) VerifyEVM(ctx context.Context, chain, genesis string) error {
 			continue
 		}
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return nil, ctx.Err()
 		}
 		// Give each remaining endpoint time to establish its own identity.
 		endpointCtx, endpointCancel := context.WithTimeout(ctx, time.Until(deadline)/time.Duration(len(pending)))
@@ -274,7 +279,7 @@ func (c *Client) VerifyEVM(ctx context.Context, chain, genesis string) error {
 		e := c.attempt(endpointCtx, url, "eth_chainId", []any{}, &got)
 		if errors.Is(e, ErrRecordingFailed) {
 			endpointCancel()
-			return e
+			return nil, e
 		}
 		if e == nil {
 			n, valid := new(big.Int).SetString(strings.TrimPrefix(got, "0x"), 16)
@@ -293,7 +298,7 @@ func (c *Client) VerifyEVM(ctx context.Context, chain, genesis string) error {
 		}
 		endpointCancel()
 		if errors.Is(e, ErrRecordingFailed) {
-			return e
+			return nil, e
 		}
 		if Classify(e) == BudgetExceeded {
 			lastIdentityError = e
@@ -317,16 +322,16 @@ func (c *Client) VerifyEVM(ctx context.Context, chain, genesis string) error {
 			lastIdentityError = e
 		}
 		if e == nil {
-			healthy++
+			verified[url] = true
 		}
 	}
 	if ctx.Err() != nil {
-		return ctx.Err()
+		return nil, ctx.Err()
 	}
-	if healthy == 0 {
-		return &CallError{Class: Classify(lastIdentityError), Code: "RPC_IDENTITY_NO_HEALTHY_PROVIDER", Cause: lastIdentityError}
+	if len(verified) == 0 {
+		return nil, &CallError{Class: Classify(lastIdentityError), Code: "RPC_IDENTITY_NO_HEALTHY_PROVIDER", Cause: lastIdentityError}
 	}
-	return nil
+	return verified, nil
 }
 
 // SameEVMHash treats valid 32-byte hex hashes as bytes. Non-hash aliases used

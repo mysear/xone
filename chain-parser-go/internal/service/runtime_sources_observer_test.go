@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"sync/atomic"
 	"testing"
@@ -15,8 +16,10 @@ func TestRuntimeSourcesObserverOwnsStandaloneReadsAndInheritsBaselineCapture(t *
 	s, m, key, state := maintenanceFixtureWithChain(t, func(chain *config.Chain, state *rawMaintenanceRPCState) {
 		probe := probeConfig()
 		probe.HistoricalHeight, probe.HistoricalHash = 100, state.BaseHash
-		probe.TimeoutMS, probe.IntervalMS, probe.MaxBackoffMS, probe.MaxAgeMS = 3000, 60000, 60000, 120000
+		probe.TimeoutMS, probe.IntervalMS, probe.MaxBackoffMS, probe.MaxAgeMS = 8000, 60000, 60000, 120000
 		chain.ProviderProbe = &probe
+	}, func(c *config.RawMaintenanceConfig) {
+		c.TimeoutMS = 10000
 	})
 	s.providerCancel()
 	s.providerWG.Wait()
@@ -25,7 +28,7 @@ func TestRuntimeSourcesObserverOwnsStandaloneReadsAndInheritsBaselineCapture(t *
 		t.Fatal("normal New did not construct provider runtime")
 	}
 	upstream := p.client.HTTP.Transport
-	var reads atomic.Int64
+	var reads, identities atomic.Int64
 	var inherited atomic.Pointer[rawCapture]
 	p.client.HTTP.Transport = runtimeTestTransport(func(r *http.Request) (*http.Response, error) {
 		group, _ := r.Context().Value(rawCaptureKey{}).(*rawCapture)
@@ -38,6 +41,12 @@ func TestRuntimeSourcesObserverOwnsStandaloneReadsAndInheritsBaselineCapture(t *
 		reads.Add(1)
 		return upstream.RoundTrip(r)
 	})
+	p.client.SetRecorder(func(ctx context.Context, provider, method string, params json.RawMessage, response []byte) error {
+		if method == "eth_chainId" {
+			identities.Add(1)
+		}
+		return s.rawSources[key].capture(ctx, provider, method, params, response)
+	})
 	p.mu.Lock()
 	p.next = time.Time{}
 	p.mu.Unlock()
@@ -46,6 +55,15 @@ func TestRuntimeSourcesObserverOwnsStandaloneReadsAndInheritsBaselineCapture(t *
 	}
 	if reads.Load() == 0 {
 		t.Fatal("probe test made no observed RPC reads")
+	}
+	providers := p.Snapshot().Providers
+	if len(providers) != 2 || identities.Load() != 2 {
+		t.Fatalf("expected one identity handshake per endpoint, got %d for %d endpoints", identities.Load(), len(providers))
+	}
+	for _, provider := range providers {
+		if !providerQualified(provider) {
+			t.Fatalf("missing current capability evidence: %+v", provider)
+		}
 	}
 	before := len(m.observationEntries(key))
 	ctx, finish, err := m.BeginBaselineCapture(context.Background(), key)

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -175,6 +176,55 @@ func TestProviderRuntimeHistoryTimeoutKeepsLiveRefreshSchedule(t *testing.T) {
 	}
 	if runtime.failures != 0 {
 		t.Fatal("archive timeout slowed live polling")
+	}
+}
+
+func TestProviderRuntimeRecordingFailureStopsProbeAndAnchor(t *testing.T) {
+	for _, failedMethod := range []string{"eth_chainId", "eth_call", "anchor"} {
+		t.Run(failedMethod, func(t *testing.T) {
+			var ignored atomic.Bool
+			var primaryCalls, backupCalls atomic.Int32
+			client := providerFixture(t, &ignored, &primaryCalls)
+			backup := providerFixture(t, &ignored, &backupCalls)
+			client.URLs = append(client.URLs, backup.URLs[0])
+			p, err := NewProviderRuntime(client, "evm:1", runtimeHash("a"), probeConfig())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = p.Refresh(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			anchor := ingest.CatalogAnchor{Chain: "evm:1", Height: 10, Hash: runtimeHash("c"), Generation: 1}
+			if err = p.Gate(anchor); err != nil {
+				t.Fatal(err)
+			}
+			recordErr := errors.New("disk full")
+			var callsAtFailure int32
+			client.SetRecorder(func(_ context.Context, _ string, method string, _ json.RawMessage, _ []byte) error {
+				if method == failedMethod || failedMethod == "anchor" {
+					callsAtFailure = primaryCalls.Load() + backupCalls.Load()
+					return recordErr
+				}
+				return nil
+			})
+			if failedMethod == "anchor" {
+				err = p.VerifyAnchor(context.Background(), anchor)
+			} else {
+				p.mu.Lock()
+				p.next = time.Time{}
+				p.mu.Unlock()
+				err = p.Refresh(context.Background())
+			}
+			if !errors.Is(err, rpc.ErrRecordingFailed) || !errors.Is(err, recordErr) {
+				t.Fatal(err)
+			}
+			if callsAtFailure == 0 || primaryCalls.Load()+backupCalls.Load() != callsAtFailure {
+				t.Fatal("reads continued after the recording failure")
+			}
+			if p.Snapshot().LastError != rpc.RecordingFailed || p.Gate(anchor) == nil {
+				t.Fatal("recording failure left the previous provider gate open")
+			}
+		})
 	}
 }
 

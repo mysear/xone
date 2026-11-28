@@ -44,6 +44,9 @@ func Classify(err error) ErrorClass {
 	if err == nil {
 		return ""
 	}
+	if errors.Is(err, ErrRecordingFailed) {
+		return RecordingFailed
+	}
 	if errors.Is(err, context.Canceled) {
 		return Canceled
 	}

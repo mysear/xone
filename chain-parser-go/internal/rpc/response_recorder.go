@@ -59,6 +59,9 @@ func (c *Client) recordResponse(ctx context.Context, providerID, method string, 
 	}
 	err := record(ctx, providerID, method, append(json.RawMessage(nil), envelope.Params...), append([]byte(nil), response...))
 	if err != nil {
+		if contextErr := ctx.Err(); contextErr != nil && err == contextErr {
+			return contextErr
+		}
 		return &CallError{ProviderID: providerID, Class: RecordingFailed, Code: ErrRecordingFailed.Error(), Cause: errors.Join(ErrRecordingFailed, err)}
 	}
 	return nil

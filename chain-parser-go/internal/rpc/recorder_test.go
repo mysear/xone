@@ -148,3 +148,32 @@ func TestRecordingFailureDoesNotBlameProviderHealth(t *testing.T) {
 		t.Fatal(observation)
 	}
 }
+
+func TestRecorderCancellationDistinguishesStorageFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"jsonrpc":"2.0","id":1,"result":42}`)
+	}))
+	defer server.Close()
+	client := New([]string{server.URL}, time.Second, 4096)
+	diskErr := errors.New("disk full")
+	for _, recordErr := range []error{nil, context.Canceled, errors.Join(context.Canceled, diskErr)} {
+		ctx, cancel := context.WithCancel(context.Background())
+		client.SetRecorder(func(context.Context, string, string, json.RawMessage, []byte) error {
+			cancel()
+			return recordErr
+		})
+		out := 7
+		err := client.Call(ctx, "example", nil, &out)
+		cancel()
+		if out != 7 {
+			t.Fatal("canceled result was consumed")
+		}
+		if errors.Is(recordErr, diskErr) {
+			if !errors.Is(err, ErrRecordingFailed) || !errors.Is(err, diskErr) || Classify(err) != RecordingFailed {
+				t.Fatal(err)
+			}
+		} else if !errors.Is(err, context.Canceled) || Classify(err) != Canceled {
+			t.Fatal(err)
+		}
+	}
+}

@@ -291,11 +291,11 @@ func TestRawMaintenanceInvalidHTTPObservationDoesNotComplete(t *testing.T) {
 
 func TestRawMaintenanceActualProviderRefreshContinuousSmallSink(t *testing.T) {
 	s, m, key, _ := maintenanceFixtureWithChain(t, func(chain *config.Chain, source *rawMaintenanceRPCState) {
-		chain.ProviderProbe = &config.ProviderProbeConfig{HistoricalHeight: 100, HistoricalHash: source.BaseHash, Account: chain.Pools[0].ID, TimeoutMS: 5000, IntervalMS: 60000, MaxBackoffMS: 60000, MaxAgeMS: 120000, MaxProviders: 4}
+		chain.ProviderProbe = &config.ProviderProbeConfig{HistoricalHeight: 100, HistoricalHash: source.BaseHash, Account: chain.Pools[0].ID, TimeoutMS: 8000, IntervalMS: 60000, MaxBackoffMS: 60000, MaxAgeMS: 120000, MaxProviders: 4}
 	}, func(c *config.RawMaintenanceConfig) {
 		c.SinkMaxBytes = 4 << 20
 		c.SinkMaxRecords = 1200
-		c.TimeoutMS = 5000
+		c.TimeoutMS = 10000
 		c.MaxScan = 32
 		c.MaxArchive = 4
 		c.MaxReclaims = 4

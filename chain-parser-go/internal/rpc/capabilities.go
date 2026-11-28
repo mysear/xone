@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -73,10 +74,14 @@ func (c *Client) ProbeEVM(ctx context.Context, request ProbeRequest) ([]Capabili
 	}
 	ctx, cancel := callContext(ctx, c.HTTP.Timeout)
 	defer cancel()
-	if err := c.VerifyEVM(ctx, request.Chain, request.Genesis); err != nil {
+	verified, err := c.verifyEVM(ctx, request.Chain, request.Genesis)
+	if err != nil {
 		return nil, err
 	}
 	_, providers := c.ProviderClients()
+	providers = slices.DeleteFunc(providers, func(provider *Client) bool {
+		return !verified[provider.URLs[0]]
+	})
 	reports := make([]CapabilityReport, 0, len(providers))
 	deadline, _ := ctx.Deadline()
 	var probeErr error

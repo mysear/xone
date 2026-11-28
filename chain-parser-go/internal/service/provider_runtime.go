@@ -57,6 +57,7 @@ type ProviderRuntime struct {
 	failures       uint
 	snapshot       ProviderSnapshot
 	anchorChecks   map[string]providerAnchorCheck
+	recordingFault uint64
 	normal         *runtimeSourceState
 	observer       ProviderReadObserver
 }
@@ -94,6 +95,7 @@ func (p *ProviderRuntime) refresh(ctx context.Context) error {
 	defer p.busy.Store(false)
 	p.mu.Lock()
 	early := time.Now().Before(p.next)
+	recordingFault := p.recordingFault
 	p.mu.Unlock()
 	if early {
 		return ErrProviderBackoff
@@ -104,6 +106,9 @@ func (p *ProviderRuntime) refresh(ctx context.Context) error {
 	historyCtx, historyCancel := context.WithTimeout(ctx, time.Duration(p.cfg.TimeoutMS)*time.Millisecond/2)
 	reports, probeErr := p.client.ProbeEVM(historyCtx, rpc.ProbeRequest{Chain: p.chain, Genesis: p.genesis, HistoricalHeight: p.cfg.HistoricalHeight, HistoricalHash: p.cfg.HistoricalHash, Account: p.cfg.Account})
 	historyCancel()
+	if errors.Is(probeErr, rpc.ErrRecordingFailed) {
+		return p.failRecording(probeErr)
+	}
 	byID := map[string]rpc.CapabilityReport{}
 	for _, r := range reports {
 		byID[r.ProviderID] = r
@@ -113,12 +118,19 @@ func (p *ProviderRuntime) refresh(ctx context.Context) error {
 	for i, client := range clients {
 		obs := client.Providers()[0]
 		s := ProviderRuntimeStatus{ProviderID: obs.ID, Identity: rpc.Capability{Status: rpc.Unknown}, Head: rpc.Capability{Status: rpc.Unknown}, Report: byID[obs.ID], CheckedAt: time.Now().UTC()}
-		// The aggregate historical probe may stop before reaching this endpoint.
-		// Confirm identity on this exact client; default quarantine state is not proof.
 		deadline, _ := ctx.Deadline()
 		endpointCtx, endpointCancel := context.WithTimeout(ctx, time.Until(deadline)/time.Duration(len(clients)-i))
-		identityErr := client.VerifyEVM(endpointCtx, p.chain, p.genesis)
+		// A report proves identity on this endpoint in this refresh. ProbeEVM
+		// can finish early, so endpoints without reports need their own handshake.
+		var identityErr error
+		if s.Report.ProviderID == "" {
+			identityErr = client.VerifyEVM(endpointCtx, p.chain, p.genesis)
+		}
 		if identityErr != nil {
+			if errors.Is(identityErr, rpc.ErrRecordingFailed) {
+				endpointCancel()
+				return p.failRecording(identityErr)
+			}
 			s.Identity.Error = rpc.Classify(identityErr)
 			if s.Identity.Error == rpc.IdentityMismatch {
 				s.Identity.Status = rpc.NotSupported
@@ -146,15 +158,13 @@ func (p *ProviderRuntime) refresh(ctx context.Context) error {
 		s.CurrentCallPinned = rpc.Capability{Status: rpc.Unknown}
 		s.CurrentStoragePinned = rpc.Capability{Status: rpc.Unknown}
 		if s.Head.Status == rpc.Supported {
-			s.CurrentHashPinned, s.CurrentControlHash = probeCurrentBalance(endpointCtx, client, p.cfg.Account, b.Hash)
-			if s.CurrentHashPinned.Status == rpc.Supported {
-				s.CurrentCodePinned = probeCurrentMethod(endpointCtx, client, "eth_getCode", p.cfg.Account, b.Hash, s.CurrentControlHash)
-				s.CurrentCallPinned = probeCurrentMethod(endpointCtx, client, "eth_call", map[string]string{"to": p.cfg.Account, "data": "0x"}, b.Hash, s.CurrentControlHash)
-				s.CurrentStoragePinned = probeCurrentMethod(endpointCtx, client, "eth_getStorageAt", p.cfg.Account, b.Hash, s.CurrentControlHash)
-			}
+			err = p.probeCurrent(endpointCtx, client, b.Hash, &s)
+		}
+		endpointCancel()
+		if errors.Is(err, rpc.ErrRecordingFailed) {
+			return p.failRecording(err)
 		}
 		heads[obs.ID] = s
-		endpointCancel()
 	}
 	result := ProviderSnapshot{Chain: p.chain, Independence: rpc.Unknown, LastError: rpc.Classify(probeErr)}
 	anyHealthy := false
@@ -208,6 +218,23 @@ func (p *ProviderRuntime) refresh(ctx context.Context) error {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.recordingFault != recordingFault {
+		return rpc.ErrRecordingFailed
+	}
+	p.publishRefresh(result, anyHealthy)
+	return probeErr
+}
+
+func (p *ProviderRuntime) failRecording(err error) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.recordingFault++
+	p.publishRefresh(ProviderSnapshot{Chain: p.chain, Independence: rpc.Unknown, LastError: rpc.RecordingFailed}, false)
+	return err
+}
+
+// publishRefresh updates the provider state and scheduler under p.mu.
+func (p *ProviderRuntime) publishRefresh(result ProviderSnapshot, anyHealthy bool) {
 	delay := time.Duration(p.cfg.IntervalMS) * time.Millisecond
 	if !anyHealthy {
 		p.failures++
@@ -224,8 +251,7 @@ func (p *ProviderRuntime) refresh(ctx context.Context) error {
 	}
 	p.next = time.Now().Add(delay)
 	p.snapshot = result
-	p.anchorChecks = map[string]providerAnchorCheck{}
-	return probeErr
+	p.anchorChecks = nil
 }
 func providerQualified(s ProviderRuntimeStatus) bool {
 	return s.Identity.Status == rpc.Supported && s.Head.Status == rpc.Supported && s.CurrentHashPinned.Status == rpc.Supported && s.CurrentCodePinned.Status == rpc.Supported && s.CurrentCallPinned.Status == rpc.Supported
@@ -294,39 +320,69 @@ func trimRuntimeHex(s string) string {
 	return ""
 }
 
+func (p *ProviderRuntime) probeCurrent(ctx context.Context, client *rpc.Client, hash string, state *ProviderRuntimeStatus) error {
+	var err error
+	state.CurrentHashPinned, state.CurrentControlHash, err = probeCurrentBalance(ctx, client, p.cfg.Account, hash)
+	if err != nil || state.CurrentHashPinned.Status != rpc.Supported {
+		return err
+	}
+	probes := []struct {
+		method string
+		target any
+		result *rpc.Capability
+	}{
+		{"eth_getCode", p.cfg.Account, &state.CurrentCodePinned},
+		{"eth_call", map[string]string{"to": p.cfg.Account, "data": "0x"}, &state.CurrentCallPinned},
+		{"eth_getStorageAt", p.cfg.Account, &state.CurrentStoragePinned},
+	}
+	for _, probe := range probes {
+		*probe.result, err = probeCurrentMethod(ctx, client, probe.method, probe.target, hash, state.CurrentControlHash)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Current controls have their own budget after the historical attempt. Old
 // archive availability is never a prerequisite for the online capability gate.
-func probeCurrentBalance(ctx context.Context, client *rpc.Client, account, hash string) (rpc.Capability, string) {
+func probeCurrentBalance(ctx context.Context, client *rpc.Client, account, hash string) (rpc.Capability, string, error) {
 	unknown := rpc.Capability{Status: rpc.Unknown}
 	var value string
 	err := client.Call(ctx, "eth_getBalance", []any{account, map[string]any{"blockHash": hash, "requireCanonical": true}}, &value)
+	if errors.Is(err, rpc.ErrRecordingFailed) {
+		return unknown, "", err
+	}
 	if err != nil {
 		unknown.Error = rpc.Classify(err)
-		return unknown, ""
+		return unknown, "", nil
 	}
 	if !runtimeQuantity(value) {
 		unknown.Error = rpc.InvalidResponse
-		return unknown, ""
+		return unknown, "", nil
 	}
 	var random [32]byte
 	if _, err = rand.Read(random[:]); err != nil {
-		return unknown, ""
+		return unknown, "", nil
 	}
 	control := "0x" + hex.EncodeToString(random[:])
 	var negative string
 	err = client.Call(ctx, "eth_getBalance", []any{account, map[string]any{"blockHash": control, "requireCanonical": true}}, &negative)
+	if errors.Is(err, rpc.ErrRecordingFailed) {
+		return unknown, control, err
+	}
 	if err == nil {
 		unknown.Error = rpc.InvalidResponse
-		return unknown, control
+		return unknown, control, nil
 	}
 	if err.Error() != "RPC_ERROR_-32000" && err.Error() != "RPC_ERROR_-32001" {
 		unknown.Error = rpc.Classify(err)
 		if unknown.Error == rpc.Unsupported || unknown.Error == rpc.InvalidRequest {
 			unknown.Status = rpc.NotSupported
 		}
-		return unknown, control
+		return unknown, control, nil
 	}
-	return rpc.Capability{Status: rpc.Supported}, control
+	return rpc.Capability{Status: rpc.Supported}, control, nil
 }
 func runtimeQuantity(value string) bool {
 	if len(value) < 3 || !strings.HasPrefix(value, "0x") || len(value) > 3 && value[2] == '0' {
@@ -395,6 +451,9 @@ func (p *ProviderRuntime) verifyAnchor(ctx context.Context, a ingest.CatalogAnch
 		}
 		var b struct{ Number, Hash, ParentHash string }
 		err := client.Call(ctx, "eth_getBlockByNumber", []any{fmt.Sprintf("0x%x", a.Height), false}, &b)
+		if errors.Is(err, rpc.ErrRecordingFailed) {
+			return p.failRecording(err)
+		}
 		if err == nil && (b.Number != fmt.Sprintf("0x%x", a.Height) || !runtimeDigest(b.Hash) || !runtimeDigest(b.ParentHash) || !rpc.SameEVMHash(b.Hash, a.Hash)) {
 			err = ingest.ErrFactoryStale
 		}
@@ -458,7 +517,7 @@ func (p *ProviderRuntime) verifyAnchor(ctx context.Context, a ingest.CatalogAnch
 
 type runtimeProbeContextKey struct{}
 
-func probeCurrentMethod(ctx context.Context, client *rpc.Client, method string, target any, hash, control string) rpc.Capability {
+func probeCurrentMethod(ctx context.Context, client *rpc.Client, method string, target any, hash, control string) (rpc.Capability, error) {
 	result := rpc.Capability{Status: rpc.Unknown}
 	params := func(block string) []any {
 		selector := map[string]any{"blockHash": block, "requireCanonical": true}
@@ -469,6 +528,9 @@ func probeCurrentMethod(ctx context.Context, client *rpc.Client, method string, 
 	}
 	var value string
 	err := client.Call(ctx, method, params(hash), &value)
+	if errors.Is(err, rpc.ErrRecordingFailed) {
+		return result, err
+	}
 	if err == nil {
 		if len(value) < 2 || !strings.HasPrefix(value, "0x") {
 			err = errors.New("RPC_RESULT_INVALID")
@@ -484,19 +546,22 @@ func probeCurrentMethod(ctx context.Context, client *rpc.Client, method string, 
 		if result.Error == rpc.Unsupported || result.Error == rpc.InvalidRequest {
 			result.Status = rpc.NotSupported
 		}
-		return result
+		return result, nil
 	}
 	var negative string
 	err = client.Call(ctx, method, params(control), &negative)
+	if errors.Is(err, rpc.ErrRecordingFailed) {
+		return result, err
+	}
 	if err == nil {
 		result.Error = rpc.InvalidResponse
-		return result
+		return result, nil
 	}
 	if err.Error() != "RPC_ERROR_-32000" && err.Error() != "RPC_ERROR_-32001" {
 		result.Error = rpc.Classify(err)
-		return result
+		return result, nil
 	}
-	return rpc.Capability{Status: rpc.Supported}
+	return rpc.Capability{Status: rpc.Supported}, nil
 }
 
 type ProviderReadPurpose string
