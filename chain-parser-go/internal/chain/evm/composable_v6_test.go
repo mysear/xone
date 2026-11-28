@@ -164,7 +164,7 @@ func TestComposableV6OriginalVaultSnapshotWire(t *testing.T) {
 				if err := os.WriteFile(filepath.Join(dest, name), encoded, 0o600); err != nil {
 					t.Fatal(err)
 				}
-			} else if expected, err := os.ReadFile(filepath.Join("../../../../dex-router/crates/quote-api/tests/fixtures", name)); err != nil || !bytes.Equal(encoded, expected) {
+			} else if expected, err := os.ReadFile(filepath.Join("../../../test/fixtures/router-wire", name)); err != nil || !bytes.Equal(encoded, expected) {
 				t.Fatalf("Go snapshot differs from the Rust fixture: %v", err)
 			}
 			decoded, err := domain.MultiAssetFromProto(wire.Pools[0].MultiAsset)

@@ -56,7 +56,7 @@ func TestCurveMetaUnderlyingOriginalWire(t *testing.T) {
 	if len(source.Snapshots) != 4 {
 		t.Fatalf("got %d snapshots, want four", len(source.Snapshots))
 	}
-	dir := "../../../../dex-router/crates/quote-api/tests/fixtures"
+	dir := "../../../test/fixtures/router-wire"
 	write := os.Getenv("XONE_CURVE_META_WIRE_OUTPUT")
 	checkFile := func(t *testing.T, name string, value []byte) {
 		t.Helper()

@@ -41,7 +41,7 @@ func TestManagedV2GivenOutParserWire(t *testing.T) {
 	if len(bank.Scenarios) != 1 || len(bank.Cases) != 2 || bank.Cases[0].Execution.After != bank.Cases[1].Execution.Before {
 		t.Fatal("expected one pool and two continuous Vault swaps")
 	}
-	fixtureDir := "../../../../dex-router/crates/quote-api/tests/fixtures"
+	fixtureDir := "../../../test/fixtures/router-wire"
 	for index, bankRef := range []managedBankRef{
 		bank.Scenarios[0].Source, bank.Cases[0].Execution.After, bank.Cases[1].Execution.After,
 	} {

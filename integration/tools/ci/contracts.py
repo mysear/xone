@@ -35,6 +35,20 @@ for service in services:
     if (base / 'contracts').exists():
         raise SystemExit(f'Protocol copies must live in common/protoc: {service}')
 contract_count = len(checked)
+
+router_wire = root / 'dex-router/crates/quote-api/tests/fixtures'
+go_wire = root / 'chain-parser-go/test/fixtures/router-wire'
+wire_names = (
+    [f'composable_v6_snapshot_{i}.pb' for i in range(14)]
+    + [f'managed_v2_vault_snapshot_{i}.pb' for i in range(3)]
+    + [f'curve_meta_underlying_{i}.pb' for i in range(4)]
+    + ['curve_meta_underlying_swaps.json']
+)
+if {path.name for path in go_wire.iterdir() if path.is_file()} != set(wire_names):
+    raise SystemExit('Go Parser/Router wire fixture membership mismatch')
+for name in wire_names:
+    check_copy(router_wire / name, go_wire / name)
+
 for chain, owners in [('evm', services), ('solana', ['chain-parser-rust'])]:
     for service in owners:
         check_copy(root / 'integration/test' / chain / 'baseline.json', root / service / 'test/fixtures' / chain / 'baseline.json')
