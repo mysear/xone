@@ -1,0 +1,2308 @@
+{
+  "source": "SYNTHETIC_ORIGINAL_BIN_MANAGER_GETTERS_AND_BINPOOL_SWAPS",
+  "source_corpus_sha256": "992aea6c8f33298753deb31f9c269f3f792e817239b56810a2a3b3b9f8b69eec",
+  "banks": [
+    {
+      "id": "bank0",
+      "block": {
+        "num": 87,
+        "hash": "0x0ffd0ba212852206a34156fa59b8abef89c0ba78f7665573ae8a224bd454a722",
+        "timestamp": 1793577687
+      },
+      "items": [
+        {
+          "pool": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 3000,
+            "fee_denominator": 1000000,
+            "adapter_version": "pancake-infinity-bin/3c5ef1be-static-1",
+            "token_behavior": "standard",
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+              "hooks": "0x0000000000000000000000000000000000000000",
+              "parameters": "0x0000000000000000000000000000000000000000000000000000000000010000",
+              "token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "bin_step": 1,
+              "active_id": 8388608,
+              "lp_fee": 3000,
+              "protocol_fee0": 4000,
+              "protocol_fee1": 17,
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64,
+              "tree_level0": "1276058875953519237987654777869130792960",
+              "tree_level1": [
+                {
+                  "index": 126,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 127,
+                  "value": "86844066927987146567678238756515930889952488499230423029593188005934847229952"
+                },
+                {
+                  "index": 128,
+                  "value": "3"
+                },
+                {
+                  "index": 129,
+                  "value": "1"
+                }
+              ],
+              "tree_level2": [
+                {
+                  "index": 32511,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32766,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32767,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32768,
+                  "value": "3"
+                },
+                {
+                  "index": 32769,
+                  "value": "2"
+                },
+                {
+                  "index": 33024,
+                  "value": "2"
+                }
+              ],
+              "bins": [
+                {
+                  "id": 8323071,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388351,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388607,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388608,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388609,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388865,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8454145,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                }
+              ],
+              "app_reserve0": "10000013",
+              "app_reserve1": "10000017",
+              "protocol_fees0": "13",
+              "protocol_fees1": "17",
+              "block_number": 87,
+              "timestamp": 1793577687,
+              "block_hash": "0x0ffd0ba212852206a34156fa59b8abef89c0ba78f7665573ae8a224bd454a722"
+            }
+          },
+          "config": {
+            "id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "fee_numerator": 3000,
+            "fee_denominator": 1000000,
+            "program_id": "",
+            "accounts": [],
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "expected_manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "expected_vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+              "bin_step": 1,
+              "lp_fee": 3000,
+              "expected_token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "expected_token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token_policy": "standard",
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64
+            }
+          }
+        },
+        {
+          "pool": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 100000,
+            "fee_denominator": 1000000,
+            "adapter_version": "pancake-infinity-bin/3c5ef1be-static-1",
+            "token_behavior": "standard",
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+              "hooks": "0x0000000000000000000000000000000000000000",
+              "parameters": "0x00000000000000000000000000000000000000000000000000000000000a0000",
+              "token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "bin_step": 10,
+              "active_id": 8388608,
+              "lp_fee": 100000,
+              "protocol_fee0": 123,
+              "protocol_fee1": 4000,
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64,
+              "tree_level0": "1276058875953519237987654777869130792960",
+              "tree_level1": [
+                {
+                  "index": 126,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 127,
+                  "value": "86844066927987146567678238756515930889952488499230423029593188005934847229952"
+                },
+                {
+                  "index": 128,
+                  "value": "3"
+                },
+                {
+                  "index": 129,
+                  "value": "1"
+                }
+              ],
+              "tree_level2": [
+                {
+                  "index": 32511,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32766,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32767,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32768,
+                  "value": "3"
+                },
+                {
+                  "index": 32769,
+                  "value": "2"
+                },
+                {
+                  "index": 33024,
+                  "value": "2"
+                }
+              ],
+              "bins": [
+                {
+                  "id": 8323071,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388351,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388607,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388608,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388609,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388865,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8454145,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                }
+              ],
+              "app_reserve0": "10000013",
+              "app_reserve1": "10000017",
+              "protocol_fees0": "13",
+              "protocol_fees1": "17",
+              "block_number": 87,
+              "timestamp": 1793577687,
+              "block_hash": "0x0ffd0ba212852206a34156fa59b8abef89c0ba78f7665573ae8a224bd454a722"
+            }
+          },
+          "config": {
+            "id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "fee_numerator": 100000,
+            "fee_denominator": 1000000,
+            "program_id": "",
+            "accounts": [],
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "expected_manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "expected_vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+              "bin_step": 10,
+              "lp_fee": 100000,
+              "expected_token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "expected_token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token_policy": "standard",
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bank1",
+      "block": {
+        "num": 123,
+        "hash": "0xb3a64c18016bb0ee37eb8173fea2ffcb4fe6675c0d3403301531e48aa265d3d5",
+        "timestamp": 1793577723
+      },
+      "items": [
+        {
+          "pool": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 3000,
+            "fee_denominator": 1000000,
+            "adapter_version": "pancake-infinity-bin/3c5ef1be-static-1",
+            "token_behavior": "standard",
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+              "hooks": "0x0000000000000000000000000000000000000000",
+              "parameters": "0x0000000000000000000000000000000000000000000000000000000000010000",
+              "token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "bin_step": 1,
+              "active_id": 8388351,
+              "lp_fee": 3000,
+              "protocol_fee0": 4000,
+              "protocol_fee1": 17,
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64,
+              "tree_level0": "1276058875953519237987654777869130792960",
+              "tree_level1": [
+                {
+                  "index": 126,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 127,
+                  "value": "86844066927987146567678238756515930889952488499230423029593188005934847229952"
+                },
+                {
+                  "index": 128,
+                  "value": "3"
+                },
+                {
+                  "index": 129,
+                  "value": "1"
+                }
+              ],
+              "tree_level2": [
+                {
+                  "index": 32511,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32766,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32767,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32768,
+                  "value": "3"
+                },
+                {
+                  "index": 32769,
+                  "value": "2"
+                },
+                {
+                  "index": 33024,
+                  "value": "2"
+                }
+              ],
+              "bins": [
+                {
+                  "id": 8323071,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388351,
+                  "reserve0": "1590590",
+                  "reserve1": "426122",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388607,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388608,
+                  "reserve0": "2003010",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388609,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388865,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8454145,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                }
+              ],
+              "app_reserve0": "11600013",
+              "app_reserve1": "8426139",
+              "protocol_fees0": "6413",
+              "protocol_fees1": "17",
+              "block_number": 123,
+              "timestamp": 1793577723,
+              "block_hash": "0xb3a64c18016bb0ee37eb8173fea2ffcb4fe6675c0d3403301531e48aa265d3d5"
+            }
+          },
+          "config": {
+            "id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "fee_numerator": 3000,
+            "fee_denominator": 1000000,
+            "program_id": "",
+            "accounts": [],
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "expected_manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "expected_vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+              "bin_step": 1,
+              "lp_fee": 3000,
+              "expected_token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "expected_token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token_policy": "standard",
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64
+            }
+          }
+        },
+        {
+          "pool": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 100000,
+            "fee_denominator": 1000000,
+            "adapter_version": "pancake-infinity-bin/3c5ef1be-static-1",
+            "token_behavior": "standard",
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+              "hooks": "0x0000000000000000000000000000000000000000",
+              "parameters": "0x00000000000000000000000000000000000000000000000000000000000a0000",
+              "token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "bin_step": 10,
+              "active_id": 8388608,
+              "lp_fee": 100000,
+              "protocol_fee0": 123,
+              "protocol_fee1": 4000,
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64,
+              "tree_level0": "1276058875953519237987654777869130792960",
+              "tree_level1": [
+                {
+                  "index": 126,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 127,
+                  "value": "86844066927987146567678238756515930889952488499230423029593188005934847229952"
+                },
+                {
+                  "index": 128,
+                  "value": "3"
+                },
+                {
+                  "index": 129,
+                  "value": "1"
+                }
+              ],
+              "tree_level2": [
+                {
+                  "index": 32511,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32766,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32767,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32768,
+                  "value": "3"
+                },
+                {
+                  "index": 32769,
+                  "value": "2"
+                },
+                {
+                  "index": 33024,
+                  "value": "2"
+                }
+              ],
+              "bins": [
+                {
+                  "id": 8323071,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388351,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388607,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388608,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388609,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388865,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8454145,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                }
+              ],
+              "app_reserve0": "11600013",
+              "app_reserve1": "8426139",
+              "protocol_fees0": "6413",
+              "protocol_fees1": "17",
+              "block_number": 123,
+              "timestamp": 1793577723,
+              "block_hash": "0xb3a64c18016bb0ee37eb8173fea2ffcb4fe6675c0d3403301531e48aa265d3d5"
+            }
+          },
+          "config": {
+            "id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "fee_numerator": 100000,
+            "fee_denominator": 1000000,
+            "program_id": "",
+            "accounts": [],
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "expected_manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "expected_vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+              "bin_step": 10,
+              "lp_fee": 100000,
+              "expected_token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "expected_token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token_policy": "standard",
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bank2",
+      "block": {
+        "num": 159,
+        "hash": "0x54e7601d6f1a6fef09e48b54439cf2f62bb64dfec936d2278a28554b1ab752b5",
+        "timestamp": 1793577759
+      },
+      "items": [
+        {
+          "pool": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 3000,
+            "fee_denominator": 1000000,
+            "adapter_version": "pancake-infinity-bin/3c5ef1be-static-1",
+            "token_behavior": "standard",
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+              "hooks": "0x0000000000000000000000000000000000000000",
+              "parameters": "0x0000000000000000000000000000000000000000000000000000000000010000",
+              "token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "bin_step": 1,
+              "active_id": 8388351,
+              "lp_fee": 3000,
+              "protocol_fee0": 4000,
+              "protocol_fee1": 17,
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64,
+              "tree_level0": "1276058875953519237987654777869130792960",
+              "tree_level1": [
+                {
+                  "index": 126,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 127,
+                  "value": "86844066927987146567678238756515930889952488499230423029593188005934847229952"
+                },
+                {
+                  "index": 128,
+                  "value": "3"
+                },
+                {
+                  "index": 129,
+                  "value": "1"
+                }
+              ],
+              "tree_level2": [
+                {
+                  "index": 32511,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32766,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32767,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32768,
+                  "value": "3"
+                },
+                {
+                  "index": 32769,
+                  "value": "2"
+                },
+                {
+                  "index": 33024,
+                  "value": "2"
+                }
+              ],
+              "bins": [
+                {
+                  "id": 8323071,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388351,
+                  "reserve0": "1590590",
+                  "reserve1": "426122",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388607,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388608,
+                  "reserve0": "2003010",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388609,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388865,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8454145,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                }
+              ],
+              "app_reserve0": "10282255",
+              "app_reserve1": "10000017",
+              "protocol_fees0": "6413",
+              "protocol_fees1": "6312",
+              "block_number": 159,
+              "timestamp": 1793577759,
+              "block_hash": "0x54e7601d6f1a6fef09e48b54439cf2f62bb64dfec936d2278a28554b1ab752b5"
+            }
+          },
+          "config": {
+            "id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "fee_numerator": 3000,
+            "fee_denominator": 1000000,
+            "program_id": "",
+            "accounts": [],
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "expected_manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "expected_vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+              "bin_step": 1,
+              "lp_fee": 3000,
+              "expected_token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "expected_token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token_policy": "standard",
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64
+            }
+          }
+        },
+        {
+          "pool": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 100000,
+            "fee_denominator": 1000000,
+            "adapter_version": "pancake-infinity-bin/3c5ef1be-static-1",
+            "token_behavior": "standard",
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+              "hooks": "0x0000000000000000000000000000000000000000",
+              "parameters": "0x00000000000000000000000000000000000000000000000000000000000a0000",
+              "token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "bin_step": 10,
+              "active_id": 8388865,
+              "lp_fee": 100000,
+              "protocol_fee0": 123,
+              "protocol_fee1": 4000,
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64,
+              "tree_level0": "1276058875953519237987654777869130792960",
+              "tree_level1": [
+                {
+                  "index": 126,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 127,
+                  "value": "86844066927987146567678238756515930889952488499230423029593188005934847229952"
+                },
+                {
+                  "index": 128,
+                  "value": "3"
+                },
+                {
+                  "index": 129,
+                  "value": "1"
+                }
+              ],
+              "tree_level2": [
+                {
+                  "index": 32511,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32766,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32767,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32768,
+                  "value": "3"
+                },
+                {
+                  "index": 32769,
+                  "value": "2"
+                },
+                {
+                  "index": 33024,
+                  "value": "2"
+                }
+              ],
+              "bins": [
+                {
+                  "id": 8323071,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388351,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388607,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388608,
+                  "reserve0": "0",
+                  "reserve1": "2111112",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388609,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388865,
+                  "reserve0": "682242",
+                  "reserve1": "1456471",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8454145,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                }
+              ],
+              "app_reserve0": "10282255",
+              "app_reserve1": "10000017",
+              "protocol_fees0": "6413",
+              "protocol_fees1": "6312",
+              "block_number": 159,
+              "timestamp": 1793577759,
+              "block_hash": "0x54e7601d6f1a6fef09e48b54439cf2f62bb64dfec936d2278a28554b1ab752b5"
+            }
+          },
+          "config": {
+            "id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "fee_numerator": 100000,
+            "fee_denominator": 1000000,
+            "program_id": "",
+            "accounts": [],
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "expected_manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "expected_vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+              "bin_step": 10,
+              "lp_fee": 100000,
+              "expected_token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "expected_token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token_policy": "standard",
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bank3",
+      "block": {
+        "num": 195,
+        "hash": "0x3450f8a4bc384b2bbbd34e716cc606ef0bd27545cc8f9a6012f715bbad0fe617",
+        "timestamp": 1793577795
+      },
+      "items": [
+        {
+          "pool": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 3000,
+            "fee_denominator": 1000000,
+            "adapter_version": "pancake-infinity-bin/3c5ef1be-static-1",
+            "token_behavior": "standard",
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+              "hooks": "0x0000000000000000000000000000000000000000",
+              "parameters": "0x0000000000000000000000000000000000000000000000000000000000010000",
+              "token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "bin_step": 1,
+              "active_id": 8388351,
+              "lp_fee": 3000,
+              "protocol_fee0": 4000,
+              "protocol_fee1": 17,
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64,
+              "tree_level0": "1276058875953519237987654777869130792960",
+              "tree_level1": [
+                {
+                  "index": 126,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 127,
+                  "value": "86844066927987146567678238756515930889952488499230423029593188005934847229952"
+                },
+                {
+                  "index": 128,
+                  "value": "3"
+                },
+                {
+                  "index": 129,
+                  "value": "1"
+                }
+              ],
+              "tree_level2": [
+                {
+                  "index": 32511,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32766,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32767,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32768,
+                  "value": "3"
+                },
+                {
+                  "index": 32769,
+                  "value": "2"
+                },
+                {
+                  "index": 33024,
+                  "value": "2"
+                }
+              ],
+              "bins": [
+                {
+                  "id": 8323071,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388351,
+                  "reserve0": "1590590",
+                  "reserve1": "426122",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388607,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388608,
+                  "reserve0": "2003010",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388609,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388865,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8454145,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                }
+              ],
+              "app_reserve0": "11600013",
+              "app_reserve1": "8484245",
+              "protocol_fees0": "6574",
+              "protocol_fees1": "6312",
+              "block_number": 195,
+              "timestamp": 1793577795,
+              "block_hash": "0x3450f8a4bc384b2bbbd34e716cc606ef0bd27545cc8f9a6012f715bbad0fe617"
+            }
+          },
+          "config": {
+            "id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "fee_numerator": 3000,
+            "fee_denominator": 1000000,
+            "program_id": "",
+            "accounts": [],
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "expected_manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "expected_vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+              "bin_step": 1,
+              "lp_fee": 3000,
+              "expected_token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "expected_token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token_policy": "standard",
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64
+            }
+          }
+        },
+        {
+          "pool": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 100000,
+            "fee_denominator": 1000000,
+            "adapter_version": "pancake-infinity-bin/3c5ef1be-static-1",
+            "token_behavior": "standard",
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+              "hooks": "0x0000000000000000000000000000000000000000",
+              "parameters": "0x00000000000000000000000000000000000000000000000000000000000a0000",
+              "token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "bin_step": 10,
+              "active_id": 8388608,
+              "lp_fee": 100000,
+              "protocol_fee0": 123,
+              "protocol_fee1": 4000,
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64,
+              "tree_level0": "1276058875953519237987654777869130792960",
+              "tree_level1": [
+                {
+                  "index": 126,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 127,
+                  "value": "86844066927987146567678238756515930889952488499230423029593188005934847229952"
+                },
+                {
+                  "index": 128,
+                  "value": "3"
+                },
+                {
+                  "index": 129,
+                  "value": "1"
+                }
+              ],
+              "tree_level2": [
+                {
+                  "index": 32511,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32766,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32767,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32768,
+                  "value": "3"
+                },
+                {
+                  "index": 32769,
+                  "value": "2"
+                },
+                {
+                  "index": 33024,
+                  "value": "2"
+                }
+              ],
+              "bins": [
+                {
+                  "id": 8323071,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388351,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388607,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388608,
+                  "reserve0": "65891",
+                  "reserve1": "2051811",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388609,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388865,
+                  "reserve0": "1933948",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8454145,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                }
+              ],
+              "app_reserve0": "11600013",
+              "app_reserve1": "8484245",
+              "protocol_fees0": "6574",
+              "protocol_fees1": "6312",
+              "block_number": 195,
+              "timestamp": 1793577795,
+              "block_hash": "0x3450f8a4bc384b2bbbd34e716cc606ef0bd27545cc8f9a6012f715bbad0fe617"
+            }
+          },
+          "config": {
+            "id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "fee_numerator": 100000,
+            "fee_denominator": 1000000,
+            "program_id": "",
+            "accounts": [],
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "expected_manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "expected_vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+              "bin_step": 10,
+              "lp_fee": 100000,
+              "expected_token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "expected_token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token_policy": "standard",
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bank4",
+      "block": {
+        "num": 231,
+        "hash": "0x2531b606494d1e07f266d71e033e7b7301837315e7b677dc7c4a80c689e8a46e",
+        "timestamp": 1793577831
+      },
+      "items": [
+        {
+          "pool": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 3000,
+            "fee_denominator": 1000000,
+            "adapter_version": "pancake-infinity-bin/3c5ef1be-static-1",
+            "token_behavior": "standard",
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+              "hooks": "0x0000000000000000000000000000000000000000",
+              "parameters": "0x0000000000000000000000000000000000000000000000000000000000010000",
+              "token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "bin_step": 1,
+              "active_id": 8388351,
+              "lp_fee": 3000,
+              "protocol_fee0": 4000,
+              "protocol_fee1": 17,
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64,
+              "tree_level0": "1276058875953519237987654777869130792960",
+              "tree_level1": [
+                {
+                  "index": 126,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 127,
+                  "value": "86844066927987146567678238756515930889952488499230423029593188005934847229952"
+                },
+                {
+                  "index": 128,
+                  "value": "3"
+                },
+                {
+                  "index": 129,
+                  "value": "1"
+                }
+              ],
+              "tree_level2": [
+                {
+                  "index": 32511,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32766,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32767,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32768,
+                  "value": "3"
+                },
+                {
+                  "index": 32769,
+                  "value": "2"
+                },
+                {
+                  "index": 33024,
+                  "value": "2"
+                }
+              ],
+              "bins": [
+                {
+                  "id": 8323071,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388351,
+                  "reserve0": "40053",
+                  "reserve1": "1941869",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388607,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388608,
+                  "reserve0": "2003010",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388609,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388865,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8454145,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                }
+              ],
+              "app_reserve0": "10049476",
+              "app_reserve1": "10000017",
+              "protocol_fees0": "6574",
+              "protocol_fees1": "6337",
+              "block_number": 231,
+              "timestamp": 1793577831,
+              "block_hash": "0x2531b606494d1e07f266d71e033e7b7301837315e7b677dc7c4a80c689e8a46e"
+            }
+          },
+          "config": {
+            "id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "fee_numerator": 3000,
+            "fee_denominator": 1000000,
+            "program_id": "",
+            "accounts": [],
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "expected_manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "expected_vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+              "bin_step": 1,
+              "lp_fee": 3000,
+              "expected_token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "expected_token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token_policy": "standard",
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64
+            }
+          }
+        },
+        {
+          "pool": {
+            "chain_key": "evm:31337",
+            "pool_id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 100000,
+            "fee_denominator": 1000000,
+            "adapter_version": "pancake-infinity-bin/3c5ef1be-static-1",
+            "token_behavior": "standard",
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+              "hooks": "0x0000000000000000000000000000000000000000",
+              "parameters": "0x00000000000000000000000000000000000000000000000000000000000a0000",
+              "token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "bin_step": 10,
+              "active_id": 8388608,
+              "lp_fee": 100000,
+              "protocol_fee0": 123,
+              "protocol_fee1": 4000,
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64,
+              "tree_level0": "1276058875953519237987654777869130792960",
+              "tree_level1": [
+                {
+                  "index": 126,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 127,
+                  "value": "86844066927987146567678238756515930889952488499230423029593188005934847229952"
+                },
+                {
+                  "index": 128,
+                  "value": "3"
+                },
+                {
+                  "index": 129,
+                  "value": "1"
+                }
+              ],
+              "tree_level2": [
+                {
+                  "index": 32511,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32766,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32767,
+                  "value": "57896044618658097711785492504343953926634992332820282019728792003956564819968"
+                },
+                {
+                  "index": 32768,
+                  "value": "3"
+                },
+                {
+                  "index": 32769,
+                  "value": "2"
+                },
+                {
+                  "index": 33024,
+                  "value": "2"
+                }
+              ],
+              "bins": [
+                {
+                  "id": 8323071,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388351,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388607,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388608,
+                  "reserve0": "65891",
+                  "reserve1": "2051811",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388609,
+                  "reserve0": "0",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8388865,
+                  "reserve0": "1933948",
+                  "reserve1": "0",
+                  "total_shares": "1000000000000"
+                },
+                {
+                  "id": 8454145,
+                  "reserve0": "1000000",
+                  "reserve1": "1000000",
+                  "total_shares": "1000000000000"
+                }
+              ],
+              "app_reserve0": "10049476",
+              "app_reserve1": "10000017",
+              "protocol_fees0": "6574",
+              "protocol_fees1": "6337",
+              "block_number": 231,
+              "timestamp": 1793577831,
+              "block_hash": "0x2531b606494d1e07f266d71e033e7b7301837315e7b677dc7c4a80c689e8a46e"
+            }
+          },
+          "config": {
+            "id": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24/0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+            "protocol": "pancake-infinity-bin",
+            "token0": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+            "token1": "0xc89ce4735882c9f0f0fe26686c53074e09b0d550",
+            "fee_numerator": 100000,
+            "fee_denominator": 1000000,
+            "program_id": "",
+            "accounts": [],
+            "infinity_bin": {
+              "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+              "expected_manager_code_sha256": "35a29edce478f14cecf7cd63b26c00bcf63a40588c99109b4507dc8cd8ba0fd6",
+              "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+              "expected_vault_code_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+              "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+              "bin_step": 10,
+              "lp_fee": 100000,
+              "expected_token0_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "expected_token1_code_sha256": "9bec36e1353107c52e7f128e21f206d07f732f99ffb0f022944a9be76f276bfb",
+              "token_policy": "standard",
+              "max_bins": 64,
+              "max_tree_words": 64,
+              "max_steps": 64
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "trades": [
+    {
+      "id": "trade0",
+      "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+      "zero_for_one": true,
+      "amount_in": "1600000",
+      "pre_bank": "bank0",
+      "post_bank": "bank1",
+      "expected": {
+        "delta0": "-1600000",
+        "delta1": "1573878",
+        "amount_out": "1573878",
+        "swap_fee": 6988,
+        "protocol_amount": "6400",
+        "fee_amount": "11182",
+        "bin_fills": [
+          {
+            "bin_id": 8388608,
+            "price": "340282366920938463463374607431768211456",
+            "amount_in": "1007038",
+            "amount_out": "1000000",
+            "fee_amount": "7038",
+            "protocol_amount": "4028",
+            "pre": {
+              "reserve0": "1000000",
+              "reserve1": "1000000"
+            },
+            "post": {
+              "reserve0": "2003010",
+              "reserve1": "0"
+            }
+          },
+          {
+            "bin_id": 8388607,
+            "price": "340248342086729790484326174814286782777",
+            "amount_in": "0",
+            "amount_out": "0",
+            "fee_amount": "0",
+            "protocol_amount": "0",
+            "pre": {
+              "reserve0": "0",
+              "reserve1": "0"
+            },
+            "post": {
+              "reserve0": "0",
+              "reserve1": "0"
+            }
+          },
+          {
+            "bin_id": 8388351,
+            "price": "331648956242754971630009138164743342680",
+            "amount_in": "592962",
+            "amount_out": "573878",
+            "fee_amount": "4144",
+            "protocol_amount": "2372",
+            "pre": {
+              "reserve0": "1000000",
+              "reserve1": "1000000"
+            },
+            "post": {
+              "reserve0": "1590590",
+              "reserve1": "426122"
+            }
+          }
+        ],
+        "post": {
+          "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+          "active_id": 8388351,
+          "protocol_fee": 73632,
+          "lp_fee": 3000,
+          "bins": {
+            "8323071": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "340767371681279495532913907185822779912000000",
+              "total_shares": "1000000000000",
+              "price": "485004760341032069539299754054568456",
+              "initialized": true,
+              "next": {
+                "true": 16777215,
+                "false": 8388351
+              }
+            },
+            "8388351": {
+              "reserve0": "1590590",
+              "reserve1": "426122",
+              "liquidity": "672519316067247770252916349541499047235434832",
+              "total_shares": "1000000000000",
+              "price": "331648956242754971630009138164743342680",
+              "initialized": true,
+              "next": {
+                "true": 8323071,
+                "false": 8388607
+              }
+            },
+            "8388607": {
+              "reserve0": "0",
+              "reserve1": "0",
+              "liquidity": "0",
+              "total_shares": "1000000000000",
+              "price": "340248342086729790484326174814286782777",
+              "initialized": true,
+              "next": {
+                "true": 8388351,
+                "false": 8388608
+              }
+            },
+            "8388608": {
+              "reserve0": "2003010",
+              "reserve1": "0",
+              "liquidity": "681588983766308951701773972431906045228482560",
+              "total_shares": "1000000000000",
+              "price": "340282366920938463463374607431768211456",
+              "initialized": true,
+              "next": {
+                "true": 8388607,
+                "false": 8388609
+              }
+            },
+            "8388609": {
+              "reserve0": "0",
+              "reserve1": "0",
+              "liquidity": "0",
+              "total_shares": "1000000000000",
+              "price": "340316395157630557309720944892511388277",
+              "initialized": true,
+              "next": {
+                "true": 8388608,
+                "false": 8388865
+              }
+            },
+            "8388865": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "689422887515734481008186829124286559226000000",
+              "total_shares": "1000000000000",
+              "price": "349140520594796017544812221692518347770",
+              "initialized": true,
+              "next": {
+                "true": 8388609,
+                "false": 8454145
+              }
+            },
+            "8454145": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "239084514806818550486943470752009211105346000000",
+              "total_shares": "1000000000000",
+              "price": "238744232439897612023480096144577442893890",
+              "initialized": true,
+              "next": {
+                "true": 8388865,
+                "false": 0
+              }
+            }
+          },
+          "tree": {
+            "level0": "0x00000000000000000000000000000003c0000000000000000000000000000000",
+            "level1": {
+              "0x000000000000000000000000000000000000000000000000000000000000007e": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x000000000000000000000000000000000000000000000000000000000000007f": "0xc000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000000080": "0x0000000000000000000000000000000000000000000000000000000000000003",
+              "0x0000000000000000000000000000000000000000000000000000000000000081": "0x0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "level2": {
+              "0x0000000000000000000000000000000000000000000000000000000000007eff": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000007ffe": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000007fff": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000008000": "0x0000000000000000000000000000000000000000000000000000000000000003",
+              "0x0000000000000000000000000000000000000000000000000000000000008001": "0x0000000000000000000000000000000000000000000000000000000000000002",
+              "0x0000000000000000000000000000000000000000000000000000000000008100": "0x0000000000000000000000000000000000000000000000000000000000000002"
+            }
+          },
+          "app_reserves": {
+            "0x254dffcd3277c0b1660f6d42efbb754edababc2b": "11600013",
+            "0xc89ce4735882c9f0f0fe26686c53074e09b0d550": "8426139"
+          },
+          "protocol_fees": {
+            "0x254dffcd3277c0b1660f6d42efbb754edababc2b": "6413",
+            "0xc89ce4735882c9f0f0fe26686c53074e09b0d550": "17"
+          }
+        }
+      }
+    },
+    {
+      "id": "trade1",
+      "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+      "zero_for_one": false,
+      "amount_in": "1573878",
+      "pre_bank": "bank1",
+      "post_bank": "bank2",
+      "expected": {
+        "delta0": "1317758",
+        "delta1": "-1573878",
+        "amount_out": "1317758",
+        "swap_fee": 103600,
+        "protocol_amount": "6295",
+        "fee_amount": "163055",
+        "bin_fills": [
+          {
+            "bin_id": 8388608,
+            "price": "340282366920938463463374607431768211456",
+            "amount_in": "1115574",
+            "amount_out": "1000000",
+            "fee_amount": "115574",
+            "protocol_amount": "4462",
+            "pre": {
+              "reserve0": "1000000",
+              "reserve1": "1000000"
+            },
+            "post": {
+              "reserve0": "0",
+              "reserve1": "2111112"
+            }
+          },
+          {
+            "bin_id": 8388609,
+            "price": "340622649287859401926837982039199979667",
+            "amount_in": "0",
+            "amount_out": "0",
+            "fee_amount": "0",
+            "protocol_amount": "0",
+            "pre": {
+              "reserve0": "0",
+              "reserve1": "0"
+            },
+            "post": {
+              "reserve0": "0",
+              "reserve1": "0"
+            }
+          },
+          {
+            "bin_id": 8388865,
+            "price": "439943957503457263142479023377483448072",
+            "amount_in": "458304",
+            "amount_out": "317758",
+            "fee_amount": "47481",
+            "protocol_amount": "1833",
+            "pre": {
+              "reserve0": "1000000",
+              "reserve1": "1000000"
+            },
+            "post": {
+              "reserve0": "682242",
+              "reserve1": "1456471"
+            }
+          }
+        ],
+        "post": {
+          "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+          "active_id": 8388865,
+          "protocol_fee": 16384123,
+          "lp_fee": 100000,
+          "bins": {
+            "8323071": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "340282366920938463463374607443893823887000000",
+              "total_shares": "1000000000000",
+              "price": "12125612431",
+              "initialized": true,
+              "next": {
+                "true": 16777215,
+                "false": 8388351
+              }
+            },
+            "8388351": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "603479729363190560727835147362792190976000000",
+              "total_shares": "1000000000000",
+              "price": "263197362442252097264460539931023979520",
+              "initialized": true,
+              "next": {
+                "true": 8323071,
+                "false": 8388607
+              }
+            },
+            "8388607": {
+              "reserve0": "0",
+              "reserve1": "0",
+              "liquidity": "0",
+              "total_shares": "1000000000000",
+              "price": "339942424496442021441932674757011200256",
+              "initialized": true,
+              "next": {
+                "true": 8388351,
+                "false": 8388608
+              }
+            },
+            "8388608": {
+              "reserve0": "0",
+              "reserve1": "2111112",
+              "liquidity": "718374188195196241479091694244495052423299072",
+              "total_shares": "1000000000000",
+              "price": "340282366920938463463374607431768211456",
+              "initialized": true,
+              "next": {
+                "true": 8388607,
+                "false": 8388609
+              }
+            },
+            "8388609": {
+              "reserve0": "0",
+              "reserve1": "0",
+              "liquidity": "0",
+              "total_shares": "1000000000000",
+              "price": "340622649287859401926837982039199979667",
+              "initialized": true,
+              "next": {
+                "true": 8388608,
+                "false": 8388865
+              }
+            },
+            "8388865": {
+              "reserve0": "682242",
+              "reserve1": "1456471",
+              "liquidity": "795759644686779854939815851727855941287069200",
+              "total_shares": "1000000000000",
+              "price": "439943957503457263142479023377483448072",
+              "initialized": true,
+              "next": {
+                "true": 8388609,
+                "false": 8454145
+              }
+            },
+            "8454145": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "9549380692828792213899103882121600687639248470088108368020292171670000000",
+              "total_shares": "1000000000000",
+              "price": "9549380692828792213899103881781318320718310006624733760588523960214",
+              "initialized": true,
+              "next": {
+                "true": 8388865,
+                "false": 0
+              }
+            }
+          },
+          "tree": {
+            "level0": "0x00000000000000000000000000000003c0000000000000000000000000000000",
+            "level1": {
+              "0x000000000000000000000000000000000000000000000000000000000000007e": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x000000000000000000000000000000000000000000000000000000000000007f": "0xc000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000000080": "0x0000000000000000000000000000000000000000000000000000000000000003",
+              "0x0000000000000000000000000000000000000000000000000000000000000081": "0x0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "level2": {
+              "0x0000000000000000000000000000000000000000000000000000000000007eff": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000007ffe": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000007fff": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000008000": "0x0000000000000000000000000000000000000000000000000000000000000003",
+              "0x0000000000000000000000000000000000000000000000000000000000008001": "0x0000000000000000000000000000000000000000000000000000000000000002",
+              "0x0000000000000000000000000000000000000000000000000000000000008100": "0x0000000000000000000000000000000000000000000000000000000000000002"
+            }
+          },
+          "app_reserves": {
+            "0x254dffcd3277c0b1660f6d42efbb754edababc2b": "10282255",
+            "0xc89ce4735882c9f0f0fe26686c53074e09b0d550": "10000017"
+          },
+          "protocol_fees": {
+            "0x254dffcd3277c0b1660f6d42efbb754edababc2b": "6413",
+            "0xc89ce4735882c9f0f0fe26686c53074e09b0d550": "6312"
+          }
+        }
+      }
+    },
+    {
+      "id": "trade2",
+      "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+      "zero_for_one": true,
+      "amount_in": "1317758",
+      "pre_bank": "bank2",
+      "post_bank": "bank3",
+      "expected": {
+        "delta0": "-1317758",
+        "delta1": "1515772",
+        "amount_out": "1515772",
+        "swap_fee": 100111,
+        "protocol_amount": "161",
+        "fee_amount": "131923",
+        "bin_fills": [
+          {
+            "bin_id": 8388865,
+            "price": "439943957503457263142479023377483448072",
+            "amount_in": "1251859",
+            "amount_out": "1456471",
+            "fee_amount": "125325",
+            "protocol_amount": "153",
+            "pre": {
+              "reserve0": "682242",
+              "reserve1": "1456471"
+            },
+            "post": {
+              "reserve0": "1933948",
+              "reserve1": "0"
+            }
+          },
+          {
+            "bin_id": 8388609,
+            "price": "340622649287859401926837982039199979667",
+            "amount_in": "0",
+            "amount_out": "0",
+            "fee_amount": "0",
+            "protocol_amount": "0",
+            "pre": {
+              "reserve0": "0",
+              "reserve1": "0"
+            },
+            "post": {
+              "reserve0": "0",
+              "reserve1": "0"
+            }
+          },
+          {
+            "bin_id": 8388608,
+            "price": "340282366920938463463374607431768211456",
+            "amount_in": "65899",
+            "amount_out": "59301",
+            "fee_amount": "6598",
+            "protocol_amount": "8",
+            "pre": {
+              "reserve0": "0",
+              "reserve1": "2111112"
+            },
+            "post": {
+              "reserve0": "65891",
+              "reserve1": "2051811"
+            }
+          }
+        ],
+        "post": {
+          "pool_id": "0xc3f93899b2b612a6c6f1abd696886f3e716d5313256bfcf5ae84f4c3b4ccf56b",
+          "active_id": 8388608,
+          "protocol_fee": 16384123,
+          "lp_fee": 100000,
+          "bins": {
+            "8323071": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "340282366920938463463374607443893823887000000",
+              "total_shares": "1000000000000",
+              "price": "12125612431",
+              "initialized": true,
+              "next": {
+                "true": 16777215,
+                "false": 8388351
+              }
+            },
+            "8388351": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "603479729363190560727835147362792190976000000",
+              "total_shares": "1000000000000",
+              "price": "263197362442252097264460539931023979520",
+              "initialized": true,
+              "next": {
+                "true": 8323071,
+                "false": 8388607
+              }
+            },
+            "8388607": {
+              "reserve0": "0",
+              "reserve1": "0",
+              "liquidity": "0",
+              "total_shares": "1000000000000",
+              "price": "339942424496442021441932674757011200256",
+              "initialized": true,
+              "next": {
+                "true": 8388351,
+                "false": 8388608
+              }
+            },
+            "8388608": {
+              "reserve0": "65891",
+              "reserve1": "2051811",
+              "liquidity": "720616648993205225953315332907470404936794112",
+              "total_shares": "1000000000000",
+              "price": "340282366920938463463374607431768211456",
+              "initialized": true,
+              "next": {
+                "true": 8388607,
+                "false": 8388609
+              }
+            },
+            "8388609": {
+              "reserve0": "0",
+              "reserve1": "0",
+              "liquidity": "0",
+              "total_shares": "1000000000000",
+              "price": "340622649287859401926837982039199979667",
+              "initialized": true,
+              "next": {
+                "true": 8388608,
+                "false": 8388865
+              }
+            },
+            "8388865": {
+              "reserve0": "1933948",
+              "reserve1": "0",
+              "liquidity": "850828736725896167139871022302837359431948256",
+              "total_shares": "1000000000000",
+              "price": "439943957503457263142479023377483448072",
+              "initialized": true,
+              "next": {
+                "true": 8388609,
+                "false": 8454145
+              }
+            },
+            "8454145": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "9549380692828792213899103882121600687639248470088108368020292171670000000",
+              "total_shares": "1000000000000",
+              "price": "9549380692828792213899103881781318320718310006624733760588523960214",
+              "initialized": true,
+              "next": {
+                "true": 8388865,
+                "false": 0
+              }
+            }
+          },
+          "tree": {
+            "level0": "0x00000000000000000000000000000003c0000000000000000000000000000000",
+            "level1": {
+              "0x000000000000000000000000000000000000000000000000000000000000007e": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x000000000000000000000000000000000000000000000000000000000000007f": "0xc000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000000080": "0x0000000000000000000000000000000000000000000000000000000000000003",
+              "0x0000000000000000000000000000000000000000000000000000000000000081": "0x0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "level2": {
+              "0x0000000000000000000000000000000000000000000000000000000000007eff": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000007ffe": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000007fff": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000008000": "0x0000000000000000000000000000000000000000000000000000000000000003",
+              "0x0000000000000000000000000000000000000000000000000000000000008001": "0x0000000000000000000000000000000000000000000000000000000000000002",
+              "0x0000000000000000000000000000000000000000000000000000000000008100": "0x0000000000000000000000000000000000000000000000000000000000000002"
+            }
+          },
+          "app_reserves": {
+            "0x254dffcd3277c0b1660f6d42efbb754edababc2b": "11600013",
+            "0xc89ce4735882c9f0f0fe26686c53074e09b0d550": "8484245"
+          },
+          "protocol_fees": {
+            "0x254dffcd3277c0b1660f6d42efbb754edababc2b": "6574",
+            "0xc89ce4735882c9f0f0fe26686c53074e09b0d550": "6312"
+          }
+        }
+      }
+    },
+    {
+      "id": "trade3",
+      "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+      "zero_for_one": false,
+      "amount_in": "1515772",
+      "pre_bank": "bank3",
+      "post_bank": "bank4",
+      "expected": {
+        "delta0": "1550537",
+        "delta1": "-1515772",
+        "amount_out": "1550537",
+        "swap_fee": 3017,
+        "protocol_amount": "25",
+        "fee_amount": "4574",
+        "bin_fills": [
+          {
+            "bin_id": 8388351,
+            "price": "331648956242754971630009138164743342680",
+            "amount_in": "1515772",
+            "amount_out": "1550537",
+            "fee_amount": "4574",
+            "protocol_amount": "25",
+            "pre": {
+              "reserve0": "1590590",
+              "reserve1": "426122"
+            },
+            "post": {
+              "reserve0": "40053",
+              "reserve1": "1941869"
+            }
+          }
+        ],
+        "post": {
+          "pool_id": "0xbbdb3eb50b3d9dbd694aab294a664c494d7f33804e7724da10468b4eb9867840",
+          "active_id": 8388351,
+          "protocol_fee": 73632,
+          "lp_fee": 3000,
+          "bins": {
+            "8323071": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "340767371681279495532913907185822779912000000",
+              "total_shares": "1000000000000",
+              "price": "485004760341032069539299754054568456",
+              "initialized": true,
+              "next": {
+                "true": 16777215,
+                "false": 8388351
+              }
+            },
+            "8388351": {
+              "reserve0": "40053",
+              "reserve1": "1941869",
+              "liquidity": "674067315214786917985856541569832770116213304",
+              "total_shares": "1000000000000",
+              "price": "331648956242754971630009138164743342680",
+              "initialized": true,
+              "next": {
+                "true": 8323071,
+                "false": 8388607
+              }
+            },
+            "8388607": {
+              "reserve0": "0",
+              "reserve1": "0",
+              "liquidity": "0",
+              "total_shares": "1000000000000",
+              "price": "340248342086729790484326174814286782777",
+              "initialized": true,
+              "next": {
+                "true": 8388351,
+                "false": 8388608
+              }
+            },
+            "8388608": {
+              "reserve0": "2003010",
+              "reserve1": "0",
+              "liquidity": "681588983766308951701773972431906045228482560",
+              "total_shares": "1000000000000",
+              "price": "340282366920938463463374607431768211456",
+              "initialized": true,
+              "next": {
+                "true": 8388607,
+                "false": 8388609
+              }
+            },
+            "8388609": {
+              "reserve0": "0",
+              "reserve1": "0",
+              "liquidity": "0",
+              "total_shares": "1000000000000",
+              "price": "340316395157630557309720944892511388277",
+              "initialized": true,
+              "next": {
+                "true": 8388608,
+                "false": 8388865
+              }
+            },
+            "8388865": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "689422887515734481008186829124286559226000000",
+              "total_shares": "1000000000000",
+              "price": "349140520594796017544812221692518347770",
+              "initialized": true,
+              "next": {
+                "true": 8388609,
+                "false": 8454145
+              }
+            },
+            "8454145": {
+              "reserve0": "1000000",
+              "reserve1": "1000000",
+              "liquidity": "239084514806818550486943470752009211105346000000",
+              "total_shares": "1000000000000",
+              "price": "238744232439897612023480096144577442893890",
+              "initialized": true,
+              "next": {
+                "true": 8388865,
+                "false": 0
+              }
+            }
+          },
+          "tree": {
+            "level0": "0x00000000000000000000000000000003c0000000000000000000000000000000",
+            "level1": {
+              "0x000000000000000000000000000000000000000000000000000000000000007e": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x000000000000000000000000000000000000000000000000000000000000007f": "0xc000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000000080": "0x0000000000000000000000000000000000000000000000000000000000000003",
+              "0x0000000000000000000000000000000000000000000000000000000000000081": "0x0000000000000000000000000000000000000000000000000000000000000001"
+            },
+            "level2": {
+              "0x0000000000000000000000000000000000000000000000000000000000007eff": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000007ffe": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000007fff": "0x8000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000000000000000000000000000000000000000008000": "0x0000000000000000000000000000000000000000000000000000000000000003",
+              "0x0000000000000000000000000000000000000000000000000000000000008001": "0x0000000000000000000000000000000000000000000000000000000000000002",
+              "0x0000000000000000000000000000000000000000000000000000000000008100": "0x0000000000000000000000000000000000000000000000000000000000000002"
+            }
+          },
+          "app_reserves": {
+            "0x254dffcd3277c0b1660f6d42efbb754edababc2b": "10049476",
+            "0xc89ce4735882c9f0f0fe26686c53074e09b0d550": "10000017"
+          },
+          "protocol_fees": {
+            "0x254dffcd3277c0b1660f6d42efbb754edababc2b": "6574",
+            "0xc89ce4735882c9f0f0fe26686c53074e09b0d550": "6337"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 恢复 Managed V2 BPT 和 Circuit Breaker 的原合约运行语料、状态投影及独立 Protobuf 向量，分别覆盖 116 和 244 个案例。恢复 Infinity Bin Service、Detached 和 Multi，Service 与 Detached 共 41 个清单项匹配原摘要，Multi 核对 326 个原合约案例。恢复 Pancake BSC4 与 LM 的固定源码、64 和 100 个原合约报价案例及四份 wire 副本。Go race、两套 Rust 的 Managed wire 检查及 Router 的专项差分通过。
 - 恢复 Managed V2 AUM 的 6 个原始编译输入和固定编译器。27 个原合约案例、292 笔交易按原摘要精确重放。暂停、恢复和四池目录分别通过原程序验证，以及 Go Parser 和 Router 差分回归。恢复 Scheduled、Scheduled Shared 和 Shared Vault 夹具，独立重生成通过。Scheduled 覆盖 53 笔交换和 41 个检查点，Scheduled Shared 覆盖 72 个共同区块快照和 52 个案例。Go race、两套 Rust 的状态与编码回归和 Router 数学与路由回归通过。
 - 联调页在链下拉框显示已发布池数，池表显示所选链的可报价池数，报价结果标明本次路线数。浏览器验证 Base 三池以及 Ethereum 两池和 ExactOut 单路线，调用方和收款方为空时仍可估算。
 - 恢复 Curve MetaUSD 的 32 笔原合约交易及 4 组运行时代码，原报价语料逐字节匹配既有摘要。环境证明与合成 Protobuf 向量的摘要已按重建结果更新。Go Parser、Router 数学和共享池回归通过，证据门禁在 Python 普通和优化模式各通过 16 项。

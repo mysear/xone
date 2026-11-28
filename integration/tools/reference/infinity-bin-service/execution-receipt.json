@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "fixture_sha256": "992aea6c8f33298753deb31f9c269f3f792e817239b56810a2a3b3b9f8b69eec",
+  "source_metadata_sha256": "35d73eb9b456f63506e2d6f23c32ad427605576f76facfa28441772b37508a74",
+  "compile_evidence_sha256": "cc180cfb7e854d064b5e835b3c8167c34ec6d3faa7923dfe534a27006ec10333",
+  "inputs": {
+    "integration/tools/ci/infinity-bin-service-compile.cjs": "a62672980c1206ec41cdae1db1cc8abd74851eef904f7a7b774544a4e15f27ce",
+    "integration/tools/ci/infinity-bin-service-golden.cjs": "ad8796054a72b6769f83978abcd2d4b575ae7f7f0950777a12df3f55a6481677",
+    "integration/tools/reference/infinity-bin-service/InfinityBinServiceMath.sol": "1309ecede172dee18d4ed1104073b184b2deb366daddb5e13e9d4e8a265c680a",
+    "integration/tools/reference/singleton-cl/source-metadata.json": "3ad25b67b300a55f397c69afbdd72fa857467b8160603d583789dbf0671908a2"
+  },
+  "banks": 5,
+  "trades": 4,
+  "manager_runtime_bytes": 23852,
+  "vault_runtime_bytes": 9247,
+  "manager": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+  "vault": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+  "block_start": 87,
+  "block_end": 231
+}

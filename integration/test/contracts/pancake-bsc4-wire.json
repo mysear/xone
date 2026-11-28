@@ -1,0 +1,1582 @@
+{
+  "schema_version": 1,
+  "authority": "independent C++ protobuf encoder of complete contextual field34; explicit optional zero/false fields retained",
+  "vectors": [
+    {
+      "case_index": 1,
+      "snapshot": {
+        "reference": {
+          "block": {
+            "chain_key": "evm:31337",
+            "number_or_slot": 107,
+            "hash": "0xfcda34fdd71d98190866864c2c3740d70b3c6361bd4503d8843d7e9f36565da6",
+            "parent_hash": "0xc6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6",
+            "timestamp_ms": 1794096000000
+          },
+          "canonical_epoch": 1,
+          "journal_seq": 1,
+          "schema_version": 1,
+          "adapter_set_hash": "b4ffe93e8e3e2092b539949daedcb3b44989ad7a4165003f6369c3f4e2f1f782",
+          "online_generation": 1,
+          "scope_hash": "30b9576efe61abe7c5f092f05e4e26d6cdf75a1ddc016aad1b3f02535ad8d424",
+          "writer_epoch": 1,
+          "owner_service": "chain-parser-go",
+          "owner_assignment_version": 1
+        },
+        "pools": [
+          {
+            "chain_key": "evm:31337",
+            "pool_id": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+            "protocol": "pancake-v3-bsc-lm-v4",
+            "adapter_version": "pancake-v3/bsc-p400-lm1000000-mc999-v4",
+            "token0": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+            "token1": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 500,
+            "fee_denominator": 1000000,
+            "token_behavior": "standard",
+            "pancake_bsc_lm": {
+              "ledger": {
+                "core": {
+                  "sqrt_price_x96": "79228162514264337593543950336",
+                  "tick": 0,
+                  "liquidity": "2000000000000",
+                  "tick_spacing": 10,
+                  "factory": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+                  "factory_code_sha256": "b82e95e8b04b2d6754f06bb35c93ffb06b073b9a8f000780a1247cd0db8f49ce",
+                  "code_sha256": "2a36ef6bfe94def3ad6c698eabcbc7aa08d2bfb00dc07fa1bb97be799bddf57e",
+                  "fee_protocol": 209718400,
+                  "max_steps": 8192,
+                  "tick_words": [
+                    {
+                      "word_pos": -1,
+                      "bitmap": "28269553036454249706960526198778917625870513672672560967632810645234122752"
+                    },
+                    {
+                      "word_pos": 0,
+                      "bitmap": "1152921504606851072"
+                    },
+                    {
+                      "word_pos": 1,
+                      "bitmap": "0"
+                    }
+                  ],
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "1000000000000"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "1000000000000"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "-1000000000000"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "-1000000000000"
+                    }
+                  ]
+                },
+                "tick": 0,
+                "fee_protocol": 209718400,
+                "pool_template_sha256": "128755d0e9816da897b0634fec16d89fb47a0c7c41bc2660a68b0c7352f84d3e",
+                "factory_template_sha256": "829e62aa0f1d3471118cabd7931dc0ba702f63ff04496c7d1a1832453970fd52",
+                "token0_code_sha256": "2df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d56",
+                "token1_code_sha256": "2df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d56",
+                "factory_registered": true,
+                "master_chef": {
+                  "address": "0xe982e462b094850f12af94d21d470e21be9d0e9c",
+                  "code_sha256": "2d1539badc301edd8c6e7f56ea4b2c1e822fc35b33d512cbe35f65f7a166d374",
+                  "template_sha256": "64d48f6819e38b7561e0e92a414795f28cbb75e09475d982246659c939365309",
+                  "cake": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+                  "weth": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+                  "position_manager": "0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1",
+                  "pool_pid": "1",
+                  "pool_address": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+                  "pool_token0": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+                  "pool_token1": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+                  "pool_fee": 500,
+                  "pool_alloc_point": "100",
+                  "total_alloc_point": "300",
+                  "latest_period_cake_per_second": "7000000000000000",
+                  "latest_period_end_time": "1794096600",
+                  "view_reward_per_second": "2333333333333333",
+                  "view_end_time": "1794096600"
+                },
+                "lm": {
+                  "address": "0x3408fb50beeef75145ec4a51ba819cb7c71d2732",
+                  "code_sha256": "0d909f98849e5d4870eff232f9063c76efc4d98f57ddf6633f9279427d93bc26",
+                  "template_sha256": "df34ef41e16729a12160b2b0e3410729141a521ede0301f52e141b8595014389",
+                  "pool": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+                  "master_chef": "0xe982e462b094850f12af94d21d470e21be9d0e9c",
+                  "reward_growth_global": "100",
+                  "liquidity": "1000000000000",
+                  "last_reward_timestamp": 1794095970,
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ]
+                },
+                "raw_balance0": "1000000000000000000000000000000",
+                "raw_balance1": "1000000000000000000000000000000",
+                "fee_growth_global0": "123",
+                "fee_growth_global1": "456",
+                "protocol_fees0": "7",
+                "protocol_fees1": "9",
+                "max_liquidity_per_tick": "1917569901783203986719870431555990",
+                "observation_index": 0,
+                "observation_cardinality": 1,
+                "observation_cardinality_next": 4,
+                "unlocked": true,
+                "ticks": [
+                  {
+                    "tick": -600,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "1000000000000",
+                    "fee_growth_outside0": "100",
+                    "fee_growth_outside1": "200",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 1794095970,
+                    "initialized": true
+                  },
+                  {
+                    "tick": -120,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "1000000000000",
+                    "fee_growth_outside0": "100",
+                    "fee_growth_outside1": "200",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 1794095970,
+                    "initialized": true
+                  },
+                  {
+                    "tick": 120,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "-1000000000000",
+                    "fee_growth_outside0": "0",
+                    "fee_growth_outside1": "0",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 0,
+                    "initialized": true
+                  },
+                  {
+                    "tick": 600,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "-1000000000000",
+                    "fee_growth_outside0": "0",
+                    "fee_growth_outside1": "0",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 0,
+                    "initialized": true
+                  }
+                ],
+                "observations": [
+                  {
+                    "block_timestamp": 1794095970,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": true
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  }
+                ],
+                "block_hash": "0xfcda34fdd71d98190866864c2c3740d70b3c6361bd4503d8843d7e9f36565da6",
+                "block_number": 107,
+                "timestamp": 1794096000,
+                "max_observations": 4,
+                "derived": false
+              },
+              "initialization": true,
+              "flags": [
+                {
+                  "tick": -600,
+                  "migrated": true
+                },
+                {
+                  "tick": -120,
+                  "migrated": true
+                },
+                {
+                  "tick": 120,
+                  "migrated": true
+                },
+                {
+                  "tick": 600,
+                  "migrated": true
+                }
+              ],
+              "predecessors": [
+                {
+                  "address": "0x2be687233f0f9383067715badfd07e0fbf4bd32b",
+                  "code_sha256": "68b9046167680e595f1857cf1fb6bdc25710718a8fc67818c8bcc848fdde83c0",
+                  "template_sha256": "baac406328c78d73ac2077353a7e657864be21a0a26bad057fe84f18d50cd5b7",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": []
+                },
+                {
+                  "address": "0xaadedd59b140f20fea493a3c8b6150ed23b74b32",
+                  "code_sha256": "b1ab8f3a7431d8976b09da29956d7d1bdc71061246cfa5d90c319e504d255db0",
+                  "template_sha256": "1f251fdf65b944bcde07aec7c5bcfb8cbd2a5b55c4808d6ab99184a8ae3dbad2",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "51"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "51"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": [
+                    {
+                      "tick": -600,
+                      "migrated": false
+                    },
+                    {
+                      "tick": -120,
+                      "migrated": false
+                    },
+                    {
+                      "tick": 120,
+                      "migrated": false
+                    },
+                    {
+                      "tick": 600,
+                      "migrated": false
+                    }
+                  ]
+                },
+                {
+                  "address": "0xea1fa108da5d9929c59c3715db5d531a45363d71",
+                  "code_sha256": "bab0f73db0036e8a3de3598d70cee6b54026c4a7a56b80f6715cc8381a8ae7cd",
+                  "template_sha256": "baf90c4558c993d9fefd1d102d42a92ee1bc8d0209badca100835cbe38ce2749",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "52"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "52"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": [
+                    {
+                      "tick": -600,
+                      "migrated": true
+                    },
+                    {
+                      "tick": -120,
+                      "migrated": true
+                    },
+                    {
+                      "tick": 120,
+                      "migrated": true
+                    },
+                    {
+                      "tick": 600,
+                      "migrated": true
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "source": "PROVIDED_LOCAL_STATE",
+        "history_gaps": []
+      },
+      "protobuf_hex": "0abb010a580a0965766d3a3331333337106b1a20fcda34fdd71d98190866864c2c3740d70b3c6361bd4503d8843d7e9f36565da62220c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c62880d8d1c39b341001180120012a20b4ffe93e8e3e2092b539949daedcb3b44989ad7a4165003f6369c3f4e2f1f78230013a2030b9576efe61abe7c5f092f05e4e26d6cdf75a1ddc016aad1b3f02535ad8d42440014a0f636861696e2d7061727365722d676f5001128c280a0965766d3a3331333337122a3078363137333265353338346436636164313266643432646366643436646464646163353532616333611a1470616e63616b652d76332d6273632d6c6d2d7634222a3078356231383639643961346331383766326561613130386633303632343132656366303532366232342a2a30786537386130663765353938636338623062623837383934623066363064643261383864366138616232220a2000000000000000000000000000000000000000000000000000000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040f40348c0843d522670616e63616b652d76332f6273632d703430302d6c6d313030303030302d6d633939392d76345a087374616e646172649202e2250abc190aa6040a220a2000000000000000000000000000000000000000010000000000000000000000001a220a20000000000000000000000000000000000000000000000000000001d1a94a200020142a2a30783235346466666364333237376330623136363066366434326566626237353465646162616263326232202a36ef6bfe94def3ad6c698eabcbc7aa08d2bfb00dc07fa1bb97be799bddf57e3880404226080112220a200010000000000010000000000000000000000000000000000000000000000000422412220a2000000000000000000000000000000000000000000000000010000000000010004226080212220a2000000000000000000000000000000000000000000000000000000000000000004a3908af0912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a510004a3908ef0112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a510004a3908f00112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af0004a3908b00912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af000a00180998064aa0120b82e95e8b04b2d6754f06bb35c93ffb06b073b9a8f000780a1247cd0db8f49ce100018809980642220128755d0e9816da897b0634fec16d89fb47a0c7c41bc2660a68b0c7352f84d3e2a20829e62aa0f1d3471118cabd7931dc0ba702f63ff04496c7d1a1832453970fd5232202df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d563a202df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d5640014af9040a2a30786539383265343632623039343835306631326166393464323164343730653231626539643065396312202d1539badc301edd8c6e7f56ea4b2c1e822fc35b33d512cbe35f65f7a166d3741a2064d48f6819e38b7561e0e92a414795f28cbb75e09475d982246659c939365309222a3078356231383639643961346331383766326561613130386633303632343132656366303532366232342a2a307865373861306637653539386363386230626238373839346230663630646432613838643661386162322a3078393066386266366134373966333230656164303734343131613462306537393434656138633963313a220a200000000000000000000000000000000000000000000000000000000000000001422a3078363137333265353338346436636164313266643432646366643436646464646163353532616333614a2a307835623138363964396134633138376632656161313038663330363234313265636630353236623234522a30786537386130663765353938636338623062623837383934623066363064643261383864366138616258f40362220a2000000000000000000000000000000000000000000000000000000000000000646a220a20000000000000000000000000000000000000000000000000000000000000012c72220a200000000000000000000000000000000000000000000000000018de76816d80007a220a20000000000000000000000000000000000000000000000000000000006aefbdd88201220a2000000000000000000000000000000000000000000000000000084a278079d5558a01220a20000000000000000000000000000000000000000000000000000000006aefbdd85292050a2a30783334303866623530626565656637353134356563346135316261383139636237633731643237333212200d909f98849e5d4870eff232f9063c76efc4d98f57ddf6633f9279427d93bc261a20df34ef41e16729a12160b2b0e3410729141a521ede0301f52e141b8595014389222a3078363137333265353338346436636164313266643432646366643436646464646163353532616333612a2a30786539383265343632623039343835306631326166393464323164343730653231626539643065396332220a2000000000000000000000000000000000000000000000000000000000000000643a220a20000000000000000000000000000000000000000000000000000000e8d4a5100040e2f6bed7064a5d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a2000000000000000000000000000000000000000000000000000000000000000324a5d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a2000000000000000000000000000000000000000000000000000000000000000324a5d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000004a5d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000005a220a20000000000000000000000000000000000000000c9f2c9cd04674edea4000000062220a20000000000000000000000000000000000000000c9f2c9cd04674edea400000006a220a20000000000000000000000000000000000000000000000000000000000000007b72220a2000000000000000000000000000000000000000000000000000000000000001c87a220a2000000000000000000000000000000000000000000000000000000000000000078201220a2000000000000000000000000000000000000000000000000000000000000000098a01220a200000000000000000000000000000000000005e8b2285f864419ac400be907196900100980101a00104a80101b201b60108af0912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a5100022220a2000000000000000000000000000000000000000000000000000000000000000642a220a2000000000000000000000000000000000000000000000000000000000000000c83207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040e2f6bed7064801b201b60108ef0112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a5100022220a2000000000000000000000000000000000000000000000000000000000000000642a220a2000000000000000000000000000000000000000000000000000000000000000c83207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040e2f6bed7064801b201b20108f00112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af00022220a2000000000000000000000000000000000000000000000000000000000000000002a220a2000000000000000000000000000000000000000000000000000000000000000003207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040004801b201b20108b00912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af00022220a2000000000000000000000000000000000000000000000000000000000000000002a220a2000000000000000000000000000000000000000000000000000000000000000003207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040004801ba013508e2f6bed7061207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002001ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000c20120fcda34fdd71d98190866864c2c3740d70b3c6361bd4503d8843d7e9f36565da6c8016bd00180f7bed706d80104e0010010011a0508af0910011a0508ef0110011a0508f00110011a0508b009100122ec030a2a307832626536383732333366306639333833303637373135626164666430376530666266346264333262122068b9046167680e595f1857cf1fb6bdc25710718a8fc67818c8bcc848fdde83c01a20baac406328c78d73ac2077353a7e657864be21a0a26bad057fe84f18d50cd5b7225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000032225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000032225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002288040a2a3078616164656464353962313430663230666561343933613363386236313530656432336237346233321220b1ab8f3a7431d8976b09da29956d7d1bdc71061246cfa5d90c319e504d255db01a201f251fdf65b944bcde07aec7c5bcfb8cbd2a5b55c4808d6ab99184a8ae3dbad2225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000033225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000033225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002a0508af0910002a0508ef0110002a0508f00110002a0508b00910002288040a2a3078656131666131303864613564393932396335396333373135646235643533316134353336336437311220bab0f73db0036e8a3de3598d70cee6b54026c4a7a56b80f6715cc8381a8ae7cd1a20baf90c4558c993d9fefd1d102d42a92ee1bc8d0209badca100835cbe38ce2749225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000034225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000034225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002a0508af0910012a0508ef0110012a0508f00110012a0508b00910011a1450524f56494445445f4c4f43414c5f5354415445",
+      "protobuf_sha256": "449486d14b1bb4d5531e68ba2cc58e94f3b291411b93ed2dd3afc56e196f2231"
+    },
+    {
+      "case_index": 9,
+      "snapshot": {
+        "reference": {
+          "block": {
+            "chain_key": "evm:31337",
+            "number_or_slot": 115,
+            "hash": "0x9acf96c9efd4941687c61a66fd891550563a40254f06c8b866f517eb25bc2f40",
+            "parent_hash": "0xc6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6",
+            "timestamp_ms": 1794096000000
+          },
+          "canonical_epoch": 1,
+          "journal_seq": 1,
+          "schema_version": 1,
+          "adapter_set_hash": "b4ffe93e8e3e2092b539949daedcb3b44989ad7a4165003f6369c3f4e2f1f782",
+          "online_generation": 1,
+          "scope_hash": "30b9576efe61abe7c5f092f05e4e26d6cdf75a1ddc016aad1b3f02535ad8d424",
+          "writer_epoch": 1,
+          "owner_service": "chain-parser-go",
+          "owner_assignment_version": 1
+        },
+        "pools": [
+          {
+            "chain_key": "evm:31337",
+            "pool_id": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+            "protocol": "pancake-v3-bsc-lm-v4",
+            "adapter_version": "pancake-v3/bsc-p400-lm1000000-mc999-v4",
+            "token0": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+            "token1": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 500,
+            "fee_denominator": 1000000,
+            "token_behavior": "standard",
+            "pancake_bsc_lm": {
+              "ledger": {
+                "core": {
+                  "sqrt_price_x96": "79228162514264337593543950336",
+                  "tick": 0,
+                  "liquidity": "2000000000000",
+                  "tick_spacing": 10,
+                  "factory": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+                  "factory_code_sha256": "b82e95e8b04b2d6754f06bb35c93ffb06b073b9a8f000780a1247cd0db8f49ce",
+                  "code_sha256": "2a36ef6bfe94def3ad6c698eabcbc7aa08d2bfb00dc07fa1bb97be799bddf57e",
+                  "fee_protocol": 209718400,
+                  "max_steps": 8192,
+                  "tick_words": [
+                    {
+                      "word_pos": -1,
+                      "bitmap": "28269553036454249706960526198778917625870513672672560967632810645234122752"
+                    },
+                    {
+                      "word_pos": 0,
+                      "bitmap": "1152921504606851072"
+                    },
+                    {
+                      "word_pos": 1,
+                      "bitmap": "0"
+                    }
+                  ],
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "1000000000000"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "1000000000000"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "-1000000000000"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "-1000000000000"
+                    }
+                  ]
+                },
+                "tick": 0,
+                "fee_protocol": 209718400,
+                "pool_template_sha256": "128755d0e9816da897b0634fec16d89fb47a0c7c41bc2660a68b0c7352f84d3e",
+                "factory_template_sha256": "829e62aa0f1d3471118cabd7931dc0ba702f63ff04496c7d1a1832453970fd52",
+                "token0_code_sha256": "2df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d56",
+                "token1_code_sha256": "2df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d56",
+                "factory_registered": true,
+                "master_chef": {
+                  "address": "0xe982e462b094850f12af94d21d470e21be9d0e9c",
+                  "code_sha256": "2d1539badc301edd8c6e7f56ea4b2c1e822fc35b33d512cbe35f65f7a166d374",
+                  "template_sha256": "64d48f6819e38b7561e0e92a414795f28cbb75e09475d982246659c939365309",
+                  "cake": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+                  "weth": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+                  "position_manager": "0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1",
+                  "pool_pid": "1",
+                  "pool_address": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+                  "pool_token0": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+                  "pool_token1": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+                  "pool_fee": 500,
+                  "pool_alloc_point": "100",
+                  "total_alloc_point": "300",
+                  "latest_period_cake_per_second": "7000000000000000",
+                  "latest_period_end_time": "1794096600",
+                  "view_reward_per_second": "2333333333333333",
+                  "view_end_time": "1794096600"
+                },
+                "lm": {
+                  "address": "0x3408fb50beeef75145ec4a51ba819cb7c71d2732",
+                  "code_sha256": "0d909f98849e5d4870eff232f9063c76efc4d98f57ddf6633f9279427d93bc26",
+                  "template_sha256": "df34ef41e16729a12160b2b0e3410729141a521ede0301f52e141b8595014389",
+                  "pool": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+                  "master_chef": "0xe982e462b094850f12af94d21d470e21be9d0e9c",
+                  "reward_growth_global": "100",
+                  "liquidity": "1000000000000",
+                  "last_reward_timestamp": 1794095970,
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "0",
+                      "liquidity_net": "0",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "0",
+                      "liquidity_net": "0",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "0",
+                      "liquidity_net": "0",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "0",
+                      "liquidity_net": "0",
+                      "reward_growth_outside": "0"
+                    }
+                  ]
+                },
+                "raw_balance0": "1000000000000000000000000000000",
+                "raw_balance1": "1000000000000000000000000000000",
+                "fee_growth_global0": "123",
+                "fee_growth_global1": "456",
+                "protocol_fees0": "7",
+                "protocol_fees1": "9",
+                "max_liquidity_per_tick": "1917569901783203986719870431555990",
+                "observation_index": 0,
+                "observation_cardinality": 1,
+                "observation_cardinality_next": 4,
+                "unlocked": true,
+                "ticks": [
+                  {
+                    "tick": -600,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "1000000000000",
+                    "fee_growth_outside0": "100",
+                    "fee_growth_outside1": "200",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 1794095970,
+                    "initialized": true
+                  },
+                  {
+                    "tick": -120,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "1000000000000",
+                    "fee_growth_outside0": "100",
+                    "fee_growth_outside1": "200",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 1794095970,
+                    "initialized": true
+                  },
+                  {
+                    "tick": 120,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "-1000000000000",
+                    "fee_growth_outside0": "0",
+                    "fee_growth_outside1": "0",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 0,
+                    "initialized": true
+                  },
+                  {
+                    "tick": 600,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "-1000000000000",
+                    "fee_growth_outside0": "0",
+                    "fee_growth_outside1": "0",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 0,
+                    "initialized": true
+                  }
+                ],
+                "observations": [
+                  {
+                    "block_timestamp": 1794095970,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": true
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  }
+                ],
+                "block_hash": "0x9acf96c9efd4941687c61a66fd891550563a40254f06c8b866f517eb25bc2f40",
+                "block_number": 115,
+                "timestamp": 1794096000,
+                "max_observations": 4,
+                "derived": false
+              },
+              "initialization": true,
+              "flags": [
+                {
+                  "tick": -600,
+                  "migrated": false
+                },
+                {
+                  "tick": -120,
+                  "migrated": false
+                },
+                {
+                  "tick": 120,
+                  "migrated": false
+                },
+                {
+                  "tick": 600,
+                  "migrated": false
+                }
+              ],
+              "predecessors": [
+                {
+                  "address": "0x2be687233f0f9383067715badfd07e0fbf4bd32b",
+                  "code_sha256": "68b9046167680e595f1857cf1fb6bdc25710718a8fc67818c8bcc848fdde83c0",
+                  "template_sha256": "baac406328c78d73ac2077353a7e657864be21a0a26bad057fe84f18d50cd5b7",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": []
+                },
+                {
+                  "address": "0xaadedd59b140f20fea493a3c8b6150ed23b74b32",
+                  "code_sha256": "b1ab8f3a7431d8976b09da29956d7d1bdc71061246cfa5d90c319e504d255db0",
+                  "template_sha256": "1f251fdf65b944bcde07aec7c5bcfb8cbd2a5b55c4808d6ab99184a8ae3dbad2",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "51"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "51"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": [
+                    {
+                      "tick": -600,
+                      "migrated": false
+                    },
+                    {
+                      "tick": -120,
+                      "migrated": false
+                    },
+                    {
+                      "tick": 120,
+                      "migrated": false
+                    },
+                    {
+                      "tick": 600,
+                      "migrated": false
+                    }
+                  ]
+                },
+                {
+                  "address": "0xea1fa108da5d9929c59c3715db5d531a45363d71",
+                  "code_sha256": "bab0f73db0036e8a3de3598d70cee6b54026c4a7a56b80f6715cc8381a8ae7cd",
+                  "template_sha256": "baf90c4558c993d9fefd1d102d42a92ee1bc8d0209badca100835cbe38ce2749",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "52"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "52"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": [
+                    {
+                      "tick": -600,
+                      "migrated": false
+                    },
+                    {
+                      "tick": -120,
+                      "migrated": false
+                    },
+                    {
+                      "tick": 120,
+                      "migrated": false
+                    },
+                    {
+                      "tick": 600,
+                      "migrated": false
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "source": "PROVIDED_LOCAL_STATE",
+        "history_gaps": []
+      },
+      "protobuf_hex": "0abb010a580a0965766d3a333133333710731a209acf96c9efd4941687c61a66fd891550563a40254f06c8b866f517eb25bc2f402220c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c62880d8d1c39b341001180120012a20b4ffe93e8e3e2092b539949daedcb3b44989ad7a4165003f6369c3f4e2f1f78230013a2030b9576efe61abe7c5f092f05e4e26d6cdf75a1ddc016aad1b3f02535ad8d42440014a0f636861696e2d7061727365722d676f5001128c280a0965766d3a3331333337122a3078363137333265353338346436636164313266643432646366643436646464646163353532616333611a1470616e63616b652d76332d6273632d6c6d2d7634222a3078356231383639643961346331383766326561613130386633303632343132656366303532366232342a2a30786537386130663765353938636338623062623837383934623066363064643261383864366138616232220a2000000000000000000000000000000000000000000000000000000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040f40348c0843d522670616e63616b652d76332f6273632d703430302d6c6d313030303030302d6d633939392d76345a087374616e646172649202e2250abc190aa6040a220a2000000000000000000000000000000000000000010000000000000000000000001a220a20000000000000000000000000000000000000000000000000000001d1a94a200020142a2a30783235346466666364333237376330623136363066366434326566626237353465646162616263326232202a36ef6bfe94def3ad6c698eabcbc7aa08d2bfb00dc07fa1bb97be799bddf57e3880404226080112220a200010000000000010000000000000000000000000000000000000000000000000422412220a2000000000000000000000000000000000000000000000000010000000000010004226080212220a2000000000000000000000000000000000000000000000000000000000000000004a3908af0912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a510004a3908ef0112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a510004a3908f00112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af0004a3908b00912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af000a00180998064aa0120b82e95e8b04b2d6754f06bb35c93ffb06b073b9a8f000780a1247cd0db8f49ce100018809980642220128755d0e9816da897b0634fec16d89fb47a0c7c41bc2660a68b0c7352f84d3e2a20829e62aa0f1d3471118cabd7931dc0ba702f63ff04496c7d1a1832453970fd5232202df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d563a202df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d5640014af9040a2a30786539383265343632623039343835306631326166393464323164343730653231626539643065396312202d1539badc301edd8c6e7f56ea4b2c1e822fc35b33d512cbe35f65f7a166d3741a2064d48f6819e38b7561e0e92a414795f28cbb75e09475d982246659c939365309222a3078356231383639643961346331383766326561613130386633303632343132656366303532366232342a2a307865373861306637653539386363386230626238373839346230663630646432613838643661386162322a3078393066386266366134373966333230656164303734343131613462306537393434656138633963313a220a200000000000000000000000000000000000000000000000000000000000000001422a3078363137333265353338346436636164313266643432646366643436646464646163353532616333614a2a307835623138363964396134633138376632656161313038663330363234313265636630353236623234522a30786537386130663765353938636338623062623837383934623066363064643261383864366138616258f40362220a2000000000000000000000000000000000000000000000000000000000000000646a220a20000000000000000000000000000000000000000000000000000000000000012c72220a200000000000000000000000000000000000000000000000000018de76816d80007a220a20000000000000000000000000000000000000000000000000000000006aefbdd88201220a2000000000000000000000000000000000000000000000000000084a278079d5558a01220a20000000000000000000000000000000000000000000000000000000006aefbdd85292050a2a30783334303866623530626565656637353134356563346135316261383139636237633731643237333212200d909f98849e5d4870eff232f9063c76efc4d98f57ddf6633f9279427d93bc261a20df34ef41e16729a12160b2b0e3410729141a521ede0301f52e141b8595014389222a3078363137333265353338346436636164313266643432646366643436646464646163353532616333612a2a30786539383265343632623039343835306631326166393464323164343730653231626539643065396332220a2000000000000000000000000000000000000000000000000000000000000000643a220a20000000000000000000000000000000000000000000000000000000e8d4a5100040e2f6bed7064a5d08af0912220a2000000000000000000000000000000000000000000000000000000000000000001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000004a5d08ef0112220a2000000000000000000000000000000000000000000000000000000000000000001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000004a5d08f00112220a2000000000000000000000000000000000000000000000000000000000000000001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000004a5d08b00912220a2000000000000000000000000000000000000000000000000000000000000000001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000005a220a20000000000000000000000000000000000000000c9f2c9cd04674edea4000000062220a20000000000000000000000000000000000000000c9f2c9cd04674edea400000006a220a20000000000000000000000000000000000000000000000000000000000000007b72220a2000000000000000000000000000000000000000000000000000000000000001c87a220a2000000000000000000000000000000000000000000000000000000000000000078201220a2000000000000000000000000000000000000000000000000000000000000000098a01220a200000000000000000000000000000000000005e8b2285f864419ac400be907196900100980101a00104a80101b201b60108af0912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a5100022220a2000000000000000000000000000000000000000000000000000000000000000642a220a2000000000000000000000000000000000000000000000000000000000000000c83207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040e2f6bed7064801b201b60108ef0112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a5100022220a2000000000000000000000000000000000000000000000000000000000000000642a220a2000000000000000000000000000000000000000000000000000000000000000c83207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040e2f6bed7064801b201b20108f00112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af00022220a2000000000000000000000000000000000000000000000000000000000000000002a220a2000000000000000000000000000000000000000000000000000000000000000003207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040004801b201b20108b00912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af00022220a2000000000000000000000000000000000000000000000000000000000000000002a220a2000000000000000000000000000000000000000000000000000000000000000003207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040004801ba013508e2f6bed7061207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002001ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000c201209acf96c9efd4941687c61a66fd891550563a40254f06c8b866f517eb25bc2f40c80173d00180f7bed706d80104e0010010011a0508af0910001a0508ef0110001a0508f00110001a0508b009100022ec030a2a307832626536383732333366306639333833303637373135626164666430376530666266346264333262122068b9046167680e595f1857cf1fb6bdc25710718a8fc67818c8bcc848fdde83c01a20baac406328c78d73ac2077353a7e657864be21a0a26bad057fe84f18d50cd5b7225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000032225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000032225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002288040a2a3078616164656464353962313430663230666561343933613363386236313530656432336237346233321220b1ab8f3a7431d8976b09da29956d7d1bdc71061246cfa5d90c319e504d255db01a201f251fdf65b944bcde07aec7c5bcfb8cbd2a5b55c4808d6ab99184a8ae3dbad2225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000033225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000033225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002a0508af0910002a0508ef0110002a0508f00110002a0508b00910002288040a2a3078656131666131303864613564393932396335396333373135646235643533316134353336336437311220bab0f73db0036e8a3de3598d70cee6b54026c4a7a56b80f6715cc8381a8ae7cd1a20baf90c4558c993d9fefd1d102d42a92ee1bc8d0209badca100835cbe38ce2749225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000034225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000034225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002a0508af0910002a0508ef0110002a0508f00110002a0508b00910001a1450524f56494445445f4c4f43414c5f5354415445",
+      "protobuf_sha256": "8c92860cad455f9d788a37c97a32d314e5f638b8c23ba3dbcb692f6b4abfb83e"
+    },
+    {
+      "case_index": 33,
+      "snapshot": {
+        "reference": {
+          "block": {
+            "chain_key": "evm:31337",
+            "number_or_slot": 111,
+            "hash": "0x263ddbd80a4175a1952e95c08adb120e71f6c4c42f4d690157bb95698f205003",
+            "parent_hash": "0xc6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6",
+            "timestamp_ms": 1794096000000
+          },
+          "canonical_epoch": 1,
+          "journal_seq": 1,
+          "schema_version": 1,
+          "adapter_set_hash": "b4ffe93e8e3e2092b539949daedcb3b44989ad7a4165003f6369c3f4e2f1f782",
+          "online_generation": 1,
+          "scope_hash": "30b9576efe61abe7c5f092f05e4e26d6cdf75a1ddc016aad1b3f02535ad8d424",
+          "writer_epoch": 1,
+          "owner_service": "chain-parser-go",
+          "owner_assignment_version": 1
+        },
+        "pools": [
+          {
+            "chain_key": "evm:31337",
+            "pool_id": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+            "protocol": "pancake-v3-bsc-lm-v4",
+            "adapter_version": "pancake-v3/bsc-p400-lm1000000-mc999-v4",
+            "token0": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+            "token1": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 500,
+            "fee_denominator": 1000000,
+            "token_behavior": "standard",
+            "pancake_bsc_lm": {
+              "ledger": {
+                "core": {
+                  "sqrt_price_x96": "79228162514264337593543950336",
+                  "tick": 0,
+                  "liquidity": "2000000000000",
+                  "tick_spacing": 10,
+                  "factory": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+                  "factory_code_sha256": "b82e95e8b04b2d6754f06bb35c93ffb06b073b9a8f000780a1247cd0db8f49ce",
+                  "code_sha256": "2a36ef6bfe94def3ad6c698eabcbc7aa08d2bfb00dc07fa1bb97be799bddf57e",
+                  "fee_protocol": 209718400,
+                  "max_steps": 8192,
+                  "tick_words": [
+                    {
+                      "word_pos": -1,
+                      "bitmap": "28269553036454249706960526198778917625870513672672560967632810645234122752"
+                    },
+                    {
+                      "word_pos": 0,
+                      "bitmap": "1152921504606851072"
+                    },
+                    {
+                      "word_pos": 1,
+                      "bitmap": "0"
+                    }
+                  ],
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "1000000000000"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "1000000000000"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "-1000000000000"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "-1000000000000"
+                    }
+                  ]
+                },
+                "tick": 0,
+                "fee_protocol": 209718400,
+                "pool_template_sha256": "128755d0e9816da897b0634fec16d89fb47a0c7c41bc2660a68b0c7352f84d3e",
+                "factory_template_sha256": "829e62aa0f1d3471118cabd7931dc0ba702f63ff04496c7d1a1832453970fd52",
+                "token0_code_sha256": "2df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d56",
+                "token1_code_sha256": "2df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d56",
+                "factory_registered": true,
+                "master_chef": {
+                  "address": "0xe982e462b094850f12af94d21d470e21be9d0e9c",
+                  "code_sha256": "2d1539badc301edd8c6e7f56ea4b2c1e822fc35b33d512cbe35f65f7a166d374",
+                  "template_sha256": "64d48f6819e38b7561e0e92a414795f28cbb75e09475d982246659c939365309",
+                  "cake": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+                  "weth": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+                  "position_manager": "0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1",
+                  "pool_pid": "1",
+                  "pool_address": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+                  "pool_token0": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+                  "pool_token1": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+                  "pool_fee": 500,
+                  "pool_alloc_point": "100",
+                  "total_alloc_point": "300",
+                  "latest_period_cake_per_second": "7000000000000000",
+                  "latest_period_end_time": "1794096600",
+                  "view_reward_per_second": "2333333333333333",
+                  "view_end_time": "1794096600"
+                },
+                "lm": {
+                  "address": "0x3408fb50beeef75145ec4a51ba819cb7c71d2732",
+                  "code_sha256": "0d909f98849e5d4870eff232f9063c76efc4d98f57ddf6633f9279427d93bc26",
+                  "template_sha256": "df34ef41e16729a12160b2b0e3410729141a521ede0301f52e141b8595014389",
+                  "pool": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+                  "master_chef": "0xe982e462b094850f12af94d21d470e21be9d0e9c",
+                  "reward_growth_global": "100",
+                  "liquidity": "1000000000000",
+                  "last_reward_timestamp": 1794095970,
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "0",
+                      "liquidity_net": "0",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "0",
+                      "liquidity_net": "0",
+                      "reward_growth_outside": "0"
+                    }
+                  ]
+                },
+                "raw_balance0": "1000000000000000000000000000000",
+                "raw_balance1": "1000000000000000000000000000000",
+                "fee_growth_global0": "123",
+                "fee_growth_global1": "456",
+                "protocol_fees0": "7",
+                "protocol_fees1": "9",
+                "max_liquidity_per_tick": "1917569901783203986719870431555990",
+                "observation_index": 0,
+                "observation_cardinality": 1,
+                "observation_cardinality_next": 4,
+                "unlocked": true,
+                "ticks": [
+                  {
+                    "tick": -600,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "1000000000000",
+                    "fee_growth_outside0": "100",
+                    "fee_growth_outside1": "200",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 1794095970,
+                    "initialized": true
+                  },
+                  {
+                    "tick": -120,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "1000000000000",
+                    "fee_growth_outside0": "100",
+                    "fee_growth_outside1": "200",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 1794095970,
+                    "initialized": true
+                  },
+                  {
+                    "tick": 120,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "-1000000000000",
+                    "fee_growth_outside0": "0",
+                    "fee_growth_outside1": "0",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 0,
+                    "initialized": true
+                  },
+                  {
+                    "tick": 600,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "-1000000000000",
+                    "fee_growth_outside0": "0",
+                    "fee_growth_outside1": "0",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 0,
+                    "initialized": true
+                  }
+                ],
+                "observations": [
+                  {
+                    "block_timestamp": 1794095970,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": true
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  }
+                ],
+                "block_hash": "0x263ddbd80a4175a1952e95c08adb120e71f6c4c42f4d690157bb95698f205003",
+                "block_number": 111,
+                "timestamp": 1794096000,
+                "max_observations": 4,
+                "derived": false
+              },
+              "initialization": true,
+              "flags": [
+                {
+                  "tick": -600,
+                  "migrated": false
+                },
+                {
+                  "tick": -120,
+                  "migrated": true
+                },
+                {
+                  "tick": 120,
+                  "migrated": true
+                },
+                {
+                  "tick": 600,
+                  "migrated": false
+                }
+              ],
+              "predecessors": [
+                {
+                  "address": "0x2be687233f0f9383067715badfd07e0fbf4bd32b",
+                  "code_sha256": "68b9046167680e595f1857cf1fb6bdc25710718a8fc67818c8bcc848fdde83c0",
+                  "template_sha256": "baac406328c78d73ac2077353a7e657864be21a0a26bad057fe84f18d50cd5b7",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": []
+                },
+                {
+                  "address": "0xaadedd59b140f20fea493a3c8b6150ed23b74b32",
+                  "code_sha256": "b1ab8f3a7431d8976b09da29956d7d1bdc71061246cfa5d90c319e504d255db0",
+                  "template_sha256": "1f251fdf65b944bcde07aec7c5bcfb8cbd2a5b55c4808d6ab99184a8ae3dbad2",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "51"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "51"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": [
+                    {
+                      "tick": -600,
+                      "migrated": true
+                    },
+                    {
+                      "tick": -120,
+                      "migrated": false
+                    },
+                    {
+                      "tick": 120,
+                      "migrated": false
+                    },
+                    {
+                      "tick": 600,
+                      "migrated": true
+                    }
+                  ]
+                },
+                {
+                  "address": "0xea1fa108da5d9929c59c3715db5d531a45363d71",
+                  "code_sha256": "bab0f73db0036e8a3de3598d70cee6b54026c4a7a56b80f6715cc8381a8ae7cd",
+                  "template_sha256": "baf90c4558c993d9fefd1d102d42a92ee1bc8d0209badca100835cbe38ce2749",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "52"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "52"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": [
+                    {
+                      "tick": -600,
+                      "migrated": false
+                    },
+                    {
+                      "tick": -120,
+                      "migrated": true
+                    },
+                    {
+                      "tick": 120,
+                      "migrated": true
+                    },
+                    {
+                      "tick": 600,
+                      "migrated": false
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "source": "PROVIDED_LOCAL_STATE",
+        "history_gaps": []
+      },
+      "protobuf_hex": "0abb010a580a0965766d3a3331333337106f1a20263ddbd80a4175a1952e95c08adb120e71f6c4c42f4d690157bb95698f2050032220c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c62880d8d1c39b341001180120012a20b4ffe93e8e3e2092b539949daedcb3b44989ad7a4165003f6369c3f4e2f1f78230013a2030b9576efe61abe7c5f092f05e4e26d6cdf75a1ddc016aad1b3f02535ad8d42440014a0f636861696e2d7061727365722d676f5001128c280a0965766d3a3331333337122a3078363137333265353338346436636164313266643432646366643436646464646163353532616333611a1470616e63616b652d76332d6273632d6c6d2d7634222a3078356231383639643961346331383766326561613130386633303632343132656366303532366232342a2a30786537386130663765353938636338623062623837383934623066363064643261383864366138616232220a2000000000000000000000000000000000000000000000000000000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040f40348c0843d522670616e63616b652d76332f6273632d703430302d6c6d313030303030302d6d633939392d76345a087374616e646172649202e2250abc190aa6040a220a2000000000000000000000000000000000000000010000000000000000000000001a220a20000000000000000000000000000000000000000000000000000001d1a94a200020142a2a30783235346466666364333237376330623136363066366434326566626237353465646162616263326232202a36ef6bfe94def3ad6c698eabcbc7aa08d2bfb00dc07fa1bb97be799bddf57e3880404226080112220a200010000000000010000000000000000000000000000000000000000000000000422412220a2000000000000000000000000000000000000000000000000010000000000010004226080212220a2000000000000000000000000000000000000000000000000000000000000000004a3908af0912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a510004a3908ef0112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a510004a3908f00112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af0004a3908b00912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af000a00180998064aa0120b82e95e8b04b2d6754f06bb35c93ffb06b073b9a8f000780a1247cd0db8f49ce100018809980642220128755d0e9816da897b0634fec16d89fb47a0c7c41bc2660a68b0c7352f84d3e2a20829e62aa0f1d3471118cabd7931dc0ba702f63ff04496c7d1a1832453970fd5232202df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d563a202df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d5640014af9040a2a30786539383265343632623039343835306631326166393464323164343730653231626539643065396312202d1539badc301edd8c6e7f56ea4b2c1e822fc35b33d512cbe35f65f7a166d3741a2064d48f6819e38b7561e0e92a414795f28cbb75e09475d982246659c939365309222a3078356231383639643961346331383766326561613130386633303632343132656366303532366232342a2a307865373861306637653539386363386230626238373839346230663630646432613838643661386162322a3078393066386266366134373966333230656164303734343131613462306537393434656138633963313a220a200000000000000000000000000000000000000000000000000000000000000001422a3078363137333265353338346436636164313266643432646366643436646464646163353532616333614a2a307835623138363964396134633138376632656161313038663330363234313265636630353236623234522a30786537386130663765353938636338623062623837383934623066363064643261383864366138616258f40362220a2000000000000000000000000000000000000000000000000000000000000000646a220a20000000000000000000000000000000000000000000000000000000000000012c72220a200000000000000000000000000000000000000000000000000018de76816d80007a220a20000000000000000000000000000000000000000000000000000000006aefbdd88201220a2000000000000000000000000000000000000000000000000000084a278079d5558a01220a20000000000000000000000000000000000000000000000000000000006aefbdd85292050a2a30783334303866623530626565656637353134356563346135316261383139636237633731643237333212200d909f98849e5d4870eff232f9063c76efc4d98f57ddf6633f9279427d93bc261a20df34ef41e16729a12160b2b0e3410729141a521ede0301f52e141b8595014389222a3078363137333265353338346436636164313266643432646366643436646464646163353532616333612a2a30786539383265343632623039343835306631326166393464323164343730653231626539643065396332220a2000000000000000000000000000000000000000000000000000000000000000643a220a20000000000000000000000000000000000000000000000000000000e8d4a5100040e2f6bed7064a5d08af0912220a2000000000000000000000000000000000000000000000000000000000000000001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000004a5d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a2000000000000000000000000000000000000000000000000000000000000000324a5d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000004a5d08b00912220a2000000000000000000000000000000000000000000000000000000000000000001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000005a220a20000000000000000000000000000000000000000c9f2c9cd04674edea4000000062220a20000000000000000000000000000000000000000c9f2c9cd04674edea400000006a220a20000000000000000000000000000000000000000000000000000000000000007b72220a2000000000000000000000000000000000000000000000000000000000000001c87a220a2000000000000000000000000000000000000000000000000000000000000000078201220a2000000000000000000000000000000000000000000000000000000000000000098a01220a200000000000000000000000000000000000005e8b2285f864419ac400be907196900100980101a00104a80101b201b60108af0912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a5100022220a2000000000000000000000000000000000000000000000000000000000000000642a220a2000000000000000000000000000000000000000000000000000000000000000c83207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040e2f6bed7064801b201b60108ef0112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a5100022220a2000000000000000000000000000000000000000000000000000000000000000642a220a2000000000000000000000000000000000000000000000000000000000000000c83207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040e2f6bed7064801b201b20108f00112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af00022220a2000000000000000000000000000000000000000000000000000000000000000002a220a2000000000000000000000000000000000000000000000000000000000000000003207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040004801b201b20108b00912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af00022220a2000000000000000000000000000000000000000000000000000000000000000002a220a2000000000000000000000000000000000000000000000000000000000000000003207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040004801ba013508e2f6bed7061207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002001ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000c20120263ddbd80a4175a1952e95c08adb120e71f6c4c42f4d690157bb95698f205003c8016fd00180f7bed706d80104e0010010011a0508af0910001a0508ef0110011a0508f00110011a0508b009100022ec030a2a307832626536383732333366306639333833303637373135626164666430376530666266346264333262122068b9046167680e595f1857cf1fb6bdc25710718a8fc67818c8bcc848fdde83c01a20baac406328c78d73ac2077353a7e657864be21a0a26bad057fe84f18d50cd5b7225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000032225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000032225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002288040a2a3078616164656464353962313430663230666561343933613363386236313530656432336237346233321220b1ab8f3a7431d8976b09da29956d7d1bdc71061246cfa5d90c319e504d255db01a201f251fdf65b944bcde07aec7c5bcfb8cbd2a5b55c4808d6ab99184a8ae3dbad2225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000033225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000033225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002a0508af0910012a0508ef0110002a0508f00110002a0508b00910012288040a2a3078656131666131303864613564393932396335396333373135646235643533316134353336336437311220bab0f73db0036e8a3de3598d70cee6b54026c4a7a56b80f6715cc8381a8ae7cd1a20baf90c4558c993d9fefd1d102d42a92ee1bc8d0209badca100835cbe38ce2749225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000034225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000034225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002a0508af0910002a0508ef0110012a0508f00110012a0508b00910001a1450524f56494445445f4c4f43414c5f5354415445",
+      "protobuf_sha256": "449e5446c73229d401cfde29724488c408751b6d6f360f9fdeee41dd9c33cf9d"
+    },
+    {
+      "case_index": -1,
+      "snapshot": {
+        "reference": {
+          "block": {
+            "chain_key": "evm:31337",
+            "number_or_slot": 0,
+            "hash": "0x263ddbd80a4175a1952e95c08adb120e71f6c4c42f4d690157bb95698f205003",
+            "parent_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "timestamp_ms": 0
+          },
+          "canonical_epoch": 1,
+          "journal_seq": 1,
+          "schema_version": 1,
+          "adapter_set_hash": "b4ffe93e8e3e2092b539949daedcb3b44989ad7a4165003f6369c3f4e2f1f782",
+          "online_generation": 1,
+          "scope_hash": "30b9576efe61abe7c5f092f05e4e26d6cdf75a1ddc016aad1b3f02535ad8d424",
+          "writer_epoch": 1,
+          "owner_service": "chain-parser-go",
+          "owner_assignment_version": 1
+        },
+        "pools": [
+          {
+            "chain_key": "evm:31337",
+            "pool_id": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+            "protocol": "pancake-v3-bsc-lm-v4",
+            "adapter_version": "pancake-v3/bsc-p400-lm1000000-mc999-v4",
+            "token0": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+            "token1": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+            "reserve0": "0",
+            "reserve1": "0",
+            "fee_numerator": 500,
+            "fee_denominator": 1000000,
+            "token_behavior": "standard",
+            "pancake_bsc_lm": {
+              "ledger": {
+                "core": {
+                  "sqrt_price_x96": "79228162514264337593543950336",
+                  "tick": 0,
+                  "liquidity": "2000000000000",
+                  "tick_spacing": 10,
+                  "factory": "0x254dffcd3277c0b1660f6d42efbb754edababc2b",
+                  "factory_code_sha256": "b82e95e8b04b2d6754f06bb35c93ffb06b073b9a8f000780a1247cd0db8f49ce",
+                  "code_sha256": "2a36ef6bfe94def3ad6c698eabcbc7aa08d2bfb00dc07fa1bb97be799bddf57e",
+                  "fee_protocol": 209718400,
+                  "max_steps": 8192,
+                  "tick_words": [
+                    {
+                      "word_pos": -1,
+                      "bitmap": "28269553036454249706960526198778917625870513672672560967632810645234122752"
+                    },
+                    {
+                      "word_pos": 0,
+                      "bitmap": "1152921504606851072"
+                    },
+                    {
+                      "word_pos": 1,
+                      "bitmap": "0"
+                    }
+                  ],
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "1000000000000"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "1000000000000"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "-1000000000000"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "1000000000000",
+                      "liquidity_net": "-1000000000000"
+                    }
+                  ]
+                },
+                "tick": 0,
+                "fee_protocol": 209718400,
+                "pool_template_sha256": "128755d0e9816da897b0634fec16d89fb47a0c7c41bc2660a68b0c7352f84d3e",
+                "factory_template_sha256": "829e62aa0f1d3471118cabd7931dc0ba702f63ff04496c7d1a1832453970fd52",
+                "token0_code_sha256": "2df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d56",
+                "token1_code_sha256": "2df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d56",
+                "factory_registered": true,
+                "master_chef": {
+                  "address": "0xe982e462b094850f12af94d21d470e21be9d0e9c",
+                  "code_sha256": "2d1539badc301edd8c6e7f56ea4b2c1e822fc35b33d512cbe35f65f7a166d374",
+                  "template_sha256": "64d48f6819e38b7561e0e92a414795f28cbb75e09475d982246659c939365309",
+                  "cake": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+                  "weth": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+                  "position_manager": "0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1",
+                  "pool_pid": "1",
+                  "pool_address": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+                  "pool_token0": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+                  "pool_token1": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+                  "pool_fee": 500,
+                  "pool_alloc_point": "100",
+                  "total_alloc_point": "300",
+                  "latest_period_cake_per_second": "7000000000000000",
+                  "latest_period_end_time": "1794096600",
+                  "view_reward_per_second": "2333333333333333",
+                  "view_end_time": "1794096600"
+                },
+                "lm": {
+                  "address": "0x3408fb50beeef75145ec4a51ba819cb7c71d2732",
+                  "code_sha256": "0d909f98849e5d4870eff232f9063c76efc4d98f57ddf6633f9279427d93bc26",
+                  "template_sha256": "df34ef41e16729a12160b2b0e3410729141a521ede0301f52e141b8595014389",
+                  "pool": "0x61732e5384d6cad12fd42dcfd46ddddac552ac3a",
+                  "master_chef": "0xe982e462b094850f12af94d21d470e21be9d0e9c",
+                  "reward_growth_global": "100",
+                  "liquidity": "1000000000000",
+                  "last_reward_timestamp": 1794095970,
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "0",
+                      "liquidity_net": "0",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "0",
+                      "liquidity_net": "0",
+                      "reward_growth_outside": "0"
+                    }
+                  ]
+                },
+                "raw_balance0": "1000000000000000000000000000000",
+                "raw_balance1": "1000000000000000000000000000000",
+                "fee_growth_global0": "123",
+                "fee_growth_global1": "456",
+                "protocol_fees0": "7",
+                "protocol_fees1": "9",
+                "max_liquidity_per_tick": "1917569901783203986719870431555990",
+                "observation_index": 0,
+                "observation_cardinality": 1,
+                "observation_cardinality_next": 4,
+                "unlocked": true,
+                "ticks": [
+                  {
+                    "tick": -600,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "1000000000000",
+                    "fee_growth_outside0": "100",
+                    "fee_growth_outside1": "200",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 1794095970,
+                    "initialized": true
+                  },
+                  {
+                    "tick": -120,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "1000000000000",
+                    "fee_growth_outside0": "100",
+                    "fee_growth_outside1": "200",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 1794095970,
+                    "initialized": true
+                  },
+                  {
+                    "tick": 120,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "-1000000000000",
+                    "fee_growth_outside0": "0",
+                    "fee_growth_outside1": "0",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 0,
+                    "initialized": true
+                  },
+                  {
+                    "tick": 600,
+                    "liquidity_gross": "1000000000000",
+                    "liquidity_net": "-1000000000000",
+                    "fee_growth_outside0": "0",
+                    "fee_growth_outside1": "0",
+                    "tick_cumulative_outside": "0",
+                    "seconds_per_liquidity_outside_x128": "0",
+                    "seconds_outside": 0,
+                    "initialized": true
+                  }
+                ],
+                "observations": [
+                  {
+                    "block_timestamp": 1794095970,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": true
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  },
+                  {
+                    "block_timestamp": 0,
+                    "tick_cumulative": "0",
+                    "seconds_per_liquidity_cumulative_x128": "0",
+                    "initialized": false
+                  }
+                ],
+                "block_hash": "0x263ddbd80a4175a1952e95c08adb120e71f6c4c42f4d690157bb95698f205003",
+                "block_number": 0,
+                "timestamp": 0,
+                "max_observations": 4,
+                "derived": false
+              },
+              "initialization": true,
+              "flags": [
+                {
+                  "tick": -600,
+                  "migrated": false
+                },
+                {
+                  "tick": -120,
+                  "migrated": true
+                },
+                {
+                  "tick": 120,
+                  "migrated": true
+                },
+                {
+                  "tick": 600,
+                  "migrated": false
+                }
+              ],
+              "predecessors": [
+                {
+                  "address": "0x2be687233f0f9383067715badfd07e0fbf4bd32b",
+                  "code_sha256": "68b9046167680e595f1857cf1fb6bdc25710718a8fc67818c8bcc848fdde83c0",
+                  "template_sha256": "baac406328c78d73ac2077353a7e657864be21a0a26bad057fe84f18d50cd5b7",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "50"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": []
+                },
+                {
+                  "address": "0xaadedd59b140f20fea493a3c8b6150ed23b74b32",
+                  "code_sha256": "b1ab8f3a7431d8976b09da29956d7d1bdc71061246cfa5d90c319e504d255db0",
+                  "template_sha256": "1f251fdf65b944bcde07aec7c5bcfb8cbd2a5b55c4808d6ab99184a8ae3dbad2",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "51"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "51"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": [
+                    {
+                      "tick": -600,
+                      "migrated": true
+                    },
+                    {
+                      "tick": -120,
+                      "migrated": false
+                    },
+                    {
+                      "tick": 120,
+                      "migrated": false
+                    },
+                    {
+                      "tick": 600,
+                      "migrated": true
+                    }
+                  ]
+                },
+                {
+                  "address": "0xea1fa108da5d9929c59c3715db5d531a45363d71",
+                  "code_sha256": "bab0f73db0036e8a3de3598d70cee6b54026c4a7a56b80f6715cc8381a8ae7cd",
+                  "template_sha256": "baf90c4558c993d9fefd1d102d42a92ee1bc8d0209badca100835cbe38ce2749",
+                  "ticks": [
+                    {
+                      "tick": -600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "52"
+                    },
+                    {
+                      "tick": -120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "500000000000",
+                      "reward_growth_outside": "52"
+                    },
+                    {
+                      "tick": 120,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    },
+                    {
+                      "tick": 600,
+                      "liquidity_gross": "500000000000",
+                      "liquidity_net": "-500000000000",
+                      "reward_growth_outside": "0"
+                    }
+                  ],
+                  "flags": [
+                    {
+                      "tick": -600,
+                      "migrated": false
+                    },
+                    {
+                      "tick": -120,
+                      "migrated": true
+                    },
+                    {
+                      "tick": 120,
+                      "migrated": true
+                    },
+                    {
+                      "tick": 600,
+                      "migrated": false
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "source": "PROVIDED_LOCAL_STATE",
+        "history_gaps": []
+      },
+      "protobuf_hex": "0ab2010a4f0a0965766d3a33313333371a20263ddbd80a4175a1952e95c08adb120e71f6c4c42f4d690157bb95698f205003222000000000000000000000000000000000000000000000000000000000000000001001180120012a20b4ffe93e8e3e2092b539949daedcb3b44989ad7a4165003f6369c3f4e2f1f78230013a2030b9576efe61abe7c5f092f05e4e26d6cdf75a1ddc016aad1b3f02535ad8d42440014a0f636861696e2d7061727365722d676f50011288280a0965766d3a3331333337122a3078363137333265353338346436636164313266643432646366643436646464646163353532616333611a1470616e63616b652d76332d6273632d6c6d2d7634222a3078356231383639643961346331383766326561613130386633303632343132656366303532366232342a2a30786537386130663765353938636338623062623837383934623066363064643261383864366138616232220a2000000000000000000000000000000000000000000000000000000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040f40348c0843d522670616e63616b652d76332f6273632d703430302d6c6d313030303030302d6d633939392d76345a087374616e646172649202de250ab8190aa6040a220a2000000000000000000000000000000000000000010000000000000000000000001a220a20000000000000000000000000000000000000000000000000000001d1a94a200020142a2a30783235346466666364333237376330623136363066366434326566626237353465646162616263326232202a36ef6bfe94def3ad6c698eabcbc7aa08d2bfb00dc07fa1bb97be799bddf57e3880404226080112220a200010000000000010000000000000000000000000000000000000000000000000422412220a2000000000000000000000000000000000000000000000000010000000000010004226080212220a2000000000000000000000000000000000000000000000000000000000000000004a3908af0912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a510004a3908ef0112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a510004a3908f00112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af0004a3908b00912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af000a00180998064aa0120b82e95e8b04b2d6754f06bb35c93ffb06b073b9a8f000780a1247cd0db8f49ce100018809980642220128755d0e9816da897b0634fec16d89fb47a0c7c41bc2660a68b0c7352f84d3e2a20829e62aa0f1d3471118cabd7931dc0ba702f63ff04496c7d1a1832453970fd5232202df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d563a202df597b87b668db64aa06b7065d286c5768318ea3f0edcbd649400267af22d5640014af9040a2a30786539383265343632623039343835306631326166393464323164343730653231626539643065396312202d1539badc301edd8c6e7f56ea4b2c1e822fc35b33d512cbe35f65f7a166d3741a2064d48f6819e38b7561e0e92a414795f28cbb75e09475d982246659c939365309222a3078356231383639643961346331383766326561613130386633303632343132656366303532366232342a2a307865373861306637653539386363386230626238373839346230663630646432613838643661386162322a3078393066386266366134373966333230656164303734343131613462306537393434656138633963313a220a200000000000000000000000000000000000000000000000000000000000000001422a3078363137333265353338346436636164313266643432646366643436646464646163353532616333614a2a307835623138363964396134633138376632656161313038663330363234313265636630353236623234522a30786537386130663765353938636338623062623837383934623066363064643261383864366138616258f40362220a2000000000000000000000000000000000000000000000000000000000000000646a220a20000000000000000000000000000000000000000000000000000000000000012c72220a200000000000000000000000000000000000000000000000000018de76816d80007a220a20000000000000000000000000000000000000000000000000000000006aefbdd88201220a2000000000000000000000000000000000000000000000000000084a278079d5558a01220a20000000000000000000000000000000000000000000000000000000006aefbdd85292050a2a30783334303866623530626565656637353134356563346135316261383139636237633731643237333212200d909f98849e5d4870eff232f9063c76efc4d98f57ddf6633f9279427d93bc261a20df34ef41e16729a12160b2b0e3410729141a521ede0301f52e141b8595014389222a3078363137333265353338346436636164313266643432646366643436646464646163353532616333612a2a30786539383265343632623039343835306631326166393464323164343730653231626539643065396332220a2000000000000000000000000000000000000000000000000000000000000000643a220a20000000000000000000000000000000000000000000000000000000e8d4a5100040e2f6bed7064a5d08af0912220a2000000000000000000000000000000000000000000000000000000000000000001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000004a5d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a2000000000000000000000000000000000000000000000000000000000000000324a5d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000004a5d08b00912220a2000000000000000000000000000000000000000000000000000000000000000001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000005a220a20000000000000000000000000000000000000000c9f2c9cd04674edea4000000062220a20000000000000000000000000000000000000000c9f2c9cd04674edea400000006a220a20000000000000000000000000000000000000000000000000000000000000007b72220a2000000000000000000000000000000000000000000000000000000000000001c87a220a2000000000000000000000000000000000000000000000000000000000000000078201220a2000000000000000000000000000000000000000000000000000000000000000098a01220a200000000000000000000000000000000000005e8b2285f864419ac400be907196900100980101a00104a80101b201b60108af0912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a5100022220a2000000000000000000000000000000000000000000000000000000000000000642a220a2000000000000000000000000000000000000000000000000000000000000000c83207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040e2f6bed7064801b201b60108ef0112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000e8d4a5100022220a2000000000000000000000000000000000000000000000000000000000000000642a220a2000000000000000000000000000000000000000000000000000000000000000c83207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040e2f6bed7064801b201b20108f00112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af00022220a2000000000000000000000000000000000000000000000000000000000000000002a220a2000000000000000000000000000000000000000000000000000000000000000003207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040004801b201b20108b00912220a20000000000000000000000000000000000000000000000000000000e8d4a510001a10ffffffffffffffffffffff172b5af00022220a2000000000000000000000000000000000000000000000000000000000000000002a220a2000000000000000000000000000000000000000000000000000000000000000003207000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040004801ba013508e2f6bed7061207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002001ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000ba013108001207000000000000001a220a2000000000000000000000000000000000000000000000000000000000000000002000c20120263ddbd80a4175a1952e95c08adb120e71f6c4c42f4d690157bb95698f205003c80100d00100d80104e0010010011a0508af0910001a0508ef0110011a0508f00110011a0508b009100022ec030a2a307832626536383732333366306639333833303637373135626164666430376530666266346264333262122068b9046167680e595f1857cf1fb6bdc25710718a8fc67818c8bcc848fdde83c01a20baac406328c78d73ac2077353a7e657864be21a0a26bad057fe84f18d50cd5b7225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000032225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000032225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002288040a2a3078616164656464353962313430663230666561343933613363386236313530656432336237346233321220b1ab8f3a7431d8976b09da29956d7d1bdc71061246cfa5d90c319e504d255db01a201f251fdf65b944bcde07aec7c5bcfb8cbd2a5b55c4808d6ab99184a8ae3dbad2225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000033225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000033225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002a0508af0910012a0508ef0110002a0508f00110002a0508b00910012288040a2a3078656131666131303864613564393932396335396333373135646235643533316134353336336437311220bab0f73db0036e8a3de3598d70cee6b54026c4a7a56b80f6715cc8381a8ae7cd1a20baf90c4558c993d9fefd1d102d42a92ee1bc8d0209badca100835cbe38ce2749225d08af0912220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000034225d08ef0112220a20000000000000000000000000000000000000000000000000000000746a5288001a100000000000000000000000746a52880022220a200000000000000000000000000000000000000000000000000000000000000034225d08f00112220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a200000000000000000000000000000000000000000000000000000000000000000225d08b00912220a20000000000000000000000000000000000000000000000000000000746a5288001a10ffffffffffffffffffffff8b95ad780022220a2000000000000000000000000000000000000000000000000000000000000000002a0508af0910002a0508ef0110012a0508f00110012a0508b00910001a1450524f56494445445f4c4f43414c5f5354415445",
+      "protobuf_sha256": "484f6694c05c866cb1a10c44578189a387be0c51b721686a8e55903926886a7f"
+    }
+  ]
+}

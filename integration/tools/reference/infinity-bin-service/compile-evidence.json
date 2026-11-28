@@ -1,0 +1,955 @@
+{
+  "schema": "infinity-bin-service-compile/1",
+  "compiler": "0.8.26+commit.8a97fa7a.Emscripten.clang",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 25666
+    },
+    "viaIR": true,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "remappings": [
+      "@openzeppelin/=infinity/lib/openzeppelin-contracts/"
+    ],
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "storageLayout",
+          "evm.bytecode.object",
+          "evm.deployedBytecode.object",
+          "evm.deployedBytecode.immutableReferences",
+          "evm.methodIdentifiers"
+        ]
+      }
+    }
+  },
+  "compile_input_sha256": "a1bcd08f626987be62e62eae795606e661c714c2560a6216c771ffc70d6a718a",
+  "sources": [
+    {
+      "local": "infinity/lib/openzeppelin-contracts/contracts/access/Ownable.sol",
+      "repo": "OpenZeppelin/openzeppelin-contracts",
+      "revision": "659f3063f82422cef820de746444e6f6cba6ca7c",
+      "path": "contracts/access/Ownable.sol",
+      "sha256": "38578bd71c0a909840e67202db527cc6b4e6b437e0f39f0c909da32c1e30cb81"
+    },
+    {
+      "local": "infinity/lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol",
+      "repo": "OpenZeppelin/openzeppelin-contracts",
+      "revision": "659f3063f82422cef820de746444e6f6cba6ca7c",
+      "path": "contracts/access/Ownable2Step.sol",
+      "sha256": "c696b0d098360d10654a8e04a26fe39a8602e63926c24bf15e9976ceb9cc2714"
+    },
+    {
+      "local": "infinity/lib/openzeppelin-contracts/contracts/utils/Context.sol",
+      "repo": "OpenZeppelin/openzeppelin-contracts",
+      "revision": "659f3063f82422cef820de746444e6f6cba6ca7c",
+      "path": "contracts/utils/Context.sol",
+      "sha256": "847fda5460fee70f56f4200f59b82ae622bb03c79c77e67af010e31b7e2cc5b6"
+    },
+    {
+      "local": "infinity/src/base/Ownable.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/base/Ownable.sol",
+      "sha256": "9bda884c9e30d06ffb9ff3745c6c61f5b6b0aa74361b8e409e0e539366e826d7"
+    },
+    {
+      "local": "infinity/src/base/Pausable.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/base/Pausable.sol",
+      "sha256": "ffbbf91ca47a4989a99ce4e606bd3816515708376262dd117cb0f4c706d95a84"
+    },
+    {
+      "local": "infinity/src/Extsload.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/Extsload.sol",
+      "sha256": "182ad40f19c2c7e462a018b776db979fce8466f54c4ba80f0321bda9d7e7071b"
+    },
+    {
+      "local": "infinity/src/interfaces/IERC20Minimal.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IERC20Minimal.sol",
+      "sha256": "6ff11bfbf1dd787543aa0ce52ac8eaf6ac78a6a9796e54d5db36f6ffaef4cd3b"
+    },
+    {
+      "local": "infinity/src/interfaces/IExtsload.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IExtsload.sol",
+      "sha256": "dceb24fe3ce5ef0a3ea2db15955f6d1834a5224db7ba6e36810137160f722898"
+    },
+    {
+      "local": "infinity/src/interfaces/IHooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IHooks.sol",
+      "sha256": "30ce158a6b404db4aa114df0a13d778399d37a6fb443ab30ffb8c3cc83242eef"
+    },
+    {
+      "local": "infinity/src/interfaces/ILockCallback.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/ILockCallback.sol",
+      "sha256": "2a1229449a5bfd2d7b3629f6ff2d0e0993a5f546722d7895c82901a71b96f0d9"
+    },
+    {
+      "local": "infinity/src/interfaces/IPoolManager.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IPoolManager.sol",
+      "sha256": "718e1fd8471395bc410d82ac2b6fdb9ed174a17a9ecd3471df8c7c6ac2fa3ea5"
+    },
+    {
+      "local": "infinity/src/interfaces/IProtocolFeeController.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IProtocolFeeController.sol",
+      "sha256": "8eb85b3da1f7c41a277511713a9ba623332f7cd05d4bc912aabc1fd794eccdd8"
+    },
+    {
+      "local": "infinity/src/interfaces/IProtocolFees.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IProtocolFees.sol",
+      "sha256": "61d6048509fa3cfe147a926d55add790cfff2dd23d74962115d4e5d92f2f205e"
+    },
+    {
+      "local": "infinity/src/interfaces/IVault.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IVault.sol",
+      "sha256": "96c3e74f3e820df6ebd8bc3e993544eb422406523a9e6cbb51fe415a36dbc149"
+    },
+    {
+      "local": "infinity/src/interfaces/IVaultToken.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/interfaces/IVaultToken.sol",
+      "sha256": "a3f96eb4bf2b0eb3f0e86a7ecadeb028a56181b5cdedf52c466423f12237de3f"
+    },
+    {
+      "local": "infinity/src/libraries/AppDeficit.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/AppDeficit.sol",
+      "sha256": "b1914ad1fa331d3d04f1add5d3477c6e591db42714c6bda38afe5f96638e4ca5"
+    },
+    {
+      "local": "infinity/src/libraries/CustomRevert.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/CustomRevert.sol",
+      "sha256": "76756d233bff4f67911e2e2592d3c09e6695a28a8323dd146180b0e47a0bb64d"
+    },
+    {
+      "local": "infinity/src/libraries/Hooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/Hooks.sol",
+      "sha256": "d9cbb988f9ec56efceafe9be1a2d0bfb64c27874fe853e9f63214ce79d5f78e8"
+    },
+    {
+      "local": "infinity/src/libraries/LPFeeLibrary.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/LPFeeLibrary.sol",
+      "sha256": "1a1109453400bc648d617386fb2fd156fb8f3f9f683a563069e90056cf9319f9"
+    },
+    {
+      "local": "infinity/src/libraries/math/Encoded.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/math/Encoded.sol",
+      "sha256": "3b6ae09491a8607666f8c0cead5da49e9f1d82ab2b745109f510a820eaac113c"
+    },
+    {
+      "local": "infinity/src/libraries/math/ParametersHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/math/ParametersHelper.sol",
+      "sha256": "ce5cae62c8b6f8c1d3082eae658ee34a795a93de5ee7dc7336ea0c9c53043271"
+    },
+    {
+      "local": "infinity/src/libraries/math/UnsafeMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/math/UnsafeMath.sol",
+      "sha256": "ed9c676e6ceeac9cce81f73ca66142e2feb08a617440f2192fff5b4199f18798"
+    },
+    {
+      "local": "infinity/src/libraries/ParseBytes.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/ParseBytes.sol",
+      "sha256": "38c5d47e3726a3fe97ac056699bdc0bd7a2cff60a0c6b47266a73f6db3be08dd"
+    },
+    {
+      "local": "infinity/src/libraries/ProtocolFeeLibrary.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/ProtocolFeeLibrary.sol",
+      "sha256": "797bf2f9383e5bb815d068175a4b89b309b15e0455c882d5ab00d4adcbae13d8"
+    },
+    {
+      "local": "infinity/src/libraries/SafeCast.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/SafeCast.sol",
+      "sha256": "5f481027b6aa740329ee501da6732f1f01f398368ebf4bb87350b9b01e5e7c3e"
+    },
+    {
+      "local": "infinity/src/libraries/SettlementGuard.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/SettlementGuard.sol",
+      "sha256": "cb4db64b7cc9a2ee7409c9bf86cc47426ccf89d8a0695f0ffb2042e22eb2fc02"
+    },
+    {
+      "local": "infinity/src/libraries/VaultAppDeltaSettlement.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/VaultAppDeltaSettlement.sol",
+      "sha256": "ccf08e4d526b29536b98c28ec9111a61b59553ea110f137410f5c3422541578d"
+    },
+    {
+      "local": "infinity/src/libraries/VaultReserve.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/libraries/VaultReserve.sol",
+      "sha256": "0c67e134b2f531c7fa52192bfb64507c12dc5e9fb4f94c48990730284d1df188"
+    },
+    {
+      "local": "infinity/src/Owner.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/Owner.sol",
+      "sha256": "6806213b2cdf0e4dc605639a3f46309ea8c6a586dbc3870f83c976013192e331"
+    },
+    {
+      "local": "infinity/src/pool-bin/BinPoolManager.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/BinPoolManager.sol",
+      "sha256": "fc87c307cb6d519e7350ae05486e17bed72cb07b3a8f4ea96e83a64500b5af3e"
+    },
+    {
+      "local": "infinity/src/pool-bin/interfaces/IBinHooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/interfaces/IBinHooks.sol",
+      "sha256": "e64d4a2fa887c13512866350f1f9677970ea2d04f6654cce63780609953e040e"
+    },
+    {
+      "local": "infinity/src/pool-bin/interfaces/IBinPoolManager.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/interfaces/IBinPoolManager.sol",
+      "sha256": "cd1d173cfebea734f0a9badf9762c7706f36d3c04e2ca991ba02d9cb1d85575b"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinHelper.sol",
+      "sha256": "cb6395b7ad0ad3b4af64af4616f9223becfbdedb8954c6e27c66f444d41e1f57"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinHooks.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinHooks.sol",
+      "sha256": "8ecec815424295547b21abeab12fe114c20a74165212c9471d5363d51c6cdbb4"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPool.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPool.sol",
+      "sha256": "e759a1eb030e9661d6a5612ba10a183ca1e8802b9fde796eeae24568b943172d"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPoolParametersHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPoolParametersHelper.sol",
+      "sha256": "7c4d93117c0e49dd38362be5ec24816322715bee6a82fec9d0875d7de8edc6ad"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/BinPosition.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/BinPosition.sol",
+      "sha256": "0df4c512992b7f967f48c863deaeb44bc2603a8f80b76fff6ac9641f930c66fe"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/Constants.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/Constants.sol",
+      "sha256": "dfddfbe682b726fe66a069cd8eabf0fee3f0323c2b4bbcc9c4ba0942593bff85"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/FeeHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/FeeHelper.sol",
+      "sha256": "5476bcc9c96ceddfa014ed7aaa1c8382e9860c3b92a76200372eea6d5dd8f665"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/BitMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/BitMath.sol",
+      "sha256": "32d6adcb702a57628640167cff9b5e32138202e43096fb70d45e07ac26b5e4b8"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/LiquidityConfigurations.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/LiquidityConfigurations.sol",
+      "sha256": "7a53ad9b1242cb51129b6cfa436cb08dc716ca71c79a47e171bd52c9e4329e67"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/PackedUint128Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/PackedUint128Math.sol",
+      "sha256": "4a269e48f273c21f091ac746174c2a100f307f4ea8a5c99593db5025ec041fba"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/SafeCast.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/SafeCast.sol",
+      "sha256": "6d707e3ea3d7c78503b8047d4dbc4ff9d9dc410d23ddeac3ae4127b3c60a98fb"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/TreeMath.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/TreeMath.sol",
+      "sha256": "4c725f5646a9e2e8cbcec6d7574c542c7a6c86a112d3222f18531d31b58d63d1"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/Uint128x128Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/Uint128x128Math.sol",
+      "sha256": "cb33ccffad99b96fc0ae4102484679e4754384aa0e75474fed39a47748e88caa"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/math/Uint256x256Math.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/math/Uint256x256Math.sol",
+      "sha256": "00da35a9498c9d34d54bd02b997006ec9ee228be0ebfb824e11524a5f650ef62"
+    },
+    {
+      "local": "infinity/src/pool-bin/libraries/PriceHelper.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/libraries/PriceHelper.sol",
+      "sha256": "fc5c406023788bec99fb0fc54db92a6bdc5988de54c9e4f53ddb2584c0fa88d6"
+    },
+    {
+      "local": "infinity/src/pool-bin/types/BinSlot0.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/pool-bin/types/BinSlot0.sol",
+      "sha256": "afccaa634c1f0264bf435d9f21ae304fc7c75cc17e45f3203f9de6b169117118"
+    },
+    {
+      "local": "infinity/src/ProtocolFees.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/ProtocolFees.sol",
+      "sha256": "a47cb69415db23653d07ae59b24102ebc342c956c3a2d0e8231e8f7b2d6ca941"
+    },
+    {
+      "local": "infinity/src/types/BalanceDelta.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/BalanceDelta.sol",
+      "sha256": "21d2bf7fe91a833c8b1e3e5449ff02ac9985407cb74b3d6fa5601f866273538a"
+    },
+    {
+      "local": "infinity/src/types/BeforeSwapDelta.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/BeforeSwapDelta.sol",
+      "sha256": "20acac39c94038d3d1b442d8875d278ebfc607627b6787fd905b0c3b6d6e0dcb"
+    },
+    {
+      "local": "infinity/src/types/Currency.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/Currency.sol",
+      "sha256": "f4fb1af78330e0cc57e23a5113e47d8a42311299daf315f93f9396fdab006e2e"
+    },
+    {
+      "local": "infinity/src/types/PoolId.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/PoolId.sol",
+      "sha256": "e6268d56e597e2329a08f6314a325b84f390ddb2c7aaabb54608612e207f1e32"
+    },
+    {
+      "local": "infinity/src/types/PoolKey.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/types/PoolKey.sol",
+      "sha256": "fa8dcf8e00613ebf854dde29a0eda37b5fb940bff99742809e24d8854bac0461"
+    },
+    {
+      "local": "infinity/src/Vault.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/Vault.sol",
+      "sha256": "0ae96788a4f518b506f332877abd6f7c976a0f41e2ba006c1625acea11767ded"
+    },
+    {
+      "local": "infinity/src/VaultToken.sol",
+      "repo": "pancakeswap/infinity-core",
+      "revision": "3c5ef1be1f71442d8bc60cc6fd11f9c677b714df",
+      "path": "src/VaultToken.sol",
+      "sha256": "9644e503594f19fdacd2ad3a50c3e9f209fa8417397388011092d196e6474229"
+    }
+  ],
+  "contracts": {
+    "BinPoolManager": {
+      "runtime_bytes": 23852,
+      "creation_sha256": "41a69aaf530cca7b9a991621a80f8faed38d4fbcbe16a14bcb6c49a54ffd390a",
+      "runtime_template_sha256": "5855fc3415d02c1b7b5a6c78abe09c9fa8d75e2f1c53e4f44f87308847260b84",
+      "immutable_references": {
+        "3671": [
+          {
+            "length": 32,
+            "start": 1921
+          },
+          {
+            "length": 32,
+            "start": 2767
+          },
+          {
+            "length": 32,
+            "start": 3756
+          },
+          {
+            "length": 32,
+            "start": 6803
+          },
+          {
+            "length": 32,
+            "start": 7198
+          }
+        ]
+      },
+      "storage_layout": {
+        "storage": [
+          {
+            "astId": 12818,
+            "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+            "label": "_owner",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_address"
+          },
+          {
+            "astId": 12917,
+            "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+            "label": "_paused",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256"
+          },
+          {
+            "astId": 3663,
+            "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+            "label": "protocolFeesAccrued",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_mapping(t_userDefinedValueType(Currency)3303,t_uint256)"
+          },
+          {
+            "astId": 3667,
+            "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+            "label": "protocolFeeController",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_contract(IProtocolFeeController)8761"
+          },
+          {
+            "astId": 957,
+            "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+            "label": "maxBinStep",
+            "offset": 20,
+            "slot": "3",
+            "type": "t_uint16"
+          },
+          {
+            "astId": 964,
+            "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+            "label": "minBinShareForDonate",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_uint256"
+          },
+          {
+            "astId": 970,
+            "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+            "label": "pools",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_mapping(t_userDefinedValueType(PoolId)8275,t_struct(State)5785_storage)"
+          },
+          {
+            "astId": 976,
+            "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+            "label": "poolIdToPoolKey",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_userDefinedValueType(PoolId)8275,t_struct(PoolKey)8326_storage)"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bytes32": {
+            "encoding": "inplace",
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IHooks)8933": {
+            "encoding": "inplace",
+            "label": "contract IHooks",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IPoolManager)3964": {
+            "encoding": "inplace",
+            "label": "contract IPoolManager",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IProtocolFeeController)8761": {
+            "encoding": "inplace",
+            "label": "contract IProtocolFeeController",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_bytes32,t_bytes32)": {
+            "encoding": "mapping",
+            "key": "t_bytes32",
+            "label": "mapping(bytes32 => bytes32)",
+            "numberOfBytes": "32",
+            "value": "t_bytes32"
+          },
+          "t_mapping(t_bytes32,t_struct(Info)7441_storage)": {
+            "encoding": "mapping",
+            "key": "t_bytes32",
+            "label": "mapping(bytes32 => struct BinPosition.Info)",
+            "numberOfBytes": "32",
+            "value": "t_struct(Info)7441_storage"
+          },
+          "t_mapping(t_uint256,t_bytes32)": {
+            "encoding": "mapping",
+            "key": "t_uint256",
+            "label": "mapping(uint256 => bytes32)",
+            "numberOfBytes": "32",
+            "value": "t_bytes32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "encoding": "mapping",
+            "key": "t_uint256",
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32",
+            "value": "t_uint256"
+          },
+          "t_mapping(t_userDefinedValueType(Currency)3303,t_uint256)": {
+            "encoding": "mapping",
+            "key": "t_userDefinedValueType(Currency)3303",
+            "label": "mapping(Currency => uint256)",
+            "numberOfBytes": "32",
+            "value": "t_uint256"
+          },
+          "t_mapping(t_userDefinedValueType(PoolId)8275,t_struct(PoolKey)8326_storage)": {
+            "encoding": "mapping",
+            "key": "t_userDefinedValueType(PoolId)8275",
+            "label": "mapping(PoolId => struct PoolKey)",
+            "numberOfBytes": "32",
+            "value": "t_struct(PoolKey)8326_storage"
+          },
+          "t_mapping(t_userDefinedValueType(PoolId)8275,t_struct(State)5785_storage)": {
+            "encoding": "mapping",
+            "key": "t_userDefinedValueType(PoolId)8275",
+            "label": "mapping(PoolId => struct BinPool.State)",
+            "numberOfBytes": "32",
+            "value": "t_struct(State)5785_storage"
+          },
+          "t_struct(Info)7441_storage": {
+            "encoding": "inplace",
+            "label": "struct BinPosition.Info",
+            "members": [
+              {
+                "astId": 7440,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "share",
+                "offset": 0,
+                "slot": "0",
+                "type": "t_uint256"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PoolKey)8326_storage": {
+            "encoding": "inplace",
+            "label": "struct PoolKey",
+            "members": [
+              {
+                "astId": 8307,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "currency0",
+                "offset": 0,
+                "slot": "0",
+                "type": "t_userDefinedValueType(Currency)3303"
+              },
+              {
+                "astId": 8311,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "currency1",
+                "offset": 0,
+                "slot": "1",
+                "type": "t_userDefinedValueType(Currency)3303"
+              },
+              {
+                "astId": 8315,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "hooks",
+                "offset": 0,
+                "slot": "2",
+                "type": "t_contract(IHooks)8933"
+              },
+              {
+                "astId": 8319,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "poolManager",
+                "offset": 0,
+                "slot": "3",
+                "type": "t_contract(IPoolManager)3964"
+              },
+              {
+                "astId": 8322,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "fee",
+                "offset": 20,
+                "slot": "3",
+                "type": "t_uint24"
+              },
+              {
+                "astId": 8325,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "parameters",
+                "offset": 0,
+                "slot": "4",
+                "type": "t_bytes32"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_struct(State)5785_storage": {
+            "encoding": "inplace",
+            "label": "struct BinPool.State",
+            "members": [
+              {
+                "astId": 5757,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "slot0",
+                "offset": 0,
+                "slot": "0",
+                "type": "t_userDefinedValueType(BinSlot0)8137"
+              },
+              {
+                "astId": 5762,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "reserveOfBin",
+                "offset": 0,
+                "slot": "1",
+                "type": "t_mapping(t_uint256,t_bytes32)"
+              },
+              {
+                "astId": 5767,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "shareOfBin",
+                "offset": 0,
+                "slot": "2",
+                "type": "t_mapping(t_uint256,t_uint256)"
+              },
+              {
+                "astId": 5773,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "positions",
+                "offset": 0,
+                "slot": "3",
+                "type": "t_mapping(t_bytes32,t_struct(Info)7441_storage)"
+              },
+              {
+                "astId": 5776,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "level0",
+                "offset": 0,
+                "slot": "4",
+                "type": "t_bytes32"
+              },
+              {
+                "astId": 5780,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "level1",
+                "offset": 0,
+                "slot": "5",
+                "type": "t_mapping(t_bytes32,t_bytes32)"
+              },
+              {
+                "astId": 5784,
+                "contract": "infinity/src/pool-bin/BinPoolManager.sol:BinPoolManager",
+                "label": "level2",
+                "offset": 0,
+                "slot": "6",
+                "type": "t_mapping(t_bytes32,t_bytes32)"
+              }
+            ],
+            "numberOfBytes": "224"
+          },
+          "t_uint16": {
+            "encoding": "inplace",
+            "label": "uint16",
+            "numberOfBytes": "2"
+          },
+          "t_uint24": {
+            "encoding": "inplace",
+            "label": "uint24",
+            "numberOfBytes": "3"
+          },
+          "t_uint256": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_userDefinedValueType(BinSlot0)8137": {
+            "encoding": "inplace",
+            "label": "BinSlot0",
+            "numberOfBytes": "32"
+          },
+          "t_userDefinedValueType(Currency)3303": {
+            "encoding": "inplace",
+            "label": "Currency",
+            "numberOfBytes": "20"
+          },
+          "t_userDefinedValueType(PoolId)8275": {
+            "encoding": "inplace",
+            "label": "PoolId",
+            "numberOfBytes": "32"
+          }
+        }
+      },
+      "selectors": {
+        "MIN_BIN_STEP()": "7df880e3",
+        "burn((address,address,address,address,uint24,bytes32),(uint256[],uint256[],bytes32),bytes)": "bc5348f2",
+        "collectProtocolFees(address,address,uint256)": "8161b874",
+        "donate((address,address,address,address,uint24,bytes32),uint128,uint128,bytes)": "57738174",
+        "extsload(bytes32)": "1e2eaeaf",
+        "extsload(bytes32[])": "dbd035ff",
+        "getBin(bytes32,uint24)": "4580c3c5",
+        "getNextNonEmptyBin(bytes32,bool,uint24)": "bf7b7286",
+        "getPosition(bytes32,address,uint24,bytes32)": "a4a9a549",
+        "getSlot0(bytes32)": "c815641c",
+        "initialize((address,address,address,address,uint24,bytes32),uint24)": "dc2ab18c",
+        "maxBinStep()": "615188b7",
+        "minBinShareForDonate()": "b1def7f4",
+        "mint((address,address,address,address,uint24,bytes32),(bytes32[],bytes32,bytes32),bytes)": "ebc413e0",
+        "owner()": "8da5cb5b",
+        "pause()": "8456cb59",
+        "paused()": "5c975abb",
+        "poolIdToPoolKey(bytes32)": "0e2d484a",
+        "pools(bytes32)": "b5217bb4",
+        "protocolFeeController()": "f02de3b2",
+        "protocolFeesAccrued(address)": "97e8cd4e",
+        "setMaxBinStep(uint16)": "5cf7d255",
+        "setMinBinSharesForDonate(uint256)": "c3b226f7",
+        "setProtocolFee((address,address,address,address,uint24,bytes32),uint24)": "81a250a1",
+        "setProtocolFeeController(address)": "2d771389",
+        "swap((address,address,address,address,uint24,bytes32),bool,int128,bytes)": "911a63b7",
+        "transferOwnership(address)": "f2fde38b",
+        "unpause()": "3f4ba83a",
+        "updateDynamicLPFee((address,address,address,address,uint24,bytes32),uint24)": "ad4cc2d3",
+        "vault()": "fbfa77cf"
+      }
+    },
+    "Vault": {
+      "runtime_bytes": 9247,
+      "creation_sha256": "28bf59987f66c82f3ffd59fbbbb5164c94d8fd9d38ca52633fc3347a413b20aa",
+      "runtime_template_sha256": "41e153c88b63adef8484268a24d4d5b1ed96587fc5d380022ec5feee842d088e",
+      "immutable_references": {},
+      "storage_layout": {
+        "storage": [
+          {
+            "astId": 2048,
+            "contract": "infinity/src/Vault.sol:Vault",
+            "label": "isOperator",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_bool))"
+          },
+          {
+            "astId": 2055,
+            "contract": "infinity/src/Vault.sol:Vault",
+            "label": "balanceOf",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_address,t_mapping(t_userDefinedValueType(Currency)3303,t_uint256))"
+          },
+          {
+            "astId": 2064,
+            "contract": "infinity/src/Vault.sol:Vault",
+            "label": "allowance",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_mapping(t_userDefinedValueType(Currency)3303,t_uint256)))"
+          },
+          {
+            "astId": 8335,
+            "contract": "infinity/src/Vault.sol:Vault",
+            "label": "_owner",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_address"
+          },
+          {
+            "astId": 1956,
+            "contract": "infinity/src/Vault.sol:Vault",
+            "label": "_pendingOwner",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_address"
+          },
+          {
+            "astId": 49,
+            "contract": "infinity/src/Vault.sol:Vault",
+            "label": "isAppRegistered",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_mapping(t_address,t_bool)"
+          },
+          {
+            "astId": 57,
+            "contract": "infinity/src/Vault.sol:Vault",
+            "label": "reservesOfApp",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_address,t_mapping(t_userDefinedValueType(Currency)3303,t_uint256))"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "encoding": "inplace",
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "encoding": "inplace",
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "encoding": "mapping",
+            "key": "t_address",
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32",
+            "value": "t_bool"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_bool))": {
+            "encoding": "mapping",
+            "key": "t_address",
+            "label": "mapping(address => mapping(address => bool))",
+            "numberOfBytes": "32",
+            "value": "t_mapping(t_address,t_bool)"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_mapping(t_userDefinedValueType(Currency)3303,t_uint256)))": {
+            "encoding": "mapping",
+            "key": "t_address",
+            "label": "mapping(address => mapping(address => mapping(Currency => uint256)))",
+            "numberOfBytes": "32",
+            "value": "t_mapping(t_address,t_mapping(t_userDefinedValueType(Currency)3303,t_uint256))"
+          },
+          "t_mapping(t_address,t_mapping(t_userDefinedValueType(Currency)3303,t_uint256))": {
+            "encoding": "mapping",
+            "key": "t_address",
+            "label": "mapping(address => mapping(Currency => uint256))",
+            "numberOfBytes": "32",
+            "value": "t_mapping(t_userDefinedValueType(Currency)3303,t_uint256)"
+          },
+          "t_mapping(t_userDefinedValueType(Currency)3303,t_uint256)": {
+            "encoding": "mapping",
+            "key": "t_userDefinedValueType(Currency)3303",
+            "label": "mapping(Currency => uint256)",
+            "numberOfBytes": "32",
+            "value": "t_uint256"
+          },
+          "t_uint256": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_userDefinedValueType(Currency)3303": {
+            "encoding": "inplace",
+            "label": "Currency",
+            "numberOfBytes": "20"
+          }
+        }
+      },
+      "selectors": {
+        "acceptOwnership()": "79ba5097",
+        "accountAppBalanceDelta(address,address,int256,address)": "9073e5ca",
+        "accountAppBalanceDelta(address,address,int256,address,int256,address)": "5d685a3c",
+        "accountAppBalanceDelta(address,int128,address)": "6d102799",
+        "allowance(address,address,address)": "927da105",
+        "appCurrencyDeficit(address,address)": "20d9cd95",
+        "approve(address,address,uint256)": "e1f21c67",
+        "balanceOf(address,address)": "f7888aec",
+        "burn(address,address,uint256)": "f6b911bc",
+        "clear(address,uint256)": "80f0b44c",
+        "collectFee(address,uint256,address)": "eb78b435",
+        "currencyDelta(address,address)": "a54b2831",
+        "getAppDeficitCount()": "57bb1c06",
+        "getLocker()": "5d4e0ced",
+        "getUnsettledDeltasCount()": "fda42892",
+        "getVaultReserve()": "36223ce9",
+        "isAppRegistered(address)": "8403be91",
+        "isOperator(address,address)": "b6363cf2",
+        "lock(bytes)": "81548319",
+        "mint(address,address,uint256)": "c6c3bbe6",
+        "owner()": "8da5cb5b",
+        "pendingOwner()": "e30c3978",
+        "registerApp(address)": "17a1d80f",
+        "renounceOwnership()": "715018a6",
+        "reservesOfApp(address,address)": "322c3620",
+        "setOperator(address,bool)": "558a7297",
+        "settle()": "11da60b4",
+        "settleFor(address)": "3dd45adb",
+        "supportsInterface(bytes4)": "01ffc9a7",
+        "sync(address)": "a5841194",
+        "take(address,address,uint256)": "0b0d9c09",
+        "transfer(address,address,uint256)": "beabacc8",
+        "transferFrom(address,address,address,uint256)": "15dacbea",
+        "transferOwnership(address)": "f2fde38b"
+      }
+    }
+  }
+}
