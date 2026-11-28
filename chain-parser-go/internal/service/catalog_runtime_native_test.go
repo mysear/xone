@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -46,48 +45,13 @@ func nativeServicePublicFixture(t *testing.T, name string) *nativeServiceFixture
 		fixture := readNativeServiceFixture(t, "arbitrum-528150486")
 		return serveNativeServiceFixture(t, fixture.service(t, "evm:42161", "017-block-receipts.json"))
 	case "polygon-synthetic":
+		fixture := readNativeServiceFixture(t, "polygon-50000144")
+		f := nativeServiceFromResults(t, "evm:137", fixture["genesis"], fixture["block"], fixture["full_block"], fixture["receipts"])
+		return serveNativeServiceFixture(t, f)
 	default:
 		t.Fatalf("unknown native catalog fixture %s", name)
+		return nil
 	}
-	root := filepath.Join("../../test/fixtures/source/testdata/chain-receipt-vectors", name)
-	read := func(file string, out any) {
-		t.Helper()
-		b, e := os.ReadFile(filepath.Join(root, file))
-		if e != nil {
-			t.Fatal(e)
-		}
-		if e = json.Unmarshal(b, out); e != nil {
-			t.Fatal(e)
-		}
-	}
-	var vector struct {
-		ChainKey string `json:"chain_key"`
-		Block    evm.RawBlock
-		Receipts []evm.Receipt
-	}
-	read("vector.json", &vector)
-	var full struct {
-		Response struct{ Result json.RawMessage }
-	}
-	read("full-block.json", &full)
-	var header map[string]json.RawMessage
-	if e := json.Unmarshal(full.Response.Result, &header); e != nil {
-		t.Fatal(e)
-	}
-	header["transactions"], _ = json.Marshal(vector.Block.Transactions)
-	rawHeader, _ := json.Marshal(header)
-	receipts, err := json.Marshal(vector.Receipts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f := &nativeServiceFixture{
-		block:    vector.Block,
-		full:     map[string]json.RawMessage{vector.Block.Number: full.Response.Result},
-		headers:  map[string]json.RawMessage{vector.Block.Number: rawHeader},
-		receipts: map[string]json.RawMessage{vector.Block.Number: receipts, vector.Block.Hash: receipts},
-	}
-	f.chain = nativeServiceChain(vector.ChainKey, "0xa9c28ce2141b56c474f1dc504bee9b01eb1bd7d1a507580d5519d4437a97de1b")
-	return serveNativeServiceFixture(t, f)
 }
 
 func nativeServiceChain(key, genesis string) config.Chain {

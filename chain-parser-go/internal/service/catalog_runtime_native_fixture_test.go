@@ -1,14 +1,12 @@
 package service
 
 import (
-	"compress/gzip"
 	"encoding/json"
-	"io"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"xone/chain-parser-go/internal/chain/evm"
+	"xone/chain-parser-go/internal/testfixture"
 )
 
 func avalancheNativeServiceFixture(t *testing.T) *nativeServiceFixture {
@@ -54,19 +52,24 @@ type nativeServiceResults map[string]json.RawMessage
 
 func (r nativeServiceResults) service(t *testing.T, key, receiptFile string) *nativeServiceFixture {
 	t.Helper()
+	return nativeServiceFromResults(t, key, r["002-genesis.json"], r["006-witness-header.json"], r["005-finalized-header.json"], r[receiptFile])
+}
+
+func nativeServiceFromResults(t *testing.T, key string, genesisRaw, header, body, receipts json.RawMessage) *nativeServiceFixture {
+	t.Helper()
 	var genesis, current evm.RawBlock
-	if err := json.Unmarshal(r["002-genesis.json"], &genesis); err != nil {
+	if err := json.Unmarshal(genesisRaw, &genesis); err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal(r["006-witness-header.json"], &current); err != nil {
+	if err := json.Unmarshal(header, &current); err != nil {
 		t.Fatal(err)
 	}
 	return &nativeServiceFixture{
 		chain:    nativeServiceChain(key, genesis.Hash),
 		block:    current,
-		headers:  map[string]json.RawMessage{current.Number: r["006-witness-header.json"]},
-		full:     map[string]json.RawMessage{current.Number: r["005-finalized-header.json"]},
-		receipts: map[string]json.RawMessage{current.Number: r[receiptFile], current.Hash: r[receiptFile]},
+		headers:  map[string]json.RawMessage{current.Number: header},
+		full:     map[string]json.RawMessage{current.Number: body},
+		receipts: map[string]json.RawMessage{current.Number: receipts, current.Hash: receipts},
 	}
 }
 
@@ -80,22 +83,5 @@ func readNativeServiceFixture(t *testing.T, name string) nativeServiceResults {
 func readCatalogReplayFixture(t *testing.T, name string, dest any) {
 	t.Helper()
 	root := "../../test/fixtures/native-catalog-replay"
-	source, err := os.Open(filepath.Join(root, name+".json.gz"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer source.Close()
-	compressed, err := gzip.NewReader(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer compressed.Close()
-	const maxFixtureBytes = 16 << 20
-	raw, err := io.ReadAll(io.LimitReader(compressed, maxFixtureBytes+1))
-	if err != nil || len(raw) > maxFixtureBytes {
-		t.Fatalf("invalid native catalog fixture %s: %v", name, err)
-	}
-	if err := json.Unmarshal(raw, dest); err != nil {
-		t.Fatal(err)
-	}
+	testfixture.ReadGzipJSON(t, filepath.Join(root, name+".json.gz"), dest)
 }

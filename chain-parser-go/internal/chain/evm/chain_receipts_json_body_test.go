@@ -10,6 +10,13 @@ import (
 
 func retainedFullChainBlock(t *testing.T, name string) json.RawMessage {
 	t.Helper()
+	if name == "polygon-synthetic" {
+		var vector struct {
+			FullBlock json.RawMessage `json:"full_block"`
+		}
+		readPolygonBorVector(t, &vector)
+		return vector.FullBlock
+	}
 	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, name, "full-block.json"))
 	if err != nil {
 		t.Fatal(err)

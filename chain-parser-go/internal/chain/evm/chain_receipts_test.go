@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"xone/chain-parser-go/internal/testfixture"
 )
 
 const chainReceiptVectors = "../../../test/fixtures/source/testdata/chain-receipt-vectors"
@@ -22,13 +24,22 @@ type publicReceiptVector struct {
 	Receipts []Receipt `json:"receipts"`
 }
 
+func readPolygonBorVector(t *testing.T, dest any) {
+	t.Helper()
+	testfixture.ReadGzipJSON(t, "../../../test/fixtures/native-catalog-replay/polygon-50000144.json.gz", dest)
+}
+
 func loadChainReceiptVector(t *testing.T, name string) publicReceiptVector {
 	t.Helper()
+	var v publicReceiptVector
+	if name == "polygon-synthetic" {
+		readPolygonBorVector(t, &v)
+		return v
+	}
 	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, name, "vector.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var v publicReceiptVector
 	if err = json.Unmarshal(raw, &v); err != nil {
 		t.Fatal(err)
 	}

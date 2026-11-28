@@ -11,11 +11,15 @@ import (
 
 func retainedChainHeader(t *testing.T, name string) json.RawMessage {
 	t.Helper()
+	var v struct{ Block json.RawMessage }
+	if name == "polygon-synthetic" {
+		readPolygonBorVector(t, &v)
+		return v.Block
+	}
 	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, name, "vector.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var v struct{ Block json.RawMessage }
 	if err = json.Unmarshal(raw, &v); err != nil {
 		t.Fatal(err)
 	}
