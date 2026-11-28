@@ -1,0 +1,3365 @@
+{
+  "schema": "infinity-single-bin/1",
+  "cases": [
+    {
+      "name": "-100/1/0/false/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/1/0/false/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "1010032",
+        "protocol_amount": "17",
+        "swap_fee": 17,
+        "reserve0": "998989968",
+        "reserve1": "2000999983",
+        "price_x128": "336896669234911992640369586824150439270"
+      }
+    },
+    {
+      "name": "-100/1/0/false/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/1/0/true/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/1/0/true/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "986090",
+        "protocol_amount": "4000",
+        "swap_fee": 4000,
+        "reserve0": "1000996000",
+        "reserve1": "1999013910",
+        "price_x128": "336896669234911992640369586824150439270"
+      }
+    },
+    {
+      "name": "-100/1/0/true/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/1/3000/false/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/1/3000/false/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "1007002",
+        "protocol_amount": "17",
+        "swap_fee": 3017,
+        "reserve0": "998992998",
+        "reserve1": "2000999983",
+        "price_x128": "336896669234911992640369586824150439270"
+      }
+    },
+    {
+      "name": "-100/1/3000/false/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/1/3000/true/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/1/3000/true/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "983131",
+        "protocol_amount": "4000",
+        "swap_fee": 6988,
+        "reserve0": "1000996000",
+        "reserve1": "1999016869",
+        "price_x128": "336896669234911992640369586824150439270"
+      }
+    },
+    {
+      "name": "-100/1/3000/true/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/1/100000/false/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/1/100000/false/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "909028",
+        "protocol_amount": "17",
+        "swap_fee": 100016,
+        "reserve0": "999090972",
+        "reserve1": "2000999983",
+        "price_x128": "336896669234911992640369586824150439270"
+      }
+    },
+    {
+      "name": "-100/1/100000/false/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/1/100000/true/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/1/100000/true/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "887481",
+        "protocol_amount": "4000",
+        "swap_fee": 103600,
+        "reserve0": "1000996000",
+        "reserve1": "1999112519",
+        "price_x128": "336896669234911992640369586824150439270"
+      }
+    },
+    {
+      "name": "-100/1/100000/true/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/0/false/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/0/false/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "1283603",
+        "protocol_amount": "17",
+        "swap_fee": 17,
+        "reserve0": "998716397",
+        "reserve1": "2000999983",
+        "price_x128": "265094865257220261526334763469518204397"
+      }
+    },
+    {
+      "name": "-100/25/0/false/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/0/true/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/0/true/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "775927",
+        "protocol_amount": "4000",
+        "swap_fee": 4000,
+        "reserve0": "1000996000",
+        "reserve1": "1999224073",
+        "price_x128": "265094865257220261526334763469518204397"
+      }
+    },
+    {
+      "name": "-100/25/0/true/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/3000/false/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/3000/false/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "1279752",
+        "protocol_amount": "17",
+        "swap_fee": 3017,
+        "reserve0": "998720248",
+        "reserve1": "2000999983",
+        "price_x128": "265094865257220261526334763469518204397"
+      }
+    },
+    {
+      "name": "-100/25/3000/false/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/3000/true/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/3000/true/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "773599",
+        "protocol_amount": "4000",
+        "swap_fee": 6988,
+        "reserve0": "1000996000",
+        "reserve1": "1999226401",
+        "price_x128": "265094865257220261526334763469518204397"
+      }
+    },
+    {
+      "name": "-100/25/3000/true/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/100000/false/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/100000/false/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "1155241",
+        "protocol_amount": "17",
+        "swap_fee": 100016,
+        "reserve0": "998844759",
+        "reserve1": "2000999983",
+        "price_x128": "265094865257220261526334763469518204397"
+      }
+    },
+    {
+      "name": "-100/25/100000/false/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/100000/true/1",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-100/25/100000/true/1000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "698334",
+        "protocol_amount": "4000",
+        "swap_fee": 103600,
+        "reserve0": "1000996000",
+        "reserve1": "1999301666",
+        "price_x128": "265094865257220261526334763469518204397"
+      }
+    },
+    {
+      "name": "-100/25/100000/true/1000000000000000",
+      "state": {
+        "active_id": 8388508,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/0/false/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/0/false/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "1000082",
+        "protocol_amount": "17",
+        "swap_fee": 17,
+        "reserve0": "998999918",
+        "reserve1": "2000999983",
+        "price_x128": "340248342086729790484326174814286782777"
+      }
+    },
+    {
+      "name": "-1/1/0/false/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/0/true/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/0/true/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "995900",
+        "protocol_amount": "4000",
+        "swap_fee": 4000,
+        "reserve0": "1000996000",
+        "reserve1": "1999004100",
+        "price_x128": "340248342086729790484326174814286782777"
+      }
+    },
+    {
+      "name": "-1/1/0/true/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/3000/false/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/3000/false/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "997082",
+        "protocol_amount": "17",
+        "swap_fee": 3017,
+        "reserve0": "999002918",
+        "reserve1": "2000999983",
+        "price_x128": "340248342086729790484326174814286782777"
+      }
+    },
+    {
+      "name": "-1/1/3000/false/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/3000/true/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/3000/true/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "992912",
+        "protocol_amount": "4000",
+        "swap_fee": 6988,
+        "reserve0": "1000996000",
+        "reserve1": "1999007088",
+        "price_x128": "340248342086729790484326174814286782777"
+      }
+    },
+    {
+      "name": "-1/1/3000/true/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/100000/false/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/100000/false/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "900073",
+        "protocol_amount": "17",
+        "swap_fee": 100016,
+        "reserve0": "999099927",
+        "reserve1": "2000999983",
+        "price_x128": "340248342086729790484326174814286782777"
+      }
+    },
+    {
+      "name": "-1/1/100000/false/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/100000/true/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/1/100000/true/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "896310",
+        "protocol_amount": "4000",
+        "swap_fee": 103600,
+        "reserve0": "1000996000",
+        "reserve1": "1999103690",
+        "price_x128": "340248342086729790484326174814286782777"
+      }
+    },
+    {
+      "name": "-1/1/100000/true/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/0/false/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/0/false/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "1002482",
+        "protocol_amount": "17",
+        "swap_fee": 17,
+        "reserve0": "998997518",
+        "reserve1": "2000999983",
+        "price_x128": "339433782464776522157979658286053078759"
+      }
+    },
+    {
+      "name": "-1/25/0/false/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/0/true/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/0/true/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "993516",
+        "protocol_amount": "4000",
+        "swap_fee": 4000,
+        "reserve0": "1000996000",
+        "reserve1": "1999006484",
+        "price_x128": "339433782464776522157979658286053078759"
+      }
+    },
+    {
+      "name": "-1/25/0/true/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/3000/false/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/3000/false/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "999475",
+        "protocol_amount": "17",
+        "swap_fee": 3017,
+        "reserve0": "999000525",
+        "reserve1": "2000999983",
+        "price_x128": "339433782464776522157979658286053078759"
+      }
+    },
+    {
+      "name": "-1/25/3000/false/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/3000/true/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/3000/true/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "990535",
+        "protocol_amount": "4000",
+        "swap_fee": 6988,
+        "reserve0": "1000996000",
+        "reserve1": "1999009465",
+        "price_x128": "339433782464776522157979658286053078759"
+      }
+    },
+    {
+      "name": "-1/25/3000/true/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/100000/false/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/100000/false/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "902233",
+        "protocol_amount": "17",
+        "swap_fee": 100016,
+        "reserve0": "999097767",
+        "reserve1": "2000999983",
+        "price_x128": "339433782464776522157979658286053078759"
+      }
+    },
+    {
+      "name": "-1/25/100000/false/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/100000/true/1",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "-1/25/100000/true/1000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "894164",
+        "protocol_amount": "4000",
+        "swap_fee": 103600,
+        "reserve0": "1000996000",
+        "reserve1": "1999105836",
+        "price_x128": "339433782464776522157979658286053078759"
+      }
+    },
+    {
+      "name": "-1/25/100000/true/1000000000000000",
+      "state": {
+        "active_id": 8388607,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/0/false/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/0/false/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "999983",
+        "protocol_amount": "17",
+        "swap_fee": 17,
+        "reserve0": "999000017",
+        "reserve1": "2000999983",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/1/0/false/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/0/true/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/0/true/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "996000",
+        "protocol_amount": "4000",
+        "swap_fee": 4000,
+        "reserve0": "1000996000",
+        "reserve1": "1999004000",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/1/0/true/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/3000/false/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/3000/false/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "996983",
+        "protocol_amount": "17",
+        "swap_fee": 3017,
+        "reserve0": "999003017",
+        "reserve1": "2000999983",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/1/3000/false/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/3000/true/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/3000/true/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "993012",
+        "protocol_amount": "4000",
+        "swap_fee": 6988,
+        "reserve0": "1000996000",
+        "reserve1": "1999006988",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/1/3000/true/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/100000/false/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/100000/false/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "899984",
+        "protocol_amount": "17",
+        "swap_fee": 100016,
+        "reserve0": "999100016",
+        "reserve1": "2000999983",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/1/100000/false/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/100000/true/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/1/100000/true/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "896400",
+        "protocol_amount": "4000",
+        "swap_fee": 103600,
+        "reserve0": "1000996000",
+        "reserve1": "1999103600",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/1/100000/true/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/0/false/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/0/false/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "999983",
+        "protocol_amount": "17",
+        "swap_fee": 17,
+        "reserve0": "999000017",
+        "reserve1": "2000999983",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/25/0/false/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/0/true/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/0/true/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "996000",
+        "protocol_amount": "4000",
+        "swap_fee": 4000,
+        "reserve0": "1000996000",
+        "reserve1": "1999004000",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/25/0/true/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/3000/false/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/3000/false/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "996983",
+        "protocol_amount": "17",
+        "swap_fee": 3017,
+        "reserve0": "999003017",
+        "reserve1": "2000999983",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/25/3000/false/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/3000/true/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/3000/true/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "993012",
+        "protocol_amount": "4000",
+        "swap_fee": 6988,
+        "reserve0": "1000996000",
+        "reserve1": "1999006988",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/25/3000/true/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/100000/false/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/100000/false/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "899984",
+        "protocol_amount": "17",
+        "swap_fee": 100016,
+        "reserve0": "999100016",
+        "reserve1": "2000999983",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/25/100000/false/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/100000/true/1",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "0/25/100000/true/1000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "896400",
+        "protocol_amount": "4000",
+        "swap_fee": 103600,
+        "reserve0": "1000996000",
+        "reserve1": "1999103600",
+        "price_x128": "340282366920938463463374607431768211456"
+      }
+    },
+    {
+      "name": "0/25/100000/true/1000000000000000",
+      "state": {
+        "active_id": 8388608,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/0/false/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/0/false/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "999883",
+        "protocol_amount": "17",
+        "swap_fee": 17,
+        "reserve0": "999000117",
+        "reserve1": "2000999983",
+        "price_x128": "340316395157630557309720944892511388277"
+      }
+    },
+    {
+      "name": "1/1/0/false/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/0/true/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/0/true/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "996099",
+        "protocol_amount": "4000",
+        "swap_fee": 4000,
+        "reserve0": "1000996000",
+        "reserve1": "1999003901",
+        "price_x128": "340316395157630557309720944892511388277"
+      }
+    },
+    {
+      "name": "1/1/0/true/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/3000/false/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/3000/false/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "996883",
+        "protocol_amount": "17",
+        "swap_fee": 3017,
+        "reserve0": "999003117",
+        "reserve1": "2000999983",
+        "price_x128": "340316395157630557309720944892511388277"
+      }
+    },
+    {
+      "name": "1/1/3000/false/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/3000/true/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/3000/true/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "993111",
+        "protocol_amount": "4000",
+        "swap_fee": 6988,
+        "reserve0": "1000996000",
+        "reserve1": "1999006889",
+        "price_x128": "340316395157630557309720944892511388277"
+      }
+    },
+    {
+      "name": "1/1/3000/true/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/100000/false/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/100000/false/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "899894",
+        "protocol_amount": "17",
+        "swap_fee": 100016,
+        "reserve0": "999100106",
+        "reserve1": "2000999983",
+        "price_x128": "340316395157630557309720944892511388277"
+      }
+    },
+    {
+      "name": "1/1/100000/false/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/100000/true/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/1/100000/true/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "896489",
+        "protocol_amount": "4000",
+        "swap_fee": 103600,
+        "reserve0": "1000996000",
+        "reserve1": "1999103511",
+        "price_x128": "340316395157630557309720944892511388277"
+      }
+    },
+    {
+      "name": "1/1/100000/true/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/0/false/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/0/false/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "997489",
+        "protocol_amount": "17",
+        "swap_fee": 17,
+        "reserve0": "999002511",
+        "reserve1": "2000999983",
+        "price_x128": "341133072838240809622033043950347631984"
+      }
+    },
+    {
+      "name": "1/25/0/false/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/0/true/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/0/true/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "998489",
+        "protocol_amount": "4000",
+        "swap_fee": 4000,
+        "reserve0": "1000996000",
+        "reserve1": "1999001511",
+        "price_x128": "341133072838240809622033043950347631984"
+      }
+    },
+    {
+      "name": "1/25/0/true/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/3000/false/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/3000/false/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "994496",
+        "protocol_amount": "17",
+        "swap_fee": 3017,
+        "reserve0": "999005504",
+        "reserve1": "2000999983",
+        "price_x128": "341133072838240809622033043950347631984"
+      }
+    },
+    {
+      "name": "1/25/3000/false/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/3000/true/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/3000/true/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "995494",
+        "protocol_amount": "4000",
+        "swap_fee": 6988,
+        "reserve0": "1000996000",
+        "reserve1": "1999004506",
+        "price_x128": "341133072838240809622033043950347631984"
+      }
+    },
+    {
+      "name": "1/25/3000/true/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/100000/false/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/100000/false/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "897739",
+        "protocol_amount": "17",
+        "swap_fee": 100016,
+        "reserve0": "999102261",
+        "reserve1": "2000999983",
+        "price_x128": "341133072838240809622033043950347631984"
+      }
+    },
+    {
+      "name": "1/25/100000/false/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/100000/true/1",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "1/25/100000/true/1000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "898640",
+        "protocol_amount": "4000",
+        "swap_fee": 103600,
+        "reserve0": "1000996000",
+        "reserve1": "1999101360",
+        "price_x128": "341133072838240809622033043950347631984"
+      }
+    },
+    {
+      "name": "1/25/100000/true/1000000000000000",
+      "state": {
+        "active_id": 8388609,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/0/false/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/0/false/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "990033",
+        "protocol_amount": "17",
+        "swap_fee": 17,
+        "reserve0": "999009967",
+        "reserve1": "2000999983",
+        "price_x128": "343702089724658134425462205873642501916"
+      }
+    },
+    {
+      "name": "100/1/0/false/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/0/true/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/0/true/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "1006009",
+        "protocol_amount": "4000",
+        "swap_fee": 4000,
+        "reserve0": "1000996000",
+        "reserve1": "1998993991",
+        "price_x128": "343702089724658134425462205873642501916"
+      }
+    },
+    {
+      "name": "100/1/0/true/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/3000/false/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/3000/false/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "987063",
+        "protocol_amount": "17",
+        "swap_fee": 3017,
+        "reserve0": "999012937",
+        "reserve1": "2000999983",
+        "price_x128": "343702089724658134425462205873642501916"
+      }
+    },
+    {
+      "name": "100/1/3000/false/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/3000/true/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/3000/true/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "1002991",
+        "protocol_amount": "4000",
+        "swap_fee": 6988,
+        "reserve0": "1000996000",
+        "reserve1": "1998997009",
+        "price_x128": "343702089724658134425462205873642501916"
+      }
+    },
+    {
+      "name": "100/1/3000/true/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/100000/false/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/100000/false/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "891029",
+        "protocol_amount": "17",
+        "swap_fee": 100016,
+        "reserve0": "999108971",
+        "reserve1": "2000999983",
+        "price_x128": "343702089724658134425462205873642501916"
+      }
+    },
+    {
+      "name": "100/1/100000/false/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/100000/true/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/1/100000/true/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "905408",
+        "protocol_amount": "4000",
+        "swap_fee": 103600,
+        "reserve0": "1000996000",
+        "reserve1": "1999094592",
+        "price_x128": "343702089724658134425462205873642501916"
+      }
+    },
+    {
+      "name": "100/1/100000/true/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 1,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/0/false/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/0/false/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "779030",
+        "protocol_amount": "17",
+        "swap_fee": 17,
+        "reserve0": "999220970",
+        "reserve1": "2000999983",
+        "price_x128": "436794915378552100798054128165989473614"
+      }
+    },
+    {
+      "name": "100/25/0/false/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/0/true/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/0/true/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "1278490",
+        "protocol_amount": "4000",
+        "swap_fee": 4000,
+        "reserve0": "1000996000",
+        "reserve1": "1998721510",
+        "price_x128": "436794915378552100798054128165989473614"
+      }
+    },
+    {
+      "name": "100/25/0/true/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 0,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/3000/false/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/3000/false/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "776693",
+        "protocol_amount": "17",
+        "swap_fee": 3017,
+        "reserve0": "999223307",
+        "reserve1": "2000999983",
+        "price_x128": "436794915378552100798054128165989473614"
+      }
+    },
+    {
+      "name": "100/25/3000/false/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/3000/true/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/3000/true/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "1274654",
+        "protocol_amount": "4000",
+        "swap_fee": 6988,
+        "reserve0": "1000996000",
+        "reserve1": "1998725346",
+        "price_x128": "436794915378552100798054128165989473614"
+      }
+    },
+    {
+      "name": "100/25/3000/true/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/100000/false/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/100000/false/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": false,
+      "expected": {
+        "amount_out": "701126",
+        "protocol_amount": "17",
+        "swap_fee": 100016,
+        "reserve0": "999298874",
+        "reserve1": "2000999983",
+        "price_x128": "436794915378552100798054128165989473614"
+      }
+    },
+    {
+      "name": "100/25/100000/false/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": false,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/100000/true/1",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    },
+    {
+      "name": "100/25/100000/true/1000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000",
+      "zero_for_one": true,
+      "expected": {
+        "amount_out": "1150641",
+        "protocol_amount": "4000",
+        "swap_fee": 103600,
+        "reserve0": "1000996000",
+        "reserve1": "1998849359",
+        "price_x128": "436794915378552100798054128165989473614"
+      }
+    },
+    {
+      "name": "100/25/100000/true/1000000000000000",
+      "state": {
+        "active_id": 8388708,
+        "bin_step": 25,
+        "reserve0": "1000000000",
+        "reserve1": "2000000000",
+        "lp_fee": 100000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17
+      },
+      "input": "1000000000000000",
+      "zero_for_one": true,
+      "expected": {
+        "reverted": true
+      }
+    }
+  ]
+}

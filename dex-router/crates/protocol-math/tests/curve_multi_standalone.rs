@@ -158,7 +158,8 @@ fn malformed_shape_amp_fee_rate_and_zero_liquidity_revert() {
     assert!(q(&b, &r, "99", "4000000", "5000000000", 0, 1).is_err());
     assert!(q(&b, &r, "100000000", "4000000", "5000000000", 0, 1).is_err());
     assert!(q(&b, &r, "10000", "10000000001", "5000000000", 0, 1).is_err());
-    assert!(q(&b, &r, "10000", "4000000", "0", 0, 1).is_err());
+    assert!(q(&b, &r, "10000", "4000000", "10000000001", 0, 1).is_err());
+    assert!(q(&b, &r, "10000", "4000000", "0", 0, 1).is_ok());
     let mut zero = r.clone();
     zero[0] = n("0");
     assert!(q(&b, &zero, "10000", "4000000", "5000000000", 0, 1).is_err());

@@ -1,0 +1,844 @@
+{
+  "snapshot": {
+    "reference": {
+      "block": {
+        "chain_key": "solana:localnet",
+        "number_or_slot": 123456,
+        "hash": "CZ8YUVdk7znjrUmnb5n7kgySk9yRAsQDYmyCxzfSky9t",
+        "parent_hash": "ErNbLjU6E8tSbZH3REsMeTDP3Z8G52k6YedWwvBpAJ7v",
+        "timestamp_ms": 1792972800000
+      },
+      "canonical_epoch": 1,
+      "journal_seq": 1,
+      "schema_version": 1,
+      "online_generation": 1,
+      "writer_epoch": 1,
+      "owner_service": "chain-parser-rust",
+      "owner_assignment_version": 1,
+      "scope_hash": "f658549beeac5635992ba0456d55e30a85059664117adb676f2a6b3e738fe115",
+      "adapter_set_hash": "1d83663b0f8b43a9d89890b0c1498fed61f91e90d11b3e7c8b96750d934044c7"
+    },
+    "pools": [
+      {
+        "adapter_version": "raydium-clmm/6d7a0f82-spl-rewards-1",
+        "chain_key": "solana:localnet",
+        "fee_denominator": 1000000,
+        "fee_numerator": 2500,
+        "pool_id": "683gASAnYZmc535sQ7ZcwymiQRCVoeuZnmrX2CDF1G77",
+        "protocol": "raydium-clmm-rewards",
+        "raydium_clmm": {
+          "amm_config": "4BLNHtVe942GSs4teSZqGX24xwKNkqU7bGgNn3iUiUpw",
+          "bank_epoch": 987,
+          "bank_slot": 123456,
+          "bank_unix_timestamp": 1792972800,
+          "bitmap": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            16140901064495857664,
+            15,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "deployed_slot": 200,
+          "fee_growth_global0": "100",
+          "fee_growth_global1": "200",
+          "fund_fee_rate": 40000,
+          "fund_fees0": 211,
+          "fund_fees1": 223,
+          "liquidity": "1000000000000",
+          "max_steps": 8192,
+          "mint0_decimals": 9,
+          "mint1_decimals": 6,
+          "observation": "GD2YwoRBsvxpne7sRfGGt1kRjHEiVqj8Ed6YW6mnDTnX",
+          "observation_index": 0,
+          "observation_initialized": false,
+          "observation_recent_epoch": 986,
+          "observations": [
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            },
+            {
+              "block_timestamp": 0,
+              "tick_cumulative": 0
+            }
+          ],
+          "open_time": 1,
+          "pool_bump": 255,
+          "program_code_sha256": "81cc5458777afb9e8c94f8296ba377706069cd0376562090deed641eada52a37",
+          "program_id": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
+          "programdata": "HzD2cCXXT3UQNjMMY6kDv9w6gZ9qquSdfoGXrLL3LXx",
+          "protocol_fee_rate": 120000,
+          "protocol_fees0": 101,
+          "protocol_fees1": 103,
+          "raw_vault0": 1000000000000000,
+          "raw_vault1": 1000000000000000,
+          "recent_epoch": 986,
+          "reward_infos": [
+            {
+              "authority": "5bDHjkUALFrDaqUyqxPHPwfxVajE1yH4DnHPisNDq5gt",
+              "emissions_per_second_x64": "36893488147419103233",
+              "end_time": 1792972900,
+              "last_update_time": 1792972790,
+              "open_time": 1792972700,
+              "reward_claimed": 1,
+              "reward_growth_global_x64": "340282366920938463463374607431768211446",
+              "reward_state": 2,
+              "reward_total_emitted": 100,
+              "token_mint": "E4ZTXpnaAWK847igxSSRuj8CpFjg5jCqyXM3mnM2zht6",
+              "token_vault": "2v8HkcWYesk3xURnA4Uq1TPpx3KTfvS42YYkwLJxJmpk"
+            },
+            {
+              "authority": "5hcy8wmW5jap9UU1AiDb5yy9r1YmP9sbenMrkuFrxUu8",
+              "emissions_per_second_x64": "18446744073709551616",
+              "end_time": 1792972900,
+              "last_update_time": 1792972790,
+              "open_time": 1792972700,
+              "reward_claimed": 1,
+              "reward_growth_global_x64": "20",
+              "reward_state": 2,
+              "reward_total_emitted": 100,
+              "token_mint": "F1ZW5uDd4XUR9ieqkB5fhyWbK9yqdWH8X2H1GNQU7nGz",
+              "token_vault": "GPmTYpWh9dtnyi56irWCTXLwApr2NAmAL56JG5eJzfeF"
+            },
+            {
+              "authority": "EEp8HZgGvsaQz8pyLHynkbrdeoy9fZsAnb1TJZdvtq31",
+              "emissions_per_second_x64": "0",
+              "end_time": 0,
+              "last_update_time": 0,
+              "open_time": 0,
+              "reward_claimed": 0,
+              "reward_growth_global_x64": "0",
+              "reward_state": 0,
+              "reward_total_emitted": 0,
+              "token_mint": "11111111111111111111111111111111",
+              "token_vault": "11111111111111111111111111111111"
+            }
+          ],
+          "sqrt_price_x64": "18455969290605287889",
+          "tick_arrays": [
+            {
+              "address": "HmvXugrCY4RxZ27btT8euNhCx8u76VosT8o9RM5a1gWd",
+              "recent_epoch": 986,
+              "start_tick_index": -180,
+              "ticks": [
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": -180
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": -160
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": -140
+                }
+              ]
+            },
+            {
+              "address": "Esz7XgWCH1gWj3oYAtu1LNAYdyVgFhMoBeNvu3X91AWR",
+              "recent_epoch": 986,
+              "start_tick_index": -120,
+              "ticks": [
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": -120
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": -100
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": -80
+                }
+              ]
+            },
+            {
+              "address": "Dpv8BDZduSeVuxrEFCn63UFi7RFg3V59rRvoBfZaq7Bw",
+              "recent_epoch": 986,
+              "start_tick_index": -60,
+              "ticks": [
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": -60
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": -40
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": -20
+                }
+              ]
+            },
+            {
+              "address": "CfH3gnz4Sbk4SLbRt68CKekrUapkjmSEjDzexmpM6LQw",
+              "recent_epoch": 986,
+              "start_tick_index": 0,
+              "ticks": [
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 0
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 20
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 40
+                }
+              ]
+            },
+            {
+              "address": "BqfGNpMNC1thebPnGvomteYhDpKYxTTudvj7Ybs2kWTv",
+              "recent_epoch": 986,
+              "start_tick_index": 60,
+              "ticks": [
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 60
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 80
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 100
+                }
+              ]
+            },
+            {
+              "address": "FoCuQVYCrWVVzsD3LoPvPse3ZfWJfWWEkbcrFbNSvu4i",
+              "recent_epoch": 986,
+              "start_tick_index": 120,
+              "ticks": [
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 120
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 140
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 160
+                }
+              ]
+            },
+            {
+              "address": "HxgRXayUhc8ZPPL8AVhA7zWtPdd38FjQF6pp1Bsh8sB2",
+              "recent_epoch": 986,
+              "start_tick_index": 180,
+              "ticks": [
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 180
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 200
+                },
+                {
+                  "fee_growth_outside0": "0",
+                  "fee_growth_outside1": "0",
+                  "liquidity_gross": "1000000000000",
+                  "liquidity_net": "0",
+                  "reward_growths_outside": [
+                    "5",
+                    "31",
+                    "0"
+                  ],
+                  "tick": 220
+                }
+              ]
+            }
+          ],
+          "tick_current": 10,
+          "tick_spacing": 1,
+          "token_program_code_sha256": "dd6adb8d5688979cca81e91ce32e059cb29c69c582ee1336888c85be37f6ef30",
+          "trade_fee_rate": 2500,
+          "vault0": "EvoY7XgDz1KXGZK1ZCczrByvmhv5WuduaRwEgstDVegw",
+          "vault1": "6BEVYbxCLfKqEHVe83Vvruxn2ox54enAdAjk8v8jNYsb"
+        },
+        "reserve0": "0",
+        "reserve1": "0",
+        "token0": "E4ZTXpnaAWK847igxSSRuj8CpFjg5jCqyXM3mnM2zht6",
+        "token1": "F1ZW5uDd4XUR9ieqkB5fhyWbK9yqdWH8X2H1GNQU7nGz",
+        "token_behavior": "standard"
+      }
+    ],
+    "source": "FIVE_FAMILY_SYNTHETIC_SOURCE",
+    "history_gaps": []
+  },
+  "protobuf_hex": "0ac5010a600a0f736f6c616e613a6c6f63616c6e657410c0c4071a20abababababababababababababababababababababababababababababababab2220cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd28808087ac97341001180120012a201d83663b0f8b43a9d89890b0c1498fed61f91e90d11b3e7c8b96750d934044c730013a20f658549beeac5635992ba0456d55e30a85059664117adb676f2a6b3e738fe11540014a11636861696e2d7061727365722d72757374500112ad3a0a0f736f6c616e613a6c6f63616c6e6574122c363833674153416e595a6d633533357351375a6377796d69515243566f65755a6e6d725832434446314737371a147261796469756d2d636c6d6d2d72657761726473222c45345a5458706e6141574b383437696778535352756a384370466a67356a437179584d336d6e4d327a6874362a2c46315a573575446434585552396965716b423566687957624b3979716457483858324831474e5155376e477a32220a2000000000000000000000000000000000000000000000000000000000000000003a220a20000000000000000000000000000000000000000000000000000000000000000040c41348c0843d52237261796469756d2d636c6d6d2f36643761306638322d73706c2d726577617264732d315a087374616e64617264d201fa370a2c43414d4d437a6f35594c387734564646384b5648724b323247475573703556546157376772724b677257714b122b487a443263435858543355514e6a4d4d59366b4476397736675a397171755364666f4758724c4c334c58781a2081cc5458777afb9e8c94f8296ba377706069cd0376562090deed641eada52a3720c8012a20dd6adb8d5688979cca81e91ce32e059cb29c69c582ee1336888c85be37f6ef30322c34424c4e48745665393432475373347465535a714758323478774b4e6b7155376247674e6e3369556955707738ff01422c47443259776f5242737678706e6537735266474774316b526a48456956716a384564365957366d6e44546e584a2c45766f59375867447a314b58475a4b315a43637a724279766d68763557756475615277456773744456656777522c36424556596278434c664b7145485665383356767275786e326f783534656e4164416a6b3876386a4e5973625880809aa6eaafe3016080809aa6eaafe3016809700678c0c407800180b0fad6068801db079001c4139801c0a907a001c0b802a80101b201220a200000000000000000000000000000000000000000000000010020c649300bd9d1b80114c201220a20000000000000000000000000000000000000000000000000000000e8d4a51000ca01220a200000000000000000000000000000000000000000000000000000000000000064d201220a2000000000000000000000000000000000000000000000000000000000000000c8d80165e00167e801d301f001df01f801018002da078a028001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e00f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000092028d060a2c486d765875677243593452785a32376274543865754e68437838753736566f7354386f39524d35613167576410e70218da0722f00108e70212220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022f00108bf0212220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022f00108970212220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000092028d060a2c45737a3758675743483167576a336f59417475314c4e41596479566746684d6f42654e76753358393141575210ef0118da0722f00108ef0112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022f00108c70112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022f001089f0112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a200000000000000000000000000000000000000000000000000000000000000000920289060a2c4470763842445a64755365567578724546436e363355466937524667335635397252766f42665a6171374277107718da0722ef01087712220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022ef01084f12220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022ef01082712220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a200000000000000000000000000000000000000000000000000000000000000000920285060a2c43664833676e7a3453626b34534c6252743638434b656b725561706b6a6d53456a447a65786d704d364c517718da0722ed0112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022ef01082812220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022ef01085012220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000092028b060a2c427166474e704d4e433174686562506e47766f6d7465596844704b597854547564766a37596273326b575476107818da0722ef01087812220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022f00108a00112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022f00108c80112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000092028d060a2c466f437551565943725756567a7344334c6f5076507365335a66574a665757456b62637246624e537675346910f00118da0722f00108f00112220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022f00108980212220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022f00108c00212220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000092028d060a2c48786752586179556863385a50504c3841566841377a57745064643338466a5146367070314273683873423210e80218da0722f00108e80212220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022f00108900312220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000022f00108b80312220a20000000000000000000000000000000000000000000000000000000e8d4a510001a100000000000000000000000000000000022220a2000000000000000000000000000000000000000000000000000000000000000002a220a200000000000000000000000000000000000000000000000000000000000000000a201220a200000000000000000000000000000000000000000000000000000000000000005a201220a20000000000000000000000000000000000000000000000000000000000000001fa201220a20000000000000000000000000000000000000000000000000000000000000000098028040b002da07ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba0200ba02008204ea010802109caffad60618e4b0fad60620f6affad6062a220a20000000000000000000000000000000000000000000000002000000000000000130643801422c45345a5458706e6141574b383437696778535352756a384370466a67356a437179584d336d6e4d327a6874364a2c327638486b63575965736b337855526e413455713154507078334b54667653343259596b774c4a784a6d706b522c356244486a6b55414c46724461715579717850485077667856616a4531794834446e485069734e44713567745a220a2000000000000000000000000000000000fffffffffffffffffffffffffffffff68204ea010802109caffad60618e4b0fad60620f6affad6062a220a20000000000000000000000000000000000000000000000001000000000000000030643801422c46315a573575446434585552396965716b423566687957624b3979716457483858324831474e5155376e477a4a2c47506d54597057683964746e796935366972574354584c77417072324e416d414c35364a4735654a7a666546522c3568637938776d57356a61703955553141694462357979397231596d50397362656e4d726b754672785575385a220a2000000000000000000000000000000000000000000000000000000000000000148204ba012a220a200000000000000000000000000000000000000000000000000000000000000000422031313131313131313131313131313131313131313131313131313131313131314a203131313131313131313131313131313131313131313131313131313131313131522c45457038485a6747767361517a3870794c48796e6b627264656f7939665a73416e6231544a5a6476747133315a220a2000000000000000000000000000000000000000000000000000000000000000001a1c464956455f46414d494c595f53594e5448455449435f534f55524345",
+  "snapshot_sha256": "2d7ed18591ea7b097b992b91548719e120345371ab38eeb9c561ea2b4cb85877",
+  "protobuf_sha256": "bf2fff8b3e53b5c00d0e33d9457a2e782aa5870b217a9515a07f1587e704d79d"
+}
