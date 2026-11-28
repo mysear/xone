@@ -99,6 +99,12 @@ Base Slipstream 按上一节的命令重建。`slipstream_base` 使用 `evm-cont
 
 常规报价使用 `evm-normal-v4/avalanche-getter-proof.7jbwf7xl/input.json`。按上一节执行 getter 和常规报价复验。传入预编译的 Parser 或 Router 时，请将二进制文件放在当前检出内，供报告记录路径及摘要。目标块高为 101,597,996，块 101,598,001 提交其 Coreth 状态根及 101,597,995–101,597,996 的回执根。136 次固定块 getter 通过，覆盖当前 bitmap 字内的 128 个初始化 tick。Router 返回 HTTP 200，池级输出与原池收款均为 659 个原子单位。
 
+### Avalanche LFJ v2.1 固定块报价
+
+从仓库根目录展开 `evidence/avalanche-lfj-v21-101598757.tar.gz`，SHA-256 为 `f654014552fc0a2bad187beff4fd9adc111d40423b274b3201cd427a3bf87c35`。按前述步骤准备编译器，使用 `evm-continuation-v2/avalanche-lfj-anchor.EbsiIkbo` 复验状态承诺、原池执行和 Go 回执根。目标块 101,598,757 的状态根与回执根由块 101,598,759 提交。
+
+常规报价使用 `evm-normal-v4/avalanche-lfj-proof.no6DPSRo/input.json`，运行前述 getter 和常规报价命令，后者可传入 `--timeout-seconds 150`。原运行时共执行 4,848 次 getter，双向遍历全部 1,209 个非空 bin，验证储备、份额及代币余额。此样本的预言机索引为零。Router 返回 HTTP 200，池级输出与原池收款均为 134 个原子单位。移除 `proof-005.json` 的引用时，重放检测到缺失的 MPT 存储节点。
+
 本目录是有限的真实观测集：8 链、16 个 chain/protocol、14 个经 factory 查询并读取代码的样例池，以及 3 个完整 Solana ProgramData。所有外部输入均来自无需账号、API key 的公共 HTTPS。目录中的 `version` 使用实际 runtime SHA-256；Solana 另包含解码得到的 upgrade slot。`profiles` 表示本项目代码识别的 profile，不能证明该 profile 对应当前部署源码。
 
 `manifest.json` 固定全部数据文件和本任务工具／测试的逐字节清单；默认 CLI 也检查缺失、额外文件和改动。`catalog.json` 包含逐项原始证据引用和 SHA-256，`scope.json` 固定声明范围的 chain、protocol、runtime version、地址、H/hash。缺行、重复、范围外行、错误地址或 H/hash 不能通过范围校验。`catalog-ethereum.json` / `scope-ethereum.json` 是明确较窄的 Ethereum V2 单部署验收范围，不代表整个 R01 已完成。

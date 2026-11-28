@@ -135,34 +135,86 @@ function compactTrace(calls,ledger){
  };
 }
 
+async function readLfj(pool, call, bank, storageReads) {
+ const selector = name => ethers.utils.id(name).slice(0,10);
+ const get = (name, ...args) => call(pool, selector(name) + args.map(value => word(value).slice(2)).join(''));
+ const read = async slot => {
+  const proof = await bank.storage(pool, '0x' + slot.toString(16));
+  storageReads.push({address:pool, key:proof.key, value:proof.value});
+  return BigInt(proof.value);
+ };
+ const tokens = [];
+ for (const getter of ['getTokenX()', 'getTokenY()']) tokens.push('0x' + (await get(getter)).slice(-40));
+ for (const getter of ['getFactory()', 'getBinStep()', 'getActiveId()', 'getStaticFeeParameters()',
+                       'getVariableFeeParameters()', 'getReserves()', 'getProtocolFees()']) await get(getter);
+ assert.equal(await read(3), 1n, 'READONLY_LFJ_LOCKED');
+ const parameters = await read(4);
+ await read(5);
+ await read(6);
+ for (const token of tokens) await call(token, selector('balanceOf(address)') + word(pool).slice(2));
+ let cursor = 0n;
+ for (let count = 0; ; count++) {
+  const next = BigInt(await get('getNextNonEmptyBin(bool,uint24)', 0, cursor));
+  if (next === 0n) break;
+  assert(count < 4096 && next > cursor && next < 0xffffffn, 'READONLY_LFJ_BIN_ORDER_OR_BUDGET');
+  const previous = BigInt(await get('getNextNonEmptyBin(bool,uint24)', 1, next));
+  assert(previous === cursor || (cursor === 0n && previous === 0xffffffn), 'READONLY_LFJ_BIN_REVERSE_LINK');
+  await get('getBin(uint24)', next);
+  await get('totalSupply(uint256)', next);
+  cursor = next;
+ }
+ const oracle = Number((parameters >> 216n) & 0xffffn);
+ if (oracle) {
+  const sample = await read(10 + oracle);
+  const length = Number(sample & 0xffffn);
+  assert(length > 0, 'READONLY_LFJ_ORACLE_LENGTH');
+  const next = oracle % length + 1;
+  if (next !== oracle) await read(10 + next);
+ }
+}
+
 async function probe(inputFile,out){
  const input=load(inputFile),row=input.row;
  const cases=['base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3',
               'optimism-velodrome-v2','polygon-uniswap-v3','arbitrum-uniswap-v3','bsc-pancake-v2','avalanche-uniswap-v3'];
- assert(cases.includes(row.id)&&row.id===row.chain+'-'+row.protocol,'BOUNDED_GETTER_SCOPE');
+ const isLfj = row.id === 'avalanche-lfj-v21' && row.chain === 'avalanche' && row.protocol === 'lfj-liquidity-book';
+ assert(isLfj || (cases.includes(row.id)&&row.id===row.chain+'-'+row.protocol),'BOUNDED_GETTER_SCOPE');
  for(const r of Object.values(row.inputs))if(r&&typeof r==='object'&&r.path&&r.sha256)readRef(r);
  const bank=await loadBank(path.join(ROOT,row.directory),(input.supplements||[]).map(r=>{readRef(r);return path.join(ROOT,r.path);}));assert.equal(bank.validation.height,row.anchor.height,'READONLY_ROW_H');assert.equal(bank.evidence.block.hash,row.anchor.hash,'READONLY_ROW_HASH');assert.equal(bank.evidence.chain_id,String(row.chain_id),'READONLY_ROW_CHAIN');assert.equal(sha(bytes(bank.accounts.get(row.pool).code)),row.pool_runtime_sha256,'READONLY_ROW_RUNTIME');assert(bank.accounts.has(row.factory)&&sha(bytes(bank.accounts.get(row.factory).code))===row.factory_runtime_sha256,'READONLY_ROW_FACTORY_RUNTIME');
- if(row.implementation_address){const m=/^0x363d3d373d3d3d363d73([0-9a-f]{40})5af43d82803e903d91602b57fd5bf3$/.exec(bank.accounts.get(row.pool).code);assert(m&&'0x'+m[1]===row.implementation_address,'READONLY_PROXY_TARGET');assert(bank.accounts.has(row.implementation_address)&&sha(bytes(bank.accounts.get(row.implementation_address).code))===row.implementation_runtime_sha256,'READONLY_ROW_IMPLEMENTATION_RUNTIME');}
- const vm=await runtime(bank),calls=[];let failure,admissionRejection;
+ if (row.implementation_address || isLfj) {
+  const clone = isLfj
+   ? /^0x363d3d373d3d3d3d61002c806035363936013d73([0-9a-f]{40})5af43d3d93803e603357fd5bf3[0-9a-f]{84}002c$/
+   : /^0x363d3d373d3d3d363d73([0-9a-f]{40})5af43d82803e903d91602b57fd5bf3$/;
+  const match = clone.exec(bank.accounts.get(row.pool).code);
+  assert(match && '0x'+match[1] === row.implementation_address,'READONLY_PROXY_TARGET');
+  const implementation = bank.accounts.get(row.implementation_address);
+  assert(implementation && sha(bytes(implementation.code)) === row.implementation_runtime_sha256,'READONLY_ROW_IMPLEMENTATION_RUNTIME');
+ }
+ const vm=await runtime(bank),calls=[],storageReads=[];let failure,admissionRejection;
  const call=async(a,d)=>{const r=await vm.view(a,d);calls.push(r);if(r.error)throw Error(r.error);return r.value;};
  try{
-  const pool=row.pool;
-  for(const d of ['0x0dfe1681','0xd21220a7','0xc45a0155'])await call(pool,d);
-  if(row.protocol==='pancake-v2'){
-   await call(pool,'0x0902f1ac');
-  }else if(row.protocol==='aerodrome-v2'||row.protocol==='velodrome-v2'){
-   const meta=await call(pool,'0x392f37e9'),stable=BigInt('0x'+meta.slice(2+4*64,2+5*64));await call(row.factory,'0xb187bd26');await call(row.factory,'0xcc56b2c5'+pool.slice(2).padStart(64,'0')+stable.toString(16).padStart(64,'0'));
-  }else{
-   for(const d of ['0xddca3f43','0xd0c93a7c','0x3850c7bd','0x1a686502'])await call(pool,d);
-   if(row.protocol==='aerodrome-slipstream'){const swap=await call(row.factory,'0x23c43a51'),unstaked=await call(row.factory,'0x7693bc11');if(BigInt(swap)!==0n||BigInt(unstaked)!==0n)throw Object.assign(Error('SLIPSTREAM_FEE_MODULE_UNSUPPORTED'),{admission:true});}
-   const get=d=>calls.find(c=>c.to===pool&&c.data===d).value;
-   const space=Number(BigInt(get('0xd0c93a7c'))),slot0=get('0x3850c7bd');let tick=BigInt('0x'+slot0.slice(66,130));if(tick>>255n)tick-=1n<<256n;
-   const center=Math.floor(Math.floor(Number(tick)/space)/256),arg=n=>(BigInt(n)+(n<0?1n<<256n:0n)).toString(16).padStart(64,'0');
-   const bitmap=BigInt(await call(pool,'0x5339c296'+arg(center)));
-   for(let bit=0;bit<256;bit++)if(bitmap>>BigInt(bit)&1n)await call(pool,'0xf30dba93'+arg((center*256+bit)*space));
+  if (isLfj) {
+   await readLfj(row.pool,call,bank,storageReads);
+  } else {
+   const pool=row.pool;
+   for(const d of ['0x0dfe1681','0xd21220a7','0xc45a0155'])await call(pool,d);
+   if(row.protocol==='pancake-v2'){
+    await call(pool,'0x0902f1ac');
+   }else if(row.protocol==='aerodrome-v2'||row.protocol==='velodrome-v2'){
+    const meta=await call(pool,'0x392f37e9'),stable=BigInt('0x'+meta.slice(2+4*64,2+5*64));await call(row.factory,'0xb187bd26');await call(row.factory,'0xcc56b2c5'+pool.slice(2).padStart(64,'0')+stable.toString(16).padStart(64,'0'));
+   }else{
+    for(const d of ['0xddca3f43','0xd0c93a7c','0x3850c7bd','0x1a686502'])await call(pool,d);
+    if(row.protocol==='aerodrome-slipstream'){const swap=await call(row.factory,'0x23c43a51'),unstaked=await call(row.factory,'0x7693bc11');if(BigInt(swap)!==0n||BigInt(unstaked)!==0n)throw Object.assign(Error('SLIPSTREAM_FEE_MODULE_UNSUPPORTED'),{admission:true});}
+    const get=d=>calls.find(c=>c.to===pool&&c.data===d).value;
+    const space=Number(BigInt(get('0xd0c93a7c'))),slot0=get('0x3850c7bd');let tick=BigInt('0x'+slot0.slice(66,130));if(tick>>255n)tick-=1n<<256n;
+    const center=Math.floor(Math.floor(Number(tick)/space)/256),arg=n=>(BigInt(n)+(n<0?1n<<256n:0n)).toString(16).padStart(64,'0');
+    const bitmap=BigInt(await call(pool,'0x5339c296'+arg(center)));
+    for(let bit=0;bit<256;bit++)if(bitmap>>BigInt(bit)&1n)await call(pool,'0xf30dba93'+arg((center*256+bit)*space));
+   }
   }
  }catch(e){if(e.admission)admissionRejection=e.message;else failure=e.message;}finally{await vm.close();}
  const result={schema_version:4,trace_format:'deduplicated-code-ledger/v1',id:row.id,anchor:row.anchor,input:ref(path.resolve(inputFile)),source_prestate:ref(path.join(bank.directory,fs.existsSync(path.join(bank.directory,'prestate-evidence-v2.json'))?'prestate-evidence-v2.json':'prestate-evidence.json')),passed:!failure,error:failure??null,normal_admission_rejection:admissionRejection??null,calls,authenticated_reads:bank.ledger,missing:bank.misses,public_network_requests:0,public_writes:0,local_hardfork:'shanghai',caller:load(path.join(bank.directory,'fork-execution.json')).sender,caller_policy:'existing public EOA, authenticated original balance/nonce; local eth_call only; no original state override',normal_parser_typed_baseline_injected:false};
+ if(isLfj)result.storage_reads=storageReads;
  if(input.trace_format==='indexed-proof-ledger/v2')Object.assign(result,compactTrace(calls,bank.ledger));
  fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({id:row.id,passed:result.passed,calls:calls.length,error:result.error,missing:result.missing},null,2));return result;
 }

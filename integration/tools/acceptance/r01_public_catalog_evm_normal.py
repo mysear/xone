@@ -16,7 +16,7 @@ from r01_public_catalog_capture import reference,write_new
 from r01_public_catalog_evm_process import normal_profile,words,call_key,captured_calls,FixedRPC,run as normal_run
 BASE=ROOT/'integration/test/source/deployment-catalog/evm-normal-v4'
 IDS={'base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3','polygon-uniswap-v3','arbitrum-uniswap-v3'}
-GETTER_IDS=IDS|{'optimism-velodrome-v2','bsc-pancake-v2','avalanche-uniswap-v3'}
+GETTER_IDS=IDS|{'optimism-velodrome-v2','bsc-pancake-v2','avalanche-uniswap-v3','avalanche-lfj-v21'}
 
 def validate_probe(probe):
     require(probe['passed'] is True and not probe['missing'] and probe['calls'],'NORMAL_GETTER_PROOF_INCOMPLETE')
@@ -27,6 +27,25 @@ def validate_probe(probe):
 def pool_config(row,probe):
     pool=row['pool'];successful=[c for c in probe['calls'] if c['error'] is None];require(successful and all(c['all_code_and_storage_MPT_bound'] and c['steps']>0 for c in successful),'NORMAL_CONFIG_GETTERS_UNPROVEN');calls={call_key(c['to'],c['data']):c['value'] for c in successful}
     def value(a,d):return calls[call_key(a,d)]
+    if row['protocol'] == 'lfj-liquidity-book':
+        token0 = '0x' + value(pool, '0x05e8746d')[-40:]
+        token1 = '0x' + value(pool, '0xda10610c')[-40:]
+        require('0x' + value(pool, '0x88cc58e4')[-40:] == row['factory'], 'NORMAL_LFJ_FACTORY')
+        return {
+            'id':pool, 'protocol':'lfj-lb-v21', 'token0':token0, 'token1':token1,
+            'program_id':'', 'accounts':[], 'fee_numerator':0, 'fee_denominator':10**18,
+            'lfj':{
+                'expected_code_sha256':row['pool_runtime_sha256'],
+                'expected_implementation':row['implementation_address'],
+                'expected_implementation_code_sha256':row['implementation_runtime_sha256'],
+                'expected_factory':row['factory'],
+                'expected_factory_code_sha256':row['factory_runtime_sha256'],
+                'expected_token0_code_sha256':row['token_runtime_sha256'][token0],
+                'expected_token1_code_sha256':row['token_runtime_sha256'][token1],
+                'bin_step':words(value(pool, '0x17f11ecc'))[0],
+                'token_policy':'standard', 'max_bins':4096, 'max_steps':8192,
+            },
+        }
     token0='0x'+value(pool,'0x0dfe1681')[-40:];token1='0x'+value(pool,'0xd21220a7')[-40:]
     cfg={'id':pool,'protocol':normal_profile(row['protocol']),'token0':token0,'token1':token1,'program_id':'','accounts':[]};identity={'expected_factory':row['factory'],'expected_code_sha256':row['pool_runtime_sha256']}
     if row['protocol']=='pancake-v2':
@@ -61,13 +80,18 @@ def prepare(directory,probe_path,permit_getter_rejection=False):
     cfg=pool_config(row,probe);require(set([cfg['token0'],cfg['token1']])==set([case['token_in'],case['token_out']]),'NORMAL_REFERENCE_TOKENS')
     raw={'schema_version':4,'source_kind':'derived-original-runtime-getter-execution-from-MPT-state; not public eth_call wire','getter_execution':reference(probe_path),'requests':[{'jsonrpc':'2.0','id':i+1,'method':'eth_call','params':[{'to':c['to'],'data':c['data']},hex(row['anchor']['height'])]} for i,c in enumerate(probe['calls'])],'response':[{'jsonrpc':'2.0','id':i+1,**({'error':{'code':-32099,'message':c['error']}} if c['error'] else {'result':c['value']})} for i,c in enumerate(probe['calls'])],'original_state_overrides':{'balance':[],'code':[],'storage':[]},'caller':probe['caller'],'caller_policy':probe['caller_policy'],'public_network_requests':0,'authority':'executed original code, every code hash/account/storage read authenticated; environment explicit'}
     batch=directory/'getter-derived-rpc.json';write_new(batch,(json.dumps(raw,indent=2)+'\n').encode())
-    capture={'schema_version':4,'catalog_row':row,'original_execution':row['inputs']['execution'],'profile':cfg['protocol'],'pool_config':cfg,'public_batches':[reference(batch)],'call_count':len({call_key(c['to'],c['data']) for c in probe['calls'] if c['error'] is None}),'additional_eth_call_results_MPT_proven':not permit_getter_rejection,'getter_execution':reference(probe_path),'tick_window_policy':'one complete current bitmap word; every initialized tick in that word, no inferred zero liquidity outside window','normal_parser_typed_baseline_injected':False,'qualification_authority':'must rerun getter original VM and normal binaries; saved flags alone do not qualify'}
+    capture={'schema_version':4,'catalog_row':row,'original_execution':row['inputs']['execution'],'profile':cfg['protocol'],'pool_config':cfg,'public_batches':[reference(batch)],'call_count':len({call_key(c['to'],c['data']) for c in probe['calls'] if c['error'] is None}),'additional_eth_call_results_MPT_proven':not permit_getter_rejection,'getter_execution':reference(probe_path),'normal_parser_typed_baseline_injected':False,'qualification_authority':'must rerun getter original VM and normal binaries; saved flags alone do not qualify'}
+    if cfg['protocol'] == 'lfj-lb-v21':
+        capture['bin_traversal_policy'] = 'all nonempty bins in both traversal directions, with original reserve and share getters'
+    else:
+        capture['tick_window_policy'] = 'one complete current bitmap word; every initialized tick in that word, no inferred zero liquidity outside window'
     write_new(directory/'capture.json',(json.dumps(capture,indent=2)+'\n').encode());return capture
 
 class StageFixedRPC(FixedRPC):
-    def __init__(self,source,calls,refs,directory):
+    def __init__(self,source,calls,refs,directory,validated_storage):
         super().__init__(source,calls,refs);self.extra_receipts={};self.failure_calls={}
         capture=load_json(directory/'capture.json');probe=json.loads(read_blob(ROOT,capture['getter_execution']));self.failure_calls={call_key(c['to'],c['data']):c['error'] for c in probe['calls'] if c['error']}
+        self.storage = {(r['address'], int(r['key'], 16)):r['value'] for r in validated_storage}
         for path in sorted(directory.glob('normal-auxiliary-header-*.json')):
             wire=load_json(path);block=wire.get('response',{}).get('result')
             if not block:continue
@@ -80,6 +104,12 @@ class StageFixedRPC(FixedRPC):
             if not receipt:continue
             require(wire['method']=='eth_getTransactionReceipt' and wire['params']==[receipt['transactionHash']],'NORMAL_STAGE_AUX_RECEIPT_WIRE');header=self.auxiliary_headers.get(receipt['blockNumber']);require(header and header['hash']==receipt['blockHash'] and receipt['transactionHash'] in header['transactions'],'NORMAL_STAGE_AUX_RECEIPT_BLOCK');self.extra_receipts[receipt['transactionHash']]=receipt
     def dispatch(self,method,params):
+        if method == 'eth_getStorageAt':
+            address, slot, anchor = params
+            self.check_anchor(anchor)
+            key = (address.lower(), int(slot, 16))
+            require(key in self.storage, 'NORMAL_UNPROVEN_STORAGE')
+            return self.storage[key]
         if method=='eth_call':
             self.check_anchor(params[1]);failure=self.failure_calls.get(call_key(params[0]['to'],params[0]['data']))
             if failure:raise ValueError(failure)
@@ -92,9 +122,10 @@ def execute(directory,probe_path,output,parser_bin=None,router_bin=None,permit_g
     capture=prepare(directory,probe_path,permit_getter_rejection) if not (directory/'capture.json').exists() else load_json(directory/'capture.json');probe=load_json(probe_path);(validate_rejection if permit_getter_rejection else validate_probe)(probe);require(capture['getter_execution']==reference(probe_path),'NORMAL_GETTER_CACHE_BINDING')
     # Re-execute getters into a new local artifact before trusting the normal cache.
     checked=output.parent/(output.name+'-getter-recheck.json');command=['node',str(ROOT/'integration/tools/acceptance/r01_public_catalog_evm_readonly.cjs'),str(ROOT/probe['input']['path']),str(checked)];p=subprocess.run(command,capture_output=True,text=True,timeout=180);write_new(output.parent/(output.name+'-getter-recheck.log'),(p.stdout+p.stderr).encode());require(p.returncode==0,'NORMAL_GETTER_REEXECUTION_FAILED');actual=load_json(checked);(validate_rejection if permit_getter_rejection else validate_probe)(actual)
-    require(actual['calls']==probe['calls'] and actual['anchor']==probe['anchor'],'NORMAL_GETTER_REPLAY_BYTES_CHANGED');validate_cache(capture,actual)
+    storage = actual.get('storage_reads', [])
+    require(actual['calls']==probe['calls'] and actual['anchor']==probe['anchor'] and storage==probe.get('storage_reads', []),'NORMAL_GETTER_REPLAY_BYTES_CHANGED');validate_cache(capture,actual)
     row=capture['catalog_row'];original=json.loads(read_blob(ROOT,capture['original_execution']));case=next(c for c in original['cases'] if c['catalog_deployment_id']==row['id']);wall_ms=int(time.time()*1000);header_ms=original['anchor']['timestamp']*1000;require(header_ms<=wall_ms+30000,'NORMAL_FUTURE_ORIGINAL_HEADER');freshness=max(60000,wall_ms-header_ms+120000)
-    result=normal_run(directory,output,timeout_seconds,parser_bin,router_bin,rpc_factory=lambda source,calls,refs:StageFixedRPC(source,calls,refs,directory),freshness_ms=freshness);q=result.get('quote',{}).get('body',{})
+    result=normal_run(directory,output,timeout_seconds,parser_bin,router_bin,rpc_factory=lambda source,calls,refs:StageFixedRPC(source,calls,refs,directory,storage),freshness_ms=freshness);q=result.get('quote',{}).get('body',{})
     gross=q.get('grossBuyAmount');quoted=result['normal_parser_router_quote_observed'];delta=int(case['recipient_after'])-int(case['recipient_before']);exact=not permit_getter_rejection and quoted and int(gross)==delta==int(case['actual_net_recipient'])
     request=result.get('quote_request',{});require(not quoted or (request['sellAmount']==case['amount_in'] and request['sellToken']==case['token_in'] and request['buyToken']==case['token_out']),'NORMAL_EXACT_INPUT_REFERENCE_BINDING')
     rejection = probe.get('normal_admission_rejection')

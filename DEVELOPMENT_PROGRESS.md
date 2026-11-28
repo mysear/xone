@@ -498,6 +498,7 @@
 - BSC 在 136,158,531 用公共 RPC 批量采集完整区块和 17 个账户的证明，独立核对 40 个存储槽和两项原池执行使用的 93 次预状态读取。独立来源的 finalized 高度 136,158,554 随后确认原块哈希和状态根，Go 核对同块 99 笔回执。Pancake V2 和 V3 离线重放分别收到 55,371,283,985,433,316 和 55,378,869,052,922,774 原子单位，网络请求为零。接下来继续原合约 getter 与常规 Parser/Router 差分。
 - BSC Pancake V2 在 136,159,243 补齐代币、工厂及储备 getter 使用的槽，四次原合约只读执行通过 MPT 核验。常规 Go Parser 与 Rust Router 返回 HTTP 200，报价与原池收款均为 55,361,279,474,212,605 原子单位，回放无未记录 RPC 请求。链费模型和生产执行资格仍待验收。
 - Avalanche LFJ v2.1 在 101,588,444 的原池 clone 固定指向 `0xee5a90098b270596ec35d637b30d908c862c86df`，同高度工厂 getter 返回 `0x3e30fdae04c08fc20fa2fe0cf55c95d99a9c2d8f`。分别核对两套 runtime 及池中的 token X、token Y 和 bin step。负对照拒绝错误 clone 地址、变更的工厂实现摘要和缺失的代币 getter。
+- Avalanche LFJ v2.1 在 finalized 高度 101,598,757 验证全部 1,209 个非空 bin，固定状态重放 4,848 次 getter。常规 Go Parser 与 Rust Router 返回 HTTP 200，报价与原池收款均为 134 原子单位，无未记录 RPC 请求。移除一组 bin 证明后，重放因缺节点而拒绝。Go 复核 101,598,759 后继头提交的目标回执根。[复验证据](integration/test/source/deployment-catalog/README.md#avalanche-lfj-v21-固定块报价)。该真实样本的预言机索引为零，精确部署源码、链费模型和生产执行资格仍待验收。
 - 依次补齐 11 个部署的原始 runtime、升级语义、固定高度证明、原版执行和常规 Parser/Router 收款差分。区块回执及 Avalanche 目标高度的后继结算头继续独立核验。 [六链固定块复验命令](integration/test/source/deployment-catalog/README.md#fresh-evm-anchors)
 
 #### 当前迭代目标（R03 基础设施闭环，2026-11-27）
