@@ -30,6 +30,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use futures_util::{stream, StreamExt};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -939,8 +940,17 @@ impl Api {
         }
     }
     async fn restore_owner_sources(&self, chain: &str) -> bool {
-        for source in &self.config.config.journal.source_urls {
-            match self.restore_kafka(source, chain).await {
+        const MAX_IN_FLIGHT_OWNERS: usize = 4;
+        // Poll attempts in this task so the losing futures cannot publish after a winner.
+        let mut attempts = stream::iter(self.config.config.journal.source_urls.clone())
+            .map(|source| {
+                let api = self.clone();
+                let chain = chain.to_owned();
+                async move { api.restore_kafka(&source, &chain).await }
+            })
+            .buffer_unordered(MAX_IN_FLIGHT_OWNERS);
+        while let Some(attempt) = attempts.next().await {
+            match attempt {
                 Ok(()) => return true,
                 Err(e) => self.logger.event(
                     "debug",

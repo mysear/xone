@@ -3917,6 +3917,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "bs58",
+ "futures-util",
  "hex",
  "libc",
  "num-traits",

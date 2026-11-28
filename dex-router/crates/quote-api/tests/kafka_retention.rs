@@ -207,10 +207,16 @@ async fn cold_router_recovers_from_authenticated_peer_and_kafka_with_owner_offli
         .journal
         .source_auth_tokens
         .insert(stalled_url.clone(), cfg.token.clone());
-    let cold_with_owner = Api::new(cfg.clone()).unwrap();
+    let mut owner_failover_cfg = cfg.clone();
+    owner_failover_cfg
+        .config
+        .journal
+        .source_urls
+        .insert(0, stalled_url.clone());
+    let cold_with_owner = Api::new(owner_failover_cfg).unwrap();
     tokio::time::timeout(TIMEOUT, cold_with_owner.sync_sources())
         .await
-        .expect("a stalled peer delayed recovery from the healthy owner");
+        .expect("a stalled owner or peer delayed recovery from the healthy owner");
     assert_eq!(
         cold_with_owner.replica.view(CHAIN).unwrap().reference,
         committed.snapshot.reference

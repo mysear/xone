@@ -29,6 +29,7 @@ alloy-primitives = { version = "=1.7.3", default-features = false }
 alloy-trie = { version = "=0.9.7", default-features = false, features = ["ethereum"] }
 bs58 = "=0.5.1"
 tower-http = { version = "0.6.11", features = ["cors"] }
+futures-util = { version = "=0.3.34", default-features = false, features = ["alloc"] }
 
 xone-kafka-transport = { path = "../kafka-transport" }
 
