@@ -49,6 +49,9 @@ def evaluate(required,entries,replay_directory=None,parser_bin=None,router_bin=N
             if quote.get('status')==200:
                 require(not reject,'NORMAL_UNPROVEN_GETTER_QUOTE');require(normal['parser_baseline']['status']==200,'NORMAL_PARSER_BASELINE_REQUIRED');request=normal['quote_request'];require(request['sellAmount']==amount and request['sellToken']==case['token_in'] and request['buyToken']==case['token_out'],'NORMAL_AMOUNT_INPUT_REFERENCE');ref=q['snapshotRef']['block'];require(ref['number_or_slot']==row['anchor']['height'] and ref['hash']==row['anchor']['hash'] and q['quality']['candidateScope']==[row['pool']],'NORMAL_QUOTE_SOURCE_SCOPE');positive=int(q['grossBuyAmount'])==delta
                 if not positive:reason='NORMAL_GROSS_RECIPIENT_DELTA_MISMATCH'
+                elif normal['unrecorded_rpc_requests'] or normal.get('error'):
+                    positive=False
+                    reason='NORMAL_REPLAY_UNRECORDED_RPC' if normal['unrecorded_rpc_requests'] else 'NORMAL_CONSUMER_FAILURE_REQUIRES_REVIEW'
             elif reject:
                 require(any(r['method']=='eth_call' and r.get('error') and 'READONLY_MPT_STORAGE_MISSING' in r['error']['message'] for r in normal['rpc_trace']),'NORMAL_REAL_GETTER_REJECTION_REQUIRED');reason='FIXED_H_ADDITIONAL_GETTER_MPT_UNAVAILABLE'
             elif probe.get('normal_admission_rejection'):

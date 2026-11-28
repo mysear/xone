@@ -69,7 +69,10 @@ class StageFixedRPC(FixedRPC):
         for path in sorted(directory.glob('normal-auxiliary-header-*.json')):
             wire=load_json(path);block=wire.get('response',{}).get('result')
             if not block:continue
-            require(wire['method']=='eth_getBlockByNumber' and wire['params']==[block['number'],False],'NORMAL_STAGE_AUX_HEADER_WIRE');require(block['number'] not in ['0x0',hex(self.height)],'NORMAL_STAGE_AUX_REPLACEMENT');self.auxiliary_headers[block['number']]=block
+            require(wire['method']=='eth_getBlockByNumber' and wire['params']==[block['number'],False],'NORMAL_STAGE_AUX_HEADER_WIRE');require(block['number'] not in ['0x0',hex(self.height)],'NORMAL_STAGE_AUX_REPLACEMENT')
+            if block['number'] == '0x1':
+                require(block['parentHash'] == self.genesis['hash'], 'NORMAL_STAGE_FIRST_BLOCK_GENESIS')
+            self.auxiliary_headers[block['number']]=block
         for path in sorted(directory.glob('normal-auxiliary-receipt-*.json')):
             wire=load_json(path);receipt=wire.get('response',{}).get('result')
             if not receipt:continue
@@ -92,7 +95,19 @@ def execute(directory,probe_path,output,parser_bin=None,router_bin=None,permit_g
     result=normal_run(directory,output,timeout_seconds,parser_bin,router_bin,rpc_factory=lambda source,calls,refs:StageFixedRPC(source,calls,refs,directory),freshness_ms=freshness);q=result.get('quote',{}).get('body',{})
     gross=q.get('grossBuyAmount');quoted=result['normal_parser_router_quote_observed'];delta=int(case['recipient_after'])-int(case['recipient_before']);exact=not permit_getter_rejection and quoted and int(gross)==delta==int(case['actual_net_recipient'])
     request=result.get('quote_request',{});require(not quoted or (request['sellAmount']==case['amount_in'] and request['sellToken']==case['token_in'] and request['buyToken']==case['token_out']),'NORMAL_EXACT_INPUT_REFERENCE_BINDING')
-    bound={'schema_version':4,'id':row['id'],'anchor':row['anchor'],'normal_process_report':reference(output/'report.json'),'test_process_startup_timeout_seconds':timeout_seconds,'getter_execution':reference(probe_path),'actual_getter_reexecution':reference(checked),'original_VM_reference':capture['original_execution'],'normal_quote_observed':quoted,'additional_getter_code_account_storage_MPT_bound':not permit_getter_rejection,'recorded_getter_rejection':probe['error'] if permit_getter_rejection else None,'gross_matches_original_VM_token_delta':bool(exact),'quantities':{'amount_in':case['amount_in'],'router_pool_gross':gross,'reference_recipient_token_delta':str(delta),'reference_token_out':case['token_out'],'after_chain_fees':{'available':False,'compared_with_token_delta':False,'router_estimate':q.get('netBuyAmountEstimate'),'reason':q.get('costs',{}).get('unavailableReason','native chain fees and production execution not established')}},'normal_parser_typed_baseline_injected':False,'normal_journal':'http-development','offline_freshness_policy':{'test_wall_clock_ms':wall_ms,'original_header_timestamp_ms':header_ms,'startup_and_router_max_age_ms':freshness,'age_slack_ms':120000,'original_header_timestamp_rewritten':False,'production_freshness_claimed':False},'public_writes':0,'normal_replay_public_network_requests':0,'production_Router_build_execution_verified':False,'native_SPEC3_claimed':False,'full_R01_qualified':False,'status':'QUALIFIED_FINITE_NORMAL_REFERENCE_DIFFERENTIAL' if exact else 'NOT_QUALIFIED','remaining':[] if exact else ['normal process rejected or amount mismatch; inspect original logs and RPC trace']}
+    rejection = probe.get('normal_admission_rejection')
+    if rejection and rejection not in result.get('normal_process_errors', {}).get('parser', ''):
+        rejection = None
+    missing_rpc = bool(result['unrecorded_rpc_requests']) and not permit_getter_rejection
+    qualified = exact and not missing_rpc and not result.get('error')
+    remaining = []
+    if missing_rpc:
+        remaining.append('NORMAL_REPLAY_UNRECORDED_RPC')
+    elif rejection:
+        remaining.append(rejection)
+    elif not qualified:
+        remaining.append(result.get('error') or 'NORMAL_PROCESS_REJECTED_OR_AMOUNT_MISMATCH')
+    bound={'schema_version':4,'id':row['id'],'anchor':row['anchor'],'normal_process_report':reference(output/'report.json'),'test_process_startup_timeout_seconds':timeout_seconds,'getter_execution':reference(probe_path),'actual_getter_reexecution':reference(checked),'original_VM_reference':capture['original_execution'],'normal_quote_observed':quoted,'additional_getter_code_account_storage_MPT_bound':not permit_getter_rejection,'recorded_getter_rejection':probe['error'] if permit_getter_rejection else None,'gross_matches_original_VM_token_delta':bool(exact),'quantities':{'amount_in':case['amount_in'],'router_pool_gross':gross,'reference_recipient_token_delta':str(delta),'reference_token_out':case['token_out'],'after_chain_fees':{'available':False,'compared_with_token_delta':False,'router_estimate':q.get('netBuyAmountEstimate'),'reason':q.get('costs',{}).get('unavailableReason','native chain fees and production execution not established')}},'normal_parser_typed_baseline_injected':False,'normal_journal':'http-development','offline_freshness_policy':{'test_wall_clock_ms':wall_ms,'original_header_timestamp_ms':header_ms,'startup_and_router_max_age_ms':freshness,'age_slack_ms':120000,'original_header_timestamp_rewritten':False,'production_freshness_claimed':False},'public_writes':0,'normal_replay_public_network_requests':0,'production_Router_build_execution_verified':False,'native_SPEC3_claimed':False,'full_R01_qualified':False,'status':'QUALIFIED_FINITE_NORMAL_REFERENCE_DIFFERENTIAL' if qualified else 'NOT_QUALIFIED','remaining':remaining}
     write_new(output/'bound-report.json',(json.dumps(bound,indent=2)+'\n').encode());print(json.dumps(bound,indent=2));return bound
 
 def main():
