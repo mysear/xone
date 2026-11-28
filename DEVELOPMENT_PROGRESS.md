@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 已恢复 Raydium CLMM 位图、种子、代币费和动态费四组原程序报价向量与所需账户夹具。动态费覆盖 348 个报价用例和 376 次 CLI 回放。Go race、两套 Rust Kafka 分片回归、Rust Parser 的 165 项摄取测试及 Router 的 11 项差分测试通过。LFJ Liquidity Book V2.1 恢复固定版本源码、96 个原合约案例、两组交易序列和四个 wire 向量，Go、两套 Rust 和 Router 专项通过。
 - 恢复 Orca adaptive rewards 的两池 20 个原程序账户状态、完整 wire 和连续报价向量。Go race、两套 Rust 领域和配置、Solana finalized bank、Router 数学与共享池差分通过。Python 普通和优化模式共 14 项测试，原程序证据门禁覆盖 34 项拒绝用例。Velodrome V2 恢复 216 个原合约报价用例、8 组连续交易及 Router 所需源码副本，Go 定向回归与 Router 差分通过。
 - 恢复 Solana 合成基线、Raydium CPMM、Orca 和 Raydium CLMM 基础版的原程序报价向量和 Protobuf 分片。继续恢复 CLMM 位图、种子、代币费和动态费分片，动态费负例现直接覆盖累加值超过配置上限以及上限与 tick 间距的乘积溢出。恢复 Weighted 等权与静态权重参考报价和分片，等权分片按当前 EVM 测试基线与去重后的 adapter 集合重生成，原等权报价和池状态保留既有校验摘要。 [基线生成器](integration/tools/ci/solana-baseline-golden.py)
 - 本机正常 Go Parser 和 Router 可回放七条 EVM 链的 11 个历史池。Base 发布 Uniswap V3、Aerodrome V2 和 Slipstream。浏览器实测空地址 ExactIn 和 ExactOut，回放实例给出的跳数上限为 3。生产来源的实时发现和市场范围继续验收。
