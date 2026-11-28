@@ -30,7 +30,7 @@
         <label>链<select id="chainKey" required></select></label>
         <div class="row"><label>卖出币种<select id="sellToken" required></select></label><button id="flipButton" type="button" class="icon">⇄</button><label>买入币种<select id="buyToken" required></select></label></div>
         <label>报价类型<select id="quoteKind"><option value="EXACT_IN">ExactIn：输入固定</option><option value="EXACT_OUT">ExactOut：输出固定</option></select></label>
-        <label id="amountLabel"><span id="amountText">卖出数量（最小单位整数）</span><input id="amount" inputmode="decimal" value="1000" required /></label>
+        <label id="amountLabel"><span id="amountText">卖出数量（最小单位整数）</span><input id="amount" inputmode="decimal" required /></label>
         <label id="maxSellLabel" class="hidden">最大卖出数量<input id="maxSell" inputmode="decimal" value="1000000000000000" /></label>
         <div class="row"><label>最大跳数<input id="maxHops" type="number" min="1" max="8" value="3" /></label><label>滑点（bps）<input id="slippageBps" type="number" min="0" max="10000" value="50" /></label></div>
         <button id="calculateButton" class="primary" type="submit">计算兑换量</button>

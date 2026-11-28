@@ -22,6 +22,7 @@ try{
  browser=await chromium.launch({headless:true,channel:process.env.XONE_CHROME_CHANNEL||'chrome'});page=await browser.newPage({viewport:{width:1360,height:1100},locale:'zh-CN'});
  await page.goto(`${origin}/?api=${encodeURIComponent(info.api)}`);await page.uncheck('#autoQuote');await page.uncheck('#autoRefresh');await page.fill('#apiToken',info.token);await page.locator('#apiToken').dispatchEvent('change');
  await page.waitForFunction(()=>Array.from(document.querySelector('#chainKey').options).some(o=>o.value==='evm:31337'));
+ assert.equal(await page.locator('#amount').inputValue(),'');
  await page.selectOption('#chainKey','evm:31337');await page.selectOption('#sellToken',info.request.sellToken);await page.selectOption('#buyToken',info.request.buyToken);
  const maxHops=page.locator('#maxHops');
  assert(Number(await maxHops.getAttribute('max'))>=2);
