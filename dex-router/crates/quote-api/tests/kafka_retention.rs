@@ -189,6 +189,33 @@ async fn cold_router_recovers_from_authenticated_peer_and_kafka_with_owner_offli
         peer.replica.view(CHAIN).unwrap().reference,
         committed.snapshot.reference
     );
+    let path = format!("/internal/chains/{CHAIN}/peer-checkpoint");
+    let stalled_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let stalled_url = format!("http://{}", stalled_listener.local_addr().unwrap());
+    let stalled_app = Router::new()
+        .route(&path, routing::get(|| std::future::pending::<StatusCode>()))
+        .route(
+            "/internal/chains/evm:31337/bootstrap",
+            routing::get(|| std::future::pending::<StatusCode>()),
+        );
+    let stalled_task = tokio::spawn(async move {
+        axum::serve(stalled_listener, stalled_app).await.unwrap();
+    });
+    cfg.config.journal.request_timeout_ms = 15_000;
+    cfg.config.journal.checkpoint_peer_urls = vec![stalled_url.clone()];
+    cfg.config
+        .journal
+        .source_auth_tokens
+        .insert(stalled_url.clone(), cfg.token.clone());
+    let cold_with_owner = Api::new(cfg.clone()).unwrap();
+    tokio::time::timeout(TIMEOUT, cold_with_owner.sync_sources())
+        .await
+        .expect("a stalled peer delayed recovery from the healthy owner");
+    assert_eq!(
+        cold_with_owner.replica.view(CHAIN).unwrap().reference,
+        committed.snapshot.reference
+    );
+
     owner_task.abort();
     assert!(owner_task.await.unwrap_err().is_cancelled());
 
@@ -197,7 +224,6 @@ async fn cold_router_recovers_from_authenticated_peer_and_kafka_with_owner_offli
     let peer_app = peer.handler();
     let peer_task =
         tokio::spawn(async move { axum::serve(peer_listener, peer_app).await.unwrap() });
-    let path = format!("/internal/chains/{CHAIN}/peer-checkpoint");
     assert_eq!(get(&peer, &path).await.0, StatusCode::UNAUTHORIZED);
     let invalid_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let invalid_url = format!("http://{}", invalid_listener.local_addr().unwrap());
@@ -232,21 +258,14 @@ async fn cold_router_recovers_from_authenticated_peer_and_kafka_with_owner_offli
     assert_unready(&Api::new(invalid_cfg).unwrap()).await;
     invalid_task.abort();
     assert!(invalid_task.await.unwrap_err().is_cancelled());
-    let stalled_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let stalled_url = format!("http://{}", stalled_listener.local_addr().unwrap());
-    let stalled_app =
-        Router::new().route(&path, routing::get(|| std::future::pending::<StatusCode>()));
-    let stalled_task = tokio::spawn(async move {
-        axum::serve(stalled_listener, stalled_app).await.unwrap();
-    });
-    cfg.config.journal.request_timeout_ms = 15_000;
-    cfg.config.journal.checkpoint_peer_urls = vec![stalled_url.clone(), peer_url.clone()];
-    for url in [stalled_url, peer_url] {
-        cfg.config
-            .journal
-            .source_auth_tokens
-            .insert(url, cfg.token.clone());
-    }
+    cfg.config
+        .journal
+        .checkpoint_peer_urls
+        .push(peer_url.clone());
+    cfg.config
+        .journal
+        .source_auth_tokens
+        .insert(peer_url, cfg.token.clone());
     cfg.config.validate("dex-router").unwrap();
     let mut unauthenticated = cfg.config.clone();
     unauthenticated.journal.source_auth_tokens.clear();
@@ -255,10 +274,12 @@ async fn cold_router_recovers_from_authenticated_peer_and_kafka_with_owner_offli
         "CHECKPOINT_PEER_CONFIG_INVALID"
     );
 
-    let cold = Api::new(cfg.clone()).unwrap();
+    let mut slow_owner_cfg = cfg.clone();
+    slow_owner_cfg.config.journal.source_urls = vec![stalled_url];
+    let cold = Api::new(slow_owner_cfg).unwrap();
     tokio::time::timeout(TIMEOUT, cold.sync_sources())
         .await
-        .expect("a stalled peer delayed recovery from the healthy peer");
+        .expect("a stalled owner or peer delayed recovery from the healthy peer");
     assert_eq!(get(&cold, "/health/ready").await.0, StatusCode::OK);
     let restored = cold.replica.view(CHAIN).unwrap();
     assert_eq!(restored.reference, committed.snapshot.reference);

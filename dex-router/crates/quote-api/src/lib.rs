@@ -930,12 +930,18 @@ impl Api {
         if self.resume_applied_kafka(chain).await.is_ok() {
             return;
         }
-        if self.restore_peer_checkpoint(chain).await.is_ok() {
-            return;
+        // Both paths validate and align a private checkpoint before installing it.
+        // Selecting success lets either source recover while the other is stalled.
+        tokio::select! {
+            Ok(()) = self.restore_peer_checkpoint(chain) => {},
+            true = self.restore_owner_sources(chain) => {},
+            else => {},
         }
+    }
+    async fn restore_owner_sources(&self, chain: &str) -> bool {
         for source in &self.config.config.journal.source_urls {
             match self.restore_kafka(source, chain).await {
-                Ok(()) => return,
+                Ok(()) => return true,
                 Err(e) => self.logger.event(
                     "debug",
                     "kafka_restore_source_unavailable",
@@ -943,6 +949,7 @@ impl Api {
                 ),
             }
         }
+        false
     }
     async fn resume_applied_kafka(&self, chain: &str) -> Result<()> {
         let (reference, cursor) = self
