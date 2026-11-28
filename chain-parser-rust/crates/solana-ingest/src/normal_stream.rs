@@ -312,15 +312,24 @@ impl Parser {
             let mut proofs = BTreeMap::<BankId, VerifiedManifest>::new();
             let mut catalog_identity = None;
             let mut published_in_session = false;
+            let mut refresh = tokio::time::interval(Duration::from_millis((native_request.ttl / 4).max(1)));
+            refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 if *stop.borrow() {
                     return Ok(());
                 }
                 native_request.refresh()?;
-                let record = tokio::select! {
-                    biased;
-                    _ = stop.changed() => { return Ok(()); }
-                    result = subscription.capture_next(&writer) => { result? }
+                let record = {
+                    let capture = subscription.capture_next(&writer);
+                    tokio::pin!(capture);
+                    loop {
+                        tokio::select! {
+                            biased;
+                            _ = stop.changed() => { return Ok(()); }
+                            _ = refresh.tick() => native_request.refresh()?,
+                            result = &mut capture => break result?,
+                        }
+                    }
                 };
                 retained_estimate=retained_estimate.saturating_add(record.frame.protobuf.len() as u64+4096);
                 self.stream_update(&chain.key, |s| {

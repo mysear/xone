@@ -181,6 +181,7 @@ struct Frozen {
     writes: Vec<ManifestAccount>,
     identity: NativeIdentity,
     rows: BTreeMap<String, ManifestAccount>,
+    complete_transition: bool,
 }
 struct Writes {
     rows: BTreeMap<(String, u64), ManifestAccount>,
@@ -380,7 +381,9 @@ impl Observer {
         let mut rows = BTreeMap::new();
         let mut finals = vec![];
         let mut bytes = 0usize;
-        let mut can_export = parent.is_some();
+        let mut can_export = parent
+            .as_ref()
+            .is_some_and(|p| p.rows.keys().eq(self.scope.iter()));
         for pubkey in &self.scope {
             let frozen = read(pubkey)?;
             if frozen.pubkey != *pubkey {
@@ -517,6 +520,7 @@ impl Observer {
             Frozen {
                 identity: id,
                 rows,
+                complete_transition: can_export,
                 writes: updates
                     .rows
                     .into_values()
@@ -544,7 +548,8 @@ impl Observer {
                 else {
                     continue;
                 };
-                if !bank.rows.keys().eq(self.scope.iter())
+                if !bank.complete_transition
+                    || !bank.rows.keys().eq(self.scope.iter())
                     || !parent.rows.keys().eq(self.scope.iter())
                 {
                     continue;

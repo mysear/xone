@@ -104,6 +104,24 @@ fn frozen_native_bank_can_be_rematerialized_for_a_new_receipt_session() {
     let exports = frozen(&mut o, 12);
     assert!(exports.iter().any(|m|m.bank.slot==11 && m.session_id=="second"),"a finalized reconnect needs retained real native bank evidence, not invented cross-session versions");
 }
+
+#[test]
+fn frozen_baseline_without_observed_parent_is_never_reattested_as_a_transition() {
+    let dir = Temp::new();
+    let mut o = observer(&dir.0);
+    o.observe(write(10)).unwrap();
+    // A child gets an exact frozen read before the observer has its parent.
+    assert!(frozen(&mut o, 11).is_empty());
+    assert!(frozen(&mut o, 10).is_empty());
+    request(&dir.0, "second");
+    let exports = frozen(&mut o, 12);
+    assert!(exports.iter().all(|m| m.bank.slot == 12));
+    assert!(!dir.0.join("second-11-11.json").exists());
+    let baseline = exports.iter().find(|m| m.session_id == "second").unwrap();
+    assert_eq!(baseline.parent_accounts[0].write_slot, 11);
+    assert_eq!(baseline.parent_accounts[0].write_version, 0);
+    assert_eq!(baseline.expected_account_updates, 0);
+}
 #[test]
 fn native_write_after_freeze_poisoning_never_creates_another_certificate() {
     let dir = Temp::new();

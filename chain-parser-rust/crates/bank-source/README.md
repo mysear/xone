@@ -109,5 +109,7 @@ patched validator and pinned plugin in one process, then runs the normal Parser
 against the loopback Yellowstone endpoint. It checks three consecutive
 published banks in one stream session, compares the native manifests with each
 published proof hash and the validator's finalized RPC history, and records
-current finalized RPC account bytes as a separate check. On macOS, use the
-plugin's `.dylib` path.
+current finalized RPC account bytes. A local faucet transfer then changes a
+tracked account's lamports. The test compares the resulting native write and
+its transaction signature against finalized RPC in the same receiver session.
+On macOS, use the plugin's `.dylib` path.

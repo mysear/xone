@@ -24,7 +24,13 @@ impl Drop for Validator {
     }
 }
 
-fn start_validator(binary: &Path, root: &Path, rpc_port: u16, source: Option<&Path>) -> Validator {
+fn start_validator(
+    binary: &Path,
+    root: &Path,
+    rpc_port: u16,
+    faucet_port: u16,
+    source: Option<&Path>,
+) -> Validator {
     let name = if source.is_some() {
         "geyser"
     } else {
@@ -39,7 +45,9 @@ fn start_validator(binary: &Path, root: &Path, rpc_port: u16, source: Option<&Pa
         .arg(root.join("accounts"))
         .args(["--bind-address", "127.0.0.1", "--rpc-port"])
         .arg(rpc_port.to_string())
-        .args(["--faucet-port", "0", "--ticks-per-slot", "64"])
+        .arg("--faucet-port")
+        .arg(faucet_port.to_string())
+        .args(["--ticks-per-slot", "64"])
         .env_remove("XONE_BANK_SOURCE_CONFIG")
         .stdout(log.try_clone().unwrap())
         .stderr(log);
@@ -96,8 +104,10 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
     }
     let rpc_listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let grpc_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let faucet_listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let rpc_port = rpc_listener.local_addr().unwrap().port();
     let grpc_address = grpc_listener.local_addr().unwrap();
+    let faucet_port = faucet_listener.local_addr().unwrap().port();
     drop(rpc_listener);
     drop(grpc_listener);
     let rpc_url = format!("http://127.0.0.1:{rpc_port}");
@@ -109,7 +119,7 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
             .unwrap(),
         max_bytes: 4 * 1024 * 1024,
     };
-    let mut boot = start_validator(&binary, &output, rpc_port, None);
+    let mut boot = start_validator(&binary, &output, rpc_port, 0, None);
     chain.genesis_hash = wait_genesis(&rpc, &rpc_url, &mut boot).await;
     drop(boot);
     chain.rpc_urls = vec![rpc_url.clone()];
@@ -139,7 +149,9 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
             "grpc":{"listen":[{"address":grpc_address.to_string()}], "replay_stored_slots":64},
         }),
     );
-    let mut validator = start_validator(&binary, &output, rpc_port, Some(&source_file));
+    drop(faucet_listener);
+    let mut validator =
+        start_validator(&binary, &output, rpc_port, faucet_port, Some(&source_file));
     assert_eq!(
         wait_genesis(&rpc, &rpc_url, &mut validator).await,
         chain.genesis_hash
@@ -147,14 +159,15 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
 
     let mut cfg = xone_config::load("../../config/config-test.yaml", "chain-parser-rust").unwrap();
     cfg.config.state.path = output.join("state").to_string_lossy().into_owned();
-    cfg.config.startup.max_baseline_age_ms = 30_000;
+    cfg.config.startup.max_baseline_age_ms = 60_000;
+    cfg.config.control.lease_ttl_ms = 20_000;
     cfg.config.chains = vec![chain.clone()];
     cfg.config.yellowstone.insert(
         chain.key.clone(),
         serde_json::from_value(json!({
             "endpoint":format!("http://{grpc_address}"), "source_id":"local-agave-geyser",
             "proto_commit":PROJECTION_SCHEMA_COMMIT, "allow_loopback_plaintext":true,
-            "connect_timeout_ms":3000, "idle_timeout_ms":5000, "wal_ack_timeout_ms":3000,
+            "connect_timeout_ms":3000, "idle_timeout_ms":45000, "wal_ack_timeout_ms":3000,
             "reconnect_delay_ms":100, "max_frame_bytes":4194304, "max_wal_bytes":67108864,
             "max_wal_records":10000, "max_replay_records":30, "max_replay_slots":16,
             "max_stream_bytes":33554432, "max_stream_slots":128, "max_stream_updates":65536,
@@ -163,7 +176,12 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
         }))
         .unwrap(),
     );
-    let parser = Parser::new(cfg).unwrap();
+    cfg.config.logging.level = "info".into();
+    let mut parser = Parser::new(cfg.clone()).unwrap();
+    parser.logger = xone_observability::Logger::with_writer(
+        &cfg,
+        Box::new(File::create(output.join("parser.log")).unwrap()),
+    );
     parser.start().await.unwrap();
     let (url, http) = api(&parser).await;
 
@@ -261,6 +279,125 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
     write_json(&output.join("accepted-snapshots.json"), &snapshots);
     write_json(&output.join("rpc-blocks.json"), &blocks);
     write_json(&output.join("rpc-accounts.json"), &rpc_accounts);
+
+    let changed_key = keys[0];
+    let original_lamports = returned[0]["lamports"].as_u64().unwrap();
+    let increment = 1_234_567;
+    let signature = rpc
+        .call(&rpc_url, "requestAirdrop", json!([changed_key, increment]))
+        .await
+        .unwrap();
+    let signature = signature.as_str().unwrap();
+    let write_slot = tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            let statuses = rpc
+                .call(&rpc_url, "getSignatureStatuses", json!([[signature]]))
+                .await
+                .unwrap();
+            let status = &statuses["value"][0];
+            if let Some(slot) = status["slot"].as_u64() {
+                assert!(status["err"].is_null(), "transaction failed: {status}");
+                break slot;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let snapshot = tokio::time::timeout(Duration::from_secs(90), async {
+        loop {
+            let response = baseline(&url).await;
+            if response.status().is_success() {
+                let snapshot: Value = response.json().await.unwrap();
+                if let Some(slot) = snapshot["reference"]["block"]["number_or_slot"].as_u64() {
+                    assert!(
+                        slot <= write_slot,
+                        "parser skipped changed bank {write_slot}"
+                    );
+                    if slot == write_slot {
+                        break snapshot;
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| {
+        panic!(
+            "changed bank {write_slot}: {:?}",
+            parser.stream_status(&chain.key)
+        )
+    });
+    let evidence: StreamEvidence =
+        serde_json::from_str(snapshot["source"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        session.as_ref(),
+        Some(&evidence.session_id),
+        "parser changed session before publishing the write"
+    );
+    assert!(evidence.wal_cursor > previous_cursor);
+    let manifest: BankManifest = serde_json::from_slice(
+        &fs::read(manifests.join(format!(
+            "{}-{write_slot}-{}.json",
+            evidence.session_id, evidence.bank_id
+        )))
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        xone_domain::hash(&manifest).unwrap(),
+        evidence.manifest_sha256
+    );
+    let writes: Vec<_> = manifest
+        .native_writes
+        .iter()
+        .filter(|a| &a.pubkey == changed_key)
+        .collect();
+    assert_eq!(writes.len(), 1);
+    let write = writes[0];
+    assert_eq!(write.lamports, original_lamports + increment);
+    assert_eq!(write.write_slot, write_slot);
+    assert_eq!(write.write_bank_id, evidence.bank_id);
+    assert_eq!(
+        bs58::encode(
+            STANDARD
+                .decode(write.txn_signature_base64.as_ref().unwrap())
+                .unwrap()
+        )
+        .into_string(),
+        signature
+    );
+    let block = rpc
+        .call(
+            &rpc_url,
+            "getBlock",
+            json!([write_slot, {
+                "commitment":"finalized", "transactionDetails":"signatures", "rewards":false,
+            }]),
+        )
+        .await
+        .unwrap();
+    assert_eq!(block["blockhash"], manifest.bank.blockhash);
+    assert!(block["signatures"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(signature)));
+    let updated = rpc
+        .call(
+            &rpc_url,
+            "getAccountInfo",
+            json!([changed_key, {
+                "commitment":"finalized", "encoding":"base64", "minContextSlot":write_slot,
+            }]),
+        )
+        .await
+        .unwrap();
+    assert_eq!(updated["value"]["lamports"], write.lamports);
+    assert_eq!(updated["value"]["data"][0], write.data_base64);
+    write_json(&output.join("changed-snapshot.json"), &snapshot);
+    write_json(&output.join("changed-rpc-block.json"), &block);
+    write_json(&output.join("changed-rpc-account.json"), &updated);
     parser.close().await;
     http.close().await;
 }
