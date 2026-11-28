@@ -7,12 +7,17 @@
 在仓库根目录执行以下命令。每链写入独立目录，保留链 ID、创世块、primary 的 finalized 完整块与 witness 的同高度头。两源身份均与 `integration/config/chain-targets.json` 一致才会选用。重建区块头和交易根时，使用 `r01_public_catalog_evm_commitments.cjs` 导出的 `verifyBody(chain, header)`，其中 `header` 是 `anchor.json` 的 `header` 引用所指 RPC 回应的 `response.result`。Avalanche 的目标高度状态证明还需要其后继结算头。
 
 ```sh
+mkdir -p integration/test/source/deployment-catalog/evm-continuation-v2
 r01_run=$(mktemp -d integration/test/source/deployment-catalog/evm-continuation-v2/anchors.XXXXXXXX)
 for chain in base bsc arbitrum optimism polygon avalanche; do
     python3 integration/tools/acceptance/r01_public_catalog_evm_history.py anchor \
+        --chain "$chain" --directory "$r01_run/$chain" &&
+    python3 integration/tools/acceptance/r01_public_catalog_evm_history.py catalog \
         --chain "$chain" --directory "$r01_run/$chain"
 done
 ```
+
+每链的 `deployments.json` 记录官方目录、工厂及池的 runtime 摘要、升级槽与固定块 RPC 回应。用同一目录启动原池执行时，运行 `r01_public_catalog_evm_history.py capture --chain "$chain" --directory "$r01_run/$chain" --catalog "$r01_run/$chain/deployments.json"`。
 
 本目录是有限的真实观测集：8 链、16 个 chain/protocol、14 个经 factory 查询并读取代码的样例池，以及 3 个完整 Solana ProgramData。所有外部输入均来自无需账号、API key 的公共 HTTPS。目录中的 `version` 使用实际 runtime SHA-256；Solana 另包含解码得到的 upgrade slot。`profiles` 表示本项目代码识别的 profile，不能证明该 profile 对应当前部署源码。
 

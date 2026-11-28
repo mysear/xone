@@ -86,11 +86,9 @@ def capture_docs(directory):
     write_new(directory/'index.json',(json.dumps(results,indent=2)+'\n').encode())
     return results
 
-def capture_evm(chain,target,rows,directory):
+def capture_evm(chain,target,rows,directory,fixed_hash=None):
     """One chain at a time, fixed H, at most two endpoints and finite address scope."""
     endpoints=target['rpc_urls'][:2]
-    extra={'bsc':'https://bsc-rpc.publicnode.com','avalanche':'https://avalanche-c-chain-rpc.publicnode.com'}
-    if len(endpoints)<2 and chain in extra:endpoints.append(extra[chain])
     calls=0
     def call(endpoint,method,params):
         nonlocal calls
@@ -105,8 +103,13 @@ def capture_evm(chain,target,rows,directory):
         # Finality is provider-declared. Only an actual returned header is retained.
         requested=hex(rows[0]['capture_height']) if rows[0].get('capture_height') else 'finalized'
         href,h=call(endpoint,'eth_getBlockByNumber',[requested,False])
-        if not h:href,h=call(endpoint,'eth_getBlockByNumber',['latest',False])
+        if not h and requested == 'finalized':
+            href,h=call(endpoint,'eth_getBlockByNumber',['latest',False])
         if not h:continue
+        if requested != 'finalized' and h.get('number') != requested:
+            continue
+        if fixed_hash is not None and h.get('hash') != fixed_hash:
+            continue
         selected=endpoint;ident={'chain_id':cref,'genesis':gref};head=h;break
     require(selected,'CHAIN_PUBLIC_RPC_UNAVAILABLE:'+chain)
     tag=head['number'];href,h=call(selected,'eth_getBlockByNumber',[tag,False])

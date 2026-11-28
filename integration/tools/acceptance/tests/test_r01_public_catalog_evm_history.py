@@ -13,12 +13,12 @@ class MultiChainEvidenceTests(unittest.TestCase):
         import r01_public_catalog_evm_history as evm
 
         chain_id, endpoints = evm.CHAINS['bsc']
-        primary, wrong_chain, witness = endpoints
+        primary, wrong_chain, witness = endpoints[:3]
         genesis = evm.load_json(evm.TARGETS)['targets']['bsc']['genesis_hash']
         block = {'number': '0x64', 'hash': '0x' + '11' * 32, 'stateRoot': '0x' + '22' * 32,
                  'timestamp': '0x50', 'transactions': []}
         responses = {}
-        for endpoint in endpoints:
+        for endpoint in (primary, wrong_chain, witness):
             responses[endpoint, 'eth_chainId', ()] = hex(chain_id)
             responses[endpoint, 'eth_getBlockByNumber', ('0x0', False)] = {
                 'number': '0x0', 'hash': block['hash'] if endpoint == wrong_chain else genesis,
@@ -45,6 +45,29 @@ class MultiChainEvidenceTests(unittest.TestCase):
         self.assertEqual(saved['anchor']['height'], 100)
         self.assertEqual(list(saved['provider_identities']), [primary, witness])
         self.assertEqual(saved['genesis'], saved['provider_identities'][primary]['genesis'])
+
+    def test_fixed_deployment_capture_never_reads_latest_when_height_is_missing(self):
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        import r01_public_catalog_capture as capture
+        import r01_public_catalog_evm_history as evm
+
+        target = evm.load_json(evm.TARGETS)['targets']['base']
+        calls = []
+
+        def record(endpoint, method, params, path, budget):
+            calls.append((method, params))
+            if method == 'eth_chainId':
+                return {}, hex(target['chain_id'])
+            if params[0] == '0x0':
+                return {}, {'hash': target['genesis_hash']}
+            return {}, None
+
+        with TemporaryDirectory() as tmp, patch.object(capture, 'fetch_rpc', record):
+            with self.assertRaisesRegex(ValueError, 'CHAIN_PUBLIC_RPC_UNAVAILABLE'):
+                capture.capture_evm('base', target, [{'capture_height': 100}], Path(tmp))
+        queries = [params[0] for method, params in calls if method == 'eth_getBlockByNumber']
+        self.assertEqual(queries, ['0x0', '0x64', '0x0', '0x64'])
 
     def test_recorder_appends_after_interrupted_initial_reads(self):
         from tempfile import TemporaryDirectory

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "deployments": [
+    {"id": "base-uniswap-v3", "chain": "base", "protocol": "uniswap-v3", "document": "uni-base", "address": "0x33128a8fc17869897dce68ed026d694621f6fdfd"},
+    {"id": "base-aerodrome-v2", "chain": "base", "protocol": "aerodrome-v2", "document": "aerodrome", "address": "0x420dd381b31aef6683db6b902084cb0ffece40da"},
+    {"id": "base-aerodrome-slipstream", "chain": "base", "protocol": "aerodrome-slipstream", "document": "slipstream", "address": "0x5e7bb104d84c7cb9b682aac2f3d509f5f406809a"},
+    {"id": "bsc-pancake-v2", "chain": "bsc", "protocol": "pancake-v2", "document": "pancake-v2", "address": "0xca143ce32fe78f1f7019d7d551a6402fc5350c73"},
+    {"id": "bsc-pancake-v3", "chain": "bsc", "protocol": "pancake-v3", "document": "pancake-v3", "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865"},
+    {"id": "arbitrum-uniswap-v3", "chain": "arbitrum", "protocol": "uniswap-v3", "document": "uni-arbitrum", "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984"},
+    {"id": "optimism-uniswap-v3", "chain": "optimism", "protocol": "uniswap-v3", "document": "uni-optimism", "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984"},
+    {"id": "optimism-velodrome-v2", "chain": "optimism", "protocol": "velodrome-v2", "document": "velodrome", "address": "0xf1046053aa5682b4f9a81b5481394da16be5ff5a"},
+    {"id": "polygon-uniswap-v3", "chain": "polygon", "protocol": "uniswap-v3", "document": "uni-polygon", "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984"},
+    {"id": "avalanche-uniswap-v3", "chain": "avalanche", "protocol": "uniswap-v3", "document": "uni-avalanche", "address": "0x740b1c1de25031c31ff4fc9a62f554a55cdc1bad"},
+    {"id": "avalanche-lfj-v21", "chain": "avalanche", "protocol": "lfj-liquidity-book", "document": "lfj", "address": "0x8e42f2f4101563bf679975178e880fd87d3efd4e"}
+  ]
+}

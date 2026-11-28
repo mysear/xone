@@ -7,15 +7,26 @@ import re
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from r01_public_catalog import ROOT,CatalogError,require,load_json,read_blob
-from r01_public_catalog_capture import fetch_rpc,write_new,reference
+from r01_public_catalog import ROOT,CatalogError,require,load_json,read_blob,rpc,validate_evm,validate_sources
+from r01_public_catalog_capture import DOCUMENTS,capture_evm,fetch_document,fetch_rpc,write_new,reference
 from r01_public_catalog_history import ForkArchive,start_archive
+from r01_public_catalog_samples import capture as capture_samples
 
 BASE=ROOT/'integration/test/source/deployment-catalog'
 OUT=BASE/'evm-continuation-v2'
 TARGETS=ROOT/'integration/config/chain-targets.json'
-CHAINS={'base':(8453,['https://base.drpc.org','https://mainnet.base.org']),'optimism':(10,['https://optimism.drpc.org','https://mainnet.optimism.io']),'bsc':(56,['https://bsc.drpc.org','https://bsc-rpc.publicnode.com','https://bsc-dataseed.bnbchain.org']),'arbitrum':(42161,['https://arb1.arbitrum.io/rpc','https://arbitrum-one-rpc.publicnode.com']),'polygon':(137,['https://polygon.drpc.org','https://polygon-bor-rpc.publicnode.com']),'avalanche':(43114,['https://avalanche-c-chain-rpc.publicnode.com','https://api.avax.network/ext/bc/C/rpc'])}
+DEPLOYMENTS=ROOT/'integration/config/r01-evm-history-deployments.json'
+CHAINS = {
+    'base': (8453, ['https://base.drpc.org', 'https://mainnet.base.org']),
+    'optimism': (10, ['https://optimism.drpc.org', 'https://mainnet.optimism.io']),
+    'bsc': (56, ['https://bsc.drpc.org', 'https://bsc-rpc.publicnode.com', 'https://bsc-dataseed1.ninicoin.io',
+                 'https://public.1rpc.io/bnb', 'https://bsc-dataseed.bnbchain.org']),
+    'arbitrum': (42161, ['https://arb1.arbitrum.io/rpc', 'https://arbitrum-one-rpc.publicnode.com']),
+    'polygon': (137, ['https://polygon.drpc.org', 'https://polygon-bor-rpc.publicnode.com']),
+    'avalanche': (43114, ['https://avalanche-c-chain-rpc.publicnode.com', 'https://api.avax.network/ext/bc/C/rpc']),
+}
 WRAPPED={'base':'0x4200000000000000000000000000000000000006','optimism':'0x4200000000000000000000000000000000000006','bsc':'0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c','arbitrum':'0x82af49447d8a07e3bd95bd0d56f35241523fbab1','polygon':'0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270','avalanche':'0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7'}
 
 def storage_trie_key(chain,key):
@@ -105,7 +116,61 @@ def write_anchor(chain, directory, call, observations):
     write_new(directory / 'anchor.json', (json.dumps(record, indent=2) + '\n').encode())
     return record, header
 
-def chain_plan(catalog,chain):
+def capture_catalog(chain, directory):
+    saved = load_json(directory / 'anchor.json')
+    target = load_json(TARGETS)['targets'][chain]
+    anchor = saved['anchor']
+    require(anchor['chain_key'] == target['chain_key'], 'CATALOG_ANCHOR_CHAIN')
+    tag = hex(anchor['height'])
+    header = rpc(ROOT, saved['header'], 'eth_getBlockByNumber', ['finalized', True])
+    witness = rpc(ROOT, saved['witness'], 'eth_getBlockByNumber', [tag, False])
+    require(all(block['number'] == tag and block['hash'] == anchor['hash'] and
+                block['stateRoot'] == anchor['state_root'] for block in (header, witness)),
+            'CATALOG_ANCHOR_BLOCK')
+    catalog_path = directory / 'deployments.json'
+    require(not catalog_path.exists(), 'IMMUTABLE_EVM_CATALOG_EXISTS')
+    attempt = Path(tempfile.mkdtemp(prefix='deployment-capture-', dir=directory))
+    rows = []
+    for seed in load_json(DEPLOYMENTS)['deployments']:
+        if seed['chain'] != chain:
+            continue
+        row = {key: seed[key] for key in ('id', 'chain', 'protocol', 'address')}
+        source = fetch_document(DOCUMENTS[seed['document']], attempt / (row['id'] + '.txt'))
+        row.update(chain_key=target['chain_key'], genesis_hash=target['genesis_hash'],
+                   role='factory', profiles=[], capture_height=anchor['height'], sources=[source])
+        validate_sources(ROOT, row)
+        rows.append(row)
+    require(rows, 'CATALOG_CHAIN_DEPLOYMENTS_MISSING')
+
+    errors = []
+    for index, endpoint in enumerate(saved['endpoints'], 1):
+        endpoint_dir = attempt / str(index)
+        try:
+            captured = capture_evm(chain, target | {'rpc_urls': [endpoint]}, copy.deepcopy(rows),
+                                   endpoint_dir, fixed_hash=anchor['hash'])
+            witness_ref = saved['witness']
+            if index != 1:
+                witness_ref, observed = fetch_rpc(saved['endpoints'][0], 'eth_getBlockByNumber', [tag, False],
+                                                  endpoint_dir / 'fixed-primary-header.json')
+                require(observed and observed['number'] == tag and observed['hash'] == anchor['hash'] and
+                        observed['stateRoot'] == anchor['state_root'], 'CATALOG_PRIMARY_WITNESS')
+            for row in captured:
+                require(row['anchor']['height'] == anchor['height'] and row['anchor']['hash'] == anchor['hash'],
+                        'CATALOG_CAPTURE_MOVED')
+                row['anchor']['witnesses'] = [witness_ref]
+                capture_samples(row, endpoint_dir / 'samples')
+                row['version'] = 'runtime-sha256:' + row['runtime']['sha256']
+                validate_evm(ROOT, row, target)
+            chain_plan({'deployments': captured}, chain, catalog_path=None)
+        except (CatalogError, OSError) as error:
+            errors.append(f'{endpoint}: {error}')
+            continue
+        catalog = {'schema_version': 1, 'deployments': captured}
+        write_new(catalog_path, (json.dumps(catalog, indent=2) + '\n').encode())
+        return {row['id']: len(row['sample_pools']) for row in captured}
+    raise CatalogError('FIXED_H_DEPLOYMENT_CAPTURE_FAILED: ' + '; '.join(errors))
+
+def chain_plan(catalog,chain,catalog_path=BASE/'catalog.json'):
     require(chain in CHAINS,'EVM_CHAIN_UNSUPPORTED');cases=[];ids=[]
     for row in catalog['deployments']:
         if row['chain']!=chain:continue
@@ -119,7 +184,10 @@ def chain_plan(catalog,chain):
         cases.append({'catalog_deployment_id':row['id'],'protocol':protocol,'kind':kind,'pool':pool,'factory':row['address'].lower(),'factory_runtime_sha256':row['runtime']['sha256'],'pool_runtime_sha256':sample['runtime']['sha256'],'token_in':token_in,'token_out':token_out,'amount_in':'100000000000000','query_parameter':sample['query_parameter'],'pool_implementation':sample.get('implementation')})
         ids.append(row['id'])
     require(cases and len(ids)==len(set(ids)),'PLAN_FINITE_UNIQUE_SCOPE')
-    return {'schema_version':1,'chain':chain,'chain_id':CHAINS[chain][0],'wrapped_native':WRAPPED[chain],'cases':cases,'source_catalog':reference(BASE/'catalog.json'),'execution_boundary':'local helper newly deployed; original wrapped token and original pools only; no public transactions'}
+    plan = {'schema_version':1,'chain':chain,'chain_id':CHAINS[chain][0],'wrapped_native':WRAPPED[chain],'cases':cases,'execution_boundary':'local helper newly deployed; original wrapped token and original pools only; no public transactions'}
+    if catalog_path is not None:
+        plan['source_catalog'] = reference(catalog_path)
+    return plan
 
 def simulation_header(original):
     local=copy.deepcopy(original);transactions=local.pop('transactions',[]);local['transactions']=[]
@@ -135,12 +203,23 @@ class EvmArchive(ForkArchive):
             return response|{'result':view}
         return response
 
-def capture(chain,directory,resume=False):
-    directory=directory.resolve();require(directory.is_relative_to(OUT.resolve()),'OWNED_EVM_DIRECTORY');directory.mkdir(parents=True,exist_ok=True);require(resume or not (directory/'anchor.json').exists(),'IMMUTABLE_EVM_ANCHOR_EXISTS')
+def capture(chain,directory,resume=False,catalog_path=None):
+    directory=directory.resolve();require(directory.is_relative_to(OUT.resolve()),'OWNED_EVM_DIRECTORY');directory.mkdir(parents=True,exist_ok=True)
     call, observations = evidence_recorder(directory)
     if not resume:
-        plan = chain_plan(load_json(BASE / 'catalog.json'), chain)
-        saved, header = write_anchor(chain, directory, call, observations)
+        catalog_path = catalog_path or BASE / 'catalog.json'
+        catalog = load_json(catalog_path)
+        plan = chain_plan(catalog, chain, catalog_path)
+        if (directory / 'anchor.json').exists():
+            require(catalog_path.resolve() == (directory / 'deployments.json').resolve(), 'IMMUTABLE_EVM_ANCHOR_EXISTS')
+            saved = load_json(directory / 'anchor.json')
+            anchor = saved['anchor']
+            require(anchor['chain_key'] == f'evm:{plan["chain_id"]}', 'CATALOG_ANCHOR_CHAIN')
+            require(all(row['anchor']['hash'] == anchor['hash'] for row in catalog['deployments']),
+                    'CATALOG_EXECUTION_ANCHOR')
+            header = rpc(ROOT, saved['header'], 'eth_getBlockByNumber', ['finalized', True])
+        else:
+            saved, header = write_anchor(chain, directory, call, observations)
         write_new(directory / 'execution-plan.json', (json.dumps(plan, indent=2) + '\n').encode())
     else:
         saved = load_json(directory / 'anchor.json')
@@ -163,10 +242,10 @@ def capture(chain,directory,resume=False):
         candidates=list(dict.fromkeys(candidates))
         write_new(directory/'sender-candidates.json',(json.dumps({'addresses':candidates,'source_observations':candidate_refs,'state_read_height':anchor['height'],'authority':'public previous-block senders; balances/code still read only at frozen H'},indent=2)+'\n').encode())
     archive=EvmArchive(anchor,directory,ordered);server,url=start_archive(archive)
+    attempt = len(list(directory.glob('execution.stdout*.log'))) + 1
+    suffix = '' if attempt == 1 else '-' + str(attempt)
     try:
         run=subprocess.run(['node',str(ROOT/'integration/tools/acceptance/r01_public_catalog_evm_fork.cjs'),'capture',str(directory),url],capture_output=True,text=True,timeout=480)
-        attempt=len(list(directory.glob('execution.stdout*.log')))+1
-        suffix='' if attempt==1 else '-'+str(attempt)
         write_new(directory/('execution.stdout'+suffix+'.log'),run.stdout.encode());write_new(directory/('execution.stderr'+suffix+'.log'),run.stderr.encode());require(run.returncode==0,'ORIGINAL_EVM_FORK_FAILED:'+run.stderr[-2500:])
         execution=load_json(directory/'fork-execution.json');accounts=archive.account_slots()
         # Read and proof-bind each actually used address/slot; EOA and absence included.
@@ -188,7 +267,10 @@ def capture(chain,directory,resume=False):
             if candidate and candidate.get('hash')==anchor['hash']:closing=candidate;break
         require(closing and closing['hash']==anchor['hash'],'EVM_CLOSING_H_MISMATCH')
     finally:
-        server.shutdown();server.server_close();archive.save();write_new(directory/'simulation-header-views.json',(json.dumps(archive.views,indent=2)+'\n').encode())
+        server.shutdown()
+        server.server_close()
+        archive.save()
+    write_new(directory / 'simulation-header-views.json', (json.dumps(archive.views, indent=2) + '\n').encode())
     return {'directory':str(directory.relative_to(ROOT)),'cases':[{k:c.get(k) for k in ('catalog_deployment_id','passed','actual_net_recipient','error')} for c in execution['cases']],'accounts':len(accounts),'missing_proofs':len(missing)}
 
 def verify_simulation_views(expected,observed):
@@ -204,12 +286,15 @@ def replay(directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['anchor', 'capture', 'resume', 'replay'])
+    parser.add_argument('command', choices=['anchor', 'catalog', 'capture', 'resume', 'replay'])
     parser.add_argument('--chain', choices=CHAINS)
     parser.add_argument('--directory', type=Path, required=True)
+    parser.add_argument('--catalog', type=Path)
     args = parser.parse_args()
-    if args.command in ('anchor', 'capture') and args.chain is None:
-        parser.error('--chain is required for anchor and capture')
+    if args.command in ('anchor', 'catalog', 'capture') and args.chain is None:
+        parser.error('--chain is required for anchor, catalog and capture')
+    if args.catalog and args.command != 'capture':
+        parser.error('--catalog is only used by capture')
     if args.command == 'anchor':
         directory = args.directory.resolve()
         require(directory.is_relative_to(OUT.resolve()), 'OWNED_EVM_DIRECTORY')
@@ -217,8 +302,12 @@ def main():
         require(not (directory / 'anchor.json').exists(), 'IMMUTABLE_EVM_ANCHOR_EXISTS')
         call, observations = evidence_recorder(directory)
         result, _ = write_anchor(args.chain, directory, call, observations)
+    elif args.command == 'catalog':
+        directory = args.directory.resolve()
+        require(directory.is_relative_to(OUT.resolve()), 'OWNED_EVM_DIRECTORY')
+        result = capture_catalog(args.chain, directory)
     elif args.command in ('capture', 'resume'):
-        result = capture(args.chain, args.directory, resume=args.command == 'resume')
+        result = capture(args.chain, args.directory, resume=args.command == 'resume', catalog_path=args.catalog)
     else:
         result = replay(args.directory)
     print(json.dumps(result, indent=2))
