@@ -143,6 +143,97 @@ func TestAuditNormalWSHasHTTPRateBudget(t *testing.T) {
 	}
 }
 
+func TestNormalWSRenewsExhaustedSessions(t *testing.T) {
+	for _, end := range []string{"timeout", "count", "reconnect", "invalid"} {
+		t.Run(end, func(t *testing.T) {
+			var connections atomic.Int64
+			firstClosed := make(chan time.Time, 1)
+			secondDialed := make(chan time.Time, 1)
+			upgrade := websocket.Upgrader{}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				conn, err := upgrade.Upgrade(w, r, nil)
+				if err != nil {
+					return
+				}
+				defer conn.Close()
+				first := connections.Add(1) == 1
+				if first {
+					defer func() { firstClosed <- time.Now() }()
+				} else {
+					select {
+					case secondDialed <- time.Now():
+					default:
+					}
+				}
+				var request any
+				if conn.ReadJSON(&request) != nil || conn.WriteJSON(map[string]any{"jsonrpc": "2.0", "id": 1, "result": "s"}) != nil {
+					return
+				}
+				if first {
+					switch end {
+					case "count":
+						for range 2 {
+							if conn.WriteJSON(map[string]any{
+								"jsonrpc": "2.0", "method": "eth_subscription", "params": map[string]any{
+									"subscription": "s", "result": map[string]any{
+										"number": "0x1", "hash": "0x" + strings.Repeat("a", 64), "parentHash": "0x" + strings.Repeat("b", 64),
+									},
+								},
+							}) != nil {
+								return
+							}
+						}
+					case "reconnect":
+						return
+					case "invalid":
+						_ = conn.WriteJSON(map[string]any{"jsonrpc": "2.0", "method": "invalid"})
+					}
+				}
+				for {
+					if _, _, err := conn.ReadMessage(); err != nil {
+						return
+					}
+				}
+			}))
+			defer server.Close()
+			s, _, _, _ := auditNormalRPCWSConfig(t, func(cfg *config.Snapshot) {
+				ws := cfg.Config.Chains[0].Websocket
+				ws.URL = "ws" + strings.TrimPrefix(server.URL, "http")
+				ws.MaxConnections = 1
+				ws.MaxMessages = 1
+				ws.IdleTimeoutMS = 4000
+				ws.SessionTimeoutMS = 5000
+				if end == "timeout" {
+					ws.SessionTimeoutMS = 300
+				}
+			})
+			defer s.Close()
+			var ended time.Time
+			select {
+			case ended = <-firstClosed:
+			case <-time.After(2 * time.Second):
+				t.Fatal("first subscription did not end")
+			}
+			if end == "invalid" {
+				select {
+				case <-secondDialed:
+					t.Fatal("invalid protocol reopened a session")
+				case <-time.After(1250 * time.Millisecond):
+				}
+				return
+			}
+			select {
+			case dialed := <-secondDialed:
+				if dialed.Sub(ended) < 900*time.Millisecond {
+					t.Fatalf("subscription reopened before its cooldown: %s", dialed.Sub(ended))
+				}
+			case <-time.After(3 * time.Second):
+				t.Fatal("subscription was not renewed")
+			}
+		})
+	}
+}
+
 func TestAuditNormalArchiveBudgetRevokesLocalReady(t *testing.T) {
 	s, _, calls, _ := auditNormalRPCWS(t)
 	chain := s.cfg.Config.Chains[0]

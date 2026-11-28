@@ -494,6 +494,8 @@
 - 在 `chain-parser-go` 运行 `XONE_PUBLIC_EVM_HEADS=1 go test -timeout=5m -count=1 -v ./internal/ingest -run '^TestPublicEthereumHeadRecovery$'`。该次验收使用临时归档和本地提交观察器。生产 owner 日志、持续历史及限流采样、基础设施故障域仍待验收。 [复验测试](chain-parser-go/internal/ingest/heads_public_test.go)
 - 剩余请求时间按待探测端点分配。首端点身份或历史读取挂起时，有效备用端点仍可提交自己的能力报告。HTTP 401 或 403 分类为 `access_denied`，相关能力保留为未知，读取可切换到下一端点。关键归档失败仍中止操作。
 - 四个固定高度各采样两轮。dRPC 返回四点的区块头、账户余额和哈希固定读取，均通过未知哈希负对照。PublicNode 返回创世和 22,000,000 的区块头，余额请求返回 403。高度 15,000,000 的区块头返回不可用，高度 26,510,136 的区块头、余额和哈希固定读取通过。两源均回应 safe 和 finalized 探测。样本反映 2026-11-28 对指定端点的观测。 [历史能力复验](chain-parser-go/internal/rpc/capabilities_public_test.go)
+- 正式服务在会话时限、消息数或重连次数耗尽后按轮询间隔与最大重连退避中的较大值冷却，再开启有界订阅。协议错误、单条消息过大和队列溢出继续由 HTTP 轮询接管。四项续订场景与 HTTP 限频回归通过竞态检查。 [续订回归](chain-parser-go/internal/service/ws_budget_test.go)
+- 正式 Go owner 使用 Ethereum 主网 V2 池、两条公开 HTTP 链路及 PublicNode WebSocket。26 秒会话到期后保持 HTTP 采集，Pebble 日志从高度 26,510,212、游标 1 推进到高度 26,510,215、游标 4。两源逐块核对公布的高度、哈希和父哈希。重算 120 条本机原始归档的 payload 摘要，三个 `BLOCK_COMMIT` 均匹配已归档的 staging 记录。此次正常进程使用 `latest` 与本机 HTTP journal。
 
 #### 当前迭代目标（R04 恢复预算边界，2026-11-28）
 

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand/v2"
 	"net"
 	"net/url"
@@ -19,6 +20,7 @@ import (
 var (
 	ErrWSProtocol        = errors.New("RPC_WS_PROTOCOL")
 	ErrWSMessageBudget   = errors.New("RPC_WS_MESSAGE_BUDGET")
+	ErrWSMessageCount    = fmt.Errorf("%w: count", ErrWSMessageBudget)
 	ErrWSQueueBudget     = errors.New("RPC_WS_QUEUE_BUDGET")
 	ErrWSReconnectBudget = errors.New("RPC_WS_RECONNECT_BUDGET")
 	errWSIdle            = errors.New("idle")
@@ -244,7 +246,7 @@ func (s *HeadStream) connection(ctx context.Context, endpoint string, l WSLimits
 		count := s.observation.Messages
 		s.mu.Unlock()
 		if count > l.MaxMessages {
-			return ErrWSMessageBudget
+			return ErrWSMessageCount
 		}
 		var notification struct {
 			JSONRPC string `json:"jsonrpc"`
