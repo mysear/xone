@@ -84,6 +84,29 @@ class MultiChainEvidenceTests(unittest.TestCase):
             fetch.assert_called_once_with('source', 'eth_chainId', [], directory / '010-chain-id.json')
             self.assertEqual(observations, [{'ref': 'new'}])
 
+    def test_archive_resume_preserves_the_previous_index_and_can_save_twice(self):
+        from tempfile import TemporaryDirectory
+        import r01_public_catalog_evm_history as evm
+
+        with TemporaryDirectory(dir=evm.ROOT) as tmp:
+            directory = Path(tmp)
+            anchor = {'height': 100, 'hash': '0x' + '11' * 32}
+            archive = evm.EvmArchive(anchor, directory, [])
+            archive.save()
+            path = directory / 'rpc-index.json'
+            original = path.read_bytes()
+
+            resumed = evm.EvmArchive(anchor, directory, [])
+            self.assertEqual(resumed.request('eth_blockNumber', [])['result'], '0x64')
+            resumed.save()
+            self.assertEqual((directory / 'rpc-index-before-1.json').read_bytes(), original)
+            completed = path.read_bytes()
+            resumed.save()
+            self.assertEqual(path.read_bytes(), completed)
+
+            replay = evm.EvmArchive(anchor, directory, [], replay=True)
+            self.assertEqual(replay.request('eth_blockNumber', [])['result'], '0x64')
+
     def test_sae_capture_requires_contiguous_exact_target_settlement(self):
         import r01_public_catalog_evm_history as evm
 

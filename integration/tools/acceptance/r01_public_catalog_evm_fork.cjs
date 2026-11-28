@@ -51,7 +51,12 @@ async function run(mode,directory,url){
  }
  const senderBalance=await remote.send('eth_getBalance',[sender,tag]);assert(BigInt(senderBalance)>100000000000000000n);assert.equal(await remote.send('eth_getCode',[sender,tag]),'0x','PUBLIC_SENDER_EOA');
  const {input,contract,...pin}=helperArtifact();const helperReport={...pin,input,contract,authority:'new local callback helper; not an original public deployment'};
- if(mode==='capture')fs.writeFileSync(path.join(directory,'local-helper-compiler.json'),JSON.stringify(helperReport,null,2)+'\n',{flag:'wx'});else assert.deepEqual(helperReport,load(path.join(directory,'local-helper-compiler.json')));
+ const helperPath=path.join(directory,'local-helper-compiler.json');
+ if(mode==='capture'&&!fs.existsSync(helperPath)){
+  fs.writeFileSync(helperPath,JSON.stringify(helperReport,null,2)+'\n',{flag:'wx'});
+ }else{
+  assert.deepEqual(helperReport,load(helperPath),'PUBLIC_HELPER_COMPILATION_CHANGED');
+ }
  const ganache=r('ganache'),raw=ganache.provider({fork:forkSource(remote,url,plan.chain,anchor.height),chain:{chainId,networkId:chainId,hardfork:'shanghai',time:new Date(anchor.timestamp*1000)},wallet:{totalAccounts:0,unlockedAccounts:[sender]},miner:{timestampIncrement:1,blockGasLimit:30000000,coinbase:'0x000000000000000000000000000000000000cafe'},logging:{quiet:true}}),rpc=(method,params=[])=>raw.request({method,params}),provider=new ethers.providers.Web3Provider(raw);
  assert.equal(raw.getOptions().fork.disableCache,true,'UNVERIFIED_PERSISTENT_FORK_CACHE');
  const iface=new ethers.utils.Interface(contract.abi),erc=new ethers.utils.Interface(['function balanceOf(address) view returns(uint256)','function approve(address,uint256) returns(bool)','function token0() view returns(address)','function getAmountOut(uint256,address) view returns(uint256)','function getReserves() view returns(uint112,uint112,uint32)','function getTokenX() view returns(address)','function getTokenY() view returns(address)']);

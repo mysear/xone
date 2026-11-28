@@ -350,7 +350,13 @@ def capture(chain,directory,resume=False,catalog_path=None):
     attempt = len(list(directory.glob('execution.stdout*.log'))) + 1
     suffix = '' if attempt == 1 else '-' + str(attempt)
     try:
-        run=subprocess.run(['node',str(ROOT/'integration/tools/acceptance/r01_public_catalog_evm_fork.cjs'),'capture',str(directory),url],capture_output=True,text=True,timeout=480)
+        try:
+            run=subprocess.run(['node',str(ROOT/'integration/tools/acceptance/r01_public_catalog_evm_fork.cjs'),'capture',str(directory),url],capture_output=True,text=True,timeout=480)
+        except subprocess.TimeoutExpired as error:
+            write_new(directory/('execution.stdout'+suffix+'.log'),error.stdout or b'')
+            write_new(directory/('execution.stderr'+suffix+'.log'),error.stderr or b'')
+            raise CatalogError('ORIGINAL_EVM_FORK_TIMEOUT') from error
+
         write_new(directory/('execution.stdout'+suffix+'.log'),run.stdout.encode());write_new(directory/('execution.stderr'+suffix+'.log'),run.stderr.encode());require(run.returncode==0,'ORIGINAL_EVM_FORK_FAILED:'+run.stderr[-2500:])
         execution=load_json(directory/'fork-execution.json');accounts=archive.account_slots()
         # Read and proof-bind each actually used address/slot; EOA and absence included.

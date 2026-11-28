@@ -422,9 +422,26 @@ class ForkArchive:
             raise CatalogError('FORK_PUBLIC_READ_FAILED:'+method)
     def save(self):
         if not self.replay:
-            path=self.directory/'rpc-index.json'
-            if path.exists():write_new(self.directory/f'rpc-index-before-{self.count}.json',path.read_bytes());path.unlink()
-            write_new(path,(json.dumps({'schema_version':1,'anchor':self.anchor,'records':self.records},indent=2)+'\n').encode())
+            path = self.directory / 'rpc-index.json'
+            current = (json.dumps({'schema_version': 1, 'anchor': self.anchor, 'records': self.records},
+                                  indent=2) + '\n').encode()
+            if path.exists():
+                previous = path.read_bytes()
+                if previous == current:
+                    return
+                backup = self.directory / f'rpc-index-before-{self.count}.json'
+                if backup.exists():
+                    require(backup.read_bytes() == previous, 'FORK_ARCHIVE_BACKUP_CHANGED')
+                else:
+                    write_new(backup, previous)
+            with tempfile.NamedTemporaryFile(dir=self.directory, delete=False) as pending:
+                temporary = Path(pending.name)
+                try:
+                    pending.write(current)
+                    pending.flush()
+                    temporary.replace(path)
+                finally:
+                    temporary.unlink(missing_ok=True)
     def account_slots(self):
         accounts=defaultdict(set)
         for key,response in self.cache.items():

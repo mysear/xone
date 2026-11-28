@@ -103,6 +103,31 @@ async function runtime(bank){
  return {raw,view,close:()=>raw.disconnect()};
 }
 
+function compactTrace(calls,ledger){
+ const nodeIDs=new Map(),sourceIDs=new Map(),proofNodes=[],sources=[];
+ const intern=(value,key,ids,values)=>{
+  if(!ids.has(key)){
+   ids.set(key,values.length);
+   values.push(value);
+  }
+  return ids.get(key);
+ };
+ const reads=ledger.map(({proof_nodes,source_records,...read})=>{
+  read.sources=source_records.map(ref=>intern(ref,JSON.stringify(ref),sourceIDs,sources));
+  if(proof_nodes)read.proof_nodes=proof_nodes.map(node=>intern(node,node,nodeIDs,proofNodes));
+  return read;
+ });
+ const compactCalls=calls.map(({fork_reads,...call})=>{
+  const start=fork_reads.length?ledger.indexOf(fork_reads[0]):0;
+  assert(start>=0&&fork_reads.every((read,index)=>ledger[start+index]===read),'GETTER_TRACE_ORDER');
+  return {...call,fork_read_range:{start,length:fork_reads.length}};
+ });
+ return {
+  trace_format:'indexed-proof-ledger/v2',calls:compactCalls,authenticated_reads:reads,
+  storage_proof_nodes:proofNodes,source_records:sources,
+ };
+}
+
 async function probe(inputFile,out){
  const input=load(inputFile),row=input.row;assert(['base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3','polygon-uniswap-v3','arbitrum-uniswap-v3'].includes(row.id),'BOUNDED_SIX_CASE_SCOPE');
  for(const r of Object.values(row.inputs))if(r&&typeof r==='object'&&r.path&&r.sha256)readRef(r);
@@ -126,6 +151,7 @@ async function probe(inputFile,out){
   }
  }catch(e){if(e.admission)admissionRejection=e.message;else failure=e.message;}finally{await vm.close();}
  const result={schema_version:4,trace_format:'deduplicated-code-ledger/v1',id:row.id,anchor:row.anchor,input:ref(path.resolve(inputFile)),source_prestate:ref(path.join(bank.directory,fs.existsSync(path.join(bank.directory,'prestate-evidence-v2.json'))?'prestate-evidence-v2.json':'prestate-evidence.json')),passed:!failure,error:failure??null,normal_admission_rejection:admissionRejection??null,calls,authenticated_reads:bank.ledger,missing:bank.misses,public_network_requests:0,public_writes:0,local_hardfork:'shanghai',caller:load(path.join(bank.directory,'fork-execution.json')).sender,caller_policy:'existing public EOA, authenticated original balance/nonce; local eth_call only; no original state override',normal_parser_typed_baseline_injected:false};
+ if(input.trace_format==='indexed-proof-ledger/v2')Object.assign(result,compactTrace(calls,bank.ledger));
  fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({id:row.id,passed:result.passed,calls:calls.length,error:result.error,missing:result.missing},null,2));return result;
 }
 module.exports={loadBank,resolvePath,runtime,probe};
