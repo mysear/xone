@@ -487,6 +487,12 @@
 - 保持节点出块并短时暂停接收，插件回放下界为 slot 44。Parser 从已提交父块后的 slot 49 接续，逐槽提交断线窗口内已最终化的区块。重新签发的原生证明、已提交父块及 WAL 回执匹配后才发布。
 - 同一账本的 Agave 和 Yellowstone 进程退出并重启，正式 Parser 撤销旧会话范围，以新 WAL 代际恢复。完整联测在 slot 116 恢复，保留转账后的余额并登记 slot 67–115 的历史缺口。继续验证生产独立故障域。
 
+#### 当前迭代目标（R02 公开 EVM 双源，2026-11-28）
+
+- PublicNode 与 dRPC 的 HTTP 端点均核对 Ethereum 主网 chain ID 和 genesis。断开两条 WebSocket 订阅，等待主网推进后重新订阅。断线前高度 26,510,135、重连后高度 26,510,138 的通知均与两源固定高度 HTTP 响应匹配。
+- 生产共用的 HeadTracker 和 staging Pipeline 从 HTTP 补齐高度 26,510,136–26,510,138。每个高度在两源分别重建区块头哈希、交易根及回执根，逐高度核对父块并读取已归档的主源原始数据。收紧补齐窗口到一个块后，请求返回历史缺口，提交观察器未增加记录。
+- 在 `chain-parser-go` 运行 `XONE_PUBLIC_EVM_HEADS=1 go test -timeout=5m -count=1 -v ./internal/ingest -run '^TestPublicEthereumHeadRecovery$'`。该次验收使用临时归档和本地提交观察器。生产 owner 日志、持续历史及限流采样、基础设施故障域仍待验收。 [复验测试](chain-parser-go/internal/ingest/heads_public_test.go)
+
 #### 当前迭代目标（R04 恢复预算边界，2026-11-28）
 
 - 持久在线 scope 的保留作业聚合在预算已经超限或状态损坏时必须立即返回 `ErrBudget`，不能依赖无符号减法得到可用余量。
@@ -1858,7 +1864,7 @@ CB5结构绑定补修完成：精确5任务/6设计ID/逐项WP与paths/tests规�
 |---|---|---|---|---|
 |R01.1|冻结逐chain/protocol/version部署目录，源码/发布二进制/代理实现或ProgramData升级身份与固定历史H逐项匹配|WP02,WP03,WP10,WP11,WP18,WP20|IN_PROGRESS|8链16部署目录保留；13项EVM源码/metadata与3个实际Solana ProgramData均已有精确重建，55/83/404项程序输入与原归档一致；可信历史状态和生产准入资格仍须逐项核验|
 |R01.2|固定真实历史块/账户原始证据，独立状态/执行/收款差分及离线可重复回放；来源或版本缺失拒绝|WP02,WP03,WP10,WP11,WP18,WP20|IN_PROGRESS|原Ethereum证据保留；新Polygon H96900773与Arbitrum H522108799完整MPT/原VM→normal Parser/Router收款差分均一致；全目录可信历史bank/费用和生产执行资格尚未闭合|
-|R02.1|Provider身份/能力/历史范围/错误分类/限流预算、独立故障域及双源head；WS通知与轮询/重连短缺口一致|WP04,WP05,WP07|IN_PROGRESS|normal provider身份/能力/HTTP分类/共享预算/WS与短缺口接线通过当前Go完整check/race；真实来源故障域和持续限流/历史矩阵不凭URL数推断|
+|R02.1|Provider身份/能力/历史范围/错误分类/限流预算、独立故障域及双源head；WS通知与轮询/重连短缺口一致|WP04,WP05,WP07|IN_PROGRESS|PublicNode 与 dRPC 的主网身份和断线前后 WS/HTTP 区块头一致，HTTP 补齐三块。生产独立故障域与持续限流、历史矩阵待验收|
 |R02.2|可信头/交易根/receipt根与链规则逐项核对，限定并行Fetch/Decode staging按链有序原子提交|WP04,WP05,WP07|IN_PROGRESS|native V2 normal Adapter/Factory/history/settled-head及Coreth逻辑/物理storage消费已接，174项EVM race全过；承诺核验不替代可信checkpoint/共识证明|
 |R02.3|原始数据不可变归档、解码异常持久DLQ/隔离和重放；工厂事件发现的当前状态准入|WP04,WP05,WP07|IN_PROGRESS|normal工厂目录、immutable archive/DLQ修复重放及owner责任已接；普通进程13项/845 raw/6 DLQ通过；证据流式清单和450真实请求计数另有37/43项边界回归，生产保留/吞吐仍有限|
 |R03.1|Yellowstone真实订阅传输、账户/交易/meta/slot来源身份和序号，先耐久WAL后解码/消费；重连与容量失败封闭|WP04,WP05,WP07,WP20,WP24|IN_PROGRESS|受控 tonic→WAL→manifest→owner 以及真实本机 PostgreSQL/Kafka 发布、撤销、重启、Fence 已由 `r03_authority_process.py` 通过；真实同源 Yellowstone 流资格和生产故障域继续核验|
