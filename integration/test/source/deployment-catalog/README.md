@@ -93,6 +93,12 @@ PYTHONPATH=integration/tools/acceptance python3 -c 'from r01_public_catalog_evm_
 
 Base Slipstream 按上一节的命令重建。`slipstream_base` 使用 `evm-continuation-v2/anchor-iteration-ee66n2qk/base`，`slipstream_responses` 使用 `evm-normal-v4/base-slipstream-dependencies.hoknqrom`，`slipstream_original_capture` 使用该响应目录下的 `context-cached._mgho3yq/capture.json`。这些路径都相对于 `evidence_root`。
 
+### Avalanche Uniswap V3 固定块报价
+
+从仓库根目录展开 `evidence/avalanche-uniswap-v3-101597996.tar.gz`，SHA-256 为 `9de2500bc750f8428d89e93cda26ee3bb09741d543cba63c65774328d950e85f`。按上一节准备编译器，使用 `evm-continuation-v2/avalanche-getter-anchor.43nmhr50` 核验状态承诺并重放原池，使用其中的 `receipt-input.json` 执行 Go 回执根联验。
+
+常规报价使用 `evm-normal-v4/avalanche-getter-proof.7jbwf7xl/input.json`。按上一节执行 getter 和常规报价复验。传入预编译的 Parser 或 Router 时，请将二进制文件放在当前检出内，供报告记录路径及摘要。目标块高为 101,597,996，块 101,598,001 提交其 Coreth 状态根及 101,597,995–101,597,996 的回执根。136 次固定块 getter 通过，覆盖当前 bitmap 字内的 128 个初始化 tick。Router 返回 HTTP 200，池级输出与原池收款均为 659 个原子单位。
+
 本目录是有限的真实观测集：8 链、16 个 chain/protocol、14 个经 factory 查询并读取代码的样例池，以及 3 个完整 Solana ProgramData。所有外部输入均来自无需账号、API key 的公共 HTTPS。目录中的 `version` 使用实际 runtime SHA-256；Solana 另包含解码得到的 upgrade slot。`profiles` 表示本项目代码识别的 profile，不能证明该 profile 对应当前部署源码。
 
 `manifest.json` 固定全部数据文件和本任务工具／测试的逐字节清单；默认 CLI 也检查缺失、额外文件和改动。`catalog.json` 包含逐项原始证据引用和 SHA-256，`scope.json` 固定声明范围的 chain、protocol、runtime version、地址、H/hash。缺行、重复、范围外行、错误地址或 H/hash 不能通过范围校验。`catalog-ethereum.json` / `scope-ethereum.json` 是明确较窄的 Ethereum V2 单部署验收范围，不代表整个 R01 已完成。

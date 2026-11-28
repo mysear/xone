@@ -16,7 +16,7 @@ from r01_public_catalog_capture import reference,write_new
 from r01_public_catalog_evm_process import normal_profile,words,call_key,captured_calls,FixedRPC,run as normal_run
 BASE=ROOT/'integration/test/source/deployment-catalog/evm-normal-v4'
 IDS={'base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3','polygon-uniswap-v3','arbitrum-uniswap-v3'}
-GETTER_IDS=IDS|{'optimism-velodrome-v2','bsc-pancake-v2'}
+GETTER_IDS=IDS|{'optimism-velodrome-v2','bsc-pancake-v2','avalanche-uniswap-v3'}
 
 def validate_probe(probe):
     require(probe['passed'] is True and not probe['missing'] and probe['calls'],'NORMAL_GETTER_PROOF_INCOMPLETE')

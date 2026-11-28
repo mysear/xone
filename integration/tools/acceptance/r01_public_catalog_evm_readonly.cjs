@@ -7,8 +7,8 @@ const ROOT=path.resolve(__dirname,'../../..');
 const {ethers}=require(path.join(ROOT,'integration/.runtime/stable-reference/node_modules/ethers'));
 const {Trie}=require(path.join(ROOT,'integration/.runtime/receipt-root-reference/node_modules/@ethereumjs/trie'));
 const ganache=require(path.join(ROOT,'integration/.runtime/stable-reference/node_modules/ganache'));
-const {verifyEvidence}=require('./r01_public_catalog_evm_commitments.cjs');
-const {verifyPrestate}=require('./r01_public_catalog_proof.cjs');
+const {readNativeSuccessors,verifyEvidence}=require('./r01_public_catalog_evm_commitments.cjs');
+const {storageTrieKey,verifyPrestate}=require('./r01_public_catalog_proof.cjs');
 const {traceProof}=require('./r01_public_catalog_evm_trie.cjs');
 const load=p=>JSON.parse(fs.readFileSync(p)),bytes=s=>Buffer.from(s.slice(2),'hex'),hex=b=>'0x'+Buffer.from(b).toString('hex'),sha=b=>crypto.createHash('sha256').update(b).digest('hex'),hash=ethers.utils.keccak256;
 const ref=p=>({path:path.relative(ROOT,p),sha256:sha(fs.readFileSync(p))});
@@ -18,15 +18,20 @@ const resolvePath=(root,key,nodes)=>traceProof(root,key,nodes);
 
 async function loadBank(directory,supplements=[]){
  directory=path.resolve(directory);const ep=path.join(directory,fs.existsSync(path.join(directory,'prestate-evidence-v2.json'))?'prestate-evidence-v2.json':'prestate-evidence.json'),evidence=load(ep);
- assert(['base','optimism','polygon','arbitrum','bsc'].includes(evidence.chain),'READONLY_CHAIN_UNSUPPORTED');
+ assert(['base','optimism','polygon','arbitrum','bsc','avalanche'].includes(evidence.chain),'READONLY_CHAIN_UNSUPPORTED');
+ if(evidence.chain==='avalanche'&&!evidence.native_headers)evidence.native_headers=readNativeSuccessors(directory,evidence.block);
  const validation=await verifyEvidence(evidence,[]),anchor=load(path.join(directory,'anchor.json')),original=readRef(anchor.header).response.result;
+ for(const field of ['hash','number','stateRoot'])assert.equal(original[field],evidence.block[field],'READONLY_ORIGINAL_HEADER');
+ const stateRoot=validation.state_root, stateAnchor=validation.execution_state_anchor;
+ const proofOptions={allowAbsentRPCZeroHashes:true,accountEncoding:stateAnchor?.account_encoding,
+  storageKeyEncoding:stateAnchor?.storage_key_encoding};
  const bank={directory,evidence,validation,anchor,original,accounts:new Map(),accountNodes:new Set(),headers:new Map(),ledger:[],misses:[],stateCache:new Map()};
  const keepHeader=h=>{if(h&&h.hash&&h.number){bank.headers.set(h.number,h);bank.headers.set(h.hash,h);}};keepHeader(original);
  for(const r of load(path.join(directory,'rpc-index.json')).records){const row=readRef(r);if(['eth_getBlockByNumber','eth_getBlockByHash'].includes(row.method)&&row.response?.result)keepHeader(row.response.result);}
  for(const r of [anchor.genesis,anchor.witness].filter(Boolean)){const row=readRef(r);if(row.response?.result)keepHeader(row.response.result);}
  function add(deployment,provenance){
   const a=deployment.address.toLowerCase(),p=deployment.proof;for(const node of p.accountProof)bank.accountNodes.add(node);
-  const accountPath=resolvePath(original.stateRoot,hash(a),p.accountProof),exists=accountPath.value!==null,effectiveStorageRoot=exists?ethers.utils.RLP.decode(accountPath.value)[2]:hash('0x80');
+  const accountPath=resolvePath(stateRoot,hash(a),p.accountProof),exists=accountPath.value!==null,effectiveStorageRoot=exists?ethers.utils.RLP.decode(accountPath.value)[2]:hash('0x80');
   if(!bank.accounts.has(a))bank.accounts.set(a,{...deployment,exists,effectiveStorageRoot,nodes:new Set(),sources:[]});
   const account=bank.accounts.get(a);assert.equal(account.code,deployment.code,'SUPPLEMENT_CODE_CHANGED');assert.equal(account.proof.storageHash,p.storageHash,'SUPPLEMENT_STORAGE_ROOT_CHANGED');
   for(const slot of p.storageProof)for(const node of slot.proof)account.nodes.add(node);account.sources.push(provenance);
@@ -35,21 +40,23 @@ async function loadBank(directory,supplements=[]){
  for(const supplement of supplements){
   const wire=load(path.resolve(supplement));assert.equal(wire.method,'eth_getProof','SUPPLEMENT_METHOD');assert.equal(wire.params[2],original.number,'SUPPLEMENT_FIXED_H');const p=wire.response?.result;assert(p,'SUPPLEMENT_RESULT');assert.equal(p.address.toLowerCase(),wire.params[0].toLowerCase(),'SUPPLEMENT_ADDRESS');
   const prior=bank.accounts.get(p.address.toLowerCase());assert(prior,'SUPPLEMENT_UNKNOWN_RUNTIME');const deployment={address:p.address.toLowerCase(),code:prior.code,proof:p};
-  await verifyPrestate({...evidence,chain_id:'1',deployments:[deployment]},[],{allowAbsentRPCZeroHashes:true});add(deployment,ref(path.resolve(supplement)));
+  await verifyPrestate({...evidence,chain_id:'1',block:{...evidence.block,stateRoot},deployments:[deployment]},[],proofOptions);
+  add(deployment,ref(path.resolve(supplement)));
  }
  function account(address){
   address=address.toLowerCase();if(bank.accounts.has(address))return bank.accounts.get(address);
-  const traced=resolvePath(original.stateRoot,hash(address),[...bank.accountNodes]);
+  const traced=resolvePath(stateRoot,hash(address),[...bank.accountNodes]);
   assert.equal(traced.value,null,'READONLY_ACCOUNT_RUNTIME_NOT_CAPTURED:'+address);
   const p={address,nonce:'0x0',balance:'0x0',codeHash:hash('0x'),storageHash:hash('0x80'),accountProof:traced.nodes.filter(n=>!n.inline).map(n=>n.encoded),storageProof:[]};const absent={address,code:'0x',proof:p,exists:false,effectiveStorageRoot:hash('0x80'),nodes:new Set(),sources:[ref(ep)],derived_absence:traced};bank.accounts.set(address,absent);return absent;
  }
  bank.storage=async(address,key)=>{
   address=address.toLowerCase();key=word(key);const id=address+':'+key;if(bank.stateCache.has(id))return bank.stateCache.get(id);
   let ac;try{ac=account(address);}catch(e){bank.misses.push({kind:'account',address,error:e.message});throw e;}
-  const root=ac.effectiveStorageRoot||(ac.derived_absence?hash('0x80'):ac.proof.storageHash);
+  const root=ac.effectiveStorageRoot;
+  const trieKey=hash(storageTrieKey(key,proofOptions.storageKeyEncoding));
   let traced,standard;try{
-   if(root===hash('0x80')){traced=resolvePath(root,hash(key),[]);standard=null;}
-   else{if(!ac.trie)ac.trie=await Trie.createFromProof([...ac.nodes].map(bytes),{root:bytes(root),useKeyHashing:false},true);standard=await ac.trie.get(bytes(hash(key)),true);const selected=await ac.trie.createProof(bytes(hash(key)));traced=resolvePath(root,hash(key),selected.map(hex));}
+   if(root===hash('0x80')){traced=resolvePath(root,trieKey,[]);standard=null;}
+   else{if(!ac.trie)ac.trie=await Trie.createFromProof([...ac.nodes].map(bytes),{root:bytes(root),useKeyHashing:false},true);standard=await ac.trie.get(bytes(trieKey),true);const selected=await ac.trie.createProof(bytes(trieKey));traced=resolvePath(root,trieKey,selected.map(hex));}
   }catch(e){const miss={kind:'storage',address,key,root,error:e.message};bank.misses.push(miss);throw Error('READONLY_MPT_STORAGE_MISSING:'+JSON.stringify(miss));}
   assert.equal(traced.value,standard===null?null:hex(standard),'READONLY_PATH_CROSSCHECK');
   const v=traced.value===null?'0x':ethers.utils.RLP.decode(traced.value);assert(typeof v==='string','READONLY_STORAGE_RLP');assert(v==='0x'||!v.slice(2).startsWith('00'),'READONLY_STORAGE_LEADING_ZERO');
@@ -131,7 +138,7 @@ function compactTrace(calls,ledger){
 async function probe(inputFile,out){
  const input=load(inputFile),row=input.row;
  const cases=['base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3',
-              'optimism-velodrome-v2','polygon-uniswap-v3','arbitrum-uniswap-v3','bsc-pancake-v2'];
+              'optimism-velodrome-v2','polygon-uniswap-v3','arbitrum-uniswap-v3','bsc-pancake-v2','avalanche-uniswap-v3'];
  assert(cases.includes(row.id)&&row.id===row.chain+'-'+row.protocol,'BOUNDED_GETTER_SCOPE');
  for(const r of Object.values(row.inputs))if(r&&typeof r==='object'&&r.path&&r.sha256)readRef(r);
  const bank=await loadBank(path.join(ROOT,row.directory),(input.supplements||[]).map(r=>{readRef(r);return path.join(ROOT,r.path);}));assert.equal(bank.validation.height,row.anchor.height,'READONLY_ROW_H');assert.equal(bank.evidence.block.hash,row.anchor.hash,'READONLY_ROW_HASH');assert.equal(bank.evidence.chain_id,String(row.chain_id),'READONLY_ROW_CHAIN');assert.equal(sha(bytes(bank.accounts.get(row.pool).code)),row.pool_runtime_sha256,'READONLY_ROW_RUNTIME');assert(bank.accounts.has(row.factory)&&sha(bytes(bank.accounts.get(row.factory).code))===row.factory_runtime_sha256,'READONLY_ROW_FACTORY_RUNTIME');

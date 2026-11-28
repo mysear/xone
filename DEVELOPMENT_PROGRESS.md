@@ -494,6 +494,7 @@
 - Polygon 改用 finalized 高度 98,086,595。独立验证完成 9 个账户、20 个存储槽和 44 次预状态读取，Go 验证同块的 90 笔回执。Uniswap V3 原池离线重放收到 7 原子单位。常规报价还需补齐当前 bitmap 内的 tick 存储证明。
 - Polygon 将部署采集与 getter 证明采集并发执行，在 98,087,772 补齐 134 个初始化 tick 的 536 个存储键。142 次固定块 getter 执行通过证明核验。常规 Go Parser 与 Rust Router 返回 HTTP 200，报价与原池收款均为 7 原子单位，回放无未记录 RPC 请求。Go 验证同块的 52 笔回执。
 - Avalanche 改用 finalized 高度 101,595,781。后继头 101,595,787 提交该高度的状态根及回执根。独立验证完成 11 个账户、36 个 Coreth 存储槽和 65 次预状态读取，两个原池离线重放分别收到 660 和 134 原子单位。Go 的后继结算窗口回执验证通过。
+- Avalanche Uniswap V3 在 finalized 高度 101,597,996 使用后继块 101,598,001 提交的状态根验证 Coreth 五字段账户及物理存储键。136 次 getter 通过 MPT 重放，覆盖当前 bitmap 字内的 128 个初始化 tick。常规 Go Parser 与 Rust Router 返回 HTTP 200，报价与原池收款均为 659 原子单位，无未记录 RPC 请求。Go 重建 101,597,995–101,597,996 的结算窗口回执根。原始输入和复验命令见 [证据目录](integration/test/source/deployment-catalog/README.md#avalanche-uniswap-v3-固定块报价)。精确源码、链费模型和生产执行资格仍待验收。
 - BSC 在 136,158,531 用公共 RPC 批量采集完整区块和 17 个账户的证明，独立核对 40 个存储槽和两项原池执行使用的 93 次预状态读取。独立来源的 finalized 高度 136,158,554 随后确认原块哈希和状态根，Go 核对同块 99 笔回执。Pancake V2 和 V3 离线重放分别收到 55,371,283,985,433,316 和 55,378,869,052,922,774 原子单位，网络请求为零。接下来继续原合约 getter 与常规 Parser/Router 差分。
 - BSC Pancake V2 在 136,159,243 补齐代币、工厂及储备 getter 使用的槽，四次原合约只读执行通过 MPT 核验。常规 Go Parser 与 Rust Router 返回 HTTP 200，报价与原池收款均为 55,361,279,474,212,605 原子单位，回放无未记录 RPC 请求。链费模型和生产执行资格仍待验收。
 - Avalanche LFJ v2.1 在 101,588,444 的原池 clone 固定指向 `0xee5a90098b270596ec35d637b30d908c862c86df`，同高度工厂 getter 返回 `0x3e30fdae04c08fc20fa2fe0cf55c95d99a9c2d8f`。分别核对两套 runtime 及池中的 token X、token Y 和 bin step。负对照拒绝错误 clone 地址、变更的工厂实现摘要和缺失的代币 getter。
