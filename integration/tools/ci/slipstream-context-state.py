@@ -43,4 +43,20 @@ for sequence in S:
  for index,step in enumerate(sequence['steps']):
   canonical=json.loads(json.dumps(step['canonical_pool']));canonical['slipstream_context']['derived']=False
   banks.append(dict(id=len(banks),original_case_index=sequence['initial_case_index'],source_step=index,canonical_pool=canonical,getter_reads=step['getter_reads'],original_header=step['original_after_header']))
-OUT=R/'integration/artifacts/local/core-slipstream-context-normalized-draft.json';OUT.write_text(json.dumps(dict(schema_version=1,authority='typed draft projection of actual controlled original-program fields; synthetic bank markers and derived execution states explicit',original_reference=dict(path=str(P.relative_to(R)),sha256=hashlib.sha256(P.read_bytes()).hexdigest()),cases=C,sequences=S,source_banks=banks,deployment=D,code_templates=T,normal_profile_implemented=False,production_ready=False),indent=2)+'\n');print('typed draft banks',len(C),'sequences',len(S))
+report = dict(
+    schema_version=1,
+    authority='typed draft projection of actual controlled original-program fields; synthetic bank markers and derived execution states explicit',
+    original_reference=dict(path=str(P.relative_to(R)), sha256=hashlib.sha256(P.read_bytes()).hexdigest()),
+    cases=C,
+    sequences=S,
+    source_banks=banks,
+    deployment=D,
+    code_templates=T,
+    normal_profile_implemented=False,
+    production_ready=False,
+)
+text = json.dumps(report, indent=2) + '\n'
+(R / 'integration/artifacts/local/core-slipstream-context-normalized-draft.json').write_text(text)
+for service in ('integration', 'chain-parser-go', 'chain-parser-rust', 'dex-router'):
+    (R / service / 'test/contracts/slipstream-context-state.json').write_text(text)
+print('typed draft banks', len(C), 'sequences', len(S))
