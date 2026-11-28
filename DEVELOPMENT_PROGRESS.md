@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 入库七链联调启动脚本和额外 23 份回放输入。从独立检出展开留存归档，正常 Go Parser 和 Rust Router 发布 12 个可报价池。HTTP 正反例验证 Ethereum 跳数上限设为 1、2、3 时分别返回无路由、两跳、两跳。 [启动方式](frontend/README.md#七链固定区块联调)
 - Ethereum 在固定高度 26,511,767 加入 DAI/WETH Uniswap V2。独立证明、同块 Go 回执根与常规 Parser/Router 复演通过，原池与 Router 报价均为 165,074,215,811,127,810 个 DAI 最小单位。七链联调发布 12 个池。浏览器与 HTTP 实测留空地址时，100 USDC 经 WETH 两跳兑换 DAI，最大跳数为 1 时返回 `NO_ROUTE`。 [复验证据](integration/test/source/deployment-catalog/README.md#ethereum-daiweth-uniswap-v2-固定块报价)
 - 从另 33 个公开 finalized 区块重放 863 条 Loader Write，恢复 Pump Fee ProgramData（升级 slot 456,132,171）。完整账户和 SBF 均匹配固定摘要。待补的固定账户剩 Pump Global 与 Pump AMM GlobalConfig。
 - 从公开 finalized RPC 的 137 个区块按区块内交易顺序重放 Loader Write，恢复 Pump Bonding（升级 slot 458,921,440）与 Pump AMM（升级 slot 458,921,517）的 ProgramData。两份完整账户和其中的 SBF 均匹配既有 SHA-256。另保留已核对的 5 份 Program 与 FeeConfig 账户。原多账户 RPC 捕获仍待恢复，Pump 的执行银行及解码夹具尚未重验。

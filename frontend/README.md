@@ -17,6 +17,22 @@ npm run dev
 
 API Token 按 Router 地址保存在当前浏览器会话的 `sessionStorage` 中，关掉会话即失效；切换 Router 不会自动携带另一地址的凭据。前端不从源码中读取部署凭据。
 
+### 七链固定区块联调
+
+从仓库根目录展开已留存的区块和池证据，并启动回放。默认使用 `chain-parser-go/bin/chain-parser-go` 和 `dex-router/target/debug/dex-router`，启动进程在本机监听 24 小时。
+
+```bash
+evidence=integration/test/source/deployment-catalog/evidence
+for archive in avalanche-lfj-v21-101598757 base-v3-aerodrome-v2-63180533 \
+  ethereum-uniswap-26511767 ethereum-uniswap-normal-26511767 ethereum-dai-weth-26511767 \
+  fixed-evm-2026-11-28 op-arbitrum-fixed-2026-11-28 evm-quote-playground-inputs; do
+  tar -xkf "$evidence/$archive.tar.gz"
+done
+python3 integration/tools/acceptance/evm_quote_playground.py --port 18080
+```
+
+用 `?api=http%3A%2F%2F127.0.0.1%3A18080` 打开前端。选择 `evm:1`，以 USDC 最小单位 `100000000` 卖出给 DAI，最大跳数设为 2，计算兑换量可以查看经过 WETH 的两跳路线。池表显示各链快照的区块及时间。
+
 ## CORS
 
 Router 的 `api.cors_allowed_origins` 可配置允许的前端 origin，例如：
