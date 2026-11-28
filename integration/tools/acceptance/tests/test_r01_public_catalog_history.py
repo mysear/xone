@@ -1,6 +1,8 @@
 """R01 additive history, metadata and exact executable boundary regressions."""
 import importlib.util
 import copy
+import subprocess
+import tarfile
 import tempfile
 import json
 from pathlib import Path
@@ -62,20 +64,68 @@ class ForkBoundaryTests(unittest.TestCase):
         with self.assertRaises(catalog.CatalogError):h.pin_request('eth_getBalance',['0x'+'12'*20,'0x65'],100,'0x'+'11'*32)
         with self.assertRaises(catalog.CatalogError):h.pin_request('eth_getBlockByNumber',['0x65',False],100,'0x'+'11'*32)
 
-    def test_rpc_transaction_rlp_matches_independent_retained_go_capture(self):
-        import subprocess
-        root=TOOLS.parents[2];fixture=root/'integration/test/source/ethereum-mainnet/uniswap-v2-26355865-evidence.json'
-        script="const h=require(process.argv[1]),x=require(process.argv[2]);for(let i=0;i<x.block.transactions.length;i++){if(h.serializeTransaction(x.block.transactions[i])!==x.raw_transactions[i])throw Error('INDEPENDENT_GO_RLP_MISMATCH:'+i)}console.log(x.block.transactions.length)"
-        p=subprocess.run(['node','-e',script,str(TOOLS/'r01_public_catalog_fork.cjs'),str(fixture)],capture_output=True,text=True)
-        self.assertEqual(p.returncode,0,p.stderr);self.assertEqual(p.stdout.strip(),'101')
 
-class MPTPrestateTests(unittest.TestCase):
+class EthereumFixedBlockTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from r01_fixed_evm_replay import ARCHIVES, BASE, ETHEREUM_ARCHIVE, ETHEREUM_BLOCK, HISTORY
+
+        archive = BASE / 'evidence' / ETHEREUM_ARCHIVE
+        catalog.require(catalog.sha256(archive.read_bytes()) == ARCHIVES[ETHEREUM_ARCHIVE],
+                        'FIXED_ARCHIVE_DIGEST')
+        member = (HISTORY / ETHEREUM_BLOCK / 'prestate-evidence.json').relative_to(catalog.ROOT)
+        with tarfile.open(archive, 'r:gz') as bundle, bundle.extractfile(member.as_posix()) as fixture:
+            cls.evidence = fixture.read().decode('utf-8')
+
+    def run_node(self, module, script):
+        result = subprocess.run(
+            ['node', '-e', script, str(TOOLS / module)], input=self.evidence,
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_rpc_transaction_rlp_matches_signed_hashes_and_fixed_transaction_root(self):
+        self.run_node('r01_public_catalog_evm_commitments.cjs', """
+            const assert = require('node:assert/strict');
+            const {verifyBody} = require(process.argv[1]);
+            const {block, expected_block_hash} = JSON.parse(require('node:fs').readFileSync(0));
+            (async () => {
+                assert.equal(block.hash, expected_block_hash);
+                const result = await verifyBody('ethereum', block);
+                assert.equal(result.transactions, 226);
+                const tampered = structuredClone(block);
+                tampered.transactions[0].input += '00';
+                await assert.rejects(verifyBody('ethereum', tampered), /RPC_TRANSACTION_SIGNED_HASH/);
+            })().catch(error => { console.error(error); process.exitCode = 1; });
+        """)
+
     def test_real_retained_proof_and_balance_code_storage_tamper(self):
-        import subprocess
-        root=TOOLS.parents[2]
-        script="const h=require(process.argv[1]),x=require(process.argv[2]);(async()=>{await h.verifyPrestate(x);for(const change of ['balance','code','storage','root']){let y=structuredClone(x);if(change==='balance')y.deployments[0].proof.balance='0xffff';if(change==='code')y.deployments[0].code='0x6000';if(change==='storage')y.deployments[0].proof.storageProof=[{key:'0x'+'00'.repeat(32),value:'0x1',proof:[]}];if(change==='root')y.block.stateRoot='0x'+'00'.repeat(32);let failed=false;try{await h.verifyPrestate(y)}catch(e){failed=true}if(!failed)throw Error('PROOF_TAMPER_ACCEPTED:'+change)}})().catch(e=>{console.error(e.stack);process.exit(1)})"
-        p=subprocess.run(['node','-e',script,str(TOOLS/'r01_public_catalog_proof.cjs'),str(root/'integration/test/source/ethereum-mainnet/uniswap-v2-26355865-evidence.json')],capture_output=True,text=True,timeout=30)
-        self.assertEqual(p.returncode,0,p.stderr)
+        self.run_node('r01_public_catalog_proof.cjs', """
+            const assert = require('node:assert/strict');
+            const {verifyPrestate} = require(process.argv[1]);
+            const evidence = JSON.parse(require('node:fs').readFileSync(0));
+            const options = {allowAbsentRPCZeroHashes: true};
+            const deploymentIndex = evidence.deployments.findIndex(
+                deployment => deployment.code !== '0x' && deployment.proof.storageProof.length > 0
+            );
+            const mutations = {
+                balance: copy => { copy.deployments[deploymentIndex].proof.balance = '0xffff'; },
+                code: copy => { copy.deployments[deploymentIndex].code = '0x6000'; },
+                storage: copy => {
+                    const slot = copy.deployments[deploymentIndex].proof.storageProof[0];
+                    slot.value = slot.value === '0x0' ? '0x1' : '0x0';
+                },
+                root: copy => { copy.block.stateRoot = '0x' + '00'.repeat(32); },
+            };
+            (async () => {
+                await verifyPrestate(evidence, [], options);
+                for (const [field, mutate] of Object.entries(mutations)) {
+                    const tampered = structuredClone(evidence);
+                    mutate(tampered);
+                    await assert.rejects(verifyPrestate(tampered, [], options), undefined, field);
+                }
+            })().catch(error => { console.error(error); process.exitCode = 1; });
+        """)
 
 class SBFBoundaryTests(unittest.TestCase):
     def test_executable_length_requires_an_actual_build_file_not_guessing_tail(self):
@@ -96,7 +146,6 @@ class SBFBoundaryTests(unittest.TestCase):
 
 class V3TemplateInstanceTests(unittest.TestCase):
     def test_real_pools_have_different_runtime_hashes_but_one_template(self):
-        import subprocess
         root=TOOLS.parents[2]
         script="const h=require(process.argv[1]),t=require(process.argv[2]),e=require(process.argv[3]);const a=e.deployments.filter(x=>['0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640','0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8'].includes(x.address.toLowerCase()));const b=a.map(x=>h.bindV3(t,x.code,x.address));if(b.length!==2||b[0].actual_runtime_sha256===b[1].actual_runtime_sha256||b[0].runtime_template_sha256!==b[1].runtime_template_sha256)throw Error('MULTI_POOL_IDENTITY');for(const x of a){let bad='0x61'+x.code.slice(4);let failed=false;try{h.bindV3(t,bad,x.address)}catch(e){failed=true}if(!failed)throw Error('NONIMMUTABLE_TAMPER_ACCEPTED');try{h.bindV3(t,x.code,'0x'+'11'.repeat(20));throw Error('SELF_BINDING_ACCEPTED')}catch(e){if(e.message==='SELF_BINDING_ACCEPTED')throw e}}"
         p=subprocess.run(['node','-e',script,str(TOOLS/'r01_public_catalog_history_bind.cjs'),str(root/'integration/test/source/deployment-catalog/v3-pool-template/template.json'),str(root/'integration/test/source/deployment-catalog/history/ethereum-fresh-04/prestate-evidence.json')],capture_output=True,text=True,timeout=30)

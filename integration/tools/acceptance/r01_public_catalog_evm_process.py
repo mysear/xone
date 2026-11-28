@@ -197,6 +197,8 @@ def run(directory,output,timeout=35,parser_bin=None,router_bin=None,rpc_factory=
         chain_cfg={'key':chain,'owner_service':'chain-parser-go','assignment_version':1,'genesis_hash':row['genesis_hash'],'rpc_urls':[f'http://127.0.0.1:{server.server_port}'],'pools':[capture_['pool_config']],'confirmation_tag':'finalized','auto_reorg_window':128}
         for alias,service,binary in [('parser','chain-parser-go',Path(parser_bin or ROOT/'chain-parser-go/bin/chain-parser-go').resolve()),('router','dex-router',Path(router_bin or ROOT/'dex-router/target/debug/dex-router').resolve())]:
             cfg=config_for(service,output/alias,token,ports[alias]);cfg['service']['mode']='rpc';cfg['chains']=[copy.deepcopy(chain_cfg)];cfg['startup']['max_baseline_age_ms']=freshness_ms;cfg['logging']['level']='info';cfg['control'].update(backend='disabled',dsn_file='',instance_id='r01-evm-'+alias);cfg['journal'].update(transport='http-development',source_urls=[f"http://127.0.0.1:{ports['parser']}"],poll_interval_ms=250,request_timeout_ms=10000,max_payload_bytes=16*1024*1024)
+            # The replay archive serves one fixed block and its proof dependencies.
+            cfg['history']['enabled'] = False
             if alias=='router':
                 cfg['chains'][0].update(rpc_urls=[],pools=[]);cfg['journal']['source_auth_tokens']={f"http://127.0.0.1:{ports['parser']}":token};cfg['routing'].update(max_hops=1,max_splits=1,max_state_age_ms=freshness_ms,quote_ttl_ms=60000,route_activation_cost='0');cfg['api'].update(quote_timeout_ms=10000,quote_concurrency=1)
             config_path=output/(alias+'-config.json');config_path.write_text(json.dumps(cfg,indent=2)+'\n');config_path.chmod(0o600)

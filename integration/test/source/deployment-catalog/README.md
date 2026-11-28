@@ -6,7 +6,7 @@
 
 ### 从已入库的证据统一复验
 
-在独立检出中运行以下命令。准备步骤安装固定版本的 Node 参考依赖、校验 Solidity 0.8.19 编译器并构建两个服务。复验入口校验六个归档的 SHA-256，重放八个固定块和 11 项部署。
+在独立检出中运行以下命令。准备步骤安装固定版本的 Node 参考依赖、校验 Solidity 0.8.19 编译器并构建两个服务。复验入口校验八个归档的 SHA-256，重放七条链的九个固定块和 13 项部署。
 
 ```sh
 mkdir -p integration/.runtime/stable-reference integration/.runtime/receipt-root-reference
@@ -24,7 +24,7 @@ python3 integration/tools/acceptance/r01_fixed_evm_replay.py \
     --out integration/artifacts/local/r01-public-fixed-suite
 ```
 
-每次运行使用一个尚未创建的 `r01-public-` 输出目录。`fixed-replay-report.json` 记录八项状态证明、Go 回执核验日志和 11 项常规服务报价的路径与摘要。回放要求 HTTP 200、逐项匹配原池实际收款，且没有未归档的 RPC 请求或回放期间的公网请求。此复验覆盖池级毛额。链费和生产执行资格另有独立验收。
+每次运行使用一个尚未创建的 `r01-public-` 输出目录。`fixed-replay-report.json` 记录状态证明、Go 回执核验日志和 13 项常规服务报价的路径与摘要。固定块回放关闭后台历史补洞。回放要求 HTTP 200、逐项匹配原池实际收款，且没有未归档的 RPC 请求或回放期间的公网请求。此复验覆盖池级毛额。链费和生产执行资格另有独立验收。
 
 ### 采集新的固定块
 

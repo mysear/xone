@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay the eleven retained fixed-block EVM deployments with normal services."""
+"""Replay retained fixed-block EVM deployments with normal services."""
 
 import argparse
 from dataclasses import dataclass
@@ -20,7 +20,10 @@ BASE = ROOT / 'integration/test/source/deployment-catalog'
 TOOLS = Path(__file__).resolve().parent
 HISTORY = BASE / 'evm-continuation-v2'
 NORMAL = BASE / 'evm-normal-v4'
+ETHEREUM_ARCHIVE = 'ethereum-uniswap-26511767.tar.gz'
 ARCHIVES = {
+    ETHEREUM_ARCHIVE: '48f6a43e8837cbb63b4a11c12164308932b7436bdd98f6680c9fbe70fa0dcdd1',
+    'ethereum-uniswap-normal-26511767.tar.gz': 'c948c52ca5d11b91532b1f2b5516797202b5fc97a89144385893d04b1fa0610d',
     'fixed-evm-2026-11-28.tar.gz': '4f19190de2bd8da36e0c1b28cfc34544ded0f86f5170a485190b0638fbe61cf4',
     'base-v3-aerodrome-v2-63180533.tar.gz': 'a4978ab541680182016564b6ed37dd6758acc49740169611ea7bad2512280493',
     'op-arbitrum-fixed-2026-11-28.tar.gz': 'd461ed5e2c3e698d247107f3814ff1a3cce562b7957cb3e428d093047ced31f3',
@@ -44,7 +47,13 @@ class Deployment:
 
 BASE_BLOCK = 'anchor-iteration-ee66n2qk/base'
 OP_BLOCK = 'anchor-iteration-ee66n2qk/optimism'
+ETHEREUM_BLOCK = 'ethereum.2nsy6ES2'
+ETHEREUM_NORMAL = 'ethereum-26511767.CorGKXrn'
 DEPLOYMENTS = (
+    Deployment('ethereum-uniswap-v2', 'ethereum', ETHEREUM_BLOCK, 26511767, '165056',
+               f'{ETHEREUM_NORMAL}/ethereum-uniswap-v2', probe='probe-01.json'),
+    Deployment('ethereum-uniswap-v3', 'ethereum', ETHEREUM_BLOCK, 26511767, '165469',
+               f'{ETHEREUM_NORMAL}/ethereum-uniswap-v3', probe='probe-01.json'),
     Deployment('base-uniswap-v3', 'base', BASE_BLOCK, 63180533, '166255',
                'base-uniswap-v3-fixed-h.ustwe78e', probe='probe-01.json'),
     Deployment('base-aerodrome-v2', 'base', BASE_BLOCK, 63180533, '166299',
