@@ -1,0 +1,89 @@
+{
+  "reference": {
+    "block": {
+      "chain_key": "evm:31337",
+      "number_or_slot": 100,
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "parent_hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "timestamp_ms": 1793577600000
+    },
+    "canonical_epoch": 1,
+    "journal_seq": 1,
+    "schema_version": 1,
+    "adapter_set_hash": "1e28a527a43dd07f6694de50a5df2a894ebab0543cf445d1eb284fa2383de65a",
+    "online_generation": 1,
+    "scope_hash": "ebe188097d195b875a433e1498aa71b70c99168d46342436f208d759465ce5ba",
+    "writer_epoch": 1,
+    "owner_service": "chain-parser-go",
+    "owner_assignment_version": 1
+  },
+  "pools": [
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x0000000000000000000000000000000000000001",
+      "protocol": "uniswap-v2",
+      "token0": "A",
+      "token1": "B",
+      "reserve0": "1000000",
+      "reserve1": "2000000",
+      "fee_numerator": 3,
+      "fee_denominator": 1000,
+      "adapter_version": "uniswap-v2/1",
+      "token_behavior": "standard"
+    },
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x0000000000000000000000000000000000000002",
+      "protocol": "uniswap-v2",
+      "token0": "B",
+      "token1": "C",
+      "reserve0": "1500000",
+      "reserve1": "1500000",
+      "fee_numerator": 3,
+      "fee_denominator": 1000,
+      "adapter_version": "uniswap-v2/1",
+      "token_behavior": "standard"
+    },
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x0000000000000000000000000000000000000003",
+      "protocol": "uniswap-v2",
+      "token0": "A",
+      "token1": "B",
+      "reserve0": "1700000",
+      "reserve1": "3000000",
+      "fee_numerator": 3,
+      "fee_denominator": 1000,
+      "adapter_version": "uniswap-v2/1",
+      "token_behavior": "standard"
+    },
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x0000000000000000000000000000000000000004",
+      "protocol": "uniswap-v2",
+      "token0": "A",
+      "token1": "C",
+      "reserve0": "1000000",
+      "reserve1": "1900000",
+      "fee_numerator": 3,
+      "fee_denominator": 1000,
+      "adapter_version": "uniswap-v2/1",
+      "token_behavior": "standard"
+    },
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x0000000000000000000000000000000000000005",
+      "protocol": "uniswap-v2",
+      "token0": "A",
+      "token1": "C",
+      "reserve0": "2000000",
+      "reserve1": "3700000",
+      "fee_numerator": 3,
+      "fee_denominator": 1000,
+      "adapter_version": "uniswap-v2/1",
+      "token_behavior": "standard"
+    }
+  ],
+  "source": "SYNTHETIC_EVM_BASELINE",
+  "history_gaps": []
+}

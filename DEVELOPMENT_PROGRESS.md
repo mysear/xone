@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 已重新生成离线 EVM 基础快照、跨语言金额编码、journal 分片和规范化事实测试向量。合成快照含 5 个池，覆盖直连和两跳竞争。快照和向量在 Python 普通及优化模式下字节一致。38 项 Go race、10 项 Rust 领域契约以及 6 项 Router HTTP 用例通过。其余协议夹具仍待恢复。 [生成工具](integration/tools/ci/evm-baseline-golden.py)
 - 已恢复 Ethereum 26,355,865 的区块正文和 Uniswap V2 样例池账户证明。ZAN、PublicNode 和 dRPC 返回一致的区块字段、101 笔交易顺序及发送方、16 条提款。ZAN 和 Alchemy 提供一致的账户证明，并通过该块状态根核验。55 项 Go race 用例及子用例覆盖正常解析、信标祖先读取和篡改拒绝。使用固定 Solidity 0.5.16 编译器重建 10 个源码文件得到的 runtime 与已证明的链上字节一致。Python 普通和优化模式各通过 2 项。 [历史证据](integration/test/source/ethereum-mainnet/uniswap-v2-26355865-evidence.json)
 - OP Mainnet 110,000,000 的四笔交易已从完整区块 JSON 重建，并与逐笔取得的原始交易字节一致。Go 正常解析、历史归档回放以及与 Optimism 固定源码生成的 25 个 deposit source hash 向量的比对通过。BNB Smart Chain 35,000,000 的 Swap 事实和旧归档回归也已恢复。本轮 8 项 Go race 用例和 Python 普通、优化模式各 4 项验证通过。
 - 已恢复 Avalanche 99,642,059、99,642,060–99,642,061 和 99,645,675 的 SAE 结算回放。Go 核验后继头、交易和回执承诺，并把账户证明绑定到正确的结算状态根。24 项 Go race 主用例通过，覆盖单块和跨块结算、历史入口、篡改拒绝、BSC 原始交易承诺及 Polygon、Arbitrum 的正常解析路径。 [夹具投影](integration/test/source/chain-receipt-vectors/project-native.py)
