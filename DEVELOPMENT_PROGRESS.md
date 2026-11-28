@@ -473,6 +473,12 @@
 - 完成 R03 Yellowstone 连续流、WAL、fork、补洞和乱序账户恢复。
 - 完成 R04 EnsurePoolScope、扩容、长停机恢复和历史隔离。
 
+#### 当前迭代目标（R01 六链历史部署，2026-11-28）
+
+- 固定块采集在读取原合约状态前核对主源与见证源的 chain ID 和创世哈希。见证源的响应必须与主源的 finalized 块号、哈希和状态根一致。重试从已有取证序号继续写入。
+- Base 63,180,533、BSC 136,138,407、Arbitrum 528,150,486、OP Mainnet 160,113,647、Polygon 98,081,300 和 Avalanche 101,588,444 均取得双源响应。独立验证器重建六个原生区块头和六棵交易 trie，共核对 261 笔交易。Avalanche 样本的执行高度为 101,588,444，块头声明的状态高度为 101,588,438。
+- 依次补齐 11 个部署的原始 runtime、升级语义、固定高度证明、原版执行和常规 Parser/Router 收款差分。区块回执及 Avalanche 目标高度的后继结算头继续独立核验。 [六链固定块复验命令](integration/test/source/deployment-catalog/README.md#fresh-evm-anchors)
+
 #### 当前迭代目标（R03 基础设施闭环，2026-11-27）
 
 - 让 R03 验收在缺少本机 PostgreSQL 13 或 Kafka 安装时，自动使用隔离 Docker 实例，实例只暴露 loopback 端口并在退出时清理。

@@ -9,6 +9,58 @@ TOOLS=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(TOOLS))
 
 class MultiChainEvidenceTests(unittest.TestCase):
+    def test_anchor_uses_only_witnesses_with_the_expected_identity_and_state_root(self):
+        import r01_public_catalog_evm_history as evm
+
+        chain_id, endpoints = evm.CHAINS['bsc']
+        primary, wrong_chain, witness = endpoints
+        genesis = evm.load_json(evm.TARGETS)['targets']['bsc']['genesis_hash']
+        block = {'number': '0x64', 'hash': '0x' + '11' * 32, 'stateRoot': '0x' + '22' * 32,
+                 'timestamp': '0x50', 'transactions': []}
+        responses = {}
+        for endpoint in endpoints:
+            responses[endpoint, 'eth_chainId', ()] = hex(chain_id)
+            responses[endpoint, 'eth_getBlockByNumber', ('0x0', False)] = {
+                'number': '0x0', 'hash': block['hash'] if endpoint == wrong_chain else genesis,
+            }
+        responses[primary, 'eth_getBlockByNumber', ('finalized', True)] = block
+        witness_key = witness, 'eth_getBlockByNumber', ('0x64', False)
+        responses[witness_key] = block | {'stateRoot': '0x' + '33' * 32}
+        calls = []
+
+        def call(endpoint, method, params, name):
+            key = endpoint, method, tuple(params)
+            calls.append((endpoint, name))
+            return {'ordinal': len(calls)}, responses.get(key)
+
+        with self.assertRaisesRegex(ValueError, 'PUBLIC_FINALIZED_HEADER_WITH_WITNESS_UNAVAILABLE'):
+            evm.discover_anchor('bsc', call)
+        self.assertNotIn((wrong_chain, 'witness-header'), calls)
+        self.assertNotIn((wrong_chain, 'finalized-header'), calls)
+
+        responses[witness_key] = block | {'transactions': []}
+        saved, header = evm.discover_anchor('bsc', call)
+        self.assertEqual(header, block)
+        self.assertEqual(saved['endpoints'], [primary, witness])
+        self.assertEqual(saved['anchor']['height'], 100)
+        self.assertEqual(list(saved['provider_identities']), [primary, witness])
+        self.assertEqual(saved['genesis'], saved['provider_identities'][primary]['genesis'])
+
+    def test_recorder_appends_after_interrupted_initial_reads(self):
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        import r01_public_catalog_evm_history as evm
+
+        with TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            (directory / '006-genesis.json').touch()
+            (directory / '009-finalized-header.json').touch()
+            with patch.object(evm, 'fetch_rpc', return_value=({'ref': 'new'}, None)) as fetch:
+                call, observations = evm.evidence_recorder(directory)
+                call('source', 'eth_chainId', [], 'chain-id')
+            fetch.assert_called_once_with('source', 'eth_chainId', [], directory / '010-chain-id.json')
+            self.assertEqual(observations, [{'ref': 'new'}])
+
     def test_unused_capture_header_queries_do_not_weaken_exact_replay_views(self):
         import r01_public_catalog_evm_history as evm
         expected={'a':{'transactions':{'original_count':3,'local_count':0}},'b':{'transactions':{'original_count':0,'local_count':0}}}

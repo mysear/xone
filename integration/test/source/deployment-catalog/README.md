@@ -1,5 +1,19 @@
 # R01 公有部署／历史证据目录
 
+<a id="fresh-evm-anchors"></a>
+
+## 六链固定块复验
+
+在仓库根目录执行以下命令。每链写入独立目录，保留链 ID、创世块、primary 的 finalized 完整块与 witness 的同高度头。两源身份均与 `integration/config/chain-targets.json` 一致才会选用。重建区块头和交易根时，使用 `r01_public_catalog_evm_commitments.cjs` 导出的 `verifyBody(chain, header)`，其中 `header` 是 `anchor.json` 的 `header` 引用所指 RPC 回应的 `response.result`。Avalanche 的目标高度状态证明还需要其后继结算头。
+
+```sh
+r01_run=$(mktemp -d integration/test/source/deployment-catalog/evm-continuation-v2/anchors.XXXXXXXX)
+for chain in base bsc arbitrum optimism polygon avalanche; do
+    python3 integration/tools/acceptance/r01_public_catalog_evm_history.py anchor \
+        --chain "$chain" --directory "$r01_run/$chain"
+done
+```
+
 本目录是有限的真实观测集：8 链、16 个 chain/protocol、14 个经 factory 查询并读取代码的样例池，以及 3 个完整 Solana ProgramData。所有外部输入均来自无需账号、API key 的公共 HTTPS。目录中的 `version` 使用实际 runtime SHA-256；Solana 另包含解码得到的 upgrade slot。`profiles` 表示本项目代码识别的 profile，不能证明该 profile 对应当前部署源码。
 
 `manifest.json` 固定全部数据文件和本任务工具／测试的逐字节清单；默认 CLI 也检查缺失、额外文件和改动。`catalog.json` 包含逐项原始证据引用和 SHA-256，`scope.json` 固定声明范围的 chain、protocol、runtime version、地址、H/hash。缺行、重复、范围外行、错误地址或 H/hash 不能通过范围校验。`catalog-ethereum.json` / `scope-ethereum.json` 是明确较窄的 Ethereum V2 单部署验收范围，不代表整个 R01 已完成。

@@ -2,19 +2,19 @@
 """Additive, read-only multichain original-pool public-state fork captures."""
 import argparse
 import copy
-import datetime
 import json
 import re
 from pathlib import Path
 import subprocess
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from r01_public_catalog import ROOT,CatalogError,require,load_json,read_blob,sha256,IMPLEMENTATION_SLOT,BEACON_SLOT
+from r01_public_catalog import ROOT,CatalogError,require,load_json,read_blob
 from r01_public_catalog_capture import fetch_rpc,write_new,reference
 from r01_public_catalog_history import ForkArchive,start_archive
 
 BASE=ROOT/'integration/test/source/deployment-catalog'
 OUT=BASE/'evm-continuation-v2'
+TARGETS=ROOT/'integration/config/chain-targets.json'
 CHAINS={'base':(8453,['https://base.drpc.org','https://mainnet.base.org']),'optimism':(10,['https://optimism.drpc.org','https://mainnet.optimism.io']),'bsc':(56,['https://bsc.drpc.org','https://bsc-rpc.publicnode.com','https://bsc-dataseed.bnbchain.org']),'arbitrum':(42161,['https://arb1.arbitrum.io/rpc','https://arbitrum-one-rpc.publicnode.com']),'polygon':(137,['https://polygon.drpc.org','https://polygon-bor-rpc.publicnode.com']),'avalanche':(43114,['https://avalanche-c-chain-rpc.publicnode.com','https://api.avax.network/ext/bc/C/rpc'])}
 WRAPPED={'base':'0x4200000000000000000000000000000000000006','optimism':'0x4200000000000000000000000000000000000006','bsc':'0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c','arbitrum':'0x82af49447d8a07e3bd95bd0d56f35241523fbab1','polygon':'0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270','avalanche':'0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7'}
 
@@ -35,6 +35,75 @@ def state_root_semantics(chain,header):
         return {'header_height':height,'state_height':state,'state_root':header['stateRoot'],'proof_for_execution_H_established':False,'authority':'Coreth SAE header root describes settledHeight; target-H root requires native successor coverage'}
     require(chain in CHAINS,'EVM_CHAIN_UNSUPPORTED')
     return {'header_height':height,'state_height':height,'state_root':header['stateRoot'],'proof_for_execution_H_established':False,'authority':'candidate state root; independently verify native header and proof before qualification'}
+
+def discover_anchor(chain, call):
+    chain_id, endpoints = CHAINS[chain]
+    target = load_json(TARGETS)['targets'][chain]
+    require(target['chain_id'] == chain_id, 'CAPTURE_CONFIG_CHAIN_ID')
+    expected_genesis = target['genesis_hash']
+    identities = {}
+    for endpoint in endpoints:
+        chain_ref, identity = call(endpoint, 'eth_chainId', [], 'chain-id')
+        if identity != hex(chain_id):
+            continue
+        genesis_ref, genesis = call(endpoint, 'eth_getBlockByNumber', ['0x0', False], 'genesis')
+        if isinstance(genesis, dict) and genesis.get('number') == '0x0' and genesis.get('hash') == expected_genesis:
+            identities[endpoint] = {'chain_id': chain_ref, 'genesis': genesis_ref}
+
+    require(len(identities) >= 2, 'PUBLIC_CHAIN_IDENTITY_QUORUM')
+    for primary in identities:
+        header_ref, header = call(primary, 'eth_getBlockByNumber', ['finalized', True], 'finalized-header')
+        if not isinstance(header, dict) or not isinstance(header.get('transactions'), list):
+            continue
+        tag = header.get('number')
+        if not isinstance(tag, str) or not re.fullmatch(r'0x[1-9a-f][0-9a-f]*', tag):
+            continue
+        if any(not isinstance(header.get(field), str) or not re.fullmatch(r'0x[0-9a-f]{64}', header[field])
+               for field in ('hash', 'stateRoot')):
+            continue
+        if not isinstance(header.get('timestamp'), str) or not re.fullmatch(r'0x[0-9a-f]+', header['timestamp']):
+            continue
+        semantics = state_root_semantics(chain, header)
+        for endpoint in identities:
+            if endpoint == primary:
+                continue
+            witness_ref, witness = call(endpoint, 'eth_getBlockByNumber', [tag, False], 'witness-header')
+            if not isinstance(witness, dict) or any(witness.get(field) != header[field]
+                                                    for field in ('number', 'hash', 'stateRoot')):
+                continue
+            anchor = {
+                'height': int(tag, 16), 'hash': header['hash'], 'timestamp': int(header['timestamp'], 16),
+                'chain_key': target['chain_key'], 'chain_id': chain_id, 'state_root': header['stateRoot'],
+                'finality_observation': 'finalized', 'native_state_semantics': semantics,
+            }
+            ordered = [primary, endpoint]
+            record = {
+                'schema_version': 2, 'anchor': anchor, 'header': header_ref,
+                'genesis': identities[primary]['genesis'], 'witness': witness_ref, 'endpoints': ordered,
+                'genesis_hash': expected_genesis, 'provider_identities': {source: identities[source] for source in ordered},
+            }
+            return record, header
+    raise CatalogError('PUBLIC_FINALIZED_HEADER_WITH_WITNESS_UNAVAILABLE')
+
+def evidence_recorder(directory):
+    sequence = max((int(path.name.split('-', 1)[0]) for path in directory.iterdir()
+                    if re.fullmatch(r'[0-9]+-[a-z0-9-]+\.json', path.name)), default=0)
+    observations = []
+
+    def call(endpoint, method, params, name):
+        nonlocal sequence
+        sequence += 1
+        ref, value = fetch_rpc(endpoint, method, params, directory / f'{sequence:03}-{name}.json')
+        observations.append(ref)
+        return ref, value
+
+    return call, observations
+
+def write_anchor(chain, directory, call, observations):
+    record, header = discover_anchor(chain, call)
+    record['initial_observations'] = observations.copy()
+    write_new(directory / 'anchor.json', (json.dumps(record, indent=2) + '\n').encode())
+    return record, header
 
 def chain_plan(catalog,chain):
     require(chain in CHAINS,'EVM_CHAIN_UNSUPPORTED');cases=[];ids=[]
@@ -68,23 +137,21 @@ class EvmArchive(ForkArchive):
 
 def capture(chain,directory,resume=False):
     directory=directory.resolve();require(directory.is_relative_to(OUT.resolve()),'OWNED_EVM_DIRECTORY');directory.mkdir(parents=True,exist_ok=True);require(resume or not (directory/'anchor.json').exists(),'IMMUTABLE_EVM_ANCHOR_EXISTS')
-    plan=chain_plan(load_json(BASE/'catalog.json'),chain);endpoints=CHAINS[chain][1];sequence=0;initial=[]
-    def call(endpoint,method,params,name):
-        nonlocal sequence
-        sequence+=1;ref,value=fetch_rpc(endpoint,method,params,directory/f'{sequence:03}-{name}.json',budget=16*1024*1024);initial.append(ref);return ref,value
+    call, observations = evidence_recorder(directory)
     if not resume:
-        primary=None;header=None;href=None
-        for endpoint in endpoints:
-            _,identity=call(endpoint,'eth_chainId',[],'chain-id');require(identity is None or int(identity,16)==plan['chain_id'],'CAPTURE_CHAIN_ID')
-            ref,value=call(endpoint,'eth_getBlockByNumber',['finalized',True],'finalized-header')
-            if isinstance(value,dict) and value.get('number'):primary=endpoint;header=value;href=ref;break
-        require(header,'PUBLIC_FINALIZED_HEADER_UNAVAILABLE');tag=header['number'];ordered=[primary]+[e for e in endpoints if e!=primary]
-        genesisref,genesis=call(primary,'eth_getBlockByNumber',['0x0',False],'genesis')
-        witnessref,witness=call(ordered[1],'eth_getBlockByNumber',[tag,False],'witness-header');require(witness and witness['hash']==header['hash'],'PUBLIC_WITNESS_H_MISMATCH')
-        anchor={'height':int(tag,16),'hash':header['hash'],'timestamp':int(header['timestamp'],16),'chain_key':'evm:'+str(plan['chain_id']),'chain_id':plan['chain_id'],'state_root':header['stateRoot'],'finality_observation':'finalized','native_state_semantics':state_root_semantics(chain,header)}
-        write_new(directory/'anchor.json',(json.dumps({'schema_version':2,'anchor':anchor,'header':href,'genesis':genesisref,'witness':witnessref,'endpoints':ordered,'initial_observations':initial,'genesis_hash':genesis.get('hash') if genesis else None},indent=2)+'\n').encode());write_new(directory/'execution-plan.json',(json.dumps(plan,indent=2)+'\n').encode())
+        plan = chain_plan(load_json(BASE / 'catalog.json'), chain)
+        saved, header = write_anchor(chain, directory, call, observations)
+        write_new(directory / 'execution-plan.json', (json.dumps(plan, indent=2) + '\n').encode())
     else:
-        saved=load_json(directory/'anchor.json');anchor=saved['anchor'];header=json.loads(read_blob(ROOT,saved['header']))['response']['result'];primary=saved['endpoints'][0];ordered=saved['endpoints'];tag=header['number'];plan=load_json(directory/'execution-plan.json');chain=plan['chain']
+        saved = load_json(directory / 'anchor.json')
+        header = json.loads(read_blob(ROOT, saved['header']))['response']['result']
+        plan = load_json(directory / 'execution-plan.json')
+        require(chain is None or chain == plan['chain'], 'RESUME_CHAIN_MISMATCH')
+        chain = plan['chain']
+    anchor = saved['anchor']
+    ordered = saved['endpoints']
+    primary = ordered[0]
+    tag = header['number']
     if not (directory/'sender-candidates.json').exists():
         candidates=[];candidate_refs=[]
         # Sparse blocks may contain only a system sender or low-balance user.
@@ -136,5 +203,23 @@ def replay(directory):
     finally:server.shutdown();server.server_close()
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('command',choices=['capture','resume','replay']);parser.add_argument('--chain',choices=CHAINS);parser.add_argument('--directory',type=Path,required=True);args=parser.parse_args();result=capture(args.chain,args.directory,resume=args.command=='resume') if args.command in ('capture','resume') else replay(args.directory);print(json.dumps(result,indent=2))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('command', choices=['anchor', 'capture', 'resume', 'replay'])
+    parser.add_argument('--chain', choices=CHAINS)
+    parser.add_argument('--directory', type=Path, required=True)
+    args = parser.parse_args()
+    if args.command in ('anchor', 'capture') and args.chain is None:
+        parser.error('--chain is required for anchor and capture')
+    if args.command == 'anchor':
+        directory = args.directory.resolve()
+        require(directory.is_relative_to(OUT.resolve()), 'OWNED_EVM_DIRECTORY')
+        directory.mkdir(parents=True, exist_ok=True)
+        require(not (directory / 'anchor.json').exists(), 'IMMUTABLE_EVM_ANCHOR_EXISTS')
+        call, observations = evidence_recorder(directory)
+        result, _ = write_anchor(args.chain, directory, call, observations)
+    elif args.command in ('capture', 'resume'):
+        result = capture(args.chain, args.directory, resume=args.command == 'resume')
+    else:
+        result = replay(args.directory)
+    print(json.dumps(result, indent=2))
 if __name__=='__main__':main()
