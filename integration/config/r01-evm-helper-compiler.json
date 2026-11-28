@@ -1,0 +1,8 @@
+{
+  "version": "0.8.19+commit.7dd6d404",
+  "url": "https://raw.githubusercontent.com/ethereum/solc-bin/gh-pages/bin/soljson-v0.8.19+commit.7dd6d404.js",
+  "blob": {
+    "path": "integration/test/source/deployment-catalog/compilers/soljson-v0.8.19+commit.7dd6d404.js",
+    "sha256": "e0b74e0a16e783a35169f74d1a615ecb48d07c30f97346b83cd587949268681e"
+  }
+}

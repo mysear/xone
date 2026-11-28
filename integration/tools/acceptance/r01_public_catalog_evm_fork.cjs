@@ -24,8 +24,11 @@ contract PublicStateCallback {
 }
 `;
 function helperArtifact(){
- const version='0.8.19+commit.7dd6d404',manifest=load(path.join(ROOT,'integration/test/source/deployment-catalog/public-source-build-inputs.json')),pin=manifest.compilers.find(p=>p.version===version);assert(pin,'PUBLIC_HELPER_COMPILER_PIN');const compilerFile=path.join(ROOT,pin.blob.path);assert.equal(sha(fs.readFileSync(compilerFile)),pin.blob.sha256,'PUBLIC_HELPER_COMPILER_HASH');
+ const pin=load(path.join(ROOT,'integration/config/r01-evm-helper-compiler.json'));
+ const compilerFile=path.join(ROOT,pin.blob.path);
+ assert.equal(sha(fs.readFileSync(compilerFile)),pin.blob.sha256,'PUBLIC_HELPER_COMPILER_HASH');
  const compiler=r('solc/wrapper')(require(compilerFile)),input={language:'Solidity',sources:{'PublicStateCallback.sol':{content:HELPER}},settings:{optimizer:{enabled:true,runs:200},evmVersion:'paris',outputSelection:{'*':{'*':['abi','metadata','evm.bytecode','evm.deployedBytecode']}}}};
+ assert.equal(compiler.version(),pin.version+'.Emscripten.clang','PUBLIC_HELPER_COMPILER_VERSION');
  const output=JSON.parse(compiler.compile(JSON.stringify(input)));assert(!(output.errors||[]).some(e=>e.severity==='error'));return {compiler:compiler.version(),compiler_sha256:pin.blob.sha256,input,contract:output.contracts['PublicStateCallback.sol'].PublicStateCallback};
 }
 function forkSource(remote,url,chain,height){

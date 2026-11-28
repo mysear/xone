@@ -3,14 +3,15 @@
 import argparse
 import copy
 import json
+import os
 import re
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from r01_public_catalog import ROOT,CatalogError,require,load_json,read_blob,rpc,validate_evm,validate_sources
-from r01_public_catalog_capture import DOCUMENTS,capture_evm,fetch_document,fetch_rpc,write_new,reference
+from r01_public_catalog import ROOT,CatalogError,require,load_json,read_blob,rpc,sha256,validate_evm,validate_sources
+from r01_public_catalog_capture import DOCUMENTS,MAX_BYTES,capture_evm,fetch_document,fetch_rpc,request,write_new,reference
 from r01_public_catalog_history import ForkArchive,start_archive
 from r01_public_catalog_samples import capture as capture_samples
 
@@ -18,6 +19,7 @@ BASE=ROOT/'integration/test/source/deployment-catalog'
 OUT=BASE/'evm-continuation-v2'
 TARGETS=ROOT/'integration/config/chain-targets.json'
 DEPLOYMENTS=ROOT/'integration/config/r01-evm-history-deployments.json'
+HELPER_COMPILER=ROOT/'integration/config/r01-evm-helper-compiler.json'
 CHAINS = {
     'base': (8453, ['https://base.drpc.org', 'https://mainnet.base.org']),
     'optimism': (10, ['https://optimism.drpc.org', 'https://mainnet.optimism.io']),
@@ -115,6 +117,23 @@ def write_anchor(chain, directory, call, observations):
     record['initial_observations'] = observations.copy()
     write_new(directory / 'anchor.json', (json.dumps(record, indent=2) + '\n').encode())
     return record, header
+
+def prepare_helper_compiler():
+    pin = load_json(HELPER_COMPILER)
+    blob = pin['blob']
+    path = ROOT / blob['path']
+    if not path.exists():
+        _, binary, _ = request(pin['url'], None, MAX_BYTES)
+        require(sha256(binary) == blob['sha256'], 'PUBLIC_HELPER_COMPILER_HASH')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=path.parent) as pending:
+            pending.write(binary)
+            pending.flush()
+            try:
+                os.link(pending.name, path)
+            except FileExistsError:
+                pass
+    read_blob(ROOT, blob)
 
 def capture_catalog(chain, directory):
     saved = load_json(directory / 'anchor.json')
@@ -231,6 +250,7 @@ def capture(chain,directory,resume=False,catalog_path=None):
     ordered = saved['endpoints']
     primary = ordered[0]
     tag = header['number']
+    prepare_helper_compiler()
     if not (directory/'sender-candidates.json').exists():
         candidates=[];candidate_refs=[]
         # Sparse blocks may contain only a system sender or low-balance user.
