@@ -172,7 +172,12 @@ async fn allocation_work_limit_is_visible_even_when_candidate_search_finishes() 
     cfg.config.routing.max_expansions = 20;
     cfg.config.api.quote_timeout_ms = 5_000;
     let api = Api::new(cfg).unwrap();
-    api.replica.install_baseline(baseline()).unwrap();
+    let mut snapshot = baseline();
+    let mut parallel_pool = snapshot.pools[0].clone();
+    parallel_pool.pool_id = "0x0000000000000000000000000000000000000005".into();
+    snapshot.pools.push(parallel_pool);
+    snapshot.reference.scope_hash = xone_domain::scope_hash(&snapshot.pools).unwrap();
+    api.replica.install_baseline(snapshot).unwrap();
     let quote = api
         .quote(serde_json::from_value(request()).unwrap())
         .await

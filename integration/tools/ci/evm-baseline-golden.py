@@ -40,10 +40,9 @@ def main():
         }
         for pool_number, token0, token1, reserve0, reserve1 in [
             (1, "A", "B", 1_000_000, 2_000_000),
-            (2, "B", "C", 1_500_000, 1_500_000),
-            (3, "A", "B", 1_700_000, 3_000_000),
-            (4, "A", "C", 1_000_000, 1_900_000),
-            (5, "A", "C", 2_000_000, 3_700_000),
+            (2, "B", "C", 1_500_000, 1_505_000),
+            (3, "A", "C", 1_000_000, 2_000_000),
+            (4, "A", "C", 2_000_000, 4_000_000),
         ]
     ]
     reference = {
@@ -68,7 +67,9 @@ def main():
         "reference": reference,
         "pools": pools,
         "source": "SYNTHETIC_EVM_BASELINE",
-        "history_gaps": [],
+        "history_gaps": [
+            {"from": 1, "to": 99, "reason": "HEAD_FIRST_HISTORY_DECOUPLED"},
+        ],
     }
     proto = ROOT / "common/protoc/proto"
     amount = subprocess.run(

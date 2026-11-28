@@ -94,6 +94,7 @@ v3-differential-test:
 v3-quote-test: build debug-build v3-differential-test
 	python3 tools/acceptance/v3_smoke.py
 v3-reference-refresh:
+	python3 tools/ci/v3-state-golden.py
 	python3 tools/ci/v3-oracle-setup.py
 	python3 tools/ci/v3-wire-golden.py
 

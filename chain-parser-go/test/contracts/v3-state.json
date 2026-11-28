@@ -1,0 +1,54 @@
+{
+  "chain_key": "evm:31337",
+  "pool_id": "0x0303030303030303030303030303030303030303",
+  "protocol": "uniswap-v3",
+  "token0": "0x0101010101010101010101010101010101010101",
+  "token1": "0x0202020202020202020202020202020202020202",
+  "reserve0": "0",
+  "reserve1": "0",
+  "fee_numerator": 3000,
+  "fee_denominator": 1000000,
+  "adapter_version": "uniswap-v3/core-1",
+  "token_behavior": "standard",
+  "v3": {
+    "sqrt_price_x96": "79228162514264337593543950336",
+    "tick": 0,
+    "liquidity": "3000000000",
+    "tick_spacing": 60,
+    "factory": "0x0404040404040404040404040404040404040404",
+    "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "max_steps": 512,
+    "tick_words": [
+      {
+        "word_pos": -1,
+        "bitmap": "29061100521474865452986077292219523748330455135810180623184178798861010075648"
+      },
+      {
+        "word_pos": 0,
+        "bitmap": "1028"
+      }
+    ],
+    "ticks": [
+      {
+        "tick": -600,
+        "liquidity_gross": "1000000000",
+        "liquidity_net": "1000000000"
+      },
+      {
+        "tick": -120,
+        "liquidity_gross": "2000000000",
+        "liquidity_net": "2000000000"
+      },
+      {
+        "tick": 120,
+        "liquidity_gross": "2000000000",
+        "liquidity_net": "-2000000000"
+      },
+      {
+        "tick": 600,
+        "liquidity_gross": "1000000000",
+        "liquidity_net": "-1000000000"
+      }
+    ]
+  }
+}

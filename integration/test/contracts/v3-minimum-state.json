@@ -1,0 +1,40 @@
+{
+  "chain_key": "evm:31337",
+  "pool_id": "0x0303030303030303030303030303030303030303",
+  "protocol": "uniswap-v3",
+  "token0": "0x0101010101010101010101010101010101010101",
+  "token1": "0x0202020202020202020202020202020202020202",
+  "reserve0": "0",
+  "reserve1": "0",
+  "fee_numerator": 3000,
+  "fee_denominator": 1000000,
+  "adapter_version": "uniswap-v3/core-1",
+  "token_behavior": "standard",
+  "v3": {
+    "sqrt_price_x96": "4295128739",
+    "tick": -887272,
+    "liquidity": "0",
+    "tick_spacing": 60,
+    "factory": "0x0404040404040404040404040404040404040404",
+    "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "max_steps": 512,
+    "tick_words": [
+      {
+        "word_pos": -58,
+        "bitmap": "6917529027641081856"
+      }
+    ],
+    "ticks": [
+      {
+        "tick": -887220,
+        "liquidity_gross": "1000000000000000000000000",
+        "liquidity_net": "1000000000000000000000000"
+      },
+      {
+        "tick": -887160,
+        "liquidity_gross": "1000000000000000000000000",
+        "liquidity_net": "-1000000000000000000000000"
+      }
+    ]
+  }
+}
