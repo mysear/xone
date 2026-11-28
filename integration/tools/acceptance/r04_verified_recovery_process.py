@@ -12,7 +12,7 @@ from contextlib import ExitStack
 
 from configuration import config_for, save_config, service_command
 from infrastructure import Infrastructure, ROOT, port
-from r01_r04_recovery_process import binary_fingerprint, owner_cursor, require
+from r01_r04_recovery_process import binary_fingerprint, expire_owner_cursor, owner_cursor, require
 from smoke import http, wait, wait_scope
 from weighted_evidence import source_hash, write_result
 
@@ -68,7 +68,9 @@ def make_config(name, directory, token, listen, owner, infra, fixture):
     chain = fixture['quote']['chainKey']
     config['chains'] = [configured for configured in config['chains'] if configured['key'] == chain]
     config['chains'][0].update(
-        genesis_hash=fixture['genesis'], rpc_urls=[fixture['rpc']], confirmation_tag='safe',
+        genesis_hash=fixture['genesis'],
+        rpc_urls=fixture.get('ownerRpcUrls', [fixture['rpc']]) if parser else [fixture['rpc']],
+        confirmation_tag='safe',
         pools=[pool_config(fixture['pool'])] if parser else [],
     )
     config['journal'].update(transport='kafka', source_urls=[owner], poll_interval_ms=100)
@@ -127,10 +129,11 @@ def previous_template(fixture, directory):
     return anchor, str(path), str(incomplete)
 
 
-def run(replay, geth, case, check_timeout, rpc_state):
+def run(replay, geth, case, check_timeout, rpc_state, retention):
     output = ROOT / 'integration/artifacts/local'
     output.mkdir(parents=True, exist_ok=True)
-    scenario = 'rpc-state' if rpc_state else 'timeout' if check_timeout else 'normal-process'
+    scenario = ('retention' if retention else 'rpc-state' if rpc_state
+                else 'timeout' if check_timeout else 'normal-process')
     report_path = output / f'r04-verified-recovery-{scenario}.json'
     sources, binaries = source_hash(), binary_fingerprint()
     with ExitStack() as stack:
@@ -154,6 +157,9 @@ def run(replay, geth, case, check_timeout, rpc_state):
 
         stack.callback(stop_fixture)
         fixture = wait_manifest(directory, server)
+        if retention:
+            require(fixture['rpc'].startswith('http://127.0.0.1:'), 'expected a loopback fixture')
+            fixture['ownerRpcUrls'] = [fixture['rpc'], fixture['rpc'].replace('127.0.0.1', 'localhost', 1)]
         if rpc_state:
             template_anchor, complete, incomplete = previous_template(fixture, directory)
             fixture['rpcState'] = True
@@ -175,7 +181,7 @@ def run(replay, geth, case, check_timeout, rpc_state):
                                    owner_port, owner, infra, fixture)
         router_config = make_config('dex-router', directory / 'router', token,
                                     router_port, owner, infra, fixture)
-        start('chain-parser-go', owner_config, 'owner')
+        owner_process = start('chain-parser-go', owner_config, 'owner')
         wait(owner + '/health/ready')
         checkpoint = owner_cursor(owner, token)
         fast_request = dict(fixture['quote'], verification='FAST')
@@ -193,9 +199,27 @@ def run(replay, geth, case, check_timeout, rpc_state):
             status, refused = http(quote_url, token, fixture['quote'], timeout=18)
             require(status == 422 and refused['error'] == 'SIMULATION_FAILED', (status, refused))
         stop(first)
+        retention_report = None
+        if retention:
+            stop(owner_process)
+            low_before, low_after = expire_owner_cursor(infra, directory, checkpoint)
         started = time.monotonic()
         start('dex-router', router_config, 'cold-router')
         wait(router + '/health/live')
+        if retention:
+            status, unavailable = http(quote_url, token, fast_request)
+            require(status == 503, (status, unavailable))
+            started = time.monotonic()
+            start('chain-parser-go', owner_config, 'recovered-owner')
+            wait(owner + '/health/ready')
+            restored_cursor = owner_cursor(owner, token)
+            require(restored_cursor > low_after, (restored_cursor, low_after))
+            retention_report = {
+                'initial_cursor': checkpoint, 'low_watermark_before': low_before,
+                'low_watermark_after': low_after, 'restored_cursor': restored_cursor,
+                'cold_quote_without_owner_status': status,
+                'rpc_topology': 'two loopback URLs for one controlled Geth node',
+            }
         wait_scope(router, token, chain)
         scope_ms = int((time.monotonic() - started) * 1000)
         status, fast = http(quote_url, token, fast_request)
@@ -219,10 +243,20 @@ def run(replay, geth, case, check_timeout, rpc_state):
         verified_ms = int((time.monotonic() - started) * 1000)
         require(status == 200 and verified['verification']['level'] == 'VERIFIED'
                 and verified['verification']['success'], (status, verified))
-        require(verified['snapshotRef'] == fast['snapshotRef'] == initial['snapshotRef']
-                and verified['snapshotRef']['block'] == fixture['reference']['block'], 'snapshot changed')
+        require(verified['snapshotRef'] == fast['snapshotRef'], 'recovered quote snapshots differ')
+        require(verified['snapshotRef']['block'] == initial['snapshotRef']['block'] == fixture['reference']['block'],
+                'fixed block changed')
         require(verified['grossBuyAmount'] == fast['grossBuyAmount'] == fixture['expectedOutput'],
                 'independent quote output mismatch')
+        if retention:
+            require(verified['onlineGeneration'] == fast['onlineGeneration'] > initial['onlineGeneration'],
+                    'recovered quote did not bind a new owner generation')
+            gaps = initial['quality']['historyGaps']
+            require(gaps and verified['quality']['historyGaps'] == fast['quality']['historyGaps'] == gaps,
+                    'recovered quote dropped existing history gaps')
+            retention_report['history_gaps'] = gaps
+        else:
+            require(verified['snapshotRef'] == initial['snapshotRef'], 'snapshot changed')
         status, observed = http(chain_status_url, token)
         require(status == 200, observed)
         timing = observed['recovery']
@@ -254,6 +288,9 @@ def run(replay, geth, case, check_timeout, rpc_state):
             report['template_anchor'] = template_anchor
             report['incomplete_template_error'] = 'SIMULATION_FAILED'
             report['state'] = 'LOCAL_VERIFIED_RECOVERY_RPC_STATE_SCOPE_VERIFIED'
+        if retention_report is not None:
+            report['retention'] = retention_report
+            report['state'] = 'LOCAL_VERIFIED_RECOVERY_RETENTION_SCOPE_VERIFIED'
         write_result(report_path, report)
         print(json.dumps(report))
 
@@ -267,5 +304,7 @@ if __name__ == '__main__':
                           help='stall the first native simulation and verify recovery on retry')
     scenario.add_argument('--rpc-state', action='store_true',
                           help='verify a newer block with RPC state and an older bundle template')
+    scenario.add_argument('--retention', action='store_true',
+                          help='verify a cold quote after the owner Kafka cursor expires')
     args = parser.parse_args()
-    run(args.replay, args.geth, args.case, args.check_timeout, args.rpc_state)
+    run(args.replay, args.geth, args.case, args.check_timeout, args.rpc_state, args.retention)

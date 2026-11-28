@@ -27,6 +27,7 @@ type Store struct {
 	reorg             *domain.Snapshot
 	reorgKind         string
 	durable           domain.SnapshotRef
+	durableGaps       []domain.Gap
 	cursor            *journal.Cursor
 	authorityDeadline time.Time
 }
@@ -49,6 +50,7 @@ func OpenWithLogger(path, owner string, assignment, window uint64, logger pebble
 			return nil, e
 		}
 		s.durable = previous.Reference
+		s.durableGaps = previous.HistoryGaps
 	} else if !errors.Is(e, pebble.ErrNotFound) {
 		db.Close()
 		return nil, e
@@ -120,6 +122,13 @@ func (s *Store) Current() (domain.Snapshot, bool) {
 }
 func (s *Store) DurableRef() domain.SnapshotRef { s.mu.RLock(); defer s.mu.RUnlock(); return s.durable }
 func (s *Store) Suspend()                       { s.mu.Lock(); defer s.mu.Unlock(); s.current = nil }
+
+// DurableRefAndHistoryGaps returns the last durable anchor and its disclosure without activating it.
+func (s *Store) DurableRefAndHistoryGaps() (domain.SnapshotRef, []domain.Gap) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.durable, append([]domain.Gap(nil), s.durableGaps...)
+}
 func (s *Store) InstallBaseline(snapshot domain.Snapshot) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -352,6 +361,7 @@ func (s *Store) persistScope(unit journal.Unit, undo *domain.Snapshot, cursor *j
 		s.reorgKind = ""
 	}
 	s.durable = next.Reference
+	s.durableGaps = next.HistoryGaps
 	if cursor != nil {
 		copy := *cursor
 		s.cursor = &copy

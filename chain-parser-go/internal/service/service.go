@@ -368,7 +368,7 @@ func (s *Service) reanchorScope(ctx context.Context, chain config.Chain, fork bo
 	}
 	defer s.stores[chain.Key].ReleaseScopeBuffer(buffer)
 	store := s.stores[chain.Key]
-	old := store.DurableRef()
+	old, oldHistoryGaps := store.DurableRefAndHistoryGaps()
 	revoked := store.ReorgRevoked()
 	if w := s.session(chain.Key); w != nil {
 		revoked = revoked || w.reorgUnresolved == "ONLINE_SCOPE_REVOKED"
@@ -433,6 +433,10 @@ func (s *Service) reanchorScope(ctx context.Context, chain config.Chain, fork bo
 		snapshot, e = domain.NewCurrentStateBaseline(block, pools, chain.Owner, chain.Assignment, old.Block.Number)
 		if e != nil {
 			return e
+		}
+		if !fork && block.Number == old.Block.Number && block.Hash == old.Block.Hash {
+			// A replacement publication of this block inherits its history disclosure.
+			snapshot.HistoryGaps = append(snapshot.HistoryGaps, oldHistoryGaps...)
 		}
 	}
 	snapshot.Reference.OnlineGeneration = old.OnlineGeneration + 1
