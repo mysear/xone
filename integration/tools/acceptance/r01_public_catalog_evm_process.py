@@ -26,7 +26,8 @@ from r01_public_catalog_evm_seed import curl_read
 from configuration import config_for
 BASE=ROOT/'integration/test/source/deployment-catalog/evm-continuation-v2'
 FRESHNESS=315360000000
-PROFILES={'uniswap-v3':'uniswap-v3','pancake-v3':'pancake-v3','pancake-v2':'pancake-v2','aerodrome-slipstream':'aerodrome-slipstream','aerodrome-v2':'aerodrome-v2-volatile'}
+V2_FEES = {'uniswap-v2': (3, 1000), 'pancake-v2': (25, 10000)}
+PROFILES={'uniswap-v2':'uniswap-v2','uniswap-v3':'uniswap-v3','pancake-v3':'pancake-v3','pancake-v2':'pancake-v2','aerodrome-slipstream':'aerodrome-slipstream','aerodrome-v2':'aerodrome-v2-volatile'}
 
 def normal_profile(protocol):return PROFILES.get(protocol)
 def call_key(to,data):return to.lower()+':'+data.lower()
@@ -82,14 +83,21 @@ def capture(row,directory,resume=False):
         require(all(call_key(*c) in cache for c in calls),'PUBLIC_FIXED_H_ABI_MISSING:'+str([c for c in calls if call_key(*c) not in cache][:4]))
     def get(a,d):return cache[call_key(a,d)]
     pool=row['pool'];factory=row['factory'];common=['0x0dfe1681','0xd21220a7','0xc45a0155']
-    extra=['0xddca3f43','0xd0c93a7c','0x3850c7bd','0x1a686502'] if 'v3' in profile or 'slipstream' in profile else ['0x0902f1ac'] if profile=='pancake-v2' else ['0x392f37e9']
+    if profile in V2_FEES:
+        extra = ['0x0902f1ac']
+    elif profile.startswith('aerodrome-v2'):
+        extra = ['0x392f37e9']
+    else:
+        extra = ['0xddca3f43', '0xd0c93a7c', '0x3850c7bd', '0x1a686502']
     if profile=='pancake-v3':extra.append('0x540d4918')
     fetch([(pool,d) for d in common+extra])
     token0='0x'+get(pool,'0x0dfe1681')[-40:];token1='0x'+get(pool,'0xd21220a7')[-40:]
     require(set([token0,token1])==set([case['token_in'],case['token_out']]),'NORMAL_PUBLIC_POOL_TOKENS')
     cfg={'id':pool,'protocol':profile,'token0':token0,'token1':token1,'program_id':'','accounts':[]}
     identity={'expected_factory':factory,'expected_code_sha256':row['pool_runtime_sha256']}
-    if profile=='pancake-v2':cfg.update(fee_numerator=25,fee_denominator=10000,v2=identity)
+    if profile in V2_FEES:
+        fee, denominator = V2_FEES[profile]
+        cfg.update(fee_numerator=fee, fee_denominator=denominator, v2=identity)
     elif profile.startswith('aerodrome-v2'):
         metadata=words(get(pool,'0x392f37e9'));require(len(metadata)==7,'AERO_METADATA_ABI');stable=metadata[4]
         require(stable in [0,1],'AERO_STABLE_FLAG');cfg['protocol']='aerodrome-v2-stable' if stable else 'aerodrome-v2-volatile'
@@ -105,7 +113,9 @@ def capture(row,directory,resume=False):
         center=(tick//spacing)//256;bitmap_call='0x5339c296'+arg(center);fetch([(pool,bitmap_call)])
         bitmap=words(get(pool,bitmap_call))[0];ticks=[(center*256+bit)*spacing for bit in range(256) if bitmap>>bit&1]
         if ticks:fetch([(pool,'0xf30dba93'+arg(t)) for t in ticks])
-    value={'schema_version':1,'catalog_row':row,'original_execution':reference(source/'fork-execution.json'),'profile':cfg['protocol'],'pool_config':cfg,'public_batches':refs,'call_count':len(cache),'tick_window_policy':'V3 only: actual complete current bitmap word, radius 0; every initialized tick in that declared word fetched; no out-of-window zero-liquidity assumption','additional_eth_call_results_MPT_proven':False,'authority':'actual raw public ABI return bytes at the same explicit H; source/runtime and original VM reference independently retained'}
+    value={'schema_version':1,'catalog_row':row,'original_execution':reference(source/'fork-execution.json'),'profile':cfg['protocol'],'pool_config':cfg,'public_batches':refs,'call_count':len(cache),'additional_eth_call_results_MPT_proven':False,'authority':'actual raw public ABI return bytes at the same explicit H; source/runtime and original VM reference independently retained'}
+    if 'v3' in cfg:
+        value['tick_window_policy'] = 'one complete current bitmap word; every initialized tick in that word, no inferred zero liquidity outside window'
     write_new(directory/'capture.json',(json.dumps(value,indent=2)+'\n').encode());return value
 
 class FixedRPC:

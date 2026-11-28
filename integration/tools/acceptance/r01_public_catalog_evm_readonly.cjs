@@ -18,7 +18,7 @@ const resolvePath=(root,key,nodes)=>traceProof(root,key,nodes);
 
 async function loadBank(directory,supplements=[]){
  directory=path.resolve(directory);const ep=path.join(directory,fs.existsSync(path.join(directory,'prestate-evidence-v2.json'))?'prestate-evidence-v2.json':'prestate-evidence.json'),evidence=load(ep);
- assert(['base','optimism','polygon','arbitrum','bsc','avalanche'].includes(evidence.chain),'READONLY_CHAIN_UNSUPPORTED');
+ assert(['ethereum','base','optimism','polygon','arbitrum','bsc','avalanche'].includes(evidence.chain),'READONLY_CHAIN_UNSUPPORTED');
  if(evidence.chain==='avalanche'&&!evidence.native_headers)evidence.native_headers=readNativeSuccessors(directory,evidence.block);
  const validation=await verifyEvidence(evidence,[]),anchor=load(path.join(directory,'anchor.json')),original=readRef(anchor.header).response.result;
  for(const field of ['hash','number','stateRoot'])assert.equal(original[field],evidence.block[field],'READONLY_ORIGINAL_HEADER');
@@ -219,7 +219,7 @@ async function readBscLiquidityMining(row, call, tickIds, observations, core) {
 
 async function probe(inputFile,out){
  const input=load(inputFile),row=input.row;
- const cases=['base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3',
+ const cases=['ethereum-uniswap-v2','ethereum-uniswap-v3','base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3',
               'optimism-velodrome-v2','polygon-uniswap-v3','arbitrum-uniswap-v3','bsc-pancake-v2','bsc-pancake-v3','avalanche-uniswap-v3'];
  const isLfj = row.id === 'avalanche-lfj-v21' && row.chain === 'avalanche' && row.protocol === 'lfj-liquidity-book';
  assert(isLfj || (cases.includes(row.id)&&row.id===row.chain+'-'+row.protocol),'BOUNDED_GETTER_SCOPE');
@@ -242,7 +242,7 @@ async function probe(inputFile,out){
   } else {
    const pool=row.pool;
    for(const d of ['0x0dfe1681','0xd21220a7','0xc45a0155'])await call(pool,d);
-   if(row.protocol==='pancake-v2'){
+   if(['uniswap-v2','pancake-v2'].includes(row.protocol)){
     await call(pool,'0x0902f1ac');
    }else if(row.protocol==='aerodrome-v2'||row.protocol==='velodrome-v2'){
     const meta=await call(pool,'0x392f37e9'),stable=BigInt('0x'+meta.slice(2+4*64,2+5*64));await call(row.factory,'0xb187bd26');await call(row.factory,'0xcc56b2c5'+pool.slice(2).padStart(64,'0')+stable.toString(16).padStart(64,'0'));

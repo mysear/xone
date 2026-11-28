@@ -62,6 +62,7 @@ def public_url(value):
 
 PUBLIC_RPC_ENDPOINTS=frozenset((
     'https://eth.drpc.org','https://1rpc.io/eth','https://ethereum-rpc.publicnode.com',
+    'https://eth-mainnet.g.alchemy.com/public',
     'https://public.1rpc.io/bnb','https://public.1rpc.io/arb','https://public.1rpc.io/avax/c',
     'https://mainnet.base.org','https://base.drpc.org',
     'https://bsc-dataseed.bnbchain.org','https://bsc-rpc.publicnode.com','https://bsc.drpc.org',

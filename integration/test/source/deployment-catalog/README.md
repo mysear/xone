@@ -119,6 +119,19 @@ receipt_input="$PWD/$fixed_block/receipt-input.json"
     go test -race -count=1 -v ./internal/chain/evm -run '^TestPublicCatalogFixedReceiptRoot$')
 ```
 
+常规报价归档 `evidence/ethereum-uniswap-normal-26511767.tar.gz` 包含 21 份文件，SHA-256 为 `c948c52ca5d11b91532b1f2b5516797202b5fc97a89144385893d04b1fa0610d`。额外的 17 份公开 RPC 证明响应均按原块状态根校验。V2 的 4 次 getter 和 V3 的 257 次 getter 重放通过。常规 Go Parser 和 Rust Router 对两项报价均返回 HTTP 200，分别匹配原池的 165,056 和 165,469 原子单位。复验期间公网请求和未归档 RPC 请求均为零。
+
+```sh
+tar -xkf "$evidence_root/evidence/ethereum-uniswap-normal-26511767.tar.gz"
+getter_root="$evidence_root/evm-normal-v4/ethereum-26511767.CorGKXrn"
+for pool in ethereum-uniswap-v2 ethereum-uniswap-v3; do
+    getter_case="$getter_root/$pool"
+    python3 integration/tools/acceptance/r01_public_catalog_evm_normal.py \
+        --case-directory "$getter_case" --probe "$getter_case/probe-01.json" \
+        --out "integration/artifacts/local/r01-public-$pool-fixed-h"
+done
+```
+
 ### 其余固定块复验目录
 
 固定块验证和原池重放使用 `evm-continuation-v2` 下的目录。

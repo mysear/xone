@@ -13,9 +13,9 @@ import time
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from r01_public_catalog import ROOT,load_json,read_blob,require
 from r01_public_catalog_capture import reference,write_new
-from r01_public_catalog_evm_process import normal_profile,words,call_key,captured_calls,FixedRPC,run as normal_run
+from r01_public_catalog_evm_process import V2_FEES,normal_profile,words,call_key,captured_calls,FixedRPC,run as normal_run
 BASE=ROOT/'integration/test/source/deployment-catalog/evm-normal-v4'
-IDS={'base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3','polygon-uniswap-v3','arbitrum-uniswap-v3'}
+IDS={'ethereum-uniswap-v2','ethereum-uniswap-v3','base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3','polygon-uniswap-v3','arbitrum-uniswap-v3'}
 GETTER_IDS=IDS|{'optimism-velodrome-v2','bsc-pancake-v2','bsc-pancake-v3','avalanche-uniswap-v3','avalanche-lfj-v21'}
 
 def validate_probe(probe):
@@ -71,8 +71,10 @@ def pool_config(row,probe):
                    pancake_bsc_lm={'ledger':ledger, 'predecessors':[
                        {'address':a, 'code_sha256':code[a]} for a in predecessors
                    ]})
-    elif row['protocol']=='pancake-v2':
-        cfg.update(fee_numerator=25,fee_denominator=10000,v2=identity)
+    elif row['protocol'] in V2_FEES:
+        require('0x' + value(pool, '0xc45a0155')[-40:] == row['factory'], 'NORMAL_V2_FACTORY')
+        fee, denominator = V2_FEES[row['protocol']]
+        cfg.update(fee_numerator=fee, fee_denominator=denominator, v2=identity)
     elif row['protocol'] in ('aerodrome-v2', 'velodrome-v2'):
         meta = words(value(pool, '0x392f37e9'))
         require(len(meta) == 7 and meta[4] in (0, 1), 'NORMAL_SOLIDLY_METADATA')
@@ -106,7 +108,7 @@ def prepare(directory,probe_path,permit_getter_rejection=False):
     capture={'schema_version':4,'catalog_row':row,'original_execution':row['inputs']['execution'],'profile':cfg['protocol'],'pool_config':cfg,'public_batches':[reference(batch)],'call_count':len({call_key(c['to'],c['data']) for c in probe['calls'] if c['error'] is None}),'additional_eth_call_results_MPT_proven':not permit_getter_rejection,'getter_execution':reference(probe_path),'normal_parser_typed_baseline_injected':False,'qualification_authority':'must rerun getter original VM and normal binaries; saved flags alone do not qualify'}
     if cfg['protocol'] == 'lfj-lb-v21':
         capture['bin_traversal_policy'] = 'all nonempty bins in both traversal directions, with original reserve and share getters'
-    else:
+    elif 'v3' in cfg or 'pancake_bsc_lm' in cfg:
         capture['tick_window_policy'] = 'one complete current bitmap word; every initialized tick in that word, no inferred zero liquidity outside window'
     write_new(directory/'capture.json',(json.dumps(capture,indent=2)+'\n').encode());return capture
 
