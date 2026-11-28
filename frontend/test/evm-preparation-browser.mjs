@@ -22,7 +22,10 @@ try{
  browser=await chromium.launch({headless:true,channel:process.env.XONE_CHROME_CHANNEL||'chrome'});page=await browser.newPage({viewport:{width:1360,height:1100},locale:'zh-CN'});
  await page.goto(`${origin}/?api=${encodeURIComponent(info.api)}`);await page.uncheck('#autoQuote');await page.uncheck('#autoRefresh');await page.fill('#apiToken',info.token);await page.locator('#apiToken').dispatchEvent('change');
  await page.waitForFunction(()=>Array.from(document.querySelector('#chainKey').options).some(o=>o.value==='evm:31337'));
- await page.selectOption('#chainKey','evm:31337');await page.selectOption('#sellToken',info.request.sellToken);await page.selectOption('#buyToken',info.request.buyToken);await page.fill('#maxHops','1');
+ await page.selectOption('#chainKey','evm:31337');await page.selectOption('#sellToken',info.request.sellToken);await page.selectOption('#buyToken',info.request.buyToken);
+ const maxHops=page.locator('#maxHops');
+ assert(Number(await maxHops.getAttribute('max'))>=2);
+ await maxHops.fill('2');
  assert(await page.locator('#evmFeeOptions').isVisible());assert(await page.locator('#sourceAccount').isHidden());assert(await page.locator('.wallet-panel').isHidden());report.checks.push('evm_fees_and_account_controls_are_chain_specific');
  let exactIn;
  for(const kind of ['EXACT_IN','EXACT_OUT']){
@@ -32,18 +35,30 @@ try{
   await page.fill('#caller','');await page.fill('#recipient','');
   const endpoint=kind==='EXACT_IN'?'/v1/quote':'/v1/quote-exact-out';
   const isQuote=r=>r.url()===info.api+endpoint&&r.request().method()==='POST';
-  const response=page.waitForResponse(isQuote);
-  await page.click('#calculateButton');
-  const raw=await response, estimate=await raw.json();
-  assert.equal(raw.status(),200,JSON.stringify(estimate));
-  assert.equal(estimate.estimateOnly,true);
-  assert.equal(estimate.quoteId,undefined);
-  assert.equal(raw.request().postDataJSON().caller,undefined);
-  assert.equal(raw.request().postDataJSON().recipient,undefined);
+  let estimate;
+  for (const trigger of ['manual','automatic']) {
+   const response=page.waitForResponse(isQuote);
+   if(trigger==='manual')await page.click('#calculateButton');
+   else await page.check('#autoQuote');
+   const raw=await response;
+   estimate=await raw.json();
+   assert.equal(raw.status(),200,JSON.stringify(estimate));
+   assert.equal(estimate.estimateOnly,true);
+   assert.equal(estimate.quoteId,undefined);
+   const body=raw.request().postDataJSON();
+   assert.equal(body.caller,undefined);
+   assert.equal(body.recipient,undefined);
+   assert.equal(body.constraints.maxHops,2);
+   await page.waitForFunction(amount=>document.querySelector('[data-testid="buy-amount"]')?.textContent===amount,estimate.grossBuyAmount);
+   assert.equal(await page.locator('#error').textContent(),'');
+   await page.uncheck('#autoQuote');
+   report.checks.push(`${kind}_${trigger}_estimate_omits_accounts_and_uses_selected_hops`);
+  }
   if(kind==='EXACT_IN')exactIn=estimate;
   await page.getByRole('heading',{name:'兑换量估算'}).waitFor();
   await page.click('#prepareButton');
-  await page.getByText('请填写调用方和收款方地址').waitFor();
+  await page.locator('#preparation').filter({hasText:'请填写调用方和收款方地址'}).waitFor();
+  assert.equal(await page.locator('#error').textContent(),'');
   await page.fill('#caller',info.request.caller);await page.fill('#recipient',info.request.recipient);
   assert((await page.locator('#result').innerText()).includes(estimate.grossBuyAmount));
   report.checks.push(`${kind}_estimate_survives_address_changes_and_has_no_quote_id`);

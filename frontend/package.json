@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "XONE chain and DEX quote integration playground",
   "scripts": {
-    "dev": "python3 -m http.server 5173 --directory .",
+    "dev": "python3 dev_server.py",
     "check": "node --check src/app.js && node --check src/model.js",
     "test": "node --test test/*.test.js",
     "test:browser": "node test/browser.mjs"
