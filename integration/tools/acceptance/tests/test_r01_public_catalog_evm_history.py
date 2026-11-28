@@ -184,6 +184,44 @@ class MultiChainEvidenceTests(unittest.TestCase):
         self.assertFalse(changes['original_native_transactions_replayed'])
 
 class RealMultiChainProofTests(unittest.TestCase):
+    def test_explicit_empty_storage_trie_still_requires_an_authenticated_zero(self):
+        import subprocess
+
+        script = """
+const assert = require('node:assert/strict');
+const {verifyPrestate} = require(process.argv[1]);
+const {ethers} = require('./integration/.runtime/stable-reference/node_modules/ethers');
+const {Trie} = require('./integration/.runtime/receipt-root-reference/node_modules/@ethereumjs/trie');
+const {keccak256, RLP} = ethers.utils;
+const bytes = hex => Buffer.from(hex.slice(2), 'hex');
+const hex = value => '0x' + Buffer.from(value).toString('hex');
+const address = '0x' + '11'.repeat(20);
+const codeHash = keccak256('0x');
+const emptyRoot = keccak256('0x80');
+
+async function check(storageHash, proof, value) {
+    const trie = new Trie();
+    const accountKey = bytes(keccak256(address));
+    await trie.put(accountKey, bytes(RLP.encode(['0x', '0x', storageHash, codeHash])));
+    const accountProof = (await trie.createProof(accountKey)).map(hex);
+    return verifyPrestate({chain_id: '1', block: {number: '0x1', stateRoot: hex(trie.root())},
+        deployments: [{address, code: '0x', proof: {address, balance: '0x0', nonce: '0x0',
+            codeHash, storageHash, accountProof, storageProof: [{key: '0x0', value, proof}]}}]});
+}
+
+(async () => {
+    for (const proof of [[], ['0x80']]) {
+        assert.equal((await check(emptyRoot, proof, '0x0')).storage_slots, 1);
+        await assert.rejects(check(emptyRoot, proof, '0x1'), /PRESTATE_STORAGE_VALUE/);
+    }
+    await assert.rejects(check(emptyRoot, ['0x80', '0xc0'], '0x0'));
+    await assert.rejects(check(keccak256('0xc0'), ['0x80'], '0x0'));
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+        result = subprocess.run(['node', '-e', script, str(TOOLS/'r01_public_catalog_proof.cjs')],
+                                cwd=TOOLS.parents[2], capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_required_proof_scalars_and_account_codec_cannot_be_omitted(self):
         import subprocess
         root=TOOLS.parents[2]

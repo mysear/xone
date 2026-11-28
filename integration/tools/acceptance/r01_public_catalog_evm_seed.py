@@ -11,10 +11,11 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import time
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from r01_public_catalog import ROOT,load_json,read_blob,require,sha256,public_rpc_endpoint
-from r01_public_catalog_capture import write_new,reference
-from r01_public_catalog_evm_history import CHAINS,chain_plan,state_root_semantics,EvmArchive,start_archive,storage_trie_key
+from r01_public_catalog_capture import MAX_BYTES,fetch_rpc,request as request_http,write_new,reference
+from r01_public_catalog_evm_history import CHAINS,TARGETS,state_root_semantics,EvmArchive,start_archive,storage_trie_key
 BASE=ROOT/'integration/test/source/deployment-catalog';OUT=BASE/'evm-continuation-v2'
 
 def curl_read(endpoint,method,params,path):
@@ -41,45 +42,102 @@ def previous_boundary(previous):
     require(accounts,'SEED_ACTUAL_PREVIOUS_READ_BOUNDARY_REQUIRED')
     return {a:sorted(slots) for a,slots in accounts.items()}
 
+def helper_boundary(sender, nonce, previous_helper, wrapped_slots):
+    script = """
+const {ethers} = require(process.argv[1]);
+const {defaultAbiCoder, keccak256} = ethers.utils;
+const [owner, nonce, prior, encodedSlots] = process.argv.slice(2);
+const address = ethers.utils.getContractAddress({from: owner, nonce}).toLowerCase();
+const slots = new Set(JSON.parse(encodedSlots));
+const keys = [];
+for (let slot = 0; slot < 128; slot++) {
+    const balance = account => keccak256(defaultAbiCoder.encode(['address', 'uint256'], [account, slot]));
+    const allowance = account => keccak256(defaultAbiCoder.encode(['address', 'bytes32'], [account, balance(owner)]));
+    if (slots.has(balance(prior))) keys.push(balance(address));
+    if (slots.has(allowance(prior))) keys.push(allowance(address));
+}
+console.log(JSON.stringify({address, keys}));
+"""
+    ethers = ROOT / 'integration/.runtime/stable-reference/node_modules/ethers'
+    result = subprocess.run(['node', '-e', script, str(ethers), sender, nonce, previous_helper,
+                             json.dumps(wrapped_slots)], capture_output=True, text=True, check=True, timeout=20)
+    return json.loads(result.stdout)
+
+
+def observe_batch_finality(witness, header, directory):
+    height = int(header['number'], 16)
+    deadline = time.monotonic() + 30
+    for attempt in range(10):
+        finalized_ref, finalized = fetch_rpc(witness, 'eth_getBlockByNumber', ['finalized', False],
+                                             directory / f'finality-observation-{attempt}.json')
+        if finalized and int(finalized['number'], 16) >= height:
+            canonical_ref, canonical = fetch_rpc(witness, 'eth_getBlockByNumber', [header['number'], False],
+                                                  directory / 'finalized-canonical-header.json')
+            require(canonical and all(canonical.get(key) == header[key] for key in ('number', 'hash', 'stateRoot')),
+                    'BATCH_FINALIZED_CANONICAL_HEADER')
+            record = {'subsequent_finalized_header': finalized_ref, 'independent_canonical_witness': canonical_ref}
+            write_new(directory / 'subsequent-finality.json', (json.dumps(record, indent=2) + '\n').encode())
+            return
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(1)
+    require(False, 'BATCH_FINALITY_UNAVAILABLE')
+
+
 def capture(chain,previous,directory,tag,batch_latest=False,endpoint_override=None,single_keys=False,partitioned_storage=False):
     require(not partitioned_storage or chain=='avalanche','PARTITIONED_STORAGE_CHAIN')
+    require(not batch_latest or (chain != 'avalanche' and tag == 'latest' and not single_keys),
+            'BATCH_LATEST_PROFILE')
     physical=lambda key:storage_trie_key(chain,key) if partitioned_storage else key
     previous=previous.resolve();directory=directory.resolve();require(directory.is_relative_to(OUT.resolve()) and not directory.exists(),'NEW_SEED_DIRECTORY');directory.mkdir(parents=True)
-    old=load_json(previous/'fork-execution.json');require(old['chain']==chain,'SEED_OLD_CHAIN');old_index=load_json(previous/'rpc-index.json');code={}
+    old=load_json(previous/'fork-execution.json');plan=load_json(previous/'execution-plan.json')
+    require(old['chain']==plan['chain']==chain and plan['chain_id']==CHAINS[chain][0],'SEED_OLD_CHAIN')
+    old_index=load_json(previous/'rpc-index.json');code={}
     for ref in old_index['records']:
         r=json.loads(read_blob(ROOT,ref))
         if r['method']=='eth_getCode' and isinstance(r.get('response'),dict) and 'result' in r['response']:code[r['params'][0].lower()]=(r['response']['result'],ref)
-    endpoint=endpoint_override or ('https://bsc-rpc.publicnode.com' if chain=='bsc' else 'https://avalanche-c-chain-rpc.publicnode.com' if chain=='avalanche' else 'https://arb1.arbitrum.io/rpc');public_rpc_endpoint(endpoint);witness=next(e for e in CHAINS[chain][1] if e!=endpoint)
+    endpoint=endpoint_override or ('https://bsc-rpc.publicnode.com' if chain=='bsc' else 'https://avalanche-c-chain-rpc.publicnode.com' if chain=='avalanche' else 'https://arb1.arbitrum.io/rpc');public_rpc_endpoint(endpoint)
     prefetched={}
     boundary=previous_boundary(previous);sender=old['sender'];boundary.setdefault(sender,[])
+    wrapped=old['cases'][0]['token_in'];previous_helper=old['cases'][0]['local_helper']
     if batch_latest:
+        require(len(boundary) < 64 and all(len(slots) <= 256 for slots in boundary.values()),
+                'BATCH_PROOF_READ_BUDGET')
         _,sender_pre=curl_read(endpoint,'eth_getProof',[sender,[],'latest'],directory/'sender-prediction.json');require(sender_pre,'BATCH_SENDER_PREDICTION')
-        prediction_script="const {ethers}=require(process.argv[1]);const a=ethers.utils.getContractAddress({from:process.argv[2],nonce:parseInt(process.argv[3],16)});const k=ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(['address','bytes32'],[a,ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(['address','uint256'],[process.argv[2],4]))]));console.log(JSON.stringify({address:a.toLowerCase(),allowance_key:k}))"
-        prediction=json.loads(subprocess.run(['node','-e',prediction_script,str(ROOT/'integration/.runtime/stable-reference/node_modules/ethers'),sender,sender_pre['nonce']],capture_output=True,text=True,check=True).stdout)
-        boundary.setdefault(prediction['address'],[]);wrapped=old['cases'][0]['token_in'];boundary[wrapped]=sorted(set(boundary[wrapped]+[prediction['allowance_key']]))
+        prediction=helper_boundary(sender,sender_pre['nonce'],previous_helper,boundary[wrapped])
+        boundary.setdefault(prediction['address'],[])
+        boundary[wrapped]=sorted(set(boundary[wrapped]+prediction['keys']))
         requests=[{'jsonrpc':'2.0','id':1,'method':'eth_getBlockByNumber','params':['latest',True]}]+[{'jsonrpc':'2.0','id':i+2,'method':'eth_getProof','params':[a,slots,'latest']} for i,(a,slots) in enumerate(sorted(boundary.items()))]
-        batch=subprocess.run(['curl','--silent','--show-error','--fail-with-body','--max-time','18','--max-filesize',str(16*1024*1024),'--user-agent','XONE-source-evidence/1.0','--header','Content-Type: application/json','--data-binary',json.dumps(requests),endpoint],capture_output=True,timeout=22)
-        require(len(batch.stdout)<=16*1024*1024,'BATCH_RESPONSE_BUDGET');wire=json.loads(batch.stdout);require(isinstance(wire,list),'BATCH_PUBLIC_RESPONSE_REQUIRED')
-        write_new(directory/'public-batch.json',(json.dumps({'endpoint':endpoint,'requests':requests,'response':wire,'response_sha256':sha256(batch.stdout),'source_kind':'actual-public-JSON-RPC-batch','max_methods':len(requests)},indent=2)+'\n').encode());batchref=reference(directory/'public-batch.json');responses={r['id']:r for r in wire}
+        status, body, final_endpoint = request_http(endpoint, json.dumps(requests).encode(), MAX_BYTES)
+        wire = json.loads(body)
+        require(status == 200 and isinstance(wire, list), 'BATCH_PUBLIC_RESPONSE_REQUIRED')
+        write_new(directory/'public-batch.json',(json.dumps({'endpoint':endpoint,'http_status':status,
+            'final_endpoint':final_endpoint,'requests':requests,'response':wire,'response_sha256':sha256(body),
+            'source_kind':'actual-public-JSON-RPC-batch','max_methods':len(requests)},indent=2)+'\n').encode())
+        batchref=reference(directory/'public-batch.json');responses={r['id']:r for r in wire}
+        require(len(responses)==len(wire) and set(responses)=={r['id'] for r in requests},'BATCH_RESPONSE_INVENTORY')
         header=responses[1].get('result');require(header,'BATCH_HEADER_REQUIRED')
-        write_new(directory/'frozen-header.json',(json.dumps({'method':'eth_getBlockByNumber','params':['latest',True],'response':responses[1],'source_kind':'projection-of-retained-public-batch','batch_source':batchref},indent=2)+'\n').encode());href=reference(directory/'frozen-header.json')
+        write_new(directory/'frozen-header.json',(json.dumps({'endpoint':endpoint,'http_status':status,
+            'method':'eth_getBlockByNumber','params':['latest',True],'response':responses[1],
+            'source_kind':'projection-of-retained-public-batch','batch_source':batchref},indent=2)+'\n').encode())
+        href=reference(directory/'frozen-header.json')
         for request in requests[1:]:
             address,slots,_=request['params'];path=directory/'public-proofs'/(address+'.json');response=responses[request['id']];write_new(path,(json.dumps({'endpoint':endpoint,'method':'eth_getProof','params':request['params'],'response':response,'source_kind':'projection-of-retained-public-batch','batch_source':batchref},indent=2)+'\n').encode());prefetched[address]=(reference(path),response.get('result'))
         require(prefetched[sender][1] and prefetched[sender][1]['nonce']==sender_pre['nonce'],'BATCH_SENDER_NONCE_CHANGED')
     else:
-        href,header=curl_read(endpoint,'eth_getBlockByNumber',[tag,True],directory/'frozen-header.json')
+        href,header=fetch_rpc(endpoint,'eth_getBlockByNumber',[tag,True],directory/'frozen-header.json')
     require(header,'SEED_HEADER_REQUIRED')
     native_headers=None
     if chain=='avalanche':
         tipref,tip=href,header;target_height=int(tip['settledHeight'],16)
-        href,header=curl_read(endpoint,'eth_getBlockByNumber',[hex(target_height),True],directory/'frozen-native-target.json');require(header,'SAE_CANONICAL_TARGET_REQUIRED');native_headers=[header]
+        href,header=fetch_rpc(endpoint,'eth_getBlockByNumber',[hex(target_height),True],directory/'frozen-native-target.json');require(header,'SAE_CANONICAL_TARGET_REQUIRED');native_headers=[header]
         for offset in range(1,33):
             ref,child=curl_read(endpoint,'eth_getBlockByNumber',[hex(target_height+offset),False],directory/'native-successors'/f'{offset:02}.json');require(child,'SAE_SUCCESSOR_HEADER_REQUIRED');native_headers.append(child)
             if int(child['settledHeight'],16)>=target_height:break
         require(int(native_headers[-1]['settledHeight'],16)==target_height,'SAE_EXACT_TARGET_STATE_ROOT_MISSING')
         write_new(directory/'target-finality-observation.json',(json.dumps({'finalized_tip':tipref,'target_height':target_height,'target_header':href,'target_depth_below_observed_finalized_tip':int(tip['number'],16)-target_height,'original_tag':tag},indent=2)+'\n').encode())
     height=int(header['number'],16);h=header['number'];anchor={'height':height,'hash':header['hash'],'timestamp':int(header['timestamp'],16),'chain_key':'evm:'+str(CHAINS[chain][0]),'chain_id':CHAINS[chain][0],'state_root':header['stateRoot'],'finality_observation':tag,'native_state_semantics':state_root_semantics(chain,header)}
-    boundary=previous_boundary(previous);sender=old['sender'];boundary.setdefault(sender,[]);records=[];proofs=[];failed=[]
+    records=[];proofs=[];failed=[]
     def get(item):
         address,logical_slots=item;slots=sorted(set(physical(k) for k in logical_slots))
         if batch_latest:ref,value=prefetched[address]
@@ -98,10 +156,13 @@ def capture(chain,previous,directory,tag,batch_latest=False,endpoint_override=No
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:acquired=list(pool.map(get,sorted(boundary.items())))
     # Bind the upcoming CREATE address and allowance slot to the actual frozen nonce.
     sender_proof=next(v for a,s,r,v in acquired if a==sender);require(sender_proof,'SEED_SENDER_PROOF')
-    script="const {ethers}=require(process.argv[1]);const owner=process.argv[2],a=ethers.utils.getContractAddress({from:owner,nonce:ethers.BigNumber.from(process.argv[3]).toHexString()}),prior=process.argv[4],slots=new Set(JSON.parse(process.argv[5])),keys=[];for(let s=0;s<128;s++){const balance=x=>ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(['address','uint256'],[x,s]));const allowance=x=>ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(['address','bytes32'],[x,ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(['address','uint256'],[owner,s]))]));if(slots.has(balance(prior)))keys.push(balance(a));if(slots.has(allowance(prior)))keys.push(allowance(a));}console.log(JSON.stringify({address:a.toLowerCase(),storage_keys:keys}))"
-    p=subprocess.run(['node','-e',script,str(ROOT/'integration/.runtime/stable-reference/node_modules/ethers'),sender,sender_proof['nonce'],old['cases'][0]['local_helper'],json.dumps(boundary[old['cases'][0]['token_in']])],capture_output=True,text=True,check=True);helper=json.loads(p.stdout);wrapped=old['cases'][0]['token_in']
-    for address,slots,label in [(helper['address'],[],'local-helper-absence'),(wrapped,sorted(set(boundary[wrapped]+helper['storage_keys'])),'wrapped-new-allowance')]:
-        ref,value=prefetched[address] if batch_latest else curl_read(endpoint,'eth_getProof',[address,sorted(set(physical(k) for k in slots)),h],directory/(label+'.json'));acquired=[x for x in acquired if x[0]!=address];acquired.append((address,slots,ref,value));code.setdefault(helper['address'],('0x',None))
+    helper=prediction if batch_latest else helper_boundary(sender,sender_proof['nonce'],previous_helper,boundary[wrapped])
+    code.setdefault(helper['address'],('0x',None))
+    if not batch_latest:
+        for address,slots,label in [(helper['address'],[],'local-helper-absence'),
+                                    (wrapped,sorted(set(boundary[wrapped]+helper['keys'])),'wrapped-new-allowance')]:
+            ref,value=curl_read(endpoint,'eth_getProof',[address,sorted(set(physical(k) for k in slots)),h],directory/(label+'.json'))
+            acquired=[x for x in acquired if x[0]!=address];acquired.append((address,slots,ref,value))
     seq=0
     def derived(method,params,value,proofref,coderef=None):
         nonlocal seq
@@ -126,16 +187,41 @@ def capture(chain,previous,directory,tag,batch_latest=False,endpoint_override=No
     if partitioned_storage:evidence['storage_key_encoding']='coreth-partitioned-storage/v1'
     write_new(directory/'prestate-evidence.json',(json.dumps(evidence,indent=2)+'\n').encode())
     identityref,identity=curl_read(endpoint,'eth_chainId',[],directory/'chain-id.json');require(identity==hex(CHAINS[chain][0]),'SEED_CHAIN_ID')
-    gref,genesis=curl_read(endpoint,'eth_getBlockByNumber',['0x0',False],directory/'genesis.json');wref,wh=curl_read(witness,'eth_getBlockByNumber',[h,False],directory/'witness.json')
-    saved={'schema_version':2,'anchor':anchor,'header':href,'identity':identityref,'genesis':gref,'genesis_hash':genesis.get('hash') if genesis else None,'witness':wref,'witness_hash_agrees':bool(wh and wh.get('hash')==header['hash']),'endpoints':[endpoint,witness],'seed_previous':str(previous.relative_to(ROOT))}
-    write_new(directory/'anchor.json',(json.dumps(saved,indent=2)+'\n').encode());write_new(directory/'execution-plan.json',(json.dumps(chain_plan(load_json(BASE/'catalog.json'),chain),indent=2)+'\n').encode());write_new(directory/'sender-candidates.json',(json.dumps({'addresses':[sender],'source':'retained public sender, new fixed-H nonce/balance proven'},indent=2)+'\n').encode());write_new(directory/'rpc-index.json',(json.dumps({'schema_version':2,'anchor':anchor,'records':records},indent=2)+'\n').encode())
-    check=subprocess.run(['node',str(ROOT/'integration/tools/acceptance/r01_public_catalog_evm_commitments.cjs'),str(directory),str(directory/'seed-commitments-report.json')],capture_output=True,text=True,timeout=60);write_new(directory/'seed-verify.log',(check.stdout+check.stderr).encode());require(check.returncode==0,'SEED_COMMITMENT_FAILED:'+check.stderr[-1400:])
+    gref,genesis=curl_read(endpoint,'eth_getBlockByNumber',['0x0',False],directory/'genesis.json')
+    expected_genesis=load_json(TARGETS)['targets'][chain]['genesis_hash']
+    require(genesis is None or (genesis['number']=='0x0' and genesis['hash']==expected_genesis),'SEED_GENESIS')
+    for i,candidate in enumerate(e for e in CHAINS[chain][1] if e!=endpoint):
+        wref,wh=fetch_rpc(candidate,'eth_getBlockByNumber',[h,False],directory/f'witness-{i}.json')
+        if not wh or any(wh.get(key)!=header[key] for key in ('number','hash','stateRoot')):
+            continue
+        cid_ref,cid=fetch_rpc(candidate,'eth_chainId',[],directory/f'witness-{i}-chain-id.json')
+        wgref,wg=fetch_rpc(candidate,'eth_getBlockByNumber',['0x0',False],directory/f'witness-{i}-genesis.json')
+        if cid==hex(CHAINS[chain][0]) and wg and wg['number']=='0x0' and wg['hash']==expected_genesis:
+            witness=candidate
+            break
+    else:
+        require(False,'SEED_WITNESS_UNAVAILABLE')
+    saved={'schema_version':2,'anchor':anchor,'header':href,'identity':identityref,
+           'genesis':gref if genesis else wgref,'genesis_hash':expected_genesis,'witness':wref,
+           'witness_identity':{'chain_id':cid_ref,'genesis':wgref},'witness_hash_agrees':True,
+           'endpoints':[endpoint,witness],'seed_previous':str(previous.relative_to(ROOT))}
+    write_new(directory/'anchor.json',(json.dumps(saved,indent=2)+'\n').encode());write_new(directory/'execution-plan.json',(json.dumps(plan,indent=2)+'\n').encode());write_new(directory/'sender-candidates.json',(json.dumps({'addresses':[sender],'source':'retained public sender, new fixed-H nonce/balance proven'},indent=2)+'\n').encode());write_new(directory/'rpc-index.json',(json.dumps({'schema_version':2,'anchor':anchor,'records':records},indent=2)+'\n').encode())
+    verifier=Path(__file__).with_name('r01_public_catalog_evm_commitments.cjs')
+    check=subprocess.run(['node',str(verifier),str(directory),str(directory/'seed-commitments-report.json')],capture_output=True,text=True,timeout=60);write_new(directory/'seed-verify.log',(check.stdout+check.stderr).encode());require(check.returncode==0,'SEED_COMMITMENT_FAILED:'+check.stderr[-1400:])
     # New discoveries are allowed only through the same bounded, read-only archive.
     archive=EvmArchive(anchor,directory,saved['endpoints']);server,url=start_archive(archive)
     try:
         p=subprocess.run(['node',str(ROOT/'integration/tools/acceptance/r01_public_catalog_evm_fork.cjs'),'capture',str(directory),url],capture_output=True,text=True,timeout=480);write_new(directory/'execution.stdout.log',p.stdout.encode());write_new(directory/'execution.stderr.log',p.stderr.encode());require(p.returncode==0,'SEEDED_EXECUTION_FAILED:'+p.stderr[-1500:])
     finally:server.shutdown();server.server_close();archive.save();write_new(directory/'simulation-header-views.json',(json.dumps(archive.views,indent=2)+'\n').encode())
-    result=load_json(directory/'fork-execution.json');print(json.dumps({'chain':chain,'anchor':anchor,'seed_accounts':len(proofs),'seed_missing':len(failed),'cases':[{k:c.get(k) for k in ['protocol','passed','actual_net_recipient','error']} for c in result['cases']]},indent=2))
+    result=load_json(directory/'fork-execution.json')
+    if batch_latest:
+        require(all(case['passed'] for case in result['cases']), 'BATCH_ORIGINAL_POOL_EXECUTION_FAILED')
+        check = subprocess.run(['node', str(verifier), str(directory), str(directory/'commitments-report.json')],
+                               capture_output=True, text=True, timeout=60)
+        write_new(directory/'execution-verify.log', (check.stdout + check.stderr).encode())
+        require(check.returncode == 0, 'BATCH_EXECUTION_COMMITMENT_FAILED:' + check.stderr[-1400:])
+        observe_batch_finality(witness, header, directory)
+    print(json.dumps({'chain':chain,'anchor':anchor,'seed_accounts':len(proofs),'seed_missing':len(failed),'cases':[{k:c.get(k) for k in ['protocol','passed','actual_net_recipient','error']} for c in result['cases']]},indent=2))
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--chain',choices=['bsc','arbitrum','avalanche'],required=True);p.add_argument('--previous',type=Path,required=True);p.add_argument('--directory',type=Path,required=True);p.add_argument('--tag',choices=['latest','finalized'],required=True);p.add_argument('--batch-latest',action='store_true');p.add_argument('--endpoint');p.add_argument('--single-storage-keys',action='store_true');p.add_argument('--coreth-partitioned-storage',action='store_true');a=p.parse_args();capture(a.chain,a.previous,a.directory,a.tag,a.batch_latest,a.endpoint,a.single_storage_keys,a.coreth_partitioned_storage)

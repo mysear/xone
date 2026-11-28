@@ -37,7 +37,9 @@ async function verifyPrestate(evidence,records=[],options={}){
    assert(typeof slot.key==='string'&&/^0x[0-9a-fA-F]{1,64}$/.test(slot.key),'STORAGE_KEY_UINT256');assert(typeof slot.value==='string'&&/^0x(?:0|[1-9a-f][0-9a-f]*)$/.test(slot.value),'REQUIRED_STORAGE_QUANTITY');
    const key='0x'+slot.key.replace(/^0x/,'').padStart(64,'0').toLowerCase();assert(!storage.has(key),'DUPLICATE_PRESTATE_SLOT');
    const storageRoot=actual?p.storageHash:ethers.utils.keccak256('0x80');
-   const empty=storageRoot===ethers.utils.keccak256('0x80')&&slot.proof.length===0;
+   // Some providers return the RLP empty trie node explicitly.
+   const empty=storageRoot===ethers.utils.keccak256('0x80')&&
+     (slot.proof.length===0||(slot.proof.length===1&&slot.proof[0]==='0x80'));
    const v=empty?null:await trie.verifyProof(bytes(storageRoot),bytes(ethers.utils.keccak256(key)),slot.proof.map(bytes));
    const decoded=v?ethers.utils.RLP.decode(hex(v)):'0x';assert.equal(big(decoded),big(slot.value),'PRESTATE_STORAGE_VALUE');storage.set(key,big(slot.value));slots++;
   }

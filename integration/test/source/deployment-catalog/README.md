@@ -23,6 +23,20 @@ done
 
 若固定块的原始端点已裁剪历史状态，可用 `--proof-endpoint` 指定已登记的公共 RPC。采集先核对该端点的链 ID、创世块和目标高度的块哈希及状态根，再获取证明。原执行回放继续使用同一份归档。
 
+### BSC 近期块证明
+
+若公共 RPC 仅在 `latest` 保留证明，使用前一轮 BSC 原池执行目录推导账户与存储键，包括新 callback 地址对应的余额及授权键。工具保留批量原始响应，验证账户和存储证明与同一块的根一致。原池执行后再核对实际读取集，并从独立 RPC 保存后续 finalized 观测和同高度块头。
+
+```sh
+python3 integration/tools/acceptance/r01_public_catalog_evm_seed.py \
+    --chain bsc --previous "$bsc_previous" --directory "$bsc_new" \
+    --tag latest --batch-latest
+python3 integration/tools/acceptance/r01_public_catalog_evm_history.py replay --directory "$bsc_new"
+python3 integration/tools/acceptance/r01_public_catalog_evm_history.py receipts --directory "$bsc_new"
+```
+
+`$bsc_new` 使用尚未创建的目录。先用已有 BSC 部署目录运行 `capture` 可生成 `$bsc_previous`。下方固定块回执命令可复验新块的头、交易根及回执根。
+
 Avalanche 的后继结算头可用 `r01_public_catalog_evm_history.py settlement --directory "$r01_run/avalanche"` 采集。预状态验证器读取该目录中的 `native-successors.json`，校验每个原始响应的摘要，并用精确后继结算状态根核验 Coreth 账户及存储证明。
 
 六条链均可用 `r01_public_catalog_evm_history.py receipts --directory "$r01_run/$chain"` 采集固定块回执。Avalanche 先用 `settlement` 采集后继结算头，再由 `receipts` 保留该结算窗口内的交易和回执。将 `XONE_R01_RECEIPT_INPUTS` 设为各 `receipt-input.json` 的绝对路径列表，以冒号分隔。在 `chain-parser-go` 执行 `go test ./internal/chain/evm -run '^TestPublicCatalogFixedReceiptRoot$' -count=1 -v`，离线重建头哈希、交易根及回执根。

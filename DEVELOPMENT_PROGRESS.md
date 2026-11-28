@@ -491,6 +491,9 @@
 - Base 同高度的 Slipstream Factory、Pool 实现、动态 swap 费模块和 Voter 匹配已有上下文模板。部署的 `CustomUnstakedFeeModule` 将 factory 存在槽 0。用官方 Solidity 0.7.6 重编公开输入，848 字节执行体逐字节一致，CBOR 来源摘要不同。MPT 核对了已部署完整代码、factory 和样例池的 50,000 自定义费率。Go、Rust Parser 与 Router 的上下文领域校验接受这一固定 runtime 身份。
 - Base Aerodrome Slipstream 在 63,180,533 用固定状态证明重放了 3,264 次 getter，覆盖 3,010 条预言机观测和当前 bitmap 字内的 210 个初始化 tick。常规 Go Parser 与 Rust Router 报价 166,349 原子单位，与原池收款一致，回放无未记录 RPC 请求。证明归档可由本地留存的 51 份原始证明响应、合约代码响应和原执行证据重建，覆盖 20 个账户、4,359 个存储槽和 142 次原始状态读取。链费模型和生产执行资格仍待验收。
 - Arbitrum One 在 528,150,486 经另一公共 RPC 取得缺失的 5 个账户证明。独立验证覆盖 10 个账户、23 个存储槽以及原执行的 49 次预状态读取。常规 Parser 和 Router 回放核对 264 次 getter，Uniswap V3 报价与原池收款均为 166,253 原子单位，无未记录 RPC 请求。链费模型仍待验收。
+- Polygon 改用 finalized 高度 98,086,595。独立验证完成 9 个账户、20 个存储槽和 44 次预状态读取，Go 验证同块的 90 笔回执。Uniswap V3 原池离线重放收到 7 原子单位。常规报价还需补齐当前 bitmap 内的 tick 存储证明。
+- Avalanche 改用 finalized 高度 101,595,781。后继头 101,595,787 提交该高度的状态根及回执根。独立验证完成 11 个账户、36 个 Coreth 存储槽和 65 次预状态读取，两个原池离线重放分别收到 660 和 134 原子单位。Go 的后继结算窗口回执验证通过。
+- BSC 在 136,158,531 用公共 RPC 批量采集完整区块和 17 个账户的证明，独立核对 40 个存储槽和两项原池执行使用的 93 次预状态读取。独立来源的 finalized 高度 136,158,554 随后确认原块哈希和状态根，Go 核对同块 99 笔回执。Pancake V2 和 V3 离线重放分别收到 55,371,283,985,433,316 和 55,378,869,052,922,774 原子单位，网络请求为零。接下来继续原合约 getter 与常规 Parser/Router 差分。
 - Avalanche LFJ v2.1 在 101,588,444 的原池 clone 固定指向 `0xee5a90098b270596ec35d637b30d908c862c86df`，同高度工厂 getter 返回 `0x3e30fdae04c08fc20fa2fe0cf55c95d99a9c2d8f`。分别核对两套 runtime 及池中的 token X、token Y 和 bin step。负对照拒绝错误 clone 地址、变更的工厂实现摘要和缺失的代币 getter。
 - 依次补齐 11 个部署的原始 runtime、升级语义、固定高度证明、原版执行和常规 Parser/Router 收款差分。区块回执及 Avalanche 目标高度的后继结算头继续独立核验。 [六链固定块复验命令](integration/test/source/deployment-catalog/README.md#fresh-evm-anchors)
 
