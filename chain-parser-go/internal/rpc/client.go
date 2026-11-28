@@ -245,18 +245,25 @@ func (c *Client) VerifyEVM(ctx context.Context, chain, genesis string) error {
 	}
 	healthy := 0
 	var lastIdentityError error
-	seen := map[string]bool{}
+	pending := map[string]bool{}
 	for _, url := range c.URLs {
-		if seen[url] {
+		pending[url] = true
+	}
+	deadline, _ := ctx.Deadline()
+	for _, url := range c.URLs {
+		if !pending[url] {
 			continue
 		}
-		seen[url] = true
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+		// Give each remaining endpoint time to establish its own identity.
+		endpointCtx, endpointCancel := context.WithTimeout(ctx, time.Until(deadline)/time.Duration(len(pending)))
+		delete(pending, url)
 		var got string
-		e := c.attempt(ctx, url, "eth_chainId", []any{}, &got)
+		e := c.attempt(endpointCtx, url, "eth_chainId", []any{}, &got)
 		if errors.Is(e, ErrRecordingFailed) {
+			endpointCancel()
 			return e
 		}
 		if e == nil {
@@ -269,13 +276,14 @@ func (c *Client) VerifyEVM(ctx context.Context, chain, genesis string) error {
 			var block struct {
 				Hash string `json:"hash"`
 			}
-			e = c.attempt(ctx, url, "eth_getBlockByNumber", []any{"0x0", false}, &block)
-			if errors.Is(e, ErrRecordingFailed) {
-				return e
-			}
+			e = c.attempt(endpointCtx, url, "eth_getBlockByNumber", []any{"0x0", false}, &block)
 			if e == nil && !strings.EqualFold(block.Hash, genesis) {
 				e = errors.New("RPC_WRONG_GENESIS")
 			}
+		}
+		endpointCancel()
+		if errors.Is(e, ErrRecordingFailed) {
+			return e
 		}
 		c.mu.Lock()
 		if c.quarantined == nil {

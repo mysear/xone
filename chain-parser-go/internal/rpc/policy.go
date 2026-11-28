@@ -19,6 +19,7 @@ type ErrorClass string
 const (
 	InvalidRequest   ErrorClass = "invalid_request"
 	Unsupported      ErrorClass = "unsupported"
+	AccessDenied     ErrorClass = "access_denied"
 	RateLimited      ErrorClass = "rate_limited"
 	Transient        ErrorClass = "transient"
 	Unavailable      ErrorClass = "unavailable"
@@ -58,6 +59,8 @@ func Classify(err error) ErrorClass {
 		return BudgetExceeded
 	case code == "RPC_HTTP_429" || code == "RPC_ERROR_-32005":
 		return RateLimited
+	case code == "RPC_HTTP_401" || code == "RPC_HTTP_403":
+		return AccessDenied
 	case code == "RPC_NETWORK" || code == "RPC_ERROR_-32603":
 		return Transient
 	case strings.HasPrefix(code, "RPC_HTTP_"):

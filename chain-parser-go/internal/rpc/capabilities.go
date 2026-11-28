@@ -64,7 +64,8 @@ func capability(err error) Capability {
 }
 
 // ProbeEVM first verifies chain identity and probes each healthy endpoint without
-// failover under one total timeout. HistoricalHash must come from the caller's
+// failover under one total timeout. A slow endpoint can use only its share of
+// the remaining time. HistoricalHash must come from the caller's
 // fixed reference. No downgrade to number-based state reads is performed.
 func (c *Client) ProbeEVM(ctx context.Context, request ProbeRequest) ([]CapabilityReport, error) {
 	if request.HistoricalHash == "" || request.Account == "" {
@@ -77,87 +78,103 @@ func (c *Client) ProbeEVM(ctx context.Context, request ProbeRequest) ([]Capabili
 	}
 	_, providers := c.ProviderClients()
 	reports := make([]CapabilityReport, 0, len(providers))
-	for _, provider := range providers {
-		url := provider.URLs[0]
-		report := CapabilityReport{ProviderID: endpointID(url), CheckedAt: time.Now().UTC(), HistoricalHeight: request.HistoricalHeight, HistoricalHash: request.HistoricalHash, HashPinned: Capability{Status: Unknown}}
-		var head string
-		err := provider.attempt(ctx, url, "eth_blockNumber", []any{}, &head)
-		if errors.Is(err, ErrRecordingFailed) {
+	deadline, _ := ctx.Deadline()
+	var probeErr error
+	for i, provider := range providers {
+		endpointCtx, endpointCancel := context.WithTimeout(ctx, time.Until(deadline)/time.Duration(len(providers)-i))
+		report, err := probeEVMProvider(endpointCtx, provider, request)
+		endpointErr := endpointCtx.Err()
+		endpointCancel()
+		if err != nil {
 			return reports, err
 		}
-		if err == nil {
-			report.ObservedHead = head
-		}
-		for _, tag := range []string{"safe", "finalized"} {
-			var block struct{ Number, Hash, ParentHash string }
-			err := provider.attempt(ctx, url, "eth_getBlockByNumber", []any{tag, false}, &block)
-			if errors.Is(err, ErrRecordingFailed) {
-				return reports, err
-			}
-			if err == nil && (block.Hash == "" || block.ParentHash == "" || block.Number == "") {
-				err = errors.New("RPC_RESULT_INVALID")
-			}
-			if tag == "safe" {
-				report.Safe = capability(err)
-			} else {
-				report.Finalized = capability(err)
-			}
-		}
-		var history struct{ Number, Hash, ParentHash string }
-		err = provider.attempt(ctx, url, "eth_getBlockByNumber", []any{fmt.Sprintf("0x%x", request.HistoricalHeight), false}, &history)
-		if errors.Is(err, ErrRecordingFailed) {
-			return reports, err
-		}
-		if err == nil && (history.Number != fmt.Sprintf("0x%x", request.HistoricalHeight) || !SameEVMHash(history.Hash, request.HistoricalHash) || history.ParentHash == "") {
-			err = errors.New("RPC_RESULT_INVALID")
-		}
-		report.HistoricalBlock = capability(err)
-		var historicalBalance string
-		if err == nil {
-			err = provider.attempt(ctx, url, "eth_getBalance", []any{request.Account, fmt.Sprintf("0x%x", request.HistoricalHeight)}, &historicalBalance)
-			if errors.Is(err, ErrRecordingFailed) {
-				return reports, err
-			}
-			if err == nil && !hexQuantity(historicalBalance) {
-				err = errors.New("RPC_RESULT_INVALID")
-			}
-		}
-		report.Historical = capability(err)
-		if err == nil {
-			var balance string
-			err = provider.attempt(ctx, url, "eth_getBalance", []any{request.Account, map[string]any{"blockHash": history.Hash, "requireCanonical": true}}, &balance)
-			if errors.Is(err, ErrRecordingFailed) {
-				return reports, err
-			}
-			if err == nil && (!hexQuantity(balance) || balance != historicalBalance) {
-				err = errors.New("RPC_RESULT_INVALID")
-			}
-			report.HashPinnedMethod = "eth_getBalance"
-			if err == nil {
-				var control [32]byte
-				if _, randomErr := rand.Read(control[:]); randomErr != nil {
-					return reports, randomErr
-				}
-				report.HashPinnedControlHash = "0x" + hex.EncodeToString(control[:])
-				var ignored string
-				controlErr := provider.attempt(ctx, url, "eth_getBalance", []any{request.Account, map[string]any{"blockHash": report.HashPinnedControlHash, "requireCanonical": true}}, &ignored)
-				if errors.Is(controlErr, ErrRecordingFailed) {
-					return reports, controlErr
-				}
-				if controlErr == nil {
-					err = errors.New("RPC_PIN_SELECTOR_IGNORED")
-				} else if controlErr.Error() != "RPC_ERROR_-32000" && controlErr.Error() != "RPC_ERROR_-32001" {
-					err = controlErr
-				}
-			}
-			report.HashPinned = capability(err)
+		if endpointErr != nil {
+			probeErr = endpointErr
 		}
 		reports = append(reports, report)
 		if ctx.Err() != nil {
 			return reports, ctx.Err()
 		}
 	}
-	return reports, nil
+	return reports, probeErr
+}
+
+func probeEVMProvider(ctx context.Context, provider *Client, request ProbeRequest) (CapabilityReport, error) {
+	url := provider.URLs[0]
+	report := CapabilityReport{ProviderID: endpointID(url), CheckedAt: time.Now().UTC(), HistoricalHeight: request.HistoricalHeight, HistoricalHash: request.HistoricalHash, HashPinned: Capability{Status: Unknown}}
+	var head string
+	err := provider.attempt(ctx, url, "eth_blockNumber", []any{}, &head)
+	if errors.Is(err, ErrRecordingFailed) {
+		return report, err
+	}
+	if err == nil {
+		report.ObservedHead = head
+	}
+	for _, tag := range []string{"safe", "finalized"} {
+		var block struct{ Number, Hash, ParentHash string }
+		err := provider.attempt(ctx, url, "eth_getBlockByNumber", []any{tag, false}, &block)
+		if errors.Is(err, ErrRecordingFailed) {
+			return report, err
+		}
+		if err == nil && (block.Hash == "" || block.ParentHash == "" || block.Number == "") {
+			err = errors.New("RPC_RESULT_INVALID")
+		}
+		if tag == "safe" {
+			report.Safe = capability(err)
+		} else {
+			report.Finalized = capability(err)
+		}
+	}
+	var history struct{ Number, Hash, ParentHash string }
+	err = provider.attempt(ctx, url, "eth_getBlockByNumber", []any{fmt.Sprintf("0x%x", request.HistoricalHeight), false}, &history)
+	if errors.Is(err, ErrRecordingFailed) {
+		return report, err
+	}
+	if err == nil && (history.Number != fmt.Sprintf("0x%x", request.HistoricalHeight) || !SameEVMHash(history.Hash, request.HistoricalHash) || history.ParentHash == "") {
+		err = errors.New("RPC_RESULT_INVALID")
+	}
+	report.HistoricalBlock = capability(err)
+	var historicalBalance string
+	if err == nil {
+		err = provider.attempt(ctx, url, "eth_getBalance", []any{request.Account, fmt.Sprintf("0x%x", request.HistoricalHeight)}, &historicalBalance)
+		if errors.Is(err, ErrRecordingFailed) {
+			return report, err
+		}
+		if err == nil && !hexQuantity(historicalBalance) {
+			err = errors.New("RPC_RESULT_INVALID")
+		}
+	}
+	report.Historical = capability(err)
+	if err == nil {
+		var balance string
+		err = provider.attempt(ctx, url, "eth_getBalance", []any{request.Account, map[string]any{"blockHash": history.Hash, "requireCanonical": true}}, &balance)
+		if errors.Is(err, ErrRecordingFailed) {
+			return report, err
+		}
+		if err == nil && (!hexQuantity(balance) || balance != historicalBalance) {
+			err = errors.New("RPC_RESULT_INVALID")
+		}
+		report.HashPinnedMethod = "eth_getBalance"
+		if err == nil {
+			var control [32]byte
+			if _, randomErr := rand.Read(control[:]); randomErr != nil {
+				return report, randomErr
+			}
+			report.HashPinnedControlHash = "0x" + hex.EncodeToString(control[:])
+			var ignored string
+			controlErr := provider.attempt(ctx, url, "eth_getBalance", []any{request.Account, map[string]any{"blockHash": report.HashPinnedControlHash, "requireCanonical": true}}, &ignored)
+			if errors.Is(controlErr, ErrRecordingFailed) {
+				return report, controlErr
+			}
+			if controlErr == nil {
+				err = errors.New("RPC_PIN_SELECTOR_IGNORED")
+			} else if controlErr.Error() != "RPC_ERROR_-32000" && controlErr.Error() != "RPC_ERROR_-32001" {
+				err = controlErr
+			}
+		}
+		report.HashPinned = capability(err)
+	}
+	return report, nil
 }
 func hexQuantity(s string) bool {
 	if len(s) < 3 || s[:2] != "0x" || (len(s) > 3 && s[2] == '0') {

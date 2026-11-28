@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -261,6 +262,68 @@ func TestProbeDoesNotCallIgnoredHashSelectorSupported(t *testing.T) {
 	}
 }
 
+func TestEVMProbeReservesTimeForTheSecondEndpoint(t *testing.T) {
+	for _, stalledMethod := range []string{"eth_chainId", "historical block"} {
+		t.Run(stalledMethod, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var req struct {
+					Method string
+					Params []json.RawMessage
+				}
+				if json.NewDecoder(r.Body).Decode(&req) != nil {
+					t.Error("invalid request")
+					return
+				}
+				var tag string
+				if req.Method == "eth_getBlockByNumber" {
+					_ = json.Unmarshal(req.Params[0], &tag)
+				}
+				if r.URL.Path == "/slow" && (req.Method == stalledMethod ||
+					stalledMethod == "historical block" && tag == "0x7") {
+					<-r.Context().Done()
+					return
+				}
+				result := `"0x1"`
+				switch req.Method {
+				case "eth_getBlockByNumber":
+					if tag == "0x0" {
+						result = `{"number":"0x0","hash":"g","parentHash":"p"}`
+					} else {
+						result = `{"number":"0x7","hash":"h","parentHash":"p"}`
+					}
+				case "eth_getBalance":
+					var pin map[string]any
+					if json.Unmarshal(req.Params[1], &pin) == nil && pin["blockHash"] != "h" {
+						fmt.Fprint(w, `{"jsonrpc":"2.0","id":1,"error":{"code":-32001}}`)
+						return
+					}
+				}
+				fmt.Fprintf(w, `{"jsonrpc":"2.0","id":1,"result":%s}`, result)
+			}))
+			defer server.Close()
+			slow, healthy := server.URL+"/slow", server.URL+"/healthy"
+			client := New([]string{slow, slow, healthy}, time.Second, 4096)
+			reports, err := client.ProbeEVM(context.Background(), ProbeRequest{
+				Chain: "evm:1", Genesis: "g", HistoricalHeight: 7, HistoricalHash: "h", Account: "a",
+			})
+			if stalledMethod == "eth_chainId" {
+				if err != nil || len(reports) != 1 || !client.Providers()[0].Quarantined {
+					t.Fatalf("expected only the verified endpoint: %+v (%v)", reports, err)
+				}
+			} else {
+				if !errors.Is(err, context.DeadlineExceeded) || len(reports) != 2 ||
+					reports[0].Historical.Error != Deadline || reports[0].Historical.Status != Unknown {
+					t.Fatalf("expected a partial deadline report: %+v (%v)", reports, err)
+				}
+			}
+			report := reports[len(reports)-1]
+			if report.ProviderID != endpointID(healthy) || report.Historical.Status != Supported || report.HashPinned.Status != Supported {
+				t.Fatalf("healthy endpoint was not fully probed: %+v", report)
+			}
+		})
+	}
+}
+
 func TestSuccessfulFailoverReturnsActualProviderID(t *testing.T) {
 	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(503) }))
 	defer bad.Close()
@@ -277,6 +340,34 @@ func TestSuccessfulFailoverReturnsActualProviderID(t *testing.T) {
 func TestNetworkAndInternalErrorsClassifyAsTransient(t *testing.T) {
 	if got := Classify(errors.New("RPC_ERROR_-32603")); got != Transient {
 		t.Fatal(got)
+	}
+}
+
+func TestProviderAccessDenialLeavesCapabilityUnknownAndAllowsFailover(t *testing.T) {
+	for _, code := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		t.Run(strconv.Itoa(code), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/restricted" {
+					w.WriteHeader(code)
+					fmt.Fprint(w, `{"jsonrpc":"2.0","id":1,"error":{"code":-32602}}`)
+					return
+				}
+				fmt.Fprint(w, `{"jsonrpc":"2.0","id":1,"result":"0x12"}`)
+			}))
+			defer server.Close()
+			restricted := server.URL + "/restricted"
+			client := New([]string{restricted, server.URL}, time.Second, 4096)
+			var balance string
+			_, children := client.ProviderClients()
+			params := []string{"0x0123", "0x7"}
+			err := children[0].Call(context.Background(), "eth_getBalance", params, &balance)
+			if got := capability(err); got.Status != Unknown || got.Error != AccessDenied {
+				t.Fatalf("access denial was reported as a capability: %+v (%v)", got, err)
+			}
+			if id, err := client.CallWithProvider(context.Background(), "eth_getBalance", params, &balance); err != nil || id != endpointID(server.URL) || balance != "0x12" {
+				t.Fatalf("access denial blocked fallback: %s %s (%v)", id, balance, err)
+			}
+		})
 	}
 }
 

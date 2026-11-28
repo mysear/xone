@@ -492,6 +492,8 @@
 - PublicNode 与 dRPC 的 HTTP 端点均核对 Ethereum 主网 chain ID 和 genesis。断开两条 WebSocket 订阅，等待主网推进后重新订阅。断线前高度 26,510,135、重连后高度 26,510,138 的通知均与两源固定高度 HTTP 响应匹配。
 - 生产共用的 HeadTracker 和 staging Pipeline 从 HTTP 补齐高度 26,510,136–26,510,138。每个高度在两源分别重建区块头哈希、交易根及回执根，逐高度核对父块并读取已归档的主源原始数据。收紧补齐窗口到一个块后，请求返回历史缺口，提交观察器未增加记录。
 - 在 `chain-parser-go` 运行 `XONE_PUBLIC_EVM_HEADS=1 go test -timeout=5m -count=1 -v ./internal/ingest -run '^TestPublicEthereumHeadRecovery$'`。该次验收使用临时归档和本地提交观察器。生产 owner 日志、持续历史及限流采样、基础设施故障域仍待验收。 [复验测试](chain-parser-go/internal/ingest/heads_public_test.go)
+- 剩余请求时间按待探测端点分配。首端点身份或历史读取挂起时，有效备用端点仍可提交自己的能力报告。HTTP 401 或 403 分类为 `access_denied`，相关能力保留为未知，读取可切换到下一端点。关键归档失败仍中止操作。
+- 四个固定高度各采样两轮。dRPC 返回四点的区块头、账户余额和哈希固定读取，均通过未知哈希负对照。PublicNode 返回创世和 22,000,000 的区块头，余额请求返回 403。高度 15,000,000 的区块头返回不可用，高度 26,510,136 的区块头、余额和哈希固定读取通过。两源均回应 safe 和 finalized 探测。样本反映 2026-11-28 对指定端点的观测。 [历史能力复验](chain-parser-go/internal/rpc/capabilities_public_test.go)
 
 #### 当前迭代目标（R04 恢复预算边界，2026-11-28）
 
