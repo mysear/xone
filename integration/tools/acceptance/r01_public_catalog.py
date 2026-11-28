@@ -298,7 +298,7 @@ def validate_samples(root,row,tag):
     if row.get('sample_provider_header'):
         header=rpc(root,row['sample_provider_header'],'eth_getBlockByNumber',[tag,False])
         require(header['hash']==row['anchor']['hash'],'SAMPLE_PROVIDER_ANCHOR')
-    selectors={'uniswap-v3':'0x1698ee82','pancake-v3':'0x1698ee82','pancake-v2':'0xe6a43905',
+    selectors={'uniswap-v3':'0x1698ee82','pancake-v3':'0x1698ee82','pancake-v2':'0xe6a43905','uniswap-v2':'0xe6a43905',
                'aerodrome-v2':'0x79bc57d5','velodrome-v2':'0x79bc57d5','aerodrome-slipstream':'0x28af8d0b','lfj-liquidity-book':'0x704037bd'}
     samples=row.get('sample_pools',[])
     require(len(set(s['address'] for s in samples))==len(samples),'DUPLICATE_SAMPLE_POOL')

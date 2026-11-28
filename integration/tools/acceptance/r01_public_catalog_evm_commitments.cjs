@@ -4,7 +4,7 @@
 // encoding and the height whose state a header commits remain separate facts.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const ROOT=path.resolve(__dirname,'../../..'),{ethers}=require(path.join(ROOT,'integration/.runtime/stable-reference/node_modules/ethers')),{verifyPrestate}=require('./r01_public_catalog_proof.cjs');
-const CHAINS={base:'8453',optimism:'10',bsc:'56',arbitrum:'42161',polygon:'137',avalanche:'43114'},sha=x=>crypto.createHash('sha256').update(x).digest('hex');
+const CHAINS={ethereum:'1',base:'8453',optimism:'10',bsc:'56',arbitrum:'42161',polygon:'137',avalanche:'43114'},sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 function quantity(x){assert(/^0x[0-9a-f]+$/.test(x),'HEADER_QUANTITY');const n=BigInt(x);assert.equal('0x'+n.toString(16),x,'HEADER_CANONICAL_QUANTITY');if(!n)return '0x';let s=n.toString(16);return '0x'+(s.length%2?'0':'')+s;}
 function verifyHeader(chain,header){
  assert(CHAINS[chain],'HEADER_CHAIN_UNSUPPORTED');

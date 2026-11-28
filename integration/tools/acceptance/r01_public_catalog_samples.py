@@ -36,7 +36,7 @@ def capture(row,directory,endpoints=None):
         tokens=TOKENS[row['chain']];selector='0x1698ee82';values=[500,3000]
         protocol=row['protocol']
         if protocol in ['aerodrome-v2','velodrome-v2']:selector='0x79bc57d5';values=[0,1]
-        if protocol=='pancake-v2':selector='0xe6a43905';values=[None]
+        if protocol in ('uniswap-v2', 'pancake-v2'):selector='0xe6a43905';values=[None]
         if protocol=='aerodrome-slipstream':selector='0x28af8d0b';values=[100,200]
         if protocol=='lfj-liquidity-book':selector='0x704037bd';values=[20,25]
         for value in values:

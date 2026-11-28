@@ -85,7 +85,15 @@ async function run(mode,directory,url){
     }else{
      const token0=(await view(c.pool,'token0')).toLowerCase();let quoted;
      if(c.kind==='v2-solidly')quoted=await view(c.pool,'getAmountOut',[c.amount_in,c.token_in]);
-     else {const reserves=erc.decodeFunctionResult('getReserves',await rpc('eth_call',[{to:c.pool,data:erc.encodeFunctionData('getReserves')},'latest']));const rin=BigInt(reserves[token0===c.token_in?0:1]),rout=BigInt(reserves[token0===c.token_in?1:0]),adjusted=BigInt(c.amount_in)*9975n;quoted=adjusted*rout/(rin*10000n+adjusted);}
+     else {
+      assert(['v2-uniswap','v2-pancake'].includes(c.kind),'PUBLIC_V2_REFERENCE_KIND');
+      const reserves=erc.decodeFunctionResult('getReserves',await rpc('eth_call',[{to:c.pool,data:erc.encodeFunctionData('getReserves')},'latest']));
+      const inputIs0=token0===c.token_in;
+      const reserveIn=BigInt(reserves[inputIs0?0:1]),reserveOut=BigInt(reserves[inputIs0?1:0]);
+      const [numerator,denominator]=c.kind==='v2-uniswap'?[997n,1000n]:[9975n,10000n];
+      const adjusted=BigInt(c.amount_in)*numerator;
+      quoted=adjusted*reserveOut/(reserveIn*denominator+adjusted);
+     }
      result.original_pool_quote=quoted.toString();data=iface.encodeFunctionData('v2',[c.pool,c.token_in,c.amount_in,quoted.toString(),token0===c.token_in,recipient]);
     }
     const swap=await transact(helper,data);result.transactions.push(swap);assert.equal(swap.status,1,'ORIGINAL_POOL_SWAP_REVERTED');

@@ -21,6 +21,7 @@ TARGETS=ROOT/'integration/config/chain-targets.json'
 DEPLOYMENTS=ROOT/'integration/config/r01-evm-history-deployments.json'
 HELPER_COMPILER=ROOT/'integration/config/r01-evm-helper-compiler.json'
 CHAINS = {
+    'ethereum': (1, ['https://eth.drpc.org', 'https://ethereum-rpc.publicnode.com', 'https://1rpc.io/eth']),
     'base': (8453, ['https://base.drpc.org', 'https://mainnet.base.org']),
     'optimism': (10, ['https://optimism.drpc.org', 'https://mainnet.optimism.io']),
     'bsc': (56, ['https://bsc.drpc.org', 'https://bsc-rpc.publicnode.com', 'https://bsc-dataseed1.ninicoin.io',
@@ -29,7 +30,25 @@ CHAINS = {
     'polygon': (137, ['https://polygon.drpc.org', 'https://polygon-bor-rpc.publicnode.com']),
     'avalanche': (43114, ['https://avalanche-c-chain-rpc.publicnode.com', 'https://api.avax.network/ext/bc/C/rpc']),
 }
-WRAPPED={'base':'0x4200000000000000000000000000000000000006','optimism':'0x4200000000000000000000000000000000000006','bsc':'0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c','arbitrum':'0x82af49447d8a07e3bd95bd0d56f35241523fbab1','polygon':'0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270','avalanche':'0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7'}
+WRAPPED = {
+    'ethereum': '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+    'base': '0x4200000000000000000000000000000000000006',
+    'optimism': '0x4200000000000000000000000000000000000006',
+    'bsc': '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
+    'arbitrum': '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
+    'polygon': '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270',
+    'avalanche': '0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7',
+}
+SWAP_KINDS = {
+    'uniswap-v2': 'v2-uniswap',
+    'pancake-v2': 'v2-pancake',
+    'aerodrome-v2': 'v2-solidly',
+    'velodrome-v2': 'v2-solidly',
+    'uniswap-v3': 'v3',
+    'pancake-v3': 'v3',
+    'aerodrome-slipstream': 'v3',
+    'lfj-liquidity-book': 'lb',
+}
 
 def storage_trie_key(chain,key):
     require(chain in CHAINS,'STORAGE_KEY_CHAIN_UNSUPPORTED')
@@ -286,7 +305,9 @@ def chain_plan(catalog,chain,catalog_path=BASE/'catalog.json'):
         sample=next((p for p in row['sample_pools'] if WRAPPED[chain] in [t.lower() for t in p['query_tokens']]),None)
         require(sample,'PLAN_WRAPPED_NATIVE_POOL_REQUIRED');pool=sample['address'].lower();require(pool!='0x'+'00'*20,'PLAN_NONZERO_POOL')
         token_in=WRAPPED[chain];token_out=next(t.lower() for t in sample['query_tokens'] if t.lower()!=token_in)
-        protocol=row['protocol'];kind='v2-solidly' if protocol in ('aerodrome-v2','velodrome-v2') else 'v2-pancake' if protocol=='pancake-v2' else 'lb' if protocol=='lfj-liquidity-book' else 'v3'
+        protocol = row['protocol']
+        require(protocol in SWAP_KINDS, 'PLAN_PROTOCOL_UNSUPPORTED')
+        kind = SWAP_KINDS[protocol]
         cases.append({'catalog_deployment_id':row['id'],'protocol':protocol,'kind':kind,'pool':pool,'factory':row['address'].lower(),'factory_runtime_sha256':row['runtime']['sha256'],'pool_runtime_sha256':sample['runtime']['sha256'],'token_in':token_in,'token_out':token_out,'amount_in':'100000000000000','query_parameter':sample['query_parameter'],'pool_implementation':sample.get('implementation')})
         ids.append(row['id'])
     require(cases and len(ids)==len(set(ids)),'PLAN_FINITE_UNIQUE_SCOPE')

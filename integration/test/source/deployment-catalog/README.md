@@ -2,7 +2,7 @@
 
 <a id="fresh-evm-anchors"></a>
 
-## 六链固定块复验
+## EVM 固定块复验
 
 ### 从已入库的证据统一复验
 
@@ -33,7 +33,7 @@ python3 integration/tools/acceptance/r01_fixed_evm_replay.py \
 ```sh
 mkdir -p integration/test/source/deployment-catalog/evm-continuation-v2
 r01_run=$(mktemp -d integration/test/source/deployment-catalog/evm-continuation-v2/anchors.XXXXXXXX)
-for chain in base bsc arbitrum optimism polygon avalanche; do
+for chain in ethereum base bsc arbitrum optimism polygon avalanche; do
     python3 integration/tools/acceptance/r01_public_catalog_evm_history.py anchor \
         --chain "$chain" --directory "$r01_run/$chain" &&
     python3 integration/tools/acceptance/r01_public_catalog_evm_history.py catalog \
@@ -101,6 +101,25 @@ evidence_root=integration/test/source/deployment-catalog
 tar -xkf "$evidence_root/evidence/fixed-evm-2026-11-28.tar.gz"
 PYTHONPATH=integration/tools/acceptance python3 -c 'from r01_public_catalog_evm_history import prepare_helper_compiler; prepare_helper_compiler()'
 ```
+
+### Ethereum Uniswap V2 与 V3 固定块原池复验
+
+`evidence/ethereum-uniswap-26511767.tar.gz` 保留 125 份文件，SHA-256 为 `48f6a43e8837cbb63b4a11c12164308932b7436bdd98f6680c9fbe70fa0dcdd1`。dRPC 和 PublicNode 核对创世哈希及 finalized 高度 26,511,767 的哈希与状态根。独立验证重建该块的 226 笔交易和回执、11 个预状态账户、32 个存储槽与原池执行的 60 次公网预状态读取。两项原池重放分别收到 165,056 和 165,469 个原子单位。
+
+安装本页上方的 Node 参考依赖并准备固定编译器后，在独立检出的根目录运行以下命令。
+
+```sh
+evidence_root=integration/test/source/deployment-catalog
+tar -xkf "$evidence_root/evidence/ethereum-uniswap-26511767.tar.gz"
+fixed_block="$evidence_root/evm-continuation-v2/ethereum.2nsy6ES2"
+node integration/tools/acceptance/r01_public_catalog_evm_commitments.cjs "$fixed_block"
+python3 integration/tools/acceptance/r01_public_catalog_evm_history.py replay --directory "$fixed_block"
+receipt_input="$PWD/$fixed_block/receipt-input.json"
+(cd chain-parser-go && XONE_R01_RECEIPT_INPUTS="$receipt_input" \
+    go test -race -count=1 -v ./internal/chain/evm -run '^TestPublicCatalogFixedReceiptRoot$')
+```
+
+### 其余固定块复验目录
 
 固定块验证和原池重放使用 `evm-continuation-v2` 下的目录。
 
