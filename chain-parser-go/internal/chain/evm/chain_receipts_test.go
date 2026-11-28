@@ -36,6 +36,9 @@ func loadChainReceiptVector(t *testing.T, name string) publicReceiptVector {
 		readPolygonBorVector(t, &v)
 		return v
 	}
+	if readHistoricalReceiptVector(t, name, &v) {
+		return v
+	}
 	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, name, "vector.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -44,6 +47,16 @@ func loadChainReceiptVector(t *testing.T, name string) publicReceiptVector {
 		t.Fatal(err)
 	}
 	return v
+}
+
+func readHistoricalReceiptVector(t *testing.T, name string, dest any) bool {
+	t.Helper()
+	path := filepath.Join("../../../test/fixtures/historical-receipts", name+".json.gz")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false
+	}
+	testfixture.ReadGzipJSON(t, path, dest)
+	return true
 }
 func TestChainReceiptsPublicVectors(t *testing.T) {
 	for _, name := range []string{"ethereum", "base-regolith", "base-canyon", "optimism-regolith", "optimism-canyon", "arbitrum", "bsc", "polygon", "avalanche"} {
@@ -315,10 +328,6 @@ func TestChainReceiptsEthereumRemainsStrict(t *testing.T) {
 }
 
 func TestChainReceiptsIndependentNativeEncodings(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, "encoding-vectors.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	var data struct {
 		Cases []struct {
 			Name     string
@@ -327,9 +336,7 @@ func TestChainReceiptsIndependentNativeEncodings(t *testing.T) {
 			Receipts []Receipt
 		}
 	}
-	if err = json.Unmarshal(raw, &data); err != nil {
-		t.Fatal(err)
-	}
+	testfixture.ReadGzipJSON(t, "../../../test/fixtures/historical-receipts/encoding-vectors.json.gz", &data)
 	if len(data.Cases) != 17 {
 		t.Fatalf("incomplete independent native vectors: %d", len(data.Cases))
 	}

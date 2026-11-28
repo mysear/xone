@@ -16,6 +16,9 @@ func retainedChainHeader(t *testing.T, name string) json.RawMessage {
 		readPolygonBorVector(t, &v)
 		return v.Block
 	}
+	if readHistoricalReceiptVector(t, name, &v) {
+		return v.Block
+	}
 	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, name, "vector.json"))
 	if err != nil {
 		t.Fatal(err)

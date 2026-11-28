@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Read-only, bounded public receipt vector acquisition. Never sends transactions."""
-import concurrent.futures, datetime, hashlib, json, pathlib, urllib.request
+import argparse, concurrent.futures, datetime, hashlib, json, pathlib, urllib.request
 ROOT = pathlib.Path(__file__).resolve().parent
 CASES = [
  ('ethereum', 'evm:1', 17000000, ['https://ethereum-rpc.publicnode.com', 'https://eth.drpc.org']),
  ('base-regolith', 'evm:8453', 1000000, ['https://mainnet.base.org', 'https://base-rpc.publicnode.com']),
  ('base-canyon', 'evm:8453', 10000000, ['https://mainnet.base.org', 'https://base-rpc.publicnode.com']),
- ('optimism-regolith', 'evm:10', 110000000, ['https://mainnet.optimism.io', 'https://optimism-rpc.publicnode.com']),
+ ('optimism-regolith', 'evm:10', 110000000, ['https://optimism.drpc.org', 'https://optimism.gateway.tenderly.co', 'https://mainnet.optimism.io', 'https://optimism-rpc.publicnode.com']),
  ('optimism-canyon', 'evm:10', 120000000, ['https://optimism.drpc.org', 'https://optimism-rpc.publicnode.com']),
  ('arbitrum', 'evm:42161', 100000000, ['https://arb1.arbitrum.io/rpc', 'https://arbitrum-one-rpc.publicnode.com']),
  ('bsc', 'evm:56', 35000000, ['https://bsc-dataseed.bnbchain.org', 'https://bsc-rpc.publicnode.com']),
@@ -30,9 +30,9 @@ def rpc(url, method, params):
  if result.get('result') is None: raise ValueError('null result')
  return result['result'], {'request':payload,'response':result,'response_sha256':hashlib.sha256(raw).hexdigest()}
 
-def capture(case):
+def capture(case, root=ROOT):
  name,key,height,urls=case
- out=ROOT/name
+ out=root/name
  if (out/'vector.json').exists(): return name+' already captured'
  errors=[]
  for url in urls:
@@ -62,5 +62,13 @@ def capture(case):
   except Exception as e:errors.append(url+': '+str(e))
  return name+' FAILED '+repr(errors)
 if __name__=='__main__':
+ parser=argparse.ArgumentParser(description=__doc__)
+ parser.add_argument('--output',type=pathlib.Path,default=ROOT)
+ parser.add_argument('--historical',action='store_true',help='capture the nine positive historical cases')
+ args=parser.parse_args()
+ args.output.mkdir(parents=True,exist_ok=True)
+ cases=CASES[:9] if args.historical else CASES
  with concurrent.futures.ThreadPoolExecutor(max_workers=9) as pool:
-  for line in pool.map(capture,CASES):print(line,flush=True)
+  results=list(pool.map(lambda case:capture(case,args.output),cases))
+ for line in results:print(line,flush=True)
+ if any(' FAILED ' in line for line in results):raise SystemExit(1)

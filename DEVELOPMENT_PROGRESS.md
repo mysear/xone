@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 九个历史固定块的 823 条公开回执已重新归档。EthereumJS 独立重算的九棵回执树根与块头一致，Go race 回归覆盖七条 EVM 链、Ethereum 严格校验和 17 个原生编码向量。两种 Python 运行模式生成相同的服务夹具。 [夹具投影](integration/test/source/chain-receipt-vectors/project-historical.py)
 - Uniswap V3 实例模板回归已改用 Ethereum 26,511,767 和 OP Mainnet 160,113,647 的两个真实池字节码，以及 Ethereum 工厂字节码。服务内夹具可从入库归档重建，六项 Go race 测试覆盖实例绑定、拒绝篡改、旧单哈希兼容和重启重新准入。 [夹具复验](integration/tools/acceptance/r01_native_catalog_fixtures.py)
 - Polygon Bor 50,000,144 已从 PublicNode 和 dRPC 重新归档。两端的链身份、创世块、固定块头、完整交易和回执响应一致。Go race 回归验证 389 条规范交易和回执的承诺，隔离末条系统回执的 41 条未承诺日志，并覆盖解析器和工厂归档的正常重放及受影响范围的拒绝。 [采集工具](integration/test/source/chain-receipt-vectors/capture-polygon-bor.py)
 - Go 服务内的工厂归档回归使用 Arbitrum One 528,150,486 和 Avalanche C-Chain 101,597,996 两个入库固定块。校验工具按已锁定的归档摘要重新投影 15 条公开 RPC 响应，服务测试从自身目录读取可重放样本。六项定向 Go race 用例通过，覆盖正常工厂发现、原生证据归档与复验、篡改 Arbitrum 0x6a 系统回执和截断 Avalanche 后继结算头的拒绝，以及 Avalanche 正常历史入口。全局契约门禁仍有待恢复。 [夹具复验](integration/tools/acceptance/r01_native_catalog_fixtures.py)

@@ -31,6 +31,18 @@ Nine positive public blocks, totaling 823 receipts, match both Go verification a
 | Polygon | 50,000,000 | 564 |
 | Avalanche historical | 10,000,000 | 37 |
 
+The nine positive cases can be collected and projected into a fresh directory from the repository root.
+
+```sh
+source=$(mktemp -d)
+fixture_output=$(mktemp -d)
+python3 integration/test/source/chain-receipt-vectors/capture.py --historical --output "$source"
+python3 integration/test/source/chain-receipt-vectors/project-historical.py "$source" "$fixture_output"
+go -C chain-parser-go test -race ./internal/chain/evm -run '^TestChainReceipts(PublicVectors|EthereumRemainsStrict|IndependentNativeEncodings)$'
+```
+
+The Go tests use the compressed fixtures shipped with the service.
+
 Two actual public negative cases are retained; they are not counted as root matches:
 
 - `polygon-synthetic`: block 50,000,144, 390 RPC receipts including the derived synthetic suffix. `oracle-results.json` checks the exact Bor derived hash and proves that removing that identified synthetic receipt gives the advertised root. Its logs are outside this root; the selector refuses it rather than certifying or silently dropping it. This cannot detect a provider omitting uncommitted synthetic data from both RPC lists; that coverage needs a separate authority.
