@@ -68,6 +68,31 @@ python3 integration/tools/acceptance/r01_public_catalog_slipstream_normal.py \
 
 工具先在固定块原合约上分片重放 getter，再让常规 Parser 和 Router 通过本地 RPC 消费重放结果。`proof-bound-report.json` 记录 getter 输出、进程报告与原执行的 SHA-256，并要求 Router 的池级收款与原池收款一致、回放无未记录的 RPC 请求。高度 63,180,533 的验收值是 3,264 次 getter 和 166,349 个收款原子单位。
 
+### 2026-11-28 固定块复验包
+
+在干净的仓库检出中，从根目录展开 `evidence/fixed-evm-2026-11-28.tar.gz`。压缩包保留 990 份原始输入及其仓库相对路径，SHA-256 为 `4f19190de2bd8da36e0c1b28cfc34544ded0f86f5170a485190b0638fbe61cf4`。
+
+```sh
+evidence_root=integration/test/source/deployment-catalog
+tar -xkf "$evidence_root/evidence/fixed-evm-2026-11-28.tar.gz"
+PYTHONPATH=integration/tools/acceptance python3 -c 'from r01_public_catalog_evm_history import prepare_helper_compiler; prepare_helper_compiler()'
+```
+
+固定块验证和原池重放使用 `evm-continuation-v2` 下的目录。
+
+| 链和高度 | 输入目录 |
+|---|---|
+| BSC 136,158,531 | `bsc-head-seed.gFmAjg` |
+| BSC 136,159,243 | `bsc-v2-getter-seed.umiwliu4` |
+| Polygon 98,087,772 | `polygon-getter-anchor.6x8jv5hh` |
+| Avalanche 101,595,781 | `recent-avalanche.qGKJLz` |
+
+将 `fixed_block` 设为表中的目录路径，运行 `node integration/tools/acceptance/r01_public_catalog_evm_commitments.cjs "$fixed_block"` 和 `python3 integration/tools/acceptance/r01_public_catalog_evm_history.py replay --directory "$fixed_block"`。Go 回执联验读取同目录的 `receipt-input.json`。
+
+常规报价复验使用 `evm-normal-v4` 下的 `bsc-pancake-v2-finalized.pefduaif/input-00.json` 和 `polygon-getter-proof.3q923t3l/input.json`。对任一输入先运行 `node integration/tools/acceptance/r01_public_catalog_evm_readonly.cjs "$getter_input" "$getter_probe"`，再运行 `python3 integration/tools/acceptance/r01_public_catalog_evm_normal.py --case-directory "$getter_case" --probe "$getter_probe" --out "$getter_output"`。`getter_case` 是输入所在目录，`getter_probe` 是新的报告文件，`getter_output` 是 `integration/artifacts/local` 下的新 `r01-public-` 目录。
+
+Base Slipstream 按上一节的命令重建。`slipstream_base` 使用 `evm-continuation-v2/anchor-iteration-ee66n2qk/base`，`slipstream_responses` 使用 `evm-normal-v4/base-slipstream-dependencies.hoknqrom`，`slipstream_original_capture` 使用该响应目录下的 `context-cached._mgho3yq/capture.json`。这些路径都相对于 `evidence_root`。
+
 本目录是有限的真实观测集：8 链、16 个 chain/protocol、14 个经 factory 查询并读取代码的样例池，以及 3 个完整 Solana ProgramData。所有外部输入均来自无需账号、API key 的公共 HTTPS。目录中的 `version` 使用实际 runtime SHA-256；Solana 另包含解码得到的 upgrade slot。`profiles` 表示本项目代码识别的 profile，不能证明该 profile 对应当前部署源码。
 
 `manifest.json` 固定全部数据文件和本任务工具／测试的逐字节清单；默认 CLI 也检查缺失、额外文件和改动。`catalog.json` 包含逐项原始证据引用和 SHA-256，`scope.json` 固定声明范围的 chain、protocol、runtime version、地址、H/hash。缺行、重复、范围外行、错误地址或 H/hash 不能通过范围校验。`catalog-ethereum.json` / `scope-ethereum.json` 是明确较窄的 Ethereum V2 单部署验收范围，不代表整个 R01 已完成。
