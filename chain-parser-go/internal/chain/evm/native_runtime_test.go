@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -243,12 +241,8 @@ func TestNormalNativeUnrelatedSystemDoesNotGloballyStopProvedScope(t *testing.T)
 }
 func TestNormalNativeHistoryExactHeightKeepsSuccessorEvidence(t *testing.T) {
 	f := newNormalNativeFixture(t, "avalanche-current")
-	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, "avalanche-current", "settlement-multi.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	var proof SAEExecutionProof
-	if err = json.Unmarshal(raw, &proof); err != nil {
+	if err := json.Unmarshal(readChainReceiptArtifact(t, "avalanche-current", "settlement-multi.json"), &proof); err != nil {
 		t.Fatal(err)
 	}
 	for _, h := range proof.Headers {

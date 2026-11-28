@@ -3,8 +3,6 @@ package evm
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -16,14 +14,7 @@ func retainedChainHeader(t *testing.T, name string) json.RawMessage {
 		readPolygonBorVector(t, &v)
 		return v.Block
 	}
-	if readHistoricalReceiptVector(t, name, &v) {
-		return v.Block
-	}
-	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, name, "vector.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = json.Unmarshal(raw, &v); err != nil {
+	if err := json.Unmarshal(readChainReceiptArtifact(t, name, "vector.json"), &v); err != nil {
 		t.Fatal(err)
 	}
 	return v.Block

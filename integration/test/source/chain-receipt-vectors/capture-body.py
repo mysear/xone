@@ -14,7 +14,7 @@ for name, endpoint in [('bsc', 'https://bsc-dataseed.bnbchain.org'),
                        ('optimism-regolith', 'https://optimism-rpc.publicnode.com'),
                        ('arbitrum', 'https://arbitrum-one-rpc.publicnode.com'),
                        ('avalanche', 'https://avalanche-c-chain-rpc.publicnode.com'),
-                       ('avalanche-current', 'https://avalanche-c-chain-rpc.publicnode.com')]:
+                       ('avalanche-current', 'https://api.avax.network/ext/bc/C/rpc')]:
     output = ROOT / name / 'body.json'
     if output.exists():
         print(name, 'already captured')

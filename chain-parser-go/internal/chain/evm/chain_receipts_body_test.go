@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -36,16 +34,8 @@ func testChainBodyCommitmentsPublic(t *testing.T, name string) {
 			}
 			v := loadChainReceiptVector(t, name)
 			wantTransactions := len(v.Block.Transactions)
-			raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, name, "vector.json"))
-			if err != nil {
-				t.Fatal(err)
-			}
 			var vector struct{ Block map[string]any }
-			if err = json.Unmarshal(raw, &vector); err != nil {
-				t.Fatal(err)
-			}
-			raw, err = os.ReadFile(filepath.Join(chainReceiptVectors, name, "body.json"))
-			if err != nil {
+			if err := json.Unmarshal(readChainReceiptArtifact(t, name, "vector.json"), &vector); err != nil {
 				t.Fatal(err)
 			}
 			var source struct {
@@ -55,7 +45,7 @@ func testChainBodyCommitmentsPublic(t *testing.T, name string) {
 					Response struct{ Result string }
 				} `json:"raw_transactions"`
 			}
-			if err = json.Unmarshal(raw, &source); err != nil {
+			if err := json.Unmarshal(readChainReceiptArtifact(t, name, "body.json"), &source); err != nil {
 				t.Fatal(err)
 			}
 			transactions := map[string]string{}

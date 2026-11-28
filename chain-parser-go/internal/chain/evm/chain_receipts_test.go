@@ -17,6 +17,7 @@ import (
 )
 
 const chainReceiptVectors = "../../../test/fixtures/source/testdata/chain-receipt-vectors"
+const historicalReceipts = "../../../test/fixtures/historical-receipts"
 
 type publicReceiptVector struct {
 	ChainKey string    `json:"chain_key"`
@@ -36,27 +37,28 @@ func loadChainReceiptVector(t *testing.T, name string) publicReceiptVector {
 		readPolygonBorVector(t, &v)
 		return v
 	}
-	if readHistoricalReceiptVector(t, name, &v) {
-		return v
-	}
-	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, name, "vector.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = json.Unmarshal(raw, &v); err != nil {
+	if err := json.Unmarshal(readChainReceiptArtifact(t, name, "vector.json"), &v); err != nil {
 		t.Fatal(err)
 	}
 	return v
 }
 
-func readHistoricalReceiptVector(t *testing.T, name string, dest any) bool {
+func readChainReceiptArtifact(t *testing.T, name, file string) []byte {
 	t.Helper()
-	path := filepath.Join("../../../test/fixtures/historical-receipts", name+".json.gz")
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return false
+	path := filepath.Join(historicalReceipts, name, file+".gz")
+	if file == "vector.json" {
+		path = filepath.Join(historicalReceipts, name+".json.gz")
 	}
-	testfixture.ReadGzipJSON(t, path, dest)
-	return true
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		var raw json.RawMessage
+		testfixture.ReadGzipJSON(t, path, &raw)
+		return raw
+	}
+	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, name, file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
 }
 func TestChainReceiptsPublicVectors(t *testing.T) {
 	for _, name := range []string{"ethereum", "base-regolith", "base-canyon", "optimism-regolith", "optimism-canyon", "arbitrum", "bsc", "polygon", "avalanche"} {
@@ -269,14 +271,11 @@ func TestChainReceiptsRejectPublicMutations(t *testing.T) {
 }
 func TestChainReceiptsOPRawFields(t *testing.T) {
 	v := loadChainReceiptVector(t, "base-canyon")
-	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, "base-canyon", "vector.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	raw := readChainReceiptArtifact(t, "base-canyon", "vector.json")
 	var envelope struct {
 		Receipts []json.RawMessage `json:"receipts"`
 	}
-	if err = json.Unmarshal(raw, &envelope); err != nil {
+	if err := json.Unmarshal(raw, &envelope); err != nil {
 		t.Fatal(err)
 	}
 	for _, field := range []string{"depositNonce", "depositReceiptVersion", "type", "status", "cumulativeGasUsed", "logsBloom", "logs"} {
@@ -336,7 +335,7 @@ func TestChainReceiptsIndependentNativeEncodings(t *testing.T) {
 			Receipts []Receipt
 		}
 	}
-	testfixture.ReadGzipJSON(t, "../../../test/fixtures/historical-receipts/encoding-vectors.json.gz", &data)
+	testfixture.ReadGzipJSON(t, filepath.Join(historicalReceipts, "encoding-vectors.json.gz"), &data)
 	if len(data.Cases) != 17 {
 		t.Fatalf("incomplete independent native vectors: %d", len(data.Cases))
 	}

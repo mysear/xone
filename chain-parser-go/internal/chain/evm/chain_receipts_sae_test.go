@@ -3,8 +3,6 @@ package evm
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -15,19 +13,11 @@ func nativeProofTestLimits() ReceiptProofLimits {
 func retainedSAEProof(t *testing.T) (RawBlock, SAEExecutionProof) {
 	t.Helper()
 	v := loadChainReceiptVector(t, "avalanche-current")
-	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, "avalanche-current", "settlement.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	var data struct {
 		Headers []json.RawMessage
 		Window  []ExecutionReceiptBlock
 	}
-	if err = json.Unmarshal(raw, &data); err != nil {
-		t.Fatal(err)
-	}
-	raw, err = os.ReadFile(filepath.Join(chainReceiptVectors, "avalanche-current", "body.json"))
-	if err != nil {
+	if err := json.Unmarshal(readChainReceiptArtifact(t, "avalanche-current", "settlement.json"), &data); err != nil {
 		t.Fatal(err)
 	}
 	var body struct {
@@ -37,7 +27,7 @@ func retainedSAEProof(t *testing.T) (RawBlock, SAEExecutionProof) {
 			Response struct{ Result string }
 		} `json:"raw_transactions"`
 	}
-	if err = json.Unmarshal(raw, &body); err != nil {
+	if err := json.Unmarshal(readChainReceiptArtifact(t, "avalanche-current", "body.json"), &body); err != nil {
 		t.Fatal(err)
 	}
 	byHash := map[string]string{}
@@ -46,11 +36,17 @@ func retainedSAEProof(t *testing.T) (RawBlock, SAEExecutionProof) {
 	}
 	for i := range data.Window {
 		var block RawBlock
-		if err = json.Unmarshal(data.Window[i].Header, &block); err != nil {
+		if err := json.Unmarshal(data.Window[i].Header, &block); err != nil {
 			t.Fatal(err)
 		}
+		// This replay uses the signed bytes from the raw-transaction RPC.
+		data.Window[i].TransactionsJSON = nil
 		for _, hash := range block.Transactions {
-			data.Window[i].RawTransactions = append(data.Window[i].RawTransactions, byHash[hash])
+			value := byHash[hash]
+			if len(value) <= 2 {
+				t.Fatalf("missing signed bytes for %s", hash)
+			}
+			data.Window[i].RawTransactions = append(data.Window[i].RawTransactions, value)
 		}
 	}
 	return v.Block, SAEExecutionProof{ChainKey: v.ChainKey, GenesisHash: body.GenesisHash, Headers: data.Headers, Window: data.Window}
@@ -134,10 +130,6 @@ func TestSAERejectsIncompleteOrTamperedSettlement(t *testing.T) {
 
 func retainedFreshSAEProof(t *testing.T) (RawBlock, SAEExecutionProof, json.RawMessage) {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, "avalanche-current", "settlement-fresh.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	var data struct {
 		ChainKey     string `json:"chain_key"`
 		GenesisHash  string `json:"genesis_hash"`
@@ -146,7 +138,7 @@ func retainedFreshSAEProof(t *testing.T) (RawBlock, SAEExecutionProof, json.RawM
 		Window       []ExecutionReceiptBlock
 		StateProof   json.RawMessage `json:"state_proof"`
 	}
-	if err = json.Unmarshal(raw, &data); err != nil {
+	if err := json.Unmarshal(readChainReceiptArtifact(t, "avalanche-current", "settlement-fresh.json"), &data); err != nil {
 		t.Fatal(err)
 	}
 	var target RawBlock
@@ -214,12 +206,8 @@ func TestSAEAccountProofRejectsRPCOrAnchorTampering(t *testing.T) {
 }
 
 func TestSAEActualMultiBlockWindowDoesNotMislabelStateHeight(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, "avalanche-current", "settlement-multi.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	var proof SAEExecutionProof
-	if err = json.Unmarshal(raw, &proof); err != nil {
+	if err := json.Unmarshal(readChainReceiptArtifact(t, "avalanche-current", "settlement-multi.json"), &proof); err != nil {
 		t.Fatal(err)
 	}
 	var target RawBlock

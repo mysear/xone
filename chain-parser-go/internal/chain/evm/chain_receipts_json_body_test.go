@@ -3,8 +3,6 @@ package evm
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -17,14 +15,10 @@ func retainedFullChainBlock(t *testing.T, name string) json.RawMessage {
 		readPolygonBorVector(t, &vector)
 		return vector.FullBlock
 	}
-	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, name, "full-block.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	var envelope struct {
 		Response struct{ Result json.RawMessage }
 	}
-	if err = json.Unmarshal(raw, &envelope); err != nil {
+	if err := json.Unmarshal(readChainReceiptArtifact(t, name, "full-block.json"), &envelope); err != nil {
 		t.Fatal(err)
 	}
 	return envelope.Response.Result
@@ -69,28 +63,38 @@ func TestNativeJSONBodyRejectsUnknownAndTamperedNative(t *testing.T) {
 	}
 }
 
-func TestNativeArchivedRawRemainsUnsupportedBeforeJSONProof(t *testing.T) {
+func TestNativeArchivedRawRequiresCompleteSignedBytes(t *testing.T) {
 	for _, name := range []string{"arbitrum", "avalanche"} {
 		v := loadChainReceiptVector(t, name)
 		header, err := VerifyChainHeaderJSON(context.Background(), v.ChainKey, retainedChainHeader(t, name))
 		if err != nil {
 			t.Fatal(err)
 		}
-		raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, name, "body.json"))
-		if err != nil {
-			t.Fatal(err)
-		}
 		var body struct {
 			RawTransactions []struct{ Response struct{ Result string } } `json:"raw_transactions"`
 		}
-		json.Unmarshal(raw, &body)
+		if err := json.Unmarshal(readChainReceiptArtifact(t, name, "body.json"), &body); err != nil {
+			t.Fatal(err)
+		}
 		raws := []string{}
 		for _, r := range body.RawTransactions {
 			raws = append(raws, r.Response.Result)
 		}
 		budget := receiptProofBudget{remaining: 16 << 20}
-		if err := verifyRawBodyCommitment(context.Background(), v.ChainKey, header, raws, &budget); err == nil {
-			t.Fatal("public raw 0x must remain a rejection", name)
+		err = verifyRawBodyCommitment(context.Background(), v.ChainKey, header, raws, &budget)
+		if name == "arbitrum" {
+			if err == nil || err.Error() != "BLOCK_INTEGRITY_TRANSACTION_ENCODING" {
+				t.Fatal("public raw 0x must remain a rejection", err)
+			}
+		} else {
+			if err != nil {
+				t.Fatal("complete historical Avalanche raw bytes must verify", err)
+			}
+			raws[0] = "0x"
+			budget = receiptProofBudget{remaining: 16 << 20}
+			if err := verifyRawBodyCommitment(context.Background(), v.ChainKey, header, raws, &budget); err == nil {
+				t.Fatal("empty historical Avalanche raw response must be rejected")
+			}
 		}
 	}
 }
