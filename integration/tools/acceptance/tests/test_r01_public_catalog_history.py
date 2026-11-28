@@ -14,6 +14,15 @@ TOOLS=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(TOOLS))
 import r01_public_catalog as catalog
 
+
+def fixed_archive(name):
+    from r01_fixed_evm_replay import ARCHIVES, BASE
+
+    path = BASE / 'evidence' / name
+    catalog.require(catalog.sha256(path.read_bytes()) == ARCHIVES[name], 'FIXED_ARCHIVE_DIGEST')
+    return tarfile.open(path, 'r:gz')
+
+
 class MetadataTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -68,13 +77,10 @@ class ForkBoundaryTests(unittest.TestCase):
 class EthereumFixedBlockTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from r01_fixed_evm_replay import ARCHIVES, BASE, ETHEREUM_ARCHIVE, ETHEREUM_BLOCK, HISTORY
+        from r01_fixed_evm_replay import ETHEREUM_ARCHIVE, ETHEREUM_BLOCK, HISTORY
 
-        archive = BASE / 'evidence' / ETHEREUM_ARCHIVE
-        catalog.require(catalog.sha256(archive.read_bytes()) == ARCHIVES[ETHEREUM_ARCHIVE],
-                        'FIXED_ARCHIVE_DIGEST')
         member = (HISTORY / ETHEREUM_BLOCK / 'prestate-evidence.json').relative_to(catalog.ROOT)
-        with tarfile.open(archive, 'r:gz') as bundle, bundle.extractfile(member.as_posix()) as fixture:
+        with fixed_archive(ETHEREUM_ARCHIVE) as bundle, bundle.extractfile(member.as_posix()) as fixture:
             cls.evidence = fixture.read().decode('utf-8')
 
     def run_node(self, module, script):
@@ -568,27 +574,44 @@ class BatchProjectionArchiveTests(unittest.TestCase):
     def setUpClass(cls):
         import r01_public_catalog_history as h
         cls.h=h
-        cls.relative=Path('integration/test/source/deployment-catalog/evm-continuation-v2/bsc-04')
-        directory=catalog.ROOT/cls.relative
-        cls.files={}
-        def keep(ref,recurse=False):
-            if ref['path'] not in cls.files:
-                data=catalog.read_blob(catalog.ROOT,ref);cls.files[ref['path']]=data
-                if recurse:
-                    row=json.loads(data)
-                    for child in row.get('sources',[]):keep(child,True)
-                    if row.get('batch_source'):keep(row['batch_source'],True)
-        for name in ('anchor.json','rpc-index.json','prestate-evidence.json'):
-            path=directory/name
-            keep({'path':str(path.relative_to(catalog.ROOT)),'sha256':catalog.sha256(path.read_bytes())})
-        saved=catalog.load_json(directory/'anchor.json');cls.anchor=saved['anchor']
-        cls.header_ref=saved['header'];keep(cls.header_ref,True)
-        cls.index_data=catalog.load_json(directory/'rpc-index.json');cls.rows=[]
-        for ref in cls.index_data['records']:
-            keep(ref);row=json.loads(cls.files[ref['path']]);cls.rows.append(row)
-            if row.get('proof_source'):keep(row['proof_source'],True)
-            if row.get('code_bytes_source'):keep(row['code_bytes_source'])
-        cls.proof_ref=next(row['proof_source'] for row in cls.rows if row.get('proof_source'))
+        cls.relative = Path('integration/test/source/deployment-catalog/evm-continuation-v2/bsc-lm-proof.CnFonFFC')
+        cls.files = {}
+        with fixed_archive('bsc-pancake-v3-136166651.tar.gz') as bundle:
+            def keep(path, digest=None, include_sources=False):
+                if path in cls.files:
+                    return json.loads(cls.files[path])
+                with bundle.extractfile(path) as member:
+                    data = member.read()
+                if digest is not None:
+                    catalog.require(catalog.sha256(data) == digest, 'BLOB_HASH')
+                cls.files[path] = data
+                value = json.loads(data)
+                if include_sources:
+                    for ref in value.get('sources', []):
+                        keep(ref['path'], ref['sha256'], True)
+                    batch = value.get('batch_source')
+                    if batch is not None:
+                        keep(batch['path'], batch['sha256'], True)
+                return value
+
+            saved = keep((cls.relative / 'anchor.json').as_posix())
+            cls.anchor, cls.header_ref = saved['anchor'], saved['header']
+            keep(cls.header_ref['path'], cls.header_ref['sha256'], True)
+            keep((cls.relative / 'prestate-evidence.json').as_posix())
+            index_path = (cls.relative / 'rpc-index.json').as_posix()
+            cls.index_data = keep(index_path)
+            cls.rows = []
+            for ref in cls.index_data['records']:
+                row = keep(ref['path'], ref['sha256'])
+                cls.rows.append(row)
+                for field in ('proof_source', 'code_bytes_source'):
+                    if row.get(field):
+                        source = row[field]
+                        keep(source['path'], source['sha256'], True)
+            cls.proof_ref = next(row['proof_source'] for row in cls.rows if row.get('proof_source'))
+            # The schema-2 compatibility check changes only the copied index version.
+            cls.index_data['schema_version'] = 2
+            cls.files[index_path] = json.dumps(cls.index_data).encode('utf-8')
 
     def setUp(self):
         temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
@@ -613,7 +636,7 @@ class BatchProjectionArchiveTests(unittest.TestCase):
     def test_retained_schema2_batch_latest_constructor_binds_frozen_header(self):
         archive,wire,batch,frozen=self.context()
         self.assertEqual(self.index_data['schema_version'],2)
-        self.assertEqual((len(archive.records),archive.public_attempts),(86,0))
+        self.assertEqual((len(archive.records),archive.public_attempts),(116,7))
         self.assertEqual(len(archive._batches),1)
         self.assertEqual(wire['params'][-1],'latest')
         self.assertEqual(frozen['response']['result']['hash'],self.anchor['hash'])
@@ -703,15 +726,15 @@ class BatchProjectionArchiveTests(unittest.TestCase):
                 archive._batch_projection(wire)
         self.fetch.assert_not_called()
 
-    def test_response_order_and_retained_helper_proof_superset(self):
+    def test_response_order_and_retained_proof_superset(self):
         archive,wire,batch,_=self.context();read_source=archive._source
         reordered=copy.deepcopy(batch);reordered['response'].reverse();archive._batches.clear()
         def source(ref):return reordered if ref==wire['batch_source'] else read_source(ref)
         with patch.object(archive,'_source',side_effect=source):archive._batch_projection(wire)
-        helper=next(row for row in self.rows if row['method']=='eth_getProof' and not row['params'][1]
-                    and row['response']['result']['storageProof'])
-        self.assertTrue(archive._derived(helper))
-        changed=copy.deepcopy(helper);changed['params'][1]=['0x'+'fe'*32]
+        retained=next(row for row in self.rows if row['method']=='eth_getProof' and row['params'][1])
+        subset=copy.deepcopy(retained);subset['params'][1]=[]
+        self.assertTrue(archive._derived(subset))
+        changed=copy.deepcopy(subset);changed['params'][1]=['0x'+'fe'*32]
         with self.assertRaisesRegex(catalog.CatalogError,'FORK_DERIVED_PROOF_VALUE'):
             archive._derived(changed)
         self.fetch.assert_not_called();self.write.assert_not_called()
