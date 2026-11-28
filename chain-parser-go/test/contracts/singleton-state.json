@@ -1,0 +1,129 @@
+{
+  "reference": "synthetic singleton state for directional fee and wire regressions",
+  "pools": [
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x0303030303030303030303030303030303030303/0xf6a117501d7c06f988e5cb96441dff2b3bc20bc7c52bc943e66da6e63b93c97c",
+      "protocol": "uniswap-v4",
+      "token0": "0x0000000000000000000000000000000000000001",
+      "token1": "0x0000000000000000000000000000000000000002",
+      "reserve0": "0",
+      "reserve1": "0",
+      "fee_numerator": 3000,
+      "fee_denominator": 1000000,
+      "adapter_version": "uniswap-v4/core-1",
+      "token_behavior": "standard",
+      "singleton_cl": {
+        "manager": "0x0303030303030303030303030303030303030303",
+        "manager_code_sha256": "8880a54d03747df9eda6b310443a788558dc080c804db3fde94aee0382f66ea9",
+        "pool_id": "0xf6a117501d7c06f988e5cb96441dff2b3bc20bc7c52bc943e66da6e63b93c97c",
+        "lp_fee": 3000,
+        "protocol_fee0": 100,
+        "protocol_fee1": 500,
+        "hooks": "0x0000000000000000000000000000000000000000",
+        "parameters": "",
+        "core": {
+          "sqrt_price_x96": "79228162514264337593543950336",
+          "tick": 0,
+          "liquidity": "3000000000",
+          "tick_spacing": 60,
+          "max_steps": 512,
+          "tick_words": [
+            {
+              "word_pos": -1,
+              "bitmap": "29061100521474865452986077292219523748330455135810180623184178798861010075648"
+            },
+            {
+              "word_pos": 0,
+              "bitmap": "1028"
+            }
+          ],
+          "ticks": [
+            {
+              "tick": -600,
+              "liquidity_gross": "1000000000",
+              "liquidity_net": "1000000000"
+            },
+            {
+              "tick": -120,
+              "liquidity_gross": "2000000000",
+              "liquidity_net": "2000000000"
+            },
+            {
+              "tick": 120,
+              "liquidity_gross": "2000000000",
+              "liquidity_net": "-2000000000"
+            },
+            {
+              "tick": 600,
+              "liquidity_gross": "1000000000",
+              "liquidity_net": "-1000000000"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x0404040404040404040404040404040404040404/0xfde9b0a918a6e4843aaae2300e01703e9683eb25869c3f3746ae356c6b243b08",
+      "protocol": "pancake-infinity-cl",
+      "token0": "0x000000000000000000000000000000000000000b",
+      "token1": "0x000000000000000000000000000000000000000c",
+      "reserve0": "0",
+      "reserve1": "0",
+      "fee_numerator": 3000,
+      "fee_denominator": 1000000,
+      "adapter_version": "pancake-infinity-cl/cl-1",
+      "token_behavior": "standard",
+      "singleton_cl": {
+        "manager": "0x0404040404040404040404040404040404040404",
+        "manager_code_sha256": "11d5a04f93ebb96c28fac45f2545d35d44b1979ae8c6953ed333cd9980c2004b",
+        "pool_id": "0xfde9b0a918a6e4843aaae2300e01703e9683eb25869c3f3746ae356c6b243b08",
+        "lp_fee": 3000,
+        "protocol_fee0": 100,
+        "protocol_fee1": 500,
+        "hooks": "0x0000000000000000000000000000000000000000",
+        "parameters": "0x00000000000000000000000000000000000000000000000000000000003c0000",
+        "core": {
+          "sqrt_price_x96": "79228162514264337593543950336",
+          "tick": 0,
+          "liquidity": "3000000000",
+          "tick_spacing": 60,
+          "max_steps": 512,
+          "tick_words": [
+            {
+              "word_pos": -1,
+              "bitmap": "29061100521474865452986077292219523748330455135810180623184178798861010075648"
+            },
+            {
+              "word_pos": 0,
+              "bitmap": "1028"
+            }
+          ],
+          "ticks": [
+            {
+              "tick": -600,
+              "liquidity_gross": "1000000000",
+              "liquidity_net": "1000000000"
+            },
+            {
+              "tick": -120,
+              "liquidity_gross": "2000000000",
+              "liquidity_net": "2000000000"
+            },
+            {
+              "tick": 120,
+              "liquidity_gross": "2000000000",
+              "liquidity_net": "-2000000000"
+            },
+            {
+              "tick": 600,
+              "liquidity_gross": "1000000000",
+              "liquidity_net": "-1000000000"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

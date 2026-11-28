@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 已恢复 Uniswap V4 和 Pancake Infinity CL 的固定零 hook 回放夹具。原 Solidity 池逻辑生成 416 个兑换向量和 12 个分配用例，Router 差分通过。Go race 专项覆盖固定区块读取、协议身份和 Protobuf 分片。两套 Rust 的 Singleton 类型回归通过。Rust Kafka 测试目标仍依赖其他待恢复的协议分片。 [状态夹具生成器](integration/tools/ci/singleton-process-fixture.cjs)
 - 已恢复 12 个 EthereumJS 回执树向量和 11 个离线进程回执根。六种 EVM 协议版本的 Protobuf 夹具和 372 个差分用例通过。四种 Stable 模型重新执行原合约生成 180 个报价及 16 个分配用例，Router 逐项匹配金额和后状态。Go race 专项共 151 项通过，含回执根、协议帧和基础快照回归。 [回执参考生成器](integration/tools/ci/receipt-root-reference.py)
 - 已恢复 Uniswap V3 常规及最低初始化价格的离线状态和 Protobuf 测试向量。使用固定版本的 Uniswap V3 SDK 重新生成 264 个整数差分用例，Router 逐项通过，含 214 个成功和 50 个拒绝用例。Go 验证固定块读取、位图和有符号流动性。Rust 路由、拆分和 HTTP 回归通过。 [V3 状态生成工具](integration/tools/ci/v3-state-golden.py)
 - 已重新生成离线 EVM 基础快照、跨语言金额编码、journal 分片和规范化事实测试向量。合成快照保持 4 个池，覆盖直连和两跳竞争。预算边界用例在自己的快照中增加一条并行路径。Go race、两套 Rust 领域契约和 Router HTTP 专项通过。其余协议夹具仍待恢复。 [生成工具](integration/tools/ci/evm-baseline-golden.py)

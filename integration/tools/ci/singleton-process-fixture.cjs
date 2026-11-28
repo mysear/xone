@@ -12,4 +12,19 @@ for(const [i,name] of ['uniswap-v4','pancake-infinity-cl'].entries()){
   v4={base,storage,tick_keys:tickKeys,bitmap_keys:bitmapKeys};
  }
 }
-const signatures=['extsload(bytes32)','paused()','poolIdToPoolKey(bytes32)','getSlot0(bytes32)','getLiquidity(bytes32)','getPoolBitmapInfo(bytes32,int16)','getPoolTickInfo(bytes32,int24)'];const selectors=Object.fromEntries(signatures.map(s=>[s,ethers.utils.id(s).slice(0,10)]));const out={reference:'independent ethers5.8.0 ABI/Keccak mock storage; amount oracle remains pinned Pool.swap/CLPool.swap',pools,v4,selectors};fs.writeFileSync(root+'/integration/test/evm/singleton-baseline.json',JSON.stringify(out,null,2)+'\n');console.log(JSON.stringify({pools:pools.map(p=>p.pool_id),selectors}));
+const signatures=['extsload(bytes32)','paused()','poolIdToPoolKey(bytes32)','getSlot0(bytes32)','getLiquidity(bytes32)','getPoolBitmapInfo(bytes32,int16)','getPoolTickInfo(bytes32,int24)'];
+const selectors=Object.fromEntries(signatures.map(signature=>[signature,ethers.utils.id(signature).slice(0,10)]));
+const reference='independent ethers5.8.0 ABI/Keccak mock storage; amount oracle remains pinned Pool.swap/CLPool.swap';
+const statePools=structuredClone(pools);
+for(const pool of statePools){
+ pool.singleton_cl.protocol_fee0=100;
+ pool.singleton_cl.protocol_fee1=500;
+}
+const state=JSON.stringify({reference:'synthetic singleton state for directional fee and wire regressions',pools:statePools},null,2)+'\n';
+for(const project of ['integration','chain-parser-go','chain-parser-rust','dex-router']){
+ const destination=path.join(root,project,'test/contracts','singleton-state.json');
+ fs.writeFileSync(destination,state);
+}
+const processFixture=JSON.stringify({reference,pools,v4,selectors},null,2)+'\n';
+fs.writeFileSync(path.join(root,'integration/test/evm/singleton-baseline.json'),processFixture);
+console.log(JSON.stringify({pools:pools.map(pool=>pool.pool_id),selectors}));

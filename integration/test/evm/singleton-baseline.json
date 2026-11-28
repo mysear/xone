@@ -1,0 +1,163 @@
+{
+  "reference": "independent ethers5.8.0 ABI/Keccak mock storage; amount oracle remains pinned Pool.swap/CLPool.swap",
+  "pools": [
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x0303030303030303030303030303030303030303/0xf6a117501d7c06f988e5cb96441dff2b3bc20bc7c52bc943e66da6e63b93c97c",
+      "protocol": "uniswap-v4",
+      "token0": "0x0000000000000000000000000000000000000001",
+      "token1": "0x0000000000000000000000000000000000000002",
+      "reserve0": "0",
+      "reserve1": "0",
+      "fee_numerator": 3000,
+      "fee_denominator": 1000000,
+      "adapter_version": "uniswap-v4/core-1",
+      "token_behavior": "standard",
+      "singleton_cl": {
+        "manager": "0x0303030303030303030303030303030303030303",
+        "manager_code_sha256": "8880a54d03747df9eda6b310443a788558dc080c804db3fde94aee0382f66ea9",
+        "pool_id": "0xf6a117501d7c06f988e5cb96441dff2b3bc20bc7c52bc943e66da6e63b93c97c",
+        "lp_fee": 3000,
+        "protocol_fee0": 1000,
+        "protocol_fee1": 17,
+        "hooks": "0x0000000000000000000000000000000000000000",
+        "parameters": "",
+        "core": {
+          "sqrt_price_x96": "79228162514264337593543950336",
+          "tick": 0,
+          "liquidity": "3000000000",
+          "tick_spacing": 60,
+          "max_steps": 512,
+          "tick_words": [
+            {
+              "word_pos": -1,
+              "bitmap": "29061100521474865452986077292219523748330455135810180623184178798861010075648"
+            },
+            {
+              "word_pos": 0,
+              "bitmap": "1028"
+            }
+          ],
+          "ticks": [
+            {
+              "tick": -600,
+              "liquidity_gross": "1000000000",
+              "liquidity_net": "1000000000"
+            },
+            {
+              "tick": -120,
+              "liquidity_gross": "2000000000",
+              "liquidity_net": "2000000000"
+            },
+            {
+              "tick": 120,
+              "liquidity_gross": "2000000000",
+              "liquidity_net": "-2000000000"
+            },
+            {
+              "tick": 600,
+              "liquidity_gross": "1000000000",
+              "liquidity_net": "-1000000000"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x0404040404040404040404040404040404040404/0xfde9b0a918a6e4843aaae2300e01703e9683eb25869c3f3746ae356c6b243b08",
+      "protocol": "pancake-infinity-cl",
+      "token0": "0x000000000000000000000000000000000000000b",
+      "token1": "0x000000000000000000000000000000000000000c",
+      "reserve0": "0",
+      "reserve1": "0",
+      "fee_numerator": 3000,
+      "fee_denominator": 1000000,
+      "adapter_version": "pancake-infinity-cl/cl-1",
+      "token_behavior": "standard",
+      "singleton_cl": {
+        "manager": "0x0404040404040404040404040404040404040404",
+        "manager_code_sha256": "11d5a04f93ebb96c28fac45f2545d35d44b1979ae8c6953ed333cd9980c2004b",
+        "pool_id": "0xfde9b0a918a6e4843aaae2300e01703e9683eb25869c3f3746ae356c6b243b08",
+        "lp_fee": 3000,
+        "protocol_fee0": 4000,
+        "protocol_fee1": 17,
+        "hooks": "0x0000000000000000000000000000000000000000",
+        "parameters": "0x00000000000000000000000000000000000000000000000000000000003c0000",
+        "core": {
+          "sqrt_price_x96": "79228162514264337593543950336",
+          "tick": 0,
+          "liquidity": "3000000000",
+          "tick_spacing": 60,
+          "max_steps": 512,
+          "tick_words": [
+            {
+              "word_pos": -1,
+              "bitmap": "29061100521474865452986077292219523748330455135810180623184178798861010075648"
+            },
+            {
+              "word_pos": 0,
+              "bitmap": "1028"
+            }
+          ],
+          "ticks": [
+            {
+              "tick": -600,
+              "liquidity_gross": "1000000000",
+              "liquidity_net": "1000000000"
+            },
+            {
+              "tick": -120,
+              "liquidity_gross": "2000000000",
+              "liquidity_net": "2000000000"
+            },
+            {
+              "tick": 120,
+              "liquidity_gross": "2000000000",
+              "liquidity_net": "-2000000000"
+            },
+            {
+              "tick": 600,
+              "liquidity_gross": "1000000000",
+              "liquidity_net": "-1000000000"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "v4": {
+    "base": "0x73d614314fb21e5b1edda05537fd82e882d607ee8e396f8d60ed03acddd4ee59",
+    "storage": {
+      "0x73d614314fb21e5b1edda05537fd82e882d607ee8e396f8d60ed03acddd4ee59": "0x000000000bb80113e80000000000000000000001000000000000000000000000",
+      "0x73d614314fb21e5b1edda05537fd82e882d607ee8e396f8d60ed03acddd4ee5c": "0x00000000000000000000000000000000000000000000000000000000b2d05e00",
+      "0x704caa5311433d79a2078d1220fb86816116aa23596cc61d2a8dcebc9ec9c5ad": "0x4040000000000000000000000000000000000000000000000000000000000000",
+      "0x90c5c138a4407ec1625d8078cda2167c2a3f90564bea1dd5665c1ddc96f91aed": "0x0000000000000000000000000000000000000000000000000000000000000404",
+      "0x23b66921a3cff01e6cea971aee6b08155e392334568e3516e9d617ea287842c9": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "0x3f397c8da18eee5b20b158080cf1c9fb21a9e55507a685bff7ac3d194836083d": "0x0000000000000000000000003b9aca000000000000000000000000003b9aca00",
+      "0x9b03793b387c407a932e90c4b6ca63a9f947108ffe73ae0e7029d451a1a309c4": "0x0000000000000000000000007735940000000000000000000000000077359400",
+      "0xbb464d2061b8ba7fe92ef23b751e2b0bd5b743147895c72493f9774a62e4cc2e": "0xffffffffffffffffffffffff88ca6c0000000000000000000000000077359400",
+      "0x48aa3e8521278e205d53ddf871a50183b155f65194ac0dfd975c82d9d3108eb7": "0xffffffffffffffffffffffffc46536000000000000000000000000003b9aca00"
+    },
+    "tick_keys": [
+      "0x3f397c8da18eee5b20b158080cf1c9fb21a9e55507a685bff7ac3d194836083d",
+      "0x9b03793b387c407a932e90c4b6ca63a9f947108ffe73ae0e7029d451a1a309c4",
+      "0xbb464d2061b8ba7fe92ef23b751e2b0bd5b743147895c72493f9774a62e4cc2e",
+      "0x48aa3e8521278e205d53ddf871a50183b155f65194ac0dfd975c82d9d3108eb7"
+    ],
+    "bitmap_keys": [
+      "0x704caa5311433d79a2078d1220fb86816116aa23596cc61d2a8dcebc9ec9c5ad",
+      "0x90c5c138a4407ec1625d8078cda2167c2a3f90564bea1dd5665c1ddc96f91aed",
+      "0x23b66921a3cff01e6cea971aee6b08155e392334568e3516e9d617ea287842c9"
+    ]
+  },
+  "selectors": {
+    "extsload(bytes32)": "0x1e2eaeaf",
+    "paused()": "0x5c975abb",
+    "poolIdToPoolKey(bytes32)": "0x0e2d484a",
+    "getSlot0(bytes32)": "0xc815641c",
+    "getLiquidity(bytes32)": "0xfa6793d5",
+    "getPoolBitmapInfo(bytes32,int16)": "0x7c352ef6",
+    "getPoolTickInfo(bytes32,int24)": "0x5aa208a4"
+  }
+}
