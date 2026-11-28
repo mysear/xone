@@ -3,11 +3,12 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
 use std::{
     fs::{self, File, OpenOptions},
-    net::TcpListener,
+    net::{SocketAddr, TcpListener},
     path::{Path, PathBuf},
     process::{Child, Command},
     time::Duration,
 };
+use tokio::{net::TcpStream, sync::mpsc, task::JoinHandle};
 use xone_solana_ingest::{
     bank_manifest::{AdmittedCatalog, BankManifest},
     rpc::Rpc,
@@ -16,6 +17,55 @@ use xone_solana_ingest::{
 };
 
 struct Validator(Child);
+
+// Hold the existing socket open while the validator finalizes blocks, then
+// close it so the Parser reconnects to the same Yellowstone retention window.
+struct GrpcRelay {
+    address: SocketAddr,
+    cut: mpsc::Sender<Option<tokio::sync::oneshot::Sender<()>>>,
+    task: JoinHandle<()>,
+}
+
+impl GrpcRelay {
+    async fn start(upstream: SocketAddr) -> Self {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let (cut, mut commands) = mpsc::channel::<Option<tokio::sync::oneshot::Sender<()>>>(1);
+        let task = tokio::spawn(async move {
+            loop {
+                let (mut client, _) = listener.accept().await.unwrap();
+                let Ok(mut server) = TcpStream::connect(upstream).await else {
+                    continue;
+                };
+                tokio::select! {
+                    result = commands.recv() => {
+                        let Some(Some(paused)) = result else { return; };
+                        let _ = paused.send(());
+                        if commands.recv().await.is_none() { return; }
+                    }
+                    _ = tokio::io::copy_bidirectional(&mut client, &mut server) => {}
+                }
+            }
+        });
+        Self { address, cut, task }
+    }
+
+    async fn pause(&self) {
+        let (ack, paused) = tokio::sync::oneshot::channel();
+        self.cut.send(Some(ack)).await.unwrap();
+        paused.await.unwrap();
+    }
+
+    async fn disconnect(&self) {
+        self.cut.send(None).await.unwrap();
+    }
+}
+
+impl Drop for GrpcRelay {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
 
 impl Drop for Validator {
     fn drop(&mut self) {
@@ -188,10 +238,11 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
     cfg.config.startup.max_baseline_age_ms = 60_000;
     cfg.config.control.lease_ttl_ms = 20_000;
     cfg.config.chains = vec![chain.clone()];
+    let relay = GrpcRelay::start(grpc_address).await;
     cfg.config.yellowstone.insert(
         chain.key.clone(),
         serde_json::from_value(json!({
-            "endpoint":format!("http://{grpc_address}"), "source_id":"local-agave-geyser",
+            "endpoint":format!("http://{}", relay.address), "source_id":"local-agave-geyser",
             "proto_commit":PROJECTION_SCHEMA_COMMIT, "allow_loopback_plaintext":true,
             "connect_timeout_ms":3000, "idle_timeout_ms":45000, "wal_ack_timeout_ms":3000,
             "reconnect_delay_ms":100, "max_frame_bytes":4194304, "max_wal_bytes":67108864,
@@ -402,11 +453,95 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
     write_json(&output.join("changed-rpc-block.json"), &block);
     write_json(&output.join("changed-rpc-account.json"), &updated);
 
+    tokio::time::timeout(Duration::from_secs(5), relay.pause())
+        .await
+        .unwrap();
+    let finalized_slot = || async {
+        rpc.call(&rpc_url, "getSlot", json!([{"commitment":"finalized"}]))
+            .await
+            .unwrap()
+            .as_u64()
+            .unwrap()
+    };
+    let before = finalized_slot().await;
+    let after = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let after = finalized_slot().await;
+            if after >= before + 3 {
+                break after;
+            }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await
+    .unwrap();
+    relay.disconnect().await;
+    let replay_status = tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            let status = parser.stream_status(&chain.key).unwrap();
+            if status.session_id != evidence.session_id && status.session_committed {
+                break status;
+            }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| {
+        panic!(
+            "retained replay status: {:?}",
+            parser.stream_status(&chain.key)
+        )
+    });
+    assert!(
+        replay_status.replay_sufficient,
+        "retained replay lost its parent: {replay_status:?}"
+    );
+    let from = replay_status.requested_from_slot.unwrap();
+    assert!(from <= before + 1);
+    assert!(replay_status
+        .replay_first_available_slot
+        .is_none_or(|floor| floor <= from));
+    let journal = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let journal: Value = reqwest::get(format!(
+                "{url}/internal/chains/{}/journal?after={}",
+                chain.key,
+                snapshot["reference"]["journal_seq"]
+                    .as_u64()
+                    .unwrap_or_default()
+            ))
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+            let rows = journal.as_array().unwrap();
+            if (from..=after).all(|slot| {
+                rows.iter().any(|row| {
+                    row["kind"] == "ONLINE_BASELINE_COMMIT"
+                        && row["reference"]["block"]["number_or_slot"] == slot
+                })
+            }) {
+                break journal;
+            }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("missing retained slots {from}–{after}"));
+    write_json(
+        &output.join("replay-status.json"),
+        &serde_json::to_value(&replay_status).unwrap(),
+    );
+    write_json(&output.join("replay-journal.json"), &journal);
+
     drop(validator);
     tokio::time::timeout(Duration::from_secs(55), async {
         loop {
             let status = parser.stream_status(&chain.key).unwrap();
-            if status.session_id != evidence.session_id && !status.session_committed {
+            if status.session_id != replay_status.session_id && !status.session_committed {
                 assert!(!baseline(&url).await.status().is_success());
                 break;
             }
@@ -433,7 +568,7 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
                 let snapshot: Value = response.json().await.unwrap();
                 let recovered: StreamEvidence =
                     serde_json::from_str(snapshot["source"].as_str().unwrap()).unwrap();
-                if recovered.session_id != evidence.session_id
+                if recovered.session_id != replay_status.session_id
                     && snapshot["reference"]["block"]["number_or_slot"]
                         .as_u64()
                         .unwrap()

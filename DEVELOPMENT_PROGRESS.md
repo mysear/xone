@@ -69,7 +69,7 @@
 |工作项|设计条款 / 工作包|状态|已完成|剩余 / 验证|
 |---|---|---|---|---|
 |I8 标准 V2 共享后缀费用对比（2026-11-28）|§13.6、§14.2、§15；WP13、WP15、WP16|LOCAL_SCOPE_VERIFIED|在同一快照、调用者、估值版本和模拟预算内重放有序拆单与共享后缀。20 项 HTTP 场景通过，独立重算 ExactIn 和 ExactOut 净额并验证预算耗尽、过期估值及执行器缺失|报价披露本地 EVM 执行费对比。完整链费、资金约束和正常报价选择待验收|
-|I7 自建 Yellowstone 连续流（2026-11-28）|§7、§18、§28.22；WP04、WP05、WP07、WP24|LOCAL_SCOPE_VERIFIED|正式 Parser 发布同会话的三个连续 finalized bank 和真实账户写入。重启同一账本节点时撤销旧范围，以新 WAL 和会话恢复。逐个核对证明与同源 RPC 区块，验证签名、账户字节和 lamports|继续验收留存窗口内补洞和生产独立故障域|
+|I7 自建 Yellowstone 连续流（2026-11-28）|§7、§18、§28.22；WP04、WP05、WP07、WP24|LOCAL_SCOPE_VERIFIED|正式 Parser 验证同会话连续 finalized bank、真实账户写入、断线后的实际留存补洞及同账本节点重启。留存流从 slot 49 恢复并逐槽提交。完整联测与 26 项 Parser、传输回归通过|继续验收生产独立故障域|
 |I8 标准 V2 共享后缀交易模板（2026-11-28）|§14.2–14.5、§15；WP15、WP16|LOCAL_SCOPE_VERIFIED|正常构建使用报价候选哈希触发独立 REVM，校验快照、授权和成交，并将 calldata、候选、绑定和仿真证据纳入构建摘要。ExactIn、ExactOut 各通过 6 项 HTTP 场景，覆盖成功、候选替换、缺少候选选择和过期|模板证据为 `PROVIDED_LOCAL_STATE`。实时状态、完整链费及候选排序待验收|
 |I8 标准 V2 共享后缀 ExactOut 执行（2026-11-28）|§13.5–13.6、§14.2、§15；WP14、WP15|LOCAL_SCOPE_VERIFIED|按热储备执行两种分支顺序并一次结算共同后缀。原版 Router02 对照覆盖精确到账、调用者扣款与 6 次失败回滚。独立 REVM 校验两笔出块交易的 gas、全部日志与声明的账户后状态。ExactIn 和 ExactOut 各通过两个 HTTP 仿真场景，含候选哈希替换拒绝|证据权威为 `PROVIDED_LOCAL_STATE`。正常构建和同快照费用排序待接入|
 |I8 标准 V2 共享后缀 ExactOut 候选（2026-11-28）|§13.4–13.6、§14.1、WP13、WP14|LOCAL_SCOPE_VERIFIED|正常 ExactOut 报价从目标到账反推共同后缀的输入。按原分支比例分配整数中间目标，按物理池顺序更新前缀储备，核对精确到账和输入预算。16 组 ExactIn 和 ExactOut HTTP 回归通过，含独立整数核算和候选哈希核对|继续绑定 ExactOut 执行、最大输入回滚与候选排序|
@@ -484,7 +484,8 @@
 
 - Agave 4.3.0 本地产块的 Geyser 元数据现使用 PoH 计数。正式 Parser 已在同一 Yellowstone 会话发布三个连续 finalized bank，逐个核对 WAL 游标、原生证明哈希、同源 RPC 历史块及当前六个账户。 [运行命令](chain-parser-rust/crates/bank-source/README.md#same-process-validator-and-parser-acceptance)
 - 真实转账写入已通过同会话原生证明、最终区块签名及账户余额对照。14 项原生观察器回归与 17 项 Parser 回归通过。
-- 同一账本的 Agave 和 Yellowstone 进程退出并重启，正式 Parser 撤销旧会话范围，以新 WAL 代际恢复。此次在 slot 85 恢复，保留转账后的余额并登记 slot 49–84 的历史缺口。继续验证留存窗口内补洞及生产独立故障域。
+- 保持节点出块并短时暂停接收，插件回放下界为 slot 44。Parser 从已提交父块后的 slot 49 接续，逐槽提交断线窗口内已最终化的区块。重新签发的原生证明、已提交父块及 WAL 回执匹配后才发布。
+- 同一账本的 Agave 和 Yellowstone 进程退出并重启，正式 Parser 撤销旧会话范围，以新 WAL 代际恢复。完整联测在 slot 116 恢复，保留转账后的余额并登记 slot 67–115 的历史缺口。继续验证生产独立故障域。
 
 #### 当前迭代目标（R04 恢复预算边界，2026-11-28）
 

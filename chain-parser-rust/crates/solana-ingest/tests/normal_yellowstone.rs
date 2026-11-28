@@ -1589,6 +1589,7 @@ async fn v2_target_proof_projects_native_count_and_reconnects_for_scope_expansio
     c.send.send(Ok(bytes(6, &[]))).await.unwrap();
     let next = h.connection().await;
     assert_ne!(c.session, next.session);
+    assert_eq!(next.request.from_slot, None);
     let request: Value = serde_json::from_slice(
         &std::fs::read(
             h.directory

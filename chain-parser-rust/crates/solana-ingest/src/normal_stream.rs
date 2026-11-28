@@ -200,7 +200,13 @@ impl Parser {
             }
             // A rejected replay request falls back to HEAD_FIRST on the next
             // connection. Source write versions never cross session boundaries.
-            try_replay = was_live;
+            try_replay = was_live
+                && !result.as_ref().is_err_and(|error| {
+                    matches!(
+                        error.0.as_str(),
+                        "STREAM_SCOPE_CHANGED" | "STREAM_ADMITTED_CATALOG_CHANGED"
+                    )
+                });
             tokio::select! { _=stop.changed()=>{}, _=tokio::time::sleep(Duration::from_millis(cfg.reconnect_delay_ms))=>{} }
         }
         self.stream_update(&chain.key, |s| s.phase = "STOPPED".into());
@@ -312,6 +318,7 @@ impl Parser {
             let mut proofs = BTreeMap::<BankId, VerifiedManifest>::new();
             let mut catalog_identity = None;
             let mut published_in_session = false;
+            let mut replay_sufficient = false;
             let mut refresh = tokio::time::interval(Duration::from_millis((native_request.ttl / 4).max(1)));
             refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
@@ -382,14 +389,31 @@ impl Parser {
                             "{}-{}-{}.json",
                             record.frame.source.session_id, bank.slot, bank.bank_id
                         );
-                        let proof_result = BankManifest::load(
-                            &self.config.resolve(&cfg.manifest_directory).join(filename),
-                            cfg,
-                            &target,
-                            &catalog,
-                            &record.frame.source,
-                            &bank,
-                        );
+                        let path = self.config.resolve(&cfg.manifest_directory).join(filename);
+                        let manifest_deadline = tokio::time::Instant::now()
+                            + Duration::from_millis(cfg.connect_timeout_ms);
+                        let proof_result = loop {
+                            let result = BankManifest::load(
+                                &path, cfg, &target, &catalog, &record.frame.source, &bank,
+                            );
+                            if !from.is_some_and(|start| bank.slot.saturating_sub(start) < cfg.max_replay_slots)
+                                || result.as_ref().err().is_none_or(|e| e.0 != "BANK_AUTHORITY_UNAVAILABLE")
+                            {
+                                break result;
+                            }
+                            // The provider's retained frames can arrive before the native
+                            // observer has re-attested their banks for this new session.
+                            if tokio::time::Instant::now() >= manifest_deadline {
+                                return Err(err("STREAM_REPLAY_NATIVE_MANIFEST_TIMEOUT"));
+                            }
+                            self.stream_update(&chain.key, |s| s.phase = "AWAITING_NATIVE_MANIFEST".into());
+                            native_request.refresh()?;
+                            tokio::select! {
+                                biased;
+                                _ = stop.changed() => return Ok(()),
+                                _ = tokio::time::sleep(Duration::from_millis(20)) => {}
+                            }
+                        };
                         let mut proof=match proof_result {
                             Err(error) if assembler.is_none() && error.0=="BANK_AUTHORITY_UNAVAILABLE"=>{
                                 self.stream_update(&chain.key,|s|{s.phase="AWAITING_NATIVE_MANIFEST".into();s.last_error=error.0;});continue;
@@ -489,8 +513,14 @@ impl Parser {
                         let store = self.stores[&chain.key]
                             .lock()
                             .map_err(|_| err("STATE_LOCK_POISONED"))?;
-                        if store.previous().is_some_and(|r|proof.manifest.parent.slot==r.block.number_or_slot && proof.manifest.parent.blockhash!=r.block.hash){return Err(err("STREAM_FINALIZED_PARENT_CONFLICT"));}
-                        if store.previous().is_some_and(|r| {
+                        let previous = store.previous();
+                        if previous.as_ref().is_some_and(|r| {
+                            proof.manifest.parent.slot == r.block.number_or_slot
+                                && proof.manifest.parent.blockhash != r.block.hash
+                        }) {
+                            return Err(err("STREAM_FINALIZED_PARENT_CONFLICT"));
+                        }
+                        if previous.as_ref().is_some_and(|r| {
                             r.block.number_or_slot > snapshot.reference.block.number_or_slot
                                 || (r.block.number_or_slot == snapshot.reference.block.number_or_slot
                                     && r.block.hash != snapshot.reference.block.hash)
@@ -512,7 +542,17 @@ impl Parser {
                             return Err(err("STREAM_HISTORY_GAP_LIMIT"));
                         }
                         if !published_in_session {
-                            if let Some(old) = store.previous() {
+                            if let Some(from) = from {
+                                let extends_previous = previous.as_ref().is_some_and(|old| {
+                                    old.block.number_or_slot.checked_add(1) == Some(from)
+                                        && proof.manifest.parent.slot == old.block.number_or_slot
+                                        && proof.manifest.parent.blockhash == old.block.hash
+                                });
+                                if !extends_previous {
+                                    return Err(err("STREAM_REPLAY_PARENT_UNPROVEN"));
+                                }
+                                replay_sufficient = true;
+                            } else if let Some(old) = previous {
                                 let from = old.block.number_or_slot.saturating_add(1);
                                 let to = snapshot.reference.block.number_or_slot.saturating_sub(1);
                                 if from <= to {
@@ -543,6 +583,7 @@ impl Parser {
                     self.stream_update(&chain.key, |s| {
                         s.phase = "LIVE".into();
                         s.session_committed = true;
+                        s.replay_sufficient = replay_sufficient;
                         s.last_error.clear();
                         s.committed_cursor = record.cursor.sequence;
                         s.catalog_identity = identity.clone();
