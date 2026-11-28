@@ -29,6 +29,20 @@ Avalanche 的后继结算头可用 `r01_public_catalog_evm_history.py settlement
 
 当前 bitmap 字较密集时，可在 getter 输入中指定 `"trace_format": "indexed-proof-ledger/v2"`。报告以索引引用原始证明节点和来源，逐次 getter 调用保留其读取区间，便于按原顺序还原。
 
+### Base Slipstream 固定块报价复验
+
+在仓库根目录运行以下命令。将 `slipstream_capture` 指向留存的 `capture.json`。其中 `catalog_row.directory` 指向仓库内已合并的证明归档，包含 `fork-execution.json` 和固定块的账户、代码及存储证明。运行前准备 EVM 参考执行依赖，以及识别已部署费用模块的 Go Parser 和 Rust Router 构建产物。`--work` 与 `--out` 使用尚未创建的目录。
+
+```sh
+python3 integration/tools/acceptance/r01_public_catalog_slipstream_normal.py \
+    --capture "$slipstream_capture" \
+    --work integration/test/source/deployment-catalog/evm-normal-v4/base-slipstream-replay \
+    --out integration/artifacts/local/r01-public-base-slipstream-replay \
+    --parser-bin "$slipstream_parser_bin" --router-bin "$slipstream_router_bin"
+```
+
+工具先在固定块原合约上分片重放 getter，再让常规 Parser 和 Router 通过本地 RPC 消费重放结果。`proof-bound-report.json` 记录 getter 输出、进程报告与原执行的 SHA-256，并要求 Router 的池级收款与原池收款一致、回放无未记录的 RPC 请求。高度 63,180,533 的验收值是 3,264 次 getter 和 166,349 个收款原子单位。
+
 本目录是有限的真实观测集：8 链、16 个 chain/protocol、14 个经 factory 查询并读取代码的样例池，以及 3 个完整 Solana ProgramData。所有外部输入均来自无需账号、API key 的公共 HTTPS。目录中的 `version` 使用实际 runtime SHA-256；Solana 另包含解码得到的 upgrade slot。`profiles` 表示本项目代码识别的 profile，不能证明该 profile 对应当前部署源码。
 
 `manifest.json` 固定全部数据文件和本任务工具／测试的逐字节清单；默认 CLI 也检查缺失、额外文件和改动。`catalog.json` 包含逐项原始证据引用和 SHA-256，`scope.json` 固定声明范围的 chain、protocol、runtime version、地址、H/hash。缺行、重复、范围外行、错误地址或 H/hash 不能通过范围校验。`catalog-ethereum.json` / `scope-ethereum.json` 是明确较窄的 Ethereum V2 单部署验收范围，不代表整个 R01 已完成。
