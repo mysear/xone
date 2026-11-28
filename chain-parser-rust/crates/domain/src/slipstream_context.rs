@@ -123,6 +123,10 @@ const CUSTOM_SWAP_TEMPLATE: &str =
     "ddc9d6554ff8e4a364fb7965029dc7e7f000676c15650cbd336e6fe47209904c";
 const CUSTOM_UNSTAKED_TEMPLATE: &str =
     "7f7aa9b5f067b30673550db0232bfec1c4c21344f1f1fa48bae97189e38fcae7";
+const CUSTOM_UNSTAKED_STORAGE_FACTORY_TEMPLATE: &str =
+    "38ea64ffc13bff05a982ca205a467e4b7b843357da25f4294848ac7d73fa5502";
+const CUSTOM_UNSTAKED_STORAGE_FACTORY_RUNTIME: &str =
+    "bf863faad2faf3e4d296e50cba560dfecd89544cb5bd905a733381b3e9c52f6f";
 const DYNAMIC_SWAP_TEMPLATE: &str =
     "187b7edb56da74a9674a63daac04c68e4e2f5d5d497e6ee8a8695f4fcec3bcc6";
 pub const VOTER_RUNTIME_SHA256: &str =
@@ -213,6 +217,8 @@ impl SlipstreamModule {
                     return Err(err("SLIPSTREAM_CUSTOM_SWAP_RANGE"));
                 }
                 CUSTOM_SWAP_TEMPLATE
+            } else if self.code_sha256 == CUSTOM_UNSTAKED_STORAGE_FACTORY_RUNTIME {
+                CUSTOM_UNSTAKED_STORAGE_FACTORY_TEMPLATE
             } else {
                 CUSTOM_UNSTAKED_TEMPLATE
             }

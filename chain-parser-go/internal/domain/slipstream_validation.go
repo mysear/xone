@@ -13,6 +13,8 @@ const SlipstreamImplementationTemplate = "82642d5d25fe9bf09e9a7ef46673ca3922f4c4
 const SlipstreamFactoryTemplate = "0a403e2c20be57a38c85a3d298207b1b25d3ba849dcb36b43be50c7983bb7187"
 const SlipstreamCustomSwapTemplate = "ddc9d6554ff8e4a364fb7965029dc7e7f000676c15650cbd336e6fe47209904c"
 const SlipstreamCustomUnstakedTemplate = "7f7aa9b5f067b30673550db0232bfec1c4c21344f1f1fa48bae97189e38fcae7"
+const SlipstreamCustomUnstakedStorageFactoryTemplate = "38ea64ffc13bff05a982ca205a467e4b7b843357da25f4294848ac7d73fa5502"
+const SlipstreamCustomUnstakedStorageFactoryRuntime = "bf863faad2faf3e4d296e50cba560dfecd89544cb5bd905a733381b3e9c52f6f"
 const SlipstreamDynamicSwapTemplate = "187b7edb56da74a9674a63daac04c68e4e2f5d5d497e6ee8a8695f4fcec3bcc6"
 const SlipstreamVoterSHA256 = "621bb8e29a36ec7d8319e019a2ec47de06fee83e332465a893bd0b34955dff74"
 
@@ -104,6 +106,9 @@ func (m *SlipstreamModule) validateRole(factory string, swap bool) error {
 		return errors.New("SLIPSTREAM_MODULE_FACTORY")
 	}
 	expected := SlipstreamCustomUnstakedTemplate
+	if !swap && m.Kind == "custom" && m.CodeSHA256 == SlipstreamCustomUnstakedStorageFactoryRuntime {
+		expected = SlipstreamCustomUnstakedStorageFactoryTemplate
+	}
 	if m.Kind == "custom" && swap {
 		if m.CustomFee > 30000 {
 			return errors.New("SLIPSTREAM_CUSTOM_SWAP_RANGE")

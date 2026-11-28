@@ -41,6 +41,15 @@ func validateSlipstreamRuntime(kind string, raw []byte, bindings map[string]stri
 		return hex.EncodeToString(hash[:]), nil
 	}
 	template, ok := slipstreamTemplates[kind]
+	if kind == "custom_unstaked" && len(raw) == 901 {
+		// This release stores factory in slot zero. The reader separately
+		// verifies its factory() result at the same block as the code.
+		fullHash := sha256.Sum256(raw)
+		if hex.EncodeToString(fullHash[:]) != domain.SlipstreamCustomUnstakedStorageFactoryRuntime {
+			return "", errors.New("SLIPSTREAM_EXECUTION_BODY_TEMPLATE")
+		}
+		return domain.SlipstreamCustomUnstakedStorageFactoryTemplate, nil
+	}
 	if !ok || len(raw) != template.RuntimeBytes || template.BodyBytes+template.MetadataBytes+2 != len(raw) || int(binary.BigEndian.Uint16(raw[len(raw)-2:])) != template.MetadataBytes {
 		return "", errors.New("SLIPSTREAM_RUNTIME_TEMPLATE_SIZE")
 	}
