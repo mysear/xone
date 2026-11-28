@@ -129,7 +129,10 @@ function compactTrace(calls,ledger){
 }
 
 async function probe(inputFile,out){
- const input=load(inputFile),row=input.row;assert(['base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3','polygon-uniswap-v3','arbitrum-uniswap-v3'].includes(row.id),'BOUNDED_SIX_CASE_SCOPE');
+ const input=load(inputFile),row=input.row;
+ const cases=['base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3',
+              'optimism-velodrome-v2','polygon-uniswap-v3','arbitrum-uniswap-v3'];
+ assert(cases.includes(row.id)&&row.id===row.chain+'-'+row.protocol,'BOUNDED_GETTER_SCOPE');
  for(const r of Object.values(row.inputs))if(r&&typeof r==='object'&&r.path&&r.sha256)readRef(r);
  const bank=await loadBank(path.join(ROOT,row.directory),(input.supplements||[]).map(r=>{readRef(r);return path.join(ROOT,r.path);}));assert.equal(bank.validation.height,row.anchor.height,'READONLY_ROW_H');assert.equal(bank.evidence.block.hash,row.anchor.hash,'READONLY_ROW_HASH');assert.equal(bank.evidence.chain_id,String(row.chain_id),'READONLY_ROW_CHAIN');assert.equal(sha(bytes(bank.accounts.get(row.pool).code)),row.pool_runtime_sha256,'READONLY_ROW_RUNTIME');assert(bank.accounts.has(row.factory)&&sha(bytes(bank.accounts.get(row.factory).code))===row.factory_runtime_sha256,'READONLY_ROW_FACTORY_RUNTIME');
  if(row.implementation_address){const m=/^0x363d3d373d3d3d363d73([0-9a-f]{40})5af43d82803e903d91602b57fd5bf3$/.exec(bank.accounts.get(row.pool).code);assert(m&&'0x'+m[1]===row.implementation_address,'READONLY_PROXY_TARGET');assert(bank.accounts.has(row.implementation_address)&&sha(bytes(bank.accounts.get(row.implementation_address).code))===row.implementation_runtime_sha256,'READONLY_ROW_IMPLEMENTATION_RUNTIME');}
@@ -138,7 +141,7 @@ async function probe(inputFile,out){
  try{
   const pool=row.pool;
   for(const d of ['0x0dfe1681','0xd21220a7','0xc45a0155'])await call(pool,d);
-  if(row.protocol==='aerodrome-v2'){
+  if(row.protocol==='aerodrome-v2'||row.protocol==='velodrome-v2'){
    const meta=await call(pool,'0x392f37e9'),stable=BigInt('0x'+meta.slice(2+4*64,2+5*64));await call(row.factory,'0xb187bd26');await call(row.factory,'0xcc56b2c5'+pool.slice(2).padStart(64,'0')+stable.toString(16).padStart(64,'0'));
   }else{
    for(const d of ['0xddca3f43','0xd0c93a7c','0x3850c7bd','0x1a686502'])await call(pool,d);

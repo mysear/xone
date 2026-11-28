@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Six literal EVM profiles: MPT original getter VM -> normal Go -> normal Router.
+"""Fixed EVM deployments: MPT original getter VM -> normal Go -> normal Router.
 
 Configuration carries identities and limits only. No typed baseline/state enters
 normal binaries. Original sealed v2/v3 inputs remain unchanged.
@@ -16,6 +16,7 @@ from r01_public_catalog_capture import reference,write_new
 from r01_public_catalog_evm_process import normal_profile,words,call_key,captured_calls,FixedRPC,run as normal_run
 BASE=ROOT/'integration/test/source/deployment-catalog/evm-normal-v4'
 IDS={'base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3','polygon-uniswap-v3','arbitrum-uniswap-v3'}
+GETTER_IDS=IDS|{'optimism-velodrome-v2'}
 
 def validate_probe(probe):
     require(probe['passed'] is True and not probe['missing'] and probe['calls'],'NORMAL_GETTER_PROOF_INCOMPLETE')
@@ -28,8 +29,11 @@ def pool_config(row,probe):
     def value(a,d):return calls[call_key(a,d)]
     token0='0x'+value(pool,'0x0dfe1681')[-40:];token1='0x'+value(pool,'0xd21220a7')[-40:]
     cfg={'id':pool,'protocol':normal_profile(row['protocol']),'token0':token0,'token1':token1,'program_id':'','accounts':[]};identity={'expected_factory':row['factory'],'expected_code_sha256':row['pool_runtime_sha256']}
-    if row['protocol']=='aerodrome-v2':
-        meta=words(value(pool,'0x392f37e9'));stable=meta[4];require(stable in [0,1],'NORMAL_AERO_STABLE_FLAG');cfg['protocol']='aerodrome-v2-stable' if stable else 'aerodrome-v2-volatile'
+    if row['protocol'] in ('aerodrome-v2', 'velodrome-v2'):
+        meta = words(value(pool, '0x392f37e9'))
+        require(len(meta) == 7 and meta[4] in (0, 1), 'NORMAL_SOLIDLY_METADATA')
+        stable = meta[4]
+        cfg['protocol'] = row['protocol'] + ('-stable' if stable else '-volatile')
         fee='0xcc56b2c5'+pool[2:].rjust(64,'0')+format(stable,'064x');cfg.update(fee_numerator=words(value(row['factory'],fee))[0],fee_denominator=10000,stable=identity|{'expected_factory_code_sha256':row['factory_runtime_sha256'],'expected_implementation':row['implementation_address'],'expected_implementation_code_sha256':row['implementation_runtime_sha256']})
     else:
         cfg.update(fee_numerator=words(value(pool,'0xddca3f43'))[0],fee_denominator=1000000,v3=identity|{'tick_word_radius':0,'max_initialized_ticks':256,'max_steps':8192})
@@ -50,7 +54,7 @@ def validate_rejection(probe):
         if c['error'] is None:require(c['all_code_and_storage_MPT_bound'] and c['steps']>0,'NORMAL_PARTIAL_GETTER_UNPROVEN')
 
 def prepare(directory,probe_path,permit_getter_rejection=False):
-    probe=load_json(probe_path);(validate_rejection if permit_getter_rejection else validate_probe)(probe);input_=json.loads(read_blob(ROOT,probe['input']));row=input_['row'];require(row['id'] in IDS,'BOUNDED_NORMAL_SIX_SCOPE');require(probe['id']==row['id'] and probe['anchor']==row['anchor'],'NORMAL_GETTER_FIXED_H')
+    probe=load_json(probe_path);(validate_rejection if permit_getter_rejection else validate_probe)(probe);input_=json.loads(read_blob(ROOT,probe['input']));row=input_['row'];require(row['id'] in GETTER_IDS,'BOUNDED_GETTER_SCOPE');require(probe['id']==row['id'] and probe['anchor']==row['anchor'],'NORMAL_GETTER_FIXED_H')
     source=ROOT/row['directory'];ex=json.loads(read_blob(ROOT,row['inputs']['execution']));require(ex['anchor']['height']==row['anchor']['height'] and ex['anchor']['hash']==row['anchor']['hash'],'NORMAL_ORIGINAL_VM_ANCHOR');case=next(c for c in ex['cases'] if c['catalog_deployment_id']==row['id']);require(case['passed'] and case['pool']==row['pool'],'NORMAL_ORIGINAL_REFERENCE_POOL')
     cfg=pool_config(row,probe);require(set([cfg['token0'],cfg['token1']])==set([case['token_in'],case['token_out']]),'NORMAL_REFERENCE_TOKENS')
     raw={'schema_version':4,'source_kind':'derived-original-runtime-getter-execution-from-MPT-state; not public eth_call wire','getter_execution':reference(probe_path),'requests':[{'jsonrpc':'2.0','id':i+1,'method':'eth_call','params':[{'to':c['to'],'data':c['data']},hex(row['anchor']['height'])]} for i,c in enumerate(probe['calls'])],'response':[{'jsonrpc':'2.0','id':i+1,**({'error':{'code':-32099,'message':c['error']}} if c['error'] else {'result':c['value']})} for i,c in enumerate(probe['calls'])],'original_state_overrides':{'balance':[],'code':[],'storage':[]},'caller':probe['caller'],'caller_policy':probe['caller_policy'],'public_network_requests':0,'authority':'executed original code, every code hash/account/storage read authenticated; environment explicit'}
