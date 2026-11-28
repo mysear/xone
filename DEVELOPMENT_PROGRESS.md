@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- Go 服务内的工厂归档回归使用 Arbitrum One 528,150,486 和 Avalanche C-Chain 101,597,996 两个入库固定块。校验工具按已锁定的归档摘要重新投影 15 条公开 RPC 响应，服务测试从自身目录读取可重放样本。六项定向 Go race 用例通过，覆盖正常工厂发现、原生证据归档与复验、篡改 Arbitrum 0x6a 系统回执和截断 Avalanche 后继结算头的拒绝，以及 Avalanche 正常历史入口。旧 Polygon Bor 样本和全局契约门禁仍有待恢复。 [夹具复验](integration/tools/acceptance/r01_native_catalog_fixtures.py)
 - 八份入库归档已在独立目录统一复验。七链九个固定块的状态证明、原池重放和 Go 回执根核验均通过。13 项常规报价全部返回 HTTP 200，逐项与原池收款一致，回放无未归档 RPC 请求或公网请求。固定块回放关闭后台历史补洞，消除 BSC 启动后读取归档以外早期区块的竞争。两项 Ethereum 回归使用入库证据核对 226 笔签名交易及交易根，并验证交易内容、余额、代码、存储和状态根篡改被拒绝。全目录资格、精确源码剩余差异、链费与生产执行资格仍待验收。[统一复验命令](integration/test/source/deployment-catalog/README.md#从已入库的证据统一复验)
 - Ethereum 26,511,767 的双源观测、Uniswap V2 与 V3 工厂及样例池证据已入库。重建 226 笔交易和回执，核验 11 个账户、32 个存储槽和 60 次预状态读取。补充证明支持 V2 的 4 次 getter 和 V3 的 257 次 getter。常规 Go Parser 和 Rust Router 对两项报价均返回 HTTP 200，分别匹配原池收款 165,056 和 165,469 原子单位。复验公网请求和未归档 RPC 请求均为零。两工厂及两样例池的完整 runtime 已从发布源码精确重建并绑定固定块状态根。链费和生产执行资格仍待验收。[复验命令](integration/test/source/deployment-catalog/README.md#ethereum-uniswap-v2-与-v3-固定块原池复验)
 - BSC 批次投影的八项回归已改用高度 136,166,651 的入库证据。校验原归档和引用文件摘要，以归档的 116 条记录验证 7 次公网尝试的计数，并在复制的索引上复验 schema 2。BSC 和 Ethereum 合计十项回归在 Python 普通和优化模式均通过。

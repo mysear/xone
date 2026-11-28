@@ -39,8 +39,15 @@ func (f *nativeServiceFixture) height(t *testing.T) uint64 {
 
 func nativeServicePublicFixture(t *testing.T, name string) *nativeServiceFixture {
 	t.Helper()
-	if name == "avalanche-current" {
+	switch name {
+	case "avalanche-current":
 		return serveNativeServiceFixture(t, avalancheNativeServiceFixture(t))
+	case "arbitrum-current":
+		fixture := readNativeServiceFixture(t, "arbitrum-528150486")
+		return serveNativeServiceFixture(t, fixture.service(t, "evm:42161", "017-block-receipts.json"))
+	case "polygon-synthetic":
+	default:
+		t.Fatalf("unknown native catalog fixture %s", name)
 	}
 	root := filepath.Join("../../test/fixtures/source/testdata/chain-receipt-vectors", name)
 	read := func(file string, out any) {
@@ -79,16 +86,7 @@ func nativeServicePublicFixture(t *testing.T, name string) *nativeServiceFixture
 		headers:  map[string]json.RawMessage{vector.Block.Number: rawHeader},
 		receipts: map[string]json.RawMessage{vector.Block.Number: receipts, vector.Block.Hash: receipts},
 	}
-	genesis := "0xa9c28ce2141b56c474f1dc504bee9b01eb1bd7d1a507580d5519d4437a97de1b"
-	// Read captured fingerprint rather than duplicating a chain identity in fixtures.
-	if name != "polygon-synthetic" {
-		var body struct {
-			Genesis string `json:"genesis_hash"`
-		}
-		read("body.json", &body)
-		genesis = body.Genesis
-	}
-	f.chain = nativeServiceChain(vector.ChainKey, genesis)
+	f.chain = nativeServiceChain(vector.ChainKey, "0xa9c28ce2141b56c474f1dc504bee9b01eb1bd7d1a507580d5519d4437a97de1b")
 	return serveNativeServiceFixture(t, f)
 }
 
@@ -157,7 +155,7 @@ func nativeServiceCatalog(t *testing.T, f *nativeServiceFixture) *CatalogRuntime
 	}
 }
 func TestNativeFactoryActualPublicProofNormalAndReplay(t *testing.T) {
-	for _, name := range []string{"avalanche-current", "arbitrum", "polygon-synthetic"} {
+	for _, name := range []string{"avalanche-current", "arbitrum-current", "polygon-synthetic"} {
 		t.Run(name, func(t *testing.T) {
 			f := nativeServicePublicFixture(t, name)
 			r := nativeServiceCatalog(t, f)
@@ -196,6 +194,17 @@ func TestNativeFactoryActualPublicProofNormalAndReplay(t *testing.T) {
 			}
 			if e = r.verifyHTTPBlock(ctx, f.client, projected); e != nil {
 				t.Fatal("archive replay", e)
+			}
+			if name == "arbitrum-current" {
+				if len(proof.Receipts) == 0 || proof.Receipts[0].Type != "0x6a" {
+					t.Fatal("captured ArbOS system receipt missing")
+				}
+				altered := proof
+				altered.Receipts = append([]evm.Receipt(nil), proof.Receipts...)
+				altered.Receipts[0].Type = "0x2"
+				if e = r.verifyFactoryHTTPProof(ctx, altered); e == nil {
+					t.Fatal("rewritten ArbOS system receipt passed replay")
+				}
 			}
 			proof.NativeEvidence = nil
 			if e = r.verifyFactoryHTTPProof(ctx, proof); e == nil {
