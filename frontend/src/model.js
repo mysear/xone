@@ -24,6 +24,12 @@ export function snapshotView(q) {
   const b = q.snapshotRef?.block || {};
   return `${b.chain_key || b.chainKey || q.chainKey || '—'} / ${b.number_or_slot ?? b.numberOrSlot ?? '—'}`;
 }
+export function snapshotTimestamp(snapshot) {
+  const timestamp = snapshot?.block?.timestamp_ms ?? snapshot?.block?.timestampMs;
+  if (!Number.isSafeInteger(timestamp) || timestamp <= 0) return null;
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? null : `${date.toISOString().split('.')[0].replace('T', ' ')} UTC`;
+}
 export function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }

@@ -1,5 +1,5 @@
 import {createWalletRegistry,connectWallet,signPreparedTransaction} from './wallet.js';
-import {quoteFundingRows, positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, singlePreparationPool, evmPreparationPools, evmPreparedSimulationAvailable, evmPreparedEvidenceMatches, evmFeeRequest, nativeEconomicsText, failedFeeText, escapeHtml as esc} from './model.js';
+import {quoteFundingRows, positiveInteger, boundedInteger, routeView, snapshotView, snapshotTimestamp, protocolBindingsMatch, singlePreparationPool, evmPreparationPools, evmPreparedSimulationAvailable, evmPreparedEvidenceMatches, evmFeeRequest, nativeEconomicsText, failedFeeText, escapeHtml as esc} from './model.js?v=pool-snapshot';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, estimating:false, estimate:null, quote:null, preparation:null, independent:null, independentAbort:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
@@ -72,6 +72,10 @@ function renderPools() {
   $('poolHeading').textContent=c?`${c.chainKey} 已发布池`:'Router 已发布池';
   $('poolCount').hidden=!c;
   $('poolCount').textContent=`${pools.filter(pool=>pool.available).length} / ${pools.length} 个可报价`;
+  $('chainSnapshot').hidden=!c?.snapshotRef?.block;
+  $('chainSnapshot').textContent=c?.snapshotRef?.block
+    ? `池图快照 ${snapshotView(c)} · 链上时间 ${snapshotTimestamp(c.snapshotRef) ?? '未提供'}`
+    : '';
   $('chainVersion').textContent=c?`图版本：${c.graphVersion ?? '—'} · View：${c.viewId ?? '—'} · 协议：${(c.protocols||[]).join(', ')||'—'}`:'';
   $('poolTable').innerHTML=pools.length?`<table><thead><tr><th>协议</th><th>Adapter</th><th>协议视图 / 能力</th><th>Token0</th><th>Token1</th><th>报价模式</th><th>状态</th><th>Pool</th></tr></thead><tbody>${pools.map(p=>`<tr><td>${esc(p.protocol)}</td><td>${esc(p.adapterVersion)}</td><td>${esc(p.protocolViewId||'—')}<br>${esc(p.capabilities?.modelVersion||'—')}<br>${esc((p.execution?.preparation||p.execution?.evmPreparation)?'可准备待签名交易':p.capabilities?.executionBlocker||'执行未接入')}</td><td>${esc(p.token0)}</td><td>${esc(p.token1)}</td><td>${esc((p.quoteModes||[]).join(' / ')||'—')}</td><td>${esc(p.available?'可用':p.unavailableReason||'不可用')}</td><td>${esc(p.poolId)}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">当前链没有已发布池。</p>';
 }

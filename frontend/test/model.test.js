@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {positiveInteger,boundedInteger,routeView,snapshotView,escapeHtml,protocolBindingsMatch,singlePreparationPool,evmPreparationPools,evmPreparedSimulationAvailable,evmPreparedEvidenceMatches,evmFeeRequest} from '../src/model.js';
+import {positiveInteger,boundedInteger,routeView,snapshotView,snapshotTimestamp,escapeHtml,protocolBindingsMatch,singlePreparationPool,evmPreparationPools,evmPreparedSimulationAvailable,evmPreparedEvidenceMatches,evmFeeRequest} from '../src/model.js';
 test('raw amounts retain precision above Number.MAX_SAFE_INTEGER and reject decimal/exponent/overflow',()=>{
   assert.equal(positiveInteger('9007199254740993123456','数量'),'9007199254740993123456');assert.equal(positiveInteger('000123','数量'),'123');
   for(const v of ['0','-1','1e18','0.1','NaN','Infinity',' 10','1'.repeat(1000),(1n<<256n).toString()])assert.throws(()=>positiveInteger(v,'数量'));
@@ -11,6 +11,14 @@ test('ExactIn path and ExactOut snake_case routes preserve protocol/pool/amount'
   assert.deepEqual(routeView({path,amount_in:'699',amount_out:'1000'}),routeView({...path,amount_in:'699',amount_out:'1000',target_output:'999'}));assert.deepEqual(routeView({path,amount_in:'699',amount_out:'1000'}).pools,['pool1']);
 });
 test('snapshot uses the public snake_case block identity and markup is escaped',()=>{assert.equal(snapshotView({snapshotRef:{block:{chain_key:'solana:mainnet-beta',number_or_slot:300000000}}}),'solana:mainnet-beta / 300000000');assert.equal(escapeHtml('<script a="1">&'), '&lt;script a=&quot;1&quot;&gt;&amp;');});
+
+test('pool snapshot shows the Router block timestamp in UTC',()=>{
+  assert.equal(snapshotTimestamp({block:{timestamp_ms:Date.UTC(2026,10,28,9,8,7)}}),'2026-11-28 09:08:07 UTC');
+  for(const timestamp_ms of [undefined,0,-1,Number.MAX_SAFE_INTEGER]) {
+    assert.equal(snapshotTimestamp({block:{timestamp_ms}}),null);
+  }
+  assert.equal(snapshotTimestamp(null),null);
+});
 
 test('protocol bindings reject changed capability views even when the parent view is unchanged',()=>{
  const q={protocolViewIds:{'proto@adapter':'old'}};
