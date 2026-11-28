@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 已恢复 12 个 EthereumJS 回执树向量和 11 个离线进程回执根。六种 EVM 协议版本的 Protobuf 夹具和 372 个差分用例通过。四种 Stable 模型重新执行原合约生成 180 个报价及 16 个分配用例，Router 逐项匹配金额和后状态。Go race 专项共 151 项通过，含回执根、协议帧和基础快照回归。 [回执参考生成器](integration/tools/ci/receipt-root-reference.py)
 - 已恢复 Uniswap V3 常规及最低初始化价格的离线状态和 Protobuf 测试向量。使用固定版本的 Uniswap V3 SDK 重新生成 264 个整数差分用例，Router 逐项通过，含 214 个成功和 50 个拒绝用例。Go 验证固定块读取、位图和有符号流动性。Rust 路由、拆分和 HTTP 回归通过。 [V3 状态生成工具](integration/tools/ci/v3-state-golden.py)
 - 已重新生成离线 EVM 基础快照、跨语言金额编码、journal 分片和规范化事实测试向量。合成快照保持 4 个池，覆盖直连和两跳竞争。预算边界用例在自己的快照中增加一条并行路径。Go race、两套 Rust 领域契约和 Router HTTP 专项通过。其余协议夹具仍待恢复。 [生成工具](integration/tools/ci/evm-baseline-golden.py)
 - 已恢复 Ethereum 26,355,865 的区块正文和 Uniswap V2 样例池账户证明。ZAN、PublicNode 和 dRPC 返回一致的区块字段、101 笔交易顺序及发送方、16 条提款。ZAN 和 Alchemy 提供一致的账户证明，并通过该块状态根核验。55 项 Go race 用例及子用例覆盖正常解析、信标祖先读取和篡改拒绝。使用固定 Solidity 0.5.16 编译器重建 10 个源码文件得到的 runtime 与已证明的链上字节一致。Python 普通和优化模式各通过 2 项。 [历史证据](integration/test/source/ethereum-mainnet/uniswap-v2-26355865-evidence.json)

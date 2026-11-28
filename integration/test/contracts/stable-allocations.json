@@ -1,0 +1,737 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "name": "aerodrome-v2-volatile-true-false",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "aerodrome-v2-volatile",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4,
+        "fee_denominator": 10000,
+        "adapter_version": "aerodrome-v2-volatile/pool-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "0",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "factory": "0x0000000000000000000000000000000000000004",
+          "factory_code_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "zero_for_one": true,
+      "steps": [
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9897068899282769436710",
+          "next_balances": [
+            "1009996000000000000000000",
+            "990102931100717230563290"
+          ]
+        },
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "28549676435260838926494",
+          "next_balances": [
+            "1039984000000000000000000",
+            "961553254665456391636796"
+          ]
+        }
+      ],
+      "gross_buy_amount": "38446745334543608363204"
+    },
+    {
+      "name": "aerodrome-v2-volatile-true-true",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "aerodrome-v2-volatile",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4,
+        "fee_denominator": 10000,
+        "adapter_version": "aerodrome-v2-volatile/pool-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "0",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "factory": "0x0000000000000000000000000000000000000004",
+          "factory_code_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "zero_for_one": true,
+      "steps": [
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29114902309541470386062",
+          "next_balances": [
+            "1029988000000000000000000",
+            "970885097690458529613938"
+          ]
+        },
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9331843025002137977142",
+          "next_balances": [
+            "1039984000000000000000000",
+            "961553254665456391636796"
+          ]
+        }
+      ],
+      "gross_buy_amount": "38446745334543608363204"
+    },
+    {
+      "name": "aerodrome-v2-volatile-false-false",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "aerodrome-v2-volatile",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4,
+        "fee_denominator": 10000,
+        "adapter_version": "aerodrome-v2-volatile/pool-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "0",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "factory": "0x0000000000000000000000000000000000000004",
+          "factory_code_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "zero_for_one": false,
+      "steps": [
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9897068899282769436710",
+          "next_balances": [
+            "990102931100717230563290",
+            "1009996000000000000000000"
+          ]
+        },
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "28549676435260838926494",
+          "next_balances": [
+            "961553254665456391636796",
+            "1039984000000000000000000"
+          ]
+        }
+      ],
+      "gross_buy_amount": "38446745334543608363204"
+    },
+    {
+      "name": "aerodrome-v2-volatile-false-true",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "aerodrome-v2-volatile",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4,
+        "fee_denominator": 10000,
+        "adapter_version": "aerodrome-v2-volatile/pool-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "0",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "factory": "0x0000000000000000000000000000000000000004",
+          "factory_code_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "zero_for_one": false,
+      "steps": [
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29114902309541470386062",
+          "next_balances": [
+            "970885097690458529613938",
+            "1029988000000000000000000"
+          ]
+        },
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9331843025002137977142",
+          "next_balances": [
+            "961553254665456391636796",
+            "1039984000000000000000000"
+          ]
+        }
+      ],
+      "gross_buy_amount": "38446745334543608363204"
+    },
+    {
+      "name": "aerodrome-v2-stable-true-false",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "aerodrome-v2-stable",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4,
+        "fee_denominator": 10000,
+        "adapter_version": "aerodrome-v2-stable/pool-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "0",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "factory": "0x0000000000000000000000000000000000000004",
+          "factory_code_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "zero_for_one": true,
+      "steps": [
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9995995008000205979841",
+          "next_balances": [
+            "1009996000000000000000000",
+            "990004004991999794020159"
+          ]
+        },
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29986727121679677948240",
+          "next_balances": [
+            "1039984000000000000000000",
+            "960017277870320116071919"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39982722129679883928081"
+    },
+    {
+      "name": "aerodrome-v2-stable-true-true",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "aerodrome-v2-stable",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4,
+        "fee_denominator": 10000,
+        "adapter_version": "aerodrome-v2-stable/pool-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "0",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "factory": "0x0000000000000000000000000000000000000004",
+          "factory_code_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "zero_for_one": true,
+      "steps": [
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29987595658637933725896",
+          "next_balances": [
+            "1029988000000000000000000",
+            "970012404341362066274104"
+          ]
+        },
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9995126471041950202185",
+          "next_balances": [
+            "1039984000000000000000000",
+            "960017277870320116071919"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39982722129679883928081"
+    },
+    {
+      "name": "aerodrome-v2-stable-false-false",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "aerodrome-v2-stable",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4,
+        "fee_denominator": 10000,
+        "adapter_version": "aerodrome-v2-stable/pool-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "0",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "factory": "0x0000000000000000000000000000000000000004",
+          "factory_code_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "zero_for_one": false,
+      "steps": [
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9995995008000205979841",
+          "next_balances": [
+            "990004004991999794020159",
+            "1009996000000000000000000"
+          ]
+        },
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29986727121679677948240",
+          "next_balances": [
+            "960017277870320116071919",
+            "1039984000000000000000000"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39982722129679883928081"
+    },
+    {
+      "name": "aerodrome-v2-stable-false-true",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "aerodrome-v2-stable",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4,
+        "fee_denominator": 10000,
+        "adapter_version": "aerodrome-v2-stable/pool-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "0",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "factory": "0x0000000000000000000000000000000000000004",
+          "factory_code_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "zero_for_one": false,
+      "steps": [
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29987595658637933725896",
+          "next_balances": [
+            "970012404341362066274104",
+            "1029988000000000000000000"
+          ]
+        },
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9995126471041950202185",
+          "next_balances": [
+            "960017277870320116071919",
+            "1039984000000000000000000"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39982722129679883928081"
+    },
+    {
+      "name": "curve-plain2-basic-true-false",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "curve-plain2-basic",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-plain2-basic/factory-5",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "10000",
+          "admin_fee": 5000000000,
+          "max_iterations": 255
+        }
+      },
+      "zero_for_one": true,
+      "steps": [
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9995010298009604960885",
+          "next_balances": [
+            "1010000000000000000000000",
+            "990002989900010000960492"
+          ]
+        },
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29973136487886285981849",
+          "next_balances": [
+            "1040000000000000000000000",
+            "960023856386015694513261"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39968146785895890942734"
+    },
+    {
+      "name": "curve-plain2-basic-true-true",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "curve-plain2-basic",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-plain2-basic/factory-5",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "10000",
+          "admin_fee": 5000000000,
+          "max_iterations": 255
+        }
+      },
+      "zero_for_one": true,
+      "steps": [
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29979087459727674831566",
+          "next_balances": [
+            "1030000000000000000000000",
+            "970014914323493668170669"
+          ]
+        },
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9989059333866966800363",
+          "next_balances": [
+            "1040000000000000000000000",
+            "960023856378315403457781"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39968146793594641631929"
+    },
+    {
+      "name": "curve-plain2-basic-false-false",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "curve-plain2-basic",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-plain2-basic/factory-5",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "10000",
+          "admin_fee": 5000000000,
+          "max_iterations": 255
+        }
+      },
+      "zero_for_one": false,
+      "steps": [
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9995010298009604960885",
+          "next_balances": [
+            "990002989900010000960492",
+            "1010000000000000000000000"
+          ]
+        },
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29973136487886285981849",
+          "next_balances": [
+            "960023856386015694513261",
+            "1040000000000000000000000"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39968146785895890942734"
+    },
+    {
+      "name": "curve-plain2-basic-false-true",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "curve-plain2-basic",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 4000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-plain2-basic/factory-5",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "10000",
+          "admin_fee": 5000000000,
+          "max_iterations": 255
+        }
+      },
+      "zero_for_one": false,
+      "steps": [
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29979087459727674831566",
+          "next_balances": [
+            "970014914323493668170669",
+            "1030000000000000000000000"
+          ]
+        },
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9989059333866966800363",
+          "next_balances": [
+            "960023856378315403457781",
+            "1040000000000000000000000"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39968146793594641631929"
+    },
+    {
+      "name": "balancer-v2-stable2-true-false",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "balancer-v2-stable2",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 1000000000000000,
+        "fee_denominator": 1000000000000000000,
+        "adapter_version": "balancer-v2-stable2/stable-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "100000",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "vault": "0x0000000000000000000000000000000000000005",
+          "vault_code_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "pool_id": "0x0000000000000000000000000000000000000003000000000000000000000000"
+        }
+      },
+      "zero_for_one": true,
+      "steps": [
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9989011881272124458132",
+          "next_balances": [
+            "1010000000000000000000000",
+            "990010988118727875541868"
+          ]
+        },
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29955156794477670135749",
+          "next_balances": [
+            "1040000000000000000000000",
+            "960055831324250205406119"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39944168675749794593881"
+    },
+    {
+      "name": "balancer-v2-stable2-true-true",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "balancer-v2-stable2",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 1000000000000000,
+        "fee_denominator": 1000000000000000000,
+        "adapter_version": "balancer-v2-stable2/stable-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "100000",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "vault": "0x0000000000000000000000000000000000000005",
+          "vault_code_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "pool_id": "0x0000000000000000000000000000000000000003000000000000000000000000"
+        }
+      },
+      "zero_for_one": true,
+      "steps": [
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29961101729633062927777",
+          "next_balances": [
+            "1030000000000000000000000",
+            "970038898270366937072223"
+          ]
+        },
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9983066967095920980857",
+          "next_balances": [
+            "1040000000000000000000000",
+            "960055831303271016091366"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39944168696728983908634"
+    },
+    {
+      "name": "balancer-v2-stable2-false-false",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "balancer-v2-stable2",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 1000000000000000,
+        "fee_denominator": 1000000000000000000,
+        "adapter_version": "balancer-v2-stable2/stable-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "100000",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "vault": "0x0000000000000000000000000000000000000005",
+          "vault_code_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "pool_id": "0x0000000000000000000000000000000000000003000000000000000000000000"
+        }
+      },
+      "zero_for_one": false,
+      "steps": [
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9989011881272124458132",
+          "next_balances": [
+            "990010988118727875541868",
+            "1010000000000000000000000"
+          ]
+        },
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29955156794477670135749",
+          "next_balances": [
+            "960055831324250205406119",
+            "1040000000000000000000000"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39944168675749794593881"
+    },
+    {
+      "name": "balancer-v2-stable2-false-true",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000003",
+        "protocol": "balancer-v2-stable2",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 1000000000000000,
+        "fee_denominator": 1000000000000000000,
+        "adapter_version": "balancer-v2-stable2/stable-1",
+        "token_behavior": "standard",
+        "stable": {
+          "code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rate0": "1000000000000000000",
+          "rate1": "1000000000000000000",
+          "amplification": "100000",
+          "admin_fee": 0,
+          "max_iterations": 255,
+          "vault": "0x0000000000000000000000000000000000000005",
+          "vault_code_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "pool_id": "0x0000000000000000000000000000000000000003000000000000000000000000"
+        }
+      },
+      "zero_for_one": false,
+      "steps": [
+        {
+          "input": "30000000000000000000000",
+          "amount_out": "29961101729633062927777",
+          "next_balances": [
+            "970038898270366937072223",
+            "1030000000000000000000000"
+          ]
+        },
+        {
+          "input": "10000000000000000000000",
+          "amount_out": "9983066967095920980857",
+          "next_balances": [
+            "960055831303271016091366",
+            "1040000000000000000000000"
+          ]
+        }
+      ],
+      "gross_buy_amount": "39944168696728983908634"
+    }
+  ]
+}
