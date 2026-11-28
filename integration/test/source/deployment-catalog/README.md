@@ -132,6 +132,27 @@ for pool in ethereum-uniswap-v2 ethereum-uniswap-v3; do
 done
 ```
 
+同一固定块的源码归档 `evidence/ethereum-uniswap-source-26511767.tar.gz` 包含 10 份文件，SHA-256 为 `91e030d5ab89ac7838b6db0c96c1170c8fe34e72e6cb4236c48ad707429ecbc7`。V2 用 1.0.1 发布包的多文件编译输入，其中 Factory 使用 11 个源文件，Pair 使用 10 个。V3 用公开标准编译输入，Factory 和 Pool 分别绑定 1 个和 7 个编译器声明的 immutable。四个合约均对照原块状态根验证代码并逐字节匹配完整 runtime。
+
+```sh
+tar -xkf "$evidence_root/evidence/ethereum-uniswap-source-26511767.tar.gz"
+source_root="$evidence_root/ethereum-source-26511767.QtMdQkte"
+xone_cache=integration/artifacts/local/r01-public-compilers
+mkdir -p "$xone_cache"
+for version in '0.5.16+commit.9c3226ce' '0.7.6+commit.7338295f'; do
+    compiler="soljson-v$version.js"
+    if [ ! -f "$xone_cache/$compiler" ]; then
+        npm_archive="$(npm pack "solc@${version%%+*}" --pack-destination "$xone_cache" --silent)"
+        tar -xOf "$xone_cache/$npm_archive" package/soljson.js > "$xone_cache/$compiler"
+    fi
+done
+node integration/tools/acceptance/r01_public_catalog_evm_sources.cjs \
+    "$fixed_block" integration/artifacts/local/ethereum-uniswap-source-report.json \
+    --bundle "$source_root/bundle.json"
+```
+
+复验入口会按发行列表核对编译器 SHA-256，并在本地编译四个合约。
+
 ### 2026-11-28 八链部署目录
 
 `evidence/eight-chain-deployments-2026-11-28.tar.gz` 包含 216 份文件，SHA-256 为 `d7dfea4ce9388f7be14c7555501b72577486f31a525a17e45ea03eec1e419b23`。归档保留 8 链的 16 项部署记录、15 个 EVM 样例池、3 个 Solana ProgramData 和相应的公开源响应。BSC 两项池查询使用同高度备用源。部署观察、源码复建、状态证明和生产准入分别由验收报告标记。

@@ -6,9 +6,26 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const ROOT=path.resolve(__dirname,'../../..'),BASE=path.join(ROOT,'integration/test/source/deployment-catalog'),V2=path.join(BASE,'evm-continuation-v2'),load=p=>JSON.parse(fs.readFileSync(p)),sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 const wrapper=require(path.join(ROOT,'integration/.runtime/stable-reference/node_modules/solc/wrapper')),{bindImmutables,compileStandardHeap}=require('./r01_public_catalog_sources.cjs'),{minimalProxy}=(()=>({minimalProxy:code=>{const m=/^0x363d3d373d3d3d363d73([0-9a-f]{40})5af43d82803e903d91602b57fd5bf3$/.exec(code.toLowerCase());return m?'0x'+m[1]:null;}}))();
 function ref(p){return {path:path.relative(ROOT,p),sha256:sha(fs.readFileSync(p))};}
-function getCompiler(version){const pin=load(path.join(BASE,'public-source-build-inputs.json')).compilers.find(p=>p.version===version);assert(pin,'PUBLIC_COMPILER_PIN_MISSING:'+version);const bytes=fs.readFileSync(path.join(ROOT,pin.blob.path));assert.equal(sha(bytes),pin.blob.sha256,'PUBLIC_COMPILER_BYTES');assert.equal(sha(fs.readFileSync(path.join(ROOT,pin.official_list.path))),pin.official_list.sha256,'OFFICIAL_COMPILER_LIST_BYTES');const list=load(path.join(ROOT,pin.official_list.path));assert.equal(list.builds.find(b=>b.longVersion===version)?.sha256.replace(/^0x/,''),pin.blob.sha256,'PUBLIC_COMPILER_OFFICIAL_SHA');const module=require(path.join(ROOT,pin.blob.path)),compiler=wrapper(module);assert.equal(compiler.version(),version+'.Emscripten.clang');return {pin,module,compiler};}
-function compileExact(input,version,fq,actual){
- const {pin,module,compiler}=getCompiler(version),at=fq.lastIndexOf(':'),file=fq.slice(0,at),name=fq.slice(at+1);assert(input.sources[file],'PUBLIC_TARGET_SOURCE');const attempts=[];
+function readPinned(ref) {
+ const target = fs.realpathSync(path.resolve(ROOT, ref.path));
+ assert(target.startsWith(ROOT + path.sep), 'PUBLIC_SOURCE_PATH');
+ const data = fs.readFileSync(target);
+ assert.equal(sha(data), ref.sha256, 'PUBLIC_SOURCE_BYTES');
+ return data;
+}
+function getCompiler(version,pins=load(path.join(BASE,'public-source-build-inputs.json')).compilers){
+ const pin = pins.find(p => p.version === version);
+ assert(pin, 'PUBLIC_COMPILER_PIN_MISSING:' + version);
+ readPinned(pin.blob);
+ const list = JSON.parse(readPinned(pin.official_list));
+ assert.equal(list.builds.find(b => b.longVersion === version)?.sha256.replace(/^0x/, ''),
+              pin.blob.sha256, 'PUBLIC_COMPILER_OFFICIAL_SHA');
+ const module = require(path.join(ROOT, pin.blob.path)), compiler = wrapper(module);
+ assert.equal(compiler.version(), version + '.Emscripten.clang');
+ return {pin, module, compiler};
+}
+function compileExact(input,version,fq,actual,pins){
+ const {pin,module,compiler}=getCompiler(version,pins),at=fq.lastIndexOf(':'),file=fq.slice(0,at),name=fq.slice(at+1);assert(input.sources[file],'PUBLIC_TARGET_SOURCE');const attempts=[];
  for(const variant of ['published','without-unused-global-libraries']){
   const selected=structuredClone(input);if(variant!=='published')selected.settings.libraries={};selected.settings.outputSelection={[file]:{[name]:['metadata','abi','evm.bytecode','evm.deployedBytecode','storageLayout']},'*':{'':['ast']}};
   const output=JSON.parse(version.startsWith('0.7.6+')?compileStandardHeap(module,JSON.stringify(selected)):compiler.compile(JSON.stringify(selected)));if(output.errors?.some(e=>e.severity==='error')){attempts.push({variant,error:output.errors.find(e=>e.severity==='error').message});continue;}
@@ -51,5 +68,79 @@ function verifyDirectory(directory){
  }
  return {schema_version:2,chain:plan.chain,anchor,entries:results,private_inputs_required:false,public_transactions_sent:0,native_header_body_state_verification_is_separate:true};
 }
-module.exports={compileExact,verifyDirectory};
-if(require.main===module){const result=verifyDirectory(path.resolve(process.argv[2]));if(process.argv[3])fs.writeFileSync(process.argv[3],JSON.stringify(result,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify(result.entries.map(e=>({id:e.id,factory:e.factory_rebuild?.source_rebuild_verified,pool:e.pool_rebuild?.source_rebuild_verified,error:e.error,pool_failures:e.pool_rebuild?.failed_candidates})),null,2));}
+async function verifySourceBundle(directory, bundlePath) {
+ const {loadBank} = require('./r01_public_catalog_evm_readonly.cjs');
+ const bundle = load(bundlePath);
+ const bank = await loadBank(directory);
+ const plan = load(path.join(directory, 'execution-plan.json'));
+ const execution = load(path.join(directory, 'fork-execution.json'));
+ const anchor = {height: bank.validation.height, hash: bank.evidence.block.hash};
+ assert.equal(bundle.schema_version, 1, 'PUBLIC_SOURCE_BUNDLE_SCHEMA');
+ assert.deepEqual(bundle.anchor, anchor, 'PUBLIC_SOURCE_BUNDLE_ANCHOR');
+ assert.equal(String(bundle.chain_id), bank.evidence.chain_id, 'PUBLIC_SOURCE_BUNDLE_CHAIN');
+ assert.equal(String(plan.chain_id), bank.evidence.chain_id, 'PUBLIC_SOURCE_PLAN_CHAIN');
+ assert.equal(execution.anchor.height, anchor.height, 'PUBLIC_SOURCE_EXECUTION_HEIGHT');
+ assert.equal(execution.anchor.hash, anchor.hash, 'PUBLIC_SOURCE_EXECUTION_HASH');
+ const expectedIds = plan.cases.map(entry => entry.catalog_deployment_id);
+ assert.equal(new Set(expectedIds).size, expectedIds.length, 'PUBLIC_SOURCE_DUPLICATE_CASE');
+ assert.deepEqual(bundle.entries.map(entry => entry.id).sort(), expectedIds.sort(), 'PUBLIC_SOURCE_BUNDLE_SCOPE');
+ const releasePins = bundle.release_pins ? JSON.parse(readPinned(bundle.release_pins)) : null;
+ const entries = [];
+ for (const entry of bundle.entries) {
+  const sample = plan.cases.find(row => row.catalog_deployment_id === entry.id);
+  const replay = execution.cases.find(row => row.catalog_deployment_id === entry.id);
+  assert(replay?.passed && replay.pool === sample.pool && replay.factory === sample.factory,
+         'PUBLIC_SOURCE_EXECUTION_DEPLOYMENT');
+  const report = {id: entry.id, protocol: sample.protocol, pool: sample.pool, factory: sample.factory};
+  for (const role of ['factory', 'pool']) {
+   const account = bank.accounts.get(sample[role]);
+   assert(account?.code, 'PUBLIC_SOURCE_MISSING_RUNTIME:' + role);
+   assert.equal(sha(Buffer.from(account.code.slice(2), 'hex')), sample[role + '_runtime_sha256'],
+                'PUBLIC_SOURCE_RUNTIME_PLAN_BINDING');
+   const source = JSON.parse(readPinned(entry[role].source));
+   assert.equal(source.address.toLowerCase(), sample[role], 'PUBLIC_SOURCE_DEPLOYMENT_ADDRESS');
+   assert.equal(String(source.chainId), bank.evidence.chain_id, 'PUBLIC_SOURCE_DEPLOYMENT_CHAIN');
+   assert.equal(source.runtimeBytecode.onchainBytecode, account.code, 'PUBLIC_SOURCE_OBSERVED_CODE');
+   let {compilerVersion, fullyQualifiedName} = source.compilation;
+   let input = source.stdJsonInput;
+   if (entry[role].release_input) {
+    const release = JSON.parse(readPinned(entry[role].release_input));
+    const sourcePins = releasePins?.packages.find(pkg => pkg.name === '@uniswap/v2-core');
+    assert(sourcePins && sample.protocol === 'uniswap-v2', 'PUBLIC_SOURCE_RELEASE_SCOPE');
+    assert.equal(release.compilerVersion, compilerVersion, 'PUBLIC_SOURCE_RELEASE_COMPILER');
+    for (const [name, file] of Object.entries(release.input.sources)) {
+     const pin = sourcePins.files.find(item => item.path === 'packages/core/' + name);
+     assert.equal(sha(file.content), pin?.sha256, 'PUBLIC_SOURCE_RELEASE_FILE:' + name);
+    }
+    fullyQualifiedName = release.fullyQualifiedName;
+    input = release.input;
+   }
+   const rebuilt = compileExact(input, compilerVersion, fullyQualifiedName, account.code, bundle.compilers);
+   assert(rebuilt.source_rebuild_verified, JSON.stringify(rebuilt.failed_candidates));
+   report[role + '_rebuild'] = rebuilt;
+  }
+  entries.push(report);
+ }
+ return {schema_version: 1, anchor, chain_id: bundle.chain_id, entries, public_network_requests: 0};
+}
+
+async function main() {
+ const [directory, output, option, bundle] = process.argv.slice(2);
+ assert(!option || (option === '--bundle' && bundle), 'PUBLIC_SOURCE_CLI_OPTION');
+ const result = option ? await verifySourceBundle(path.resolve(directory), path.resolve(bundle))
+                       : verifyDirectory(path.resolve(directory));
+ if (output) fs.writeFileSync(output, JSON.stringify(result, null, 2) + '\n', {flag: 'wx'});
+ console.log(JSON.stringify(result.entries.map(e => ({
+  id: e.id, factory: e.factory_rebuild?.source_rebuild_verified,
+  pool: e.pool_rebuild?.source_rebuild_verified, error: e.error,
+  pool_failures: e.pool_rebuild?.failed_candidates,
+ })), null, 2));
+}
+
+module.exports={compileExact,verifyDirectory,verifySourceBundle};
+if (require.main === module) {
+ main().catch(error => {
+  console.error(error.stack);
+  process.exitCode = 1;
+ });
+}

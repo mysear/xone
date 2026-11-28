@@ -476,7 +476,7 @@
 #### 当前迭代目标（R01 六链历史部署，2026-11-28）
 
 - 六份入库归档已在独立检出统一复验。八个固定块的状态证明、原池重放和 Go 回执根核验均通过。六链 11 项常规报价全部返回 HTTP 200，逐项与原池收款一致，回放无未归档 RPC 请求或公网请求。全目录资格、精确源码剩余差异、链费与生产执行资格仍待验收。[统一复验命令](integration/test/source/deployment-catalog/README.md#从已入库的证据统一复验)
-- Ethereum 26,511,767 的双源观测、Uniswap V2 与 V3 工厂及样例池证据已入库。重建 226 笔交易和回执，核验 11 个账户、32 个存储槽和 60 次预状态读取。补充证明支持 V2 的 4 次 getter 和 V3 的 257 次 getter。常规 Go Parser 和 Rust Router 对两项报价均返回 HTTP 200，分别匹配原池收款 165,056 和 165,469 原子单位。复验公网请求和未归档 RPC 请求均为零。精确源码、链费和生产执行资格仍待验收。[复验命令](integration/test/source/deployment-catalog/README.md#ethereum-uniswap-v2-与-v3-固定块原池复验)
+- Ethereum 26,511,767 的双源观测、Uniswap V2 与 V3 工厂及样例池证据已入库。重建 226 笔交易和回执，核验 11 个账户、32 个存储槽和 60 次预状态读取。补充证明支持 V2 的 4 次 getter 和 V3 的 257 次 getter。常规 Go Parser 和 Rust Router 对两项报价均返回 HTTP 200，分别匹配原池收款 165,056 和 165,469 原子单位。复验公网请求和未归档 RPC 请求均为零。两工厂及两样例池的完整 runtime 已从发布源码精确重建并绑定固定块状态根。链费和生产执行资格仍待验收。[复验命令](integration/test/source/deployment-catalog/README.md#ethereum-uniswap-v2-与-v3-固定块原池复验)
 - 2026-11-28 的八链部署目录和范围已入库。验证器核对 16 项部署、15 个 EVM 样例池及 3 个 Solana ProgramData 的原始响应和字节清单。修复同部署第二个样例池的选择器校验。整目录的生产准入仍待逐部署验收。[复验命令](integration/test/source/deployment-catalog/README.md#2026-11-28-八链部署目录)
 - 固定块采集在读取原合约状态前核对主源与见证源的 chain ID 和创世哈希。见证源的响应必须与主源的 finalized 块号、哈希和状态根一致。重试从已有取证序号继续写入。
 - Base 63,180,533、BSC 136,138,407、Arbitrum 528,150,486、OP Mainnet 160,113,647、Polygon 98,081,300 和 Avalanche 101,588,444 均取得双源响应。独立验证器重建六个原生区块头和六棵交易 trie，共核对 261 笔交易。Avalanche 样本的执行高度为 101,588,444，块头声明的状态高度为 101,588,438。
