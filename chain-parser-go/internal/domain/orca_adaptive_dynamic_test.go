@@ -44,7 +44,7 @@ func TestOrcaAdaptiveDynamicMixedWireAndOldProfileIsolation(t *testing.T) {
 	}
 }
 func TestOrcaAdaptiveDynamicIndependentWire(t *testing.T) {
-	s := assertOrcaIndependentWire(t, "orca-adaptive-dynamic-wire.json")
+	s := assertOrcaIndependentWire(t, "../../test/contracts/orca-adaptive-dynamic-wire.json")
 	p := s.Pools[0]
 	arrays := &p.OrcaWhirlpool.TickArrays
 	start := (*arrays)[len(*arrays)-1].StartTickIndex + 88*int32(p.OrcaWhirlpool.TickSpacing)
@@ -81,7 +81,7 @@ func TestOrcaAdaptiveDynamicIndependentWire(t *testing.T) {
 }
 
 func TestOrcaAdaptiveToken2022IndependentWire(t *testing.T) {
-	s := assertOrcaIndependentWire(t, "orca-adaptive-token2022-wire.json")
+	s := assertOrcaIndependentWire(t, "../../test/contracts/orca-adaptive-token2022-wire.json")
 	p := s.Pools[0]
 	clone := p.Clone()
 	clone.OrcaWhirlpool.Token2022.Token0.VaultData = ""
@@ -90,9 +90,9 @@ func TestOrcaAdaptiveToken2022IndependentWire(t *testing.T) {
 	}
 }
 
-func assertOrcaIndependentWire(t *testing.T, name string) Snapshot {
+func assertOrcaIndependentWire(t *testing.T, path string) Snapshot {
 	t.Helper()
-	b, e := os.ReadFile("../../test/contracts/" + name)
+	b, e := os.ReadFile(path)
 	if e != nil {
 		t.Fatal(e)
 	}

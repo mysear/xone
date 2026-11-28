@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 契约门禁现在识别完整的 JSON 与 gzip 夹具路径，并逐字节核对压缩证据。恢复两份 Orca 独立 wire 向量的跨服务副本，Go race 与两套 Rust 领域回归通过。Go 通过 Composable、Curve Meta 和 ManagedPool 三项压缩证据回归。完整契约门禁仍有其他协议夹具待恢复。 [契约检查](integration/tools/ci/contracts.py)
 - 已恢复 Uniswap V4 和 Pancake Infinity CL 的固定零 hook 回放夹具。原 Solidity 池逻辑生成 416 个兑换向量和 12 个分配用例，Router 差分通过。Go race 专项覆盖固定区块读取、协议身份和 Protobuf 分片。两套 Rust 的 Singleton 类型回归通过。Rust Kafka 测试目标仍依赖其他待恢复的协议分片。 [状态夹具生成器](integration/tools/ci/singleton-process-fixture.cjs)
 - 已恢复 12 个 EthereumJS 回执树向量和 11 个离线进程回执根。六种 EVM 协议版本的 Protobuf 夹具和 372 个差分用例通过。四种 Stable 模型重新执行原合约生成 180 个报价及 16 个分配用例，Router 逐项匹配金额和后状态。Go race 专项共 151 项通过，含回执根、协议帧和基础快照回归。 [回执参考生成器](integration/tools/ci/receipt-root-reference.py)
 - 已恢复 Uniswap V3 常规及最低初始化价格的离线状态和 Protobuf 测试向量。使用固定版本的 Uniswap V3 SDK 重新生成 264 个整数差分用例，Router 逐项通过，含 214 个成功和 50 个拒绝用例。Go 验证固定块读取、位图和有符号流动性。Rust 路由、拆分和 HTTP 回归通过。 [V3 状态生成工具](integration/tools/ci/v3-state-golden.py)

@@ -3,6 +3,7 @@
 from pathlib import Path
 import json
 import os
+import re
 
 root = Path(__file__).resolve().parents[3]
 services = ['chain-parser-go', 'chain-parser-rust', 'dex-router']
@@ -15,19 +16,24 @@ def check_copy(source, target):
     checked.append(str(target.relative_to(root)))
 
 
-# Each service carries only the test vectors it actually references.
-import re
+# ManagedPool original-run archives are evidence for the Router's projected vectors.
+go_archives = {
+    'managed-v2-bpt-exact-out.json.gz',
+    'managed-v2-scheduled-breaker-exact-out.json.gz',
+}
+contract_path = re.compile(r'test/contracts/([a-zA-Z0-9_.-]+\.json(?:\.gz)?)(?=["\x60])')
 for service in services:
     base = root / service
-    referenced = set()
+    referenced = set(go_archives) if service == 'chain-parser-go' else set()
     for folder in ['internal', 'cmd', 'crates', 'test']:
         for path in (base / folder).rglob('*'):
-            if path.suffix in ['.go', '.rs']:
-                foreign = re.search(r'(?:\.\./)+(?:chain-parser-go|chain-parser-rust|dex-router|integration)/', path.read_text())
+            if path.suffix in ('.go', '.rs'):
+                source = path.read_text()
+                foreign = re.search(r'(?:\.\./)+(?:chain-parser-go|chain-parser-rust|dex-router|integration)/', source)
                 if foreign:
                     raise SystemExit(f'Cross-project source/test path: {path.relative_to(root)}: {foreign.group(0)}')
-                referenced.update(re.findall(r'test/contracts/([a-zA-Z0-9_.-]+\.json)', path.read_text()))
-    local = {path.name for path in (base / 'test/contracts').glob('*.json')}
+                referenced.update(contract_path.findall(source))
+    local = {path.name for pattern in ('*.json', '*.json.gz') for path in (base / 'test/contracts').glob(pattern)}
     if referenced != local:
         raise SystemExit(f'Test vector set mismatch: {service}; missing={sorted(referenced-local)}, unused={sorted(local-referenced)}')
     for name in sorted(referenced):
