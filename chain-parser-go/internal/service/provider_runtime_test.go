@@ -294,6 +294,35 @@ func TestProviderRuntimePublishesOnlyCompletedObservations(t *testing.T) {
 	}
 }
 
+func TestProviderRuntimeAnchorTimeoutKeepsBackupEligible(t *testing.T) {
+	var ignored, stall atomic.Bool
+	var primaryCalls, backupCalls atomic.Int32
+	client := providerFixture(t, &ignored, &primaryCalls, func(r *http.Request, method string, params []json.RawMessage) {
+		if stall.Load() && method == "eth_getBlockByNumber" && string(params[0]) == `"0xa"` {
+			<-r.Context().Done()
+		}
+	})
+	backup := providerFixture(t, &ignored, &backupCalls)
+	client.URLs = append(client.URLs, backup.URLs[0])
+	p, err := NewProviderRuntime(client, "evm:1", runtimeHash("a"), probeConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = p.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	stall.Store(true)
+	before := backupCalls.Load()
+	anchor := ingest.CatalogAnchor{Chain: "evm:1", Height: 10, Hash: runtimeHash("c"), Generation: 1}
+	if err = p.VerifyAnchor(context.Background(), anchor); err != nil {
+		t.Fatal(err)
+	}
+	qualified := p.QualifiedClients(anchor)
+	if backupCalls.Load() != before+1 || len(qualified) != 1 || qualified[0].URLs[0] != backup.URLs[0] {
+		t.Fatalf("expected only the backup to remain qualified after primary timeout, got %d clients", len(qualified))
+	}
+}
+
 func TestProviderRuntimeOptionalObserverOwnsProbeAndAnchorContexts(t *testing.T) {
 	var ignored atomic.Bool
 	var calls atomic.Int32

@@ -468,19 +468,20 @@ func (p *ProviderRuntime) VerifyAnchor(ctx context.Context, a ingest.CatalogAnch
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(p.cfg.TimeoutMS)*time.Millisecond)
 	defer cancel()
 	snapshot := p.Snapshot()
-	eligible := map[string]ProviderRuntimeStatus{}
+	eligible := map[string]bool{}
 	for _, s := range snapshot.Providers {
 		if s.Identity.Status == rpc.Supported && s.CurrentHashPinned.Status == rpc.Supported && s.CurrentCodePinned.Status == rpc.Supported && s.CurrentCallPinned.Status == rpc.Supported && time.Since(s.CheckedAt) <= time.Duration(p.cfg.MaxAgeMS)*time.Millisecond {
-			eligible[s.ProviderID] = s
+			eligible[s.ProviderID] = true
 		}
 	}
 	_, clients := p.client.ProviderClients()
+	clients = slices.DeleteFunc(clients, func(client *rpc.Client) bool {
+		return !eligible[client.Providers()[0].ID]
+	})
+	deadline, _ := ctx.Deadline()
 	last := error(ErrProviderGate)
-	for _, client := range clients {
+	for i, client := range clients {
 		obs := client.Providers()[0]
-		if _, ok := eligible[obs.ID]; !ok {
-			continue
-		}
 		p.mu.Lock()
 		cached, exists := p.anchorChecks[obs.ID]
 		p.mu.Unlock()
@@ -495,7 +496,13 @@ func (p *ProviderRuntime) VerifyAnchor(ctx context.Context, a ingest.CatalogAnch
 		number := fmt.Sprintf("0x%x", a.Height)
 		verified := false
 		err := p.observed(ctx, ProviderReadAnchor, func(observed context.Context) error {
-			if err := client.Call(observed, "eth_getBlockByNumber", []any{number, false}, &b); err != nil {
+			remaining := time.Until(deadline)
+			if observeDeadline, ok := observed.Deadline(); ok {
+				remaining = min(remaining, time.Until(observeDeadline))
+			}
+			readCtx, cancelRead := context.WithTimeout(observed, remaining/time.Duration(len(clients)-i))
+			defer cancelRead()
+			if err := client.Call(readCtx, "eth_getBlockByNumber", []any{number, false}, &b); err != nil {
 				return err
 			}
 			if b.Number != number || !runtimeDigest(b.Hash) || !runtimeDigest(b.ParentHash) || !rpc.SameEVMHash(b.Hash, a.Hash) {
