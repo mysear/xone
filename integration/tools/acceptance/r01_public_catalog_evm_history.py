@@ -242,6 +242,8 @@ def capture_catalog(chain, directory):
         source = fetch_document(DOCUMENTS[seed['document']], attempt / (row['id'] + '.txt'))
         row.update(chain_key=target['chain_key'], genesis_hash=target['genesis_hash'],
                    role='factory', profiles=[], capture_height=anchor['height'], sources=[source])
+        if row['protocol'] == 'lfj-liquidity-book':
+            row['require_lfj_clone_binding'] = True
         validate_sources(ROOT, row)
         rows.append(row)
     require(rows, 'CATALOG_CHAIN_DEPLOYMENTS_MISSING')

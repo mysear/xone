@@ -98,6 +98,14 @@ def minimal_proxy(code):
     m=re.fullmatch(r'0x363d3d373d3d3d363d73([0-9a-f]{40})5af43d82803e903d91602b57fd5bf3',code.lower())
     return '0x'+m[1] if m else None
 
+def lfj_pair_clone(code):
+    match = re.fullmatch(
+        r'0x363d3d373d3d3d3d61002c806035363936013d73([0-9a-f]{40})'
+        r'5af43d3d93803e603357fd5bf3([0-9a-f]{40})([0-9a-f]{40})([0-9a-f]{4})002c',
+        code.lower())
+    if match:
+        return ('0x' + match[1], ['0x' + match[2], '0x' + match[3]], int(match[4], 16))
+
 def hexbytes(value):
     require(isinstance(value,str) and re.fullmatch(r'0x(?:[0-9a-fA-F]{2})*',value),'HEX_BYTES')
     return bytes.fromhex(value[2:])
@@ -307,14 +315,31 @@ def validate_samples(root,row,tag):
         code=rpc(root,sample['runtime']['observation'],'eth_getCode',[address,tag])
         require(hexbytes(code) and sha256(hexbytes(code))==sample['runtime']['sha256'],'SAMPLE_RUNTIME_BINDING')
         clone=minimal_proxy(code)
+        lfj = row['protocol'] == 'lfj-liquidity-book'
+        getters = sample['token_getters']
+        if lfj and (row.get('require_lfj_clone_binding') or getters or sample.get('factory_implementation')):
+            decoded = lfj_pair_clone(code)
+            require(decoded and decoded[2] == parameter, 'LFJ_PAIR_CLONE_BINDING')
+            clone, token_order, _ = decoded
+            require([getter['address'] for getter in getters] == token_order, 'LFJ_PAIR_CLONE_TOKENS')
+            current = sample.get('factory_implementation')
+            require(current, 'LFJ_FACTORY_IMPLEMENTATION_MISSING')
+            value = rpc(root, current['getter'], 'eth_call',
+                        [{'to': row['address'].lower(), 'data': '0xaf371065'}, tag])
+            # The factory template can change after the sampled clone was created.
+            require(len(hexbytes(value)) == 32 and int(value, 16) in range(1, 1 << 160),
+                    'LFJ_FACTORY_IMPLEMENTATION_VALUE')
+            require('0x' + value[-40:].lower() == current['address'], 'LFJ_FACTORY_IMPLEMENTATION_ADDRESS')
+            value = hexbytes(rpc(root, current['observation'], 'eth_getCode', [current['address'], tag]))
+            require(value and sha256(value) == current['sha256'], 'LFJ_FACTORY_IMPLEMENTATION_CODE')
         if clone:
             require(sample.get('implementation'),'SAMPLE_IMPLEMENTATION_MISSING')
             impl=sample['implementation'];require(impl['address'].lower()==clone,'SAMPLE_IMPLEMENTATION_TARGET')
             value=rpc(root,impl['observation'],'eth_getCode',[clone,tag])
             require(hexbytes(value) and sha256(hexbytes(value))==impl['sha256'],'SAMPLE_IMPLEMENTATION_RUNTIME')
-        getters=sample['token_getters']
-        if row['protocol']!='lfj-liquidity-book':
-            require([g['selector'] for g in getters]==['0x0dfe1681','0xd21220a7'],'POOL_TOKEN_GETTER_INVENTORY')
+        if not lfj or getters:
+            selectors = ['0x05e8746d', '0xda10610c'] if lfj else ['0x0dfe1681', '0xd21220a7']
+            require([g['selector'] for g in getters]==selectors,'POOL_TOKEN_GETTER_INVENTORY')
             for g in getters:
                 value=rpc(root,g['observation'],'eth_call',[{'to':address,'data':g['selector']},tag])
                 require(len(hexbytes(value))==32 and '0x'+value[-40:].lower()==g['address'],'POOL_TOKEN_GETTER_BINDING')

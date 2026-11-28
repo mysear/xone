@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from r01_public_catalog import ROOT, hexbytes, minimal_proxy, require, sha256
+from r01_public_catalog import ROOT, hexbytes, lfj_pair_clone, minimal_proxy, require, sha256
 from r01_public_catalog_capture import fetch_rpc, write_new
 
 TOKENS={
@@ -53,12 +53,28 @@ def capture(row,directory,endpoints=None):
             address='0x'+words[offset][-40:].lower();cref,code=call('eth_getCode',[address,tag])
             if not code or code=='0x':continue
             sample={'address':address,'query_tokens':[t.lower() for t in selected_tokens],'query_parameter':value,'factory_call':ref,'calldata':data,'result_address_word':offset,'runtime':{'observation':cref,'sha256':sha256(hexbytes(code)),'bytes':len(hexbytes(code))},'token_getters':[]}
-            for selector2 in ['0x0dfe1681','0xd21220a7']:
-                if protocol=='lfj-liquidity-book':break # LB uses getTokenX/getTokenY; no guessed ERC20 token getters.
+            lfj = protocol == 'lfj-liquidity-book'
+            token_selectors = ['0x05e8746d', '0xda10610c'] if lfj else ['0x0dfe1681','0xd21220a7']
+            for selector2 in token_selectors:
                 tref,token=call('eth_call',[{'to':address,'data':selector2},tag])
                 require(token and len(token)==66,'POOL_TOKEN_GETTER')
                 sample['token_getters'].append({'selector':selector2,'address':'0x'+token[-40:].lower(),'observation':tref})
             clone=minimal_proxy(code)
+            if lfj:
+                decoded = lfj_pair_clone(code)
+                require(decoded and decoded[2] == value, 'LFJ_PAIR_CLONE_BINDING')
+                clone = decoded[0]
+                getter = '0xaf371065'
+                gref, implementation = call('eth_call', [{'to':row['address'].lower(), 'data':getter},tag])
+                require(implementation and len(hexbytes(implementation)) == 32 and
+                        int(implementation, 16) in range(1, 1 << 160), 'LFJ_FACTORY_IMPLEMENTATION_VALUE')
+                current = '0x' + implementation[-40:].lower()
+                cref, current_code = call('eth_getCode', [current, tag])
+                require(current_code and current_code != '0x', 'LFJ_FACTORY_IMPLEMENTATION_CODE')
+                sample['factory_implementation'] = {
+                    'address': current, 'getter': gref, 'observation': cref,
+                    'sha256': sha256(hexbytes(current_code)),
+                }
             if clone:
                 iref,ic=call('eth_getCode',[clone,tag]);require(ic and ic!='0x','SAMPLE_CLONE_IMPLEMENTATION')
                 sample['implementation']={'address':clone,'observation':iref,'sha256':sha256(hexbytes(ic))}
