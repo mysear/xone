@@ -132,6 +132,22 @@ for pool in ethereum-uniswap-v2 ethereum-uniswap-v3; do
 done
 ```
 
+### 2026-11-28 八链部署目录
+
+`evidence/eight-chain-deployments-2026-11-28.tar.gz` 包含 216 份文件，SHA-256 为 `d7dfea4ce9388f7be14c7555501b72577486f31a525a17e45ea03eec1e419b23`。归档保留 8 链的 16 项部署记录、15 个 EVM 样例池、3 个 Solana ProgramData 和相应的公开源响应。BSC 两项池查询使用同高度备用源。部署观察、源码复建、状态证明和生产准入分别由验收报告标记。
+
+```sh
+evidence_root=integration/test/source/deployment-catalog
+tar -xkf "$evidence_root/evidence/eight-chain-deployments-2026-11-28.tar.gz"
+catalog_root="$evidence_root/recapture-2026-11-28.JK5g7GVQ"
+python3 integration/tools/acceptance/r01_public_catalog_build.py --observations "$catalog_root"
+python3 integration/tools/acceptance/r01_public_catalog.py \
+    --catalog "$catalog_root/catalog.json" --scope "$catalog_root/scope.json" \
+    --inventory "$catalog_root/manifest.json"
+```
+
+归档中的清单固定本轮验收工具的哈希。重建命令会按当前检出更新工具清单，并核对采集范围、部署地址、运行时代码和样例池。生产资格仍需各部署的精确源码、状态证明和运行时执行验收。
+
 ### 其余固定块复验目录
 
 固定块验证和原池重放使用 `evm-continuation-v2` 下的目录。

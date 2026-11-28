@@ -340,8 +340,8 @@ def validate_samples(root,row,tag):
             value=rpc(root,impl['observation'],'eth_getCode',[clone,tag])
             require(hexbytes(value) and sha256(hexbytes(value))==impl['sha256'],'SAMPLE_IMPLEMENTATION_RUNTIME')
         if not lfj or getters:
-            selectors = ['0x05e8746d', '0xda10610c'] if lfj else ['0x0dfe1681', '0xd21220a7']
-            require([g['selector'] for g in getters]==selectors,'POOL_TOKEN_GETTER_INVENTORY')
+            token_selectors = ['0x05e8746d', '0xda10610c'] if lfj else ['0x0dfe1681', '0xd21220a7']
+            require([g['selector'] for g in getters]==token_selectors,'POOL_TOKEN_GETTER_INVENTORY')
             for g in getters:
                 value=rpc(root,g['observation'],'eth_call',[{'to':address,'data':g['selector']},tag])
                 require(len(hexbytes(value))==32 and '0x'+value[-40:].lower()==g['address'],'POOL_TOKEN_GETTER_BINDING')

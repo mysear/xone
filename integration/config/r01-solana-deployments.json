@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "deployments": [
+    {
+      "id": "solana-raydium-cpmm",
+      "chain": "solana",
+      "protocol": "raydium-cpmm",
+      "document": "raydium",
+      "address": "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C"
+    },
+    {
+      "id": "solana-raydium-clmm",
+      "chain": "solana",
+      "protocol": "raydium-clmm",
+      "document": "raydium",
+      "address": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"
+    },
+    {
+      "id": "solana-orca-whirlpools",
+      "chain": "solana",
+      "protocol": "orca-whirlpools",
+      "document": "orca",
+      "address": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+    }
+  ]
+}

@@ -5,16 +5,81 @@ Re-running updates only generated catalog/scope files inside deployment-catalog.
 A scope binds actual observed runtime versions, addresses and H/hash, not a config
 hash masquerading as a deployment. Public compiler reports remain separate.
 """
+import argparse
 import json
 from pathlib import Path
+import re
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from r01_public_catalog import ROOT, sha256, require
+from r01_public_catalog import ROOT, load_json, sha256, require, validate_catalog
 from r01_public_catalog_capture import reference
 BASE=ROOT/'integration/test/source/deployment-catalog'
+TARGETS=ROOT/'integration/config/chain-targets.json'
+TOOL_PATTERNS=(
+    'integration/tools/acceptance/r01_public_catalog*.py',
+    'integration/tools/acceptance/r01_public_catalog*.cjs',
+    'integration/tools/acceptance/tests/test_r01_public_catalog*.py',
+)
 
 def write(name,data):
     (BASE/name).write_text(json.dumps(data,indent=2)+'\n')
+
+def scope_rows(rows):
+    fields = ('chain', 'chain_key', 'genesis_hash', 'protocol', 'version', 'address')
+    return [{key: row[key] for key in fields} | {
+        'anchor': {key: row['anchor'][key] for key in ('height', 'hash')},
+    } for row in rows]
+
+def inventory(directory):
+    manifest = directory / 'manifest.json'
+    files = [reference(path) for path in sorted(directory.rglob('*'))
+             if path.is_file() and path != manifest]
+    return {
+        'schema_version': 1,
+        'data_directory': str(directory.relative_to(ROOT)),
+        'authority': 'complete byte inventory; no consensus or deployment qualification inferred',
+        'files': files,
+        'tools': [reference(path) for pattern in TOOL_PATTERNS for path in sorted(ROOT.glob(pattern))],
+        'file_count': len(files),
+        'total_bytes': sum((ROOT / ref['path']).stat().st_size for ref in files),
+    }
+
+def build_observations(directory):
+    directory = directory.resolve()
+    require(directory != BASE and directory.is_relative_to(BASE), 'OBSERVATION_DIRECTORY')
+    rows = load_json(directory / 'observations.json')['deployments']
+    seeds = [row for name in ('r01-evm-history-deployments.json', 'r01-solana-deployments.json')
+             for row in load_json(TARGETS.parent / name)['deployments']]
+    identity_fields = ('id', 'chain', 'protocol', 'address')
+    expected = {tuple(row[key] for key in identity_fields) for row in seeds}
+    observed = {tuple(row[key] for key in identity_fields) for row in rows}
+    require(len(rows) == len(seeds) and observed == expected, 'OBSERVATION_DEPLOYMENT_SCOPE')
+
+    go = ROOT / 'chain-parser-go/internal/domain/protocols.go'
+    rust = ROOT / 'dex-router/crates/domain/src/protocols.rs'
+    go_profiles = go.read_text() + go.with_name('lfj.go').read_text()
+    rust_profiles = rust.read_text() + rust.with_name('lfj.rs').read_text()
+    profile_literal = r'"([a-z][a-z0-9-]+)"'
+    common_profiles = set(re.findall(profile_literal, go_profiles)) & set(re.findall(profile_literal, rust_profiles))
+    for row in rows:
+        runtime = row['runtime']['sha256']
+        if row['chain'] == 'solana':
+            row['version'] = f"sbf-sha256:{runtime}@upgrade:{row['upgrade']['slot']}"
+        else:
+            row['version'] = f'runtime-sha256:{runtime}'
+        protocol = 'lfj-lb-v21' if row['protocol'] == 'lfj-liquidity-book' else row['protocol']
+        row['profiles'] = sorted(profile for profile in common_profiles
+                                 if profile == protocol or profile.startswith(protocol + '-'))
+
+    catalog = {'schema_version': 1, 'catalog_kind': 'finite-read-only-public-deployment-evidence',
+               'deployments': rows}
+    scope = {'schema_version': 1, 'id': 'r01-eight-chains-public-observations',
+             'chain_targets_sha256': reference(TARGETS)['sha256'], 'required': scope_rows(rows)}
+    report = validate_catalog(ROOT, catalog, scope, load_json(TARGETS))
+    require(report['structurally_valid'], 'OBSERVATION_EVIDENCE_INVALID:' + str(report['errors']))
+    for name, data in (('catalog.json', catalog), ('scope.json', scope)):
+        (directory / name).write_text(json.dumps(data, indent=2) + '\n')
+    (directory / 'manifest.json').write_text(json.dumps(inventory(directory), indent=2) + '\n')
 
 def build():
     catalog=json.loads((BASE/'samples/index.json').read_text());retry=json.loads((BASE/'samples-retry/index.json').read_text())
@@ -65,7 +130,7 @@ def build():
     catalog.update(schema_version=1,catalog_kind='finite-read-only-public-deployment-evidence',
         all_requested_versions_verified=False,production_ready=False,consensus_verified=False,
         qualification='computed only by validator with --replay; stored passed/status fields never grant qualification')
-    required=[{k:r[k] for k in ['chain','chain_key','genesis_hash','protocol','version','address']}|{'anchor':{k:r['anchor'][k] for k in ['height','hash']}} for r in catalog['deployments']]
+    required=scope_rows(catalog['deployments'])
     scope={'schema_version':1,'id':'r01-initial-eight-chains-observed-versions','chain_targets_sha256':sha256((ROOT/'integration/config/chain-targets.json').read_bytes()),
         'plan_sections':['3','7.1','12.11','12.14'],'trace_bindings':['R01.1','R01.2','7.1.r01-deployment-evidence','12.14.r01-deployed-source-rebuild'],
         'required':required,'scope_limit':'one observed runtime version per initial chain/protocol; selected real pools; not all markets, historical upgrades or all protocol releases',
@@ -73,8 +138,13 @@ def build():
     write('catalog.json',catalog);write('scope.json',scope)
     eth=[r for r in catalog['deployments'] if r['id']=='ethereum-uniswap-v2'];write('catalog-ethereum.json',{'schema_version':1,'deployments':eth})
     write('scope-ethereum.json',scope|{'id':'r01-ethereum-h26355865-single-runtime-local-execution','required':[r for r in required if r['chain']=='ethereum' and r['protocol']=='uniswap-v2']})
-    files=[reference(p) for p in sorted(BASE.rglob('*')) if p.is_file() and p!=BASE/'manifest.json']
-    tools=[reference(p) for pattern in ['integration/tools/acceptance/r01_public_catalog*.py','integration/tools/acceptance/r01_public_catalog*.cjs','integration/tools/acceptance/tests/test_r01_public_catalog*.py'] for p in sorted(ROOT.glob(pattern))]
-    write('manifest.json',{'schema_version':1,'data_directory':str(BASE.relative_to(ROOT)),'authority':'complete byte inventory; no consensus or deployment qualification inferred','files':files,'tools':tools,'file_count':len(files),'total_bytes':sum((ROOT/r['path']).stat().st_size for r in files)})
+    write('manifest.json', inventory(BASE))
     print(json.dumps({'deployments':len(required),'chains':len(set(r['chain'] for r in required)),'sample_pools':sum(len(r.get('sample_pools',[])) for r in catalog['deployments']),'programdata_payload_bytes':sum(r['runtime']['bytes'] for r in catalog['deployments'] if r['chain']=='solana')},indent=2))
-if __name__=='__main__':build()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--observations', type=Path, help='Versioned capture directory with observations.json')
+    args = parser.parse_args()
+    if args.observations:
+        build_observations(args.observations)
+    else:
+        build()
