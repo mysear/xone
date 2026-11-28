@@ -4,6 +4,30 @@
 
 ## 六链固定块复验
 
+### 从已入库的证据统一复验
+
+在独立检出中运行以下命令。准备步骤安装固定版本的 Node 参考依赖、校验 Solidity 0.8.19 编译器并构建两个服务。复验入口校验六个归档的 SHA-256，重放八个固定块和 11 项部署。
+
+```sh
+mkdir -p integration/.runtime/stable-reference integration/.runtime/receipt-root-reference
+cp integration/tools/reference/stable-models/package*.json integration/.runtime/stable-reference/
+cp integration/tools/reference/receipt-root/package*.json integration/.runtime/receipt-root-reference/
+npm ci --prefix integration/.runtime/stable-reference --ignore-scripts --no-audit --no-fund
+npm ci --prefix integration/.runtime/receipt-root-reference --ignore-scripts --no-audit --no-fund
+PYTHONPATH=integration/tools/acceptance python3 -c 'from r01_public_catalog_evm_history import prepare_helper_compiler; prepare_helper_compiler()'
+mkdir -p replay-bin
+(cd chain-parser-go && go build -trimpath -o ../replay-bin/chain-parser-go ./cmd/chain-parser)
+cargo +1.90.0 build --locked --manifest-path dex-router/Cargo.toml \
+    --target-dir dex-router/target --bin dex-router
+python3 integration/tools/acceptance/r01_fixed_evm_replay.py \
+    --parser-bin replay-bin/chain-parser-go --router-bin dex-router/target/debug/dex-router \
+    --out integration/artifacts/local/r01-public-fixed-suite
+```
+
+每次运行使用一个尚未创建的 `r01-public-` 输出目录。`fixed-replay-report.json` 记录八项状态证明、Go 回执核验日志和 11 项常规服务报价的路径与摘要。回放要求 HTTP 200、逐项匹配原池实际收款，且没有未归档的 RPC 请求或回放期间的公网请求。此复验覆盖池级毛额。链费和生产执行资格另有独立验收。
+
+### 采集新的固定块
+
 在仓库根目录执行以下命令。每链写入独立目录，保留链 ID、创世块、primary 的 finalized 完整块与 witness 的同高度头。两源身份均与 `integration/config/chain-targets.json` 一致才会选用。重建区块头和交易根时，使用 `r01_public_catalog_evm_commitments.cjs` 导出的 `verifyBody(chain, header)`，其中 `header` 是 `anchor.json` 的 `header` 引用所指 RPC 回应的 `response.result`。Avalanche 的目标高度状态证明还需要其后继结算头。
 
 ```sh
