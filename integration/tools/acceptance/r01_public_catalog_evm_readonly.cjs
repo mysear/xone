@@ -173,10 +173,54 @@ async function readLfj(pool, call, bank, storageReads) {
  }
 }
 
+async function readBscLiquidityMining(row, call, tickIds, observations, core) {
+ const get = (address, signature, ...args) => call(address,
+  ethers.utils.id(signature).slice(0,10) + args.map(value => word(BigInt.asUintN(256,BigInt(value))).slice(2)).join(''));
+ const address = result => '0x' + result.slice(-40);
+ const pool = row.pool;
+ const lm = address(await get(pool,'lmPool()'));
+ const chef = address(await get(lm,'masterChef()'));
+ const predecessors = [];
+ for (const ordinal of ['first','second','third']) predecessors.push(address(await get(lm,ordinal+'LMPool()')));
+ for (const getter of ['pool()', 'rewardGrowthGlobalX128()', 'lmLiquidity()', 'lastRewardTimestamp()', 'initialization()']) {
+  await get(lm,getter);
+ }
+ for (const getter of ['CAKE()', 'WETH()', 'nonfungiblePositionManager()', 'totalAllocPoint()',
+                       'latestPeriodCakePerSecond()', 'latestPeriodEndTime()']) await get(chef,getter);
+ const pid = await get(chef,'v3PoolAddressPid(address)',pool);
+ await get(chef,'poolInfo(uint256)',pid);
+ await get(chef,'getLatestPeriodInfo(address)',pool);
+ await get(row.factory,'getPool(address,address,uint24)',core.token0,core.token1,core.fee);
+ await get(row.factory,'poolDeployer()');
+ for (const token of [core.token0,core.token1]) await get(address(token),'balanceOf(address)',pool);
+ for (const getter of ['feeGrowthGlobal0X128()', 'feeGrowthGlobal1X128()', 'protocolFees()', 'maxLiquidityPerTick()']) {
+  await get(pool,getter);
+ }
+ assert(observations>0 && observations<=4096,'READONLY_BSC_OBSERVATIONS');
+ for (let index=0; index<observations; index++) await get(pool,'observations(uint256)',index);
+ for (const [generation, prior] of predecessors.entries()) {
+  await get(prior,'pool()');
+  await get(prior,'masterChef()');
+  if (generation===1) await get(prior,'OldLMPool()');
+  if (generation===2) {
+   await get(prior,'firstLMPool()');
+   await get(prior,'secondLMPool()');
+  }
+ }
+ for (const tick of tickIds) {
+  await get(lm,'lmTicks(int24)',tick);
+  await get(lm,'lmTicksFlag(int24)',tick);
+  for (const [generation, prior] of predecessors.entries()) {
+   await get(prior,'lmTicks(int24)',tick);
+   if (generation>0) await get(prior,'lmTicksFlag(int24)',tick);
+  }
+ }
+}
+
 async function probe(inputFile,out){
  const input=load(inputFile),row=input.row;
  const cases=['base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3',
-              'optimism-velodrome-v2','polygon-uniswap-v3','arbitrum-uniswap-v3','bsc-pancake-v2','avalanche-uniswap-v3'];
+              'optimism-velodrome-v2','polygon-uniswap-v3','arbitrum-uniswap-v3','bsc-pancake-v2','bsc-pancake-v3','avalanche-uniswap-v3'];
  const isLfj = row.id === 'avalanche-lfj-v21' && row.chain === 'avalanche' && row.protocol === 'lfj-liquidity-book';
  assert(isLfj || (cases.includes(row.id)&&row.id===row.chain+'-'+row.protocol),'BOUNDED_GETTER_SCOPE');
  for(const r of Object.values(row.inputs))if(r&&typeof r==='object'&&r.path&&r.sha256)readRef(r);
@@ -209,7 +253,19 @@ async function probe(inputFile,out){
     const space=Number(BigInt(get('0xd0c93a7c'))),slot0=get('0x3850c7bd');let tick=BigInt('0x'+slot0.slice(66,130));if(tick>>255n)tick-=1n<<256n;
     const center=Math.floor(Math.floor(Number(tick)/space)/256),arg=n=>(BigInt(n)+(n<0?1n<<256n:0n)).toString(16).padStart(64,'0');
     const bitmap=BigInt(await call(pool,'0x5339c296'+arg(center)));
-    for(let bit=0;bit<256;bit++)if(bitmap>>BigInt(bit)&1n)await call(pool,'0xf30dba93'+arg((center*256+bit)*space));
+    const initialized = [];
+    for (let bit=0; bit<256; bit++) {
+     if (!(bitmap >> BigInt(bit) & 1n)) continue;
+     const id = (center*256+bit)*space;
+     initialized.push(id);
+     await call(pool,'0xf30dba93'+arg(id));
+    }
+    if (row.id==='bsc-pancake-v3') {
+     const [, , , , observationCount] = ethers.utils.defaultAbiCoder.decode(
+      ['uint160','int24','uint16','uint16','uint16','uint32','bool'],slot0);
+     await readBscLiquidityMining(row,call,initialized,observationCount,
+      {token0:get('0x0dfe1681'),token1:get('0xd21220a7'),fee:get('0xddca3f43')});
+    }
    }
   }
  }catch(e){if(e.admission)admissionRejection=e.message;else failure=e.message;}finally{await vm.close();}

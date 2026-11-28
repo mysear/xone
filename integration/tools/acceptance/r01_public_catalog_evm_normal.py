@@ -16,7 +16,7 @@ from r01_public_catalog_capture import reference,write_new
 from r01_public_catalog_evm_process import normal_profile,words,call_key,captured_calls,FixedRPC,run as normal_run
 BASE=ROOT/'integration/test/source/deployment-catalog/evm-normal-v4'
 IDS={'base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3','polygon-uniswap-v3','arbitrum-uniswap-v3'}
-GETTER_IDS=IDS|{'optimism-velodrome-v2','bsc-pancake-v2','avalanche-uniswap-v3','avalanche-lfj-v21'}
+GETTER_IDS=IDS|{'optimism-velodrome-v2','bsc-pancake-v2','bsc-pancake-v3','avalanche-uniswap-v3','avalanche-lfj-v21'}
 
 def validate_probe(probe):
     require(probe['passed'] is True and not probe['missing'] and probe['calls'],'NORMAL_GETTER_PROOF_INCOMPLETE')
@@ -48,7 +48,30 @@ def pool_config(row,probe):
         }
     token0='0x'+value(pool,'0x0dfe1681')[-40:];token1='0x'+value(pool,'0xd21220a7')[-40:]
     cfg={'id':pool,'protocol':normal_profile(row['protocol']),'token0':token0,'token1':token1,'program_id':'','accounts':[]};identity={'expected_factory':row['factory'],'expected_code_sha256':row['pool_runtime_sha256']}
-    if row['protocol']=='pancake-v2':
+    if row['id'] == 'bsc-pancake-v3':
+        def address(a, d):
+            return '0x' + value(a, d)[-40:]
+        lm = address(pool, '0x540d4918')
+        chef = address(lm, '0x575a86b2')
+        code = row['runtime_sha256']
+        require(address(pool, '0xc45a0155') == row['factory'], 'NORMAL_BSC_PANCAKE_FACTORY')
+        predecessors = [address(lm, d) for d in ('0xac1f40e1','0xb77efe0f','0x4e8845e0')]
+        ledger = identity | {
+            'expected_factory_code_sha256':row['factory_runtime_sha256'],
+            'expected_lm_pool':lm, 'expected_lm_pool_code_sha256':code[lm],
+            'expected_master_chef':chef, 'expected_master_chef_code_sha256':code[chef],
+            'expected_cake':address(chef,'0x4ca6ef28'), 'expected_weth':address(chef,'0xad5c4648'),
+            'expected_position_manager':address(chef,'0xb44a2722'),
+            'expected_token0_code_sha256':code[token0], 'expected_token1_code_sha256':code[token1],
+            'token_policy':'standard', 'tick_word_radius':0, 'max_initialized_ticks':256,
+            'max_steps':8192, 'max_observations':4096,
+        }
+        cfg.update(protocol='pancake-v3-bsc-lm-v4',
+                   fee_numerator=words(value(pool,'0xddca3f43'))[0], fee_denominator=10**6,
+                   pancake_bsc_lm={'ledger':ledger, 'predecessors':[
+                       {'address':a, 'code_sha256':code[a]} for a in predecessors
+                   ]})
+    elif row['protocol']=='pancake-v2':
         cfg.update(fee_numerator=25,fee_denominator=10000,v2=identity)
     elif row['protocol'] in ('aerodrome-v2', 'velodrome-v2'):
         meta = words(value(pool, '0x392f37e9'))

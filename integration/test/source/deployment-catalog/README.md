@@ -105,6 +105,14 @@ Base Slipstream 按上一节的命令重建。`slipstream_base` 使用 `evm-cont
 
 常规报价使用 `evm-normal-v4/avalanche-lfj-proof.no6DPSRo/input.json`，运行前述 getter 和常规报价命令，后者可传入 `--timeout-seconds 150`。原运行时共执行 4,848 次 getter，双向遍历全部 1,209 个非空 bin，验证储备、份额及代币余额。此样本的预言机索引为零。Router 返回 HTTP 200，池级输出与原池收款均为 134 个原子单位。移除 `proof-005.json` 的引用时，重放检测到缺失的 MPT 存储节点。
 
+### BSC Pancake V3 LM 固定块报价
+
+从仓库根目录展开 `evidence/bsc-pancake-v3-136166651.tar.gz`，SHA-256 为 `167e36ec2217ef40498ac0c9e6cc78aeaebcd4fa897a9aa3dfae9943075cc5fe`。在块目录 `evm-continuation-v2/bsc-lm-proof.CnFonFFC` 复验原池和回执。调用状态承诺 CLI 时传入块目录、空输出路径和 `prestate-evidence-v2.json`，以同时核对三代前序 LM 账户。
+
+用 `evm-normal-v4/bsc-lm-proof.CnFonFFC/input.json` 运行 getter 和常规报价复验，后者可传入 `--timeout-seconds 150`。块 136,166,651 的 26 份补充证明覆盖 2,100 条预言机观测、当前 bitmap 字内的 253 个初始化 tick、MasterChef 以及第四代 LM 和三代前序 LM 的读取。4,168 次 getter 通过。Router 返回 HTTP 200，池级输出与原池收款均为 55,536,458,068,512,518 个原子单位。Go 核验同块全部 85 笔回执。
+
+压缩包也保留七份源码响应及链上代码记录。准备固定 Solidity 0.7.6 和 0.8.10 编译器后，运行 `node integration/tools/ci/pancake-v3-bsc-artifacts.cjs` 和 `node integration/tools/ci/pancake-bsc-predecessor-artifacts.cjs`。六个部署在核对 immutable 绑定后完整 runtime 一致，第一代 LM 的执行体一致且 CBOR 来源摘要有差异。
+
 本目录是有限的真实观测集：8 链、16 个 chain/protocol、14 个经 factory 查询并读取代码的样例池，以及 3 个完整 Solana ProgramData。所有外部输入均来自无需账号、API key 的公共 HTTPS。目录中的 `version` 使用实际 runtime SHA-256；Solana 另包含解码得到的 upgrade slot。`profiles` 表示本项目代码识别的 profile，不能证明该 profile 对应当前部署源码。
 
 `manifest.json` 固定全部数据文件和本任务工具／测试的逐字节清单；默认 CLI 也检查缺失、额外文件和改动。`catalog.json` 包含逐项原始证据引用和 SHA-256，`scope.json` 固定声明范围的 chain、protocol、runtime version、地址、H/hash。缺行、重复、范围外行、错误地址或 H/hash 不能通过范围校验。`catalog-ethereum.json` / `scope-ethereum.json` 是明确较窄的 Ethereum V2 单部署验收范围，不代表整个 R01 已完成。
