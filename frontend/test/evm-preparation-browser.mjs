@@ -20,12 +20,32 @@ const report={passed:false,checks:[],scope:'RETAINED_ORIGINAL_STATE_LOOPBACK_RPC
 try{
  let info;for(let i=0;i<600;i++){try{info=JSON.parse(await readFile(infoFile,'utf8'));break;}catch{}if(child.exitCode!==null)throw Error(`harness exited ${child.exitCode}`);await new Promise(resolve=>setTimeout(resolve,100));}assert(info,'harness startup timeout');
  browser=await chromium.launch({headless:true,channel:process.env.XONE_CHROME_CHANNEL||'chrome'});page=await browser.newPage({viewport:{width:1360,height:1100},locale:'zh-CN'});
+ await page.addInitScript(()=>{
+  sessionStorage.setItem('xone-api-base:'+location.pathname+location.search,'http://127.0.0.1:1');
+  localStorage.setItem('xone-api-base','http://127.0.0.1:1');
+ });
+ const optionsUrl=info.api+'/v1/quote-options';
+ await page.route(optionsUrl,async route=>{
+  const response=await route.fetch();
+  if(!response.ok())return route.fulfill({response});
+  const options=await response.json();
+  options.limits.maxHops=1;
+  return route.fulfill({response,json:options});
+ });
  await page.goto(`${origin}/?api=${encodeURIComponent(info.api)}`);await page.uncheck('#autoQuote');await page.uncheck('#autoRefresh');await page.fill('#apiToken',info.token);await page.locator('#apiToken').dispatchEvent('change');
  await page.waitForFunction(()=>Array.from(document.querySelector('#chainKey').options).some(o=>o.value==='evm:31337'));
+ assert.equal(await page.locator('#apiBase').inputValue(),info.api);
  assert.equal(await page.locator('#amount').inputValue(),'');
  await page.selectOption('#chainKey','evm:31337');await page.selectOption('#sellToken',info.request.sellToken);await page.selectOption('#buyToken',info.request.buyToken);
  const maxHops=page.locator('#maxHops');
+ assert.equal(await maxHops.getAttribute('max'),'1');
+ assert.equal(await maxHops.inputValue(),'1');
+ await page.unroute(optionsUrl);
+ await page.click('#refreshButton');
+ await page.waitForFunction(()=>Number(document.querySelector('#maxHops').max)>=2);
  assert(Number(await maxHops.getAttribute('max'))>=2);
+ assert.equal(await maxHops.inputValue(),String(Math.min(3,Number(await maxHops.getAttribute('max')))));
+ report.checks.push('explicit_router_url_and_restored_hop_limit_after_refresh');
  await maxHops.fill('2');
  assert(await page.locator('#evmFeeOptions').isVisible());assert(await page.locator('#sourceAccount').isHidden());assert(await page.locator('.wallet-panel').isHidden());report.checks.push('evm_fees_and_account_controls_are_chain_specific');
  let exactIn;
@@ -37,9 +57,10 @@ try{
   const endpoint=kind==='EXACT_IN'?'/v1/quote':'/v1/quote-exact-out';
   const isQuote=r=>r.url()===info.api+endpoint&&r.request().method()==='POST';
   let estimate;
-  for (const trigger of ['manual','automatic']) {
+  for (const trigger of ['manual','enter','automatic']) {
    const response=page.waitForResponse(isQuote);
    if(trigger==='manual')await page.click('#calculateButton');
+   else if(trigger==='enter')await page.press('#amount','Enter');
    else await page.check('#autoQuote');
    const raw=await response;
    estimate=await raw.json();
@@ -52,6 +73,7 @@ try{
    assert.equal(body.constraints.maxHops,2);
    await page.waitForFunction(amount=>document.querySelector('[data-testid="buy-amount"]')?.textContent===amount,estimate.grossBuyAmount);
    assert.equal(await page.locator('#error').textContent(),'');
+   assert.equal(await page.locator('#preparation').textContent(),'');
    await page.uncheck('#autoQuote');
    report.checks.push(`${kind}_${trigger}_estimate_omits_accounts_and_uses_selected_hops`);
   }

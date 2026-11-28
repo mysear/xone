@@ -5,7 +5,9 @@ const params = new URLSearchParams(location.search);
 const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, estimating:false, estimate:null, quote:null, preparation:null, independent:null, independentAbort:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
 const walletState={wallets:[],connection:null,unsubscribe:null,signed:null,receipt:null,receiptBase:null,receiptSeq:0,timer:null,submitting:false,signing:false};
 const apiBase = $('apiBase');
-apiBase.value = sessionStorage.getItem(`xone-api-base:${location.pathname}${location.search}`) || params.get('api') || localStorage.getItem('xone-api-base') || 'http://127.0.0.1:8080';
+const maxHopsInput = $('maxHops');
+let preferredMaxHops = maxHopsInput.defaultValue;
+apiBase.value = params.get('api') || localStorage.getItem('xone-api-base') || 'http://127.0.0.1:8080';
 localStorage.removeItem('xone-api-token');
 function base() {
   const url = new URL(apiBase.value);
@@ -99,9 +101,13 @@ function tokens() {
   if ($('sellToken').value===$('buyToken').value && $('buyToken').options.length>1) $('buyToken').selectedIndex=1;
   modes(); renderPools(); badge('stateBadge',c?.ready?'可报价':'未就绪',c?.ready?'ok':'bad');
   $('calculateButton').disabled=!c?.ready;
-  const hopLimit=state.metadata.limits?.maxHops||8;
-  $('maxHops').max=hopLimit;
-  if (Number($('maxHops').value)>hopLimit) $('maxHops').value=hopLimit;
+  const hopLimit=state.metadata.limits?.maxHops;
+  maxHopsInput.disabled=!c?.ready;
+  if (maxHopsInput.max!==(hopLimit?.toString() ?? '')) {
+    maxHopsInput.max=hopLimit?.toString() ?? '';
+    maxHopsInput.value=hopLimit && Number(preferredMaxHops)>hopLimit ? String(hopLimit) : preferredMaxHops;
+  }
+  $('hopLimit').textContent=c?.ready ? `Router 允许 1–${hopLimit} 跳` : '';
 }
 function schedule() {
   clearTimeout(state.debounce);
@@ -121,14 +127,15 @@ async function loadOptions(silent=false) {
     const data=await request('/v1/quote-options',{signal:controller.signal});
     if (seq!==state.optionsSeq || address!==base() || credential!==$('apiToken').value) return;
     if (!Array.isArray(data.chains)) throw new Error('元数据响应缺少 chains');
+    if (!Number.isSafeInteger(data.limits?.maxHops) || data.limits.maxHops<1) throw new Error('Router 返回的最大跳数无效');
     state.metadata=data;
     fill('chainKey',data.chains.map(c=>({value:c.chainKey,label:`${c.chainKey}${c.ready?'':'（未就绪）'}`})),$('chainKey').value);
     const next=chain(); const changed=oldId!==next?.viewId || selected!==next?.chainKey || old?.ready!==next?.ready || !protocolBindingsMatch(state.estimate,next) || !protocolBindingsMatch(state.quote,next);
-    const oldSell=$('sellToken').value, oldBuy=$('buyToken').value;
+    const oldSell=$('sellToken').value, oldBuy=$('buyToken').value, oldHops=maxHopsInput.value;
     tokens(); badge('healthBadge','已连接','ok');
-    if (changed || oldSell!==$('sellToken').value || oldBuy!==$('buyToken').value) {invalidate('解析状态已更新，请重新计算'); schedule();}
+    if (changed || oldSell!==$('sellToken').value || oldBuy!==$('buyToken').value || oldHops!==maxHopsInput.value) {invalidate('报价条件已更新，请重新计算'); schedule();}
     if (!next?.ready) invalidate('当前链未就绪，等待解析状态恢复');
-    localStorage.setItem('xone-api-base',address); sessionStorage.setItem(`xone-api-base:${location.pathname}${location.search}`,address); sessionStorage.setItem(`xone-api-token:${address}`,credential);resumeReceipt();refreshWalletActions();
+    localStorage.setItem('xone-api-base',address); sessionStorage.setItem(`xone-api-token:${address}`,credential);resumeReceipt();refreshWalletActions();
   } catch (e) {
     if (seq!==state.optionsSeq || e.name==='AbortError') return;
     badge('healthBadge','连接失败','bad'); badge('stateBadge','状态不可确认','bad');
@@ -139,7 +146,7 @@ function makeRequest() {
   if (!chain()?.ready) throw new Error('当前链没有可报价状态');
   if ($('sellToken').value===$('buyToken').value) throw new Error('买卖币种不能相同');
   const exact=$('quoteKind').value==='EXACT_OUT';
-  const body={chainKey:$('chainKey').value,kind:exact?'EXACT_OUT':'EXACT_IN',sellToken:$('sellToken').value,buyToken:$('buyToken').value,slippageBps:boundedInteger($('slippageBps').value,0,10000,'滑点'),verification:'FAST',constraints:{maxHops:boundedInteger($('maxHops').value,1,state.metadata.limits?.maxHops||8,'最大跳数')}};
+  const body={chainKey:$('chainKey').value,kind:exact?'EXACT_OUT':'EXACT_IN',sellToken:$('sellToken').value,buyToken:$('buyToken').value,slippageBps:boundedInteger($('slippageBps').value,0,10000,'滑点'),verification:'FAST',constraints:{maxHops:boundedInteger(maxHopsInput.value,1,state.metadata.limits.maxHops,'最大跳数')}};
   if (exact) {body.buyAmount=positiveInteger($('amount').value,'目标买入数量');body.maxSellAmount=positiveInteger($('maxSell').value,'最大卖出数量');}
   else body.sellAmount=positiveInteger($('amount').value,'卖出数量');
   return body;
@@ -273,6 +280,7 @@ $('downloadButton').addEventListener('click',()=>{
   const url=URL.createObjectURL(new Blob([JSON.stringify(state.preparation,null,2)],{type:'application/json'})); const a=document.createElement('a'); a.href=url;a.download=`xone-unsigned-${state.quote.quoteId}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 $('chainKey').addEventListener('change',()=>{invalidate(); tokens();schedule();});
+maxHopsInput.addEventListener('input',()=>{preferredMaxHops=maxHopsInput.value;});
 for (const id of ['sellToken','buyToken','quoteKind','amount','maxSell','slippageBps','maxHops']) $(id).addEventListener('input',()=>{invalidate();modes();schedule();});
 for (const id of ['caller','recipient']) $(id).addEventListener('input',()=>invalidateExecution('交易地址已变化，请重新检查'));
 for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation','wrapSourceSol','refundWrappedSource','unwrapDestinationSol','evmGasLimit','evmMaxFee','evmPriorityFee','evmFeeBudget']) $(id).addEventListener('input',()=>{
