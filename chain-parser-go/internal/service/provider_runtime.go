@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	mathrand "math/rand/v2"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -82,7 +83,7 @@ func (p *ProviderRuntime) Snapshot() ProviderSnapshot {
 	s.Providers = append([]ProviderRuntimeStatus(nil), s.Providers...)
 	return s
 }
-func (p *ProviderRuntime) refresh(ctx context.Context) error {
+func (p *ProviderRuntime) Refresh(ctx context.Context) error {
 	if p.normal != nil && p.normal.closed.Load() {
 		return ingest.ErrClosed
 	}
@@ -100,14 +101,56 @@ func (p *ProviderRuntime) refresh(ctx context.Context) error {
 	if early {
 		return ErrProviderBackoff
 	}
+	var result *ProviderSnapshot
+	var probeErr error
+	err := p.observed(ctx, ProviderReadProbe, func(observed context.Context) error {
+		result, probeErr = p.collectRefresh(observed)
+		if result == nil {
+			return probeErr
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, rpc.ErrRecordingFailed) || (result != nil && ctx.Err() == nil) {
+			return p.failRecording(err)
+		}
+		if ctx.Err() == nil {
+			p.mu.Lock()
+			if p.recordingFault == recordingFault {
+				p.publishRefresh(ProviderSnapshot{Chain: p.chain, Independence: rpc.Unknown, LastError: rpc.Classify(err)}, false)
+			}
+			p.mu.Unlock()
+		}
+		return err
+	}
+	if result == nil {
+		return ErrProviderGate
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.recordingFault != recordingFault {
+		return rpc.ErrRecordingFailed
+	}
+	anyHealthy := slices.ContainsFunc(result.Providers, providerQualified)
+	p.publishRefresh(*result, anyHealthy)
+	return probeErr
+}
+
+// A remote failure is a probe result. Cancellation of the whole collection or
+// a local recording failure prevents the observer from completing the capture.
+func (p *ProviderRuntime) collectRefresh(ctx context.Context) (*ProviderSnapshot, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(p.cfg.TimeoutMS)*time.Millisecond)
 	defer cancel()
 	ctx = context.WithValue(ctx, runtimeProbeContextKey{}, true)
-	historyCtx, historyCancel := context.WithTimeout(ctx, time.Duration(p.cfg.TimeoutMS)*time.Millisecond/2)
+	deadline, _ := ctx.Deadline()
+	historyCtx, historyCancel := context.WithTimeout(ctx, time.Until(deadline)/2)
 	reports, probeErr := p.client.ProbeEVM(historyCtx, rpc.ProbeRequest{Chain: p.chain, Genesis: p.genesis, HistoricalHeight: p.cfg.HistoricalHeight, HistoricalHash: p.cfg.HistoricalHash, Account: p.cfg.Account})
 	historyCancel()
 	if errors.Is(probeErr, rpc.ErrRecordingFailed) {
-		return p.failRecording(probeErr)
+		return nil, probeErr
 	}
 	byID := map[string]rpc.CapabilityReport{}
 	for _, r := range reports {
@@ -118,7 +161,6 @@ func (p *ProviderRuntime) refresh(ctx context.Context) error {
 	for i, client := range clients {
 		obs := client.Providers()[0]
 		s := ProviderRuntimeStatus{ProviderID: obs.ID, Identity: rpc.Capability{Status: rpc.Unknown}, Head: rpc.Capability{Status: rpc.Unknown}, Report: byID[obs.ID], CheckedAt: time.Now().UTC()}
-		deadline, _ := ctx.Deadline()
 		endpointCtx, endpointCancel := context.WithTimeout(ctx, time.Until(deadline)/time.Duration(len(clients)-i))
 		// A report proves identity on this endpoint in this refresh. ProbeEVM
 		// can finish early, so endpoints without reports need their own handshake.
@@ -129,7 +171,7 @@ func (p *ProviderRuntime) refresh(ctx context.Context) error {
 		if identityErr != nil {
 			if errors.Is(identityErr, rpc.ErrRecordingFailed) {
 				endpointCancel()
-				return p.failRecording(identityErr)
+				return nil, identityErr
 			}
 			s.Identity.Error = rpc.Classify(identityErr)
 			if s.Identity.Error == rpc.IdentityMismatch {
@@ -162,7 +204,7 @@ func (p *ProviderRuntime) refresh(ctx context.Context) error {
 		}
 		endpointCancel()
 		if errors.Is(err, rpc.ErrRecordingFailed) {
-			return p.failRecording(err)
+			return nil, err
 		}
 		heads[obs.ID] = s
 	}
@@ -216,13 +258,10 @@ func (p *ProviderRuntime) refresh(ctx context.Context) error {
 			}
 		}
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.recordingFault != recordingFault {
-		return rpc.ErrRecordingFailed
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
 	}
-	p.publishRefresh(result, anyHealthy)
-	return probeErr
+	return &result, probeErr
 }
 
 func (p *ProviderRuntime) failRecording(err error) error {
@@ -230,7 +269,10 @@ func (p *ProviderRuntime) failRecording(err error) error {
 	defer p.mu.Unlock()
 	p.recordingFault++
 	p.publishRefresh(ProviderSnapshot{Chain: p.chain, Independence: rpc.Unknown, LastError: rpc.RecordingFailed}, false)
-	return err
+	if errors.Is(err, rpc.ErrRecordingFailed) {
+		return err
+	}
+	return errors.Join(rpc.ErrRecordingFailed, err)
 }
 
 // publishRefresh updates the provider state and scheduler under p.mu.
@@ -409,7 +451,7 @@ type providerAnchorCheck struct {
 // identity/current selector evidence. It advances head eligibility without any
 // chainId, safe/finalized or historical probes, even inside the full-probe
 // interval. One total timeout and a nonqueued actor bound work and concurrency.
-func (p *ProviderRuntime) verifyAnchor(ctx context.Context, a ingest.CatalogAnchor) error {
+func (p *ProviderRuntime) VerifyAnchor(ctx context.Context, a ingest.CatalogAnchor) error {
 	if p.normal != nil && p.normal.closed.Load() {
 		return ingest.ErrClosed
 	}
@@ -450,12 +492,26 @@ func (p *ProviderRuntime) verifyAnchor(ctx context.Context, a ingest.CatalogAnch
 			continue
 		}
 		var b struct{ Number, Hash, ParentHash string }
-		err := client.Call(ctx, "eth_getBlockByNumber", []any{fmt.Sprintf("0x%x", a.Height), false}, &b)
-		if errors.Is(err, rpc.ErrRecordingFailed) {
+		number := fmt.Sprintf("0x%x", a.Height)
+		verified := false
+		err := p.observed(ctx, ProviderReadAnchor, func(observed context.Context) error {
+			if err := client.Call(observed, "eth_getBlockByNumber", []any{number, false}, &b); err != nil {
+				return err
+			}
+			if b.Number != number || !runtimeDigest(b.Hash) || !runtimeDigest(b.ParentHash) || !rpc.SameEVMHash(b.Hash, a.Hash) {
+				return ingest.ErrFactoryStale
+			}
+			verified = true
+			return nil
+		})
+		if errors.Is(err, rpc.ErrRecordingFailed) || (err != nil && verified && ctx.Err() == nil) {
 			return p.failRecording(err)
 		}
-		if err == nil && (b.Number != fmt.Sprintf("0x%x", a.Height) || !runtimeDigest(b.Hash) || !runtimeDigest(b.ParentHash) || !rpc.SameEVMHash(b.Hash, a.Hash)) {
-			err = ingest.ErrFactoryStale
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err == nil && !verified {
+			err = ErrProviderGate
 		}
 		now := time.Now().UTC()
 		p.mu.Lock()
@@ -588,10 +644,4 @@ func (p *ProviderRuntime) observed(ctx context.Context, purpose ProviderReadPurp
 		return operation(ctx)
 	}
 	return observer(ctx, purpose, operation)
-}
-func (p *ProviderRuntime) Refresh(ctx context.Context) error {
-	return p.observed(ctx, ProviderReadProbe, p.refresh)
-}
-func (p *ProviderRuntime) VerifyAnchor(ctx context.Context, a ingest.CatalogAnchor) error {
-	return p.observed(ctx, ProviderReadAnchor, func(observed context.Context) error { return p.verifyAnchor(observed, a) })
 }

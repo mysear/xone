@@ -168,8 +168,14 @@ func TestProviderRuntimeHistoryTimeoutKeepsLiveRefreshSchedule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime.Refresh(context.Background()) == nil {
-		t.Fatal("history timeout not reported")
+	completed := false
+	runtime.SetObserver(func(ctx context.Context, _ ProviderReadPurpose, operation func(context.Context) error) error {
+		err := operation(ctx)
+		completed = err == nil
+		return err
+	})
+	if err := runtime.Refresh(context.Background()); !errors.Is(err, context.DeadlineExceeded) || !completed {
+		t.Fatalf("history timeout was not recorded as a completed observation: %v", err)
 	}
 	if err = runtime.Gate(ingest.CatalogAnchor{Chain: "evm:1", Height: 10, Hash: runtimeHash("c"), Generation: 1}); err != nil {
 		t.Fatal("history budget exhausted live probe", err)
@@ -225,6 +231,66 @@ func TestProviderRuntimeRecordingFailureStopsProbeAndAnchor(t *testing.T) {
 				t.Fatal("recording failure left the previous provider gate open")
 			}
 		})
+	}
+}
+
+func TestProviderRuntimePublishesOnlyCompletedObservations(t *testing.T) {
+	var ignored atomic.Bool
+	var calls atomic.Int32
+	client := providerFixture(t, &ignored, &calls)
+	p, err := NewProviderRuntime(client, "evm:1", runtimeHash("a"), probeConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	anchor := ingest.CatalogAnchor{Chain: "evm:1", Height: 10, Hash: runtimeHash("c"), Generation: 1}
+	ticketErr := errors.New("cannot persist observation ticket")
+	p.SetObserver(func(ctx context.Context, purpose ProviderReadPurpose, operation func(context.Context) error) error {
+		if err := operation(ctx); err != nil {
+			return err
+		}
+		if err := p.Gate(anchor); err == nil {
+			t.Fatal("candidate evidence visible before the ticket was persisted")
+		}
+		return ticketErr
+	})
+	err = p.Refresh(context.Background())
+	if !errors.Is(err, ticketErr) || !errors.Is(err, rpc.ErrRecordingFailed) {
+		t.Fatal(err)
+	}
+	if p.Snapshot().LastError != rpc.RecordingFailed || p.Gate(anchor) == nil {
+		t.Fatal("failed ticket write left provider qualified")
+	}
+	p.SetObserver(nil)
+	p.mu.Lock()
+	p.next = time.Time{}
+	p.mu.Unlock()
+	if err = p.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err = p.Gate(anchor); err != nil {
+		t.Fatal(err)
+	}
+	p.SetObserver(func(ctx context.Context, purpose ProviderReadPurpose, operation func(context.Context) error) error {
+		if purpose != ProviderReadAnchor {
+			t.Fatal(purpose)
+		}
+		if err := operation(ctx); err != nil {
+			return err
+		}
+		p.mu.Lock()
+		published := len(p.anchorChecks) != 0
+		p.mu.Unlock()
+		if published {
+			t.Fatal("anchor visible before the ticket was persisted")
+		}
+		return ticketErr
+	})
+	err = p.VerifyAnchor(context.Background(), anchor)
+	if !errors.Is(err, ticketErr) || !errors.Is(err, rpc.ErrRecordingFailed) {
+		t.Fatal(err)
+	}
+	if p.Snapshot().LastError != rpc.RecordingFailed || p.Gate(anchor) == nil {
+		t.Fatal("failed anchor ticket write left provider qualified")
 	}
 }
 
