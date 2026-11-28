@@ -1,0 +1,113 @@
+{
+  "adapter_version": "orca-whirlpools/cc683ec9-spl-static-1",
+  "chain_key": "solana:localnet",
+  "fee_denominator": 1000000,
+  "fee_numerator": 3000,
+  "orca_whirlpool": {
+    "bank_epoch": 987,
+    "bank_slot": 123456,
+    "bank_unix_timestamp": 1793059200,
+    "deployed_slot": 200,
+    "fee_growth_global0": "1009",
+    "fee_growth_global1": "1013",
+    "fee_rate": 3000,
+    "fee_tier_index": 64,
+    "liquidity": "1000000000000",
+    "max_steps": 8192,
+    "mint0_decimals": 9,
+    "mint1_decimals": 6,
+    "oracle": "9qTHTqAjZBk8KTrqgbTR2KM9zpVUyBrny3pnVnEwiTSr",
+    "program_code_sha256": "1b2bd350cf93ac641a010c8bb5eb9b037a8db77bac4586972efa7d384ef20419",
+    "program_id": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "programdata": "CtXfPzz36dH5Ws4UYKZvrQ1Xqzn42ecDW6y8NKuiN8nD",
+    "protocol_fee_owed0": 101,
+    "protocol_fee_owed1": 103,
+    "protocol_fee_rate": 2500,
+    "raw_vault0": 1000000000000000000,
+    "raw_vault1": 1100000000000000000,
+    "reward_last_updated_timestamp": 1793059190,
+    "sqrt_price_x64": "18446744073709551616",
+    "tick_arrays": [
+      {
+        "address": "HPuGcKyF3TN1EStQ6PuAq6MoE5WVdKMjRQCGwnVNRLJy",
+        "initialized_bitmap": "232113757366008801543585793",
+        "layout": "fixed",
+        "start_tick_index": -5632,
+        "ticks": [
+          {
+            "fee_growth_outside0": "37",
+            "fee_growth_outside1": "53",
+            "liquidity_gross": "20000000000",
+            "liquidity_net": "10000000000",
+            "tick": -5632
+          },
+          {
+            "fee_growth_outside0": "37",
+            "fee_growth_outside1": "53",
+            "liquidity_gross": "20000000000",
+            "liquidity_net": "10000000000",
+            "tick": -128
+          },
+          {
+            "fee_growth_outside0": "37",
+            "fee_growth_outside1": "53",
+            "liquidity_gross": "20000000000",
+            "liquidity_net": "10000000000",
+            "tick": -64
+          }
+        ]
+      },
+      {
+        "address": "3C4XWXcC2oUvbPyFGkDJNXAPf34JxQFdQRgCkJkDVuZk",
+        "initialized_bitmap": "6",
+        "layout": "fixed",
+        "start_tick_index": 0,
+        "ticks": [
+          {
+            "fee_growth_outside0": "37",
+            "fee_growth_outside1": "53",
+            "liquidity_gross": "20000000000",
+            "liquidity_net": "-10000000000",
+            "tick": 64
+          },
+          {
+            "fee_growth_outside0": "37",
+            "fee_growth_outside1": "53",
+            "liquidity_gross": "20000000000",
+            "liquidity_net": "-10000000000",
+            "tick": 128
+          }
+        ]
+      },
+      {
+        "address": "CPVhXKgR98wdCTNVgisk9ehpGizoBDyf4c8FgZu4Rqhp",
+        "initialized_bitmap": "1",
+        "layout": "fixed",
+        "start_tick_index": 5632,
+        "ticks": [
+          {
+            "fee_growth_outside0": "37",
+            "fee_growth_outside1": "53",
+            "liquidity_gross": "20000000000",
+            "liquidity_net": "-10000000000",
+            "tick": 5632
+          }
+        ]
+      }
+    ],
+    "tick_current_index": 0,
+    "tick_spacing": 64,
+    "token_program_code_sha256": "dd6adb8d5688979cca81e91ce32e059cb29c69c582ee1336888c85be37f6ef30",
+    "vault0": "9ijZ9ZBTGJ26d2iKJzLWKQbvoJxjKszuA4AiLTYavowA",
+    "vault1": "8ghwzCSvENDByss9Yxuqe94XdsLsNHTGWEN9gGPcsziT",
+    "whirlpool_bump": 251,
+    "whirlpools_config": "6DZoKYYmaYHWPs7CNeDjL7A2uHNECjBL4qKDgpqMDj9P"
+  },
+  "pool_id": "5VqJcRa4riZH4PKPiUfLmoE7bwxXqnYmd5bgYwro8c8n",
+  "protocol": "orca-whirlpools-static",
+  "reserve0": "0",
+  "reserve1": "0",
+  "token0": "6VgT29rNDko7QBHDLi9esLYyzBhy3JFsVtQWnTnN3TUM",
+  "token1": "AXSyTyqL1du9brRiJaHHShT6XckP71SZtHm4DqQXctni",
+  "token_behavior": "standard"
+}

@@ -118,7 +118,10 @@ fn dynamic_rejects_invalid_configuration_and_old_profile_contamination() {
             "decay" => d.decay_period = 10,
             "reduction" => d.reduction_factor = 10000,
             "control" => d.dynamic_fee_control = 100000,
-            "maxwidth" => d.max_volatility_accumulator = u32::MAX,
+            "maxwidth" => {
+                s.tick_spacing = 2;
+                d.max_volatility_accumulator = u32::MAX;
+            }
             "reference" => d.volatility_reference = 1000001,
             "accumulator" => d.volatility_accumulator = 1000001,
             "index" => d.tick_spacing_index_reference = i32::MAX,
@@ -128,7 +131,10 @@ fn dynamic_rejects_invalid_configuration_and_old_profile_contamination() {
                 p.adapter_version = "raydium-clmm/6d7a0f82-spl-custom-seed-1".into()
             }
         }
-        assert!(p.validate().is_err(), "{mode}")
+        let error = p.validate().expect_err(mode);
+        if mode == "maxwidth" {
+            assert!(error.to_string().contains("RAYCLMM_DYNAMIC_PARAMETERS"), "{error}");
+        }
     }
     let p = seeded(1);
     assert!(serde_json::to_value(p.raydium_clmm)

@@ -476,6 +476,8 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 恢复 Solana 合成基线、Raydium CPMM、Orca 和 Raydium CLMM 基础版的原程序报价向量和 Protobuf 分片。继续恢复 CLMM 位图、种子、代币费和动态费分片，动态费负例现直接覆盖累加值超过配置上限以及上限与 tick 间距的乘积溢出。恢复 Weighted 等权与静态权重参考报价和分片，等权分片按当前 EVM 测试基线与去重后的 adapter 集合重生成，原等权报价和池状态保留既有校验摘要。 [基线生成器](integration/tools/ci/solana-baseline-golden.py)
+- 本机正常 Go Parser 和 Router 可回放七条 EVM 链的 11 个历史池。Base 发布 Uniswap V3、Aerodrome V2 和 Slipstream。浏览器实测空地址 ExactIn 和 ExactOut，回放实例给出的跳数上限为 3。生产来源的实时发现和市场范围继续验收。
 - 契约门禁现在识别完整的 JSON 与 gzip 夹具路径，并逐字节核对压缩证据。恢复两份 Orca 独立 wire 向量的跨服务副本，Go race 与两套 Rust 领域回归通过。Go 通过 Composable、Curve Meta 和 ManagedPool 三项压缩证据回归。完整契约门禁仍有其他协议夹具待恢复。 [契约检查](integration/tools/ci/contracts.py)
 - 已恢复 Uniswap V4 和 Pancake Infinity CL 的固定零 hook 回放夹具。原 Solidity 池逻辑生成 416 个兑换向量和 12 个分配用例，Router 差分通过。Go race 专项覆盖固定区块读取、协议身份和 Protobuf 分片。两套 Rust 的 Singleton 类型回归通过。Rust Kafka 测试目标仍依赖其他待恢复的协议分片。 [状态夹具生成器](integration/tools/ci/singleton-process-fixture.cjs)
 - 已恢复 12 个 EthereumJS 回执树向量和 11 个离线进程回执根。六种 EVM 协议版本的 Protobuf 夹具和 372 个差分用例通过。四种 Stable 模型重新执行原合约生成 180 个报价及 16 个分配用例，Router 逐项匹配金额和后状态。Go race 专项共 151 项通过，含回执根、协议帧和基础快照回归。 [回执参考生成器](integration/tools/ci/receipt-root-reference.py)

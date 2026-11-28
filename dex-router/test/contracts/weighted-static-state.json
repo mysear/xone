@@ -1,0 +1,270 @@
+{
+  "pools": [
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x000000000000000000000000000000000000000a",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x0000000000000000000000000000000000000064",
+      "token1": "0x0000000000000000000000000000000000000065",
+      "reserve0": "1000000000000000000000000",
+      "reserve1": "1000000000000000000000000",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "adapter_version": "balancer-v2-weighted2/static-1",
+      "token_behavior": "standard",
+      "weighted": {
+        "code_sha256": "8880a54d03747df9eda6b310443a788558dc080c804db3fde94aee0382f66ea9",
+        "vault": "0x0000000000000000000000000000000000000014",
+        "vault_code_sha256": "a7f6216ccc96dbc9f792cc4ea600a6736a4218b85782215ede65aed9758e0a8a",
+        "pool_id": "0x000000000000000000000000000000000000000a000200000000000000000001",
+        "scaling0": "1000000000000000000",
+        "scaling1": "1000000000000000000",
+        "weight0": "990000000000000000",
+        "weight1": "10000000000000000",
+        "token0_code_sha256": "63528ad6facfe1f7881812075914de8b1f56efb9f2fa361f3b29488ec1886836",
+        "token1_code_sha256": "42864011f8c737a2a9b9496ae0ded2ca0132531d83b37450c06d7a81441647c0"
+      }
+    },
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x000000000000000000000000000000000000000b",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x0000000000000000000000000000000000000066",
+      "token1": "0x0000000000000000000000000000000000000067",
+      "reserve0": "1000000000000000000000000",
+      "reserve1": "1000000000000",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "adapter_version": "balancer-v2-weighted2/static-1",
+      "token_behavior": "standard",
+      "weighted": {
+        "code_sha256": "11d5a04f93ebb96c28fac45f2545d35d44b1979ae8c6953ed333cd9980c2004b",
+        "vault": "0x0000000000000000000000000000000000000015",
+        "vault_code_sha256": "9277e193ea8de945201db1797676cb9abf8037b2fe422a432c7243afdbb39c2f",
+        "pool_id": "0x000000000000000000000000000000000000000b000200000000000000000001",
+        "scaling0": "1000000000000000000",
+        "scaling1": "1000000000000000000000000000000",
+        "weight0": "800000000000000000",
+        "weight1": "200000000000000000",
+        "token0_code_sha256": "ce66c303a522e8a5a53a0f8e23223f3516a2326a672b7272ea125e4cb655021e",
+        "token1_code_sha256": "da683de6216fdd425d324b2bf29cc368343b94ae7a15d4ec5529dfc6b81ae6fa"
+      }
+    },
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x000000000000000000000000000000000000000c",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x0000000000000000000000000000000000000068",
+      "token1": "0x0000000000000000000000000000000000000069",
+      "reserve0": "1000000000000",
+      "reserve1": "1000000000000000000000000",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "adapter_version": "balancer-v2-weighted2/static-1",
+      "token_behavior": "standard",
+      "weighted": {
+        "code_sha256": "a028bb58e7c4b545b19e4f55d45de6db7a235e31fae19b56055c48785154c6eb",
+        "vault": "0x0000000000000000000000000000000000000016",
+        "vault_code_sha256": "86af44ff7ed591445d090edcd525c60aabb4d56fad857024d69c20917484a703",
+        "pool_id": "0x000000000000000000000000000000000000000c000200000000000000000001",
+        "scaling0": "1000000000000000000000000000000",
+        "scaling1": "1000000000000000000",
+        "weight0": "370000000000000000",
+        "weight1": "630000000000000000",
+        "token0_code_sha256": "4b358e72b8067c53486d8eec344c65355550c71a5937b9fdc5a0216792b52d59",
+        "token1_code_sha256": "369274825d12bb279cb6990c7feee57a17495300b166b876862732d0f875caea"
+      }
+    },
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x000000000000000000000000000000000000000d",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x000000000000000000000000000000000000006a",
+      "token1": "0x000000000000000000000000000000000000006b",
+      "reserve0": "1000000000000000000000000",
+      "reserve1": "1000000000000000000000000",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "adapter_version": "balancer-v2-weighted2/static-1",
+      "token_behavior": "standard",
+      "weighted": {
+        "code_sha256": "a7f6216ccc96dbc9f792cc4ea600a6736a4218b85782215ede65aed9758e0a8a",
+        "vault": "0x0000000000000000000000000000000000000017",
+        "vault_code_sha256": "63528ad6facfe1f7881812075914de8b1f56efb9f2fa361f3b29488ec1886836",
+        "pool_id": "0x000000000000000000000000000000000000000d000200000000000000000001",
+        "scaling0": "1000000000000000000",
+        "scaling1": "1000000000000000000",
+        "weight0": "333333333333333333",
+        "weight1": "666666666666666667",
+        "token0_code_sha256": "96c5d7497c92984de15e945b92632336e11ca3df6c79c8880d98e5dc7f38fcfe",
+        "token1_code_sha256": "eace5814b663d16d440de1dd231bb9cb79d4c130172684086e0a8c1b2b335c70"
+      }
+    },
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x000000000000000000000000000000000000000e",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x000000000000000000000000000000000000006c",
+      "token1": "0x000000000000000000000000000000000000006d",
+      "reserve0": "1000000000000000000000000",
+      "reserve1": "1000000000000",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "adapter_version": "balancer-v2-weighted2/static-1",
+      "token_behavior": "standard",
+      "weighted": {
+        "code_sha256": "9277e193ea8de945201db1797676cb9abf8037b2fe422a432c7243afdbb39c2f",
+        "vault": "0x0000000000000000000000000000000000000018",
+        "vault_code_sha256": "42864011f8c737a2a9b9496ae0ded2ca0132531d83b37450c06d7a81441647c0",
+        "pool_id": "0x000000000000000000000000000000000000000e000200000000000000000001",
+        "scaling0": "1000000000000000000",
+        "scaling1": "1000000000000000000000000000000",
+        "weight0": "10000000000000001",
+        "weight1": "989999999999999999",
+        "token0_code_sha256": "cb34dc60f1e8e982b0fec1b702df5976bc1aaad607d6bf0b353e95b136dde6ad",
+        "token1_code_sha256": "8137d84710d458c130539dfde9d65ce7696811b5e1726052842204c6c290fa23"
+      }
+    },
+    {
+      "chain_key": "evm:31337",
+      "pool_id": "0x000000000000000000000000000000000000000f",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x000000000000000000000000000000000000006e",
+      "token1": "0x000000000000000000000000000000000000006f",
+      "reserve0": "1000000000000",
+      "reserve1": "1000000000000000000000000",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "adapter_version": "balancer-v2-weighted2/static-1",
+      "token_behavior": "standard",
+      "weighted": {
+        "code_sha256": "86af44ff7ed591445d090edcd525c60aabb4d56fad857024d69c20917484a703",
+        "vault": "0x0000000000000000000000000000000000000019",
+        "vault_code_sha256": "ce66c303a522e8a5a53a0f8e23223f3516a2326a672b7272ea125e4cb655021e",
+        "pool_id": "0x000000000000000000000000000000000000000f000200000000000000000001",
+        "scaling0": "1000000000000000000000000000000",
+        "scaling1": "1000000000000000000",
+        "weight0": "500000000000000000",
+        "weight1": "500000000000000000",
+        "token0_code_sha256": "c74ec7fee325fbee3ded108a3e133f66145593287045b11cd9bf4cd528507fa6",
+        "token1_code_sha256": "f7a7569286b6688e253938d988d3d2374baac801fb7dfdabca4aa8f4b2a7db01"
+      }
+    }
+  ],
+  "configs": [
+    {
+      "id": "0x000000000000000000000000000000000000000a",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x0000000000000000000000000000000000000064",
+      "token1": "0x0000000000000000000000000000000000000065",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "program_id": "",
+      "accounts": [],
+      "weighted": {
+        "expected_code_sha256": "8880a54d03747df9eda6b310443a788558dc080c804db3fde94aee0382f66ea9",
+        "expected_vault": "0x0000000000000000000000000000000000000014",
+        "expected_vault_code_sha256": "a7f6216ccc96dbc9f792cc4ea600a6736a4218b85782215ede65aed9758e0a8a",
+        "pool_id": "0x000000000000000000000000000000000000000a000200000000000000000001",
+        "expected_token0_code_sha256": "63528ad6facfe1f7881812075914de8b1f56efb9f2fa361f3b29488ec1886836",
+        "expected_token1_code_sha256": "42864011f8c737a2a9b9496ae0ded2ca0132531d83b37450c06d7a81441647c0",
+        "token_policy": "standard-no-bpt"
+      }
+    },
+    {
+      "id": "0x000000000000000000000000000000000000000b",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x0000000000000000000000000000000000000066",
+      "token1": "0x0000000000000000000000000000000000000067",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "program_id": "",
+      "accounts": [],
+      "weighted": {
+        "expected_code_sha256": "11d5a04f93ebb96c28fac45f2545d35d44b1979ae8c6953ed333cd9980c2004b",
+        "expected_vault": "0x0000000000000000000000000000000000000015",
+        "expected_vault_code_sha256": "9277e193ea8de945201db1797676cb9abf8037b2fe422a432c7243afdbb39c2f",
+        "pool_id": "0x000000000000000000000000000000000000000b000200000000000000000001",
+        "expected_token0_code_sha256": "ce66c303a522e8a5a53a0f8e23223f3516a2326a672b7272ea125e4cb655021e",
+        "expected_token1_code_sha256": "da683de6216fdd425d324b2bf29cc368343b94ae7a15d4ec5529dfc6b81ae6fa",
+        "token_policy": "standard-no-bpt"
+      }
+    },
+    {
+      "id": "0x000000000000000000000000000000000000000c",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x0000000000000000000000000000000000000068",
+      "token1": "0x0000000000000000000000000000000000000069",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "program_id": "",
+      "accounts": [],
+      "weighted": {
+        "expected_code_sha256": "a028bb58e7c4b545b19e4f55d45de6db7a235e31fae19b56055c48785154c6eb",
+        "expected_vault": "0x0000000000000000000000000000000000000016",
+        "expected_vault_code_sha256": "86af44ff7ed591445d090edcd525c60aabb4d56fad857024d69c20917484a703",
+        "pool_id": "0x000000000000000000000000000000000000000c000200000000000000000001",
+        "expected_token0_code_sha256": "4b358e72b8067c53486d8eec344c65355550c71a5937b9fdc5a0216792b52d59",
+        "expected_token1_code_sha256": "369274825d12bb279cb6990c7feee57a17495300b166b876862732d0f875caea",
+        "token_policy": "standard-no-bpt"
+      }
+    },
+    {
+      "id": "0x000000000000000000000000000000000000000d",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x000000000000000000000000000000000000006a",
+      "token1": "0x000000000000000000000000000000000000006b",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "program_id": "",
+      "accounts": [],
+      "weighted": {
+        "expected_code_sha256": "a7f6216ccc96dbc9f792cc4ea600a6736a4218b85782215ede65aed9758e0a8a",
+        "expected_vault": "0x0000000000000000000000000000000000000017",
+        "expected_vault_code_sha256": "63528ad6facfe1f7881812075914de8b1f56efb9f2fa361f3b29488ec1886836",
+        "pool_id": "0x000000000000000000000000000000000000000d000200000000000000000001",
+        "expected_token0_code_sha256": "96c5d7497c92984de15e945b92632336e11ca3df6c79c8880d98e5dc7f38fcfe",
+        "expected_token1_code_sha256": "eace5814b663d16d440de1dd231bb9cb79d4c130172684086e0a8c1b2b335c70",
+        "token_policy": "standard-no-bpt"
+      }
+    },
+    {
+      "id": "0x000000000000000000000000000000000000000e",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x000000000000000000000000000000000000006c",
+      "token1": "0x000000000000000000000000000000000000006d",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "program_id": "",
+      "accounts": [],
+      "weighted": {
+        "expected_code_sha256": "9277e193ea8de945201db1797676cb9abf8037b2fe422a432c7243afdbb39c2f",
+        "expected_vault": "0x0000000000000000000000000000000000000018",
+        "expected_vault_code_sha256": "42864011f8c737a2a9b9496ae0ded2ca0132531d83b37450c06d7a81441647c0",
+        "pool_id": "0x000000000000000000000000000000000000000e000200000000000000000001",
+        "expected_token0_code_sha256": "cb34dc60f1e8e982b0fec1b702df5976bc1aaad607d6bf0b353e95b136dde6ad",
+        "expected_token1_code_sha256": "8137d84710d458c130539dfde9d65ce7696811b5e1726052842204c6c290fa23",
+        "token_policy": "standard-no-bpt"
+      }
+    },
+    {
+      "id": "0x000000000000000000000000000000000000000f",
+      "protocol": "balancer-v2-weighted2-static",
+      "token0": "0x000000000000000000000000000000000000006e",
+      "token1": "0x000000000000000000000000000000000000006f",
+      "fee_numerator": 1000000000000000,
+      "fee_denominator": 1000000000000000000,
+      "program_id": "",
+      "accounts": [],
+      "weighted": {
+        "expected_code_sha256": "86af44ff7ed591445d090edcd525c60aabb4d56fad857024d69c20917484a703",
+        "expected_vault": "0x0000000000000000000000000000000000000019",
+        "expected_vault_code_sha256": "ce66c303a522e8a5a53a0f8e23223f3516a2326a672b7272ea125e4cb655021e",
+        "pool_id": "0x000000000000000000000000000000000000000f000200000000000000000001",
+        "expected_token0_code_sha256": "c74ec7fee325fbee3ded108a3e133f66145593287045b11cd9bf4cd528507fa6",
+        "expected_token1_code_sha256": "f7a7569286b6688e253938d988d3d2374baac801fb7dfdabca4aa8f4b2a7db01",
+        "token_policy": "standard-no-bpt"
+      }
+    }
+  ]
+}

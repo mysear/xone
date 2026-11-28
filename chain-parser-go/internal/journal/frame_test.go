@@ -372,7 +372,7 @@ func TestIndependentRaydiumCreatorProtocWire(t *testing.T) {
 	}
 	p := u.Snapshot.Pools[0]
 	s := p.RaydiumCPMM
-	if s == nil || s.Programdata != domain.RaydiumProgramData || s.CreatorFees0 != 700 || s.CreatorFees1 != 1700 || s.BankSlot != u.Snapshot.Reference.Block.Number {
+	if s == nil || s.Programdata != domain.RaydiumProgramData || s.CreatorFees0 != 307 || s.CreatorFees1 != 311 || s.BankSlot != u.Snapshot.Reference.Block.Number {
 		t.Fatal("Raydium identity/fees/bank lost")
 	}
 	if e = u.Snapshot.Validate("chain-parser-rust", 1); e != nil {
@@ -402,7 +402,7 @@ func TestIndependentOrcaQ64TickArrayProtocWire(t *testing.T) {
 	}
 	p := u.Snapshot.Pools[0]
 	s := p.OrcaWhirlpool
-	if s == nil || s.SqrtPriceX64 != "18446744073709551616" || s.Programdata != domain.OrcaProgramData || s.TickArrays[0].Ticks[0].LiquidityNet != "1000000000" {
+	if s == nil || s.SqrtPriceX64 != "18446744073709551616" || s.Programdata != domain.OrcaProgramData || s.TickArrays[0].Ticks[0].LiquidityNet != "10000000000" {
 		t.Fatal("Orca q64/ticks lost")
 	}
 	if e = u.Snapshot.Validate("chain-parser-rust", 1); e != nil {
@@ -431,7 +431,7 @@ func TestIndependentRayCLMMBitmapAndObservationProtocWire(t *testing.T) {
 		t.Fatal("missing CLMM")
 	}
 	s := u.Snapshot.Pools[0].RaydiumCLMM
-	if s == nil || len(s.Bitmap) != 16 || len(s.Observations) != 100 || s.Bitmap[7] != (uint64(1)<<63) || s.TickArrays[1].Ticks[0].LiquidityNet != "-1000000000" {
+	if s == nil || len(s.Bitmap) != 16 || len(s.Observations) != 100 || s.Bitmap[7] != (uint64(7)<<61) || s.TickArrays[2].Ticks[0].LiquidityNet != "-1000000000" {
 		t.Fatal("CLMM proof lost")
 	}
 	if e = u.Snapshot.Validate("chain-parser-rust", 1); e != nil {
@@ -659,7 +659,7 @@ func TestIndependentRayCLMMDynamicProtocParametersAndAdmission(t *testing.T) {
 		if e = u.Snapshot.Validate("chain-parser-rust", 1); e != nil {
 			t.Fatal(e)
 		}
-		for _, mode := range []string{"missing", "filterwidth", "capwidth", "oldprofile"} {
+		for _, mode := range []string{"missing", "filterwidth", "accumulator-over-cap", "oldprofile"} {
 			w, e := domain.SnapshotToProto(u.Snapshot)
 			if e != nil {
 				t.Fatal(e)
@@ -670,8 +670,9 @@ func TestIndependentRayCLMMDynamicProtocParametersAndAdmission(t *testing.T) {
 				p.RaydiumClmm.DynamicFee = nil
 			case "filterwidth":
 				p.RaydiumClmm.DynamicFee.FilterPeriod = 65536
-			case "capwidth":
-				p.RaydiumClmm.DynamicFee.MaxVolatilityAccumulator = 4294967295
+			case "accumulator-over-cap":
+				fee := p.RaydiumClmm.DynamicFee
+				fee.VolatilityAccumulator = fee.MaxVolatilityAccumulator + 1
 			case "oldprofile":
 				p.Protocol = "raydium-clmm-custom-seed"
 				p.AdapterVersion = "raydium-clmm/6d7a0f82-spl-custom-seed-1"

@@ -17,7 +17,7 @@ runtime_fingerprint=common.runtime_fingerprint;snapshot_inputs=common.snapshot_i
 PREFIX='weighted-static'
 SCOPES=['three-service-smoke.json','stable-three-service-smoke.json','weighted-three-service-smoke.json','weighted-static-three-service-smoke.json']
 ORACLE_INPUTS=['integration/tools/ci/weighted-static-golden.cjs','integration/tools/reference/weighted-model/Harness.sol','integration/tools/reference/weighted-model/StaticMathRef.sol','integration/tools/reference/weighted-model/source-metadata.json','integration/tools/reference/stable-models/package.json','integration/tools/reference/stable-models/package-lock.json']
-LEGACY={'integration/test/contracts/weighted-quotes.json':'8fa01bc569481d7838f8a50dd7c2adb45bbdcd3f64f4dcafed25390c27b2e13c','integration/test/contracts/weighted-frames.json':'8b01bb9f4489b7e76a5f7c0c6b49a1f18702da781c7ab95fe3f1aeb957e6f755','integration/test/contracts/weighted-state.json':'782747d909cded36ed57c12fc6963ae5f023c9a960854ceebd30b1efaa6ea5d6'}
+LEGACY={'integration/test/contracts/weighted-quotes.json':'8fa01bc569481d7838f8a50dd7c2adb45bbdcd3f64f4dcafed25390c27b2e13c','integration/test/contracts/weighted-frames.json':'7d38b41b0148f5d6133d6e4da5d37b1c4a13dda03e68ca17b359c68b8bb8ec0b','integration/test/contracts/weighted-state.json':'782747d909cded36ed57c12fc6963ae5f023c9a960854ceebd30b1efaa6ea5d6'}
 def load(name):return json.loads((OUT/name).read_text())
 def bind_runtime():return common.bind_bundle(PREFIX)
 def seal_scopes():return common.seal_bundle(PREFIX,SCOPES)

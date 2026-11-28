@@ -1,0 +1,37 @@
+{
+  "reference": {
+    "block": {
+      "chain_key": "solana:localnet",
+      "number_or_slot": 800000,
+      "hash": "11111111111111111111111111111112",
+      "parent_hash": "11111111111111111111111111111113",
+      "timestamp_ms": 1792022401000
+    },
+    "canonical_epoch": 1,
+    "journal_seq": 1,
+    "schema_version": 1,
+    "online_generation": 1,
+    "writer_epoch": 1,
+    "owner_service": "chain-parser-rust",
+    "owner_assignment_version": 1,
+    "scope_hash": "e39ffde50046fe50d968d8ab6aa17f8f1065127a31a0eef29851bcf41f3c77b3",
+    "adapter_set_hash": "d202cbbdaf0c8a60f87ea06ab94e4499fc806df41b5de6023778fb2a3406d5b0"
+  },
+  "pools": [
+    {
+      "chain_key": "solana:localnet",
+      "pool_id": "11111111111111111111111111111114",
+      "protocol": "fixture-cpmm",
+      "token0": "A",
+      "token1": "B",
+      "reserve0": "1000000",
+      "reserve1": "1000000",
+      "fee_numerator": 3,
+      "fee_denominator": 1000,
+      "adapter_version": "fixture-cpmm/1",
+      "token_behavior": "standard"
+    }
+  ],
+  "source": "SYNTHETIC_SOLANA_BASELINE",
+  "history_gaps": []
+}

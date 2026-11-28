@@ -49,12 +49,13 @@ def main():
     output = []
     def run(arguments):
         commands.append(arguments)
-        result = subprocess.run(arguments, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        output.append('$ '+' '.join(arguments)+'\n'+result.stdout)
+        result = subprocess.run(arguments, cwd=ROOT, env=env, capture_output=True, text=True)
+        transcript = result.stdout + result.stderr
+        output.append('$ '+' '.join(arguments)+'\n'+transcript)
         if result.returncode:
             LOG.parent.mkdir(parents=True, exist_ok=True)
             LOG.write_text('\n'.join(output))
-            print(result.stdout[-10000:], file=sys.stderr)
+            print(transcript[-10000:], file=sys.stderr)
             raise SystemExit(result.returncode)
         return result.stdout
     compiler = run([tools['rustc'],'--version']).strip()
@@ -79,6 +80,10 @@ def main():
         ROOT/'integration/test/solana/orca-base.json':encoded(fixture),
         REFERENCE/'orca-tickmath.json':encoded(tickmath),
     }
+    for project in ('integration', 'chain-parser-go', 'chain-parser-rust', 'dex-router'):
+        contracts = ROOT / project / 'test/contracts'
+        outputs[contracts / 'orca-state.json'] = encoded(fixture['pool'])
+        outputs[contracts / 'orca-tickmath.json'] = encoded(tickmath)
     for path, data in outputs.items():
         if args.check:
             assert path.is_file() and path.read_bytes() == data, f'regeneration mismatch: {path.relative_to(ROOT)}'

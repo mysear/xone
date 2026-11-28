@@ -226,8 +226,8 @@ fn independent_protoc_preserves_raydium_creator_program_bank_and_fee_ledgers() {
     let u = last.unwrap();
     let s = u.snapshot.pools[0].raydium_cpmm.as_ref().unwrap();
     assert_eq!(s.programdata, xone_domain::raydium::PROGRAM_DATA);
-    assert_eq!(s.creator_fees0, 700);
-    assert_eq!(s.creator_fees1, 1700);
+    assert_eq!(s.creator_fees0, 307);
+    assert_eq!(s.creator_fees1, 311);
     assert_eq!(s.bank_slot, u.snapshot.reference.block.number_or_slot);
     u.snapshot.validate("chain-parser-rust", 1).unwrap();
     assert_eq!(
@@ -249,7 +249,7 @@ fn independent_protoc_preserves_orca_q64_array_proof_and_fee_growth() {
     let s = u.snapshot.pools[0].orca_whirlpool.as_ref().unwrap();
     assert_eq!(s.sqrt_price_x64.to_string(), "18446744073709551616");
     assert_eq!(s.programdata, xone_domain::orca::PROGRAM_DATA);
-    assert_eq!(s.tick_arrays[1].ticks[0].liquidity_net, "-1000000000");
+    assert_eq!(s.tick_arrays[1].ticks[0].liquidity_net, "-10000000000");
     u.snapshot.validate("chain-parser-rust", 1).unwrap();
     assert_eq!(
         decode_unit(&encode_unit(&u).unwrap()).unwrap().snapshot,
@@ -269,9 +269,9 @@ fn independent_protoc_preserves_rayclmm_base_bitmap_observation_and_signed_ticks
     let u = u.unwrap();
     let s = u.snapshot.pools[0].raydium_clmm.as_ref().unwrap();
     assert_eq!(s.bitmap.len(), 16);
-    assert_eq!(s.bitmap[7], 1u64 << 63);
+    assert_eq!(s.bitmap[7], 7u64 << 61);
     assert_eq!(s.observations.len(), 100);
-    assert_eq!(s.tick_arrays[0].ticks[0].liquidity_net, "1000000000");
+    assert_eq!(s.tick_arrays[3].ticks[0].liquidity_net, "1000000000");
     u.snapshot.validate("chain-parser-rust", 1).unwrap();
     assert_eq!(
         decode_unit(&encode_unit(&u).unwrap()).unwrap().snapshot,
@@ -456,14 +456,18 @@ fn independent_protoc_preserves_dynamic_signed_reference_and_rejects_bad_profile
         assert_eq!(d.tick_spacing_index_reference, -7);
         assert_eq!(d.volatility_accumulator, 30000);
         assert_eq!(d.last_update_timestamp, s.bank_unix_timestamp);
-        for mode in ["missing", "filterwidth", "capwidth", "oldprofile"] {
+        for mode in ["missing", "filterwidth", "accumulator-over-cap", "oldprofile"] {
             let mut w = xone_domain::wire_conversion::snapshot_to_proto(&u.snapshot).unwrap();
             let p = &mut w.pools[0];
             let s = p.raydium_clmm.as_mut().unwrap();
             match mode {
                 "missing" => s.dynamic_fee = None,
                 "filterwidth" => s.dynamic_fee.as_mut().unwrap().filter_period = 65536,
-                "capwidth" => s.dynamic_fee.as_mut().unwrap().max_volatility_accumulator = u32::MAX,
+                "accumulator-over-cap" => {
+                    let fee = s.dynamic_fee.as_mut().unwrap();
+                    fee.volatility_accumulator =
+                        fee.max_volatility_accumulator.checked_add(1).unwrap();
+                }
                 _ => {
                     p.protocol = "raydium-clmm-custom-seed".into();
                     p.adapter_version = "raydium-clmm/6d7a0f82-spl-custom-seed-1".into();

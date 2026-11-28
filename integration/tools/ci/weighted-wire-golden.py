@@ -4,7 +4,15 @@ from pathlib import Path
 import sys,json,hashlib,subprocess,math
 ROOT=Path(__file__).resolve().parents[3];sys.path.insert(0,str(ROOT/'integration/tools/acceptance'))
 from weighted_smoke import NAMES,profile
-snapshot=json.loads((ROOT/'integration/test/evm/baseline.json').read_text());snapshot['pools']=[profile(n)[0] for n in NAMES];snapshot['reference']['scope_hash']=hashlib.sha256(json.dumps(sorted(p['pool_id'] for p in snapshot['pools']),separators=(',',':')).encode()).hexdigest();snapshot['reference']['adapter_set_hash']=hashlib.sha256(json.dumps(sorted(p['adapter_version'] for p in snapshot['pools']),separators=(',',':')).encode()).hexdigest();snapshot['source']='PINNED_WEIGHTED_PROTOCOL_FIXTURE'
+profiles = [profile(name) for name in NAMES]
+state = {'pools': [pool for pool, _ in profiles], 'configs': [config for _, config in profiles]}
+snapshot = json.loads((ROOT / 'integration/test/evm/baseline.json').read_text())
+snapshot['pools'] = state['pools']
+pool_ids = sorted(pool['pool_id'] for pool in state['pools'])
+adapters = sorted({pool['adapter_version'] for pool in state['pools']})
+snapshot['reference']['scope_hash'] = hashlib.sha256(json.dumps(pool_ids, separators=(',', ':')).encode()).hexdigest()
+snapshot['reference']['adapter_set_hash'] = hashlib.sha256(json.dumps(adapters, separators=(',', ':')).encode()).hexdigest()
+snapshot['source'] = 'PINNED_WEIGHTED_PROTOCOL_FIXTURE'
 def blob(b):return '"'+''.join('\\x%02x'%v for v in b)+'"'
 def encode(obj,level=''):
  out=''
@@ -20,5 +28,8 @@ raw=subprocess.run(['protoc','--proto_path='+str(ROOT/'common/protoc/proto'),'--
 r=snapshot['reference'];base={'schema_version':1,'unit_id':f"evm:31337/{r['owner_assignment_version']}/{r['writer_epoch']}/{r['journal_seq']}",'kind':'BEGIN','reference':r,'payload_sha256':hashlib.sha256(raw).hexdigest(),'payload_bytes':len(raw),'chunk_count':math.ceil(len(raw)/1024),'chunk_index':0,'data_hex':''};frames=[base.copy()]
 for i in range(base['chunk_count']):f=base.copy();f.update(kind='CHUNK',chunk_index=i,data_hex=raw[i*1024:(i+1)*1024].hex());frames.append(f)
 f=base.copy();f['kind']='COMMIT';frames.append(f);text=json.dumps(frames,indent=2)+'\n'
-for project in ['integration','chain-parser-go','chain-parser-rust','dex-router']:(ROOT/project/'test/contracts/weighted-frames.json').write_text(text)
+for project in ['integration', 'chain-parser-go', 'chain-parser-rust', 'dex-router']:
+    contracts = ROOT / project / 'test/contracts'
+    (contracts / 'weighted-frames.json').write_text(text)
+    (contracts / 'weighted-state.json').write_text(json.dumps(state, indent=2) + '\n')
 print(json.dumps({'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest(),'protocols':NAMES}))

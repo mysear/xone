@@ -100,6 +100,7 @@ func TestRayCLMMDynamicParametersAndOldProfileRejection(t *testing.T) {
 			case "control":
 				d.DynamicFeeControl = 100000
 			case "maxwidth":
+				p.RaydiumCLMM.TickSpacing = 2
 				d.MaxVolatilityAccumulator = 4294967295
 			case "reference":
 				d.VolatilityReference = d.MaxVolatilityAccumulator + 1
@@ -113,7 +114,11 @@ func TestRayCLMMDynamicParametersAndOldProfileRejection(t *testing.T) {
 				p.Protocol = "raydium-clmm-custom-seed"
 				p.AdapterVersion = "raydium-clmm/6d7a0f82-spl-custom-seed-1"
 			}
-			if p.Validate() == nil {
+			err := p.Validate()
+			if mode == "maxwidth" && (err == nil || err.Error() != "RAYCLMM_DYNAMIC_PARAMETERS") {
+				t.Fatalf("expected dynamic fee width rejection, got %v", err)
+			}
+			if err == nil {
 				t.Fatal("invaliddynamic", mode)
 			}
 		})

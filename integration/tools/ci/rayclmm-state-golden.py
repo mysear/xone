@@ -23,7 +23,9 @@ def pda(seeds):
   x2=(y2-1)*pow(denominator,-1,PRIME)%PRIME
   if pow(x2,(PRIME-1)//2,PRIME)==PRIME-1:return encode(digest),bump
  raise AssertionError('PDA not found')
-p=json.loads((ROOT/'integration/test/contracts/rayclmm-state.json').read_text());s=p['raydium_clmm']
+corpus = json.loads((ROOT/'integration/test/contracts/rayclmm-quotes.json').read_text())
+p = next(case['pool'] for case in corpus['cases'] if case['name'] == 'cross-liquidity-delta-true')
+s = p['raydium_clmm']
 p['pool_id'],s['pool_bump']=pda([b'pool',decode(s['amm_config']),decode(p['token0']),decode(p['token1'])]);pool=decode(p['pool_id'])
 s['vault0']=pda([b'pool_vault',pool,decode(p['token0'])])[0];s['vault1']=pda([b'pool_vault',pool,decode(p['token1'])])[0];s['observation']=pda([b'observation',pool])[0]
 for a in s['tick_arrays']:a['address']=pda([b'tick_array',pool,a['start_tick_index'].to_bytes(4,'big',signed=True)])[0]
