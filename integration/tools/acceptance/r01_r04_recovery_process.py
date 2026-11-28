@@ -7,6 +7,7 @@ exercise measured downtime, owner takeover, or cold quote recovery from a peer.
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import re
@@ -112,6 +113,30 @@ def binary_fingerprint():
 def require(ok, message):
     if not ok:
         raise AssertionError(message)
+
+@contextmanager
+def stalled_owner_bootstrap():
+    requested = threading.Event()
+    release = threading.Event()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path != '/internal/chains/evm:31337/bootstrap':
+                self.send_error(404)
+                return
+            requested.set()
+            release.wait()
+
+    with ThreadingHTTPServer(('127.0.0.1', 0), Handler) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            yield f'http://127.0.0.1:{server.server_port}', requested
+        finally:
+            release.set()
+            server.shutdown()
+            thread.join()
+
 
 def owner_cursor(base, token):
     request = urllib.request.Request(
@@ -364,11 +389,24 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False, peer_re
                     owner = standby_status['snapshot_ref']
                     require(owner['writer_epoch'] > previous['writer_epoch'], 'standby did not acquire a new writer epoch')
                     require(owner['online_generation'] > previous['online_generation'], 'standby did not publish a new generation')
-                    start('router2')
-                    wait(base('router2') + '/health/live')
-                    wait_scope(base('router2'), token, 'evm:31337')
-                    restored = quote('router2')
-                    quote_ms = int((time.monotonic() - started) * 1000)
+                    with stalled_owner_bootstrap() as (stalled, requested):
+                        router_config = json.loads(configs['router2'].read_text())
+                        journal = router_config['journal']
+                        primary = journal['source_urls'][0]
+                        journal['source_urls'][0] = stalled
+                        journal['source_auth_tokens'][stalled] = journal['source_auth_tokens'].pop(primary)
+                        save_config(configs['router2'].parent, router_config)
+                        cold_started = time.monotonic()
+                        start('router2')
+                        wait(base('router2') + '/health/live')
+                        wait_scope(base('router2'), token, 'evm:31337')
+                        cold_scope_ms = int((time.monotonic() - cold_started) * 1000)
+                        restored = quote('router2')
+                        cold_quote_ms = int((time.monotonic() - cold_started) * 1000)
+                        quote_ms = int((time.monotonic() - started) * 1000)
+                        require(requested.is_set(), 'cold replica did not attempt the stalled primary')
+                        require(cold_quote_ms < journal['request_timeout_ms'],
+                                'cold quote waited for the primary checkpoint timeout')
                     require(restored['snapshotRef'] == owner, 'cold quote did not recover from standby')
                     gaps = standby_status['history_gaps']
                     require(gaps and restored['quality']['historyGaps'] == gaps, 'takeover hid the history gap')
@@ -386,6 +424,9 @@ def run(retention_only=False, offline_seconds=0, standby_takeover=False, peer_re
                         'history_gaps': gaps,
                         'first_qualified_scope_ms': scope_ms,
                         'first_successful_quote_ms': quote_ms,
+                        'cold_scope_with_primary_stalled_ms': cold_scope_ms,
+                        'cold_quote_with_primary_stalled_ms': cold_quote_ms,
+                        'primary_checkpoint_timeout_ms': journal['request_timeout_ms'],
                         'quote_verification': restored['verification']['level'],
                     }
                     return finish_report(report, target, recovery_metrics(base('router2'), token))
