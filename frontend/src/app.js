@@ -69,7 +69,9 @@ async function request(path, options={}) {
 }
 function renderPools() {
   const c=chain(); const pools=c?.pools || [];
-  $('poolCount').textContent=`${pools.length} 个`;
+  $('poolHeading').textContent=c?`${c.chainKey} 已发布池`:'Router 已发布池';
+  $('poolCount').hidden=!c;
+  $('poolCount').textContent=`${pools.filter(pool=>pool.available).length} / ${pools.length} 个可报价`;
   $('chainVersion').textContent=c?`图版本：${c.graphVersion ?? '—'} · View：${c.viewId ?? '—'} · 协议：${(c.protocols||[]).join(', ')||'—'}`:'';
   $('poolTable').innerHTML=pools.length?`<table><thead><tr><th>协议</th><th>Adapter</th><th>协议视图 / 能力</th><th>Token0</th><th>Token1</th><th>报价模式</th><th>状态</th><th>Pool</th></tr></thead><tbody>${pools.map(p=>`<tr><td>${esc(p.protocol)}</td><td>${esc(p.adapterVersion)}</td><td>${esc(p.protocolViewId||'—')}<br>${esc(p.capabilities?.modelVersion||'—')}<br>${esc((p.execution?.preparation||p.execution?.evmPreparation)?'可准备待签名交易':p.capabilities?.executionBlocker||'执行未接入')}</td><td>${esc(p.token0)}</td><td>${esc(p.token1)}</td><td>${esc((p.quoteModes||[]).join(' / ')||'—')}</td><td>${esc(p.available?'可用':p.unavailableReason||'不可用')}</td><td>${esc(p.poolId)}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">当前链没有已发布池。</p>';
 }
@@ -129,7 +131,10 @@ async function loadOptions(silent=false) {
     if (!Array.isArray(data.chains)) throw new Error('元数据响应缺少 chains');
     if (!Number.isSafeInteger(data.limits?.maxHops) || data.limits.maxHops<1) throw new Error('Router 返回的最大跳数无效');
     state.metadata=data;
-    fill('chainKey',data.chains.map(c=>({value:c.chainKey,label:`${c.chainKey}${c.ready?'':'（未就绪）'}`})),$('chainKey').value);
+    fill('chainKey',data.chains.map(c=>({
+      value:c.chainKey,
+      label:`${c.chainKey} · ${c.pools?.length ?? 0} 个池${c.ready?'':'（未就绪）'}`,
+    })),$('chainKey').value);
     const next=chain(); const changed=oldId!==next?.viewId || selected!==next?.chainKey || old?.ready!==next?.ready || !protocolBindingsMatch(state.estimate,next) || !protocolBindingsMatch(state.quote,next);
     const oldSell=$('sellToken').value, oldBuy=$('buyToken').value, oldHops=maxHopsInput.value;
     tokens(); badge('healthBadge','已连接','ok');
@@ -178,7 +183,7 @@ function renderQuote(q) {
   if (!q.estimateOnly) details.push(['Quote ID',q.quoteId],['计划哈希',q.planHash],['最小到账',q.minBuyAmount],['验证',q.verification?.level],...quoteFundingRows(q));
   $('resultHeading').textContent=q.estimateOnly?'兑换量估算':'交易报价';
   $('result').className='';
-  $('result').innerHTML=`<div class="metric-grid"><div class="metric"><span>${q.estimateOnly?'预计买入数量':'买入数量'}（最小单位）</span><strong data-testid="buy-amount">${esc(q.grossBuyAmount||q.buyAmount||'—')}</strong></div><div class="metric"><span>${q.estimateOnly?'预计卖出数量':'报价消耗输入'}（最小单位）</span><strong data-testid="sell-amount">${esc(q.requiredSellAmount||q.consumedIn||'—')}</strong></div></div><h3>路线（${routes.length}）</h3>${routes.map((r,i)=>{const v=routeView(r);return `<div class="route"><strong>#${i+1} ${esc(v.protocols.join(' / '))}</strong><br><small>${esc(v.tokens.join(' → '))}<br>Pool: ${esc(v.pools.join(' → '))}<br>input ${esc(v.input)} · output ${esc(v.output)}</small></div>`;}).join('')}<div class="details">${details.map(([k,v])=>`<div><b>${esc(k)}：</b>${esc(v??'—')}</div>`).join('')}</div>`;
+  $('result').innerHTML=`<div class="metric-grid"><div class="metric"><span>${q.estimateOnly?'预计买入数量':'买入数量'}（最小单位）</span><strong data-testid="buy-amount">${esc(q.grossBuyAmount||q.buyAmount||'—')}</strong></div><div class="metric"><span>${q.estimateOnly?'预计卖出数量':'报价消耗输入'}（最小单位）</span><strong data-testid="sell-amount">${esc(q.requiredSellAmount||q.consumedIn||'—')}</strong></div></div><h3>本次报价路线（${routes.length} 条）</h3>${routes.map((r,i)=>{const v=routeView(r);return `<div class="route"><strong>#${i+1} ${esc(v.protocols.join(' / '))}</strong><br><small>${esc(v.tokens.join(' → '))}<br>Pool: ${esc(v.pools.join(' → '))}<br>input ${esc(v.input)} · output ${esc(v.output)}</small></div>`;}).join('')}<div class="details">${details.map(([k,v])=>`<div><b>${esc(k)}：</b>${esc(v??'—')}</div>`).join('')}</div>`;
 }
 $('quoteForm').addEventListener('submit',async event=>{
   event.preventDefault(); invalidate('计算中…'); error(''); const seq=state.quoteSeq;
