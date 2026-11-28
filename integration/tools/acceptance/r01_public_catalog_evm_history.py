@@ -158,18 +158,8 @@ def capture_sae_successors(saved, header, call):
         parent = child
     raise CatalogError('SAE_SUCCESSOR_WINDOW_LIMIT')
 
-def capture_receipts(directory):
-    saved = load_json(directory / 'anchor.json')
-    anchor = saved['anchor']
-    require(anchor['chain_id'] != 43114, 'SAE_RECEIPTS_REQUIRE_SETTLING_WINDOW')
-    header_ref = saved['witness']
-    header = rpc(ROOT, header_ref, 'eth_getBlockByNumber', [hex(anchor['height']), False])
-    require(header['hash'] == anchor['hash'] and header['number'] == hex(anchor['height']),
-            'RECEIPT_HEADER_ANCHOR')
-    output = directory / 'receipt-input.json'
-    require(not output.exists(), 'IMMUTABLE_EVM_RECEIPTS_EXIST')
-    call, _ = evidence_recorder(directory)
-    for endpoint in saved['endpoints']:
+def capture_block_receipts(endpoints, header, call):
+    for endpoint in endpoints:
         for selector in (header['hash'], header['number']):
             ref, receipts = call(endpoint, 'eth_getBlockReceipts', [selector], 'block-receipts')
             if not isinstance(receipts, list) or len(receipts) != len(header['transactions']):
@@ -177,11 +167,58 @@ def capture_receipts(directory):
             if any(not isinstance(receipt, dict) or receipt.get('blockHash') != header['hash']
                    for receipt in receipts):
                 continue
-            result = {'chain_key': anchor['chain_key'], 'header': header_ref,
-                      'full_block': saved['header'], 'receipts': ref}
-            write_new(output, (json.dumps(result, indent=2) + '\n').encode())
-            return result
-    raise CatalogError('FIXED_H_CANONICAL_RECEIPTS_UNAVAILABLE')
+            return ref
+    raise CatalogError('FIXED_H_CANONICAL_RECEIPTS_UNAVAILABLE:' + header['number'])
+
+def capture_sae_receipt_window(directory, saved, call):
+    target = saved['anchor']['height']
+    window = load_json(directory / 'native-successors.json')
+    successors = window['successors']
+    require(window['target'] == saved['header'] and 0 < len(successors) <= 32, 'SAE_RECEIPT_SUCCESSORS')
+    headers = []
+    for offset, ref in enumerate(successors, 1):
+        headers.append(rpc(ROOT, ref, 'eth_getBlockByNumber', [hex(target + offset), False]))
+    target_header = rpc(ROOT, saved['witness'], 'eth_getBlockByNumber', [hex(target), False])
+    require(target_header['hash'] == saved['anchor']['hash'], 'SAE_RECEIPT_TARGET_HASH')
+    parent = [target_header, *headers][-2]
+    start = int(parent['settledHeight'], 16) + 1
+    require(0 <= target - start < 32 and int(headers[-1]['settledHeight'], 16) == target,
+            'SAE_RECEIPT_WINDOW_RANGE')
+    blocks = []
+    parent_hash = target_header['parentHash']
+    for height in reversed(range(start, target)):
+        tag = hex(height)
+        for endpoint in saved['endpoints']:
+            ref, block = call(endpoint, 'eth_getBlockByNumber', [tag, True], 'sae-receipt-window-block')
+            if (isinstance(block, dict) and block.get('hash') == parent_hash and block.get('number') == tag
+                    and isinstance(block.get('transactions'), list)):
+                break
+        else:
+            raise CatalogError('SAE_RECEIPT_WINDOW_BLOCK_REQUIRED:' + tag)
+        blocks.append((ref, block))
+        parent_hash = block['parentHash']
+    blocks.reverse()
+    blocks.append((saved['header'], target_header))
+    receipts = [{'full_block': ref, 'receipts': capture_block_receipts(saved['endpoints'], block, call)}
+                for ref, block in blocks]
+    return {'settling_headers': successors, 'window': receipts, 'genesis_hash': saved['genesis_hash']}
+
+def capture_receipts(directory):
+    saved = load_json(directory / 'anchor.json')
+    anchor = saved['anchor']
+    output = directory / 'receipt-input.json'
+    require(not output.exists(), 'IMMUTABLE_EVM_RECEIPTS_EXIST')
+    call, _ = evidence_recorder(directory)
+    result = {'chain_key': anchor['chain_key'], 'header': saved['witness'], 'full_block': saved['header']}
+    if anchor['chain_id'] == 43114:
+        result['sae'] = capture_sae_receipt_window(directory, saved, call)
+    else:
+        header = rpc(ROOT, saved['witness'], 'eth_getBlockByNumber', [hex(anchor['height']), False])
+        require(header['hash'] == anchor['hash'] and header['number'] == hex(anchor['height']),
+                'RECEIPT_HEADER_ANCHOR')
+        result['receipts'] = capture_block_receipts(saved['endpoints'], header, call)
+    write_new(output, (json.dumps(result, indent=2) + '\n').encode())
+    return result
 
 def capture_catalog(chain, directory):
     saved = load_json(directory / 'anchor.json')

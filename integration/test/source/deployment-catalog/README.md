@@ -21,7 +21,7 @@ done
 
 Avalanche 的后继结算头可用 `r01_public_catalog_evm_history.py settlement --directory "$r01_run/avalanche"` 采集。预状态验证器读取该目录中的 `native-successors.json`，校验每个原始响应的摘要，并用精确后继结算状态根核验 Coreth 账户及存储证明。
 
-其余五条链可用 `r01_public_catalog_evm_history.py receipts --directory "$r01_run/$chain"` 采集固定块回执。将 `XONE_R01_RECEIPT_INPUTS` 设为各 `receipt-input.json` 的绝对路径列表，以冒号分隔。在 `chain-parser-go` 执行 `go test ./internal/chain/evm -run '^TestPublicCatalogFixedReceiptRoot$' -count=1 -v`，离线重建头哈希、交易根及回执根。
+六条链均可用 `r01_public_catalog_evm_history.py receipts --directory "$r01_run/$chain"` 采集固定块回执。Avalanche 先用 `settlement` 采集后继结算头，再由 `receipts` 保留该结算窗口内的交易和回执。将 `XONE_R01_RECEIPT_INPUTS` 设为各 `receipt-input.json` 的绝对路径列表，以冒号分隔。在 `chain-parser-go` 执行 `go test ./internal/chain/evm -run '^TestPublicCatalogFixedReceiptRoot$' -count=1 -v`，离线重建头哈希、交易根及回执根。
 
 本目录是有限的真实观测集：8 链、16 个 chain/protocol、14 个经 factory 查询并读取代码的样例池，以及 3 个完整 Solana ProgramData。所有外部输入均来自无需账号、API key 的公共 HTTPS。目录中的 `version` 使用实际 runtime SHA-256；Solana 另包含解码得到的 upgrade slot。`profiles` 表示本项目代码识别的 profile，不能证明该 profile 对应当前部署源码。
 

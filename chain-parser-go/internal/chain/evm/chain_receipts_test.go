@@ -57,6 +57,10 @@ func TestPublicCatalogFixedReceiptRoot(t *testing.T) {
 		Path   string `json:"path"`
 		SHA256 string `json:"sha256"`
 	}
+	type blockInput struct {
+		FullBlock reference `json:"full_block"`
+		Receipts  reference `json:"receipts"`
+	}
 	readRPC := func(t *testing.T, ref reference, method string, result any) []json.RawMessage {
 		t.Helper()
 		if !filepath.IsLocal(ref.Path) {
@@ -88,16 +92,41 @@ func TestPublicCatalogFixedReceiptRoot(t *testing.T) {
 		}
 		return wire.Params
 	}
+	readBlock := func(t *testing.T, input blockInput) (json.RawMessage, []json.RawMessage) {
+		t.Helper()
+		var full json.RawMessage
+		readRPC(t, input.FullBlock, "eth_getBlockByNumber", &full)
+		header, transactions, err := projectFullRPCBlock(full)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return header, transactions
+	}
+	readReceipts := func(t *testing.T, ref reference, block RawBlock) []Receipt {
+		t.Helper()
+		var receipts []Receipt
+		params := readRPC(t, ref, "eth_getBlockReceipts", &receipts)
+		var selector string
+		if len(params) != 1 || json.Unmarshal(params[0], &selector) != nil ||
+			(selector != block.Number && selector != block.Hash) {
+			t.Fatal("receipt request does not point to the verified block")
+		}
+		return receipts
+	}
 	for _, input := range inputs {
 		raw, err := os.ReadFile(input)
 		if err != nil {
 			t.Fatal(err)
 		}
 		var fixture struct {
-			ChainKey  string    `json:"chain_key"`
-			Header    reference `json:"header"`
-			FullBlock reference `json:"full_block"`
-			Receipts  reference `json:"receipts"`
+			blockInput
+			ChainKey string    `json:"chain_key"`
+			Header   reference `json:"header"`
+			SAE      *struct {
+				GenesisHash     string       `json:"genesis_hash"`
+				SettlingHeaders []reference  `json:"settling_headers"`
+				Window          []blockInput `json:"window"`
+			} `json:"sae"`
 		}
 		if err := json.Unmarshal(raw, &fixture); err != nil {
 			t.Fatal(err)
@@ -110,28 +139,55 @@ func TestPublicCatalogFixedReceiptRoot(t *testing.T) {
 				t.Fatal(err)
 			}
 			if commitment.SettledHeight != nil {
-				t.Fatal("settled receipts require native window verification")
+				if fixture.SAE == nil || len(fixture.SAE.Window) == 0 || len(fixture.SAE.Window) > 32 ||
+					len(fixture.SAE.SettlingHeaders) == 0 || len(fixture.SAE.SettlingHeaders) > 32 {
+					t.Fatal("invalid native receipt evidence window")
+				}
+				proof := SAEExecutionProof{ChainKey: fixture.ChainKey, GenesisHash: fixture.SAE.GenesisHash}
+				for _, input := range fixture.SAE.Window {
+					compact, txs := readBlock(t, input)
+					block, err := VerifyChainHeaderJSON(t.Context(), fixture.ChainKey, compact)
+					if err != nil {
+						t.Fatal(err)
+					}
+					proof.Headers = append(proof.Headers, compact)
+					proof.Window = append(proof.Window, ExecutionReceiptBlock{
+						Header: compact, TransactionsJSON: txs, Receipts: readReceipts(t, input.Receipts, block.Block),
+					})
+				}
+				for _, ref := range fixture.SAE.SettlingHeaders {
+					var successor json.RawMessage
+					readRPC(t, ref, "eth_getBlockByNumber", &successor)
+					proof.Headers = append(proof.Headers, successor)
+				}
+				limits := ReceiptProofLimits{
+					MaxBytes: 32 * 1024 * 1024, MaxHeaders: 64, MaxWindowBlocks: 32,
+					MaxTransactions: 100000, MaxLookahead: 32,
+				}
+				coverage, err := VerifySAEExecutionProof(t.Context(), commitment.Block, proof, limits)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if coverage.StateAnchor == nil || coverage.StateAnchor.BlockHash != commitment.Block.Hash {
+					t.Fatal("receipt settlement does not establish the target state root")
+				}
+				t.Logf("verified Coreth window %d–%d in settling block %d", coverage.WindowStart, coverage.WindowEnd, coverage.StateAnchor.SettlingHeight)
+				return
 			}
-			var full struct {
-				Hash         string            `json:"hash"`
-				Transactions []json.RawMessage `json:"transactions"`
+			compact, txs := readBlock(t, fixture.blockInput)
+			full, err := VerifyChainHeaderJSON(t.Context(), fixture.ChainKey, compact)
+			if err != nil {
+				t.Fatal(err)
 			}
-			readRPC(t, fixture.FullBlock, "eth_getBlockByNumber", &full)
-			if full.Hash != commitment.Block.Hash {
+			if !sameReceiptAnchor(full.Block, commitment.Block) {
 				t.Fatal("full transaction body points to a different block")
 			}
-			body := ExecutionReceiptBlock{TransactionsJSON: full.Transactions}
+			body := ExecutionReceiptBlock{TransactionsJSON: txs}
 			budget := receiptProofBudget{remaining: 32 * 1024 * 1024}
 			if err := verifyExecutionBody(t.Context(), fixture.ChainKey, commitment, body, &budget); err != nil {
 				t.Fatal(err)
 			}
-			var receipts []Receipt
-			params := readRPC(t, fixture.Receipts, "eth_getBlockReceipts", &receipts)
-			var selector string
-			if len(params) != 1 || json.Unmarshal(params[0], &selector) != nil ||
-				(selector != commitment.Block.Number && selector != commitment.Block.Hash) {
-				t.Fatal("receipt request does not point to the verified block")
-			}
+			receipts := readReceipts(t, fixture.Receipts, commitment.Block)
 			if err := VerifyChainReceiptRoot(t.Context(), fixture.ChainKey, commitment.Block, receipts); err != nil {
 				t.Fatal(err)
 			}
