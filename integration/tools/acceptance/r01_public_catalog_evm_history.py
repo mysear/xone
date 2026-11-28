@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from r01_public_catalog import ROOT,CatalogError,require,load_json,read_blob,rpc,sha256,validate_evm,validate_sources
+from r01_public_catalog import ROOT,CatalogError,require,load_json,public_rpc_endpoint,read_blob,rpc,sha256,validate_evm,validate_sources
 from r01_public_catalog_capture import DOCUMENTS,MAX_BYTES,capture_evm,fetch_document,fetch_rpc,request,write_new,reference
 from r01_public_catalog_history import ForkArchive,canonical_key,start_archive
 from r01_public_catalog_samples import capture as capture_samples
@@ -392,7 +392,7 @@ def verify_simulation_views(expected,observed):
     require(all(expected[k]==v for k,v in observed.items()),'SIMULATION_HEADER_VIEW_REPLAY')
     return sorted(set(expected)-set(observed))
 
-def recover_prestate(directory):
+def recover_prestate(directory, endpoint=None):
     directory = directory.resolve()
     require(directory.is_relative_to(OUT.resolve()), 'OWNED_EVM_DIRECTORY')
     output = directory / 'prestate-evidence-v2.json'
@@ -411,6 +411,19 @@ def recover_prestate(directory):
     require(len(missing) <= 64 and len({row['address'] for row in missing}) == len(missing),
             'PRESTATE_RECOVERY_ACCOUNT_INVENTORY')
     call, _ = evidence_recorder(directory)
+    endpoints = saved['endpoints']
+    if endpoint is not None:
+        public_rpc_endpoint(endpoint)
+        target = load_json(TARGETS)['targets'][evidence['chain']]
+        _, chain_id = call(endpoint, 'eth_chainId', [], 'recovery-chain-id')
+        _, genesis = call(endpoint, 'eth_getBlockByNumber', ['0x0', False], 'recovery-genesis')
+        _, header = call(endpoint, 'eth_getBlockByNumber', [tag, False], 'recovery-header')
+        require(chain_id == hex(target['chain_id']) and isinstance(genesis, dict) and
+                genesis.get('number') == '0x0' and genesis.get('hash') == target['genesis_hash'],
+                'PRESTATE_RECOVERY_PROVIDER_IDENTITY')
+        require(isinstance(header, dict) and all(header.get(field) == evidence['block'][field]
+                for field in ('number', 'hash', 'stateRoot')), 'PRESTATE_RECOVERY_PROVIDER_ANCHOR')
+        endpoints = list(dict.fromkeys([endpoint, *endpoints]))
     recovered = []
     unavailable = []
     for row in missing:
@@ -418,8 +431,8 @@ def recover_prestate(directory):
         require(address in accounts and accounts[address] == set(row['storage_slots']) and
                 len(accounts[address]) <= 256, 'PRESTATE_RECOVERY_STORAGE_INVENTORY')
         slots = sorted({storage_trie_key(evidence['chain'], slot) for slot in accounts[address]})
-        for endpoint in saved['endpoints']:
-            proof_ref, proof = call(endpoint, 'eth_getProof', [address, slots, tag], 'recovery-proof')
+        for provider in endpoints:
+            proof_ref, proof = call(provider, 'eth_getProof', [address, slots, tag], 'recovery-proof')
             if not isinstance(proof, dict):
                 continue
             entries = proof.get('storageProof')
@@ -436,7 +449,7 @@ def recover_prestate(directory):
             if cached_code is not None:
                 code = cached_code['result']
             else:
-                code_ref, code = call(endpoint, 'eth_getCode', [address, tag], 'recovery-code')
+                code_ref, code = call(provider, 'eth_getCode', [address, tag], 'recovery-code')
             if not isinstance(code, str):
                 continue
             recovered.append({'address': address, 'code': code, 'proof': proof,
@@ -469,11 +482,14 @@ def main():
     parser.add_argument('--chain', choices=CHAINS)
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--catalog', type=Path)
+    parser.add_argument('--proof-endpoint')
     args = parser.parse_args()
     if args.command in ('anchor', 'catalog', 'capture') and args.chain is None:
         parser.error('--chain is required for anchor, catalog and capture')
     if args.catalog and args.command != 'capture':
         parser.error('--catalog is only used by capture')
+    if args.proof_endpoint and args.command != 'recover-prestate':
+        parser.error('--proof-endpoint is only used by recover-prestate')
     if args.command == 'settlement' and args.chain not in (None, 'avalanche'):
         parser.error('settlement requires an Avalanche anchor')
     if args.command == 'anchor':
@@ -502,7 +518,7 @@ def main():
         require(directory.is_relative_to(OUT.resolve()), 'OWNED_EVM_DIRECTORY')
         result = capture_receipts(directory)
     elif args.command == 'recover-prestate':
-        result = recover_prestate(args.directory)
+        result = recover_prestate(args.directory, args.proof_endpoint)
     elif args.command in ('capture', 'resume'):
         result = capture(args.chain, args.directory, resume=args.command == 'resume', catalog_path=args.catalog)
     else:

@@ -21,6 +21,8 @@ done
 
 固定块的原执行已完成但公共 RPC 暂未返回完整预状态时，可以对同一目录运行 `r01_public_catalog_evm_history.py recover-prestate --directory "$r01_run/$chain"`。命令按已归档的读取集重新获取缺失证明，保留原始请求和响应。独立验证器核对区块承诺和归档读取值后，发布 `prestate-evidence-v2.json`。覆盖不全时可在原高度重试。
 
+若固定块的原始端点已裁剪历史状态，可用 `--proof-endpoint` 指定已登记的公共 RPC。采集先核对该端点的链 ID、创世块和目标高度的块哈希及状态根，再获取证明。原执行回放继续使用同一份归档。
+
 Avalanche 的后继结算头可用 `r01_public_catalog_evm_history.py settlement --directory "$r01_run/avalanche"` 采集。预状态验证器读取该目录中的 `native-successors.json`，校验每个原始响应的摘要，并用精确后继结算状态根核验 Coreth 账户及存储证明。
 
 六条链均可用 `r01_public_catalog_evm_history.py receipts --directory "$r01_run/$chain"` 采集固定块回执。Avalanche 先用 `settlement` 采集后继结算头，再由 `receipts` 保留该结算窗口内的交易和回执。将 `XONE_R01_RECEIPT_INPUTS` 设为各 `receipt-input.json` 的绝对路径列表，以冒号分隔。在 `chain-parser-go` 执行 `go test ./internal/chain/evm -run '^TestPublicCatalogFixedReceiptRoot$' -count=1 -v`，离线重建头哈希、交易根及回执根。

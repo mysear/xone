@@ -68,6 +68,7 @@ PUBLIC_RPC_ENDPOINTS=frozenset((
     'https://bsc-dataseed1.ninicoin.io','https://bsc-rpc-public.chainpulse.cc','https://bsc-rpc.blockreq.com/v1/rpc/public',
     'https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com',
     'https://arb1.arbitrum.io/rpc','https://arbitrum-one-rpc.publicnode.com',
+    'https://arbitrum-one.public.blastapi.io',
     'https://mainnet.optimism.io','https://optimism-rpc.publicnode.com','https://optimism.drpc.org',
     'https://polygon-bor-rpc.publicnode.com','https://polygon.drpc.org',
     'https://api.avax.network/ext/bc/C/rpc','https://avalanche-c-chain-rpc.publicnode.com'))
