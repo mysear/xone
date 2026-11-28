@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 从公开 finalized RPC 的 137 个区块按区块内交易顺序重放 Loader Write，恢复 Pump Bonding（升级 slot 458,921,440）与 Pump AMM（升级 slot 458,921,517）的 ProgramData。两份完整账户和其中的 SBF 均匹配既有 SHA-256。另保留已核对的 5 份 Program 与 FeeConfig 账户。仍缺 Fee ProgramData、两份历史 Global 和原多账户 RPC 捕获，Pump 的执行银行及解码夹具尚未重验。
 - 恢复 Meteora DLMM 预言机环形缓冲区、未缓存价格与费率边界的原程序证据及两份报价夹具。固定 SBF 执行 25 例，23 例验证实际付款及收款，2 例验证拒绝后账户状态回滚。独立证据检查和 Router 两项差分均通过。
 - 七链联调回放各链均发布两个代币。Base 三池、Ethereum 和 OP Mainnet 各两池，其余四链各一池。Base 在固定区块 63,180,533 卖出 1 WETH，留空调用方和收款方、最大跳数设为 3，得到 Slipstream 与 Uniswap V3 两条直接路线的拆单报价。生产实时发现和逐链市场范围待验收。
 - 恢复 Composable、Managed Snapshot、Weighted、Stable、Uniswap V3、LFJ、Pancake BSC4/LM、Infinity Bin、Orca、Meteora 与 Raydium 的 ExactOut 夹具，以及 Curve Crypto、Managed Fees、Orca Adaptive、Meteora WSOL 和签名估值夹具。Router 132 项专项与 Rust Parser 的 Orca 专项通过。Meteora WSOL 使用固定 LiteSVM 验证 ATA 创建、补足输入和实际到账。Pump 已按原摘要恢复 5 份账户，仍缺 3 份 ProgramData 和 2 份 Global 历史字节，阻塞全局契约检查。
