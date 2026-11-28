@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- Ethereum 在固定高度 26,511,767 加入 DAI/WETH Uniswap V2。独立证明、同块 Go 回执根与常规 Parser/Router 复演通过，原池与 Router 报价均为 165,074,215,811,127,810 个 DAI 最小单位。七链联调发布 12 个池。浏览器与 HTTP 实测留空地址时，100 USDC 经 WETH 两跳兑换 DAI，最大跳数为 1 时返回 `NO_ROUTE`。 [复验证据](integration/test/source/deployment-catalog/README.md#ethereum-daiweth-uniswap-v2-固定块报价)
 - 从另 33 个公开 finalized 区块重放 863 条 Loader Write，恢复 Pump Fee ProgramData（升级 slot 456,132,171）。完整账户和 SBF 均匹配固定摘要。待补的固定账户剩 Pump Global 与 Pump AMM GlobalConfig。
 - 从公开 finalized RPC 的 137 个区块按区块内交易顺序重放 Loader Write，恢复 Pump Bonding（升级 slot 458,921,440）与 Pump AMM（升级 slot 458,921,517）的 ProgramData。两份完整账户和其中的 SBF 均匹配既有 SHA-256。另保留已核对的 5 份 Program 与 FeeConfig 账户。原多账户 RPC 捕获仍待恢复，Pump 的执行银行及解码夹具尚未重验。
 - 恢复 Meteora DLMM 预言机环形缓冲区、未缓存价格与费率边界的原程序证据及两份报价夹具。固定 SBF 执行 25 例，23 例验证实际付款及收款，2 例验证拒绝后账户状态回滚。独立证据检查和 Router 两项差分均通过。

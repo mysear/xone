@@ -222,7 +222,9 @@ async function probe(inputFile,out){
  const cases=['ethereum-uniswap-v2','ethereum-uniswap-v3','base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3',
               'optimism-velodrome-v2','polygon-uniswap-v3','arbitrum-uniswap-v3','bsc-pancake-v2','bsc-pancake-v3','avalanche-uniswap-v3'];
  const isLfj = row.id === 'avalanche-lfj-v21' && row.chain === 'avalanche' && row.protocol === 'lfj-liquidity-book';
- assert(isLfj || (cases.includes(row.id)&&row.id===row.chain+'-'+row.protocol),'BOUNDED_GETTER_SCOPE');
+ const isDaiWeth = row.id === 'ethereum-uniswap-v2-dai-weth' && row.chain === 'ethereum' &&
+  row.protocol === 'uniswap-v2' && row.pool === '0xa478c2975ab1ea89e8196811f51a7b7ade33eb11';
+ assert(isLfj || isDaiWeth || (cases.includes(row.id)&&row.id===row.chain+'-'+row.protocol),'BOUNDED_GETTER_SCOPE');
  for(const r of Object.values(row.inputs))if(r&&typeof r==='object'&&r.path&&r.sha256)readRef(r);
  const bank=await loadBank(path.join(ROOT,row.directory),(input.supplements||[]).map(r=>{readRef(r);return path.join(ROOT,r.path);}));assert.equal(bank.validation.height,row.anchor.height,'READONLY_ROW_H');assert.equal(bank.evidence.block.hash,row.anchor.hash,'READONLY_ROW_HASH');assert.equal(bank.evidence.chain_id,String(row.chain_id),'READONLY_ROW_CHAIN');assert.equal(sha(bytes(bank.accounts.get(row.pool).code)),row.pool_runtime_sha256,'READONLY_ROW_RUNTIME');assert(bank.accounts.has(row.factory)&&sha(bytes(bank.accounts.get(row.factory).code))===row.factory_runtime_sha256,'READONLY_ROW_FACTORY_RUNTIME');
  if (row.implementation_address || isLfj) {

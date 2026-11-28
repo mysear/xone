@@ -153,6 +153,29 @@ node integration/tools/acceptance/r01_public_catalog_evm_sources.cjs \
 
 复验入口会按发行列表核对编译器 SHA-256，并在本地编译四个合约。
 
+### Ethereum DAI/WETH Uniswap V2 固定块报价
+
+`evidence/ethereum-dai-weth-26511767.tar.gz` 保留 95 份文件，SHA-256 为 `9f815ee04c6bc756dda27bb0066a0c31284adeb987b9f1cade95b816abdff160`。在高度 26,511,767，工厂返回的 DAI/WETH 池与已验证的 Uniswap V2 池运行时代码一致。独立验证覆盖 8 个账户、15 个存储槽和原池执行的 35 次预状态读取。Go 重建同块回执根，常规 Parser 和 Router 使用 4 次已验证的 getter 计算出 165,074,215,811,127,810 个 DAI 最小单位，与原池实际到账一致。
+
+与同块的 USDC/WETH 两池合并后，Router 可在 Ethereum 报价 USDC → WETH → DAI。100 USDC 的 ExactIn 估算优先经过 Uniswap V3 和 Uniswap V2，总输出为 99,658,214,421,336,776,840 个 DAI 最小单位。最大跳数为 1 时返回 `NO_ROUTE`，为 2 或 3 时返回同一条两跳路线。
+
+先按上一节展开 `evidence/ethereum-uniswap-26511767.tar.gz` 并准备固定编译器，然后从仓库根目录复验。
+
+```sh
+evidence_root=integration/test/source/deployment-catalog
+tar -xkf "$evidence_root/evidence/ethereum-dai-weth-26511767.tar.gz"
+fixed_block="$evidence_root/evm-continuation-v2/ethereum-dai-weth-26511767.qh03c0j2"
+getter_case="$evidence_root/evm-normal-v4/ethereum-dai-weth-26511767"
+commitments_output="$(mktemp -d)/commitments.json"
+node integration/tools/acceptance/r01_public_catalog_evm_commitments.cjs \
+    "$fixed_block" "$commitments_output" prestate-evidence-v2.json
+python3 integration/tools/acceptance/r01_public_catalog_evm_history.py replay --directory "$fixed_block"
+python3 integration/tools/acceptance/r01_public_catalog_evm_normal.py \
+    --case-directory "$getter_case" --probe "$getter_case/probe-01.json" \
+    --out integration/artifacts/local/r01-public-ethereum-dai-weth-fixed-h \
+    --parser-bin chain-parser-go/bin/chain-parser-go --router-bin dex-router/target/debug/dex-router
+```
+
 ### 2026-11-28 八链部署目录
 
 `evidence/eight-chain-deployments-2026-11-28.tar.gz` 包含 216 份文件，SHA-256 为 `d7dfea4ce9388f7be14c7555501b72577486f31a525a17e45ea03eec1e419b23`。归档保留 8 链的 16 项部署记录、15 个 EVM 样例池、3 个 Solana ProgramData 和相应的公开源响应。BSC 两项池查询使用同高度备用源。部署观察、源码复建、状态证明和生产准入分别由验收报告标记。
