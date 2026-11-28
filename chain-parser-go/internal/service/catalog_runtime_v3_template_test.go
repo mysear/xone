@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -29,41 +28,22 @@ type v3RealPool struct {
 	Fields  struct{ Factory, Token0, Token1, Fee, TickSpacing, MaxLiquidityPerTick string } `json:"immutable_fields"`
 }
 
-func officialV3RealPools(t *testing.T) []v3RealPool {
+type v3RuntimeFixture struct {
+	FactoryRuntime string       `json:"factory_runtime"`
+	Pools          []v3RealPool `json:"pools"`
+}
+
+func officialV3Fixture(t *testing.T) v3RuntimeFixture {
 	t.Helper()
-	raw, err := os.ReadFile("../../test/fixtures/source/testdata/deployment-catalog/v3-pool-template/two-real-pools.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var file struct {
-		Pools []struct {
-			Address string            `json:"address"`
-			Runtime string            `json:"observed_runtime"`
-			SHA     string            `json:"actual_runtime_sha256"`
-			Fields  map[string]string `json:"immutable_fields"`
-		}
-	}
-	if err = json.Unmarshal(raw, &file); err != nil {
-		t.Fatal(err)
-	}
-	var pools []v3RealPool
-	for _, p := range file.Pools {
-		v := v3RealPool{Address: p.Address, Runtime: p.Runtime, SHA: p.SHA}
-		v.Fields.Factory = p.Fields["factory"]
-		v.Fields.Token0 = p.Fields["token0"]
-		v.Fields.Token1 = p.Fields["token1"]
-		v.Fields.Fee = p.Fields["fee"]
-		v.Fields.TickSpacing = p.Fields["tickSpacing"]
-		v.Fields.MaxLiquidityPerTick = p.Fields["maxLiquidityPerTick"]
-		pools = append(pools, v)
-	}
-	if len(pools) != 2 {
+	var fixture v3RuntimeFixture
+	readCatalogReplayFixture(t, "official-v3-runtime", &fixture)
+	if len(fixture.Pools) != 2 || fixture.FactoryRuntime == "" {
 		t.Fatal("official two-pool fixture missing")
 	}
-	return pools
+	return fixture
 }
 func TestOfficialV3TemplateAcceptsTwoObservedImmutableInstances(t *testing.T) {
-	pools := officialV3RealPools(t)
+	pools := officialV3Fixture(t).Pools
 	if pools[0].SHA == pools[1].SHA {
 		t.Fatal("counterexample did not contain different runtime identities")
 	}
@@ -82,7 +62,7 @@ func TestOfficialV3TemplateAcceptsTwoObservedImmutableInstances(t *testing.T) {
 	}
 }
 func TestOfficialV3TemplateRejectsRuntimeAndLayoutTampering(t *testing.T) {
-	p := officialV3RealPools(t)[0]
+	p := officialV3Fixture(t).Pools[0]
 	bindings, err := v3BindingsFromStrings(p.Address, p.Fields.Factory, p.Fields.Token0, p.Fields.Token1, p.Fields.Fee, p.Fields.TickSpacing, p.Fields.MaxLiquidityPerTick)
 	if err != nil {
 		t.Fatal(err)
@@ -140,21 +120,11 @@ func TestOfficialV3TemplateRejectsRuntimeAndLayoutTampering(t *testing.T) {
 
 func officialV3ReadFixture(t *testing.T, mode string) (*CatalogRuntime, *rpc.Client, []ingest.FactoryCandidate, ingest.CatalogAnchor) {
 	t.Helper()
-	pools := officialV3RealPools(t)
-	raw, err := os.ReadFile("../../test/fixtures/source/testdata/deployment-catalog/verified-source-inputs/ethereum-uniswap-v3.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var input struct {
-		Runtime struct {
-			Code string `json:"onchainBytecode"`
-		} `json:"runtimeBytecode"`
-	}
-	if err = json.Unmarshal(raw, &input); err != nil {
-		t.Fatal(err)
-	}
+	fixture := officialV3Fixture(t)
+	// Use the two observed runtimes as inputs to a controlled admission test.
+	pools := fixture.Pools
 	factory := pools[0].Fields.Factory
-	factorySHA := sha256.Sum256(mustV3Hex(t, input.Runtime.Code))
+	factorySHA := sha256.Sum256(mustV3Hex(t, fixture.FactoryRuntime))
 	genesis := "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
 	source := config.FactoryDeployment{Address: factory, Version: ingest.UniswapV3Factory, ProvenanceID: "human-label-is-not-approval", FactoryCodeSHA256: hex.EncodeToString(factorySHA[:]), PoolTemplate: &config.V3PoolTemplateConfig{Profile: config.OfficialUniswapV3Pool076}, MaxInitializedTicks: 16, MaxSteps: 64}
 	if mode == "strict" {
@@ -219,7 +189,7 @@ func officialV3ReadFixture(t *testing.T, mode string) (*CatalogRuntime, *rpc.Cli
 			var address string
 			_ = json.Unmarshal(q.Params[0], &address)
 			if address == factory {
-				result = input.Runtime.Code
+				result = fixture.FactoryRuntime
 			} else {
 				for _, p := range pools {
 					if p.Address == address {
@@ -241,7 +211,13 @@ func officialV3ReadFixture(t *testing.T, mode string) (*CatalogRuntime, *rpc.Cli
 				break
 			}
 			if to == factory && strings.HasPrefix(data, "0x22afcccb") {
-				result = word("60")
+				result = word("0")
+				for _, pool := range pools {
+					if len(data) == 74 && data[10:] == strings.TrimPrefix(word(pool.Fields.Fee), "0x") {
+						result = word(pool.Fields.TickSpacing)
+						break
+					}
+				}
 				break
 			}
 			if to == factory && strings.HasPrefix(data, "0x1698ee82") {
@@ -322,7 +298,7 @@ func mustV3Hex(t *testing.T, value string) []byte {
 }
 func TestOfficialV3CurrentAdmissionProducesPerPoolActualCodePins(t *testing.T) {
 	r, client, candidates, anchor := officialV3ReadFixture(t, "")
-	expected := officialV3RealPools(t)
+	expected := officialV3Fixture(t).Pools
 	for i, c := range candidates {
 		entry, err := r.readCurrent(context.Background(), client, c, anchor)
 		if err != nil {

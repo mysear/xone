@@ -81,8 +81,6 @@ local_source_root = root / 'chain-parser-go/test/fixtures/source/testdata'
 manifest = json.loads((source_root / 'chain-receipt-vectors/manifest.json').read_text())
 source_files = {
     Path('chain-receipt-vectors/manifest.json'),
-    Path('deployment-catalog/v3-pool-template/two-real-pools.json'),
-    Path('deployment-catalog/verified-source-inputs/ethereum-uniswap-v3.json'),
     Path('ethereum-mainnet/uniswap-v2-26355865-evidence.json'),
 }
 source_files.update(Path(name) for name in [

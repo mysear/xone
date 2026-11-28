@@ -72,6 +72,13 @@ func (r nativeServiceResults) service(t *testing.T, key, receiptFile string) *na
 
 func readNativeServiceFixture(t *testing.T, name string) nativeServiceResults {
 	t.Helper()
+	var results nativeServiceResults
+	readCatalogReplayFixture(t, name, &results)
+	return results
+}
+
+func readCatalogReplayFixture(t *testing.T, name string, dest any) {
+	t.Helper()
 	root := "../../test/fixtures/native-catalog-replay"
 	source, err := os.Open(filepath.Join(root, name+".json.gz"))
 	if err != nil {
@@ -88,9 +95,7 @@ func readNativeServiceFixture(t *testing.T, name string) nativeServiceResults {
 	if err != nil || len(raw) > maxFixtureBytes {
 		t.Fatalf("invalid native catalog fixture %s: %v", name, err)
 	}
-	var results nativeServiceResults
-	if err := json.Unmarshal(raw, &results); err != nil {
+	if err := json.Unmarshal(raw, dest); err != nil {
 		t.Fatal(err)
 	}
-	return results
 }

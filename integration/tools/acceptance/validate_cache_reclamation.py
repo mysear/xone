@@ -70,8 +70,6 @@ def test_inputs():
     manifest = json.loads((source / 'chain-receipt-vectors/manifest.json').read_bytes())
     selected = [
         Path('chain-receipt-vectors/manifest.json'),
-        Path('deployment-catalog/v3-pool-template/two-real-pools.json'),
-        Path('deployment-catalog/verified-source-inputs/ethereum-uniswap-v3.json'),
         Path('ethereum-mainnet/uniswap-v2-26355865-evidence.json'),
         Path('current-v2-public/manifest.json'),
         Path('current-v2-public/responses.json.gz'),
