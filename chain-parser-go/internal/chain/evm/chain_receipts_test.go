@@ -47,6 +47,99 @@ func TestChainReceiptsPublicVectors(t *testing.T) {
 		})
 	}
 }
+
+func TestPublicCatalogFixedReceiptRoot(t *testing.T) {
+	inputs := filepath.SplitList(os.Getenv("XONE_R01_RECEIPT_INPUTS"))
+	if len(inputs) == 0 {
+		t.Skip("XONE_R01_RECEIPT_INPUTS is unset")
+	}
+	type reference struct {
+		Path   string `json:"path"`
+		SHA256 string `json:"sha256"`
+	}
+	readRPC := func(t *testing.T, ref reference, method string, result any) []json.RawMessage {
+		t.Helper()
+		if !filepath.IsLocal(ref.Path) {
+			t.Fatalf("invalid evidence path %q", ref.Path)
+		}
+		raw, err := os.ReadFile(filepath.Join("../../../..", ref.Path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fmt.Sprintf("%x", sha256.Sum256(raw)) != ref.SHA256 {
+			t.Fatalf("evidence digest mismatch for %s", ref.Path)
+		}
+		var wire struct {
+			Method     string            `json:"method"`
+			Params     []json.RawMessage `json:"params"`
+			HTTPStatus int               `json:"http_status"`
+			Response   struct {
+				Result json.RawMessage `json:"result"`
+			} `json:"response"`
+		}
+		if err := json.Unmarshal(raw, &wire); err != nil {
+			t.Fatal(err)
+		}
+		if wire.Method != method || wire.HTTPStatus != 200 || len(wire.Response.Result) == 0 || string(wire.Response.Result) == "null" {
+			t.Fatalf("invalid %s response in %s", method, ref.Path)
+		}
+		if err := json.Unmarshal(wire.Response.Result, result); err != nil {
+			t.Fatal(err)
+		}
+		return wire.Params
+	}
+	for _, input := range inputs {
+		raw, err := os.ReadFile(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fixture struct {
+			ChainKey  string    `json:"chain_key"`
+			Header    reference `json:"header"`
+			FullBlock reference `json:"full_block"`
+			Receipts  reference `json:"receipts"`
+		}
+		if err := json.Unmarshal(raw, &fixture); err != nil {
+			t.Fatal(err)
+		}
+		t.Run(fixture.ChainKey, func(t *testing.T) {
+			var header json.RawMessage
+			readRPC(t, fixture.Header, "eth_getBlockByNumber", &header)
+			commitment, err := VerifyChainHeaderJSON(t.Context(), fixture.ChainKey, header)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if commitment.SettledHeight != nil {
+				t.Fatal("settled receipts require native window verification")
+			}
+			var full struct {
+				Hash         string            `json:"hash"`
+				Transactions []json.RawMessage `json:"transactions"`
+			}
+			readRPC(t, fixture.FullBlock, "eth_getBlockByNumber", &full)
+			if full.Hash != commitment.Block.Hash {
+				t.Fatal("full transaction body points to a different block")
+			}
+			body := ExecutionReceiptBlock{TransactionsJSON: full.Transactions}
+			budget := receiptProofBudget{remaining: 32 * 1024 * 1024}
+			if err := verifyExecutionBody(t.Context(), fixture.ChainKey, commitment, body, &budget); err != nil {
+				t.Fatal(err)
+			}
+			var receipts []Receipt
+			params := readRPC(t, fixture.Receipts, "eth_getBlockReceipts", &receipts)
+			var selector string
+			if len(params) != 1 || json.Unmarshal(params[0], &selector) != nil ||
+				(selector != commitment.Block.Number && selector != commitment.Block.Hash) {
+				t.Fatal("receipt request does not point to the verified block")
+			}
+			if err := VerifyChainReceiptRoot(t.Context(), fixture.ChainKey, commitment.Block, receipts); err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("verified %d receipts at %s (%s)", len(receipts), commitment.Block.Number, commitment.Block.Hash)
+		})
+	}
+}
+
 func TestChainReceiptsRejectPublicMutations(t *testing.T) {
 	for _, name := range []string{"base-canyon", "base-regolith", "arbitrum", "bsc", "polygon", "avalanche", "ethereum"} {
 		for _, mutation := range []string{"root", "type", "gas-regression", "bloom", "log-data", "drop-tail", "drop-both-tails", "duplicate", "wrong-index", "wrong-block", "missing-logs"} {

@@ -158,6 +158,31 @@ def capture_sae_successors(saved, header, call):
         parent = child
     raise CatalogError('SAE_SUCCESSOR_WINDOW_LIMIT')
 
+def capture_receipts(directory):
+    saved = load_json(directory / 'anchor.json')
+    anchor = saved['anchor']
+    require(anchor['chain_id'] != 43114, 'SAE_RECEIPTS_REQUIRE_SETTLING_WINDOW')
+    header_ref = saved['witness']
+    header = rpc(ROOT, header_ref, 'eth_getBlockByNumber', [hex(anchor['height']), False])
+    require(header['hash'] == anchor['hash'] and header['number'] == hex(anchor['height']),
+            'RECEIPT_HEADER_ANCHOR')
+    output = directory / 'receipt-input.json'
+    require(not output.exists(), 'IMMUTABLE_EVM_RECEIPTS_EXIST')
+    call, _ = evidence_recorder(directory)
+    for endpoint in saved['endpoints']:
+        for selector in (header['hash'], header['number']):
+            ref, receipts = call(endpoint, 'eth_getBlockReceipts', [selector], 'block-receipts')
+            if not isinstance(receipts, list) or len(receipts) != len(header['transactions']):
+                continue
+            if any(not isinstance(receipt, dict) or receipt.get('blockHash') != header['hash']
+                   for receipt in receipts):
+                continue
+            result = {'chain_key': anchor['chain_key'], 'header': header_ref,
+                      'full_block': saved['header'], 'receipts': ref}
+            write_new(output, (json.dumps(result, indent=2) + '\n').encode())
+            return result
+    raise CatalogError('FIXED_H_CANONICAL_RECEIPTS_UNAVAILABLE')
+
 def capture_catalog(chain, directory):
     saved = load_json(directory / 'anchor.json')
     target = load_json(TARGETS)['targets'][chain]
@@ -330,7 +355,7 @@ def replay(directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['anchor', 'catalog', 'capture', 'resume', 'replay', 'settlement'])
+    parser.add_argument('command', choices=['anchor', 'catalog', 'capture', 'resume', 'replay', 'settlement', 'receipts'])
     parser.add_argument('--chain', choices=CHAINS)
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--catalog', type=Path)
@@ -362,6 +387,10 @@ def main():
         call, _ = evidence_recorder(directory)
         result = {'target': saved['header'], 'successors': capture_sae_successors(saved, header, call)}
         write_new(output, (json.dumps(result, indent=2) + '\n').encode())
+    elif args.command == 'receipts':
+        directory = args.directory.resolve()
+        require(directory.is_relative_to(OUT.resolve()), 'OWNED_EVM_DIRECTORY')
+        result = capture_receipts(directory)
     elif args.command in ('capture', 'resume'):
         result = capture(args.chain, args.directory, resume=args.command == 'resume', catalog_path=args.catalog)
     else:
