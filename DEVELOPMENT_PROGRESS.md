@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 已按历史清单字节恢复 Uniswap V2 Complete 的 24 个原合约案例、4 组序列和 79 份交易 trace，以及四端独立 Protobuf 夹具。用原 Node 二进制重跑生成器，结果逐字节一致，49 项反例被拒。Go race、两套 Rust wire、Router 数学、计划和 24 项独立模拟通过。公开 RPC 捕获归档和跨协议依赖闭包仍待恢复。
 - 已恢复 Aerodrome Slipstream 的原合约上下文回归。固定编译输入分别重建 Base 工厂和池实现的完整运行字节码，包含编译元数据。上下文回归覆盖 108 个原合约案例、4 组连续交易及 4 个独立 C++ wire 向量。Go 和两套 Rust 专项通过，状态生成器会为四个服务写出相同的测试夹具。ExactOut 原合约证据验证覆盖 90 个足额成交、18 个拒绝的部分成交和 12 个连续交易步骤，Router 的 9 项差分回归通过。
 - 已恢复 Raydium CLMM 位图、种子、代币费和动态费四组原程序报价向量与所需账户夹具。动态费覆盖 348 个报价用例和 376 次 CLI 回放。Go race、两套 Rust Kafka 分片回归、Rust Parser 的 165 项摄取测试及 Router 的 11 项差分测试通过。LFJ Liquidity Book V2.1 恢复固定版本源码、96 个原合约案例、两组交易序列和四个 wire 向量，Go、两套 Rust 和 Router 专项通过。
 - 恢复 Orca adaptive rewards 的两池 20 个原程序账户状态、完整 wire 和连续报价向量。Go race、两套 Rust 领域和配置、Solana finalized bank、Router 数学与共享池差分通过。Python 普通和优化模式共 14 项测试，原程序证据门禁覆盖 34 项拒绝用例。Velodrome V2 恢复 216 个原合约报价用例、8 组连续交易及 Router 所需源码副本，Go 定向回归与 Router 差分通过。

@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "authority": "independent-cpp-protoc-schema-encoding-not-execution",
+  "protoc": {
+    "executable": "/usr/local/bin/protoc",
+    "version": "libprotoc 34.1",
+    "sha256": "ff48d9e66496dd450a79937f87bf2ba9381b17f2d632d2b0a400cc473f6364ce"
+  },
+  "cases": [
+    {
+      "name": "original-synchronized",
+      "snapshot": {
+        "reference": {
+          "block": {
+            "chain_key": "evm:31337",
+            "number_or_slot": 11,
+            "hash": "0xc985e71ba4f6cd43c4a1c5cbf492e40b2289249c116345a7800a8f70f0f4cc2f",
+            "parent_hash": "0x3c482b5066ae631a3e321656ad288135f7211a977f62c31e6012d8e2fe17038e",
+            "timestamp_ms": 1790812800000
+          },
+          "canonical_epoch": 1,
+          "journal_seq": 1,
+          "schema_version": 1,
+          "adapter_set_hash": "6654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad",
+          "online_generation": 1,
+          "scope_hash": "6b71a24566bd977b36405601dbfb6ccc2de49d2ed4cf4acb2f2e4b38376d38c4",
+          "writer_epoch": 1,
+          "owner_service": "chain-parser-go",
+          "owner_assignment_version": 1
+        },
+        "pools": [
+          {
+            "chain_key": "evm:31337",
+            "pool_id": "0x6c0da697cbb2142911a4f944ce063a43ca16b36e",
+            "protocol": "uniswap-v2-complete",
+            "token0": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+            "token1": "0xb9816fc57977d5a786e654c7cf76767be63b966e",
+            "reserve0": "1000000000000000000000000",
+            "reserve1": "2000000000000000000000000",
+            "fee_numerator": 3,
+            "fee_denominator": 1000,
+            "adapter_version": "uniswap-v2/core-1.0.1-full-swap-1",
+            "token_behavior": "standard",
+            "v2": {
+              "factory": "0xf2e246bb76df876cef8b38ae84130f4f55de395b",
+              "code_sha256": "8b5db55fa9ab3b9527508d4abe0b39eb588bf310270c8e04b3f38214e8ba63b4",
+              "swap": {
+                "raw_balance0": "1000000000000000000000000",
+                "raw_balance1": "2000000000000000000000000",
+                "block_timestamp_last": 1790812800,
+                "price0_cumulative_last": "0",
+                "price1_cumulative_last": "0",
+                "unlocked": true,
+                "factory_code_sha256": "3abc53f12a9cb8ae37ebfada9efc261c1ab4c2759d161e341a49bf67df3f8321",
+                "bank_block_number": 11,
+                "bank_block_hash": "0xc985e71ba4f6cd43c4a1c5cbf492e40b2289249c116345a7800a8f70f0f4cc2f",
+                "bank_unix_timestamp": 1790812800
+              }
+            }
+          }
+        ],
+        "source": "SCHEMA_WIRE_ONLY_NOT_CANONICAL",
+        "history_gaps": []
+      },
+      "protobuf_hex": "0abb010a580a0965766d3a3331333337100b1a20c985e71ba4f6cd43c4a1c5cbf492e40b2289249c116345a7800a8f70f0f4cc2f22203c482b5066ae631a3e321656ad288135f7211a977f62c31e6012d8e2fe17038e2880888ba68f341001180120012a206654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad30013a206b71a24566bd977b36405601dbfb6ccc2de49d2ed4cf4acb2f2e4b38376d38c440014a0f636861696e2d7061727365722d676f500112d8040a0965766d3a3331333337122a3078366330646136393763626232313432393131613466393434636530363361343363613136623336651a13756e69737761702d76322d636f6d706c657465222a3078353161323430323731616238616239663961323163383264396138353339366237303465313634642a2a30786239383136666335373937376435613738366536353463376366373637363762653633623936366532220a2000000000000000000000000000000000000000000000d3c21bcecceda10000003a220a2000000000000000000000000000000000000000000001a784379d99db42000000400348e8075221756e69737761702d76322f636f72652d312e302e312d66756c6c2d737761702d315a087374616e64617264aa01b6020a2a30786632653234366262373664663837366365663862333861653834313330663466353564653339356212208b5db55fa9ab3b9527508d4abe0b39eb588bf310270c8e04b3f38214e8ba63b4a201e4010a220a2000000000000000000000000000000000000000000000d3c21bcecceda100000012220a2000000000000000000000000000000000000000000001a784379d99db420000001880c5f6d50622220a2000000000000000000000000000000000000000000000000000000000000000002a220a20000000000000000000000000000000000000000000000000000000000000000030013a203abc53f12a9cb8ae37ebfada9efc261c1ab4c2759d161e341a49bf67df3f8321400b4a20c985e71ba4f6cd43c4a1c5cbf492e40b2289249c116345a7800a8f70f0f4cc2f5080c5f6d5061a1e534348454d415f574952455f4f4e4c595f4e4f545f43414e4f4e4943414c"
+    },
+    {
+      "name": "original-unsynced-donation",
+      "snapshot": {
+        "reference": {
+          "block": {
+            "chain_key": "evm:31337",
+            "number_or_slot": 15,
+            "hash": "0xccd273dea44be9cd466641568dd78339054dec24ebaf677c3da58d6ede2e01f3",
+            "parent_hash": "0x69cf21f7b0371583fc6341aee78056ac13c19bf8ce888760d6bc47337628ec5f",
+            "timestamp_ms": 1790812800000
+          },
+          "canonical_epoch": 1,
+          "journal_seq": 1,
+          "schema_version": 1,
+          "adapter_set_hash": "6654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad",
+          "online_generation": 1,
+          "scope_hash": "6b71a24566bd977b36405601dbfb6ccc2de49d2ed4cf4acb2f2e4b38376d38c4",
+          "writer_epoch": 1,
+          "owner_service": "chain-parser-go",
+          "owner_assignment_version": 1
+        },
+        "pools": [
+          {
+            "chain_key": "evm:31337",
+            "pool_id": "0x6c0da697cbb2142911a4f944ce063a43ca16b36e",
+            "protocol": "uniswap-v2-complete",
+            "token0": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+            "token1": "0xb9816fc57977d5a786e654c7cf76767be63b966e",
+            "reserve0": "1000500753121192530901613",
+            "reserve1": "1999007986037920193567014",
+            "fee_numerator": 3,
+            "fee_denominator": 1000,
+            "adapter_version": "uniswap-v2/core-1.0.1-full-swap-1",
+            "token_behavior": "standard",
+            "v2": {
+              "factory": "0xf2e246bb76df876cef8b38ae84130f4f55de395b",
+              "code_sha256": "8b5db55fa9ab3b9527508d4abe0b39eb588bf310270c8e04b3f38214e8ba63b4",
+              "swap": {
+                "raw_balance0": "1000550753121192530901613",
+                "raw_balance1": "1999007986037920193567014",
+                "block_timestamp_last": 1790812800,
+                "price0_cumulative_last": "0",
+                "price1_cumulative_last": "0",
+                "unlocked": true,
+                "factory_code_sha256": "3abc53f12a9cb8ae37ebfada9efc261c1ab4c2759d161e341a49bf67df3f8321",
+                "bank_block_number": 15,
+                "bank_block_hash": "0xccd273dea44be9cd466641568dd78339054dec24ebaf677c3da58d6ede2e01f3",
+                "bank_unix_timestamp": 1790812800
+              }
+            }
+          }
+        ],
+        "source": "SCHEMA_WIRE_ONLY_NOT_CANONICAL",
+        "history_gaps": []
+      },
+      "protobuf_hex": "0abb010a580a0965766d3a3331333337100f1a20ccd273dea44be9cd466641568dd78339054dec24ebaf677c3da58d6ede2e01f3222069cf21f7b0371583fc6341aee78056ac13c19bf8ce888760d6bc47337628ec5f2880888ba68f341001180120012a206654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad30013a206b71a24566bd977b36405601dbfb6ccc2de49d2ed4cf4acb2f2e4b38376d38c440014a0f636861696e2d7061727365722d676f500112d8040a0965766d3a3331333337122a3078366330646136393763626232313432393131613466393434636530363361343363613136623336651a13756e69737761702d76322d636f6d706c657465222a3078353161323430323731616238616239663961323163383264396138353339366237303465313634642a2a30786239383136666335373937376435613738366536353463376366373637363762653633623936366532220a2000000000000000000000000000000000000000000000d3dd4127438c91ef7a6d3a220a2000000000000000000000000000000000000000000001a74e70a80742974fd926400348e8075221756e69737761702d76322f636f72652d312e302e312d66756c6c2d737761702d315a087374616e64617264aa01b6020a2a30786632653234366262373664663837366365663862333861653834313330663466353564653339356212208b5db55fa9ab3b9527508d4abe0b39eb588bf310270c8e04b3f38214e8ba63b4a201e4010a220a2000000000000000000000000000000000000000000000d3dff70af2a343777a6d12220a2000000000000000000000000000000000000000000001a74e70a80742974fd9261880c5f6d50622220a2000000000000000000000000000000000000000000000000000000000000000002a220a20000000000000000000000000000000000000000000000000000000000000000030013a203abc53f12a9cb8ae37ebfada9efc261c1ab4c2759d161e341a49bf67df3f8321400f4a20ccd273dea44be9cd466641568dd78339054dec24ebaf677c3da58d6ede2e01f35080c5f6d5061a1e534348454d415f574952455f4f4e4c595f4e4f545f43414e4f4e4943414c"
+    },
+    {
+      "name": "synthetic-known-zero-schema-only",
+      "snapshot": {
+        "reference": {
+          "block": {
+            "chain_key": "evm:31337",
+            "number_or_slot": 0,
+            "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "parent_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "timestamp_ms": 0
+          },
+          "canonical_epoch": 1,
+          "journal_seq": 1,
+          "schema_version": 1,
+          "adapter_set_hash": "6654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad",
+          "online_generation": 1,
+          "scope_hash": "6b71a24566bd977b36405601dbfb6ccc2de49d2ed4cf4acb2f2e4b38376d38c4",
+          "writer_epoch": 1,
+          "owner_service": "chain-parser-go",
+          "owner_assignment_version": 1
+        },
+        "pools": [
+          {
+            "chain_key": "evm:31337",
+            "pool_id": "0x6c0da697cbb2142911a4f944ce063a43ca16b36e",
+            "protocol": "uniswap-v2-complete",
+            "token0": "0x51a240271ab8ab9f9a21c82d9a85396b704e164d",
+            "token1": "0xb9816fc57977d5a786e654c7cf76767be63b966e",
+            "reserve0": "1000000000000000000000000",
+            "reserve1": "2000000000000000000000000",
+            "fee_numerator": 3,
+            "fee_denominator": 1000,
+            "adapter_version": "uniswap-v2/core-1.0.1-full-swap-1",
+            "token_behavior": "standard",
+            "v2": {
+              "factory": "0xf2e246bb76df876cef8b38ae84130f4f55de395b",
+              "code_sha256": "8b5db55fa9ab3b9527508d4abe0b39eb588bf310270c8e04b3f38214e8ba63b4",
+              "swap": {
+                "raw_balance0": "1000000000000000000000000",
+                "raw_balance1": "2000000000000000000000000",
+                "block_timestamp_last": 0,
+                "price0_cumulative_last": "0",
+                "price1_cumulative_last": "0",
+                "unlocked": true,
+                "factory_code_sha256": "3abc53f12a9cb8ae37ebfada9efc261c1ab4c2759d161e341a49bf67df3f8321",
+                "bank_block_number": 0,
+                "bank_block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "bank_unix_timestamp": 0
+              }
+            }
+          }
+        ],
+        "source": "SCHEMA_WIRE_ONLY_NOT_CANONICAL",
+        "history_gaps": []
+      },
+      "protobuf_hex": "0ab2010a4f0a0965766d3a33313333371a20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa222000000000000000000000000000000000000000000000000000000000000000001001180120012a206654afbd180cb1829eae8128afda552ba03a0c1f98b5c63bb3528c3371892cad30013a206b71a24566bd977b36405601dbfb6ccc2de49d2ed4cf4acb2f2e4b38376d38c440014a0f636861696e2d7061727365722d676f500112d0040a0965766d3a3331333337122a3078366330646136393763626232313432393131613466393434636530363361343363613136623336651a13756e69737761702d76322d636f6d706c657465222a3078353161323430323731616238616239663961323163383264396138353339366237303465313634642a2a30786239383136666335373937376435613738366536353463376366373637363762653633623936366532220a2000000000000000000000000000000000000000000000d3c21bcecceda10000003a220a2000000000000000000000000000000000000000000001a784379d99db42000000400348e8075221756e69737761702d76322f636f72652d312e302e312d66756c6c2d737761702d315a087374616e64617264aa01ae020a2a30786632653234366262373664663837366365663862333861653834313330663466353564653339356212208b5db55fa9ab3b9527508d4abe0b39eb588bf310270c8e04b3f38214e8ba63b4a201dc010a220a2000000000000000000000000000000000000000000000d3c21bcecceda100000012220a2000000000000000000000000000000000000000000001a784379d99db42000000180022220a2000000000000000000000000000000000000000000000000000000000000000002a220a20000000000000000000000000000000000000000000000000000000000000000030013a203abc53f12a9cb8ae37ebfada9efc261c1ab4c2759d161e341a49bf67df3f832140004a20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa50001a1e534348454d415f574952455f4f4e4c595f4e4f545f43414e4f4e4943414c"
+    }
+  ]
+}
