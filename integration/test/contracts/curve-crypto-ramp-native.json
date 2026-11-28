@@ -1,0 +1,3204 @@
+{
+  "schema_version": 1,
+  "reference_only": true,
+  "profile": "original public ramp_A_gamma/stop_ramp_A_gamma and exchange on original deployed pool + V4 LP; EIP170 enforced; synthetic tokens",
+  "source_pins": [
+    {
+      "local": "../curve-models/crypto/CurveCryptoSwap2.vy",
+      "repo": "curvefi/curve-crypto-contract",
+      "revision": "d7d04cd9ae038970e40be850df99de8c1ff7241b",
+      "path": "contracts/two/CurveCryptoSwap2.vy",
+      "sha256": "e50c9231f735ce4b30f60941b8a3a7591ad3b70c8930f7ce965b87efe361579f"
+    },
+    {
+      "local": "CurveTokenV4.vy",
+      "repo": "curvefi/curve-crypto-contract",
+      "revision": "d7d04cd9ae038970e40be850df99de8c1ff7241b",
+      "path": "contracts/tricrypto/CurveTokenV4.vy",
+      "sha256": "ad11f4016dbd4af5087931898082e3636a886eb86d6b9de30816157c4023ebae"
+    },
+    {
+      "local": "CurveTokenV5.vy",
+      "repo": "curvefi/curve-crypto-contract",
+      "revision": "d7d04cd9ae038970e40be850df99de8c1ff7241b",
+      "path": "contracts/CurveTokenV5.vy",
+      "sha256": "77b38a64bfd3141b1ea4cf569e58325be385e0eddd2451baf7932cd7599bcbfe"
+    },
+    {
+      "local": "Tokens.sol",
+      "repo": "local bounded nominal ERC20",
+      "revision": "local-reference",
+      "path": "Tokens.sol",
+      "sha256": "cb48ea0f8889662497e467d6332fde8e3ce78a1e7b863d4914de11995239c778"
+    },
+    {
+      "local": "CurveCryptoSwap2.vy",
+      "repo": "curvefi/curve-crypto-contract",
+      "revision": "d7d04cd9ae038970e40be850df99de8c1ff7241b",
+      "path": "contracts/two/CurveCryptoSwap2.vy",
+      "sha256": "e50c9231f735ce4b30f60941b8a3a7591ad3b70c8930f7ce965b87efe361579f"
+    }
+  ],
+  "cases": [
+    {
+      "name": "ramp-up-step0-18-18",
+      "sequence": "up-18-18",
+      "step": 0,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x581c9c926d282b415627bac7c7d5c7f479487d21c49eed7b369fe614d1108031",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000000000000000000000",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000000000000000000",
+        "last_prices": "1000000000000000000",
+        "last_prices_timestamp": "1790812800",
+        "xcp_profit": "1000000000000000000",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000000000000000",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1790985600"
+      },
+      "balances": [
+        "1000000000000000000000000",
+        "1000000000000000000000000"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000000000000000000000",
+        "1000000000000000000000000"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+        "28948022309329048855892746252171976963317496166410140009864396001978282409983"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790812801,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011730014544773",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304971305053364",
+          "last_prices_timestamp": "1790812801",
+          "xcp_profit": "1000000015005865007",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000015005865007",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1790985600"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030487832591242873"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030487832591242873"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410140009964365514145691167110"
+        ],
+        "transaction": {
+          "hash": "0x3b537a49a4213d16663f9007c0bf87009ffac68c516e7d4ff25a3a0c24825be3",
+          "block_number": 13,
+          "status": 1,
+          "gas_used": "162370"
+        },
+        "amount_out": "99969512167408757127",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512167408757127"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-up-step1-18-18",
+      "sequence": "up-18-18",
+      "step": 1,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x581c9c926d282b415627bac7c7d5c7f479487d21c49eed7b369fe614d1108031",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000030011730014544773",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000000000000000000",
+        "last_prices": "1000304971305053364",
+        "last_prices_timestamp": "1790812801",
+        "xcp_profit": "1000000015005865007",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000015005865007",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1790985600"
+      },
+      "balances": [
+        "1000100000000000000000000",
+        "999900030487832591242873"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100000000000000000000",
+        "999900030487832591242873"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+        "28948022309329048855892746252171976963317496166410140009964365514145691167110"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790856001,
+      "input": "100000000000000000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000060103412628637831",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000304971305053364",
+          "last_prices": "999703844199625592",
+          "last_prices_timestamp": "1790856001",
+          "xcp_profit": "1000000030051706314",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000030051706314",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1790985600"
+        },
+        "balances": [
+          "1000000029615580037440735",
+          "1000000030487832591242873"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000029615580037440735",
+          "1000000030487832591242873"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864366386398244969248",
+          "28948022309329048855892746252171976963317496166410140009864365514145691167110"
+        ],
+        "transaction": {
+          "hash": "0x826c954a9aa2c2f21c3dc1c52ee8d2748c74816750849b9f76d4ba776632cd5c",
+          "block_number": 15,
+          "status": 1,
+          "gas_used": "157254"
+        },
+        "amount_out": "99970384419962559265",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000000000000000",
+              "0",
+              "99970384419962559265"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-up-step2-18-18",
+      "sequence": "up-18-18",
+      "step": 2,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x581c9c926d282b415627bac7c7d5c7f479487d21c49eed7b369fe614d1108031",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000060103412628637831",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000304971305053364",
+        "last_prices": "999703844199625592",
+        "last_prices_timestamp": "1790856001",
+        "xcp_profit": "1000000030051706314",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000030051706314",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1790985600"
+      },
+      "balances": [
+        "1000000029615580037440735",
+        "1000000030487832591242873"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000029615580037440735",
+        "1000000030487832591242873"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864366386398244969248",
+        "28948022309329048855892746252171976963317496166410140009864365514145691167110"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790899201,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000090115142635601431",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "999703844199625592",
+          "last_prices": "1000303434405317568",
+          "last_prices_timestamp": "1790899201",
+          "xcp_profit": "1000000045057571317",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000045057571317",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1790985600"
+        },
+        "balances": [
+          "1000100029615580037440735",
+          "999900060822068672113726"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100029615580037440735",
+          "999900060822068672113726"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764366386398244969248",
+          "28948022309329048855892746252171976963317496166410140009964335179909610296257"
+        ],
+        "transaction": {
+          "hash": "0x887747aa748e01d1e3a100543fb0668144542880539d42793fc5da338adcbeeb",
+          "block_number": 17,
+          "status": 1,
+          "gas_used": "161486"
+        },
+        "amount_out": "99969665763919129147",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969665763919129147"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-up-step3-18-18",
+      "sequence": "up-18-18",
+      "step": 3,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x581c9c926d282b415627bac7c7d5c7f479487d21c49eed7b369fe614d1108031",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000090115142635601431",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "999703844199625592",
+        "last_prices": "1000303434405317568",
+        "last_prices_timestamp": "1790899201",
+        "xcp_profit": "1000000045057571317",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000045057571317",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1790985600"
+      },
+      "balances": [
+        "1000100029615580037440735",
+        "999900060822068672113726"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100029615580037440735",
+        "999900060822068672113726"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764366386398244969248",
+        "28948022309329048855892746252171976963317496166410140009964335179909610296257"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790985599,
+      "input": "100000000000000000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000120193879186873840",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000303434405317568",
+          "last_prices": "999702437695226434",
+          "last_prices_timestamp": "1790985599",
+          "xcp_profit": "1000000060096939593",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000060096939593",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1790985600"
+        },
+        "balances": [
+          "1000000059371810514797329",
+          "1000000060822068672113726"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000059371810514797329",
+          "1000000060822068672113726"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864336630167767612654",
+          "28948022309329048855892746252171976963317496166410140009864335179909610296257"
+        ],
+        "transaction": {
+          "hash": "0x8a0fae93b442a1dc8a3e661da22d99e4670975efb23bb20202c01433f2c10947",
+          "block_number": 19,
+          "status": 1,
+          "gas_used": "157254"
+        },
+        "amount_out": "99970243769522643406",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000000000000000",
+              "0",
+              "99970243769522643406"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-up-step4-18-18",
+      "sequence": "up-18-18",
+      "step": 4,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x581c9c926d282b415627bac7c7d5c7f479487d21c49eed7b369fe614d1108031",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000120193879186873840",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000303434405317568",
+        "last_prices": "999702437695226434",
+        "last_prices_timestamp": "1790985599",
+        "xcp_profit": "1000000060096939593",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000060096939593",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1790985600"
+      },
+      "balances": [
+        "1000000059371810514797329",
+        "1000000060822068672113726"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000059371810514797329",
+        "1000000060822068672113726"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864336630167767612654",
+        "28948022309329048855892746252171976963317496166410140009864335179909610296257"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790985600,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000150205609191047301",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000302740511406276",
+          "last_prices": "1000302647273350079",
+          "last_prices_timestamp": "1790985600",
+          "xcp_profit": "1000000075102804595",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000075102804595",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100059371810514797329",
+          "999900091077639241185276"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100059371810514797329",
+          "999900091077639241185276"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764336630167767612654",
+          "28948022309329048855892746252171976963317496166410140009964304924339041224707"
+        ],
+        "transaction": {
+          "hash": "0xb8cf31f68903544f2aab8f39c70b36d659b97bad8335675bc81f849e15ca70f7",
+          "block_number": 21,
+          "status": 1,
+          "gas_used": "159006"
+        },
+        "amount_out": "99969744429430928450",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969744429430928450"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-up-step5-18-18",
+      "sequence": "up-18-18",
+      "step": 5,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x581c9c926d282b415627bac7c7d5c7f479487d21c49eed7b369fe614d1108031",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000150205609191047301",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000302740511406276",
+        "last_prices": "1000302647273350079",
+        "last_prices_timestamp": "1790985600",
+        "xcp_profit": "1000000075102804595",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000075102804595",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "0"
+      },
+      "balances": [
+        "1000100059371810514797329",
+        "999900091077639241185276"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100059371810514797329",
+        "999900091077639241185276"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764336630167767612654",
+        "28948022309329048855892746252171976963317496166410140009964304924339041224707"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790985601,
+      "input": "100000000000000000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000180205682349904071",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000302740403756236",
+          "last_prices": "999702437674060309",
+          "last_prices_timestamp": "1790985601",
+          "xcp_profit": "1000000090102841174",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000090102841174",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000000089128043108766361",
+          "1000000091077639241185276"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000089128043108766361",
+          "1000000091077639241185276"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864306873935173643622",
+          "28948022309329048855892746252171976963317496166410140009864304924339041224707"
+        ],
+        "transaction": {
+          "hash": "0x3ba1409edfc0f0652de86c4d54561d0846ee4ba8e5267caca9cf246ffbb18dd5",
+          "block_number": 23,
+          "status": 1,
+          "gas_used": "146761"
+        },
+        "amount_out": "99970243767406030968",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000000000000000",
+              "0",
+              "99970243767406030968"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step0-18-18",
+      "sequence": "down-18-18",
+      "step": 0,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xaa0f9cfaac8e066a1a64c6359a0f3f1f915949afbeff195a0940d7295d958de1",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000180205682349904071",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000302740403756236",
+        "last_prices": "999702437674060309",
+        "last_prices_timestamp": "1790985601",
+        "xcp_profit": "1000000090102841174",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000090102841174",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791158401"
+      },
+      "balances": [
+        "1000000089128043108766361",
+        "1000000091077639241185276"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000089128043108766361",
+        "1000000091077639241185276"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864306873935173643622",
+        "28948022309329048855892746252171976963317496166410140009864304924339041224707"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1790985602,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000210217412354064306",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000302047311095205",
+          "last_prices": "1000302647272993038",
+          "last_prices_timestamp": "1790985602",
+          "xcp_profit": "1000000105108706177",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000105108706177",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1791158401"
+        },
+        "balances": [
+          "1000100089128043108766361",
+          "999900121333209774574382"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100089128043108766361",
+          "999900121333209774574382"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764306873935173643622",
+          "28948022309329048855892746252171976963317496166410140009964274668768507835601"
+        ],
+        "transaction": {
+          "hash": "0x326780f789cefbd3483533ae09d5084c6ba0624d874c96160ffd626ab2d7c7d8",
+          "block_number": 26,
+          "status": 1,
+          "gas_used": "165705"
+        },
+        "amount_out": "99969744429466610894",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969744429466610894"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step1-18-18",
+      "sequence": "down-18-18",
+      "step": 1,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xaa0f9cfaac8e066a1a64c6359a0f3f1f915949afbeff195a0940d7295d958de1",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000210217412354064306",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000302047311095205",
+        "last_prices": "1000302647272993038",
+        "last_prices_timestamp": "1790985602",
+        "xcp_profit": "1000000105108706177",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000105108706177",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791158401"
+      },
+      "balances": [
+        "1000100089128043108766361",
+        "999900121333209774574382"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100089128043108766361",
+        "999900121333209774574382"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764306873935173643622",
+        "28948022309329048855892746252171976963317496166410140009964274668768507835601"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1791028802,
+      "input": "100000000000000000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000240162906871101167",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000302647272993038",
+          "last_prices": "999702983460121629",
+          "last_prices_timestamp": "1791028802",
+          "xcp_profit": "1000000120081453435",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000120081453435",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1791158401"
+        },
+        "balances": [
+          "1000000118829697096603408",
+          "1000000121333209774574382"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000118829697096603408",
+          "1000000121333209774574382"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864277172281185806575",
+          "28948022309329048855892746252171976963317496166410140009864274668768507835601"
+        ],
+        "transaction": {
+          "hash": "0xc090ff2ef7717a0d57c7711a00bbc9c342f078612bfe991250ebf2760426a33a",
+          "block_number": 28,
+          "status": 1,
+          "gas_used": "157244"
+        },
+        "amount_out": "99970298346012162953",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000000000000000",
+              "0",
+              "99970298346012162953"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step2-18-18",
+      "sequence": "down-18-18",
+      "step": 2,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xaa0f9cfaac8e066a1a64c6359a0f3f1f915949afbeff195a0940d7295d958de1",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000240162906871101167",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000302647272993038",
+        "last_prices": "999702983460121629",
+        "last_prices_timestamp": "1791028802",
+        "xcp_profit": "1000000120081453435",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000120081453435",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791158401"
+      },
+      "balances": [
+        "1000000118829697096603408",
+        "1000000121333209774574382"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000118829697096603408",
+        "1000000121333209774574382"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864277172281185806575",
+        "28948022309329048855892746252171976963317496166410140009864274668768507835601"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1791072002,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000270174636880199590",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "999702983460121629",
+          "last_prices": "1000304054994470774",
+          "last_prices_timestamp": "1791072002",
+          "xcp_profit": "1000000135087318440",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000135087318440",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1791158401"
+        },
+        "balances": [
+          "1000100118829697096603408",
+          "999900151729467087802513"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100118829697096603408",
+          "999900151729467087802513"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764277172281185806575",
+          "28948022309329048855892746252171976963317496166410140009964244272511194607470"
+        ],
+        "transaction": {
+          "hash": "0xcf3b0387a41b58f6a12b23a7f6842b513a8dbcda53133f5be44863245a22db22",
+          "block_number": 30,
+          "status": 1,
+          "gas_used": "161486"
+        },
+        "amount_out": "99969603742686771869",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969603742686771869"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step3-18-18",
+      "sequence": "down-18-18",
+      "step": 3,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xaa0f9cfaac8e066a1a64c6359a0f3f1f915949afbeff195a0940d7295d958de1",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000270174636880199590",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "999702983460121629",
+        "last_prices": "1000304054994470774",
+        "last_prices_timestamp": "1791072002",
+        "xcp_profit": "1000000135087318440",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000135087318440",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791158401"
+      },
+      "balances": [
+        "1000100118829697096603408",
+        "999900151729467087802513"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100118829697096603408",
+        "999900151729467087802513"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764277172281185806575",
+        "28948022309329048855892746252171976963317496166410140009964244272511194607470"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1791158400,
+      "input": "100000000000000000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000299650507388904339",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000304054994470774",
+          "last_prices": "999709086567950810",
+          "last_prices_timestamp": "1791158400",
+          "xcp_profit": "1000000149825253694",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000149825253694",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1791158401"
+        },
+        "balances": [
+          "1000000147921040301522367",
+          "1000000151729467087802513"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000147921040301522367",
+          "1000000151729467087802513"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864248080937980887616",
+          "28948022309329048855892746252171976963317496166410140009864244272511194607470"
+        ],
+        "transaction": {
+          "hash": "0x1597dc43031c934638542775d6dbee6a1ab4f0e027c253c3acfd1bcb6b05211e",
+          "block_number": 32,
+          "status": 1,
+          "gas_used": "157593"
+        },
+        "amount_out": "99970908656795081041",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000000000000000",
+              "0",
+              "99970908656795081041"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step4-18-18",
+      "sequence": "down-18-18",
+      "step": 4,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xaa0f9cfaac8e066a1a64c6359a0f3f1f915949afbeff195a0940d7295d958de1",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000299650507388904339",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000304054994470774",
+        "last_prices": "999709086567950810",
+        "last_prices_timestamp": "1791158400",
+        "xcp_profit": "1000000149825253694",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000149825253694",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791158401"
+      },
+      "balances": [
+        "1000000147921040301522367",
+        "1000000151729467087802513"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000147921040301522367",
+        "1000000151729467087802513"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864248080937980887616",
+        "28948022309329048855892746252171976963317496166410140009864244272511194607470"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1791158401,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000329662237431332077",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000303368060646277",
+          "last_prices": "1000309302191041314",
+          "last_prices_timestamp": "1791158401",
+          "xcp_profit": "1000000164831118715",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000164831118715",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100147921040301522367",
+          "999900182650122365508119"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100147921040301522367",
+          "999900182650122365508119"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764248080937980887616",
+          "28948022309329048855892746252171976963317496166410140009964213351855916901864"
+        ],
+        "transaction": {
+          "hash": "0x4aabac26d9a9e3e000b4b41d753878659fa610ec268d47b7f7b77bf52e65ddc2",
+          "block_number": 34,
+          "status": 1,
+          "gas_used": "159365"
+        },
+        "amount_out": "99969079344722294394",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969079344722294394"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step5-18-18",
+      "sequence": "down-18-18",
+      "step": 5,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xaa0f9cfaac8e066a1a64c6359a0f3f1f915949afbeff195a0940d7295d958de1",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000329662237431332077",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000303368060646277",
+        "last_prices": "1000309302191041314",
+        "last_prices_timestamp": "1791158401",
+        "xcp_profit": "1000000164831118715",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000164831118715",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "0"
+      },
+      "balances": [
+        "1000100147921040301522367",
+        "999900182650122365508119"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100147921040301522367",
+        "999900182650122365508119"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764248080937980887616",
+        "28948022309329048855892746252171976963317496166410140009964213351855916901864"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1791158402,
+      "input": "100000000000000000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000359662510137944013",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000303374912026460",
+          "last_prices": "999709086525282732",
+          "last_prices_timestamp": "1791158402",
+          "xcp_profit": "1000000179831255068",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000179831255068",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000000177012387773249167",
+          "1000000182650122365508119"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000177012387773249167",
+          "1000000182650122365508119"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864218989590509160816",
+          "28948022309329048855892746252171976963317496166410140009864213351855916901864"
+        ],
+        "transaction": {
+          "hash": "0x169448aff60dca2254a2b3e670fa4f871a889a22c43372faf023d75cf4f960aa",
+          "block_number": 36,
+          "status": 1,
+          "gas_used": "147110"
+        },
+        "amount_out": "99970908652528273200",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000000000000000",
+              "0",
+              "99970908652528273200"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-stop-step0-18-18",
+      "sequence": "stop-18-18",
+      "step": 0,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x7490d8c1952e91334b12aeec7ddc1761f72e99d0206221f4331647d49cb19a94",
+        "block_number": 37,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "stop_transaction": {
+        "hash": "0x3fe788d80df7181a163cf4b9948f6a87ea29a3c36d470bef5f3b0877404caf25",
+        "block_number": 39,
+        "status": 1,
+        "gas_used": "46290"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "500000",
+        "gamma": "200000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000359662510137944013",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000303374912026460",
+        "last_prices": "999709086525282732",
+        "last_prices_timestamp": "1791158402",
+        "xcp_profit": "1000000179831255068",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000179831255068",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791244802"
+      },
+      "balances": [
+        "1000000177012387773249167",
+        "1000000182650122365508119"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000177012387773249167",
+        "1000000182650122365508119"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864218989590509160816",
+        "28948022309329048855892746252171976963317496166410140009864213351855916901864"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "500000",
+        "initial_gamma": "200000000000000",
+        "initial_time": 1791244802
+      },
+      "timestamp": 1791244802,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000389674240150066072",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "999709086525282732",
+          "last_prices": "1000304054844043778",
+          "last_prices_timestamp": "1791244802",
+          "xcp_profit": "1000000194837120075",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000194837120075",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100177012387773249167",
+          "999900213046364645180102"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100177012387773249167",
+          "999900213046364645180102"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764218989590509160816",
+          "28948022309329048855892746252171976963317496166410140009964182955613637229881"
+        ],
+        "transaction": {
+          "hash": "0xae27ad963671d01010677f060bf7b962903a36b8f3b84183359b1c962c0d4601",
+          "block_number": 40,
+          "status": 1,
+          "gas_used": "155146"
+        },
+        "amount_out": "99969603757720328017",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969603757720328017"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-stop-step1-18-18",
+      "sequence": "stop-18-18",
+      "step": 1,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x7490d8c1952e91334b12aeec7ddc1761f72e99d0206221f4331647d49cb19a94",
+        "block_number": 37,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "stop_transaction": {
+        "hash": "0x3fe788d80df7181a163cf4b9948f6a87ea29a3c36d470bef5f3b0877404caf25",
+        "block_number": 39,
+        "status": 1,
+        "gas_used": "46290"
+      },
+      "precisions": [
+        "1",
+        "1"
+      ],
+      "params": {
+        "amp": "500000",
+        "gamma": "200000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000389674240150066072",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "999709086525282732",
+        "last_prices": "1000304054844043778",
+        "last_prices_timestamp": "1791244802",
+        "xcp_profit": "1000000194837120075",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000194837120075",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "0"
+      },
+      "balances": [
+        "1000100177012387773249167",
+        "999900213046364645180102"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100177012387773249167",
+        "999900213046364645180102"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764218989590509160816",
+        "28948022309329048855892746252171976963317496166410140009964182955613637229881"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "500000",
+        "initial_gamma": "200000000000000",
+        "initial_time": 1791244802
+      },
+      "timestamp": 1791244802,
+      "input": "100000000000000000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000419674355516557897",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "999709086525282732",
+          "last_prices": "999703843969014368",
+          "last_prices_timestamp": "1791244802",
+          "xcp_profit": "1000000209837177758",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000209837177758",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000000206627990871812367",
+          "1000000213046364645180102"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000206627990871812367",
+          "1000000213046364645180102"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864189373987410597616",
+          "28948022309329048855892746252171976963317496166410140009864182955613637229881"
+        ],
+        "transaction": {
+          "hash": "0x6327245b48e49c9c23ce222e2441eeefbcb985a14741adc88b825149a864c688",
+          "block_number": 41,
+          "status": 1,
+          "gas_used": "134529"
+        },
+        "amount_out": "99970384396901436800",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000000000000000",
+              "0",
+              "99970384396901436800"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-up-step0-18-6",
+      "sequence": "up-18-6",
+      "step": 0,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xea8608c6de53e20be7286b194a92fad77ae9e0e6062f1bed86efd659c194f128",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000000000000000000000",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000000000000000000",
+        "last_prices": "1000000000000000000",
+        "last_prices_timestamp": "1790812800",
+        "xcp_profit": "1000000000000000000",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000000000000000",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1790985600"
+      },
+      "balances": [
+        "1000000000000000000000000",
+        "1000000000000"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000000000000000000000",
+        "1000000000000"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+        "28948022309329048855892746252171976963317496166410141009864396000978282409983"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790812801,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011897424102068",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304972980162191",
+          "last_prices_timestamp": "1790812801",
+          "xcp_profit": "1000000015005948712",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000015005948712",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1790985600"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410141009864396000978382379495"
+        ],
+        "transaction": {
+          "hash": "0x87833ac1207b83d399d6358017e4a733f3537d8ff30a36d93d9467aa4c651cb4",
+          "block_number": 13,
+          "status": 1,
+          "gas_used": "162370"
+        },
+        "amount_out": "99969512",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-up-step1-18-6",
+      "sequence": "up-18-6",
+      "step": 1,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xea8608c6de53e20be7286b194a92fad77ae9e0e6062f1bed86efd659c194f128",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000030011897424102068",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000000000000000000",
+        "last_prices": "1000304972980162191",
+        "last_prices_timestamp": "1790812801",
+        "xcp_profit": "1000000015005948712",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000015005948712",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1790985600"
+      },
+      "balances": [
+        "1000100000000000000000000",
+        "999900030488"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100000000000000000000",
+        "999900030488"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+        "28948022309329048855892746252171976963317496166410141009864396000978382379495"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790856001,
+      "input": "100000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000060103580038335956",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000304972980162191",
+          "last_prices": "999703844199616182",
+          "last_prices_timestamp": "1790856001",
+          "xcp_profit": "1000000030051790019",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000030051790019",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1790985600"
+        },
+        "balances": [
+          "1000000029615580038381736",
+          "1000000030488"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000029615580038381736",
+          "1000000030488"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864366386398244028247",
+          "28948022309329048855892746252171976963317496166410141009864396000978282379495"
+        ],
+        "transaction": {
+          "hash": "0x56293eb59265f74c3305d2702156817f2d42727c2d43a9d835f01837d55f8ea7",
+          "block_number": 15,
+          "status": 1,
+          "gas_used": "157196"
+        },
+        "amount_out": "99970384419961618264",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000",
+              "0",
+              "99970384419961618264"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-up-step2-18-6",
+      "sequence": "up-18-6",
+      "step": 2,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xea8608c6de53e20be7286b194a92fad77ae9e0e6062f1bed86efd659c194f128",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000060103580038335956",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000304972980162191",
+        "last_prices": "999703844199616182",
+        "last_prices_timestamp": "1790856001",
+        "xcp_profit": "1000000030051790019",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000030051790019",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1790985600"
+      },
+      "balances": [
+        "1000000029615580038381736",
+        "1000000030488"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000029615580038381736",
+        "1000000030488"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864366386398244028247",
+        "28948022309329048855892746252171976963317496166410141009864396000978282379495"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790899201,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000090115073964227619",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "999703844199616182",
+          "last_prices": "1000303432043075946",
+          "last_prices_timestamp": "1790899201",
+          "xcp_profit": "1000000045057536982",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000045057536982",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1790985600"
+        },
+        "balances": [
+          "1000100029615580038381736",
+          "999900060822"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100029615580038381736",
+          "999900060822"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764366386398244028247",
+          "28948022309329048855892746252171976963317496166410141009864396000978382349161"
+        ],
+        "transaction": {
+          "hash": "0xb739cbb3d0c8a23f86b7f580b55e19abbcc1fd7979839fcaa1684b00169b7a42",
+          "block_number": 17,
+          "status": 1,
+          "gas_used": "161476"
+        },
+        "amount_out": "99969666",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969666"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-up-step3-18-6",
+      "sequence": "up-18-6",
+      "step": 3,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xea8608c6de53e20be7286b194a92fad77ae9e0e6062f1bed86efd659c194f128",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000090115073964227619",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "999703844199616182",
+        "last_prices": "1000303432043075946",
+        "last_prices_timestamp": "1790899201",
+        "xcp_profit": "1000000045057536982",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000045057536982",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1790985600"
+      },
+      "balances": [
+        "1000100029615580038381736",
+        "999900060822"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100029615580038381736",
+        "999900060822"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764366386398244028247",
+        "28948022309329048855892746252171976963317496166410141009864396000978382349161"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790985599,
+      "input": "100000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000120193810514957697",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000303432043075946",
+          "last_prices": "999702437695233868",
+          "last_prices_timestamp": "1790985599",
+          "xcp_profit": "1000000060096905257",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000060096905257",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1790985600"
+        },
+        "balances": [
+          "1000000059371810514994910",
+          "1000000060822"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000059371810514994910",
+          "1000000060822"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864336630167767415073",
+          "28948022309329048855892746252171976963317496166410141009864396000978282349161"
+        ],
+        "transaction": {
+          "hash": "0x3e5ffb2c3bc48b1d30be6709c366ad6278c6a970138ef1d72506c3a66980d8f3",
+          "block_number": 19,
+          "status": 1,
+          "gas_used": "157196"
+        },
+        "amount_out": "99970243769523386826",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000",
+              "0",
+              "99970243769523386826"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-up-step4-18-6",
+      "sequence": "up-18-6",
+      "step": 4,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xea8608c6de53e20be7286b194a92fad77ae9e0e6062f1bed86efd659c194f128",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000120193810514957697",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000303432043075946",
+        "last_prices": "999702437695233868",
+        "last_prices_timestamp": "1790985599",
+        "xcp_profit": "1000000060096905257",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000060096905257",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1790985600"
+      },
+      "balances": [
+        "1000000059371810514994910",
+        "1000000060822"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000059371810514994910",
+        "1000000060822"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864336630167767415073",
+        "28948022309329048855892746252171976963317496166410141009864396000978282349161"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790985600,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000150204969948509472",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000302738151892040",
+          "last_prices": "1000302641564205250",
+          "last_prices_timestamp": "1790985600",
+          "xcp_profit": "1000000075102484974",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000075102484974",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100059371810514994910",
+          "999900091077"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100059371810514994910",
+          "999900091077"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764336630167767415073",
+          "28948022309329048855892746252171976963317496166410141009864396000978382318906"
+        ],
+        "transaction": {
+          "hash": "0x6240ff0de2e104277c3466f886116aafbfd758b67a45fab2350fe899e190027e",
+          "block_number": 21,
+          "status": 1,
+          "gas_used": "159006"
+        },
+        "amount_out": "99969745",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969745"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-up-step5-18-6",
+      "sequence": "up-18-6",
+      "step": 5,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0xea8608c6de53e20be7286b194a92fad77ae9e0e6062f1bed86efd659c194f128",
+        "block_number": 11,
+        "status": 1,
+        "gas_used": "78979"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "800000",
+        "gamma": "300000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000150204969948509472",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000302738151892040",
+        "last_prices": "1000302641564205250",
+        "last_prices_timestamp": "1790985600",
+        "xcp_profit": "1000000075102484974",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000075102484974",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "0"
+      },
+      "balances": [
+        "1000100059371810514994910",
+        "999900091077"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100059371810514994910",
+        "999900091077"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764336630167767415073",
+        "28948022309329048855892746252171976963317496166410141009864396000978382318906"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "400000",
+        "initial_gamma": "145000000000000",
+        "initial_time": 1790812800
+      },
+      "timestamp": 1790985601,
+      "input": "100000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000180205043107785361",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000302738040374611",
+          "last_prices": "999702437674071619",
+          "last_prices_timestamp": "1790985601",
+          "xcp_profit": "1000000090102521553",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000090102521553",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000000089128043107832912",
+          "1000000091077"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000089128043107832912",
+          "1000000091077"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864306873935174577071",
+          "28948022309329048855892746252171976963317496166410141009864396000978282318906"
+        ],
+        "transaction": {
+          "hash": "0xbb868f31e1ee898210b4ecbd1f02b5c564346955c41c0e3dcbd8791cb544bc49",
+          "block_number": 23,
+          "status": 1,
+          "gas_used": "146713"
+        },
+        "amount_out": "99970243767407161998",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000",
+              "0",
+              "99970243767407161998"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step0-18-6",
+      "sequence": "down-18-6",
+      "step": 0,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x05457a579b02cd52ced0868d861e0069e00c6f4f000e8aa93c72c57b9f1bad1c",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000180205043107785361",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000302738040374611",
+        "last_prices": "999702437674071619",
+        "last_prices_timestamp": "1790985601",
+        "xcp_profit": "1000000090102521553",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000090102521553",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791158401"
+      },
+      "balances": [
+        "1000000089128043107832912",
+        "1000000091077"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000089128043107832912",
+        "1000000091077"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864306873935174577071",
+        "28948022309329048855892746252171976963317496166410141009864396000978282318906"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1790985602,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000210216202575606214",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000302044950442287",
+          "last_prices": "1000302641564205250",
+          "last_prices_timestamp": "1790985602",
+          "xcp_profit": "1000000105108101287",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000105108101287",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1791158401"
+        },
+        "balances": [
+          "1000100089128043107832912",
+          "999900121332"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100089128043107832912",
+          "999900121332"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764306873935174577071",
+          "28948022309329048855892746252171976963317496166410141009864396000978382288651"
+        ],
+        "transaction": {
+          "hash": "0x042da6e50dc8cee789e7f0833d03cf65ba4932f8b3640109604c8cf03533f38c",
+          "block_number": 26,
+          "status": 1,
+          "gas_used": "165705"
+        },
+        "amount_out": "99969745",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969745"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step1-18-6",
+      "sequence": "down-18-6",
+      "step": 1,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x05457a579b02cd52ced0868d861e0069e00c6f4f000e8aa93c72c57b9f1bad1c",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000210216202575606214",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000302044950442287",
+        "last_prices": "1000302641564205250",
+        "last_prices_timestamp": "1790985602",
+        "xcp_profit": "1000000105108101287",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000105108101287",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791158401"
+      },
+      "balances": [
+        "1000100089128043107832912",
+        "999900121332"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100089128043107832912",
+        "999900121332"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764306873935174577071",
+        "28948022309329048855892746252171976963317496166410141009864396000978382288651"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1791028802,
+      "input": "100000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000240161697092723007",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000302641564205250",
+          "last_prices": "999702983460150333",
+          "last_prices_timestamp": "1791028802",
+          "xcp_profit": "1000000120080848546",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000120080848546",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1791158401"
+        },
+        "balances": [
+          "1000000118829697092799585",
+          "1000000121332"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000118829697092799585",
+          "1000000121332"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864277172281189610398",
+          "28948022309329048855892746252171976963317496166410141009864396000978282288651"
+        ],
+        "transaction": {
+          "hash": "0xf8ea929179fa19cd61646aef7e2ea9f87364af81b15b8c1e27412221f7219e75",
+          "block_number": 28,
+          "status": 1,
+          "gas_used": "157196"
+        },
+        "amount_out": "99970298346015033327",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000",
+              "0",
+              "99970298346015033327"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step2-18-6",
+      "sequence": "down-18-6",
+      "step": 2,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x05457a579b02cd52ced0868d861e0069e00c6f4f000e8aa93c72c57b9f1bad1c",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000240161697092723007",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000302641564205250",
+        "last_prices": "999702983460150333",
+        "last_prices_timestamp": "1791028802",
+        "xcp_profit": "1000000120080848546",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000120080848546",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791158401"
+      },
+      "balances": [
+        "1000000118829697092799585",
+        "1000000121332"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000118829697092799585",
+        "1000000121332"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864277172281189610398",
+        "28948022309329048855892746252171976963317496166410141009864396000978282288651"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1791072002,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000270173169782952364",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "999702983460150333",
+          "last_prices": "1000304052419773514",
+          "last_prices_timestamp": "1791072002",
+          "xcp_profit": "1000000135086584891",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000135086584891",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1791158401"
+        },
+        "balances": [
+          "1000100118829697092799585",
+          "999900151728"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100118829697092799585",
+          "999900151728"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764277172281189610398",
+          "28948022309329048855892746252171976963317496166410141009864396000978382258255"
+        ],
+        "transaction": {
+          "hash": "0xb7ca1d987f712b20388937fb9453471b927d2cc6677a17417bc80abb2f3ba83f",
+          "block_number": 30,
+          "status": 1,
+          "gas_used": "161486"
+        },
+        "amount_out": "99969604",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969604"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step3-18-6",
+      "sequence": "down-18-6",
+      "step": 3,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x05457a579b02cd52ced0868d861e0069e00c6f4f000e8aa93c72c57b9f1bad1c",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000270173169782952364",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "999702983460150333",
+        "last_prices": "1000304052419773514",
+        "last_prices_timestamp": "1791072002",
+        "xcp_profit": "1000000135086584891",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000135086584891",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791158401"
+      },
+      "balances": [
+        "1000100118829697092799585",
+        "999900151728"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100118829697092799585",
+        "999900151728"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764277172281189610398",
+        "28948022309329048855892746252171976963317496166410141009864396000978382258255"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1791158400,
+      "input": "100000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000299649040284542938",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000304052419773514",
+          "last_prices": "999709086568078363",
+          "last_prices_timestamp": "1791158400",
+          "xcp_profit": "1000000149824520142",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000149824520142",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "1791158401"
+        },
+        "balances": [
+          "1000000147921040284963225",
+          "1000000151728"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000147921040284963225",
+          "1000000151728"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864248080937997446758",
+          "28948022309329048855892746252171976963317496166410141009864396000978282258255"
+        ],
+        "transaction": {
+          "hash": "0x2ddd8d3fec3968b38043c3c4de5db4706b083c1233adf92390a72ace51cf1ce3",
+          "block_number": 32,
+          "status": 1,
+          "gas_used": "157545"
+        },
+        "amount_out": "99970908656807836360",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000",
+              "0",
+              "99970908656807836360"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step4-18-6",
+      "sequence": "down-18-6",
+      "step": 4,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x05457a579b02cd52ced0868d861e0069e00c6f4f000e8aa93c72c57b9f1bad1c",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000299649040284542938",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000304052419773514",
+        "last_prices": "999709086568078363",
+        "last_prices_timestamp": "1791158400",
+        "xcp_profit": "1000000149824520142",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000149824520142",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791158401"
+      },
+      "balances": [
+        "1000000147921040284963225",
+        "1000000151728"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000147921040284963225",
+        "1000000151728"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864248080937997446758",
+        "28948022309329048855892746252171976963317496166410141009864396000978282258255"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1791158401,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000329661115039061321",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000303365488921837",
+          "last_prices": "1000309305640397067",
+          "last_prices_timestamp": "1791158401",
+          "xcp_profit": "1000000164830557519",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000164830557519",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100147921040284963225",
+          "999900182649"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100147921040284963225",
+          "999900182649"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764248080937997446758",
+          "28948022309329048855892746252171976963317496166410141009864396000978382227334"
+        ],
+        "transaction": {
+          "hash": "0xe2d9ae189377bac254b8f97f0a311d238b6c6b98ff9e8d94698f2fb3c1efb8b3",
+          "block_number": 34,
+          "status": 1,
+          "gas_used": "159355"
+        },
+        "amount_out": "99969079",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969079"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-down-step5-18-6",
+      "sequence": "down-18-6",
+      "step": 5,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x05457a579b02cd52ced0868d861e0069e00c6f4f000e8aa93c72c57b9f1bad1c",
+        "block_number": 24,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "200000",
+        "gamma": "100000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000329661115039061321",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000303365488921837",
+        "last_prices": "1000309305640397067",
+        "last_prices_timestamp": "1791158401",
+        "xcp_profit": "1000000164830557519",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000164830557519",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "0"
+      },
+      "balances": [
+        "1000100147921040284963225",
+        "999900182649"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100147921040284963225",
+        "999900182649"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764248080937997446758",
+        "28948022309329048855892746252171976963317496166410141009864396000978382227334"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "800000",
+        "initial_gamma": "300000000000000",
+        "initial_time": 1790985601
+      },
+      "timestamp": 1791158402,
+      "input": "100000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000359661387744850522",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000303372347253790",
+          "last_prices": "999709086525392997",
+          "last_prices_timestamp": "1791158402",
+          "xcp_profit": "1000000179830693872",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000179830693872",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000000177012387745663508",
+          "1000000182649"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000177012387745663508",
+          "1000000182649"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864218989590536746475",
+          "28948022309329048855892746252171976963317496166410141009864396000978282227334"
+        ],
+        "transaction": {
+          "hash": "0x9e62d14d8ec9d2a81e11857e713eec264eb19fb36659c446c9fe00ce5c6fa545",
+          "block_number": 36,
+          "status": 1,
+          "gas_used": "147062"
+        },
+        "amount_out": "99970908652539299717",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000",
+              "0",
+              "99970908652539299717"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-stop-step0-18-6",
+      "sequence": "stop-18-6",
+      "step": 0,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x7481f50e6c4723428cafade2cbea7d82c2c2ad3ac2ad73074f263a0ed9757f47",
+        "block_number": 37,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "stop_transaction": {
+        "hash": "0x61d5484fbb75a28f215c64f751d55cdb801eee6192fea5a983e4eb6426acea4e",
+        "block_number": 39,
+        "status": 1,
+        "gas_used": "46290"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "500000",
+        "gamma": "200000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000359661387744850522",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "1000303372347253790",
+        "last_prices": "999709086525392997",
+        "last_prices_timestamp": "1791158402",
+        "xcp_profit": "1000000179830693872",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000179830693872",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "1791244802"
+      },
+      "balances": [
+        "1000000177012387745663508",
+        "1000000182649"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000000177012387745663508",
+        "1000000182649"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009864218989590536746475",
+        "28948022309329048855892746252171976963317496166410141009864396000978282227334"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "500000",
+        "initial_gamma": "200000000000000",
+        "initial_time": 1791244802
+      },
+      "timestamp": 1791244802,
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000389672875472060996",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "999709086525392997",
+          "last_prices": "1000304052419773514",
+          "last_prices_timestamp": "1791244802",
+          "xcp_profit": "1000000194836437736",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000194836437736",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100177012387745663508",
+          "999900213045"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100177012387745663508",
+          "999900213045"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764218989590536746475",
+          "28948022309329048855892746252171976963317496166410141009864396000978382196938"
+        ],
+        "transaction": {
+          "hash": "0x8927759113808e26e20c19c77fbfb3debe025b6dfc943722cb13609c1bcfa8fc",
+          "block_number": 40,
+          "status": 1,
+          "gas_used": "155146"
+        },
+        "amount_out": "99969604",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969604"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "ramp-stop-step1-18-6",
+      "sequence": "stop-18-6",
+      "step": 1,
+      "operation": "exchange",
+      "schedule_transaction": {
+        "hash": "0x7481f50e6c4723428cafade2cbea7d82c2c2ad3ac2ad73074f263a0ed9757f47",
+        "block_number": 37,
+        "status": 1,
+        "gas_used": "64679"
+      },
+      "stop_transaction": {
+        "hash": "0x61d5484fbb75a28f215c64f751d55cdb801eee6192fea5a983e4eb6426acea4e",
+        "block_number": 39,
+        "status": 1,
+        "gas_used": "46290"
+      },
+      "precisions": [
+        "1",
+        "1000000000000"
+      ],
+      "params": {
+        "amp": "500000",
+        "gamma": "200000000000000",
+        "mid_fee": "3000000",
+        "out_fee": "30000000",
+        "fee_gamma": "230000000000000",
+        "allowed_extra_profit": "1000000000000000000",
+        "adjustment_step": "146000000000000",
+        "admin_fee": "5000000000",
+        "ma_half_time": "600"
+      },
+      "state": {
+        "D": "2000000389672875472060996",
+        "price_scale": "1000000000000000000",
+        "_price_oracle": "999709086525392997",
+        "last_prices": "1000304052419773514",
+        "last_prices_timestamp": "1791244802",
+        "xcp_profit": "1000000194836437736",
+        "xcp_profit_a": "1000000000000000000",
+        "virtual_price": "1000000194836437736",
+        "not_adjusted": "0",
+        "future_A_gamma_time": "0"
+      },
+      "balances": [
+        "1000100177012387745663508",
+        "999900213045"
+      ],
+      "total_supply": "1000000000000000000000000",
+      "receiver_balance": "0",
+      "raw_balances": [
+        "1000100177012387745663508",
+        "999900213045"
+      ],
+      "trader_balances": [
+        "28948022309329048855892746252171976963317496166410140009764218989590536746475",
+        "28948022309329048855892746252171976963317496166410141009864396000978382196938"
+      ],
+      "admin_receiver_enabled": true,
+      "ramp": {
+        "initial_amp": "500000",
+        "initial_gamma": "200000000000000",
+        "initial_time": 1791244802
+      },
+      "timestamp": 1791244802,
+      "input": "100000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000419672990838821562",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "999709086525392997",
+          "last_prices": "999703843969064075",
+          "last_prices_timestamp": "1791244802",
+          "xcp_profit": "1000000209836495419",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000209836495419",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000000206627990839255965",
+          "1000000213045"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000000206627990839255965",
+          "1000000213045"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009864189373987443154018",
+          "28948022309329048855892746252171976963317496166410141009864396000978282196938"
+        ],
+        "transaction": {
+          "hash": "0xb6d18855ad71efc08a74b8793b543a0fd67d2b360aedea979bebdc07245ee9de",
+          "block_number": 41,
+          "status": 1,
+          "gas_used": "134481"
+        },
+        "amount_out": "99970384396906407543",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000",
+              "0",
+              "99970384396906407543"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    }
+  ]
+}

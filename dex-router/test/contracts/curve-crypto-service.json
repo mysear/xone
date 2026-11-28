@@ -1,0 +1,4428 @@
+{
+  "source": "LOCAL_RPC_REPLAY_OF_PINNED_ORIGINAL_EXCHANGE_AND_LP",
+  "source_corpus_sha256": "dc7069037ec858c0aa95f3d70e05b96ba5fa70c2b98ff73a29b80e2f010bd295",
+  "profile": "curve-crypto2-full/d7d04cd9-standard-1",
+  "scope": "standard nominal transfers; settled A/gamma; INDICATIVE only",
+  "cases": [
+    {
+      "name": "no-adjust-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011730014441724",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304971327741353",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000015005865007",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000015005865007",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410140009964365514143423751487"
+        ],
+        "transaction": {
+          "hash": "0xca2170f22c2cc20b865959614adf051bbfc8040bb18c5493b7d31fb812ac5dbe",
+          "block_number": 11,
+          "status": 1,
+          "gas_used": "143451"
+        },
+        "amount_out": "99969512165141341504",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512165141341504"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "no-adjust-donations-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000100000000000000000000",
+              "1000100000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011730014441724",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304971327741353",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000015005865007",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000015005865007",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000200000000000000000000",
+          "1000000030487834858658496"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009664396001978282409983",
+          "28948022309329048855892746252171976963317496166410140009864365514143423751487"
+        ],
+        "transaction": {
+          "hash": "0xcaa31b5cd5108a4a272abf10ed17006f5dee15fb2ac60edcb12cb7f44cfdad4c",
+          "block_number": 13,
+          "status": 1,
+          "gas_used": "143451"
+        },
+        "amount_out": "99969512165141341504",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512165141341504"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "claim-norm-small-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011730014441724",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304971327741353",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000007502932505",
+          "xcp_profit_a": "1000000007502932505",
+          "virtual_price": "1000000011254398757",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "total_supply": "1000000003751466208000000",
+        "receiver_balance": "3751466208000000",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410140009964365514143423751487"
+        ],
+        "transaction": {
+          "hash": "0xf8479ddc512b4a0af07a4d74507df7a3c95905787e2a2ea7ec4fb392635efbcd",
+          "block_number": 12,
+          "status": 1,
+          "gas_used": "194882"
+        },
+        "amount_out": "99969512165141341504",
+        "minted_admin": "3751466208000000",
+        "pool_events": [
+          {
+            "name": "ClaimAdminFee",
+            "args": [
+              "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+              "3751466208000000"
+            ]
+          },
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512165141341504"
+            ]
+          }
+        ],
+        "lp_transfer_events": [
+          [
+            "0x0000000000000000000000000000000000000000",
+            "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+            "3751466208000000"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "claim-gulp-donations-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000100000000000000000000",
+              "1000100000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000200030011777632081817",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304971327741353",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000007502932505",
+          "xcp_profit_a": "1000000007502932505",
+          "virtual_price": "1000100011254047419",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000200000000000000000000",
+          "1000000030487834858658496"
+        ],
+        "total_supply": "1000000003751466208000000",
+        "receiver_balance": "3751466208000000",
+        "raw_balances": [
+          "1000200000000000000000000",
+          "1000000030487834858658496"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009664396001978282409983",
+          "28948022309329048855892746252171976963317496166410140009864365514143423751487"
+        ],
+        "transaction": {
+          "hash": "0x09da4fcd45d050fb96f9707dad79435f6f71ed41ace0c9e1309dcde5c5651df7",
+          "block_number": 14,
+          "status": 1,
+          "gas_used": "194872"
+        },
+        "amount_out": "99969512165141341504",
+        "minted_admin": "3751466208000000",
+        "pool_events": [
+          {
+            "name": "ClaimAdminFee",
+            "args": [
+              "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+              "3751466208000000"
+            ]
+          },
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512165141341504"
+            ]
+          }
+        ],
+        "lp_transfer_events": [
+          [
+            "0x0000000000000000000000000000000000000000",
+            "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+            "3751466208000000"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "claim-receiver-zero-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000000",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011730014441724",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304971327741353",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000015005865007",
+          "xcp_profit_a": "1000000015005865007",
+          "virtual_price": "1000000015005865007",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410140009964365514143423751487"
+        ],
+        "transaction": {
+          "hash": "0x63110d0b39b4e277b52b7b1184f514c1a69bd4d1db53330737c3dd23e81ca2da",
+          "block_number": 13,
+          "status": 1,
+          "gas_used": "163194"
+        },
+        "amount_out": "99969512165141341504",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512165141341504"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "adjust-accepted-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "2000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "2000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2098418545954022599835495",
+          "price_scale": "1100000000000000000",
+          "_price_oracle": "2000000000000000000",
+          "last_prices": "1000304971327741353",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000015005865007",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000381790073146666",
+          "not_adjusted": "1",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410140009964365514143423751487"
+        ],
+        "transaction": {
+          "hash": "0x0a6a76c097f8c558c7117fa31bd6fdbfbc3e2b14c3a4cdf0261a0fb2dee0bbc7",
+          "block_number": 14,
+          "status": 1,
+          "gas_used": "171505"
+        },
+        "amount_out": "99969512165141341504",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512165141341504"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "adjust-rejected-claim-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1050000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "990000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1050000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011730014441724",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1050000000000000000",
+          "last_prices": "1000304971327741353",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1005050512629224752",
+          "xcp_profit_a": "1005050512629224752",
+          "virtual_price": "997474758691252633",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "total_supply": "1002531649340105271000000",
+        "receiver_balance": "2531649340105271000000",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410140009964365514143423751487"
+        ],
+        "transaction": {
+          "hash": "0x8dfa088460bb4fa6cef4378241aeff200d4c49b27779f2742c07074270247376",
+          "block_number": 15,
+          "status": 1,
+          "gas_used": "211150"
+        },
+        "amount_out": "99969512165141341504",
+        "minted_admin": "2531649340105271000000",
+        "pool_events": [
+          {
+            "name": "ClaimAdminFee",
+            "args": [
+              "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+              "2531649340105271000000"
+            ]
+          },
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512165141341504"
+            ]
+          }
+        ],
+        "lp_transfer_events": [
+          [
+            "0x0000000000000000000000000000000000000000",
+            "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+            "2531649340105271000000"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "auto-adjust-accepted-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "0",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "2000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "2000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2098418545954022599835495",
+          "price_scale": "1100000000000000000",
+          "_price_oracle": "2000000000000000000",
+          "last_prices": "1000304971327741353",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000015005865007",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000381790073146666",
+          "not_adjusted": "1",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030487834858658496"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410140009964365514143423751487"
+        ],
+        "transaction": {
+          "hash": "0x0a6a76c097f8c558c7117fa31bd6fdbfbc3e2b14c3a4cdf0261a0fb2dee0bbc7",
+          "block_number": 14,
+          "status": 1,
+          "gas_used": "193845"
+        },
+        "amount_out": "99969512165141341504",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512165141341504"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "tiny-input-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "1",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "reverted": true,
+        "transaction": {
+          "hash": "0xb9e29e6c11c2c9386455deaebea6f755c40a9ceece88c5c42b7005113d5ad520",
+          "block_number": 11,
+          "status": 0,
+          "gas_used": "66938"
+        },
+        "after": {
+          "state": {
+            "D": "2000000000000000000000000",
+            "price_scale": "1000000000000000000",
+            "_price_oracle": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "last_prices_timestamp": "1793577600",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "not_adjusted": "0",
+            "future_A_gamma_time": "0"
+          },
+          "balances": [
+            "1000000000000000000000000",
+            "1000000000000000000000000"
+          ],
+          "total_supply": "1000000000000000000000000",
+          "receiver_balance": "0",
+          "raw_balances": [
+            "1000000000000000000000000",
+            "1000000000000000000000000"
+          ],
+          "trader_balances": [
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983"
+          ]
+        }
+      }
+    },
+    {
+      "name": "zero-input-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "0",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "reverted": true,
+        "transaction": {
+          "hash": "0x2ea5919824285ae2d935b9e0606302a585fbc62a2020b164d9a4655e4214e744",
+          "block_number": 11,
+          "status": 0,
+          "gas_used": "47089"
+        },
+        "after": {
+          "state": {
+            "D": "2000000000000000000000000",
+            "price_scale": "1000000000000000000",
+            "_price_oracle": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "last_prices_timestamp": "1793577600",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "not_adjusted": "0",
+            "future_A_gamma_time": "0"
+          },
+          "balances": [
+            "1000000000000000000000000",
+            "1000000000000000000000000"
+          ],
+          "total_supply": "1000000000000000000000000",
+          "receiver_balance": "0",
+          "raw_balances": [
+            "1000000000000000000000000",
+            "1000000000000000000000000"
+          ],
+          "trader_balances": [
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983"
+          ]
+        }
+      }
+    },
+    {
+      "name": "overflow-input-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "reverted": true,
+        "transaction": {
+          "hash": "0x37b716f22df1ad538c383080a260cd8ad7fb2e3346680dca2db7d09082c84774",
+          "block_number": 11,
+          "status": 0,
+          "gas_used": "56286"
+        },
+        "after": {
+          "state": {
+            "D": "2000000000000000000000000",
+            "price_scale": "1000000000000000000",
+            "_price_oracle": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "last_prices_timestamp": "1793577600",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "not_adjusted": "0",
+            "future_A_gamma_time": "0"
+          },
+          "balances": [
+            "1000000000000000000000000",
+            "1000000000000000000000000"
+          ],
+          "total_supply": "1000000000000000000000000",
+          "receiver_balance": "0",
+          "raw_balances": [
+            "1000000000000000000000000",
+            "1000000000000000000000000"
+          ],
+          "trader_balances": [
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983"
+          ]
+        }
+      }
+    },
+    {
+      "name": "loss-revert-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "2000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "reverted": true,
+        "transaction": {
+          "hash": "0xf8479ddc512b4a0af07a4d74507df7a3c95905787e2a2ea7ec4fb392635efbcd",
+          "block_number": 12,
+          "status": 0,
+          "gas_used": "145505"
+        },
+        "after": {
+          "state": {
+            "D": "2000000000000000000000000",
+            "price_scale": "1000000000000000000",
+            "_price_oracle": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "last_prices_timestamp": "1793577600",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "2000000000000000000",
+            "not_adjusted": "0",
+            "future_A_gamma_time": "0"
+          },
+          "balances": [
+            "1000000000000000000000000",
+            "1000000000000000000000000"
+          ],
+          "total_supply": "1000000000000000000000000",
+          "receiver_balance": "0",
+          "raw_balances": [
+            "1000000000000000000000000",
+            "1000000000000000000000000"
+          ],
+          "trader_balances": [
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983"
+          ]
+        }
+      }
+    },
+    {
+      "name": "reverse-claim-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000030011730014441724",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "999695121651413415",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000007502932505",
+          "xcp_profit_a": "1000000007502932505",
+          "virtual_price": "1000000011254398757",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "999900030487834858658496",
+          "1000100000000000000000000"
+        ],
+        "total_supply": "1000000003751466208000000",
+        "receiver_balance": "3751466208000000",
+        "raw_balances": [
+          "999900030487834858658496",
+          "1000100000000000000000000"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009964365514143423751487",
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983"
+        ],
+        "transaction": {
+          "hash": "0x551c5e0ca440c645b04cf445223b49771f10e47776f1d0d021d528836ed677a1",
+          "block_number": 12,
+          "status": 1,
+          "gas_used": "194765"
+        },
+        "amount_out": "99969512165141341504",
+        "minted_admin": "3751466208000000",
+        "pool_events": [
+          {
+            "name": "ClaimAdminFee",
+            "args": [
+              "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+              "3751466208000000"
+            ]
+          },
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000000000000000",
+              "0",
+              "99969512165141341504"
+            ]
+          }
+        ],
+        "lp_transfer_events": [
+          [
+            "0x0000000000000000000000000000000000000000",
+            "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+            "3751466208000000"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "no-adjust-tiny-derivative-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100001",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "reverted": true,
+        "transaction": {
+          "hash": "0x8a72a4fb08773c2cd7dc7a5da1653a2ed01bf4f9b6113e58ec6e25b89defcf61",
+          "block_number": 11,
+          "status": 0,
+          "gas_used": "66962"
+        },
+        "after": {
+          "state": {
+            "D": "2000000000000000000000000",
+            "price_scale": "1000000000000000000",
+            "_price_oracle": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "last_prices_timestamp": "1793577600",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "not_adjusted": "0",
+            "future_A_gamma_time": "0"
+          },
+          "balances": [
+            "1000000000000000000000000",
+            "1000000000000000000000000"
+          ],
+          "total_supply": "1000000000000000000000000",
+          "receiver_balance": "0",
+          "raw_balances": [
+            "1000000000000000000000000",
+            "1000000000000000000000000"
+          ],
+          "trader_balances": [
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983"
+          ]
+        }
+      }
+    },
+    {
+      "name": "adjust-fail-gulp-donation-18-18",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1050000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "990000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1050000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000100000000000000000000",
+              "1000100000000000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "4ef22d87fc4f2438c767ef8a3df766d25ae780556ab029e97a720dcc07887d21",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000200030011777632081817",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1050000000000000000",
+          "last_prices": "1000304971327741353",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1005050512629224752",
+          "xcp_profit_a": "1005050512629224752",
+          "virtual_price": "997574506165648709",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000200000000000000000000",
+          "1000000030487834858658496"
+        ],
+        "total_supply": "1002531649340105271000000",
+        "receiver_balance": "2531649340105271000000",
+        "raw_balances": [
+          "1000200000000000000000000",
+          "1000000030487834858658496"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009664396001978282409983",
+          "28948022309329048855892746252171976963317496166410140009864365514143423751487"
+        ],
+        "transaction": {
+          "hash": "0x8f3a2e3aef27b607dfbbc7a8f8e5f63fc8ca4741c31292dbca0fa256ed4897ec",
+          "block_number": 17,
+          "status": 1,
+          "gas_used": "211140"
+        },
+        "amount_out": "99969512165141341504",
+        "minted_admin": "2531649340105271000000",
+        "pool_events": [
+          {
+            "name": "ClaimAdminFee",
+            "args": [
+              "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+              "2531649340105271000000"
+            ]
+          },
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512165141341504"
+            ]
+          }
+        ],
+        "lp_transfer_events": [
+          [
+            "0x0000000000000000000000000000000000000000",
+            "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+            "2531649340105271000000"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "no-adjust-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011895156581107",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304972980162191",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000015005947578",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000015005947578",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410141009864396000978382379495"
+        ],
+        "transaction": {
+          "hash": "0x7f012f0b1f12d69ee6e96a2974d184b9df73d829e144a1e32706e27de0574118",
+          "block_number": 26,
+          "status": 1,
+          "gas_used": "143441"
+        },
+        "amount_out": "99969512",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "no-adjust-donations-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000100000000000000000000",
+              "1000100000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011895156581107",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304972980162191",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000015005947578",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000000015005947578",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000200000000000000000000",
+          "1000000030488"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009664396001978282409983",
+          "28948022309329048855892746252171976963317496166410141009864396000978282379495"
+        ],
+        "transaction": {
+          "hash": "0xbbc4f7ea23a2d1112f646568a599e4f2c16e7721a2df5803787ca67989c278fd",
+          "block_number": 28,
+          "status": 1,
+          "gas_used": "143441"
+        },
+        "amount_out": "99969512",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "claim-norm-small-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011895156581107",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304972980162191",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000007502973790",
+          "xcp_profit_a": "1000000007502973790",
+          "virtual_price": "1000000011254460685",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "total_supply": "1000000003751486851000000",
+        "receiver_balance": "3751486851000000",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410141009864396000978382379495"
+        ],
+        "transaction": {
+          "hash": "0xaf94d1a5eaaa38e440d23f586947a73e6a74aa0fd52ebe3223455ebc258fc51c",
+          "block_number": 27,
+          "status": 1,
+          "gas_used": "194862"
+        },
+        "amount_out": "99969512",
+        "minted_admin": "3751486851000000",
+        "pool_events": [
+          {
+            "name": "ClaimAdminFee",
+            "args": [
+              "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+              "3751486851000000"
+            ]
+          },
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512"
+            ]
+          }
+        ],
+        "lp_transfer_events": [
+          [
+            "0x0000000000000000000000000000000000000000",
+            "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+            "3751486851000000"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "claim-gulp-donations-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000100000000000000000000",
+              "1000100000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000200030011942774223550",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304972980162191",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000007502973790",
+          "xcp_profit_a": "1000000007502973790",
+          "virtual_price": "1000100011254109345",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000200000000000000000000",
+          "1000000030488"
+        ],
+        "total_supply": "1000000003751486851000000",
+        "receiver_balance": "3751486851000000",
+        "raw_balances": [
+          "1000200000000000000000000",
+          "1000000030488"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009664396001978282409983",
+          "28948022309329048855892746252171976963317496166410141009864396000978282379495"
+        ],
+        "transaction": {
+          "hash": "0xd8c2d28b9ac6b1510e62f0373eda966e97dd5d81624f2f4a6f7da0aaf16a2bc5",
+          "block_number": 29,
+          "status": 1,
+          "gas_used": "194862"
+        },
+        "amount_out": "99969512",
+        "minted_admin": "3751486851000000",
+        "pool_events": [
+          {
+            "name": "ClaimAdminFee",
+            "args": [
+              "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+              "3751486851000000"
+            ]
+          },
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512"
+            ]
+          }
+        ],
+        "lp_transfer_events": [
+          [
+            "0x0000000000000000000000000000000000000000",
+            "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+            "3751486851000000"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "claim-receiver-zero-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000000",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011895156581107",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "1000304972980162191",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000015005947578",
+          "xcp_profit_a": "1000000015005947578",
+          "virtual_price": "1000000015005947578",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410141009864396000978382379495"
+        ],
+        "transaction": {
+          "hash": "0x323ef0060508de6f7cc9cdc0d84e79b015adf0a6d05b0e0f39a5d67f7d47c6dc",
+          "block_number": 28,
+          "status": 1,
+          "gas_used": "163174"
+        },
+        "amount_out": "99969512",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "adjust-accepted-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "2000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "2000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2098418545954197201846231",
+          "price_scale": "1100000000000000000",
+          "_price_oracle": "2000000000000000000",
+          "last_prices": "1000304972980162191",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000015005947578",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000381790073229904",
+          "not_adjusted": "1",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410141009864396000978382379495"
+        ],
+        "transaction": {
+          "hash": "0x9fbc4c51faac01990b7ef85a5cd8f84921b26f24e848a5658a723d0259395562",
+          "block_number": 29,
+          "status": 1,
+          "gas_used": "171495"
+        },
+        "amount_out": "99969512",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "adjust-rejected-claim-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1050000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "990000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1050000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000000030011895156581107",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1050000000000000000",
+          "last_prices": "1000304972980162191",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1005050512629266455",
+          "xcp_profit_a": "1005050512629266455",
+          "virtual_price": "997474758691314353",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "total_supply": "1002531649340126018000000",
+        "receiver_balance": "2531649340126018000000",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410141009864396000978382379495"
+        ],
+        "transaction": {
+          "hash": "0x0d04a2a51f944e51a2fcedd42cd5edd7f514458f2c1cfa4942950271d848e746",
+          "block_number": 30,
+          "status": 1,
+          "gas_used": "211130"
+        },
+        "amount_out": "99969512",
+        "minted_admin": "2531649340126018000000",
+        "pool_events": [
+          {
+            "name": "ClaimAdminFee",
+            "args": [
+              "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+              "2531649340126018000000"
+            ]
+          },
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512"
+            ]
+          }
+        ],
+        "lp_transfer_events": [
+          [
+            "0x0000000000000000000000000000000000000000",
+            "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+            "2531649340126018000000"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "auto-adjust-accepted-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "0",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "2000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "2000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2098418545954197201846231",
+          "price_scale": "1100000000000000000",
+          "_price_oracle": "2000000000000000000",
+          "last_prices": "1000304972980162191",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000015005947578",
+          "xcp_profit_a": "1000000000000000000",
+          "virtual_price": "1000381790073229904",
+          "not_adjusted": "1",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "total_supply": "1000000000000000000000000",
+        "receiver_balance": "0",
+        "raw_balances": [
+          "1000100000000000000000000",
+          "999900030488"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009764396001978282409983",
+          "28948022309329048855892746252171976963317496166410141009864396000978382379495"
+        ],
+        "transaction": {
+          "hash": "0x9fbc4c51faac01990b7ef85a5cd8f84921b26f24e848a5658a723d0259395562",
+          "block_number": 29,
+          "status": 1,
+          "gas_used": "193835"
+        },
+        "amount_out": "99969512",
+        "minted_admin": "0",
+        "pool_events": [
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512"
+            ]
+          }
+        ],
+        "lp_transfer_events": []
+      }
+    },
+    {
+      "name": "tiny-input-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "1",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "reverted": true,
+        "transaction": {
+          "hash": "0xe9d0bff248eb4bd5e495f00a1a9a9d7a3e04502e7f99e919434f7b0f7af14550",
+          "block_number": 26,
+          "status": 0,
+          "gas_used": "66938"
+        },
+        "after": {
+          "state": {
+            "D": "2000000000000000000000000",
+            "price_scale": "1000000000000000000",
+            "_price_oracle": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "last_prices_timestamp": "1793577600",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "not_adjusted": "0",
+            "future_A_gamma_time": "0"
+          },
+          "balances": [
+            "1000000000000000000000000",
+            "1000000000000"
+          ],
+          "total_supply": "1000000000000000000000000",
+          "receiver_balance": "0",
+          "raw_balances": [
+            "1000000000000000000000000",
+            "1000000000000"
+          ],
+          "trader_balances": [
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+            "28948022309329048855892746252171976963317496166410141009864396000978282409983"
+          ]
+        }
+      }
+    },
+    {
+      "name": "zero-input-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "0",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "reverted": true,
+        "transaction": {
+          "hash": "0x15d61dd2676da7e207a68456b46906897db530b0c1536038781fc9e9acd6b687",
+          "block_number": 26,
+          "status": 0,
+          "gas_used": "47089"
+        },
+        "after": {
+          "state": {
+            "D": "2000000000000000000000000",
+            "price_scale": "1000000000000000000",
+            "_price_oracle": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "last_prices_timestamp": "1793577600",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "not_adjusted": "0",
+            "future_A_gamma_time": "0"
+          },
+          "balances": [
+            "1000000000000000000000000",
+            "1000000000000"
+          ],
+          "total_supply": "1000000000000000000000000",
+          "receiver_balance": "0",
+          "raw_balances": [
+            "1000000000000000000000000",
+            "1000000000000"
+          ],
+          "trader_balances": [
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+            "28948022309329048855892746252171976963317496166410141009864396000978282409983"
+          ]
+        }
+      }
+    },
+    {
+      "name": "overflow-input-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "reverted": true,
+        "transaction": {
+          "hash": "0x718ff63c80121aabe1ca112a19635956d4a782c046682c02592c6d1839b69237",
+          "block_number": 26,
+          "status": 0,
+          "gas_used": "56286"
+        },
+        "after": {
+          "state": {
+            "D": "2000000000000000000000000",
+            "price_scale": "1000000000000000000",
+            "_price_oracle": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "last_prices_timestamp": "1793577600",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "not_adjusted": "0",
+            "future_A_gamma_time": "0"
+          },
+          "balances": [
+            "1000000000000000000000000",
+            "1000000000000"
+          ],
+          "total_supply": "1000000000000000000000000",
+          "receiver_balance": "0",
+          "raw_balances": [
+            "1000000000000000000000000",
+            "1000000000000"
+          ],
+          "trader_balances": [
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+            "28948022309329048855892746252171976963317496166410141009864396000978282409983"
+          ]
+        }
+      }
+    },
+    {
+      "name": "loss-revert-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "2000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "reverted": true,
+        "transaction": {
+          "hash": "0xaf94d1a5eaaa38e440d23f586947a73e6a74aa0fd52ebe3223455ebc258fc51c",
+          "block_number": 27,
+          "status": 0,
+          "gas_used": "145495"
+        },
+        "after": {
+          "state": {
+            "D": "2000000000000000000000000",
+            "price_scale": "1000000000000000000",
+            "_price_oracle": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "last_prices_timestamp": "1793577600",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "2000000000000000000",
+            "not_adjusted": "0",
+            "future_A_gamma_time": "0"
+          },
+          "balances": [
+            "1000000000000000000000000",
+            "1000000000000"
+          ],
+          "total_supply": "1000000000000000000000000",
+          "receiver_balance": "0",
+          "raw_balances": [
+            "1000000000000000000000000",
+            "1000000000000"
+          ],
+          "trader_balances": [
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+            "28948022309329048855892746252171976963317496166410141009864396000978282409983"
+          ]
+        }
+      }
+    },
+    {
+      "name": "reverse-claim-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000",
+      "index_in": 1,
+      "index_out": 0,
+      "expected": {
+        "state": {
+          "D": "2000000030011730014441724",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1000000000000000000",
+          "last_prices": "999695121651413415",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1000000007502932505",
+          "xcp_profit_a": "1000000007502932505",
+          "virtual_price": "1000000011254398757",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "999900030487834858658496",
+          "1000100000000"
+        ],
+        "total_supply": "1000000003751466208000000",
+        "receiver_balance": "3751466208000000",
+        "raw_balances": [
+          "999900030487834858658496",
+          "1000100000000"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009964365514143423751487",
+          "28948022309329048855892746252171976963317496166410141009864396000978182409983"
+        ],
+        "transaction": {
+          "hash": "0xae516632077e16e90bf8e750df3dfecd9ec40195ccbfda16c98fb27ccc2b5902",
+          "block_number": 27,
+          "status": 1,
+          "gas_used": "194717"
+        },
+        "amount_out": "99969512165141341504",
+        "minted_admin": "3751466208000000",
+        "pool_events": [
+          {
+            "name": "ClaimAdminFee",
+            "args": [
+              "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+              "3751466208000000"
+            ]
+          },
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "1",
+              "100000000",
+              "0",
+              "99969512165141341504"
+            ]
+          }
+        ],
+        "lp_transfer_events": [
+          [
+            "0x0000000000000000000000000000000000000000",
+            "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+            "3751466208000000"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "no-adjust-tiny-derivative-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1000000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": false,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000000000000000000000000",
+              "1000000000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100001",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "reverted": true,
+        "transaction": {
+          "hash": "0xfed4c07c95c4ccfa9d3431693f282340243aac9b5420d5b3fe4e95a34f3e82be",
+          "block_number": 26,
+          "status": 0,
+          "gas_used": "66962"
+        },
+        "after": {
+          "state": {
+            "D": "2000000000000000000000000",
+            "price_scale": "1000000000000000000",
+            "_price_oracle": "1000000000000000000",
+            "last_prices": "1000000000000000000",
+            "last_prices_timestamp": "1793577600",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "1000000000000000000",
+            "not_adjusted": "0",
+            "future_A_gamma_time": "0"
+          },
+          "balances": [
+            "1000000000000000000000000",
+            "1000000000000"
+          ],
+          "total_supply": "1000000000000000000000000",
+          "receiver_balance": "0",
+          "raw_balances": [
+            "1000000000000000000000000",
+            "1000000000000"
+          ],
+          "trader_balances": [
+            "28948022309329048855892746252171976963317496166410140009864396001978282409983",
+            "28948022309329048855892746252171976963317496166410141009864396000978282409983"
+          ]
+        }
+      }
+    },
+    {
+      "name": "adjust-fail-gulp-donation-18-6",
+      "pool": {
+        "chain_key": "evm:31337",
+        "pool_id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "reserve0": "1000000000000000000000000",
+        "reserve1": "1000000000000",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "adapter_version": "curve-crypto2-full/d7d04cd9-standard-1",
+        "token_behavior": "standard",
+        "multi_asset": {
+          "code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "vault": "",
+          "vault_code_sha256": "",
+          "pool_id": "",
+          "assets": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "balance": "1000000000000000000000000",
+              "scaling": "1000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "balance": "1000000000000",
+              "scaling": "1000000000000000000000000000000",
+              "code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ],
+          "weights": [],
+          "amplification": "400000",
+          "admin_fee": 5000000000,
+          "curve_crypto": {
+            "gamma": "145000000000000",
+            "out_fee": "30000000",
+            "fee_gamma": "230000000000000",
+            "allowed_extra_profit": "1000000000000000000",
+            "adjustment_step": "146000000000000",
+            "price_scale": "1000000000000000000",
+            "last_prices": "1050000000000000000",
+            "xcp_profit": "1000000000000000000",
+            "xcp_profit_a": "1000000000000000000",
+            "virtual_price": "990000000000000000",
+            "invariant": "2000000000000000000000000",
+            "price_oracle": "1050000000000000000",
+            "ma_half_time": 600,
+            "last_prices_timestamp": 1793577600,
+            "not_adjusted": true,
+            "future_a_gamma_time": 0,
+            "lp_token": "0x0000000000000000000000000000000000000063",
+            "lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+            "total_supply": "1000000000000000000000000",
+            "admin_receiver": "0x0000000000000000000000000000000000000062",
+            "admin_receiver_balance": "0",
+            "raw_balances": [
+              "1000100000000000000000000",
+              "1000100000000"
+            ],
+            "timestamp": 1793577600,
+            "block_number": 100,
+            "block_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "config": {
+        "program_id": "",
+        "accounts": [],
+        "id": "0x0000000000000000000000000000000000000032",
+        "protocol": "curve-crypto2-full",
+        "token0": "0x0000000000000000000000000000000000000001",
+        "token1": "0x0000000000000000000000000000000000000002",
+        "fee_numerator": 3000000,
+        "fee_denominator": 10000000000,
+        "multi_asset": {
+          "expected_code_sha256": "c993e0214cdeafd5e81fa863efdcc5a4ccd45147c68b6d891ceba7f086d9c46a",
+          "expected_lp_token": "0x0000000000000000000000000000000000000063",
+          "expected_lp_token_code_sha256": "d3f43d24527d6a8ed0fa9f24d110ad7cc9325f40da335ed327e8e0e002a8694d",
+          "token_policy": "standard-no-bpt",
+          "tokens": [
+            {
+              "token": "0x0000000000000000000000000000000000000001",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            },
+            {
+              "token": "0x0000000000000000000000000000000000000002",
+              "expected_code_sha256": "37bbb5a629f00bdc57952c67ed07b427d27c0b26087408bc2bbb44cc9dac5597"
+            }
+          ]
+        }
+      },
+      "input": "100000000000000000000",
+      "index_in": 0,
+      "index_out": 1,
+      "expected": {
+        "state": {
+          "D": "2000200030011942774223550",
+          "price_scale": "1000000000000000000",
+          "_price_oracle": "1050000000000000000",
+          "last_prices": "1000304972980162191",
+          "last_prices_timestamp": "1793577600",
+          "xcp_profit": "1005050512629266455",
+          "xcp_profit_a": "1005050512629266455",
+          "virtual_price": "997574506165710428",
+          "not_adjusted": "0",
+          "future_A_gamma_time": "0"
+        },
+        "balances": [
+          "1000200000000000000000000",
+          "1000000030488"
+        ],
+        "total_supply": "1002531649340126018000000",
+        "receiver_balance": "2531649340126018000000",
+        "raw_balances": [
+          "1000200000000000000000000",
+          "1000000030488"
+        ],
+        "trader_balances": [
+          "28948022309329048855892746252171976963317496166410140009664396001978282409983",
+          "28948022309329048855892746252171976963317496166410141009864396000978282379495"
+        ],
+        "transaction": {
+          "hash": "0xe5a7734437d314ec94e5522facae6081715117b6d99c8272b6b066148c62b1ae",
+          "block_number": 32,
+          "status": 1,
+          "gas_used": "211130"
+        },
+        "amount_out": "99969512",
+        "minted_admin": "2531649340126018000000",
+        "pool_events": [
+          {
+            "name": "ClaimAdminFee",
+            "args": [
+              "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+              "2531649340126018000000"
+            ]
+          },
+          {
+            "name": "TokenExchange",
+            "args": [
+              "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              "0",
+              "100000000000000000000",
+              "1",
+              "99969512"
+            ]
+          }
+        ],
+        "lp_transfer_events": [
+          [
+            "0x0000000000000000000000000000000000000000",
+            "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+            "2531649340126018000000"
+          ]
+        ]
+      }
+    }
+  ]
+}
