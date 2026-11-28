@@ -24,8 +24,9 @@ REVISION = '5272fd2b1199f185d9cd94822be9262c387dc2c2'
 SOURCE_SHA256 = 'edfb3da7c748edb873465e60d471f49b6fd67be2972c97878948e9b9c2c98388'
 RUNTIME_SHA256 = 'c5351fd332fdf0f04486a838b2bceba15d7a45965e3df61e9a0ccedc674d450d'
 CORPUS_SHA256 = '99b2b6e7d6698f71251098cb8a5346233c85ac56a007ba5572967015451a1d47'
-GENERATION_SHA256 = '8a32eecffeb491f99b28d2a30cada101c144dada6040af6e154dd66690237d97'
-WIRE_SHA256 = '3de3ea43b3e7555123c13290e8c616b37da4161e4be644bec788e89c525f559e'
+GENERATION_SHA256 = 'eaa058c6b9dc2cdb984b9d6c70ac414a37c7383e3c194c34b511c661c3fc8649'
+# Independent protoc bytes for the synthetic multi-asset state fixture.
+WIRE_SHA256 = '352bf49d8243758ca6a51d97c442f84cbeb1c34daa4643b3654d3cac712344cb'
 SERVICE_NAMES = ['meta-0', 'meta-6', 'meta-8', 'meta-18']
 FLAGS = {'verified': False, 'all_requested_features_complete': False, 'production_ready': False}
 # Independent minimum, frozen from the worker contract; never imported from it.
