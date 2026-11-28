@@ -2,7 +2,7 @@ import {createWalletRegistry,connectWallet,signPreparedTransaction} from './wall
 import {quoteFundingRows, positiveInteger, boundedInteger, routeView, snapshotView, protocolBindingsMatch, singlePreparationPool, evmPreparationPools, evmPreparedSimulationAvailable, evmPreparedEvidenceMatches, evmFeeRequest, nativeEconomicsText, failedFeeText, escapeHtml as esc} from './model.js';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, quote:null, preparation:null, independent:null, independentAbort:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
+const state = {metadata:{chains:[]}, optionsSeq:0, quoteSeq:0, prepareSeq:0, estimating:false, estimate:null, quote:null, preparation:null, independent:null, independentAbort:null, timer:null, debounce:null, optionsAbort:null, quoteAbort:null, prepareAbort:null};
 const walletState={wallets:[],connection:null,unsubscribe:null,signed:null,receipt:null,receiptBase:null,receiptSeq:0,timer:null,submitting:false,signing:false};
 const apiBase = $('apiBase');
 apiBase.value = sessionStorage.getItem(`xone-api-base:${location.pathname}${location.search}`) || params.get('api') || localStorage.getItem('xone-api-base') || 'http://127.0.0.1:8080';
@@ -21,12 +21,40 @@ function fill(id, values, wanted=$(id).value) {
   $(id).replaceChildren(...values.map(v => new Option(typeof v==='string'?v:v.label, typeof v==='string'?v:v.value)));
   if ([...$(id).options].some(o=>o.value===wanted)) $(id).value=wanted;
 }
+function resetPreparation(message='') {
+  ++state.prepareSeq;
+  state.prepareAbort?.abort();
+  state.independentAbort?.abort();
+  state.preparation=null;
+  state.independent=null;
+  resetWalletSigning();
+  $('downloadButton').disabled=true;
+  $('independentButton').disabled=true;
+  $('preparation').textContent=message;
+}
+function invalidateExecution(message='') {
+  const hadQuote=Boolean(state.quote);
+  state.quote=null;
+  resetPreparation(message);
+  if (hadQuote && state.estimate) renderQuote(state.estimate);
+  if (hadQuote && !state.estimate) {
+    $('result').className='empty';
+    $('result').textContent='请计算兑换量或重新获取交易报价';
+    $('resultHeading').textContent='兑换量估算';
+  }
+  modes();
+  updateExecutionButton();
+}
 function invalidate(message='输入或状态已变化，请重新计算') {
-  ++state.quoteSeq; ++state.prepareSeq;resetWalletSigning();
-  state.quoteAbort?.abort(); state.prepareAbort?.abort(); clearTimeout(state.debounce);
-  state.quote=null; state.preparation=null; state.independent=null;state.independentAbort?.abort();$('independentButton').disabled=true;
-  $('downloadButton').disabled=true; $('prepareButton').disabled=true;
-  $('preparation').textContent='';
+  ++state.quoteSeq;
+  state.quoteAbort?.abort();
+  clearTimeout(state.debounce);
+  state.estimating=false;
+  state.estimate=null;
+  state.quote=null;
+  resetPreparation();
+  updateExecutionButton();
+  $('resultHeading').textContent='兑换量估算';
   $('result').className='empty'; $('result').textContent=message; $('quoteTime').textContent='—';
 }
 async function request(path, options={}) {
@@ -51,7 +79,9 @@ function modes() {
   const c=chain(); const exactOut=(c?.pools||[]).some(p=>p.available && (p.quoteModes||[]).includes('EXACT_OUT'));
   const exactOption=$('quoteKind').querySelector('option[value="EXACT_OUT"]'); exactOption.disabled=!exactOut;
   if (!exactOut && $('quoteKind').value==='EXACT_OUT') $('quoteKind').value='EXACT_IN';
-  const preparedPool=singlePreparationPool(state.quote,c);const executionPools=state.quote?(preparedPool?[preparedPool]:[]):(c?.pools||[]).filter(p=>p.available&&(p.directions||[]).some(d=>d.sellToken===$('sellToken').value&&d.buyToken===$('buyToken').value));
+  const displayed=state.quote||state.estimate;
+  const preparedPool=singlePreparationPool(displayed,c);
+  const executionPools=displayed?(preparedPool?[preparedPool]:[]):(c?.pools||[]).filter(p=>p.available&&(p.directions||[]).some(d=>d.sellToken===$('sellToken').value&&d.buyToken===$('buyToken').value));
   const wrapAllowed=$('sellToken').value==='So11111111111111111111111111111111111111112' && executionPools.some(p=>p.execution?.wrapSourceSol);
   $('wrapSourceSol').disabled=!wrapAllowed;if(!wrapAllowed)$('wrapSourceSol').checked=false;
   const createAllowed=$('buyToken').value!=='native:solana:sol' && executionPools.some(p=>p.execution?.createDestinationAta);$('createDestinationAta').disabled=!createAllowed;if(!createAllowed)$('createDestinationAta').checked=false;
@@ -69,11 +99,13 @@ function tokens() {
   if ($('sellToken').value===$('buyToken').value && $('buyToken').options.length>1) $('buyToken').selectedIndex=1;
   modes(); renderPools(); badge('stateBadge',c?.ready?'可报价':'未就绪',c?.ready?'ok':'bad');
   $('calculateButton').disabled=!c?.ready;
-  if (state.metadata.limits?.maxHops) {$('maxHops').max=state.metadata.limits.maxHops;}
+  const hopLimit=state.metadata.limits?.maxHops||8;
+  $('maxHops').max=hopLimit;
+  if (Number($('maxHops').value)>hopLimit) $('maxHops').value=hopLimit;
 }
 function schedule() {
   clearTimeout(state.debounce);
-  if (!$('autoQuote').checked || !$('caller').value.trim() || !$('recipient').value.trim() || !chain()?.ready || !/^[0-9]+$/.test($('amount').value) || /^0+$/.test($('amount').value)) return;
+  if (!$('autoQuote').checked || !chain()?.ready || !/^[0-9]+$/.test($('amount').value) || /^0+$/.test($('amount').value)) return;
   state.debounce=setTimeout(()=>{$('quoteForm').requestSubmit();},700);
 }
 async function loadOptions(silent=false) {
@@ -91,7 +123,7 @@ async function loadOptions(silent=false) {
     if (!Array.isArray(data.chains)) throw new Error('元数据响应缺少 chains');
     state.metadata=data;
     fill('chainKey',data.chains.map(c=>({value:c.chainKey,label:`${c.chainKey}${c.ready?'':'（未就绪）'}`})),$('chainKey').value);
-    const next=chain(); const changed=oldId!==next?.viewId || selected!==next?.chainKey || old?.ready!==next?.ready || !protocolBindingsMatch(state.quote,next);
+    const next=chain(); const changed=oldId!==next?.viewId || selected!==next?.chainKey || old?.ready!==next?.ready || !protocolBindingsMatch(state.estimate,next) || !protocolBindingsMatch(state.quote,next);
     const oldSell=$('sellToken').value, oldBuy=$('buyToken').value;
     tokens(); badge('healthBadge','已连接','ok');
     if (changed || oldSell!==$('sellToken').value || oldBuy!==$('buyToken').value) {invalidate('解析状态已更新，请重新计算'); schedule();}
@@ -107,42 +139,87 @@ function makeRequest() {
   if (!chain()?.ready) throw new Error('当前链没有可报价状态');
   if ($('sellToken').value===$('buyToken').value) throw new Error('买卖币种不能相同');
   const exact=$('quoteKind').value==='EXACT_OUT';
-  const body={chainKey:$('chainKey').value,kind:exact?'EXACT_OUT':'EXACT_IN',sellToken:$('sellToken').value,buyToken:$('buyToken').value,caller:$('caller').value.trim(),recipient:$('recipient').value.trim(),slippageBps:boundedInteger($('slippageBps').value,0,10000,'滑点'),verification:'FAST',constraints:{maxHops:boundedInteger($('maxHops').value,1,state.metadata.limits?.maxHops||8,'最大跳数')}};
-  if (!body.caller || !body.recipient) throw new Error('请填写调用方和收款方地址');
+  const body={chainKey:$('chainKey').value,kind:exact?'EXACT_OUT':'EXACT_IN',sellToken:$('sellToken').value,buyToken:$('buyToken').value,slippageBps:boundedInteger($('slippageBps').value,0,10000,'滑点'),verification:'FAST',constraints:{maxHops:boundedInteger($('maxHops').value,1,state.metadata.limits?.maxHops||8,'最大跳数')}};
   if (exact) {body.buyAmount=positiveInteger($('amount').value,'目标买入数量');body.maxSellAmount=positiveInteger($('maxSell').value,'最大卖出数量');}
   else body.sellAmount=positiveInteger($('amount').value,'卖出数量');
   return body;
 }
 function preparationAvailable(q=state.quote) {return Boolean(q&&(evmPreparationPools(q,chain()).length || singlePreparationPool(q,chain())?.execution?.preparation));}
+function updateExecutionButton() {
+  const button=$('prepareButton');
+  button.disabled=state.estimating || !chain()?.ready;
+  button.textContent=preparationAvailable(state.quote||state.estimate)?'检查执行账户':'获取交易报价';
+}
+async function fetchQuote(body, controller) {
+  const timeout=setTimeout(()=>controller.abort(),35000);
+  try {
+    return await request(body.kind==='EXACT_OUT'?'/v1/quote-exact-out':'/v1/quote',{
+      method:'POST',body:JSON.stringify(body),signal:controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+function validateQuoteView(q) {
+  if (q.quoteViewId!==chain()?.viewId || q.chainKey!==$('chainKey').value || !protocolBindingsMatch(q,chain())) {
+    throw new Error('报价状态已更新，请重新计算');
+  }
+}
 function renderQuote(q) {
-  const routes=q.routes||[]; const prep=preparationAvailable(q);
-  const details=[['Quote ID',q.quoteId],['快照',snapshotView(q)],['图版本',q.graphVersion],['协议视图',Object.values(q.protocolViewIds||{}).join(' / ')||'—'],['计划哈希',q.planHash],['最小到账',q.minBuyAmount],['额外到账',q.outputSurplus||'0'],['未用输入预算',q.unusedInputBudget||'0'],['退款',q.refund],['验证',q.verification?.level],...quoteFundingRows(q)];
+  const routes=q.routes||[];
+  const details=[['快照',snapshotView(q)],['图版本',q.graphVersion],['协议视图',Object.values(q.protocolViewIds||{}).join(' / ')||'—'],['额外到账',q.outputSurplus],['未用输入预算',q.unusedInputBudget],['退款',q.refund]];
+  if (!q.estimateOnly) details.push(['Quote ID',q.quoteId],['计划哈希',q.planHash],['最小到账',q.minBuyAmount],['验证',q.verification?.level],...quoteFundingRows(q));
+  $('resultHeading').textContent=q.estimateOnly?'兑换量估算':'交易报价';
   $('result').className='';
-  $('result').innerHTML=`<div class="metric-grid"><div class="metric"><span>买入数量（最小单位）</span><strong data-testid="buy-amount">${esc(q.grossBuyAmount||q.buyAmount||'—')}</strong></div><div class="metric"><span>实际消耗输入（最小单位）</span><strong data-testid="sell-amount">${esc(q.requiredSellAmount||q.consumedIn||'—')}</strong></div></div><h3>路线（${routes.length}）</h3>${routes.map((r,i)=>{const v=routeView(r);return `<div class="route"><strong>#${i+1} ${esc(v.protocols.join(' / '))}</strong><br><small>${esc(v.tokens.join(' → '))}<br>Pool: ${esc(v.pools.join(' → '))}<br>input ${esc(v.input)} · output ${esc(v.output)}</small></div>`;}).join('')}<div class="details">${details.map(([k,v])=>`<div><b>${esc(k)}：</b>${esc(v??'—')}</div>`).join('')}</div>`;
-  $('prepareButton').disabled=!prep;
-  $('preparation').textContent=prep?'可进行只读账户检查并生成待签名交易。':'当前协议或 Router RPC 配置尚未提供执行准备能力。';
+  $('result').innerHTML=`<div class="metric-grid"><div class="metric"><span>${q.estimateOnly?'预计买入数量':'买入数量'}（最小单位）</span><strong data-testid="buy-amount">${esc(q.grossBuyAmount||q.buyAmount||'—')}</strong></div><div class="metric"><span>${q.estimateOnly?'预计卖出数量':'报价消耗输入'}（最小单位）</span><strong data-testid="sell-amount">${esc(q.requiredSellAmount||q.consumedIn||'—')}</strong></div></div><h3>路线（${routes.length}）</h3>${routes.map((r,i)=>{const v=routeView(r);return `<div class="route"><strong>#${i+1} ${esc(v.protocols.join(' / '))}</strong><br><small>${esc(v.tokens.join(' → '))}<br>Pool: ${esc(v.pools.join(' → '))}<br>input ${esc(v.input)} · output ${esc(v.output)}</small></div>`;}).join('')}<div class="details">${details.map(([k,v])=>`<div><b>${esc(k)}：</b>${esc(v??'—')}</div>`).join('')}</div>`;
 }
 $('quoteForm').addEventListener('submit',async event=>{
   event.preventDefault(); invalidate('计算中…'); error(''); const seq=state.quoteSeq;
+  state.estimating=true;
+  updateExecutionButton();
   try {
-    const body=makeRequest(); state.quoteAbort=new AbortController(); const abort=state.quoteAbort;
-    const timeout=setTimeout(()=>abort.abort(),35000); const started=performance.now();
-    let q; try {q=await request(body.kind==='EXACT_OUT'?'/v1/quote-exact-out':'/v1/quote',{method:'POST',body:JSON.stringify(body),signal:abort.signal});} finally {clearTimeout(timeout);}
+    const body=makeRequest(); state.quoteAbort=new AbortController();
+    const started=performance.now();
+    const q=await fetchQuote(body,state.quoteAbort);
     if (seq!==state.quoteSeq) return;
-    if (q.quoteViewId!==chain()?.viewId || q.chainKey!==$('chainKey').value) throw new Error('报价状态已更新，请重新计算');
-    if(!protocolBindingsMatch(q,chain()))throw new Error('协议报价状态已更新，请重新计算');
-    state.quote=q; modes();renderQuote(q); $('quoteTime').textContent=`${Math.round(performance.now()-started)} ms`; badge('stateBadge','报价成功','ok');
-  } catch(e) {if (seq===state.quoteSeq && e.name!=='AbortError') {invalidate('没有可用报价'); error(e.message);badge('stateBadge','报价失败','bad');}}
+    validateQuoteView(q);
+    if(q.estimateOnly!==true)throw new Error('Router 未返回兑换量估算');
+    state.estimate=q; modes();renderQuote(q); $('quoteTime').textContent=`${Math.round(performance.now()-started)} ms`; badge('stateBadge','报价成功','ok');
+  } catch(e) {if (seq===state.quoteSeq) {error(e.name==='AbortError'?'计算超时':e.message);$('result').textContent='没有可用估算';badge('stateBadge','报价失败','bad');}}
+  finally {if(seq===state.quoteSeq){state.estimating=false;updateExecutionButton();}}
 });
 $('prepareButton').addEventListener('click',async()=>{
-  const q=state.quote; if (!q||!preparationAvailable(q)) return; const seq=state.quoteSeq, prepSeq=++state.prepareSeq; state.preparation=null;state.independent=null;state.independentAbort?.abort();resetWalletSigning();$('independentButton').disabled=true; $('downloadButton').disabled=true; $('prepareButton').disabled=true; $('preparation').textContent='正在核对账户…';
+  clearTimeout(state.debounce);
+  invalidateExecution('正在获取交易报价…');
+  const seq=state.quoteSeq, prepSeq=state.prepareSeq;
+  const current=()=>seq===state.quoteSeq && prepSeq===state.prepareSeq;
+  $('prepareButton').disabled=true;
   try {
+    const caller=$('caller').value.trim(), recipient=$('recipient').value.trim();
+    if (!caller || !recipient) throw new Error('请填写调用方和收款方地址');
+    const body={...makeRequest(),caller,recipient};
+    const controller=new AbortController();
+    state.prepareAbort=controller;
+    const q=await fetchQuote(body,controller);
+    if (!current()) return;
+    validateQuoteView(q);
+    if(q.estimateOnly || !q.quoteId || !q.planHash || !(q.validity?.expiresAtMs>Date.now())) {
+      throw new Error('交易报价已失效，请重新获取');
+    }
+    state.quote=q;
+    modes();
+    renderQuote(q);
+    if (!preparationAvailable(q)) {
+      $('preparation').textContent='当前报价路线尚未提供执行准备能力。';
+      return;
+    }
+    $('preparation').textContent='正在核对账户…';
     let payload={createDestinationAta:$('createDestinationAta').checked,simulate:$('simulatePreparation').checked,wrapSourceSol:$('wrapSourceSol').checked,refundWrappedSource:$('refundWrappedSource').checked,unwrapDestinationSol:$('unwrapDestinationSol').checked}; if ($('sourceAccount').value.trim()) payload.sourceTokenAccount=$('sourceAccount').value.trim(); if ($('destinationAccount').value.trim()) payload.destinationTokenAccount=$('destinationAccount').value.trim();
     const evm=evmPreparationPools(q,chain()).length>0;
     if(evm) payload=evmFeeRequest($('evmGasLimit').value,$('evmMaxFee').value,$('evmPriorityFee').value,$('evmFeeBudget').value);
-    state.prepareAbort=new AbortController();
-    const prepared=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/${evm?'prepare-evm':'prepare'}`,{method:'POST',body:JSON.stringify(payload),signal:state.prepareAbort.signal});
-    if (seq!==state.quoteSeq || prepSeq!==state.prepareSeq || state.quote!==q) return;
+    const prepared=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/${evm?'prepare-evm':'prepare'}`,{method:'POST',body:JSON.stringify(payload),signal:controller.signal});
+    if (!current()) return;
+    if (Date.now()>=q.validity.expiresAtMs) throw new Error('QUOTE_EXPIRED');
     state.preparation=prepared; $('downloadButton').disabled=!prepared.ready;refreshWalletActions();
     $('independentButton').disabled=!prepared.ready || !(chain()?.pools||[]).some(p=>p.execution?.independentLocalSimulation&&(q.routes||[]).some(r=>(r.path?.edges||r.edges||[]).some(e=>e.pool_id===p.poolId)));
     if(evm) {
@@ -157,8 +234,15 @@ $('prepareButton').addEventListener('click',async()=>{
     const nativeText=prepared.sourceNativeSol||prepared.destinationNativeSol?` · 原生SOL${prepared.sourceNativeSol?'付款':'收款'} · 交易金额与网络费分别结算 · 预计用户SOL净变动 ${prepared.expectedPayerLamportDelta} lamports`:'';
     const closeText=prepared.temporaryWsolAccount?` · 临时账户关闭转回 ${prepared.expectedNativeRefundLamports} lamports（含退租 ${prepared.rentRefundLamports}） · 预计payer SOL净变动 ${prepared.expectedPayerLamportDelta} lamports`:'';
     $('preparation').textContent=prepared.ready?`账户检查通过 · 观察 slot ${prepared.observedSlot} · 交易费 ${prepared.feeLamports} lamports · 创建租金 ${prepared.rentLamports||0} lamports${wrapText}${closeText}${tokenFeeText}${nativeText}${prefundText}${sourcePrefundText}${prepared.sourceAccountCreation?' · 已加入输入WSOL账户创建指令':''}${prepared.accountCreation?' · 已加入收款 ATA 创建指令':''}${prepared.simulation?.success?' · RPC模拟到账 '+prepared.simulation.actualOutput+(prepared.unwrapDestinationSol||prepared.destinationNativeSol?' lamports SOL':''):''} · 待签名，生产独立验证仍未完成`:`账户准备未满足：${(prepared.blockers||[]).join(', ')}。目标账户：${prepared.destinationTokenAccount}`;
-  } catch(e) {if(seq===state.quoteSeq && prepSeq===state.prepareSeq && e.name!=='AbortError') {if (/QUOTE_|PROGRAM_CHANGED/.test(e.message)) invalidate('执行状态已变化，请重新报价'); $('preparation').textContent=e.message;}}
-  finally {if (seq===state.quoteSeq && prepSeq===state.prepareSeq) $('prepareButton').disabled=!preparationAvailable();}
+  } catch(e) {
+    if (current()) {
+      const message=e.name==='AbortError'?'获取交易报价超时':e.message;
+      if (/QUOTE_|PROGRAM_CHANGED/.test(message)) invalidateExecution(message);
+      else $('preparation').textContent=message;
+    }
+  } finally {
+    if (current()) updateExecutionButton();
+  }
 });
 $('independentButton').addEventListener('click',async()=>{
   const q=state.quote,p=state.preparation,seq=state.quoteSeq,preparationSeq=state.prepareSeq;if(!q||!p?.ready)return;
@@ -184,12 +268,18 @@ $('independentButton').addEventListener('click',async()=>{
   finally{if(seq===state.quoteSeq&&preparationSeq===state.prepareSeq)$('independentButton').disabled=false;}
 });
 $('downloadButton').addEventListener('click',()=>{
-  if (!state.preparation?.ready || !state.quote || Date.now()>=state.quote.validity.expiresAtMs) {invalidate('报价已过期，请重新计算'); return;}
+  if (!state.preparation?.ready || !state.quote) return;
+  if (Date.now()>=state.quote.validity.expiresAtMs) {invalidateExecution('交易报价已过期，请重新检查'); return;}
   const url=URL.createObjectURL(new Blob([JSON.stringify(state.preparation,null,2)],{type:'application/json'})); const a=document.createElement('a'); a.href=url;a.download=`xone-unsigned-${state.quote.quoteId}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 $('chainKey').addEventListener('change',()=>{invalidate(); tokens();schedule();});
-for (const id of ['sellToken','buyToken','quoteKind','amount','maxSell','caller','recipient','slippageBps','maxHops']) $(id).addEventListener('input',()=>{invalidate();modes();schedule();});
-for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation','wrapSourceSol','refundWrappedSource','unwrapDestinationSol','evmGasLimit','evmMaxFee','evmPriorityFee','evmFeeBudget']) $(id).addEventListener('input',()=>{modes();++state.prepareSeq;state.prepareAbort?.abort();state.preparation=null;state.independent=null;state.independentAbort?.abort();resetWalletSigning();$('independentButton').disabled=true;$('downloadButton').disabled=true;$('prepareButton').disabled=!preparationAvailable();$('preparation').textContent=preparationAvailable()?'执行准备参数已变化，请重新检查':'当前协议或 Router RPC 配置尚未提供执行准备能力。';});
+for (const id of ['sellToken','buyToken','quoteKind','amount','maxSell','slippageBps','maxHops']) $(id).addEventListener('input',()=>{invalidate();modes();schedule();});
+for (const id of ['caller','recipient']) $(id).addEventListener('input',()=>invalidateExecution('交易地址已变化，请重新检查'));
+for (const id of ['sourceAccount','destinationAccount','createDestinationAta','simulatePreparation','wrapSourceSol','refundWrappedSource','unwrapDestinationSol','evmGasLimit','evmMaxFee','evmPriorityFee','evmFeeBudget']) $(id).addEventListener('input',()=>{
+  modes();
+  resetPreparation('执行准备参数已变化，请重新检查');
+  updateExecutionButton();
+});
 $('flipButton').addEventListener('click',()=>{const sell=$('sellToken').value;$('sellToken').value=$('buyToken').value;$('buyToken').value=sell;invalidate();schedule();});
 $('refreshButton').addEventListener('click',()=>loadOptions());
 $('autoQuote').addEventListener('change',()=>{$('autoQuote').checked?schedule():clearTimeout(state.debounce);});
@@ -199,7 +289,7 @@ apiBase.addEventListener('change',()=>{try {$('apiToken').value=sessionStorage.g
 $('apiToken').addEventListener('change',connectionChanged);
 // Poll metadata every ten seconds and check quote expiry every second.
 let nextPoll=Date.now()+10000;
-state.timer=setInterval(()=>{const now=Date.now(); if(now>=nextPoll){nextPoll=now+10000;if($('autoRefresh').checked&&!document.hidden)loadOptions(true);} if(state.quote && now>=state.quote.validity.expiresAtMs){invalidate('报价已过期，请重新计算');schedule();}},1000);
+state.timer=setInterval(()=>{const now=Date.now(); if(now>=nextPoll){nextPoll=now+10000;if($('autoRefresh').checked&&!document.hidden)loadOptions(true);} if(state.quote && now>=state.quote.validity.expiresAtMs)invalidateExecution('交易报价已过期，请重新检查');},1000);
 function resetWalletSigning(){
   walletState.signed=null;$('confirmSubmission').checked=false;$('confirmSubmission').disabled=true;$('walletSign').disabled=true;$('walletSubmit').disabled=true;
 }
@@ -221,8 +311,8 @@ $('walletConnect').addEventListener('click',async()=>{
   try{
     const wallet=walletState.wallets[Number($('walletSelect').value)];if(!wallet)throw new Error('未发现可用钱包');
     const connection=await connectWallet(wallet,$('chainKey').value);walletState.unsubscribe?.();walletState.connection=connection;resetWalletSigning();
-    const changed=$('caller').value.trim()!==connection.account.address;$('caller').value=connection.account.address;if(changed)invalidate('钱包调用方已改变，请重新报价');
-    walletState.unsubscribe=wallet.features['standard:events']?.on('change',()=>{walletState.connection=null;invalidate('钱包账户或链已改变，请重新连接并报价');$('walletStatus').textContent='钱包状态已改变';});
+    const changed=$('caller').value.trim()!==connection.account.address;$('caller').value=connection.account.address;if(changed)invalidateExecution('钱包调用方已改变，请重新检查');
+    walletState.unsubscribe=wallet.features['standard:events']?.on('change',()=>{walletState.connection=null;invalidateExecution('钱包账户或链已改变，请重新连接并检查');$('walletStatus').textContent='钱包状态已改变';});
     $('walletStatus').textContent=`已连接 ${wallet.name} · ${connection.account.address} · ${connection.chain}`;refreshWalletActions();
   }catch(e){walletState.connection=null;resetWalletSigning();$('walletStatus').textContent=e.message;}
 });
@@ -269,7 +359,7 @@ function resumeReceipt(){
 }
 $('walletSubmit').addEventListener('click',async()=>{
   const q=state.quote,p=state.preparation,signed=walletState.signed,address=base();if(!q||!p||!signed||!$('confirmSubmission').checked||walletState.submitting)return;
-  if(Date.now()>=q.validity.expiresAtMs){invalidate('报价已过期，请重新计算');return;}
+  if(Date.now()>=q.validity.expiresAtMs){invalidateExecution('交易报价已过期，请重新检查');return;}
   walletState.submitting=true;refreshWalletActions();
   try{sessionStorage.setItem(`xone-last-transaction:${address}`,signed.signature);const receipt=await request(`/v1/quotes/${encodeURIComponent(q.quoteId)}/preparations/${encodeURIComponent(p.preparationHash)}/submit`,{method:'POST',body:JSON.stringify({signedTransaction:signed.signedTransaction,evidenceHash:signed.evidenceHash,confirm:true})});
     if(base()!==address)return;sessionStorage.setItem(`xone-last-transaction:${address}`,receipt.signature);showReceipt(receipt);resetWalletSigning();await refreshReceipt(true);

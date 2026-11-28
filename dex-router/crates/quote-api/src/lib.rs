@@ -6,6 +6,7 @@ mod evm_approval;
 mod evm_preparation;
 mod evm_receipt;
 mod exact_out;
+mod estimate;
 mod execution_receipts;
 mod failure_fees;
 mod native_economics;
@@ -63,7 +64,9 @@ pub struct QuoteRequest {
     pub sell_token: String,
     pub buy_token: String,
     pub sell_amount: Amount,
+    #[serde(default)]
     pub caller: String,
+    #[serde(default)]
     pub recipient: String,
     pub slippage_bps: u16,
     pub verification: String,
@@ -79,10 +82,6 @@ impl QuoteRequest {
             || self.sell_token.is_empty()
             || self.buy_token.is_empty()
             || self.sell_token == self.buy_token
-            || self.caller.is_empty()
-            || self.recipient.is_empty()
-            || self.caller.len() > 128
-            || self.recipient.len() > 128
             || self.sell_token.len() > 128
             || self.buy_token.len() > 128
             || self.slippage_bps > 10000
@@ -92,6 +91,7 @@ impl QuoteRequest {
         if !["FAST", "VERIFIED"].contains(&self.verification.as_str()) {
             return Err(err("VERIFICATION_UNSUPPORTED"));
         }
+        estimate::validate_addresses(&self.caller, &self.recipient, &self.verification)?;
         Ok(())
     }
 }
@@ -430,6 +430,9 @@ impl Api {
     }
     pub async fn quote(&self, request: QuoteRequest) -> Result<Value> {
         request.validate()?;
+        if request.caller.is_empty() {
+            return self.estimate(request.into()).await;
+        }
         let verified_backend = self.verified_backend(
             &request.verification,
             &request.chain_key,

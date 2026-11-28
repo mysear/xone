@@ -13,7 +13,7 @@ use std::{
 };
 use xone_domain::{err, Amount, Pool, Result};
 use xone_routing::{
-    exact_out::{evaluate_path, ExactOutPathQuote},
+    exact_out::{evaluate_path_context, ExactOutPathQuote},
     Edge, Funds,
 };
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -56,6 +56,16 @@ pub fn evaluate_allocation(
     max_input: &Amount,
     funds: Funds<'_>,
 ) -> Result<ExactOutAllocation> {
+    evaluate_allocation_context(pools, proposals, output, max_input, Some(funds))
+}
+
+fn evaluate_allocation_context(
+    pools: &[Pool],
+    proposals: &[ExactOutProposal],
+    output: &Amount,
+    max_input: &Amount,
+    funds: Option<Funds<'_>>,
+) -> Result<ExactOutAllocation> {
     if pools
         .first()
         .is_some_and(|p| p.chain_key.starts_with("solana:"))
@@ -89,7 +99,7 @@ pub fn evaluate_allocation(
         if proposal.amount_out.0.is_zero() {
             return Err(err("EXACT_OUT_ZERO_OUTPUT"));
         }
-        let quote = evaluate_path(&mut state, &proposal.edges, &proposal.amount_out, funds)?;
+        let quote = evaluate_path_context(&mut state, &proposal.edges, &proposal.amount_out, funds)?;
         let pair = (
             quote
                 .tokens
@@ -139,7 +149,7 @@ struct Solver<'a, 's, 'e> {
     paths: &'a [ExactOutPathQuote],
     output: &'a Amount,
     max_input: &'a Amount,
-    funds: Funds<'a>,
+    funds: Option<Funds<'a>>,
     limits: OptimizationLimits,
     control: Option<(&'a AtomicBool, Instant)>,
     evaluations: usize,
@@ -165,7 +175,7 @@ impl Solver<'_, '_, '_> {
             return Ok(());
         }
         self.evaluations += 1;
-        match evaluate_allocation(
+        match evaluate_allocation_context(
             self.pools,
             proposals,
             self.output,
@@ -258,7 +268,7 @@ pub fn optimize<'a>(
     funds: Funds<'a>,
     control: Option<(&'a AtomicBool, Instant)>,
 ) -> Result<ExactOutOptimization> {
-    optimize_inner(
+    optimize_with_limits(
         pools,
         paths,
         output,
@@ -268,8 +278,18 @@ pub fn optimize<'a>(
             budget: control,
             funds: Some(funds),
         },
-        None,
     )
+}
+
+pub fn optimize_with_limits(
+    pools: &[Pool],
+    paths: &[ExactOutPathQuote],
+    output: &Amount,
+    max_input: &Amount,
+    limits: OptimizationLimits,
+    execution: OptimizationExecution<'_>,
+) -> Result<ExactOutOptimization> {
+    optimize_inner(pools, paths, output, max_input, limits, execution, None)
 }
 
 /// Cost must be in sell-token atoms for the complete candidate. Unknown costs
@@ -310,9 +330,7 @@ fn optimize_inner<'a>(
     execution: OptimizationExecution<'a>,
     scorer: Option<&mut Scorer<'_, ExactOutAllocation>>,
 ) -> Result<ExactOutOptimization> {
-    let funds = execution
-        .funds
-        .ok_or_else(|| err("EXACT_OUT_FUNDING_CONTEXT_REQUIRED"))?;
+    let funds = execution.funds;
     let control = execution.budget;
     if pools
         .first()

@@ -20,6 +20,8 @@ Make会使用本项目锁文件。`make check`包含格式、静态检查、测�
 
 POST /v1/quote 接收camelCase字段：chainKey、kind=EXACT_IN、sellToken、buyToken、sellAmount（字符串）、caller、recipient、slippageBps、verification=FAST。响应包含quoteId、SnapshotRef、QuoteView/图/策略版本、整数输入输出/退款、路线及质量范围。
 
+`POST /v1/quote` 和 `POST /v1/quote-exact-out` 的 `FAST` 请求可同时省略 `caller` 和 `recipient`。此时返回 `estimateOnly: true`、`verification.level: INDICATIVE`、整数兑换量和快照路线，交易准备和构建使用带双地址报价返回的 `quoteId`。
+
 VERIFIED返回INDEPENDENT_SIMULATION_UNAVAILABLE（422）；POST /v1/quotes/{id}/build在先校验有效期/重组后拒绝缺少独立仿真的计划。GET /internal/quotes/{id}/evidence可查看计划与版本证据。不能将该接口用于真实资金可执行报价。
 
 配置标准 V2 共享后缀执行器时，`POST /v1/quotes/{id}/build` 可接收报价 `quality.sharedSuffix.candidateHash` 对应的 `sharedSuffixCandidateHash`。服务按报价快照重放选中的 ExactIn 或 ExactOut 候选，校验授权和成交后返回绑定报价、候选、仿真证据和 calldata 的未签名交易模板。模板的权威为 `PROVIDED_LOCAL_STATE`，`ready` 和 `verified` 均为 `false`。

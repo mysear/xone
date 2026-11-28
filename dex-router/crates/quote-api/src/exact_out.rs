@@ -11,7 +11,9 @@ pub struct ExactOutRequest {
     pub buy_token: String,
     pub buy_amount: Amount,
     pub max_sell_amount: Amount,
+    #[serde(default)]
     pub caller: String,
+    #[serde(default)]
     pub recipient: String,
     pub slippage_bps: u16,
     pub verification: String,
@@ -30,31 +32,29 @@ impl ExactOutRequest {
         {
             return Err(err("INVALID_REQUEST"));
         }
+        let funded = estimate::validate_addresses(&self.caller, &self.recipient, &self.verification)?;
         if self.chain_key.starts_with("solana:")
             && (self.buy_amount.0.bits() > 64 || self.max_sell_amount.0.bits() > 64)
         {
             return Err(err("EXACT_OUT_SOLANA_AMOUNT_WIDTH"));
         }
-        if self.chain_key.starts_with("solana:")
+        if funded && self.chain_key.starts_with("solana:")
             && [&self.caller, &self.recipient]
                 .into_iter()
                 .any(|a| xone_domain::raydium::validate_pubkey(a).is_err())
         {
             return Err(err("INVALID_REQUEST"));
         }
-        for address in [
-            &self.sell_token,
-            &self.buy_token,
-            &self.caller,
-            &self.recipient,
-        ] {
+        for address in [&self.sell_token, &self.buy_token] {
             plan::validate_chain_address(&self.chain_key, address)?;
         }
-        if [&self.caller, &self.recipient]
-            .into_iter()
-            .any(|a| a == xone_domain::singleton::ZERO_ADDRESS)
-        {
-            return Err(err("INVALID_REQUEST"));
+        if funded {
+            for address in [&self.caller, &self.recipient] {
+                plan::validate_chain_address(&self.chain_key, address)?;
+                if address == xone_domain::singleton::ZERO_ADDRESS {
+                    return Err(err("INVALID_REQUEST"));
+                }
+            }
         }
         if !["FAST", "VERIFIED"].contains(&self.verification.as_str()) {
             return Err(err("VERIFICATION_UNSUPPORTED"));
@@ -76,6 +76,9 @@ pub(super) struct ExactOutCached {
 impl Api {
     pub async fn quote_exact_out(&self, request: ExactOutRequest) -> Result<Value> {
         request.validate()?;
+        if request.caller.is_empty() {
+            return self.estimate(request.into()).await;
+        }
         let verified_backend = self.verified_backend(
             &request.verification,
             &request.chain_key,

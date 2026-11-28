@@ -499,18 +499,16 @@ fn evaluate_path_in_place(
             }
         }
         let q = if pool.protocol == xone_domain::pancake_bsc_lm::PROFILE {
-            let _funds = funds.ok_or_else(|| err("BSC4_FUNDS_REQUIRED"))?;
             xone_protocol_math::pancake_bsc_lm::quote_exact_in(pool, &amount, e.zero_for_one)?
         } else if pool.protocol == xone_domain::pancake_lm::PROFILE {
-            let _funds = funds.ok_or_else(|| err("PANCAKE_LM_FUNDS_REQUIRED"))?;
             xone_protocol_math::pancake_lm::quote_exact_in(pool, &amount, e.zero_for_one)?
-        } else if pool.protocol == xone_domain::slipstream_context::PROFILE {
-            let funds = funds.ok_or_else(|| err("SLIPSTREAM_FUNDS_REQUIRED"))?;
+        } else if let Some(slipstream) = &pool.slipstream_context {
+            let origin = funds.map_or(slipstream.view_origin.as_str(), |funds| funds.sender);
             xone_protocol_math::slipstream_context::quote_exact_in(
                 pool,
                 &amount,
                 e.zero_for_one,
-                funds.sender,
+                origin,
             )?
         } else if bpt_swap {
             let funds = funds.ok_or_else(|| err("MANAGED_V2_BPT_FUNDS_REQUIRED"))?;

@@ -35,9 +35,22 @@ try{
  let exactIn;let currentQuote;let currentPreparation;
  for(const kind of ['EXACT_IN','EXACT_OUT']){
   await page.selectOption('#quoteKind',kind);if(kind==='EXACT_IN')await page.fill('#amount',info.request.sellAmount);else{await page.fill('#amount',exactIn.grossBuyAmount);await page.fill('#maxSell',info.request.sellAmount);}
-  const endpoint=kind==='EXACT_IN'?'/v1/quote':'/v1/quote-exact-out';const quoted=page.waitForResponse(r=>r.url()===info.api+endpoint&&r.request().method()==='POST');await page.click('#calculateButton');const qr=await quoted;const q=await qr.json();assert.equal(qr.status(),200,JSON.stringify(q));if(kind==='EXACT_IN')exactIn=q;currentQuote=q;
+  const endpoint=kind==='EXACT_IN'?'/v1/quote':'/v1/quote-exact-out';
+  const isQuote=r=>r.url()===info.api+endpoint&&r.request().method()==='POST';
+  const quoted=page.waitForResponse(isQuote);
+  await page.click('#calculateButton');
+  const qr=await quoted, estimate=await qr.json();
+  assert.equal(qr.status(),200,JSON.stringify(estimate));
+  assert.equal(estimate.estimateOnly,true);
+  if(kind==='EXACT_IN')exactIn=estimate;
   await page.waitForFunction(()=>!document.querySelector('#prepareButton').disabled);
-  const prepared=page.waitForResponse(r=>r.url().endsWith('/prepare-evm')&&r.request().method()==='POST');await page.click('#prepareButton');const pr=await prepared;const p=await pr.json();assert.equal(pr.status(),200,JSON.stringify(p));assert.equal(p.ready,true);currentPreparation=p;
+  const funded=page.waitForResponse(isQuote);
+  const prepared=page.waitForResponse(r=>r.url().endsWith('/prepare-evm')&&r.request().method()==='POST');
+  await page.click('#prepareButton');
+  const bound=await funded, q=await bound.json();
+  assert.equal(bound.status(),200,JSON.stringify(q));
+  currentQuote=q;
+  const pr=await prepared;const p=await pr.json();assert.equal(pr.status(),200,JSON.stringify(p));assert.equal(p.ready,true);currentPreparation=p;
   await page.waitForFunction(()=>!document.querySelector('#independentButton').disabled);report.checks.push(`${kind}_runtime_bank_enables_prepared_independent_action`);
   const simulated=page.waitForResponse(r=>r.url().endsWith('/simulate-evm')&&r.request().method()==='POST');await page.click('#independentButton');const sr=await simulated;const evidence=await sr.json();assert.equal(sr.status(),200,JSON.stringify(evidence));
   assert.equal(evidence.apiPreparationHash,p.preparationHash);assert.equal(evidence.planHash,q.planHash);assert.equal(evidence.quoteViewId,q.quoteViewId);

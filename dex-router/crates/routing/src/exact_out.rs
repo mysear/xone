@@ -303,8 +303,19 @@ pub fn evaluate_path(
     output: &Amount,
     funds: Funds<'_>,
 ) -> Result<ExactOutPathQuote> {
+    evaluate_path_context(pools, edges, output, Some(funds))
+}
+
+pub fn evaluate_path_context(
+    pools: &mut BTreeMap<String, Pool>,
+    edges: &[Edge],
+    output: &Amount,
+    funds: Option<Funds<'_>>,
+) -> Result<ExactOutPathQuote> {
     xone_domain::validate_pool_dependencies(pools.values())?;
-    validate_funds(pools, funds)?;
+    if let Some(funds) = funds {
+        validate_funds(pools, funds)?;
+    }
     if edges.is_empty() || output.0.is_zero() {
         return Err(err("EXACT_OUT_INVALID_PATH"));
     }
@@ -402,7 +413,7 @@ pub fn evaluate_path(
                 "EXACT_OUT_LM_SINGLE_POOL_ONLY"
             }));
         }
-        if let Some(pump) = &pool.pump {
+        if let (Some(pump), Some(funds)) = (&pool.pump, funds) {
             if funds.sender != pump.user || funds.recipient != pump.user {
                 return Err(err("PUMP_DECLARED_USER_REQUIRED"));
             }
@@ -487,14 +498,14 @@ pub fn evaluate_path(
         let p = candidate
             .get(&edge.pool_id)
             .ok_or_else(|| err("MISSING_POOL"))?;
-        let hop_funds = Funds {
+        let hop_funds = funds.map(|funds| Funds {
             sender: funds.sender,
             recipient: if i + 1 == edges.len() {
                 funds.recipient
             } else {
                 funds.sender
             },
-        };
+        });
         let q = quote_edge(p, edge, &amounts[i + 1], hop_funds)?;
         let surplus_template = (p.protocol == xone_domain::lfj::PROFILE
             || ((xone_domain::pump::supports_curve_profile(&p.protocol)
@@ -523,7 +534,7 @@ pub fn evaluate_path(
             &edge.to,
             &q.amount_in,
             &amounts[i + 1],
-            Some(hop_funds),
+            hop_funds,
         )?;
         candidate.insert(edge.pool_id.clone(), q.next_pool);
     }
@@ -560,9 +571,7 @@ pub fn search(
     {
         return Err(err("EXACT_OUT_SEARCH_BUDGET"));
     }
-    let funds = execution
-        .funds
-        .ok_or_else(|| err("EXACT_OUT_FUNDS_REQUIRED"))?;
+    let funds = execution.funds;
     let state = pools
         .iter()
         .map(|p| (p.pool_id.clone(), p.clone()))
@@ -571,7 +580,9 @@ pub fn search(
         return Err(err("DUPLICATE_PHYSICAL_POOL"));
     }
     xone_domain::validate_pool_dependencies(pools.iter())?;
-    validate_funds(&state, funds)?;
+    if let Some(funds) = funds {
+        validate_funds(&state, funds)?;
+    }
     if pools.iter().any(|p| p.chain_key != graph.chain_key) {
         return Err(err("CROSS_CHAIN_GRAPH"));
     }
@@ -644,7 +655,7 @@ pub fn search(
             }
             let mut trial = state.clone();
             evaluations += 1;
-            let proposed = evaluate_path(&mut trial, &next_edges, &probe, funds).ok();
+            let proposed = evaluate_path_context(&mut trial, &next_edges, &probe, funds).ok();
             // Pair settlement can reject the split-sized probe even when the
             // whole target is feasible. This also matters for a partial suffix:
             // dropping it here would hide valid multi-hop full-order paths.
@@ -653,7 +664,7 @@ pub fn search(
             } else if from == sell || proposed.is_none() {
                 let mut full_state = state.clone();
                 evaluations += 1;
-                evaluate_path(&mut full_state, &next_edges, output, funds).ok()
+                evaluate_path_context(&mut full_state, &next_edges, output, funds).ok()
             } else {
                 None
             };
@@ -739,13 +750,14 @@ fn quote_edge(
     pool: &Pool,
     edge: &Edge,
     target: &Amount,
-    funds: Funds<'_>,
+    funds: Option<Funds<'_>>,
 ) -> Result<xone_protocol_math::exact_out::ExactOutSwap> {
     if pool.multi_asset.is_some() {
         let (from, to) = edge_tokens(pool, edge)?;
         let q = if xone_protocol_math::managed_v2_pool::supports_bpt_exact_out(&pool.protocol)
             && (from == pool.pool_id || to == pool.pool_id)
         {
+            let funds = funds.ok_or_else(|| err("MANAGED_V2_BPT_FUNDS_REQUIRED"))?;
             xone_protocol_math::managed_v2_pool::quote_bpt_exact_out(
                 pool,
                 target,
@@ -762,12 +774,15 @@ fn quote_edge(
             amount_out: q.amount_out,
             next_pool: q.next_pool,
         })
-    } else {
+    } else if let Some(slipstream) = &pool.slipstream_context {
+        let origin = funds.map_or(slipstream.view_origin.as_str(), |funds| funds.sender);
         xone_protocol_math::exact_out::quote_exact_out_for_origin(
             pool,
             target,
             edge.zero_for_one,
-            funds.sender,
+            origin,
         )
+    } else {
+        xone_protocol_math::exact_out::quote_exact_out(pool, target, edge.zero_for_one)
     }
 }

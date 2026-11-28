@@ -51,7 +51,7 @@ try {
     await page.fill('#amount',out?request.buyAmount:request.sellAmount);
     if(out) await page.fill('#maxSell',request.maxSellAmount);
     const response=page.waitForResponse(r=>new URL(r.url()).pathname===(out?'/v1/quote-exact-out':'/v1/quote') && r.request().method()==='POST');
-    await page.click('#calculateButton');
+    await page.click('#prepareButton');
     const res=await response; assert.equal(res.status(),200);
     const quote=await res.json();
     const funding=quote.costs.nativeFunding;

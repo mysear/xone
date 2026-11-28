@@ -11,7 +11,9 @@ cd frontend
 npm run dev
 ```
 
-浏览器访问 `http://127.0.0.1:5173`。Router 默认地址为 `http://127.0.0.1:8080`，也可以通过 `?api=` 指定。填写实际 caller/recipient；不再自动填入测试地址。原始整数金额不经过 JavaScript Number 转换；Token decimals/symbol 尚未提供，页面明确展示最小单位。
+浏览器访问 `http://127.0.0.1:5173`。Router 默认地址为 `http://127.0.0.1:8080`，也可以通过 `?api=` 指定。计算兑换量时，前端省略 caller 和 recipient。准备交易时，在执行区填写实际调用方和收款方，再获取交易报价。页面以最小单位展示整数金额。
+
+`/v1/quote` 和 `/v1/quote-exact-out` 接受同时省略两项地址的 `FAST` 请求，返回 `estimateOnly: true` 和 `INDICATIVE`。估算采用快照中的协议状态。Slipstream 采用快照记录的参考费率，Managed Balancer 的 BPT 路线需要实际账户权限和余额。交易准备、构建和 `VERIFIED` 报价使用包含两项实际地址的请求。
 
 API Token 按 Router 地址保存在当前浏览器会话的 `sessionStorage` 中，关掉会话即失效；切换 Router 不会自动携带另一地址的凭据。前端不从源码中读取部署凭据。
 
