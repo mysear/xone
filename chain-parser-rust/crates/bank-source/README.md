@@ -112,4 +112,7 @@ published proof hash and the validator's finalized RPC history, and records
 current finalized RPC account bytes. A local faucet transfer then changes a
 tracked account's lamports. The test compares the resulting native write and
 its transaction signature against finalized RPC in the same receiver session.
+It then kills and restarts the validator on the same ledger, checks that the
+Parser revokes the old scope, and verifies the new session's native proof,
+finalized RPC block, and transferred balance.
 On macOS, use the plugin's `.dylib` path.

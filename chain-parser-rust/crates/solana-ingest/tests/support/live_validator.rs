@@ -2,7 +2,7 @@ use super::{api, baseline, normal_bank, write_json};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
 use std::{
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     net::TcpListener,
     path::{Path, PathBuf},
     process::{Child, Command},
@@ -36,7 +36,11 @@ fn start_validator(
     } else {
         "genesis"
     };
-    let log = File::create(root.join(format!("{name}.log"))).unwrap();
+    let log = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(root.join(format!("{name}.log")))
+        .unwrap();
     let mut command = Command::new(binary);
     command
         .arg("--ledger")
@@ -75,6 +79,28 @@ async fn wait_genesis(rpc: &Rpc, url: &str, validator: &mut Validator) -> String
     })
     .await
     .expect("validator RPC startup timed out")
+}
+
+fn snapshot_proof(snapshot: &Value, directory: &Path) -> (StreamEvidence, BankManifest) {
+    let evidence: StreamEvidence =
+        serde_json::from_str(snapshot["source"].as_str().unwrap()).unwrap();
+    let slot = snapshot["reference"]["block"]["number_or_slot"]
+        .as_u64()
+        .unwrap();
+    let path = directory.join(format!(
+        "{}-{slot}-{}.json",
+        evidence.session_id, evidence.bank_id
+    ));
+    let manifest: BankManifest = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    assert_eq!(
+        xone_domain::hash(&manifest).unwrap(),
+        evidence.manifest_sha256
+    );
+    assert_eq!(
+        manifest.bank.blockhash,
+        snapshot["reference"]["block"]["hash"]
+    );
+    (evidence, manifest)
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -223,8 +249,7 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
     let mut blocks = Vec::with_capacity(slots.len());
     for (slot, snapshot) in slots.iter().zip(&snapshots) {
         assert_eq!(snapshot["pools"].as_array().unwrap().len(), 1);
-        let evidence: StreamEvidence =
-            serde_json::from_str(snapshot["source"].as_str().unwrap()).unwrap();
+        let (evidence, manifest) = snapshot_proof(snapshot, &manifests);
         assert_eq!(evidence.source_id, "local-agave-geyser");
         assert_eq!(evidence.proto_commit, PROJECTION_SCHEMA_COMMIT);
         assert_eq!(
@@ -233,15 +258,6 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
         );
         assert!(evidence.wal_cursor > previous_cursor);
         previous_cursor = evidence.wal_cursor;
-        let path = manifests.join(format!(
-            "{}-{slot}-{}.json",
-            evidence.session_id, evidence.bank_id
-        ));
-        let manifest: BankManifest = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
-        assert_eq!(
-            xone_domain::hash(&manifest).unwrap(),
-            evidence.manifest_sha256
-        );
         assert_eq!(manifest.genesis_hash, chain.genesis_hash);
         assert_eq!(manifest.parent_accounts.len(), accounts.len());
         assert_eq!(manifest.final_versions.len(), accounts.len());
@@ -329,26 +345,13 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
             parser.stream_status(&chain.key)
         )
     });
-    let evidence: StreamEvidence =
-        serde_json::from_str(snapshot["source"].as_str().unwrap()).unwrap();
+    let (evidence, manifest) = snapshot_proof(&snapshot, &manifests);
     assert_eq!(
         session.as_ref(),
         Some(&evidence.session_id),
         "parser changed session before publishing the write"
     );
     assert!(evidence.wal_cursor > previous_cursor);
-    let manifest: BankManifest = serde_json::from_slice(
-        &fs::read(manifests.join(format!(
-            "{}-{write_slot}-{}.json",
-            evidence.session_id, evidence.bank_id
-        )))
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(
-        xone_domain::hash(&manifest).unwrap(),
-        evidence.manifest_sha256
-    );
     let writes: Vec<_> = manifest
         .native_writes
         .iter()
@@ -398,6 +401,90 @@ async fn native_validator_stream_publishes_consecutive_frozen_banks() {
     write_json(&output.join("changed-snapshot.json"), &snapshot);
     write_json(&output.join("changed-rpc-block.json"), &block);
     write_json(&output.join("changed-rpc-account.json"), &updated);
+
+    drop(validator);
+    tokio::time::timeout(Duration::from_secs(55), async {
+        loop {
+            let status = parser.stream_status(&chain.key).unwrap();
+            if status.session_id != evidence.session_id && !status.session_committed {
+                assert!(!baseline(&url).await.status().is_success());
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| {
+        panic!(
+            "source disconnect status: {:?}",
+            parser.stream_status(&chain.key)
+        )
+    });
+    let mut validator =
+        start_validator(&binary, &output, rpc_port, faucet_port, Some(&source_file));
+    assert_eq!(
+        wait_genesis(&rpc, &rpc_url, &mut validator).await,
+        chain.genesis_hash
+    );
+    let recovered = tokio::time::timeout(Duration::from_secs(90), async {
+        loop {
+            let response = baseline(&url).await;
+            if response.status().is_success() {
+                let snapshot: Value = response.json().await.unwrap();
+                let recovered: StreamEvidence =
+                    serde_json::from_str(snapshot["source"].as_str().unwrap()).unwrap();
+                if recovered.session_id != evidence.session_id
+                    && snapshot["reference"]["block"]["number_or_slot"]
+                        .as_u64()
+                        .unwrap()
+                        > write_slot
+                {
+                    break snapshot;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| {
+        panic!(
+            "restarted source status: {:?}",
+            parser.stream_status(&chain.key)
+        )
+    });
+    let (replay_evidence, replay_manifest) = snapshot_proof(&recovered, &manifests);
+    assert_ne!(replay_evidence.session_id, evidence.session_id);
+    assert!(replay_evidence.wal_generation > evidence.wal_generation);
+    assert!(
+        recovered["reference"]["online_generation"]
+            .as_u64()
+            .unwrap()
+            > snapshot["reference"]["online_generation"].as_u64().unwrap()
+    );
+    assert_eq!(replay_manifest.genesis_hash, chain.genesis_hash);
+    let account = replay_manifest
+        .parent_accounts
+        .iter()
+        .find(|a| &a.pubkey == changed_key)
+        .unwrap();
+    assert_eq!(account.lamports, write.lamports);
+    let recovered_block = rpc
+        .call(
+            &rpc_url,
+            "getBlock",
+            json!([replay_manifest.bank.slot, {
+                "commitment":"finalized", "transactionDetails":"none", "rewards":false,
+            }]),
+        )
+        .await
+        .unwrap();
+    assert_eq!(recovered_block["blockhash"], replay_manifest.bank.blockhash);
+    assert_eq!(
+        recovered_block["previousBlockhash"],
+        replay_manifest.parent.blockhash
+    );
+    write_json(&output.join("restarted-snapshot.json"), &recovered);
+    write_json(&output.join("restarted-rpc-block.json"), &recovered_block);
     parser.close().await;
     http.close().await;
 }
