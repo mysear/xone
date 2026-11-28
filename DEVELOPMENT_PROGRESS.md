@@ -476,6 +476,8 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 恢复 Managed V2 AUM 的 6 个原始编译输入和固定编译器。27 个原合约案例、292 笔交易按原摘要精确重放。暂停、恢复和四池目录分别通过原程序验证，以及 Go Parser 和 Router 差分回归。恢复 Scheduled、Scheduled Shared 和 Shared Vault 夹具，独立重生成通过。Scheduled 覆盖 53 笔交换和 41 个检查点，Scheduled Shared 覆盖 72 个共同区块快照和 52 个案例。Go race、两套 Rust 的状态与编码回归和 Router 数学与路由回归通过。
+- 联调页在链下拉框显示已发布池数，池表显示所选链的可报价池数，报价结果标明本次路线数。浏览器验证 Base 三池以及 Ethereum 两池和 ExactOut 单路线，调用方和收款方为空时仍可估算。
 - 恢复 Curve MetaUSD 的 32 笔原合约交易及 4 组运行时代码，原报价语料逐字节匹配既有摘要。环境证明与合成 Protobuf 向量的摘要已按重建结果更新。Go Parser、Router 数学和共享池回归通过，证据门禁在 Python 普通和优化模式各通过 16 项。
 - 恢复三币 Weighted 合成状态及 Managed Fees、Curve Meta、Curve Crypto 独立 Protobuf 夹具。Curve NG 已复编译原合约并核对 21 个部署和 147 个原程序步骤，生成 56 个可用服务状态。Curve Crypto 已验证 60 个原程序案例、30 个服务案例和 28 个参数渐变案例。Go race、两套 Rust 领域回归及 Router 数学、路由和优化专项通过。
 - 已按历史清单字节恢复 Uniswap V2 Complete 的 24 个原合约案例、4 组序列和 79 份交易 trace，以及四端独立 Protobuf 夹具。用原 Node 二进制重跑生成器，结果逐字节一致，49 项反例被拒。Go race、两套 Rust wire、Router 数学、计划和 24 项独立模拟通过。公开 RPC 捕获归档和跨协议依赖闭包仍待恢复。
