@@ -93,6 +93,12 @@ PYTHONPATH=integration/tools/acceptance python3 -c 'from r01_public_catalog_evm_
 
 Base Slipstream 按上一节的命令重建。`slipstream_base` 使用 `evm-continuation-v2/anchor-iteration-ee66n2qk/base`，`slipstream_responses` 使用 `evm-normal-v4/base-slipstream-dependencies.hoknqrom`，`slipstream_original_capture` 使用该响应目录下的 `context-cached._mgho3yq/capture.json`。这些路径都相对于 `evidence_root`。
 
+### Base Uniswap V3 与 Aerodrome V2 固定块报价
+
+展开固定块复验包后，再展开 `evidence/base-v3-aerodrome-v2-63180533.tar.gz`。此包包含 24 份额外输入，SHA-256 为 `a4978ab541680182016564b6ed37dd6758acc49740169611ea7bad2512280493`。用 `evm-continuation-v2/anchor-iteration-ee66n2qk/base` 回放原池并运行 Go 回执联验。运行状态证明验证时，传入固定块目录、空的第二参数和 `prestate-evidence-v2.json`。
+
+在 `evm-normal-v4/base-uniswap-v3-fixed-h.ustwe78e` 使用 `probe-01.json`，在 `evm-normal-v4/base-aerodrome-v2-fixed-h.80092axw` 使用 `probe-02.json`。将相应目录与报告传给 `r01_public_catalog_evm_normal.py` 的 `--case-directory` 和 `--probe`。两条报价均返回 HTTP 200，分别匹配原池实际收款 166,255 和 166,299 原子单位。Go 验证 22 笔固定块回执。
+
 ### OP Mainnet 与 Arbitrum One 固定块报价
 
 从仓库根目录展开 `evidence/op-arbitrum-fixed-2026-11-28.tar.gz`。包内有 462 份文件，SHA-256 为 `d461ed5e2c3e698d247107f3814ff1a3cce562b7957cb3e428d093047ced31f3`。按上一节准备固定编译器。
