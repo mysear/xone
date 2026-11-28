@@ -40,6 +40,20 @@ async function verifyEvidence(evidence,records){
  assert.equal(evidence.chain_id,CHAINS[evidence.chain],'MPT_CHAIN_ID');assert.equal(evidence.block.hash,evidence.expected_block_hash,'MPT_HEADER_ANCHOR');assert.equal(evidence.missing_proofs.length,0,'PUBLIC_PRESTATE_PROOFS_INCOMPLETE');
  const header=await verifyBody(evidence.chain,evidence.block);
  const stateAnchor=evidence.chain==='avalanche'?verifySAEStateAnchor(evidence.native_headers,Number(BigInt(evidence.block.number))):null;
+ for (const deployment of evidence.deployments) {
+  if (!deployment.proof_source) continue;
+  const source = readTranscript(deployment.proof_source);
+  const keys = deployment.proof.storageProof.map(slot => '0x' + slot.key.slice(2).toLowerCase().padStart(64, '0')).sort();
+  assert.equal(source.method, 'eth_getProof', 'RECOVERED_PROOF_METHOD');
+  assert.deepEqual(source.params, [deployment.address, keys, evidence.block.number], 'RECOVERED_PROOF_REQUEST');
+  assert.deepEqual(source.response.result, deployment.proof, 'RECOVERED_PROOF_RESULT');
+  if (deployment.code_source) {
+   const code = readTranscript(deployment.code_source);
+   assert.equal(code.method, 'eth_getCode', 'RECOVERED_CODE_METHOD');
+   assert.deepEqual(code.params, [deployment.address, evidence.block.number], 'RECOVERED_CODE_REQUEST');
+   assert.equal(code.response.result, deployment.code, 'RECOVERED_CODE_RESULT');
+  }
+ }
  const proof=await verifyPrestate({...evidence,chain_id:'1',block:stateAnchor?{...evidence.block,stateRoot:stateAnchor.state_root}:evidence.block},records,{allowAbsentRPCZeroHashes:true,accountEncoding:stateAnchor?.account_encoding,storageKeyEncoding:stateAnchor?'coreth-partitioned-storage/v1':'ethereum-storage/v1'}); // only the chain-independent secure MPT primitive is reused
  return {passed:true,execution_state_anchor:stateAnchor,chain:evidence.chain,chain_id:evidence.chain_id,header,accounts:proof.accounts,storage_slots:proof.storage_slots,absent_accounts:proof.absent_accounts,public_prestate_reads_bound:proof.public_prestate_reads_bound,state_root:proof.state_root,height:proof.height,native_body_transactions_verified:true,full_native_body_receipt_verified:false,authority:'secure MPT against independently hashed explicit native header root; not a generic Ethereum body/receipt verifier',consensus_verified:false};
 }

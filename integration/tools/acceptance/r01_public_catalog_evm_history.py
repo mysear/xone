@@ -12,7 +12,7 @@ import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from r01_public_catalog import ROOT,CatalogError,require,load_json,read_blob,rpc,sha256,validate_evm,validate_sources
 from r01_public_catalog_capture import DOCUMENTS,MAX_BYTES,capture_evm,fetch_document,fetch_rpc,request,write_new,reference
-from r01_public_catalog_history import ForkArchive,start_archive
+from r01_public_catalog_history import ForkArchive,canonical_key,start_archive
 from r01_public_catalog_samples import capture as capture_samples
 
 BASE=ROOT/'integration/test/source/deployment-catalog'
@@ -392,6 +392,71 @@ def verify_simulation_views(expected,observed):
     require(all(expected[k]==v for k,v in observed.items()),'SIMULATION_HEADER_VIEW_REPLAY')
     return sorted(set(expected)-set(observed))
 
+def recover_prestate(directory):
+    directory = directory.resolve()
+    require(directory.is_relative_to(OUT.resolve()), 'OWNED_EVM_DIRECTORY')
+    output = directory / 'prestate-evidence-v2.json'
+    require(not output.exists(), 'IMMUTABLE_EVM_PRESTATE_EXISTS')
+    saved = load_json(directory / 'anchor.json')
+    anchor = saved['anchor']
+    evidence = load_json(directory / 'prestate-evidence.json')
+    require(evidence['missing_proofs'], 'NO_MISSING_PRESTATE_PROOFS')
+    tag = hex(anchor['height'])
+    require(evidence['block']['number'] == tag and
+            evidence['block']['hash'] == evidence['expected_block_hash'] == anchor['hash'],
+            'PRESTATE_RECOVERY_ANCHOR')
+    archive = EvmArchive(anchor, directory, [], replay=True)
+    accounts = archive.account_slots()
+    missing = evidence['missing_proofs']
+    require(len(missing) <= 64 and len({row['address'] for row in missing}) == len(missing),
+            'PRESTATE_RECOVERY_ACCOUNT_INVENTORY')
+    call, _ = evidence_recorder(directory)
+    recovered = []
+    unavailable = []
+    for row in missing:
+        address = row['address']
+        require(address in accounts and accounts[address] == set(row['storage_slots']) and
+                len(accounts[address]) <= 256, 'PRESTATE_RECOVERY_STORAGE_INVENTORY')
+        slots = sorted({storage_trie_key(evidence['chain'], slot) for slot in accounts[address]})
+        for endpoint in saved['endpoints']:
+            proof_ref, proof = call(endpoint, 'eth_getProof', [address, slots, tag], 'recovery-proof')
+            if not isinstance(proof, dict):
+                continue
+            entries = proof.get('storageProof')
+            if not isinstance(entries, list) or not all(
+                    isinstance(entry, dict) and isinstance(entry.get('key'), str) and
+                    re.fullmatch(r'0x[0-9a-fA-F]{1,64}', entry['key']) for entry in entries):
+                continue
+            keys = sorted('0x' + entry['key'][2:].lower().zfill(64) for entry in entries)
+            if keys != slots:
+                continue
+            code_ref = None
+            key = canonical_key('eth_getCode', [address, tag])
+            cached_code = archive.cache.get(key)
+            if cached_code is not None:
+                code = cached_code['result']
+            else:
+                code_ref, code = call(endpoint, 'eth_getCode', [address, tag], 'recovery-code')
+            if not isinstance(code, str):
+                continue
+            recovered.append({'address': address, 'code': code, 'proof': proof,
+                              'proof_source': proof_ref, 'code_source': code_ref})
+            break
+        else:
+            unavailable.append(address)
+    require(not unavailable, 'PRESTATE_RECOVERY_UNAVAILABLE:' + ','.join(unavailable))
+    evidence['deployments'].extend(recovered)
+    evidence['missing_proofs'] = []
+    verifier = ROOT / 'integration/tools/acceptance/r01_public_catalog_evm_commitments.cjs'
+    with tempfile.NamedTemporaryFile(dir=directory) as candidate:
+        candidate.write((json.dumps(evidence, indent=2) + '\n').encode())
+        candidate.flush()
+        check = subprocess.run(['node', str(verifier), str(directory), '', Path(candidate.name).name],
+                               capture_output=True, text=True, timeout=120)
+        require(check.returncode == 0, 'PRESTATE_RECOVERY_VERIFICATION_FAILED:' + check.stderr[-2000:])
+        os.link(candidate.name, output)
+    return json.loads(check.stdout)
+
 def replay(directory):
     directory=directory.resolve();anchor=load_json(directory/'anchor.json');archive=EvmArchive(anchor['anchor'],directory,anchor['endpoints'],replay=True);server,url=start_archive(archive)
     try:
@@ -400,7 +465,7 @@ def replay(directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['anchor', 'catalog', 'capture', 'resume', 'replay', 'settlement', 'receipts'])
+    parser.add_argument('command', choices=['anchor', 'catalog', 'capture', 'resume', 'replay', 'settlement', 'receipts', 'recover-prestate'])
     parser.add_argument('--chain', choices=CHAINS)
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--catalog', type=Path)
@@ -436,6 +501,8 @@ def main():
         directory = args.directory.resolve()
         require(directory.is_relative_to(OUT.resolve()), 'OWNED_EVM_DIRECTORY')
         result = capture_receipts(directory)
+    elif args.command == 'recover-prestate':
+        result = recover_prestate(args.directory)
     elif args.command in ('capture', 'resume'):
         result = capture(args.chain, args.directory, resume=args.command == 'resume', catalog_path=args.catalog)
     else:

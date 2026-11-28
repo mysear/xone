@@ -486,6 +486,7 @@
 - 11 个工厂对应的原池均已在固定块执行并取得正数收款。Avalanche 在超时后从同一归档恢复，两个原池分别取得 660 和 134 个收款原子单位，仍缺 11 个预状态账户证明。重试复用已核对的编译结果，保留旧索引并原子发布更新后的索引。
 - OP Mainnet Uniswap V3 在高度 160,113,647 补齐当前 tick bitmap 字内 203 个初始化 tick 的证明，211 次原合约 getter 调用全部通过。证明报告通过索引消除重复内容，由 65.7 MB 缩减至 3.6 MB。常规 Go Parser 与 Rust Router 离线报价 166,230 原子单位，与原池实际收款一致。回放无未记录请求，链费模型仍待验收。
 - OP Mainnet Velodrome V2 在同一高度验证原池、工厂和 clone 实现的代码。补齐两个存储键后，六次 getter 调用均通过证明验证。常规 Go Parser 与 Rust Router 离线报价 165,448 原子单位，与原池收款一致，回放无未记录请求。
+- Base 在 63,180,533 通过同高度 dRPC 补齐 11 个账户的证明。独立验证覆盖 19 个账户、92 个存储槽以及原执行的 142 次预状态读取。三个原池离线重放的收款分别为 166,255、166,299 和 166,349 原子单位，网络请求为零。常规 Parser 和 Router 差分仍待验收。
 - Avalanche LFJ v2.1 在 101,588,444 的原池 clone 固定指向 `0xee5a90098b270596ec35d637b30d908c862c86df`，同高度工厂 getter 返回 `0x3e30fdae04c08fc20fa2fe0cf55c95d99a9c2d8f`。分别核对两套 runtime 及池中的 token X、token Y 和 bin step。负对照拒绝错误 clone 地址、变更的工厂实现摘要和缺失的代币 getter。
 - 依次补齐 11 个部署的原始 runtime、升级语义、固定高度证明、原版执行和常规 Parser/Router 收款差分。区块回执及 Avalanche 目标高度的后继结算头继续独立核验。 [六链固定块复验命令](integration/test/source/deployment-catalog/README.md#fresh-evm-anchors)
 

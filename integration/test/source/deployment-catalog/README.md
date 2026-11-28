@@ -19,6 +19,8 @@ done
 
 每链的 `deployments.json` 记录官方目录、工厂及池的 runtime 摘要、升级槽与固定块 RPC 回应。用同一目录启动原池执行时，运行 `r01_public_catalog_evm_history.py capture --chain "$chain" --directory "$r01_run/$chain" --catalog "$r01_run/$chain/deployments.json"`。采集会下载和校验固定的官方 Solidity 0.8.19 编译器，离线重放复用采集时使用的编译器。
 
+固定块的原执行已完成但公共 RPC 暂未返回完整预状态时，可以对同一目录运行 `r01_public_catalog_evm_history.py recover-prestate --directory "$r01_run/$chain"`。命令按已归档的读取集重新获取缺失证明，保留原始请求和响应。独立验证器核对区块承诺和归档读取值后，发布 `prestate-evidence-v2.json`。覆盖不全时可在原高度重试。
+
 Avalanche 的后继结算头可用 `r01_public_catalog_evm_history.py settlement --directory "$r01_run/avalanche"` 采集。预状态验证器读取该目录中的 `native-successors.json`，校验每个原始响应的摘要，并用精确后继结算状态根核验 Coreth 账户及存储证明。
 
 六条链均可用 `r01_public_catalog_evm_history.py receipts --directory "$r01_run/$chain"` 采集固定块回执。Avalanche 先用 `settlement` 采集后继结算头，再由 `receipts` 保留该结算窗口内的交易和回执。将 `XONE_R01_RECEIPT_INPUTS` 设为各 `receipt-input.json` 的绝对路径列表，以冒号分隔。在 `chain-parser-go` 执行 `go test ./internal/chain/evm -run '^TestPublicCatalogFixedReceiptRoot$' -count=1 -v`，离线重建头哈希、交易根及回执根。
