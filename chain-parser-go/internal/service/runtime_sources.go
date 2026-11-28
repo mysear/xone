@@ -691,7 +691,7 @@ type runtimeCatalogStatus struct {
 	LastError string               `json:"last_error,omitempty"`
 }
 
-// runtimeSourceStatus is registered on the existing authenticated source-evidence
+// runtimeSourceStatus is registered on the authenticated source-status
 // route. It has no network/maintenance side effects and emits no RPC URL/auth.
 func (s *Service) runtimeSourceStatus(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("chain")
@@ -708,6 +708,9 @@ func (s *Service) runtimeSourceStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	if raw := s.rawSources[key]; raw != nil {
 		status["limits"] = raw.archive.Limits()
+	}
+	if adapter := s.adapters[key]; adapter != nil {
+		status["provider_observations"] = adapter.Client.Providers()
 	}
 	if p := s.providerRuntime[key]; p != nil {
 		status["providers"] = p.Snapshot()

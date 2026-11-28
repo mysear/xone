@@ -24,6 +24,7 @@ type Client struct {
 	mu          sync.Mutex
 	quarantined map[string]bool
 	states      map[string]*providerState
+	rateSource  *Client
 	policy      Policy
 	recorder    *recorderState
 }
@@ -32,6 +33,15 @@ func New(urls []string, timeout time.Duration, maxBytes int) *Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
 	return &Client{HTTP: &http.Client{Timeout: timeout, Transport: transport, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return errors.New("RPC_REDIRECT_FORBIDDEN") }}, URLs: urls, MaxBytes: maxBytes, quarantined: map[string]bool{}}
+}
+
+// WithSeparateReadLimits gives a consumer its own HTTP limits, response
+// recorder, and quarantine while sharing the configured endpoint rate budgets.
+func (c *Client) WithSeparateReadLimits(timeout time.Duration, maxBytes int) *Client {
+	child := New(append([]string(nil), c.URLs...), timeout, maxBytes)
+	child.policy = c.getPolicy()
+	child.rateSource = c
+	return child
 }
 
 type rpcResponse struct {
@@ -284,6 +294,10 @@ func (c *Client) VerifyEVM(ctx context.Context, chain, genesis string) error {
 		endpointCancel()
 		if errors.Is(e, ErrRecordingFailed) {
 			return e
+		}
+		if Classify(e) == BudgetExceeded {
+			lastIdentityError = e
+			continue
 		}
 		c.mu.Lock()
 		if c.quarantined == nil {

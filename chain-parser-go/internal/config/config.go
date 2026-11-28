@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"math/big"
 	"net/url"
 	"os"
@@ -300,11 +301,16 @@ type RPCRetryConfig struct {
 	BaseBackoffMS uint64 `json:"base_backoff_ms"`
 	MaxBackoffMS  uint64 `json:"max_backoff_ms"`
 }
+type RPCRateLimitConfig struct {
+	RequestsPerSecond float64 `json:"requests_per_second"`
+	Burst             int     `json:"burst"`
+}
 
 type Chain struct {
 	OPOrigin           *OPOriginConfig       `json:"op_l1_origin,omitempty"`
 	ProofRPCURL        string                `json:"proof_rpc_url,omitempty"`
 	RPCRetry           *RPCRetryConfig       `json:"rpc_retry,omitempty"`
+	RPCRateLimit       *RPCRateLimitConfig   `json:"rpc_rate_limit,omitempty"`
 	BeaconFinality     *BeaconFinalityConfig `json:"beacon_finality,omitempty"`
 	NativeProof        *NativeProofConfig    `json:"native_proof,omitempty"`
 	ReceiptsMode       string                `json:"receipts_mode,omitempty"`
@@ -655,6 +661,12 @@ func (c Config) Validate(expected string) error {
 		if retry := ch.RPCRetry; retry != nil {
 			if expected != "chain-parser-go" || len(ch.RPCURLs) == 0 || retry.MaxAttempts < 1 || retry.MaxAttempts > 16 || retry.BaseBackoffMS == 0 || retry.BaseBackoffMS > retry.MaxBackoffMS || retry.MaxBackoffMS > 60000 || retry.MaxBackoffMS >= c.Journal.TimeoutMS {
 				return errors.New("CONFIG_RPC_RETRY")
+			}
+		}
+		if rate := ch.RPCRateLimit; rate != nil {
+			if expected != "chain-parser-go" || len(ch.RPCURLs) == 0 || rate.RequestsPerSecond <= 0 ||
+				math.IsNaN(rate.RequestsPerSecond) || math.IsInf(rate.RequestsPerSecond, 0) || rate.Burst < 1 {
+				return errors.New("CONFIG_RPC_RATE_LIMIT")
 			}
 		}
 		if ch.OPOrigin != nil && !ch.OPOrigin.valid(ch, expected) {

@@ -89,8 +89,18 @@ type Service struct {
 
 func newChainRPC(chain config.Chain, timeout time.Duration, maxBytes int) (*rpc.Client, error) {
 	client := rpc.New(append([]string(nil), chain.RPCURLs...), timeout, maxBytes)
+	var policy rpc.Policy
 	if retry := chain.RPCRetry; retry != nil {
-		err := client.SetPolicy(rpc.Policy{MaxAttempts: retry.MaxAttempts, BaseBackoff: time.Duration(retry.BaseBackoffMS) * time.Millisecond, MaxBackoff: time.Duration(retry.MaxBackoffMS) * time.Millisecond})
+		policy.MaxAttempts = retry.MaxAttempts
+		policy.BaseBackoff = time.Duration(retry.BaseBackoffMS) * time.Millisecond
+		policy.MaxBackoff = time.Duration(retry.MaxBackoffMS) * time.Millisecond
+	}
+	if rate := chain.RPCRateLimit; rate != nil {
+		policy.RequestsPerSecond = rate.RequestsPerSecond
+		policy.Burst = rate.Burst
+	}
+	if policy != (rpc.Policy{}) {
+		err := client.SetPolicy(policy)
 		if err != nil {
 			client.HTTP.CloseIdleConnections()
 			return nil, err

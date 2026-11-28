@@ -496,6 +496,7 @@
 - 四个固定高度各采样两轮。dRPC 返回四点的区块头、账户余额和哈希固定读取，均通过未知哈希负对照。PublicNode 返回创世和 22,000,000 的区块头，余额请求返回 403。高度 15,000,000 的区块头返回不可用，高度 26,510,136 的区块头、余额和哈希固定读取通过。两源均回应 safe 和 finalized 探测。样本反映 2026-11-28 对指定端点的观测。 [历史能力复验](chain-parser-go/internal/rpc/capabilities_public_test.go)
 - 正式服务在会话时限、消息数或重连次数耗尽后按轮询间隔与最大重连退避中的较大值冷却，再开启有界订阅。协议错误、单条消息过大和队列溢出继续由 HTTP 轮询接管。四项续订场景与 HTTP 限频回归通过竞态检查。 [续订回归](chain-parser-go/internal/service/ws_budget_test.go)
 - 正式 Go owner 使用 Ethereum 主网 V2 池、两条公开 HTTP 链路及 PublicNode WebSocket。26 秒会话到期后保持 HTTP 采集，Pebble 日志从高度 26,510,212、游标 1 推进到高度 26,510,215、游标 4。两源逐块核对公布的高度、哈希和父哈希。重算 120 条本机原始归档的 payload 摘要，三个 `BLOCK_COMMIT` 均匹配已归档的 staging 记录。此次正常进程使用 `latest` 与本机 HTTP journal。
+- `chains[].rpc_rate_limit` 配置每个 HTTP 端点的 `requests_per_second` 和 `burst`。同一端点的在线、见证和历史请求共用额度，历史保留独立归档和身份隔离。额度不足时重新核验身份不会改变已有隔离状态。来源状态接口披露本实例实际请求次数、限额拒绝次数及最近 128 次请求的 P50、P95、P99 延迟。正式入口限额、来源状态及整个 RPC 包的竞态测试通过。 [验收测试](chain-parser-go/internal/service/rpc_retry_test.go)
 
 #### 当前迭代目标（R04 恢复预算边界，2026-11-28）
 

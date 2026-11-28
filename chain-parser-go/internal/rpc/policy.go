@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -97,19 +98,35 @@ type Policy struct {
 }
 
 type ProviderObservation struct {
-	ID           string
-	Quarantined  bool
-	Attempts     uint64
-	Failures     uint64
-	LastClass    ErrorClass
-	LastLatency  time.Duration
-	TotalLatency time.Duration
+	ID                string
+	Quarantined       bool
+	Attempts          uint64
+	Failures          uint64
+	BudgetRejections  uint64
+	RequestsPerSecond float64
+	Burst             int
+	LastClass         ErrorClass
+	LastLatency       time.Duration
+	TotalLatency      time.Duration
+	LatencySamples    int
+	LatencyP50        time.Duration
+	LatencyP95        time.Duration
+	LatencyP99        time.Duration
 }
+
+const providerLatencyWindow = 128
+
 type providerState struct {
+	mu      sync.Mutex
+	obs     ProviderObservation
+	latency [providerLatencyWindow]time.Duration
+	budget  *providerRateBudget
+}
+
+type providerRateBudget struct {
 	mu      sync.Mutex
 	tokens  float64
 	updated time.Time
-	obs     ProviderObservation
 }
 
 func endpointID(url string) string {
@@ -124,7 +141,11 @@ func (c *Client) state(url string) *providerState {
 	}
 	s := c.states[url]
 	if s == nil {
-		s = &providerState{obs: ProviderObservation{ID: endpointID(url)}}
+		budget := &providerRateBudget{}
+		if c.rateSource != nil {
+			budget = c.rateSource.state(url).budget
+		}
+		s = &providerState{obs: ProviderObservation{ID: endpointID(url)}, budget: budget}
 		c.states[url] = s
 	}
 	return s
@@ -157,6 +178,7 @@ func (c *Client) isQuarantined(url string) bool {
 
 func (c *Client) Providers() []ProviderObservation {
 	var result []ProviderObservation
+	p := c.getPolicy()
 	seen := map[string]bool{}
 	for _, url := range c.URLs {
 		if seen[url] {
@@ -166,8 +188,17 @@ func (c *Client) Providers() []ProviderObservation {
 		s := c.state(url)
 		s.mu.Lock()
 		obs := s.obs
+		samples := s.latency
 		s.mu.Unlock()
 		obs.Quarantined = c.isQuarantined(url)
+		obs.RequestsPerSecond, obs.Burst = p.RequestsPerSecond, p.Burst
+		obs.LatencySamples = int(min(obs.Attempts, providerLatencyWindow))
+		if n := obs.LatencySamples; n > 0 {
+			slices.Sort(samples[:n])
+			obs.LatencyP50 = samples[(n*50+99)/100-1]
+			obs.LatencyP95 = samples[(n*95+99)/100-1]
+			obs.LatencyP99 = samples[(n*99+99)/100-1]
+		}
 		result = append(result, obs)
 	}
 	return result
@@ -178,31 +209,38 @@ func (c *Client) attempt(ctx context.Context, url, method string, params, out an
 	}
 	s := c.state(url)
 	p := c.getPolicy()
-	s.mu.Lock()
 	if p.RequestsPerSecond > 0 {
+		budget := s.budget
+		budget.mu.Lock()
 		now := time.Now()
-		if s.updated.IsZero() {
-			s.tokens = float64(p.Burst)
+		if budget.updated.IsZero() {
+			budget.tokens = float64(p.Burst)
 		} else {
-			s.tokens = math.Min(float64(p.Burst), s.tokens+now.Sub(s.updated).Seconds()*p.RequestsPerSecond)
+			budget.tokens = math.Min(float64(p.Burst), budget.tokens+now.Sub(budget.updated).Seconds()*p.RequestsPerSecond)
 		}
-		s.updated = now
+		budget.updated = now
 		cost := 1.0
 		if batch, ok := params.(ethCallBatch); ok {
 			cost = float64(len(batch))
 		}
-		if s.tokens < cost {
+		allowed := budget.tokens >= cost
+		if allowed {
+			budget.tokens -= cost
+		}
+		budget.mu.Unlock()
+		if !allowed {
+			s.mu.Lock()
+			s.obs.BudgetRejections++
 			s.mu.Unlock()
 			return &CallError{ProviderID: endpointID(url), Class: BudgetExceeded, Code: "RPC_RATE_BUDGET"}
 		}
-		s.tokens -= cost
 	}
-	s.mu.Unlock()
 	start := time.Now()
 	err := c.callURL(ctx, url, method, params, out)
 	s.mu.Lock()
-	s.obs.Attempts++
 	s.obs.LastLatency = time.Since(start)
+	s.latency[s.obs.Attempts%providerLatencyWindow] = s.obs.LastLatency
+	s.obs.Attempts++
 	s.obs.TotalLatency += s.obs.LastLatency
 	s.obs.LastClass = Classify(err)
 	if err != nil && !errors.Is(err, ErrRecordingFailed) {

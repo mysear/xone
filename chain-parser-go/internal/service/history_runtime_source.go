@@ -18,13 +18,14 @@ import (
 	"xone/chain-parser-go/internal/domain"
 	"xone/chain-parser-go/internal/ingest"
 	"xone/chain-parser-go/internal/reducer"
+	"xone/chain-parser-go/internal/rpc"
 )
 
 // NewChainHistoryRuntime creates the normal public RPC runner. Call once per
 // chain after opening the owner Store, passing the same Scheduler for all chains.
 // No RPC occurs here. Start/Tick verification failures persist as retry later.
-// It deliberately constructs rpc.New rather than using ProviderClients: those
-// children share their parent's live recorder. Archive and DLQ are independent.
+// The history client keeps its own recorder, archive, and DLQ alongside the
+// normal endpoint rate budgets.
 func (s *Service) NewChainHistoryRuntime(key string, scheduler *HistoryScheduler) (*HistoryRuntime, error) {
 	return s.newChainHistoryRuntime(key, scheduler, nil)
 }
@@ -105,9 +106,14 @@ func (s *Service) newChainHistoryRuntime(key string, scheduler *HistoryScheduler
 	if maxBytes <= 0 || maxBytes > 4<<20 {
 		maxBytes = 4 << 20
 	}
-	client, e := newChainRPC(chain, timeout, maxBytes)
-	if e != nil {
-		return nil, e
+	var client *rpc.Client
+	if adapter := s.adapters[key]; adapter != nil && chain.RPCRateLimit != nil {
+		client = adapter.Client.WithSeparateReadLimits(timeout, maxBytes)
+	} else {
+		client, e = newChainRPC(chain, timeout, maxBytes)
+		if e != nil {
+			return nil, e
+		}
 	}
 	limits := ingest.ArchiveLimits{MaxBytes: 64 << 20, MaxRecords: 4096, MaxRecordBytes: 16 << 20, ReservedBytes: 4 << 20, ReservedRecords: 64}
 	if raw := s.cfg.Config.Journal.RawEvidence; raw != nil {
