@@ -16,7 +16,7 @@ from r01_public_catalog_capture import reference,write_new
 from r01_public_catalog_evm_process import normal_profile,words,call_key,captured_calls,FixedRPC,run as normal_run
 BASE=ROOT/'integration/test/source/deployment-catalog/evm-normal-v4'
 IDS={'base-uniswap-v3','base-aerodrome-v2','base-aerodrome-slipstream','optimism-uniswap-v3','polygon-uniswap-v3','arbitrum-uniswap-v3'}
-GETTER_IDS=IDS|{'optimism-velodrome-v2'}
+GETTER_IDS=IDS|{'optimism-velodrome-v2','bsc-pancake-v2'}
 
 def validate_probe(probe):
     require(probe['passed'] is True and not probe['missing'] and probe['calls'],'NORMAL_GETTER_PROOF_INCOMPLETE')
@@ -29,7 +29,9 @@ def pool_config(row,probe):
     def value(a,d):return calls[call_key(a,d)]
     token0='0x'+value(pool,'0x0dfe1681')[-40:];token1='0x'+value(pool,'0xd21220a7')[-40:]
     cfg={'id':pool,'protocol':normal_profile(row['protocol']),'token0':token0,'token1':token1,'program_id':'','accounts':[]};identity={'expected_factory':row['factory'],'expected_code_sha256':row['pool_runtime_sha256']}
-    if row['protocol'] in ('aerodrome-v2', 'velodrome-v2'):
+    if row['protocol']=='pancake-v2':
+        cfg.update(fee_numerator=25,fee_denominator=10000,v2=identity)
+    elif row['protocol'] in ('aerodrome-v2', 'velodrome-v2'):
         meta = words(value(pool, '0x392f37e9'))
         require(len(meta) == 7 and meta[4] in (0, 1), 'NORMAL_SOLIDLY_METADATA')
         stable = meta[4]
