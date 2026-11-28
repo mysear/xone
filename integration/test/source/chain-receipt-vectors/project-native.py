@@ -13,6 +13,7 @@ FILES = {
     'avalanche-current': ('vector.json', 'body.json', 'full-block.json', 'settlement.json',
                           'settlement-multi.json', 'settlement-fresh.json'),
     'bsc': ('body.json',),
+    'optimism-regolith': ('body.json', 'full-block.json'),
 }
 
 

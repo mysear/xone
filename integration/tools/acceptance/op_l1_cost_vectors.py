@@ -4,6 +4,7 @@
 Extracted upstream functions are executed unchanged. The small Go wrapper only
 provides their types/constants and I/O. No Rust calculation supplies expectations.
 """
+import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -72,9 +73,9 @@ def attributes(base, overhead, scalar):
 
 
 def public_cases():
-    base = ROOT / 'chain-parser-go/test/fixtures/source/testdata/chain-receipt-vectors/optimism-regolith'
-    body_path, vector_path = base/'body.json', base/'vector.json'
-    body, vector = json.loads(body_path.read_bytes()), json.loads(vector_path.read_bytes())
+    base = ROOT / 'chain-parser-go/test/fixtures/historical-receipts'
+    body_path, vector_path = base/'optimism-regolith/body.json.gz', base/'optimism-regolith.json.gz'
+    body, vector = (json.loads(gzip.decompress(path.read_bytes())) for path in (body_path, vector_path))
     txs = body['raw_transactions']
     deposit = bytes.fromhex(txs[0]['response']['result'][2:])
     require(deposit[0] == 0x7e, 'First transaction is not a deposit')

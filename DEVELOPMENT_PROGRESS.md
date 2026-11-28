@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- OP Mainnet 110,000,000 的四笔交易已从完整区块 JSON 重建，并与逐笔取得的原始交易字节一致。Go 正常解析、历史归档回放以及与 Optimism 固定源码生成的 25 个 deposit source hash 向量的比对通过。BNB Smart Chain 35,000,000 的 Swap 事实和旧归档回归也已恢复。本轮 8 项 Go race 用例和 Python 普通、优化模式各 4 项验证通过。
 - 已恢复 Avalanche 99,642,059、99,642,060–99,642,061 和 99,645,675 的 SAE 结算回放。Go 核验后继头、交易和回执承诺，并把账户证明绑定到正确的结算状态根。24 项 Go race 主用例通过，覆盖单块和跨块结算、历史入口、篡改拒绝、BSC 原始交易承诺及 Polygon、Arbitrum 的正常解析路径。 [夹具投影](integration/test/source/chain-receipt-vectors/project-native.py)
 - 九个历史固定块的 823 条公开回执已重新归档。EthereumJS 独立重算的九棵回执树根与块头一致，Go race 回归覆盖七条 EVM 链、Ethereum 严格校验和 17 个原生编码向量。两种 Python 运行模式生成相同的服务夹具。 [夹具投影](integration/test/source/chain-receipt-vectors/project-historical.py)
 - Uniswap V3 实例模板回归已改用 Ethereum 26,511,767 和 OP Mainnet 160,113,647 的两个真实池字节码，以及 Ethereum 工厂字节码。服务内夹具可从入库归档重建，六项 Go race 测试覆盖实例绑定、拒绝篡改、旧单哈希兼容和重启重新准入。 [夹具复验](integration/tools/acceptance/r01_native_catalog_fixtures.py)

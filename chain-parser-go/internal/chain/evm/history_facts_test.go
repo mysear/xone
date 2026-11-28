@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"xone/chain-parser-go/internal/config"
@@ -16,28 +14,7 @@ import (
 func TestNativeBNBHistorySwapFactDatasetAndLegacyArchive(t *testing.T) {
 	ctx := context.Background()
 	v := loadChainReceiptVector(t, "bsc")
-	load := func(name string, out any) {
-		t.Helper()
-		raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, "bsc", name+".json"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err = json.Unmarshal(raw, out); err != nil {
-			t.Fatal(err)
-		}
-	}
-	var captured []struct {
-		Request  struct{ Method string }
-		Response struct{ Result json.RawMessage }
-	}
-	load("rpc", &captured)
-	var proof ExecutionReceiptBlock
-	for _, r := range captured {
-		if r.Request.Method == "eth_getBlockByNumber" {
-			proof.Header = r.Response.Result
-			break
-		}
-	}
+	proof := ExecutionReceiptBlock{Header: retainedChainHeader(t, "bsc"), Receipts: v.Receipts}
 	var body struct {
 		GenesisHash     string `json:"genesis_hash"`
 		RawTransactions []struct {
@@ -45,7 +22,9 @@ func TestNativeBNBHistorySwapFactDatasetAndLegacyArchive(t *testing.T) {
 			Response struct{ Result string }
 		} `json:"raw_transactions"`
 	}
-	load("body", &body)
+	if err := json.Unmarshal(readChainReceiptArtifact(t, "bsc", "body.json"), &body); err != nil {
+		t.Fatal(err)
+	}
 	transactions := map[string]string{}
 	for _, r := range body.RawTransactions {
 		transactions[r.Request.Params[0]] = r.Response.Result
@@ -53,7 +32,6 @@ func TestNativeBNBHistorySwapFactDatasetAndLegacyArchive(t *testing.T) {
 	for _, tx := range v.Block.Transactions {
 		proof.RawTransactions = append(proof.RawTransactions, transactions[tx])
 	}
-	proof.Receipts = v.Receipts
 	header, err := VerifyChainHeaderJSON(ctx, v.ChainKey, proof.Header)
 	if err != nil {
 		t.Fatal(err)

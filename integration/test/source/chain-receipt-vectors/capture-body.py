@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Explicit read-only refresh of the two finite public raw-transaction corpora."""
 import concurrent.futures
+import argparse
 import datetime
 import importlib.util
 import json
@@ -10,16 +11,19 @@ ROOT = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location('receipt_capture', ROOT / 'capture.py')
 capture = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(capture)
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--output', type=Path, default=ROOT, help='directory containing the receipt vectors')
+args = parser.parse_args()
 for name, endpoint in [('bsc', 'https://bsc-dataseed.bnbchain.org'),
                        ('optimism-regolith', 'https://optimism-rpc.publicnode.com'),
                        ('arbitrum', 'https://arbitrum-one-rpc.publicnode.com'),
                        ('avalanche', 'https://avalanche-c-chain-rpc.publicnode.com'),
                        ('avalanche-current', 'https://api.avax.network/ext/bc/C/rpc')]:
-    output = ROOT / name / 'body.json'
+    output = args.output / name / 'body.json'
     if output.exists():
         print(name, 'already captured')
         continue
-    vector = json.loads((ROOT / name / 'vector.json').read_text())
+    vector = json.loads((args.output / name / 'vector.json').read_text())
     _, identity = capture.rpc(endpoint, 'eth_chainId', [])
     genesis, genesis_record = capture.rpc(endpoint, 'eth_getBlockByNumber', ['0x0', False])
     def one(tx):

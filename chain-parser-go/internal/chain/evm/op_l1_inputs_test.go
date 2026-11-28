@@ -20,60 +20,43 @@ import (
 func retainedOPRegolithEvidence(t *testing.T) (RawBlock, NativeReceiptEvidence) {
 	t.Helper()
 	v := loadChainReceiptVector(t, "optimism-regolith")
-	var body struct {
-		Transactions []struct{ Response struct{ Result string } } `json:"raw_transactions"`
-	}
-	raw, err := os.ReadFile(filepath.Join(chainReceiptVectors, "optimism-regolith", "body.json"))
-	if err != nil || json.Unmarshal(raw, &body) != nil {
-		t.Fatal("retained OP body", err)
-	}
-	header, err := VerifyChainHeaderJSON(context.Background(), v.ChainKey, retainedChainHeader(t, "optimism-regolith"))
+	proof, err := VerifyChainBlockJSON(context.Background(), v.ChainKey, retainedFullChainBlock(t, "optimism-regolith"), 16<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sem, err := ResolveNativeSemantics(v.ChainKey, header)
+	if !sameReceiptAnchor(v.Block, proof.Block) {
+		t.Fatal("retained OP body and receipts refer to different blocks")
+	}
+	var body struct {
+		Transactions []struct {
+			Request  struct{ Params []string }
+			Response struct{ Result string }
+		} `json:"raw_transactions"`
+	}
+	if err := json.Unmarshal(readChainReceiptArtifact(t, "optimism-regolith", "body.json"), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Transactions) != len(proof.RawTransactions) {
+		t.Fatal("incomplete OP signed transaction responses")
+	}
+	for i, tx := range body.Transactions {
+		if len(tx.Request.Params) != 1 || tx.Request.Params[0] != v.Block.Transactions[i] || tx.Response.Result != proof.RawTransactions[i] {
+			t.Fatalf("OP JSON and raw encoding differ at %d", i)
+		}
+	}
+	sem, err := ResolveNativeSemantics(v.ChainKey, proof.HeaderCommitment)
 	if err != nil {
 		t.Fatal(err)
 	}
 	genesis, _ := knownBodyGenesis(v.ChainKey)
-	block := ExecutionReceiptBlock{Header: retainedChainHeader(t, "optimism-regolith"), Receipts: v.Receipts}
-	for _, tx := range body.Transactions {
-		block.RawTransactions = append(block.RawTransactions, tx.Response.Result)
-	}
+	block := ExecutionReceiptBlock{Header: proof.Header, Receipts: v.Receipts, RawTransactions: proof.RawTransactions}
 	return v.Block, NativeReceiptEvidence{SchemaVersion: 1, ChainKey: v.ChainKey, GenesisHash: genesis, NativeSemanticsID: sem.ID, Kind: "own-header-receipts", Block: &block}
 }
 
-// Construct only a JSON view of the retained signed wires. The normal reader
-// reconstructs exactly those bytes and checks their existing txIDs/body root.
 func normalOPFixture(t *testing.T) *normalNativeFixture {
 	t.Helper()
 	block, evidence := retainedOPRegolithEvidence(t)
-	var header map[string]json.RawMessage
-	json.Unmarshal(evidence.Block.Header, &header)
-	transactions := []json.RawMessage{}
-	for i, wire := range evidence.Block.RawTransactions {
-		encoded := common.FromHex(wire)
-		fields := map[string]any{}
-		if encoded[0] == 0x7e {
-			d, err := decodeOPDeposit(encoded)
-			if err != nil {
-				t.Fatal(err)
-			}
-			fields = map[string]any{"type": "0x7e", "sourceHash": d.SourceHash.Hex(), "from": d.From.Hex(), "to": common.BytesToAddress(d.To).Hex(), "mint": fmt.Sprintf("0x%x", d.Mint), "value": fmt.Sprintf("0x%x", d.Value), "gas": fmt.Sprintf("0x%x", d.Gas), "isSystemTx": d.System, "input": "0x" + hex.EncodeToString(d.Data)}
-		} else {
-			var tx types.Transaction
-			if err := tx.UnmarshalBinary(encoded); err != nil {
-				t.Fatal(err)
-			}
-			raw, _ := tx.MarshalJSON()
-			json.Unmarshal(raw, &fields)
-		}
-		fields["hash"], fields["blockHash"], fields["blockNumber"], fields["transactionIndex"] = block.Transactions[i], block.Hash, block.Number, fmt.Sprintf("0x%x", i)
-		raw, _ := json.Marshal(fields)
-		transactions = append(transactions, raw)
-	}
-	header["transactions"], _ = json.Marshal(transactions)
-	full, _ := json.Marshal(header)
+	full := retainedFullChainBlock(t, "optimism-regolith")
 	chain := config.Chain{Key: evidence.ChainKey, Genesis: evidence.GenesisHash, BlockIntegrity: ChainNativeCommitmentsV2, ReceiptsMode: "bulk-auto", NativeProof: &config.NativeProofConfig{MaxBytes: 16 << 20, MaxHeaders: 64, MaxWindowBlocks: 16, MaxTransactions: 4096, MaxLookahead: 32}}
 	return &normalNativeFixture{chain: chain, target: block, headers: map[string]json.RawMessage{block.Number: evidence.Block.Header}, full: map[string]json.RawMessage{block.Number: full}, receipts: map[string][]Receipt{block.Hash: evidence.Block.Receipts}, observed: block.Number}
 }
