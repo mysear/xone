@@ -489,7 +489,7 @@
 - Base 在 63,180,533 通过同高度 dRPC 补齐 11 个账户的证明。独立验证覆盖 19 个账户、92 个存储槽以及原执行的 142 次预状态读取。三个原池离线重放的收款分别为 166,255、166,299 和 166,349 原子单位，网络请求为零。
 - Base Uniswap V3 与 Aerodrome V2 的常规 Parser 和 Router 复演分别核验 263 次和 6 次原合约 getter，报价与原池收款分别在 166,255 和 166,299 原子单位上精确一致。Aerodrome V2 的回放补齐 Base 区块 1 与启动所需的 deposit 回执。两个成功样本均无未记录 RPC 请求，链费模型仍待验收。
 - Base 同高度的 Slipstream Factory、Pool 实现、动态 swap 费模块和 Voter 匹配已有上下文模板。部署的 `CustomUnstakedFeeModule` 将 factory 存在槽 0。用官方 Solidity 0.7.6 重编公开输入，848 字节执行体逐字节一致，CBOR 来源摘要不同。MPT 核对了已部署完整代码、factory 和样例池的 50,000 自定义费率。Go、Rust Parser 与 Router 的上下文领域校验接受这一固定 runtime 身份。
-- Base Aerodrome Slipstream 在 63,180,533 用固定状态证明重放了 3,264 次 getter，覆盖 3,010 条预言机观测和当前 bitmap 字内的 210 个初始化 tick。常规 Go Parser 与 Rust Router 报价 166,349 原子单位，与原池收款一致，回放无未记录 RPC 请求。当前复验依赖本地已合并的证明归档，证明归档重建、链费模型和生产执行资格仍待验收。
+- Base Aerodrome Slipstream 在 63,180,533 用固定状态证明重放了 3,264 次 getter，覆盖 3,010 条预言机观测和当前 bitmap 字内的 210 个初始化 tick。常规 Go Parser 与 Rust Router 报价 166,349 原子单位，与原池收款一致，回放无未记录 RPC 请求。证明归档可由本地留存的 51 份原始证明响应、合约代码响应和原执行证据重建，覆盖 20 个账户、4,359 个存储槽和 142 次原始状态读取。链费模型和生产执行资格仍待验收。
 - Arbitrum One 在 528,150,486 经另一公共 RPC 取得缺失的 5 个账户证明。独立验证覆盖 10 个账户、23 个存储槽以及原执行的 49 次预状态读取。常规 Parser 和 Router 回放核对 264 次 getter，Uniswap V3 报价与原池收款均为 166,253 原子单位，无未记录 RPC 请求。链费模型仍待验收。
 - Avalanche LFJ v2.1 在 101,588,444 的原池 clone 固定指向 `0xee5a90098b270596ec35d637b30d908c862c86df`，同高度工厂 getter 返回 `0x3e30fdae04c08fc20fa2fe0cf55c95d99a9c2d8f`。分别核对两套 runtime 及池中的 token X、token Y 和 bin step。负对照拒绝错误 clone 地址、变更的工厂实现摘要和缺失的代币 getter。
 - 依次补齐 11 个部署的原始 runtime、升级语义、固定高度证明、原版执行和常规 Parser/Router 收款差分。区块回执及 Avalanche 目标高度的后继结算头继续独立核验。 [六链固定块复验命令](integration/test/source/deployment-catalog/README.md#fresh-evm-anchors)

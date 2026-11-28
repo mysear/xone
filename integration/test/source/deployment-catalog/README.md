@@ -31,11 +31,22 @@ Avalanche 的后继结算头可用 `r01_public_catalog_evm_history.py settlement
 
 ### Base Slipstream 固定块报价复验
 
-在仓库根目录运行以下命令。将 `slipstream_capture` 指向留存的 `capture.json`。其中 `catalog_row.directory` 指向仓库内已合并的证明归档，包含 `fork-execution.json` 和固定块的账户、代码及存储证明。运行前准备 EVM 参考执行依赖，以及识别已部署费用模块的 Go Parser 和 Rust Router 构建产物。`--work` 与 `--out` 使用尚未创建的目录。
+在仓库根目录运行以下命令。`slipstream_base` 指向带有 `prestate-evidence-v2.json` 的 Base 原执行归档，`slipstream_responses` 指向留存的固定块 RPC 响应目录，`slipstream_original_capture` 指向该池的 `capture.json`。重建工具校验每份响应的固定高度、账户和请求槽集合，然后独立验证合并后的状态证明及原始状态读取。新目录中的 `proof-inputs.json` 记录全部输入的 SHA-256。
+
+```sh
+slipstream_rebuilt=integration/test/source/deployment-catalog/evm-normal-v4/base-slipstream-rebuilt
+python3 integration/tools/acceptance/r01_public_catalog_slipstream_archive.py \
+    --capture "$slipstream_original_capture" --base "$slipstream_base" \
+    --proof "$slipstream_responses"/context-proof-*.json "$slipstream_responses"/ticks-proof-*.json \
+    --code "$slipstream_responses/0x0ad08370c76ff426f534bb2affd9b5555338ee68.code.json" \
+    --out "$slipstream_rebuilt"
+```
+
+运行报价复验前准备 EVM 参考执行依赖，以及识别已部署费用模块的 Go Parser 和 Rust Router 构建产物。`--work` 与 `--out` 使用尚未创建的目录。
 
 ```sh
 python3 integration/tools/acceptance/r01_public_catalog_slipstream_normal.py \
-    --capture "$slipstream_capture" \
+    --capture "$slipstream_rebuilt/capture.json" \
     --work integration/test/source/deployment-catalog/evm-normal-v4/base-slipstream-replay \
     --out integration/artifacts/local/r01-public-base-slipstream-replay \
     --parser-bin "$slipstream_parser_bin" --router-bin "$slipstream_router_bin"
