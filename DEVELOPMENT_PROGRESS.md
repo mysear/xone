@@ -476,6 +476,7 @@
 
 #### 当前迭代目标（R01 七链历史部署，2026-11-28）
 
+- 恢复 Composable、Managed Snapshot、Weighted、Stable、Uniswap V3、LFJ、Pancake BSC4/LM、Infinity Bin、Orca、Meteora 与 Raydium 的 ExactOut 夹具，以及 Curve Crypto、Managed Fees、Orca Adaptive、Meteora WSOL 和签名估值夹具。Router 132 项专项与 Rust Parser 的 Orca 专项通过。Meteora WSOL 使用固定 LiteSVM 验证 ATA 创建、补足输入和实际到账。Pump 已按原摘要恢复 5 份账户，仍缺 3 份 ProgramData 和 2 份 Global 历史字节，阻塞全局契约检查。
 - 恢复 Balancer 多资产、Managed 与 Composable 原合约语料、88 个固定摘要源码及 Curve 多币池的 720 个原合约案例和存储布局。恢复三组 Five-family Protobuf 向量、Singleton Advanced、Solana Rewards、Meteora Bitmap/OnlyY/Rewards、Orca Adaptive 和 Raydium CLMM ExactOut 回归夹具。Go race、两套 Rust 的 wire 兼容、Parser 账户解码及 Router 数学与拓扑专项通过。全局契约检查仍缺 Pump 的固定账户夹具。
 - 恢复 Managed V2 BPT 和 Circuit Breaker 的原合约运行语料、状态投影及独立 Protobuf 向量，分别覆盖 116 和 244 个案例。恢复 Infinity Bin Service、Detached 和 Multi，Service 与 Detached 共 41 个清单项匹配原摘要，Multi 核对 326 个原合约案例。恢复 Pancake BSC4 与 LM 的固定源码、64 和 100 个原合约报价案例及四份 wire 副本。Go race、两套 Rust 的 Managed wire 检查及 Router 的专项差分通过。
 - 恢复 Managed V2 AUM 的 6 个原始编译输入和固定编译器。27 个原合约案例、292 笔交易按原摘要精确重放。暂停、恢复和四池目录分别通过原程序验证，以及 Go Parser 和 Router 差分回归。恢复 Scheduled、Scheduled Shared 和 Shared Vault 夹具，独立重生成通过。Scheduled 覆盖 53 笔交换和 41 个检查点，Scheduled Shared 覆盖 72 个共同区块快照和 52 个案例。Go race、两套 Rust 的状态与编码回归和 Router 数学与路由回归通过。

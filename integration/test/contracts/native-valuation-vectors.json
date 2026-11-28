@@ -1,0 +1,1456 @@
+{
+  "schema_version": 1,
+  "scope": "PINNED_TEST_ORACLE_SIGNATURES_AND_INDEPENDENT_INTEGER_COSTS_NOT_MARKET_PRICE",
+  "policy": {
+    "source_id": "PINNED_TEST_ORACLE_NOT_LIVE_MARKET",
+    "chain_key": "evm:31337",
+    "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+    "token": "0x0000000000000000000000000000000000000010",
+    "signers": {
+      "1": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+      "2": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+      "3": "ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+    },
+    "threshold": 2,
+    "max_age_ms": 60000,
+    "max_validity_ms": 60000
+  },
+  "anchor": {
+    "chain_key": "evm:31337",
+    "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+    "block_number": 10,
+    "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+    "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+    "timestamp_ms": 1700000000000
+  },
+  "cases": [
+    {
+      "cost": "0",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "68139ee74d14cd2d0c59a0736cae77577039875b9143082c1f10db9295f938f142d004114f4dbcb08e928b958943b79c27f50fc64f5b582d884d82f9316e160e"
+          },
+          {
+            "key_id": "2",
+            "signature": "8670748d3f350aa50d971e42d2689ee29d1d6aff1f844e46e1ed23a5bafad1a0c7ecf7dc2bc9c0ccd05342f1e833acae4673ba8fe9dc20882ab69babf9cddf0e"
+          }
+        ]
+      },
+      "expected": "0",
+      "overflow": false
+    },
+    {
+      "cost": "0",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "3",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "0d8bb97467cfa8b683470a7fd3a315fb9efc99b1ac5542d6ac3421a3a35a04bea1efcec7db9334f7d492fcc57022863661cef9806c6d22e9a3777b048ff0680c"
+          },
+          {
+            "key_id": "2",
+            "signature": "0c45def1f5529ef3151f11452fed099ef7c2a2fcb4a7c1ec9fd107d8728ff042806299aeed724085717b0fb28501c890859af4471ef2aa331574cbd888d2f202"
+          }
+        ]
+      },
+      "expected": "0",
+      "overflow": false
+    },
+    {
+      "cost": "0",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "3",
+          "native_atoms": "2",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "7f1ac4f5c0194f922185a581b86af2a07f44fe8ab2f6078f0a8008d4ccc40fbfb91add39c2de0b7118f1842c57e07728177af6453c69e0ac953d655cfb3f7f0a"
+          },
+          {
+            "key_id": "2",
+            "signature": "b80ab7744b72af42d016e365d26ba07015a396f2aa9655a9c83a65c7166ece5ede2d0d32da69d6db64ecbdf79cd1bd12084a1ca3a42b3e7774cd6fc1629a7102"
+          }
+        ]
+      },
+      "expected": "0",
+      "overflow": false
+    },
+    {
+      "cost": "0",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "09085d19b8123c79a9b696adb2e403ef1f52bbac6ffb5f35293b01ac3138d7c5d2a274c3d0a0977477cddfedd2c8869fa588dc61a30773a0626db5eda553e50d"
+          },
+          {
+            "key_id": "2",
+            "signature": "7410d06929cbf6ab5d405ffa21166ef837eb23bb3d42473aa99c2d1e5d17c12abc0ba192dcadf79e5dba62af86d8cacfc14f5dcd03301d3670a3c2ad3a45a50c"
+          }
+        ]
+      },
+      "expected": "0",
+      "overflow": false
+    },
+    {
+      "cost": "0",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "4aa0a003b60137a1528fb7b827fe332083ffe2b58742157861ef40653985ddd22a4e8e2c9d733eb8287890bb54efef954c227ae6aa055f72c54a992347d66c01"
+          },
+          {
+            "key_id": "2",
+            "signature": "a48f1d46bd962f1d15218690f1627d46660ca53207741ea0ba3e69ea7f602d75faf30044fad8a32c79e958575055e59d44620297139e79db040c667c093bb206"
+          }
+        ]
+      },
+      "expected": "0",
+      "overflow": false
+    },
+    {
+      "cost": "0",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "bb1a3dbbe37c934ab9e3c3041948af1bec27101eca58062a569d725fffe95d6a4aea6f1e3577fef3add9fd581d8bfa3f41c813c2219ae09fc016e3ebab0e890f"
+          },
+          {
+            "key_id": "2",
+            "signature": "62a975b1b03195fc75f138f4119acee9154099f4a230521e0ca07d8a33a1ef0a8dcb0fb418044f342831720de6b7c939886053171f6e26181a59bc9e36d64409"
+          }
+        ]
+      },
+      "expected": "0",
+      "overflow": false
+    },
+    {
+      "cost": "0",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "340282366920938463463374607431768211457",
+          "native_atoms": "340282366920938463463374607431768211455",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "1a2fb5329b31029d3a807a49b533a99938bc5086293a103656557154b1ca100f3f539764dedd99dac3e7e00735ce00af3bb6f7f54ef112271f00c26a94f4cd08"
+          },
+          {
+            "key_id": "2",
+            "signature": "6f717b9ce5ccf0c340b3dab8c7e1d459875166306c25da9761036fa4e3677fa65688f5b69614c0f35ec38af4fca1b82b951f74e1fab65cb9f8513d23d4ef7d05"
+          }
+        ]
+      },
+      "expected": "0",
+      "overflow": false
+    },
+    {
+      "cost": "1",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "68139ee74d14cd2d0c59a0736cae77577039875b9143082c1f10db9295f938f142d004114f4dbcb08e928b958943b79c27f50fc64f5b582d884d82f9316e160e"
+          },
+          {
+            "key_id": "2",
+            "signature": "8670748d3f350aa50d971e42d2689ee29d1d6aff1f844e46e1ed23a5bafad1a0c7ecf7dc2bc9c0ccd05342f1e833acae4673ba8fe9dc20882ab69babf9cddf0e"
+          }
+        ]
+      },
+      "expected": "1",
+      "overflow": false
+    },
+    {
+      "cost": "1",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "3",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "0d8bb97467cfa8b683470a7fd3a315fb9efc99b1ac5542d6ac3421a3a35a04bea1efcec7db9334f7d492fcc57022863661cef9806c6d22e9a3777b048ff0680c"
+          },
+          {
+            "key_id": "2",
+            "signature": "0c45def1f5529ef3151f11452fed099ef7c2a2fcb4a7c1ec9fd107d8728ff042806299aeed724085717b0fb28501c890859af4471ef2aa331574cbd888d2f202"
+          }
+        ]
+      },
+      "expected": "1",
+      "overflow": false
+    },
+    {
+      "cost": "1",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "3",
+          "native_atoms": "2",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "7f1ac4f5c0194f922185a581b86af2a07f44fe8ab2f6078f0a8008d4ccc40fbfb91add39c2de0b7118f1842c57e07728177af6453c69e0ac953d655cfb3f7f0a"
+          },
+          {
+            "key_id": "2",
+            "signature": "b80ab7744b72af42d016e365d26ba07015a396f2aa9655a9c83a65c7166ece5ede2d0d32da69d6db64ecbdf79cd1bd12084a1ca3a42b3e7774cd6fc1629a7102"
+          }
+        ]
+      },
+      "expected": "2",
+      "overflow": false
+    },
+    {
+      "cost": "1",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "09085d19b8123c79a9b696adb2e403ef1f52bbac6ffb5f35293b01ac3138d7c5d2a274c3d0a0977477cddfedd2c8869fa588dc61a30773a0626db5eda553e50d"
+          },
+          {
+            "key_id": "2",
+            "signature": "7410d06929cbf6ab5d405ffa21166ef837eb23bb3d42473aa99c2d1e5d17c12abc0ba192dcadf79e5dba62af86d8cacfc14f5dcd03301d3670a3c2ad3a45a50c"
+          }
+        ]
+      },
+      "expected": "1",
+      "overflow": false
+    },
+    {
+      "cost": "1",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "4aa0a003b60137a1528fb7b827fe332083ffe2b58742157861ef40653985ddd22a4e8e2c9d733eb8287890bb54efef954c227ae6aa055f72c54a992347d66c01"
+          },
+          {
+            "key_id": "2",
+            "signature": "a48f1d46bd962f1d15218690f1627d46660ca53207741ea0ba3e69ea7f602d75faf30044fad8a32c79e958575055e59d44620297139e79db040c667c093bb206"
+          }
+        ]
+      },
+      "expected": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "overflow": false
+    },
+    {
+      "cost": "1",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "bb1a3dbbe37c934ab9e3c3041948af1bec27101eca58062a569d725fffe95d6a4aea6f1e3577fef3add9fd581d8bfa3f41c813c2219ae09fc016e3ebab0e890f"
+          },
+          {
+            "key_id": "2",
+            "signature": "62a975b1b03195fc75f138f4119acee9154099f4a230521e0ca07d8a33a1ef0a8dcb0fb418044f342831720de6b7c939886053171f6e26181a59bc9e36d64409"
+          }
+        ]
+      },
+      "expected": "1",
+      "overflow": false
+    },
+    {
+      "cost": "1",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "340282366920938463463374607431768211457",
+          "native_atoms": "340282366920938463463374607431768211455",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "1a2fb5329b31029d3a807a49b533a99938bc5086293a103656557154b1ca100f3f539764dedd99dac3e7e00735ce00af3bb6f7f54ef112271f00c26a94f4cd08"
+          },
+          {
+            "key_id": "2",
+            "signature": "6f717b9ce5ccf0c340b3dab8c7e1d459875166306c25da9761036fa4e3677fa65688f5b69614c0f35ec38af4fca1b82b951f74e1fab65cb9f8513d23d4ef7d05"
+          }
+        ]
+      },
+      "expected": "2",
+      "overflow": false
+    },
+    {
+      "cost": "2",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "68139ee74d14cd2d0c59a0736cae77577039875b9143082c1f10db9295f938f142d004114f4dbcb08e928b958943b79c27f50fc64f5b582d884d82f9316e160e"
+          },
+          {
+            "key_id": "2",
+            "signature": "8670748d3f350aa50d971e42d2689ee29d1d6aff1f844e46e1ed23a5bafad1a0c7ecf7dc2bc9c0ccd05342f1e833acae4673ba8fe9dc20882ab69babf9cddf0e"
+          }
+        ]
+      },
+      "expected": "2",
+      "overflow": false
+    },
+    {
+      "cost": "2",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "3",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "0d8bb97467cfa8b683470a7fd3a315fb9efc99b1ac5542d6ac3421a3a35a04bea1efcec7db9334f7d492fcc57022863661cef9806c6d22e9a3777b048ff0680c"
+          },
+          {
+            "key_id": "2",
+            "signature": "0c45def1f5529ef3151f11452fed099ef7c2a2fcb4a7c1ec9fd107d8728ff042806299aeed724085717b0fb28501c890859af4471ef2aa331574cbd888d2f202"
+          }
+        ]
+      },
+      "expected": "1",
+      "overflow": false
+    },
+    {
+      "cost": "2",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "3",
+          "native_atoms": "2",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "7f1ac4f5c0194f922185a581b86af2a07f44fe8ab2f6078f0a8008d4ccc40fbfb91add39c2de0b7118f1842c57e07728177af6453c69e0ac953d655cfb3f7f0a"
+          },
+          {
+            "key_id": "2",
+            "signature": "b80ab7744b72af42d016e365d26ba07015a396f2aa9655a9c83a65c7166ece5ede2d0d32da69d6db64ecbdf79cd1bd12084a1ca3a42b3e7774cd6fc1629a7102"
+          }
+        ]
+      },
+      "expected": "3",
+      "overflow": false
+    },
+    {
+      "cost": "2",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "09085d19b8123c79a9b696adb2e403ef1f52bbac6ffb5f35293b01ac3138d7c5d2a274c3d0a0977477cddfedd2c8869fa588dc61a30773a0626db5eda553e50d"
+          },
+          {
+            "key_id": "2",
+            "signature": "7410d06929cbf6ab5d405ffa21166ef837eb23bb3d42473aa99c2d1e5d17c12abc0ba192dcadf79e5dba62af86d8cacfc14f5dcd03301d3670a3c2ad3a45a50c"
+          }
+        ]
+      },
+      "expected": "2",
+      "overflow": false
+    },
+    {
+      "cost": "2",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "4aa0a003b60137a1528fb7b827fe332083ffe2b58742157861ef40653985ddd22a4e8e2c9d733eb8287890bb54efef954c227ae6aa055f72c54a992347d66c01"
+          },
+          {
+            "key_id": "2",
+            "signature": "a48f1d46bd962f1d15218690f1627d46660ca53207741ea0ba3e69ea7f602d75faf30044fad8a32c79e958575055e59d44620297139e79db040c667c093bb206"
+          }
+        ]
+      },
+      "expected": null,
+      "overflow": true
+    },
+    {
+      "cost": "2",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "bb1a3dbbe37c934ab9e3c3041948af1bec27101eca58062a569d725fffe95d6a4aea6f1e3577fef3add9fd581d8bfa3f41c813c2219ae09fc016e3ebab0e890f"
+          },
+          {
+            "key_id": "2",
+            "signature": "62a975b1b03195fc75f138f4119acee9154099f4a230521e0ca07d8a33a1ef0a8dcb0fb418044f342831720de6b7c939886053171f6e26181a59bc9e36d64409"
+          }
+        ]
+      },
+      "expected": "1",
+      "overflow": false
+    },
+    {
+      "cost": "2",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "340282366920938463463374607431768211457",
+          "native_atoms": "340282366920938463463374607431768211455",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "1a2fb5329b31029d3a807a49b533a99938bc5086293a103656557154b1ca100f3f539764dedd99dac3e7e00735ce00af3bb6f7f54ef112271f00c26a94f4cd08"
+          },
+          {
+            "key_id": "2",
+            "signature": "6f717b9ce5ccf0c340b3dab8c7e1d459875166306c25da9761036fa4e3677fa65688f5b69614c0f35ec38af4fca1b82b951f74e1fab65cb9f8513d23d4ef7d05"
+          }
+        ]
+      },
+      "expected": "3",
+      "overflow": false
+    },
+    {
+      "cost": "18446744073709551615",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "68139ee74d14cd2d0c59a0736cae77577039875b9143082c1f10db9295f938f142d004114f4dbcb08e928b958943b79c27f50fc64f5b582d884d82f9316e160e"
+          },
+          {
+            "key_id": "2",
+            "signature": "8670748d3f350aa50d971e42d2689ee29d1d6aff1f844e46e1ed23a5bafad1a0c7ecf7dc2bc9c0ccd05342f1e833acae4673ba8fe9dc20882ab69babf9cddf0e"
+          }
+        ]
+      },
+      "expected": "18446744073709551615",
+      "overflow": false
+    },
+    {
+      "cost": "18446744073709551615",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "3",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "0d8bb97467cfa8b683470a7fd3a315fb9efc99b1ac5542d6ac3421a3a35a04bea1efcec7db9334f7d492fcc57022863661cef9806c6d22e9a3777b048ff0680c"
+          },
+          {
+            "key_id": "2",
+            "signature": "0c45def1f5529ef3151f11452fed099ef7c2a2fcb4a7c1ec9fd107d8728ff042806299aeed724085717b0fb28501c890859af4471ef2aa331574cbd888d2f202"
+          }
+        ]
+      },
+      "expected": "6148914691236517205",
+      "overflow": false
+    },
+    {
+      "cost": "18446744073709551615",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "3",
+          "native_atoms": "2",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "7f1ac4f5c0194f922185a581b86af2a07f44fe8ab2f6078f0a8008d4ccc40fbfb91add39c2de0b7118f1842c57e07728177af6453c69e0ac953d655cfb3f7f0a"
+          },
+          {
+            "key_id": "2",
+            "signature": "b80ab7744b72af42d016e365d26ba07015a396f2aa9655a9c83a65c7166ece5ede2d0d32da69d6db64ecbdf79cd1bd12084a1ca3a42b3e7774cd6fc1629a7102"
+          }
+        ]
+      },
+      "expected": "27670116110564327423",
+      "overflow": false
+    },
+    {
+      "cost": "18446744073709551615",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "09085d19b8123c79a9b696adb2e403ef1f52bbac6ffb5f35293b01ac3138d7c5d2a274c3d0a0977477cddfedd2c8869fa588dc61a30773a0626db5eda553e50d"
+          },
+          {
+            "key_id": "2",
+            "signature": "7410d06929cbf6ab5d405ffa21166ef837eb23bb3d42473aa99c2d1e5d17c12abc0ba192dcadf79e5dba62af86d8cacfc14f5dcd03301d3670a3c2ad3a45a50c"
+          }
+        ]
+      },
+      "expected": "18446744073709551615",
+      "overflow": false
+    },
+    {
+      "cost": "18446744073709551615",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "4aa0a003b60137a1528fb7b827fe332083ffe2b58742157861ef40653985ddd22a4e8e2c9d733eb8287890bb54efef954c227ae6aa055f72c54a992347d66c01"
+          },
+          {
+            "key_id": "2",
+            "signature": "a48f1d46bd962f1d15218690f1627d46660ca53207741ea0ba3e69ea7f602d75faf30044fad8a32c79e958575055e59d44620297139e79db040c667c093bb206"
+          }
+        ]
+      },
+      "expected": null,
+      "overflow": true
+    },
+    {
+      "cost": "18446744073709551615",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "bb1a3dbbe37c934ab9e3c3041948af1bec27101eca58062a569d725fffe95d6a4aea6f1e3577fef3add9fd581d8bfa3f41c813c2219ae09fc016e3ebab0e890f"
+          },
+          {
+            "key_id": "2",
+            "signature": "62a975b1b03195fc75f138f4119acee9154099f4a230521e0ca07d8a33a1ef0a8dcb0fb418044f342831720de6b7c939886053171f6e26181a59bc9e36d64409"
+          }
+        ]
+      },
+      "expected": "1",
+      "overflow": false
+    },
+    {
+      "cost": "18446744073709551615",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "340282366920938463463374607431768211457",
+          "native_atoms": "340282366920938463463374607431768211455",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "1a2fb5329b31029d3a807a49b533a99938bc5086293a103656557154b1ca100f3f539764dedd99dac3e7e00735ce00af3bb6f7f54ef112271f00c26a94f4cd08"
+          },
+          {
+            "key_id": "2",
+            "signature": "6f717b9ce5ccf0c340b3dab8c7e1d459875166306c25da9761036fa4e3677fa65688f5b69614c0f35ec38af4fca1b82b951f74e1fab65cb9f8513d23d4ef7d05"
+          }
+        ]
+      },
+      "expected": "18446744073709551616",
+      "overflow": false
+    },
+    {
+      "cost": "340282366920938463463374607431768211456",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "68139ee74d14cd2d0c59a0736cae77577039875b9143082c1f10db9295f938f142d004114f4dbcb08e928b958943b79c27f50fc64f5b582d884d82f9316e160e"
+          },
+          {
+            "key_id": "2",
+            "signature": "8670748d3f350aa50d971e42d2689ee29d1d6aff1f844e46e1ed23a5bafad1a0c7ecf7dc2bc9c0ccd05342f1e833acae4673ba8fe9dc20882ab69babf9cddf0e"
+          }
+        ]
+      },
+      "expected": "340282366920938463463374607431768211456",
+      "overflow": false
+    },
+    {
+      "cost": "340282366920938463463374607431768211456",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "3",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "0d8bb97467cfa8b683470a7fd3a315fb9efc99b1ac5542d6ac3421a3a35a04bea1efcec7db9334f7d492fcc57022863661cef9806c6d22e9a3777b048ff0680c"
+          },
+          {
+            "key_id": "2",
+            "signature": "0c45def1f5529ef3151f11452fed099ef7c2a2fcb4a7c1ec9fd107d8728ff042806299aeed724085717b0fb28501c890859af4471ef2aa331574cbd888d2f202"
+          }
+        ]
+      },
+      "expected": "113427455640312821154458202477256070486",
+      "overflow": false
+    },
+    {
+      "cost": "340282366920938463463374607431768211456",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "3",
+          "native_atoms": "2",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "7f1ac4f5c0194f922185a581b86af2a07f44fe8ab2f6078f0a8008d4ccc40fbfb91add39c2de0b7118f1842c57e07728177af6453c69e0ac953d655cfb3f7f0a"
+          },
+          {
+            "key_id": "2",
+            "signature": "b80ab7744b72af42d016e365d26ba07015a396f2aa9655a9c83a65c7166ece5ede2d0d32da69d6db64ecbdf79cd1bd12084a1ca3a42b3e7774cd6fc1629a7102"
+          }
+        ]
+      },
+      "expected": "510423550381407695195061911147652317184",
+      "overflow": false
+    },
+    {
+      "cost": "340282366920938463463374607431768211456",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "09085d19b8123c79a9b696adb2e403ef1f52bbac6ffb5f35293b01ac3138d7c5d2a274c3d0a0977477cddfedd2c8869fa588dc61a30773a0626db5eda553e50d"
+          },
+          {
+            "key_id": "2",
+            "signature": "7410d06929cbf6ab5d405ffa21166ef837eb23bb3d42473aa99c2d1e5d17c12abc0ba192dcadf79e5dba62af86d8cacfc14f5dcd03301d3670a3c2ad3a45a50c"
+          }
+        ]
+      },
+      "expected": "340282366920938463463374607431768211456",
+      "overflow": false
+    },
+    {
+      "cost": "340282366920938463463374607431768211456",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "4aa0a003b60137a1528fb7b827fe332083ffe2b58742157861ef40653985ddd22a4e8e2c9d733eb8287890bb54efef954c227ae6aa055f72c54a992347d66c01"
+          },
+          {
+            "key_id": "2",
+            "signature": "a48f1d46bd962f1d15218690f1627d46660ca53207741ea0ba3e69ea7f602d75faf30044fad8a32c79e958575055e59d44620297139e79db040c667c093bb206"
+          }
+        ]
+      },
+      "expected": null,
+      "overflow": true
+    },
+    {
+      "cost": "340282366920938463463374607431768211456",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "bb1a3dbbe37c934ab9e3c3041948af1bec27101eca58062a569d725fffe95d6a4aea6f1e3577fef3add9fd581d8bfa3f41c813c2219ae09fc016e3ebab0e890f"
+          },
+          {
+            "key_id": "2",
+            "signature": "62a975b1b03195fc75f138f4119acee9154099f4a230521e0ca07d8a33a1ef0a8dcb0fb418044f342831720de6b7c939886053171f6e26181a59bc9e36d64409"
+          }
+        ]
+      },
+      "expected": "1",
+      "overflow": false
+    },
+    {
+      "cost": "340282366920938463463374607431768211456",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "340282366920938463463374607431768211457",
+          "native_atoms": "340282366920938463463374607431768211455",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "1a2fb5329b31029d3a807a49b533a99938bc5086293a103656557154b1ca100f3f539764dedd99dac3e7e00735ce00af3bb6f7f54ef112271f00c26a94f4cd08"
+          },
+          {
+            "key_id": "2",
+            "signature": "6f717b9ce5ccf0c340b3dab8c7e1d459875166306c25da9761036fa4e3677fa65688f5b69614c0f35ec38af4fca1b82b951f74e1fab65cb9f8513d23d4ef7d05"
+          }
+        ]
+      },
+      "expected": "340282366920938463463374607431768211459",
+      "overflow": false
+    },
+    {
+      "cost": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "68139ee74d14cd2d0c59a0736cae77577039875b9143082c1f10db9295f938f142d004114f4dbcb08e928b958943b79c27f50fc64f5b582d884d82f9316e160e"
+          },
+          {
+            "key_id": "2",
+            "signature": "8670748d3f350aa50d971e42d2689ee29d1d6aff1f844e46e1ed23a5bafad1a0c7ecf7dc2bc9c0ccd05342f1e833acae4673ba8fe9dc20882ab69babf9cddf0e"
+          }
+        ]
+      },
+      "expected": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "overflow": false
+    },
+    {
+      "cost": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "3",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "0d8bb97467cfa8b683470a7fd3a315fb9efc99b1ac5542d6ac3421a3a35a04bea1efcec7db9334f7d492fcc57022863661cef9806c6d22e9a3777b048ff0680c"
+          },
+          {
+            "key_id": "2",
+            "signature": "0c45def1f5529ef3151f11452fed099ef7c2a2fcb4a7c1ec9fd107d8728ff042806299aeed724085717b0fb28501c890859af4471ef2aa331574cbd888d2f202"
+          }
+        ]
+      },
+      "expected": "38597363079105398474523661669562635951089994888546854679819194669304376546645",
+      "overflow": false
+    },
+    {
+      "cost": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "3",
+          "native_atoms": "2",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "7f1ac4f5c0194f922185a581b86af2a07f44fe8ab2f6078f0a8008d4ccc40fbfb91add39c2de0b7118f1842c57e07728177af6453c69e0ac953d655cfb3f7f0a"
+          },
+          {
+            "key_id": "2",
+            "signature": "b80ab7744b72af42d016e365d26ba07015a396f2aa9655a9c83a65c7166ece5ede2d0d32da69d6db64ecbdf79cd1bd12084a1ca3a42b3e7774cd6fc1629a7102"
+          }
+        ]
+      },
+      "expected": null,
+      "overflow": true
+    },
+    {
+      "cost": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "09085d19b8123c79a9b696adb2e403ef1f52bbac6ffb5f35293b01ac3138d7c5d2a274c3d0a0977477cddfedd2c8869fa588dc61a30773a0626db5eda553e50d"
+          },
+          {
+            "key_id": "2",
+            "signature": "7410d06929cbf6ab5d405ffa21166ef837eb23bb3d42473aa99c2d1e5d17c12abc0ba192dcadf79e5dba62af86d8cacfc14f5dcd03301d3670a3c2ad3a45a50c"
+          }
+        ]
+      },
+      "expected": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "overflow": false
+    },
+    {
+      "cost": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "native_atoms": "1",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "4aa0a003b60137a1528fb7b827fe332083ffe2b58742157861ef40653985ddd22a4e8e2c9d733eb8287890bb54efef954c227ae6aa055f72c54a992347d66c01"
+          },
+          {
+            "key_id": "2",
+            "signature": "a48f1d46bd962f1d15218690f1627d46660ca53207741ea0ba3e69ea7f602d75faf30044fad8a32c79e958575055e59d44620297139e79db040c667c093bb206"
+          }
+        ]
+      },
+      "expected": null,
+      "overflow": true
+    },
+    {
+      "cost": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "1",
+          "native_atoms": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "bb1a3dbbe37c934ab9e3c3041948af1bec27101eca58062a569d725fffe95d6a4aea6f1e3577fef3add9fd581d8bfa3f41c813c2219ae09fc016e3ebab0e890f"
+          },
+          {
+            "key_id": "2",
+            "signature": "62a975b1b03195fc75f138f4119acee9154099f4a230521e0ca07d8a33a1ef0a8dcb0fb418044f342831720de6b7c939886053171f6e26181a59bc9e36d64409"
+          }
+        ]
+      },
+      "expected": "1",
+      "overflow": false
+    },
+    {
+      "cost": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "signed": {
+        "observation": {
+          "schema_version": 1,
+          "policy_hash": "b756fcdb011714dd251d066abb6bb19e9c06f59bc9b9316d2f1114b0ae9059c8",
+          "anchor": {
+            "chain_key": "evm:31337",
+            "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "block_number": 10,
+            "block_hash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+            "parent_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp_ms": 1700000000000
+          },
+          "token": "0x0000000000000000000000000000000000000010",
+          "token_atoms": "340282366920938463463374607431768211457",
+          "native_atoms": "340282366920938463463374607431768211455",
+          "observed_at_ms": 1700000000000,
+          "valid_until_ms": 1700000060000
+        },
+        "signatures": [
+          {
+            "key_id": "1",
+            "signature": "1a2fb5329b31029d3a807a49b533a99938bc5086293a103656557154b1ca100f3f539764dedd99dac3e7e00735ce00af3bb6f7f54ef112271f00c26a94f4cd08"
+          },
+          {
+            "key_id": "2",
+            "signature": "6f717b9ce5ccf0c340b3dab8c7e1d459875166306c25da9761036fa4e3677fa65688f5b69614c0f35ec38af4fca1b82b951f74e1fab65cb9f8513d23d4ef7d05"
+          }
+        ]
+      },
+      "expected": null,
+      "overflow": true
+    }
+  ]
+}
