@@ -36,7 +36,7 @@ func TestNormalHistoryRuntimeInstallsNativeEvidenceResponsibilitySink(t *testing
 	defer runtime.Close()
 	group := &rawCapture{ID: "normal-history-native-construction", Chain: f.chain.Key, Max: 512, Kind: "history"}
 	ctx := context.WithValue(context.Background(), rawCaptureKey{}, group)
-	batch, _, err := runtime.options.ReadFacts(ctx, 99642059)
+	batch, _, err := runtime.options.ReadFacts(ctx, f.height(t))
 	if err != nil {
 		t.Fatal("normal source construction omitted native evidence hook:", err)
 	}

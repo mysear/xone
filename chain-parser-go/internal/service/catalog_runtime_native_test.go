@@ -23,13 +23,25 @@ type nativeServiceFixture struct {
 	chain    config.Chain
 	block    evm.RawBlock
 	headers  map[string]json.RawMessage
-	full     json.RawMessage
-	receipts []evm.Receipt
+	full     map[string]json.RawMessage
+	receipts map[string]json.RawMessage
 	client   *rpc.Client
+}
+
+func (f *nativeServiceFixture) height(t *testing.T) uint64 {
+	t.Helper()
+	height, err := strconv.ParseUint(f.block.Number, 0, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return height
 }
 
 func nativeServicePublicFixture(t *testing.T, name string) *nativeServiceFixture {
 	t.Helper()
+	if name == "avalanche-current" {
+		return serveNativeServiceFixture(t, avalancheNativeServiceFixture(t))
+	}
 	root := filepath.Join("../../test/fixtures/source/testdata/chain-receipt-vectors", name)
 	read := func(file string, out any) {
 		t.Helper()
@@ -57,7 +69,16 @@ func nativeServicePublicFixture(t *testing.T, name string) *nativeServiceFixture
 	}
 	header["transactions"], _ = json.Marshal(vector.Block.Transactions)
 	rawHeader, _ := json.Marshal(header)
-	f := &nativeServiceFixture{block: vector.Block, receipts: vector.Receipts, full: full.Response.Result, headers: map[string]json.RawMessage{vector.Block.Number: rawHeader}}
+	receipts, err := json.Marshal(vector.Receipts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &nativeServiceFixture{
+		block:    vector.Block,
+		full:     map[string]json.RawMessage{vector.Block.Number: full.Response.Result},
+		headers:  map[string]json.RawMessage{vector.Block.Number: rawHeader},
+		receipts: map[string]json.RawMessage{vector.Block.Number: receipts, vector.Block.Hash: receipts},
+	}
 	genesis := "0xa9c28ce2141b56c474f1dc504bee9b01eb1bd7d1a507580d5519d4437a97de1b"
 	// Read captured fingerprint rather than duplicating a chain identity in fixtures.
 	if name != "polygon-synthetic" {
@@ -67,16 +88,16 @@ func nativeServicePublicFixture(t *testing.T, name string) *nativeServiceFixture
 		read("body.json", &body)
 		genesis = body.Genesis
 	}
-	f.chain = config.Chain{Key: vector.ChainKey, Genesis: genesis, BlockIntegrity: evm.ChainNativeCommitmentsV2, ReceiptsMode: "bulk-auto", NativeProof: &config.NativeProofConfig{MaxBytes: 16 << 20, MaxHeaders: 64, MaxWindowBlocks: 16, MaxTransactions: 4096, MaxLookahead: 32}}
-	if name == "avalanche-current" {
-		var settlement struct{ Headers []json.RawMessage }
-		read("settlement.json", &settlement)
-		for _, h := range settlement.Headers {
-			var b evm.RawBlock
-			json.Unmarshal(h, &b)
-			f.headers[b.Number] = h
-		}
-	}
+	f.chain = nativeServiceChain(vector.ChainKey, genesis)
+	return serveNativeServiceFixture(t, f)
+}
+
+func nativeServiceChain(key, genesis string) config.Chain {
+	return config.Chain{Key: key, Genesis: genesis, BlockIntegrity: evm.ChainNativeCommitmentsV2, ReceiptsMode: "bulk-auto", NativeProof: &config.NativeProofConfig{MaxBytes: 16 << 20, MaxHeaders: 64, MaxWindowBlocks: 16, MaxTransactions: 4096, MaxLookahead: 32}}
+}
+
+func serveNativeServiceFixture(t *testing.T, f *nativeServiceFixture) *nativeServiceFixture {
+	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var q struct {
 			ID     any
@@ -99,13 +120,15 @@ func nativeServicePublicFixture(t *testing.T, name string) *nativeServiceFixture
 			json.Unmarshal(q.Params[1], &full)
 			if tag == "0x0" {
 				result = map[string]string{"hash": f.chain.Genesis}
-			} else if full && tag == f.block.Number {
-				result = f.full
+			} else if full {
+				result = f.full[tag]
 			} else {
 				result = f.headers[tag]
 			}
 		case "eth_getBlockReceipts":
-			result = f.receipts
+			var selector string
+			json.Unmarshal(q.Params[0], &selector)
+			result = f.receipts[selector]
 		default:
 			t.Errorf("unexpected public native method %s", q.Method)
 		}
@@ -122,7 +145,16 @@ func nativeServiceCatalog(t *testing.T, f *nativeServiceFixture) *CatalogRuntime
 		t.Fatal(e)
 	}
 	t.Cleanup(func() { archive.Close() })
-	return &CatalogRuntime{options: CatalogRuntimeOptions{Chain: f.chain, Client: f.client, Archive: archive, Config: config.DynamicCatalogConfig{TimeoutMS: 10000, MaxBytes: 16 << 20, MaxReceipts: 4096, MaxLogs: 10000}, CheckFence: func(ctx context.Context, _ CatalogFence) error { return ctx.Err() }}, client: f.client, active: true, anchor: ingest.CatalogAnchor{Chain: f.chain.Key, Height: 100000000}}
+	return &CatalogRuntime{
+		options: CatalogRuntimeOptions{
+			Chain: f.chain, Client: f.client, Archive: archive,
+			Config:     config.DynamicCatalogConfig{TimeoutMS: 10000, MaxBytes: 16 << 20, MaxReceipts: 4096, MaxLogs: 10000},
+			CheckFence: func(ctx context.Context, _ CatalogFence) error { return ctx.Err() },
+		},
+		client: f.client,
+		active: true,
+		anchor: ingest.CatalogAnchor{Chain: f.chain.Key, Height: f.height(t), Hash: f.block.Hash},
+	}
 }
 func TestNativeFactoryActualPublicProofNormalAndReplay(t *testing.T) {
 	for _, name := range []string{"avalanche-current", "arbitrum", "polygon-synthetic"} {
@@ -130,7 +162,7 @@ func TestNativeFactoryActualPublicProofNormalAndReplay(t *testing.T) {
 			f := nativeServicePublicFixture(t, name)
 			r := nativeServiceCatalog(t, f)
 			ctx := context.Background()
-			height, _ := strconv.ParseUint(strings.TrimPrefix(f.block.Number, "0x"), 16, 64)
+			height := f.height(t)
 			if candidates, e := r.DiscoverHeight(ctx, ingest.CatalogOnline, height); e != nil || len(candidates) != 0 {
 				t.Fatalf("normal discovery: %v %v", candidates, e)
 			}

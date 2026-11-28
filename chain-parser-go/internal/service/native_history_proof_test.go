@@ -19,7 +19,8 @@ func TestNativeHistoryActualPublicOwnedArchiveAndReplay(t *testing.T) {
 	group := &rawCapture{ID: "native-history-public", Chain: f.chain.Key, Max: 64, Kind: "history"}
 	ctx := context.WithValue(context.Background(), rawCaptureKey{}, group)
 	f.client.SetRecorder(h.record)
-	batch, _, err := h.read(ctx, 99642059)
+	height := f.height(t)
+	batch, _, err := h.read(ctx, height)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +76,7 @@ func TestNativeHistoryActualPublicOwnedArchiveAndReplay(t *testing.T) {
 	}
 	envelope.Evidence.Evidence.SAE.Headers = envelope.Evidence.Evidence.SAE.Headers[:1]
 	invalid, _ := json.Marshal(envelope)
-	altered, err := r.options.Archive.Put(ingest.Owner{Chain: f.chain.Key, Height: 99642059, Hash: rawDigest(invalid), ProviderID: "native-history-proof/v2"}, invalid)
+	altered, err := r.options.Archive.Put(ingest.Owner{Chain: f.chain.Key, Height: height, Hash: rawDigest(invalid), ProviderID: "native-history-proof/v2"}, invalid)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +85,7 @@ func TestNativeHistoryActualPublicOwnedArchiveAndReplay(t *testing.T) {
 	}
 	h.adapter.OnHistoryEvidence = func(context.Context, evm.NativeHistoryEvidence) error { return errors.New("sink unavailable") }
 	h.remaining = h.maxBytes
-	if _, _, err = h.read(ctx, 99642059); err == nil {
+	if _, _, err = h.read(ctx, height); err == nil {
 		t.Fatal("history discarded sink failure")
 	}
 }
